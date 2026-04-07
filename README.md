@@ -29,3 +29,20 @@ npm run dev
 npm run build
 npm run lint
 ```
+
+## Deploy no Firebase Hosting
+
+O projeto Firebase configurado é `importmanager-bda3e`, definido em `.firebaserc`.
+
+Para publicar:
+
+```bash
+npm run build
+npx firebase-tools deploy --only hosting
+```
+
+Se a Firebase CLI ainda não estiver autenticada:
+
+```bash
+npx firebase-tools login
+```
