@@ -1,0 +1,375 @@
+import { useMemo, useState, type ChangeEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { Upload } from 'lucide-react'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Card, PageHeader } from '../components/ui/Card'
+import { Field, Input, Select } from '../components/ui/Input'
+import { Modal } from '../components/ui/Modal'
+import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../hooks/useAuth'
+import { type BlFilters, useBls, useVoyageOptions } from '../hooks/useBls'
+import { formatCnpjCpf } from '../lib/utils'
+import { importManifest } from '../services/manifestImport'
+import { parseManifestFile, type ParsedManifest } from '../services/manifestParser'
+
+const pageSizes = [20, 50, 100]
+
+export function Manifestos() {
+  const [searchParams] = useSearchParams()
+  const initialVoyage = searchParams.get('voyage') ?? ''
+  const [filters, setFilters] = useState<BlFilters>({
+    search: '',
+    voyageId: initialVoyage,
+    pod: '',
+    reviewStatus: '',
+    financialStatus: '',
+    cargoProfile: '',
+    page: 1,
+    pageSize: 20,
+  })
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const { data, isLoading, error } = useBls(filters)
+
+  const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
+
+  function updateFilter<K extends keyof BlFilters>(key: K, value: BlFilters[K]) {
+    setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Manifestos"
+        description="Consulta paginada de B/Ls e importação de planilhas. Cada request é limitado pelo range do Supabase."
+        action={
+          <Button onClick={() => setUploadOpen(true)}>
+            <Upload size={16} />
+            Importar Manifesto
+          </Button>
+        }
+      />
+
+      <Card className="mb-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <Field label="Texto livre">
+            <Input
+              placeholder="B/L ou consignatário"
+              value={filters.search}
+              onChange={(event) => updateFilter('search', event.target.value)}
+            />
+          </Field>
+          <Field label="Viagem">
+            <VoyageSelect value={filters.voyageId} onChange={(value) => updateFilter('voyageId', value)} />
+          </Field>
+          <Field label="POD">
+            <Input value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)} />
+          </Field>
+          <Field label="Status revisão">
+            <Select value={filters.reviewStatus} onChange={(event) => updateFilter('reviewStatus', event.target.value)}>
+              <option value="">Todos</option>
+              <option value="ok">OK</option>
+              <option value="pending_review">Pendente</option>
+              <option value="reviewed">Revisado</option>
+            </Select>
+          </Field>
+          <Field label="Status financeiro">
+            <Select
+              value={filters.financialStatus}
+              onChange={(event) => updateFilter('financialStatus', event.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="pending">Pendente</option>
+              <option value="invoiced">Faturado</option>
+              <option value="paid">Pago</option>
+              <option value="cancelled">Cancelado</option>
+            </Select>
+          </Field>
+          <Field label="Perfil de carga">
+            <Select value={filters.cargoProfile} onChange={(event) => updateFilter('cargoProfile', event.target.value)}>
+              <option value="">Todos</option>
+              <option value="standard">Standard</option>
+              <option value="oog">OOG</option>
+              <option value="imo">IMO</option>
+            </Select>
+          </Field>
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden p-0">
+        {error ? (
+          <div className="p-5 text-sm text-red-200">Erro ao carregar manifestos. Verifique Supabase e migrations.</div>
+        ) : null}
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
+            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Nº B/L</th>
+                <th className="px-4 py-3">Armador</th>
+                <th className="px-4 py-3">Navio/Viagem</th>
+                <th className="px-4 py-3">Consignatário</th>
+                <th className="px-4 py-3">CNPJ</th>
+                <th className="px-4 py-3">POL → POD</th>
+                <th className="px-4 py-3">Containers</th>
+                <th className="px-4 py-3">Peso</th>
+                <th className="px-4 py-3">CBM</th>
+                <th className="px-4 py-3">Revisão</th>
+                <th className="px-4 py-3">Financeiro</th>
+                <th className="px-4 py-3">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#30363d]">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
+                    Carregando manifestos...
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoading && data?.rows.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
+                    Nenhum B/L encontrado.
+                  </td>
+                </tr>
+              ) : null}
+              {data?.rows.map((bl) => (
+                <tr key={bl.id} className="hover:bg-[#21262d]/60">
+                  <td className="px-4 py-3 font-semibold text-white">{bl.id}</td>
+                  <td className="px-4 py-3">{bl.voyage?.vessel?.carrier?.name ?? '-'}</td>
+                  <td className="px-4 py-3">
+                    {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
+                  </td>
+                  <td className="px-4 py-3">{bl.consignee ?? '-'}</td>
+                  <td className="px-4 py-3">{formatCnpjCpf(bl.customer?.cnpj_cpf)}</td>
+                  <td className="px-4 py-3">
+                    {bl.pol ?? '-'} → {bl.pod ?? '-'}
+                  </td>
+                  <td className="px-4 py-3">{bl.bl_containers?.length ?? 0}</td>
+                  <td className="px-4 py-3">{Number(bl.total_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
+                  <td className="px-4 py-3">{Number(bl.total_cbm ?? 0).toLocaleString('pt-BR')}</td>
+                  <td className="px-4 py-3">
+                    <ReviewBadge status={bl.review_status ?? 'ok'} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <FinancialBadge status={bl.financial_status ?? 'pending'} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link className="font-semibold text-[#58a6ff] hover:underline" to={`/manifestos/${bl.id}`}>
+                      Ver detalhe
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-col justify-between gap-3 border-t border-[#30363d] p-4 text-sm text-slate-400 md:flex-row md:items-center">
+          <span>
+            Página {filters.page} de {totalPages} · {data?.count ?? 0} registros
+          </span>
+          <div className="flex items-center gap-2">
+            <Select
+              className="w-28"
+              value={filters.pageSize}
+              onChange={(event) => updateFilter('pageSize', Number(event.target.value))}
+            >
+              {pageSizes.map((size) => (
+                <option key={size} value={size}>
+                  {size}/pág.
+                </option>
+              ))}
+            </Select>
+            <Button
+              variant="secondary"
+              disabled={filters.page <= 1}
+              onClick={() => updateFilter('page', Math.max(1, filters.page - 1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={filters.page >= totalPages}
+              onClick={() => updateFilter('page', Math.min(totalPages, filters.page + 1))}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+    </>
+  )
+}
+
+function VoyageSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { data } = useVoyageOptions()
+
+  return (
+    <Select value={value} onChange={(event) => onChange(event.target.value)}>
+      <option value="">Todas</option>
+      {data?.map((voyage) => (
+        <option key={voyage.id} value={voyage.id}>
+          {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const { showToast } = useToast()
+  const [voyageId, setVoyageId] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [manifest, setManifest] = useState<ParsedManifest | null>(null)
+  const [parsing, setParsing] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  const totals = useMemo(
+    () => ({
+      bls: manifest?.bls.length ?? 0,
+      containers: manifest?.bls.reduce((sum, bl) => sum + bl.containers.length, 0) ?? 0,
+      pending: manifest?.bls.filter((bl) => bl.review_status === 'pending_review').length ?? 0,
+    }),
+    [manifest],
+  )
+
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const nextFile = event.target.files?.[0] ?? null
+    setFile(nextFile)
+    setManifest(null)
+
+    if (!nextFile) return
+
+    setParsing(true)
+    try {
+      setManifest(await parseManifestFile(nextFile))
+      showToast('Preview do manifesto carregado.', 'success')
+    } catch {
+      showToast('Não foi possível ler o arquivo. Confira o formato .xlsx ou .csv.', 'error')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  async function handleImport() {
+    if (!manifest || !file || !voyageId || !user) return
+
+    setSubmitting(true)
+    try {
+      await importManifest({
+        filename: file.name,
+        voyageId: Number(voyageId),
+        manifest,
+        uploadedBy: user.id,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['bls'] })
+      showToast('Manifesto importado com sucesso.', 'success')
+      onClose()
+      setFile(null)
+      setManifest(null)
+      setVoyageId('')
+    } catch {
+      showToast('Falha ao importar manifesto. Verifique os dados e permissões no Supabase.', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Importar Manifesto">
+      <div className="grid gap-5">
+        <Field label="Viagem de destino">
+          <VoyageSelect value={voyageId} onChange={setVoyageId} />
+        </Field>
+        <Field label="Arquivo .xlsx ou .csv">
+          <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
+        </Field>
+
+        {parsing ? <div className="text-sm text-slate-400">Processando arquivo com SheetJS sob demanda...</div> : null}
+
+        {manifest ? (
+          <div className="grid gap-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <PreviewBox label="B/Ls" value={totals.bls} />
+              <PreviewBox label="Containers" value={totals.containers} />
+              <PreviewBox label="Pendentes revisão" value={totals.pending} />
+            </div>
+            <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">B/L</th>
+                    <th className="px-3 py-2">Consignatário</th>
+                    <th className="px-3 py-2">CNPJ</th>
+                    <th className="px-3 py-2">Containers</th>
+                    <th className="px-3 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {manifest.bls.slice(0, 25).map((bl) => (
+                    <tr key={bl.id}>
+                      <td className="px-3 py-2 font-semibold text-white">{bl.id}</td>
+                      <td className="px-3 py-2">{bl.consignee ?? '-'}</td>
+                      <td className="px-3 py-2">{formatCnpjCpf(bl.cnpj_cpf)}</td>
+                      <td className="px-3 py-2">{bl.containers.length}</td>
+                      <td className="px-3 py-2">
+                        <ReviewBadge status={bl.review_status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {manifest.rowErrors.length ? (
+              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+                {manifest.rowErrors.length} linha(s) com erro serão registradas em import_errors.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button disabled={!manifest || !voyageId} loading={submitting} onClick={handleImport}>
+            Confirmar importação
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function PreviewBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+      <div className="text-xs uppercase text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
+    </div>
+  )
+}
+
+function ReviewBadge({ status }: { status: string }) {
+  if (status === 'pending_review') return <Badge tone="yellow">Pendente</Badge>
+  if (status === 'reviewed') return <Badge tone="green">Revisado</Badge>
+  return <Badge tone="blue">OK</Badge>
+}
+
+function FinancialBadge({ status }: { status: string }) {
+  const labels: Record<string, string> = {
+    pending: 'Pendente',
+    invoiced: 'Faturado',
+    paid: 'Pago',
+    cancelled: 'Cancelado',
+  }
+  const tone = status === 'paid' ? 'green' : status === 'cancelled' ? 'red' : status === 'invoiced' ? 'blue' : 'yellow'
+  return <Badge tone={tone}>{labels[status] ?? status}</Badge>
+}
