@@ -137,7 +137,11 @@ export function Manifestos() {
               ) : null}
               {data?.rows.map((bl) => (
                 <tr key={bl.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3 font-semibold text-white">{bl.id}</td>
+                  <td className="px-4 py-3 font-semibold">
+                    <Link className="text-[#58a6ff] hover:underline" to={`/manifestos/${bl.id}`}>
+                      {bl.id}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">{bl.voyage?.vessel?.carrier?.name ?? '-'}</td>
                   <td className="px-4 py-3">
                     {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
@@ -157,8 +161,11 @@ export function Manifestos() {
                     <FinancialBadge status={bl.financial_status ?? 'pending'} />
                   </td>
                   <td className="px-4 py-3">
-                    <Link className="font-semibold text-[#58a6ff] hover:underline" to={`/manifestos/${bl.id}`}>
-                      Ver detalhe
+                    <Link
+                      className="inline-flex rounded-lg border border-[#1f6feb]/40 bg-[#1f6feb]/10 px-3 py-1.5 font-semibold text-[#8cc8ff] hover:bg-[#1f6feb]/20"
+                      to={`/manifestos/${bl.id}`}
+                    >
+                      Abrir B/L
                     </Link>
                   </td>
                 </tr>
