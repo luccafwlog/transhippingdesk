@@ -4,22 +4,24 @@ import { Button } from '../ui/Button'
 import { Field, Input, Select } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
-import { createVoyage, initialVoyageFormValues, type VoyageFormValues } from '../../services/voyages'
+import { createVoyage, initialVoyageFormValues, type VoyageFormValues, updateVoyage } from '../../services/voyages'
 
 export function VoyageCreateModal({
   open,
   onClose,
-  onCreated,
+  onSaved,
   title = 'Nova Viagem',
   initialValues,
   note,
+  voyageId,
 }: {
   open: boolean
   onClose: () => void
-  onCreated?: (voyageId: number) => void
+  onSaved?: (voyageId: number) => void
   title?: string
   initialValues?: Partial<VoyageFormValues>
   note?: string
+  voyageId?: number
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -36,18 +38,19 @@ export function VoyageCreateModal({
     setSaving(true)
 
     try {
-      const created = await createVoyage(form)
+      const saved = voyageId ? await updateVoyage(voyageId, form) : await createVoyage(form)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-options'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
       ])
 
-      showToast('Viagem cadastrada com sucesso.', 'success')
-      onCreated?.(created.id)
+      showToast(voyageId ? 'Viagem atualizada com sucesso.' : 'Viagem cadastrada com sucesso.', 'success')
+      onSaved?.(saved.id)
       onClose()
       setForm(initialVoyageFormValues)
     } catch {
-      showToast('Falha ao cadastrar viagem. Revise os dados e tente novamente.', 'error')
+      showToast(voyageId ? 'Falha ao atualizar viagem. Revise os dados e tente novamente.' : 'Falha ao cadastrar viagem. Revise os dados e tente novamente.', 'error')
     } finally {
       setSaving(false)
     }
@@ -125,7 +128,7 @@ export function VoyageCreateModal({
             Cancelar
           </Button>
           <Button loading={saving} type="submit">
-            Cadastrar viagem
+            {voyageId ? 'Salvar viagem' : 'Cadastrar viagem'}
           </Button>
         </div>
       </form>

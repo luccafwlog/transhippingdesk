@@ -1,5 +1,8 @@
 import { supabase } from './supabase'
 
+export const DEFAULT_CARRIER_NAME = 'Cosco Shipping Specialized Carriers'
+export const DEFAULT_CARRIER_SCAC = 'CSSC'
+
 export type VoyageFormValues = {
   carrierName: string
   carrierScac: string
@@ -12,8 +15,8 @@ export type VoyageFormValues = {
 }
 
 export const initialVoyageFormValues: VoyageFormValues = {
-  carrierName: '',
-  carrierScac: '',
+  carrierName: DEFAULT_CARRIER_NAME,
+  carrierScac: DEFAULT_CARRIER_SCAC,
   vesselName: '',
   vesselImo: '',
   voyageNumber: '',
@@ -43,6 +46,28 @@ export async function createVoyage(form: VoyageFormValues) {
   if (createError || !created) throw createError
 
   return created
+}
+
+export async function updateVoyage(voyageId: number, form: VoyageFormValues) {
+  const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
+  const vesselId = await getOrCreateVessel(form.vesselName, form.vesselImo, carrierId)
+
+  const { data: updated, error: updateError } = await supabase
+    .from('voyages')
+    .update({
+      vessel_id: vesselId,
+      voyage_number: form.voyageNumber.trim(),
+      etd: form.etd || null,
+      eta: form.eta || null,
+      status: form.status,
+    })
+    .eq('id', voyageId)
+    .select('id')
+    .single()
+
+  if (updateError || !updated) throw updateError
+
+  return updated
 }
 
 async function getOrCreateCarrier(name: string, scac: string) {

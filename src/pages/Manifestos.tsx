@@ -407,7 +407,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             ? `Trecho detectado neste arquivo: ${routeSummary.label}. A viagem sera criada sem amarrar esse trecho, porque cada manifesto da viagem carrega seu proprio POL/POD.`
             : undefined
         }
-        onCreated={(createdVoyageId) => {
+        onSaved={(createdVoyageId) => {
           setVoyageId(String(createdVoyageId))
           setCreateVoyageOpen(false)
         }}

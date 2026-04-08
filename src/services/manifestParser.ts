@@ -1,5 +1,5 @@
 import { normalizeText, onlyDigits, toNumber } from '../lib/utils'
-import type { VoyageFormValues } from './voyages'
+import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyages'
 
 const headerMap = {
   bl_number: ['b/l', 'bl number', 'bill of lading', 'conhecimento'],
@@ -313,7 +313,8 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
     bls: Array.from(grouped.values()),
     rowErrors,
     suggestedVoyage: {
-      carrierName: extractCarrierName(rawRows),
+      carrierName: DEFAULT_CARRIER_NAME,
+      carrierScac: DEFAULT_CARRIER_SCAC,
       vesselName: meta.vessel,
       voyageNumber: meta.voyage,
       status: 'active',
@@ -351,11 +352,6 @@ function parseManifestHeader(rawRows: RawSheetRow[]): ManifestMeta {
   })
 
   return meta
-}
-
-function extractCarrierName(rawRows: RawSheetRow[]) {
-  const firstTextRow = rawRows.find((row) => cell(row, 0))
-  return firstTextRow ? cell(firstTextRow, 0) : ''
 }
 
 function parseManifestParty(block: string) {

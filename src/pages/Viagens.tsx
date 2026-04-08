@@ -13,6 +13,7 @@ export function Viagens() {
   const { isAdmin } = useAuth()
   const { data, isLoading, error } = useVoyages()
   const [open, setOpen] = useState(false)
+  const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
 
   const summary = useMemo(
     () => ({
@@ -84,9 +85,16 @@ export function Viagens() {
               </dl>
 
               <div>
-                <Button variant="secondary" onClick={() => navigate(`/manifestos?voyage=${voyage.id}`)}>
-                  Ver manifestos desta viagem
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => navigate(`/manifestos?voyage=${voyage.id}`)}>
+                    Ver manifestos desta viagem
+                  </Button>
+                  {isAdmin ? (
+                    <Button variant="secondary" onClick={() => setEditingVoyageId(voyage.id)}>
+                      Editar viagem
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </Card>
           )
@@ -96,7 +104,16 @@ export function Viagens() {
       <VoyageCreateModal
         open={open}
         onClose={() => setOpen(false)}
-        onCreated={(voyageId) => navigate(`/manifestos?voyage=${voyageId}`)}
+        onSaved={(voyageId) => navigate(`/manifestos?voyage=${voyageId}`)}
+      />
+
+      <VoyageCreateModal
+        open={editingVoyageId !== null}
+        onClose={() => setEditingVoyageId(null)}
+        voyageId={editingVoyageId ?? undefined}
+        title="Editar Viagem"
+        initialValues={makeVoyageInitialValues(data?.find((voyage) => voyage.id === editingVoyageId))}
+        onSaved={() => setEditingVoyageId(null)}
       />
     </>
   )
@@ -146,4 +163,47 @@ function summarizeVoyageRoutes(voyage: {
 function formatRoute(pol: string | null, pod: string | null) {
   if (!pol && !pod) return null
   return `${pol ?? '-'} -> ${pod ?? '-'}`
+}
+
+function makeVoyageInitialValues(
+  voyage:
+    | {
+        voyage_number: string
+        etd: string | null
+        eta: string | null
+        status: string | null
+        vessel?: {
+          name: string
+          imo: string | null
+          carrier?: { name: string; scac: string | null } | null
+        } | null
+      }
+    | undefined,
+) {
+  if (!voyage) return undefined
+
+  return {
+    carrierName: voyage.vessel?.carrier?.name ?? '',
+    carrierScac: voyage.vessel?.carrier?.scac ?? '',
+    vesselName: voyage.vessel?.name ?? '',
+    vesselImo: voyage.vessel?.imo ?? '',
+    voyageNumber: voyage.voyage_number,
+    etd: voyage.etd ? toLocalDatetimeInput(voyage.etd) : '',
+    eta: voyage.eta ? toLocalDatetimeInput(voyage.eta) : '',
+    status: normalizeVoyageStatus(voyage.status),
+  }
+}
+
+function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 'cancelled' {
+  if (status === 'completed' || status === 'cancelled') return status
+  return 'active'
+}
+
+function toLocalDatetimeInput(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const offset = date.getTimezoneOffset()
+  const localDate = new Date(date.getTime() - offset * 60_000)
+  return localDate.toISOString().slice(0, 16)
 }
