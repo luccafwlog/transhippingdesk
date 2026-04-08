@@ -38,40 +38,54 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let mounted = true
-
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!mounted) return
-      setSession(data.session)
-
-      if (data.session?.user) {
-        try {
-          setProfile(await loadProfile(data.session.user.id))
-        } catch {
-          setProfile(null)
-        }
+    const fallbackTimer = window.setTimeout(() => {
+      if (mounted) {
+        setLoading(false)
       }
+    }, 8000)
 
-      setLoading(false)
-    })
+    async function hydrateSession(nextSession: Session | null) {
+      if (!mounted) return
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession)
 
-      if (nextSession?.user) {
-        try {
+      try {
+        if (nextSession?.user) {
           setProfile(await loadProfile(nextSession.user.id))
-        } catch {
+        } else {
           setProfile(null)
         }
-      } else {
-        setProfile(null)
+      } catch {
+        if (mounted) {
+          setProfile(null)
+        }
+      } finally {
+        if (mounted) {
+          window.clearTimeout(fallbackTimer)
+          setLoading(false)
+        }
       }
+    }
 
-      setLoading(false)
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        await hydrateSession(data.session)
+      } catch {
+        if (mounted) {
+          setProfile(null)
+          setLoading(false)
+        }
+      }
+    })()
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void hydrateSession(nextSession)
     })
 
     return () => {
       mounted = false
+      window.clearTimeout(fallbackTimer)
       subscription.subscription.unsubscribe()
     }
   }, [])
