@@ -79,6 +79,7 @@ export async function importManifest({
       container_number: container.container_number,
       seal_number: container.seal_number,
       type: container.type,
+      tare_weight_kg: container.tare_weight_kg ?? null,
       gross_weight_kg: container.gross_weight_kg,
       cbm: container.cbm,
       is_oog: container.is_oog,
