@@ -58,6 +58,14 @@ export type Voyage = {
   created_at: string | null
 }
 
+export type Port = {
+  id: number
+  name: string
+  locode: string | null
+  country: string | null
+  created_at: string | null
+}
+
 export type BL = {
   id: string
   voyage_id: number | null
@@ -170,6 +178,7 @@ export type Database = {
       customers: Row<Customer>
       carriers: Row<Carrier>
       vessels: Row<Vessel>
+      ports: Row<Port>
       voyages: Row<Voyage>
       import_batches: Row<ImportBatch>
       import_errors: Row<ImportError>

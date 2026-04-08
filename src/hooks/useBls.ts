@@ -123,3 +123,39 @@ export function useVoyageOptions() {
     },
   })
 }
+
+export function useVoyages() {
+  return useQuery({
+    queryKey: ['voyages'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('voyages')
+        .select(
+          `
+          *,
+          vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
+          pol:ports!voyages_pol_id_fkey(id, name, locode, country),
+          pod:ports!voyages_pod_id_fkey(id, name, locode, country),
+          bls(id, bl_containers(id))
+        `,
+        )
+        .order('created_at', { ascending: false })
+        .range(0, 499)
+
+      if (error) throw error
+
+      return (data ?? []) as unknown as Array<{
+        id: number
+        voyage_number: string
+        etd: string | null
+        eta: string | null
+        ata: string | null
+        status: string | null
+        vessel?: { id: number; name: string; imo: string | null; carrier?: { id: number; name: string; scac: string | null } | null } | null
+        pol?: { id: number; name: string; locode: string | null; country: string | null } | null
+        pod?: { id: number; name: string; locode: string | null; country: string | null } | null
+        bls?: Array<{ id: string; bl_containers?: Array<{ id: number }> | null }> | null
+      }>
+    },
+  })
+}

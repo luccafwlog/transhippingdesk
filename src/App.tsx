@@ -3,6 +3,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Login } from './pages/Login'
 import { Painel } from './pages/Painel'
+import { Viagens } from './pages/Viagens'
 import { Manifestos } from './pages/Manifestos'
 import { BlDetalhe } from './pages/BlDetalhe'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -15,7 +16,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/painel" replace />} />
           <Route path="/painel" element={<Painel />} />
-          <Route path="/viagens" element={<PlaceholderPage title="Viagens" phase="Fase 2" />} />
+          <Route path="/viagens" element={<Viagens />} />
           <Route path="/manifestos" element={<Manifestos />} />
           <Route path="/manifestos/:blId" element={<BlDetalhe />} />
           <Route path="/revisao" element={<PlaceholderPage title="Revisão Manual" phase="Fase 2" />} />
