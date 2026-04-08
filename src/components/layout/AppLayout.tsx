@@ -21,17 +21,17 @@ const navItems = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/manifestos', label: 'Manifestos', icon: FileSpreadsheet },
-  { to: '/revisao', label: 'Revisão', icon: AlertTriangle },
+  { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/taxas-locais', label: 'Taxas locais', icon: WalletCards },
   { to: '/faturamento', label: 'Faturamento', icon: Receipt },
   { to: '/alertas', label: 'Alertas', icon: Bell },
-  { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
+  { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
   { to: '/line-up-tv', label: 'Line up TV', icon: Tv },
 ]
 
 const adminItems = [
-  { to: '/admin/usuarios', label: 'Usuários', icon: Users },
+  { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { to: '/admin/tarifas', label: 'Tarifas', icon: Settings },
 ]
 
@@ -76,10 +76,10 @@ export function AppLayout() {
             <div className="font-semibold">Transhipping Desk</div>
             <div className="text-xs text-slate-500">Menu completo no desktop</div>
           </div>
-          <div className="hidden text-sm text-slate-400 lg:block">Operação interna de agenciamento marítimo</div>
+          <div className="hidden text-sm text-slate-400 lg:block">Operacao interna de agenciamento maritimo</div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="text-sm font-semibold text-white">{profile?.full_name ?? 'Usuário'}</div>
+              <div className="text-sm font-semibold text-white">{profile?.full_name ?? 'Usuario'}</div>
               <div className="text-xs capitalize text-slate-500">{profile?.role ?? 'operator'}</div>
             </div>
             <Button variant="secondary" onClick={handleSignOut}>

@@ -30,6 +30,28 @@ export type Customer = {
   updated_at: string | null
 }
 
+export type CustomerContact = {
+  id: number
+  customer_id: number | null
+  name: string | null
+  email: string | null
+  phone: string | null
+  purpose: 'faturamento' | 'operacional' | 'financeiro' | 'geral' | null
+  is_primary: boolean | null
+  created_at: string | null
+}
+
+export type CustomerRateOverride = {
+  id: number
+  customer_id: number | null
+  charge_item_id: number | null
+  override_value: number
+  valid_from: string | null
+  valid_to: string | null
+  notes: string | null
+  created_at: string | null
+}
+
 export type Carrier = {
   id: number
   name: string
@@ -176,6 +198,8 @@ export type Database = {
       audit_logs: Row<AuditLog>
       alerts: Row<Alert>
       customers: Row<Customer>
+      customer_contacts: Row<CustomerContact>
+      customer_rate_overrides: Row<CustomerRateOverride>
       carriers: Row<Carrier>
       vessels: Row<Vessel>
       ports: Row<Port>
@@ -211,4 +235,14 @@ export type BLDetail = BL & {
     }) | null
   }) | null
   bl_containers?: BLContainer[]
+}
+
+export type CustomerListItem = Customer & {
+  bls?: Pick<BL, 'id'>[] | null
+}
+
+export type CustomerDetail = Customer & {
+  customer_contacts?: CustomerContact[] | null
+  bls?: Pick<BL, 'id' | 'consignee' | 'financial_status' | 'review_status' | 'created_at'>[] | null
+  invoices?: Pick<Invoice, 'id' | 'invoice_number' | 'issued_at' | 'due_date' | 'total_brl' | 'status'>[] | null
 }

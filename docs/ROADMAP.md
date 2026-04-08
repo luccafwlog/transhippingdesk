@@ -7,7 +7,8 @@ Estado de referencia do projeto em 2026-04-08.
 - Base web publicada e operacional em Firebase Hosting.
 - Backend em Supabase conectado e autenticado.
 - Fase 1 esta funcional para operacao assistida.
-- Fases 2, 3 e 4 ainda nao foram implementadas como produto final.
+- Fase 2 esta parcialmente implementada.
+- Fases 3 e 4 ainda nao foram implementadas como produto final.
 
 ## Entregue e Funcionando
 
@@ -40,6 +41,16 @@ Estado de referencia do projeto em 2026-04-08.
 - Filtro por viagem, POD, texto, revisao, financeiro e perfil de carga.
 - Detalhe do B/L com edicao manual.
 - Auditoria campo a campo em `audit_logs`.
+
+### Fase 2 ja entregue
+
+- Modulo de Revisao Manual com fila de pendencias.
+- Correcao manual do B/L a partir da fila de revisao.
+- Marcacao de B/L como `reviewed` com auditoria.
+- Cadastro mestre de clientes.
+- Ficha do cliente com dados cadastrais editaveis.
+- Contatos do cliente por finalidade.
+- Historico de B/Ls e invoices na ficha do cliente.
 
 ### Carga especial
 
@@ -74,10 +85,12 @@ Estado de referencia do projeto em 2026-04-08.
 
 ### Fase 2
 
-- Revisao manual dedicada.
-- Cadastro completo de clientes.
-- Ficha do cliente.
+- Motor de calculo de taxas locais.
 - Taxas locais.
+- Vinculacao e manutencao de cliente diretamente no detalhe completo do B/L.
+- Melhorias de usabilidade na revisao manual.
+- Regras de associacao automatica cliente <-> B/L por CNPJ/consignatario.
+- Overrides comerciais por cliente.
 
 ### Fase 3
 
@@ -102,9 +115,9 @@ Estado de referencia do projeto em 2026-04-08.
 
 1. Criar entidade explicita para `manifesto` ou `trecho da viagem`.
 2. Exibir badge `IMO` e `OOG` ja no preview de importacao.
-3. Implementar modulo real de `Clientes`.
-4. Implementar modulo real de `Revisao Manual`.
-5. Adicionar testes automatizados para parser e fluxo de importacao.
+3. Implementar modulo real de `Taxas Locais`.
+4. Adicionar testes automatizados para parser e fluxo de importacao.
+5. Conectar o detalhe do B/L com a base de clientes.
 6. Iniciar modulo de `Faturamento`.
 
 ## Conclusao Objetiva
