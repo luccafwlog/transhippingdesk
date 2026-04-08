@@ -316,8 +316,6 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
       carrierName: extractCarrierName(rawRows),
       vesselName: meta.vessel,
       voyageNumber: meta.voyage,
-      polName: meta.pol,
-      podName: meta.pod,
       status: 'active',
     },
   }

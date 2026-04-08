@@ -43,7 +43,7 @@ export function Manifestos() {
     <>
       <PageHeader
         title="Manifestos"
-        description="Consulta paginada de B/Ls e importação de planilhas. Cada request é limitado pelo range do Supabase."
+        description="Consulta paginada de B/Ls e importacao de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem."
         action={
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />
@@ -56,7 +56,7 @@ export function Manifestos() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <Field label="Texto livre">
             <Input
-              placeholder="B/L ou consignatário"
+              placeholder="B/L ou consignatario"
               value={filters.search}
               onChange={(event) => updateFilter('search', event.target.value)}
             />
@@ -67,7 +67,7 @@ export function Manifestos() {
           <Field label="POD">
             <Input value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)} />
           </Field>
-          <Field label="Status revisão">
+          <Field label="Status revisao">
             <Select value={filters.reviewStatus} onChange={(event) => updateFilter('reviewStatus', event.target.value)}>
               <option value="">Todos</option>
               <option value="ok">OK</option>
@@ -107,18 +107,18 @@ export function Manifestos() {
           <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Nº B/L</th>
+                <th className="px-4 py-3">No. B/L</th>
                 <th className="px-4 py-3">Armador</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">Consignatário</th>
+                <th className="px-4 py-3">Consignatario</th>
                 <th className="px-4 py-3">CNPJ</th>
-                <th className="px-4 py-3">POL → POD</th>
+                <th className="px-4 py-3">POL / POD</th>
                 <th className="px-4 py-3">Containers</th>
                 <th className="px-4 py-3">Peso</th>
                 <th className="px-4 py-3">CBM</th>
-                <th className="px-4 py-3">Revisão</th>
+                <th className="px-4 py-3">Revisao</th>
                 <th className="px-4 py-3">Financeiro</th>
-                <th className="px-4 py-3">Ações</th>
+                <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -150,7 +150,7 @@ export function Manifestos() {
                   <td className="px-4 py-3">{bl.consignee ?? '-'}</td>
                   <td className="px-4 py-3">{formatCnpjCpf(bl.customer?.cnpj_cpf)}</td>
                   <td className="px-4 py-3">
-                    {bl.pol ?? '-'} → {bl.pod ?? '-'}
+                    {`${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`}
                   </td>
                   <td className="px-4 py-3">{bl.bl_containers?.length ?? 0}</td>
                   <td className="px-4 py-3">{Number(bl.total_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
@@ -177,7 +177,7 @@ export function Manifestos() {
 
         <div className="flex flex-col justify-between gap-3 border-t border-[#30363d] p-4 text-sm text-slate-400 md:flex-row md:items-center">
           <span>
-            Página {filters.page} de {totalPages} · {data?.count ?? 0} registros
+            Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros
           </span>
           <div className="flex items-center gap-2">
             <Select
@@ -187,7 +187,7 @@ export function Manifestos() {
             >
               {pageSizes.map((size) => (
                 <option key={size} value={size}>
-                  {size}/pág.
+                  {size}/pag.
                 </option>
               ))}
             </Select>
@@ -203,7 +203,7 @@ export function Manifestos() {
               disabled={filters.page >= totalPages}
               onClick={() => updateFilter('page', Math.min(totalPages, filters.page + 1))}
             >
-              Próxima
+              Proxima
             </Button>
           </div>
         </div>
@@ -257,6 +257,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
     }),
     [manifest],
   )
+  const routeSummary = useMemo(() => summarizeManifestRoutes(manifest), [manifest])
 
   useEffect(() => {
     if (!open || voyageId || !voyages?.length) return
@@ -278,7 +279,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
       setManifest(await parseManifestFile(nextFile))
       showToast('Preview do manifesto carregado.', 'success')
     } catch {
-      showToast('Não foi possível ler o arquivo. Confira o formato .xlsx ou .csv.', 'error')
+      showToast('Nao foi possivel ler o arquivo. Confira o formato .xlsx ou .csv.', 'error')
     } finally {
       setParsing(false)
     }
@@ -296,13 +297,14 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         uploadedBy: user.id,
       })
       await queryClient.invalidateQueries({ queryKey: ['bls'] })
+      await queryClient.invalidateQueries({ queryKey: ['voyages'] })
       showToast('Manifesto importado com sucesso.', 'success')
       onClose()
       setFile(null)
       setManifest(null)
       setVoyageId('')
     } catch {
-      showToast('Falha ao importar manifesto. Verifique os dados e permissões no Supabase.', 'error')
+      showToast('Falha ao importar manifesto. Verifique os dados e permissoes no Supabase.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -327,17 +329,32 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
         {manifest ? (
           <div className="grid gap-4">
+            <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+              <div className="text-xs uppercase tracking-wider text-slate-500">Trecho detectado no manifesto</div>
+              <div className="mt-1 font-semibold text-white">{routeSummary.label}</div>
+              <div className="mt-1 text-slate-400">
+                A viagem agrupa navio e numero da viagem. O POL/POD permanece registrado nos B/Ls deste manifesto.
+              </div>
+            </div>
+
             <div className="grid gap-3 md:grid-cols-3">
               <PreviewBox label="B/Ls" value={totals.bls} />
               <PreviewBox label="Containers" value={totals.containers} />
-              <PreviewBox label="Pendentes revisão" value={totals.pending} />
+              <PreviewBox label="Pendentes revisao" value={totals.pending} />
             </div>
+
+            {routeSummary.multipleRoutes ? (
+              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+                O arquivo trouxe mais de uma combinacao POL/POD. Revise o parsing antes de importar.
+              </div>
+            ) : null}
+
             <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-3 py-2">B/L</th>
-                    <th className="px-3 py-2">Consignatário</th>
+                    <th className="px-3 py-2">Consignatario</th>
                     <th className="px-3 py-2">CNPJ</th>
                     <th className="px-3 py-2">Containers</th>
                     <th className="px-3 py-2">Status</th>
@@ -358,9 +375,10 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                 </tbody>
               </table>
             </div>
+
             {manifest.rowErrors.length ? (
               <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
-                {manifest.rowErrors.length} linha(s) com erro serão registradas em import_errors.
+                {manifest.rowErrors.length} linha(s) com erro serao registradas em import_errors.
               </div>
             ) : null}
           </div>
@@ -371,11 +389,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             Cancelar
           </Button>
           <Button disabled={!manifest || !voyageId} loading={submitting} onClick={handleImport}>
-            Confirmar importação
+            Confirmar importacao
           </Button>
         </div>
         {!voyageId ? (
-          <div className="text-sm text-amber-200">Selecione ou crie uma viagem de destino para habilitar a confirmação.</div>
+          <div className="text-sm text-amber-200">Selecione ou crie uma viagem de destino para habilitar a confirmacao.</div>
         ) : null}
       </div>
 
@@ -384,6 +402,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         onClose={() => setCreateVoyageOpen(false)}
         title="Criar viagem para este manifesto"
         initialValues={manifest?.suggestedVoyage}
+        note={
+          manifest
+            ? `Trecho detectado neste arquivo: ${routeSummary.label}. A viagem sera criada sem amarrar esse trecho, porque cada manifesto da viagem carrega seu proprio POL/POD.`
+            : undefined
+        }
         onCreated={(createdVoyageId) => {
           setVoyageId(String(createdVoyageId))
           setCreateVoyageOpen(false)
@@ -417,4 +440,27 @@ function FinancialBadge({ status }: { status: string }) {
   }
   const tone = status === 'paid' ? 'green' : status === 'cancelled' ? 'red' : status === 'invoiced' ? 'blue' : 'yellow'
   return <Badge tone={tone}>{labels[status] ?? status}</Badge>
+}
+
+function summarizeManifestRoutes(manifest: ParsedManifest | null) {
+  const routeLabels = Array.from(
+    new Set(
+      (manifest?.bls ?? [])
+        .map((bl) => {
+          if (!bl.pol && !bl.pod) return null
+          return `${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`
+        })
+        .filter((route): route is string => Boolean(route)),
+    ),
+  )
+
+  if (routeLabels.length === 0) {
+    return { label: 'Nao identificado', multipleRoutes: false }
+  }
+
+  if (routeLabels.length === 1) {
+    return { label: routeLabels[0], multipleRoutes: false }
+  }
+
+  return { label: routeLabels.join(' | '), multipleRoutes: true }
 }

@@ -6,10 +6,6 @@ export type VoyageFormValues = {
   vesselName: string
   vesselImo: string
   voyageNumber: string
-  polName: string
-  polLocode: string
-  podName: string
-  podLocode: string
   etd: string
   eta: string
   status: 'active' | 'completed' | 'cancelled'
@@ -21,10 +17,6 @@ export const initialVoyageFormValues: VoyageFormValues = {
   vesselName: '',
   vesselImo: '',
   voyageNumber: '',
-  polName: '',
-  polLocode: '',
-  podName: '',
-  podLocode: '',
   etd: '',
   eta: '',
   status: 'active',
@@ -33,16 +25,14 @@ export const initialVoyageFormValues: VoyageFormValues = {
 export async function createVoyage(form: VoyageFormValues) {
   const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
   const vesselId = await getOrCreateVessel(form.vesselName, form.vesselImo, carrierId)
-  const polId = await getOrCreatePort(form.polName, form.polLocode)
-  const podId = await getOrCreatePort(form.podName, form.podLocode)
 
   const { data: created, error: createError } = await supabase
     .from('voyages')
     .insert({
       vessel_id: vesselId,
       voyage_number: form.voyageNumber.trim(),
-      pol_id: polId,
-      pod_id: podId,
+      pol_id: null,
+      pod_id: null,
       etd: form.etd || null,
       eta: form.eta || null,
       status: form.status,
@@ -90,28 +80,6 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
   const { data: created, error: createError } = await supabase
     .from('vessels')
     .insert({ name: name.trim(), imo: imo.trim() || null, carrier_id: carrierId })
-    .select('id')
-    .single()
-
-  if (createError || !created) throw createError
-  return created.id
-}
-
-async function getOrCreatePort(name: string, locode: string) {
-  let query = supabase.from('ports').select('id').limit(1)
-  if (locode.trim()) {
-    query = query.eq('locode', locode.trim())
-  } else {
-    query = query.eq('name', name.trim())
-  }
-
-  const { data: existing, error: existingError } = await query
-  if (existingError) throw existingError
-  if (existing?.[0]) return existing[0].id
-
-  const { data: created, error: createError } = await supabase
-    .from('ports')
-    .insert({ name: name.trim(), locode: locode.trim() || null })
     .select('id')
     .single()
 

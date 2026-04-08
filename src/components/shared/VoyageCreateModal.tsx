@@ -12,12 +12,14 @@ export function VoyageCreateModal({
   onCreated,
   title = 'Nova Viagem',
   initialValues,
+  note,
 }: {
   open: boolean
   onClose: () => void
   onCreated?: (voyageId: number) => void
   title?: string
   initialValues?: Partial<VoyageFormValues>
+  note?: string
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -54,46 +56,67 @@ export function VoyageCreateModal({
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <form className="grid gap-4" onSubmit={handleSubmit}>
+        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+          {note ?? 'A viagem representa o navio/viagem. Os trechos POL/POD ficam em cada manifesto importado.'}
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Armador">
-            <Input value={form.carrierName} onChange={(event) => setForm((current) => ({ ...current, carrierName: event.target.value }))} required />
+            <Input
+              value={form.carrierName}
+              onChange={(event) => setForm((current) => ({ ...current, carrierName: event.target.value }))}
+              required
+            />
           </Field>
           <Field label="SCAC">
-            <Input value={form.carrierScac} onChange={(event) => setForm((current) => ({ ...current, carrierScac: event.target.value.toUpperCase() }))} />
+            <Input
+              value={form.carrierScac}
+              onChange={(event) => setForm((current) => ({ ...current, carrierScac: event.target.value.toUpperCase() }))}
+            />
           </Field>
           <Field label="Navio">
-            <Input value={form.vesselName} onChange={(event) => setForm((current) => ({ ...current, vesselName: event.target.value.toUpperCase() }))} required />
+            <Input
+              value={form.vesselName}
+              onChange={(event) => setForm((current) => ({ ...current, vesselName: event.target.value.toUpperCase() }))}
+              required
+            />
           </Field>
           <Field label="IMO">
-            <Input value={form.vesselImo} onChange={(event) => setForm((current) => ({ ...current, vesselImo: event.target.value }))} />
+            <Input
+              value={form.vesselImo}
+              onChange={(event) => setForm((current) => ({ ...current, vesselImo: event.target.value }))}
+            />
           </Field>
-          <Field label="Número da viagem">
-            <Input value={form.voyageNumber} onChange={(event) => setForm((current) => ({ ...current, voyageNumber: event.target.value.toUpperCase() }))} required />
+          <Field label="Numero da viagem">
+            <Input
+              value={form.voyageNumber}
+              onChange={(event) => setForm((current) => ({ ...current, voyageNumber: event.target.value.toUpperCase() }))}
+              required
+            />
           </Field>
           <Field label="Status">
-            <Select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as VoyageFormValues['status'] }))}>
+            <Select
+              value={form.status}
+              onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as VoyageFormValues['status'] }))}
+            >
               <option value="active">Ativa</option>
-              <option value="completed">Concluída</option>
+              <option value="completed">Concluida</option>
               <option value="cancelled">Cancelada</option>
             </Select>
           </Field>
-          <Field label="POL">
-            <Input value={form.polName} onChange={(event) => setForm((current) => ({ ...current, polName: event.target.value }))} required />
-          </Field>
-          <Field label="UN/LOCODE POL">
-            <Input value={form.polLocode} onChange={(event) => setForm((current) => ({ ...current, polLocode: event.target.value.toUpperCase() }))} />
-          </Field>
-          <Field label="POD">
-            <Input value={form.podName} onChange={(event) => setForm((current) => ({ ...current, podName: event.target.value }))} required />
-          </Field>
-          <Field label="UN/LOCODE POD">
-            <Input value={form.podLocode} onChange={(event) => setForm((current) => ({ ...current, podLocode: event.target.value.toUpperCase() }))} />
-          </Field>
           <Field label="ETD">
-            <Input type="datetime-local" value={form.etd} onChange={(event) => setForm((current) => ({ ...current, etd: event.target.value }))} />
+            <Input
+              type="datetime-local"
+              value={form.etd}
+              onChange={(event) => setForm((current) => ({ ...current, etd: event.target.value }))}
+            />
           </Field>
           <Field label="ETA">
-            <Input type="datetime-local" value={form.eta} onChange={(event) => setForm((current) => ({ ...current, eta: event.target.value }))} />
+            <Input
+              type="datetime-local"
+              value={form.eta}
+              onChange={(event) => setForm((current) => ({ ...current, eta: event.target.value }))}
+            />
           </Field>
         </div>
 

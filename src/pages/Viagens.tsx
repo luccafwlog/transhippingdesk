@@ -33,7 +33,7 @@ export function Viagens() {
     <>
       <PageHeader
         title="Viagens"
-        description="Cards por navio/viagem com criação de nova viagem e redirecionamento para os manifestos."
+        description="Cadastro de navio/viagem. Cada manifesto importado define seu proprio trecho POL/POD dentro da viagem."
         action={
           isAdmin ? (
             <Button onClick={() => setOpen(true)}>
@@ -63,7 +63,7 @@ export function Viagens() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-wider text-slate-500">
-                    {voyage.vessel?.carrier?.name ?? 'Armador não informado'}
+                    {voyage.vessel?.carrier?.name ?? 'Armador nao informado'}
                   </div>
                   <h2 className="text-xl font-bold text-white">
                     {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
@@ -75,8 +75,7 @@ export function Viagens() {
               </div>
 
               <dl className="grid gap-2 text-sm text-slate-300">
-                <Info label="POL" value={voyage.pol?.name ?? '-'} />
-                <Info label="POD" value={voyage.pod?.name ?? '-'} />
+                <Info label="Trechos" value={summarizeVoyageRoutes(voyage)} />
                 <Info label="ETD" value={formatDate(voyage.etd)} />
                 <Info label="ETA" value={formatDate(voyage.eta)} />
                 <Info label="ATA" value={formatDate(voyage.ata)} />
@@ -119,4 +118,32 @@ function Info({ label, value }: { label: string; value: string }) {
       <span className="text-right font-semibold text-white">{value}</span>
     </div>
   )
+}
+
+function summarizeVoyageRoutes(voyage: {
+  pol?: { name: string | null } | null
+  pod?: { name: string | null } | null
+  bls?: Array<{ pol: string | null; pod: string | null }> | null
+}) {
+  const routeLabels = Array.from(
+    new Set(
+      (voyage.bls ?? [])
+        .map((bl) => formatRoute(bl.pol, bl.pod))
+        .filter((route): route is string => Boolean(route)),
+    ),
+  )
+
+  if (routeLabels.length === 0) {
+    const legacyRoute = formatRoute(voyage.pol?.name ?? null, voyage.pod?.name ?? null)
+    return legacyRoute ?? 'Definidos por manifesto'
+  }
+
+  if (routeLabels.length === 1) return routeLabels[0]
+  if (routeLabels.length === 2) return routeLabels.join(' | ')
+  return `${routeLabels.slice(0, 2).join(' | ')} +${routeLabels.length - 2}`
+}
+
+function formatRoute(pol: string | null, pod: string | null) {
+  if (!pol && !pod) return null
+  return `${pol ?? '-'} -> ${pod ?? '-'}`
 }
