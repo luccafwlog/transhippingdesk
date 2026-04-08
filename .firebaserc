@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "importmanager-bda3e"
-  }
+  },
+  "targets": {
+    "importmanager-bda3e": {
+      "hosting": {
+        "transhippingdesk": [
+          "transhippingdesk"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
