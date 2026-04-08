@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
@@ -206,12 +206,20 @@ export function Manifestos() {
   )
 }
 
-function VoyageSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function VoyageSelect({
+  value,
+  onChange,
+  emptyLabel = 'Todas',
+}: {
+  value: string
+  onChange: (value: string) => void
+  emptyLabel?: string
+}) {
   const { data } = useVoyageOptions()
 
   return (
     <Select value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">Todas</option>
+      <option value="">{emptyLabel}</option>
       {data?.map((voyage) => (
         <option key={voyage.id} value={voyage.id}>
           {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
@@ -225,6 +233,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
+  const { data: voyages } = useVoyageOptions()
   const [voyageId, setVoyageId] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [manifest, setManifest] = useState<ParsedManifest | null>(null)
@@ -239,6 +248,14 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
     }),
     [manifest],
   )
+
+  useEffect(() => {
+    if (!open || voyageId || !voyages?.length) return
+
+    if (voyages.length === 1) {
+      setVoyageId(String(voyages[0].id))
+    }
+  }, [open, voyageId, voyages])
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null
@@ -286,7 +303,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
     <Modal open={open} onClose={onClose} title="Importar Manifesto">
       <div className="grid gap-5">
         <Field label="Viagem de destino">
-          <VoyageSelect value={voyageId} onChange={setVoyageId} />
+          <VoyageSelect value={voyageId} onChange={setVoyageId} emptyLabel="Selecione uma viagem" />
         </Field>
         <Field label="Arquivo .xlsx ou .csv">
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
