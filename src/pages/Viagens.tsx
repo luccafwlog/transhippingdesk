@@ -1,56 +1,18 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
-import { Field, Input, Select } from '../components/ui/Input'
-import { Modal } from '../components/ui/Modal'
-import { useToast } from '../components/ui/Toast'
+import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { formatDate } from '../lib/utils'
-import { supabase } from '../services/supabase'
-
-type VoyageForm = {
-  carrierName: string
-  carrierScac: string
-  vesselName: string
-  vesselImo: string
-  voyageNumber: string
-  polName: string
-  polLocode: string
-  podName: string
-  podLocode: string
-  etd: string
-  eta: string
-  status: 'active' | 'completed' | 'cancelled'
-}
-
-const initialForm: VoyageForm = {
-  carrierName: '',
-  carrierScac: '',
-  vesselName: '',
-  vesselImo: '',
-  voyageNumber: '',
-  polName: '',
-  polLocode: '',
-  podName: '',
-  podLocode: '',
-  etd: '',
-  eta: '',
-  status: 'active',
-}
 
 export function Viagens() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { isAdmin } = useAuth()
-  const { showToast } = useToast()
   const { data, isLoading, error } = useVoyages()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<VoyageForm>(initialForm)
-  const [saving, setSaving] = useState(false)
 
   const summary = useMemo(
     () => ({
@@ -66,52 +28,6 @@ export function Viagens() {
     }),
     [data],
   )
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (!isAdmin) return
-
-    setSaving(true)
-    try {
-      const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
-      const vesselId = await getOrCreateVessel(form.vesselName, form.vesselImo, carrierId)
-      const polId = await getOrCreatePort(form.polName, form.polLocode)
-      const podId = await getOrCreatePort(form.podName, form.podLocode)
-
-      const { data: created, error: createError } = await supabase
-        .from('voyages')
-        .insert({
-          vessel_id: vesselId,
-          voyage_number: form.voyageNumber.trim(),
-          pol_id: polId,
-          pod_id: podId,
-          etd: form.etd || null,
-          eta: form.eta || null,
-          status: form.status,
-        })
-        .select('id')
-        .single()
-
-      if (createError) throw createError
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyage-options'] }),
-      ])
-
-      showToast('Viagem cadastrada com sucesso.', 'success')
-      setOpen(false)
-      setForm(initialForm)
-
-      if (created?.id) {
-        navigate(`/manifestos?voyage=${created.id}`)
-      }
-    } catch {
-      showToast('Falha ao cadastrar viagem. Revise os dados e tente novamente.', 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   return (
     <>
@@ -178,61 +94,11 @@ export function Viagens() {
         })}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Nova Viagem">
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Armador">
-              <Input value={form.carrierName} onChange={(event) => setForm((current) => ({ ...current, carrierName: event.target.value }))} required />
-            </Field>
-            <Field label="SCAC">
-              <Input value={form.carrierScac} onChange={(event) => setForm((current) => ({ ...current, carrierScac: event.target.value.toUpperCase() }))} />
-            </Field>
-            <Field label="Navio">
-              <Input value={form.vesselName} onChange={(event) => setForm((current) => ({ ...current, vesselName: event.target.value.toUpperCase() }))} required />
-            </Field>
-            <Field label="IMO">
-              <Input value={form.vesselImo} onChange={(event) => setForm((current) => ({ ...current, vesselImo: event.target.value }))} />
-            </Field>
-            <Field label="Número da viagem">
-              <Input value={form.voyageNumber} onChange={(event) => setForm((current) => ({ ...current, voyageNumber: event.target.value.toUpperCase() }))} required />
-            </Field>
-            <Field label="Status">
-              <Select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as VoyageForm['status'] }))}>
-                <option value="active">Ativa</option>
-                <option value="completed">Concluída</option>
-                <option value="cancelled">Cancelada</option>
-              </Select>
-            </Field>
-            <Field label="POL">
-              <Input value={form.polName} onChange={(event) => setForm((current) => ({ ...current, polName: event.target.value }))} required />
-            </Field>
-            <Field label="UN/LOCODE POL">
-              <Input value={form.polLocode} onChange={(event) => setForm((current) => ({ ...current, polLocode: event.target.value.toUpperCase() }))} />
-            </Field>
-            <Field label="POD">
-              <Input value={form.podName} onChange={(event) => setForm((current) => ({ ...current, podName: event.target.value }))} required />
-            </Field>
-            <Field label="UN/LOCODE POD">
-              <Input value={form.podLocode} onChange={(event) => setForm((current) => ({ ...current, podLocode: event.target.value.toUpperCase() }))} />
-            </Field>
-            <Field label="ETD">
-              <Input type="datetime-local" value={form.etd} onChange={(event) => setForm((current) => ({ ...current, etd: event.target.value }))} />
-            </Field>
-            <Field label="ETA">
-              <Input type="datetime-local" value={form.eta} onChange={(event) => setForm((current) => ({ ...current, eta: event.target.value }))} />
-            </Field>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
-            <Button loading={saving} type="submit">
-              Cadastrar viagem
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      <VoyageCreateModal
+        open={open}
+        onClose={() => setOpen(false)}
+        onCreated={(voyageId) => navigate(`/manifestos?voyage=${voyageId}`)}
+      />
     </>
   )
 }
@@ -253,68 +119,4 @@ function Info({ label, value }: { label: string; value: string }) {
       <span className="text-right font-semibold text-white">{value}</span>
     </div>
   )
-}
-
-async function getOrCreateCarrier(name: string, scac: string) {
-  let query = supabase.from('carriers').select('id').limit(1)
-  if (scac.trim()) {
-    query = query.eq('scac', scac.trim())
-  } else {
-    query = query.eq('name', name.trim())
-  }
-
-  const { data: existing, error: existingError } = await query
-  if (existingError) throw existingError
-  if (existing?.[0]) return existing[0].id
-
-  const { data: created, error: createError } = await supabase
-    .from('carriers')
-    .insert({ name: name.trim(), scac: scac.trim() || null })
-    .select('id')
-    .single()
-
-  if (createError || !created) throw createError
-  return created.id
-}
-
-async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
-  const { data: existing, error: existingError } = await supabase
-    .from('vessels')
-    .select('id')
-    .eq('name', name.trim())
-    .limit(1)
-
-  if (existingError) throw existingError
-  if (existing?.[0]) return existing[0].id
-
-  const { data: created, error: createError } = await supabase
-    .from('vessels')
-    .insert({ name: name.trim(), imo: imo.trim() || null, carrier_id: carrierId })
-    .select('id')
-    .single()
-
-  if (createError || !created) throw createError
-  return created.id
-}
-
-async function getOrCreatePort(name: string, locode: string) {
-  let query = supabase.from('ports').select('id').limit(1)
-  if (locode.trim()) {
-    query = query.eq('locode', locode.trim())
-  } else {
-    query = query.eq('name', name.trim())
-  }
-
-  const { data: existing, error: existingError } = await query
-  if (existingError) throw existingError
-  if (existing?.[0]) return existing[0].id
-
-  const { data: created, error: createError } = await supabase
-    .from('ports')
-    .insert({ name: name.trim(), locode: locode.trim() || null })
-    .select('id')
-    .single()
-
-  if (createError || !created) throw createError
-  return created.id
 }

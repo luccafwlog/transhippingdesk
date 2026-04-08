@@ -1,4 +1,5 @@
 import { normalizeText, onlyDigits, toNumber } from '../lib/utils'
+import type { VoyageFormValues } from './voyages'
 
 const headerMap = {
   bl_number: ['b/l', 'bl number', 'bill of lading', 'conhecimento'],
@@ -64,6 +65,7 @@ export type ParsedBL = {
 export type ParsedManifest = {
   bls: ParsedBL[]
   rowErrors: { row: number; message: string; raw: unknown }[]
+  suggestedVoyage?: Partial<VoyageFormValues>
 }
 
 type DestinationField = keyof typeof headerMap
@@ -307,7 +309,18 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
     }
   })
 
-  return { bls: Array.from(grouped.values()), rowErrors }
+  return {
+    bls: Array.from(grouped.values()),
+    rowErrors,
+    suggestedVoyage: {
+      carrierName: extractCarrierName(rawRows),
+      vesselName: meta.vessel,
+      voyageNumber: meta.voyage,
+      polName: meta.pol,
+      podName: meta.pod,
+      status: 'active',
+    },
+  }
 }
 
 function looksLikeCarrierManifest(rawRows: RawSheetRow[]) {
@@ -340,6 +353,11 @@ function parseManifestHeader(rawRows: RawSheetRow[]): ManifestMeta {
   })
 
   return meta
+}
+
+function extractCarrierName(rawRows: RawSheetRow[]) {
+  const firstTextRow = rawRows.find((row) => cell(row, 0))
+  return firstTextRow ? cell(firstTextRow, 0) : ''
 }
 
 function parseManifestParty(block: string) {

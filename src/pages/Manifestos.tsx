@@ -5,6 +5,7 @@ import { Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -246,6 +247,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const [manifest, setManifest] = useState<ParsedManifest | null>(null)
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [createVoyageOpen, setCreateVoyageOpen] = useState(false)
 
   const totals = useMemo(
     () => ({
@@ -312,6 +314,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         <Field label="Viagem de destino">
           <VoyageSelect value={voyageId} onChange={setVoyageId} emptyLabel="Selecione uma viagem" />
         </Field>
+        <div className="flex justify-end">
+          <Button variant="secondary" onClick={() => setCreateVoyageOpen(true)}>
+            Criar viagem agora
+          </Button>
+        </div>
         <Field label="Arquivo .xlsx ou .csv">
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
         </Field>
@@ -367,7 +374,21 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             Confirmar importação
           </Button>
         </div>
+        {!voyageId ? (
+          <div className="text-sm text-amber-200">Selecione ou crie uma viagem de destino para habilitar a confirmação.</div>
+        ) : null}
       </div>
+
+      <VoyageCreateModal
+        open={createVoyageOpen}
+        onClose={() => setCreateVoyageOpen(false)}
+        title="Criar viagem para este manifesto"
+        initialValues={manifest?.suggestedVoyage}
+        onCreated={(createdVoyageId) => {
+          setVoyageId(String(createdVoyageId))
+          setCreateVoyageOpen(false)
+        }}
+      />
     </Modal>
   )
 }
