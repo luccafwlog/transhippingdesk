@@ -9,7 +9,6 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions } from '../hooks/useBls'
-import { formatCnpjCpf } from '../lib/utils'
 import {
   importContainerFlagsRows,
   parseContainerFlagsImportFile,
@@ -249,20 +248,16 @@ export function Containers() {
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1280px] border-collapse text-left text-sm whitespace-nowrap">
+          <table className="w-full min-w-[980px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Container</th>
                 <th className="px-4 py-3">B/L</th>
                 <th className="w-[84px] px-4 py-3">CNEE</th>
-                <th className="px-4 py-3">CNPJ</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
                 <th className="px-4 py-3">POL</th>
                 <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Seal</th>
-                <th className="px-4 py-3">Peso bruto</th>
-                <th className="px-4 py-3">CBM</th>
                 <th className="px-4 py-3">Perfil</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
@@ -270,14 +265,14 @@ export function Containers() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Carregando containers...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Nenhum container encontrado.
                   </td>
                 </tr>
@@ -298,16 +293,12 @@ export function Containers() {
                       {container.bl?.customer?.name ?? container.bl?.consignee ?? '-'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{formatCnpjCpf(container.bl?.customer?.cnpj_cpf)}</td>
                   <td className="px-4 py-3">
                     {container.bl?.voyage?.vessel?.name ?? '-'} / {container.bl?.voyage?.voyage_number ?? '-'}
                   </td>
                   <td className="px-4 py-3">{container.bl?.pol ?? '-'}</td>
                   <td className="px-4 py-3">{container.bl?.pod ?? '-'}</td>
                   <td className="px-4 py-3">{container.type ?? '-'}</td>
-                  <td className="px-4 py-3">{container.seal_number ?? '-'}</td>
-                  <td className="px-4 py-3">{Number(container.gross_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
-                  <td className="px-4 py-3">{Number(container.cbm ?? 0).toLocaleString('pt-BR')}</td>
                   <td className="px-4 py-3">
                     <ProfileBadge profile={getCargoProfile(Boolean(container.is_imo), Boolean(container.is_oog))} />
                   </td>

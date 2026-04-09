@@ -169,7 +169,7 @@ export function Manifestos() {
         ) : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[840px] border-collapse text-left text-sm whitespace-nowrap">
+          <table className="w-full min-w-[760px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. B/L</th>
@@ -180,22 +180,20 @@ export function Manifestos() {
                 <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">CNTRS</th>
                 <th className="px-4 py-3">Perfil</th>
-                <th className="px-4 py-3">Revisao</th>
-                <th className="px-4 py-3">Financeiro</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -226,12 +224,6 @@ export function Manifestos() {
                         Boolean(bl.bl_containers?.some((container) => container.is_oog)),
                       )}
                     />
-                  </td>
-                  <td className="px-4 py-3">
-                    <ReviewBadge status={bl.review_status ?? 'ok'} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <FinancialBadge status={bl.financial_status ?? 'pending'} />
                   </td>
                   <td className="px-4 py-3">
                     <Link
@@ -529,17 +521,6 @@ function ReviewBadge({ status }: { status: string }) {
   if (status === 'pending_review') return <Badge tone="yellow">Pendente</Badge>
   if (status === 'reviewed') return <Badge tone="green">Revisado</Badge>
   return <Badge tone="blue">OK</Badge>
-}
-
-function FinancialBadge({ status }: { status: string }) {
-  const labels: Record<string, string> = {
-    pending: 'Pendente',
-    invoiced: 'Faturado',
-    paid: 'Pago',
-    cancelled: 'Cancelado',
-  }
-  const tone = status === 'paid' ? 'green' : status === 'cancelled' ? 'red' : status === 'invoiced' ? 'blue' : 'yellow'
-  return <Badge tone={tone}>{labels[status] ?? status}</Badge>
 }
 
 function summarizeManifestRoutes(manifest: ParsedManifest | null) {
