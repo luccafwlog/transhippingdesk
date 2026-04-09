@@ -240,8 +240,8 @@ export function Viagens() {
                 <Info label="Containers distintos" value={String(totalContainers)} />
               </dl>
 
-              <div className="grid gap-4 xl:grid-cols-2">
-                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+              <div className="grid gap-4 xl:grid-cols-12">
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 xl:col-span-5">
                   <div className="mb-3">
                     <div className="font-semibold text-white">Datas dos Portos de Origem</div>
                     <div className="text-sm text-slate-400">
@@ -287,7 +287,7 @@ export function Viagens() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 xl:col-span-7">
                   <div className="mb-3">
                     <div className="font-semibold text-white">Datas dos Portos de Destino</div>
                     <div className="text-sm text-slate-400">
@@ -296,7 +296,7 @@ export function Viagens() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[420px] text-left text-sm">
+                    <table className="w-full min-w-[360px] text-left text-sm">
                       <thead className="text-xs uppercase tracking-wider text-slate-500">
                         <tr>
                           <th className="px-3 py-2">POD</th>
