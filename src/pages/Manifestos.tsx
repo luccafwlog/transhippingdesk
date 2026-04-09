@@ -43,7 +43,7 @@ export function Manifestos() {
     <>
       <PageHeader
         title="Manifestos"
-        description="Consulta paginada de B/Ls e importacao de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem."
+        description="Consulta paginada de B/Ls e importacao de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />
@@ -56,7 +56,7 @@ export function Manifestos() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <Field label="Texto livre">
             <Input
-              placeholder="B/L ou consignatario"
+              placeholder="B/L ou cliente"
               value={filters.search}
               onChange={(event) => updateFilter('search', event.target.value)}
             />
@@ -147,7 +147,7 @@ export function Manifestos() {
                   <td className="px-4 py-3">
                     {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
                   </td>
-                  <td className="px-4 py-3">{bl.consignee ?? '-'}</td>
+                  <td className="px-4 py-3">{bl.customer?.name ?? bl.consignee ?? '-'}</td>
                   <td className="px-4 py-3">{formatCnpjCpf(bl.customer?.cnpj_cpf)}</td>
                   <td className="px-4 py-3">
                     {`${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`}
@@ -324,6 +324,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         <Field label="Arquivo .xlsx ou .csv">
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
         </Field>
+
+        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+          Clientes sao vinculados por CNPJ/CPF ja existente em <span className="font-semibold text-white">Clientes &gt; Importar base</span>.
+          Manifestos nao criam novos cadastros automaticamente.
+        </div>
 
         {parsing ? <div className="text-sm text-slate-400">Processando arquivo com SheetJS sob demanda...</div> : null}
 

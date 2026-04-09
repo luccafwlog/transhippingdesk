@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useCustomers } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf } from '../lib/utils'
+import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { createCustomer } from '../services/customers'
 
 export function Clientes() {
@@ -16,10 +17,15 @@ export function Clientes() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const [filters, setFilters] = useState({ search: '', city: '' })
-  const [open, setOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [cnpjCpf, setCnpjCpf] = useState('')
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [baseFileName, setBaseFileName] = useState('')
+  const [parsedBase, setParsedBase] = useState<ParsedCustomerBase | null>(null)
+  const [parsingBase, setParsingBase] = useState(false)
+  const [importingBase, setImportingBase] = useState(false)
   const { data, isLoading, error } = useCustomers(filters)
 
   const totals = useMemo(
@@ -42,7 +48,7 @@ export function Clientes() {
       const customer = await createCustomer({ cnpjCpf, name })
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
       showToast('Cliente cadastrado com sucesso.', 'success')
-      setOpen(false)
+      setCreateOpen(false)
       setCnpjCpf('')
       setName('')
       navigate(`/clientes/${customer.cnpj_cpf}`)
@@ -53,16 +59,76 @@ export function Clientes() {
     }
   }
 
+  async function handleBaseFile(event: ChangeEvent<HTMLInputElement>) {
+    const nextFile = event.target.files?.[0] ?? null
+    setBaseFileName(nextFile?.name ?? '')
+    setParsedBase(null)
+
+    if (!nextFile) return
+
+    setParsingBase(true)
+    try {
+      const parsed = await parseCustomerBaseFile(nextFile)
+      setParsedBase(parsed)
+      showToast(
+        parsed.rowErrors.length
+          ? `Base lida com ${parsed.rows.length} clientes validos e ${parsed.rowErrors.length} linhas ignoradas.`
+          : `Base lida com ${parsed.rows.length} clientes validos.`,
+        parsed.rowErrors.length ? 'info' : 'success',
+      )
+    } catch {
+      showToast('Nao foi possivel ler a base. Confira o layout do arquivo.', 'error')
+    } finally {
+      setParsingBase(false)
+    }
+  }
+
+  async function handleImportBase() {
+    if (!parsedBase?.rows.length) return
+
+    setImportingBase(true)
+    try {
+      const result = await importCustomerBaseRows(parsedBase.rows)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
+      ])
+      showToast(
+        `Base importada: ${result.imported} novo(s) e ${result.updated} atualizado(s).`,
+        'success',
+      )
+      resetImportModal()
+    } catch {
+      showToast('Falha ao importar base de clientes.', 'error')
+    } finally {
+      setImportingBase(false)
+    }
+  }
+
+  function resetImportModal() {
+    setImportOpen(false)
+    setBaseFileName('')
+    setParsedBase(null)
+    setParsingBase(false)
+    setImportingBase(false)
+  }
+
   return (
     <>
       <PageHeader
         title="Clientes"
-        description="Cadastro mestre de consignatarios, com historico operacional e saldo pendente consolidado."
+        description="Cadastro mestre de consignatarios. Importe a base antes dos manifestos para vinculo automatico por CNPJ/CPF."
         action={
-          <Button onClick={() => setOpen(true)}>
-            <Plus size={16} />
-            Novo Cliente
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              <Upload size={16} />
+              Importar base
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus size={16} />
+              Novo Cliente
+            </Button>
+          </div>
         }
       />
 
@@ -73,12 +139,30 @@ export function Clientes() {
       </div>
 
       <Card className="mb-5">
+        <div className="mb-4 rounded-xl border border-[#1f6feb]/30 bg-[#1f6feb]/10 p-4 text-sm text-slate-200">
+          <div className="font-semibold text-white">Nova regra de cadastro</div>
+          <div className="mt-2">
+            Manifestos nao criam clientes automaticamente. O sistema vincula o B/L ao cadastro mestre quando o
+            CNPJ/CPF do manifesto ja existe nesta base.
+          </div>
+          <div className="mt-2 text-slate-400">
+            Importe a base antes dos manifestos. Nesta versao, B/Ls antigos sem vinculo nao sao religados de forma
+            retroativa.
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Buscar por nome ou CNPJ">
-            <Input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
+            <Input
+              value={filters.search}
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+            />
           </Field>
           <Field label="Cidade">
-            <Input value={filters.city} onChange={(event) => setFilters((current) => ({ ...current, city: event.target.value }))} />
+            <Input
+              value={filters.city}
+              onChange={(event) => setFilters((current) => ({ ...current, city: event.target.value }))}
+            />
           </Field>
         </div>
       </Card>
@@ -93,7 +177,7 @@ export function Clientes() {
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">Cidade/UF</th>
                 <th className="px-4 py-3">No. B/Ls</th>
-                <th className="px-4 py-3">Saldo Pendente</th>
+                <th className="px-4 py-3">Saldo pendente</th>
                 <th className="px-4 py-3">Acao</th>
               </tr>
             </thead>
@@ -133,7 +217,7 @@ export function Clientes() {
         </div>
       </Card>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Novo Cliente">
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Novo Cliente">
         <div className="grid gap-4">
           <Field label="CNPJ/CPF">
             <Input value={cnpjCpf} onChange={(event) => setCnpjCpf(event.target.value)} />
@@ -142,11 +226,98 @@ export function Clientes() {
             <Input value={name} onChange={(event) => setName(event.target.value)} />
           </Field>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={() => setCreateOpen(false)}>
               Cancelar
             </Button>
             <Button loading={saving} onClick={handleCreateCustomer}>
               Cadastrar cliente
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={importOpen} onClose={resetImportModal} title="Importar Base de Clientes">
+        <div className="grid gap-5">
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
+            <div className="font-semibold text-white">Como esta importacao funciona</div>
+            <div className="mt-2">
+              O sistema procura colunas como CNPJ/CPF, Razao Social, Nome, Cidade, UF e Endereco. Tambem aceita uma
+              coluna consolidada de consignee para extrair os dados.
+            </div>
+            <div className="mt-2 text-slate-400">
+              Quando um manifesto trouxer o mesmo CNPJ/CPF, o B/L passa a usar o cliente desta base como cadastro
+              oficial.
+            </div>
+          </div>
+
+          <Field label="Arquivo .xlsx, .xls ou .csv">
+            <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleBaseFile} />
+          </Field>
+
+          {baseFileName ? <div className="text-sm text-slate-400">Arquivo selecionado: {baseFileName}</div> : null}
+          {parsingBase ? <div className="text-sm text-slate-400">Lendo base com SheetJS...</div> : null}
+
+          {parsedBase ? (
+            <div className="grid gap-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <PreviewBox label="Clientes validos" value={parsedBase.rows.length} />
+                <PreviewBox label="Linhas ignoradas" value={parsedBase.rowErrors.length} />
+                <PreviewBox
+                  label="Prontos para vinculo"
+                  value={parsedBase.rows.filter((row) => Boolean(row.cnpj_cpf)).length}
+                />
+              </div>
+
+              {parsedBase.rowErrors.length ? (
+                <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+                  {parsedBase.rowErrors.length} linha(s) nao puderam ser aproveitadas. As primeiras divergencias estao
+                  listadas abaixo.
+                </div>
+              ) : null}
+
+              <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">CNPJ/CPF</th>
+                      <th className="px-3 py-2">Nome</th>
+                      <th className="px-3 py-2">Cidade/UF</th>
+                      <th className="px-3 py-2">Endereco</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    {parsedBase.rows.slice(0, 15).map((row) => (
+                      <tr key={row.cnpj_cpf}>
+                        <td className="px-3 py-2">{formatCnpjCpf(row.cnpj_cpf)}</td>
+                        <td className="px-3 py-2 font-semibold text-white">{row.name}</td>
+                        <td className="px-3 py-2">
+                          {row.city ?? '-'} / {row.state ?? '-'}
+                        </td>
+                        <td className="px-3 py-2">{row.address ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {parsedBase.rowErrors.length ? (
+                <div className="grid gap-2 rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
+                  {parsedBase.rowErrors.slice(0, 8).map((rowError) => (
+                    <div key={`${rowError.row}-${rowError.message}`}>
+                      Linha {rowError.row}: {rowError.message}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={resetImportModal}>
+              Cancelar
+            </Button>
+            <Button disabled={!parsedBase?.rows.length} loading={importingBase} onClick={handleImportBase}>
+              Importar base
             </Button>
           </div>
         </div>
@@ -161,5 +332,14 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <div className="text-sm text-slate-400">{label}</div>
       <div className="mt-2 text-3xl font-bold text-white">{value}</div>
     </Card>
+  )
+}
+
+function PreviewBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
+    </div>
   )
 }

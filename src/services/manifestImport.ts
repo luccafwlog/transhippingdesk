@@ -1,6 +1,6 @@
-import { supabase } from './supabase'
-import type { ParsedManifest } from './manifestParser'
 import { onlyDigits } from '../lib/utils'
+import type { ParsedManifest } from './manifestParser'
+import { supabase } from './supabase'
 
 export async function importManifest({
   filename,
@@ -29,40 +29,56 @@ export async function importManifest({
 
   if (batchError) throw batchError
 
-  const customerIdsByDocument = new Map<string, number>()
-  const customersToUpsert = manifest.bls
-    .filter((bl) => bl.cnpj_cpf)
-    .map((bl) => ({
-      cnpj_cpf: onlyDigits(bl.cnpj_cpf),
-      name: bl.consignee || bl.cnpj_cpf || 'Cliente sem nome',
-    }))
+  const customersByDocument = new Map<string, { id: number; name: string }>()
+  const customerDocuments = Array.from(
+    new Set(
+      manifest.bls
+        .map((bl) => onlyDigits(bl.cnpj_cpf))
+        .filter((document): document is string => Boolean(document)),
+    ),
+  )
 
-  if (customersToUpsert.length) {
-    const uniqueCustomers = Array.from(new Map(customersToUpsert.map((customer) => [customer.cnpj_cpf, customer])).values())
+  if (customerDocuments.length) {
     const { data: customers, error } = await supabase
       .from('customers')
-      .upsert(uniqueCustomers, { onConflict: 'cnpj_cpf' })
-      .select('id, cnpj_cpf')
+      .select('id, cnpj_cpf, name')
+      .in('cnpj_cpf', customerDocuments)
 
     if (error) throw error
-    customers?.forEach((customer) => customerIdsByDocument.set(customer.cnpj_cpf, customer.id))
+    customers?.forEach((customer) =>
+      customersByDocument.set(customer.cnpj_cpf, {
+        id: customer.id,
+        name: customer.name,
+      }),
+    )
   }
 
-  const blRows = manifest.bls.map((bl) => ({
-    id: bl.id,
-    voyage_id: voyageId,
-    batch_id: batch.id,
-    shipper: bl.shipper,
-    consignee: bl.consignee,
-    customer_id: bl.cnpj_cpf ? customerIdsByDocument.get(onlyDigits(bl.cnpj_cpf)) ?? null : null,
-    pol: bl.pol,
-    pod: bl.pod,
-    total_weight_kg: bl.total_weight_kg,
-    total_cbm: bl.total_cbm,
-    review_status: bl.review_status,
-    financial_status: 'pending' as const,
-    notes: bl.review_reasons.length ? `Pendências de importação: ${bl.review_reasons.join(', ')}` : null,
-  }))
+  const blRows = manifest.bls.map((bl) => {
+    const document = onlyDigits(bl.cnpj_cpf)
+    const matchedCustomer = document ? customersByDocument.get(document) ?? null : null
+    const customerId = matchedCustomer?.id ?? null
+    const reviewReasons = new Set(bl.review_reasons)
+
+    if (document && !customerId) {
+      reviewReasons.add('Cliente nao cadastrado na base')
+    }
+
+    return {
+      id: bl.id,
+      voyage_id: voyageId,
+      batch_id: batch.id,
+      shipper: bl.shipper,
+      consignee: matchedCustomer?.name ?? bl.consignee,
+      customer_id: customerId,
+      pol: bl.pol,
+      pod: bl.pod,
+      total_weight_kg: bl.total_weight_kg,
+      total_cbm: bl.total_cbm,
+      review_status: reviewReasons.size > 0 ? ('pending_review' as const) : bl.review_status,
+      financial_status: 'pending' as const,
+      notes: reviewReasons.size > 0 ? `Pendencias de importacao: ${Array.from(reviewReasons).join(', ')}` : null,
+    }
+  })
 
   if (blRows.length) {
     const { error } = await supabase.from('bls').upsert(blRows, { onConflict: 'id' })
