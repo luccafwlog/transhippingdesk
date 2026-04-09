@@ -178,7 +178,7 @@ export function Viagens() {
 
       {error ? <Card className="mb-5 text-red-200">Erro ao carregar viagens.</Card> : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4">
         {isLoading ? <Card>Carregando viagens...</Card> : null}
         {!isLoading && filteredVoyages.length === 0 ? (
           <Card>Nenhuma viagem encontrada com os filtros atuais.</Card>
@@ -240,8 +240,8 @@ export function Viagens() {
                 <Info label="Containers distintos" value={String(totalContainers)} />
               </dl>
 
-              <div className="grid gap-4 xl:grid-cols-12">
-                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 xl:col-span-5">
+              <div className="grid gap-4 2xl:grid-cols-12">
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-5">
                   <div className="mb-3">
                     <div className="font-semibold text-white">Datas dos Portos de Origem</div>
                     <div className="text-sm text-slate-400">
@@ -292,7 +292,7 @@ export function Viagens() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 xl:col-span-7">
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-7">
                   <div className="mb-3">
                     <div className="font-semibold text-white">Datas dos Portos de Destino</div>
                     <div className="text-sm text-slate-400">
