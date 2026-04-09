@@ -25,6 +25,7 @@ export function Manifestos() {
   const [filters, setFilters] = useState<BlFilters>({
     search: '',
     voyageId: initialVoyage,
+    pol: '',
     pod: '',
     reviewStatus: '',
     financialStatus: '',
@@ -89,7 +90,7 @@ export function Manifestos() {
       />
 
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
           <Field label="Texto livre">
             <Input
               placeholder="B/L ou cliente"
@@ -99,6 +100,9 @@ export function Manifestos() {
           </Field>
           <Field label="Viagem">
             <VoyageSelect value={filters.voyageId} onChange={(value) => updateFilter('voyageId', value)} />
+          </Field>
+          <Field label="POL">
+            <Input value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)} />
           </Field>
           <Field label="POD">
             <Input value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)} />
@@ -161,8 +165,11 @@ export function Manifestos() {
                 <th className="px-4 py-3">Navio/Viagem</th>
                 <th className="px-4 py-3">Consignatario</th>
                 <th className="px-4 py-3">CNPJ</th>
-                <th className="px-4 py-3">POL / POD</th>
+                <th className="px-4 py-3">POL</th>
+                <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">Containers distintos</th>
+                <th className="px-4 py-3">IMO</th>
+                <th className="px-4 py-3">OOG</th>
                 <th className="px-4 py-3">Peso</th>
                 <th className="px-4 py-3">CBM</th>
                 <th className="px-4 py-3">Revisao</th>
@@ -173,14 +180,14 @@ export function Manifestos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -198,10 +205,15 @@ export function Manifestos() {
                   </td>
                   <td className="px-4 py-3">{bl.customer?.name ?? bl.consignee ?? '-'}</td>
                   <td className="px-4 py-3">{formatCnpjCpf(bl.customer?.cnpj_cpf)}</td>
-                  <td className="px-4 py-3">
-                    {`${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`}
-                  </td>
+                  <td className="px-4 py-3">{bl.pol ?? '-'}</td>
+                  <td className="px-4 py-3">{bl.pod ?? '-'}</td>
                   <td className="px-4 py-3">{countDistinctContainerNumbers(bl.bl_containers)}</td>
+                  <td className="px-4 py-3">
+                    <CargoFlagBadge active={Boolean(bl.bl_containers?.some((container) => container.is_imo))} label="IMO" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <CargoFlagBadge active={Boolean(bl.bl_containers?.some((container) => container.is_oog))} label="OOG" />
+                  </td>
                   <td className="px-4 py-3">{Number(bl.total_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
                   <td className="px-4 py-3">{Number(bl.total_cbm ?? 0).toLocaleString('pt-BR')}</td>
                   <td className="px-4 py-3">
@@ -271,6 +283,10 @@ function SummaryCard({ label, value }: { label: string; value: number | string }
       <div className="mt-1 text-xs text-slate-500">Considera os filtros ativos desta tela.</div>
     </Card>
   )
+}
+
+function CargoFlagBadge({ active, label }: { active: boolean; label: string }) {
+  return <Badge tone={active ? (label === 'IMO' ? 'red' : 'yellow') : 'slate'}>{active ? 'SIM' : 'NAO'}</Badge>
 }
 
 function VoyageSelect({

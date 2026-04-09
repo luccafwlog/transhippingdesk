@@ -20,6 +20,7 @@ const exportBatchSize = 1000
 export type BlFilters = {
   search: string
   voyageId: string
+  pol: string
   pod: string
   reviewStatus: string
   financialStatus: string
@@ -31,6 +32,7 @@ export type BlFilters = {
 export type ContainerFilters = {
   search: string
   voyageId: string
+  pol: string
   pod: string
   reviewStatus: string
   financialStatus: string
@@ -135,6 +137,7 @@ export async function fetchAllContainers(filters: ContainerFilters) {
   const rows = await fetchAllBls({
     search: '',
     voyageId: filters.voyageId,
+    pol: filters.pol,
     pod: filters.pod,
     reviewStatus: filters.reviewStatus,
     financialStatus: filters.financialStatus,
@@ -264,6 +267,7 @@ function applyBlFilters(query: ReturnType<typeof supabase.from>, filters: BlFilt
   }
 
   if (filters.voyageId) nextQuery = nextQuery.eq('voyage_id', Number(filters.voyageId))
+  if (filters.pol) nextQuery = nextQuery.ilike('pol', `%${filters.pol}%`)
   if (filters.pod) nextQuery = nextQuery.ilike('pod', `%${filters.pod}%`)
   if (filters.reviewStatus) nextQuery = nextQuery.eq('review_status', filters.reviewStatus as NonNullable<BL['review_status']>)
   if (filters.financialStatus) {

@@ -19,6 +19,7 @@ export function Containers() {
   const [filters, setFilters] = useState<ContainerFilters>({
     search: '',
     voyageId: initialVoyage,
+    pol: '',
     pod: '',
     reviewStatus: '',
     financialStatus: '',
@@ -76,7 +77,7 @@ export function Containers() {
       />
 
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
           <Field label="Texto livre">
             <Input
               placeholder="Container, B/L, cliente ou navio"
@@ -86,6 +87,9 @@ export function Containers() {
           </Field>
           <Field label="Viagem">
             <VoyageSelect value={filters.voyageId} onChange={(value) => updateFilter('voyageId', value)} />
+          </Field>
+          <Field label="POL">
+            <Input value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)} />
           </Field>
           <Field label="POD">
             <Input value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)} />
@@ -132,7 +136,7 @@ export function Containers() {
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1400px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1560px] border-collapse text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Container</th>
@@ -141,11 +145,14 @@ export function Containers() {
                 <th className="px-4 py-3">CNPJ</th>
                 <th className="px-4 py-3">Armador</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">POL / POD</th>
+                <th className="px-4 py-3">POL</th>
+                <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Seal</th>
                 <th className="px-4 py-3">Peso bruto</th>
                 <th className="px-4 py-3">CBM</th>
+                <th className="px-4 py-3">IMO</th>
+                <th className="px-4 py-3">OOG</th>
                 <th className="px-4 py-3">Perfil</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
@@ -153,14 +160,14 @@ export function Containers() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={16} className="px-4 py-8 text-center text-slate-400">
                     Carregando containers...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={16} className="px-4 py-8 text-center text-slate-400">
                     Nenhum container encontrado.
                   </td>
                 </tr>
@@ -179,11 +186,18 @@ export function Containers() {
                   <td className="px-4 py-3">
                     {container.bl?.voyage?.vessel?.name ?? '-'} / {container.bl?.voyage?.voyage_number ?? '-'}
                   </td>
-                  <td className="px-4 py-3">{`${container.bl?.pol ?? '-'} -> ${container.bl?.pod ?? '-'}`}</td>
+                  <td className="px-4 py-3">{container.bl?.pol ?? '-'}</td>
+                  <td className="px-4 py-3">{container.bl?.pod ?? '-'}</td>
                   <td className="px-4 py-3">{container.type ?? '-'}</td>
                   <td className="px-4 py-3">{container.seal_number ?? '-'}</td>
                   <td className="px-4 py-3">{Number(container.gross_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
                   <td className="px-4 py-3">{Number(container.cbm ?? 0).toLocaleString('pt-BR')}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone={container.is_imo ? 'red' : 'slate'}>{container.is_imo ? 'SIM' : 'NAO'}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={container.is_oog ? 'yellow' : 'slate'}>{container.is_oog ? 'SIM' : 'NAO'}</Badge>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
                       {container.is_oog ? <Badge tone="yellow">OOG</Badge> : null}
