@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Field, Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
@@ -22,17 +23,34 @@ export function Viagens() {
   const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
   const [deletingVoyageId, setDeletingVoyageId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [vesselFilter, setVesselFilter] = useState('')
+  const [voyageFilter, setVoyageFilter] = useState('')
+
+  const filteredVoyages = useMemo(() => {
+    const normalizedVesselFilter = vesselFilter.trim().toUpperCase()
+    const normalizedVoyageFilter = voyageFilter.trim().toUpperCase()
+
+    return (data ?? []).filter((voyage) => {
+      const vesselName = voyage.vessel?.name?.toUpperCase() ?? ''
+      const voyageNumber = voyage.voyage_number?.toUpperCase() ?? ''
+
+      const matchesVessel = !normalizedVesselFilter || vesselName.includes(normalizedVesselFilter)
+      const matchesVoyage = !normalizedVoyageFilter || voyageNumber.includes(normalizedVoyageFilter)
+
+      return matchesVessel && matchesVoyage
+    })
+  }, [data, vesselFilter, voyageFilter])
 
   const summary = useMemo(
     () => ({
-      active: data?.filter((voyage) => voyage.status === 'active').length ?? 0,
-      totalBls: data?.reduce((sum, voyage) => sum + (voyage.bls?.length ?? 0), 0) ?? 0,
+      active: filteredVoyages.filter((voyage) => voyage.status === 'active').length,
+      totalBls: filteredVoyages.reduce((sum, voyage) => sum + (voyage.bls?.length ?? 0), 0),
       totalContainers: countDistinctContainersAcrossGroups(
-        data ?? [],
+        filteredVoyages,
         (voyage) => voyage.bls?.flatMap((bl) => bl.bl_containers ?? []) ?? [],
       ),
     }),
-    [data],
+    [filteredVoyages],
   )
   const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
 
@@ -81,11 +99,33 @@ export function Viagens() {
         <MetricCard label="Containers distintos vinculados" value={summary.totalContainers} />
       </div>
 
+      <Card className="mb-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Navio">
+            <Input
+              placeholder="Filtrar por navio"
+              value={vesselFilter}
+              onChange={(event) => setVesselFilter(event.target.value)}
+            />
+          </Field>
+          <Field label="Viagem">
+            <Input
+              placeholder="Filtrar por numero da viagem"
+              value={voyageFilter}
+              onChange={(event) => setVoyageFilter(event.target.value)}
+            />
+          </Field>
+        </div>
+      </Card>
+
       {error ? <Card className="mb-5 text-red-200">Erro ao carregar viagens.</Card> : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         {isLoading ? <Card>Carregando viagens...</Card> : null}
-        {data?.map((voyage) => {
+        {!isLoading && filteredVoyages.length === 0 ? (
+          <Card>Nenhuma viagem encontrada com os filtros atuais.</Card>
+        ) : null}
+        {filteredVoyages.map((voyage) => {
           const totalBls = voyage.bls?.length ?? 0
           const totalContainers = countDistinctContainersAcrossGroups(voyage.bls, (bl) => bl.bl_containers)
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
