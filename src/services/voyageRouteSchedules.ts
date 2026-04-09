@@ -121,6 +121,30 @@ export async function syncManifestPolEtdSchedules({
   if (error) throw error
 }
 
+export async function saveVoyagePolSchedule({
+  voyageId,
+  pol,
+  etd,
+  changedBy,
+}: {
+  voyageId: number
+  pol: string
+  etd: string | null
+  changedBy: string | null
+}) {
+  const entityId = buildVoyagePolEntityId(voyageId, pol)
+  const current = (await listVoyagePolSchedules([entityId])).get(entityId) ?? makeEmptyPolSchedule(entityId)
+
+  const changes = [
+    makeAuditRow(POL_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POL'),
+  ].filter(Boolean)
+
+  if (!changes.length) return
+
+  const { error } = await supabase.from('audit_logs').insert(changes)
+  if (error) throw error
+}
+
 export async function saveVoyagePodSchedule({
   voyageId,
   pod,

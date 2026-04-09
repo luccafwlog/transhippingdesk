@@ -18,6 +18,7 @@ import {
   buildVoyagePolEntityId,
   listVoyagePodSchedules,
   listVoyagePolSchedules,
+  saveVoyagePolSchedule,
   saveVoyagePodSchedule,
 } from '../services/voyageRouteSchedules'
 
@@ -39,6 +40,12 @@ export function Viagens() {
     pod: string
     eta: string | null
     ata: string | null
+  } | null>(null)
+  const [editingPol, setEditingPol] = useState<{
+    voyageId: number
+    voyageLabel: string
+    pol: string
+    etd: string | null
   } | null>(null)
 
   const filteredVoyages = useMemo(() => {
@@ -181,20 +188,32 @@ export function Viagens() {
           const totalContainers = countDistinctContainersAcrossGroups(voyage.bls, (bl) => bl.bl_containers)
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
           const destinationPorts = collectVoyagePorts(voyage.bls, 'pod', voyage.pod?.name ?? null)
-          const routeRows = collectVoyageRoutes(voyage.bls).map((route, index, routes) => {
+          const polRows = originPorts.map((pol) => {
+            const schedule = polSchedules?.get(buildVoyagePolEntityId(voyage.id, pol))
+            return {
+              pol,
+              etd: schedule?.etd ?? null,
+            }
+          })
+          const podRows = destinationPorts.map((pod) => {
+            const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
+            return {
+              pod,
+              eta: schedule?.eta ?? null,
+              ata: schedule?.ata ?? null,
+            }
+          })
+          const routeRows = collectVoyageRoutes(voyage.bls).map((route) => {
             const polEntityId = buildVoyagePolEntityId(voyage.id, route.pol)
             const podEntityId = buildVoyagePodEntityId(voyage.id, route.pod)
             const polSchedule = polSchedules?.get(polEntityId)
             const podSchedule = podSchedules?.get(podEntityId)
-            const firstPodIndex = routes.findIndex((candidate) => candidate.pod === route.pod)
 
             return {
               ...route,
               etd: polSchedule?.etd ?? null,
               eta: podSchedule?.eta ?? null,
               ata: podSchedule?.ata ?? null,
-              podEntityId,
-              canEditPod: firstPodIndex === index,
             }
           })
 
@@ -221,18 +240,118 @@ export function Viagens() {
                 <Info label="Containers distintos" value={String(totalContainers)} />
               </dl>
 
+              <div className="grid gap-4 xl:grid-cols-2">
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+                  <div className="mb-3">
+                    <div className="font-semibold text-white">Datas dos Portos de Origem</div>
+                    <div className="text-sm text-slate-400">
+                      O ETD e identificado automaticamente pelo manifesto e pode ser ajustado manualmente por POL.
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[320px] text-left text-sm">
+                      <thead className="text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">POL</th>
+                          <th className="px-3 py-2">ETD</th>
+                          <th className="px-3 py-2">Acoes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {polRows.map((row) => (
+                          <tr key={`${voyage.id}-pol-${row.pol}`}>
+                            <td className="px-3 py-2">{row.pol}</td>
+                            <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                            <td className="px-3 py-2">
+                              <Button
+                                variant="secondary"
+                                className="h-8 px-3"
+                                onClick={() =>
+                                  setEditingPol({
+                                    voyageId: voyage.id,
+                                    voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                    pol: row.pol,
+                                    etd: row.etd,
+                                  })
+                                }
+                              >
+                                Editar POL
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+                  <div className="mb-3">
+                    <div className="font-semibold text-white">Datas dos Portos de Destino</div>
+                    <div className="text-sm text-slate-400">
+                      ETA e ATA devem ser informados manualmente uma unica vez por POD.
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[420px] text-left text-sm">
+                      <thead className="text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">POD</th>
+                          <th className="px-3 py-2">ETA</th>
+                          <th className="px-3 py-2">ATA</th>
+                          <th className="px-3 py-2">Acoes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {podRows.map((row) => (
+                          <tr key={`${voyage.id}-pod-${row.pod}`}>
+                            <td className="px-3 py-2">{row.pod}</td>
+                            <td className="px-3 py-2">{formatDate(row.eta)}</td>
+                            <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="secondary"
+                                  className="h-8 px-3"
+                                  onClick={() =>
+                                    setEditingPod({
+                                      voyageId: voyage.id,
+                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                      pod: row.pod,
+                                      eta: row.eta,
+                                      ata: row.ata,
+                                    })
+                                  }
+                                >
+                                  Editar POD
+                                </Button>
+                                {!row.eta || !row.ata ? (
+                                  <span className="text-xs font-semibold text-amber-300">Pendente</span>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
               <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold text-white">Trechos consolidados</div>
                     <div className="text-sm text-slate-400">
-                      O ETD vem automaticamente do manifesto por porto de origem. ETA e ATA sao informados uma unica vez por porto de destino e replicados para todas as linhas do mesmo POD.
+                      Os trechos consolidados abaixo apenas exibem as datas herdadas dos cadastros de POL e POD.
                     </div>
                   </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-sm">
+                  <table className="w-full min-w-[640px] text-left text-sm">
                     <thead className="text-xs uppercase tracking-wider text-slate-500">
                       <tr>
                         <th className="px-3 py-2">POL</th>
@@ -241,7 +360,6 @@ export function Viagens() {
                         <th className="px-3 py-2">ETA</th>
                         <th className="px-3 py-2">ATA</th>
                         <th className="px-3 py-2">B/Ls</th>
-                        <th className="px-3 py-2">Acoes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -254,32 +372,11 @@ export function Viagens() {
                             <td className="px-3 py-2">{formatDate(route.eta)}</td>
                             <td className="px-3 py-2">{formatDate(route.ata)}</td>
                             <td className="px-3 py-2">{route.blCount}</td>
-                            <td className="px-3 py-2">
-                              {route.canEditPod ? (
-                                <Button
-                                  variant="secondary"
-                                  className="h-8 px-3"
-                                  onClick={() =>
-                                    setEditingPod({
-                                      voyageId: voyage.id,
-                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                      pod: route.pod,
-                                      eta: route.eta,
-                                      ata: route.ata,
-                                    })
-                                  }
-                                >
-                                  Editar POD
-                                </Button>
-                              ) : (
-                                <span className="text-xs text-slate-500">Herdado do POD</span>
-                              )}
-                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={7} className="px-3 py-3 text-slate-400">
+                          <td colSpan={6} className="px-3 py-3 text-slate-400">
                             Nenhum trecho identificado nos manifestos desta viagem.
                           </td>
                         </tr>
@@ -373,6 +470,27 @@ export function Viagens() {
             setEditingPod(null)
           } catch {
             showToast('Falha ao salvar as datas do POD.', 'error')
+          }
+        }}
+      />
+
+      <PolScheduleModal
+        open={editingPol !== null}
+        polSchedule={editingPol}
+        onClose={() => setEditingPol(null)}
+        onSaved={async ({ voyageId, pol, etd }) => {
+          try {
+            await saveVoyagePolSchedule({
+              voyageId,
+              pol,
+              etd,
+              changedBy: user?.id ?? null,
+            })
+            await queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] })
+            showToast('ETD do POL atualizado com sucesso.', 'success')
+            setEditingPol(null)
+          } catch {
+            showToast('Falha ao salvar o ETD do POL.', 'error')
           }
         }}
       />
@@ -472,6 +590,73 @@ function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 
   return 'active'
 }
 
+function PolScheduleModal({
+  open,
+  polSchedule,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  polSchedule: {
+    voyageId: number
+    voyageLabel: string
+    pol: string
+    etd: string | null
+  } | null
+  onClose: () => void
+  onSaved: (payload: { voyageId: number; pol: string; etd: string | null }) => Promise<void>
+}) {
+  const [etd, setEtd] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!polSchedule || !open) return
+    setEtd(polSchedule.etd ?? '')
+  }, [open, polSchedule])
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!polSchedule) return
+
+    setSaving(true)
+    try {
+      await onSaved({
+        voyageId: polSchedule.voyageId,
+        pol: polSchedule.pol,
+        etd: etd || null,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Editar ETD do POL">
+      {polSchedule ? (
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+            <div className="font-semibold text-white">{polSchedule.voyageLabel}</div>
+            <div className="mt-1">POL: {polSchedule.pol}</div>
+          </div>
+
+          <Field label="ETD">
+            <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
+          </Field>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" type="button" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button loading={saving} type="submit">
+              Salvar ETD
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </Modal>
+  )
+}
+
 function PodScheduleModal({
   open,
   podSchedule,
@@ -502,6 +687,7 @@ function PodScheduleModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!podSchedule) return
+    if (!eta || !ata) return
 
     setSaving(true)
     try {
@@ -527,10 +713,10 @@ function PodScheduleModal({
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="ETA">
-              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
+              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} required />
             </Field>
             <Field label="ATA">
-              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
+              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} required />
             </Field>
           </div>
 
@@ -538,7 +724,7 @@ function PodScheduleModal({
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>
-            <Button loading={saving} type="submit">
+            <Button loading={saving} type="submit" disabled={!eta || !ata}>
               Salvar datas
             </Button>
           </div>
