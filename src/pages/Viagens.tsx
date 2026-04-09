@@ -1,20 +1,28 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
+import { Modal } from '../components/ui/Modal'
+import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
+import { deleteVoyage } from '../services/voyages'
 
 export function Viagens() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
   const { isAdmin } = useAuth()
   const { data, isLoading, error } = useVoyages()
   const [open, setOpen] = useState(false)
   const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
+  const [deletingVoyageId, setDeletingVoyageId] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const summary = useMemo(
     () => ({
@@ -27,6 +35,31 @@ export function Viagens() {
     }),
     [data],
   )
+  const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
+
+  async function handleDeleteVoyage() {
+    if (!deletingVoyageId) return
+
+    setDeleting(true)
+    try {
+      await deleteVoyage(deletingVoyageId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-options'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['containers'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+      ])
+
+      showToast('Viagem excluida com sucesso.', 'success')
+      setDeletingVoyageId(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao excluir viagem.'
+      showToast(message, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <>
@@ -88,9 +121,16 @@ export function Viagens() {
                     Ver manifestos desta viagem
                   </Button>
                   {isAdmin ? (
-                    <Button variant="secondary" onClick={() => setEditingVoyageId(voyage.id)}>
-                      Editar viagem
-                    </Button>
+                    <>
+                      <Button variant="secondary" onClick={() => setEditingVoyageId(voyage.id)}>
+                        <Pencil size={16} />
+                        Editar viagem
+                      </Button>
+                      <Button variant="danger" onClick={() => setDeletingVoyageId(voyage.id)}>
+                        <Trash2 size={16} />
+                        Excluir viagem
+                      </Button>
+                    </>
                   ) : null}
                 </div>
               </div>
@@ -113,6 +153,33 @@ export function Viagens() {
         initialValues={makeVoyageInitialValues(data?.find((voyage) => voyage.id === editingVoyageId))}
         onSaved={() => setEditingVoyageId(null)}
       />
+
+      <Modal open={deletingVoyageId !== null} onClose={() => setDeletingVoyageId(null)} title="Excluir Viagem">
+        <div className="grid gap-4">
+          <div className="rounded-xl border border-red-400/30 bg-red-950/30 p-3 text-sm text-red-100">
+            Esta exclusao e permanente. Ela so sera permitida se a viagem nao tiver importacoes nem B/Ls vinculados.
+          </div>
+
+          <div className="text-sm text-slate-300">
+            {deletingVoyage ? (
+              <>
+                Confirme a exclusao de <span className="font-semibold text-white">{deletingVoyage.vessel?.name ?? 'Navio'} / {deletingVoyage.voyage_number}</span>.
+              </>
+            ) : (
+              'Confirme a exclusao da viagem selecionada.'
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeletingVoyageId(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" loading={deleting} onClick={handleDeleteVoyage}>
+              Excluir viagem
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }
