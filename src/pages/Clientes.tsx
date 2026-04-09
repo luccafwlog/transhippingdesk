@@ -156,7 +156,10 @@ export function Clientes() {
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
         queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
       ])
-      showToast(`Base importada: ${result.imported} novo(s) e ${result.updated} atualizado(s).`, 'success')
+      showToast(
+        `Base importada: ${result.imported} novo(s), ${result.updated} atualizado(s) e ${result.contactsCreated} contato(s) de e-mail cadastrado(s).`,
+        'success',
+      )
       resetImportModal()
     } catch {
       showToast('Falha ao importar base de clientes.', 'error')
@@ -424,7 +427,11 @@ export function Clientes() {
             <div className="mt-2">
               As colunas obrigatorias do arquivo sao <span className="font-semibold text-white">CNPJ/CPF</span> e{' '}
               <span className="font-semibold text-white">Razao Social</span>. As colunas opcionais sao Nome Fantasia,
-              Endereco, Cidade, UF e CEP.
+              Endereco, Cidade, UF, CEP e Email.
+            </div>
+            <div className="mt-2 text-slate-400">
+              Se o mesmo CNPJ/CPF aparecer em mais de uma linha com e-mails distintos, todos os e-mails serao criados
+              como contatos do cliente.
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
@@ -463,7 +470,10 @@ export function Clientes() {
               <div className="grid gap-3 md:grid-cols-3">
                 <PreviewBox label="Clientes validos" value={parsedBase.rows.length} />
                 <PreviewBox label="Linhas ignoradas" value={parsedBase.rowErrors.length} />
-                <PreviewBox label="Prontos para vinculo" value={parsedBase.rows.length} />
+                <PreviewBox
+                  label="Emails detectados"
+                  value={parsedBase.rows.reduce((sum, row) => sum + row.emails.length, 0)}
+                />
               </div>
 
               {parsedBase.rowErrors.length ? (
@@ -479,6 +489,7 @@ export function Clientes() {
                     <tr>
                       <th className="px-3 py-2">CNPJ/CPF</th>
                       <th className="px-3 py-2">Nome</th>
+                      <th className="px-3 py-2">Emails</th>
                       <th className="px-3 py-2">Cidade/UF</th>
                       <th className="px-3 py-2">Endereco</th>
                     </tr>
@@ -488,6 +499,7 @@ export function Clientes() {
                       <tr key={row.cnpj_cpf}>
                         <td className="px-3 py-2">{formatCnpjCpf(row.cnpj_cpf)}</td>
                         <td className="px-3 py-2 font-semibold text-white">{row.name}</td>
+                        <td className="px-3 py-2">{row.emails.length ? row.emails.join('; ') : '-'}</td>
                         <td className="px-3 py-2">
                           {row.city ?? '-'} / {row.state ?? '-'}
                         </td>

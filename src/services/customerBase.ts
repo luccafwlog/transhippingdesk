@@ -1,5 +1,5 @@
 import { normalizeText, onlyDigits } from '../lib/utils'
-import type { Customer } from '../types/database'
+import type { Customer, CustomerContact } from '../types/database'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -24,7 +24,7 @@ export type CustomerBaseRow = {
   cnpj_cpf: string
   name: string
   trade_name: string | null
-  email: string | null
+  emails: string[]
   address: string | null
   city: string | null
   state: string | null
@@ -62,7 +62,7 @@ export async function parseCustomerBaseFile(file: File): Promise<ParsedCustomerB
 export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
   const uniqueRows = Array.from(new Map(rows.map((row) => [row.cnpj_cpf, row])).values())
   if (!uniqueRows.length) {
-    return { imported: 0, updated: 0 }
+    return { imported: 0, updated: 0, contactsCreated: 0 }
   }
 
   const documents = uniqueRows.map((row) => row.cnpj_cpf)
@@ -98,10 +98,77 @@ export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
     }
   })
 
-  const { error: upsertError } = await supabase.from('customers').upsert(payload, { onConflict: 'cnpj_cpf' })
+  const { data: upsertedCustomers, error: upsertError } = await supabase
+    .from('customers')
+    .upsert(payload, { onConflict: 'cnpj_cpf' })
+    .select('id, cnpj_cpf')
+
   if (upsertError) throw upsertError
 
-  return { imported, updated }
+  const customersByDocument = new Map<string, { id: number; cnpj_cpf: string }>()
+  ;(upsertedCustomers ?? []).forEach((customer) => customersByDocument.set(customer.cnpj_cpf, customer))
+
+  let contactsCreated = 0
+  const customerIds = (upsertedCustomers ?? []).map((customer) => customer.id)
+
+  if (customerIds.length) {
+    const { data: existingContacts, error: contactsError } = await supabase
+      .from('customer_contacts')
+      .select('customer_id, email, is_primary')
+      .in('customer_id', customerIds)
+
+    if (contactsError) throw contactsError
+
+    const emailsByCustomerId = new Map<number, Set<string>>()
+    const hasPrimaryByCustomerId = new Map<number, boolean>()
+
+    ;(existingContacts ?? []).forEach((contact) => {
+      if (!contact.customer_id) return
+
+      const currentEmails = emailsByCustomerId.get(contact.customer_id) ?? new Set<string>()
+      const normalizedEmail = normalizeEmail(contact.email)
+      if (normalizedEmail) currentEmails.add(normalizedEmail)
+      emailsByCustomerId.set(contact.customer_id, currentEmails)
+
+      if (contact.is_primary) {
+        hasPrimaryByCustomerId.set(contact.customer_id, true)
+      }
+    })
+
+    const contactsToInsert = uniqueRows.flatMap((row) => {
+      const customer = customersByDocument.get(row.cnpj_cpf)
+      if (!customer) return []
+
+      const existingEmails = emailsByCustomerId.get(customer.id) ?? new Set<string>()
+      let canAssignPrimary = !hasPrimaryByCustomerId.get(customer.id)
+
+      return row.emails
+        .map((email) => normalizeEmail(email))
+        .filter((email): email is string => Boolean(email))
+        .filter((email) => !existingEmails.has(email))
+        .map((email) => {
+          existingEmails.add(email)
+          const nextContact = {
+            customer_id: customer.id,
+            name: row.name,
+            email,
+            phone: null,
+            purpose: 'geral' as NonNullable<CustomerContact['purpose']>,
+            is_primary: canAssignPrimary,
+          }
+          canAssignPrimary = false
+          return nextContact
+        })
+    })
+
+    if (contactsToInsert.length) {
+      const { error: insertContactsError } = await supabase.from('customer_contacts').insert(contactsToInsert)
+      if (insertContactsError) throw insertContactsError
+      contactsCreated = contactsToInsert.length
+    }
+  }
+
+  return { imported, updated, contactsCreated }
 }
 
 function validateRequiredHeaders(rawHeaders: string[]) {
@@ -138,7 +205,7 @@ function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerB
       cnpj_cpf: cnpjCpf,
       name,
       trade_name: asNullableText(mapped.trade_name),
-      email: firstEmail(asString(mapped.email)) || null,
+      emails: extractEmails(asString(mapped.email)),
       address: asNullableText(mapped.address),
       city: asNullableText(mapped.city),
       state: normalizeState(asNullableText(mapped.state)),
@@ -176,9 +243,14 @@ function normalizeDocument(value: string) {
   return ''
 }
 
-function firstEmail(value: string) {
-  const match = asString(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
-  return match ? match[0].toUpperCase() : ''
+function extractEmails(value: string) {
+  const matches = asString(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []
+  return Array.from(new Set(matches.map((email) => normalizeEmail(email)).filter((email): email is string => Boolean(email))))
+}
+
+function normalizeEmail(value?: string | null) {
+  const text = asString(value).toUpperCase()
+  return text || ''
 }
 
 function chooseText(primary?: string | null, fallback?: string | null) {
@@ -219,7 +291,7 @@ function mergeBestRow(rows: CustomerBaseRow[]) {
       cnpj_cpf: current.cnpj_cpf,
       name: chooseBestName(best.name, current.name),
       trade_name: chooseText(current.trade_name, best.trade_name),
-      email: chooseText(current.email, best.email),
+      emails: mergeEmails(current.emails, best.emails),
       address: chooseText(current.address, best.address),
       city: chooseText(current.city, best.city),
       state: chooseState(current.state, best.state),
@@ -227,6 +299,10 @@ function mergeBestRow(rows: CustomerBaseRow[]) {
     }),
     rows[0],
   )
+}
+
+function mergeEmails(current: string[], candidate: string[]) {
+  return Array.from(new Set([...candidate, ...current].map((email) => normalizeEmail(email)).filter(Boolean)))
 }
 
 function chooseBestName(current: string, candidate: string) {
