@@ -14,7 +14,7 @@ import { type BlFilters, fetchAllBls, useBls, useVoyageOptions } from '../hooks/
 import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
 import { importManifest } from '../services/manifestImport'
-import { parseManifestFile, type ParsedManifest } from '../services/manifestParser'
+import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 
 const pageSizes = [20, 50, 100]
 
@@ -286,7 +286,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const totals = useMemo(
     () => ({
       bls: manifest?.bls.length ?? 0,
-      containers: manifest?.bls.reduce((sum, bl) => sum + bl.containers.length, 0) ?? 0,
+      containers: countDistinctManifestContainers(manifest),
       pending: manifest?.bls.filter((bl) => bl.review_status === 'pending_review').length ?? 0,
     }),
     [manifest],
@@ -378,7 +378,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
             <div className="grid gap-3 md:grid-cols-3">
               <PreviewBox label="B/Ls" value={totals.bls} />
-              <PreviewBox label="Containers" value={totals.containers} />
+              <PreviewBox label="Containers distintos" value={totals.containers} />
               <PreviewBox label="Pendentes revisao" value={totals.pending} />
             </div>
 

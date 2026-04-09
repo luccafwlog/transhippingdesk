@@ -1,5 +1,5 @@
 import { onlyDigits } from '../lib/utils'
-import type { ParsedManifest } from './manifestParser'
+import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
 
 export async function importManifest({
@@ -13,6 +13,8 @@ export async function importManifest({
   manifest: ParsedManifest
   uploadedBy: string
 }) {
+  const distinctContainerCount = countDistinctManifestContainers(manifest)
+
   const { data: batch, error: batchError } = await supabase
     .from('import_batches')
     .insert({
@@ -21,7 +23,7 @@ export async function importManifest({
       uploaded_by: uploadedBy,
       status: 'processing',
       total_bls: manifest.bls.length,
-      total_containers: manifest.bls.reduce((sum, bl) => sum + bl.containers.length, 0),
+      total_containers: distinctContainerCount,
       error_count: manifest.rowErrors.length,
     })
     .select()

@@ -68,6 +68,19 @@ export type ParsedManifest = {
   suggestedVoyage?: Partial<VoyageFormValues>
 }
 
+export function countDistinctManifestContainers(manifest: ParsedManifest | null | undefined) {
+  return countDistinctParsedContainers(manifest?.bls ?? [])
+}
+
+export function countDistinctParsedContainers(bls: ParsedBL[]) {
+  return new Set(
+    bls
+      .flatMap((bl) => bl.containers)
+      .map((container) => asString(container.container_number).toUpperCase())
+      .filter(Boolean),
+  ).size
+}
+
 type DestinationField = keyof typeof headerMap
 type RawSheetRow = unknown[]
 
@@ -146,7 +159,9 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
     if (containerNumber) {
       const previousBl = allContainers.get(containerNumber)
       if (previousBl) {
-        reasons.add(previousBl === blNumber ? 'Container duplicado no mesmo B/L' : 'Container duplicado em outro B/L')
+        if (previousBl === blNumber) {
+          reasons.add('Container duplicado no mesmo B/L')
+        }
       }
       allContainers.set(containerNumber, blNumber)
     }
@@ -281,7 +296,9 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
 
     const previousBl = allContainers.get(line.container)
     if (previousBl) {
-      reasons.add(previousBl === currentBL.bl ? 'Container duplicado no mesmo B/L' : 'Container duplicado em outro B/L')
+      if (previousBl === currentBL.bl) {
+        reasons.add('Container duplicado no mesmo B/L')
+      }
     }
     allContainers.set(line.container, currentBL.bl)
 
