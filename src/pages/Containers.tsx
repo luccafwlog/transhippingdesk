@@ -1,18 +1,26 @@
-import { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
+import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { type ContainerFilters, fetchAllContainers, useContainers, useVoyageOptions } from '../hooks/useBls'
 import { formatCnpjCpf } from '../lib/utils'
+import {
+  importContainerFlagsRows,
+  parseContainerFlagsImportFile,
+  type ParsedContainerFlagsImport,
+} from '../services/containerFlagsImport'
 import { exportContainerWorkbook } from '../services/exports'
 
 const pageSizes = [20, 50, 100]
 
 export function Containers() {
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
   const { showToast } = useToast()
@@ -28,6 +36,11 @@ export function Containers() {
     pageSize: 20,
   })
   const [exporting, setExporting] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [flagsFileName, setFlagsFileName] = useState('')
+  const [parsedFlags, setParsedFlags] = useState<ParsedContainerFlagsImport | null>(null)
+  const [parsingFlags, setParsingFlags] = useState(false)
+  const [importingFlags, setImportingFlags] = useState(false)
   const { data, isLoading, error } = useContainers(filters)
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
@@ -54,6 +67,65 @@ export function Containers() {
     }
   }
 
+  async function handleFlagsFile(event: ChangeEvent<HTMLInputElement>) {
+    const nextFile = event.target.files?.[0] ?? null
+    setFlagsFileName(nextFile?.name ?? '')
+    setParsedFlags(null)
+
+    if (!nextFile) return
+
+    setParsingFlags(true)
+    try {
+      const parsed = await parseContainerFlagsImportFile(nextFile)
+      setParsedFlags(parsed)
+      showToast(
+        parsed.rowErrors.length
+          ? `Planilha lida com ${parsed.rows.length} linha(s) valida(s) e ${parsed.rowErrors.length} ignorada(s).`
+          : `Planilha lida com ${parsed.rows.length} linha(s) valida(s).`,
+        parsed.rowErrors.length ? 'info' : 'success',
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel ler a planilha.'
+      showToast(message, 'error')
+    } finally {
+      setParsingFlags(false)
+    }
+  }
+
+  async function handleImportFlags() {
+    if (!parsedFlags?.rows.length) return
+
+    setImportingFlags(true)
+    try {
+      const result = await importContainerFlagsRows(parsedFlags.rows)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['containers'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
+
+      showToast(
+        `Atualizacao concluida: ${result.updated} linha(s) aplicada(s), ${result.unchanged} sem mudanca e ${result.missing} sem match no sistema.`,
+        'success',
+      )
+      resetImportModal()
+    } catch {
+      showToast('Falha ao atualizar flags de IMO/OOG.', 'error')
+    } finally {
+      setImportingFlags(false)
+    }
+  }
+
+  function resetImportModal() {
+    setImportOpen(false)
+    setFlagsFileName('')
+    setParsedFlags(null)
+    setParsingFlags(false)
+    setImportingFlags(false)
+  }
+
   return (
     <>
       <PageHeader
@@ -61,6 +133,9 @@ export function Containers() {
         description="Lista consolidada dos containers importados via manifestos. O total distinto considera o numero do container, mesmo quando ele aparece em mais de um B/L."
         action={
           <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              Importar IMO/OOG
+            </Button>
             <Button variant="secondary" loading={exporting} onClick={handleExport}>
               <Download size={16} />
               Exportar Containers
@@ -257,6 +332,98 @@ export function Containers() {
           </div>
         </div>
       </Card>
+
+      <Modal open={importOpen} onClose={resetImportModal} title="Importar Flags de IMO/OOG">
+        <div className="grid gap-5">
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
+            <div className="font-semibold text-white">Uso do arquivo</div>
+            <div className="mt-2">
+              Esta planilha atualiza containers existentes com base na combinacao <span className="font-semibold text-white">B/L + Container</span>.
+            </div>
+            <div className="mt-2">
+              As colunas obrigatorias sao <span className="font-semibold text-white">Container</span>, <span className="font-semibold text-white">BL</span>, <span className="font-semibold text-white">IMO</span> e <span className="font-semibold text-white">OOG</span>.
+            </div>
+            <div className="mt-2 text-slate-400">Os valores em IMO e OOG devem ser apenas Sim ou Nao.</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                href="/templates/imo-oog-modelo.xlsx"
+                download="imo-oog-modelo.xlsx"
+              >
+                <Download size={16} />
+                Baixar modelo .xlsx
+              </a>
+              <a
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                href="/templates/imo-oog-modelo.csv"
+                download="imo-oog-modelo.csv"
+              >
+                <Download size={16} />
+                Baixar modelo .csv
+              </a>
+            </div>
+          </div>
+
+          <Field label="Arquivo .xlsx, .xls ou .csv">
+            <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFlagsFile} />
+          </Field>
+
+          {flagsFileName ? <div className="text-sm text-slate-400">Arquivo selecionado: {flagsFileName}</div> : null}
+          {parsingFlags ? <div className="text-sm text-slate-400">Lendo planilha com SheetJS...</div> : null}
+
+          {parsedFlags ? (
+            <div className="grid gap-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <PreviewBox label="Linhas validas" value={parsedFlags.rows.length} />
+                <PreviewBox label="Linhas ignoradas" value={parsedFlags.rowErrors.length} />
+                <PreviewBox label="Atualizacoes previstas" value={parsedFlags.rows.length} />
+              </div>
+
+              <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
+                <table className="w-full min-w-[680px] text-left text-sm">
+                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">BL</th>
+                      <th className="px-3 py-2">Container</th>
+                      <th className="px-3 py-2">IMO</th>
+                      <th className="px-3 py-2">OOG</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    {parsedFlags.rows.slice(0, 20).map((row) => (
+                      <tr key={`${row.bl_id}-${row.container_number}`}>
+                        <td className="px-3 py-2 font-semibold text-white">{row.bl_id}</td>
+                        <td className="px-3 py-2">{row.container_number}</td>
+                        <td className="px-3 py-2">{row.is_imo ? 'Sim' : 'Nao'}</td>
+                        <td className="px-3 py-2">{row.is_oog ? 'Sim' : 'Nao'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {parsedFlags.rowErrors.length ? (
+                <div className="grid gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+                  {parsedFlags.rowErrors.slice(0, 8).map((rowError) => (
+                    <div key={`${rowError.row}-${rowError.message}`}>
+                      Linha {rowError.row}: {rowError.message}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={resetImportModal}>
+              Cancelar
+            </Button>
+            <Button disabled={!parsedFlags?.rows.length} loading={importingFlags} onClick={handleImportFlags}>
+              Atualizar containers
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }
@@ -268,6 +435,15 @@ function SummaryCard({ label, value }: { label: string; value: number | string }
       <div className="mt-2 text-3xl font-bold text-white">{value}</div>
       <div className="mt-1 text-xs text-slate-500">Considera os filtros ativos desta tela.</div>
     </Card>
+  )
+}
+
+function PreviewBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
+    </div>
   )
 }
 
