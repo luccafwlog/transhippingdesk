@@ -6,6 +6,7 @@ Plataforma interna para operacao de agente maritimo, com frontend em React/Vite,
 
 - Roadmap atualizado: `docs/ROADMAP.md`
 - Roteiro de validacao: `docs/VALIDACAO.md`
+- Modelo de base de clientes: `docs/templates/base-clientes-modelo.xlsx`
 
 ## Implementado
 
@@ -17,6 +18,7 @@ Plataforma interna para operacao de agente maritimo, com frontend em React/Vite,
 - Viagens com criacao e edicao.
 - Manifestos com filtros, paginacao e importacao de `.xlsx/.csv`.
 - Parser de manifesto com `xlsx` carregado dinamicamente.
+- Importacao de base mestre de clientes por `CNPJ/CPF`.
 - Detalhe do B/L com edicao manual e auditoria.
 
 ## Configuracao

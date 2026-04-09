@@ -76,8 +76,9 @@ export function Clientes() {
           : `Base lida com ${parsed.rows.length} clientes validos.`,
         parsed.rowErrors.length ? 'info' : 'success',
       )
-    } catch {
-      showToast('Nao foi possivel ler a base. Confira o layout do arquivo.', 'error')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel ler a base. Confira o layout do arquivo.'
+      showToast(message, 'error')
     } finally {
       setParsingBase(false)
     }
@@ -241,8 +242,9 @@ export function Clientes() {
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
             <div className="font-semibold text-white">Como esta importacao funciona</div>
             <div className="mt-2">
-              O sistema procura colunas como CNPJ/CPF, Razao Social, Nome, Cidade, UF e Endereco. Tambem aceita uma
-              coluna consolidada de consignee para extrair os dados.
+              As colunas obrigatorias do arquivo sao <span className="font-semibold text-white">CNPJ/CPF</span> e{' '}
+              <span className="font-semibold text-white">Razao Social</span>. As colunas opcionais sao Nome Fantasia,
+              Endereco, Cidade, UF e CEP.
             </div>
             <div className="mt-2 text-slate-400">
               Quando um manifesto trouxer o mesmo CNPJ/CPF, o B/L passa a usar o cliente desta base como cadastro

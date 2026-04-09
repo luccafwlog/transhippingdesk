@@ -3,15 +3,19 @@ import type { Customer } from '../types/database'
 import { supabase } from './supabase'
 
 const headerMap = {
-  cnpj_cpf: ['cnpj', 'cpf', 'cnpj/cpf', 'documento', 'tax id', 'vat'],
-  name: ['razao social', 'nome', 'cliente', 'importador'],
+  cnpj_cpf: ['cnpj/cpf', 'cnpj', 'cpf'],
+  name: ['razao social'],
   trade_name: ['nome fantasia', 'trade name', 'fantasia'],
   email: ['email', 'e-mail', 'mail'],
   address: ['endereco', 'address'],
   city: ['cidade', 'city'],
   state: ['uf', 'estado', 'state'],
   zip: ['cep', 'zip', 'zip code', 'zipcode'],
-  consignee_blob: ['consignee'],
+} as const
+
+const requiredHeaders = {
+  cnpj_cpf: 'CNPJ/CPF',
+  name: 'Razao Social',
 } as const
 
 type DestinationField = keyof typeof headerMap
@@ -37,6 +41,20 @@ export async function parseCustomerBaseFile(file: File): Promise<ParsedCustomerB
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+
+  if (!firstSheet) {
+    throw new Error('Arquivo sem abas validas.')
+  }
+
+  const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(firstSheet, {
+    header: 1,
+    defval: '',
+    blankrows: false,
+  })
+
+  const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
+  validateRequiredHeaders(rawHeaders)
+
   const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' })
   return parseCustomerBaseRows(objectRows)
 }
@@ -69,7 +87,7 @@ export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
 
     return {
       cnpj_cpf: row.cnpj_cpf,
-      name: row.name || existing?.name || 'Cliente sem nome',
+      name: row.name,
       trade_name: chooseText(row.trade_name, existing?.trade_name),
       address: chooseText(row.address, existing?.address),
       city: chooseText(row.city, existing?.city),
@@ -86,16 +104,25 @@ export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
   return { imported, updated }
 }
 
+function validateRequiredHeaders(rawHeaders: string[]) {
+  const normalizedHeaders = rawHeaders.map((header) => normalizeText(header))
+  const missing = Object.entries(requiredHeaders)
+    .filter(([, label]) => !normalizedHeaders.includes(normalizeText(label)))
+    .map(([, label]) => label)
+
+  if (missing.length) {
+    throw new Error(`Base invalida. Colunas obrigatorias: ${missing.join(', ')}.`)
+  }
+}
+
 function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerBase {
   const parsedRows: CustomerBaseRow[] = []
   const rowErrors: ParsedCustomerBase['rowErrors'] = []
 
   rows.forEach((row, index) => {
     const mapped = mapRow(row)
-    const blob = asString(mapped.consignee_blob)
-    const fallback = parseConsigneeBlob(blob)
-    const cnpjCpf = pickDocument(mapped, fallback)
-    const name = pickName(mapped, fallback)
+    const cnpjCpf = normalizeDocument(asString(mapped.cnpj_cpf))
+    const name = asString(mapped.name)
 
     if (!cnpjCpf) {
       rowErrors.push({ row: index + 2, message: 'Linha sem CNPJ/CPF valido.', raw: row })
@@ -103,7 +130,7 @@ function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerB
     }
 
     if (!name) {
-      rowErrors.push({ row: index + 2, message: 'Linha sem nome do cliente.', raw: row })
+      rowErrors.push({ row: index + 2, message: 'Linha sem Razao Social.', raw: row })
       return
     }
 
@@ -111,8 +138,8 @@ function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerB
       cnpj_cpf: cnpjCpf,
       name,
       trade_name: asNullableText(mapped.trade_name),
-      email: firstEmail(asString(mapped.email)) || fallback.email || null,
-      address: asNullableText(mapped.address) || fallback.address || null,
+      email: firstEmail(asString(mapped.email)) || null,
+      address: asNullableText(mapped.address),
       city: asNullableText(mapped.city),
       state: normalizeState(asNullableText(mapped.state)),
       zip: normalizeZip(asNullableText(mapped.zip)),
@@ -132,7 +159,7 @@ function mapRow(row: Record<string, unknown>) {
   Object.entries(row).forEach(([header, value]) => {
     const normalizedHeader = normalizeText(header)
     const destination = Object.entries(headerMap).find(([, candidates]) =>
-      candidates.some((candidate) => normalizedHeader.includes(normalizeText(candidate))),
+      candidates.some((candidate) => normalizedHeader === normalizeText(candidate)),
     )?.[0] as DestinationField | undefined
 
     if (destination && mapped[destination] === undefined) {
@@ -141,46 +168,6 @@ function mapRow(row: Record<string, unknown>) {
   })
 
   return mapped
-}
-
-function pickDocument(
-  mapped: Partial<Record<DestinationField, unknown>>,
-  fallback: ReturnType<typeof parseConsigneeBlob>,
-) {
-  const mappedDocument = normalizeDocument(asString(mapped.cnpj_cpf))
-  if (mappedDocument) return mappedDocument
-  return fallback.cnpj_cpf
-}
-
-function pickName(
-  mapped: Partial<Record<DestinationField, unknown>>,
-  fallback: ReturnType<typeof parseConsigneeBlob>,
-) {
-  return asNullableText(mapped.name) || fallback.name || ''
-}
-
-function parseConsigneeBlob(value: string) {
-  const parts = asString(value)
-    .split(/\r?\n/g)
-    .map((part) => asString(part))
-    .filter(Boolean)
-
-  const name = parts[0] || ''
-  const cnpj_cpf = parts.map(normalizeDocument).find(Boolean) || ''
-  const email = parts.map(firstEmail).find(Boolean) || ''
-  const address = parts
-    .filter((_, index) => index > 0)
-    .filter((part) => !normalizeDocument(part))
-    .filter((part) => !firstEmail(part))
-    .filter((part) => !/^(TEL|PHONE|FAX|EMAIL|E-?MAIL|ATTN|ATTENTION)\b/i.test(part))
-    .join(' ')
-
-  return {
-    name,
-    cnpj_cpf,
-    email,
-    address: address || '',
-  }
 }
 
 function normalizeDocument(value: string) {
