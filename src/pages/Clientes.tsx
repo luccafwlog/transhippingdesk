@@ -1,16 +1,56 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus, Upload } from 'lucide-react'
+import { Download, Plus, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
-import { Field, Input } from '../components/ui/Input'
+import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useCustomers } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf } from '../lib/utils'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { createCustomer } from '../services/customers'
+
+type ContactForm = {
+  name: string
+  email: string
+  phone: string
+  purpose: 'faturamento' | 'operacional' | 'financeiro' | 'geral'
+  is_primary: boolean
+}
+
+type CreateCustomerForm = {
+  cnpjCpf: string
+  name: string
+  tradeName: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  notes: string
+  contacts: ContactForm[]
+}
+
+const emptyContact: ContactForm = {
+  name: '',
+  email: '',
+  phone: '',
+  purpose: 'geral',
+  is_primary: false,
+}
+
+const emptyCreateForm: CreateCustomerForm = {
+  cnpjCpf: '',
+  name: '',
+  tradeName: '',
+  address: '',
+  city: '',
+  state: '',
+  zip: '',
+  notes: '',
+  contacts: [{ ...emptyContact }],
+}
 
 export function Clientes() {
   const navigate = useNavigate()
@@ -19,8 +59,7 @@ export function Clientes() {
   const [filters, setFilters] = useState({ search: '', city: '' })
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [cnpjCpf, setCnpjCpf] = useState('')
-  const [name, setName] = useState('')
+  const [createForm, setCreateForm] = useState<CreateCustomerForm>(emptyCreateForm)
   const [saving, setSaving] = useState(false)
   const [baseFileName, setBaseFileName] = useState('')
   const [parsedBase, setParsedBase] = useState<ParsedCustomerBase | null>(null)
@@ -38,19 +77,42 @@ export function Clientes() {
   )
 
   async function handleCreateCustomer() {
-    if (!cnpjCpf.trim() || !name.trim()) {
-      showToast('Informe CNPJ/CPF e nome para criar o cliente.', 'error')
+    if (!createForm.cnpjCpf.trim() || !createForm.name.trim()) {
+      showToast('Informe CNPJ/CPF e Razao Social para criar o cliente.', 'error')
+      return
+    }
+
+    const activeContacts = createForm.contacts.filter(
+      (contact) => contact.name.trim() || contact.email.trim() || contact.phone.trim(),
+    )
+
+    if (activeContacts.some((contact) => !contact.name.trim())) {
+      showToast('Todo contato preenchido parcialmente precisa ter nome.', 'error')
       return
     }
 
     setSaving(true)
     try {
-      const customer = await createCustomer({ cnpjCpf, name })
-      await queryClient.invalidateQueries({ queryKey: ['customers'] })
+      const customer = await createCustomer({
+        cnpjCpf: createForm.cnpjCpf,
+        name: createForm.name,
+        tradeName: createForm.tradeName,
+        address: createForm.address,
+        city: createForm.city,
+        state: createForm.state,
+        zip: createForm.zip,
+        notes: createForm.notes,
+        contacts: activeContacts,
+      })
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
+      ])
+
       showToast('Cliente cadastrado com sucesso.', 'success')
       setCreateOpen(false)
-      setCnpjCpf('')
-      setName('')
+      setCreateForm(emptyCreateForm)
       navigate(`/clientes/${customer.cnpj_cpf}`)
     } catch {
       showToast('Falha ao cadastrar cliente.', 'error')
@@ -94,10 +156,7 @@ export function Clientes() {
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
         queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
       ])
-      showToast(
-        `Base importada: ${result.imported} novo(s) e ${result.updated} atualizado(s).`,
-        'success',
-      )
+      showToast(`Base importada: ${result.imported} novo(s) e ${result.updated} atualizado(s).`, 'success')
       resetImportModal()
     } catch {
       showToast('Falha ao importar base de clientes.', 'error')
@@ -112,6 +171,36 @@ export function Clientes() {
     setParsedBase(null)
     setParsingBase(false)
     setImportingBase(false)
+  }
+
+  function resetCreateModal() {
+    setCreateOpen(false)
+    setCreateForm(emptyCreateForm)
+    setSaving(false)
+  }
+
+  function updateCreateField<K extends keyof Omit<CreateCustomerForm, 'contacts'>>(field: K, value: CreateCustomerForm[K]) {
+    setCreateForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateContact(index: number, patch: Partial<ContactForm>) {
+    setCreateForm((current) => ({
+      ...current,
+      contacts: current.contacts.map((contact, currentIndex) =>
+        currentIndex === index ? { ...contact, ...patch } : contact,
+      ),
+    }))
+  }
+
+  function addContact() {
+    setCreateForm((current) => ({ ...current, contacts: [...current.contacts, { ...emptyContact }] }))
+  }
+
+  function removeContact(index: number) {
+    setCreateForm((current) => ({
+      ...current,
+      contacts: current.contacts.length === 1 ? [{ ...emptyContact }] : current.contacts.filter((_, currentIndex) => currentIndex !== index),
+    }))
   }
 
   return (
@@ -218,16 +307,107 @@ export function Clientes() {
         </div>
       </Card>
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Novo Cliente">
-        <div className="grid gap-4">
-          <Field label="CNPJ/CPF">
-            <Input value={cnpjCpf} onChange={(event) => setCnpjCpf(event.target.value)} />
+      <Modal open={createOpen} onClose={resetCreateModal} title="Novo Cliente">
+        <div className="grid gap-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="CNPJ/CPF">
+              <Input value={createForm.cnpjCpf} onChange={(event) => updateCreateField('cnpjCpf', event.target.value)} />
+            </Field>
+            <Field label="Razao Social">
+              <Input value={createForm.name} onChange={(event) => updateCreateField('name', event.target.value)} />
+            </Field>
+            <Field label="Nome fantasia">
+              <Input
+                value={createForm.tradeName}
+                onChange={(event) => updateCreateField('tradeName', event.target.value)}
+              />
+            </Field>
+            <Field label="Endereco">
+              <Input value={createForm.address} onChange={(event) => updateCreateField('address', event.target.value)} />
+            </Field>
+            <Field label="Cidade">
+              <Input value={createForm.city} onChange={(event) => updateCreateField('city', event.target.value)} />
+            </Field>
+            <Field label="UF">
+              <Input
+                value={createForm.state}
+                onChange={(event) => updateCreateField('state', event.target.value.toUpperCase())}
+              />
+            </Field>
+            <Field label="CEP">
+              <Input value={createForm.zip} onChange={(event) => updateCreateField('zip', event.target.value)} />
+            </Field>
+          </div>
+
+          <Field label="Notas">
+            <Textarea value={createForm.notes} onChange={(event) => updateCreateField('notes', event.target.value)} />
           </Field>
-          <Field label="Nome">
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
-          </Field>
+
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold text-white">Contatos do cliente</div>
+                <div className="text-sm text-slate-400">Voce pode cadastrar os contatos principais ja na criacao.</div>
+              </div>
+              <Button variant="secondary" onClick={addContact}>
+                <Plus size={16} />
+                Adicionar contato
+              </Button>
+            </div>
+
+            <div className="grid gap-4">
+              {createForm.contacts.map((contact, index) => (
+                <div key={index} className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="font-semibold text-white">Contato {index + 1}</div>
+                    <Button variant="ghost" onClick={() => removeContact(index)}>
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <Field label="Nome">
+                      <Input value={contact.name} onChange={(event) => updateContact(index, { name: event.target.value })} />
+                    </Field>
+                    <Field label="Email">
+                      <Input
+                        type="email"
+                        value={contact.email}
+                        onChange={(event) => updateContact(index, { email: event.target.value })}
+                      />
+                    </Field>
+                    <Field label="Telefone">
+                      <Input value={contact.phone} onChange={(event) => updateContact(index, { phone: event.target.value })} />
+                    </Field>
+                    <Field label="Finalidade">
+                      <Select
+                        value={contact.purpose}
+                        onChange={(event) =>
+                          updateContact(index, { purpose: event.target.value as ContactForm['purpose'] })
+                        }
+                      >
+                        <option value="geral">Geral</option>
+                        <option value="operacional">Operacional</option>
+                        <option value="faturamento">Faturamento</option>
+                        <option value="financeiro">Financeiro</option>
+                      </Select>
+                    </Field>
+                    <Field label="Principal">
+                      <Select
+                        value={contact.is_primary ? 'sim' : 'nao'}
+                        onChange={(event) => updateContact(index, { is_primary: event.target.value === 'sim' })}
+                      >
+                        <option value="nao">Nao</option>
+                        <option value="sim">Sim</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setCreateOpen(false)}>
+            <Button variant="secondary" onClick={resetCreateModal}>
               Cancelar
             </Button>
             <Button loading={saving} onClick={handleCreateCustomer}>
@@ -240,16 +420,35 @@ export function Clientes() {
       <Modal open={importOpen} onClose={resetImportModal} title="Importar Base de Clientes">
         <div className="grid gap-5">
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
-            <div className="font-semibold text-white">Como esta importacao funciona</div>
+            <div className="font-semibold text-white">Modelo padrao da base</div>
             <div className="mt-2">
               As colunas obrigatorias do arquivo sao <span className="font-semibold text-white">CNPJ/CPF</span> e{' '}
               <span className="font-semibold text-white">Razao Social</span>. As colunas opcionais sao Nome Fantasia,
               Endereco, Cidade, UF e CEP.
             </div>
-            <div className="mt-2 text-slate-400">
-              Quando um manifesto trouxer o mesmo CNPJ/CPF, o B/L passa a usar o cliente desta base como cadastro
-              oficial.
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                href="/templates/base-clientes-modelo.xlsx"
+                download="base-clientes-modelo.xlsx"
+              >
+                <Download size={16} />
+                Baixar modelo .xlsx
+              </a>
+              <a
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                href="/templates/base-clientes-modelo.csv"
+                download="base-clientes-modelo.csv"
+              >
+                <Download size={16} />
+                Baixar modelo .csv
+              </a>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
+            Quando um manifesto trouxer o mesmo CNPJ/CPF, o B/L passa a usar o cliente desta base como cadastro
+            oficial.
           </div>
 
           <Field label="Arquivo .xlsx, .xls ou .csv">
@@ -264,10 +463,7 @@ export function Clientes() {
               <div className="grid gap-3 md:grid-cols-3">
                 <PreviewBox label="Clientes validos" value={parsedBase.rows.length} />
                 <PreviewBox label="Linhas ignoradas" value={parsedBase.rowErrors.length} />
-                <PreviewBox
-                  label="Prontos para vinculo"
-                  value={parsedBase.rows.filter((row) => Boolean(row.cnpj_cpf)).length}
-                />
+                <PreviewBox label="Prontos para vinculo" value={parsedBase.rows.length} />
               </div>
 
               {parsedBase.rowErrors.length ? (

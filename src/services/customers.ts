@@ -4,17 +4,66 @@ import type { Customer, CustomerContact } from '../types/database'
 
 type CustomerEditableFields = Pick<Customer, 'name' | 'trade_name' | 'address' | 'city' | 'state' | 'zip' | 'notes'>
 
-export async function createCustomer(input: { cnpjCpf: string; name: string }) {
+type CreateCustomerContactInput = {
+  name: string
+  email?: string | null
+  phone?: string | null
+  purpose?: NonNullable<CustomerContact['purpose']>
+  is_primary?: boolean
+}
+
+type CreateCustomerInput = {
+  cnpjCpf: string
+  name: string
+  tradeName?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  notes?: string
+  contacts?: CreateCustomerContactInput[]
+}
+
+export async function createCustomer(input: CreateCustomerInput) {
   const { data, error } = await supabase
     .from('customers')
     .insert({
       cnpj_cpf: onlyDigits(input.cnpjCpf),
       name: input.name.trim(),
+      trade_name: normalizeText(input.tradeName),
+      address: normalizeText(input.address),
+      city: normalizeText(input.city),
+      state: normalizeState(input.state),
+      zip: normalizeZip(input.zip),
+      notes: normalizeText(input.notes),
     })
     .select('*')
     .single()
 
   if (error || !data) throw error
+
+  const contacts = (input.contacts ?? []).filter(
+    (contact) => contact.name.trim() || (contact.email ?? '').trim() || (contact.phone ?? '').trim(),
+  )
+
+  if (contacts.length) {
+    const contactPayload = contacts.map((contact) => ({
+      customer_id: data.id,
+      name: contact.name.trim() || 'Contato sem nome',
+      email: normalizeText(contact.email),
+      phone: normalizeText(contact.phone),
+      purpose: contact.purpose ?? 'geral',
+      is_primary: contact.is_primary ?? false,
+    }))
+
+    const { error: contactError } = await supabase.from('customer_contacts').insert(contactPayload)
+
+    if (contactError) {
+      await supabase.from('customers').delete().eq('id', data.id)
+      throw contactError
+    }
+  }
+
   return data as Customer
 }
 
@@ -112,4 +161,19 @@ export async function linkBlToCustomer({
 
 function stringifyValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
+}
+
+function normalizeText(value?: string | null) {
+  const text = (value ?? '').trim()
+  return text || null
+}
+
+function normalizeState(value?: string | null) {
+  const text = normalizeText(value)
+  return text ? text.toUpperCase().slice(0, 2) : null
+}
+
+function normalizeZip(value?: string | null) {
+  const digits = onlyDigits(value)
+  return digits || null
 }
