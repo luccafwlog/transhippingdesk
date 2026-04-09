@@ -266,7 +266,8 @@ export function Viagens() {
                             <td className="px-3 py-2">
                               <Button
                                 variant="secondary"
-                                className="h-8 px-3"
+                                className="h-8 w-8 p-0"
+                                aria-label={`Editar ETD do POL ${row.pol}`}
                                 onClick={() =>
                                   setEditingPol({
                                     voyageId: voyage.id,
@@ -276,7 +277,7 @@ export function Viagens() {
                                   })
                                 }
                               >
-                                Editar ETD
+                                <Pencil size={14} />
                               </Button>
                             </td>
                           </tr>
@@ -313,7 +314,8 @@ export function Viagens() {
                             <td className="px-3 py-2">
                               <Button
                                 variant="secondary"
-                                className="h-8 px-3"
+                                className="h-8 w-8 p-0"
+                                aria-label={`Editar datas do POD ${row.pod}`}
                                 onClick={() =>
                                   setEditingPod({
                                     voyageId: voyage.id,
@@ -324,7 +326,7 @@ export function Viagens() {
                                   })
                                 }
                               >
-                                Editar POD
+                                <Pencil size={14} />
                               </Button>
                             </td>
                           </tr>
