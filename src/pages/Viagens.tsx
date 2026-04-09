@@ -682,7 +682,6 @@ function PodScheduleModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!podSchedule) return
-    if (!eta || !ata) return
 
     setSaving(true)
     try {
@@ -708,10 +707,10 @@ function PodScheduleModal({
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="ETA">
-              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} required />
+              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
             </Field>
             <Field label="ATA">
-              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} required />
+              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
             </Field>
           </div>
 
@@ -719,7 +718,7 @@ function PodScheduleModal({
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>
-            <Button loading={saving} type="submit" disabled={!eta || !ata}>
+            <Button loading={saving} type="submit">
               Salvar datas
             </Button>
           </div>
