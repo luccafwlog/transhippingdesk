@@ -15,6 +15,13 @@ export function formatBRL(value?: number | string | null) {
 
 export function formatDate(value?: string | null) {
   if (!value) return '-'
+
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch
+    return `${day}/${month}/${year}`
+  }
+
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
