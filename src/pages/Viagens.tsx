@@ -10,7 +10,6 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
-import { formatDate } from '../lib/utils'
 import { deleteVoyage } from '../services/voyages'
 
 export function Viagens() {
@@ -112,9 +111,6 @@ export function Viagens() {
               <dl className="grid gap-2 text-sm text-slate-300">
                 <Info label="Portos de Origem" value={originPorts.join(' | ') || 'Definidos por manifesto'} />
                 <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
-                <Info label="ETD do manifesto" value={formatDate(voyage.etd)} />
-                <Info label="ETA informado" value={formatDate(voyage.eta)} />
-                <Info label="ATA" value={formatDate(voyage.ata)} />
                 <Info label="B/Ls" value={String(totalBls)} />
                 <Info label="Containers distintos" value={String(totalContainers)} />
               </dl>
@@ -124,19 +120,17 @@ export function Viagens() {
                   <div>
                     <div className="font-semibold text-white">Trechos consolidados</div>
                     <div className="text-sm text-slate-400">
-                      O ETD vem do manifesto importado. O ETA e mantido pelo usuario na viagem.
+                      Os trechos consolidados mostram apenas os portos efetivamente importados. ETD, ETA e ATA nao aparecem aqui porque a granularidade correta e por trecho POL/POD, nao por viagem inteira.
                     </div>
                   </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[620px] text-left text-sm">
+                  <table className="w-full min-w-[420px] text-left text-sm">
                     <thead className="text-xs uppercase tracking-wider text-slate-500">
                       <tr>
                         <th className="px-3 py-2">POL</th>
                         <th className="px-3 py-2">POD</th>
-                        <th className="px-3 py-2">ETD manifesto</th>
-                        <th className="px-3 py-2">ETA informado</th>
                         <th className="px-3 py-2">B/Ls</th>
                       </tr>
                     </thead>
@@ -146,14 +140,12 @@ export function Viagens() {
                           <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
                             <td className="px-3 py-2">{route.pol}</td>
                             <td className="px-3 py-2">{route.pod}</td>
-                            <td className="px-3 py-2">{formatDate(voyage.etd)}</td>
-                            <td className="px-3 py-2">{formatDate(voyage.eta)}</td>
                             <td className="px-3 py-2">{route.blCount}</td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={5} className="px-3 py-3 text-slate-400">
+                          <td colSpan={3} className="px-3 py-3 text-slate-400">
                             Nenhum trecho identificado nos manifestos desta viagem.
                           </td>
                         </tr>
@@ -298,8 +290,6 @@ function makeVoyageInitialValues(
   voyage:
     | {
         voyage_number: string
-        etd: string | null
-        eta: string | null
         status: string | null
         vessel?: {
           name: string
@@ -317,8 +307,6 @@ function makeVoyageInitialValues(
     vesselName: voyage.vessel?.name ?? '',
     vesselImo: voyage.vessel?.imo ?? '',
     voyageNumber: voyage.voyage_number,
-    etd: voyage.etd ? toLocalDatetimeInput(voyage.etd) : '',
-    eta: voyage.eta ? toLocalDatetimeInput(voyage.eta) : '',
     status: normalizeVoyageStatus(voyage.status),
   }
 }
@@ -326,13 +314,4 @@ function makeVoyageInitialValues(
 function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 'cancelled' {
   if (status === 'completed' || status === 'cancelled') return status
   return 'active'
-}
-
-function toLocalDatetimeInput(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-
-  const offset = date.getTimezoneOffset()
-  const localDate = new Date(date.getTime() - offset * 60_000)
-  return localDate.toISOString().slice(0, 16)
 }

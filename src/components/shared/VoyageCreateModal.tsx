@@ -61,7 +61,8 @@ export function VoyageCreateModal({
     <Modal open={open} onClose={onClose} title={title}>
       <form className="grid gap-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-          {note ?? 'A viagem representa o navio/viagem. Os trechos POL/POD ficam em cada manifesto importado.'}
+          {note ??
+            'A viagem representa apenas navio e numero da viagem. ETD, ETA e ATA pertencem a cada trecho POL/POD e nao sao cadastrados aqui.'}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -107,20 +108,6 @@ export function VoyageCreateModal({
               <option value="completed">Concluida</option>
               <option value="cancelled">Cancelada</option>
             </Select>
-          </Field>
-          <Field label="ETD">
-            <Input
-              type="datetime-local"
-              value={form.etd}
-              onChange={(event) => setForm((current) => ({ ...current, etd: event.target.value }))}
-            />
-          </Field>
-          <Field label="ETA">
-            <Input
-              type="datetime-local"
-              value={form.eta}
-              onChange={(event) => setForm((current) => ({ ...current, eta: event.target.value }))}
-            />
           </Field>
         </div>
 

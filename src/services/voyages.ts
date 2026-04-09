@@ -12,8 +12,6 @@ export async function createVoyage(form: VoyageFormValues) {
       voyage_number: form.voyageNumber.trim(),
       pol_id: null,
       pod_id: null,
-      etd: form.etd || null,
-      eta: form.eta || null,
       status: form.status,
     })
     .select('id')
@@ -33,8 +31,6 @@ export async function updateVoyage(voyageId: number, form: VoyageFormValues) {
     .update({
       vessel_id: vesselId,
       voyage_number: form.voyageNumber.trim(),
-      etd: form.etd || null,
-      eta: form.eta || null,
       status: form.status,
     })
     .eq('id', voyageId)

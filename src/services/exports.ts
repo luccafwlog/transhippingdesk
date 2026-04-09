@@ -20,8 +20,6 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
     CBM: row.total_cbm ?? '',
     Revisao: row.review_status ?? '',
     Financeiro: row.financial_status ?? '',
-    ETA: row.voyage?.eta ?? '',
-    ATA: row.voyage?.ata ?? '',
   }))
 
   const containerRows = rows.flatMap((row) =>

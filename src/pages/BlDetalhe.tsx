@@ -291,8 +291,7 @@ export function BlDetalhe() {
             <InfoLine label="Cliente" value={bl.customer?.name ?? 'Não vinculado'} />
             <InfoLine label="CNPJ/CPF" value={bl.customer?.cnpj_cpf ?? '-'} />
             <InfoLine label="Saldo pendente" value={formatBRL(bl.customer?.pending_balance ?? 0)} />
-            <InfoLine label="ETA" value={formatDate(bl.voyage?.eta)} />
-            <InfoLine label="ATA" value={formatDate(bl.voyage?.ata)} />
+            <InfoLine label="Trecho" value={`${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`} />
           </dl>
         </Card>
 

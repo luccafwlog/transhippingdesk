@@ -337,7 +337,6 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
       carrierScac: DEFAULT_CARRIER_SCAC,
       vesselName: meta.vessel,
       voyageNumber: meta.voyage,
-      etd: meta.sailed_at ? `${meta.sailed_at}T00:00` : '',
       status: 'active',
     },
   }

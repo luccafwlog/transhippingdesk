@@ -7,8 +7,6 @@ export type VoyageFormValues = {
   vesselName: string
   vesselImo: string
   voyageNumber: string
-  etd: string
-  eta: string
   status: 'active' | 'completed' | 'cancelled'
 }
 
@@ -18,7 +16,5 @@ export const initialVoyageFormValues: VoyageFormValues = {
   vesselName: '',
   vesselImo: '',
   voyageNumber: '',
-  etd: '',
-  eta: '',
   status: 'active',
 }
