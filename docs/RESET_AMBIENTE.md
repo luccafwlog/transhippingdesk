@@ -10,6 +10,9 @@ Use este procedimento quando precisar zerar a base operacional entre rodadas de 
 - `public.vessels`
 - `public.ports`
 - `public.voyages`
+- `public.customers`
+- `public.customer_contacts`
+- `public.customer_rate_overrides`
 - `public.charge_tables`
 - `public.charge_table_items`
 
@@ -18,9 +21,6 @@ Use este procedimento quando precisar zerar a base operacional entre rodadas de 
 - lotes de importacao de manifesto
 - B/Ls
 - containers
-- clientes
-- contatos de clientes
-- overrides comerciais
 - calculos
 - invoices
 - pagamentos
@@ -54,18 +54,19 @@ SELECT 'bls', COUNT(*) FROM public.bls
 UNION ALL
 SELECT 'bl_containers', COUNT(*) FROM public.bl_containers
 UNION ALL
-SELECT 'customers', COUNT(*) FROM public.customers
+SELECT 'customers_preserved', COUNT(*) FROM public.customers
 UNION ALL
-SELECT 'customer_contacts', COUNT(*) FROM public.customer_contacts
+SELECT 'customer_contacts_preserved', COUNT(*) FROM public.customer_contacts
 UNION ALL
 SELECT 'audit_logs', COUNT(*) FROM public.audit_logs;
 ```
 
 Resultado esperado:
 
-- tudo acima deve retornar `0`
+- `import_batches`, `bls`, `bl_containers` e `audit_logs` devem retornar `0`
+- `customers_preserved` e `customer_contacts_preserved` devem manter seus valores
 - `voyages`, `carriers`, `vessels` e `ports` continuam disponiveis
 
 ## Observacao
 
-Esse reset foi desenhado para repetir testes rapidamente sem precisar recriar o cadastro estrutural da viagem.
+Esse reset foi desenhado para repetir testes rapidamente sem precisar recriar nem a estrutura da viagem nem o cadastro mestre de clientes.

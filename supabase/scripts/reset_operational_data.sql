@@ -6,15 +6,16 @@
 -- - public.vessels
 -- - public.ports
 -- - public.voyages
+-- - public.customers
+-- - public.customer_contacts
+-- - public.customer_rate_overrides
 -- - public.charge_tables
 -- - public.charge_table_items
 --
 -- Remove:
 -- - manifestos/import batches
 -- - B/Ls e containers
--- - clientes e contatos
 -- - calculos, invoices e pagamentos
--- - overrides comerciais
 -- - auditoria, alertas e contador de invoice
 
 BEGIN;
@@ -28,9 +29,6 @@ TRUNCATE TABLE
   public.bls,
   public.import_errors,
   public.import_batches,
-  public.customer_contacts,
-  public.customer_rate_overrides,
-  public.customers,
   public.alerts,
   public.audit_logs,
   public.invoice_counters
@@ -45,8 +43,8 @@ COMMIT;
 -- UNION ALL
 -- SELECT 'bl_containers', COUNT(*) FROM public.bl_containers
 -- UNION ALL
--- SELECT 'customers', COUNT(*) FROM public.customers
+-- SELECT 'customers_preserved', COUNT(*) FROM public.customers
 -- UNION ALL
--- SELECT 'customer_contacts', COUNT(*) FROM public.customer_contacts
+-- SELECT 'customer_contacts_preserved', COUNT(*) FROM public.customer_contacts
 -- UNION ALL
 -- SELECT 'audit_logs', COUNT(*) FROM public.audit_logs;

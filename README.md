@@ -6,7 +6,7 @@ Plataforma interna para operacao de agente maritimo, com frontend em React/Vite,
 
 - Roadmap atualizado: `docs/ROADMAP.md`
 - Roteiro de validacao: `docs/VALIDACAO.md`
-- Reset de ambiente de testes: `docs/RESET_AMBIENTE.md`
+- Reset operacional de testes com preservacao do cadastro mestre: `docs/RESET_AMBIENTE.md`
 - Modelo de base de clientes: `docs/templates/base-clientes-modelo.xlsx`
 
 ## Implementado
