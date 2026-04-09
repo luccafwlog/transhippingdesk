@@ -155,10 +155,7 @@ export function Manifestos() {
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />
-        <SummaryCard
-          label="Containers distintos"
-          value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0}
-        />
+        <SummaryCard label="CNTRS" value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0} />
         <SummaryCard label="Pendentes revisao" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />
         <SummaryCard
           label="Sem faturamento"
@@ -172,7 +169,7 @@ export function Manifestos() {
         ) : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1010px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. B/L</th>
@@ -181,11 +178,9 @@ export function Manifestos() {
                 <th className="px-4 py-3">CNPJ</th>
                 <th className="px-4 py-3">POL</th>
                 <th className="px-4 py-3">POD</th>
-                <th className="px-4 py-3">Containers distintos</th>
+                <th className="px-4 py-3">CNTRS</th>
                 <th className="px-4 py-3">IMO</th>
                 <th className="px-4 py-3">OOG</th>
-                <th className="px-4 py-3">Peso</th>
-                <th className="px-4 py-3">CBM</th>
                 <th className="px-4 py-3">Revisao</th>
                 <th className="px-4 py-3">Financeiro</th>
                 <th className="px-4 py-3">Acoes</th>
@@ -194,14 +189,14 @@ export function Manifestos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={14} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -227,8 +222,6 @@ export function Manifestos() {
                   <td className="px-4 py-3">
                     <CargoFlagBadge active={Boolean(bl.bl_containers?.some((container) => container.is_oog))} label="OOG" />
                   </td>
-                  <td className="px-4 py-3">{Number(bl.total_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
-                  <td className="px-4 py-3">{Number(bl.total_cbm ?? 0).toLocaleString('pt-BR')}</td>
                   <td className="px-4 py-3">
                     <ReviewBadge status={bl.review_status ?? 'ok'} />
                   </td>

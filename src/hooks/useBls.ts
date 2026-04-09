@@ -79,6 +79,18 @@ export function useContainers(filters: ContainerFilters) {
       const filteredRows = await fetchAllContainers(filters)
       const from = (filters.page - 1) * filters.pageSize
       const to = from + filters.pageSize
+      const typeGroups = new Map<string, ContainerListItem[]>()
+
+      for (const row of filteredRows) {
+        const typeLabel = String(row.type ?? '').trim() || 'Nao informado'
+        const group = typeGroups.get(typeLabel)
+
+        if (group) {
+          group.push(row)
+        } else {
+          typeGroups.set(typeLabel, [row])
+        }
+      }
 
       return {
         rows: filteredRows.slice(from, to),
@@ -87,6 +99,12 @@ export function useContainers(filters: ContainerFilters) {
         oogDistinctCount: countDistinctContainerNumbersBy(filteredRows, (container) => Boolean(container.is_oog)),
         imoDistinctCount: countDistinctContainerNumbersBy(filteredRows, (container) => Boolean(container.is_imo)),
         blCount: new Set(filteredRows.map((container) => container.bl?.id).filter(Boolean)).size,
+        typeSummary: Array.from(typeGroups.entries())
+          .map(([type, rows]) => ({
+            type,
+            distinctCount: countDistinctContainerNumbers(rows),
+          }))
+          .sort((left, right) => right.distinctCount - left.distinctCount || left.type.localeCompare(right.type, 'pt-BR')),
       }
     },
   })

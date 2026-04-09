@@ -222,6 +222,29 @@ export function Containers() {
         <SummaryCard label="IMO distintos" value={isLoading ? '...' : data?.imoDistinctCount ?? 0} />
       </div>
 
+      <Card className="mb-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm text-slate-400">Resumo por tipo</div>
+            <div className="mt-1 text-xs text-slate-500">Conta containers distintos por tipo com base nos filtros ativos.</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {isLoading ? (
+              <span className="text-sm text-slate-400">Carregando tipos...</span>
+            ) : data?.typeSummary.length ? (
+              data.typeSummary.map((item) => (
+                <div key={item.type} className="rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm">
+                  <span className="font-semibold text-white">{item.type}</span>
+                  <span className="ml-2 text-slate-400">{item.distinctCount}</span>
+                </div>
+              ))
+            ) : (
+              <span className="text-sm text-slate-400">Nenhum tipo encontrado.</span>
+            )}
+          </div>
+        </div>
+      </Card>
+
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
