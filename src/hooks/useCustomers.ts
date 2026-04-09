@@ -4,7 +4,6 @@ import type { Customer, CustomerDetail, CustomerListItem } from '../types/databa
 
 export type CustomerFilters = {
   search: string
-  city: string
 }
 
 export function useCustomers(filters: CustomerFilters) {
@@ -21,10 +20,6 @@ export function useCustomers(filters: CustomerFilters) {
         query = query.or(
           `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%`,
         )
-      }
-
-      if (filters.city) {
-        query = query.ilike('city', `%${filters.city}%`)
       }
 
       const { data, error, count } = await query

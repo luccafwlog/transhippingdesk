@@ -174,8 +174,7 @@ export function Manifestos() {
               <tr>
                 <th className="px-4 py-3">No. B/L</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="w-[84px] px-4 py-3">CNEE</th>
-                <th className="px-4 py-3">CNPJ</th>
+                <th className="w-[168px] px-4 py-3">CNEE</th>
                 <th className="px-4 py-3">POL</th>
                 <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">CNTRS</th>
@@ -186,14 +185,14 @@ export function Manifestos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -209,11 +208,13 @@ export function Manifestos() {
                     {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="block max-w-[84px] overflow-hidden text-clip whitespace-nowrap" title={bl.customer?.name ?? bl.consignee ?? '-'}>
+                    <span
+                      className="block max-w-[168px] overflow-hidden text-clip whitespace-nowrap"
+                      title={bl.customer?.name ?? bl.consignee ?? '-'}
+                    >
                       {bl.customer?.name ?? bl.consignee ?? '-'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{formatCnpjCpf(bl.customer?.cnpj_cpf)}</td>
                   <td className="px-4 py-3">{bl.pol ?? '-'}</td>
                   <td className="px-4 py-3">{bl.pod ?? '-'}</td>
                   <td className="px-4 py-3">{countDistinctContainerNumbers(bl.bl_containers)}</td>
