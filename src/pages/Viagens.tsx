@@ -249,8 +249,13 @@ export function Viagens() {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[320px] text-left text-sm">
+                  <div>
+                    <table className="w-full table-fixed text-left text-sm">
+                      <colgroup>
+                        <col className="w-[40%]" />
+                        <col className="w-[30%]" />
+                        <col className="w-[30%]" />
+                      </colgroup>
                       <thead className="text-xs uppercase tracking-wider text-slate-500">
                         <tr>
                           <th className="px-3 py-2">POL</th>
@@ -295,8 +300,14 @@ export function Viagens() {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[360px] text-left text-sm">
+                  <div>
+                    <table className="w-full table-fixed text-left text-sm">
+                      <colgroup>
+                        <col className="w-[28%]" />
+                        <col className="w-[24%]" />
+                        <col className="w-[24%]" />
+                        <col className="w-[24%]" />
+                      </colgroup>
                       <thead className="text-xs uppercase tracking-wider text-slate-500">
                         <tr>
                           <th className="px-3 py-2">POD</th>
