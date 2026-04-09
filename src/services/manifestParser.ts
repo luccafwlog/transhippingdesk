@@ -1,5 +1,5 @@
 import { normalizeText, onlyDigits, toNumber } from '../lib/utils'
-import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyages'
+import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyageForm'
 
 const headerMap = {
   bl_number: ['b/l', 'bl number', 'bill of lading', 'conhecimento'],
@@ -102,8 +102,12 @@ type ManifestLine = {
 }
 
 export async function parseManifestFile(file: File): Promise<ParsedManifest> {
-  const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
+  return parseManifestBuffer(buffer)
+}
+
+export async function parseManifestBuffer(buffer: ArrayBuffer): Promise<ParsedManifest> {
+  const XLSX = await import('xlsx')
   const workbook = XLSX.read(buffer, { type: 'array' })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
   const rawRows = XLSX.utils.sheet_to_json<RawSheetRow>(firstSheet, { header: 1, defval: '' })
@@ -360,26 +364,41 @@ function parseManifestParty(block: string) {
     return { shipper: '', consignee: '', email: '', cnpj: '' }
   }
 
-  const companyIndex = parts.findIndex((part) => /^(COMPANY|CONSIGNEE)\s*:/i.test(part))
-  const shipper = companyIndex > 0 ? parts.slice(0, companyIndex).join(' | ') : parts[0] || ''
-  const consigneeBlock = companyIndex >= 0 ? parts.slice(companyIndex) : parts
-
+  const consigneeStartIndex = parts.findIndex((part) => /^(COMPANY|CONSIGNEE)\s*:/i.test(part))
+  const shipperParts = consigneeStartIndex > 0 ? parts.slice(0, consigneeStartIndex) : parts.slice(0, 1)
+  const shipper = cleanupJoinedPartyLines(shipperParts)
+  const consigneeBlock = consigneeStartIndex >= 0 ? parts.slice(consigneeStartIndex) : parts
   const cnpjIndex = consigneeBlock.findIndex((part) => Boolean(extractCnpj(part)))
+  const email = consigneeBlock.map(extractEmail).find(Boolean) || shipperParts.map(extractEmail).find(Boolean) || ''
+
   if (cnpjIndex === -1) {
+    const fallbackStartIndex = findConsigneeStartAfterSeparator(consigneeBlock, consigneeBlock.length) ?? 0
+    const fallbackNameParts = collectConsigneeNameParts(consigneeBlock, fallbackStartIndex, consigneeBlock.length)
     return {
       shipper,
-      consignee: cleanupLabel(consigneeBlock[0] || ''),
-      email: consigneeBlock.map(extractEmail).find(Boolean) || '',
+      consignee: fallbackNameParts.join(' ') || cleanupLabel(consigneeBlock[0] || ''),
+      email,
       cnpj: '',
     }
   }
 
-  let nameIndex = chooseConsigneeNameIndex(consigneeBlock, cnpjIndex)
-  if (nameIndex < 0) nameIndex = Math.max(0, cnpjIndex - 1)
-
-  const consignee = cleanupLabel(consigneeBlock[nameIndex] || '')
+  const nameIndex =
+    consigneeStartIndex >= 0
+      ? 0
+      : findConsigneeStartAfterSeparator(consigneeBlock, cnpjIndex) ?? Math.max(0, chooseConsigneeNameIndex(consigneeBlock, cnpjIndex))
+  const consigneeNameParts = collectConsigneeNameParts(consigneeBlock, nameIndex, cnpjIndex)
+  const nearestName = findNearestNameBeforeDocument(consigneeBlock, cnpjIndex)
+  const primaryName = consigneeNameParts.join(' ')
+  const consignee =
+    selectBestConsigneeName({
+      explicitMarker: consigneeStartIndex >= 0,
+      primaryName,
+      primaryStartIndex: nameIndex,
+      nearestName: nearestName.name,
+      nearestStartIndex: nearestName.startIndex,
+      fallback: cleanupLabel(consigneeBlock[nameIndex] || ''),
+    }) || cleanupLabel(consigneeBlock[nameIndex] || '')
   const cnpj = extractCnpj(consigneeBlock[cnpjIndex])
-  const email = consigneeBlock.map(extractEmail).find(Boolean) || ''
 
   return {
     shipper,
@@ -467,33 +486,69 @@ function extractEmail(value: string) {
 }
 
 function extractCnpj(value: string) {
-  const match = asString(value).match(/\d{2}\.?\d{3}\.?\d{3}\/\d{4}-\d{2}/)
-  return match ? match[0] : ''
+  const text = asString(value)
+
+  const labeledMatch = text.match(/(?:CNPJ(?:\/VAT\/TAX ID|\/TAX ID)?|CPF|VAT(?:\/TAX)?|TAX ID)\s*[:.]?\s*([\d./-]{11,18})/i)
+  if (labeledMatch?.[1]) {
+    return formatTaxId(labeledMatch[1])
+  }
+
+  if (/CNPJ/i.test(text)) {
+    const cnpjDigits = onlyDigits(text)
+    if (cnpjDigits.length >= 14) {
+      return formatTaxId(cnpjDigits.slice(0, 14))
+    }
+  }
+
+  const cnpjMatch = text.match(/(?<!\d)\d{2}\.?\d{3}\.?\d{3}\/\d{4}-?\d{2}(?!\d)/)
+  if (cnpjMatch?.[0]) {
+    return formatTaxId(cnpjMatch[0])
+  }
+
+  if (/CPF/i.test(text)) {
+    const cpfDigits = onlyDigits(text)
+    if (cpfDigits.length >= 11) {
+      return formatTaxId(cpfDigits.slice(0, 11))
+    }
+  }
+
+  return ''
 }
 
 function isContactLine(value: string) {
-  return /^(TEL|TELEFONE|PHONE|FAX|MOBILE|CELL|CONTACT PERSON|CONTACT|E-?MAIL|EMAIL|SITE|USCI|VAT|VAT\/TAX|TAX ID|CNPJ|CNPJ\/VAT\/TAX ID|CNPJ\/TAX ID)\b/i.test(
-    asString(value),
-  )
+  const text = asString(value)
+  return /^(TEL|TELEFONE|PHONE|FAX|MOBILE|CELL|CONTACT PERSON|CONTACT|E-?MAIL|EMAIL|SITE|USCI|VAT|VAT\/TAX|TAX ID|CNPJ|CNPJ\/VAT\/TAX ID|CNPJ\/TAX ID|CPF|ATTN|ATTENTION)\b/i.test(
+    text,
+  ) || /\b(PH|PHONE|TEL|FAX|EMAIL|E-?MAIL)\b\s*:/i.test(text)
 }
 
 function isAddressLine(value: string) {
-  return /^(ADD(?:RESS)?|ENDERECO|ENDERECO:|RUA|AV[.: ]|ALAMEDA|ROD[.: ]|STREET|ROAD|ROOM|SUITE|FLAT|CENTRO|CEP|ZIP|NO\.?|KM\b)/i.test(
-    asString(value),
-  )
+  const text = asString(value)
+  return /^(ADD(?:RESS)?|ENDERECO|ENDERECO:|RUA|R[.: ]|AV(?:ENIDA)?[.: ]|ALAMEDA|ROD(?:OVIA)?[.: ]|STREET|ROAD|ROOM|SUITE|FLAT|CENTRO|CEP|ZIP|NO\.?|KM\b|CITY|STATE|COUNTRY|DISTRICT|BAIRRO|BLOCO|POLO|COMPLEXO|AREA\b|\d{3,})/i.test(
+    text,
+  ) || /\b(ROAD|LANE|STREET|DISTRICT|CITY|PROVINCE|ROOM|SUITE|FLOOR|BUILDING|ZIP CODE|CEP)\b/i.test(text) && /(\d|,|\/|-|\bCHINA\b|\bBRAZIL\b|\bBRASIL\b|\bHONG KONG\b)/i.test(text)
+    || /\b(BRAZIL|BRASIL|CHINA|HONG KONG)\b/i.test(text) && /[,/-]/.test(text)
 }
 
 function isLikelyCompany(value: string) {
   const text = asString(value)
   if (!text || isContactLine(text) || isAddressLine(text) || extractEmail(text) || extractCnpj(text)) return false
-  return /(LTDA|LTD\.?|S\.A\.?|EIRELI|LOGISTICA|LOGISTICS|COMERCIO|COMMODITIES|SHIPPING|CARGO|PACTUAL|AGENCIAMENTO|MANAGEMENT|INTERNACIONAL|FREIGHT|PORTO|TRADING)/i.test(
+  return /(LTDA|LTD\.?|S\.A\.?|EIRELI|LOGISTICA|LOGISTICS|COMERCIO|COMMODITIES|SHIPPING|CARGO|PACTUAL|AGENCIAMENTO|MANAGEMENT|INTERNACIONAL|FREIGHT|PORTO|TRADING|SERVICOS|SERVICE|TRANSPORTES|IMPORTACAO|EXPORTACAO|INDUSTRIA|INDUSTRIAL|BRAZIL|BRASIL)/i.test(
     text,
   )
 }
 
 function canBeNamePart(value: string) {
   const text = asString(value)
-  return Boolean(text) && !isContactLine(text) && !isAddressLine(text) && !extractEmail(text) && !extractCnpj(text)
+  return (
+    Boolean(text) &&
+    !isContactLine(text) &&
+    !isAddressLine(text) &&
+    !extractEmail(text) &&
+    !extractCnpj(text) &&
+    !/\d{5,}/.test(text) &&
+    !/^[+()0-9 -]{8,}$/.test(text)
+  )
 }
 
 function chooseConsigneeNameIndex(parts: string[], cnpjIndex: number) {
@@ -533,6 +588,162 @@ function normalizeBlock(value: string) {
 
 function cleanupLabel(value: string) {
   return asString(value).replace(/^(COMPANY|CONSIGNEE|SHIPPER|NOTIFY PARTY|NAME)\s*:\s*/i, '')
+}
+
+function cleanupJoinedPartyLines(parts: string[]) {
+  return parts
+    .map((part) => cleanupLabel(part))
+    .filter(Boolean)
+    .join(' | ')
+}
+
+function collectConsigneeNameParts(parts: string[], startIndex: number, endIndex: number) {
+  const collected: string[] = []
+
+  for (let index = Math.max(0, startIndex); index < Math.max(startIndex, endIndex); index += 1) {
+    const original = parts[index]
+    const current = cleanupLabel(original)
+
+    if (!current) continue
+    if (index > startIndex && startsPartyBoundary(original)) break
+    if (isPersonLine(original)) break
+    if (isContactLine(original) || extractEmail(original) || extractCnpj(original)) break
+    if (collected.length > 0 && isAddressLine(original)) break
+    if (!canBeNamePart(current)) {
+      if (collected.length) break
+      continue
+    }
+
+    collected.push(current.replace(/\s+/g, ' ').trim())
+  }
+
+  return collected
+}
+
+function findConsigneeStartAfterSeparator(parts: string[], limit: number) {
+  let boundaryIndex = -1
+
+  for (let index = 0; index < limit; index += 1) {
+    if (isStrongPartySeparator(parts[index])) {
+      boundaryIndex = index
+    }
+  }
+
+  for (let index = boundaryIndex + 1; index < limit; index += 1) {
+    if (canBeNamePart(cleanupLabel(parts[index]))) {
+      return index
+    }
+  }
+
+  return null
+}
+
+function startsPartyBoundary(value: string) {
+  return /^(COMPANY|CONSIGNEE|SHIPPER|NOTIFY PARTY|ADDRESS|ENDERECO|NAME|ATTN|ATTENTION|TEL|TELEFONE|PHONE|FAX|MOBILE|CELL|CONTACT|E-?MAIL|EMAIL|SITE|USCI|VAT|VAT\/TAX|TAX ID|CNPJ|CPF|CITY|STATE|COUNTRY|ZIP|CEP)\b/i.test(
+    asString(value),
+  )
+}
+
+function isPersonLine(value: string) {
+  return /^(NAME|ATTN|ATTENTION|CONTACT PERSON|CONTACT)\s*:/i.test(asString(value))
+}
+
+function isStrongPartySeparator(value: string) {
+  const text = asString(value)
+  return (
+    Boolean(extractEmail(text)) ||
+    /^(TEL|TELEFONE|PHONE|FAX|MOBILE|CELL|CONTACT|E-?MAIL|EMAIL|SITE|USCI|VAT|VAT\/TAX|TAX ID|CPF|CNPJ|OFFICE)\b/i.test(text) ||
+    /^[+()0-9 -]{8,}$/.test(text)
+  )
+}
+
+function formatTaxId(value: string) {
+  const digits = onlyDigits(value)
+
+  if (digits.length === 14) {
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+  }
+
+  if (digits.length === 11) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+  }
+
+  return ''
+}
+
+function findNearestNameBeforeDocument(parts: string[], documentIndex: number) {
+  let startIndex = -1
+
+  for (let index = documentIndex - 1; index >= 0; index -= 1) {
+    const current = cleanupLabel(parts[index])
+    if (isLikelyCompany(current)) {
+      startIndex = index
+      break
+    }
+  }
+
+  if (startIndex < 0) {
+    for (let index = documentIndex - 1; index >= 0; index -= 1) {
+      const current = parts[index]
+      if (canBeNamePart(cleanupLabel(current)) && !isAddressLine(current)) {
+        startIndex = index
+        break
+      }
+    }
+  }
+
+  if (startIndex < 0) return { name: '', startIndex: -1 }
+
+  let bundleStart = startIndex
+  while (bundleStart - 1 >= 0) {
+    const previous = parts[bundleStart - 1]
+    if (!canBeNamePart(cleanupLabel(previous))) break
+    if (isAddressLine(previous) || isPersonLine(previous) || isStrongPartySeparator(previous)) break
+    bundleStart -= 1
+  }
+
+  return {
+    name: collectConsigneeNameParts(parts, bundleStart, documentIndex).join(' '),
+    startIndex: bundleStart,
+  }
+}
+
+function selectBestConsigneeName({
+  explicitMarker,
+  primaryName,
+  primaryStartIndex,
+  nearestName,
+  nearestStartIndex,
+  fallback,
+}: {
+  explicitMarker: boolean
+  primaryName: string
+  primaryStartIndex: number
+  nearestName: string
+  nearestStartIndex: number
+  fallback: string
+}) {
+  if (explicitMarker) {
+    return primaryName || nearestName || fallback
+  }
+
+  if (!nearestName) {
+    return primaryName || fallback
+  }
+
+  if (!primaryName) {
+    return nearestName
+  }
+
+  if (nearestStartIndex > primaryStartIndex) {
+    return nearestName
+  }
+
+  if (!isLikelyCompany(primaryName) && isLikelyCompany(nearestName)) {
+    return nearestName
+  }
+
+  return primaryName || nearestName || fallback
 }
 
 function formatPackages(value: string) {

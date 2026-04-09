@@ -4,7 +4,8 @@ import { Button } from '../ui/Button'
 import { Field, Input, Select } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
-import { createVoyage, initialVoyageFormValues, type VoyageFormValues, updateVoyage } from '../../services/voyages'
+import { initialVoyageFormValues, type VoyageFormValues } from '../../services/voyageForm'
+import { createVoyage, updateVoyage } from '../../services/voyages'
 
 export function VoyageCreateModal({
   open,
