@@ -6,6 +6,7 @@ const headerMap = {
   bl_number: ['b/l', 'bl number', 'bill of lading', 'conhecimento'],
   shipper: ['shipper', 'embarcador', 'exportador'],
   consignee: ['consignee', 'consignatario', 'importador'],
+  cargo_description: ['description of goods', 'cargo description', 'descricao da carga', 'descricao', 'mercadoria'],
   cnpj_cpf: ['cnpj', 'cpf', 'cnpj/cpf', 'documento'],
   pol: ['pol', 'port of loading', 'porto de embarque'],
   pod: ['pod', 'port of discharge', 'porto de destino'],
@@ -53,6 +54,7 @@ export type ParsedBL = {
   id: string
   shipper: string | null
   consignee: string | null
+  cargo_description: string | null
   cnpj_cpf: string | null
   pol: string | null
   pod: string | null
@@ -194,6 +196,7 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
       id: blNumber,
       shipper: asString(mapped.shipper) || null,
       consignee: asString(mapped.consignee) || null,
+      cargo_description: normalizeCargoDescription(asString(mapped.cargo_description)) || null,
       cnpj_cpf: cnpjCpf || null,
       pol: asString(mapped.pol) || null,
       pod: asString(mapped.pod) || null,
@@ -221,6 +224,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
     bl: string
     shipper: string
     consignee: string
+    cargoDescription: string
     cnpj: string
     email: string
     pol: string
@@ -250,6 +254,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
         bl: col0,
         shipper: partyData.shipper,
         consignee: partyData.consignee,
+        cargoDescription: normalizeCargoDescription(cell(row, 3)),
         cnpj: partyData.cnpj,
         email: partyData.email,
         pol: currentPol,
@@ -268,6 +273,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
           id: currentBL.bl,
           shipper: currentBL.shipper || null,
           consignee: currentBL.consignee || null,
+          cargo_description: currentBL.cargoDescription || null,
           cnpj_cpf: onlyDigits(currentBL.cnpj) || null,
           pol: currentBL.pol || null,
           pod: currentBL.pod || null,
@@ -802,4 +808,18 @@ function extractUnNumber(value: string) {
 function extractSailedDate(value: string) {
   const match = asString(value).match(/SAILED\s+(\d{4}-\d{2}-\d{2})/i)
   return match?.[1] ?? ''
+}
+
+function normalizeCargoDescription(value: string) {
+  const lines = asString(value)
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^\d+\s*[A-Z]+$/i.test(line))
+    .filter((line) => !/^(FCL|LCL)\/(FCL|LCL)$/i.test(line))
+    .filter((line) => !/^FREIGHT\s+(PREPAID|COLLECT)$/i.test(line))
+
+  if (!lines.length) return ''
+
+  return lines.join('\n')
 }

@@ -75,6 +75,7 @@ export async function importManifest({
       batch_id: batch.id,
       shipper: bl.shipper,
       consignee: matchedCustomer?.name ?? bl.consignee,
+      cargo_description: bl.cargo_description,
       customer_id: customerId,
       pol: bl.pol,
       pod: bl.pod,
