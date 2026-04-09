@@ -157,11 +157,10 @@ export function Manifestos() {
         ) : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1010px] border-collapse text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. B/L</th>
-                <th className="px-4 py-3">Armador</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
                 <th className="px-4 py-3">Consignatario</th>
                 <th className="px-4 py-3">CNPJ</th>
@@ -180,14 +179,14 @@ export function Manifestos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={14} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={14} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -199,7 +198,6 @@ export function Manifestos() {
                       {bl.id}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{bl.voyage?.vessel?.carrier?.name ?? '-'}</td>
                   <td className="px-4 py-3">
                     {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
                   </td>

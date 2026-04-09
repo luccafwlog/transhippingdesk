@@ -211,14 +211,13 @@ export function Containers() {
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1560px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1460px] border-collapse text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Container</th>
                 <th className="px-4 py-3">B/L</th>
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">CNPJ</th>
-                <th className="px-4 py-3">Armador</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
                 <th className="px-4 py-3">POL</th>
                 <th className="px-4 py-3">POD</th>
@@ -235,14 +234,14 @@ export function Containers() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={16} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
                     Carregando containers...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
                     Nenhum container encontrado.
                   </td>
                 </tr>
@@ -257,7 +256,6 @@ export function Containers() {
                   </td>
                   <td className="px-4 py-3">{container.bl?.customer?.name ?? container.bl?.consignee ?? '-'}</td>
                   <td className="px-4 py-3">{formatCnpjCpf(container.bl?.customer?.cnpj_cpf)}</td>
-                  <td className="px-4 py-3">{container.bl?.voyage?.vessel?.carrier?.name ?? '-'}</td>
                   <td className="px-4 py-3">
                     {container.bl?.voyage?.vessel?.name ?? '-'} / {container.bl?.voyage?.voyage_number ?? '-'}
                   </td>
