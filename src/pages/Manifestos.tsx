@@ -169,18 +169,17 @@ export function Manifestos() {
         ) : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[840px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. B/L</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">Consignatario</th>
+                <th className="w-[84px] px-4 py-3">CNEE</th>
                 <th className="px-4 py-3">CNPJ</th>
                 <th className="px-4 py-3">POL</th>
                 <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">CNTRS</th>
-                <th className="px-4 py-3">IMO</th>
-                <th className="px-4 py-3">OOG</th>
+                <th className="px-4 py-3">Perfil</th>
                 <th className="px-4 py-3">Revisao</th>
                 <th className="px-4 py-3">Financeiro</th>
                 <th className="px-4 py-3">Acoes</th>
@@ -189,14 +188,14 @@ export function Manifestos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -211,16 +210,22 @@ export function Manifestos() {
                   <td className="px-4 py-3">
                     {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
                   </td>
-                  <td className="px-4 py-3">{bl.customer?.name ?? bl.consignee ?? '-'}</td>
+                  <td className="px-4 py-3">
+                    <span className="block max-w-[84px] overflow-hidden text-clip whitespace-nowrap" title={bl.customer?.name ?? bl.consignee ?? '-'}>
+                      {bl.customer?.name ?? bl.consignee ?? '-'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{formatCnpjCpf(bl.customer?.cnpj_cpf)}</td>
                   <td className="px-4 py-3">{bl.pol ?? '-'}</td>
                   <td className="px-4 py-3">{bl.pod ?? '-'}</td>
                   <td className="px-4 py-3">{countDistinctContainerNumbers(bl.bl_containers)}</td>
                   <td className="px-4 py-3">
-                    <CargoFlagBadge active={Boolean(bl.bl_containers?.some((container) => container.is_imo))} label="IMO" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <CargoFlagBadge active={Boolean(bl.bl_containers?.some((container) => container.is_oog))} label="OOG" />
+                    <ProfileBadge
+                      profile={getCargoProfile(
+                        Boolean(bl.bl_containers?.some((container) => container.is_imo)),
+                        Boolean(bl.bl_containers?.some((container) => container.is_oog)),
+                      )}
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <ReviewBadge status={bl.review_status ?? 'ok'} />
@@ -291,8 +296,17 @@ function SummaryCard({ label, value }: { label: string; value: number | string }
   )
 }
 
-function CargoFlagBadge({ active, label }: { active: boolean; label: string }) {
-  return <Badge tone={active ? (label === 'IMO' ? 'red' : 'yellow') : 'slate'}>{active ? 'SIM' : 'NAO'}</Badge>
+function ProfileBadge({ profile }: { profile: ReturnType<typeof getCargoProfile> }) {
+  const tone =
+    profile === 'IMO/OOG' ? 'red' : profile === 'IMO' ? 'red' : profile === 'OOG' ? 'yellow' : 'blue'
+  return <Badge tone={tone}>{profile}</Badge>
+}
+
+function getCargoProfile(isImo: boolean, isOog: boolean) {
+  if (isImo && isOog) return 'IMO/OOG'
+  if (isImo) return 'IMO'
+  if (isOog) return 'OOG'
+  return 'Padrao'
 }
 
 function VoyageSelect({

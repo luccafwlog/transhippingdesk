@@ -249,12 +249,12 @@ export function Containers() {
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1460px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1280px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Container</th>
                 <th className="px-4 py-3">B/L</th>
-                <th className="px-4 py-3">Cliente</th>
+                <th className="w-[84px] px-4 py-3">CNEE</th>
                 <th className="px-4 py-3">CNPJ</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
                 <th className="px-4 py-3">POL</th>
@@ -263,8 +263,6 @@ export function Containers() {
                 <th className="px-4 py-3">Seal</th>
                 <th className="px-4 py-3">Peso bruto</th>
                 <th className="px-4 py-3">CBM</th>
-                <th className="px-4 py-3">IMO</th>
-                <th className="px-4 py-3">OOG</th>
                 <th className="px-4 py-3">Perfil</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
@@ -272,14 +270,14 @@ export function Containers() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
                     Carregando containers...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
                     Nenhum container encontrado.
                   </td>
                 </tr>
@@ -292,7 +290,14 @@ export function Containers() {
                       {container.bl?.id ?? '-'}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{container.bl?.customer?.name ?? container.bl?.consignee ?? '-'}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className="block max-w-[84px] overflow-hidden text-clip whitespace-nowrap"
+                      title={container.bl?.customer?.name ?? container.bl?.consignee ?? '-'}
+                    >
+                      {container.bl?.customer?.name ?? container.bl?.consignee ?? '-'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{formatCnpjCpf(container.bl?.customer?.cnpj_cpf)}</td>
                   <td className="px-4 py-3">
                     {container.bl?.voyage?.vessel?.name ?? '-'} / {container.bl?.voyage?.voyage_number ?? '-'}
@@ -304,22 +309,7 @@ export function Containers() {
                   <td className="px-4 py-3">{Number(container.gross_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
                   <td className="px-4 py-3">{Number(container.cbm ?? 0).toLocaleString('pt-BR')}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={container.is_imo ? 'red' : 'slate'}>{container.is_imo ? 'SIM' : 'NAO'}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={container.is_oog ? 'yellow' : 'slate'}>{container.is_oog ? 'SIM' : 'NAO'}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {container.is_oog ? <Badge tone="yellow">OOG</Badge> : null}
-                      {container.is_imo ? <Badge tone="red">IMO</Badge> : null}
-                      {!container.is_oog && !container.is_imo ? <Badge tone="blue">Standard</Badge> : null}
-                    </div>
-                    {container.is_imo && (container.imo_class || container.un_number) ? (
-                      <div className="mt-1 text-xs text-slate-500">
-                        {container.imo_class ?? '-'} / {container.un_number ?? '-'}
-                      </div>
-                    ) : null}
+                    <ProfileBadge profile={getCargoProfile(Boolean(container.is_imo), Boolean(container.is_oog))} />
                   </td>
                   <td className="px-4 py-3">
                     <Link
@@ -483,6 +473,19 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
       <div className="mt-1 text-2xl font-bold text-white">{value}</div>
     </div>
   )
+}
+
+function ProfileBadge({ profile }: { profile: ReturnType<typeof getCargoProfile> }) {
+  const tone =
+    profile === 'IMO/OOG' ? 'red' : profile === 'IMO' ? 'red' : profile === 'OOG' ? 'yellow' : 'blue'
+  return <Badge tone={tone}>{profile}</Badge>
+}
+
+function getCargoProfile(isImo: boolean, isOog: boolean) {
+  if (isImo && isOog) return 'IMO/OOG'
+  if (isImo) return 'IMO'
+  if (isOog) return 'OOG'
+  return 'Padrao'
 }
 
 function VoyageSelect({
