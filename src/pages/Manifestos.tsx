@@ -10,7 +10,7 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
-import { type BlFilters, fetchAllBls, useBls, useBlSummary, useVoyageOptions } from '../hooks/useBls'
+import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useVoyageOptions } from '../hooks/useBls'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
@@ -38,6 +38,7 @@ export function Manifestos() {
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
   const { data: summary, isLoading: isSummaryLoading } = useBlSummary(filters)
+  const { data: portOptions } = usePortOptions()
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
 
@@ -102,10 +103,24 @@ export function Manifestos() {
             <VoyageSelect value={filters.voyageId} onChange={(value) => updateFilter('voyageId', value)} />
           </Field>
           <Field label="POL">
-            <Input value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)} />
+            <Select value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)}>
+              <option value="">Todos</option>
+              {portOptions?.pols.map((pol) => (
+                <option key={pol} value={pol}>
+                  {pol}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="POD">
-            <Input value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)} />
+            <Select value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)}>
+              <option value="">Todos</option>
+              {portOptions?.pods.map((pod) => (
+                <option key={pod} value={pod}>
+                  {pod}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Status revisao">
             <Select value={filters.reviewStatus} onChange={(event) => updateFilter('reviewStatus', event.target.value)}>

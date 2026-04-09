@@ -218,6 +218,37 @@ export function useVoyageOptions() {
   })
 }
 
+export function usePortOptions() {
+  return useQuery({
+    queryKey: ['port-options'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bls')
+        .select('pol, pod')
+        .order('created_at', { ascending: false })
+        .range(0, 4999)
+
+      if (error) throw error
+
+      const pols = new Set<string>()
+      const pods = new Set<string>()
+
+      for (const row of data ?? []) {
+        const pol = String(row.pol ?? '').trim()
+        const pod = String(row.pod ?? '').trim()
+
+        if (pol) pols.add(pol)
+        if (pod) pods.add(pod)
+      }
+
+      return {
+        pols: Array.from(pols).sort((left, right) => left.localeCompare(right, 'pt-BR')),
+        pods: Array.from(pods).sort((left, right) => left.localeCompare(right, 'pt-BR')),
+      }
+    },
+  })
+}
+
 export function useVoyages() {
   return useQuery({
     queryKey: ['voyages'],

@@ -8,7 +8,7 @@ import { Card, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
-import { type ContainerFilters, fetchAllContainers, useContainers, useVoyageOptions } from '../hooks/useBls'
+import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions } from '../hooks/useBls'
 import { formatCnpjCpf } from '../lib/utils'
 import {
   importContainerFlagsRows,
@@ -42,6 +42,7 @@ export function Containers() {
   const [parsingFlags, setParsingFlags] = useState(false)
   const [importingFlags, setImportingFlags] = useState(false)
   const { data, isLoading, error } = useContainers(filters)
+  const { data: portOptions } = usePortOptions()
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
 
@@ -164,10 +165,24 @@ export function Containers() {
             <VoyageSelect value={filters.voyageId} onChange={(value) => updateFilter('voyageId', value)} />
           </Field>
           <Field label="POL">
-            <Input value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)} />
+            <Select value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)}>
+              <option value="">Todos</option>
+              {portOptions?.pols.map((pol) => (
+                <option key={pol} value={pol}>
+                  {pol}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="POD">
-            <Input value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)} />
+            <Select value={filters.pod} onChange={(event) => updateFilter('pod', event.target.value)}>
+              <option value="">Todos</option>
+              {portOptions?.pods.map((pod) => (
+                <option key={pod} value={pod}>
+                  {pod}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Status revisao do B/L">
             <Select value={filters.reviewStatus} onChange={(event) => updateFilter('reviewStatus', event.target.value)}>
