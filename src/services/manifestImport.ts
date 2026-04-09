@@ -1,7 +1,7 @@
 import { onlyDigits } from '../lib/utils'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
-import { syncManifestRouteEtdSchedules } from './voyageRouteSchedules'
+import { syncManifestPolEtdSchedules } from './voyageRouteSchedules'
 
 export async function importManifest({
   filename,
@@ -130,7 +130,7 @@ export async function importManifest({
     if (error) throw error
   }
 
-  await syncManifestRouteEtdSchedules({
+  await syncManifestPolEtdSchedules({
     voyageId,
     manifest,
     changedBy: uploadedBy,

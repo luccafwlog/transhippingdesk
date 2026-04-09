@@ -14,9 +14,11 @@ import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import { deleteVoyage } from '../services/voyages'
 import {
-  buildVoyageRouteEntityId,
-  listVoyageRouteSchedules,
-  saveVoyageRouteSchedule,
+  buildVoyagePodEntityId,
+  buildVoyagePolEntityId,
+  listVoyagePodSchedules,
+  listVoyagePolSchedules,
+  saveVoyagePodSchedule,
 } from '../services/voyageRouteSchedules'
 
 export function Viagens() {
@@ -31,12 +33,10 @@ export function Viagens() {
   const [deleting, setDeleting] = useState(false)
   const [vesselFilter, setVesselFilter] = useState('')
   const [voyageFilter, setVoyageFilter] = useState('')
-  const [editingRoute, setEditingRoute] = useState<{
+  const [editingPod, setEditingPod] = useState<{
     voyageId: number
     voyageLabel: string
-    pol: string
     pod: string
-    etd: string | null
     eta: string | null
     ata: string | null
   } | null>(null)
@@ -56,22 +56,40 @@ export function Viagens() {
     })
   }, [data, vesselFilter, voyageFilter])
 
-  const routeEntityIds = useMemo(
+  const polEntityIds = useMemo(
     () =>
       Array.from(
         new Set(
           filteredVoyages.flatMap((voyage) =>
-            collectVoyageRoutes(voyage.id, voyage.bls).map((route) => route.entityId),
+            collectVoyageRoutes(voyage.bls).map((route) => buildVoyagePolEntityId(voyage.id, route.pol)),
           ),
         ),
       ),
     [filteredVoyages],
   )
 
-  const { data: routeSchedules } = useQuery({
-    queryKey: ['voyage-route-schedules', routeEntityIds],
-    enabled: routeEntityIds.length > 0,
-    queryFn: () => listVoyageRouteSchedules(routeEntityIds),
+  const podEntityIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          filteredVoyages.flatMap((voyage) =>
+            collectVoyageRoutes(voyage.bls).map((route) => buildVoyagePodEntityId(voyage.id, route.pod)),
+          ),
+        ),
+      ),
+    [filteredVoyages],
+  )
+
+  const { data: polSchedules } = useQuery({
+    queryKey: ['voyage-pol-schedules', polEntityIds],
+    enabled: polEntityIds.length > 0,
+    queryFn: () => listVoyagePolSchedules(polEntityIds),
+  })
+
+  const { data: podSchedules } = useQuery({
+    queryKey: ['voyage-pod-schedules', podEntityIds],
+    enabled: podEntityIds.length > 0,
+    queryFn: () => listVoyagePodSchedules(podEntityIds),
   })
 
   const summary = useMemo(
@@ -163,14 +181,20 @@ export function Viagens() {
           const totalContainers = countDistinctContainersAcrossGroups(voyage.bls, (bl) => bl.bl_containers)
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
           const destinationPorts = collectVoyagePorts(voyage.bls, 'pod', voyage.pod?.name ?? null)
-          const routeRows = collectVoyageRoutes(voyage.id, voyage.bls).map((route) => {
-            const schedule = routeSchedules?.get(route.entityId)
+          const routeRows = collectVoyageRoutes(voyage.bls).map((route, index, routes) => {
+            const polEntityId = buildVoyagePolEntityId(voyage.id, route.pol)
+            const podEntityId = buildVoyagePodEntityId(voyage.id, route.pod)
+            const polSchedule = polSchedules?.get(polEntityId)
+            const podSchedule = podSchedules?.get(podEntityId)
+            const firstPodIndex = routes.findIndex((candidate) => candidate.pod === route.pod)
 
             return {
               ...route,
-              etd: schedule?.etd ?? null,
-              eta: schedule?.eta ?? null,
-              ata: schedule?.ata ?? null,
+              etd: polSchedule?.etd ?? null,
+              eta: podSchedule?.eta ?? null,
+              ata: podSchedule?.ata ?? null,
+              podEntityId,
+              canEditPod: firstPodIndex === index,
             }
           })
 
@@ -202,7 +226,7 @@ export function Viagens() {
                   <div>
                     <div className="font-semibold text-white">Trechos consolidados</div>
                     <div className="text-sm text-slate-400">
-                      O ETD vem do manifesto por trecho. ETA e ATA sao mantidos manualmente por trecho POL/POD.
+                      O ETD vem automaticamente do manifesto por porto de origem. ETA e ATA sao informados uma unica vez por porto de destino e replicados para todas as linhas do mesmo POD.
                     </div>
                   </div>
                 </div>
@@ -231,23 +255,25 @@ export function Viagens() {
                             <td className="px-3 py-2">{formatDate(route.ata)}</td>
                             <td className="px-3 py-2">{route.blCount}</td>
                             <td className="px-3 py-2">
-                              <Button
-                                variant="secondary"
-                                className="h-8 px-3"
-                                onClick={() =>
-                                  setEditingRoute({
-                                    voyageId: voyage.id,
-                                    voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                    pol: route.pol,
-                                    pod: route.pod,
-                                    etd: route.etd,
-                                    eta: route.eta,
-                                    ata: route.ata,
-                                  })
-                                }
-                              >
-                                Editar datas
-                              </Button>
+                              {route.canEditPod ? (
+                                <Button
+                                  variant="secondary"
+                                  className="h-8 px-3"
+                                  onClick={() =>
+                                    setEditingPod({
+                                      voyageId: voyage.id,
+                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                      pod: route.pod,
+                                      eta: route.eta,
+                                      ata: route.ata,
+                                    })
+                                  }
+                                >
+                                  Editar POD
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-slate-500">Herdado do POD</span>
+                              )}
                             </td>
                           </tr>
                         ))
@@ -329,25 +355,24 @@ export function Viagens() {
         </div>
       </Modal>
 
-      <RouteScheduleModal
-        open={editingRoute !== null}
-        route={editingRoute}
-        onClose={() => setEditingRoute(null)}
-        onSaved={async ({ voyageId, pol, pod, eta, ata }) => {
+      <PodScheduleModal
+        open={editingPod !== null}
+        podSchedule={editingPod}
+        onClose={() => setEditingPod(null)}
+        onSaved={async ({ voyageId, pod, eta, ata }) => {
           try {
-            await saveVoyageRouteSchedule({
+            await saveVoyagePodSchedule({
               voyageId,
-              pol,
               pod,
               eta,
               ata,
               changedBy: user?.id ?? null,
             })
-            await queryClient.invalidateQueries({ queryKey: ['voyage-route-schedules'] })
-            showToast('Datas do trecho atualizadas com sucesso.', 'success')
-            setEditingRoute(null)
+            await queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
+            showToast('Datas do POD atualizadas com sucesso.', 'success')
+            setEditingPod(null)
           } catch {
-            showToast('Falha ao salvar as datas do trecho.', 'error')
+            showToast('Falha ao salvar as datas do POD.', 'error')
           }
         }}
       />
@@ -393,16 +418,12 @@ function collectVoyagePorts(
   return ports
 }
 
-function collectVoyageRoutes(
-  voyageId: number,
-  bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
-) {
-  const routes = new Map<string, { entityId: string; pol: string; pod: string; blCount: number }>()
+function collectVoyageRoutes(bls: Array<{ pol: string | null; pod: string | null }> | null | undefined) {
+  const routes = new Map<string, { pol: string; pod: string; blCount: number }>()
 
   for (const bl of bls ?? []) {
     const pol = bl.pol?.trim() || '-'
     const pod = bl.pod?.trim() || '-'
-    const entityId = buildVoyageRouteEntityId(voyageId, pol, pod)
     const key = `${pol}::${pod}`
     const current = routes.get(key)
 
@@ -411,7 +432,6 @@ function collectVoyageRoutes(
       current
         ? { ...current, blCount: current.blCount + 1 }
         : {
-            entityId,
             pol,
             pod,
             blCount: 1,
@@ -452,45 +472,42 @@ function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 
   return 'active'
 }
 
-function RouteScheduleModal({
+function PodScheduleModal({
   open,
-  route,
+  podSchedule,
   onClose,
   onSaved,
 }: {
   open: boolean
-  route: {
+  podSchedule: {
     voyageId: number
     voyageLabel: string
-    pol: string
     pod: string
-    etd: string | null
     eta: string | null
     ata: string | null
   } | null
   onClose: () => void
-  onSaved: (payload: { voyageId: number; pol: string; pod: string; eta: string | null; ata: string | null }) => Promise<void>
+  onSaved: (payload: { voyageId: number; pod: string; eta: string | null; ata: string | null }) => Promise<void>
 }) {
   const [eta, setEta] = useState('')
   const [ata, setAta] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!route || !open) return
-    setEta(route.eta ?? '')
-    setAta(route.ata ?? '')
-  }, [open, route])
+    if (!podSchedule || !open) return
+    setEta(podSchedule.eta ?? '')
+    setAta(podSchedule.ata ?? '')
+  }, [open, podSchedule])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!route) return
+    if (!podSchedule) return
 
     setSaving(true)
     try {
       await onSaved({
-        voyageId: route.voyageId,
-        pol: route.pol,
-        pod: route.pod,
+        voyageId: podSchedule.voyageId,
+        pod: podSchedule.pod,
         eta: eta || null,
         ata: ata || null,
       })
@@ -500,20 +517,15 @@ function RouteScheduleModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar datas do trecho">
-      {route ? (
+    <Modal open={open} onClose={onClose} title="Editar datas do POD">
+      {podSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-            <div className="font-semibold text-white">{route.voyageLabel}</div>
-            <div className="mt-1">
-              {route.pol} -&gt; {route.pod}
-            </div>
+            <div className="font-semibold text-white">{podSchedule.voyageLabel}</div>
+            <div className="mt-1">POD: {podSchedule.pod}</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="ETD do manifesto">
-              <Input type="date" value={route.etd ?? ''} disabled />
-            </Field>
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="ETA">
               <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
             </Field>

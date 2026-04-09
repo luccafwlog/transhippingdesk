@@ -1,42 +1,80 @@
-import { supabase } from './supabase'
 import type { ParsedManifest } from './manifestParser'
+import { supabase } from './supabase'
 
-const ENTITY_TYPE = 'voyage_route_schedule'
+const POL_ENTITY_TYPE = 'voyage_pol_schedule'
+const POD_ENTITY_TYPE = 'voyage_pod_schedule'
 
-export type VoyageRouteSchedule = {
+export type VoyagePolSchedule = {
   entityId: string
   voyageId: number
   pol: string
-  pod: string
   etd: string | null
+}
+
+export type VoyagePodSchedule = {
+  entityId: string
+  voyageId: number
+  pod: string
   eta: string | null
   ata: string | null
 }
 
-export function buildVoyageRouteEntityId(voyageId: number, pol: string | null | undefined, pod: string | null | undefined) {
-  return `${voyageId}::${normalizePortValue(pol)}::${normalizePortValue(pod)}`
+export function buildVoyagePolEntityId(voyageId: number, pol: string | null | undefined) {
+  return `${voyageId}::${normalizePortValue(pol)}`
 }
 
-export async function listVoyageRouteSchedules(routeEntityIds: string[]) {
-  if (!routeEntityIds.length) return new Map<string, VoyageRouteSchedule>()
+export function buildVoyagePodEntityId(voyageId: number, pod: string | null | undefined) {
+  return `${voyageId}::${normalizePortValue(pod)}`
+}
+
+export async function listVoyagePolSchedules(entityIds: string[]) {
+  if (!entityIds.length) return new Map<string, VoyagePolSchedule>()
 
   const { data, error } = await supabase
     .from('audit_logs')
     .select('entity_id, field_name, new_value, changed_at')
-    .eq('entity_type', ENTITY_TYPE)
-    .in('entity_id', routeEntityIds)
+    .eq('entity_type', POL_ENTITY_TYPE)
+    .in('entity_id', entityIds)
     .order('changed_at', { ascending: false })
-    .range(0, Math.max(999, routeEntityIds.length * 10))
+    .range(0, Math.max(999, entityIds.length * 5))
 
   if (error) throw error
 
-  const schedules = new Map<string, VoyageRouteSchedule>()
+  const schedules = new Map<string, VoyagePolSchedule>()
+
+  for (const row of data ?? []) {
+    if (row.field_name !== 'etd') continue
+
+    const entityId = row.entity_id
+    const current = schedules.get(entityId) ?? makeEmptyPolSchedule(entityId)
+    if (current.etd === null) {
+      current.etd = normalizeDateValue(row.new_value)
+    }
+    schedules.set(entityId, current)
+  }
+
+  return schedules
+}
+
+export async function listVoyagePodSchedules(entityIds: string[]) {
+  if (!entityIds.length) return new Map<string, VoyagePodSchedule>()
+
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('entity_id, field_name, new_value, changed_at')
+    .eq('entity_type', POD_ENTITY_TYPE)
+    .in('entity_id', entityIds)
+    .order('changed_at', { ascending: false })
+    .range(0, Math.max(999, entityIds.length * 10))
+
+  if (error) throw error
+
+  const schedules = new Map<string, VoyagePodSchedule>()
 
   for (const row of data ?? []) {
     const entityId = row.entity_id
-    const current = schedules.get(entityId) ?? makeEmptySchedule(entityId)
+    const current = schedules.get(entityId) ?? makeEmptyPodSchedule(entityId)
 
-    if (row.field_name === 'etd' && current.etd === null) current.etd = normalizeDateValue(row.new_value)
     if (row.field_name === 'eta' && current.eta === null) current.eta = normalizeDateValue(row.new_value)
     if (row.field_name === 'ata' && current.ata === null) current.ata = normalizeDateValue(row.new_value)
 
@@ -46,7 +84,7 @@ export async function listVoyageRouteSchedules(routeEntityIds: string[]) {
   return schedules
 }
 
-export async function syncManifestRouteEtdSchedules({
+export async function syncManifestPolEtdSchedules({
   voyageId,
   manifest,
   changedBy,
@@ -57,24 +95,22 @@ export async function syncManifestRouteEtdSchedules({
 }) {
   if (!manifest.manifest_etd) return
 
-  const routeEntityIds = Array.from(
-    new Set(manifest.bls.map((bl) => buildVoyageRouteEntityId(voyageId, bl.pol, bl.pod))),
-  )
-  const currentSchedules = await listVoyageRouteSchedules(routeEntityIds)
+  const entityIds = Array.from(new Set(manifest.bls.map((bl) => buildVoyagePolEntityId(voyageId, bl.pol))))
+  const currentSchedules = await listVoyagePolSchedules(entityIds)
 
-  const inserts = routeEntityIds
+  const inserts = entityIds
     .map((entityId) => {
       const currentEtd = currentSchedules.get(entityId)?.etd ?? null
       if (currentEtd === manifest.manifest_etd) return null
 
       return {
-        entity_type: ENTITY_TYPE,
+        entity_type: POL_ENTITY_TYPE,
         entity_id: entityId,
         field_name: 'etd',
         old_value: currentEtd,
         new_value: manifest.manifest_etd,
         changed_by: changedBy,
-        justification: 'ETD importado do manifesto',
+        justification: 'ETD importado do manifesto por POL',
       }
     })
     .filter(Boolean)
@@ -85,27 +121,25 @@ export async function syncManifestRouteEtdSchedules({
   if (error) throw error
 }
 
-export async function saveVoyageRouteSchedule({
+export async function saveVoyagePodSchedule({
   voyageId,
-  pol,
   pod,
   eta,
   ata,
   changedBy,
 }: {
   voyageId: number
-  pol: string
   pod: string
   eta: string | null
   ata: string | null
   changedBy: string | null
 }) {
-  const entityId = buildVoyageRouteEntityId(voyageId, pol, pod)
-  const current = (await listVoyageRouteSchedules([entityId])).get(entityId) ?? makeEmptySchedule(entityId)
+  const entityId = buildVoyagePodEntityId(voyageId, pod)
+  const current = (await listVoyagePodSchedules([entityId])).get(entityId) ?? makeEmptyPodSchedule(entityId)
 
   const changes = [
-    makeScheduleAuditRow(entityId, 'eta', current.eta, eta, changedBy),
-    makeScheduleAuditRow(entityId, 'ata', current.ata, ata, changedBy),
+    makeAuditRow(POD_ENTITY_TYPE, entityId, 'eta', current.eta, eta, changedBy, 'Atualizacao manual de ETA por POD'),
+    makeAuditRow(POD_ENTITY_TYPE, entityId, 'ata', current.ata, ata, changedBy, 'Atualizacao manual de ATA por POD'),
   ].filter(Boolean)
 
   if (!changes.length) return
@@ -114,25 +148,35 @@ export async function saveVoyageRouteSchedule({
   if (error) throw error
 }
 
-function makeEmptySchedule(entityId: string): VoyageRouteSchedule {
-  const [voyageId, pol, pod] = entityId.split('::')
+function makeEmptyPolSchedule(entityId: string): VoyagePolSchedule {
+  const [voyageId, pol] = entityId.split('::')
   return {
     entityId,
     voyageId: Number(voyageId),
     pol: pol ?? '-',
-    pod: pod ?? '-',
     etd: null,
+  }
+}
+
+function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
+  const [voyageId, pod] = entityId.split('::')
+  return {
+    entityId,
+    voyageId: Number(voyageId),
+    pod: pod ?? '-',
     eta: null,
     ata: null,
   }
 }
 
-function makeScheduleAuditRow(
+function makeAuditRow(
+  entityType: string,
   entityId: string,
-  fieldName: 'eta' | 'ata',
+  fieldName: 'etd' | 'eta' | 'ata',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,
+  justification: string,
 ) {
   const normalizedOldValue = normalizeDateValue(oldValue)
   const normalizedNewValue = normalizeDateValue(newValue)
@@ -140,13 +184,13 @@ function makeScheduleAuditRow(
   if (normalizedOldValue === normalizedNewValue) return null
 
   return {
-    entity_type: ENTITY_TYPE,
+    entity_type: entityType,
     entity_id: entityId,
     field_name: fieldName,
     old_value: normalizedOldValue,
     new_value: normalizedNewValue,
     changed_by: changedBy,
-    justification: `Atualizacao manual de ${fieldName.toUpperCase()} por trecho`,
+    justification,
   }
 }
 
