@@ -343,7 +343,9 @@ export function Containers() {
             <div className="mt-2">
               As colunas obrigatorias sao <span className="font-semibold text-white">Container</span>, <span className="font-semibold text-white">BL</span>, <span className="font-semibold text-white">IMO</span> e <span className="font-semibold text-white">OOG</span>.
             </div>
-            <div className="mt-2 text-slate-400">Os valores em IMO e OOG devem ser apenas Sim ou Nao.</div>
+            <div className="mt-2 text-slate-400">
+              Em <span className="font-semibold text-white">IMO</span>, informe a classe ou o texto completo do IMO. Se deixar em branco, o sistema entende que o container nao e IMO. Em <span className="font-semibold text-white">OOG</span>, use apenas Sim ou Nao.
+            </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
@@ -394,7 +396,7 @@ export function Containers() {
                       <tr key={`${row.bl_id}-${row.container_number}`}>
                         <td className="px-3 py-2 font-semibold text-white">{row.bl_id}</td>
                         <td className="px-3 py-2">{row.container_number}</td>
-                        <td className="px-3 py-2">{row.is_imo ? 'Sim' : 'Nao'}</td>
+                        <td className="px-3 py-2">{row.imo_value ?? '-'}</td>
                         <td className="px-3 py-2">{row.is_oog ? 'Sim' : 'Nao'}</td>
                       </tr>
                     ))}

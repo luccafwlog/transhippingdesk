@@ -21,6 +21,9 @@ export type ContainerFlagsImportRow = {
   bl_id: string
   container_number: string
   is_imo: boolean
+  imo_class: string | null
+  un_number: string | null
+  imo_value: string | null
   is_oog: boolean
 }
 
@@ -64,7 +67,7 @@ export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[]) 
   const blIds = Array.from(new Set(uniqueRows.map((row) => row.bl_id)))
   const { data: existingContainers, error } = await supabase
     .from('bl_containers')
-    .select('id, bl_id, container_number, is_imo, is_oog')
+    .select('id, bl_id, container_number, is_imo, imo_class, un_number, is_oog')
     .in('bl_id', blIds)
 
   if (error) throw error
@@ -89,7 +92,13 @@ export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[]) 
     }
 
     const idsToUpdate = matches
-      .filter((container) => Boolean(container.is_imo) !== row.is_imo || Boolean(container.is_oog) !== row.is_oog)
+      .filter(
+        (container) =>
+          Boolean(container.is_imo) !== row.is_imo ||
+          Boolean(container.is_oog) !== row.is_oog ||
+          normalizeValue(container.imo_class) !== normalizeValue(row.imo_class) ||
+          normalizeValue(container.un_number) !== normalizeValue(row.un_number),
+      )
       .map((container) => container.id)
 
     if (!idsToUpdate.length) {
@@ -101,6 +110,8 @@ export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[]) 
       .from('bl_containers')
       .update({
         is_imo: row.is_imo,
+        imo_class: row.is_imo ? row.imo_class : null,
+        un_number: row.is_imo ? row.un_number : null,
         is_oog: row.is_oog,
       })
       .in('id', idsToUpdate)
@@ -120,7 +131,8 @@ function parseContainerFlagsImportRows(rows: Record<string, unknown>[]): ParsedC
     const mapped = mapRow(row)
     const blId = asString(mapped.bl_id).toUpperCase()
     const containerNumber = asString(mapped.container_number).toUpperCase()
-    const imo = parseBooleanFlag(mapped.is_imo)
+    const imoValue = asNullableText(mapped.is_imo)
+    const imo = parseImoValue(mapped.is_imo)
     const oog = parseBooleanFlag(mapped.is_oog)
 
     if (!blId) {
@@ -133,8 +145,12 @@ function parseContainerFlagsImportRows(rows: Record<string, unknown>[]): ParsedC
       return
     }
 
-    if (imo === null) {
-      rowErrors.push({ row: index + 2, message: 'Valor invalido em IMO. Use apenas Sim ou Nao.', raw: row })
+    if (imo === 'invalid') {
+      rowErrors.push({
+        row: index + 2,
+        message: 'Valor invalido em IMO. Informe a classe/numero IMO ou deixe em branco.',
+        raw: row,
+      })
       return
     }
 
@@ -146,7 +162,10 @@ function parseContainerFlagsImportRows(rows: Record<string, unknown>[]): ParsedC
     parsedRows.push({
       bl_id: blId,
       container_number: containerNumber,
-      is_imo: imo,
+      is_imo: imo.is_imo,
+      imo_class: imo.imo_class,
+      un_number: imo.un_number,
+      imo_value: imoValue,
       is_oog: oog,
     })
   })
@@ -192,8 +211,44 @@ function parseBooleanFlag(value: unknown) {
   return null
 }
 
+function parseImoValue(value: unknown):
+  | { is_imo: boolean; imo_class: string | null; un_number: string | null }
+  | 'invalid' {
+  const text = asString(value)
+  if (!text) {
+    return { is_imo: false, imo_class: null, un_number: null }
+  }
+
+  const upper = text.toUpperCase()
+  const imoClassMatch = upper.match(/(?:IMO(?: CLASS)?|CLASS|CLASSE)\s*[:.-]?\s*([0-9.]+)/i)
+  const unNumberMatch = upper.match(/UN\s*[:.-]?\s*(\d{4})/i)
+  const fallbackClassMatch = upper.match(/\b([1-9](?:\.[0-9])?)\b/)
+
+  const imoClass = imoClassMatch?.[1] ?? fallbackClassMatch?.[1] ?? upper
+  const unNumber = unNumberMatch?.[1] ?? null
+
+  if (!imoClass) {
+    return 'invalid'
+  }
+
+  return {
+    is_imo: true,
+    imo_class: imoClass,
+    un_number: unNumber,
+  }
+}
+
 function makeContainerKey(blId: string, containerNumber: string) {
   return `${asString(blId).toUpperCase()}::${asString(containerNumber).toUpperCase()}`
+}
+
+function asNullableText(value: unknown) {
+  const text = asString(value)
+  return text || null
+}
+
+function normalizeValue(value: string | null | undefined) {
+  return asString(value).toUpperCase()
 }
 
 function asString(value: unknown) {
