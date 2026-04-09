@@ -224,7 +224,22 @@ export type BLListItem = BL & {
       carrier?: Pick<Carrier, 'id' | 'name' | 'scac'> | null
     }) | null
   }) | null
-  bl_containers?: Pick<BLContainer, 'id' | 'container_number' | 'is_oog' | 'is_imo'>[]
+  bl_containers?: Pick<
+    BLContainer,
+    | 'id'
+    | 'bl_id'
+    | 'container_number'
+    | 'seal_number'
+    | 'type'
+    | 'tare_weight_kg'
+    | 'gross_weight_kg'
+    | 'cbm'
+    | 'is_oog'
+    | 'is_imo'
+    | 'imo_class'
+    | 'un_number'
+    | 'created_at'
+  >[]
 }
 
 export type BLDetail = BL & {
@@ -235,6 +250,32 @@ export type BLDetail = BL & {
     }) | null
   }) | null
   bl_containers?: BLContainer[]
+}
+
+export type ContainerListItem = Pick<
+  BLContainer,
+  | 'id'
+  | 'bl_id'
+  | 'container_number'
+  | 'seal_number'
+  | 'type'
+  | 'tare_weight_kg'
+  | 'gross_weight_kg'
+  | 'cbm'
+  | 'is_oog'
+  | 'is_imo'
+  | 'imo_class'
+  | 'un_number'
+  | 'created_at'
+> & {
+  bl?: (Pick<BL, 'id' | 'pol' | 'pod' | 'review_status' | 'financial_status' | 'consignee'> & {
+    customer?: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
+    voyage?: (Pick<Voyage, 'id' | 'voyage_number' | 'eta' | 'ata' | 'status'> & {
+      vessel?: (Pick<Vessel, 'id' | 'name'> & {
+        carrier?: Pick<Carrier, 'id' | 'name' | 'scac'> | null
+      }) | null
+    }) | null
+  }) | null
 }
 
 export type CustomerListItem = Customer & {

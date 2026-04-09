@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Boxes, Download, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -10,8 +10,9 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
-import { type BlFilters, useBls, useVoyageOptions } from '../hooks/useBls'
+import { type BlFilters, fetchAllBls, useBls, useVoyageOptions } from '../hooks/useBls'
 import { formatCnpjCpf } from '../lib/utils'
+import { exportManifestWorkbook } from '../services/exports'
 import { importManifest } from '../services/manifestImport'
 import { parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 
@@ -31,6 +32,8 @@ export function Manifestos() {
     pageSize: 20,
   })
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
@@ -39,16 +42,47 @@ export function Manifestos() {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
   }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const rows = await fetchAllBls(filters)
+      if (!rows.length) {
+        showToast('Nenhum manifesto encontrado para exportar com os filtros atuais.', 'info')
+        return
+      }
+
+      await exportManifestWorkbook(rows)
+      showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
+    } catch {
+      showToast('Falha ao exportar manifestos.', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Manifestos"
         description="Consulta paginada de B/Ls e importacao de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload size={16} />
-            Importar Manifesto
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+              to={filters.voyageId ? `/containers?voyage=${filters.voyageId}` : '/containers'}
+            >
+              <Boxes size={16} />
+              Containers
+            </Link>
+            <Button variant="secondary" loading={exporting} onClick={handleExport}>
+              <Download size={16} />
+              Exportar
+            </Button>
+            <Button onClick={() => setUploadOpen(true)}>
+              <Upload size={16} />
+              Importar Manifesto
+            </Button>
+          </div>
         }
       />
 

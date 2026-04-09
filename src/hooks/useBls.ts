@@ -1,8 +1,29 @@
 import { useQuery } from '@tanstack/react-query'
+import { normalizeText } from '../lib/utils'
 import { supabase } from '../services/supabase'
-import type { AuditLog, BL, BLDetail, BLListItem } from '../types/database'
+import type { AuditLog, BL, BLDetail, BLListItem, ContainerListItem } from '../types/database'
+
+const blSelect = `
+  *,
+  customer:customers(id, cnpj_cpf, name),
+  voyage:voyages(id, voyage_number, eta, ata, status, vessel:vessels(id, name, carrier:carriers(id, name, scac))),
+  bl_containers(id, bl_id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_oog, is_imo, imo_class, un_number, created_at)
+`
+
+const exportBatchSize = 1000
 
 export type BlFilters = {
+  search: string
+  voyageId: string
+  pod: string
+  reviewStatus: string
+  financialStatus: string
+  cargoProfile: string
+  page: number
+  pageSize: number
+}
+
+export type ContainerFilters = {
   search: string
   voyageId: string
   pod: string
@@ -17,52 +38,97 @@ export function useBls(filters: BlFilters) {
   return useQuery({
     queryKey: ['bls', filters],
     queryFn: async () => {
+      if (filters.cargoProfile && filters.cargoProfile !== 'standard') {
+        const allRows = await fetchAllBls(filters)
+        const from = (filters.page - 1) * filters.pageSize
+        const to = from + filters.pageSize
+        return {
+          rows: allRows.slice(from, to),
+          count: allRows.length,
+        }
+      }
+
       const from = (filters.page - 1) * filters.pageSize
       const to = from + filters.pageSize - 1
 
-      let query = supabase
-        .from('bls')
-        .select(
-          `
-          *,
-          customer:customers(id, cnpj_cpf, name),
-          voyage:voyages(id, voyage_number, eta, ata, status, vessel:vessels(id, name, carrier:carriers(id, name, scac))),
-          bl_containers(id, container_number, is_oog, is_imo)
-        `,
-          { count: 'exact' },
-        )
-        .order('created_at', { ascending: false })
-        .range(from, to)
-
-      if (filters.search) {
-        query = query.or(`id.ilike.%${filters.search}%,consignee.ilike.%${filters.search}%`)
-      }
-
-      if (filters.voyageId) query = query.eq('voyage_id', Number(filters.voyageId))
-      if (filters.pod) query = query.ilike('pod', `%${filters.pod}%`)
-      if (filters.reviewStatus) query = query.eq('review_status', filters.reviewStatus as NonNullable<BL['review_status']>)
-      if (filters.financialStatus) {
-        query = query.eq('financial_status', filters.financialStatus as NonNullable<BL['financial_status']>)
-      }
+      let query = supabase.from('bls').select(blSelect, { count: 'exact' }).order('created_at', { ascending: false }).range(from, to)
+      query = applyBlFilters(query, filters)
 
       const { data, error, count } = await query
       if (error) throw error
 
-      const rows = (data ?? []) as unknown as BLListItem[]
-
       return {
-        rows:
-          filters.cargoProfile && filters.cargoProfile !== 'standard'
-            ? rows.filter((row) =>
-                row.bl_containers?.some((container) =>
-                  filters.cargoProfile === 'oog' ? container.is_oog : container.is_imo,
-                ),
-              )
-            : rows,
+        rows: (data ?? []) as unknown as BLListItem[],
         count: count ?? 0,
       }
     },
   })
+}
+
+export function useContainers(filters: ContainerFilters) {
+  return useQuery({
+    queryKey: ['containers', filters],
+    queryFn: async () => {
+      const filteredRows = await fetchAllContainers(filters)
+      const from = (filters.page - 1) * filters.pageSize
+      const to = from + filters.pageSize
+
+      return {
+        rows: filteredRows.slice(from, to),
+        count: filteredRows.length,
+      }
+    },
+  })
+}
+
+export async function fetchAllBls(filters: BlFilters) {
+  const rows: BLListItem[] = []
+  let from = 0
+
+  while (true) {
+    const to = from + exportBatchSize - 1
+    let query = supabase.from('bls').select(blSelect).order('created_at', { ascending: false }).range(from, to)
+    query = applyBlFilters(query, filters)
+
+    const { data, error } = await query
+    if (error) throw error
+
+    const batch = (data ?? []) as unknown as BLListItem[]
+    rows.push(...batch)
+
+    if (batch.length < exportBatchSize) {
+      break
+    }
+
+    from += exportBatchSize
+  }
+
+  return applyCargoProfile(rows, filters.cargoProfile)
+}
+
+export async function fetchAllContainers(filters: ContainerFilters) {
+  const rows = await fetchAllBls({
+    search: '',
+    voyageId: filters.voyageId,
+    pod: filters.pod,
+    reviewStatus: filters.reviewStatus,
+    financialStatus: filters.financialStatus,
+    cargoProfile: '',
+    page: 1,
+    pageSize: exportBatchSize,
+  })
+
+  const flattenedRows = rows.flatMap((bl) =>
+    (bl.bl_containers ?? []).map(
+      (container) =>
+        ({
+          ...container,
+          bl,
+        }) as unknown as ContainerListItem,
+    ),
+  )
+
+  return applyContainerFilters(flattenedRows, filters)
 }
 
 export function useBlDetail(blId?: string) {
@@ -157,5 +223,59 @@ export function useVoyages() {
         bls?: Array<{ id: string; pol: string | null; pod: string | null; bl_containers?: Array<{ id: number }> | null }> | null
       }>
     },
+  })
+}
+
+function applyBlFilters(query: ReturnType<typeof supabase.from>, filters: BlFilters) {
+  let nextQuery = query
+
+  if (filters.search) {
+    nextQuery = nextQuery.or(`id.ilike.%${filters.search}%,consignee.ilike.%${filters.search}%`)
+  }
+
+  if (filters.voyageId) nextQuery = nextQuery.eq('voyage_id', Number(filters.voyageId))
+  if (filters.pod) nextQuery = nextQuery.ilike('pod', `%${filters.pod}%`)
+  if (filters.reviewStatus) nextQuery = nextQuery.eq('review_status', filters.reviewStatus as NonNullable<BL['review_status']>)
+  if (filters.financialStatus) {
+    nextQuery = nextQuery.eq('financial_status', filters.financialStatus as NonNullable<BL['financial_status']>)
+  }
+
+  return nextQuery
+}
+
+function applyCargoProfile(rows: BLListItem[], cargoProfile: string) {
+  if (!cargoProfile || cargoProfile === 'standard') {
+    return rows
+  }
+
+  return rows.filter((row) =>
+    row.bl_containers?.some((container) => (cargoProfile === 'oog' ? container.is_oog : container.is_imo)),
+  )
+}
+
+function applyContainerFilters(rows: ContainerListItem[], filters: ContainerFilters) {
+  const searchTerm = normalizeText(filters.search)
+
+  return rows.filter((row) => {
+    if (filters.cargoProfile === 'oog' && !row.is_oog) return false
+    if (filters.cargoProfile === 'imo' && !row.is_imo) return false
+
+    if (!searchTerm) return true
+
+    const values = [
+      row.container_number,
+      row.seal_number,
+      row.type,
+      row.imo_class,
+      row.un_number,
+      row.bl?.id,
+      row.bl?.consignee,
+      row.bl?.customer?.name,
+      row.bl?.customer?.cnpj_cpf,
+      row.bl?.voyage?.vessel?.name,
+      row.bl?.voyage?.vessel?.carrier?.name,
+    ]
+
+    return values.some((value) => normalizeText(String(value ?? '')).includes(searchTerm))
   })
 }
