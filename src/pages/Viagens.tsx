@@ -276,7 +276,7 @@ export function Viagens() {
                                   })
                                 }
                               >
-                                Editar POL
+                                Editar ETD
                               </Button>
                             </td>
                           </tr>
@@ -311,26 +311,21 @@ export function Viagens() {
                             <td className="px-3 py-2">{formatDate(row.eta)}</td>
                             <td className="px-3 py-2">{formatDate(row.ata)}</td>
                             <td className="px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="secondary"
-                                  className="h-8 px-3"
-                                  onClick={() =>
-                                    setEditingPod({
-                                      voyageId: voyage.id,
-                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                      pod: row.pod,
-                                      eta: row.eta,
-                                      ata: row.ata,
-                                    })
-                                  }
-                                >
-                                  Editar POD
-                                </Button>
-                                {!row.eta || !row.ata ? (
-                                  <span className="text-xs font-semibold text-amber-300">Pendente</span>
-                                ) : null}
-                              </div>
+                              <Button
+                                variant="secondary"
+                                className="h-8 px-3"
+                                onClick={() =>
+                                  setEditingPod({
+                                    voyageId: voyage.id,
+                                    voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                    pod: row.pod,
+                                    eta: row.eta,
+                                    ata: row.ata,
+                                  })
+                                }
+                              >
+                                Editar POD
+                              </Button>
                             </td>
                           </tr>
                         ))}
