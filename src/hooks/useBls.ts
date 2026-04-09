@@ -301,7 +301,13 @@ export function useVoyages() {
           id: string
           pol: string | null
           pod: string | null
-          bl_containers?: Array<{ id: number; container_number: string }> | null
+          bl_containers?: Array<{
+            id: number
+            container_number: string
+            type?: string | null
+            is_oog?: boolean | null
+            is_imo?: boolean | null
+          }> | null
         }> | null
       }>
     },

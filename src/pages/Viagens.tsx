@@ -10,7 +10,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
-import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
+import { countDistinctContainerNumbers, countDistinctContainerNumbersBy, countDistinctContainersAcrossGroups } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import { deleteVoyage } from '../services/voyages'
 import {
@@ -185,9 +185,13 @@ export function Viagens() {
         ) : null}
         {filteredVoyages.map((voyage) => {
           const totalBls = voyage.bls?.length ?? 0
-          const totalContainers = countDistinctContainersAcrossGroups(voyage.bls, (bl) => bl.bl_containers)
+          const flatContainers = voyage.bls?.flatMap((bl) => bl.bl_containers ?? []) ?? []
+          const totalContainers = countDistinctContainerNumbers(flatContainers)
+          const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
+          const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
           const destinationPorts = collectVoyagePorts(voyage.bls, 'pod', voyage.pod?.name ?? null)
+          const containerTypes = summarizeContainerTypes(flatContainers)
           const polRows = originPorts.map((pol) => {
             const schedule = polSchedules?.get(buildVoyagePolEntityId(voyage.id, pol))
             return {
@@ -233,12 +237,20 @@ export function Viagens() {
                 </span>
               </div>
 
-              <dl className="grid gap-2 text-sm text-slate-300">
-                <Info label="Portos de Origem" value={originPorts.join(' | ') || 'Definidos por manifesto'} />
-                <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
-                <Info label="B/Ls" value={String(totalBls)} />
-                <Info label="Containers distintos" value={String(totalContainers)} />
-              </dl>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <dl className="grid gap-2 text-sm text-slate-300">
+                  <Info label="Portos de Origem" value={originPorts.join(' | ') || 'Definidos por manifesto'} />
+                  <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
+                  <Info label="B/Ls" value={String(totalBls)} />
+                  <Info label="Containers distintos" value={String(totalContainers)} />
+                </dl>
+                <dl className="grid gap-2 text-sm text-slate-300">
+                  <Info label="Containers IMO" value={String(totalImoContainers)} />
+                  <Info label="Containers OOG" value={String(totalOogContainers)} />
+                  <Info label="Tipos de container" value={containerTypes || '-'} />
+                  <Info label="Trechos" value={String(routeRows.length)} />
+                </dl>
+              </div>
 
               <div className="grid gap-4 2xl:grid-cols-12">
                 <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-5">
@@ -566,6 +578,35 @@ function collectVoyageRoutes(bls: Array<{ pol: string | null; pod: string | null
   }
 
   return Array.from(routes.values())
+}
+
+function summarizeContainerTypes(
+  containers:
+    | Array<{
+        container_number?: string | null
+        type?: string | null
+      }>
+    | null
+    | undefined,
+) {
+  const groups = new Map<string, Array<{ container_number?: string | null }>>()
+
+  for (const container of containers ?? []) {
+    const type = String(container.type ?? '').trim() || 'Nao informado'
+    const current = groups.get(type)
+
+    if (current) {
+      current.push(container)
+    } else {
+      groups.set(type, [container])
+    }
+  }
+
+  return Array.from(groups.entries())
+    .map(([type, items]) => ({ type, count: countDistinctContainerNumbers(items) }))
+    .sort((left, right) => right.count - left.count || left.type.localeCompare(right.type, 'pt-BR'))
+    .map(({ type, count }) => `${type}: ${count}`)
+    .join(' | ')
 }
 
 function makeVoyageInitialValues(
