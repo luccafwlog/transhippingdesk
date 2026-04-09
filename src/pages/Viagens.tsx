@@ -6,6 +6,7 @@ import { Card, PageHeader } from '../components/ui/Card'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
+import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 
 export function Viagens() {
@@ -19,13 +20,10 @@ export function Viagens() {
     () => ({
       active: data?.filter((voyage) => voyage.status === 'active').length ?? 0,
       totalBls: data?.reduce((sum, voyage) => sum + (voyage.bls?.length ?? 0), 0) ?? 0,
-      totalContainers:
-        data?.reduce(
-          (sum, voyage) =>
-            sum +
-            (voyage.bls?.reduce((blSum, bl) => blSum + (bl.bl_containers?.length ?? 0), 0) ?? 0),
-          0,
-        ) ?? 0,
+      totalContainers: countDistinctContainersAcrossGroups(
+        data ?? [],
+        (voyage) => voyage.bls?.flatMap((bl) => bl.bl_containers ?? []) ?? [],
+      ),
     }),
     [data],
   )
@@ -48,7 +46,7 @@ export function Viagens() {
       <div className="mb-5 grid gap-4 md:grid-cols-3">
         <MetricCard label="Viagens ativas" value={summary.active} />
         <MetricCard label="B/Ls vinculados" value={summary.totalBls} />
-        <MetricCard label="Containers vinculados" value={summary.totalContainers} />
+        <MetricCard label="Containers distintos vinculados" value={summary.totalContainers} />
       </div>
 
       {error ? <Card className="mb-5 text-red-200">Erro ao carregar viagens.</Card> : null}
@@ -57,7 +55,7 @@ export function Viagens() {
         {isLoading ? <Card>Carregando viagens...</Card> : null}
         {data?.map((voyage) => {
           const totalBls = voyage.bls?.length ?? 0
-          const totalContainers = voyage.bls?.reduce((sum, bl) => sum + (bl.bl_containers?.length ?? 0), 0) ?? 0
+          const totalContainers = countDistinctContainersAcrossGroups(voyage.bls, (bl) => bl.bl_containers)
 
           return (
             <Card key={voyage.id} className="grid gap-4">
@@ -81,7 +79,7 @@ export function Viagens() {
                 <Info label="ETA" value={formatDate(voyage.eta)} />
                 <Info label="ATA" value={formatDate(voyage.ata)} />
                 <Info label="B/Ls" value={String(totalBls)} />
-                <Info label="Containers" value={String(totalContainers)} />
+                <Info label="Containers distintos" value={String(totalContainers)} />
               </dl>
 
               <div>

@@ -57,7 +57,7 @@ export function Containers() {
     <>
       <PageHeader
         title="Containers"
-        description="Lista consolidada dos containers importados via manifestos, com acesso rapido ao B/L de origem."
+        description="Lista consolidada dos containers importados via manifestos. O total distinto considera o numero do container, mesmo quando ele aparece em mais de um B/L."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" loading={exporting} onClick={handleExport}>
@@ -204,7 +204,7 @@ export function Containers() {
 
         <div className="flex flex-col justify-between gap-3 border-t border-[#30363d] p-4 text-sm text-slate-400 md:flex-row md:items-center">
           <span>
-            Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros
+            Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros · {data?.distinctCount ?? 0} containers distintos
           </span>
           <div className="flex items-center gap-2">
             <Select

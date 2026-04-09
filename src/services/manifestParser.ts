@@ -1,3 +1,4 @@
+import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
 import { normalizeText, onlyDigits, toNumber } from '../lib/utils'
 import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyageForm'
 
@@ -73,12 +74,7 @@ export function countDistinctManifestContainers(manifest: ParsedManifest | null 
 }
 
 export function countDistinctParsedContainers(bls: ParsedBL[]) {
-  return new Set(
-    bls
-      .flatMap((bl) => bl.containers)
-      .map((container) => asString(container.container_number).toUpperCase())
-      .filter(Boolean),
-  ).size
+  return countDistinctContainersAcrossGroups(bls, (bl) => bl.containers)
 }
 
 type DestinationField = keyof typeof headerMap

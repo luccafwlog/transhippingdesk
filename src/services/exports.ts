@@ -1,3 +1,4 @@
+import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import type { BLListItem, ContainerListItem } from '../types/database'
 
 export async function exportManifestWorkbook(rows: BLListItem[]) {
@@ -12,9 +13,9 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
     CNPJ: row.customer?.cnpj_cpf ?? '',
     POL: row.pol ?? '',
     POD: row.pod ?? '',
-    Containers: row.bl_containers?.length ?? 0,
-    OOG: row.bl_containers?.filter((container) => container.is_oog).length ?? 0,
-    IMO: row.bl_containers?.filter((container) => container.is_imo).length ?? 0,
+    'Containers distintos': countDistinctContainerNumbers(row.bl_containers),
+    'Containers OOG distintos': countDistinctContainerNumbersBy(row.bl_containers, (container) => Boolean(container.is_oog)),
+    'Containers IMO distintos': countDistinctContainerNumbersBy(row.bl_containers, (container) => Boolean(container.is_imo)),
     PesoKg: row.total_weight_kg ?? '',
     CBM: row.total_cbm ?? '',
     Revisao: row.review_status ?? '',

@@ -1,3 +1,4 @@
+import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { useQuery } from '@tanstack/react-query'
 import { normalizeText } from '../lib/utils'
 import { supabase } from '../services/supabase'
@@ -76,6 +77,7 @@ export function useContainers(filters: ContainerFilters) {
       return {
         rows: filteredRows.slice(from, to),
         count: filteredRows.length,
+        distinctCount: countDistinctContainerNumbers(filteredRows),
       }
     },
   })
@@ -202,7 +204,7 @@ export function useVoyages() {
           vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
           pol:ports!voyages_pol_id_fkey(id, name, locode, country),
           pod:ports!voyages_pod_id_fkey(id, name, locode, country),
-          bls(id, pol, pod, bl_containers(id))
+          bls(id, pol, pod, bl_containers(id, container_number))
         `,
         )
         .order('created_at', { ascending: false })
@@ -220,7 +222,12 @@ export function useVoyages() {
         vessel?: { id: number; name: string; imo: string | null; carrier?: { id: number; name: string; scac: string | null } | null } | null
         pol?: { id: number; name: string; locode: string | null; country: string | null } | null
         pod?: { id: number; name: string; locode: string | null; country: string | null } | null
-        bls?: Array<{ id: string; pol: string | null; pod: string | null; bl_containers?: Array<{ id: number }> | null }> | null
+        bls?: Array<{
+          id: string
+          pol: string | null
+          pod: string | null
+          bl_containers?: Array<{ id: number; container_number: string }> | null
+        }> | null
       }>
     },
   })

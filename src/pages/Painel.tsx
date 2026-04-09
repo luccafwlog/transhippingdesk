@@ -1,31 +1,61 @@
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Boxes, FileText, Receipt } from 'lucide-react'
 import { Card, PageHeader } from '../components/ui/Card'
+import { normalizeContainerNumber } from '../lib/containerCounts'
 import { supabase } from '../services/supabase'
 import { formatBRL } from '../lib/utils'
 
 async function fetchDashboard() {
-  const [bls, containers, review, pendingFinancial, invoices, alerts] = await Promise.all([
+  const [totalContainers, bls, review, pendingFinancial, invoices, alerts] = await Promise.all([
+    fetchDistinctContainerCount(),
     supabase.from('bls').select('id', { count: 'exact', head: true }).range(0, 0),
-    supabase.from('bl_containers').select('id', { count: 'exact', head: true }).range(0, 0),
     supabase.from('bls').select('id', { count: 'exact', head: true }).eq('review_status', 'pending_review').range(0, 0),
     supabase.from('bls').select('id', { count: 'exact', head: true }).eq('financial_status', 'pending').range(0, 0),
     supabase.from('invoices').select('total_brl,status').in('status', ['issued', 'overdue']).range(0, 499),
     supabase.from('alerts').select('id', { count: 'exact', head: true }).neq('status', 'closed').range(0, 0),
   ])
 
-  const firstError = [bls, containers, review, pendingFinancial, invoices, alerts].find((result) => result.error)?.error
+  const firstError = [bls, review, pendingFinancial, invoices, alerts].find((result) => result.error)?.error
   if (firstError) throw firstError
 
   return {
     totalBls: bls.count ?? 0,
-    totalContainers: containers.count ?? 0,
+    totalContainers,
     pendingReview: review.count ?? 0,
     pendingFinancial: pendingFinancial.count ?? 0,
     openInvoices: invoices.data?.length ?? 0,
     openInvoicesAmount: invoices.data?.reduce((sum, invoice) => sum + Number(invoice.total_brl ?? 0), 0) ?? 0,
     openAlerts: alerts.count ?? 0,
   }
+}
+
+async function fetchDistinctContainerCount() {
+  const containerNumbers = new Set<string>()
+  let from = 0
+  const batchSize = 1000
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('bl_containers')
+      .select('container_number')
+      .order('id', { ascending: true })
+      .range(from, from + batchSize - 1)
+
+    if (error) throw error
+
+    const batch = data ?? []
+    for (const row of batch) {
+      const containerNumber = normalizeContainerNumber(row.container_number)
+      if (containerNumber) {
+        containerNumbers.add(containerNumber)
+      }
+    }
+
+    if (batch.length < batchSize) break
+    from += batchSize
+  }
+
+  return containerNumbers.size
 }
 
 export function Painel() {
@@ -46,7 +76,7 @@ export function Painel() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard icon={FileText} label="B/Ls ativos" value={isLoading ? '...' : data?.totalBls ?? 0} />
-        <KpiCard icon={Boxes} label="Containers" value={isLoading ? '...' : data?.totalContainers ?? 0} />
+        <KpiCard icon={Boxes} label="Containers distintos" value={isLoading ? '...' : data?.totalContainers ?? 0} />
         <KpiCard
           icon={AlertTriangle}
           label="Aguardando revisão"

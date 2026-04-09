@@ -11,6 +11,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { type BlFilters, fetchAllBls, useBls, useVoyageOptions } from '../hooks/useBls'
+import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
 import { importManifest } from '../services/manifestImport'
@@ -147,7 +148,7 @@ export function Manifestos() {
                 <th className="px-4 py-3">Consignatario</th>
                 <th className="px-4 py-3">CNPJ</th>
                 <th className="px-4 py-3">POL / POD</th>
-                <th className="px-4 py-3">Containers</th>
+                <th className="px-4 py-3">Containers distintos</th>
                 <th className="px-4 py-3">Peso</th>
                 <th className="px-4 py-3">CBM</th>
                 <th className="px-4 py-3">Revisao</th>
@@ -186,7 +187,7 @@ export function Manifestos() {
                   <td className="px-4 py-3">
                     {`${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`}
                   </td>
-                  <td className="px-4 py-3">{bl.bl_containers?.length ?? 0}</td>
+                  <td className="px-4 py-3">{countDistinctContainerNumbers(bl.bl_containers)}</td>
                   <td className="px-4 py-3">{Number(bl.total_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
                   <td className="px-4 py-3">{Number(bl.total_cbm ?? 0).toLocaleString('pt-BR')}</td>
                   <td className="px-4 py-3">
@@ -395,7 +396,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                     <th className="px-3 py-2">B/L</th>
                     <th className="px-3 py-2">Consignatario</th>
                     <th className="px-3 py-2">CNPJ</th>
-                    <th className="px-3 py-2">Containers</th>
+                    <th className="px-3 py-2">Containers distintos</th>
                     <th className="px-3 py-2">Status</th>
                   </tr>
                 </thead>
@@ -405,7 +406,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                       <td className="px-3 py-2 font-semibold text-white">{bl.id}</td>
                       <td className="px-3 py-2">{bl.consignee ?? '-'}</td>
                       <td className="px-3 py-2">{formatCnpjCpf(bl.cnpj_cpf)}</td>
-                      <td className="px-3 py-2">{bl.containers.length}</td>
+                      <td className="px-3 py-2">{countDistinctContainerNumbers(bl.containers)}</td>
                       <td className="px-3 py-2">
                         <ReviewBadge status={bl.review_status} />
                       </td>
