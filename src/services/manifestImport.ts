@@ -1,6 +1,7 @@
 import { onlyDigits } from '../lib/utils'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
+import { syncManifestRouteEtdSchedules } from './voyageRouteSchedules'
 
 export async function importManifest({
   filename,
@@ -128,6 +129,12 @@ export async function importManifest({
 
     if (error) throw error
   }
+
+  await syncManifestRouteEtdSchedules({
+    voyageId,
+    manifest,
+    changedBy: uploadedBy,
+  })
 
   const { error: updateError } = await supabase
     .from('import_batches')

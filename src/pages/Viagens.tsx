@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Field, Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -11,13 +11,19 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
+import { formatDate } from '../lib/utils'
 import { deleteVoyage } from '../services/voyages'
+import {
+  buildVoyageRouteEntityId,
+  listVoyageRouteSchedules,
+  saveVoyageRouteSchedule,
+} from '../services/voyageRouteSchedules'
 
 export function Viagens() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const { data, isLoading, error } = useVoyages()
   const [open, setOpen] = useState(false)
   const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
@@ -25,6 +31,15 @@ export function Viagens() {
   const [deleting, setDeleting] = useState(false)
   const [vesselFilter, setVesselFilter] = useState('')
   const [voyageFilter, setVoyageFilter] = useState('')
+  const [editingRoute, setEditingRoute] = useState<{
+    voyageId: number
+    voyageLabel: string
+    pol: string
+    pod: string
+    etd: string | null
+    eta: string | null
+    ata: string | null
+  } | null>(null)
 
   const filteredVoyages = useMemo(() => {
     const normalizedVesselFilter = vesselFilter.trim().toUpperCase()
@@ -40,6 +55,24 @@ export function Viagens() {
       return matchesVessel && matchesVoyage
     })
   }, [data, vesselFilter, voyageFilter])
+
+  const routeEntityIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          filteredVoyages.flatMap((voyage) =>
+            collectVoyageRoutes(voyage.id, voyage.bls).map((route) => route.entityId),
+          ),
+        ),
+      ),
+    [filteredVoyages],
+  )
+
+  const { data: routeSchedules } = useQuery({
+    queryKey: ['voyage-route-schedules', routeEntityIds],
+    enabled: routeEntityIds.length > 0,
+    queryFn: () => listVoyageRouteSchedules(routeEntityIds),
+  })
 
   const summary = useMemo(
     () => ({
@@ -130,7 +163,16 @@ export function Viagens() {
           const totalContainers = countDistinctContainersAcrossGroups(voyage.bls, (bl) => bl.bl_containers)
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
           const destinationPorts = collectVoyagePorts(voyage.bls, 'pod', voyage.pod?.name ?? null)
-          const routeRows = collectVoyageRoutes(voyage.bls)
+          const routeRows = collectVoyageRoutes(voyage.id, voyage.bls).map((route) => {
+            const schedule = routeSchedules?.get(route.entityId)
+
+            return {
+              ...route,
+              etd: schedule?.etd ?? null,
+              eta: schedule?.eta ?? null,
+              ata: schedule?.ata ?? null,
+            }
+          })
 
           return (
             <Card key={voyage.id} className="grid gap-4">
@@ -160,18 +202,22 @@ export function Viagens() {
                   <div>
                     <div className="font-semibold text-white">Trechos consolidados</div>
                     <div className="text-sm text-slate-400">
-                      Os trechos consolidados mostram apenas os portos efetivamente importados. ETD, ETA e ATA nao aparecem aqui porque a granularidade correta e por trecho POL/POD, nao por viagem inteira.
+                      O ETD vem do manifesto por trecho. ETA e ATA sao mantidos manualmente por trecho POL/POD.
                     </div>
                   </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[420px] text-left text-sm">
+                  <table className="w-full min-w-[760px] text-left text-sm">
                     <thead className="text-xs uppercase tracking-wider text-slate-500">
                       <tr>
                         <th className="px-3 py-2">POL</th>
                         <th className="px-3 py-2">POD</th>
+                        <th className="px-3 py-2">ETD</th>
+                        <th className="px-3 py-2">ETA</th>
+                        <th className="px-3 py-2">ATA</th>
                         <th className="px-3 py-2">B/Ls</th>
+                        <th className="px-3 py-2">Acoes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -180,12 +226,34 @@ export function Viagens() {
                           <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
                             <td className="px-3 py-2">{route.pol}</td>
                             <td className="px-3 py-2">{route.pod}</td>
+                            <td className="px-3 py-2">{formatDate(route.etd)}</td>
+                            <td className="px-3 py-2">{formatDate(route.eta)}</td>
+                            <td className="px-3 py-2">{formatDate(route.ata)}</td>
                             <td className="px-3 py-2">{route.blCount}</td>
+                            <td className="px-3 py-2">
+                              <Button
+                                variant="secondary"
+                                className="h-8 px-3"
+                                onClick={() =>
+                                  setEditingRoute({
+                                    voyageId: voyage.id,
+                                    voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                    pol: route.pol,
+                                    pod: route.pod,
+                                    etd: route.etd,
+                                    eta: route.eta,
+                                    ata: route.ata,
+                                  })
+                                }
+                              >
+                                Editar datas
+                              </Button>
+                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={3} className="px-3 py-3 text-slate-400">
+                          <td colSpan={7} className="px-3 py-3 text-slate-400">
                             Nenhum trecho identificado nos manifestos desta viagem.
                           </td>
                         </tr>
@@ -260,6 +328,29 @@ export function Viagens() {
           </div>
         </div>
       </Modal>
+
+      <RouteScheduleModal
+        open={editingRoute !== null}
+        route={editingRoute}
+        onClose={() => setEditingRoute(null)}
+        onSaved={async ({ voyageId, pol, pod, eta, ata }) => {
+          try {
+            await saveVoyageRouteSchedule({
+              voyageId,
+              pol,
+              pod,
+              eta,
+              ata,
+              changedBy: user?.id ?? null,
+            })
+            await queryClient.invalidateQueries({ queryKey: ['voyage-route-schedules'] })
+            showToast('Datas do trecho atualizadas com sucesso.', 'success')
+            setEditingRoute(null)
+          } catch {
+            showToast('Falha ao salvar as datas do trecho.', 'error')
+          }
+        }}
+      />
     </>
   )
 }
@@ -302,12 +393,16 @@ function collectVoyagePorts(
   return ports
 }
 
-function collectVoyageRoutes(bls: Array<{ pol: string | null; pod: string | null }> | null | undefined) {
-  const routes = new Map<string, { pol: string; pod: string; blCount: number }>()
+function collectVoyageRoutes(
+  voyageId: number,
+  bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
+) {
+  const routes = new Map<string, { entityId: string; pol: string; pod: string; blCount: number }>()
 
   for (const bl of bls ?? []) {
     const pol = bl.pol?.trim() || '-'
     const pod = bl.pod?.trim() || '-'
+    const entityId = buildVoyageRouteEntityId(voyageId, pol, pod)
     const key = `${pol}::${pod}`
     const current = routes.get(key)
 
@@ -316,6 +411,7 @@ function collectVoyageRoutes(bls: Array<{ pol: string | null; pod: string | null
       current
         ? { ...current, blCount: current.blCount + 1 }
         : {
+            entityId,
             pol,
             pod,
             blCount: 1,
@@ -354,4 +450,88 @@ function makeVoyageInitialValues(
 function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 'cancelled' {
   if (status === 'completed' || status === 'cancelled') return status
   return 'active'
+}
+
+function RouteScheduleModal({
+  open,
+  route,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  route: {
+    voyageId: number
+    voyageLabel: string
+    pol: string
+    pod: string
+    etd: string | null
+    eta: string | null
+    ata: string | null
+  } | null
+  onClose: () => void
+  onSaved: (payload: { voyageId: number; pol: string; pod: string; eta: string | null; ata: string | null }) => Promise<void>
+}) {
+  const [eta, setEta] = useState('')
+  const [ata, setAta] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!route || !open) return
+    setEta(route.eta ?? '')
+    setAta(route.ata ?? '')
+  }, [open, route])
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!route) return
+
+    setSaving(true)
+    try {
+      await onSaved({
+        voyageId: route.voyageId,
+        pol: route.pol,
+        pod: route.pod,
+        eta: eta || null,
+        ata: ata || null,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Editar datas do trecho">
+      {route ? (
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+            <div className="font-semibold text-white">{route.voyageLabel}</div>
+            <div className="mt-1">
+              {route.pol} -&gt; {route.pod}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="ETD do manifesto">
+              <Input type="date" value={route.etd ?? ''} disabled />
+            </Field>
+            <Field label="ETA">
+              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
+            </Field>
+            <Field label="ATA">
+              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
+            </Field>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" type="button" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button loading={saving} type="submit">
+              Salvar datas
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </Modal>
+  )
 }
