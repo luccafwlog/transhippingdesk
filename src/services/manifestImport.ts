@@ -14,6 +14,18 @@ export async function importManifest({
   uploadedBy: string
 }) {
   const distinctContainerCount = countDistinctManifestContainers(manifest)
+  const { data: voyage, error: voyageError } = await supabase
+    .from('voyages')
+    .select('id, etd')
+    .eq('id', voyageId)
+    .single()
+
+  if (voyageError) throw voyageError
+
+  const nextVoyageEtd =
+    manifest.manifest_etd && (!voyage.etd || new Date(manifest.manifest_etd) < new Date(voyage.etd))
+      ? manifest.manifest_etd
+      : voyage.etd
 
   const { data: batch, error: batchError } = await supabase
     .from('import_batches')
@@ -124,6 +136,15 @@ export async function importManifest({
     )
 
     if (error) throw error
+  }
+
+  if (nextVoyageEtd !== voyage.etd) {
+    const { error: updateVoyageError } = await supabase
+      .from('voyages')
+      .update({ etd: nextVoyageEtd })
+      .eq('id', voyage.id)
+
+    if (updateVoyageError) throw updateVoyageError
   }
 
   const { error: updateError } = await supabase

@@ -66,6 +66,7 @@ export type ParsedBL = {
 export type ParsedManifest = {
   bls: ParsedBL[]
   rowErrors: { row: number; message: string; raw: unknown }[]
+  manifest_etd: string | null
   suggestedVoyage?: Partial<VoyageFormValues>
 }
 
@@ -87,6 +88,7 @@ type ManifestMeta = {
   pod: string
   del: string
   dest: string
+  sailed_at: string
 }
 
 type ManifestLine = {
@@ -203,7 +205,7 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
     })
   })
 
-  return { bls: Array.from(grouped.values()), rowErrors }
+  return { bls: Array.from(grouped.values()), rowErrors, manifest_etd: null }
 }
 
 function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
@@ -329,11 +331,13 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
   return {
     bls: Array.from(grouped.values()),
     rowErrors,
+    manifest_etd: meta.sailed_at || null,
     suggestedVoyage: {
       carrierName: DEFAULT_CARRIER_NAME,
       carrierScac: DEFAULT_CARRIER_SCAC,
       vesselName: meta.vessel,
       voyageNumber: meta.voyage,
+      etd: meta.sailed_at ? `${meta.sailed_at}T00:00` : '',
       status: 'active',
     },
   }
@@ -352,6 +356,7 @@ function parseManifestHeader(rawRows: RawSheetRow[]): ManifestMeta {
     pod: '',
     del: '',
     dest: '',
+    sailed_at: '',
   }
 
   rawRows.forEach((row) => {
@@ -365,6 +370,7 @@ function parseManifestHeader(rawRows: RawSheetRow[]): ManifestMeta {
       if (!meta.pod) meta.pod = matchValue(current, /^POD\s+(.+)$/i)
       if (!meta.del) meta.del = matchValue(current, /^DEL\s+(.+)$/i)
       if (!meta.dest) meta.dest = matchValue(current, /^DEST\s+(.+)$/i)
+      if (!meta.sailed_at) meta.sailed_at = extractSailedDate(current)
     })
   })
 
@@ -792,4 +798,9 @@ function extractImoClass(value: string) {
 function extractUnNumber(value: string) {
   const match = asString(value).match(/UN(?:\s*NCM\.?|)\s*[:.]?\s*(\d{4})/i)
   return match?.[1] ?? null
+}
+
+function extractSailedDate(value: string) {
+  const match = asString(value).match(/SAILED\s+(\d{4}-\d{2}-\d{2})/i)
+  return match?.[1] ?? ''
 }

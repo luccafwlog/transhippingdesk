@@ -89,6 +89,9 @@ export function Viagens() {
         {data?.map((voyage) => {
           const totalBls = voyage.bls?.length ?? 0
           const totalContainers = countDistinctContainersAcrossGroups(voyage.bls, (bl) => bl.bl_containers)
+          const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
+          const destinationPorts = collectVoyagePorts(voyage.bls, 'pod', voyage.pod?.name ?? null)
+          const routeRows = collectVoyageRoutes(voyage.bls)
 
           return (
             <Card key={voyage.id} className="grid gap-4">
@@ -107,13 +110,58 @@ export function Viagens() {
               </div>
 
               <dl className="grid gap-2 text-sm text-slate-300">
-                <Info label="Trechos" value={summarizeVoyageRoutes(voyage)} />
-                <Info label="ETD" value={formatDate(voyage.etd)} />
-                <Info label="ETA" value={formatDate(voyage.eta)} />
+                <Info label="Portos de Origem" value={originPorts.join(' | ') || 'Definidos por manifesto'} />
+                <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
+                <Info label="ETD do manifesto" value={formatDate(voyage.etd)} />
+                <Info label="ETA informado" value={formatDate(voyage.eta)} />
                 <Info label="ATA" value={formatDate(voyage.ata)} />
                 <Info label="B/Ls" value={String(totalBls)} />
                 <Info label="Containers distintos" value={String(totalContainers)} />
               </dl>
+
+              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-white">Trechos consolidados</div>
+                    <div className="text-sm text-slate-400">
+                      O ETD vem do manifesto importado. O ETA e mantido pelo usuario na viagem.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[620px] text-left text-sm">
+                    <thead className="text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">POL</th>
+                        <th className="px-3 py-2">POD</th>
+                        <th className="px-3 py-2">ETD manifesto</th>
+                        <th className="px-3 py-2">ETA informado</th>
+                        <th className="px-3 py-2">B/Ls</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {routeRows.length ? (
+                        routeRows.map((route) => (
+                          <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
+                            <td className="px-3 py-2">{route.pol}</td>
+                            <td className="px-3 py-2">{route.pod}</td>
+                            <td className="px-3 py-2">{formatDate(voyage.etd)}</td>
+                            <td className="px-3 py-2">{formatDate(voyage.eta)}</td>
+                            <td className="px-3 py-2">{route.blCount}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-3 text-slate-400">
+                            Nenhum trecho identificado nos manifestos desta viagem.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               <div>
                 <div className="flex flex-wrap gap-2">
@@ -202,32 +250,48 @@ function Info({ label, value }: { label: string; value: string }) {
   )
 }
 
-function summarizeVoyageRoutes(voyage: {
-  pol?: { name: string | null } | null
-  pod?: { name: string | null } | null
-  bls?: Array<{ pol: string | null; pod: string | null }> | null
-}) {
-  const routeLabels = Array.from(
+function collectVoyagePorts(
+  bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
+  field: 'pol' | 'pod',
+  fallback: string | null,
+) {
+  const ports = Array.from(
     new Set(
-      (voyage.bls ?? [])
-        .map((bl) => formatRoute(bl.pol, bl.pod))
-        .filter((route): route is string => Boolean(route)),
+      (bls ?? [])
+        .map((bl) => bl[field]?.trim() ?? '')
+        .filter(Boolean),
     ),
   )
 
-  if (routeLabels.length === 0) {
-    const legacyRoute = formatRoute(voyage.pol?.name ?? null, voyage.pod?.name ?? null)
-    return legacyRoute ?? 'Definidos por manifesto'
+  if (!ports.length && fallback) {
+    return [fallback]
   }
 
-  if (routeLabels.length === 1) return routeLabels[0]
-  if (routeLabels.length === 2) return routeLabels.join(' | ')
-  return `${routeLabels.slice(0, 2).join(' | ')} +${routeLabels.length - 2}`
+  return ports
 }
 
-function formatRoute(pol: string | null, pod: string | null) {
-  if (!pol && !pod) return null
-  return `${pol ?? '-'} -> ${pod ?? '-'}`
+function collectVoyageRoutes(bls: Array<{ pol: string | null; pod: string | null }> | null | undefined) {
+  const routes = new Map<string, { pol: string; pod: string; blCount: number }>()
+
+  for (const bl of bls ?? []) {
+    const pol = bl.pol?.trim() || '-'
+    const pod = bl.pod?.trim() || '-'
+    const key = `${pol}::${pod}`
+    const current = routes.get(key)
+
+    routes.set(
+      key,
+      current
+        ? { ...current, blCount: current.blCount + 1 }
+        : {
+            pol,
+            pod,
+            blCount: 1,
+          },
+    )
+  }
+
+  return Array.from(routes.values())
 }
 
 function makeVoyageInitialValues(
