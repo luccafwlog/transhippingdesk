@@ -1,4 +1,8 @@
-import { countDistinctContainerNumbers } from '../lib/containerCounts'
+import {
+  countDistinctContainerNumbers,
+  countDistinctContainerNumbersBy,
+  countDistinctContainersAcrossGroups,
+} from '../lib/containerCounts'
 import { useQuery } from '@tanstack/react-query'
 import { normalizeText } from '../lib/utils'
 import { supabase } from '../services/supabase'
@@ -78,6 +82,25 @@ export function useContainers(filters: ContainerFilters) {
         rows: filteredRows.slice(from, to),
         count: filteredRows.length,
         distinctCount: countDistinctContainerNumbers(filteredRows),
+        oogDistinctCount: countDistinctContainerNumbersBy(filteredRows, (container) => Boolean(container.is_oog)),
+        imoDistinctCount: countDistinctContainerNumbersBy(filteredRows, (container) => Boolean(container.is_imo)),
+        blCount: new Set(filteredRows.map((container) => container.bl?.id).filter(Boolean)).size,
+      }
+    },
+  })
+}
+
+export function useBlSummary(filters: BlFilters) {
+  return useQuery({
+    queryKey: ['bl-summary', toSummaryFilters(filters)],
+    queryFn: async () => {
+      const rows = await fetchAllBls(filters)
+
+      return {
+        totalBls: rows.length,
+        totalDistinctContainers: countDistinctContainersAcrossGroups(rows, (row) => row.bl_containers),
+        pendingReview: rows.filter((row) => row.review_status === 'pending_review').length,
+        pendingFinancial: rows.filter((row) => row.financial_status === 'pending').length,
       }
     },
   })
@@ -285,4 +308,11 @@ function applyContainerFilters(rows: ContainerListItem[], filters: ContainerFilt
 
     return values.some((value) => normalizeText(String(value ?? '')).includes(searchTerm))
   })
+}
+
+function toSummaryFilters<TFilters extends { page: number; pageSize: number }>(filters: TFilters) {
+  const { page, pageSize, ...summaryFilters } = filters
+  void page
+  void pageSize
+  return summaryFilters
 }

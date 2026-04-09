@@ -120,6 +120,14 @@ export function Containers() {
         </div>
       </Card>
 
+      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <SummaryCard label="Registros filtrados" value={isLoading ? '...' : data?.count ?? 0} />
+        <SummaryCard label="Containers distintos" value={isLoading ? '...' : data?.distinctCount ?? 0} />
+        <SummaryCard label="B/Ls envolvidos" value={isLoading ? '...' : data?.blCount ?? 0} />
+        <SummaryCard label="OOG distintos" value={isLoading ? '...' : data?.oogDistinctCount ?? 0} />
+        <SummaryCard label="IMO distintos" value={isLoading ? '...' : data?.imoDistinctCount ?? 0} />
+      </div>
+
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
@@ -236,6 +244,16 @@ export function Containers() {
         </div>
       </Card>
     </>
+  )
+}
+
+function SummaryCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <Card>
+      <div className="text-sm text-slate-400">{label}</div>
+      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
+      <div className="mt-1 text-xs text-slate-500">Considera os filtros ativos desta tela.</div>
+    </Card>
   )
 }
 

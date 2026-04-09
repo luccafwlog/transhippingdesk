@@ -10,7 +10,7 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
-import { type BlFilters, fetchAllBls, useBls, useVoyageOptions } from '../hooks/useBls'
+import { type BlFilters, fetchAllBls, useBls, useBlSummary, useVoyageOptions } from '../hooks/useBls'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
@@ -36,6 +36,7 @@ export function Manifestos() {
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
+  const { data: summary, isLoading: isSummaryLoading } = useBlSummary(filters)
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
 
@@ -132,6 +133,19 @@ export function Manifestos() {
           </Field>
         </div>
       </Card>
+
+      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />
+        <SummaryCard
+          label="Containers distintos"
+          value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0}
+        />
+        <SummaryCard label="Pendentes revisao" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />
+        <SummaryCard
+          label="Sem faturamento"
+          value={isSummaryLoading ? '...' : summary?.pendingFinancial ?? 0}
+        />
+      </div>
 
       <Card className="overflow-hidden p-0">
         {error ? (
@@ -246,6 +260,16 @@ export function Manifestos() {
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
     </>
+  )
+}
+
+function SummaryCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <Card>
+      <div className="text-sm text-slate-400">{label}</div>
+      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
+      <div className="mt-1 text-xs text-slate-500">Considera os filtros ativos desta tela.</div>
+    </Card>
   )
 }
 
