@@ -104,32 +104,45 @@ export async function importVehicleRows({
   const uniqueBls = Array.from(new Set(validRows.map((row) => row.bl_id)))
   const uniqueContainers = Array.from(new Set(validRows.map((row) => row.container_number)))
 
-  const { data: existingVehicles, error: existingVehiclesError } = await supabase
-    .from('vehicles')
-    .select('id, chassis')
-    .eq('voyage_id', voyageId)
-    .in('chassis', uniqueChassis)
-
-  if (existingVehiclesError) throw existingVehiclesError
+  const existingVehicles = await fetchInChunks(uniqueChassis, 250, async (chunk) => {
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('id, chassis')
+      .eq('voyage_id', voyageId)
+      .in('chassis', chunk)
+    if (error) throw error
+    return (data ?? []) as Array<{ id: number; chassis: string }>
+  })
 
   const existingVehicleChassis = new Set((existingVehicles ?? []).map((vehicle) => normalizeKey(vehicle.chassis)))
 
-  const { data: matchedBls, error: blError } = await supabase
-    .from('bls')
-    .select('id, voyage_id')
-    .eq('voyage_id', voyageId)
-    .in('id', uniqueBls)
-
-  if (blError) throw blError
+  const matchedBls = await fetchInChunks(uniqueBls, 250, async (chunk) => {
+    const { data, error } = await supabase
+      .from('bls')
+      .select('id, voyage_id')
+      .eq('voyage_id', voyageId)
+      .in('id', chunk)
+    if (error) throw error
+    return (data ?? []) as Array<{ id: string; voyage_id: number | null }>
+  })
 
   const blMap = new Map((matchedBls ?? []).map((bl) => [normalizeKey(bl.id), bl]))
 
-  const { data: matchingContainers, error: containerError } = await supabase
-    .from('bl_containers')
-    .select('id, bl_id, container_number, type, seal_number, bl:bls(voyage_id)')
-    .in('container_number', uniqueContainers)
-
-  if (containerError) throw containerError
+  const matchingContainers = await fetchInChunks(uniqueContainers, 250, async (chunk) => {
+    const { data, error } = await supabase
+      .from('bl_containers')
+      .select('id, bl_id, container_number, type, seal_number, bl:bls(voyage_id)')
+      .in('container_number', chunk)
+    if (error) throw error
+    return (data ?? []) as Array<{
+      id: number
+      bl_id: string | null
+      container_number: string
+      type: string | null
+      seal_number: string | null
+      bl?: { voyage_id: number | null } | null
+    }>
+  })
 
   const containersByNumber = new Map<string, Array<{
     id: number
@@ -217,8 +230,10 @@ export async function importVehicleRows({
   }
 
   if (rowsToInsert.length) {
-    const { error: insertError } = await supabase.from('vehicles').insert(rowsToInsert)
-    if (insertError) throw insertError
+    for (const chunk of chunkArray(rowsToInsert, 500)) {
+      const { error: insertError } = await supabase.from('vehicles').insert(chunk)
+      if (insertError) throw insertError
+    }
   }
 
   return {
@@ -329,4 +344,26 @@ function asString(value: unknown) {
 
 function normalizeKey(value: unknown) {
   return asString(value).toUpperCase()
+}
+
+async function fetchInChunks<TInput extends string, TResult>(
+  values: TInput[],
+  chunkSize: number,
+  fetcher: (chunk: TInput[]) => Promise<TResult[]>,
+) {
+  const collected: TResult[] = []
+  for (const chunk of chunkArray(values, chunkSize)) {
+    const batch = await fetcher(chunk)
+    collected.push(...batch)
+  }
+  return collected
+}
+
+function chunkArray<T>(values: T[], chunkSize: number) {
+  if (!values.length) return []
+  const chunks: T[][] = []
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize))
+  }
+  return chunks
 }
