@@ -189,7 +189,8 @@ export function useBlDetail(blId?: string) {
           *,
           customer:customers(*),
           voyage:voyages(*, vessel:vessels(*, carrier:carriers(*))),
-          bl_containers(*)
+          bl_containers(*),
+          vehicles(*, container:bl_containers(id, container_number, type, seal_number))
         `,
         )
         .eq('id', blId!)
@@ -279,7 +280,7 @@ export function useVoyages() {
           vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
           pol:ports!voyages_pol_id_fkey(id, name, locode, country),
           pod:ports!voyages_pod_id_fkey(id, name, locode, country),
-          bls(id, pol, pod, bl_containers(id, container_number))
+          bls(id, pol, pod, bl_containers(id, container_number, type, is_oog, is_imo))
         `,
         )
         .order('created_at', { ascending: false })

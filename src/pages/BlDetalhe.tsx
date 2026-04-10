@@ -9,7 +9,7 @@ import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useAuditLogs, useBlDetail } from '../hooks/useBls'
-import { formatBRL, formatDate } from '../lib/utils'
+import { formatBRL, formatDate, normalizeText } from '../lib/utils'
 import { supabase } from '../services/supabase'
 import type { BL, BLDetail } from '../types/database'
 
@@ -58,6 +58,7 @@ export function BlDetalhe() {
   const [form, setForm] = useState<BlForm | null>(null)
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
+  const [vehicleSearch, setVehicleSearch] = useState('')
 
   useEffect(() => {
     if (!bl) return
@@ -69,6 +70,12 @@ export function BlDetalhe() {
 
     return editableFields.filter((field) => stringifyValue(bl[field]) !== stringifyValue(form[field]))
   }, [bl, form])
+
+  const filteredVehicles = useMemo(() => {
+    const term = normalizeText(vehicleSearch)
+    if (!term) return bl?.vehicles ?? []
+    return (bl?.vehicles ?? []).filter((vehicle) => normalizeText(vehicle.chassis).includes(term))
+  }, [bl?.vehicles, vehicleSearch])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -293,6 +300,50 @@ export function BlDetalhe() {
             <InfoLine label="Saldo pendente" value={formatBRL(bl.customer?.pending_balance ?? 0)} />
             <InfoLine label="Trecho" value={`${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`} />
           </dl>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">Veiculos vinculados</h2>
+            <div className="w-full max-w-xs">
+              <Field label="Buscar por chassi">
+                <Input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm whitespace-nowrap">
+              <thead className="text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="py-2">Chassi</th>
+                  <th className="py-2">Marca</th>
+                  <th className="py-2">Container</th>
+                  <th className="py-2">Peso</th>
+                  <th className="py-2">Cubagem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#30363d]">
+                {filteredVehicles.length ? (
+                  filteredVehicles.map((vehicle) => (
+                    <tr key={vehicle.id}>
+                      <td className="py-2 font-semibold text-white">{vehicle.chassis}</td>
+                      <td className="py-2">{vehicle.brand}</td>
+                      <td className="py-2">{vehicle.container?.container_number ?? '-'}</td>
+                      <td className="py-2">{Number(vehicle.weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
+                      <td className="py-2">{Number(vehicle.cbm ?? 0).toLocaleString('pt-BR')}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="py-3 text-slate-400" colSpan={5}>
+                      Nenhum veiculo vinculado para este B/L.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
 
         <Card className="xl:col-span-2">

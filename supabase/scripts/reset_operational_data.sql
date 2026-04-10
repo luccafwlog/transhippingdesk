@@ -25,6 +25,7 @@ TRUNCATE TABLE
   public.invoice_items,
   public.invoices,
   public.charge_calculations,
+  public.vehicles,
   public.bl_containers,
   public.bls,
   public.import_errors,

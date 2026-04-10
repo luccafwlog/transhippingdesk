@@ -128,6 +128,18 @@ export type BLContainer = {
   created_at: string | null
 }
 
+export type Vehicle = {
+  id: number
+  voyage_id: number
+  container_id: number
+  bl_id: string
+  chassis: string
+  brand: string
+  weight_kg: number
+  cbm: number
+  created_at: string | null
+}
+
 export type ImportBatch = {
   id: number
   voyage_id: number | null
@@ -208,6 +220,7 @@ export type Database = {
       import_errors: Row<ImportError>
       bls: Row<BL>
       bl_containers: Row<BLContainer>
+      vehicles: Row<Vehicle>
       invoices: Row<Invoice>
     }
     Views: Record<string, never>
@@ -250,6 +263,7 @@ export type BLDetail = BL & {
     }) | null
   }) | null
   bl_containers?: BLContainer[]
+  vehicles?: VehicleListItem[] | null
 }
 
 export type ContainerListItem = Pick<
@@ -286,4 +300,13 @@ export type CustomerDetail = Customer & {
   customer_contacts?: CustomerContact[] | null
   bls?: Pick<BL, 'id' | 'consignee' | 'financial_status' | 'review_status' | 'created_at'>[] | null
   invoices?: Pick<Invoice, 'id' | 'invoice_number' | 'issued_at' | 'due_date' | 'total_brl' | 'status'>[] | null
+}
+
+export type VehicleListItem = Vehicle & {
+  container?: Pick<BLContainer, 'id' | 'container_number' | 'type' | 'seal_number'> | null
+  bl?: (Pick<BL, 'id' | 'voyage_id'> & {
+    voyage?: (Pick<Voyage, 'id' | 'voyage_number'> & {
+      vessel?: Pick<Vessel, 'id' | 'name'> | null
+    }) | null
+  }) | null
 }
