@@ -5,11 +5,11 @@ export function PlaceholderPage({ title, phase }: { title: string; phase: string
     <>
       <PageHeader
         title={title}
-        description={`Módulo reservado para ${phase}. A base de rotas, autenticação e layout já está pronta para receber esta implementação.`}
+        description={`Modulo reservado para ${phase}. A base de rotas, autenticacao e layout ja esta pronta para receber esta implementacao.`}
       />
       <Card>
         <div className="text-sm text-slate-400">
-          Próximo incremento: conectar este módulo às queries paginadas do Supabase e aos fluxos de negócio descritos no
+          Proximo incremento: conectar este modulo as queries paginadas do Supabase e aos fluxos de negocio descritos no
           prompt.
         </div>
       </Card>

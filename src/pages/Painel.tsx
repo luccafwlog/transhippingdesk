@@ -119,14 +119,23 @@ function KpiCard({
   detail?: string
   tone?: string
 }) {
+  const cardTone =
+    label === 'Invoices em aberto'
+      ? 'green'
+      : label === 'Aguardando revisÃ£o'
+        ? 'gold'
+        : label === 'Containers distintos'
+          ? 'blue'
+          : 'navy'
+
   return (
-    <Card>
+    <Card className={`app-kpi-card app-kpi-card--${cardTone}`}>
       <div className={`${tone} mb-4`}>
         <Icon size={24} />
       </div>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
-      {detail ? <div className="financial mt-1 text-sm text-emerald-300">{detail}</div> : null}
+      <div className="app-kpi-card__label">{label}</div>
+      <div className={`app-kpi-card__value app-kpi-card__value--${cardTone}`}>{value}</div>
+      {detail ? <div className="financial app-kpi-card__sub text-emerald-600">{detail}</div> : null}
     </Card>
   )
 }

@@ -1,96 +1,135 @@
 # Roadmap do Sistema
 
-Estado de referencia do projeto em 2026-04-08.
+Estado de referencia do projeto em 2026-04-11.
 
 ## Status Geral
 
 - Base web publicada e operacional em Firebase Hosting.
 - Backend em Supabase conectado e autenticado.
-- Fase 1 esta funcional para operacao assistida.
-- Fase 2 esta parcialmente implementada.
+- Fase 1 esta entregue e operando.
+- Fase 2 esta entregue em parte relevante, mas ainda precisa de estabilizacao.
 - Fases 3 e 4 ainda nao foram implementadas como produto final.
 
-## Entregue e Funcionando
+## Entregue e Em Uso
 
 ### Infraestrutura e base tecnica
 
 - React + TypeScript + Vite.
-- Tailwind com layout dark.
 - Supabase Auth por email e senha.
-- Rotas protegidas.
+- Rotas protegidas por perfil.
 - Deploy em Firebase Hosting.
 - Migrations SQL versionadas em `supabase/migrations`.
+- Tema visual com variacoes e layout principal revisado.
+- Suite minima de testes com `vitest` para parser e importadores criticos.
 
-### Operacao inicial
+### Operacao de viagens e manifestos
 
-- Login.
-- Painel inicial com KPIs basicos.
 - Cadastro de viagens.
-- Edicao de viagens ja criadas.
+- Edicao de viagens.
+- Exclusao de viagens quando permitida pelas regras atuais.
 - Armador padrao no cadastro:
   - `Cosco Shipping Specialized Carriers`
   - `CSSC`
+- Viagens com multiplos POL e multiplos POD.
+- ETD por POL.
+- ETA e ATA por POD.
+- Consolidacao de trechos por viagem.
+- Filtros por navio e numero de viagem.
+
+### Manifestos CNTR
+
 - Importacao de manifestos `.xlsx` e `.csv`.
-- Parsing de manifesto tabular e de manifesto real em layout carrier-style.
-- Vinculo do manifesto a uma viagem existente.
+- Parsing de manifesto tabular e de manifesto real carrier-style.
+- Preview antes da importacao.
 - Criacao de viagem dentro do fluxo de importacao.
-- Preview do manifesto antes da importacao.
 - Identificacao de trecho `POL/POD` no manifesto.
-- Consolidacao de trechos por viagem na tela `Viagens`.
 - Consulta paginada de B/Ls.
-- Filtro por viagem, POD, texto, revisao, financeiro e perfil de carga.
+- Filtros por viagem, POL, POD, texto, revisao, financeiro e perfil.
+- Exportacao de manifestos.
+- Tela consolidada de containers.
+- Importacao complementar de IMO/OOG por planilha.
+- Importacao complementar de CE Mercante por planilha.
 - Detalhe do B/L com edicao manual.
 - Auditoria campo a campo em `audit_logs`.
 
-### Fase 2 ja entregue
+### Carga Solta / BB
 
-- Modulo de Revisao Manual com fila de pendencias.
-- Correcao manual do B/L a partir da fila de revisao.
-- Marcacao de B/L como `reviewed` com auditoria.
+- Modulo de manifestos BB ativo.
+- Importacao de manifesto BB no layout operacional atual.
+- Consulta paginada de B/Ls BB.
+- Exportacao da tela de BB.
+- Importacao complementar de CE Mercante por planilha.
+- Integracao da carga solta com a viagem.
+
+### Veiculos
+
+- Modulo de veiculos ativo.
+- Importacao de planilha de veiculos.
+- Validacao de vinculo `viagem -> container -> BL`.
+- Varios veiculos por container.
+- Varios veiculos por BL.
+- Listagem, busca, filtros e cards de resumo.
+- Exibicao de veiculos no detalhe do B/L CNTR.
+
+### Clientes
+
 - Cadastro mestre de clientes.
-- Ficha do cliente com dados cadastrais editaveis.
-- Contatos do cliente por finalidade.
+- Importacao de base de clientes.
+- CNPJ/CPF e Razao Social obrigatorios na importacao.
+- Importacao de multiplos emails por cliente.
+- Ficha do cliente com edicao.
+- Contatos por finalidade.
 - Historico de B/Ls e invoices na ficha do cliente.
+- Exclusao de cliente.
+- Filtros por emails, B/Ls e saldo pendente.
 
-### Carga especial
+### Revisao Manual
 
-- OOG detectado por indicios de dimensao/altura no manifesto.
-- IMO detectado no parser por classe IMO / DG class.
-- `UN number` capturado quando presente.
-- Filtro de manifestos por perfil `IMO`.
+- Fila de revisao manual.
+- Correcao manual de B/L com justificativa.
+- Marcacao de B/L como `reviewed`.
+- Auditoria da revisao.
 
-## Parcial / Funciona com Restricoes
-
-### Modelo de viagem
-
-- A viagem hoje representa `armador + navio + numero da viagem`.
-- `POL/POD` ficam gravados no B/L importado, nao numa entidade propria de trecho.
-- Isso atende o fluxo atual, mas ainda nao modela formalmente um objeto de `trecho` ou `manifesto de viagem`.
+## Entregue, Mas Ainda Precisa Complemento
 
 ### Parsing de manifesto
 
-- O parser atual cobre:
-  - planilhas tabulares
-  - layout real ja usado nos testes
-- Ainda nao ha garantia de leitura correta para qualquer layout novo de armador sem ajuste de regra.
+- O parser atual cobre os layouts ja utilizados nos testes.
+- Ainda nao ha garantia de leitura correta para qualquer layout novo de armador.
+- O parser ainda depende de ajustes iterativos conforme novos manifestos reais aparecem.
 
-### Validacao de funcionamento
+### Modelagem de viagem
 
+- O sistema hoje opera bem com o modelo atual.
+- Porem, o conceito de trecho ainda esta implicito nos B/Ls importados.
+- Ainda nao existe uma entidade formal de trecho ou manifesto de viagem.
+
+### Qualidade e regressao
+
+- `npm test` passa.
 - `npm run lint` passa.
 - `npm run build` passa.
-- Fluxos principais foram testados manualmente.
-- Nao existem testes automatizados de unidade, integracao ou E2E.
+- Ha cobertura automatizada inicial para:
+  - parser CNTR
+  - parser BB
+  - importacao de veiculos
+  - importacao de CE Mercante
+- Os fluxos principais seguem exigindo validacao manual complementar.
 
-## Pendente
+### UX operacional
 
-### Fase 2
+- O visual principal esta em nivel utilizavel e consistente.
+- Ainda existe espaco para refinamento fino em tabelas, dropdowns, responsividade e densidade de informacao.
+
+## Nao Tratar Como Pronto
+
+### Fase 2 pendente
 
 - Motor de calculo de taxas locais.
-- Taxas locais.
-- Vinculacao e manutencao de cliente diretamente no detalhe completo do B/L.
-- Melhorias de usabilidade na revisao manual.
-- Regras de associacao automatica cliente <-> B/L por CNPJ/consignatario.
-- Overrides comerciais por cliente.
+- Modulo real de Taxas Locais.
+- Regras comerciais por cliente.
+- Melhorias de produtividade na revisao manual.
+- Reconciliacao automatica mais forte cliente <-> B/L.
 
 ### Fase 3
 
@@ -107,25 +146,39 @@ Estado de referencia do projeto em 2026-04-08.
 ## Principais Riscos Atuais
 
 - Parser pode exigir ajuste para novos layouts de manifesto.
-- Nao ha suite automatizada protegendo regressao.
+- A suite automatizada ainda e inicial e cobre apenas os fluxos mais criticos.
 - `xlsx` segue com vulnerabilidade conhecida sem correcao disponivel no ecossistema atual.
-- O modelo de trecho ainda esta implicito nos B/Ls, nao explicitado em tabela propria.
+- O modelo de trecho ainda esta implicito nos B/Ls.
+- Ainda existem rotas placeholder acessiveis por URL direta, embora escondidas da navegacao principal.
 
-## Proximas Entregas Recomendadas
+## Proximos Passos Recomendados
 
-1. Criar entidade explicita para `manifesto` ou `trecho da viagem`.
-2. Exibir badge `IMO` e `OOG` ja no preview de importacao.
-3. Implementar modulo real de `Taxas Locais`.
-4. Adicionar testes automatizados para parser e fluxo de importacao.
-5. Conectar o detalhe do B/L com a base de clientes.
-6. Iniciar modulo de `Faturamento`.
+### Fase 2.1 - Estabilizacao
+
+1. Atualizar documentacao operacional e roteiro de validacao.
+2. Expandir a suite automatizada inicial para ampliar cobertura de parser e importadores.
+3. Revisar navegacao para esconder ou marcar placeholders.
+4. Reforcar UX da revisao manual e dos previews de importacao.
+
+### Fase 2.2 - Endurecimento da operacao
+
+1. Melhorar parser com novos fixtures reais.
+2. Refinar reconciliacao automatica cliente <-> B/L.
+3. Decidir se a entidade de trecho sera formalizada antes da fase financeira.
+4. Revisar relatorios executivos de viagem para separar melhor container, carga geral, veiculos e BB.
+
+### Fase 3 - Financeiro
+
+1. Implementar Taxas Locais.
+2. Implementar Faturamento.
+3. Implementar Alertas.
+4. Implementar Relatorios.
 
 ## Conclusao Objetiva
 
-O que ja foi implementado nao esta "perfeito".
-
 Estado honesto:
 
-- Esta funcional para os fluxos principais de Fase 1.
-- Esta estavel o suficiente para continuar evoluindo em producao assistida.
-- Ainda ha limites claros de modelagem, cobertura de testes e escopo funcional.
+- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao e clientes.
+- O sistema ainda nao deve ser tratado como produto completo.
+- O proximo ciclo correto nao e abrir novos modulos financeiros imediatamente.
+- O proximo ciclo correto e estabilizar, testar e documentar melhor o que ja esta em uso.

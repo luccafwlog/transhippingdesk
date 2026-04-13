@@ -26,6 +26,7 @@ export function Containers() {
   const [filters, setFilters] = useState<ContainerFilters>({
     search: '',
     voyageId: initialVoyage,
+    cargoMode: 'container',
     pol: '',
     pod: '',
     reviewStatus: '',
@@ -247,8 +248,8 @@ export function Containers() {
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse text-left text-sm whitespace-nowrap">
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[960px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Container</th>
@@ -287,14 +288,19 @@ export function Containers() {
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className="block max-w-[84px] overflow-hidden text-clip whitespace-nowrap"
+                      className="app-table__truncate app-table__truncate--xs"
                       title={container.bl?.customer?.name ?? container.bl?.consignee ?? '-'}
                     >
                       {container.bl?.customer?.name ?? container.bl?.consignee ?? '-'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {container.bl?.voyage?.vessel?.name ?? '-'} / {container.bl?.voyage?.voyage_number ?? '-'}
+                    <span
+                      className="app-table__truncate app-table__truncate--xl"
+                      title={`${container.bl?.voyage?.vessel?.name ?? '-'} / ${container.bl?.voyage?.voyage_number ?? '-'}`}
+                    >
+                      {container.bl?.voyage?.vessel?.name ?? '-'} / {container.bl?.voyage?.voyage_number ?? '-'}
+                    </span>
                   </td>
                   <td className="px-4 py-3">{container.bl?.pol ?? '-'}</td>
                   <td className="px-4 py-3">{container.bl?.pod ?? '-'}</td>
@@ -304,7 +310,7 @@ export function Containers() {
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      className="inline-flex rounded-lg border border-[#1f6feb]/40 bg-[#1f6feb]/10 px-3 py-1.5 font-semibold text-[#8cc8ff] hover:bg-[#1f6feb]/20"
+                      className="app-table__action"
                       to={`/manifestos/${container.bl?.id}`}
                     >
                       Abrir B/L
@@ -316,11 +322,11 @@ export function Containers() {
           </table>
         </div>
 
-        <div className="flex flex-col justify-between gap-3 border-t border-[#30363d] p-4 text-sm text-slate-400 md:flex-row md:items-center">
+        <div className="app-table__footer">
           <span>
             Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros · {data?.distinctCount ?? 0} containers distintos
           </span>
-          <div className="flex items-center gap-2">
+          <div className="app-table__footer-controls">
             <Select
               className="w-28"
               value={filters.pageSize}
@@ -398,8 +404,8 @@ export function Containers() {
                 <PreviewBox label="Atualizacoes previstas" value={parsedFlags.rows.length} />
               </div>
 
-              <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
-                <table className="w-full min-w-[680px] text-left text-sm">
+              <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
+                <table className="app-table app-table--compact min-w-[680px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
                       <th className="px-3 py-2">BL</th>
@@ -448,11 +454,20 @@ export function Containers() {
 }
 
 function SummaryCard({ label, value }: { label: string; value: number | string }) {
+  const tone =
+    label === 'IMO distintos'
+      ? 'gold'
+      : label === 'OOG distintos'
+        ? 'green'
+        : label === 'B/Ls envolvidos'
+          ? 'navy'
+          : 'blue'
+
   return (
-    <Card>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
-      <div className="mt-1 text-xs text-slate-500">Considera os filtros ativos desta tela.</div>
+    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
+      <div className="app-kpi-card__label">{label}</div>
+      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
+      <div className="app-kpi-card__sub">Considera os filtros ativos desta tela.</div>
     </Card>
   )
 }

@@ -4,6 +4,9 @@ import type { Customer, CustomerDetail, CustomerListItem } from '../types/databa
 
 export type CustomerFilters = {
   search: string
+  emailStatus: '' | 'with' | 'without'
+  blStatus: '' | 'with' | 'without'
+  pendingStatus: '' | 'with' | 'without'
 }
 
 export function useCustomers(filters: CustomerFilters) {
@@ -12,7 +15,7 @@ export function useCustomers(filters: CustomerFilters) {
     queryFn: async () => {
       let query = supabase
         .from('customers')
-        .select('*, bls(id)', { count: 'exact' })
+        .select('*, bls(id), customer_contacts(id)', { count: 'exact' })
         .order('name', { ascending: true })
         .range(0, 499)
 
@@ -25,9 +28,26 @@ export function useCustomers(filters: CustomerFilters) {
       const { data, error, count } = await query
       if (error) throw error
 
+      const rows = ((data ?? []) as unknown as CustomerListItem[]).filter((row) => {
+        const hasEmails = (row.customer_contacts?.length ?? 0) > 0
+        const hasBls = (row.bls?.length ?? 0) > 0
+        const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
+
+        if (filters.emailStatus === 'with' && !hasEmails) return false
+        if (filters.emailStatus === 'without' && hasEmails) return false
+
+        if (filters.blStatus === 'with' && !hasBls) return false
+        if (filters.blStatus === 'without' && hasBls) return false
+
+        if (filters.pendingStatus === 'with' && !hasPendingBalance) return false
+        if (filters.pendingStatus === 'without' && hasPendingBalance) return false
+
+        return true
+      })
+
       return {
-        rows: (data ?? []) as unknown as CustomerListItem[],
-        count: count ?? 0,
+        rows,
+        count: rows.length ?? count ?? 0,
       }
     },
   })

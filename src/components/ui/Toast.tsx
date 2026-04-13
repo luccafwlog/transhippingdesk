@@ -24,15 +24,15 @@ export function ToastProvider({ children }: PropsWithChildren) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[60] grid w-[min(24rem,calc(100vw-2rem))] gap-3">
+      <div className="app-toast-stack">
         {toasts.map((toast) => (
           <div
             key={toast.id}
             className={cn(
-              'rounded-xl border px-4 py-3 text-sm shadow-xl',
-              toast.type === 'success' && 'border-emerald-400/30 bg-emerald-950 text-emerald-100',
-              toast.type === 'error' && 'border-red-400/30 bg-red-950 text-red-100',
-              toast.type === 'info' && 'border-blue-400/30 bg-blue-950 text-blue-100',
+              'app-toast',
+              toast.type === 'success' && 'app-toast--success',
+              toast.type === 'error' && 'app-toast--error',
+              toast.type === 'info' && 'app-toast--info',
             )}
           >
             {toast.message}

@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { Ship } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
@@ -28,50 +27,51 @@ export function Login() {
       await signIn(email, password)
       navigate('/painel', { replace: true })
     } catch {
-      setError('Credenciais inválidas ou usuário sem permissão ativa.')
+      setError('Credenciais invalidas ou usuario sem permissao ativa.')
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10">
-      <Card className="w-full max-w-md">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#1f6feb]/20 text-[#58a6ff]">
-            <Ship />
-          </div>
+    <main className="app-auth">
+      <Card className="app-auth__card">
+        <div className="app-auth__brand">
+          <img alt="Transhipping" className="app-auth__logo" src="/branding/transhipping-logo.png" />
           <div>
-            <h1 className="text-2xl font-bold text-white">Transhipping Desk</h1>
-            <p className="text-sm text-slate-400">Acesso interno por email e senha</p>
+            <h1 className="app-auth__title">Acesso interno</h1>
+            <p className="app-auth__subtitle">Entre com email e senha provisionados pelo administrador.</p>
           </div>
         </div>
 
         {!isSupabaseConfigured ? (
-          <div className="mb-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env antes de autenticar.
           </div>
         ) : null}
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Email">
-            <Input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required />
+            <Input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
           </Field>
+
           <Field label="Senha">
             <Input
+              required
+              type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              type="password"
-              required
             />
           </Field>
-          {error ? <div className="rounded-lg bg-[#f85149]/10 p-3 text-sm text-red-200">{error}</div> : null}
+
+          {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+
           <Button loading={submitting} type="submit">
             Entrar
           </Button>
         </form>
 
-        <p className="mt-5 text-xs text-slate-500">Não há cadastro público. Usuários são provisionados pelo admin.</p>
+        <p className="text-xs text-slate-500">Nao ha cadastro publico. Usuarios sao provisionados pelo admin.</p>
       </Card>
     </main>
   )

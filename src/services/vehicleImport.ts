@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 const headerMap = {
   chassis: ['chassi', 'chassis'],
   brand: ['marca', 'brand'],
+  model: ['modelo', 'model'],
   weight_kg: ['peso', 'weight'],
   cbm: ['cubagem', 'cbm', 'm3'],
   container_number: ['container', 'container number', 'numero do container'],
@@ -15,6 +16,7 @@ const headerMap = {
 const requiredHeaders = {
   chassis: 'CHASSI',
   brand: 'MARCA',
+  model: 'MODELO',
   weight_kg: 'PESO',
   cbm: 'CUBAGEM',
   container_number: 'CONTAINER',
@@ -29,6 +31,7 @@ export type VehicleImportRow = {
   rowNumber: number
   chassis: string
   brand: string
+  model: string
   weight_kg: number
   cbm: number
   container_number: string
@@ -50,9 +53,13 @@ export type VehicleImportResult = {
 }
 
 export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleImport> {
-  const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
-  const workbook = XLSX.read(buffer, { type: 'array' })
+  return parseVehicleImportBuffer(buffer)
+}
+
+export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<ParsedVehicleImport> {
+  const XLSX = await import('xlsx')
+  const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
 
   if (!firstSheet) {
@@ -62,13 +69,14 @@ export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleI
   const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(firstSheet, {
     header: 1,
     defval: '',
+    raw: false,
     blankrows: false,
   })
 
   const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
   validateRequiredHeaders(rawHeaders)
 
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' })
+  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
   return parseVehicleImportRows(objectRows)
 }
 
@@ -102,7 +110,6 @@ export async function importVehicleRows({
 
   const uniqueChassis = Array.from(new Set(validRows.map((row) => row.chassis)))
   const uniqueBls = Array.from(new Set(validRows.map((row) => row.bl_id)))
-  const uniqueContainers = Array.from(new Set(validRows.map((row) => row.container_number)))
 
   const existingVehicles = await fetchInChunks(uniqueChassis, 250, async (chunk) => {
     const { data, error } = await supabase
@@ -128,43 +135,47 @@ export async function importVehicleRows({
 
   const blMap = new Map((matchedBls ?? []).map((bl) => [normalizeKey(bl.id), bl]))
 
-  const matchingContainers = await fetchInChunks(uniqueContainers, 250, async (chunk) => {
-    const { data, error } = await supabase
-      .from('bl_containers')
-      .select('id, bl_id, container_number, type, seal_number, bl:bls(voyage_id)')
-      .in('container_number', chunk)
-    if (error) throw error
-    return (data ?? []) as Array<{
-      id: number
-      bl_id: string | null
-      container_number: string
-      type: string | null
-      seal_number: string | null
-      bl?: { voyage_id: number | null } | null
-    }>
-  })
-
-  const containersByNumber = new Map<string, Array<{
+  type ContainerCandidate = {
     id: number
     bl_id: string | null
     container_number: string
     type: string | null
     seal_number: string | null
     bl?: { voyage_id: number | null } | null
-  }>>()
+  }
 
-  for (const container of (matchingContainers ?? []) as Array<{
-    id: number
-    bl_id: string | null
-    container_number: string
-    type: string | null
-    seal_number: string | null
-    bl?: { voyage_id: number | null } | null
-  }>) {
-    const key = normalizeKey(container.container_number)
-    const current = containersByNumber.get(key) ?? []
-    current.push(container)
-    containersByNumber.set(key, current)
+  const queryPageSize = 1000
+  const containersByBlAndNumber = new Map<string, ContainerCandidate[]>()
+  const containerNumbersInVoyage = new Set<string>()
+
+  for (const blChunk of chunkArray(uniqueBls, 200)) {
+    let offset = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from('bl_containers')
+        .select('id, bl_id, container_number, type, seal_number, bl:bls!inner(voyage_id)')
+        .in('bl_id', blChunk)
+        .eq('bl.voyage_id', voyageId)
+        .order('id', { ascending: true })
+        .range(offset, offset + queryPageSize - 1)
+
+      if (error) throw error
+
+      const batch = (data ?? []) as ContainerCandidate[]
+      if (!batch.length) break
+
+      for (const container of batch) {
+        if (!container.bl_id || !container.container_number) continue
+        const key = `${normalizeKey(container.bl_id)}|${normalizeKey(container.container_number)}`
+        const current = containersByBlAndNumber.get(key) ?? []
+        current.push(container)
+        containersByBlAndNumber.set(key, current)
+        containerNumbersInVoyage.add(normalizeKey(container.container_number))
+      }
+
+      if (batch.length < queryPageSize) break
+      offset += queryPageSize
+    }
   }
 
   const rowsToInsert: Array<{
@@ -173,6 +184,7 @@ export async function importVehicleRows({
     bl_id: string
     chassis: string
     brand: string
+    model: string
     weight_kg: number
     cbm: number
   }> = []
@@ -189,33 +201,39 @@ export async function importVehicleRows({
       continue
     }
 
-    const containerCandidates = containersByNumber.get(row.container_number) ?? []
+    const containerKey = `${normalizeKey(row.bl_id)}|${row.container_number}`
+    const containerCandidates = containersByBlAndNumber.get(containerKey) ?? []
     if (!containerCandidates.length) {
-      errors.push({ row: row.rowNumber, message: 'Container nao encontrado no sistema.' })
+      if (!containerNumbersInVoyage.has(row.container_number)) {
+        errors.push({ row: row.rowNumber, message: 'Container nao encontrado no sistema.' })
+      } else {
+        errors.push({ row: row.rowNumber, message: 'BL nao pertence ao container informado.' })
+      }
       continue
     }
 
-    const voyageCandidates = containerCandidates.filter((container) => container.bl?.voyage_id === voyageId)
-    if (!voyageCandidates.length) {
-      errors.push({ row: row.rowNumber, message: 'Container nao pertence a viagem selecionada.' })
-      continue
-    }
-
-    const exactContainer = voyageCandidates.find((container) => normalizeKey(container.bl_id) === normalizeKey(row.bl_id))
-    if (!exactContainer) {
-      errors.push({ row: row.rowNumber, message: 'BL nao pertence ao container informado.' })
-      continue
-    }
-
-    if (exactContainer.type && normalizeKey(exactContainer.type) !== normalizeKey(row.container_type)) {
+    const typeMismatch = containerCandidates.every(
+      (container) => Boolean(container.type) && normalizeKey(container.type) !== normalizeKey(row.container_type),
+    )
+    if (typeMismatch) {
       errors.push({ row: row.rowNumber, message: 'Tipo do container nao confere com o sistema.' })
       continue
     }
 
-    if (exactContainer.seal_number && normalizeKey(exactContainer.seal_number) !== normalizeKey(row.seal_number)) {
+    const sealMismatch = containerCandidates.every(
+      (container) => Boolean(container.seal_number) && normalizeKey(container.seal_number) !== normalizeKey(row.seal_number),
+    )
+    if (sealMismatch) {
       errors.push({ row: row.rowNumber, message: 'Lacre nao confere com o sistema.' })
       continue
     }
+
+    const exactContainer =
+      containerCandidates.find(
+        (container) =>
+          (!container.type || normalizeKey(container.type) === normalizeKey(row.container_type)) &&
+          (!container.seal_number || normalizeKey(container.seal_number) === normalizeKey(row.seal_number)),
+      ) ?? containerCandidates[0]
 
     rowsToInsert.push({
       voyage_id: voyageId,
@@ -223,6 +241,7 @@ export async function importVehicleRows({
       bl_id: matchedBl.id,
       chassis: row.chassis,
       brand: row.brand,
+      model: row.model,
       weight_kg: row.weight_kg,
       cbm: row.cbm,
     })
@@ -254,6 +273,7 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
 
     const chassis = normalizeKey(mapped.chassis)
     const brand = asString(mapped.brand)
+    const model = asString(mapped.model)
     const weight = parseSpreadsheetNumber(mapped.weight_kg)
     const cbm = parseSpreadsheetNumber(mapped.cbm)
     const containerNumber = normalizeKey(mapped.container_number)
@@ -261,7 +281,17 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
     const sealNumber = normalizeKey(mapped.seal_number)
     const blId = normalizeKey(mapped.bl_id)
 
-    if (!chassis || !brand || weight === null || cbm === null || !containerNumber || !containerType || !sealNumber || !blId) {
+    if (
+      !chassis ||
+      !brand ||
+      !model ||
+      weight === null ||
+      cbm === null ||
+      !containerNumber ||
+      !containerType ||
+      !sealNumber ||
+      !blId
+    ) {
       rowErrors.push({ row: rowNumber, message: 'Todos os campos obrigatorios devem ser preenchidos.', raw: row })
       return
     }
@@ -275,6 +305,7 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
       rowNumber,
       chassis,
       brand,
+      model,
       weight_kg: weight,
       cbm,
       container_number: containerNumber,

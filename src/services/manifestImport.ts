@@ -1,4 +1,5 @@
 import { onlyDigits } from '../lib/utils'
+import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
 import { syncManifestPolEtdSchedules } from './voyageRouteSchedules'
@@ -24,6 +25,7 @@ export async function importManifest({
     .insert({
       filename,
       voyage_id: voyageId,
+      cargo_mode: 'container',
       uploaded_by: uploadedBy,
       status: 'processing',
       total_bls: manifest.bls.length,
@@ -35,44 +37,34 @@ export async function importManifest({
 
   if (batchError) throw batchError
 
-  const customersByDocument = new Map<string, { id: number; name: string }>()
-  const customerDocuments = Array.from(
-    new Set(
-      manifest.bls
-        .map((bl) => onlyDigits(bl.cnpj_cpf))
-        .filter((document): document is string => Boolean(document)),
-    ),
-  )
-
-  if (customerDocuments.length) {
-    const { data: customers, error } = await supabase
-      .from('customers')
-      .select('id, cnpj_cpf, name')
-      .in('cnpj_cpf', customerDocuments)
-
-    if (error) throw error
-    customers?.forEach((customer) =>
-      customersByDocument.set(customer.cnpj_cpf, {
-        id: customer.id,
-        name: customer.name,
-      }),
-    )
-  }
+  const customerMaps = await loadCustomerMaps()
 
   const blRows = manifest.bls.map((bl) => {
     const document = onlyDigits(bl.cnpj_cpf)
-    const matchedCustomer = document ? customersByDocument.get(document) ?? null : null
+    const customerMatch = findMatchedCustomer(
+      {
+        cnpjCpf: bl.cnpj_cpf,
+        consignee: bl.consignee,
+      },
+      customerMaps,
+    )
+    const matchedCustomer = customerMatch?.customer ?? null
     const customerId = matchedCustomer?.id ?? null
     const reviewReasons = new Set(bl.review_reasons)
 
-    if (document && !customerId) {
-      reviewReasons.add('Cliente nao cadastrado na base')
+    if (!customerId && (document || bl.consignee)) {
+      reviewReasons.add('Cliente nao vinculado automaticamente')
+    }
+
+    if (document && customerMatch?.matchType === 'name') {
+      reviewReasons.add('Cliente vinculado por nome; validar CNPJ')
     }
 
     return {
       id: bl.id,
       voyage_id: voyageId,
       batch_id: batch.id,
+      cargo_mode: 'container' as const,
       shipper: bl.shipper,
       consignee: matchedCustomer?.name ?? bl.consignee,
       cargo_description: bl.cargo_description,

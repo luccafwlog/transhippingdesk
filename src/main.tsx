@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App'
 import { AuthProvider } from './hooks/useAuth'
+import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 
 const queryClient = new QueryClient({
@@ -21,9 +22,11 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ToastProvider>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
+          <VisualThemeProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </VisualThemeProvider>
         </ToastProvider>
       </BrowserRouter>
     </QueryClientProvider>

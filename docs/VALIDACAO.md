@@ -1,50 +1,48 @@
-# Validação da Fase 1
+# Validacao do Sistema
 
-Este roteiro valida a entrega atual sem depender de módulos das fases 2 a 4.
+Roteiro de validacao do estado atual em 2026-04-11.
 
-## 1. Validação técnica local
+Este roteiro cobre os modulos que hoje ja existem como produto operacional:
+
+- Login
+- Viagens
+- Manifestos CNTR
+- Containers
+- Manifestos BB
+- Veiculos
+- Revisao Manual
+- Clientes
+- CE Mercante
+
+## 1. Validacao tecnica local
 
 Execute na raiz do projeto:
 
 ```powershell
 npm install
+npm test
 npm run lint
 npm run build
 ```
 
 Resultado esperado:
 
+- `npm test` finaliza com todos os testes passando.
 - `npm run lint` finaliza sem erros.
 - `npm run build` finaliza sem erros.
-- O build mostra um chunk separado de `xlsx`, confirmando o carregamento lazy do SheetJS.
+- O build mostra chunk separado de `xlsx`, confirmando o carregamento sob demanda.
 
-Observação: `npm audit --omit=dev` reporta vulnerabilidades no pacote `xlsx` sem correção disponível. O pacote foi mantido porque a especificação exige SheetJS, e ele só é carregado no fluxo de upload/exportação.
+Observacao:
 
-## 2. Preparar Supabase
+- `xlsx` pode aparecer em auditorias com vulnerabilidade conhecida sem fix disponivel no ecossistema atual.
 
-1. Crie um projeto no Supabase.
-2. Execute, nesta ordem, os arquivos em `supabase/migrations`:
-   - `001_schema.sql`
-   - `002_rls.sql`
-   - `003_functions.sql`
-3. Crie um usuário em Authentication > Users.
-4. Copie o UUID do usuário criado.
-5. No SQL editor, crie o perfil do usuário substituindo o UUID:
+## 2. Preparar o ambiente Supabase
 
-```sql
-INSERT INTO public.user_profiles (id, full_name, role, active)
-VALUES ('COLE_AQUI_O_UUID_DO_USUARIO', 'Administrador Validação', 'admin', true)
-ON CONFLICT (id) DO UPDATE
-SET full_name = EXCLUDED.full_name,
-    role = EXCLUDED.role,
-    active = true;
-```
-
-6. Rode o seed operacional:
-
-```sql
--- Conteúdo de supabase/seeds/validation_seed.sql
-```
+1. Crie o projeto no Supabase.
+2. Rode as migrations de `supabase/migrations` na ordem correta.
+3. Crie um usuario em Authentication.
+4. Crie ou atualize o perfil em `user_profiles`.
+5. Confirme que o usuario esta `active = true`.
 
 ## 3. Configurar o app
 
@@ -61,51 +59,171 @@ Rode:
 npm run dev
 ```
 
-Abra a URL indicada pelo Vite.
-
-## 4. Fluxo manual no navegador
+## 4. Fluxo de validacao - Login e Painel
 
 1. Acesse `/login`.
-2. Faça login com o usuário criado no Supabase.
-3. Confirme que `/painel` carrega sem erro.
-4. Acesse `/manifestos`.
-5. Clique em `Importar Manifesto`.
-6. Selecione a viagem `MV VALIDACAO / 001W`.
-7. Faça upload do arquivo `docs/fixtures/manifesto-exemplo.csv`.
-8. Confirme o preview:
-   - Deve mostrar 3 B/Ls.
-   - Deve mostrar 4 containers.
-   - Deve marcar pelo menos 1 B/L como pendente de revisão.
-9. Confirme a importação.
-10. A tabela de Manifestos deve listar os B/Ls importados.
-11. Abra um B/L em `Ver detalhe`.
-12. Altere um campo, por exemplo `Consignatário`.
-13. Preencha a justificativa.
-14. Salve.
-15. Confirme que a seção `Auditoria` mostra o campo alterado com valor antigo, novo e justificativa.
+2. Faca login com usuario ativo.
+3. Confirme que `/painel` abre sem erro.
+4. Confirme que o header, menu principal e submenu `Importacao` funcionam.
 
-## 5. Consultas de conferência
+## 5. Fluxo de validacao - Viagens
 
-Após a importação e edição, valide no SQL editor:
+1. Acesse `/viagens`.
+2. Crie uma nova viagem.
+3. Edite a viagem criada.
+4. Confirme:
+   - armador padrao
+   - SCAC padrao
+   - card da viagem visivel
+   - filtros por navio e viagem funcionando
+5. Verifique os blocos:
+   - `Container`
+   - `Container de Carga Geral`
+   - `Carga solta`
+   - `Veiculos`
+6. Ajuste ETD em um POL.
+7. Ajuste ETA e ATA em um POD.
+8. Exclua a viagem apenas se ela estiver sem vinculos operacionais.
+
+## 6. Fluxo de validacao - Manifestos CNTR
+
+1. Acesse `/manifestos`.
+2. Clique em `Importar Manifesto CNTR`.
+3. Selecione uma viagem existente.
+4. Envie um manifesto real ou fixture de validacao.
+5. No preview, confirme:
+   - quantidade de B/Ls
+   - `Ocorrencias CNTR`
+   - `Containers distintos`
+   - pendencias de revisao
+   - trecho detectado
+6. Conclua a importacao.
+7. Verifique na grade:
+   - filtros
+   - exportacao
+   - abertura do detalhe do B/L
+   - coluna de CE Mercante
+8. Importe planilha complementar de:
+   - IMO/OOG
+   - CE Mercante
+
+## 7. Fluxo de validacao - Containers
+
+1. Acesse `/containers`.
+2. Confirme filtros por:
+   - texto
+   - viagem
+   - POL
+   - POD
+   - perfil
+3. Confirme cards:
+   - registros filtrados
+   - containers distintos
+   - B/Ls envolvidos
+   - OOG distintos
+   - IMO distintos
+4. Confirme resumo por tipo.
+5. Abra um B/L a partir da tela de containers.
+
+## 8. Fluxo de validacao - Manifestos BB
+
+1. Acesse `/carga-solta`.
+2. Clique em `Importar Manifesto BB`.
+3. Vincule a uma viagem.
+4. Envie arquivo no layout operacional atual.
+5. Confirme:
+   - importacao concluida
+   - B/Ls listados
+   - campos de maquinas, packages, packages total, weight e CBM
+   - CE Mercante importavel por planilha
+6. Teste exportacao da grade.
+
+## 9. Fluxo de validacao - Veiculos
+
+1. Acesse `/veiculos`.
+2. Confirme filtros de visualizacao:
+   - navio
+   - viagem
+   - busca por chassi
+   - container
+   - BL
+3. Clique em `Importar Veiculos`.
+4. Selecione a viagem no modal.
+5. Envie planilha modelo.
+6. Confirme preview e resultado:
+   - total processado
+   - sucessos
+   - erros
+7. Abra um B/L CNTR que tenha veiculos e confirme a secao `Veiculos vinculados`.
+
+## 10. Fluxo de validacao - Revisao Manual
+
+1. Acesse `/revisao`.
+2. Confirme listagem de B/Ls pendentes.
+3. Abra um B/L pendente.
+4. Edite os campos necessarios.
+5. Salve.
+6. Confirme que o B/L sai da fila quando estiver regularizado.
+
+## 11. Fluxo de validacao - Clientes
+
+1. Acesse `/clientes`.
+2. Importe uma base mestre de clientes.
+3. Confirme:
+   - CNPJ/CPF obrigatorio
+   - Razao Social obrigatoria
+   - emails multiples por cliente
+4. Crie cliente manualmente.
+5. Abra a ficha do cliente.
+6. Edite dados gerais e contatos.
+7. Exclua um cliente apenas se a regra operacional permitir.
+
+## 12. Fluxo de validacao - CE Mercante
+
+1. Gere planilha simples com colunas:
+   - `BL`
+   - `CE MERCANTE`
+2. Importe em `Manifestos CNTR`.
+3. Importe em `Manifestos BB`.
+4. Confirme que o campo aparece:
+   - na grade
+   - no detalhe do B/L
+
+## 13. Consultas SQL de apoio
+
+Use no SQL Editor do Supabase:
 
 ```sql
-SELECT id, consignee, review_status, financial_status
-FROM public.bls
-ORDER BY created_at DESC;
-
-SELECT bl_id, container_number, is_oog, is_imo, imo_class
-FROM public.bl_containers
-ORDER BY id DESC;
-
-SELECT entity_type, entity_id, field_name, old_value, new_value, justification
-FROM public.audit_logs
-ORDER BY changed_at DESC;
+select count(*) from voyages;
+select count(*) from bls;
+select count(*) from containers;
+select count(*) from vehicles;
+select count(*) from customers;
+select count(*) from import_batches;
 ```
 
-Resultado esperado:
+Conferencias adicionais:
 
-- `bls.id` é o número do B/L, não UUID.
-- Não existe isolamento por `owner_id`.
-- Containers com `Height` preenchido ficam `is_oog = true`.
-- Containers com `Class` preenchido ficam `is_imo = true`.
-- Edição manual de B/L gera registros em `audit_logs`.
+```sql
+select cargo_mode, count(*)
+from bls
+group by cargo_mode
+order by cargo_mode;
+
+select status, count(*)
+from user_profiles
+group by status
+order by status;
+```
+
+## 14. O que ainda nao entra na validacao operacional
+
+Os itens abaixo ainda existem apenas como placeholder, estrutura inicial ou area em aberto:
+
+- Taxas Locais
+- Faturamento
+- Alertas
+- Relatorios
+- Line up TV
+- Admin - Usuarios
+- Admin - Tarifas

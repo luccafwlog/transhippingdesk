@@ -310,9 +310,9 @@ export function ClienteFicha() {
 
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Historico de B/Ls</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500">
+          <div className="app-table-scroll">
+            <table className="app-table app-table--compact min-w-[520px] text-left text-sm">
+              <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="py-2">B/L</th>
                   <th className="py-2">Consignatario</th>
@@ -331,7 +331,7 @@ export function ClienteFicha() {
                 {data.bls?.map((bl) => (
                   <tr key={bl.id}>
                     <td className="py-2">
-                      <Link className="text-[#58a6ff] hover:underline" to={`/manifestos/${bl.id}`}>
+                      <Link className="app-table__action" to={`/manifestos/${bl.id}`}>
                         {bl.id}
                       </Link>
                     </td>
@@ -345,9 +345,9 @@ export function ClienteFicha() {
           </div>
 
           <h2 className="mb-4 mt-8 text-lg font-semibold text-white">Invoices</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500">
+          <div className="app-table-scroll">
+            <table className="app-table app-table--compact min-w-[520px] text-left text-sm">
+              <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="py-2">Invoice</th>
                   <th className="py-2">Emissao</th>

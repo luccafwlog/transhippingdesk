@@ -2,25 +2,35 @@
 
 Plataforma interna para operacao de agente maritimo, com frontend em React/Vite, backend em Supabase e deploy em Firebase Hosting.
 
-## Documentacao de status
+## Documentacao principal
 
-- Roadmap atualizado: `docs/ROADMAP.md`
-- Roteiro de validacao: `docs/VALIDACAO.md`
-- Reset operacional de testes com preservacao do cadastro mestre: `docs/RESET_AMBIENTE.md`
+- Roadmap real do produto: `docs/ROADMAP.md`
+- Roteiro de validacao operacional: `docs/VALIDACAO.md`
+- Reset de ambiente de testes: `docs/RESET_AMBIENTE.md`
 - Modelo de base de clientes: `docs/templates/base-clientes-modelo.xlsx`
 
-## Implementado
+## Modulos operacionais entregues
 
-- React + TypeScript + Vite.
-- Tailwind CSS com tema dark.
-- Supabase Auth com email e senha.
-- Rotas protegidas.
-- Painel inicial com KPIs basicos.
-- Viagens com criacao e edicao.
-- Manifestos com filtros, paginacao e importacao de `.xlsx/.csv`.
-- Parser de manifesto com `xlsx` carregado dinamicamente.
-- Importacao de base mestre de clientes por `CNPJ/CPF`.
-- Detalhe do B/L com edicao manual e auditoria.
+- Login e rotas protegidas.
+- Painel executivo.
+- Viagens.
+- Manifestos CNTR.
+- Containers.
+- Manifestos BB.
+- Veiculos.
+- Revisao Manual.
+- Clientes.
+- Detalhe do B/L com auditoria.
+
+## Modulos ainda nao concluidos como produto final
+
+- Taxas Locais
+- Faturamento
+- Alertas
+- Relatorios
+- Line up TV
+- Admin - Usuarios
+- Admin - Tarifas
 
 ## Configuracao
 
@@ -36,6 +46,7 @@ Plataforma interna para operacao de agente maritimo, com frontend em React/Vite,
 npm run dev
 npm run build
 npm run lint
+npm test
 ```
 
 ## Deploy no Firebase Hosting

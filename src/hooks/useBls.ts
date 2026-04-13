@@ -12,7 +12,8 @@ const blSelect = `
   *,
   customer:customers(id, cnpj_cpf, name),
   voyage:voyages(id, voyage_number, eta, ata, status, vessel:vessels(id, name, carrier:carriers(id, name, scac))),
-  bl_containers(id, bl_id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_oog, is_imo, imo_class, un_number, created_at)
+  bl_containers(id, bl_id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_oog, is_imo, imo_class, un_number, created_at),
+  bl_breakbulk_items(id, bl_id, item_description, package_qty, package_unit, gross_weight_kg, cbm, marks, created_at)
 `
 
 const exportBatchSize = 1000
@@ -20,6 +21,7 @@ const exportBatchSize = 1000
 export type BlFilters = {
   search: string
   voyageId: string
+  cargoMode?: 'container' | 'carga_solta' | ''
   pol: string
   pod: string
   reviewStatus: string
@@ -32,6 +34,7 @@ export type BlFilters = {
 export type ContainerFilters = {
   search: string
   voyageId: string
+  cargoMode?: 'container' | 'carga_solta' | ''
   pol: string
   pod: string
   reviewStatus: string
@@ -155,6 +158,7 @@ export async function fetchAllContainers(filters: ContainerFilters) {
   const rows = await fetchAllBls({
     search: '',
     voyageId: filters.voyageId,
+    cargoMode: filters.cargoMode ?? 'container',
     pol: filters.pol,
     pod: filters.pod,
     reviewStatus: filters.reviewStatus,
@@ -190,6 +194,7 @@ export function useBlDetail(blId?: string) {
           customer:customers(*),
           voyage:voyages(*, vessel:vessels(*, carrier:carriers(*))),
           bl_containers(*),
+          bl_breakbulk_items(*),
           vehicles(*, container:bl_containers(id, container_number, type, seal_number))
         `,
         )
@@ -280,7 +285,11 @@ export function useVoyages() {
           vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
           pol:ports!voyages_pol_id_fkey(id, name, locode, country),
           pod:ports!voyages_pod_id_fkey(id, name, locode, country),
-          bls(id, pol, pod, bl_containers(id, container_number, type, is_oog, is_imo))
+          bls(
+            *,
+            bl_containers(id, container_number, type, is_oog, is_imo),
+            bl_breakbulk_items(id, gross_weight_kg, cbm)
+          )
         `,
         )
         .order('created_at', { ascending: false })
@@ -300,14 +309,30 @@ export function useVoyages() {
         pod?: { id: number; name: string; locode: string | null; country: string | null } | null
         bls?: Array<{
           id: string
+          cargo_mode: 'container' | 'carga_solta' | null
+          ce_mercante: string | null
+          bb_machine_qty: number | null
+          bb_packages_qty: number | null
+          bb_packages_total: number | null
+          bb_weight_ton: number | null
+          shipper: string | null
+          consignee: string | null
+          notify_party: string | null
           pol: string | null
           pod: string | null
+          total_weight_kg: number | null
+          total_cbm: number | null
           bl_containers?: Array<{
             id: number
             container_number: string
             type?: string | null
             is_oog?: boolean | null
             is_imo?: boolean | null
+          }> | null
+          bl_breakbulk_items?: Array<{
+            id: number
+            gross_weight_kg?: number | null
+            cbm?: number | null
           }> | null
         }> | null
       }>
@@ -323,6 +348,7 @@ function applyBlFilters(query: ReturnType<typeof supabase.from>, filters: BlFilt
   }
 
   if (filters.voyageId) nextQuery = nextQuery.eq('voyage_id', Number(filters.voyageId))
+  if (filters.cargoMode) nextQuery = nextQuery.eq('cargo_mode', filters.cargoMode)
   if (filters.pol) nextQuery = nextQuery.ilike('pol', `%${filters.pol}%`)
   if (filters.pod) nextQuery = nextQuery.ilike('pod', `%${filters.pod}%`)
   if (filters.reviewStatus) nextQuery = nextQuery.eq('review_status', filters.reviewStatus as NonNullable<BL['review_status']>)

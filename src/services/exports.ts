@@ -5,6 +5,8 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
   const XLSX = await import('xlsx')
   const manifestRows = rows.map((row) => ({
     BL: row.id,
+    CEMercante: row.ce_mercante ?? '',
+    Modalidade: row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container',
     Armador: row.voyage?.vessel?.carrier?.name ?? '',
     SCAC: row.voyage?.vessel?.carrier?.scac ?? '',
     Navio: row.voyage?.vessel?.name ?? '',
@@ -26,6 +28,7 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
     (row.bl_containers ?? []).map((container) => ({
       Container: container.container_number,
       BL: row.id,
+      CEMercante: row.ce_mercante ?? '',
       Tipo: container.type ?? '',
       Seal: container.seal_number ?? '',
       PesoBrutoKg: container.gross_weight_kg ?? '',
@@ -44,9 +47,30 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
     })),
   )
 
+  const breakbulkRows = rows
+    .filter((row) => row.cargo_mode === 'carga_solta')
+    .map((row) => ({
+      BL: row.id,
+      CE: row.ce_mercante ?? '',
+      MAQUINAS: row.bb_machine_qty ?? '',
+      PACKAGES: row.bb_packages_qty ?? '',
+      'PACKAGES TOTAL': row.bb_packages_total ?? row.bb_packages_qty ?? '',
+      'WEIGHT (TON)': row.bb_weight_ton ?? (row.total_weight_kg ? Number(row.total_weight_kg) / 1000 : ''),
+      'CBM (M3)': row.total_cbm ?? '',
+      SHIPPER: row.shipper ?? '',
+      CONSIGNEE: row.customer?.name ?? row.consignee ?? '',
+      NOTIFY: row.notify_party ?? '',
+      POL: row.pol ?? '',
+      POD: row.pod ?? '',
+      CNPJ: row.customer?.cnpj_cpf ?? '',
+      Navio: row.voyage?.vessel?.name ?? '',
+      Viagem: row.voyage?.voyage_number ?? '',
+    }))
+
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(manifestRows), 'Manifestos')
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(containerRows), 'Containers')
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(breakbulkRows), 'CargaSolta')
   XLSX.writeFile(workbook, `manifestos-${makeTimestamp()}.xlsx`)
 }
 

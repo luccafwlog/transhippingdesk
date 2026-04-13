@@ -1,47 +1,88 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
-  BarChart3,
-  Bell,
   Boxes,
   Car,
+  ChevronDown,
   FileSpreadsheet,
   Home,
   LogOut,
-  Receipt,
-  Settings,
+  Menu,
   Ship,
-  Tv,
   Users,
-  WalletCards,
+  X,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
 import { cn } from '../../lib/utils'
 
-const navItems = [
-  { to: '/painel', label: 'Painel', icon: Home },
-  { to: '/viagens', label: 'Viagens', icon: Ship },
-  { to: '/manifestos', label: 'Manifestos', icon: FileSpreadsheet },
+type NavItem = {
+  to: string
+  label: string
+  icon: React.ComponentType<{ size?: number }>
+}
+
+const importNavItems: NavItem[] = [
+  { to: '/manifestos', label: 'Manifestos CNTR', icon: FileSpreadsheet },
   { to: '/containers', label: 'Containers', icon: Boxes },
+  { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
   { to: '/veiculos', label: 'Veiculos', icon: Car },
   { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/taxas-locais', label: 'Taxas locais', icon: WalletCards },
-  { to: '/faturamento', label: 'Faturamento', icon: Receipt },
-  { to: '/alertas', label: 'Alertas', icon: Bell },
-  { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
-  { to: '/line-up-tv', label: 'Line up TV', icon: Tv },
 ]
 
-const adminItems = [
-  { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
-  { to: '/admin/tarifas', label: 'Tarifas', icon: Settings },
+const primaryNavItems: NavItem[] = [
+  { to: '/painel', label: 'Painel', icon: Home },
+  { to: '/viagens', label: 'Viagens', icon: Ship },
+  { to: '/clientes', label: 'Clientes', icon: Users },
 ]
 
 export function AppLayout() {
+  const location = useLocation()
   const navigate = useNavigate()
-  const { profile, isAdmin, signOut } = useAuth()
+  const { profile, signOut } = useAuth()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [mobileImportOpen, setMobileImportOpen] = useState(false)
+  const [desktopImportOpen, setDesktopImportOpen] = useState(false)
+  const [isMobileNav, setIsMobileNav] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
+  )
+  const currentDate = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date())
+  const currentTime = new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date())
+  const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)')
+    const syncMobileState = (matches: boolean) => {
+      setIsMobileNav(matches)
+      if (!matches) {
+        setMobileNavOpen(false)
+        setMobileImportOpen(false)
+      } else {
+        setDesktopImportOpen(false)
+      }
+    }
+
+    syncMobileState(mediaQuery.matches)
+
+    const handleChange = (event: MediaQueryListEvent) => syncMobileState(event.matches)
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
+
+  function closeMobileMenus() {
+    setMobileNavOpen(false)
+    setMobileImportOpen(false)
+    setDesktopImportOpen(false)
+  }
 
   async function handleSignOut() {
     await signOut()
@@ -49,74 +90,112 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-slate-100">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-[#30363d] bg-[#161b22]/95 p-4 lg:block">
-        <div className="mb-8">
-          <div className="text-lg font-bold text-white">Transhipping Desk</div>
-          <div className="text-xs uppercase tracking-[0.24em] text-[#1f6feb]">Shared v2</div>
+    <div className="app-shell">
+      <div className="app-market-strip">
+        <div className="app-market-strip__content">
+          <div className="app-market-strip__left">
+            <span className="app-market-chip">Operacao interna</span>
+            <strong className="app-market-value">Transhipping Desk</strong>
+            <span className="app-market-separator">•</span>
+            <span className="app-market-meta">{currentDate}</span>
+          </div>
+          <div className="app-market-strip__right">
+            <span className="app-market-meta">Ultimo acesso: {currentTime}</span>
+            <span className="app-market-divider" />
+            <span className="app-market-meta">Fonte: base operacional</span>
+          </div>
         </div>
+      </div>
 
-        <nav className="grid gap-1">
-          {navItems.map((item) => (
-            <SidebarLink key={item.to} {...item} />
-          ))}
-        </nav>
-
-        {isAdmin ? (
-          <div className="mt-8 border-t border-[#30363d] pt-4">
-            <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Admin</div>
-            <nav className="grid gap-1">
-              {adminItems.map((item) => (
-                <SidebarLink key={item.to} {...item} />
-              ))}
-            </nav>
-          </div>
-        ) : null}
-      </aside>
-
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-[#30363d] bg-[#0d1117]/90 px-4 backdrop-blur md:px-8">
-          <div className="lg:hidden">
-            <div className="font-semibold">Transhipping Desk</div>
-            <div className="text-xs text-slate-500">Menu completo no desktop</div>
-          </div>
-          <div className="hidden text-sm text-slate-400 lg:block">Operacao interna de agenciamento maritimo</div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-sm font-semibold text-white">{profile?.full_name ?? 'Usuario'}</div>
-              <div className="text-xs capitalize text-slate-500">{profile?.role ?? 'operator'}</div>
+      <header className="app-header">
+        <div className="app-header__content">
+          <button className="app-header__brand" onClick={() => navigate('/painel')} type="button">
+            <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
+            <div className="app-header__titles">
+              <div className="app-header__eyebrow">Desk Operacional</div>
+              <div className="app-header__subtitle">by ljuliatti</div>
             </div>
-            <Button variant="secondary" onClick={handleSignOut}>
+          </button>
+
+          <div className="app-header__actions">
+            <div className="app-user-pill" title={profile?.role ?? 'operator'}>
+              <span className="app-user-pill__icon" aria-hidden="true">
+                👤
+              </span>
+              <span className="app-user-pill__name">{profile?.full_name ?? 'Usuario'}</span>
+            </div>
+
+            <Button className="app-header__logout" variant="ghost" onClick={handleSignOut}>
               <LogOut size={16} />
               Sair
             </Button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="px-4 py-6 md:px-8">
-          <Outlet />
-        </main>
+      <div className="app-nav-bar">
+        <div className="app-nav-mobile-bar">
+          <button
+            type="button"
+            className="app-nav-toggle"
+            aria-expanded={mobileNavOpen}
+            aria-controls="app-primary-navigation"
+            onClick={() => setMobileNavOpen((current) => !current)}
+          >
+            {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
+            Menu
+          </button>
+        </div>
+
+        <nav id="app-primary-navigation" className={cn('app-nav-scroll', mobileNavOpen && 'app-nav-scroll--open')}>
+          {primaryNavItems.slice(0, 2).map((item) => (
+            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+          ))}
+
+          <TopNavImportMenu
+            items={importNavItems}
+            isActive={isImportSectionActive}
+            isMobile={isMobileNav}
+            desktopOpen={desktopImportOpen}
+            mobileOpen={mobileImportOpen}
+            onOpenDesktop={() => setDesktopImportOpen(true)}
+            onCloseDesktop={() => setDesktopImportOpen(false)}
+            onToggleMobile={() => setMobileImportOpen((current) => !current)}
+            onNavigate={closeMobileMenus}
+          />
+
+          {primaryNavItems.slice(2).map((item) => (
+            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+          ))}
+        </nav>
       </div>
+
+      <main className="app-main">
+        <Outlet />
+      </main>
     </div>
   )
 }
 
-function SidebarLink({
+function TopNavLink({
   to,
   label,
   icon: Icon,
+  onNavigate,
 }: {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
+  onNavigate?: () => void
 }) {
   return (
     <NavLink
       to={to}
+      onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-[#21262d] hover:text-white',
-          isActive && 'bg-[#1f6feb]/15 text-white ring-1 ring-[#1f6feb]/30',
+          'app-nav-link',
+          isActive && 'active',
         )
       }
     >
@@ -124,4 +203,86 @@ function SidebarLink({
       {label}
     </NavLink>
   )
+}
+
+function TopNavImportMenu({
+  items,
+  isActive,
+  isMobile,
+  desktopOpen,
+  mobileOpen,
+  onOpenDesktop,
+  onCloseDesktop,
+  onToggleMobile,
+  onNavigate,
+}: {
+  items: NavItem[]
+  isActive: boolean
+  isMobile: boolean
+  desktopOpen: boolean
+  mobileOpen: boolean
+  onOpenDesktop: () => void
+  onCloseDesktop: () => void
+  onToggleMobile: () => void
+  onNavigate?: () => void
+}) {
+  const isOpen = isMobile ? mobileOpen : desktopOpen
+
+  return (
+    <div
+      className={cn('app-nav-dropdown', isActive && 'active', isOpen && 'open')}
+      onMouseEnter={() => {
+        if (!isMobile) onOpenDesktop()
+      }}
+      onMouseLeave={() => {
+        if (!isMobile) onCloseDesktop()
+      }}
+      onFocusCapture={() => {
+        if (!isMobile) onOpenDesktop()
+      }}
+      onBlurCapture={(event) => {
+        if (isMobile) return
+        const nextTarget = event.relatedTarget
+        if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return
+        onCloseDesktop()
+      }}
+    >
+      <button
+        type="button"
+        className={cn('app-nav-link', 'app-nav-link--button', (isActive || isOpen) && 'active')}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        onClick={() => {
+          if (isMobile) {
+            onToggleMobile()
+          } else {
+            onCloseDesktop()
+          }
+        }}
+      >
+        <FileSpreadsheet size={18} />
+        Importacao
+        <ChevronDown size={16} className="app-nav-dropdown__chevron" />
+      </button>
+
+      <div className="app-nav-dropdown__menu" role="menu" aria-label="Importacao">
+        {items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            role="menuitem"
+            onClick={onNavigate}
+            className={({ isActive }) => cn('app-nav-dropdown__item', isActive && 'active')}
+          >
+            <item.icon size={16} />
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function isPathActive(pathname: string, to: string) {
+  return pathname === to || pathname.startsWith(`${to}/`)
 }

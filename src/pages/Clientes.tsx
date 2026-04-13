@@ -56,7 +56,12 @@ export function Clientes() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const [filters, setFilters] = useState({ search: '' })
+  const [filters, setFilters] = useState({
+    search: '',
+    emailStatus: '' as '' | 'with' | 'without',
+    blStatus: '' as '' | 'with' | 'without',
+    pendingStatus: '' as '' | 'with' | 'without',
+  })
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [createForm, setCreateForm] = useState<CreateCustomerForm>(emptyCreateForm)
@@ -244,25 +249,71 @@ export function Clientes() {
           </div>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Buscar por nome ou CNPJ">
             <Input
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
             />
           </Field>
+          <Field label="E-mails vinculados">
+            <Select
+              value={filters.emailStatus}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  emailStatus: event.target.value as '' | 'with' | 'without',
+                }))
+              }
+            >
+              <option value="">Todos</option>
+              <option value="with">Com e-mails</option>
+              <option value="without">Sem e-mails</option>
+            </Select>
+          </Field>
+          <Field label="BLs vinculados">
+            <Select
+              value={filters.blStatus}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  blStatus: event.target.value as '' | 'with' | 'without',
+                }))
+              }
+            >
+              <option value="">Todos</option>
+              <option value="with">Com B/Ls</option>
+              <option value="without">Sem B/Ls</option>
+            </Select>
+          </Field>
+          <Field label="Valores pendentes">
+            <Select
+              value={filters.pendingStatus}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  pendingStatus: event.target.value as '' | 'with' | 'without',
+                }))
+              }
+            >
+              <option value="">Todos</option>
+              <option value="with">Com saldo pendente</option>
+              <option value="without">Sem saldo pendente</option>
+            </Select>
+          </Field>
         </div>
       </Card>
 
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar clientes.</div> : null}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[780px] text-left text-sm whitespace-nowrap">
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="w-[150px] px-4 py-3">CNPJ/CPF</th>
-                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Razao Social</th>
                 <th className="px-4 py-3">No. B/Ls</th>
+                <th className="px-4 py-3">E-mails</th>
                 <th className="px-4 py-3">Saldo pendente</th>
                 <th className="px-4 py-3">Acao</th>
               </tr>
@@ -270,14 +321,14 @@ export function Clientes() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                     Carregando clientes...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
@@ -285,11 +336,14 @@ export function Clientes() {
               {data?.rows.map((row) => (
                 <tr key={row.id} className="hover:bg-[#21262d]/60">
                   <td className="px-4 py-3">{formatCnpjCpf(row.cnpj_cpf)}</td>
-                  <td className="px-4 py-3 font-semibold text-white">{row.name}</td>
+                  <td className="px-4 py-3 font-semibold text-white" title={row.name}>
+                    <span className="app-table__truncate app-table__truncate--xl">{truncateCustomerName(row.name, 60)}</span>
+                  </td>
                   <td className="px-4 py-3">{row.bls?.length ?? 0}</td>
+                  <td className="px-4 py-3">{row.customer_contacts?.length ?? 0}</td>
                   <td className="px-4 py-3">{formatBRL(row.pending_balance)}</td>
                   <td className="px-4 py-3">
-                    <Link className="text-[#58a6ff] hover:underline" to={`/clientes/${row.cnpj_cpf}`}>
+                    <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
                       Abrir ficha
                     </Link>
                   </td>
@@ -473,8 +527,8 @@ export function Clientes() {
                 </div>
               ) : null}
 
-              <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
-                <table className="w-full min-w-[760px] text-left text-sm">
+              <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
+                <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
                       <th className="px-3 py-2">CNPJ/CPF</th>
@@ -489,7 +543,11 @@ export function Clientes() {
                       <tr key={row.cnpj_cpf}>
                         <td className="px-3 py-2">{formatCnpjCpf(row.cnpj_cpf)}</td>
                         <td className="px-3 py-2 font-semibold text-white">{row.name}</td>
-                        <td className="px-3 py-2">{row.emails.length ? row.emails.join('; ') : '-'}</td>
+                        <td className="px-3 py-2">
+                          <span className="app-table__truncate app-table__truncate--xl" title={row.emails.join('; ')}>
+                            {row.emails.length ? row.emails.join('; ') : '-'}
+                          </span>
+                        </td>
                         <td className="px-3 py-2">
                           {row.city ?? '-'} / {row.state ?? '-'}
                         </td>
@@ -542,4 +600,9 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
       <div className="mt-1 text-2xl font-bold text-white">{value}</div>
     </div>
   )
+}
+
+function truncateCustomerName(value: string, maxLength: number) {
+  if (value.length <= maxLength) return value
+  return `${value.slice(0, maxLength).trimEnd()}...`
 }

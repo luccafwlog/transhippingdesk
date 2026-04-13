@@ -29,8 +29,8 @@ export function Revisao() {
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar a fila de revisao.</div> : null}
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">B/L</th>
@@ -78,7 +78,7 @@ export function Revisao() {
                       <Button variant="secondary" onClick={() => setSelected(item)}>
                         Corrigir
                       </Button>
-                      <Link className="inline-flex h-10 items-center rounded-lg px-3 text-[#58a6ff] hover:underline" to={`/manifestos/${item.id}`}>
+                      <Link className="app-table__action" to={`/manifestos/${item.id}`}>
                         Abrir B/L
                       </Link>
                     </div>

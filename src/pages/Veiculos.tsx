@@ -18,6 +18,7 @@ export function Veiculos() {
   const { data: options } = useVehicleOptions()
   const [selectedVesselId, setSelectedVesselId] = useState('')
   const [selectedVoyageId, setSelectedVoyageId] = useState('')
+  const [importVoyageId, setImportVoyageId] = useState('')
   const [filters, setFilters] = useState<VehiclePageFilters>({
     search: '',
     container: '',
@@ -38,6 +39,7 @@ export function Veiculos() {
   } | null>(null)
 
   const vesselOptions = options?.vessels ?? []
+  const allVoyageOptions = useMemo(() => options?.voyages ?? [], [options?.voyages])
   const voyageOptions = useMemo(
     () => (options?.voyages ?? []).filter((voyage) => String(voyage.vessel?.id ?? '') === selectedVesselId),
     [options?.voyages, selectedVesselId],
@@ -51,7 +53,21 @@ export function Veiculos() {
     }
   }, [selectedVoyageId, voyageOptions])
 
+  useEffect(() => {
+    if (!importOpen) return
+
+    if (selectedVoyageId && !importVoyageId) {
+      setImportVoyageId(selectedVoyageId)
+      return
+    }
+
+    if (!selectedVoyageId && !importVoyageId && allVoyageOptions.length === 1) {
+      setImportVoyageId(String(allVoyageOptions[0].id))
+    }
+  }, [importOpen, importVoyageId, selectedVoyageId, allVoyageOptions])
+
   const voyageId = selectedVoyageId ? Number(selectedVoyageId) : null
+  const importTargetVoyageId = importVoyageId ? Number(importVoyageId) : null
   const { data, isLoading, error } = useVehicles(voyageId, filters)
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
 
@@ -61,6 +77,7 @@ export function Veiculos() {
 
   function resetImportState() {
     setImportOpen(false)
+    setImportVoyageId('')
     setFileName('')
     setParsedImport(null)
     setImportReport(null)
@@ -95,11 +112,11 @@ export function Veiculos() {
   }
 
   async function handleImport() {
-    if (!voyageId || !parsedImport?.rows.length) return
+    if (!importTargetVoyageId || !parsedImport?.rows.length) return
 
     setImporting(true)
     try {
-      const result = await importVehicleRows({ voyageId, rows: parsedImport.rows })
+      const result = await importVehicleRows({ voyageId: importTargetVoyageId, rows: parsedImport.rows })
       setImportReport(result)
 
       await Promise.all([
@@ -125,7 +142,7 @@ export function Veiculos() {
         title="Veiculos"
         description="Gestao e importacao de veiculos vinculados a viagem, containers e BLs."
         action={
-          <Button variant="secondary" disabled={!voyageId} onClick={() => setImportOpen(true)}>
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <Upload size={16} />
             Importar Veiculos
           </Button>
@@ -160,7 +177,9 @@ export function Veiculos() {
           </Field>
         </div>
         {!voyageId ? (
-          <div className="mt-3 text-sm text-amber-200">Selecione uma viagem para habilitar listagem e importacao.</div>
+          <div className="mt-3 text-sm text-amber-200">
+            Selecione uma viagem apenas para visualizacao da lista. A importacao usa o seletor proprio dentro do modal.
+          </div>
         ) : null}
       </Card>
 
@@ -169,6 +188,27 @@ export function Veiculos() {
         <MetricCard label="Containers distintos" value={isLoading ? '...' : data?.distinctContainerCount ?? 0} />
         <MetricCard label="BLs distintos" value={isLoading ? '...' : data?.distinctBlCount ?? 0} />
         <MetricCard label="Peso total (kg)" value={isLoading ? '...' : Number(data?.totalWeightKg ?? 0).toLocaleString('pt-BR')} />
+      </div>
+
+      <div className="mb-5 grid gap-4 xl:grid-cols-3">
+        <BreakdownCard
+          title="Veiculos por marca"
+          loading={isLoading}
+          items={data?.vehiclesByBrand ?? []}
+          emptyLabel="Nenhuma marca no filtro."
+        />
+        <BreakdownCard
+          title="Veiculos por tipo de container"
+          loading={isLoading}
+          items={data?.vehiclesByContainerType ?? []}
+          emptyLabel="Nenhum tipo no filtro."
+        />
+        <BreakdownCard
+          title="Containers por tipo de container"
+          loading={isLoading}
+          items={data?.containersByContainerType ?? []}
+          emptyLabel="Nenhum container no filtro."
+        />
       </div>
 
       <Card className="mb-5">
@@ -187,12 +227,13 @@ export function Veiculos() {
 
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar veiculos.</div> : null}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm whitespace-nowrap">
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Chassi</th>
                 <th className="px-4 py-3">Marca</th>
+                <th className="px-4 py-3">Modelo</th>
                 <th className="px-4 py-3">Peso</th>
                 <th className="px-4 py-3">Cubagem</th>
                 <th className="px-4 py-3">Container</th>
@@ -204,14 +245,14 @@ export function Veiculos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
                     Carregando veiculos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
                     Nenhum veiculo encontrado.
                   </td>
                 </tr>
@@ -220,6 +261,7 @@ export function Veiculos() {
                 <tr key={row.id} className="hover:bg-[#21262d]/60">
                   <td className="px-4 py-3 font-semibold text-white">{row.chassis}</td>
                   <td className="px-4 py-3">{row.brand}</td>
+                  <td className="px-4 py-3">{row.model}</td>
                   <td className="px-4 py-3">{Number(row.weight_kg).toLocaleString('pt-BR')} kg</td>
                   <td className="px-4 py-3">{Number(row.cbm).toLocaleString('pt-BR')}</td>
                   <td className="px-4 py-3">{row.container?.container_number ?? '-'}</td>
@@ -232,11 +274,11 @@ export function Veiculos() {
           </table>
         </div>
 
-        <div className="flex flex-col justify-between gap-3 border-t border-[#30363d] p-4 text-sm text-slate-400 md:flex-row md:items-center">
+        <div className="app-table__footer">
           <span>
             Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros
           </span>
-          <div className="flex items-center gap-2">
+          <div className="app-table__footer-controls">
             <Select className="w-28" value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>
               {pageSizes.map((size) => (
                 <option key={size} value={size}>
@@ -266,7 +308,7 @@ export function Veiculos() {
         <div className="grid gap-5">
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
             <div className="font-semibold text-white">Estrutura obrigatoria da planilha</div>
-            <div className="mt-2">CHASSI, MARCA, PESO, CUBAGEM, CONTAINER, TIPO_CONTAINER, LACRE, BL.</div>
+            <div className="mt-2">CHASSI, MARCA, MODELO, PESO, CUBAGEM, CONTAINER, TIPO_CONTAINER, LACRE, BL.</div>
             <div className="mt-2 text-slate-400">
               Cada linha valida veiculo, container e BL antes da persistencia. Linhas invalidas sao rejeitadas individualmente.
             </div>
@@ -290,6 +332,17 @@ export function Veiculos() {
             </div>
           </div>
 
+          <Field label="Viagem de destino">
+            <Select value={importVoyageId} onChange={(event) => setImportVoyageId(event.target.value)}>
+              <option value="">Selecione uma viagem</option>
+              {allVoyageOptions.map((voyage) => (
+                <option key={voyage.id} value={voyage.id}>
+                  {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <Field label="Arquivo .xlsx, .xls ou .csv">
             <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFileChange} />
           </Field>
@@ -302,15 +355,16 @@ export function Veiculos() {
               <div className="grid gap-3 md:grid-cols-3">
                 <PreviewBox label="Linhas validas" value={parsedImport.rows.length} />
                 <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} />
-                <PreviewBox label="Viagem selecionada" value={selectedVoyageId ? 1 : 0} />
+                <PreviewBox label="Viagem selecionada" value={importVoyageId ? 1 : 0} />
               </div>
 
-              <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
-                <table className="w-full min-w-[860px] text-left text-sm">
+              <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
+                <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
                       <th className="px-3 py-2">Chassi</th>
                       <th className="px-3 py-2">Marca</th>
+                      <th className="px-3 py-2">Modelo</th>
                       <th className="px-3 py-2">Container</th>
                       <th className="px-3 py-2">Tipo</th>
                       <th className="px-3 py-2">Lacre</th>
@@ -322,6 +376,7 @@ export function Veiculos() {
                       <tr key={`${row.rowNumber}-${row.chassis}`}>
                         <td className="px-3 py-2 font-semibold text-white">{row.chassis}</td>
                         <td className="px-3 py-2">{row.brand}</td>
+                        <td className="px-3 py-2">{row.model}</td>
                         <td className="px-3 py-2">{row.container_number}</td>
                         <td className="px-3 py-2">{row.container_type}</td>
                         <td className="px-3 py-2">{row.seal_number}</td>
@@ -370,7 +425,7 @@ export function Veiculos() {
             <Button variant="secondary" onClick={resetImportState}>
               Fechar
             </Button>
-            <Button disabled={!voyageId || !parsedImport?.rows.length} loading={importing} onClick={handleImport}>
+            <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length} loading={importing} onClick={handleImport}>
               Confirmar importacao
             </Button>
           </div>
@@ -381,19 +436,61 @@ export function Veiculos() {
 }
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
+  const tone =
+    label.includes('Peso')
+      ? 'gold'
+      : label.includes('Containers')
+        ? 'green'
+        : label.includes('B/L')
+          ? 'navy'
+          : 'blue'
+
   return (
-    <Card>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
+    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
+      <div className="app-kpi-card__label">{label}</div>
+      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
     </Card>
   )
 }
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
+  const tone =
+    label === 'Erros' ? 'gold' : label === 'Sucesso' ? 'green' : label === 'Processados' ? 'blue' : 'navy'
+
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-3">
-      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
-    </div>
+    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
+      <div className="app-kpi-card__label">{label}</div>
+      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
+    </Card>
+  )
+}
+
+function BreakdownCard({
+  title,
+  items,
+  loading,
+  emptyLabel,
+}: {
+  title: string
+  items: Array<{ label: string; count: number }>
+  loading: boolean
+  emptyLabel: string
+}) {
+  return (
+    <Card>
+      <div className="text-sm font-semibold text-white">{title}</div>
+      <div className="mt-3 grid gap-2">
+        {loading ? <div className="text-sm text-slate-400">Carregando...</div> : null}
+        {!loading && !items.length ? <div className="text-sm text-slate-400">{emptyLabel}</div> : null}
+        {!loading
+          ? items.slice(0, 8).map((item) => (
+              <div key={item.label} className="flex items-center justify-between rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm">
+                <span className="truncate pr-2 text-slate-300">{item.label}</span>
+                <span className="font-semibold text-white">{item.count}</span>
+              </div>
+            ))
+          : null}
+      </div>
+    </Card>
   )
 }

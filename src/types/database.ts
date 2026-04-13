@@ -92,6 +92,12 @@ export type BL = {
   id: string
   voyage_id: number | null
   batch_id: number | null
+  cargo_mode: 'container' | 'carga_solta' | null
+  ce_mercante: string | null
+  bb_machine_qty: number | null
+  bb_packages_qty: number | null
+  bb_packages_total: number | null
+  bb_weight_ton: number | null
   shipper: string | null
   consignee: string | null
   notify_party: string | null
@@ -128,6 +134,18 @@ export type BLContainer = {
   created_at: string | null
 }
 
+export type BLBreakbulkItem = {
+  id: number
+  bl_id: string | null
+  item_description: string
+  package_qty: number | null
+  package_unit: string | null
+  gross_weight_kg: number | null
+  cbm: number | null
+  marks: string | null
+  created_at: string | null
+}
+
 export type Vehicle = {
   id: number
   voyage_id: number
@@ -135,6 +153,7 @@ export type Vehicle = {
   bl_id: string
   chassis: string
   brand: string
+  model: string
   weight_kg: number
   cbm: number
   created_at: string | null
@@ -143,6 +162,7 @@ export type Vehicle = {
 export type ImportBatch = {
   id: number
   voyage_id: number | null
+  cargo_mode: 'container' | 'carga_solta' | null
   filename: string
   uploaded_by: string | null
   uploaded_at: string | null
@@ -220,6 +240,7 @@ export type Database = {
       import_errors: Row<ImportError>
       bls: Row<BL>
       bl_containers: Row<BLContainer>
+      bl_breakbulk_items: Row<BLBreakbulkItem>
       vehicles: Row<Vehicle>
       invoices: Row<Invoice>
     }
@@ -253,6 +274,10 @@ export type BLListItem = BL & {
     | 'un_number'
     | 'created_at'
   >[]
+  bl_breakbulk_items?: Pick<
+    BLBreakbulkItem,
+    'id' | 'bl_id' | 'item_description' | 'package_qty' | 'package_unit' | 'gross_weight_kg' | 'cbm' | 'marks' | 'created_at'
+  >[]
 }
 
 export type BLDetail = BL & {
@@ -263,6 +288,7 @@ export type BLDetail = BL & {
     }) | null
   }) | null
   bl_containers?: BLContainer[]
+  bl_breakbulk_items?: BLBreakbulkItem[]
   vehicles?: VehicleListItem[] | null
 }
 
@@ -294,6 +320,7 @@ export type ContainerListItem = Pick<
 
 export type CustomerListItem = Customer & {
   bls?: Pick<BL, 'id'>[] | null
+  customer_contacts?: Pick<CustomerContact, 'id'>[] | null
 }
 
 export type CustomerDetail = Customer & {

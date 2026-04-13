@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Save } from 'lucide-react'
+import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -18,6 +19,11 @@ const editableFields: (keyof Pick<
   | 'shipper'
   | 'consignee'
   | 'notify_party'
+  | 'ce_mercante'
+  | 'bb_machine_qty'
+  | 'bb_packages_qty'
+  | 'bb_packages_total'
+  | 'bb_weight_ton'
   | 'pol'
   | 'pod'
   | 'place_of_delivery'
@@ -33,6 +39,11 @@ const editableFields: (keyof Pick<
   'shipper',
   'consignee',
   'notify_party',
+  'ce_mercante',
+  'bb_machine_qty',
+  'bb_packages_qty',
+  'bb_packages_total',
+  'bb_weight_ton',
   'pol',
   'pod',
   'place_of_delivery',
@@ -47,6 +58,7 @@ const editableFields: (keyof Pick<
 ]
 
 type BlForm = Pick<BL, (typeof editableFields)[number]>
+type CargoMode = 'container' | 'carga_solta'
 
 export function BlDetalhe() {
   const { blId } = useParams()
@@ -65,17 +77,45 @@ export function BlDetalhe() {
     setForm(makeForm(bl))
   }, [bl])
 
-  const changes = useMemo(() => {
-    if (!bl || !form) return []
+  const cargoMode = useMemo(() => resolveCargoMode(bl), [bl])
+  const isContainerMode = cargoMode === 'container'
+  const backHref = isContainerMode ? '/manifestos' : '/carga-solta'
+  const backLabel = isContainerMode ? 'Voltar aos manifestos CNTR' : 'Voltar aos manifestos BB'
+  const baselineForm = useMemo(() => (bl ? makeForm(bl) : null), [bl])
 
-    return editableFields.filter((field) => stringifyValue(bl[field]) !== stringifyValue(form[field]))
-  }, [bl, form])
+  const changes = useMemo(() => {
+    if (!baselineForm || !form) return []
+
+    return editableFields.filter((field) => stringifyValue(baselineForm[field]) !== stringifyValue(form[field]))
+  }, [baselineForm, form])
 
   const filteredVehicles = useMemo(() => {
+    if (!isContainerMode) return []
+
     const term = normalizeText(vehicleSearch)
     if (!term) return bl?.vehicles ?? []
     return (bl?.vehicles ?? []).filter((vehicle) => normalizeText(vehicle.chassis).includes(term))
-  }, [bl?.vehicles, vehicleSearch])
+  }, [bl?.vehicles, isContainerMode, vehicleSearch])
+
+  const containerSummary = useMemo(
+    () => ({
+      distinct: countDistinctContainerNumbers(bl?.bl_containers),
+      imo: countDistinctContainerNumbersBy(bl?.bl_containers, (container) => Boolean(container.is_imo)),
+      oog: countDistinctContainerNumbersBy(bl?.bl_containers, (container) => Boolean(container.is_oog)),
+    }),
+    [bl?.bl_containers],
+  )
+
+  const breakbulkSummary = useMemo(
+    () => ({
+      machines: Number(bl?.bb_machine_qty ?? 0),
+      packages: Number(bl?.bb_packages_qty ?? 0),
+      packagesTotal: Number(bl?.bb_packages_total ?? bl?.bb_packages_qty ?? 0),
+      weightTon: Number(bl?.bb_weight_ton ?? (bl?.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
+      cbm: Number(bl?.total_cbm ?? 0),
+    }),
+    [bl?.bb_machine_qty, bl?.bb_packages_qty, bl?.bb_packages_total, bl?.bb_weight_ton, bl?.total_cbm, bl?.total_weight_kg],
+  )
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -83,7 +123,7 @@ export function BlDetalhe() {
     if (!bl || !form || !user) return
 
     if (changes.length === 0) {
-      showToast('Nenhuma alteração detectada.', 'info')
+      showToast('Nenhuma alteracao detectada.', 'info')
       return
     }
 
@@ -97,6 +137,12 @@ export function BlDetalhe() {
       const updatePayload = Object.fromEntries(
         changes.map((field) => [field, normalizeFormValue(field, form[field])]),
       ) as Partial<BL>
+
+      if (!isContainerMode) {
+        const weightTon = normalizeFormValue('bb_weight_ton', form.bb_weight_ton)
+        updatePayload.total_weight_kg = weightTon === null ? null : Number(weightTon) * 1000
+      }
+
       const { error: updateError } = await supabase.from('bls').update(updatePayload).eq('id', bl.id)
       if (updateError) throw updateError
 
@@ -105,7 +151,7 @@ export function BlDetalhe() {
           entity_type: 'bl',
           entity_id: bl.id,
           field_name: field,
-          old_value: stringifyValue(bl[field]),
+          old_value: stringifyValue(baselineForm?.[field]),
           new_value: stringifyValue(form[field]),
           changed_by: user.id,
           justification,
@@ -117,11 +163,13 @@ export function BlDetalhe() {
         queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] }),
         queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', bl.id] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
+
       setJustification('')
       showToast('B/L salvo com auditoria campo a campo.', 'success')
     } catch {
-      showToast('Falha ao salvar alterações do B/L.', 'error')
+      showToast('Falha ao salvar alteracoes do B/L.', 'error')
     } finally {
       setSaving(false)
     }
@@ -132,18 +180,22 @@ export function BlDetalhe() {
   }
 
   if (error || !bl || !form) {
-    return <Card className="text-red-200">B/L não encontrado ou erro ao consultar o Supabase.</Card>
+    return <Card className="text-red-200">B/L nao encontrado ou erro ao consultar o Supabase.</Card>
   }
 
   return (
     <>
       <PageHeader
-        title={`B/L ${bl.id}`}
-        description="Edição manual com justificativa obrigatória e auditoria campo a campo."
+        title={`B/L ${bl.id} - ${cargoModeLabel(cargoMode)}`}
+        description={
+          isContainerMode
+            ? 'Edicao manual com auditoria. Esta tela exibe containers e veiculos vinculados a este B/L.'
+            : 'Edicao manual com auditoria. Esta tela exibe o resumo operacional do manifesto BB vinculado a este B/L.'
+        }
         action={
-          <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to="/manifestos">
+          <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={backHref}>
             <ArrowLeft className="mr-1 inline" size={16} />
-            Voltar aos manifestos
+            {backLabel}
           </Link>
         }
       />
@@ -151,9 +203,10 @@ export function BlDetalhe() {
       <form className="grid gap-5" onSubmit={handleSubmit}>
         <Card>
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <StatusBadge label="Revisão" value={bl.review_status ?? 'ok'} />
+            <StatusBadge label="Modo" value={cargoModeLabel(cargoMode)} tone={isContainerMode ? 'blue' : 'green'} />
+            <StatusBadge label="Revisao" value={bl.review_status ?? 'ok'} />
             <StatusBadge label="Financeiro" value={bl.financial_status ?? 'pending'} />
-            {changes.length ? <Badge tone="yellow">{changes.length} alteração(ões) pendentes</Badge> : null}
+            {changes.length ? <Badge tone="yellow">{changes.length} alteracao(oes) pendentes</Badge> : null}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -171,6 +224,44 @@ export function BlDetalhe() {
             <Field label="POD">
               <Input value={form.pod ?? ''} onChange={(event) => setField('pod', event.target.value)} />
             </Field>
+            <Field label="CE Mercante">
+              <Input
+                value={form.ce_mercante ?? ''}
+                onChange={(event) => setField('ce_mercante', event.target.value)}
+              />
+            </Field>
+            {!isContainerMode ? (
+              <>
+                <Field label="Maquinas">
+                  <Input
+                    type="number"
+                    value={form.bb_machine_qty ?? ''}
+                    onChange={(event) => setField('bb_machine_qty', event.target.value)}
+                  />
+                </Field>
+                <Field label="Packages">
+                  <Input
+                    type="number"
+                    value={form.bb_packages_qty ?? ''}
+                    onChange={(event) => setField('bb_packages_qty', event.target.value)}
+                  />
+                </Field>
+                <Field label="Packages Total">
+                  <Input
+                    type="number"
+                    value={form.bb_packages_total ?? ''}
+                    onChange={(event) => setField('bb_packages_total', event.target.value)}
+                  />
+                </Field>
+                <Field label="Weight (Ton)">
+                  <Input
+                    type="number"
+                    value={form.bb_weight_ton ?? ''}
+                    onChange={(event) => setField('bb_weight_ton', event.target.value)}
+                  />
+                </Field>
+              </>
+            ) : null}
             <Field label="Place of Delivery">
               <Input
                 value={form.place_of_delivery ?? ''}
@@ -180,7 +271,7 @@ export function BlDetalhe() {
             <Field label="Shipper">
               <Input value={form.shipper ?? ''} onChange={(event) => setField('shipper', event.target.value)} />
             </Field>
-            <Field label="Consignatário">
+            <Field label="Consignatario">
               <Input value={form.consignee ?? ''} onChange={(event) => setField('consignee', event.target.value)} />
             </Field>
             <Field label="Notify Party">
@@ -189,13 +280,15 @@ export function BlDetalhe() {
                 onChange={(event) => setField('notify_party', event.target.value)}
               />
             </Field>
-            <Field label="Peso total (kg)">
-              <Input
-                type="number"
-                value={form.total_weight_kg ?? ''}
-                onChange={(event) => setField('total_weight_kg', event.target.value)}
-              />
-            </Field>
+            {isContainerMode ? (
+              <Field label="Peso total (kg)">
+                <Input
+                  type="number"
+                  value={form.total_weight_kg ?? ''}
+                  onChange={(event) => setField('total_weight_kg', event.target.value)}
+                />
+              </Field>
+            ) : null}
             <Field label="CBM total">
               <Input
                 type="number"
@@ -211,7 +304,7 @@ export function BlDetalhe() {
                 value={form.payment_type ?? ''}
                 onChange={(event) => setField('payment_type', event.target.value as BL['payment_type'])}
               >
-                <option value="">Não informado</option>
+                <option value="">Nao informado</option>
                 <option value="PREPAID">PREPAID</option>
                 <option value="COLLECT">COLLECT</option>
               </Select>
@@ -223,7 +316,7 @@ export function BlDetalhe() {
                 onChange={(event) => setField('free_time_override', event.target.value)}
               />
             </Field>
-            <Field label="Status de revisão">
+            <Field label="Status de revisao">
               <Select
                 value={form.review_status ?? 'ok'}
                 onChange={(event) => setField('review_status', event.target.value as BL['review_status'])}
@@ -236,7 +329,7 @@ export function BlDetalhe() {
           </div>
 
           <div className="mt-4 grid gap-4">
-            <Field label="Descrição da carga">
+            <Field label="Descricao da carga">
               <Textarea
                 value={form.cargo_description ?? ''}
                 onChange={(event) => setField('cargo_description', event.target.value)}
@@ -245,7 +338,7 @@ export function BlDetalhe() {
             <Field label="Notas">
               <Textarea value={form.notes ?? ''} onChange={(event) => setField('notes', event.target.value)} />
             </Field>
-            <Field label="Justificativa da alteração manual">
+            <Field label="Justificativa da alteracao manual">
               <Textarea value={justification} onChange={(event) => setJustification(event.target.value)} required />
             </Field>
           </div>
@@ -253,7 +346,7 @@ export function BlDetalhe() {
           <div className="mt-5 flex justify-end">
             <Button loading={saving} type="submit">
               <Save size={16} />
-              Salvar alterações
+              Salvar alteracoes
             </Button>
           </div>
         </Card>
@@ -261,102 +354,219 @@ export function BlDetalhe() {
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-white">Containers</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="py-2">Nº Container</th>
-                  <th className="py-2">Seal</th>
-                  <th className="py-2">Tipo</th>
-                  <th className="py-2">Peso bruto</th>
-                  <th className="py-2">CBM</th>
-                  <th className="py-2">OOG</th>
-                  <th className="py-2">IMO</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#30363d]">
-                {bl.bl_containers?.map((container) => (
-                  <tr key={container.id}>
-                    <td className="py-2 font-semibold text-white">{container.container_number}</td>
-                    <td className="py-2">{container.seal_number ?? '-'}</td>
-                    <td className="py-2">{container.type ?? '-'}</td>
-                    <td className="py-2">{Number(container.gross_weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
-                    <td className="py-2">{Number(container.cbm ?? 0).toLocaleString('pt-BR')}</td>
-                    <td className="py-2">{container.is_oog ? <Badge tone="yellow">Sim</Badge> : '-'}</td>
-                    <td className="py-2">{container.is_imo ? <Badge tone="red">Sim</Badge> : '-'}</td>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">
+              {isContainerMode ? 'Containers vinculados' : 'Resumo da carga solta'}
+            </h2>
+            {isContainerMode ? (
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="blue">{containerSummary.distinct} CNTRS</Badge>
+                <Badge tone="red">{containerSummary.imo} IMO</Badge>
+                <Badge tone="yellow">{containerSummary.oog} OOG</Badge>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="green">{formatNumber(breakbulkSummary.machines)} maquinas</Badge>
+                <Badge tone="blue">{formatNumber(breakbulkSummary.packagesTotal)} packages total</Badge>
+                <Badge tone="yellow">{formatNumber(breakbulkSummary.weightTon)} ton</Badge>
+                <Badge tone="slate">{formatNumber(breakbulkSummary.cbm)} CBM</Badge>
+              </div>
+            )}
+          </div>
+
+          <div className="app-table-scroll">
+            {isContainerMode ? (
+              <table className="app-table app-table--compact min-w-[720px] text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="py-2">No. Container</th>
+                    <th className="py-2">Seal</th>
+                    <th className="py-2">Tipo</th>
+                    <th className="py-2">Peso bruto</th>
+                    <th className="py-2">CBM</th>
+                    <th className="py-2">OOG</th>
+                    <th className="py-2">IMO</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {bl.bl_containers?.length ? (
+                    bl.bl_containers.map((container) => (
+                      <tr key={container.id}>
+                        <td className="py-2 font-semibold text-white">{container.container_number}</td>
+                        <td className="py-2">{container.seal_number ?? '-'}</td>
+                        <td className="py-2">{container.type ?? '-'}</td>
+                        <td className="py-2">{formatNumber(container.gross_weight_kg)} kg</td>
+                        <td className="py-2">{formatNumber(container.cbm)}</td>
+                        <td className="py-2">{container.is_oog ? <Badge tone="yellow">OOG</Badge> : '-'}</td>
+                        <td className="py-2">{container.is_imo ? <Badge tone="red">IMO</Badge> : '-'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="py-3 text-slate-400" colSpan={7}>
+                        Nenhum container vinculado a este B/L.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <div className="grid gap-4">
+                <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+                  <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="py-2">CE</th>
+                      <th className="py-2">Maquinas</th>
+                      <th className="py-2">Packages</th>
+                      <th className="py-2">Packages Total</th>
+                      <th className="py-2">Weight (Ton)</th>
+                      <th className="py-2">CBM (M3)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    <tr>
+                      <td className="py-2">{bl.ce_mercante ?? '-'}</td>
+                      <td className="py-2">{formatNumber(bl.bb_machine_qty)}</td>
+                      <td className="py-2">{formatNumber(bl.bb_packages_qty)}</td>
+                      <td className="py-2">{formatNumber(bl.bb_packages_total ?? bl.bb_packages_qty)}</td>
+                      <td className="py-2">{formatNumber(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : null))}</td>
+                      <td className="py-2">{formatNumber(bl.total_cbm)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <table className="app-table app-table--compact min-w-[920px] text-left text-sm">
+                  <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="py-2">Shipper</th>
+                      <th className="py-2">Consignee</th>
+                      <th className="py-2">Notify</th>
+                      <th className="py-2">POL</th>
+                      <th className="py-2">POD</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    <tr>
+                      <td className="py-2">{bl.shipper ?? '-'}</td>
+                      <td className="py-2">{bl.customer?.name ?? bl.consignee ?? '-'}</td>
+                      <td className="py-2">{bl.notify_party ?? '-'}</td>
+                      <td className="py-2">{bl.pol ?? '-'}</td>
+                      <td className="py-2">{bl.pod ?? '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {bl.bl_breakbulk_items?.length ? (
+                  <div>
+                    <div className="mb-2 text-sm font-semibold text-slate-300">Itens legados vinculados</div>
+                    <table className="app-table app-table--compact min-w-[820px] text-left text-sm">
+                      <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                        <tr>
+                          <th className="py-2">Descricao</th>
+                          <th className="py-2">Volumes</th>
+                          <th className="py-2">Unidade</th>
+                          <th className="py-2">Peso bruto</th>
+                          <th className="py-2">CBM</th>
+                          <th className="py-2">Marcas</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {bl.bl_breakbulk_items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="py-2 font-semibold text-white">{item.item_description}</td>
+                            <td className="py-2">{formatNumber(item.package_qty)}</td>
+                            <td className="py-2">{item.package_unit ?? '-'}</td>
+                            <td className="py-2">{formatNumber(item.gross_weight_kg)} kg</td>
+                            <td className="py-2">{formatNumber(item.cbm)}</td>
+                            <td className="py-2">{item.marks ?? '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400">
+                    Este manifesto BB esta no layout resumido por B/L e nao possui itens individuais detalhados.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Card>
 
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Financeiro e cliente</h2>
           <dl className="grid gap-3 text-sm">
-            <InfoLine label="Cliente" value={bl.customer?.name ?? 'Não vinculado'} />
+            <InfoLine label="Modo de carga" value={cargoModeLabel(cargoMode)} />
+            <InfoLine label="CE Mercante" value={bl.ce_mercante ?? '-'} />
+            <InfoLine label="Cliente" value={bl.customer?.name ?? 'Nao vinculado'} />
             <InfoLine label="CNPJ/CPF" value={bl.customer?.cnpj_cpf ?? '-'} />
             <InfoLine label="Saldo pendente" value={formatBRL(bl.customer?.pending_balance ?? 0)} />
             <InfoLine label="Trecho" value={`${bl.pol ?? '-'} -> ${bl.pod ?? '-'}`} />
+            <InfoLine
+              label={isContainerMode ? 'Containers distintos' : 'Packages total'}
+              value={String(isContainerMode ? containerSummary.distinct : breakbulkSummary.packagesTotal)}
+            />
           </dl>
         </Card>
 
-        <Card className="xl:col-span-2">
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-lg font-semibold text-white">Veiculos vinculados</h2>
-            <div className="w-full max-w-xs">
-              <Field label="Buscar por chassi">
-                <Input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} />
-              </Field>
+        {isContainerMode ? (
+          <Card className="xl:col-span-2">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <h2 className="text-lg font-semibold text-white">Veiculos vinculados</h2>
+              <div className="w-full max-w-xs">
+                <Field label="Buscar por chassi">
+                  <Input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} />
+                </Field>
+              </div>
             </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm whitespace-nowrap">
-              <thead className="text-xs uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="py-2">Chassi</th>
-                  <th className="py-2">Marca</th>
-                  <th className="py-2">Container</th>
-                  <th className="py-2">Peso</th>
-                  <th className="py-2">Cubagem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#30363d]">
-                {filteredVehicles.length ? (
-                  filteredVehicles.map((vehicle) => (
-                    <tr key={vehicle.id}>
-                      <td className="py-2 font-semibold text-white">{vehicle.chassis}</td>
-                      <td className="py-2">{vehicle.brand}</td>
-                      <td className="py-2">{vehicle.container?.container_number ?? '-'}</td>
-                      <td className="py-2">{Number(vehicle.weight_kg ?? 0).toLocaleString('pt-BR')} kg</td>
-                      <td className="py-2">{Number(vehicle.cbm ?? 0).toLocaleString('pt-BR')}</td>
-                    </tr>
-                  ))
-                ) : (
+            <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <td className="py-3 text-slate-400" colSpan={5}>
-                      Nenhum veiculo vinculado para este B/L.
-                    </td>
+                    <th className="py-2">Chassi</th>
+                    <th className="py-2">Marca</th>
+                    <th className="py-2">Container</th>
+                    <th className="py-2">Peso</th>
+                    <th className="py-2">Cubagem</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {filteredVehicles.length ? (
+                    filteredVehicles.map((vehicle) => (
+                      <tr key={vehicle.id}>
+                        <td className="py-2 font-semibold text-white">{vehicle.chassis}</td>
+                        <td className="py-2">{vehicle.brand}</td>
+                        <td className="py-2">{vehicle.container?.container_number ?? '-'}</td>
+                        <td className="py-2">{formatNumber(vehicle.weight_kg)} kg</td>
+                        <td className="py-2">{formatNumber(vehicle.cbm)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="py-3 text-slate-400" colSpan={5}>
+                        Nenhum veiculo vinculado para este B/L.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : null}
 
         <Card className="xl:col-span-2">
           <h2 className="mb-4 text-lg font-semibold text-white">Auditoria</h2>
           <div className="grid gap-3">
-            {auditLogs?.length ? null : <div className="text-sm text-slate-400">Nenhuma alteração auditada ainda.</div>}
+            {auditLogs?.length ? null : <div className="text-sm text-slate-400">Nenhuma alteracao auditada ainda.</div>}
             {auditLogs?.map((log) => (
               <div key={log.id} className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm">
                 <div className="font-semibold text-white">
-                  {log.field_name}: {log.old_value || '-'} → {log.new_value || '-'}
+                  {log.field_name}: {log.old_value || '-'} {'->'} {log.new_value || '-'}
                 </div>
                 <div className="mt-1 text-slate-400">
-                  {formatDate(log.changed_at)} · {log.justification ?? 'Sem justificativa'}
+                  {formatDate(log.changed_at)} {'|'} {log.justification ?? 'Sem justificativa'}
                 </div>
               </div>
             ))}
@@ -376,6 +586,11 @@ function makeForm(bl: BLDetail): BlForm {
     shipper: bl.shipper,
     consignee: bl.consignee,
     notify_party: bl.notify_party,
+    ce_mercante: bl.ce_mercante,
+    bb_machine_qty: bl.bb_machine_qty,
+    bb_packages_qty: bl.bb_packages_qty,
+    bb_packages_total: bl.bb_packages_total,
+    bb_weight_ton: bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : null),
     pol: bl.pol,
     pod: bl.pod,
     place_of_delivery: bl.place_of_delivery,
@@ -390,21 +605,57 @@ function makeForm(bl: BLDetail): BlForm {
   }
 }
 
+function resolveCargoMode(bl?: BLDetail | null): CargoMode {
+  if (bl?.cargo_mode === 'carga_solta') return 'carga_solta'
+  if (bl?.cargo_mode === 'container') return 'container'
+  if ((bl?.bl_breakbulk_items?.length ?? 0) > 0) return 'carga_solta'
+  return 'container'
+}
+
+function cargoModeLabel(mode: CargoMode) {
+  return mode === 'carga_solta' ? 'Carga Solta' : 'Container'
+}
+
 function stringifyValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
 }
 
 function normalizeFormValue(field: keyof BlForm, value: unknown) {
-  if (['total_weight_kg', 'total_cbm', 'free_time_override'].includes(field)) {
+  if (
+    ['bb_machine_qty', 'bb_packages_qty', 'bb_packages_total', 'bb_weight_ton', 'total_weight_kg', 'total_cbm', 'free_time_override'].includes(
+      field,
+    )
+  ) {
     return value === '' || value === null || value === undefined ? null : Number(value)
   }
 
   return value === '' ? null : value
 }
 
-function StatusBadge({ label, value }: { label: string; value: string }) {
+function formatNumber(value: number | string | null | undefined) {
+  const amount = Number(value ?? 0)
+  return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
+}
+
+function StatusBadge({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone?: 'blue' | 'green' | 'red' | 'yellow' | 'slate'
+}) {
+  const resolvedTone =
+    tone ??
+    (value.includes('pending')
+      ? 'yellow'
+      : value.includes('paid') || value.includes('reviewed')
+        ? 'green'
+        : 'blue')
+
   return (
-    <Badge tone={value.includes('pending') ? 'yellow' : value.includes('paid') || value.includes('reviewed') ? 'green' : 'blue'}>
+    <Badge tone={resolvedTone}>
       {label}: {value}
     </Badge>
   )

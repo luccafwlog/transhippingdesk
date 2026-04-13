@@ -5,6 +5,7 @@ import { Boxes, Download, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -25,6 +26,7 @@ export function Manifestos() {
   const [filters, setFilters] = useState<BlFilters>({
     search: '',
     voyageId: initialVoyage,
+    cargoMode: 'container',
     pol: '',
     pod: '',
     reviewStatus: '',
@@ -34,6 +36,7 @@ export function Manifestos() {
     pageSize: 20,
   })
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
@@ -67,8 +70,8 @@ export function Manifestos() {
   return (
     <>
       <PageHeader
-        title="Manifestos"
-        description="Consulta paginada de B/Ls e importacao de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
+        title="Manifestos CNTR"
+        description="Consulta paginada de B/Ls de container e importacao de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Link
@@ -82,9 +85,13 @@ export function Manifestos() {
               <Download size={16} />
               Exportar
             </Button>
+            <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
+              <Upload size={16} />
+              Importar CE Mercante
+            </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload size={16} />
-              Importar Manifesto
+              Importar Manifesto CNTR
             </Button>
           </div>
         }
@@ -168,11 +175,12 @@ export function Manifestos() {
           <div className="p-5 text-sm text-red-200">Erro ao carregar manifestos. Verifique Supabase e migrations.</div>
         ) : null}
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-left text-sm whitespace-nowrap">
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[920px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. B/L</th>
+                <th className="px-4 py-3">CE Mercante</th>
                 <th className="px-4 py-3">Navio/Viagem</th>
                 <th className="w-[168px] px-4 py-3">CNEE</th>
                 <th className="px-4 py-3">POL</th>
@@ -185,14 +193,14 @@ export function Manifestos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -204,12 +212,13 @@ export function Manifestos() {
                       {bl.id}
                     </Link>
                   </td>
+                  <td className="px-4 py-3">{bl.ce_mercante ?? '-'}</td>
                   <td className="px-4 py-3">
                     {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className="block max-w-[168px] overflow-hidden text-clip whitespace-nowrap"
+                      className="app-table__truncate app-table__truncate--md"
                       title={bl.customer?.name ?? bl.consignee ?? '-'}
                     >
                       {bl.customer?.name ?? bl.consignee ?? '-'}
@@ -228,7 +237,7 @@ export function Manifestos() {
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      className="inline-flex rounded-lg border border-[#1f6feb]/40 bg-[#1f6feb]/10 px-3 py-1.5 font-semibold text-[#8cc8ff] hover:bg-[#1f6feb]/20"
+                      className="app-table__action"
                       to={`/manifestos/${bl.id}`}
                     >
                       Abrir B/L
@@ -240,11 +249,11 @@ export function Manifestos() {
           </table>
         </div>
 
-        <div className="flex flex-col justify-between gap-3 border-t border-[#30363d] p-4 text-sm text-slate-400 md:flex-row md:items-center">
+        <div className="app-table__footer">
           <span>
             Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros
           </span>
-          <div className="flex items-center gap-2">
+          <div className="app-table__footer-controls">
             <Select
               className="w-28"
               value={filters.pageSize}
@@ -275,16 +284,26 @@ export function Manifestos() {
       </Card>
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
     </>
   )
 }
 
 function SummaryCard({ label, value }: { label: string; value: number | string }) {
+  const tone =
+    label === 'Sem faturamento'
+      ? 'green'
+      : label === 'Pendentes revisao'
+        ? 'gold'
+        : label === 'CNTRS'
+          ? 'blue'
+          : 'navy'
+
   return (
-    <Card>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
-      <div className="mt-1 text-xs text-slate-500">Considera os filtros ativos desta tela.</div>
+    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
+      <div className="app-kpi-card__label">{label}</div>
+      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
+      <div className="app-kpi-card__sub">Considera os filtros ativos desta tela.</div>
     </Card>
   )
 }
@@ -340,6 +359,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const totals = useMemo(
     () => ({
       bls: manifest?.bls.length ?? 0,
+      containerOccurrences: manifest?.bls.reduce((sum, bl) => sum + (bl.containers?.length ?? 0), 0) ?? 0,
       containers: countDistinctManifestContainers(manifest),
       pending: manifest?.bls.filter((bl) => bl.review_status === 'pending_review').length ?? 0,
     }),
@@ -399,7 +419,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Importar Manifesto">
+    <Modal open={open} onClose={onClose} title="Importar Manifesto CNTR">
       <div className="grid gap-5">
         <Field label="Viagem de destino">
           <VoyageSelect value={voyageId} onChange={setVoyageId} emptyLabel="Selecione uma viagem" />
@@ -430,8 +450,9 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <PreviewBox label="B/Ls" value={totals.bls} />
+              <PreviewBox label="Ocorrencias CNTR" value={totals.containerOccurrences} />
               <PreviewBox label="Containers distintos" value={totals.containers} />
               <PreviewBox label="Pendentes revisao" value={totals.pending} />
             </div>
@@ -443,7 +464,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             ) : null}
 
             <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="app-table app-table--compact min-w-[720px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-3 py-2">B/L</th>

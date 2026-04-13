@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS public.vehicles (
   bl_id TEXT NOT NULL REFERENCES public.bls(id) ON DELETE RESTRICT,
   chassis TEXT NOT NULL,
   brand TEXT NOT NULL,
+  model TEXT NOT NULL,
   weight_kg NUMERIC(12,3) NOT NULL,
   cbm NUMERIC(10,3) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -20,6 +21,7 @@ DECLARE
 BEGIN
   NEW.chassis := upper(trim(NEW.chassis));
   NEW.brand := trim(NEW.brand);
+  NEW.model := trim(NEW.model);
 
   IF NEW.chassis = '' THEN
     RAISE EXCEPTION 'Chassi obrigatorio';
@@ -27,6 +29,10 @@ BEGIN
 
   IF NEW.brand = '' THEN
     RAISE EXCEPTION 'Marca obrigatoria';
+  END IF;
+
+  IF NEW.model = '' THEN
+    RAISE EXCEPTION 'Modelo obrigatorio';
   END IF;
 
   SELECT bl_id

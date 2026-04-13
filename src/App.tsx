@@ -6,6 +6,7 @@ import { Painel } from './pages/Painel'
 import { Viagens } from './pages/Viagens'
 import { Manifestos } from './pages/Manifestos'
 import { Containers } from './pages/Containers'
+import { CargaSolta } from './pages/CargaSolta'
 import { Veiculos } from './pages/Veiculos'
 import { BlDetalhe } from './pages/BlDetalhe'
 import { Revisao } from './pages/Revisao'
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/viagens" element={<Viagens />} />
           <Route path="/manifestos" element={<Manifestos />} />
           <Route path="/containers" element={<Containers />} />
+          <Route path="/carga-solta" element={<CargaSolta />} />
           <Route path="/veiculos" element={<Veiculos />} />
           <Route path="/manifestos/:blId" element={<BlDetalhe />} />
           <Route path="/revisao" element={<Revisao />} />
