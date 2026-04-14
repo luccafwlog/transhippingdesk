@@ -1,16 +1,46 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calculator, RefreshCw } from 'lucide-react'
+import { Calculator, Pencil, RefreshCw, Save, Trash2, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
-import { Field, Input, Select } from '../components/ui/Input'
+import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
-import { useBlLocalChargeLines, useCalculateBlLocalCharges, useChargePendencies, useLocalChargeTables } from '../hooks/useLocalCharges'
+import {
+  useBlLocalChargeLines,
+  useCalculateBlLocalCharges,
+  useChargePendencies,
+  useCustomerRateOverrides,
+  useDeleteCustomerRateOverride,
+  useLocalChargeTables,
+  useOverrideChargeItems,
+  useOverrideCustomers,
+  useSaveCustomerRateOverride,
+} from '../hooks/useLocalCharges'
 import { formatBRL } from '../lib/utils'
 
-type LocalChargeTab = 'tabelas' | 'pendencias' | 'simulacao'
+type LocalChargeTab = 'tabelas' | 'overrides' | 'pendencias' | 'simulacao'
+
+type OverrideForm = {
+  id: number | null
+  customerId: string
+  chargeItemId: string
+  overrideValue: string
+  validFrom: string
+  validTo: string
+  notes: string
+}
+
+const EMPTY_OVERRIDE_FORM: OverrideForm = {
+  id: null,
+  customerId: '',
+  chargeItemId: '',
+  overrideValue: '',
+  validFrom: '',
+  validTo: '',
+  notes: '',
+}
 
 export function TaxasLocais() {
   const { user } = useAuth()
@@ -18,12 +48,26 @@ export function TaxasLocais() {
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
   const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta'>('')
   const [podFilter, setPodFilter] = useState('')
+  const [overrideCustomerSearch, setOverrideCustomerSearch] = useState('')
+  const [overrideForm, setOverrideForm] = useState<OverrideForm>(EMPTY_OVERRIDE_FORM)
+  const [overrideSaving, setOverrideSaving] = useState(false)
+  const [overrideDeletingId, setOverrideDeletingId] = useState<number | null>(null)
   const [simulationBlIdInput, setSimulationBlIdInput] = useState('')
   const [simulationBlId, setSimulationBlId] = useState('')
   const { data: tables, isLoading: tablesLoading, error: tablesError } = useLocalChargeTables({
     cargoMode: cargoModeFilter,
     pod: podFilter,
   })
+  const { data: overrideRows, isLoading: overridesLoading, error: overridesError } = useCustomerRateOverrides({
+    customerSearch: overrideCustomerSearch,
+    cargoMode: cargoModeFilter,
+    pod: podFilter,
+    limit: 300,
+  })
+  const { data: overrideChargeItems } = useOverrideChargeItems()
+  const { data: overrideCustomers } = useOverrideCustomers(overrideCustomerSearch)
+  const saveOverrideMutation = useSaveCustomerRateOverride()
+  const deleteOverrideMutation = useDeleteCustomerRateOverride()
   const { data: pendencies, isLoading: pendenciesLoading, error: pendenciesError } = useChargePendencies(200)
   const { data: simulationLines, isLoading: simulationLinesLoading } = useBlLocalChargeLines(simulationBlId)
   const calculateMutation = useCalculateBlLocalCharges(simulationBlId)
@@ -79,6 +123,80 @@ export function TaxasLocais() {
     }
   }
 
+  async function handleSaveOverride() {
+    const customerId = Number(overrideForm.customerId)
+    const chargeItemId = Number(overrideForm.chargeItemId)
+    const overrideValue = Number(String(overrideForm.overrideValue).replace(',', '.'))
+
+    if (!Number.isInteger(customerId) || customerId <= 0) {
+      showToast('Selecione um cliente para salvar o override.', 'error')
+      return
+    }
+    if (!Number.isInteger(chargeItemId) || chargeItemId <= 0) {
+      showToast('Selecione um item de taxa para salvar o override.', 'error')
+      return
+    }
+    if (!Number.isFinite(overrideValue) || overrideValue <= 0) {
+      showToast('Informe um valor de override valido (maior que zero).', 'error')
+      return
+    }
+    if (overrideForm.validFrom && overrideForm.validTo && overrideForm.validTo < overrideForm.validFrom) {
+      showToast('A vigencia final nao pode ser anterior a vigencia inicial.', 'error')
+      return
+    }
+
+    setOverrideSaving(true)
+    try {
+      await saveOverrideMutation.mutateAsync({
+        id: overrideForm.id,
+        customerId,
+        chargeItemId,
+        overrideValue,
+        validFrom: overrideForm.validFrom || null,
+        validTo: overrideForm.validTo || null,
+        notes: overrideForm.notes || null,
+      })
+
+      showToast(overrideForm.id ? 'Override atualizado com sucesso.' : 'Override criado com sucesso.', 'success')
+      setOverrideForm(EMPTY_OVERRIDE_FORM)
+    } catch {
+      showToast('Falha ao salvar override de cliente.', 'error')
+    } finally {
+      setOverrideSaving(false)
+    }
+  }
+
+  function handleEditOverride(id: number) {
+    const row = overrideRows?.find((item) => item.id === id)
+    if (!row) return
+
+    setOverrideForm({
+      id: row.id,
+      customerId: String(row.customer_id ?? ''),
+      chargeItemId: String(row.charge_item_id ?? ''),
+      overrideValue: String(Number(row.override_value ?? 0)),
+      validFrom: row.valid_from ?? '',
+      validTo: row.valid_to ?? '',
+      notes: row.notes ?? '',
+    })
+  }
+
+  async function handleDeleteOverride(id: number) {
+    if (!window.confirm('Excluir este override de cliente?')) return
+    setOverrideDeletingId(id)
+    try {
+      await deleteOverrideMutation.mutateAsync(id)
+      showToast('Override removido.', 'success')
+      if (overrideForm.id === id) {
+        setOverrideForm(EMPTY_OVERRIDE_FORM)
+      }
+    } catch {
+      showToast('Falha ao remover override.', 'error')
+    } finally {
+      setOverrideDeletingId(null)
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -88,6 +206,7 @@ export function TaxasLocais() {
 
       <div className="mb-5 flex flex-wrap gap-2">
         <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} />
+        <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} />
         <TabButton active={tab === 'pendencias'} label="Pendencias" onClick={() => setTab('pendencias')} />
         <TabButton active={tab === 'simulacao'} label="Simulacao" onClick={() => setTab('simulacao')} />
       </div>
@@ -237,6 +356,196 @@ export function TaxasLocais() {
         </Card>
       ) : null}
 
+      {tab === 'overrides' ? (
+        <>
+          <Card className="mb-5">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Field label="Buscar cliente">
+                <Input
+                  value={overrideCustomerSearch}
+                  onChange={(event) => setOverrideCustomerSearch(event.target.value)}
+                  placeholder="Razao social ou CNPJ"
+                />
+              </Field>
+              <Field label="Modo de carga">
+                <Select value={cargoModeFilter} onChange={(event) => setCargoModeFilter(event.target.value as '' | 'container' | 'carga_solta')}>
+                  <option value="">Todos</option>
+                  <option value="container">Container</option>
+                  <option value="carga_solta">Carga Solta</option>
+                </Select>
+              </Field>
+              <Field label="POD">
+                <Input value={podFilter} onChange={(event) => setPodFilter(event.target.value.toUpperCase())} placeholder="BRVIT / BRSSA" />
+              </Field>
+              <MetricCard label="Overrides encontrados" value={String(overrideRows?.length ?? 0)} />
+            </div>
+          </Card>
+
+          <Card className="mb-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-white">{overrideForm.id ? 'Editar override' : 'Novo override'}</h3>
+              {overrideForm.id ? (
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setOverrideForm(EMPTY_OVERRIDE_FORM)}
+                >
+                  <X size={15} />
+                  Cancelar edicao
+                </Button>
+              ) : null}
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <Field label="Cliente">
+                <Select
+                  value={overrideForm.customerId}
+                  onChange={(event) => setOverrideForm((prev) => ({ ...prev, customerId: event.target.value }))}
+                >
+                  <option value="">Selecione</option>
+                  {(overrideCustomers ?? []).map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} ({customer.cnpj_cpf})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Item de taxa">
+                <Select
+                  value={overrideForm.chargeItemId}
+                  onChange={(event) => setOverrideForm((prev) => ({ ...prev, chargeItemId: event.target.value }))}
+                >
+                  <option value="">Selecione</option>
+                  {(overrideChargeItems ?? []).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.charge_table?.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} | {item.charge_table?.pod ?? '-'} | {item.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Valor override">
+                <Input
+                  value={overrideForm.overrideValue}
+                  onChange={(event) => setOverrideForm((prev) => ({ ...prev, overrideValue: event.target.value }))}
+                  placeholder="Ex: 1500.00"
+                />
+              </Field>
+              <Field label="Vigencia inicial">
+                <Input
+                  type="date"
+                  value={overrideForm.validFrom}
+                  onChange={(event) => setOverrideForm((prev) => ({ ...prev, validFrom: event.target.value }))}
+                />
+              </Field>
+              <Field label="Vigencia final">
+                <Input
+                  type="date"
+                  value={overrideForm.validTo}
+                  onChange={(event) => setOverrideForm((prev) => ({ ...prev, validTo: event.target.value }))}
+                />
+              </Field>
+              <Field label="Observacoes">
+                <Textarea
+                  value={overrideForm.notes}
+                  onChange={(event) => setOverrideForm((prev) => ({ ...prev, notes: event.target.value }))}
+                />
+              </Field>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button type="button" onClick={handleSaveOverride} loading={overrideSaving || saveOverrideMutation.isPending}>
+                <Save size={15} />
+                {overrideForm.id ? 'Salvar override' : 'Criar override'}
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden p-0">
+            {overridesError ? <div className="p-5 text-sm text-red-200">Falha ao consultar overrides.</div> : null}
+            <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Taxa</th>
+                    <th className="px-4 py-3">Modo/POD</th>
+                    <th className="px-4 py-3">Vigencia</th>
+                    <th className="px-4 py-3">Valor base</th>
+                    <th className="px-4 py-3">Override</th>
+                    <th className="px-4 py-3">Obs</th>
+                    <th className="px-4 py-3">Acoes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {overridesLoading ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                        Carregando overrides...
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!overridesLoading && (overrideRows?.length ?? 0) === 0 ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                        Nenhum override encontrado.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {overrideRows?.map((row) => {
+                    const currency = row.charge_item?.currency ?? 'BRL'
+                    const baseValue =
+                      currency === 'USD'
+                        ? Number(row.charge_item?.unit_value_usd ?? 0)
+                        : Number(row.charge_item?.unit_value_brl ?? 0)
+                    return (
+                      <tr key={row.id}>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-white">{row.customer?.name ?? '-'}</div>
+                          <div className="text-xs text-slate-400">{row.customer?.cnpj_cpf ?? '-'}</div>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-white">{row.charge_item?.name ?? '-'}</td>
+                        <td className="px-4 py-3">
+                          {(row.charge_item?.charge_table?.cargo_mode ?? '').toUpperCase()} / {row.charge_item?.charge_table?.pod ?? '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          {row.valid_from ?? '-'} {row.valid_to ? `ate ${row.valid_to}` : '(aberta)'}
+                        </td>
+                        <td className="px-4 py-3">{currency === 'USD' ? formatUSD(baseValue) : formatBRL(baseValue)}</td>
+                        <td className="px-4 py-3 font-semibold text-green-300">
+                          {currency === 'USD' ? formatUSD(Number(row.override_value ?? 0)) : formatBRL(Number(row.override_value ?? 0))}
+                        </td>
+                        <td className="px-4 py-3">{row.notes ?? '-'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="app-table__icon-button"
+                              type="button"
+                              onClick={() => handleEditOverride(row.id)}
+                              aria-label="Editar override"
+                              title="Editar override"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              className="app-table__icon-button app-table__icon-button--danger"
+                              type="button"
+                              onClick={() => handleDeleteOverride(row.id)}
+                              aria-label="Excluir override"
+                              title="Excluir override"
+                              disabled={overrideDeletingId === row.id}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      ) : null}
+
       {tab === 'simulacao' ? (
         <>
           <Card className="mb-5">
@@ -354,4 +663,3 @@ function formatUSD(value: number) {
     maximumFractionDigits: 2,
   }).format(Number(value ?? 0))
 }
-

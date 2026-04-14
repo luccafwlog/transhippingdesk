@@ -1,9 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   calculateBlLocalCharges,
+  deleteCustomerRateOverride,
   listBlLocalChargeLines,
+  listCustomerRateOverrides,
+  listOverrideChargeItems,
+  listOverrideCustomers,
   listLocalChargePendencies,
   listLocalChargeTables,
+  saveCustomerRateOverride,
 } from '../services/localCharges'
 
 export function useBlLocalChargeLines(blId?: string) {
@@ -42,5 +47,59 @@ export function useChargePendencies(limit = 100) {
   return useQuery({
     queryKey: ['local-charge-pendencies', limit],
     queryFn: () => listLocalChargePendencies(limit),
+  })
+}
+
+export function useCustomerRateOverrides(filters?: {
+  customerSearch?: string
+  cargoMode?: '' | 'container' | 'carga_solta'
+  pod?: string
+  limit?: number
+}) {
+  return useQuery({
+    queryKey: ['local-charge-overrides', filters],
+    queryFn: () => listCustomerRateOverrides(filters),
+  })
+}
+
+export function useOverrideChargeItems() {
+  return useQuery({
+    queryKey: ['local-charge-override-items'],
+    queryFn: () => listOverrideChargeItems(),
+  })
+}
+
+export function useOverrideCustomers(search: string) {
+  return useQuery({
+    queryKey: ['local-charge-override-customers', search],
+    queryFn: () => listOverrideCustomers(search),
+  })
+}
+
+export function useSaveCustomerRateOverride() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: saveCustomerRateOverride,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['local-charge-overrides'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines'] }),
+      ])
+    },
+  })
+}
+
+export function useDeleteCustomerRateOverride() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: deleteCustomerRateOverride,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['local-charge-overrides'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines'] }),
+      ])
+    },
   })
 }
