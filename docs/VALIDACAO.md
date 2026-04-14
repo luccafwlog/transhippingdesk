@@ -1,6 +1,6 @@
 # Validacao do Sistema
 
-Roteiro de validacao do estado atual em 2026-04-11.
+Roteiro de validacao do estado atual em 2026-04-14.
 
 Este roteiro cobre os modulos que hoje ja existem como produto operacional:
 
@@ -31,6 +31,22 @@ Resultado esperado:
 - `npm run lint` finaliza sem erros.
 - `npm run build` finaliza sem erros.
 - O build mostra chunk separado de `xlsx`, confirmando o carregamento sob demanda.
+
+## 1.1 Validacao de integracao com Supabase real
+
+Configure as variaveis de ambiente descritas em `.env.example` e rode:
+
+```powershell
+$env:SUPABASE_RUN_INTEGRATION="1"
+npm run test:integration
+```
+
+Resultado esperado:
+
+- dedupe de hash retorna `23505`
+- rate limit de import retorna `P0429`
+- optimistic lock de revisao retorna `40001`
+- (opcional) leitura financeira para operador retorna `42501`
 
 Observacao:
 
@@ -98,12 +114,14 @@ npm run dev
    - pendencias de revisao
    - trecho detectado
 6. Conclua a importacao.
-7. Verifique na grade:
+7. Tente reenviar o mesmo arquivo sem alteracao e confirme bloqueio por dedupe (`23505`).
+8. Tente disparar varios imports em sequencia e confirme bloqueio de taxa (`P0429`).
+9. Verifique na grade:
    - filtros
    - exportacao
    - abertura do detalhe do B/L
    - coluna de CE Mercante
-8. Importe planilha complementar de:
+10. Importe planilha complementar de:
    - IMO/OOG
    - CE Mercante
 
@@ -164,6 +182,7 @@ npm run dev
 4. Edite os campos necessarios.
 5. Salve.
 6. Confirme que o B/L sai da fila quando estiver regularizado.
+7. Simule edicao concorrente (duas abas abertas no mesmo B/L) e confirme aviso de conflito.
 
 ## 11. Fluxo de validacao - Clientes
 
@@ -196,7 +215,7 @@ Use no SQL Editor do Supabase:
 ```sql
 select count(*) from voyages;
 select count(*) from bls;
-select count(*) from containers;
+select count(*) from bl_containers;
 select count(*) from vehicles;
 select count(*) from customers;
 select count(*) from import_batches;
@@ -214,6 +233,17 @@ select status, count(*)
 from user_profiles
 group by status
 order by status;
+
+select field_name, count(*)
+from audit_logs
+where entity_type = 'system_event'
+  and field_name in (
+    'manifest_import_rate_limited',
+    'manifest_import_duplicate_hash',
+    'bl_review_concurrent_conflict'
+  )
+group by field_name
+order by field_name;
 ```
 
 ## 14. O que ainda nao entra na validacao operacional

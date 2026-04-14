@@ -17,6 +17,7 @@ import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
 import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimitImportError } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
+import { logOperationalEvent } from '../services/operationalEvents'
 
 const pageSizes = [20, 50, 100]
 
@@ -414,7 +415,32 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
       setManifest(null)
       setVoyageId('')
     } catch (error) {
-      if (error instanceof DuplicateManifestImportError || error instanceof RateLimitImportError) {
+      if (error instanceof DuplicateManifestImportError) {
+        void logOperationalEvent({
+          code: 'manifest_import_duplicate_hash',
+          message: error.message,
+          changedBy: user?.id ?? null,
+          entityId: file?.name ?? null,
+          context: {
+            voyageId: Number(voyageId),
+            filename: file?.name ?? null,
+          },
+        })
+        showToast(error.message, 'error')
+        return
+      }
+
+      if (error instanceof RateLimitImportError) {
+        void logOperationalEvent({
+          code: 'manifest_import_rate_limited',
+          message: error.message,
+          changedBy: user?.id ?? null,
+          entityId: file?.name ?? null,
+          context: {
+            voyageId: Number(voyageId),
+            filename: file?.name ?? null,
+          },
+        })
         showToast(error.message, 'error')
         return
       }

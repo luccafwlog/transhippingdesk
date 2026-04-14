@@ -7,6 +7,7 @@ Plataforma interna para operacao de agente maritimo, com frontend em React/Vite,
 - Roadmap real do produto: `docs/ROADMAP.md`
 - Roteiro de validacao operacional: `docs/VALIDACAO.md`
 - Reset de ambiente de testes: `docs/RESET_AMBIENTE.md`
+- Baseline de release: `docs/RELEASE_BASELINE_2026-04-14.md`
 - Modelo de base de clientes: `docs/templates/base-clientes-modelo.xlsx`
 
 ## Modulos operacionais entregues
@@ -47,6 +48,7 @@ npm run dev
 npm run build
 npm run lint
 npm test
+npm run test:integration
 ```
 
 ## Deploy no Firebase Hosting

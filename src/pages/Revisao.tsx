@@ -13,6 +13,7 @@ import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import { formatCnpjCpf } from '../lib/utils'
 import { createCustomer } from '../services/customers'
+import { logOperationalEvent } from '../services/operationalEvents'
 import { ConcurrentEditError, saveBlReview } from '../services/review'
 
 export function Revisao() {
@@ -195,6 +196,13 @@ function ReviewModal({ item, onClose }: { item: ReviewQueueItem | null; onClose:
       onClose()
     } catch (error) {
       if (error instanceof ConcurrentEditError) {
+        void logOperationalEvent({
+          code: 'bl_review_concurrent_conflict',
+          message: error.message,
+          changedBy: user?.id ?? null,
+          entityId: item.id,
+          context: { source: 'review_modal' },
+        })
         await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
         showToast('Este B/L foi alterado por outro usuario. A fila foi recarregada.', 'error')
         return

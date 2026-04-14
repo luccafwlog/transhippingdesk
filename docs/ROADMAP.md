@@ -1,13 +1,14 @@
 # Roadmap do Sistema
 
-Estado de referencia do projeto em 2026-04-11.
+Estado de referencia do projeto em 2026-04-14.
 
 ## Status Geral
 
 - Base web publicada e operacional em Firebase Hosting.
 - Backend em Supabase conectado e autenticado.
 - Fase 1 esta entregue e operando.
-- Fase 2 esta entregue em parte relevante, mas ainda precisa de estabilizacao.
+- Fase 2 esta entregue em parte relevante, com hardening tecnico concluido.
+- Migration `015_rate_limit_imports` aplicada no Supabase.
 - Fases 3 e 4 ainda nao foram implementadas como produto final.
 
 ## Entregue e Em Uso
@@ -21,6 +22,7 @@ Estado de referencia do projeto em 2026-04-11.
 - Migrations SQL versionadas em `supabase/migrations`.
 - Tema visual com variacoes e layout principal revisado.
 - Suite minima de testes com `vitest` para parser e importadores criticos.
+- Suite dedicada de integracao com Supabase real (`npm run test:integration`, gated por variaveis de ambiente).
 
 ### Operacao de viagens e manifestos
 
@@ -89,6 +91,14 @@ Estado de referencia do projeto em 2026-04-11.
 - Correcao manual de B/L com justificativa.
 - Marcacao de B/L como `reviewed`.
 - Auditoria da revisao.
+- Tratamento de conflito concorrente com mensagem especifica ao operador.
+
+### Observabilidade operacional minima
+
+- Eventos criticos registrados em `audit_logs` com `entity_type = system_event`:
+  - `manifest_import_rate_limited` (P0429)
+  - `manifest_import_duplicate_hash` (23505)
+  - `bl_review_concurrent_conflict` (40001)
 
 ## Entregue, Mas Ainda Precisa Complemento
 
@@ -109,11 +119,13 @@ Estado de referencia do projeto em 2026-04-11.
 - `npm test` passa.
 - `npm run lint` passa.
 - `npm run build` passa.
+- `npm run test:integration` disponivel para homologacao com Supabase real.
 - Ha cobertura automatizada inicial para:
   - parser CNTR
   - parser BB
   - importacao de veiculos
   - importacao de CE Mercante
+  - validacao de hardening (dedupe/rate-limit/optimistic-lock/RLS) via suite de integracao gated
 - Os fluxos principais seguem exigindo validacao manual complementar.
 
 ### UX operacional
@@ -153,19 +165,19 @@ Estado de referencia do projeto em 2026-04-11.
 
 ## Proximos Passos Recomendados
 
-### Fase 2.1 - Estabilizacao
+### Fase 2.1 - Gate de estabilizacao (executado)
 
-1. Atualizar documentacao operacional e roteiro de validacao.
-2. Expandir a suite automatizada inicial para ampliar cobertura de parser e importadores.
-3. Revisar navegacao para esconder ou marcar placeholders.
-4. Reforcar UX da revisao manual e dos previews de importacao.
+1. Hardening de banco aplicado ate migration `015`.
+2. Documentacao de validacao e baseline atualizada.
+3. Eventos criticos mapeados em observabilidade minima (`audit_logs`).
+4. Suite de integracao com Supabase real disponivel para homologacao controlada.
 
 ### Fase 2.2 - Endurecimento da operacao
 
-1. Melhorar parser com novos fixtures reais.
-2. Refinar reconciliacao automatica cliente <-> B/L.
-3. Decidir se a entidade de trecho sera formalizada antes da fase financeira.
-4. Revisar relatorios executivos de viagem para separar melhor container, carga geral, veiculos e BB.
+1. Executar homologacao operacional completa em ambiente real com evidencias.
+2. Melhorar parser com novos fixtures reais.
+3. Refinar reconciliacao automatica cliente <-> B/L.
+4. Decidir se a entidade de trecho sera formalizada antes da fase financeira.
 
 ### Fase 3 - Financeiro
 
@@ -174,11 +186,10 @@ Estado de referencia do projeto em 2026-04-11.
 3. Implementar Alertas.
 4. Implementar Relatorios.
 
-## Conclusao Objetiva
+## Conclusao objetiva
 
 Estado honesto:
 
-- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao e clientes.
+- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao e clientes, com hardening tecnico aplicado.
 - O sistema ainda nao deve ser tratado como produto completo.
-- O proximo ciclo correto nao e abrir novos modulos financeiros imediatamente.
-- O proximo ciclo correto e estabilizar, testar e documentar melhor o que ja esta em uso.
+- O proximo ciclo correto e fechar homologacao operacional e abrir o sprint de Taxas Locais.

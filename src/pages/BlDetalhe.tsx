@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useAuditLogs, useBlDetail } from '../hooks/useBls'
 import { formatBRL, formatDate, normalizeText } from '../lib/utils'
+import { logOperationalEvent } from '../services/operationalEvents'
 import { supabase } from '../services/supabase'
 import type { BL, BLDetail } from '../types/database'
 
@@ -185,6 +186,13 @@ export function BlDetalhe() {
 
       if (rpcError) {
         if (rpcError.code === '40001') {
+          void logOperationalEvent({
+            code: 'bl_review_concurrent_conflict',
+            message: rpcError.message ?? 'Conflito concorrente ao salvar B/L',
+            changedBy: user?.id ?? null,
+            entityId: bl.id,
+            context: { source: 'bl_detail' },
+          })
           await queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] })
           showToast(
             'Este B/L foi alterado por outro usuario. Os dados foram recarregados; revise e salve novamente.',

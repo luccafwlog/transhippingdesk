@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:integration": "vitest run src/integration/supabase.integration.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
