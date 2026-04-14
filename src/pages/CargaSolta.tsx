@@ -31,6 +31,7 @@ export function CargaSolta() {
     pod: '',
     reviewStatus: '',
     financialStatus: '',
+    chargeStatus: '',
     cargoProfile: '',
     page: 1,
     pageSize: 20,
@@ -55,6 +56,7 @@ export function CargaSolta() {
       pod: filters.pod,
       reviewStatus: filters.reviewStatus,
       financialStatus: filters.financialStatus,
+      chargeStatus: filters.chargeStatus,
       cargoProfile: filters.cargoProfile,
       page: 1,
       pageSize: 1000,
@@ -67,6 +69,7 @@ export function CargaSolta() {
       filters.pod,
       filters.reviewStatus,
       filters.financialStatus,
+      filters.chargeStatus,
       filters.cargoProfile,
     ],
   )
@@ -206,7 +209,7 @@ export function CargaSolta() {
       />
 
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
           <Field label="Texto livre">
             <Input
               placeholder="B/L ou consignatario"
@@ -259,6 +262,17 @@ export function CargaSolta() {
               <option value="invoiced">Faturado</option>
               <option value="paid">Pago</option>
               <option value="cancelled">Cancelado</option>
+            </Select>
+          </Field>
+          <Field label="Status taxas locais">
+            <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
+              <option value="">Todos</option>
+              <option value="not_calculated">Nao calculado</option>
+              <option value="calculated">Calculado</option>
+              <option value="review_required">Revisao</option>
+              <option value="reviewed">Revisado</option>
+              <option value="ready_for_billing">Pronto faturar</option>
+              <option value="exempt">Isento</option>
             </Select>
           </Field>
         </div>

@@ -9,8 +9,14 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import {
   useBlLocalChargeLines,
+  useManualChargeItemsForBl,
   useCalculateBlLocalCharges,
   useChargePendencies,
+  useAddManualBlCharge,
+  useDeleteManualBlCharge,
+  useMarkBlChargesReviewed,
+  useMarkBlReadyForBilling,
+  useUpdateManualBlCharge,
   useCustomerRateOverrides,
   useDeleteCustomerRateOverride,
   useLocalChargeTables,
@@ -32,6 +38,13 @@ type OverrideForm = {
   notes: string
 }
 
+type ManualChargeForm = {
+  chargeItemId: string
+  quantity: string
+  notes: string
+  editingChargeCalculationId: number | null
+}
+
 const EMPTY_OVERRIDE_FORM: OverrideForm = {
   id: null,
   customerId: '',
@@ -40,6 +53,13 @@ const EMPTY_OVERRIDE_FORM: OverrideForm = {
   validFrom: '',
   validTo: '',
   notes: '',
+}
+
+const EMPTY_MANUAL_CHARGE_FORM: ManualChargeForm = {
+  chargeItemId: '',
+  quantity: '1',
+  notes: '',
+  editingChargeCalculationId: null,
 }
 
 export function TaxasLocais() {
@@ -54,6 +74,7 @@ export function TaxasLocais() {
   const [overrideDeletingId, setOverrideDeletingId] = useState<number | null>(null)
   const [simulationBlIdInput, setSimulationBlIdInput] = useState('')
   const [simulationBlId, setSimulationBlId] = useState('')
+  const [manualChargeForm, setManualChargeForm] = useState<ManualChargeForm>(EMPTY_MANUAL_CHARGE_FORM)
   const { data: tables, isLoading: tablesLoading, error: tablesError } = useLocalChargeTables({
     cargoMode: cargoModeFilter,
     pod: podFilter,
@@ -70,7 +91,13 @@ export function TaxasLocais() {
   const deleteOverrideMutation = useDeleteCustomerRateOverride()
   const { data: pendencies, isLoading: pendenciesLoading, error: pendenciesError } = useChargePendencies(200)
   const { data: simulationLines, isLoading: simulationLinesLoading } = useBlLocalChargeLines(simulationBlId)
+  const { data: manualChargeItems, isLoading: isManualChargeItemsLoading } = useManualChargeItemsForBl(simulationBlId)
   const calculateMutation = useCalculateBlLocalCharges(simulationBlId)
+  const addManualChargeMutation = useAddManualBlCharge(simulationBlId)
+  const updateManualChargeMutation = useUpdateManualBlCharge(simulationBlId)
+  const deleteManualChargeMutation = useDeleteManualBlCharge(simulationBlId)
+  const markReviewedMutation = useMarkBlChargesReviewed(simulationBlId)
+  const markReadyMutation = useMarkBlReadyForBilling(simulationBlId)
 
   const tableSummary = useMemo(() => {
     const currentTables = tables ?? []
@@ -118,8 +145,113 @@ export function TaxasLocais() {
       }
 
       showToast('Calculo concluido com sucesso.', 'success')
+      setManualChargeForm(EMPTY_MANUAL_CHARGE_FORM)
     } catch {
       showToast('Falha ao calcular taxas para o B/L informado.', 'error')
+    }
+  }
+
+  async function handleSaveManualCharge() {
+    const chargeItemId = Number(manualChargeForm.chargeItemId)
+    const quantity = Number(String(manualChargeForm.quantity).replace(',', '.'))
+
+    if (!simulationBlId) {
+      showToast('Selecione um B/L antes de incluir other charge.', 'error')
+      return
+    }
+    if (!Number.isInteger(chargeItemId) || chargeItemId <= 0) {
+      showToast('Selecione um item manual de taxa.', 'error')
+      return
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      showToast('Quantidade invalida para linha manual.', 'error')
+      return
+    }
+
+    try {
+      if (manualChargeForm.editingChargeCalculationId) {
+        await updateManualChargeMutation.mutateAsync({
+          chargeCalculationId: manualChargeForm.editingChargeCalculationId,
+          quantity,
+          notes: manualChargeForm.notes || null,
+          actorId: user?.id ?? null,
+        })
+        showToast('Linha manual atualizada.', 'success')
+      } else {
+        await addManualChargeMutation.mutateAsync({
+          chargeItemId,
+          quantity,
+          notes: manualChargeForm.notes || null,
+          actorId: user?.id ?? null,
+        })
+        showToast('Other charge manual adicionado.', 'success')
+      }
+      setManualChargeForm(EMPTY_MANUAL_CHARGE_FORM)
+    } catch {
+      showToast('Falha ao salvar other charge manual.', 'error')
+    }
+  }
+
+  function handleEditManualLine(id: number) {
+    const line = (simulationLines ?? []).find((entry) => entry.id === id && entry.source === 'manual')
+    if (!line) return
+
+    setManualChargeForm({
+      chargeItemId: String(line.charge_item_id ?? ''),
+      quantity: String(Number(line.quantity ?? 1)),
+      notes: line.notes ?? '',
+      editingChargeCalculationId: line.id,
+    })
+  }
+
+  function handleCancelManualEdit() {
+    setManualChargeForm(EMPTY_MANUAL_CHARGE_FORM)
+  }
+
+  async function handleDeleteManualLine(id: number) {
+    if (!window.confirm('Excluir esta linha manual?')) return
+    try {
+      await deleteManualChargeMutation.mutateAsync({
+        chargeCalculationId: id,
+        actorId: user?.id ?? null,
+      })
+      showToast('Linha manual removida.', 'success')
+      if (manualChargeForm.editingChargeCalculationId === id) {
+        setManualChargeForm(EMPTY_MANUAL_CHARGE_FORM)
+      }
+    } catch {
+      showToast('Falha ao remover linha manual.', 'error')
+    }
+  }
+
+  async function handleMarkReviewed() {
+    if (!simulationBlId) {
+      showToast('Informe um B/L para marcar revisao.', 'error')
+      return
+    }
+    try {
+      await markReviewedMutation.mutateAsync({ actorId: user?.id ?? null })
+      showToast('B/L marcado como revisado.', 'success')
+    } catch {
+      showToast('Falha ao marcar revisado.', 'error')
+    }
+  }
+
+  async function handleMarkReady() {
+    if (!simulationBlId) {
+      showToast('Informe um B/L para marcar pronto faturar.', 'error')
+      return
+    }
+    try {
+      await markReadyMutation.mutateAsync({ actorId: user?.id ?? null })
+      showToast('B/L marcado como pronto para faturar.', 'success')
+    } catch (error) {
+      const message = String((error as { message?: string }).message ?? '').toLowerCase()
+      if (message.includes('pendencia de revisao')) {
+        showToast('Ainda existem linhas em pendencia de revisao.', 'error')
+        return
+      }
+      showToast('Falha ao marcar pronto para faturar.', 'error')
     }
   }
 
@@ -549,7 +681,7 @@ export function TaxasLocais() {
       {tab === 'simulacao' ? (
         <>
           <Card className="mb-5">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <Field label="B/L para simular">
                 <Input
                   value={simulationBlIdInput}
@@ -567,9 +699,95 @@ export function TaxasLocais() {
                   Recalcular
                 </Button>
               </div>
+              <div className="flex items-end gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={handleMarkReviewed}
+                  loading={markReviewedMutation.isPending}
+                  disabled={!simulationBlId || markReadyMutation.isPending}
+                >
+                  Revisado
+                </Button>
+                <Button
+                  onClick={handleMarkReady}
+                  loading={markReadyMutation.isPending}
+                  disabled={!simulationBlId || markReviewedMutation.isPending}
+                >
+                  Pronto faturar
+                </Button>
+              </div>
               <MetricCard label="Subtotal BRL" value={formatBRL(simulationTotals.brl)} />
               <MetricCard label="Subtotal USD" value={formatUSD(simulationTotals.usd)} />
               <MetricCard label="Linhas" value={String(simulationLines?.length ?? 0)} />
+            </div>
+          </Card>
+
+          <Card className="mb-5">
+            <div className="mb-3 text-sm font-semibold text-white">Other Charges manuais</div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <Field label="Item manual">
+                <Select
+                  value={manualChargeForm.chargeItemId}
+                  onChange={(event) =>
+                    setManualChargeForm((current) => ({
+                      ...current,
+                      chargeItemId: event.target.value,
+                    }))
+                  }
+                  disabled={!simulationBlId || isManualChargeItemsLoading || Boolean(manualChargeForm.editingChargeCalculationId)}
+                >
+                  <option value="">Selecione</option>
+                  {(manualChargeItems ?? []).map((item) => (
+                    <option key={item.charge_item_id} value={item.charge_item_id}>
+                      {item.charge_item_name} ({item.currency}){' '}
+                      {item.currency === 'USD'
+                        ? formatUSD(item.effective_unit_value_usd ?? 0)
+                        : formatBRL(item.effective_unit_value_brl ?? 0)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Quantidade">
+                <Input
+                  value={manualChargeForm.quantity}
+                  onChange={(event) =>
+                    setManualChargeForm((current) => ({
+                      ...current,
+                      quantity: event.target.value,
+                    }))
+                  }
+                  placeholder="1"
+                />
+              </Field>
+              <Field label="Observacao">
+                <Input
+                  value={manualChargeForm.notes}
+                  onChange={(event) =>
+                    setManualChargeForm((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Justificativa"
+                />
+              </Field>
+              <div className="flex items-end gap-2 xl:col-span-2">
+                <Button
+                  type="button"
+                  onClick={handleSaveManualCharge}
+                  loading={addManualChargeMutation.isPending || updateManualChargeMutation.isPending}
+                  disabled={!simulationBlId || deleteManualChargeMutation.isPending}
+                >
+                  {manualChargeForm.editingChargeCalculationId ? <Pencil size={15} /> : <Save size={15} />}
+                  {manualChargeForm.editingChargeCalculationId ? 'Salvar edicao' : 'Adicionar other charge'}
+                </Button>
+                {manualChargeForm.editingChargeCalculationId ? (
+                  <Button variant="ghost" type="button" onClick={handleCancelManualEdit}>
+                    <X size={15} />
+                    Cancelar
+                  </Button>
+                ) : null}
+              </div>
             </div>
           </Card>
 
@@ -586,19 +804,20 @@ export function TaxasLocais() {
                     <th className="px-4 py-3">Unitario</th>
                     <th className="px-4 py-3">Total</th>
                     <th className="px-4 py-3">Obs</th>
+                    <th className="px-4 py-3">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {simulationLinesLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
                         Carregando simulacao...
                       </td>
                     </tr>
                   ) : null}
                   {!simulationLinesLoading && (simulationLines?.length ?? 0) === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
                         Nenhuma linha de taxa para exibir. Informe um B/L e clique em Calcular.
                       </td>
                     </tr>
@@ -617,6 +836,33 @@ export function TaxasLocais() {
                         {line.currency === 'USD' ? formatUSD(line.total_value_usd ?? 0) : formatBRL(line.total_value_brl ?? 0)}
                       </td>
                       <td className="px-4 py-3">{line.review_reason ?? line.notes ?? '-'}</td>
+                      <td className="px-4 py-3">
+                        {line.source === 'manual' ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="app-table__icon-button"
+                              type="button"
+                              onClick={() => handleEditManualLine(line.id)}
+                              aria-label="Editar linha manual"
+                              title="Editar linha manual"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              className="app-table__icon-button app-table__icon-button--danger"
+                              type="button"
+                              onClick={() => handleDeleteManualLine(line.id)}
+                              aria-label="Excluir linha manual"
+                              title="Excluir linha manual"
+                              disabled={deleteManualChargeMutation.isPending}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

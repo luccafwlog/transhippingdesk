@@ -497,7 +497,7 @@ export type ContainerListItem = Pick<
   | 'un_number'
   | 'created_at'
 > & {
-  bl?: (Pick<BL, 'id' | 'pol' | 'pod' | 'review_status' | 'financial_status' | 'consignee'> & {
+  bl?: (Pick<BL, 'id' | 'pol' | 'pod' | 'review_status' | 'financial_status' | 'charge_status' | 'consignee'> & {
     customer?: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
     voyage?: (Pick<Voyage, 'id' | 'voyage_number' | 'eta' | 'ata' | 'status'> & {
       vessel?: (Pick<Vessel, 'id' | 'name'> & {

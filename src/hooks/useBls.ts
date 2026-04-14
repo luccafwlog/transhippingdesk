@@ -26,6 +26,7 @@ export type BlFilters = {
   pod: string
   reviewStatus: string
   financialStatus: string
+  chargeStatus: string
   cargoProfile: string
   page: number
   pageSize: number
@@ -39,6 +40,7 @@ export type ContainerFilters = {
   pod: string
   reviewStatus: string
   financialStatus: string
+  chargeStatus: string
   cargoProfile: string
   page: number
   pageSize: number
@@ -166,6 +168,7 @@ export async function fetchAllContainers(filters: ContainerFilters) {
     pod: filters.pod,
     reviewStatus: filters.reviewStatus,
     financialStatus: filters.financialStatus,
+    chargeStatus: filters.chargeStatus,
     cargoProfile: '',
     page: 1,
     pageSize: exportBatchSize,
@@ -357,6 +360,9 @@ function applyBlFilters(query: ReturnType<typeof supabase.from>, filters: BlFilt
   if (filters.reviewStatus) nextQuery = nextQuery.eq('review_status', filters.reviewStatus as NonNullable<BL['review_status']>)
   if (filters.financialStatus) {
     nextQuery = nextQuery.eq('financial_status', filters.financialStatus as NonNullable<BL['financial_status']>)
+  }
+  if (filters.chargeStatus) {
+    nextQuery = nextQuery.eq('charge_status', filters.chargeStatus as NonNullable<BL['charge_status']>)
   }
 
   return nextQuery

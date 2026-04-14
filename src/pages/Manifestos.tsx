@@ -32,6 +32,7 @@ export function Manifestos() {
     pod: '',
     reviewStatus: '',
     financialStatus: '',
+    chargeStatus: '',
     cargoProfile: '',
     page: 1,
     pageSize: 20,
@@ -99,7 +100,7 @@ export function Manifestos() {
       />
 
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-8">
           <Field label="Texto livre">
             <Input
               placeholder="B/L ou cliente"
@@ -148,6 +149,17 @@ export function Manifestos() {
               <option value="invoiced">Faturado</option>
               <option value="paid">Pago</option>
               <option value="cancelled">Cancelado</option>
+            </Select>
+          </Field>
+          <Field label="Status taxas locais">
+            <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
+              <option value="">Todos</option>
+              <option value="not_calculated">Nao calculado</option>
+              <option value="calculated">Calculado</option>
+              <option value="review_required">Revisao</option>
+              <option value="reviewed">Revisado</option>
+              <option value="ready_for_billing">Pronto faturar</option>
+              <option value="exempt">Isento</option>
             </Select>
           </Field>
           <Field label="Perfil de carga">

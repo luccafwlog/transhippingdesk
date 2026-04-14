@@ -31,6 +31,7 @@ export function Containers() {
     pod: '',
     reviewStatus: '',
     financialStatus: '',
+    chargeStatus: '',
     cargoProfile: '',
     page: 1,
     pageSize: 20,
@@ -153,7 +154,7 @@ export function Containers() {
       />
 
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-8">
           <Field label="Texto livre">
             <Input
               placeholder="Container, B/L, cliente ou navio"
@@ -204,6 +205,17 @@ export function Containers() {
               <option value="cancelled">Cancelado</option>
             </Select>
           </Field>
+          <Field label="Status taxas locais">
+            <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
+              <option value="">Todos</option>
+              <option value="not_calculated">Nao calculado</option>
+              <option value="calculated">Calculado</option>
+              <option value="review_required">Revisao</option>
+              <option value="reviewed">Revisado</option>
+              <option value="ready_for_billing">Pronto faturar</option>
+              <option value="exempt">Isento</option>
+            </Select>
+          </Field>
           <Field label="Perfil de carga">
             <Select value={filters.cargoProfile} onChange={(event) => updateFilter('cargoProfile', event.target.value)}>
               <option value="">Todos</option>
@@ -249,7 +261,7 @@ export function Containers() {
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
 
         <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[960px] border-collapse text-left text-sm whitespace-nowrap">
+          <table className="app-table app-table--compact min-w-[1060px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Container</th>
@@ -260,20 +272,21 @@ export function Containers() {
                 <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Perfil</th>
+                <th className="px-4 py-3">Taxas locais</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                     Carregando containers...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                     Nenhum container encontrado.
                   </td>
                 </tr>
@@ -307,6 +320,9 @@ export function Containers() {
                   <td className="px-4 py-3">{container.type ?? '-'}</td>
                   <td className="px-4 py-3">
                     <ProfileBadge profile={getCargoProfile(Boolean(container.is_imo), Boolean(container.is_oog))} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <ChargeStatusBadge status={container.bl?.charge_status ?? null} />
                   </td>
                   <td className="px-4 py-3">
                     <Link
@@ -485,6 +501,23 @@ function ProfileBadge({ profile }: { profile: ReturnType<typeof getCargoProfile>
   const tone =
     profile === 'IMO/OOG' ? 'red' : profile === 'IMO' ? 'red' : profile === 'OOG' ? 'yellow' : 'blue'
   return <Badge tone={tone}>{profile}</Badge>
+}
+
+function ChargeStatusBadge({ status }: { status: string | null }) {
+  switch (status) {
+    case 'calculated':
+      return <Badge tone="blue">Calculado</Badge>
+    case 'review_required':
+      return <Badge tone="yellow">Revisao</Badge>
+    case 'reviewed':
+      return <Badge tone="green">Revisado</Badge>
+    case 'ready_for_billing':
+      return <Badge tone="green">Pronto</Badge>
+    case 'exempt':
+      return <Badge tone="slate">Isento</Badge>
+    default:
+      return <Badge tone="slate">Nao calc.</Badge>
+  }
 }
 
 function getCargoProfile(isImo: boolean, isOog: boolean) {
