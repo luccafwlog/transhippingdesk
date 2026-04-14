@@ -71,6 +71,31 @@ export type LocalChargeTableWithItems = {
   }>
 }
 
+export type ChargeTableInput = {
+  id?: number | null
+  name: string
+  cargoMode: 'container' | 'carga_solta'
+  pod: string
+  validFrom: string
+  validTo?: string | null
+  active?: boolean
+  notes?: string | null
+}
+
+export type ChargeTableItemInput = {
+  id?: number | null
+  chargeTableId: number
+  name: string
+  category: 'base' | 'other_charge'
+  applicationBasis: 'bl' | 'container_distinct_voyage' | 'weight_ton' | 'teu'
+  cargoProfile: 'standard' | 'imo' | 'oog' | 'any'
+  currency: 'BRL' | 'USD'
+  unitValue: number
+  manualOnly: boolean
+  active?: boolean
+  sortOrder?: number
+}
+
 export type LocalChargePendencyItem = {
   id: string
   cargo_mode: 'container' | 'carga_solta' | null
@@ -236,6 +261,74 @@ export async function listLocalChargeTables(filters?: {
       return String(left.name ?? '').localeCompare(String(right.name ?? ''), 'pt-BR')
     }),
   }))
+}
+
+export async function saveChargeTable(input: ChargeTableInput) {
+  const payload = {
+    name: input.name.trim(),
+    cargo_mode: input.cargoMode,
+    pod: input.pod.trim().toUpperCase(),
+    valid_from: input.validFrom,
+    valid_to: input.validTo?.trim() ? input.validTo : null,
+    active: input.active ?? true,
+    notes: input.notes?.trim() ? input.notes.trim() : null,
+  }
+
+  if (input.id) {
+    const { error } = await supabase.from('charge_tables').update(payload).eq('id', input.id)
+    if (error) throw error
+    return input.id
+  }
+
+  const { data, error } = await supabase.from('charge_tables').insert(payload).select('id').single()
+  if (error) throw error
+  return Number(data.id)
+}
+
+export async function setChargeTableActive(id: number, active: boolean) {
+  const { error } = await supabase.from('charge_tables').update({ active }).eq('id', id)
+  if (error) throw error
+}
+
+export async function saveChargeTableItem(input: ChargeTableItemInput) {
+  const normalizedUnitValue = Number(input.unitValue)
+  const appliesTo: 'container' | 'bl' | 'teu' =
+    input.applicationBasis === 'container_distinct_voyage'
+      ? 'container'
+      : input.applicationBasis === 'teu'
+        ? 'teu'
+        : 'bl'
+
+  const payload = {
+    charge_table_id: input.chargeTableId,
+    name: input.name.trim(),
+    category: input.category,
+    application_basis: input.applicationBasis,
+    applies_to: appliesTo,
+    cargo_profile: input.cargoProfile,
+    currency: input.currency,
+    unit_value_brl: input.currency === 'BRL' ? normalizedUnitValue : null,
+    unit_value_usd: input.currency === 'USD' ? normalizedUnitValue : null,
+    value_brl: input.currency === 'BRL' ? normalizedUnitValue : 0,
+    manual_only: input.manualOnly,
+    active: input.active ?? true,
+    sort_order: Number(input.sortOrder ?? 100),
+  }
+
+  if (input.id) {
+    const { error } = await supabase.from('charge_table_items').update(payload).eq('id', input.id)
+    if (error) throw error
+    return input.id
+  }
+
+  const { data, error } = await supabase.from('charge_table_items').insert(payload).select('id').single()
+  if (error) throw error
+  return Number(data.id)
+}
+
+export async function deleteChargeTableItem(id: number) {
+  const { error } = await supabase.from('charge_table_items').delete().eq('id', id)
+  if (error) throw error
 }
 
 export async function listLocalChargePendencies(limit = 100) {

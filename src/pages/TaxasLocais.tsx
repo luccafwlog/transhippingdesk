@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calculator, Pencil, RefreshCw, Save, Trash2, X } from 'lucide-react'
+import { Calculator, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -12,10 +12,14 @@ import {
   useManualChargeItemsForBl,
   useCalculateBlLocalCharges,
   useChargePendencies,
+  useDeleteChargeTableItem,
   useAddManualBlCharge,
   useDeleteManualBlCharge,
   useMarkBlChargesReviewed,
   useMarkBlReadyForBilling,
+  useSaveChargeTable,
+  useSaveChargeTableItem,
+  useSetChargeTableActive,
   useUpdateManualBlCharge,
   useCustomerRateOverrides,
   useDeleteCustomerRateOverride,
@@ -45,6 +49,31 @@ type ManualChargeForm = {
   editingChargeCalculationId: number | null
 }
 
+type ChargeTableForm = {
+  id: number | null
+  name: string
+  cargoMode: 'container' | 'carga_solta'
+  pod: string
+  validFrom: string
+  validTo: string
+  active: boolean
+  notes: string
+}
+
+type ChargeTableItemForm = {
+  id: number | null
+  chargeTableId: string
+  name: string
+  category: 'base' | 'other_charge'
+  applicationBasis: 'bl' | 'container_distinct_voyage' | 'weight_ton' | 'teu'
+  cargoProfile: 'standard' | 'imo' | 'oog' | 'any'
+  currency: 'BRL' | 'USD'
+  unitValue: string
+  manualOnly: boolean
+  active: boolean
+  sortOrder: string
+}
+
 const EMPTY_OVERRIDE_FORM: OverrideForm = {
   id: null,
   customerId: '',
@@ -62,12 +91,39 @@ const EMPTY_MANUAL_CHARGE_FORM: ManualChargeForm = {
   editingChargeCalculationId: null,
 }
 
+const EMPTY_TABLE_FORM: ChargeTableForm = {
+  id: null,
+  name: '',
+  cargoMode: 'container',
+  pod: '',
+  validFrom: '',
+  validTo: '',
+  active: true,
+  notes: '',
+}
+
+const EMPTY_TABLE_ITEM_FORM: ChargeTableItemForm = {
+  id: null,
+  chargeTableId: '',
+  name: '',
+  category: 'base',
+  applicationBasis: 'bl',
+  cargoProfile: 'any',
+  currency: 'BRL',
+  unitValue: '',
+  manualOnly: false,
+  active: true,
+  sortOrder: '100',
+}
+
 export function TaxasLocais() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
   const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta'>('')
   const [podFilter, setPodFilter] = useState('')
+  const [tableForm, setTableForm] = useState<ChargeTableForm>(EMPTY_TABLE_FORM)
+  const [tableItemForm, setTableItemForm] = useState<ChargeTableItemForm>(EMPTY_TABLE_ITEM_FORM)
   const [overrideCustomerSearch, setOverrideCustomerSearch] = useState('')
   const [overrideForm, setOverrideForm] = useState<OverrideForm>(EMPTY_OVERRIDE_FORM)
   const [overrideSaving, setOverrideSaving] = useState(false)
@@ -89,6 +145,10 @@ export function TaxasLocais() {
   const { data: overrideCustomers } = useOverrideCustomers(overrideCustomerSearch)
   const saveOverrideMutation = useSaveCustomerRateOverride()
   const deleteOverrideMutation = useDeleteCustomerRateOverride()
+  const saveChargeTableMutation = useSaveChargeTable()
+  const setChargeTableActiveMutation = useSetChargeTableActive()
+  const saveChargeTableItemMutation = useSaveChargeTableItem()
+  const deleteChargeTableItemMutation = useDeleteChargeTableItem()
   const { data: pendencies, isLoading: pendenciesLoading, error: pendenciesError } = useChargePendencies(200)
   const { data: simulationLines, isLoading: simulationLinesLoading } = useBlLocalChargeLines(simulationBlId)
   const { data: manualChargeItems, isLoading: isManualChargeItemsLoading } = useManualChargeItemsForBl(simulationBlId)
@@ -329,6 +389,159 @@ export function TaxasLocais() {
     }
   }
 
+  async function handleSaveTable() {
+    if (!tableForm.name.trim()) {
+      showToast('Informe o nome da tabela.', 'error')
+      return
+    }
+    if (!tableForm.pod.trim()) {
+      showToast('Informe o POD da tabela.', 'error')
+      return
+    }
+    if (!tableForm.validFrom) {
+      showToast('Informe a vigencia inicial da tabela.', 'error')
+      return
+    }
+    if (tableForm.validTo && tableForm.validTo < tableForm.validFrom) {
+      showToast('Vigencia final nao pode ser anterior a inicial.', 'error')
+      return
+    }
+
+    try {
+      const savedTableId = await saveChargeTableMutation.mutateAsync({
+        id: tableForm.id,
+        name: tableForm.name,
+        cargoMode: tableForm.cargoMode,
+        pod: tableForm.pod,
+        validFrom: tableForm.validFrom,
+        validTo: tableForm.validTo || null,
+        active: tableForm.active,
+        notes: tableForm.notes || null,
+      })
+      showToast(tableForm.id ? 'Tabela atualizada.' : 'Tabela criada.', 'success')
+      setTableForm(EMPTY_TABLE_FORM)
+      setTableItemForm((current) => ({
+        ...current,
+        chargeTableId: String(tableForm.id ?? savedTableId),
+      }))
+    } catch {
+      showToast('Falha ao salvar tabela.', 'error')
+    }
+  }
+
+  function handleEditTable(id: number) {
+    const table = (tables ?? []).find((row) => row.id === id)
+    if (!table) return
+    setTableForm({
+      id: table.id,
+      name: table.name ?? '',
+      cargoMode: (table.cargo_mode ?? 'container') as 'container' | 'carga_solta',
+      pod: table.pod ?? '',
+      validFrom: table.valid_from,
+      validTo: table.valid_to ?? '',
+      active: Boolean(table.active),
+      notes: table.notes ?? '',
+    })
+    setTableItemForm((current) => ({
+      ...current,
+      chargeTableId: String(table.id),
+    }))
+  }
+
+  async function handleToggleTableActive(id: number, current: boolean | null) {
+    const nextActive = current !== true
+    try {
+      await setChargeTableActiveMutation.mutateAsync({ id, active: nextActive })
+      showToast(nextActive ? 'Tabela ativada.' : 'Tabela inativada.', 'success')
+    } catch {
+      showToast('Falha ao alterar status da tabela.', 'error')
+    }
+  }
+
+  async function handleSaveTableItem() {
+    const chargeTableId = Number(tableItemForm.chargeTableId)
+    const unitValue = Number(String(tableItemForm.unitValue).replace(',', '.'))
+    const sortOrder = Number(tableItemForm.sortOrder)
+
+    if (!Number.isInteger(chargeTableId) || chargeTableId <= 0) {
+      showToast('Selecione a tabela do item.', 'error')
+      return
+    }
+    if (!tableItemForm.name.trim()) {
+      showToast('Informe o nome do item de taxa.', 'error')
+      return
+    }
+    if (!Number.isFinite(unitValue) || unitValue < 0) {
+      showToast('Valor unitario invalido.', 'error')
+      return
+    }
+    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+      showToast('Sort order invalido.', 'error')
+      return
+    }
+
+    try {
+      await saveChargeTableItemMutation.mutateAsync({
+        id: tableItemForm.id,
+        chargeTableId,
+        name: tableItemForm.name,
+        category: tableItemForm.category,
+        applicationBasis: tableItemForm.applicationBasis,
+        cargoProfile: tableItemForm.cargoProfile,
+        currency: tableItemForm.currency,
+        unitValue,
+        manualOnly: tableItemForm.manualOnly,
+        active: tableItemForm.active,
+        sortOrder,
+      })
+      showToast(tableItemForm.id ? 'Item de taxa atualizado.' : 'Item de taxa criado.', 'success')
+      setTableItemForm(EMPTY_TABLE_ITEM_FORM)
+    } catch {
+      showToast('Falha ao salvar item de taxa.', 'error')
+    }
+  }
+
+  function handleEditTableItem(tableId: number, itemId: number) {
+    const table = (tables ?? []).find((row) => row.id === tableId)
+    const item = table?.charge_table_items.find((row) => row.id === itemId)
+    if (!table || !item) return
+
+    const unitValue = item.currency === 'USD' ? Number(item.unit_value_usd ?? 0) : Number(item.unit_value_brl ?? 0)
+    setTableItemForm({
+      id: item.id,
+      chargeTableId: String(table.id),
+      name: item.name ?? '',
+      category: (item.category === 'other_charge' ? 'other_charge' : 'base') as 'base' | 'other_charge',
+      applicationBasis: (item.application_basis ?? 'bl') as 'bl' | 'container_distinct_voyage' | 'weight_ton' | 'teu',
+      cargoProfile: (item.cargo_profile ?? 'any') as 'standard' | 'imo' | 'oog' | 'any',
+      currency: (item.currency === 'USD' ? 'USD' : 'BRL') as 'BRL' | 'USD',
+      unitValue: String(unitValue),
+      manualOnly: Boolean(item.manual_only),
+      active: Boolean(item.active),
+      sortOrder: String(Number(item.sort_order ?? 100)),
+    })
+  }
+
+  async function handleDeleteTableItem(itemId: number) {
+    if (!window.confirm('Excluir este item de taxa?')) return
+    try {
+      await deleteChargeTableItemMutation.mutateAsync(itemId)
+      showToast('Item de taxa removido.', 'success')
+      if (tableItemForm.id === itemId) {
+        setTableItemForm(EMPTY_TABLE_ITEM_FORM)
+      }
+    } catch {
+      showToast('Falha ao remover item de taxa. Pode haver calculos vinculados.', 'error')
+    }
+  }
+
+  function handlePrepareTableItem(tableId: number) {
+    setTableItemForm({
+      ...EMPTY_TABLE_ITEM_FORM,
+      chargeTableId: String(tableId),
+    })
+  }
+
   return (
     <>
       <PageHeader
@@ -367,6 +580,275 @@ export function TaxasLocais() {
             </div>
           </Card>
 
+          <div className="mb-5 grid gap-5 xl:grid-cols-2">
+            <Card>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold text-white">{tableForm.id ? 'Editar tabela' : 'Nova tabela'}</h3>
+                {tableForm.id ? (
+                  <Button variant="ghost" type="button" onClick={() => setTableForm(EMPTY_TABLE_FORM)}>
+                    <X size={15} />
+                    Cancelar edicao
+                  </Button>
+                ) : null}
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Nome da tabela">
+                  <Input
+                    value={tableForm.name}
+                    onChange={(event) => setTableForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="Ex: Vitoria CNTR 2026"
+                  />
+                </Field>
+                <Field label="Modo de carga">
+                  <Select
+                    value={tableForm.cargoMode}
+                    onChange={(event) =>
+                      setTableForm((current) => ({
+                        ...current,
+                        cargoMode: event.target.value as 'container' | 'carga_solta',
+                      }))
+                    }
+                  >
+                    <option value="container">Container</option>
+                    <option value="carga_solta">Carga Solta</option>
+                  </Select>
+                </Field>
+                <Field label="POD">
+                  <Input
+                    value={tableForm.pod}
+                    onChange={(event) =>
+                      setTableForm((current) => ({
+                        ...current,
+                        pod: event.target.value.toUpperCase(),
+                      }))
+                    }
+                    placeholder="BRVIT / BRSSA"
+                  />
+                </Field>
+                <Field label="Ativa">
+                  <Select
+                    value={tableForm.active ? '1' : '0'}
+                    onChange={(event) =>
+                      setTableForm((current) => ({
+                        ...current,
+                        active: event.target.value === '1',
+                      }))
+                    }
+                  >
+                    <option value="1">Sim</option>
+                    <option value="0">Nao</option>
+                  </Select>
+                </Field>
+                <Field label="Vigencia inicial">
+                  <Input
+                    type="date"
+                    value={tableForm.validFrom}
+                    onChange={(event) =>
+                      setTableForm((current) => ({
+                        ...current,
+                        validFrom: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Vigencia final">
+                  <Input
+                    type="date"
+                    value={tableForm.validTo}
+                    onChange={(event) =>
+                      setTableForm((current) => ({
+                        ...current,
+                        validTo: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <div className="md:col-span-2">
+                  <Field label="Observacoes">
+                    <Textarea
+                      value={tableForm.notes}
+                      onChange={(event) =>
+                        setTableForm((current) => ({
+                          ...current,
+                          notes: event.target.value,
+                        }))
+                      }
+                      placeholder="Escopo da tabela, versao, premissas"
+                    />
+                  </Field>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button type="button" onClick={handleSaveTable} loading={saveChargeTableMutation.isPending}>
+                  <Save size={15} />
+                  {tableForm.id ? 'Salvar tabela' : 'Criar tabela'}
+                </Button>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold text-white">{tableItemForm.id ? 'Editar item de taxa' : 'Novo item de taxa'}</h3>
+                {tableItemForm.id ? (
+                  <Button variant="ghost" type="button" onClick={() => setTableItemForm(EMPTY_TABLE_ITEM_FORM)}>
+                    <X size={15} />
+                    Cancelar edicao
+                  </Button>
+                ) : null}
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Tabela">
+                  <Select
+                    value={tableItemForm.chargeTableId}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        chargeTableId: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Selecione</option>
+                    {(tables ?? []).map((table) => (
+                      <option key={table.id} value={table.id}>
+                        {table.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} | {table.pod ?? '-'} | {table.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Nome do item">
+                  <Input
+                    value={tableItemForm.name}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="THD / BL Fee / ISPS"
+                  />
+                </Field>
+                <Field label="Categoria">
+                  <Select
+                    value={tableItemForm.category}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        category: event.target.value as 'base' | 'other_charge',
+                      }))
+                    }
+                  >
+                    <option value="base">Base</option>
+                    <option value="other_charge">Other charge</option>
+                  </Select>
+                </Field>
+                <Field label="Base de aplicacao">
+                  <Select
+                    value={tableItemForm.applicationBasis}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        applicationBasis: event.target.value as 'bl' | 'container_distinct_voyage' | 'weight_ton' | 'teu',
+                      }))
+                    }
+                  >
+                    <option value="bl">B/L</option>
+                    <option value="container_distinct_voyage">Container distinto por viagem</option>
+                    <option value="weight_ton">Tonelada</option>
+                    <option value="teu">TEU</option>
+                  </Select>
+                </Field>
+                <Field label="Perfil">
+                  <Select
+                    value={tableItemForm.cargoProfile}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        cargoProfile: event.target.value as 'standard' | 'imo' | 'oog' | 'any',
+                      }))
+                    }
+                  >
+                    <option value="any">Qualquer</option>
+                    <option value="standard">Padrao</option>
+                    <option value="imo">IMO</option>
+                    <option value="oog">OOG</option>
+                  </Select>
+                </Field>
+                <Field label="Moeda">
+                  <Select
+                    value={tableItemForm.currency}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        currency: event.target.value as 'BRL' | 'USD',
+                      }))
+                    }
+                  >
+                    <option value="BRL">BRL</option>
+                    <option value="USD">USD</option>
+                  </Select>
+                </Field>
+                <Field label="Valor unitario">
+                  <Input
+                    value={tableItemForm.unitValue}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        unitValue: event.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                  />
+                </Field>
+                <Field label="Sort order">
+                  <Input
+                    value={tableItemForm.sortOrder}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        sortOrder: event.target.value,
+                      }))
+                    }
+                    placeholder="100"
+                  />
+                </Field>
+                <Field label="Manual only">
+                  <Select
+                    value={tableItemForm.manualOnly ? '1' : '0'}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        manualOnly: event.target.value === '1',
+                      }))
+                    }
+                  >
+                    <option value="0">Nao</option>
+                    <option value="1">Sim</option>
+                  </Select>
+                </Field>
+                <Field label="Ativo">
+                  <Select
+                    value={tableItemForm.active ? '1' : '0'}
+                    onChange={(event) =>
+                      setTableItemForm((current) => ({
+                        ...current,
+                        active: event.target.value === '1',
+                      }))
+                    }
+                  >
+                    <option value="1">Sim</option>
+                    <option value="0">Nao</option>
+                  </Select>
+                </Field>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button type="button" onClick={handleSaveTableItem} loading={saveChargeTableItemMutation.isPending}>
+                  <Save size={15} />
+                  {tableItemForm.id ? 'Salvar item' : 'Criar item'}
+                </Button>
+              </div>
+            </Card>
+          </div>
+
           <Card className="overflow-hidden p-0">
             {tablesError ? (
               <div className="p-5 text-sm text-amber-200">
@@ -374,7 +856,7 @@ export function TaxasLocais() {
               </div>
             ) : null}
             <div className="app-table-scroll">
-              <table className="app-table app-table--compact min-w-[1180px] text-left text-sm whitespace-nowrap">
+              <table className="app-table app-table--compact min-w-[1320px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-4 py-3">Tabela</th>
@@ -383,26 +865,30 @@ export function TaxasLocais() {
                     <th className="px-4 py-3">Vigencia</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Itens</th>
+                    <th className="px-4 py-3">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {tablesLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={6}>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
                         Carregando tabelas...
                       </td>
                     </tr>
                   ) : null}
                   {!tablesLoading && (tables?.length ?? 0) === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={6}>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
                         Nenhuma tabela encontrada.
                       </td>
                     </tr>
                   ) : null}
                   {tables?.map((table) => (
                     <tr key={table.id}>
-                      <td className="px-4 py-3 font-semibold text-white">{table.name}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-white">{table.name}</div>
+                        {table.notes ? <div className="text-xs text-slate-400">{table.notes}</div> : null}
+                      </td>
                       <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
                       <td className="px-4 py-3">{table.pod ?? '-'}</td>
                       <td className="px-4 py-3">
@@ -412,13 +898,74 @@ export function TaxasLocais() {
                         <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {table.charge_table_items?.slice(0, 6).map((item) => (
-                            <Badge key={item.id} tone={item.manual_only ? 'slate' : 'blue'}>
-                              {item.name} {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
-                            </Badge>
+                        <div className="min-w-[520px] space-y-1">
+                          {(table.charge_table_items?.length ?? 0) === 0 ? <span className="text-slate-400">Sem itens</span> : null}
+                          {table.charge_table_items?.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between gap-2 rounded border border-[#30363d] px-2 py-1">
+                              <div className="truncate">
+                                <span className="font-semibold text-white">{item.name}</span>{' '}
+                                <span className="text-slate-400">
+                                  {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
+                                </span>
+                                <span className="ml-2 text-xs text-slate-500">
+                                  [{item.application_basis ?? '-'} | {item.cargo_profile ?? '-'}]
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  className="app-table__icon-button"
+                                  type="button"
+                                  onClick={() => handleEditTableItem(table.id, item.id)}
+                                  aria-label="Editar item de taxa"
+                                  title="Editar item de taxa"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  className="app-table__icon-button app-table__icon-button--danger"
+                                  type="button"
+                                  onClick={() => handleDeleteTableItem(item.id)}
+                                  aria-label="Excluir item de taxa"
+                                  title="Excluir item de taxa"
+                                  disabled={deleteChargeTableItemMutation.isPending}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
                           ))}
-                          {(table.charge_table_items?.length ?? 0) > 6 ? <Badge tone="slate">+{(table.charge_table_items?.length ?? 0) - 6}</Badge> : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="app-table__icon-button"
+                            type="button"
+                            onClick={() => handleEditTable(table.id)}
+                            aria-label="Editar tabela"
+                            title="Editar tabela"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            className="app-table__icon-button"
+                            type="button"
+                            onClick={() => handlePrepareTableItem(table.id)}
+                            aria-label="Novo item nesta tabela"
+                            title="Novo item nesta tabela"
+                          >
+                            <Plus size={13} />
+                          </button>
+                          <button
+                            className={`app-table__icon-button ${table.active ? 'app-table__icon-button--danger' : ''}`}
+                            type="button"
+                            onClick={() => handleToggleTableActive(table.id, table.active)}
+                            aria-label={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                            title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                            disabled={setChargeTableActiveMutation.isPending}
+                          >
+                            {table.active ? <X size={13} /> : <Save size={13} />}
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -2,10 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addManualBlCharge,
   calculateBlLocalCharges,
+  deleteChargeTableItem,
   deleteManualBlCharge,
   listManualChargeItemsForBl,
   markBlChargesReviewed,
   markBlReadyForBilling,
+  saveChargeTable,
+  saveChargeTableItem,
+  setChargeTableActive,
   deleteCustomerRateOverride,
   listBlLocalChargeLines,
   listCustomerRateOverrides,
@@ -144,6 +148,54 @@ export function useLocalChargeTables(filters?: { cargoMode?: '' | 'container' | 
   return useQuery({
     queryKey: ['local-charge-tables', filters],
     queryFn: () => listLocalChargeTables(filters),
+  })
+}
+
+export function useSaveChargeTable() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: saveChargeTable,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
+    },
+  })
+}
+
+export function useSetChargeTableActive() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, active }: { id: number; active: boolean }) => setChargeTableActive(id, active),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
+    },
+  })
+}
+
+export function useSaveChargeTableItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: saveChargeTableItem,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
+      await queryClient.invalidateQueries({ queryKey: ['manual-charge-items'] })
+      await queryClient.invalidateQueries({ queryKey: ['local-charge-override-items'] })
+    },
+  })
+}
+
+export function useDeleteChargeTableItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: deleteChargeTableItem,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
+      await queryClient.invalidateQueries({ queryKey: ['manual-charge-items'] })
+      await queryClient.invalidateQueries({ queryKey: ['local-charge-override-items'] })
+    },
   })
 }
 
