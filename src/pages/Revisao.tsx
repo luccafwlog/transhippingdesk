@@ -13,7 +13,7 @@ import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import { formatCnpjCpf } from '../lib/utils'
 import { createCustomer } from '../services/customers'
-import { saveBlReview } from '../services/review'
+import { ConcurrentEditError, saveBlReview } from '../services/review'
 
 export function Revisao() {
   const { data, isLoading, error } = useReviewQueue()
@@ -193,7 +193,12 @@ function ReviewModal({ item, onClose }: { item: ReviewQueueItem | null; onClose:
 
       showToast('B/L revisado com sucesso.', 'success')
       onClose()
-    } catch {
+    } catch (error) {
+      if (error instanceof ConcurrentEditError) {
+        await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
+        showToast('Este B/L foi alterado por outro usuario. A fila foi recarregada.', 'error')
+        return
+      }
       showToast('Falha ao salvar a revisao do B/L.', 'error')
     } finally {
       setSaving(false)

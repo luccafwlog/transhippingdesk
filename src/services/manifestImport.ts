@@ -119,6 +119,11 @@ export async function importManifest({
         'Este arquivo ja foi importado nesta viagem. Se isso foi intencional, altere o arquivo antes de reenviar.',
       )
     }
+    if (rpcError.code === 'P0429') {
+      throw new RateLimitImportError(
+        rpcError.message ?? 'Limite de importacoes atingido. Aguarde antes de importar novamente.',
+      )
+    }
     throw rpcError
   }
 
@@ -135,6 +140,13 @@ export class DuplicateManifestImportError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'DuplicateManifestImportError'
+  }
+}
+
+export class RateLimitImportError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RateLimitImportError'
   }
 }
 
