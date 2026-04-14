@@ -33,6 +33,48 @@ export type LocalChargeCalculationResult = {
   reason: string
 }
 
+export type LocalChargeTableWithItems = {
+  id: number
+  name: string
+  cargo_mode: 'container' | 'carga_solta' | null
+  pod: string | null
+  valid_from: string
+  valid_to: string | null
+  active: boolean | null
+  notes: string | null
+  charge_table_items: Array<{
+    id: number
+    name: string
+    category: string | null
+    application_basis: string | null
+    cargo_profile: string | null
+    currency: string | null
+    unit_value_brl: number | null
+    unit_value_usd: number | null
+    manual_only: boolean | null
+    active: boolean | null
+    sort_order: number | null
+  }>
+}
+
+export type LocalChargePendencyItem = {
+  id: string
+  cargo_mode: 'container' | 'carga_solta' | null
+  pol: string | null
+  pod: string | null
+  charge_status: string | null
+  charge_exemption_reason: string | null
+  charges_calculated_at: string | null
+  created_at: string | null
+  voyage?: {
+    voyage_number: string
+    vessel?: { name: string | null } | null
+  } | null
+  customer?: {
+    name: string | null
+  } | null
+}
+
 export async function calculateBlLocalCharges(
   blId: string,
   options?: {
@@ -59,6 +101,88 @@ export async function listBlLocalChargeLines(blId: string) {
   return (data ?? []) as LocalChargeLine[]
 }
 
+export async function listLocalChargeTables(filters?: {
+  cargoMode?: '' | 'container' | 'carga_solta'
+  pod?: string
+}) {
+  let query = supabase
+    .from('charge_tables')
+    .select(
+      `
+      id,
+      name,
+      cargo_mode,
+      pod,
+      valid_from,
+      valid_to,
+      active,
+      notes,
+      charge_table_items(
+        id,
+        name,
+        category,
+        application_basis,
+        cargo_profile,
+        currency,
+        unit_value_brl,
+        unit_value_usd,
+        manual_only,
+        active,
+        sort_order
+      )
+    `,
+    )
+    .order('valid_from', { ascending: false })
+    .order('id', { ascending: false })
+
+  if (filters?.cargoMode) {
+    query = query.eq('cargo_mode', filters.cargoMode)
+  }
+
+  if (filters?.pod) {
+    query = query.ilike('pod', `%${filters.pod}%`)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+
+  const rows = (data ?? []) as unknown as LocalChargeTableWithItems[]
+
+  return rows.map((table) => ({
+    ...table,
+    charge_table_items: [...(Array.isArray(table.charge_table_items) ? table.charge_table_items : [])].sort((left, right) => {
+      const bySort = Number(left.sort_order ?? 999) - Number(right.sort_order ?? 999)
+      if (bySort !== 0) return bySort
+      return String(left.name ?? '').localeCompare(String(right.name ?? ''), 'pt-BR')
+    }),
+  }))
+}
+
+export async function listLocalChargePendencies(limit = 100) {
+  const { data, error } = await supabase
+    .from('bls')
+    .select(
+      `
+      id,
+      cargo_mode,
+      pol,
+      pod,
+      charge_status,
+      charge_exemption_reason,
+      charges_calculated_at,
+      created_at,
+      voyage:voyages(voyage_number,vessel:vessels(name)),
+      customer:customers(name)
+    `,
+    )
+    .in('charge_status', ['review_required', 'not_calculated'])
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return (data ?? []) as unknown as LocalChargePendencyItem[]
+}
+
 function normalizeCalculationResult(data: unknown): LocalChargeCalculationResult {
   const payload = (data ?? {}) as Record<string, unknown>
   return {
@@ -73,4 +197,3 @@ function normalizeCalculationResult(data: unknown): LocalChargeCalculationResult
     reason: String(payload.reason ?? ''),
   }
 }
-

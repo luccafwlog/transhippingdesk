@@ -450,7 +450,7 @@ export type ContainerListItem = Pick<
 }
 
 export type CustomerListItem = Customer & {
-  bls?: Pick<BL, 'id'>[] | null
+  bls?: Pick<BL, 'id' | 'charge_status'>[] | null
   customer_contacts?: Pick<CustomerContact, 'id'>[] | null
 }
 

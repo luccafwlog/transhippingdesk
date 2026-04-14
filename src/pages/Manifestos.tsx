@@ -161,14 +161,14 @@ export function Manifestos() {
         </div>
       </Card>
 
-      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
         <SummaryCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />
         <SummaryCard label="CNTRS" value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0} />
         <SummaryCard label="Pendentes revisao" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />
-        <SummaryCard
-          label="Sem faturamento"
-          value={isSummaryLoading ? '...' : summary?.pendingFinancial ?? 0}
-        />
+        <SummaryCard label="Sem faturamento" value={isSummaryLoading ? '...' : summary?.pendingFinancial ?? 0} />
+        <SummaryCard label="Taxas pendentes" value={isSummaryLoading ? '...' : summary?.chargePending ?? 0} />
+        <SummaryCard label="Pronto faturar" value={isSummaryLoading ? '...' : summary?.chargeReady ?? 0} />
+        <SummaryCard label="Isentos" value={isSummaryLoading ? '...' : summary?.chargeExempt ?? 0} />
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -188,20 +188,21 @@ export function Manifestos() {
                 <th className="px-4 py-3">POD</th>
                 <th className="px-4 py-3">CNTRS</th>
                 <th className="px-4 py-3">Perfil</th>
+                <th className="px-4 py-3">Taxas locais</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -235,6 +236,9 @@ export function Manifestos() {
                         Boolean(bl.bl_containers?.some((container) => container.is_oog)),
                       )}
                     />
+                  </td>
+                  <td className="px-4 py-3">
+                    <ChargeStatusBadge status={bl.charge_status} />
                   </td>
                   <td className="px-4 py-3">
                     <Link
@@ -313,6 +317,23 @@ function ProfileBadge({ profile }: { profile: ReturnType<typeof getCargoProfile>
   const tone =
     profile === 'IMO/OOG' ? 'red' : profile === 'IMO' ? 'red' : profile === 'OOG' ? 'yellow' : 'blue'
   return <Badge tone={tone}>{profile}</Badge>
+}
+
+function ChargeStatusBadge({ status }: { status: string | null }) {
+  switch (status) {
+    case 'calculated':
+      return <Badge tone="blue">Calculado</Badge>
+    case 'review_required':
+      return <Badge tone="yellow">Revisao</Badge>
+    case 'reviewed':
+      return <Badge tone="green">Revisado</Badge>
+    case 'ready_for_billing':
+      return <Badge tone="green">Pronto</Badge>
+    case 'exempt':
+      return <Badge tone="slate">Isento</Badge>
+    default:
+      return <Badge tone="slate">Nao calc.</Badge>
+  }
 }
 
 function getCargoProfile(isImo: boolean, isOog: boolean) {

@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { calculateBlLocalCharges, listBlLocalChargeLines } from '../services/localCharges'
+import {
+  calculateBlLocalCharges,
+  listBlLocalChargeLines,
+  listLocalChargePendencies,
+  listLocalChargeTables,
+} from '../services/localCharges'
 
 export function useBlLocalChargeLines(blId?: string) {
   return useQuery({
@@ -26,3 +31,16 @@ export function useCalculateBlLocalCharges(blId?: string) {
   })
 }
 
+export function useLocalChargeTables(filters?: { cargoMode?: '' | 'container' | 'carga_solta'; pod?: string }) {
+  return useQuery({
+    queryKey: ['local-charge-tables', filters],
+    queryFn: () => listLocalChargeTables(filters),
+  })
+}
+
+export function useChargePendencies(limit = 100) {
+  return useQuery({
+    queryKey: ['local-charge-pendencies', limit],
+    queryFn: () => listLocalChargePendencies(limit),
+  })
+}

@@ -86,6 +86,19 @@ export function Clientes() {
       customers: data?.totalCount ?? 0,
       bls: data?.rows.reduce((sum, row) => sum + (row.bls?.length ?? 0), 0) ?? 0,
       pendingBalance: data?.rows.reduce((sum, row) => sum + Number(row.pending_balance ?? 0), 0) ?? 0,
+      chargeReady:
+        data?.rows.reduce(
+          (sum, row) => sum + (row.bls?.filter((bl) => bl.charge_status === 'ready_for_billing').length ?? 0),
+          0,
+        ) ?? 0,
+      chargePending:
+        data?.rows.reduce(
+          (sum, row) =>
+            sum +
+            (row.bls?.filter((bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated')
+              .length ?? 0),
+          0,
+        ) ?? 0,
     }),
     [data],
   )
@@ -241,9 +254,11 @@ export function Clientes() {
         }
       />
 
-      <div className="mb-5 grid gap-4 md:grid-cols-3">
+      <div className="mb-5 grid gap-4 md:grid-cols-5">
         <MetricCard label="Clientes" value={String(totals.customers)} />
         <MetricCard label="B/Ls vinculados" value={String(totals.bls)} />
+        <MetricCard label="Taxas pendentes" value={String(totals.chargePending)} />
+        <MetricCard label="Pronto faturar" value={String(totals.chargeReady)} />
         <MetricCard label="Saldo pendente" value={formatBRL(totals.pendingBalance)} />
       </div>
 
@@ -310,6 +325,7 @@ export function Clientes() {
                 <th className="px-4 py-3">Razao Social</th>
                 <th className="px-4 py-3">No. B/Ls</th>
                 <th className="px-4 py-3">E-mails</th>
+                <th className="px-4 py-3">Taxas locais</th>
                 <th className="px-4 py-3">Saldo pendente</th>
                 <th className="px-4 py-3">Acao</th>
               </tr>
@@ -317,14 +333,14 @@ export function Clientes() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Carregando clientes...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
@@ -337,6 +353,11 @@ export function Clientes() {
                   </td>
                   <td className="px-4 py-3">{row.bls?.length ?? 0}</td>
                   <td className="px-4 py-3">{row.customer_contacts?.length ?? 0}</td>
+                  <td className="px-4 py-3">
+                    <span className="app-table__truncate app-table__truncate--lg" title={getCustomerChargeSummary(row.bls ?? [])}>
+                      {getCustomerChargeSummary(row.bls ?? [])}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{formatBRL(row.pending_balance)}</td>
                   <td className="px-4 py-3">
                     <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
@@ -624,4 +645,12 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
 function truncateCustomerName(value: string, maxLength: number) {
   if (value.length <= maxLength) return value
   return `${value.slice(0, maxLength).trimEnd()}...`
+}
+
+function getCustomerChargeSummary(bls: Array<{ charge_status?: string | null }>) {
+  const pending = bls.filter((bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated').length
+  const ready = bls.filter((bl) => bl.charge_status === 'ready_for_billing').length
+  const exempt = bls.filter((bl) => bl.charge_status === 'exempt').length
+
+  return `Pend: ${pending} | Pronto: ${ready} | Isento: ${exempt}`
 }

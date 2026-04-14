@@ -124,6 +124,9 @@ export function useBlSummary(filters: BlFilters) {
         totalDistinctContainers: countDistinctContainersAcrossGroups(rows, (row) => row.bl_containers),
         pendingReview: rows.filter((row) => row.review_status === 'pending_review').length,
         pendingFinancial: rows.filter((row) => row.financial_status === 'pending').length,
+        chargePending: rows.filter((row) => row.charge_status === 'review_required' || row.charge_status === 'not_calculated').length,
+        chargeReady: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
+        chargeExempt: rows.filter((row) => row.charge_status === 'exempt').length,
       }
     },
   })

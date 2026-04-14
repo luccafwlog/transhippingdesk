@@ -104,6 +104,9 @@ export function CargaSolta() {
       totalPackages,
       totalWeightTon,
       totalCbm,
+      chargePending: rows.filter((row) => row.charge_status === 'review_required' || row.charge_status === 'not_calculated').length,
+      chargeReady: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
+      chargeExempt: rows.filter((row) => row.charge_status === 'exempt').length,
     }
   }, [summaryRows])
 
@@ -261,19 +264,22 @@ export function CargaSolta() {
         </div>
       </Card>
 
-      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-8">
         <SummaryCard label="B/Ls filtrados" value={summary.totalBls} />
         <SummaryCard label="Maquinas" value={Number(summary.totalMachines).toLocaleString('pt-BR')} />
         <SummaryCard label="Packages Total" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />
         <SummaryCard label="Weight (Ton)" value={Number(summary.totalWeightTon).toLocaleString('pt-BR')} />
         <SummaryCard label="CBM (M3)" value={Number(summary.totalCbm).toLocaleString('pt-BR')} />
+        <SummaryCard label="Taxas pendentes" value={Number(summary.chargePending).toLocaleString('pt-BR')} />
+        <SummaryCard label="Pronto faturar" value={Number(summary.chargeReady).toLocaleString('pt-BR')} />
+        <SummaryCard label="Isentos" value={Number(summary.chargeExempt).toLocaleString('pt-BR')} />
       </div>
 
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar carga solta.</div> : null}
 
         <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[1320px] text-left text-sm whitespace-nowrap">
+          <table className="app-table app-table--compact min-w-[1420px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. B/L</th>
@@ -287,20 +293,21 @@ export function CargaSolta() {
                 <th className="px-4 py-3">Shipper</th>
                 <th className="px-4 py-3">Consignee</th>
                 <th className="px-4 py-3">Notify</th>
+                <th className="px-4 py-3">Taxas locais</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={12}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={13}>
                     Carregando carga solta...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={12}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={13}>
                     Nenhum B/L de carga solta encontrado.
                   </td>
                 </tr>
@@ -338,6 +345,9 @@ export function CargaSolta() {
                     <span className="app-table__truncate app-table__truncate--lg" title={bl.notify_party ?? '-'}>
                       {bl.notify_party ?? '-'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <ChargeStatusBadge status={bl.charge_status} />
                   </td>
                   <td className="px-4 py-3">
                     <Link
@@ -568,4 +578,21 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
 function formatBBNumber(value: number | null | undefined) {
   if (value === null || value === undefined) return '-'
   return Number(value).toLocaleString('pt-BR')
+}
+
+function ChargeStatusBadge({ status }: { status: string | null }) {
+  switch (status) {
+    case 'calculated':
+      return <span className="app-badge app-badge--blue">Calculado</span>
+    case 'review_required':
+      return <span className="app-badge app-badge--yellow">Revisao</span>
+    case 'reviewed':
+      return <span className="app-badge app-badge--green">Revisado</span>
+    case 'ready_for_billing':
+      return <span className="app-badge app-badge--green">Pronto</span>
+    case 'exempt':
+      return <span className="app-badge app-badge--slate">Isento</span>
+    default:
+      return <span className="app-badge app-badge--slate">Nao calc.</span>
+  }
 }

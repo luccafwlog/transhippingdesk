@@ -669,6 +669,34 @@ textarea {
   color: var(--app-text);
 }
 
+.app-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 10px;
+  background: var(--app-surface-muted);
+  color: var(--app-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.app-tab:hover {
+  color: var(--app-text);
+  border-color: color-mix(in srgb, var(--app-blue) 45%, var(--app-border-strong));
+}
+
+.app-tab--active {
+  background: color-mix(in srgb, var(--app-blue-soft) 70%, var(--app-surface) 30%);
+  border-color: color-mix(in srgb, var(--app-blue) 55%, var(--app-border-strong));
+  color: color-mix(in srgb, var(--app-blue) 72%, var(--app-text));
+}
+
 .app-input {
   border: 1px solid var(--app-border);
   border-radius: 8px;

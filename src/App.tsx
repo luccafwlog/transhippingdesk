@@ -12,6 +12,7 @@ import { BlDetalhe } from './pages/BlDetalhe'
 import { Revisao } from './pages/Revisao'
 import { Clientes } from './pages/Clientes'
 import { ClienteFicha } from './pages/ClienteFicha'
+import { TaxasLocais } from './pages/TaxasLocais'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -31,7 +32,7 @@ export default function App() {
           <Route path="/revisao" element={<Revisao />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/clientes/:cnpj" element={<ClienteFicha />} />
-          <Route path="/taxas-locais" element={<PlaceholderPage title="Taxas Locais" phase="Fase 2" />} />
+          <Route path="/taxas-locais" element={<TaxasLocais />} />
           <Route path="/faturamento" element={<PlaceholderPage title="Faturamento" phase="Fase 3" />} />
           <Route path="/alertas" element={<PlaceholderPage title="Alertas" phase="Fase 3" />} />
           <Route path="/relatorios" element={<PlaceholderPage title="Relatorios" phase="Fase 3" />} />

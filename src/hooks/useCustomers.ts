@@ -20,7 +20,7 @@ export function useCustomers(filters: CustomerFilters) {
 
       let query = supabase
         .from('customers')
-        .select('*, bls(id), customer_contacts(id)', { count: 'exact' })
+        .select('*, bls(id, charge_status), customer_contacts(id)', { count: 'exact' })
         .order('name', { ascending: true })
         .range(from, to)
 
