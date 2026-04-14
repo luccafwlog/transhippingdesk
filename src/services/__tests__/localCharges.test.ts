@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  addManualBlCharge,
   calculateBlLocalCharges,
   listBlLocalChargeLines,
+  listManualChargeItemsForBl,
   listLocalChargePendencies,
   listLocalChargeTables,
+  markBlReadyForBilling,
 } from '../localCharges'
 
 const { mockRpc, mockFrom } = vi.hoisted(() => ({
@@ -99,6 +102,50 @@ describe('localCharges service', () => {
     })
   })
 
+  it('retorna itens manuais elegiveis via list_manual_charge_items_for_bl', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          charge_item_id: 10,
+          charge_item_name: 'B/L Reissuing',
+          currency: 'BRL',
+          effective_unit_value_brl: 600,
+        },
+      ],
+      error: null,
+    })
+
+    const rows = await listManualChargeItemsForBl('CSC001')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.charge_item_name).toBe('B/L Reissuing')
+    expect(mockRpc).toHaveBeenCalledWith('list_manual_charge_items_for_bl', {
+      p_bl_id: 'CSC001',
+    })
+  })
+
+  it('adiciona linha manual no B/L via add_manual_bl_charge', async () => {
+    mockRpc.mockResolvedValue({
+      data: { id: 99, bl_id: 'CSC001', status: 'reviewed' },
+      error: null,
+    })
+
+    const payload = await addManualBlCharge('CSC001', {
+      chargeItemId: 12,
+      quantity: 2,
+      notes: 'Teste',
+      actorId: 'user-id',
+    })
+
+    expect((payload as { id: number }).id).toBe(99)
+    expect(mockRpc).toHaveBeenCalledWith('add_manual_bl_charge', {
+      p_bl_id: 'CSC001',
+      p_charge_item_id: 12,
+      p_quantity: 2,
+      p_notes: 'Teste',
+      p_actor: 'user-id',
+    })
+  })
+
   it('lista tabelas de taxas com itens ordenados', async () => {
     const tableBuilder = createBuilder({
       data: [
@@ -147,5 +194,23 @@ describe('localCharges service', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]?.id).toBe('BL1')
   })
-})
 
+  it('marca B/L como ready_for_billing via RPC dedicada', async () => {
+    mockRpc.mockResolvedValue({
+      data: { bl_id: 'CSC001', status: 'ready_for_billing', changed: true },
+      error: null,
+    })
+
+    const result = (await markBlReadyForBilling('CSC001', 'user-id')) as {
+      status: string
+      changed: boolean
+    }
+
+    expect(result.status).toBe('ready_for_billing')
+    expect(result.changed).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith('mark_bl_ready_for_billing', {
+      p_bl_id: 'CSC001',
+      p_actor: 'user-id',
+    })
+  })
+})

@@ -21,6 +21,20 @@ export type LocalChargeLine = {
   calculated_at: string | null
 }
 
+export type ManualChargeItemForBl = {
+  charge_item_id: number
+  charge_item_name: string
+  charge_table_id: number
+  charge_table_name: string
+  cargo_mode: string
+  pod: string
+  currency: string
+  default_unit_value_brl: number | null
+  default_unit_value_usd: number | null
+  effective_unit_value_brl: number | null
+  effective_unit_value_usd: number | null
+}
+
 export type LocalChargeCalculationResult = {
   bl_id: string
   status: 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
@@ -158,6 +172,15 @@ export async function listBlLocalChargeLines(blId: string) {
   return (data ?? []) as LocalChargeLine[]
 }
 
+export async function listManualChargeItemsForBl(blId: string) {
+  const { data, error } = await supabase.rpc('list_manual_charge_items_for_bl', {
+    p_bl_id: blId,
+  })
+
+  if (error) throw error
+  return (data ?? []) as ManualChargeItemForBl[]
+}
+
 export async function listLocalChargeTables(filters?: {
   cargoMode?: '' | 'container' | 'carga_solta'
   pod?: string
@@ -238,6 +261,76 @@ export async function listLocalChargePendencies(limit = 100) {
 
   if (error) throw error
   return (data ?? []) as unknown as LocalChargePendencyItem[]
+}
+
+export async function addManualBlCharge(
+  blId: string,
+  input: {
+    chargeItemId: number
+    quantity: number
+    notes?: string | null
+    actorId?: string | null
+  },
+) {
+  const { data, error } = await supabase.rpc('add_manual_bl_charge', {
+    p_bl_id: blId,
+    p_charge_item_id: input.chargeItemId,
+    p_quantity: input.quantity,
+    p_notes: input.notes ?? null,
+    p_actor: input.actorId ?? null,
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function updateManualBlCharge(
+  chargeCalculationId: number,
+  input: {
+    quantity: number
+    notes?: string | null
+    actorId?: string | null
+  },
+) {
+  const { data, error } = await supabase.rpc('update_manual_bl_charge', {
+    p_charge_calculation_id: chargeCalculationId,
+    p_quantity: input.quantity,
+    p_notes: input.notes ?? null,
+    p_actor: input.actorId ?? null,
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteManualBlCharge(chargeCalculationId: number, actorId?: string | null) {
+  const { data, error } = await supabase.rpc('delete_manual_bl_charge', {
+    p_charge_calculation_id: chargeCalculationId,
+    p_actor: actorId ?? null,
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function markBlChargesReviewed(blId: string, actorId?: string | null) {
+  const { data, error } = await supabase.rpc('mark_bl_charges_reviewed', {
+    p_bl_id: blId,
+    p_actor: actorId ?? null,
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function markBlReadyForBilling(blId: string, actorId?: string | null) {
+  const { data, error } = await supabase.rpc('mark_bl_ready_for_billing', {
+    p_bl_id: blId,
+    p_actor: actorId ?? null,
+  })
+
+  if (error) throw error
+  return data
 }
 
 export async function listCustomerRateOverrides(filters?: {

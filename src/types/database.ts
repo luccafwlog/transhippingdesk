@@ -376,6 +376,64 @@ export type Database = {
           calculated_at: string | null
         }>
       }
+      list_manual_charge_items_for_bl: {
+        Args: {
+          p_bl_id: string
+        }
+        Returns: Array<{
+          charge_item_id: number
+          charge_item_name: string
+          charge_table_id: number
+          charge_table_name: string
+          cargo_mode: string
+          pod: string
+          currency: string
+          default_unit_value_brl: number | null
+          default_unit_value_usd: number | null
+          effective_unit_value_brl: number | null
+          effective_unit_value_usd: number | null
+        }>
+      }
+      add_manual_bl_charge: {
+        Args: {
+          p_bl_id: string
+          p_charge_item_id: number
+          p_quantity: number
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      update_manual_bl_charge: {
+        Args: {
+          p_charge_calculation_id: number
+          p_quantity: number
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      delete_manual_bl_charge: {
+        Args: {
+          p_charge_calculation_id: number
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      mark_bl_charges_reviewed: {
+        Args: {
+          p_bl_id: string
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      mark_bl_ready_for_billing: {
+        Args: {
+          p_bl_id: string
+          p_actor: string | null
+        }
+        Returns: Json
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
