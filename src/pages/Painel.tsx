@@ -15,7 +15,9 @@ async function fetchDashboard() {
     supabase.from('alerts').select('id', { count: 'exact', head: true }).neq('status', 'closed').range(0, 0),
   ])
 
-  const firstError = [bls, review, pendingFinancial, invoices, alerts].find((result) => result.error)?.error
+  const invoiceAccessDenied = isPermissionError(invoices.error)
+  const firstError = [bls, review, pendingFinancial, alerts]
+    .find((result) => result.error)?.error ?? (!invoiceAccessDenied ? invoices.error : null)
   if (firstError) throw firstError
 
   return {
@@ -23,10 +25,16 @@ async function fetchDashboard() {
     totalContainers,
     pendingReview: review.count ?? 0,
     pendingFinancial: pendingFinancial.count ?? 0,
-    openInvoices: invoices.data?.length ?? 0,
-    openInvoicesAmount: invoices.data?.reduce((sum, invoice) => sum + Number(invoice.total_brl ?? 0), 0) ?? 0,
+    openInvoices: invoiceAccessDenied ? null : invoices.data?.length ?? 0,
+    openInvoicesAmount: invoiceAccessDenied ? null : invoices.data?.reduce((sum, invoice) => sum + Number(invoice.total_brl ?? 0), 0) ?? 0,
+    invoicesAccessDenied: invoiceAccessDenied,
     openAlerts: alerts.count ?? 0,
   }
+}
+
+function isPermissionError(error: { code?: string | null; message?: string | null } | null) {
+  if (!error) return false
+  return error.code === '42501' || String(error.message ?? '').toLowerCase().includes('permission denied')
 }
 
 async function fetchDistinctContainerCount() {
@@ -86,8 +94,8 @@ export function Painel() {
         <KpiCard
           icon={Receipt}
           label="Invoices em aberto"
-          value={isLoading ? '...' : data?.openInvoices ?? 0}
-          detail={formatBRL(data?.openInvoicesAmount ?? 0)}
+          value={isLoading ? '...' : data?.openInvoices ?? 'Restrito'}
+          detail={data?.invoicesAccessDenied ? 'Admin only' : formatBRL(data?.openInvoicesAmount ?? 0)}
           tone="text-emerald-300"
         />
       </div>

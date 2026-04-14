@@ -64,17 +64,45 @@ export function useCustomerDetail(cnpj?: string) {
           `
           *,
           customer_contacts(*),
-          bls(id, consignee, financial_status, review_status, created_at),
-          invoices(id, invoice_number, issued_at, due_date, total_brl, status)
+          bls(id, consignee, financial_status, review_status, created_at)
         `,
         )
         .eq('cnpj_cpf', cnpj!)
         .single()
 
       if (error) throw error
-      return data as unknown as CustomerDetail
+
+      const customer = data as unknown as CustomerDetail
+
+      const { data: invoices, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, issued_at, due_date, total_brl, status')
+        .eq('customer_id', customer.id)
+        .order('issued_at', { ascending: false })
+        .range(0, 199)
+
+      if (invoiceError) {
+        if (isPermissionError(invoiceError)) {
+          return {
+            ...customer,
+            invoices: [],
+            invoices_access_denied: true,
+          } as CustomerDetail
+        }
+        throw invoiceError
+      }
+
+      return {
+        ...customer,
+        invoices: (invoices ?? []) as CustomerDetail['invoices'],
+        invoices_access_denied: false,
+      } as CustomerDetail
     },
   })
+}
+
+function isPermissionError(error: { code?: string | null; message?: string | null }) {
+  return error.code === '42501' || String(error.message ?? '').toLowerCase().includes('permission denied')
 }
 
 export function useCustomerLookup(search: string) {

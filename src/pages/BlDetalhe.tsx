@@ -59,6 +59,7 @@ const editableFields: (keyof Pick<
 
 type BlForm = Pick<BL, (typeof editableFields)[number]>
 type CargoMode = 'container' | 'carga_solta'
+const INVALID_NUMERIC_VALUE = Symbol('INVALID_NUMERIC_VALUE')
 
 export function BlDetalhe() {
   const { blId } = useParams()
@@ -134,12 +135,23 @@ export function BlDetalhe() {
 
     setSaving(true)
     try {
-      const updatePayload = Object.fromEntries(
-        changes.map((field) => [field, normalizeFormValue(field, form[field])]),
-      ) as Partial<BL>
+      const updatePayload: Record<string, unknown> = {}
+
+      for (const field of changes) {
+        const normalized = normalizeFormValue(field, form[field])
+        if (normalized === INVALID_NUMERIC_VALUE) {
+          showToast(`Valor invalido para ${field}. Informe um numero valido antes de salvar.`, 'error')
+          return
+        }
+        updatePayload[field] = normalized
+      }
 
       if (!isContainerMode) {
         const weightTon = normalizeFormValue('bb_weight_ton', form.bb_weight_ton)
+        if (weightTon === INVALID_NUMERIC_VALUE) {
+          showToast('Valor invalido para bb_weight_ton. Informe um numero valido antes de salvar.', 'error')
+          return
+        }
         updatePayload.total_weight_kg = weightTon === null ? null : Number(weightTon) * 1000
       }
 
@@ -650,7 +662,9 @@ function normalizeFormValue(field: keyof BlForm, value: unknown) {
       field,
     )
   ) {
-    return value === '' || value === null || value === undefined ? null : Number(value)
+    if (value === '' || value === null || value === undefined) return null
+    const parsed = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(parsed) ? parsed : INVALID_NUMERIC_VALUE
   }
 
   return value === '' ? null : value

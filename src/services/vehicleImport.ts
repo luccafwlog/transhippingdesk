@@ -231,19 +231,24 @@ export async function importVehicleRows({
     // F-03: Exigir match exato (tipo + lacre) quando ambos estao preenchidos
     // no banco. Se nao houver match exato, nao cair em fallback silencioso
     // para containerCandidates[0]: recusa com erro explicito.
-    const exactContainer = containerCandidates.find(
+    const exactMatches = containerCandidates.filter(
       (container) =>
         (!container.type || normalizeKey(container.type) === normalizeKey(row.container_type)) &&
         (!container.seal_number || normalizeKey(container.seal_number) === normalizeKey(row.seal_number)),
     )
 
-    if (!exactContainer) {
+    if (exactMatches.length !== 1) {
       errors.push({
         row: row.rowNumber,
-        message: 'Nao foi possivel identificar com seguranca qual container desta BL corresponde ao veiculo (tipo ou lacre divergem).',
+        message:
+          exactMatches.length === 0
+            ? 'Nao foi possivel identificar com seguranca qual container desta BL corresponde ao veiculo (tipo ou lacre divergem).'
+            : 'Mais de um container desta BL atende ao tipo/lacre informado; revise a planilha para evitar ambiguidade.',
       })
       continue
     }
+
+    const [exactContainer] = exactMatches
 
     rowsToInsert.push({
       voyage_id: voyageId,

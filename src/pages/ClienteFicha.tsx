@@ -345,6 +345,11 @@ export function ClienteFicha() {
           </div>
 
           <h2 className="mb-4 mt-8 text-lg font-semibold text-white">Invoices</h2>
+          {data.invoices_access_denied ? (
+            <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+              Visualizacao financeira restrita ao perfil admin.
+            </div>
+          ) : null}
           <div className="app-table-scroll">
             <table className="app-table app-table--compact min-w-[520px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -360,7 +365,9 @@ export function ClienteFicha() {
                 {data.invoices?.length ? null : (
                   <tr>
                     <td colSpan={5} className="py-4 text-slate-400">
-                      Nenhuma invoice encontrada para este cliente.
+                      {data.invoices_access_denied
+                        ? 'Sem permissao para visualizar invoices deste cliente.'
+                        : 'Nenhuma invoice encontrada para este cliente.'}
                     </td>
                   </tr>
                 )}

@@ -361,6 +361,7 @@ export type CustomerDetail = Customer & {
   customer_contacts?: CustomerContact[] | null
   bls?: Pick<BL, 'id' | 'consignee' | 'financial_status' | 'review_status' | 'created_at'>[] | null
   invoices?: Pick<Invoice, 'id' | 'invoice_number' | 'issued_at' | 'due_date' | 'total_brl' | 'status'>[] | null
+  invoices_access_denied?: boolean
 }
 
 export type VehicleListItem = Vehicle & {

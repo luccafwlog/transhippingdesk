@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { importManifest } from '../manifestImport'
+import { DuplicateManifestImportError, importManifest } from '../manifestImport'
 import type { ParsedManifest } from '../manifestParser'
 
 const { mockFrom, mockRpc, syncManifestPolEtdSchedulesMock } = vi.hoisted(() => ({
@@ -117,5 +117,58 @@ describe('manifestImport customer reconciliation', () => {
     expect(containersPayload).toHaveLength(1)
 
     expect(syncManifestPolEtdSchedulesMock).toHaveBeenCalledOnce()
+  })
+
+  it('mapeia unique violation de hash para DuplicateManifestImportError', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'voyages') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({ error: null }),
+            }),
+          }),
+        }
+      }
+
+      if (table === 'customers') {
+        return {
+          select: () => ({
+            order: () => ({
+              range: async () => ({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "uq_import_batches_voyage_hash"',
+      },
+    })
+
+    const manifest: ParsedManifest = {
+      bls: [],
+      rowErrors: [],
+      manifest_etd: null,
+    }
+
+    await expect(
+      importManifest({
+        filename: 'teste.xlsx',
+        voyageId: 10,
+        manifest,
+        uploadedBy: 'tester',
+        fileHash: 'abc123',
+      }),
+    ).rejects.toBeInstanceOf(DuplicateManifestImportError)
   })
 })

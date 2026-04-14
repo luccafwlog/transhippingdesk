@@ -607,13 +607,17 @@ export function Viagens() {
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
         onSaved={async ({ voyageId, pod, eta, ata }) => {
+          if (!user?.id) {
+            showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
+            return
+          }
           try {
             await saveVoyagePodSchedule({
               voyageId,
               pod,
               eta,
               ata,
-              changedBy: user?.id ?? null,
+              changedBy: user.id,
             })
             await queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
             showToast('Datas do POD atualizadas com sucesso.', 'success')
@@ -629,12 +633,16 @@ export function Viagens() {
         polSchedule={editingPol}
         onClose={() => setEditingPol(null)}
         onSaved={async ({ voyageId, pol, etd }) => {
+          if (!user?.id) {
+            showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
+            return
+          }
           try {
             await saveVoyagePolSchedule({
               voyageId,
               pol,
               etd,
-              changedBy: user?.id ?? null,
+              changedBy: user.id,
             })
             await queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] })
             showToast('ETD do POL atualizado com sucesso.', 'success')

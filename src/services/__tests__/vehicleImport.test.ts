@@ -171,4 +171,93 @@ describe('vehicleImport', () => {
     expect(insertedRows[0]?.bl_id).toBe('BL001')
     expect(insertedRows[0]?.container_id).toBe(11)
   })
+
+  it('rejeita linha quando mais de um container atende ao mesmo tipo e lacre', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'vehicles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: async () => ({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+          insert: async () => ({ error: null }),
+        }
+      }
+
+      if (table === 'bls') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: async () => ({
+                data: [{ id: 'BL001', voyage_id: 7 }],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+
+      if (table === 'bl_containers') {
+        return {
+          select: () => ({
+            in: () => ({
+              eq: () => ({
+                order: () => ({
+                  range: async () => ({
+                    data: [
+                      {
+                        id: 11,
+                        bl_id: 'BL001',
+                        container_number: 'CAXU1234567',
+                        type: '40FM',
+                        seal_number: 'SEL123',
+                        bl: { voyage_id: 7 },
+                      },
+                      {
+                        id: 12,
+                        bl_id: 'BL001',
+                        container_number: 'CAXU1234567',
+                        type: '40FM',
+                        seal_number: 'SEL123',
+                        bl: { voyage_id: 7 },
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      }
+
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    const result = await importVehicleRows({
+      voyageId: 7,
+      rows: [
+        {
+          rowNumber: 2,
+          chassis: 'CHASSI-AMB',
+          brand: 'BYD',
+          model: 'SEAL',
+          weight_kg: 1700,
+          cbm: 11,
+          container_number: 'CAXU1234567',
+          container_type: '40FM',
+          seal_number: 'SEL123',
+          bl_id: 'BL001',
+        },
+      ],
+    })
+
+    expect(result.successCount).toBe(0)
+    expect(result.errorCount).toBe(1)
+    expect(result.errors[0]?.message).toContain('Mais de um container desta BL')
+  })
 })

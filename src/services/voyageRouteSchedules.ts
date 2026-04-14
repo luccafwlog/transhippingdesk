@@ -91,7 +91,7 @@ export async function syncManifestPolEtdSchedules({
 }: {
   voyageId: number
   manifest: ParsedManifest
-  changedBy: string | null
+  changedBy: string
 }) {
   if (!manifest.manifest_etd) return
 
@@ -130,7 +130,7 @@ export async function saveVoyagePolSchedule({
   voyageId: number
   pol: string
   etd: string | null
-  changedBy: string | null
+  changedBy: string
 }) {
   const entityId = buildVoyagePolEntityId(voyageId, pol)
   const current = (await listVoyagePolSchedules([entityId])).get(entityId) ?? makeEmptyPolSchedule(entityId)
@@ -156,7 +156,7 @@ export async function saveVoyagePodSchedule({
   pod: string
   eta: string | null
   ata: string | null
-  changedBy: string | null
+  changedBy: string
 }) {
   const entityId = buildVoyagePodEntityId(voyageId, pod)
   const current = (await listVoyagePodSchedules([entityId])).get(entityId) ?? makeEmptyPodSchedule(entityId)
