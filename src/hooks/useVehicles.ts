@@ -32,7 +32,7 @@ export function useVehicleOptions() {
 
       if (error) throw error
 
-      const voyages = (data ?? []) as Array<{
+      const voyages = (data ?? []) as unknown as Array<{
         id: number
         voyage_number: string
         vessel?: { id: number; name: string } | null

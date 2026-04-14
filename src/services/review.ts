@@ -3,6 +3,15 @@ import type { BL } from '../types/database'
 
 type ReviewEditableFields = Pick<BL, 'shipper' | 'consignee' | 'pol' | 'pod' | 'total_weight_kg' | 'total_cbm' | 'notes'>
 
+/**
+ * Salva a revisao de um B/L usando a RPC `save_bl_review`.
+ *
+ * A RPC aplica o UPDATE e os INSERTs de audit_log em uma unica
+ * transacao PL/pgSQL, e faz optimistic lock comparando `updated_at`
+ * com o valor que o cliente leu (`expectedUpdatedAt`). Se outro
+ * usuario alterou o B/L entre o load e o save, a funcao levanta
+ * SQLSTATE 40001 e o chamador recebe o erro.
+ */
 export async function saveBlReview({
   blId,
   original,
@@ -11,6 +20,7 @@ export async function saveBlReview({
   previousCustomerId,
   changedBy,
   justification,
+  expectedUpdatedAt,
 }: {
   blId: string
   original: ReviewEditableFields
@@ -19,6 +29,7 @@ export async function saveBlReview({
   previousCustomerId: number | null
   changedBy: string
   justification: string
+  expectedUpdatedAt: string | null
 }) {
   const changedEntries = Object.entries(values).filter(
     ([field, value]) => stringifyValue(original[field as keyof ReviewEditableFields]) !== stringifyValue(value),
@@ -26,20 +37,21 @@ export async function saveBlReview({
 
   const customerChanged = previousCustomerId !== customerId
 
-  const updatePayload: Partial<BL> = {
+  const updatePayload: Record<string, unknown> = {
     review_status: 'reviewed',
   }
 
-  changedEntries.forEach(([field, value]) => {
-    updatePayload[field] = normalizeBlValue(field, value) as never
-  })
+  for (const [field, value] of changedEntries) {
+    const normalized = normalizeBlValue(field, value)
+    if (normalized instanceof InvalidNumericValue) {
+      throw new Error(`Valor invalido para ${String(field)}: informe um numero valido.`)
+    }
+    updatePayload[field] = normalized
+  }
 
   if (customerChanged) {
     updatePayload.customer_id = customerId
   }
-
-  const { error: updateError } = await supabase.from('bls').update(updatePayload).eq('id', blId)
-  if (updateError) throw updateError
 
   const auditRows = [
     ...changedEntries.map(([field, value]) => ({
@@ -48,7 +60,6 @@ export async function saveBlReview({
       field_name: field,
       old_value: stringifyValue(original[field]),
       new_value: stringifyValue(value),
-      changed_by: changedBy,
       justification,
     })),
     ...(customerChanged
@@ -59,7 +70,6 @@ export async function saveBlReview({
             field_name: 'customer_id',
             old_value: stringifyValue(previousCustomerId),
             new_value: stringifyValue(customerId),
-            changed_by: changedBy,
             justification,
           },
         ]
@@ -70,18 +80,43 @@ export async function saveBlReview({
       field_name: 'review_status',
       old_value: 'pending_review',
       new_value: 'reviewed',
-      changed_by: changedBy,
       justification,
     },
   ]
 
-  const { error: auditError } = await supabase.from('audit_logs').insert(auditRows)
-  if (auditError) throw auditError
+  const { data, error } = await supabase.rpc('save_bl_review', {
+    p_bl_id: blId,
+    p_expected_updated_at: expectedUpdatedAt,
+    p_update_payload: updatePayload,
+    p_audit_rows: auditRows,
+    p_changed_by: changedBy,
+  })
+
+  if (error) {
+    if (error.code === '40001') {
+      throw new ConcurrentEditError(error.message)
+    }
+    throw error
+  }
+
+  return (data as string) ?? null
 }
 
-function normalizeBlValue(field: keyof ReviewEditableFields, value: unknown) {
+export class ConcurrentEditError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ConcurrentEditError'
+  }
+}
+
+class InvalidNumericValue {}
+
+function normalizeBlValue(field: keyof ReviewEditableFields, value: unknown): unknown {
   if (field === 'total_weight_kg' || field === 'total_cbm') {
-    return value === '' || value === null || value === undefined ? null : Number(value)
+    if (value === '' || value === null || value === undefined) return null
+    const parsed = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(parsed)) return new InvalidNumericValue()
+    return parsed
   }
 
   return value === '' ? null : value

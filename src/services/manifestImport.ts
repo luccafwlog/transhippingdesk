@@ -4,42 +4,43 @@ import { countDistinctManifestContainers, type ParsedManifest } from './manifest
 import { supabase } from './supabase'
 import { syncManifestPolEtdSchedules } from './voyageRouteSchedules'
 
+export type ImportManifestArgs = {
+  filename: string
+  voyageId: number
+  manifest: ParsedManifest
+  uploadedBy: string
+  /** F-02: hash opcional do arquivo original; habilita dedupe por (voyage, cargo_mode, hash). */
+  fileHash?: string | null
+}
+
+/**
+ * Importa um manifesto CNTR de forma transacional.
+ *
+ * A operação inteira (criação do batch, upsert dos BLs, troca dos containers,
+ * registro de erros e atualização de status) é delegada à função PL/pgSQL
+ * `import_manifest_transactional`. Isso garante atomicidade: se qualquer etapa
+ * falhar, nada fica persistido — impedindo o cenário de BLs com zero
+ * containers por delete+insert parcial (F-01).
+ *
+ * Dedup: se `fileHash` for informado, a unique index parcial
+ * `uq_import_batches_voyage_hash` rejeita imports duplicados do mesmo
+ * arquivo na mesma viagem/cargo_mode (F-02).
+ */
 export async function importManifest({
   filename,
   voyageId,
   manifest,
   uploadedBy,
-}: {
-  filename: string
-  voyageId: number
-  manifest: ParsedManifest
-  uploadedBy: string
-}) {
+  fileHash = null,
+}: ImportManifestArgs) {
   const distinctContainerCount = countDistinctManifestContainers(manifest)
+
   const { error: voyageError } = await supabase.from('voyages').select('id').eq('id', voyageId).single()
-
   if (voyageError) throw voyageError
-
-  const { data: batch, error: batchError } = await supabase
-    .from('import_batches')
-    .insert({
-      filename,
-      voyage_id: voyageId,
-      cargo_mode: 'container',
-      uploaded_by: uploadedBy,
-      status: 'processing',
-      total_bls: manifest.bls.length,
-      total_containers: distinctContainerCount,
-      error_count: manifest.rowErrors.length,
-    })
-    .select()
-    .single()
-
-  if (batchError) throw batchError
 
   const customerMaps = await loadCustomerMaps()
 
-  const blRows = manifest.bls.map((bl) => {
+  const blPayload = manifest.bls.map((bl) => {
     const document = onlyDigits(bl.cnpj_cpf)
     const customerMatch = findMatchedCustomer(
       {
@@ -62,9 +63,6 @@ export async function importManifest({
 
     return {
       id: bl.id,
-      voyage_id: voyageId,
-      batch_id: batch.id,
-      cargo_mode: 'container' as const,
       shipper: bl.shipper,
       consignee: matchedCustomer?.name ?? bl.consignee,
       cargo_description: bl.cargo_description,
@@ -73,22 +71,13 @@ export async function importManifest({
       pod: bl.pod,
       total_weight_kg: bl.total_weight_kg,
       total_cbm: bl.total_cbm,
-      review_status: reviewReasons.size > 0 ? ('pending_review' as const) : bl.review_status,
-      financial_status: 'pending' as const,
+      review_status: reviewReasons.size > 0 ? 'pending_review' : bl.review_status,
+      financial_status: 'pending',
       notes: reviewReasons.size > 0 ? `Pendencias de importacao: ${Array.from(reviewReasons).join(', ')}` : null,
     }
   })
 
-  if (blRows.length) {
-    const { error } = await supabase.from('bls').upsert(blRows, { onConflict: 'id' })
-    if (error) throw error
-
-    const blIds = blRows.map((bl) => bl.id)
-    const { error: deleteError } = await supabase.from('bl_containers').delete().in('bl_id', blIds)
-    if (deleteError) throw deleteError
-  }
-
-  const containerRows = manifest.bls.flatMap((bl) =>
+  const containerPayload = manifest.bls.flatMap((bl) =>
     bl.containers.map((container) => ({
       bl_id: bl.id,
       container_number: container.container_number,
@@ -104,23 +93,33 @@ export async function importManifest({
     })),
   )
 
-  if (containerRows.length) {
-    const { error } = await supabase.from('bl_containers').insert(containerRows)
-    if (error) throw error
-  }
+  const errorPayload = manifest.rowErrors.map((rowError) => ({
+    row_number: rowError.row,
+    error_type: 'parser',
+    error_message: rowError.message,
+    raw_data: rowError.raw ?? null,
+  }))
 
-  if (manifest.rowErrors.length) {
-    const { error } = await supabase.from('import_errors').insert(
-      manifest.rowErrors.map((rowError) => ({
-        batch_id: batch.id,
-        row_number: rowError.row,
-        error_type: 'parser',
-        error_message: rowError.message,
-        raw_data: rowError.raw,
-      })),
-    )
+  const { data: batchId, error: rpcError } = await supabase.rpc('import_manifest_transactional', {
+    p_filename: filename,
+    p_voyage_id: voyageId,
+    p_uploaded_by: uploadedBy,
+    p_cargo_mode: 'container',
+    p_file_hash: fileHash,
+    p_total_bls: manifest.bls.length,
+    p_total_containers: distinctContainerCount,
+    p_bls: blPayload,
+    p_containers: containerPayload,
+    p_errors: errorPayload,
+  })
 
-    if (error) throw error
+  if (rpcError) {
+    if (rpcError.code === '23505' && rpcError.message?.includes('uq_import_batches_voyage_hash')) {
+      throw new DuplicateManifestImportError(
+        'Este arquivo ja foi importado nesta viagem. Se isso foi intencional, altere o arquivo antes de reenviar.',
+      )
+    }
+    throw rpcError
   }
 
   await syncManifestPolEtdSchedules({
@@ -129,12 +128,25 @@ export async function importManifest({
     changedBy: uploadedBy,
   })
 
-  const { error: updateError } = await supabase
-    .from('import_batches')
-    .update({ status: manifest.rowErrors.length ? 'partial' : 'completed' })
-    .eq('id', batch.id)
+  return batchId as number
+}
 
-  if (updateError) throw updateError
+export class DuplicateManifestImportError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'DuplicateManifestImportError'
+  }
+}
 
-  return batch.id
+/** Calcula SHA-256 de um ArrayBuffer e retorna em hex (para uso com fileHash). */
+export async function computeFileHash(buffer: ArrayBuffer): Promise<string> {
+  const subtle = (globalThis.crypto ?? (globalThis as unknown as { crypto?: Crypto }).crypto)?.subtle
+  if (!subtle) return ''
+  const digest = await subtle.digest('SHA-256', buffer)
+  const bytes = new Uint8Array(digest)
+  let hex = ''
+  for (let i = 0; i < bytes.length; i += 1) {
+    hex += bytes[i].toString(16).padStart(2, '0')
+  }
+  return hex
 }

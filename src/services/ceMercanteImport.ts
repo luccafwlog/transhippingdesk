@@ -31,6 +31,8 @@ export type ParsedCeMercanteFile = {
 export type CeMercanteImportResult = {
   processed: number
   updated: number
+  overwritten: number
+  unchanged: number
   errorCount: number
   errors: Array<{
     row: number
@@ -38,6 +40,8 @@ export type CeMercanteImportResult = {
     bl_id?: string
   }>
 }
+
+export const CE_MERCANTE_LENGTH = 15
 
 export async function parseCeMercanteFile(file: File): Promise<ParsedCeMercanteFile> {
   const buffer = await file.arrayBuffer()
@@ -71,7 +75,10 @@ export async function parseCeMercanteBuffer(buffer: ArrayBuffer): Promise<Parsed
   return parseRows(objectRows)
 }
 
-export async function importCeMercanteRows(rows: CeMercanteRow[]): Promise<CeMercanteImportResult> {
+export async function importCeMercanteRows(
+  rows: CeMercanteRow[],
+  options: { changedBy: string | null } = { changedBy: null },
+): Promise<CeMercanteImportResult> {
   const errors: CeMercanteImportResult['errors'] = []
   const existingBlIds = new Set<string>()
   const uniqueBlIds = Array.from(new Set(rows.map((row) => row.bl_id)))
@@ -98,19 +105,44 @@ export async function importCeMercanteRows(rows: CeMercanteRow[]): Promise<CeMer
     return true
   })
 
-  for (const chunk of chunkArray(validRows, 500)) {
-    const payload = chunk.map((row) => ({
-      id: row.bl_id,
-      ce_mercante: row.ce_mercante,
-    }))
+  let overwritten = 0
+  let unchanged = 0
+  let inserted = 0
 
-    const { error } = await supabase.from('bls').upsert(payload, { onConflict: 'id' })
-    if (error) throw error
+  for (const row of validRows) {
+    const { data, error } = await supabase.rpc('apply_ce_mercante_update', {
+      p_bl_id: row.bl_id,
+      p_new_ce: row.ce_mercante,
+      p_changed_by: options.changedBy,
+    })
+
+    if (error) {
+      errors.push({
+        row: row.rowNumber,
+        bl_id: row.bl_id,
+        message: error.message || `Falha ao aplicar CE Mercante no BL ${row.bl_id}.`,
+      })
+      continue
+    }
+
+    switch (data) {
+      case 'overwritten':
+        overwritten += 1
+        break
+      case 'unchanged':
+        unchanged += 1
+        break
+      default:
+        inserted += 1
+        break
+    }
   }
 
   return {
     processed: rows.length,
-    updated: validRows.length,
+    updated: inserted + overwritten,
+    overwritten,
+    unchanged,
     errorCount: errors.length,
     errors,
   }
@@ -131,6 +163,17 @@ function parseRows(rows: Record<string, unknown>[]): ParsedCeMercanteFile {
       rowErrors.push({
         row: rowNumber,
         message: 'Colunas obrigatorias ausentes ou invalidas.',
+        raw: row,
+      })
+      return
+    }
+
+    // F-11: o CE Mercante brasileiro tem 15 digitos. Valores menores sao
+    // tipicamente erros de digitacao / importacao de celulas truncadas.
+    if (ce_mercante.length !== CE_MERCANTE_LENGTH) {
+      rowErrors.push({
+        row: rowNumber,
+        message: `CE Mercante invalido para o BL ${bl_id}: esperado ${CE_MERCANTE_LENGTH} digitos, recebido ${ce_mercante.length}.`,
         raw: row,
       })
       return

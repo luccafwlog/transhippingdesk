@@ -161,7 +161,7 @@ export async function importVehicleRows({
 
       if (error) throw error
 
-      const batch = (data ?? []) as ContainerCandidate[]
+      const batch = (data ?? []) as unknown as ContainerCandidate[]
       if (!batch.length) break
 
       for (const container of batch) {
@@ -228,12 +228,22 @@ export async function importVehicleRows({
       continue
     }
 
-    const exactContainer =
-      containerCandidates.find(
-        (container) =>
-          (!container.type || normalizeKey(container.type) === normalizeKey(row.container_type)) &&
-          (!container.seal_number || normalizeKey(container.seal_number) === normalizeKey(row.seal_number)),
-      ) ?? containerCandidates[0]
+    // F-03: Exigir match exato (tipo + lacre) quando ambos estao preenchidos
+    // no banco. Se nao houver match exato, nao cair em fallback silencioso
+    // para containerCandidates[0]: recusa com erro explicito.
+    const exactContainer = containerCandidates.find(
+      (container) =>
+        (!container.type || normalizeKey(container.type) === normalizeKey(row.container_type)) &&
+        (!container.seal_number || normalizeKey(container.seal_number) === normalizeKey(row.seal_number)),
+    )
+
+    if (!exactContainer) {
+      errors.push({
+        row: row.rowNumber,
+        message: 'Nao foi possivel identificar com seguranca qual container desta BL corresponde ao veiculo (tipo ou lacre divergem).',
+      })
+      continue
+    }
 
     rowsToInsert.push({
       voyage_id: voyageId,

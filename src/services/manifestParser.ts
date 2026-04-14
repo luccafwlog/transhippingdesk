@@ -161,6 +161,8 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
       if (previousBl) {
         if (previousBl === blNumber) {
           reasons.add('Container duplicado no mesmo B/L')
+        } else {
+          reasons.add(`Container vinculado tambem ao B/L ${previousBl}`)
         }
       }
       allContainers.set(containerNumber, blNumber)
@@ -298,13 +300,17 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
     if (!line.weight || line.weight <= 0) reasons.add('Peso zerado ou ausente')
     if (!line.container) reasons.add('Container ausente')
 
-    const previousBl = allContainers.get(line.container)
-    if (previousBl) {
-      if (previousBl === currentBL.bl) {
-        reasons.add('Container duplicado no mesmo B/L')
+    if (line.container) {
+      const previousBl = allContainers.get(line.container)
+      if (previousBl) {
+        if (previousBl === currentBL.bl) {
+          reasons.add('Container duplicado no mesmo B/L')
+        } else {
+          reasons.add(`Container vinculado tambem ao B/L ${previousBl}`)
+        }
       }
+      allContainers.set(line.container, currentBL.bl)
     }
-    allContainers.set(line.container, currentBL.bl)
 
     const fallbackWeight = parseNumberValue(weightCell)
     const fallbackCbm = parseNumberValue(cbmCell)
@@ -506,7 +512,7 @@ function normalizeKey(value: string) {
 
 function extractEmail(value: string) {
   const match = asString(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
-  return match ? match[0].toUpperCase() : ''
+  return match ? match[0].toLowerCase() : ''
 }
 
 function extractCnpj(value: string) {

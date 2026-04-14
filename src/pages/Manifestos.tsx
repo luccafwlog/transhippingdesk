@@ -15,7 +15,7 @@ import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useV
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
-import { importManifest } from '../services/manifestImport'
+import { computeFileHash, DuplicateManifestImportError, importManifest } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 
 const pageSizes = [20, 50, 100]
@@ -398,11 +398,13 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
     setSubmitting(true)
     try {
+      const fileHash = await computeFileHash(await file.arrayBuffer())
       await importManifest({
         filename: file.name,
         voyageId: Number(voyageId),
         manifest,
         uploadedBy: user.id,
+        fileHash: fileHash || null,
       })
       await queryClient.invalidateQueries({ queryKey: ['bls'] })
       await queryClient.invalidateQueries({ queryKey: ['voyages'] })
@@ -411,7 +413,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
       setFile(null)
       setManifest(null)
       setVoyageId('')
-    } catch {
+    } catch (error) {
+      if (error instanceof DuplicateManifestImportError) {
+        showToast(error.message, 'error')
+        return
+      }
       showToast('Falha ao importar manifesto. Verifique os dados e permissoes no Supabase.', 'error')
     } finally {
       setSubmitting(false)
