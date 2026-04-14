@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { importManifest } from '../manifestImport'
 import type { ParsedManifest } from '../manifestParser'
 
-const { mockFrom, syncManifestPolEtdSchedulesMock } = vi.hoisted(() => ({
+const { mockFrom, mockRpc, syncManifestPolEtdSchedulesMock } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
   syncManifestPolEtdSchedulesMock: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
   supabase: {
     from: mockFrom,
+    rpc: mockRpc,
   },
 }))
 
@@ -20,14 +22,12 @@ vi.mock('../voyageRouteSchedules', () => ({
 describe('manifestImport customer reconciliation', () => {
   beforeEach(() => {
     mockFrom.mockReset()
+    mockRpc.mockReset()
     syncManifestPolEtdSchedulesMock.mockReset()
     syncManifestPolEtdSchedulesMock.mockResolvedValue(undefined)
   })
 
   it('vincula cliente por nome quando o documento nao bate e marca revisao', async () => {
-    const insertedBls: Array<Record<string, unknown>> = []
-    const insertedContainers: Array<Record<string, unknown>> = []
-
     mockFrom.mockImplementation((table: string) => {
       if (table === 'voyages') {
         return {
@@ -35,22 +35,6 @@ describe('manifestImport customer reconciliation', () => {
             eq: () => ({
               single: async () => ({ error: null }),
             }),
-          }),
-        }
-      }
-
-      if (table === 'import_batches') {
-        return {
-          insert: () => ({
-            select: () => ({
-              single: async () => ({
-                data: { id: 101 },
-                error: null,
-              }),
-            }),
-          }),
-          update: () => ({
-            eq: async () => ({ error: null }),
           }),
         }
       }
@@ -68,35 +52,10 @@ describe('manifestImport customer reconciliation', () => {
         }
       }
 
-      if (table === 'bls') {
-        return {
-          upsert: async (rows: Array<Record<string, unknown>>) => {
-            insertedBls.push(...rows)
-            return { error: null }
-          },
-        }
-      }
-
-      if (table === 'bl_containers') {
-        return {
-          delete: () => ({
-            in: async () => ({ error: null }),
-          }),
-          insert: async (rows: Array<Record<string, unknown>>) => {
-            insertedContainers.push(...rows)
-            return { error: null }
-          },
-        }
-      }
-
-      if (table === 'import_errors') {
-        return {
-          insert: async () => ({ error: null }),
-        }
-      }
-
       throw new Error(`Tabela nao mockada: ${table}`)
     })
+
+    mockRpc.mockResolvedValue({ data: 101, error: null })
 
     const manifest: ParsedManifest = {
       bls: [
@@ -139,15 +98,24 @@ describe('manifestImport customer reconciliation', () => {
     })
 
     expect(batchId).toBe(101)
-    expect(insertedBls).toHaveLength(1)
-    expect(insertedBls[0]).toMatchObject({
+
+    expect(mockRpc).toHaveBeenCalledOnce()
+    const [rpcName, rpcArgs] = mockRpc.mock.calls[0] as [string, Record<string, unknown>]
+    expect(rpcName).toBe('import_manifest_transactional')
+
+    const blsPayload = rpcArgs.p_bls as Array<Record<string, unknown>>
+    expect(blsPayload).toHaveLength(1)
+    expect(blsPayload[0]).toMatchObject({
       id: 'BL001',
       customer_id: 7,
       consignee: 'CLIENTE ALFA LTDA',
       review_status: 'pending_review',
     })
-    expect(String(insertedBls[0]?.notes ?? '')).toContain('Cliente vinculado por nome; validar CNPJ')
-    expect(insertedContainers).toHaveLength(1)
+    expect(String(blsPayload[0]?.notes ?? '')).toContain('Cliente vinculado por nome; validar CNPJ')
+
+    const containersPayload = rpcArgs.p_containers as Array<Record<string, unknown>>
+    expect(containersPayload).toHaveLength(1)
+
     expect(syncManifestPolEtdSchedulesMock).toHaveBeenCalledOnce()
   })
 })

@@ -180,6 +180,7 @@ function ReviewModal({ item, onClose }: { item: ReviewQueueItem | null; onClose:
         previousCustomerId: item.customer_id ?? null,
         changedBy: user.id,
         justification,
+        expectedUpdatedAt: item.updated_at ?? null,
       })
 
       await Promise.all([

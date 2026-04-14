@@ -143,21 +143,45 @@ export function BlDetalhe() {
         updatePayload.total_weight_kg = weightTon === null ? null : Number(weightTon) * 1000
       }
 
-      const { error: updateError } = await supabase.from('bls').update(updatePayload).eq('id', bl.id)
-      if (updateError) throw updateError
+      const auditRows = changes.map((field) => ({
+        entity_type: 'bl',
+        entity_id: bl.id,
+        field_name: field,
+        old_value: stringifyValue(baselineForm?.[field]),
+        new_value: stringifyValue(form[field]),
+        justification,
+      }))
 
-      const { error: auditError } = await supabase.from('audit_logs').insert(
-        changes.map((field) => ({
+      if (!isContainerMode && changes.includes('bb_weight_ton')) {
+        auditRows.push({
           entity_type: 'bl',
           entity_id: bl.id,
-          field_name: field,
-          old_value: stringifyValue(baselineForm?.[field]),
-          new_value: stringifyValue(form[field]),
-          changed_by: user.id,
+          field_name: 'total_weight_kg',
+          old_value: stringifyValue(baselineForm?.total_weight_kg),
+          new_value: stringifyValue(updatePayload.total_weight_kg),
           justification,
-        })),
-      )
-      if (auditError) throw auditError
+        })
+      }
+
+      const { error: rpcError } = await supabase.rpc('save_bl_review', {
+        p_bl_id: bl.id,
+        p_expected_updated_at: bl.updated_at ?? null,
+        p_update_payload: updatePayload,
+        p_audit_rows: auditRows,
+        p_changed_by: user.id,
+      })
+
+      if (rpcError) {
+        if (rpcError.code === '40001') {
+          await queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] })
+          showToast(
+            'Este B/L foi alterado por outro usuario. Os dados foram recarregados; revise e salve novamente.',
+            'error',
+          )
+          return
+        }
+        throw rpcError
+      }
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] }),

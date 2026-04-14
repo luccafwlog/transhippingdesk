@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
+import { useAuth } from '../../hooks/useAuth'
 import {
   importCeMercanteRows,
   parseCeMercanteFile,
@@ -21,6 +22,7 @@ export function CeMercanteImportModal({
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const { user } = useAuth()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ParsedCeMercanteFile | null>(null)
   const [report, setReport] = useState<CeMercanteImportResult | null>(null)
@@ -57,7 +59,7 @@ export function CeMercanteImportModal({
 
     setSubmitting(true)
     try {
-      const result = await importCeMercanteRows(preview.rows)
+      const result = await importCeMercanteRows(preview.rows, { changedBy: user?.id ?? null })
       const totalErrors = preview.rowErrors.length + result.errorCount
       setReport(result)
 

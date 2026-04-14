@@ -245,7 +245,41 @@ export type Database = {
       invoices: Row<Invoice>
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      import_manifest_transactional: {
+        Args: {
+          p_filename: string
+          p_voyage_id: number
+          p_uploaded_by: string
+          p_cargo_mode: string
+          p_file_hash: string | null
+          p_total_bls: number
+          p_total_containers: number
+          p_bls: unknown
+          p_containers: unknown
+          p_errors: unknown
+        }
+        Returns: number
+      }
+      save_bl_review: {
+        Args: {
+          p_bl_id: string
+          p_expected_updated_at: string | null
+          p_update_payload: unknown
+          p_audit_rows: unknown
+          p_changed_by: string
+        }
+        Returns: string | null
+      }
+      apply_ce_mercante_update: {
+        Args: {
+          p_bl_id: string
+          p_new_ce: string
+          p_changed_by: string | null
+        }
+        Returns: string
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
