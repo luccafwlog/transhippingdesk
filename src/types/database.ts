@@ -52,6 +52,62 @@ export type CustomerRateOverride = {
   created_at: string | null
 }
 
+export type ChargeTable = {
+  id: number
+  name: string
+  cargo_mode: 'container' | 'carga_solta' | null
+  pod: string | null
+  carrier_id: number | null
+  valid_from: string
+  valid_to: string | null
+  active: boolean | null
+  notes: string | null
+  created_at: string | null
+}
+
+export type ChargeTableItem = {
+  id: number
+  charge_table_id: number | null
+  name: string
+  category: 'base' | 'other_charge' | null
+  application_basis: 'bl' | 'container_distinct_voyage' | 'weight_ton' | 'teu' | null
+  applies_to: 'bl' | 'container' | 'teu'
+  container_type: string | null
+  cargo_profile: 'standard' | 'oog' | 'imo' | 'any' | null
+  value_brl: number
+  unit_value_brl: number | null
+  unit_value_usd: number | null
+  currency: 'BRL' | 'USD' | string | null
+  manual_only: boolean | null
+  active: boolean | null
+  sort_order: number | null
+  created_at: string | null
+}
+
+export type ChargeCalculation = {
+  id: number
+  bl_id: string | null
+  charge_table_id: number | null
+  charge_item_id: number | null
+  container_id: number | null
+  quantity: number | null
+  unit_value_brl: number | null
+  unit_value_usd: number | null
+  total_value_brl: number | null
+  total_value_usd: number | null
+  override_applied: boolean | null
+  source: 'auto' | 'manual' | null
+  status: 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt' | null
+  calculation_key: string | null
+  notes: string | null
+  manual_reason: string | null
+  review_reason: string | null
+  created_by: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  calculated_at: string | null
+}
+
 export type Carrier = {
   id: number
   name: string
@@ -112,6 +168,11 @@ export type BL = {
   payment_type: 'PREPAID' | 'COLLECT' | null
   financial_status: 'pending' | 'invoiced' | 'paid' | 'cancelled' | null
   review_status: 'ok' | 'pending_review' | 'reviewed' | null
+  charge_status: 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt' | null
+  charges_calculated_at: string | null
+  charges_reviewed_at: string | null
+  charge_exemption_reason: string | null
+  container_load_type: 'FCL' | 'LCL' | null
   free_time_override: number | null
   notes: string | null
   created_at: string | null
@@ -232,6 +293,9 @@ export type Database = {
       customers: Row<Customer>
       customer_contacts: Row<CustomerContact>
       customer_rate_overrides: Row<CustomerRateOverride>
+      charge_tables: Row<ChargeTable>
+      charge_table_items: Row<ChargeTableItem>
+      charge_calculations: Row<ChargeCalculation>
       carriers: Row<Carrier>
       vessels: Row<Vessel>
       ports: Row<Port>
@@ -278,6 +342,39 @@ export type Database = {
           p_changed_by: string | null
         }
         Returns: string
+      }
+      calculate_bl_local_charges: {
+        Args: {
+          p_bl_id: string
+          p_actor: string | null
+          p_recalculate: boolean
+        }
+        Returns: Json
+      }
+      list_bl_local_charge_lines: {
+        Args: {
+          p_bl_id: string
+        }
+        Returns: Array<{
+          id: number
+          bl_id: string
+          charge_table_id: number | null
+          charge_item_id: number | null
+          charge_name: string
+          source: string | null
+          status: string | null
+          quantity: number | null
+          currency: string | null
+          unit_value_brl: number | null
+          unit_value_usd: number | null
+          total_value_brl: number | null
+          total_value_usd: number | null
+          override_applied: boolean | null
+          calculation_key: string | null
+          notes: string | null
+          review_reason: string | null
+          calculated_at: string | null
+        }>
       }
     }
     Enums: Record<string, never>

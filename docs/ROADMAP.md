@@ -9,6 +9,7 @@ Estado de referencia do projeto em 2026-04-14.
 - Fase 1 esta entregue e operando.
 - Fase 2 esta entregue em parte relevante, com hardening tecnico concluido.
 - Migration `015_rate_limit_imports` aplicada no Supabase.
+- Etapa A de Taxas Locais iniciada no codigo (migration `016_local_charges_stage_a` + RPC de calculo por B/L).
 - Fases 3 e 4 ainda nao foram implementadas como produto final.
 
 ## Entregue e Em Uso
@@ -137,7 +138,7 @@ Estado de referencia do projeto em 2026-04-14.
 
 ### Fase 2 pendente
 
-- Motor de calculo de taxas locais.
+- Homologar o motor de calculo de taxas locais (Etapa A) com migration `016`.
 - Modulo real de Taxas Locais.
 - Regras comerciais por cliente.
 - Melhorias de produtividade na revisao manual.

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Calculator, RotateCcw, Save } from 'lucide-react'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -10,6 +10,7 @@ import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useAuditLogs, useBlDetail } from '../hooks/useBls'
+import { useBlLocalChargeLines, useCalculateBlLocalCharges } from '../hooks/useLocalCharges'
 import { formatBRL, formatDate, normalizeText } from '../lib/utils'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { supabase } from '../services/supabase'
@@ -69,6 +70,8 @@ export function BlDetalhe() {
   const { showToast } = useToast()
   const { data: bl, isLoading, error } = useBlDetail(blId)
   const { data: auditLogs } = useAuditLogs('bl', blId)
+  const { data: localChargeLines, isLoading: isLocalChargeLinesLoading } = useBlLocalChargeLines(bl?.id)
+  const calculateLocalChargesMutation = useCalculateBlLocalCharges(bl?.id)
   const [form, setForm] = useState<BlForm | null>(null)
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
@@ -118,6 +121,44 @@ export function BlDetalhe() {
     }),
     [bl?.bb_machine_qty, bl?.bb_packages_qty, bl?.bb_packages_total, bl?.bb_weight_ton, bl?.total_cbm, bl?.total_weight_kg],
   )
+
+  const localChargeSummary = useMemo(() => {
+    const lines = localChargeLines ?? []
+    const totalBrl = lines.reduce((sum, line) => sum + Number(line.total_value_brl ?? 0), 0)
+    const totalUsd = lines.reduce((sum, line) => sum + Number(line.total_value_usd ?? 0), 0)
+    const hasReviewRequired = lines.some((line) => line.status === 'review_required')
+    return {
+      lines,
+      totalBrl,
+      totalUsd,
+      hasReviewRequired,
+    }
+  }, [localChargeLines])
+
+  async function handleCalculateLocalCharges(recalculate: boolean) {
+    if (!bl) return
+
+    try {
+      const result = await calculateLocalChargesMutation.mutateAsync({
+        actorId: user?.id ?? null,
+        recalculate,
+      })
+
+      if (result.status === 'exempt') {
+        showToast('B/L marcado como isento de taxas locais por regra de veiculos/LCL.', 'success')
+        return
+      }
+
+      if (result.status === 'review_required') {
+        showToast('Taxas calculadas com pendencia de revisao manual.', 'info')
+        return
+      }
+
+      showToast('Taxas locais calculadas com sucesso.', 'success')
+    } catch {
+      showToast('Falha ao calcular taxas locais para este B/L.', 'error')
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -554,6 +595,101 @@ export function BlDetalhe() {
           </dl>
         </Card>
 
+        <Card className="xl:col-span-2">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Taxas Locais</h2>
+              <div className="mt-1 text-sm text-slate-400">
+                Motor Etapa A: calculo automatico por B/L com base em POD, modo de carga e perfil IMO/OOG.
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => handleCalculateLocalCharges(false)}
+                loading={calculateLocalChargesMutation.isPending}
+                disabled={calculateLocalChargesMutation.isPending}
+                type="button"
+              >
+                <Calculator size={16} />
+                Calcular taxas
+              </Button>
+              <Button
+                onClick={() => handleCalculateLocalCharges(true)}
+                loading={calculateLocalChargesMutation.isPending}
+                disabled={calculateLocalChargesMutation.isPending}
+                type="button"
+              >
+                <RotateCcw size={16} />
+                Recalcular taxas
+              </Button>
+            </div>
+          </div>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Badge tone={resolveChargeStatusTone(bl.charge_status)}>{resolveChargeStatusLabel(bl.charge_status)}</Badge>
+            <Badge tone="green">Subtotal BRL: {formatBRL(localChargeSummary.totalBrl)}</Badge>
+            <Badge tone="blue">Subtotal USD: {formatUSD(localChargeSummary.totalUsd)}</Badge>
+            {localChargeSummary.hasReviewRequired ? <Badge tone="yellow">Com pendencias de revisao</Badge> : null}
+            {bl.charge_exemption_reason ? <Badge tone="slate">{bl.charge_exemption_reason}</Badge> : null}
+          </div>
+
+          <div className="app-table-scroll">
+            <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
+              <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="py-2">Taxa</th>
+                  <th className="py-2">Origem</th>
+                  <th className="py-2">Status</th>
+                  <th className="py-2">Qtd.</th>
+                  <th className="py-2">Moeda</th>
+                  <th className="py-2">Unitario</th>
+                  <th className="py-2">Total</th>
+                  <th className="py-2">Observacao</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#30363d]">
+                {isLocalChargeLinesLoading ? (
+                  <tr>
+                    <td className="py-3 text-slate-400" colSpan={8}>
+                      Carregando linhas de taxas...
+                    </td>
+                  </tr>
+                ) : localChargeSummary.lines.length ? (
+                  localChargeSummary.lines.map((line) => (
+                    <tr key={line.id}>
+                      <td className="py-2 font-semibold text-white">{line.charge_name}</td>
+                      <td className="py-2">{line.source ?? '-'}</td>
+                      <td className="py-2">
+                        <Badge tone={resolveChargeLineStatusTone(line.status)}>{resolveChargeLineStatusLabel(line.status)}</Badge>
+                      </td>
+                      <td className="py-2">{formatNumber(line.quantity)}</td>
+                      <td className="py-2">{line.currency ?? '-'}</td>
+                      <td className="py-2">
+                        {line.currency === 'USD'
+                          ? formatUSD(line.unit_value_usd ?? 0)
+                          : formatBRL(line.unit_value_brl ?? 0)}
+                      </td>
+                      <td className="py-2">
+                        {line.currency === 'USD'
+                          ? formatUSD(line.total_value_usd ?? 0)
+                          : formatBRL(line.total_value_brl ?? 0)}
+                      </td>
+                      <td className="py-2">{line.review_reason ?? line.notes ?? '-'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="py-3 text-slate-400" colSpan={8}>
+                      Nenhuma taxa calculada ainda para este B/L.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
         {isContainerMode ? (
           <Card className="xl:col-span-2">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -681,6 +817,63 @@ function normalizeFormValue(field: keyof BlForm, value: unknown) {
 function formatNumber(value: number | string | null | undefined) {
   const amount = Number(value ?? 0)
   return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
+}
+
+function formatUSD(value: number | null | undefined) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0))
+}
+
+function resolveChargeStatusTone(status: BL['charge_status']) {
+  if (status === 'review_required') return 'yellow'
+  if (status === 'ready_for_billing' || status === 'reviewed' || status === 'calculated') return 'green'
+  if (status === 'exempt') return 'slate'
+  return 'blue'
+}
+
+function resolveChargeStatusLabel(status: BL['charge_status']) {
+  switch (status) {
+    case 'calculated':
+      return 'Calculado'
+    case 'review_required':
+      return 'Revisao obrigatoria'
+    case 'reviewed':
+      return 'Revisado'
+    case 'ready_for_billing':
+      return 'Pronto para faturar'
+    case 'exempt':
+      return 'Isento'
+    default:
+      return 'Nao calculado'
+  }
+}
+
+function resolveChargeLineStatusTone(status: string | null) {
+  if (status === 'review_required') return 'yellow'
+  if (status === 'exempt') return 'slate'
+  if (status === 'reviewed' || status === 'ready_for_billing' || status === 'calculated') return 'green'
+  return 'blue'
+}
+
+function resolveChargeLineStatusLabel(status: string | null) {
+  switch (status) {
+    case 'calculated':
+      return 'Calculado'
+    case 'review_required':
+      return 'Revisao'
+    case 'reviewed':
+      return 'Revisado'
+    case 'ready_for_billing':
+      return 'Pronto'
+    case 'exempt':
+      return 'Isento'
+    default:
+      return 'Pendente'
+  }
 }
 
 function StatusBadge({
