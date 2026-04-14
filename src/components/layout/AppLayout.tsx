@@ -9,6 +9,7 @@ import {
   Home,
   LogOut,
   Menu,
+  ReceiptText,
   Ship,
   Users,
   X,
@@ -35,6 +36,7 @@ const primaryNavItems: NavItem[] = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
 ]
 
 export function AppLayout() {
