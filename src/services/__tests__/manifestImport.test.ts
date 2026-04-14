@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DuplicateManifestImportError, importManifest } from '../manifestImport'
+import { DuplicateManifestImportError, importManifest, RateLimitImportError } from '../manifestImport'
 import type { ParsedManifest } from '../manifestParser'
 
 const { mockFrom, mockRpc, syncManifestPolEtdSchedulesMock } = vi.hoisted(() => ({
@@ -155,20 +155,53 @@ describe('manifestImport customer reconciliation', () => {
       },
     })
 
-    const manifest: ParsedManifest = {
-      bls: [],
-      rowErrors: [],
-      manifest_etd: null,
-    }
+    const manifest: ParsedManifest = { bls: [], rowErrors: [], manifest_etd: null }
 
     await expect(
-      importManifest({
-        filename: 'teste.xlsx',
-        voyageId: 10,
-        manifest,
-        uploadedBy: 'tester',
-        fileHash: 'abc123',
-      }),
+      importManifest({ filename: 'teste.xlsx', voyageId: 10, manifest, uploadedBy: 'tester', fileHash: 'abc123' }),
     ).rejects.toBeInstanceOf(DuplicateManifestImportError)
+  })
+
+  it('mapeia P0429 para RateLimitImportError', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'voyages') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({ error: null }),
+            }),
+          }),
+        }
+      }
+
+      if (table === 'customers') {
+        return {
+          select: () => ({
+            order: () => ({
+              range: async () => ({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'P0429',
+        message: 'Limite de importacoes atingido. Aguarde 60 segundos antes de importar novamente.',
+      },
+    })
+
+    const manifest: ParsedManifest = { bls: [], rowErrors: [], manifest_etd: null }
+
+    await expect(
+      importManifest({ filename: 'teste.xlsx', voyageId: 10, manifest, uploadedBy: 'tester' }),
+    ).rejects.toBeInstanceOf(RateLimitImportError)
   })
 })

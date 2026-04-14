@@ -15,7 +15,7 @@ import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useV
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
-import { computeFileHash, DuplicateManifestImportError, importManifest } from '../services/manifestImport'
+import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimitImportError } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 
 const pageSizes = [20, 50, 100]
@@ -414,7 +414,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
       setManifest(null)
       setVoyageId('')
     } catch (error) {
-      if (error instanceof DuplicateManifestImportError) {
+      if (error instanceof DuplicateManifestImportError || error instanceof RateLimitImportError) {
         showToast(error.message, 'error')
         return
       }

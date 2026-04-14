@@ -61,7 +61,16 @@ export function Clientes() {
     emailStatus: '' as '' | 'with' | 'without',
     blStatus: '' as '' | 'with' | 'without',
     pendingStatus: '' as '' | 'with' | 'without',
+    page: 0,
+    pageSize: 50,
   })
+
+  function setFilterField<K extends 'search' | 'emailStatus' | 'blStatus' | 'pendingStatus'>(
+    field: K,
+    value: typeof filters[K],
+  ) {
+    setFilters((current) => ({ ...current, [field]: value, page: 0 }))
+  }
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [createForm, setCreateForm] = useState<CreateCustomerForm>(emptyCreateForm)
@@ -74,12 +83,14 @@ export function Clientes() {
 
   const totals = useMemo(
     () => ({
-      customers: data?.rows.length ?? 0,
+      customers: data?.totalCount ?? 0,
       bls: data?.rows.reduce((sum, row) => sum + (row.bls?.length ?? 0), 0) ?? 0,
       pendingBalance: data?.rows.reduce((sum, row) => sum + Number(row.pending_balance ?? 0), 0) ?? 0,
     }),
     [data],
   )
+
+  const totalPages = Math.ceil((data?.totalCount ?? 0) / filters.pageSize)
 
   async function handleCreateCustomer() {
     if (!createForm.cnpjCpf.trim() || !createForm.name.trim()) {
@@ -253,18 +264,13 @@ export function Clientes() {
           <Field label="Buscar por nome ou CNPJ">
             <Input
               value={filters.search}
-              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+              onChange={(event) => setFilterField('search', event.target.value)}
             />
           </Field>
           <Field label="E-mails vinculados">
             <Select
               value={filters.emailStatus}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  emailStatus: event.target.value as '' | 'with' | 'without',
-                }))
-              }
+              onChange={(event) => setFilterField('emailStatus', event.target.value as '' | 'with' | 'without')}
             >
               <option value="">Todos</option>
               <option value="with">Com e-mails</option>
@@ -274,12 +280,7 @@ export function Clientes() {
           <Field label="BLs vinculados">
             <Select
               value={filters.blStatus}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  blStatus: event.target.value as '' | 'with' | 'without',
-                }))
-              }
+              onChange={(event) => setFilterField('blStatus', event.target.value as '' | 'with' | 'without')}
             >
               <option value="">Todos</option>
               <option value="with">Com B/Ls</option>
@@ -289,12 +290,7 @@ export function Clientes() {
           <Field label="Valores pendentes">
             <Select
               value={filters.pendingStatus}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  pendingStatus: event.target.value as '' | 'with' | 'without',
-                }))
-              }
+              onChange={(event) => setFilterField('pendingStatus', event.target.value as '' | 'with' | 'without')}
             >
               <option value="">Todos</option>
               <option value="with">Com saldo pendente</option>
@@ -352,6 +348,29 @@ export function Clientes() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 ? (
+          <div className="flex items-center justify-between border-t border-[#30363d] px-4 py-3 text-sm text-slate-400">
+            <span>
+              Pagina {filters.page + 1} de {totalPages} ({data?.totalCount ?? 0} clientes)
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                disabled={filters.page === 0}
+                onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={filters.page >= totalPages - 1}
+                onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
+              >
+                Proxima
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Card>
 
       <Modal open={createOpen} onClose={resetCreateModal} title="Novo Cliente">

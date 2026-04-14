@@ -31,10 +31,38 @@ async function loadProfile(userId: string) {
   return data
 }
 
+const IDLE_TIMEOUT_MS = 8 * 60 * 60 * 1000 // 8 horas
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let lastActivity = Date.now()
+
+    function onActivity() {
+      lastActivity = Date.now()
+    }
+
+    const activityEvents = ['mousemove', 'keydown', 'click', 'touchstart'] as const
+    for (const event of activityEvents) {
+      window.addEventListener(event, onActivity, { passive: true })
+    }
+
+    const idleInterval = window.setInterval(() => {
+      if (Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
+        void supabase.auth.signOut()
+      }
+    }, 60_000)
+
+    return () => {
+      for (const event of activityEvents) {
+        window.removeEventListener(event, onActivity)
+      }
+      window.clearInterval(idleInterval)
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true

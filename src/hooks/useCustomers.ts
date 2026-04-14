@@ -7,17 +7,22 @@ export type CustomerFilters = {
   emailStatus: '' | 'with' | 'without'
   blStatus: '' | 'with' | 'without'
   pendingStatus: '' | 'with' | 'without'
+  page: number
+  pageSize: number
 }
 
 export function useCustomers(filters: CustomerFilters) {
   return useQuery({
     queryKey: ['customers', filters],
     queryFn: async () => {
+      const from = filters.page * filters.pageSize
+      const to = from + filters.pageSize - 1
+
       let query = supabase
         .from('customers')
         .select('*, bls(id), customer_contacts(id)', { count: 'exact' })
         .order('name', { ascending: true })
-        .range(0, 499)
+        .range(from, to)
 
       if (filters.search) {
         query = query.or(
@@ -47,7 +52,8 @@ export function useCustomers(filters: CustomerFilters) {
 
       return {
         rows,
-        count: rows.length ?? count ?? 0,
+        count: rows.length,
+        totalCount: count ?? 0,
       }
     },
   })
