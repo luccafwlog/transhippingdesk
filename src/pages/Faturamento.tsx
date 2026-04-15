@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Ban, DollarSign, FileDown, FilePlus2 } from 'lucide-react'
-import { pdf } from '@react-pdf/renderer'
-import QRCode from 'qrcode'
-import { InvoicePdf } from '../components/pdf/InvoicePdf'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -22,6 +19,7 @@ import {
   useRegisterInvoicePayment,
 } from '../hooks/useBilling'
 import type { InvoiceStatusFilter } from '../services/billing'
+import { downloadInvoicePdf } from '../services/invoicePdf'
 import { formatBRL, formatDate } from '../lib/utils'
 
 function extractMessage(error: unknown, fallback: string): string {
@@ -204,29 +202,7 @@ export function Faturamento() {
     if (!detailQuery.data) return
     setIsPdfGenerating(true)
     try {
-      const logoResp = await fetch('/branding/transhipping-logo.png')
-      const logoBlob = await logoResp.blob()
-      const logoDataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader()
-        reader.onloadend = () => resolve(reader.result as string)
-        reader.readAsDataURL(logoBlob)
-      })
-
-      let pixQrDataUrl: string | null = null
-      if (detailQuery.data.invoice?.pix_payload) {
-        pixQrDataUrl = await QRCode.toDataURL(detailQuery.data.invoice.pix_payload, { margin: 1, width: 160 })
-      }
-
-      const blob = await pdf(
-        <InvoicePdf invoice={detailQuery.data} logoDataUrl={logoDataUrl} pixQrDataUrl={pixQrDataUrl} />,
-      ).toBlob()
-
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${detailQuery.data.invoice?.invoice_number ?? `INV-${selectedInvoiceId}`}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await downloadInvoicePdf(detailQuery.data)
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao gerar PDF.', 'error')
     } finally {

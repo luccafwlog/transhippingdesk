@@ -8,9 +8,6 @@ export default defineConfig({
   define: {
     'process.env': {},
   },
-  optimizeDeps: {
-    include: ['@react-pdf/renderer'],
-  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
