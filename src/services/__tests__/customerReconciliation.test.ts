@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { findMatchedCustomer, type CustomerMaps } from '../customerReconciliation'
+import { describe, expect, it, vi } from 'vitest'
+import { canonicalizeName, findMatchedCustomer, type CustomerMaps } from '../customerReconciliation'
+
+vi.mock('../supabase', () => ({
+  supabase: { from: vi.fn(), rpc: vi.fn() },
+}))
 
 function makeMaps(): CustomerMaps {
   return {
@@ -10,6 +14,11 @@ function makeMaps(): CustomerMaps {
     customersByName: new Map([
       ['cliente alfa ltda', { id: 1, name: 'CLIENTE ALFA LTDA' }],
       ['cliente beta s/a', { id: 2, name: 'CLIENTE BETA S/A' }],
+    ]),
+    customersByCanonicalName: new Map([
+      ['cliente alfa', { id: 1, name: 'CLIENTE ALFA LTDA' }],
+      ['cliente beta', { id: 2, name: 'CLIENTE BETA S/A' }],
+      ['allog galeria transportes internacionais', { id: 3, name: 'ALLOG GALERIA - TRANSPORTES INTERNACIONAIS LTDA' }],
     ]),
   }
 }
@@ -55,5 +64,69 @@ describe('customerReconciliation', () => {
     )
 
     expect(match).toBeNull()
+  })
+})
+
+describe('canonicalizeName', () => {
+  it('remove pontuacao e sufixo LTDA', () => {
+    expect(canonicalizeName('CLIENTE ALFA LTDA.')).toBe('cliente alfa')
+  })
+
+  it('remove sufixo S/A com barra', () => {
+    expect(canonicalizeName('CLIENTE BETA S/A')).toBe('cliente beta')
+  })
+
+  it('remove sufixo SA sem barra', () => {
+    expect(canonicalizeName('EMPRESA SA')).toBe('empresa')
+  })
+
+  it('remove hifens e colapsa espacos', () => {
+    expect(canonicalizeName('ALLOG GALERIA - TRANSPORTES INTERNACIONAIS LTDA')).toBe(
+      'allog galeria transportes internacionais',
+    )
+  })
+
+  it('remove acentos e normaliza para minusculo', () => {
+    expect(canonicalizeName('COMÉRCIO EXTERIOR LTDA.')).toBe('comercio exterior')
+  })
+
+  it('colapsa multiplos espacos entre tokens', () => {
+    expect(canonicalizeName('EMPRESA   DE   LOGISTICA LTDA')).toBe('empresa de logistica')
+  })
+})
+
+describe('findMatchedCustomer — match por nome canonico', () => {
+  it('casa consignee sem sufixo LTDA com cliente que tem LTDA no banco', () => {
+    const match = findMatchedCustomer(
+      { cnpjCpf: null, consignee: 'Cliente Alfa' },
+      makeMaps(),
+    )
+
+    expect(match).toEqual({
+      customer: { id: 1, name: 'CLIENTE ALFA LTDA' },
+      matchType: 'name',
+    })
+  })
+
+  it('casa consignee com hifen diferente do nome no banco', () => {
+    const match = findMatchedCustomer(
+      { cnpjCpf: null, consignee: 'ALLOG GALERIA TRANSPORTES INTERNACIONAIS LTDA' },
+      makeMaps(),
+    )
+
+    expect(match).toEqual({
+      customer: { id: 3, name: 'ALLOG GALERIA - TRANSPORTES INTERNACIONAIS LTDA' },
+      matchType: 'name',
+    })
+  })
+
+  it('prioriza match por documento sobre nome canonico', () => {
+    const match = findMatchedCustomer(
+      { cnpjCpf: '12.345.678/0001-95', consignee: 'Cliente Alfa' },
+      makeMaps(),
+    )
+
+    expect(match?.matchType).toBe('document')
+    expect(match?.customer.id).toBe(1)
   })
 })
