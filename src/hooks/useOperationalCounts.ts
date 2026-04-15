@@ -5,6 +5,7 @@ export type OperationalCounts = {
   pendingReview: number
   chargeReviewRequired: number
   readyForBilling: number
+  openAlerts: number
 }
 
 /**
@@ -52,9 +53,23 @@ export function useOperationalCounts(): OperationalCounts {
     staleTime: 60_000,
   })
 
+  const openAlerts = useQuery({
+    queryKey: ['op-count', 'open-alerts'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('alerts')
+        .select('*', { count: 'exact', head: true })
+        .neq('status', 'closed')
+      if (error) return 0
+      return count ?? 0
+    },
+    staleTime: 60_000,
+  })
+
   return {
     pendingReview: pendingReview.data ?? 0,
     chargeReviewRequired: chargeReviewRequired.data ?? 0,
     readyForBilling: readyForBilling.data ?? 0,
+    openAlerts: openAlerts.data ?? 0,
   }
 }

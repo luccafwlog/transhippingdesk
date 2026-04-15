@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  Bell,
   Boxes,
   Car,
   ChevronDown,
@@ -39,6 +40,7 @@ const primaryNavItems: NavItem[] = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/alertas', label: 'Alertas', icon: Bell },
 ]
 
 const financialNavItems: NavItem[] = [
@@ -68,6 +70,9 @@ export function AppLayout() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date())
+  const primaryNavItemsWithBadges: NavItem[] = primaryNavItems.map((item) =>
+    item.to === '/alertas' ? { ...item, badge: counts.openAlerts || undefined } : item,
+  )
   const importNavItemsWithBadges: NavItem[] = importNavItems.map((item) =>
     item.to === '/revisao' ? { ...item, badge: counts.pendingReview || undefined } : item,
   )
@@ -174,7 +179,7 @@ export function AppLayout() {
         </div>
 
         <nav id="app-primary-navigation" className={cn('app-nav-scroll', mobileNavOpen && 'app-nav-scroll--open')}>
-          {primaryNavItems.slice(0, 2).map((item) => (
+          {primaryNavItemsWithBadges.slice(0, 2).map((item) => (
             <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
           ))}
 
@@ -192,7 +197,7 @@ export function AppLayout() {
             onNavigate={closeMobileMenus}
           />
 
-          {primaryNavItems.slice(2).map((item) => (
+          {primaryNavItemsWithBadges.slice(2).map((item) => (
             <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
           ))}
 
@@ -223,26 +228,24 @@ function TopNavLink({
   to,
   label,
   icon: Icon,
+  badge,
   onNavigate,
 }: {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
+  badge?: number
   onNavigate?: () => void
 }) {
   return (
     <NavLink
       to={to}
       onClick={onNavigate}
-      className={({ isActive }) =>
-        cn(
-          'app-nav-link',
-          isActive && 'active',
-        )
-      }
+      className={({ isActive }) => cn('app-nav-link', isActive && 'active')}
     >
       <Icon size={18} />
       {label}
+      {badge ? <NavBadge count={badge} /> : null}
     </NavLink>
   )
 }

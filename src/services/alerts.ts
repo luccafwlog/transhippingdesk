@@ -1,0 +1,53 @@
+import { supabase } from './supabase'
+
+export type Alert = {
+  id: number
+  type: string
+  entity_type: string | null
+  entity_id: string | null
+  message: string
+  status: 'open' | 'acknowledged' | 'closed'
+  assigned_to: string | null
+  created_at: string
+  closed_at: string | null
+  notified_at: string | null
+}
+
+export type AlertStatusFilter = 'all' | 'open' | 'acknowledged'
+
+export async function listAlerts(statusFilter: AlertStatusFilter = 'all'): Promise<Alert[]> {
+  let query = supabase
+    .from('alerts')
+    .select('*')
+    .neq('status', 'closed')
+    .order('created_at', { ascending: false })
+    .range(0, 199)
+
+  if (statusFilter === 'open') {
+    query = query.eq('status', 'open')
+  } else if (statusFilter === 'acknowledged') {
+    query = query.eq('status', 'acknowledged')
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as Alert[]
+}
+
+export async function acknowledgeAlert(id: number): Promise<void> {
+  const { error } = await supabase
+    .from('alerts')
+    .update({ status: 'acknowledged' })
+    .eq('id', id)
+    .eq('status', 'open')
+  if (error) throw error
+}
+
+export async function closeAlert(id: number): Promise<void> {
+  const { error } = await supabase
+    .from('alerts')
+    .update({ status: 'closed', closed_at: new Date().toISOString() })
+    .eq('id', id)
+    .neq('status', 'closed')
+  if (error) throw error
+}

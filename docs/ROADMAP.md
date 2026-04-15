@@ -11,7 +11,8 @@ Estado de referencia do projeto em 2026-04-15.
 - Migration `020_billing_hybrid_workflow` versionada no repositorio.
 - Etapa A de Taxas Locais ativa com calculo por B/L, overrides e other charges manuais no detalhe do B/L.
 - Modulo de Faturamento hibrido ativo no app (single B/L + consolidada).
-- Fases 3 e 4 ainda nao foram implementadas como produto final.
+- Fase 3.1 entregue: alertas operacionais, badges no nav, painel expandido.
+- Fase 3 restante (relatorios) e Fase 4 ainda nao foram implementadas.
 
 ## Entregue e Em Uso
 
@@ -195,7 +196,6 @@ Estado de referencia do projeto em 2026-04-15.
 
 ### Fase 3
 
-- Alertas operacionais.
 - Relatorios.
 
 ### Fase 4
@@ -227,10 +227,13 @@ Estado de referencia do projeto em 2026-04-15.
 - Melhoria do parser: bloqueada — depende de novos fixtures reais de armadores.
 - Formalizacao da entidade de trecho: adiada para pos-Fase 3.
 
-### Fase 3.1 — Alertas operacionais basicos
+### Fase 3.1 — Entregue
 
-1. Badges no nav com contagens de pendencias por fila (revisao, taxas, faturamento).
-2. Placar de estado no Painel (/painel).
+- Badges no nav com contagens de pendencias (revisao, taxas, faturamento, alertas).
+- Painel expandido: KPIs de charge_status (taxas para revisar, prontos para faturar),
+  cards cliclantes que navegam para a tela correspondente, bug de encoding corrigido.
+- Modulo de Alertas ativo em `/alertas`: lista de alertas open/acknowledged,
+  acoes de reconhecer e fechar, badge no nav com total de alertas nao fechados.
 
 ### Fase 3 - Operacao expandida
 
