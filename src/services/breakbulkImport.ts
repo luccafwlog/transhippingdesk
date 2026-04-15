@@ -1,5 +1,6 @@
 import { onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
+import { calculateBlLocalCharges } from './localCharges'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -251,7 +252,23 @@ export async function importBreakbulkManifest({
     .eq('id', batch.id)
   if (updateError) throw updateError
 
+  // Dispara cálculo de taxas locais em background para os BLs importados com sucesso.
+  const validBlIds = blRows.map((row) => row.id)
+  if (validBlIds.length) {
+    void triggerLocalChargesForBls(validBlIds, uploadedBy)
+  }
+
   return batch.id
+}
+
+async function triggerLocalChargesForBls(blIds: string[], actorId: string) {
+  const batchSize = 5
+  for (let i = 0; i < blIds.length; i += batchSize) {
+    const batch = blIds.slice(i, i + batchSize)
+    await Promise.allSettled(
+      batch.map((blId) => calculateBlLocalCharges(blId, { actorId, recalculate: false })),
+    )
+  }
 }
 
 function parseBreakbulkRows(rows: Record<string, unknown>[], layout: BreakbulkLayout): ParsedBreakbulkManifest {

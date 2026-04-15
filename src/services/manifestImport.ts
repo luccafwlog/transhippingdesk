@@ -1,5 +1,6 @@
 import { onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
+import { calculateBlLocalCharges } from './localCharges'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
 import { syncManifestPolEtdSchedules } from './voyageRouteSchedules'
@@ -133,7 +134,27 @@ export async function importManifest({
     changedBy: uploadedBy,
   })
 
+  // Dispara cálculo de taxas locais em background para todos os BLs importados.
+  // Não bloqueia o retorno do import — falhas de cálculo não invalidam o import.
+  const importedBlIds = manifest.bls.map((bl) => bl.id)
+  void triggerLocalChargesForBls(importedBlIds, uploadedBy)
+
   return batchId as number
+}
+
+/**
+ * Calcula taxas locais em lotes pequenos (fire-and-forget).
+ * Erros por BL individual são silenciados para não afetar o fluxo de importação;
+ * o operador pode recalcular manualmente em Taxas Locais se necessário.
+ */
+async function triggerLocalChargesForBls(blIds: string[], actorId: string) {
+  const batchSize = 5
+  for (let i = 0; i < blIds.length; i += batchSize) {
+    const batch = blIds.slice(i, i + batchSize)
+    await Promise.allSettled(
+      batch.map((blId) => calculateBlLocalCharges(blId, { actorId, recalculate: false })),
+    )
+  }
 }
 
 export class DuplicateManifestImportError extends Error {
