@@ -359,8 +359,7 @@ textarea {
   align-items: center;
   gap: 0;
   padding: 0 32px;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
 }
 
 .app-nav-scroll::-webkit-scrollbar {
