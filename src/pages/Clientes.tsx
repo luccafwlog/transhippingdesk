@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { Download, Plus, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -8,9 +9,22 @@ import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useCustomers } from '../hooks/useCustomers'
-import { formatBRL, formatCnpjCpf } from '../lib/utils'
+import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { createCustomer } from '../services/customers'
+
+const customerCreateSchema = z.object({
+  cnpjCpf: z
+    .string()
+    .min(1, 'CNPJ/CPF obrigatório')
+    .refine((val) => {
+      const digits = onlyDigits(val)
+      return digits.length === 11 || digits.length === 14
+    }, 'Informe um CNPJ (14 dígitos) ou CPF (11 dígitos) válido'),
+  name: z.string().min(2, 'Razão Social obrigatória (mín. 2 caracteres)'),
+})
+
+type CustomerCreateErrors = Partial<{ cnpjCpf: string; name: string }>
 
 type ContactForm = {
   name: string
@@ -74,6 +88,7 @@ export function Clientes() {
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [createForm, setCreateForm] = useState<CreateCustomerForm>(emptyCreateForm)
+  const [createErrors, setCreateErrors] = useState<CustomerCreateErrors>({})
   const [saving, setSaving] = useState(false)
   const [baseFileName, setBaseFileName] = useState('')
   const [parsedBase, setParsedBase] = useState<ParsedCustomerBase | null>(null)
@@ -106,10 +121,20 @@ export function Clientes() {
   const totalPages = Math.ceil((data?.totalCount ?? 0) / filters.pageSize)
 
   async function handleCreateCustomer() {
-    if (!createForm.cnpjCpf.trim() || !createForm.name.trim()) {
-      showToast('Informe CNPJ/CPF e Razao Social para criar o cliente.', 'error')
+    const validation = customerCreateSchema.safeParse({
+      cnpjCpf: createForm.cnpjCpf,
+      name: createForm.name,
+    })
+    if (!validation.success) {
+      const fieldErrors: CustomerCreateErrors = {}
+      for (const issue of validation.error.issues) {
+        const field = issue.path[0] as keyof CustomerCreateErrors
+        if (!fieldErrors[field]) fieldErrors[field] = issue.message
+      }
+      setCreateErrors(fieldErrors)
       return
     }
+    setCreateErrors({})
 
     const activeContacts = createForm.contacts.filter(
       (contact) => contact.name.trim() || contact.email.trim() || contact.phone.trim(),
@@ -208,6 +233,7 @@ export function Clientes() {
   function resetCreateModal() {
     setCreateOpen(false)
     setCreateForm(emptyCreateForm)
+    setCreateErrors({})
     setSaving(false)
   }
 
@@ -402,10 +428,10 @@ export function Clientes() {
       <Modal open={createOpen} onClose={resetCreateModal} title="Novo Cliente">
         <div className="grid gap-5">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="CNPJ/CPF">
+            <Field label="CNPJ/CPF" error={createErrors.cnpjCpf}>
               <Input value={createForm.cnpjCpf} onChange={(event) => updateCreateField('cnpjCpf', event.target.value)} />
             </Field>
-            <Field label="Razao Social">
+            <Field label="Razao Social" error={createErrors.name}>
               <Input value={createForm.name} onChange={(event) => updateCreateField('name', event.target.value)} />
             </Field>
             <Field label="Nome fantasia">

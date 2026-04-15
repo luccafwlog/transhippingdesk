@@ -4,7 +4,12 @@ import { Button } from '../ui/Button'
 import { Field, Input, Select } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
-import { initialVoyageFormValues, type VoyageFormValues } from '../../services/voyageForm'
+import {
+  initialVoyageFormValues,
+  voyageFormSchema,
+  type VoyageFormErrors,
+  type VoyageFormValues,
+} from '../../services/voyageForm'
 import { createVoyage, updateVoyage } from '../../services/voyages'
 
 export function VoyageCreateModal({
@@ -27,15 +32,29 @@ export function VoyageCreateModal({
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const [form, setForm] = useState<VoyageFormValues>(initialVoyageFormValues)
+  const [errors, setErrors] = useState<VoyageFormErrors>({})
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setForm({ ...initialVoyageFormValues, ...initialValues })
+    setErrors({})
   }, [initialValues, open])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+
+    const result = voyageFormSchema.safeParse(form)
+    if (!result.success) {
+      const fieldErrors: VoyageFormErrors = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as keyof VoyageFormValues
+        if (!fieldErrors[field]) fieldErrors[field] = issue.message
+      }
+      setErrors(fieldErrors)
+      return
+    }
+    setErrors({})
     setSaving(true)
 
     try {
@@ -66,11 +85,10 @@ export function VoyageCreateModal({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Armador">
+          <Field label="Armador" error={errors.carrierName}>
             <Input
               value={form.carrierName}
               onChange={(event) => setForm((current) => ({ ...current, carrierName: event.target.value }))}
-              required
             />
           </Field>
           <Field label="SCAC">
@@ -79,11 +97,10 @@ export function VoyageCreateModal({
               onChange={(event) => setForm((current) => ({ ...current, carrierScac: event.target.value.toUpperCase() }))}
             />
           </Field>
-          <Field label="Navio">
+          <Field label="Navio" error={errors.vesselName}>
             <Input
               value={form.vesselName}
               onChange={(event) => setForm((current) => ({ ...current, vesselName: event.target.value.toUpperCase() }))}
-              required
             />
           </Field>
           <Field label="IMO">
@@ -92,11 +109,10 @@ export function VoyageCreateModal({
               onChange={(event) => setForm((current) => ({ ...current, vesselImo: event.target.value }))}
             />
           </Field>
-          <Field label="Numero da viagem">
+          <Field label="Numero da viagem" error={errors.voyageNumber}>
             <Input
               value={form.voyageNumber}
               onChange={(event) => setForm((current) => ({ ...current, voyageNumber: event.target.value.toUpperCase() }))}
-              required
             />
           </Field>
           <Field label="Status">
