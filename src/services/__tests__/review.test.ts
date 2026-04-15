@@ -52,7 +52,7 @@ describe('review service', () => {
   it('mapeia conflito concorrente para ConcurrentEditError', async () => {
     mockRpc.mockResolvedValue({
       data: null,
-      error: { code: '40001', message: 'conflito concorrente' },
+      error: { code: 'PT409', message: 'conflito concorrente' },
     })
 
     await expect(
