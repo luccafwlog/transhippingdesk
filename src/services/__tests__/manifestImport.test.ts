@@ -99,7 +99,8 @@ describe('manifestImport customer reconciliation', () => {
 
     expect(batchId).toBe(101)
 
-    expect(mockRpc).toHaveBeenCalledOnce()
+    // O mockRpc pode ser chamado mais de uma vez (import_manifest_transactional + calculate_bl_local_charges).
+    // Verificamos que a primeira chamada é o import transacional.
     const [rpcName, rpcArgs] = mockRpc.mock.calls[0] as [string, Record<string, unknown>]
     expect(rpcName).toBe('import_manifest_transactional')
 

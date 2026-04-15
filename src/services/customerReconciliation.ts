@@ -9,6 +9,7 @@ export type CustomerMatchRecord = {
 export type CustomerMaps = {
   customersByDocument: Map<string, CustomerMatchRecord>
   customersByName: Map<string, CustomerMatchRecord>
+  customersByCanonicalName: Map<string, CustomerMatchRecord>
 }
 
 export type CustomerMatchResult = {
@@ -16,9 +17,28 @@ export type CustomerMatchResult = {
   matchType: 'document' | 'name'
 }
 
+/**
+ * Forma canônica para comparação de nomes de empresa:
+ * - Remove acentos e coloca em minúsculas (via normalizeText)
+ * - Remove sufixos legais no final ANTES do strip de pontuação (ex: "S/A", "LTDA.")
+ * - Strip de caracteres não-alfanuméricos (hífens, pontos, barras, etc.)
+ * - Colapsa espaços extras
+ *
+ * Permite casar "ALLOG GALERIA - TRANSPORTES LTDA." com "ALLOG GALERIA TRANSPORTES"
+ * e "SINCERELY LOGISTIC" com "SINCERELY LOGISTIC LTDA".
+ */
+export function canonicalizeName(name: string): string {
+  return normalizeText(name)
+    .replace(/[\s,]+(?:ltda\.?|s\/?a\.?|eireli|epp|me|lda\.?|inc\.?|corp\.?)\s*$/, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export async function loadCustomerMaps() {
   const customersByDocument = new Map<string, CustomerMatchRecord>()
   const customersByName = new Map<string, CustomerMatchRecord>()
+  const customersByCanonicalName = new Map<string, CustomerMatchRecord>()
 
   let from = 0
   const pageSize = 1000
@@ -35,20 +55,21 @@ export async function loadCustomerMaps() {
 
     const batch = data ?? []
     for (const customer of batch) {
+      const record: CustomerMatchRecord = { id: customer.id, name: customer.name }
+
       const document = onlyDigits(customer.cnpj_cpf)
       if (document) {
-        customersByDocument.set(document, {
-          id: customer.id,
-          name: customer.name,
-        })
+        customersByDocument.set(document, record)
       }
 
       const normalizedName = normalizeText(customer.name)
       if (normalizedName && !customersByName.has(normalizedName)) {
-        customersByName.set(normalizedName, {
-          id: customer.id,
-          name: customer.name,
-        })
+        customersByName.set(normalizedName, record)
+      }
+
+      const canonical = canonicalizeName(customer.name)
+      if (canonical && !customersByCanonicalName.has(canonical)) {
+        customersByCanonicalName.set(canonical, record)
       }
     }
 
@@ -56,7 +77,7 @@ export async function loadCustomerMaps() {
     from += pageSize
   }
 
-  return { customersByDocument, customersByName }
+  return { customersByDocument, customersByName, customersByCanonicalName }
 }
 
 export function findMatchedCustomer(
@@ -70,21 +91,26 @@ export function findMatchedCustomer(
   if (document) {
     const customerByDocument = maps.customersByDocument.get(document)
     if (customerByDocument) {
-      return {
-        customer: customerByDocument,
-        matchType: 'document',
-      }
+      return { customer: customerByDocument, matchType: 'document' }
     }
   }
 
-  const normalizedConsignee = normalizeText(candidate.consignee ?? '')
+  const consignee = candidate.consignee ?? ''
+
+  const normalizedConsignee = normalizeText(consignee)
   if (normalizedConsignee) {
     const customerByName = maps.customersByName.get(normalizedConsignee)
     if (customerByName) {
-      return {
-        customer: customerByName,
-        matchType: 'name',
-      }
+      return { customer: customerByName, matchType: 'name' }
+    }
+  }
+
+  // Fallback: nome canônico (tolera pontuação diferente e sufixos legais ausentes/presentes)
+  const canonicalConsignee = canonicalizeName(consignee)
+  if (canonicalConsignee) {
+    const customerByCanonical = maps.customersByCanonicalName.get(canonicalConsignee)
+    if (customerByCanonical) {
+      return { customer: customerByCanonical, matchType: 'name' }
     }
   }
 

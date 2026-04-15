@@ -1,6 +1,12 @@
 import { readFile } from 'node:fs/promises'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { parseBreakbulkManifestBuffer } from '../breakbulkImport'
+
+// breakbulkImport importa customerReconciliation que importa supabase — mock necessário para
+// testes de parser que não usam o banco.
+vi.mock('../supabase', () => ({
+  supabase: { from: vi.fn(), rpc: vi.fn() },
+}))
 
 const fixturesPath = new URL('./fixtures/', import.meta.url)
 
