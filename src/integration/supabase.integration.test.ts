@@ -110,20 +110,19 @@ describeIntegration('supabase integration - hardening gate', () => {
       }
     }
 
-    expect(limited).toBe(true)
+       expect(limited).toBe(true)
   })
 
   it('save_bl_review aplica optimistic lock e retorna 40001 em timestamp stale', async () => {
+  it('save_bl_review aplica optimistic lock e retorna PT409 em timestamp stale', async () => {
     const result = await client.rpc('save_bl_review', {
       p_bl_id: env.blId,
       p_expected_updated_at: '2000-01-01T00:00:00.000Z',
-      p_update_payload: {},
-      p_audit_rows: [],
-      p_changed_by: userId,
     })
 
     expect(result.data).toBeNull()
     expect(result.error?.code).toBe('40001')
+    expect(result.error?.code).toBe('PT409')
   })
 
   it('apply_ce_mercante_update retorna unchanged quando CE nao muda', async () => {
