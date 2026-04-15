@@ -10,7 +10,8 @@ type ReviewEditableFields = Pick<BL, 'shipper' | 'consignee' | 'pol' | 'pod' | '
  * transacao PL/pgSQL, e faz optimistic lock comparando `updated_at`
  * com o valor que o cliente leu (`expectedUpdatedAt`). Se outro
  * usuario alterou o B/L entre o load e o save, a funcao levanta
- * SQLSTATE 40001 e o chamador recebe o erro.
+ * SQLSTATE PT409 (ou 40001 para retrocompatibilidade) e o chamador
+ * recebe o erro de conflito concorrente.
  */
 export async function saveBlReview({
   blId,
