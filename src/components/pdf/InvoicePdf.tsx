@@ -26,9 +26,9 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   logo: { width: 90, height: 36 },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontFamily: 'Helvetica-Bold', fontSize: 12, textTransform: 'uppercase' },
+  headerTitle: { fontFamily: 'Helvetica-Bold', fontSize: 12 },
   headerNumberBlock: { alignItems: 'flex-end' },
-  headerNumberLabel: { fontSize: 7, color: C.textGray, textTransform: 'uppercase' },
+  headerNumberLabel: { fontSize: 7, color: C.textGray },
   headerNumber: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: C.navy },
   divider: { height: 2, backgroundColor: C.navy, marginBottom: 10 },
 
@@ -43,7 +43,7 @@ const s = StyleSheet.create({
 
   tableContainer: { marginBottom: 8 },
   tableHeader: { flexDirection: 'row', backgroundColor: C.navy, paddingVertical: 5, paddingHorizontal: 5 },
-  tHText: { color: C.white, fontFamily: 'Helvetica-Bold', fontSize: 8, textTransform: 'uppercase' },
+  tHText: { color: C.white, fontFamily: 'Helvetica-Bold', fontSize: 8 },
   tableBlRow: { flexDirection: 'row', backgroundColor: C.blHeader, paddingVertical: 3, paddingHorizontal: 5 },
   tableBlText: { fontFamily: 'Helvetica-Bold', fontSize: 8, color: C.navy },
   tableRow: { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 5, borderBottomWidth: 1, borderBottomColor: C.border },
@@ -191,10 +191,10 @@ export function InvoicePdf({ invoice, logoDataUrl, pixQrDataUrl }: InvoicePdfPro
         <View style={s.headerRow}>
           <Image style={s.logo} src={logoDataUrl} />
           <View style={s.headerCenter}>
-            <Text style={s.headerTitle}>Fatura de Taxas Locais</Text>
+            <Text style={s.headerTitle}>FATURA DE TAXAS LOCAIS</Text>
           </View>
           <View style={s.headerNumberBlock}>
-            <Text style={s.headerNumberLabel}>Nº</Text>
+            <Text style={s.headerNumberLabel}>Nº DA FATURA</Text>
             <Text style={s.headerNumber}>{inv.invoice_number ?? `INV-${inv.id}`}</Text>
           </View>
         </View>
@@ -252,10 +252,10 @@ export function InvoicePdf({ invoice, logoDataUrl, pixQrDataUrl }: InvoicePdfPro
         {/* TABELA DE TAXAS */}
         <View style={s.tableContainer}>
           <View style={s.tableHeader}>
-            <Text style={[s.tHText, s.colDesc]}>Descrição</Text>
-            <Text style={[s.tHText, s.colQty]}>Qtd</Text>
-            <Text style={[s.tHText, s.colUnit]}>Valor Unit.</Text>
-            <Text style={[s.tHText, s.colTotal]}>Total BRL</Text>
+            <Text style={[s.tHText, s.colDesc]}>DESCRIÇÃO</Text>
+            <Text style={[s.tHText, s.colQty]}>QTD</Text>
+            <Text style={[s.tHText, s.colUnit]}>VALOR UNIT.</Text>
+            <Text style={[s.tHText, s.colTotal]}>TOTAL BRL</Text>
           </View>
 
           {Array.from(itemsByBl.entries()).map(([blId, items]) => (
