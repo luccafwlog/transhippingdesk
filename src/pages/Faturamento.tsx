@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Ban, DollarSign, FilePlus2 } from 'lucide-react'
+import { Ban, DollarSign, FileDown, FilePlus2 } from 'lucide-react'
+import { pdf } from '@react-pdf/renderer'
+import QRCode from 'qrcode'
+import { InvoicePdf } from '../components/pdf/InvoicePdf'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -61,6 +64,7 @@ export function Faturamento() {
   const [createSearch, setCreateSearch] = useState('')
   const [selectedBls, setSelectedBls] = useState<string[]>([])
   const [customerSearch, setCustomerSearch] = useState('')
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix')
   const [paymentDate, setPaymentDate] = useState('')
@@ -186,6 +190,40 @@ export function Faturamento() {
     }
   }
 
+  async function handleDownloadPdf() {
+    if (!detailQuery.data) return
+    setIsPdfGenerating(true)
+    try {
+      const logoResp = await fetch('/branding/transhipping-logo.png')
+      const logoBlob = await logoResp.blob()
+      const logoDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(logoBlob)
+      })
+
+      let pixQrDataUrl: string | null = null
+      if (detailQuery.data.invoice?.pix_payload) {
+        pixQrDataUrl = await QRCode.toDataURL(detailQuery.data.invoice.pix_payload, { margin: 1, width: 160 })
+      }
+
+      const blob = await pdf(
+        <InvoicePdf invoice={detailQuery.data} logoDataUrl={logoDataUrl} pixQrDataUrl={pixQrDataUrl} />,
+      ).toBlob()
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${detailQuery.data.invoice?.invoice_number ?? `INV-${selectedInvoiceId}`}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao gerar PDF.', 'error')
+    } finally {
+      setIsPdfGenerating(false)
+    }
+  }
+
   function closeDetails() {
     setSelectedInvoiceId(null)
     const next = new URLSearchParams(searchParams)
@@ -289,6 +327,11 @@ export function Faturamento() {
           {detailQuery.error ? <div className="text-sm text-red-200">Falha ao carregar detalhe.</div> : null}
           {detailQuery.data?.invoice ? (
             <>
+              <div className="flex justify-end">
+                <Button variant="secondary" loading={isPdfGenerating} onClick={handleDownloadPdf}>
+                  <FileDown size={16} />Gerar PDF
+                </Button>
+              </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <MetricCard label="Status" value={statusLabel(detailQuery.data.invoice.status)} />
                 <MetricCard label="Total" value={formatBRL(detailQuery.data.invoice.total_brl)} />
