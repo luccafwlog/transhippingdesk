@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addManualBlCharge,
+  calculateLocalChargesBatch,
   calculateBlLocalCharges,
+  listLocalChargeOperationalRows,
   deleteChargeTableItem,
   deleteManualBlCharge,
+  markLocalChargesReadyBatch,
+  markLocalChargesReviewedBatch,
   listManualChargeItemsForBl,
   markBlChargesReviewed,
   markBlReadyForBilling,
@@ -206,6 +210,20 @@ export function useChargePendencies(limit = 100) {
   })
 }
 
+export function useLocalChargeOperations(filters?: {
+  search?: string
+  cargoMode?: '' | 'container' | 'carga_solta'
+  pod?: string
+  voyageId?: number | null
+  chargeStatus?: '' | 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
+  limit?: number
+}) {
+  return useQuery({
+    queryKey: ['local-charge-operations', filters],
+    queryFn: () => listLocalChargeOperationalRows(filters),
+  })
+}
+
 export function useCustomerRateOverrides(filters?: {
   customerSearch?: string
   cargoMode?: '' | 'container' | 'carga_solta'
@@ -255,6 +273,62 @@ export function useDeleteCustomerRateOverride() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['local-charge-overrides'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines'] }),
+      ])
+    },
+  })
+}
+
+export function useBatchCalculateLocalCharges() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { blIds: string[]; actorId?: string | null; recalculate?: boolean }) =>
+      calculateLocalChargesBatch(payload.blIds, {
+        actorId: payload.actorId ?? null,
+        recalculate: payload.recalculate ?? true,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
+        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
+    },
+  })
+}
+
+export function useBatchMarkLocalChargesReviewed() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { blIds: string[]; actorId?: string | null }) =>
+      markLocalChargesReviewedBatch(payload.blIds, payload.actorId ?? null),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
+        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+      ])
+    },
+  })
+}
+
+export function useBatchMarkLocalChargesReady() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { blIds: string[]; actorId?: string | null }) =>
+      markLocalChargesReadyBatch(payload.blIds, payload.actorId ?? null),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
+        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
     },
   })

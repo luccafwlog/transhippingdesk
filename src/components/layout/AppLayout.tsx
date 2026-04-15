@@ -6,6 +6,7 @@ import {
   Car,
   ChevronDown,
   FileSpreadsheet,
+  DollarSign,
   Home,
   LogOut,
   Menu,
@@ -37,6 +38,7 @@ const primaryNavItems: NavItem[] = [
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
+  { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
 ]
 
 export function AppLayout() {

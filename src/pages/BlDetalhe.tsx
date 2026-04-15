@@ -10,6 +10,7 @@ import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useAuditLogs, useBlDetail } from '../hooks/useBls'
+import { useInvoiceLinks } from '../hooks/useBilling'
 import {
   useAddManualBlCharge,
   useBlLocalChargeLines,
@@ -91,6 +92,7 @@ export function BlDetalhe() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const { data: bl, isLoading, error } = useBlDetail(blId)
+  const { data: invoiceLinksByBl } = useInvoiceLinks(bl?.id ? [bl.id] : [])
   const { data: auditLogs } = useAuditLogs('bl', blId)
   const { data: localChargeLines, isLoading: isLocalChargeLinesLoading } = useBlLocalChargeLines(bl?.id)
   const { data: manualChargeItems, isLoading: isManualChargeItemsLoading } = useManualChargeItemsForBl(bl?.id)
@@ -115,6 +117,7 @@ export function BlDetalhe() {
   const isContainerMode = cargoMode === 'container'
   const backHref = isContainerMode ? '/manifestos' : '/carga-solta'
   const backLabel = isContainerMode ? 'Voltar aos manifestos CNTR' : 'Voltar aos manifestos BB'
+  const latestInvoice = bl?.id ? invoiceLinksByBl?.[bl.id]?.[0] : null
   const baselineForm = useMemo(() => (bl ? makeForm(bl) : null), [bl])
 
   const changes = useMemo(() => {
@@ -419,6 +422,11 @@ export function BlDetalhe() {
             <StatusBadge label="Modo" value={cargoModeLabel(cargoMode)} tone={isContainerMode ? 'blue' : 'green'} />
             <StatusBadge label="Revisao" value={bl.review_status ?? 'ok'} />
             <StatusBadge label="Financeiro" value={bl.financial_status ?? 'pending'} />
+            {latestInvoice ? (
+              <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latestInvoice.id}`}>
+                Invoice ativa: {latestInvoice.invoice_number ?? `INV-${latestInvoice.id}`}
+              </Link>
+            ) : null}
             {changes.length ? <Badge tone="yellow">{changes.length} alteracao(oes) pendentes</Badge> : null}
           </div>
 

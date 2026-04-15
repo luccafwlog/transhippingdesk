@@ -10,6 +10,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { fetchAllBls, type BlFilters, useBls, usePortOptions, useVoyageOptions } from '../hooks/useBls'
+import { useInvoiceLinks } from '../hooks/useBilling'
 import { formatDate } from '../lib/utils'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
 import { exportManifestWorkbook } from '../services/exports'
@@ -46,6 +47,8 @@ export function CargaSolta() {
   const [submitting, setSubmitting] = useState(false)
 
   const { data, isLoading, error } = useBls(filters)
+  const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
+  const { data: invoiceLinksByBl } = useInvoiceLinks(blIdsOnPage)
   const [summaryRows, setSummaryRows] = useState<BLListItem[]>([])
   const summaryFilters = useMemo(
     () => ({
@@ -308,20 +311,21 @@ export function CargaSolta() {
                 <th className="px-4 py-3">Consignee</th>
                 <th className="px-4 py-3">Notify</th>
                 <th className="px-4 py-3">Taxas locais</th>
+                <th className="px-4 py-3">Invoice</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={13}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={14}>
                     Carregando carga solta...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={13}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={14}>
                     Nenhum B/L de carga solta encontrado.
                   </td>
                 </tr>
@@ -362,6 +366,9 @@ export function CargaSolta() {
                   </td>
                   <td className="px-4 py-3">
                     <ChargeStatusBadge status={bl.charge_status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <InvoiceLink links={invoiceLinksByBl?.[bl.id] ?? []} />
                   </td>
                   <td className="px-4 py-3">
                     <Link
@@ -559,6 +566,24 @@ export function CargaSolta() {
         </div>
       </Modal>
     </>
+  )
+}
+
+function InvoiceLink({
+  links,
+}: {
+  links: Array<{ id: number; invoice_number: string | null; status: string | null }>
+}) {
+  if (!links.length) {
+    return <span className="text-xs text-slate-500">-</span>
+  }
+
+  const latest = links[0]
+  const label = latest.invoice_number ?? `INV-${latest.id}`
+  return (
+    <Link className="text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latest.id}`}>
+      {label}
+    </Link>
   )
 }
 

@@ -360,9 +360,14 @@ export function Clientes() {
                   </td>
                   <td className="px-4 py-3">{formatBRL(row.pending_balance)}</td>
                   <td className="px-4 py-3">
-                    <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
-                      Abrir ficha
-                    </Link>
+                    <div className="flex flex-wrap gap-2">
+                      <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
+                        Abrir ficha
+                      </Link>
+                      <Link className="app-table__action" to={`/faturamento?customer=${row.id}`}>
+                        Faturamento
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

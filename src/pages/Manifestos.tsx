@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useVoyageOptions } from '../hooks/useBls'
+import { useInvoiceLinks } from '../hooks/useBilling'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { formatCnpjCpf } from '../lib/utils'
 import { exportManifestWorkbook } from '../services/exports'
@@ -44,6 +45,8 @@ export function Manifestos() {
   const { data, isLoading, error } = useBls(filters)
   const { data: summary, isLoading: isSummaryLoading } = useBlSummary(filters)
   const { data: portOptions } = usePortOptions()
+  const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
+  const { data: invoiceLinksByBl } = useInvoiceLinks(blIdsOnPage)
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
 
@@ -201,20 +204,21 @@ export function Manifestos() {
                 <th className="px-4 py-3">CNTRS</th>
                 <th className="px-4 py-3">Perfil</th>
                 <th className="px-4 py-3">Taxas locais</th>
+                <th className="px-4 py-3">Invoice</th>
                 <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                     Carregando manifestos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                     Nenhum B/L encontrado.
                   </td>
                 </tr>
@@ -251,6 +255,9 @@ export function Manifestos() {
                   </td>
                   <td className="px-4 py-3">
                     <ChargeStatusBadge status={bl.charge_status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <InvoiceLink links={invoiceLinksByBl?.[bl.id] ?? []} />
                   </td>
                   <td className="px-4 py-3">
                     <Link
@@ -329,6 +336,24 @@ function ProfileBadge({ profile }: { profile: ReturnType<typeof getCargoProfile>
   const tone =
     profile === 'IMO/OOG' ? 'red' : profile === 'IMO' ? 'red' : profile === 'OOG' ? 'yellow' : 'blue'
   return <Badge tone={tone}>{profile}</Badge>
+}
+
+function InvoiceLink({
+  links,
+}: {
+  links: Array<{ id: number; invoice_number: string | null; status: string | null }>
+}) {
+  if (!links.length) {
+    return <span className="text-xs text-slate-500">-</span>
+  }
+
+  const latest = links[0]
+  const label = latest.invoice_number ?? `INV-${latest.id}`
+  return (
+    <Link className="text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latest.id}`}>
+      {label}
+    </Link>
+  )
 }
 
 function ChargeStatusBadge({ status }: { status: string | null }) {

@@ -1,5 +1,6 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import type { BLListItem, ContainerListItem } from '../types/database'
+import type { LocalChargeOperationalRow } from './localCharges'
 
 export async function exportManifestWorkbook(rows: BLListItem[]) {
   const XLSX = await import('xlsx')
@@ -101,6 +102,36 @@ export async function exportContainerWorkbook(rows: ContainerListItem[]) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Containers')
   XLSX.writeFile(workbook, `containers-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOperationalRow[]) {
+  const XLSX = await import('xlsx')
+  const exportRows = rows.map((row) => ({
+    BL: row.id,
+    Modalidade: row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container',
+    Navio: row.voyage?.vessel?.name ?? '',
+    Viagem: row.voyage?.voyage_number ?? '',
+    POL: row.pol ?? '',
+    POD: row.pod ?? '',
+    Cliente: row.customer?.name ?? '',
+    CNPJ: row.customer?.cnpj_cpf ?? '',
+    StatusTaxas: row.charge_status ?? '',
+    Linhas: row.totals.line_count,
+    LinhasRevisao: row.totals.review_required_count,
+    SubtotalBRL: Number(row.totals.total_brl ?? 0),
+    SubtotalUSD: Number(row.totals.total_usd ?? 0),
+    CalculadoEm: row.charges_calculated_at ?? '',
+    RevisadoEm: row.charges_reviewed_at ?? '',
+    Isencao: row.charge_exemption_reason ?? '',
+    UltimoEventoEm: row.trail.last_event_at ?? '',
+    UltimoEventoPor: row.trail.last_event_by ?? '',
+    UltimoEvento: row.trail.last_event_field ?? '',
+    UltimaMensagem: row.trail.last_event_message ?? '',
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'TaxasLocais')
+  XLSX.writeFile(workbook, `taxas-locais-${makeTimestamp()}.xlsx`)
 }
 
 function makeTimestamp() {

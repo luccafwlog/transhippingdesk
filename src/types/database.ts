@@ -276,12 +276,54 @@ export type Invoice = {
   issued_at: string | null
   due_date: string | null
   total_brl: number
-  status: 'issued' | 'paid' | 'cancelled' | 'overdue' | null
+  status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled' | null
   pix_payload: string | null
   notes: string | null
+  total_paid_brl: number | null
+  balance_brl: number | null
+  issued_by: string | null
   cancelled_at: string | null
   cancelled_by: string | null
+  cancel_reason: string | null
+  updated_at: string | null
   created_at: string | null
+}
+
+export type InvoiceItem = {
+  id: number
+  invoice_id: number | null
+  charge_calculation_id: number | null
+  description: string
+  quantity: number | null
+  unit_value_brl: number | null
+  total_value_brl: number
+}
+
+export type InvoicePayment = {
+  id: number
+  invoice_id: number | null
+  amount_brl: number
+  payment_method: 'pix' | 'ted' | 'doc' | 'boleto' | 'outros' | null
+  paid_at: string | null
+  registered_by: string | null
+  notes: string | null
+  created_at: string | null
+}
+
+export type InvoiceBlLink = {
+  id: number
+  invoice_id: number
+  bl_id: string
+  charge_status_snapshot: string | null
+  financial_status_snapshot: string | null
+  subtotal_brl: number
+  subtotal_usd: number
+  created_at: string | null
+}
+
+export type InvoiceSummary = Invoice & {
+  customer?: Pick<Customer, 'id' | 'name' | 'cnpj_cpf'> | null
+  invoice_bls?: Pick<InvoiceBlLink, 'id' | 'bl_id' | 'subtotal_brl' | 'subtotal_usd'>[] | null
 }
 
 export type Database = {
@@ -307,6 +349,9 @@ export type Database = {
       bl_breakbulk_items: Row<BLBreakbulkItem>
       vehicles: Row<Vehicle>
       invoices: Row<Invoice>
+      invoice_items: Row<InvoiceItem>
+      payments: Row<InvoicePayment>
+      invoice_bls: Row<InvoiceBlLink>
     }
     Views: Record<string, never>
     Functions: {
@@ -431,6 +476,42 @@ export type Database = {
         Args: {
           p_bl_id: string
           p_actor: string | null
+        }
+        Returns: Json
+      }
+      create_invoice_from_bls: {
+        Args: {
+          p_bl_ids: string[]
+          p_customer_id: number | null
+          p_due_date: string | null
+          p_notes: string | null
+          p_issue_now: boolean
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      register_invoice_payment: {
+        Args: {
+          p_invoice_id: number
+          p_amount_brl: number
+          p_payment_method: string
+          p_paid_at: string | null
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      cancel_invoice: {
+        Args: {
+          p_invoice_id: number
+          p_reason: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      list_invoice_details: {
+        Args: {
+          p_invoice_id: number
         }
         Returns: Json
       }

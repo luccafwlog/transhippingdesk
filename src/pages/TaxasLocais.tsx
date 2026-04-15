@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calculator, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react'
+import { Calculator, CheckSquare, Download, Pencil, Plus, RefreshCw, Save, Square, Trash2, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -9,9 +9,11 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import {
   useBlLocalChargeLines,
+  useBatchCalculateLocalCharges,
+  useBatchMarkLocalChargesReady,
+  useBatchMarkLocalChargesReviewed,
   useManualChargeItemsForBl,
   useCalculateBlLocalCharges,
-  useChargePendencies,
   useDeleteChargeTableItem,
   useAddManualBlCharge,
   useDeleteManualBlCharge,
@@ -27,8 +29,11 @@ import {
   useOverrideChargeItems,
   useOverrideCustomers,
   useSaveCustomerRateOverride,
+  useLocalChargeOperations,
 } from '../hooks/useLocalCharges'
-import { formatBRL } from '../lib/utils'
+import { formatBRL, formatDate } from '../lib/utils'
+import { useVoyageOptions } from '../hooks/useBls'
+import { exportLocalChargeOperationsWorkbook } from '../services/exports'
 
 type LocalChargeTab = 'tabelas' | 'overrides' | 'pendencias' | 'simulacao'
 
@@ -72,6 +77,14 @@ type ChargeTableItemForm = {
   manualOnly: boolean
   active: boolean
   sortOrder: string
+}
+
+type LocalChargeOpsFilters = {
+  search: string
+  cargoMode: '' | 'container' | 'carga_solta'
+  pod: string
+  voyageId: string
+  chargeStatus: '' | 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
 }
 
 const EMPTY_OVERRIDE_FORM: OverrideForm = {
@@ -131,6 +144,15 @@ export function TaxasLocais() {
   const [simulationBlIdInput, setSimulationBlIdInput] = useState('')
   const [simulationBlId, setSimulationBlId] = useState('')
   const [manualChargeForm, setManualChargeForm] = useState<ManualChargeForm>(EMPTY_MANUAL_CHARGE_FORM)
+  const [opsFilters, setOpsFilters] = useState<LocalChargeOpsFilters>({
+    search: '',
+    cargoMode: '',
+    pod: '',
+    voyageId: '',
+    chargeStatus: '',
+  })
+  const [selectedOpsRows, setSelectedOpsRows] = useState<string[]>([])
+  const [exportingOps, setExportingOps] = useState(false)
   const { data: tables, isLoading: tablesLoading, error: tablesError } = useLocalChargeTables({
     cargoMode: cargoModeFilter,
     pod: podFilter,
@@ -149,7 +171,22 @@ export function TaxasLocais() {
   const setChargeTableActiveMutation = useSetChargeTableActive()
   const saveChargeTableItemMutation = useSaveChargeTableItem()
   const deleteChargeTableItemMutation = useDeleteChargeTableItem()
-  const { data: pendencies, isLoading: pendenciesLoading, error: pendenciesError } = useChargePendencies(200)
+  const { data: voyageOptions } = useVoyageOptions()
+  const {
+    data: operationsRows,
+    isLoading: operationsLoading,
+    error: operationsError,
+  } = useLocalChargeOperations({
+    search: opsFilters.search,
+    cargoMode: opsFilters.cargoMode,
+    pod: opsFilters.pod,
+    voyageId: opsFilters.voyageId ? Number(opsFilters.voyageId) : null,
+    chargeStatus: opsFilters.chargeStatus,
+    limit: 1200,
+  })
+  const batchCalculateMutation = useBatchCalculateLocalCharges()
+  const batchReviewedMutation = useBatchMarkLocalChargesReviewed()
+  const batchReadyMutation = useBatchMarkLocalChargesReady()
   const { data: simulationLines, isLoading: simulationLinesLoading } = useBlLocalChargeLines(simulationBlId)
   const { data: manualChargeItems, isLoading: isManualChargeItemsLoading } = useManualChargeItemsForBl(simulationBlId)
   const calculateMutation = useCalculateBlLocalCharges(simulationBlId)
@@ -179,6 +216,24 @@ export function TaxasLocais() {
       usd: lines.reduce((sum, line) => sum + Number(line.total_value_usd ?? 0), 0),
     }
   }, [simulationLines])
+
+  const operationsSummary = useMemo(() => {
+    const rows = operationsRows ?? []
+    return {
+      total: rows.length,
+      notCalculated: rows.filter((row) => row.charge_status === 'not_calculated').length,
+      reviewRequired: rows.filter((row) => row.charge_status === 'review_required').length,
+      ready: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
+      totalBrl: rows.reduce((sum, row) => sum + Number(row.totals.total_brl ?? 0), 0),
+      totalUsd: rows.reduce((sum, row) => sum + Number(row.totals.total_usd ?? 0), 0),
+    }
+  }, [operationsRows])
+
+  const areAllOpsRowsSelected = useMemo(() => {
+    const rows = operationsRows ?? []
+    if (rows.length === 0) return false
+    return rows.every((row) => selectedOpsRows.includes(row.id))
+  }, [operationsRows, selectedOpsRows])
 
   async function handleSimulate(recalculate: boolean) {
     const blId = simulationBlIdInput.trim().toUpperCase()
@@ -312,6 +367,86 @@ export function TaxasLocais() {
         return
       }
       showToast('Falha ao marcar pronto para faturar.', 'error')
+    }
+  }
+
+  function updateOpsFilter<K extends keyof LocalChargeOpsFilters>(field: K, value: LocalChargeOpsFilters[K]) {
+    setOpsFilters((current) => ({ ...current, [field]: value }))
+    setSelectedOpsRows([])
+  }
+
+  function toggleOpsRow(blId: string) {
+    setSelectedOpsRows((current) => {
+      if (current.includes(blId)) {
+        return current.filter((value) => value !== blId)
+      }
+      return [...current, blId]
+    })
+  }
+
+  function toggleAllOpsRows() {
+    const rows = operationsRows ?? []
+    if (!rows.length) {
+      setSelectedOpsRows([])
+      return
+    }
+
+    if (areAllOpsRowsSelected) {
+      setSelectedOpsRows([])
+      return
+    }
+
+    setSelectedOpsRows(rows.map((row) => row.id))
+  }
+
+  async function handleExportOperations() {
+    const rows = operationsRows ?? []
+    if (!rows.length) {
+      showToast('Nao ha dados para exportar com os filtros atuais.', 'info')
+      return
+    }
+
+    setExportingOps(true)
+    try {
+      await exportLocalChargeOperationsWorkbook(rows)
+      showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
+    } catch {
+      showToast('Falha ao exportar operacao de taxas locais.', 'error')
+    } finally {
+      setExportingOps(false)
+    }
+  }
+
+  async function runBatchOperation(action: 'calculate' | 'recalculate' | 'review' | 'ready') {
+    const ids = selectedOpsRows
+    if (ids.length === 0) {
+      showToast('Selecione ao menos um B/L para executar acao em lote.', 'error')
+      return
+    }
+
+    try {
+      const actorId = user?.id ?? null
+      const result =
+        action === 'calculate'
+          ? await batchCalculateMutation.mutateAsync({ blIds: ids, actorId, recalculate: false })
+          : action === 'recalculate'
+            ? await batchCalculateMutation.mutateAsync({ blIds: ids, actorId, recalculate: true })
+            : action === 'review'
+              ? await batchReviewedMutation.mutateAsync({ blIds: ids, actorId })
+              : await batchReadyMutation.mutateAsync({ blIds: ids, actorId })
+
+      if (result.errorCount > 0) {
+        const firstError = result.errors[0]
+        showToast(
+          `Processamento parcial: ${result.successCount}/${result.total}. Primeiro erro em ${firstError.blId}: ${firstError.message}`,
+          'info',
+        )
+      } else {
+        showToast(`Processamento concluido para ${result.successCount} B/L(s).`, 'success')
+      }
+      setSelectedOpsRows([])
+    } catch {
+      showToast('Falha ao executar processamento em lote.', 'error')
     }
   }
 
@@ -552,7 +687,7 @@ export function TaxasLocais() {
       <div className="mb-5 flex flex-wrap gap-2">
         <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} />
         <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} />
-        <TabButton active={tab === 'pendencias'} label="Pendencias" onClick={() => setTab('pendencias')} />
+        <TabButton active={tab === 'pendencias'} label="Operacao" onClick={() => setTab('pendencias')} />
         <TabButton active={tab === 'simulacao'} label="Simulacao" onClick={() => setTab('simulacao')} />
       </div>
 
@@ -978,61 +1113,212 @@ export function TaxasLocais() {
       ) : null}
 
       {tab === 'pendencias' ? (
-        <Card className="overflow-hidden p-0">
-          {pendenciesError ? <div className="p-5 text-sm text-red-200">Falha ao carregar pendencias de taxas locais.</div> : null}
-          <div className="app-table-scroll">
-            <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
-              <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">B/L</th>
-                  <th className="px-4 py-3">Modo</th>
-                  <th className="px-4 py-3">Navio/Viagem</th>
-                  <th className="px-4 py-3">Trecho</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Cliente</th>
-                  <th className="px-4 py-3">Acao</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#30363d]">
-                {pendenciesLoading ? (
-                  <tr>
-                    <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                      Carregando pendencias...
-                    </td>
-                  </tr>
-                ) : null}
-                {!pendenciesLoading && (pendencies?.length ?? 0) === 0 ? (
-                  <tr>
-                    <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                      Nao ha pendencias de taxas locais.
-                    </td>
-                  </tr>
-                ) : null}
-                {pendencies?.map((row) => (
-                  <tr key={row.id}>
-                    <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.id}</td>
-                    <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
-                    <td className="px-4 py-3">
-                      {row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.pol ?? '-'} - {row.pod ?? '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge tone="yellow">{row.charge_status === 'not_calculated' ? 'Nao calculado' : 'Revisao'}</Badge>
-                    </td>
-                    <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      <Link className="app-table__action" to={`/manifestos/${row.id}`}>
-                        Abrir B/L
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          <Card className="mb-5">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+              <Field label="Texto livre">
+                <Input
+                  value={opsFilters.search}
+                  onChange={(event) => updateOpsFilter('search', event.target.value)}
+                  placeholder="B/L ou cliente"
+                />
+              </Field>
+              <Field label="Modo">
+                <Select
+                  value={opsFilters.cargoMode}
+                  onChange={(event) => updateOpsFilter('cargoMode', event.target.value as LocalChargeOpsFilters['cargoMode'])}
+                >
+                  <option value="">Todos</option>
+                  <option value="container">Container</option>
+                  <option value="carga_solta">Carga Solta</option>
+                </Select>
+              </Field>
+              <Field label="Viagem">
+                <Select value={opsFilters.voyageId} onChange={(event) => updateOpsFilter('voyageId', event.target.value)}>
+                  <option value="">Todas</option>
+                  {voyageOptions?.map((voyage) => (
+                    <option key={voyage.id} value={voyage.id}>
+                      {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="POD">
+                <Input
+                  value={opsFilters.pod}
+                  onChange={(event) => updateOpsFilter('pod', event.target.value.toUpperCase())}
+                  placeholder="BRVIT / BRSSA"
+                />
+              </Field>
+              <Field label="Status taxas">
+                <Select
+                  value={opsFilters.chargeStatus}
+                  onChange={(event) =>
+                    updateOpsFilter('chargeStatus', event.target.value as LocalChargeOpsFilters['chargeStatus'])
+                  }
+                >
+                  <option value="">Todos</option>
+                  <option value="not_calculated">Nao calculado</option>
+                  <option value="calculated">Calculado</option>
+                  <option value="review_required">Revisao</option>
+                  <option value="reviewed">Revisado</option>
+                  <option value="ready_for_billing">Pronto faturar</option>
+                  <option value="exempt">Isento</option>
+                </Select>
+              </Field>
+              <div className="grid gap-1 rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+                <div className="text-xs uppercase tracking-wider text-slate-500">Selecionados</div>
+                <div className="text-2xl font-bold text-white">{selectedOpsRows.length}</div>
+                <div className="text-xs text-slate-400">Acoes em lote por selecao manual</div>
+              </div>
+            </div>
+          </Card>
+
+          <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <MetricCard label="B/Ls na visao" value={String(operationsSummary.total)} />
+            <MetricCard label="Nao calculado" value={String(operationsSummary.notCalculated)} />
+            <MetricCard label="Revisao" value={String(operationsSummary.reviewRequired)} />
+            <MetricCard label="Pronto faturar" value={String(operationsSummary.ready)} />
+            <MetricCard label="Subtotal BRL" value={formatBRL(operationsSummary.totalBrl)} />
+            <MetricCard label="Subtotal USD" value={formatUSD(operationsSummary.totalUsd)} />
           </div>
-        </Card>
+
+          <Card className="mb-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => runBatchOperation('calculate')}
+                loading={batchCalculateMutation.isPending}
+                disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
+              >
+                <Calculator size={15} />
+                Calcular selecionados
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => runBatchOperation('recalculate')}
+                loading={batchCalculateMutation.isPending}
+                disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
+              >
+                <RefreshCw size={15} />
+                Recalcular selecionados
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => runBatchOperation('review')}
+                loading={batchReviewedMutation.isPending}
+                disabled={batchCalculateMutation.isPending || batchReadyMutation.isPending}
+              >
+                <CheckSquare size={15} />
+                Marcar revisados
+              </Button>
+              <Button
+                onClick={() => runBatchOperation('ready')}
+                loading={batchReadyMutation.isPending}
+                disabled={batchCalculateMutation.isPending || batchReviewedMutation.isPending}
+              >
+                <CheckSquare size={15} />
+                Marcar pronto faturar
+              </Button>
+              <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
+                <Download size={15} />
+                Exportar visao
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden p-0">
+            {operationsError ? <div className="p-5 text-sm text-red-200">Falha ao carregar operacao de taxas locais.</div> : null}
+            <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[1480px] text-left text-sm whitespace-nowrap">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">
+                      <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
+                        {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">B/L</th>
+                    <th className="px-4 py-3">Modo</th>
+                    <th className="px-4 py-3">Navio/Viagem</th>
+                    <th className="px-4 py-3">Trecho</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Linhas</th>
+                    <th className="px-4 py-3">Subtotal BRL</th>
+                    <th className="px-4 py-3">Subtotal USD</th>
+                    <th className="px-4 py-3">Ult. calculo</th>
+                    <th className="px-4 py-3">Ult. revisao</th>
+                    <th className="px-4 py-3">Ult. evento</th>
+                    <th className="px-4 py-3">Isencao/Review</th>
+                    <th className="px-4 py-3">Acao</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {operationsLoading ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={15}>
+                        Carregando operacao...
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!operationsLoading && (operationsRows?.length ?? 0) === 0 ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={15}>
+                        Nenhum B/L encontrado nesta visao operacional.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {operationsRows?.map((row) => (
+                    <tr key={row.id}>
+                      <td className="px-4 py-3">
+                        <button
+                          className="app-table__icon-button"
+                          type="button"
+                          onClick={() => toggleOpsRow(row.id)}
+                          title="Selecionar B/L"
+                        >
+                          {selectedOpsRows.includes(row.id) ? <CheckSquare size={14} /> : <Square size={14} />}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.id}</td>
+                      <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
+                      <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
+                      <td className="px-4 py-3">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
+                      <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
+                      <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
+                      <td className="px-4 py-3">
+                        {Number(row.totals.line_count).toLocaleString('pt-BR')}
+                        {row.totals.review_required_count > 0 ? (
+                          <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
+                      <td className="px-4 py-3">{formatUSD(row.totals.total_usd)}</td>
+                      <td className="px-4 py-3">{formatDate(row.charges_calculated_at)}</td>
+                      <td className="px-4 py-3">{formatDate(row.charges_reviewed_at)}</td>
+                      <td className="px-4 py-3">
+                        <span className="app-table__truncate app-table__truncate--xl" title={row.trail.last_event_message ?? '-'}>
+                          {row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="app-table__truncate app-table__truncate--xl" title={row.charge_exemption_reason ?? '-'}>
+                          {row.charge_exemption_reason ?? '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link className="app-table__action" to={`/manifestos/${row.id}`}>
+                          Abrir B/L
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       ) : null}
 
       {tab === 'overrides' ? (
