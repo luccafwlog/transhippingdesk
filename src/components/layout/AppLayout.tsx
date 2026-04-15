@@ -5,8 +5,8 @@ import {
   Boxes,
   Car,
   ChevronDown,
-  FileSpreadsheet,
   DollarSign,
+  FileSpreadsheet,
   Home,
   LogOut,
   Menu,
@@ -37,6 +37,9 @@ const primaryNavItems: NavItem[] = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
+]
+
+const financialNavItems: NavItem[] = [
   { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
 ]
@@ -48,6 +51,8 @@ export function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
+  const [mobileFinancialOpen, setMobileFinancialOpen] = useState(false)
+  const [desktopFinancialOpen, setDesktopFinancialOpen] = useState(false)
   const [isMobileNav, setIsMobileNav] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
   )
@@ -61,6 +66,7 @@ export function AppLayout() {
     minute: '2-digit',
   }).format(new Date())
   const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
+  const isFinancialSectionActive = financialNavItems.some((item) => isPathActive(location.pathname, item.to))
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 768px)')
@@ -69,8 +75,10 @@ export function AppLayout() {
       if (!matches) {
         setMobileNavOpen(false)
         setMobileImportOpen(false)
+        setMobileFinancialOpen(false)
       } else {
         setDesktopImportOpen(false)
+        setDesktopFinancialOpen(false)
       }
     }
 
@@ -86,6 +94,8 @@ export function AppLayout() {
     setMobileNavOpen(false)
     setMobileImportOpen(false)
     setDesktopImportOpen(false)
+    setMobileFinancialOpen(false)
+    setDesktopFinancialOpen(false)
   }
 
   async function handleSignOut() {
@@ -156,7 +166,9 @@ export function AppLayout() {
             <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
           ))}
 
-          <TopNavImportMenu
+          <TopNavDropdownMenu
+            label="Importacao"
+            icon={FileSpreadsheet}
             items={importNavItems}
             isActive={isImportSectionActive}
             isMobile={isMobileNav}
@@ -171,6 +183,20 @@ export function AppLayout() {
           {primaryNavItems.slice(2).map((item) => (
             <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
           ))}
+
+          <TopNavDropdownMenu
+            label="Financeiro"
+            icon={DollarSign}
+            items={financialNavItems}
+            isActive={isFinancialSectionActive}
+            isMobile={isMobileNav}
+            desktopOpen={desktopFinancialOpen}
+            mobileOpen={mobileFinancialOpen}
+            onOpenDesktop={() => setDesktopFinancialOpen(true)}
+            onCloseDesktop={() => setDesktopFinancialOpen(false)}
+            onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
+            onNavigate={closeMobileMenus}
+          />
         </nav>
       </div>
 
@@ -209,7 +235,9 @@ function TopNavLink({
   )
 }
 
-function TopNavImportMenu({
+function TopNavDropdownMenu({
+  label,
+  icon: Icon,
   items,
   isActive,
   isMobile,
@@ -220,6 +248,8 @@ function TopNavImportMenu({
   onToggleMobile,
   onNavigate,
 }: {
+  label: string
+  icon: React.ComponentType<{ size?: number }>
   items: NavItem[]
   isActive: boolean
   isMobile: boolean
@@ -264,12 +294,12 @@ function TopNavImportMenu({
           }
         }}
       >
-        <FileSpreadsheet size={18} />
-        Importacao
+        <Icon size={18} />
+        {label}
         <ChevronDown size={16} className="app-nav-dropdown__chevron" />
       </button>
 
-      <div className="app-nav-dropdown__menu" role="menu" aria-label="Importacao">
+      <div className="app-nav-dropdown__menu" role="menu" aria-label={label}>
         {items.map((item) => (
           <NavLink
             key={item.to}
