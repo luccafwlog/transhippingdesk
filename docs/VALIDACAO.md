@@ -13,6 +13,8 @@ Este roteiro cobre os modulos que hoje ja existem como produto operacional:
 - Revisao Manual
 - Clientes
 - CE Mercante
+- Taxas Locais
+- Faturamento
 
 ## 1. Validacao tecnica local
 
@@ -47,6 +49,7 @@ Resultado esperado:
 - rate limit de import retorna `P0429`
 - optimistic lock de revisao retorna `40001`
 - (opcional) leitura financeira para operador retorna `42501`
+- (opcional) fluxo de faturamento hibrido com `SUPABASE_TEST_BILLING_BL_IDS`
 
 Observacao:
 
@@ -246,12 +249,47 @@ group by field_name
 order by field_name;
 ```
 
-## 14. O que ainda nao entra na validacao operacional
+## 14. Fluxo de validacao - Taxas Locais
+
+1. Acesse `/taxas-locais`.
+2. Aba `Tabelas`:
+   - crie/edite tabela CNTR ou BB
+   - crie/edite item de taxa
+   - ative/desative tabela
+3. Aba `Overrides`:
+   - crie override por cliente/item
+   - confirme refletir no calculo do B/L
+4. Aba `Operacao`:
+   - filtre por status de taxa
+   - execute lote de calcular/recalcular
+   - marque revisado e pronto para faturar
+   - exporte resultado
+5. Aba `Simulacao`:
+   - informe B/L
+   - calcule
+   - inclua/remova linha manual
+   - valide subtotal BRL/USD e status final.
+
+## 15. Fluxo de validacao - Faturamento
+
+1. Acesse `/faturamento`.
+2. Clique `Nova Invoice`.
+3. Teste emissao:
+   - modo `B/L unico`
+   - modo `Consolidada`
+4. Abra detalhe e valide:
+   - B/Ls vinculados
+   - itens snapshot
+   - total e saldo
+5. Registre pagamento parcial e confirme status `partially_paid`.
+6. Registre pagamento final e confirme status `paid`.
+7. Emita nova invoice sem pagamento e teste cancelamento.
+8. Gere PDF e confirme download sem erro.
+
+## 16. O que ainda nao entra na validacao operacional
 
 Os itens abaixo ainda existem apenas como placeholder, estrutura inicial ou area em aberto:
 
-- Taxas Locais
-- Faturamento
 - Alertas
 - Relatorios
 - Line up TV

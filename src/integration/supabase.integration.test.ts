@@ -13,6 +13,7 @@ type IntegrationEnv = {
   voyageId: number
   blId: string
   blIdWithCe?: string | null
+  billingBlIds?: string[]
   operatorEmail?: string | null
   operatorPassword?: string | null
 }
@@ -21,6 +22,7 @@ let client: SupabaseClient<Database>
 let env: IntegrationEnv
 let userId: string
 const operatorRlsTest = hasOperatorCredentials() ? it : it.skip
+const billingFlowTest = hasBillingFixtures() ? it : it.skip
 
 describeIntegration('supabase integration - hardening gate', () => {
   beforeAll(async () => {
@@ -164,10 +166,179 @@ describeIntegration('supabase integration - hardening gate', () => {
 
     await operatorClient.auth.signOut()
   })
+
+  billingFlowTest('billing flow cria/cancela/reemite invoice e liquida pagamento', async () => {
+    const blIds = env.billingBlIds ?? []
+    expect(blIds.length).toBeGreaterThan(0)
+
+    const marker = `it-billing-${Date.now()}`
+    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const snapshot = await client
+      .from('bls')
+      .select('id,financial_status,charge_status')
+      .in('id', blIds)
+    expect(snapshot.error).toBeNull()
+    expect((snapshot.data ?? []).length).toBe(blIds.length)
+
+    const originalStatus = new Map(
+      (snapshot.data ?? []).map((row) => [
+        row.id,
+        {
+          financial_status: row.financial_status,
+          charge_status: row.charge_status,
+        },
+      ]),
+    )
+
+    try {
+      const prep = await client
+        .from('bls')
+        .update({
+          financial_status: 'pending',
+          charge_status: 'ready_for_billing',
+        })
+        .in('id', blIds)
+      expect(prep.error).toBeNull()
+
+      for (const blId of blIds) {
+        const calc = await client
+          .from('charge_calculations')
+          .upsert(
+            {
+              bl_id: blId,
+              source: 'auto',
+              status: 'ready_for_billing',
+              calculation_key: `${marker}:${blId}`,
+              quantity: 1,
+              unit_value_brl: 1234.56,
+              total_value_brl: 1234.56,
+              notes: 'integration billing fixture',
+              created_by: userId,
+              calculated_at: new Date().toISOString(),
+            },
+            { onConflict: 'bl_id,calculation_key' },
+          )
+        expect(calc.error).toBeNull()
+      }
+
+      const createA = await client.rpc('create_invoice_from_bls', {
+        p_bl_ids: blIds,
+        p_customer_id: null,
+        p_due_date: dueDate,
+        p_notes: 'integration create/cancel',
+        p_issue_now: true,
+        p_actor: userId,
+      })
+      expect(createA.error).toBeNull()
+      const invoiceAId = Number(((createA.data as { invoice_id?: number } | null)?.invoice_id ?? 0))
+      expect(invoiceAId).toBeGreaterThan(0)
+
+      const afterCreateA = await client.from('bls').select('id,financial_status').in('id', blIds)
+      expect(afterCreateA.error).toBeNull()
+      expect((afterCreateA.data ?? []).every((row) => row.financial_status === 'invoiced')).toBe(true)
+
+      const cancelA = await client.rpc('cancel_invoice', {
+        p_invoice_id: invoiceAId,
+        p_reason: 'integration-cancel',
+        p_actor: userId,
+      })
+      expect(cancelA.error).toBeNull()
+
+      const afterCancelA = await client.from('bls').select('id,financial_status').in('id', blIds)
+      expect(afterCancelA.error).toBeNull()
+      expect((afterCancelA.data ?? []).every((row) => row.financial_status === 'pending')).toBe(true)
+
+      const createB = await client.rpc('create_invoice_from_bls', {
+        p_bl_ids: blIds,
+        p_customer_id: null,
+        p_due_date: dueDate,
+        p_notes: 'integration payment flow',
+        p_issue_now: true,
+        p_actor: userId,
+      })
+      expect(createB.error).toBeNull()
+      const invoiceBId = Number(((createB.data as { invoice_id?: number } | null)?.invoice_id ?? 0))
+      expect(invoiceBId).toBeGreaterThan(0)
+
+      const invoiceBeforePay = await client
+        .from('invoices')
+        .select('total_brl,balance_brl,status')
+        .eq('id', invoiceBId)
+        .single()
+      expect(invoiceBeforePay.error).toBeNull()
+      const totalBrl = Number(invoiceBeforePay.data?.total_brl ?? 0)
+      expect(totalBrl).toBeGreaterThan(0)
+
+      const firstPayment = Number((totalBrl / 2).toFixed(2))
+      const pay1 = await client.rpc('register_invoice_payment', {
+        p_invoice_id: invoiceBId,
+        p_amount_brl: firstPayment,
+        p_payment_method: 'pix',
+        p_paid_at: new Date().toISOString(),
+        p_notes: 'integration-pay-1',
+        p_actor: userId,
+      })
+      expect(pay1.error).toBeNull()
+
+      const invoiceAfterPay1 = await client
+        .from('invoices')
+        .select('balance_brl,status')
+        .eq('id', invoiceBId)
+        .single()
+      expect(invoiceAfterPay1.error).toBeNull()
+      const remaining = Number(invoiceAfterPay1.data?.balance_brl ?? 0)
+      expect(remaining).toBeGreaterThan(0)
+      expect(invoiceAfterPay1.data?.status).toBe('partially_paid')
+
+      const pay2 = await client.rpc('register_invoice_payment', {
+        p_invoice_id: invoiceBId,
+        p_amount_brl: remaining,
+        p_payment_method: 'ted',
+        p_paid_at: new Date().toISOString(),
+        p_notes: 'integration-pay-2',
+        p_actor: userId,
+      })
+      expect(pay2.error).toBeNull()
+
+      const invoiceAfterPay2 = await client
+        .from('invoices')
+        .select('balance_brl,status')
+        .eq('id', invoiceBId)
+        .single()
+      expect(invoiceAfterPay2.error).toBeNull()
+      expect(Number(invoiceAfterPay2.data?.balance_brl ?? -1)).toBe(0)
+      expect(invoiceAfterPay2.data?.status).toBe('paid')
+
+      const afterPay2 = await client.from('bls').select('id,financial_status').in('id', blIds)
+      expect(afterPay2.error).toBeNull()
+      expect((afterPay2.data ?? []).every((row) => row.financial_status === 'paid')).toBe(true)
+    } finally {
+      await client
+        .from('charge_calculations')
+        .delete()
+        .like('calculation_key', `${marker}:%`)
+
+      for (const blId of blIds) {
+        const original = originalStatus.get(blId)
+        if (!original) continue
+        await client
+          .from('bls')
+          .update({
+            financial_status: original.financial_status,
+            charge_status: original.charge_status,
+          })
+          .eq('id', blId)
+      }
+    }
+  })
 })
 
 function hasOperatorCredentials() {
   return Boolean(process.env.SUPABASE_OPERATOR_EMAIL && process.env.SUPABASE_OPERATOR_PASSWORD)
+}
+
+function hasBillingFixtures() {
+  return Boolean(process.env.SUPABASE_TEST_BILLING_BL_IDS)
 }
 
 function loadEnv(): IntegrationEnv {
@@ -177,6 +348,7 @@ function loadEnv(): IntegrationEnv {
   const password = process.env.SUPABASE_INTEGRATION_PASSWORD
   const voyageIdRaw = process.env.SUPABASE_TEST_VOYAGE_ID
   const blId = process.env.SUPABASE_TEST_BL_ID
+  const billingBlIdsRaw = process.env.SUPABASE_TEST_BILLING_BL_IDS ?? ''
 
   const missing: string[] = []
   if (!url) missing.push('SUPABASE_URL or VITE_SUPABASE_URL')
@@ -205,6 +377,10 @@ function loadEnv(): IntegrationEnv {
     voyageId,
     blId: String(blId),
     blIdWithCe: process.env.SUPABASE_TEST_BL_ID_WITH_CE ?? null,
+    billingBlIds: billingBlIdsRaw
+      .split(',')
+      .map((value) => value.trim().toUpperCase())
+      .filter((value) => value.length > 0),
     operatorEmail: process.env.SUPABASE_OPERATOR_EMAIL ?? null,
     operatorPassword: process.env.SUPABASE_OPERATOR_PASSWORD ?? null,
   }

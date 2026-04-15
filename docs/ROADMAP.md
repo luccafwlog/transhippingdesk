@@ -1,6 +1,6 @@
 # Roadmap do Sistema
 
-Estado de referencia do projeto em 2026-04-14.
+Estado de referencia do projeto em 2026-04-15.
 
 ## Status Geral
 
@@ -8,8 +8,9 @@ Estado de referencia do projeto em 2026-04-14.
 - Backend em Supabase conectado e autenticado.
 - Fase 1 esta entregue e operando.
 - Fase 2 esta entregue em parte relevante, com hardening tecnico concluido.
-- Migration `019_local_charges_manual_and_status_workflow` aplicada no Supabase.
+- Migration `020_billing_hybrid_workflow` versionada no repositorio.
 - Etapa A de Taxas Locais ativa com calculo por B/L, overrides e other charges manuais no detalhe do B/L.
+- Modulo de Faturamento hibrido ativo no app (single B/L + consolidada).
 - Fases 3 e 4 ainda nao foram implementadas como produto final.
 
 ## Entregue e Em Uso
@@ -100,6 +101,39 @@ Estado de referencia do projeto em 2026-04-14.
   - `manifest_import_rate_limited` (P0429)
   - `manifest_import_duplicate_hash` (23505)
   - `bl_review_concurrent_conflict` (40001)
+  - `invoice_create_conflict`
+  - `invoice_payment_invalid`
+  - `invoice_cancel_blocked`
+
+### Taxas Locais
+
+- Tela operacional ativa em `/taxas-locais`.
+- CRUD de tabelas de taxa e itens.
+- Overrides por cliente.
+- Simulacao por B/L.
+- Lancamentos manuais de other charges por B/L.
+- Acoes em lote:
+  - calcular/recalcular
+  - marcar revisado
+  - marcar pronto para faturar
+- Exportacao da operacao filtrada.
+
+### Faturamento
+
+- Tela funcional em `/faturamento`.
+- Emissao hibrida:
+  - por B/L unico
+  - consolidada por multiplos B/Ls do mesmo cliente
+- Snapshot de itens na invoice via `invoice_items`.
+- Vinculo N:N invoice <-> B/L via `invoice_bls`.
+- Registro de baixa parcial e total.
+- Cancelamento com rollback de status financeiro do B/L.
+- Detalhe da invoice com:
+  - cabecalho
+  - itens
+  - pagamentos
+  - B/Ls vinculados
+- Geracao de PDF da invoice no frontend via `jsPDF` (estavel com React 19).
 
 ## Entregue, Mas Ainda Precisa Complemento
 
@@ -146,7 +180,6 @@ Estado de referencia do projeto em 2026-04-14.
 
 ### Fase 3
 
-- Faturamento.
 - Alertas operacionais.
 - Relatorios.
 
@@ -180,12 +213,11 @@ Estado de referencia do projeto em 2026-04-14.
 3. Refinar reconciliacao automatica cliente <-> B/L.
 4. Decidir se a entidade de trecho sera formalizada antes da fase financeira.
 
-### Fase 3 - Financeiro
+### Fase 3 - Operacao expandida
 
-1. Implementar Taxas Locais.
-2. Implementar Faturamento.
-3. Implementar Alertas.
-4. Implementar Relatorios.
+1. Implementar Alertas operacionais.
+2. Implementar Relatorios.
+3. Integrar alertas financeiros no modulo de faturamento.
 
 ## Conclusao objetiva
 
