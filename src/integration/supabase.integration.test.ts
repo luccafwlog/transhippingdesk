@@ -113,7 +113,6 @@ describeIntegration('supabase integration - hardening gate', () => {
        expect(limited).toBe(true)
   })
 
-  it('save_bl_review aplica optimistic lock e retorna 40001 em timestamp stale', async () => {
   it('save_bl_review aplica optimistic lock e retorna PT409 em timestamp stale', async () => {
     const result = await client.rpc('save_bl_review', {
       p_bl_id: env.blId,
