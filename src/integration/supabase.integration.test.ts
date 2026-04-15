@@ -117,10 +117,12 @@ describeIntegration('supabase integration - hardening gate', () => {
     const result = await client.rpc('save_bl_review', {
       p_bl_id: env.blId,
       p_expected_updated_at: '2000-01-01T00:00:00.000Z',
+      p_update_payload: {},
+      p_audit_rows: [],
+      p_changed_by: userId,
     })
 
     expect(result.data).toBeNull()
-    expect(result.error?.code).toBe('40001')
     expect(result.error?.code).toBe('PT409')
   })
 

@@ -94,7 +94,7 @@ export async function saveBlReview({
   })
 
   if (error) {
-    if (error.code === '40001') {
+    if (error.code === 'PT409' || error.code === '40001') {
       throw new ConcurrentEditError(error.message)
     }
     throw error
