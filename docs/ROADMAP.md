@@ -135,6 +135,22 @@ Estado de referencia do projeto em 2026-04-15.
   - B/Ls vinculados
 - Geracao de PDF da invoice no frontend via `jsPDF` (estavel com React 19).
 
+### Estabilizacao operacional (Fase 2.2)
+
+- Auto-trigger de taxas locais (fire-and-forget) apos import CNTR e BB em
+  `manifestImport.ts` e `breakbulkImport.ts`: calcula em lotes de 5; falhas
+  de calculo nao invalidam o import.
+- Validacao com Zod nos formularios criticos: viagens (`voyageFormSchema`),
+  clientes (CNPJ/CPF + Razao Social) — erros inline por campo.
+- Global Error Boundary (`src/components/ErrorBoundary.tsx`): captura
+  excecoes React nao tratadas e exibe tela amigavel com reload.
+- Reconciliacao automatica aprimorada (`customerReconciliation.ts`):
+  `canonicalizeName()` remove sufixos legais (LTDA, S/A, EIRELI, EPP, ME)
+  e pontuacao antes da comparacao; terceiro mapa `customersByCanonicalName`
+  em `loadCustomerMaps()`. Permite casar "ALLOG GALERIA - TRANSPORTES LTDA."
+  com "ALLOG GALERIA TRANSPORTES".
+- Suite de testes estabilizada: 10 arquivos, 38 testes, 0 falhas.
+
 ## Entregue, Mas Ainda Precisa Complemento
 
 ### Parsing de manifesto
@@ -176,7 +192,6 @@ Estado de referencia do projeto em 2026-04-15.
 - Expandir o modulo de Taxas Locais (overrides completos, fluxo de faturamento e excecoes por cliente).
 - Regras comerciais por cliente.
 - Melhorias de produtividade na revisao manual.
-- Reconciliacao automatica mais forte cliente <-> B/L.
 
 ### Fase 3
 
@@ -206,12 +221,16 @@ Estado de referencia do projeto em 2026-04-15.
 3. Eventos criticos mapeados em observabilidade minima (`audit_logs`).
 4. Suite de integracao com Supabase real disponivel para homologacao controlada.
 
-### Fase 2.2 - Endurecimento da operacao
+### Fase 2.2 — Encerrada
 
-1. Executar homologacao operacional completa em ambiente real com evidencias.
-2. Melhorar parser com novos fixtures reais.
-3. Refinar reconciliacao automatica cliente <-> B/L.
-4. Decidir se a entidade de trecho sera formalizada antes da fase financeira.
+- Reconciliacao automatica: entregue (canonical name matching em `canonicalizeName()`).
+- Melhoria do parser: bloqueada — depende de novos fixtures reais de armadores.
+- Formalizacao da entidade de trecho: adiada para pos-Fase 3.
+
+### Fase 3.1 — Alertas operacionais basicos
+
+1. Badges no nav com contagens de pendencias por fila (revisao, taxas, faturamento).
+2. Placar de estado no Painel (/painel).
 
 ### Fase 3 - Operacao expandida
 

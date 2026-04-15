@@ -17,12 +17,14 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
+import { useOperationalCounts } from '../../hooks/useOperationalCounts'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
+  badge?: number
 }
 
 const importNavItems: NavItem[] = [
@@ -48,6 +50,7 @@ export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, signOut } = useAuth()
+  const counts = useOperationalCounts()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
@@ -65,6 +68,15 @@ export function AppLayout() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date())
+  const importNavItemsWithBadges: NavItem[] = importNavItems.map((item) =>
+    item.to === '/revisao' ? { ...item, badge: counts.pendingReview || undefined } : item,
+  )
+  const financialNavItemsWithBadges: NavItem[] = financialNavItems.map((item) => {
+    if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
+    if (item.to === '/faturamento') return { ...item, badge: counts.readyForBilling || undefined }
+    return item
+  })
+
   const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
   const isFinancialSectionActive = financialNavItems.some((item) => isPathActive(location.pathname, item.to))
 
@@ -169,7 +181,7 @@ export function AppLayout() {
           <TopNavDropdownMenu
             label="Importacao"
             icon={FileSpreadsheet}
-            items={importNavItems}
+            items={importNavItemsWithBadges}
             isActive={isImportSectionActive}
             isMobile={isMobileNav}
             desktopOpen={desktopImportOpen}
@@ -187,7 +199,7 @@ export function AppLayout() {
           <TopNavDropdownMenu
             label="Financeiro"
             icon={DollarSign}
-            items={financialNavItems}
+            items={financialNavItemsWithBadges}
             isActive={isFinancialSectionActive}
             isMobile={isMobileNav}
             desktopOpen={desktopFinancialOpen}
@@ -261,6 +273,7 @@ function TopNavDropdownMenu({
   onNavigate?: () => void
 }) {
   const isOpen = isMobile ? mobileOpen : desktopOpen
+  const totalBadge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0)
 
   return (
     <div
@@ -296,6 +309,7 @@ function TopNavDropdownMenu({
       >
         <Icon size={18} />
         {label}
+        {totalBadge > 0 && <NavBadge count={totalBadge} />}
         <ChevronDown size={16} className="app-nav-dropdown__chevron" />
       </button>
 
@@ -310,10 +324,19 @@ function TopNavDropdownMenu({
           >
             <item.icon size={16} />
             {item.label}
+            {item.badge ? <NavBadge count={item.badge} /> : null}
           </NavLink>
         ))}
       </div>
     </div>
+  )
+}
+
+function NavBadge({ count }: { count: number }) {
+  return (
+    <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white">
+      {count > 99 ? '99+' : count}
+    </span>
   )
 }
 
