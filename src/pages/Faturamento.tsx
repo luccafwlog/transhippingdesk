@@ -24,6 +24,16 @@ import {
 import type { InvoiceStatusFilter } from '../services/billing'
 import { formatBRL, formatDate } from '../lib/utils'
 
+function extractMessage(error: unknown, fallback: string): string {
+  if (!error) return fallback
+  if (typeof error === 'string') return error
+  if (typeof error === 'object') {
+    const msg = (error as { message?: string }).message
+    if (msg) return msg
+  }
+  return fallback
+}
+
 const pageSizes = [20, 50, 100]
 type PaymentMethod = 'pix' | 'ted' | 'doc' | 'boleto' | 'outros'
 
@@ -146,7 +156,7 @@ export function Faturamento() {
       resetCreateState()
       showToast('Invoice emitida com sucesso.', 'success')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao emitir invoice.', 'error')
+      showToast(extractMessage(error, 'Falha ao emitir invoice.'), 'error')
     }
   }
 
@@ -171,7 +181,7 @@ export function Faturamento() {
       setPaymentNotes('')
       showToast('Pagamento registrado.', 'success')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao registrar pagamento.', 'error')
+      showToast(extractMessage(error, 'Falha ao registrar pagamento.'), 'error')
     }
   }
 
@@ -186,7 +196,7 @@ export function Faturamento() {
       setCancelReason('')
       showToast('Invoice cancelada.', 'success')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao cancelar invoice.', 'error')
+      showToast(extractMessage(error, 'Falha ao cancelar invoice.'), 'error')
     }
   }
 
