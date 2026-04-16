@@ -1,15 +1,14 @@
 # Roadmap do Sistema
 
-Estado de referencia do projeto em 2026-04-15.
+Estado de referencia do projeto em 2026-04-16.
 
 ## Status Geral
 
 - Base web publicada e operacional em Firebase Hosting.
 - Backend em Supabase conectado e autenticado.
 - Fase 1 esta entregue e operando.
-- Fase 2 esta entregue em parte relevante, com hardening tecnico concluido.
-- Migration `020_billing_hybrid_workflow` versionada no repositorio.
-- Etapa A de Taxas Locais ativa com calculo por B/L, overrides e other charges manuais no detalhe do B/L.
+- Fase 2 esta entregue e encerrada: hardening tecnico, taxas locais, faturamento, regras comerciais, melhorias de revisao.
+- Migration `023_customer_commercial_rules` versionada no repositorio.
 - Modulo de Faturamento hibrido ativo no app (single B/L + consolidada).
 - Fase 3.1 entregue: alertas operacionais, badges no nav, painel expandido.
 - Fase 3 restante (relatorios) e Fase 4 ainda nao foram implementadas.
@@ -152,6 +151,21 @@ Estado de referencia do projeto em 2026-04-15.
   com "ALLOG GALERIA TRANSPORTES".
 - Suite de testes estabilizada: 10 arquivos, 38 testes, 0 falhas.
 
+### Encerramento da Fase 2 (2026-04-16)
+
+- Melhorias de produtividade na revisao manual (`Revisao.tsx`):
+  - Busca por texto (B/L, consignatario, shipper) com filtro em memoria.
+  - Filtro por motivo de pendencia (pills clicaveis com todas as razoes unicas).
+  - Navegacao anterior/proximo dentro do modal sem fechar a fila.
+  - Avanco automatico para o proximo item apos salvar revisao.
+  - Contador de progresso no modal (X de Y).
+- Overrides de taxa com indicador de vigencia: ativa / futura / vencida / aberta.
+  Linhas vencidas aparecem com opacidade reduzida e texto riscado.
+- Regras comerciais por cliente (`migration 023_customer_commercial_rules`):
+  - Colunas `payment_terms_days` (default 30), `discount_pct` (default 0), `commercial_notes`
+    na tabela `customers`.
+  - Card "Regras Comerciais" na ficha do cliente com formulario dedicado e auditoria.
+
 ## Entregue, Mas Ainda Precisa Complemento
 
 ### Parsing de manifesto
@@ -187,12 +201,9 @@ Estado de referencia do projeto em 2026-04-15.
 
 ## Nao Tratar Como Pronto
 
-### Fase 2 pendente
+### Fase 2 — Encerrada
 
-- Homologar o motor de calculo de taxas locais (Etapa A) com migrations `016` a `019`.
-- Expandir o modulo de Taxas Locais (overrides completos, fluxo de faturamento e excecoes por cliente).
-- Regras comerciais por cliente.
-- Melhorias de produtividade na revisao manual.
+Todos os itens da Fase 2 foram entregues. Ver secao "Entregue e Em Uso".
 
 ### Fase 3
 
@@ -237,7 +248,7 @@ Estado de referencia do projeto em 2026-04-15.
 
 ### Fase 3 - Operacao expandida
 
-1. Implementar Alertas operacionais.
+1. ~~Implementar Alertas operacionais.~~ (entregue em Fase 3.1)
 2. Implementar Relatorios.
 3. Integrar alertas financeiros no modulo de faturamento.
 
@@ -245,6 +256,6 @@ Estado de referencia do projeto em 2026-04-15.
 
 Estado honesto:
 
-- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao e clientes, com hardening tecnico aplicado.
-- O sistema ainda nao deve ser tratado como produto completo.
-- O proximo ciclo correto e fechar homologacao operacional e abrir o sprint de Taxas Locais.
+- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao, clientes, taxas locais, faturamento e alertas — com hardening tecnico e regras comerciais por cliente.
+- Fase 1 e Fase 2 estao encerradas.
+- O proximo ciclo correto e Relatorios (Fase 3) e Line up TV / administracao (Fase 4).
