@@ -11,7 +11,8 @@ Estado de referencia do projeto em 2026-04-16.
 - Migration `023_customer_commercial_rules` versionada no repositorio.
 - Modulo de Faturamento hibrido ativo no app (single B/L + consolidada).
 - Fase 3.1 entregue: alertas operacionais, badges no nav, painel expandido.
-- Fase 3 restante (relatorios) e Fase 4 ainda nao foram implementadas.
+- Fase 3.2 entregue: modulo de Relatorios com tres abas (operacional, financeiro, por cliente) com filtros, KPIs e export xlsx.
+- Fase 4 ainda nao foi implementada.
 
 ## Entregue e Em Uso
 
@@ -166,6 +167,20 @@ Estado de referencia do projeto em 2026-04-16.
     na tabela `customers`.
   - Card "Regras Comerciais" na ficha do cliente com formulario dedicado e auditoria.
 
+### Relatorios (Fase 3.2)
+
+- Modulo `/relatorios` ativo com tres abas operacionais:
+  - **Operacional**: filtros por periodo, POD e modalidade; KPIs de B/Ls, containers
+    distintos, viagens, peso e CBM; tabela detalhada e export xlsx.
+  - **Financeiro**: filtros por periodo e status; KPIs de total emitido, pago, em aberto
+    e canceladas; tabela com invoice, cliente, datas e saldo; trata RLS com aviso
+    amigavel para nao-admin; export xlsx.
+  - **Por Cliente**: filtros por periodo; agregacao em memoria com B/Ls, peso, CBM,
+    invoices e totais por cliente; ranking por faturamento; export xlsx.
+- Servicos dedicados em `src/services/reports.ts` com limite de 2.000 linhas e flag
+  `truncated` para alertar quando o filtro precisa ser ajustado.
+- Link "Relatorios" adicionado ao dropdown Financeiro no nav.
+
 ## Entregue, Mas Ainda Precisa Complemento
 
 ### Parsing de manifesto
@@ -249,7 +264,7 @@ Todos os itens da Fase 2 foram entregues. Ver secao "Entregue e Em Uso".
 ### Fase 3 - Operacao expandida
 
 1. ~~Implementar Alertas operacionais.~~ (entregue em Fase 3.1)
-2. Implementar Relatorios.
+2. ~~Implementar Relatorios.~~ (entregue em Fase 3.2)
 3. Integrar alertas financeiros no modulo de faturamento.
 
 ## Conclusao objetiva

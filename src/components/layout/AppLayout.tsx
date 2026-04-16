@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  BarChart3,
   Bell,
   Boxes,
   Car,
@@ -46,6 +47,7 @@ const primaryNavItems: NavItem[] = [
 const financialNavItems: NavItem[] = [
   { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
+  { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
 ]
 
 export function AppLayout() {
