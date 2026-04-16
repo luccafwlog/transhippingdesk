@@ -51,3 +51,37 @@ export async function closeAlert(id: number): Promise<void> {
     .neq('status', 'closed')
   if (error) throw error
 }
+
+export async function createAlert(input: {
+  type: string
+  entityType: string
+  entityId: string
+  message: string
+}): Promise<void> {
+  const { error } = await supabase.from('alerts').insert({
+    type: input.type,
+    entity_type: input.entityType,
+    entity_id: input.entityId,
+    message: input.message,
+    status: 'open',
+  })
+  if (error) {
+    console.warn('Falha ao criar alerta financeiro', { type: input.type, error })
+  }
+}
+
+export async function listFinancialAlerts(): Promise<Alert[]> {
+  const { data, error } = await supabase
+    .from('alerts')
+    .select('*')
+    .eq('entity_type', 'invoice')
+    .neq('status', 'closed')
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) throw error
+  return (data ?? []) as Alert[]
+}
+
+export async function detectOverdueInvoices(): Promise<void> {
+  await supabase.rpc('detect_overdue_invoices')
+}

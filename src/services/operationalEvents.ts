@@ -4,6 +4,9 @@ type OperationalEventCode =
   | 'manifest_import_rate_limited'
   | 'manifest_import_duplicate_hash'
   | 'bl_review_concurrent_conflict'
+  | 'invoice_create_conflict'
+  | 'invoice_payment_invalid'
+  | 'invoice_cancel_blocked'
 
 type LogOperationalEventInput = {
   code: OperationalEventCode
