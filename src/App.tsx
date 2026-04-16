@@ -14,6 +14,7 @@ import { Clientes } from './pages/Clientes'
 import { ClienteFicha } from './pages/ClienteFicha'
 import { TaxasLocais } from './pages/TaxasLocais'
 import { Faturamento } from './pages/Faturamento'
+import { Alertas } from './pages/Alertas'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -35,7 +36,7 @@ export default function App() {
           <Route path="/clientes/:cnpj" element={<ClienteFicha />} />
           <Route path="/taxas-locais" element={<TaxasLocais />} />
           <Route path="/faturamento" element={<Faturamento />} />
-          <Route path="/alertas" element={<PlaceholderPage title="Alertas" phase="Fase 3" />} />
+          <Route path="/alertas" element={<Alertas />} />
           <Route path="/relatorios" element={<PlaceholderPage title="Relatorios" phase="Fase 3" />} />
           <Route path="/line-up-tv" element={<PlaceholderPage title="Line up TV" phase="Fase 4" />} />
         </Route>

@@ -1,17 +1,17 @@
 # Roadmap do Sistema
 
-Estado de referencia do projeto em 2026-04-15.
+Estado de referencia do projeto em 2026-04-16.
 
 ## Status Geral
 
 - Base web publicada e operacional em Firebase Hosting.
 - Backend em Supabase conectado e autenticado.
 - Fase 1 esta entregue e operando.
-- Fase 2 esta entregue em parte relevante, com hardening tecnico concluido.
-- Migration `020_billing_hybrid_workflow` versionada no repositorio.
-- Etapa A de Taxas Locais ativa com calculo por B/L, overrides e other charges manuais no detalhe do B/L.
+- Fase 2 esta entregue e encerrada: hardening tecnico, taxas locais, faturamento, regras comerciais, melhorias de revisao.
+- Migration `023_customer_commercial_rules` versionada no repositorio.
 - Modulo de Faturamento hibrido ativo no app (single B/L + consolidada).
-- Fases 3 e 4 ainda nao foram implementadas como produto final.
+- Fase 3.1 entregue: alertas operacionais, badges no nav, painel expandido.
+- Fase 3 restante (relatorios) e Fase 4 ainda nao foram implementadas.
 
 ## Entregue e Em Uso
 
@@ -135,6 +135,37 @@ Estado de referencia do projeto em 2026-04-15.
   - B/Ls vinculados
 - Geracao de PDF da invoice no frontend via `jsPDF` (estavel com React 19).
 
+### Estabilizacao operacional (Fase 2.2)
+
+- Auto-trigger de taxas locais (fire-and-forget) apos import CNTR e BB em
+  `manifestImport.ts` e `breakbulkImport.ts`: calcula em lotes de 5; falhas
+  de calculo nao invalidam o import.
+- Validacao com Zod nos formularios criticos: viagens (`voyageFormSchema`),
+  clientes (CNPJ/CPF + Razao Social) — erros inline por campo.
+- Global Error Boundary (`src/components/ErrorBoundary.tsx`): captura
+  excecoes React nao tratadas e exibe tela amigavel com reload.
+- Reconciliacao automatica aprimorada (`customerReconciliation.ts`):
+  `canonicalizeName()` remove sufixos legais (LTDA, S/A, EIRELI, EPP, ME)
+  e pontuacao antes da comparacao; terceiro mapa `customersByCanonicalName`
+  em `loadCustomerMaps()`. Permite casar "ALLOG GALERIA - TRANSPORTES LTDA."
+  com "ALLOG GALERIA TRANSPORTES".
+- Suite de testes estabilizada: 10 arquivos, 38 testes, 0 falhas.
+
+### Encerramento da Fase 2 (2026-04-16)
+
+- Melhorias de produtividade na revisao manual (`Revisao.tsx`):
+  - Busca por texto (B/L, consignatario, shipper) com filtro em memoria.
+  - Filtro por motivo de pendencia (pills clicaveis com todas as razoes unicas).
+  - Navegacao anterior/proximo dentro do modal sem fechar a fila.
+  - Avanco automatico para o proximo item apos salvar revisao.
+  - Contador de progresso no modal (X de Y).
+- Overrides de taxa com indicador de vigencia: ativa / futura / vencida / aberta.
+  Linhas vencidas aparecem com opacidade reduzida e texto riscado.
+- Regras comerciais por cliente (`migration 023_customer_commercial_rules`):
+  - Colunas `payment_terms_days` (default 30), `discount_pct` (default 0), `commercial_notes`
+    na tabela `customers`.
+  - Card "Regras Comerciais" na ficha do cliente com formulario dedicado e auditoria.
+
 ## Entregue, Mas Ainda Precisa Complemento
 
 ### Parsing de manifesto
@@ -170,17 +201,12 @@ Estado de referencia do projeto em 2026-04-15.
 
 ## Nao Tratar Como Pronto
 
-### Fase 2 pendente
+### Fase 2 — Encerrada
 
-- Homologar o motor de calculo de taxas locais (Etapa A) com migrations `016` a `019`.
-- Expandir o modulo de Taxas Locais (overrides completos, fluxo de faturamento e excecoes por cliente).
-- Regras comerciais por cliente.
-- Melhorias de produtividade na revisao manual.
-- Reconciliacao automatica mais forte cliente <-> B/L.
+Todos os itens da Fase 2 foram entregues. Ver secao "Entregue e Em Uso".
 
 ### Fase 3
 
-- Alertas operacionais.
 - Relatorios.
 
 ### Fase 4
@@ -206,16 +232,23 @@ Estado de referencia do projeto em 2026-04-15.
 3. Eventos criticos mapeados em observabilidade minima (`audit_logs`).
 4. Suite de integracao com Supabase real disponivel para homologacao controlada.
 
-### Fase 2.2 - Endurecimento da operacao
+### Fase 2.2 — Encerrada
 
-1. Executar homologacao operacional completa em ambiente real com evidencias.
-2. Melhorar parser com novos fixtures reais.
-3. Refinar reconciliacao automatica cliente <-> B/L.
-4. Decidir se a entidade de trecho sera formalizada antes da fase financeira.
+- Reconciliacao automatica: entregue (canonical name matching em `canonicalizeName()`).
+- Melhoria do parser: bloqueada — depende de novos fixtures reais de armadores.
+- Formalizacao da entidade de trecho: adiada para pos-Fase 3.
+
+### Fase 3.1 — Entregue
+
+- Badges no nav com contagens de pendencias (revisao, taxas, faturamento, alertas).
+- Painel expandido: KPIs de charge_status (taxas para revisar, prontos para faturar),
+  cards cliclantes que navegam para a tela correspondente, bug de encoding corrigido.
+- Modulo de Alertas ativo em `/alertas`: lista de alertas open/acknowledged,
+  acoes de reconhecer e fechar, badge no nav com total de alertas nao fechados.
 
 ### Fase 3 - Operacao expandida
 
-1. Implementar Alertas operacionais.
+1. ~~Implementar Alertas operacionais.~~ (entregue em Fase 3.1)
 2. Implementar Relatorios.
 3. Integrar alertas financeiros no modulo de faturamento.
 
@@ -223,6 +256,6 @@ Estado de referencia do projeto em 2026-04-15.
 
 Estado honesto:
 
-- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao e clientes, com hardening tecnico aplicado.
-- O sistema ainda nao deve ser tratado como produto completo.
-- O proximo ciclo correto e fechar homologacao operacional e abrir o sprint de Taxas Locais.
+- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao, clientes, taxas locais, faturamento e alertas — com hardening tecnico e regras comerciais por cliente.
+- Fase 1 e Fase 2 estao encerradas.
+- O proximo ciclo correto e Relatorios (Fase 3) e Line up TV / administracao (Fase 4).

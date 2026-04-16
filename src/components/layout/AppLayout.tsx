@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  Bell,
   Boxes,
   Car,
   ChevronDown,
@@ -17,12 +18,14 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
+import { useOperationalCounts } from '../../hooks/useOperationalCounts'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
+  badge?: number
 }
 
 const importNavItems: NavItem[] = [
@@ -37,6 +40,7 @@ const primaryNavItems: NavItem[] = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/alertas', label: 'Alertas', icon: Bell },
 ]
 
 const financialNavItems: NavItem[] = [
@@ -48,6 +52,7 @@ export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, signOut } = useAuth()
+  const counts = useOperationalCounts()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
@@ -65,6 +70,18 @@ export function AppLayout() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date())
+  const primaryNavItemsWithBadges: NavItem[] = primaryNavItems.map((item) =>
+    item.to === '/alertas' ? { ...item, badge: counts.openAlerts || undefined } : item,
+  )
+  const importNavItemsWithBadges: NavItem[] = importNavItems.map((item) =>
+    item.to === '/revisao' ? { ...item, badge: counts.pendingReview || undefined } : item,
+  )
+  const financialNavItemsWithBadges: NavItem[] = financialNavItems.map((item) => {
+    if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
+    if (item.to === '/faturamento') return { ...item, badge: counts.readyForBilling || undefined }
+    return item
+  })
+
   const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
   const isFinancialSectionActive = financialNavItems.some((item) => isPathActive(location.pathname, item.to))
 
@@ -162,14 +179,14 @@ export function AppLayout() {
         </div>
 
         <nav id="app-primary-navigation" className={cn('app-nav-scroll', mobileNavOpen && 'app-nav-scroll--open')}>
-          {primaryNavItems.slice(0, 2).map((item) => (
+          {primaryNavItemsWithBadges.slice(0, 2).map((item) => (
             <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
           ))}
 
           <TopNavDropdownMenu
             label="Importacao"
             icon={FileSpreadsheet}
-            items={importNavItems}
+            items={importNavItemsWithBadges}
             isActive={isImportSectionActive}
             isMobile={isMobileNav}
             desktopOpen={desktopImportOpen}
@@ -180,14 +197,14 @@ export function AppLayout() {
             onNavigate={closeMobileMenus}
           />
 
-          {primaryNavItems.slice(2).map((item) => (
+          {primaryNavItemsWithBadges.slice(2).map((item) => (
             <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
           ))}
 
           <TopNavDropdownMenu
             label="Financeiro"
             icon={DollarSign}
-            items={financialNavItems}
+            items={financialNavItemsWithBadges}
             isActive={isFinancialSectionActive}
             isMobile={isMobileNav}
             desktopOpen={desktopFinancialOpen}
@@ -211,26 +228,24 @@ function TopNavLink({
   to,
   label,
   icon: Icon,
+  badge,
   onNavigate,
 }: {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
+  badge?: number
   onNavigate?: () => void
 }) {
   return (
     <NavLink
       to={to}
       onClick={onNavigate}
-      className={({ isActive }) =>
-        cn(
-          'app-nav-link',
-          isActive && 'active',
-        )
-      }
+      className={({ isActive }) => cn('app-nav-link', isActive && 'active')}
     >
       <Icon size={18} />
       {label}
+      {badge ? <NavBadge count={badge} /> : null}
     </NavLink>
   )
 }
@@ -261,6 +276,7 @@ function TopNavDropdownMenu({
   onNavigate?: () => void
 }) {
   const isOpen = isMobile ? mobileOpen : desktopOpen
+  const totalBadge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0)
 
   return (
     <div
@@ -296,6 +312,7 @@ function TopNavDropdownMenu({
       >
         <Icon size={18} />
         {label}
+        {totalBadge > 0 && <NavBadge count={totalBadge} />}
         <ChevronDown size={16} className="app-nav-dropdown__chevron" />
       </button>
 
@@ -310,10 +327,19 @@ function TopNavDropdownMenu({
           >
             <item.icon size={16} />
             {item.label}
+            {item.badge ? <NavBadge count={item.badge} /> : null}
           </NavLink>
         ))}
       </div>
     </div>
+  )
+}
+
+function NavBadge({ count }: { count: number }) {
+  return (
+    <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white">
+      {count > 99 ? '99+' : count}
+    </span>
   )
 }
 

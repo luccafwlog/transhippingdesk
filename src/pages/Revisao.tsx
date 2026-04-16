@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Search } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -18,7 +18,56 @@ import { ConcurrentEditError, saveBlReview } from '../services/review'
 
 export function Revisao() {
   const { data, isLoading, error } = useReviewQueue()
-  const [selected, setSelected] = useState<ReviewQueueItem | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [searchText, setSearchText] = useState('')
+  const [reasonFilter, setReasonFilter] = useState<string | null>(null)
+
+  const filteredData = useMemo(() => {
+    if (!data) return []
+    let result = data
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase()
+      result = result.filter(
+        (item) =>
+          item.id.toLowerCase().includes(q) ||
+          (item.consignee ?? '').toLowerCase().includes(q) ||
+          (item.shipper ?? '').toLowerCase().includes(q),
+      )
+    }
+    if (reasonFilter) {
+      result = result.filter((item) => item.review_reasons?.includes(reasonFilter))
+    }
+    return result
+  }, [data, searchText, reasonFilter])
+
+  const allReasons = useMemo(() => {
+    if (!data) return []
+    const reasons = new Set<string>()
+    for (const item of data) {
+      for (const r of item.review_reasons ?? []) reasons.add(r)
+    }
+    return [...reasons].sort()
+  }, [data])
+
+  const selected = selectedIndex !== null ? (filteredData[selectedIndex] ?? null) : null
+
+  function openItem(index: number) {
+    setSelectedIndex(index)
+  }
+
+  function handleClose() {
+    setSelectedIndex(null)
+  }
+
+  function handleSaveSuccess() {
+    if (selectedIndex === null) return
+    // Advance to next item; if last, close
+    if (selectedIndex < filteredData.length - 1) {
+      setSelectedIndex(selectedIndex + 1)
+    } else {
+      setSelectedIndex(null)
+    }
+  }
 
   return (
     <>
@@ -26,6 +75,52 @@ export function Revisao() {
         title="Revisao Manual"
         description="Fila de B/Ls com pendencias de importacao que exigem validacao humana."
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <Input
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Buscar B/L, consignatario ou shipper..."
+            className="w-72 pl-8"
+          />
+          <Search className="pointer-events-none absolute left-2.5 top-2.5 text-slate-500" size={15} />
+          {searchText ? (
+            <button
+              type="button"
+              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+              onClick={() => setSearchText('')}
+            >
+              <X size={14} />
+            </button>
+          ) : null}
+        </div>
+
+        {allReasons.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {allReasons.map((reason) => (
+              <button
+                key={reason}
+                type="button"
+                onClick={() => setReasonFilter(reasonFilter === reason ? null : reason)}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                  reasonFilter === reason
+                    ? 'border-amber-500 bg-amber-500/20 text-amber-300'
+                    : 'border-[#30363d] text-slate-400 hover:border-[#484f58] hover:text-slate-200'
+                }`}
+              >
+                {reason}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {data && data.length > 0 ? (
+          <span className="ml-auto text-xs text-slate-500">
+            {filteredData.length} de {data.length} B/L{data.length !== 1 ? 's' : ''}
+          </span>
+        ) : null}
+      </div>
 
       <Card className="overflow-hidden p-0">
         {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar a fila de revisao.</div> : null}
@@ -50,14 +145,14 @@ export function Revisao() {
                   </td>
                 </tr>
               ) : null}
-              {!isLoading && !data?.length ? (
+              {!isLoading && !filteredData.length ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                    Nenhum B/L pendente de revisao.
+                    {data?.length ? 'Nenhum B/L corresponde ao filtro.' : 'Nenhum B/L pendente de revisao.'}
                   </td>
                 </tr>
               ) : null}
-              {data?.map((item) => (
+              {filteredData.map((item, index) => (
                 <tr key={item.id} className="hover:bg-[#21262d]/60">
                   <td className="px-4 py-3 font-semibold text-white">{item.id}</td>
                   <td className="px-4 py-3">
@@ -76,7 +171,7 @@ export function Revisao() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => setSelected(item)}>
+                      <Button variant="secondary" onClick={() => openItem(index)}>
                         Corrigir
                       </Button>
                       <Link className="app-table__action" to={`/manifestos/${item.id}`}>
@@ -91,12 +186,33 @@ export function Revisao() {
         </div>
       </Card>
 
-      <ReviewModal item={selected} onClose={() => setSelected(null)} />
+      <ReviewModal
+        item={selected}
+        currentIndex={selectedIndex}
+        totalItems={filteredData.length}
+        onClose={handleClose}
+        onSaveSuccess={handleSaveSuccess}
+        onNavigate={(index) => setSelectedIndex(index)}
+      />
     </>
   )
 }
 
-function ReviewModal({ item, onClose }: { item: ReviewQueueItem | null; onClose: () => void }) {
+function ReviewModal({
+  item,
+  currentIndex,
+  totalItems,
+  onClose,
+  onSaveSuccess,
+  onNavigate,
+}: {
+  item: ReviewQueueItem | null
+  currentIndex: number | null
+  totalItems: number
+  onClose: () => void
+  onSaveSuccess: () => void
+  onNavigate: (index: number) => void
+}) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -190,10 +306,18 @@ function ReviewModal({ item, onClose }: { item: ReviewQueueItem | null; onClose:
         queryClient.invalidateQueries({ queryKey: ['bl-detail', item.id] }),
         queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', item.id] }),
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['op-count'] }),
       ])
 
-      showToast('B/L revisado com sucesso.', 'success')
-      onClose()
+      const remaining = totalItems - 1
+      const isLast = currentIndex !== null && currentIndex >= totalItems - 1
+      showToast(
+        isLast
+          ? 'B/L revisado. Fila concluida.'
+          : `B/L revisado. Proximo: ${remaining - 1} restante${remaining - 1 !== 1 ? 's' : ''}.`,
+        'success',
+      )
+      onSaveSuccess()
     } catch (error) {
       if (error instanceof ConcurrentEditError) {
         void logOperationalEvent({
@@ -213,10 +337,39 @@ function ReviewModal({ item, onClose }: { item: ReviewQueueItem | null; onClose:
     }
   }
 
+  const canGoPrev = currentIndex !== null && currentIndex > 0
+  const canGoNext = currentIndex !== null && currentIndex < totalItems - 1
+
   return (
     <Modal open={Boolean(item)} onClose={onClose} title={item ? `Revisar B/L ${item.id}` : 'Revisar B/L'}>
       {item ? (
         <div className="grid gap-5">
+          {totalItems > 1 && currentIndex !== null ? (
+            <div className="flex items-center justify-between rounded-lg border border-[#30363d] bg-[#161b22] px-3 py-2 text-sm">
+              <button
+                type="button"
+                disabled={!canGoPrev}
+                onClick={() => canGoPrev && onNavigate(currentIndex - 1)}
+                className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+              >
+                <ChevronLeft size={15} />
+                Anterior
+              </button>
+              <span className="text-xs text-slate-500">
+                {currentIndex + 1} de {totalItems}
+              </span>
+              <button
+                type="button"
+                disabled={!canGoNext}
+                onClick={() => canGoNext && onNavigate(currentIndex + 1)}
+                className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+              >
+                Proximo
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          ) : null}
+
           <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
             <div className="mb-2 flex items-center gap-2 font-semibold">
               <AlertTriangle size={16} />

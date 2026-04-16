@@ -1460,8 +1460,25 @@ export function TaxasLocais() {
                       currency === 'USD'
                         ? Number(row.charge_item?.unit_value_usd ?? 0)
                         : Number(row.charge_item?.unit_value_brl ?? 0)
+                    const today = new Date().toISOString().slice(0, 10)
+                    const validFrom = row.valid_from
+                    const validTo = row.valid_to
+                    const overrideStatus: 'ativa' | 'futura' | 'vencida' | 'aberta' =
+                      !validFrom && !validTo
+                        ? 'aberta'
+                        : validTo && today > validTo
+                          ? 'vencida'
+                          : validFrom && today < validFrom
+                            ? 'futura'
+                            : 'ativa'
+                    const statusStyle = {
+                      ativa: 'text-emerald-400',
+                      aberta: 'text-emerald-400',
+                      futura: 'text-blue-400',
+                      vencida: 'text-slate-500 line-through',
+                    }[overrideStatus]
                     return (
-                      <tr key={row.id}>
+                      <tr key={row.id} className={overrideStatus === 'vencida' ? 'opacity-60' : undefined}>
                         <td className="px-4 py-3">
                           <div className="font-semibold text-white">{row.customer?.name ?? '-'}</div>
                           <div className="text-xs text-slate-400">{row.customer?.cnpj_cpf ?? '-'}</div>
@@ -1471,7 +1488,12 @@ export function TaxasLocais() {
                           {(row.charge_item?.charge_table?.cargo_mode ?? '').toUpperCase()} / {row.charge_item?.charge_table?.pod ?? '-'}
                         </td>
                         <td className="px-4 py-3">
-                          {row.valid_from ?? '-'} {row.valid_to ? `ate ${row.valid_to}` : '(aberta)'}
+                          <div className={`text-xs font-medium uppercase tracking-wide ${statusStyle}`}>
+                            {overrideStatus}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {validFrom ?? '-'}{validTo ? ` ate ${validTo}` : validFrom ? ' (aberta)' : ''}
+                          </div>
                         </td>
                         <td className="px-4 py-3">{currency === 'USD' ? formatUSD(baseValue) : formatBRL(baseValue)}</td>
                         <td className="px-4 py-3 font-semibold text-green-300">
