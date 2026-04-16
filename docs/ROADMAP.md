@@ -12,7 +12,7 @@ Estado de referencia do projeto em 2026-04-16.
 - Modulo de Faturamento hibrido ativo no app (single B/L + consolidada).
 - Fase 3.1 entregue: alertas operacionais, badges no nav, painel expandido.
 - Fase 3.2 entregue: modulo de Relatorios com tres abas (operacional, financeiro, por cliente) com filtros, KPIs e export xlsx.
-- Fase 4 ainda nao foi implementada.
+- Fase 4 parcialmente entregue: Line up TV e administracao de usuarios ativos.
 
 ## Entregue e Em Uso
 
@@ -167,6 +167,17 @@ Estado de referencia do projeto em 2026-04-16.
     na tabela `customers`.
   - Card "Regras Comerciais" na ficha do cliente com formulario dedicado e auditoria.
 
+### Line up TV e Administracao (Fase 4)
+
+- Tela `/line-up-tv`: visao consolidada das viagens ativas e concluidas com colunas
+  de armador, navio, viagem, rota (POL → POD), ETD/ETA/ATA, contagem de B/Ls, containers
+  distintos e cargas soltas. Filtro por status (todas / ativas / concluidas). Auto-refresh
+  a cada 90 segundos com botao de atualizacao manual.
+- Tela `/admin/usuarios` (acesso restrito a admins): listagem de todos os perfis de usuario
+  com funcao (admin / operador) e status (ativo / inativo). Acoes inline para alternar
+  funcao e status sem sair da tela.
+- Dropdown "Admin" no nav: visivel apenas para usuarios com `role = 'admin'`.
+
 ### Relatorios (Fase 3.2)
 
 - Modulo `/relatorios` ativo com tres abas operacionais:
@@ -226,8 +237,8 @@ Todos os itens da Fase 2 foram entregues. Ver secao "Entregue e Em Uso".
 
 ### Fase 4
 
-- Line up TV.
-- Administracao de usuarios.
+- ~~Line up TV.~~ (entregue)
+- ~~Administracao de usuarios.~~ (entregue)
 - Administracao de tarifas.
 
 ## Principais Riscos Atuais

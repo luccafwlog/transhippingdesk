@@ -16,6 +16,8 @@ import { TaxasLocais } from './pages/TaxasLocais'
 import { Faturamento } from './pages/Faturamento'
 import { Alertas } from './pages/Alertas'
 import { Relatorios } from './pages/Relatorios'
+import { LineUpTV } from './pages/LineUpTV'
+import { AdminUsuarios } from './pages/AdminUsuarios'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -39,12 +41,12 @@ export default function App() {
           <Route path="/faturamento" element={<Faturamento />} />
           <Route path="/alertas" element={<Alertas />} />
           <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/line-up-tv" element={<PlaceholderPage title="Line up TV" phase="Fase 4" />} />
+          <Route path="/line-up-tv" element={<LineUpTV />} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>
         <Route element={<AppLayout />}>
-          <Route path="/admin/usuarios" element={<PlaceholderPage title="Admin - Usuarios" phase="Fase 4" />} />
+          <Route path="/admin/usuarios" element={<AdminUsuarios />} />
           <Route path="/admin/tarifas" element={<PlaceholderPage title="Admin - Tarifas" phase="Fase 4" />} />
         </Route>
       </Route>
