@@ -14,6 +14,8 @@ import {
   Menu,
   ReceiptText,
   Ship,
+  ShieldCheck,
+  Tv,
   Users,
   X,
 } from 'lucide-react'
@@ -42,6 +44,11 @@ const primaryNavItems: NavItem[] = [
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/alertas', label: 'Alertas', icon: Bell },
+  { to: '/line-up-tv', label: 'Line up TV', icon: Tv },
+]
+
+const adminNavItems: NavItem[] = [
+  { to: '/admin/usuarios', label: 'Usuarios', icon: ShieldCheck },
 ]
 
 const financialNavItems: NavItem[] = [
@@ -53,13 +60,15 @@ const financialNavItems: NavItem[] = [
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, isAdmin } = useAuth()
   const counts = useOperationalCounts()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
   const [mobileFinancialOpen, setMobileFinancialOpen] = useState(false)
   const [desktopFinancialOpen, setDesktopFinancialOpen] = useState(false)
+  const [mobileAdminOpen, setMobileAdminOpen] = useState(false)
+  const [desktopAdminOpen, setDesktopAdminOpen] = useState(false)
   const [isMobileNav, setIsMobileNav] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
   )
@@ -86,6 +95,7 @@ export function AppLayout() {
 
   const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
   const isFinancialSectionActive = financialNavItems.some((item) => isPathActive(location.pathname, item.to))
+  const isAdminSectionActive = adminNavItems.some((item) => isPathActive(location.pathname, item.to))
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 768px)')
@@ -95,9 +105,11 @@ export function AppLayout() {
         setMobileNavOpen(false)
         setMobileImportOpen(false)
         setMobileFinancialOpen(false)
+        setMobileAdminOpen(false)
       } else {
         setDesktopImportOpen(false)
         setDesktopFinancialOpen(false)
+        setDesktopAdminOpen(false)
       }
     }
 
@@ -115,6 +127,8 @@ export function AppLayout() {
     setDesktopImportOpen(false)
     setMobileFinancialOpen(false)
     setDesktopFinancialOpen(false)
+    setMobileAdminOpen(false)
+    setDesktopAdminOpen(false)
   }
 
   async function handleSignOut() {
@@ -199,6 +213,10 @@ export function AppLayout() {
     onNavigate={closeMobileMenus}
   />
 
+  {primaryNavItemsWithBadges.slice(2).map((item) => (
+    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+  ))}
+
   <TopNavDropdownMenu
     label="Financeiro"
     icon={DollarSign}
@@ -213,10 +231,22 @@ export function AppLayout() {
     onNavigate={closeMobileMenus}
   />
 
-  {primaryNavItemsWithBadges.slice(2).map((item) => (
-    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
-  ))}
-</nav>  
+  {isAdmin && (
+    <TopNavDropdownMenu
+      label="Admin"
+      icon={ShieldCheck}
+      items={adminNavItems}
+      isActive={isAdminSectionActive}
+      isMobile={isMobileNav}
+      desktopOpen={desktopAdminOpen}
+      mobileOpen={mobileAdminOpen}
+      onOpenDesktop={() => setDesktopAdminOpen(true)}
+      onCloseDesktop={() => setDesktopAdminOpen(false)}
+      onToggleMobile={() => setMobileAdminOpen((current) => !current)}
+      onNavigate={closeMobileMenus}
+    />
+  )}
+</nav>
       </div>
 
       <main className="app-main">

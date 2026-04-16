@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Calculator, CheckSquare, Download, Pencil, Plus, RefreshCw, Save, Square, Trash2, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
@@ -1013,8 +1013,8 @@ export function TaxasLocais() {
                   ) : null}
                   {!tablesLoading && (tables?.length ?? 0) === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                        Nenhuma tabela encontrada.
+                      <td colSpan={7} className="p-0">
+                        <EmptyState title="Nenhuma tabela encontrada." />
                       </td>
                     </tr>
                   ) : null}
@@ -1228,7 +1228,7 @@ export function TaxasLocais() {
           </Card>
 
           <Card className="overflow-hidden p-0">
-            {operationsError ? <div className="p-5 text-sm text-red-200">Falha ao carregar operacao de taxas locais.</div> : null}
+            {operationsError ? <InlineError message="Falha ao carregar operacao de taxas locais." /> : null}
             <div className="app-table-scroll">
               <table className="app-table app-table--compact min-w-[1480px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -1264,8 +1264,8 @@ export function TaxasLocais() {
                   ) : null}
                   {!operationsLoading && (operationsRows?.length ?? 0) === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={15}>
-                        Nenhum B/L encontrado nesta visao operacional.
+                      <td colSpan={15} className="p-0">
+                        <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
                       </td>
                     </tr>
                   ) : null}
@@ -1424,7 +1424,7 @@ export function TaxasLocais() {
           </Card>
 
           <Card className="overflow-hidden p-0">
-            {overridesError ? <div className="p-5 text-sm text-red-200">Falha ao consultar overrides.</div> : null}
+            {overridesError ? <InlineError message="Falha ao consultar overrides." /> : null}
             <div className="app-table-scroll">
               <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -1449,8 +1449,8 @@ export function TaxasLocais() {
                   ) : null}
                   {!overridesLoading && (overrideRows?.length ?? 0) === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
-                        Nenhum override encontrado.
+                      <td colSpan={8} className="p-0">
+                        <EmptyState title="Nenhum override encontrado." />
                       </td>
                     </tr>
                   ) : null}
@@ -1672,8 +1672,8 @@ export function TaxasLocais() {
                   ) : null}
                   {!simulationLinesLoading && (simulationLines?.length ?? 0) === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
-                        Nenhuma linha de taxa para exibir. Informe um B/L e clique em Calcular.
+                      <td colSpan={9} className="p-0">
+                        <EmptyState title="Nenhuma linha de taxa para exibir." description="Informe um B/L e clique em Calcular." />
                       </td>
                     </tr>
                   ) : null}

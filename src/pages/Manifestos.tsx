@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -187,9 +187,7 @@ export function Manifestos() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        {error ? (
-          <div className="p-5 text-sm text-red-200">Erro ao carregar manifestos. Verifique Supabase e migrations.</div>
-        ) : null}
+        {error ? <InlineError message="Erro ao carregar manifestos." /> : null}
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[920px] text-left text-sm whitespace-nowrap">
@@ -218,8 +216,8 @@ export function Manifestos() {
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
-                    Nenhum B/L encontrado.
+                  <td colSpan={11} className="p-0">
+                    <EmptyState title="Nenhum B/L encontrado." description="Importe um manifesto ou ajuste os filtros." />
                   </td>
                 </tr>
               ) : null}

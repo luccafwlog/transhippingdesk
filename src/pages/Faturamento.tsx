@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Ban, DollarSign, FileDown, FilePlus2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -297,13 +297,13 @@ export function Faturamento() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar faturamento.</div> : null}
+        {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1040px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-4 py-3">Invoice</th><th className="px-4 py-3">Cliente</th><th className="px-4 py-3">Emissao</th><th className="px-4 py-3">Vencimento</th><th className="px-4 py-3">B/Ls</th><th className="px-4 py-3">Total</th><th className="px-4 py-3">Pago</th><th className="px-4 py-3">Saldo</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Acoes</th></tr></thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">Carregando invoices...</td></tr> : null}
-              {!isLoading && invoices.length === 0 ? <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">Nenhuma invoice encontrada.</td></tr> : null}
+              {!isLoading && invoices.length === 0 ? <tr><td colSpan={10} className="p-0"><EmptyState title="Nenhuma invoice encontrada." description="Emita uma nova invoice ou ajuste os filtros." /></td></tr> : null}
               {invoices.map((invoice) => (
                 <tr key={invoice.id}>
                   <td className="px-4 py-3 font-semibold text-[#58a6ff]">{invoice.invoice_number ?? `INV-${invoice.id}`}</td>
@@ -341,7 +341,7 @@ export function Faturamento() {
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-3 py-2">Sel.</th><th className="px-3 py-2">B/L</th><th className="px-3 py-2">Cliente</th><th className="px-3 py-2">Viagem</th><th className="px-3 py-2">Trecho</th></tr></thead>
               <tbody className="divide-y divide-[#30363d]">
                 {loadingReadyBls ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Carregando B/Ls elegiveis...</td></tr> : null}
-                {!loadingReadyBls && filteredReadyBls.length === 0 ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Nenhum B/L pronto para faturar.</td></tr> : null}
+                {!loadingReadyBls && filteredReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
                 {filteredReadyBls.map((row) => (
                   <tr key={row.id}>
                     <td className="px-3 py-2"><input type="checkbox" checked={selectedBls.includes(row.id)} onChange={() => toggleBl(row.id)} /></td>

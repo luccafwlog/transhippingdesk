@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -226,7 +226,7 @@ export function Veiculos() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar veiculos.</div> : null}
+        {error ? <InlineError message="Erro ao carregar veiculos." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -252,8 +252,8 @@ export function Veiculos() {
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
-                    Nenhum veiculo encontrado.
+                  <td colSpan={9} className="p-0">
+                    <EmptyState title="Nenhum veiculo encontrado." description="Importe uma planilha de veiculos ou ajuste os filtros." />
                   </td>
                 </tr>
               ) : null}

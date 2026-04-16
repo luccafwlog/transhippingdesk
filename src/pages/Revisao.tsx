@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -123,7 +123,7 @@ export function Revisao() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar a fila de revisao.</div> : null}
+        {error ? <InlineError message="Erro ao carregar a fila de revisao." /> : null}
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
@@ -147,8 +147,11 @@ export function Revisao() {
               ) : null}
               {!isLoading && !filteredData.length ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                    {data?.length ? 'Nenhum B/L corresponde ao filtro.' : 'Nenhum B/L pendente de revisao.'}
+                  <td colSpan={6} className="p-0">
+                    <EmptyState
+                      title={data?.length ? 'Nenhum B/L corresponde ao filtro.' : 'Nenhum B/L pendente de revisao.'}
+                      description={data?.length ? 'Limpe os filtros para ver todos os pendentes.' : undefined}
+                    />
                   </td>
                 </tr>
               ) : null}

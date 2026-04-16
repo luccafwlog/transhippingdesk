@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -293,7 +293,7 @@ export function CargaSolta() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar carga solta.</div> : null}
+        {error ? <InlineError message="Erro ao carregar carga solta." /> : null}
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1420px] text-left text-sm whitespace-nowrap">
@@ -325,8 +325,8 @@ export function CargaSolta() {
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={14}>
-                    Nenhum B/L de carga solta encontrado.
+                  <td colSpan={14} className="p-0">
+                    <EmptyState title="Nenhum B/L de carga solta encontrado." description="Importe um manifesto BB ou ajuste os filtros." />
                   </td>
                 </tr>
               ) : null}
