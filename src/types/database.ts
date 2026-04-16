@@ -518,6 +518,10 @@ export type Database = {
         }
         Returns: Json
       }
+      detect_overdue_invoices: {
+        Args: Record<string, never>
+        Returns: number
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
