@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
-import { PageHeader } from '../components/ui/Card'
+import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { supabase } from '../services/supabase'
 
 type VoyageTV = {
@@ -156,11 +156,7 @@ export function LineUpTV() {
         <span className="ml-auto text-xs text-slate-500">{voyages.length} viagem{voyages.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-red-900/40 bg-red-900/20 px-4 py-3 text-sm text-red-200">
-          Erro ao carregar viagens.
-        </div>
-      ) : null}
+      {error ? <InlineError message="Erro ao carregar viagens." /> : null}
 
       {isLoading ? (
         <div className="py-16 text-center text-slate-400">Carregando line up...</div>
@@ -184,8 +180,8 @@ export function LineUpTV() {
             <tbody className="divide-y divide-[#30363d]">
               {voyages.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-10 text-center text-slate-400">
-                    Nenhuma viagem encontrada.
+                  <td colSpan={10} className="p-0">
+                    <EmptyState title="Nenhuma viagem encontrada." description="Ajuste o filtro de status ou aguarde o proximo ciclo." />
                   </td>
                 </tr>
               ) : null}

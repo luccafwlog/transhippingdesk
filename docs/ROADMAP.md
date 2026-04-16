@@ -12,7 +12,7 @@ Estado de referencia do projeto em 2026-04-16.
 - Modulo de Faturamento hibrido ativo no app (single B/L + consolidada).
 - Fase 3.1 entregue: alertas operacionais, badges no nav, painel expandido.
 - Fase 3.2 entregue: modulo de Relatorios com tres abas (operacional, financeiro, por cliente) com filtros, KPIs e export xlsx.
-- Fase 4 parcialmente entregue: Line up TV e administracao de usuarios ativos.
+- Fase 4 encerrada: Line up TV, administracao de usuarios e dropdown Admin no nav. Administracao de tarifas descartada (nao necessaria).
 
 ## Entregue e Em Uso
 
@@ -235,11 +235,9 @@ Todos os itens da Fase 2 foram entregues. Ver secao "Entregue e Em Uso".
 
 - Relatorios.
 
-### Fase 4
+### Fase 4 — Encerrada
 
-- ~~Line up TV.~~ (entregue)
-- ~~Administracao de usuarios.~~ (entregue)
-- Administracao de tarifas.
+Todos os itens planejados foram entregues. Administracao de tarifas descartada pelo time.
 
 ## Principais Riscos Atuais
 
@@ -276,12 +274,25 @@ Todos os itens da Fase 2 foram entregues. Ver secao "Entregue e Em Uso".
 
 1. ~~Implementar Alertas operacionais.~~ (entregue em Fase 3.1)
 2. ~~Implementar Relatorios.~~ (entregue em Fase 3.2)
-3. Integrar alertas financeiros no modulo de faturamento.
+3. ~~Integrar alertas financeiros no modulo de faturamento.~~ (entregue em Fase 3.3)
+
+### Fase 4 — Encerrada
+
+1. ~~Line up TV.~~ (entregue)
+2. ~~Administracao de usuarios.~~ (entregue)
+3. Administracao de tarifas: descartada pelo time.
+
+### Ciclo atual — Refinamento de UX/UI
+
+- Padronizacao de feedback visual em botoes (spinner de loading).
+- Empty states com icone nas tabelas principais.
+- Padronizacao de mensagens de erro inline.
+- Remocao de rotas placeholder inacessiveis.
 
 ## Conclusao objetiva
 
 Estado honesto:
 
-- O sistema ja atende a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao, clientes, taxas locais, faturamento e alertas — com hardening tecnico e regras comerciais por cliente.
-- Fase 1 e Fase 2 estao encerradas.
-- O proximo ciclo correto e Relatorios (Fase 3) e Line up TV / administracao (Fase 4).
+- O sistema atende integralmente a operacao assistida de viagens, manifestos CNTR, carga solta, veiculos, revisao, clientes, taxas locais, faturamento, alertas, relatorios, line up TV e administracao de usuarios.
+- Todas as fases planejadas (1, 2, 3, 4) foram encerradas.
+- O ciclo atual foca em refinamento de UX/UI e qualidade visual sem novas funcionalidades.

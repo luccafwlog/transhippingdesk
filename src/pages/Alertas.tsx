@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Bell, CheckCheck } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
 import { acknowledgeAlert, closeAlert, listAlerts, type AlertStatusFilter } from '../services/alerts'
@@ -79,9 +79,7 @@ export function Alertas() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        {error ? (
-          <div className="p-5 text-sm text-red-200">Erro ao carregar alertas.</div>
-        ) : null}
+        {error ? <InlineError message="Erro ao carregar alertas." /> : null}
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[780px] text-left text-sm">

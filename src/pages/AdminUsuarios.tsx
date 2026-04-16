@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { PageHeader } from '../components/ui/Card'
+import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
 import { listAllUserProfiles, updateUserProfile } from '../services/adminUsers'
@@ -48,11 +48,7 @@ export function AdminUsuarios() {
         description="Gerencie perfis, funcoes e acesso dos operadores do sistema."
       />
 
-      {error ? (
-        <div className="rounded-lg border border-red-900/40 bg-red-900/20 px-4 py-3 text-sm text-red-200">
-          Erro ao carregar usuarios.
-        </div>
-      ) : null}
+      {error ? <InlineError message="Erro ao carregar usuarios." /> : null}
 
       {isLoading ? (
         <div className="py-16 text-center text-slate-400">Carregando usuarios...</div>
@@ -71,8 +67,8 @@ export function AdminUsuarios() {
             <tbody className="divide-y divide-[#30363d]">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
-                    Nenhum usuario encontrado.
+                  <td colSpan={5} className="p-0">
+                    <EmptyState title="Nenhum usuario encontrado." />
                   </td>
                 </tr>
               ) : null}

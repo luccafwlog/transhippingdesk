@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { Download, Plus, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -342,7 +342,7 @@ export function Clientes() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar clientes.</div> : null}
+        {error ? <InlineError message="Erro ao carregar clientes." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -366,8 +366,8 @@ export function Clientes() {
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    Nenhum cliente encontrado.
+                  <td colSpan={7} className="p-0">
+                    <EmptyState title="Nenhum cliente encontrado." description="Importe uma base de clientes ou cadastre manualmente." />
                   </td>
                 </tr>
               ) : null}

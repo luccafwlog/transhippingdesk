@@ -18,7 +18,6 @@ import { Alertas } from './pages/Alertas'
 import { Relatorios } from './pages/Relatorios'
 import { LineUpTV } from './pages/LineUpTV'
 import { AdminUsuarios } from './pages/AdminUsuarios'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
   return (
@@ -47,7 +46,6 @@ export default function App() {
       <Route element={<ProtectedRoute adminOnly />}>
         <Route element={<AppLayout />}>
           <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-          <Route path="/admin/tarifas" element={<PlaceholderPage title="Admin - Tarifas" phase="Fase 4" />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/painel" replace />} />

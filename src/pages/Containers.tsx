@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -258,7 +258,7 @@ export function Containers() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar containers.</div> : null}
+        {error ? <InlineError message="Erro ao carregar containers." /> : null}
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1060px] border-collapse text-left text-sm whitespace-nowrap">
@@ -286,8 +286,8 @@ export function Containers() {
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
-                    Nenhum container encontrado.
+                  <td colSpan={10} className="p-0">
+                    <EmptyState title="Nenhum container encontrado." description="Ajuste os filtros de viagem ou POD." />
                   </td>
                 </tr>
               ) : null}
