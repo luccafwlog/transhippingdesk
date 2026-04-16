@@ -181,42 +181,42 @@ export function AppLayout() {
         </div>
 
         <nav id="app-primary-navigation" className={cn('app-nav-scroll', mobileNavOpen && 'app-nav-scroll--open')}>
-          {primaryNavItemsWithBadges.slice(0, 2).map((item) => (
-            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
-          ))}
+  {primaryNavItemsWithBadges.slice(0, 2).map((item) => (
+    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+  ))}
 
-          <TopNavDropdownMenu
-            label="Importacao"
-            icon={FileSpreadsheet}
-            items={importNavItemsWithBadges}
-            isActive={isImportSectionActive}
-            isMobile={isMobileNav}
-            desktopOpen={desktopImportOpen}
-            mobileOpen={mobileImportOpen}
-            onOpenDesktop={() => setDesktopImportOpen(true)}
-            onCloseDesktop={() => setDesktopImportOpen(false)}
-            onToggleMobile={() => setMobileImportOpen((current) => !current)}
-            onNavigate={closeMobileMenus}
-          />
+  <TopNavDropdownMenu
+    label="Importacao"
+    icon={FileSpreadsheet}
+    items={importNavItemsWithBadges}
+    isActive={isImportSectionActive}
+    isMobile={isMobileNav}
+    desktopOpen={desktopImportOpen}
+    mobileOpen={mobileImportOpen}
+    onOpenDesktop={() => setDesktopImportOpen(true)}
+    onCloseDesktop={() => setDesktopImportOpen(false)}
+    onToggleMobile={() => setMobileImportOpen((current) => !current)}
+    onNavigate={closeMobileMenus}
+  />
 
-          {primaryNavItemsWithBadges.slice(2).map((item) => (
-            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
-          ))}
+  <TopNavDropdownMenu
+    label="Financeiro"
+    icon={DollarSign}
+    items={financialNavItemsWithBadges}
+    isActive={isFinancialSectionActive}
+    isMobile={isMobileNav}
+    desktopOpen={desktopFinancialOpen}
+    mobileOpen={mobileFinancialOpen}
+    onOpenDesktop={() => setDesktopFinancialOpen(true)}
+    onCloseDesktop={() => setDesktopFinancialOpen(false)}
+    onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
+    onNavigate={closeMobileMenus}
+  />
 
-          <TopNavDropdownMenu
-            label="Financeiro"
-            icon={DollarSign}
-            items={financialNavItemsWithBadges}
-            isActive={isFinancialSectionActive}
-            isMobile={isMobileNav}
-            desktopOpen={desktopFinancialOpen}
-            mobileOpen={mobileFinancialOpen}
-            onOpenDesktop={() => setDesktopFinancialOpen(true)}
-            onCloseDesktop={() => setDesktopFinancialOpen(false)}
-            onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
-            onNavigate={closeMobileMenus}
-          />
-        </nav>
+  {primaryNavItemsWithBadges.slice(2).map((item) => (
+    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+  ))}
+</nav>  
       </div>
 
       <main className="app-main">
