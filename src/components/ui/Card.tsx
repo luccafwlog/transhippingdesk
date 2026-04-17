@@ -18,17 +18,19 @@ export function EmptyState({
   description?: string
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 py-14 text-center">
-      <Icon size={36} className="text-slate-600" strokeWidth={1.5} />
-      <p className="text-sm font-medium text-slate-400">{title}</p>
-      {description ? <p className="text-xs text-slate-500">{description}</p> : null}
+    <div className="app-empty-state">
+      <div className="app-empty-state__icon">
+        <Icon size={34} strokeWidth={1.7} />
+      </div>
+      <p className="app-empty-state__title">{title}</p>
+      {description ? <p className="app-empty-state__description">{description}</p> : null}
     </div>
   )
 }
 
 export function InlineError({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-red-900/40 bg-red-900/20 px-4 py-3 text-sm text-red-200">
+    <div className="app-inline-error">
       <AlertCircle size={15} className="shrink-0" />
       {message}
     </div>

@@ -16,6 +16,7 @@ import {
   Ship,
   ShieldCheck,
   Tv,
+  User,
   Users,
   X,
 } from 'lucide-react'
@@ -143,7 +144,7 @@ export function AppLayout() {
           <div className="app-market-strip__left">
             <span className="app-market-chip">Operacao interna</span>
             <strong className="app-market-value">Transhipping Desk</strong>
-            <span className="app-market-separator">•</span>
+            <span className="app-market-separator">|</span>
             <span className="app-market-meta">{currentDate}</span>
           </div>
           <div className="app-market-strip__right">
@@ -159,15 +160,15 @@ export function AppLayout() {
           <button className="app-header__brand" onClick={() => navigate('/painel')} type="button">
             <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
             <div className="app-header__titles">
-              <div className="app-header__eyebrow">Desk Operacional</div>
-              <div className="app-header__subtitle">by ljuliatti</div>
+              <div className="app-header__eyebrow">Desk operacional</div>
+              <div className="app-header__subtitle">manifestos, revisao e faturamento</div>
             </div>
           </button>
 
           <div className="app-header__actions">
             <div className="app-user-pill" title={profile?.role ?? 'operator'}>
               <span className="app-user-pill__icon" aria-hidden="true">
-                👤
+                <User size={14} />
               </span>
               <span className="app-user-pill__name">{profile?.full_name ?? 'Usuario'}</span>
             </div>
@@ -369,7 +370,7 @@ function TopNavDropdownMenu({
 
 function NavBadge({ count }: { count: number }) {
   return (
-    <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white">
+    <span className="app-nav-badge">
       {count > 99 ? '99+' : count}
     </span>
   )
@@ -378,3 +379,4 @@ function NavBadge({ count }: { count: number }) {
 function isPathActive(pathname: string, to: string) {
   return pathname === to || pathname.startsWith(`${to}/`)
 }
+

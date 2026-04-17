@@ -15,8 +15,8 @@ export function Modal({
   if (!open) return null
 
   return (
-    <div className="app-modal-backdrop">
-      <div className="app-modal">
+    <div className="app-modal-backdrop" onClick={onClose}>
+      <div className="app-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
         <div className="app-modal__header">
           <h2 className="app-modal__title">{title}</h2>
           <Button variant="ghost" className="app-modal__close" onClick={onClose} aria-label="Fechar modal">

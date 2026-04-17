@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo, useState, type PropsWithChildren } from 'react'
+import { AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 type ToastType = 'success' | 'error' | 'info'
@@ -28,6 +29,8 @@ export function ToastProvider({ children }: PropsWithChildren) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
+            role="status"
+            aria-live="polite"
             className={cn(
               'app-toast',
               toast.type === 'success' && 'app-toast--success',
@@ -35,7 +38,12 @@ export function ToastProvider({ children }: PropsWithChildren) {
               toast.type === 'info' && 'app-toast--info',
             )}
           >
-            {toast.message}
+            <span className="app-toast__icon" aria-hidden="true">
+              {toast.type === 'success' ? <CheckCircle2 size={18} /> : null}
+              {toast.type === 'error' ? <AlertTriangle size={18} /> : null}
+              {toast.type === 'info' ? <Info size={18} /> : null}
+            </span>
+            <span>{toast.message}</span>
           </div>
         ))}
       </div>

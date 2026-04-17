@@ -15,11 +15,11 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 })
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(base, !hasWidthOverride(className) && 'app-input--full', className)} {...props} />
+  return <select className={cn(base, 'app-select', !hasWidthOverride(className) && 'app-input--full', className)} {...props} />
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn(base, 'app-input--full', 'min-h-24', className)} {...props} />
+  return <textarea className={cn(base, 'app-input--full', 'app-textarea', className)} {...props} />
 }
 
 export function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
+import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { isSupabaseConfigured } from '../services/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -45,7 +45,7 @@ export function Login() {
         </div>
 
         {!isSupabaseConfigured ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="app-callout app-callout--warning">
             Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env antes de autenticar.
           </div>
         ) : null}
@@ -64,14 +64,14 @@ export function Login() {
             />
           </Field>
 
-          {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+          {error ? <InlineError message={error} /> : null}
 
           <Button loading={submitting} type="submit">
             Entrar
           </Button>
         </form>
 
-        <p className="text-xs text-slate-500">Nao ha cadastro publico. Usuarios sao provisionados pelo admin.</p>
+        <p className="app-auth__meta">Nao ha cadastro publico. Usuarios sao provisionados pelo admin.</p>
       </Card>
     </main>
   )
