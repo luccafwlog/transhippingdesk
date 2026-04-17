@@ -573,148 +573,8 @@ export function BlDetalhe() {
         </Card>
       </form>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-2">
-        <Card>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-white">
-              {isContainerMode ? 'Containers vinculados' : 'Resumo da carga solta'}
-            </h2>
-            {isContainerMode ? (
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="blue">{containerSummary.distinct} CNTRS</Badge>
-                <Badge tone="red">{containerSummary.imo} IMO</Badge>
-                <Badge tone="yellow">{containerSummary.oog} OOG</Badge>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="green">{formatNumber(breakbulkSummary.machines)} maquinas</Badge>
-                <Badge tone="blue">{formatNumber(breakbulkSummary.packagesTotal)} packages total</Badge>
-                <Badge tone="yellow">{formatNumber(breakbulkSummary.weightTon)} ton</Badge>
-                <Badge tone="slate">{formatNumber(breakbulkSummary.cbm)} CBM</Badge>
-              </div>
-            )}
-          </div>
-
-          <div className="app-table-scroll">
-            {isContainerMode ? (
-              <table className="app-table app-table--compact min-w-[720px] text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="py-2">No. Container</th>
-                    <th className="py-2">Seal</th>
-                    <th className="py-2">Tipo</th>
-                    <th className="py-2">Peso bruto</th>
-                    <th className="py-2">CBM</th>
-                    <th className="py-2">OOG</th>
-                    <th className="py-2">IMO</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#30363d]">
-                  {bl.bl_containers?.length ? (
-                    bl.bl_containers.map((container) => (
-                      <tr key={container.id}>
-                        <td className="py-2 font-semibold text-white">{container.container_number}</td>
-                        <td className="py-2">{container.seal_number ?? '-'}</td>
-                        <td className="py-2">{container.type ?? '-'}</td>
-                        <td className="py-2">{formatNumber(container.gross_weight_kg)} kg</td>
-                        <td className="py-2">{formatNumber(container.cbm)}</td>
-                        <td className="py-2">{container.is_oog ? <Badge tone="yellow">OOG</Badge> : '-'}</td>
-                        <td className="py-2">{container.is_imo ? <Badge tone="red">IMO</Badge> : '-'}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="py-3 text-slate-400" colSpan={7}>
-                        Nenhum container vinculado a este B/L.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            ) : (
-              <div className="grid gap-4">
-                <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
-                  <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
-                    <tr>
-                      <th className="py-2">CE</th>
-                      <th className="py-2">Maquinas</th>
-                      <th className="py-2">Packages</th>
-                      <th className="py-2">Packages Total</th>
-                      <th className="py-2">Weight (Ton)</th>
-                      <th className="py-2">CBM (M3)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#30363d]">
-                    <tr>
-                      <td className="py-2">{bl.ce_mercante ?? '-'}</td>
-                      <td className="py-2">{formatNumber(bl.bb_machine_qty)}</td>
-                      <td className="py-2">{formatNumber(bl.bb_packages_qty)}</td>
-                      <td className="py-2">{formatNumber(bl.bb_packages_total ?? bl.bb_packages_qty)}</td>
-                      <td className="py-2">{formatNumber(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : null))}</td>
-                      <td className="py-2">{formatNumber(bl.total_cbm)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                <table className="app-table app-table--compact min-w-[920px] text-left text-sm">
-                  <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
-                    <tr>
-                      <th className="py-2">Shipper</th>
-                      <th className="py-2">Consignee</th>
-                      <th className="py-2">Notify</th>
-                      <th className="py-2">POL</th>
-                      <th className="py-2">POD</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#30363d]">
-                    <tr>
-                      <td className="py-2">{bl.shipper ?? '-'}</td>
-                      <td className="py-2">{bl.customer?.name ?? bl.consignee ?? '-'}</td>
-                      <td className="py-2">{bl.notify_party ?? '-'}</td>
-                      <td className="py-2">{bl.pol ?? '-'}</td>
-                      <td className="py-2">{bl.pod ?? '-'}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {bl.bl_breakbulk_items?.length ? (
-                  <div>
-                    <div className="mb-2 text-sm font-semibold text-slate-300">Itens legados vinculados</div>
-                    <table className="app-table app-table--compact min-w-[820px] text-left text-sm">
-                      <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
-                        <tr>
-                          <th className="py-2">Descricao</th>
-                          <th className="py-2">Volumes</th>
-                          <th className="py-2">Unidade</th>
-                          <th className="py-2">Peso bruto</th>
-                          <th className="py-2">CBM</th>
-                          <th className="py-2">Marcas</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#30363d]">
-                        {bl.bl_breakbulk_items.map((item) => (
-                          <tr key={item.id}>
-                            <td className="py-2 font-semibold text-white">{item.item_description}</td>
-                            <td className="py-2">{formatNumber(item.package_qty)}</td>
-                            <td className="py-2">{item.package_unit ?? '-'}</td>
-                            <td className="py-2">{formatNumber(item.gross_weight_kg)} kg</td>
-                            <td className="py-2">{formatNumber(item.cbm)}</td>
-                            <td className="py-2">{item.marks ?? '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-sm text-slate-400">
-                    Este manifesto BB esta no layout resumido por B/L e nao possui itens individuais detalhados.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-
+      <div className="mt-5 grid gap-5">
+        <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Financeiro e cliente</h2>
           <dl className="grid gap-3 text-sm">
@@ -731,7 +591,7 @@ export function BlDetalhe() {
           </dl>
         </Card>
 
-        <Card className="xl:col-span-2">
+        <Card>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-white">Taxas Locais</h2>
@@ -938,9 +798,160 @@ export function BlDetalhe() {
             </table>
           </div>
         </Card>
+        </div>
+
+        <Card>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">
+              {isContainerMode ? 'Containers vinculados' : 'Resumo da carga solta'}
+            </h2>
+            {isContainerMode ? (
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="blue">{containerSummary.distinct} CNTRS</Badge>
+                <Badge tone="red">{containerSummary.imo} IMO</Badge>
+                <Badge tone="yellow">{containerSummary.oog} OOG</Badge>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="green">{formatNumber(breakbulkSummary.machines)} maquinas</Badge>
+                <Badge tone="blue">{formatNumber(breakbulkSummary.packagesTotal)} packages total</Badge>
+                <Badge tone="yellow">{formatNumber(breakbulkSummary.weightTon)} ton</Badge>
+                <Badge tone="slate">{formatNumber(breakbulkSummary.cbm)} CBM</Badge>
+              </div>
+            )}
+          </div>
+
+          <div className="app-table-scroll">
+            {isContainerMode ? (
+              <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                <colgroup>
+                  <col className="w-[26%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[9%]" />
+                </colgroup>
+                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="py-2">No. Container</th>
+                    <th className="py-2">Seal</th>
+                    <th className="py-2">Tipo</th>
+                    <th className="py-2">Peso bruto</th>
+                    <th className="py-2">CBM</th>
+                    <th className="py-2">OOG</th>
+                    <th className="py-2">IMO</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {bl.bl_containers?.length ? (
+                    bl.bl_containers.map((container) => (
+                      <tr key={container.id}>
+                        <td className="py-2 font-semibold text-white">{container.container_number}</td>
+                        <td className="py-2">{container.seal_number ?? '-'}</td>
+                        <td className="py-2">{container.type ?? '-'}</td>
+                        <td className="py-2">{formatNumber(container.gross_weight_kg)} kg</td>
+                        <td className="py-2">{formatNumber(container.cbm)}</td>
+                        <td className="py-2">{container.is_oog ? <Badge tone="yellow">OOG</Badge> : '-'}</td>
+                        <td className="py-2">{container.is_imo ? <Badge tone="red">IMO</Badge> : '-'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="py-3 text-slate-400" colSpan={7}>
+                        Nenhum container vinculado a este B/L.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <div className="grid gap-4">
+                <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                  <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="py-2">CE</th>
+                      <th className="py-2">Maquinas</th>
+                      <th className="py-2">Packages</th>
+                      <th className="py-2">Packages Total</th>
+                      <th className="py-2">Weight (Ton)</th>
+                      <th className="py-2">CBM (M3)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    <tr>
+                      <td className="py-2">{bl.ce_mercante ?? '-'}</td>
+                      <td className="py-2">{formatNumber(bl.bb_machine_qty)}</td>
+                      <td className="py-2">{formatNumber(bl.bb_packages_qty)}</td>
+                      <td className="py-2">{formatNumber(bl.bb_packages_total ?? bl.bb_packages_qty)}</td>
+                      <td className="py-2">{formatNumber(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : null))}</td>
+                      <td className="py-2">{formatNumber(bl.total_cbm)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                  <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="py-2">Shipper</th>
+                      <th className="py-2">Consignee</th>
+                      <th className="py-2">Notify</th>
+                      <th className="py-2">POL</th>
+                      <th className="py-2">POD</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    <tr>
+                      <td className="py-2">{bl.shipper ?? '-'}</td>
+                      <td className="py-2">{bl.customer?.name ?? bl.consignee ?? '-'}</td>
+                      <td className="py-2">{bl.notify_party ?? '-'}</td>
+                      <td className="py-2">{bl.pol ?? '-'}</td>
+                      <td className="py-2">{bl.pod ?? '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {bl.bl_breakbulk_items?.length ? (
+                  <div>
+                    <div className="mb-2 text-sm font-semibold text-slate-300">Itens legados vinculados</div>
+                    <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                      <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                        <tr>
+                          <th className="py-2">Descricao</th>
+                          <th className="py-2">Volumes</th>
+                          <th className="py-2">Unidade</th>
+                          <th className="py-2">Peso bruto</th>
+                          <th className="py-2">CBM</th>
+                          <th className="py-2">Marcas</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {bl.bl_breakbulk_items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="py-2 font-semibold text-white">{item.item_description}</td>
+                            <td className="py-2">{formatNumber(item.package_qty)}</td>
+                            <td className="py-2">{item.package_unit ?? '-'}</td>
+                            <td className="py-2">{formatNumber(item.gross_weight_kg)} kg</td>
+                            <td className="py-2">{formatNumber(item.cbm)}</td>
+                            <td className="py-2">{item.marks ?? '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400">
+                    Este manifesto BB esta no layout resumido por B/L e nao possui itens individuais detalhados.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
 
         {isContainerMode ? (
-          <Card className="xl:col-span-2">
+          <Card>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <h2 className="text-lg font-semibold text-white">Veiculos vinculados</h2>
               <div className="w-full max-w-xs">
@@ -985,7 +996,7 @@ export function BlDetalhe() {
           </Card>
         ) : null}
 
-        <Card className="xl:col-span-2">
+        <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Auditoria</h2>
           <div className="grid gap-3">
             {auditLogs?.length ? null : <div className="text-sm text-slate-400">Nenhuma alteracao auditada ainda.</div>}

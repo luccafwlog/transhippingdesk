@@ -374,11 +374,11 @@ export function Viagens() {
 
                   <div className="app-voyage-table-frame">
                     <div className="app-table-scroll">
-                      <table className="app-table app-table--compact w-full table-fixed text-left text-sm whitespace-nowrap">
+                      <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                         <colgroup>
-                          <col className="w-[42%]" />
-                          <col className="w-[38%]" />
-                          <col className="w-[20%]" />
+                          <col className="w-[40%]" />
+                          <col className="w-[36%]" />
+                          <col className="w-[24%]" />
                         </colgroup>
                         <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                           <tr>
@@ -427,12 +427,12 @@ export function Viagens() {
 
                   <div className="app-voyage-table-frame">
                     <div className="app-table-scroll">
-                      <table className="app-table app-table--compact w-full table-fixed text-left text-sm whitespace-nowrap">
+                      <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                         <colgroup>
-                          <col className="w-[28%]" />
                           <col className="w-[24%]" />
-                          <col className="w-[24%]" />
-                          <col className="w-[24%]" />
+                          <col className="w-[23%]" />
+                          <col className="w-[23%]" />
+                          <col className="w-[18%]" />
                         </colgroup>
                         <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                           <tr>
@@ -678,21 +678,19 @@ function Info({ label, value }: { label: string; value: string }) {
   const tokens = tokenizeInfoValue(value)
 
   return (
-    <div className="app-voyage-info">
+    <div className={tokens.length ? 'app-voyage-info app-voyage-info--tokenized' : 'app-voyage-info'}>
       <span className="app-voyage-info__label">{label}</span>
-      <div className="min-w-0">
-        {tokens.length ? (
-          <div className="app-voyage-token-list">
-            {tokens.map((token) => (
-              <span key={`${label}-${token}`} className="app-voyage-token">
-                {token}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <span className="app-voyage-info__value">{value}</span>
-        )}
-      </div>
+      {tokens.length ? (
+        <div className="app-voyage-token-list">
+          {tokens.map((token) => (
+            <span key={`${label}-${token}`} className="app-voyage-token">
+              {token}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <span className="app-voyage-info__value">{value}</span>
+      )}
     </div>
   )
 }

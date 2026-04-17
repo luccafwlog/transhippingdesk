@@ -1158,7 +1158,8 @@ textarea {
 
 .app-shell table tbody td {
   color: var(--app-text);
-  border-bottom-color: var(--app-border);
+  border-bottom: 0 !important;
+  border-top: 0 !important;
   vertical-align: middle;
 }
 
@@ -1168,11 +1169,6 @@ textarea {
 .app-table tbody {
   border-top: 0 !important;
   border-bottom: 0;
-}
-
-.app-shell table tbody tr:first-child td,
-.app-table tbody tr:first-child td {
-  border-top: 0 !important;
 }
 
 .app-shell table tbody tr:nth-child(even),
@@ -1197,27 +1193,6 @@ textarea {
   scrollbar-color: var(--app-border-strong) transparent;
 }
 
-.app-table-scroll::before,
-.app-table-scroll::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 18px;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.app-table-scroll::before {
-  left: 0;
-  background: linear-gradient(90deg, rgba(237, 243, 248, 0.92), rgba(237, 243, 248, 0));
-}
-
-.app-table-scroll::after {
-  right: 0;
-  background: linear-gradient(270deg, rgba(237, 243, 248, 0.92), rgba(237, 243, 248, 0));
-}
-
 .app-table-scroll::-webkit-scrollbar {
   height: 10px;
 }
@@ -1237,9 +1212,19 @@ textarea {
   font-size: 13px;
 }
 
+.app-shell table tbody tr + tr td,
+.app-table tbody tr + tr td {
+  border-top: 1px solid var(--app-border) !important;
+}
+
 .app-table--compact thead th,
 .app-table--compact tbody td {
   padding: 12px 14px;
+}
+
+.app-table--dense thead th,
+.app-table--dense tbody td {
+  padding: 10px 10px;
 }
 
 .app-table__truncate {
@@ -1349,9 +1334,9 @@ textarea {
 }
 
 .app-voyage-metric-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  height: 100%;
   border: 1px solid var(--app-border);
   border-radius: 16px;
   background: linear-gradient(180deg, var(--app-surface) 0%, var(--app-surface-muted) 100%);
@@ -1365,10 +1350,14 @@ textarea {
   font-weight: 700;
 }
 
+.app-voyage-metric-panel dl {
+  margin: 0;
+}
+
 .app-voyage-info {
   display: grid;
-  grid-template-columns: minmax(0, 168px) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: start;
   border-bottom: 1px solid var(--app-border);
   padding-bottom: 10px;
@@ -1379,8 +1368,15 @@ textarea {
   padding-bottom: 0;
 }
 
+.app-voyage-info--tokenized {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
 .app-voyage-info__label {
   color: var(--app-muted);
+  min-width: 0;
+  line-height: 1.45;
 }
 
 .app-voyage-info__value {
@@ -1395,7 +1391,7 @@ textarea {
 .app-voyage-token-list {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
 }
 
@@ -1407,8 +1403,8 @@ textarea {
   border-radius: 999px;
   background: var(--app-surface);
   color: var(--app-text);
-  padding: 5px 10px;
-  font-size: 12px;
+  padding: 5px 9px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
@@ -1675,14 +1671,6 @@ textarea {
 
 :root[data-visual-theme='dark'] .app-shell table tbody tr:hover {
   background: rgba(148, 163, 184, 0.08);
-}
-
-:root[data-visual-theme='dark'] .app-table-scroll::before {
-  background: linear-gradient(90deg, rgba(9, 18, 32, 0.94), rgba(9, 18, 32, 0));
-}
-
-:root[data-visual-theme='dark'] .app-table-scroll::after {
-  background: linear-gradient(270deg, rgba(9, 18, 32, 0.94), rgba(9, 18, 32, 0));
 }
 
 :root[data-visual-theme='dark'] a[class*='bg-[#21262d]'],
