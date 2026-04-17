@@ -19,6 +19,9 @@ export type VoyagePodSchedule = {
   etb: string | null
   ata: string | null
   atd: string | null
+  rtw: number | null
+  ceStatus: 'approved' | 'partial' | 'missing' | null
+  linked: boolean | null
 }
 
 export function buildVoyagePolEntityId(voyageId: number, pol: string | null | undefined) {
@@ -81,6 +84,9 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     if (row.field_name === 'etb' && current.etb === null) current.etb = normalizeDateValue(row.new_value)
     if (row.field_name === 'ata' && current.ata === null) current.ata = normalizeDateValue(row.new_value)
     if (row.field_name === 'atd' && current.atd === null) current.atd = normalizeDateValue(row.new_value)
+    if (row.field_name === 'rtw' && current.rtw === null) current.rtw = normalizeNumberValue(row.new_value)
+    if (row.field_name === 'ces' && current.ceStatus === null) current.ceStatus = normalizeCeStatusValue(row.new_value)
+    if (row.field_name === 'linked' && current.linked === null) current.linked = normalizeBooleanValue(row.new_value)
 
     schedules.set(entityId, current)
   }
@@ -156,6 +162,9 @@ export async function saveVoyagePodSchedule({
   etb,
   ata,
   atd,
+  rtw,
+  ceStatus,
+  linked,
   changedBy,
 }: {
   voyageId: number
@@ -164,6 +173,9 @@ export async function saveVoyagePodSchedule({
   etb: string | null
   ata: string | null
   atd: string | null
+  rtw: number | null
+  ceStatus: 'approved' | 'partial' | 'missing' | null
+  linked: boolean | null
   changedBy: string
 }) {
   const entityId = buildVoyagePodEntityId(voyageId, pod)
@@ -174,6 +186,33 @@ export async function saveVoyagePodSchedule({
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'etb', current.etb, etb, changedBy, 'Atualizacao manual de ETB por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'ata', current.ata, ata, changedBy, 'Atualizacao manual de ATA por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, 'Atualizacao manual de ATD por POD'),
+    makeAuditRow(
+      POD_ENTITY_TYPE,
+      entityId,
+      'rtw',
+      current.rtw === null ? null : String(current.rtw),
+      rtw === null ? null : String(rtw),
+      changedBy,
+      'Atualizacao manual de RTW por POD',
+    ),
+    makeAuditRow(
+      POD_ENTITY_TYPE,
+      entityId,
+      'ces',
+      current.ceStatus,
+      ceStatus,
+      changedBy,
+      'Atualizacao manual de status de CEs por POD',
+    ),
+    makeAuditRow(
+      POD_ENTITY_TYPE,
+      entityId,
+      'linked',
+      current.linked === null ? null : String(current.linked),
+      linked === null ? null : String(linked),
+      changedBy,
+      'Atualizacao manual de linked por POD',
+    ),
   ].filter(Boolean)
 
   if (!changes.length) return
@@ -202,13 +241,16 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     etb: null,
     ata: null,
     atd: null,
+    rtw: null,
+    ceStatus: null,
+    linked: null,
   }
 }
 
 function makeAuditRow(
   entityType: string,
   entityId: string,
-  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd',
+  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd' | 'rtw' | 'ces' | 'linked',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,
@@ -237,4 +279,27 @@ function normalizePortValue(value: string | null | undefined) {
 function normalizeDateValue(value: string | null | undefined) {
   const normalized = (value ?? '').trim()
   return normalized || null
+}
+
+function normalizeNumberValue(value: string | null | undefined) {
+  const normalized = (value ?? '').trim()
+  if (!normalized) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function normalizeBooleanValue(value: string | null | undefined) {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized === 'true') return true
+  if (normalized === 'false') return false
+  return null
+}
+
+function normalizeCeStatusValue(value: string | null | undefined): VoyagePodSchedule['ceStatus'] {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (normalized === 'approved' || normalized === 'partial' || normalized === 'missing') {
+    return normalized
+  }
+  return null
 }

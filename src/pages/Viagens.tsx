@@ -43,6 +43,9 @@ export function Viagens() {
     etb: string | null
     ata: string | null
     atd: string | null
+    rtw: number | null
+    ceStatus: 'approved' | 'partial' | 'missing' | null
+    linked: boolean | null
   } | null>(null)
   const [editingPol, setEditingPol] = useState<{
     voyageId: number
@@ -286,12 +289,25 @@ export function Viagens() {
           })
           const podRows = destinationPorts.map((pod) => {
             const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
+            const routeBls = (voyage.bls ?? []).filter((bl) => (bl.pod?.trim() || '-') === pod)
+            const routeCeFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
+            const autoCeStatus =
+              routeBls.length === 0
+                ? null
+                : routeCeFilledCount === routeBls.length
+                  ? 'approved'
+                  : routeCeFilledCount > 0
+                    ? 'partial'
+                    : 'missing'
             return {
               pod,
               eta: schedule?.eta ?? null,
               etb: schedule?.etb ?? null,
               ata: schedule?.ata ?? null,
               atd: schedule?.atd ?? null,
+              rtw: schedule?.rtw ?? null,
+              ceStatus: schedule?.ceStatus ?? autoCeStatus,
+              linked: schedule?.linked ?? Boolean(schedule?.eta || schedule?.etb || schedule?.ata || schedule?.atd),
             }
           })
           const routeRows = collectVoyageRoutes(voyage.bls).map((route) => {
@@ -309,13 +325,6 @@ export function Viagens() {
               atd: podSchedule?.atd ?? null,
             }
           })
-          const ceFilledCount = (voyage.bls ?? []).filter((bl) => String(bl.ce_mercante ?? '').trim()).length
-          const ceSummary =
-            totalBls === 0 ? '-' : ceFilledCount === totalBls ? 'Approved' : ceFilledCount > 0 ? 'Partial' : 'Missing'
-          const linkedRoutes = routeRows.filter((route) => route.eta || route.etb || route.ata || route.atd).length
-          const linkedSummary = routeRows.length ? `${linkedRoutes}/${routeRows.length}` : '-'
-          const rtwSummary = '-'
-
           return (
             <Card key={voyage.id} className="grid gap-5">
               <div className="flex items-start justify-between gap-4">
@@ -338,10 +347,74 @@ export function Viagens() {
                   <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
                   <Info label="B/Ls totais" value={String(totalBls)} />
                   <Info label="Trechos consolidados" value={String(routeRows.length)} />
-                  <Info label="RTW" value={rtwSummary} />
-                  <Info label="CEs" value={ceSummary} />
-                  <Info label="Linked" value={linkedSummary} />
                 </dl>
+
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--app-text)]">Line up por POD</div>
+                      <div className="text-xs text-[var(--app-muted)]">
+                        RTW, CEs e Linked sao editados por rota de descarga.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="app-voyage-table-frame">
+                    <div className="app-table-scroll">
+                      <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                        <colgroup>
+                          <col className="w-[20%]" />
+                          <col className="w-[18%]" />
+                          <col className="w-[28%]" />
+                          <col className="w-[18%]" />
+                          <col className="w-[16%]" />
+                        </colgroup>
+                        <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                          <tr>
+                            <th className="px-3 py-2">POD</th>
+                            <th className="px-3 py-2">RTW</th>
+                            <th className="px-3 py-2">CEs</th>
+                            <th className="px-3 py-2">Linked</th>
+                            <th className="px-3 py-2">Acoes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#30363d]">
+                          {podRows.map((row) => (
+                            <tr key={`${voyage.id}-lineup-${row.pod}`}>
+                              <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
+                              <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
+                              <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
+                              <td className="px-3 py-2">{row.linked === null ? 'Auto' : row.linked ? 'Yes' : 'No'}</td>
+                              <td className="px-3 py-2">
+                                <Button
+                                  variant="secondary"
+                                  className="app-voyage-icon-btn"
+                                  aria-label={`Editar metadata do line up para o POD ${row.pod}`}
+                                  onClick={() =>
+                                    setEditingPod({
+                                      voyageId: voyage.id,
+                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                      pod: row.pod,
+                                      eta: row.eta,
+                                      etb: row.etb,
+                                      ata: row.ata,
+                                      atd: row.atd,
+                                      rtw: row.rtw,
+                                      ceStatus: row.ceStatus,
+                                      linked: row.linked,
+                                    })
+                                  }
+                                >
+                                  <Pencil size={15} />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-4 xl:grid-cols-4">
@@ -483,6 +556,9 @@ export function Viagens() {
                                       etb: row.etb,
                                       ata: row.ata,
                                       atd: row.atd,
+                                      rtw: row.rtw,
+                                      ceStatus: row.ceStatus,
+                                      linked: row.linked,
                                     })
                                   }
                                 >
@@ -633,7 +709,7 @@ export function Viagens() {
         open={editingPod !== null}
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atd }) => {
+        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -646,6 +722,9 @@ export function Viagens() {
               etb,
               ata,
               atd,
+              rtw,
+              ceStatus,
+              linked,
               changedBy: user.id,
             })
             await queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
@@ -748,6 +827,13 @@ function tokenizeInfoValue(value: string) {
     .filter(Boolean)
 
   return tokens.length > 1 ? tokens : []
+}
+
+function renderCeStatusLabel(status: 'approved' | 'partial' | 'missing' | null) {
+  if (status === 'approved') return 'Approved'
+  if (status === 'partial') return 'Partial'
+  if (status === 'missing') return 'Missing'
+  return 'Automatico'
 }
 
 type VoyageBl = {
@@ -984,6 +1070,9 @@ function PodScheduleModal({
     etb: string | null
     ata: string | null
     atd: string | null
+    rtw: number | null
+    ceStatus: 'approved' | 'partial' | 'missing' | null
+    linked: boolean | null
   } | null
   onClose: () => void
   onSaved: (payload: {
@@ -993,12 +1082,18 @@ function PodScheduleModal({
     etb: string | null
     ata: string | null
     atd: string | null
+    rtw: number | null
+    ceStatus: 'approved' | 'partial' | 'missing' | null
+    linked: boolean | null
   }) => Promise<void>
 }) {
   const [eta, setEta] = useState('')
   const [etb, setEtb] = useState('')
   const [ata, setAta] = useState('')
   const [atd, setAtd] = useState('')
+  const [rtw, setRtw] = useState('')
+  const [ceStatus, setCeStatus] = useState<'approved' | 'partial' | 'missing' | ''>('')
+  const [linked, setLinked] = useState<'true' | 'false' | ''>('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -1007,6 +1102,9 @@ function PodScheduleModal({
     setEtb(podSchedule.etb ?? '')
     setAta(podSchedule.ata ?? '')
     setAtd(podSchedule.atd ?? '')
+    setRtw(podSchedule.rtw === null ? '' : String(podSchedule.rtw))
+    setCeStatus(podSchedule.ceStatus ?? '')
+    setLinked(podSchedule.linked === null ? '' : podSchedule.linked ? 'true' : 'false')
   }, [open, podSchedule])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1022,6 +1120,9 @@ function PodScheduleModal({
         etb: etb || null,
         ata: ata || null,
         atd: atd || null,
+        rtw: rtw.trim() ? Number(rtw) : null,
+        ceStatus: ceStatus || null,
+        linked: linked === '' ? null : linked === 'true',
       })
     } finally {
       setSaving(false)
@@ -1049,6 +1150,34 @@ function PodScheduleModal({
             </Field>
             <Field label="ATD">
               <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
+            </Field>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="RTW">
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={rtw}
+                onChange={(event) => setRtw(event.target.value)}
+                placeholder="Quantidade de restow"
+              />
+            </Field>
+            <Field label="CEs">
+              <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as typeof ceStatus)}>
+                <option value="">Automatico</option>
+                <option value="approved">Approved</option>
+                <option value="partial">Partial</option>
+                <option value="missing">Missing</option>
+              </select>
+            </Field>
+            <Field label="Linked">
+              <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as typeof linked)}>
+                <option value="">Automatico</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
             </Field>
           </div>
 

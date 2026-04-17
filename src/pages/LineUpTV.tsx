@@ -28,7 +28,6 @@ type RouteBl = {
 
 type RouteVehicle = {
   voyage_id: number
-  bl_id: string
   container_id: number
 }
 
@@ -93,7 +92,7 @@ async function fetchLineUpRows(): Promise<RouteRow[]> {
 
   const [{ data: vehicles, error: vehiclesError }, podSchedules] = await Promise.all([
     voyageIds.length
-      ? supabase.from('vehicles').select('voyage_id, bl_id, container_id').in('voyage_id', voyageIds).limit(20_000)
+      ? supabase.from('vehicles').select('voyage_id, container_id').in('voyage_id', voyageIds).limit(20_000)
       : Promise.resolve({ data: [], error: null }),
     listVoyagePodSchedules(
       voyages.flatMap((voyage) =>
@@ -120,7 +119,6 @@ async function fetchLineUpRows(): Promise<RouteRow[]> {
 
     for (const pod of routeKeys) {
       const routeBls = bls.filter((bl) => normalizePort(bl.pod) === pod)
-      const routeBlIds = new Set(routeBls.map((bl) => bl.id))
       const scheduleKey = buildVoyagePodEntityId(voyage.id, pod)
       const schedule = podSchedules.get(scheduleKey)
       if (schedule?.atd) continue
@@ -146,8 +144,9 @@ async function fetchLineUpRows(): Promise<RouteRow[]> {
         }
       }
 
+      const routeContainerIds = new Set(Array.from(distinctContainers.values()).map((container) => container.id))
       const vehicleContainerKeys = new Set<string>()
-      const routeVehicles = voyageVehicles.filter((vehicle) => routeBlIds.has(vehicle.bl_id))
+      const routeVehicles = voyageVehicles.filter((vehicle) => routeContainerIds.has(vehicle.container_id))
       for (const vehicle of routeVehicles) {
         for (const [containerKey, container] of distinctContainers.entries()) {
           if (container.id === vehicle.container_id) {
@@ -162,6 +161,12 @@ async function fetchLineUpRows(): Promise<RouteRow[]> {
       const bbMachines = routeBls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)
       const bbPackages = routeBls.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0)
       const ceFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
+      const autoCeStatus =
+        ceFilledCount === routeBls.length && routeBls.length > 0
+          ? 'approved'
+          : ceFilledCount > 0
+            ? 'partial'
+            : 'missing'
 
       rows.push({
         id: `${voyage.id}::${pod}`,
@@ -177,17 +182,12 @@ async function fetchLineUpRows(): Promise<RouteRow[]> {
         cg: Math.max(totalContainers - carContainers, 0),
         total: totalContainers,
         mty: Array.from(distinctContainers.values()).filter(isEmptyLikeContainer).length,
-        rtw: null,
+        rtw: schedule?.rtw ?? null,
         bbMachines,
         bbPackages,
         bbTotal: bbMachines + bbPackages,
-        ceStatus:
-          ceFilledCount === routeBls.length && routeBls.length > 0
-            ? 'approved'
-            : ceFilledCount > 0
-              ? 'partial'
-              : 'missing',
-        linked: Boolean(schedule),
+        ceStatus: schedule?.ceStatus ?? autoCeStatus,
+        linked: schedule?.linked ?? Boolean(schedule?.eta || schedule?.etb || schedule?.ata || schedule?.atd),
       })
     }
   }
