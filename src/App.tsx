@@ -32,6 +32,7 @@ const Faturamento = lazyPage(() => import('./pages/Faturamento'), 'Faturamento')
 const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
 const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
 const LineUpTV = lazyPage(() => import('./pages/LineUpTV'), 'LineUpTV')
+const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
 const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
 
 function RouteLoading() {
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/portal/billing" element={withSuspense(<PortalBilling />)} />
       </Route>
       <Route element={<ProtectedRoute />}>
+        <Route path="/line-up-tv/display" element={withSuspense(<LineUpTVDisplay />)} />
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/painel" replace />} />
           <Route path="/painel" element={withSuspense(<Painel />)} />
