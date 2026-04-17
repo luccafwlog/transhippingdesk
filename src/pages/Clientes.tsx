@@ -210,9 +210,11 @@ export function Clientes() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
         queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
       ])
+      const linkedMsg = result.blsLinked ? ` ${result.blsLinked} B/L(s) vinculado(s) automaticamente.` : ''
       showToast(
-        `Base importada: ${result.imported} novo(s), ${result.updated} atualizado(s) e ${result.contactsCreated} contato(s) de e-mail cadastrado(s).`,
+        `Base importada: ${result.imported} novo(s), ${result.updated} atualizado(s), ${result.contactsCreated} contato(s).${linkedMsg}`,
         'success',
       )
       resetImportModal()

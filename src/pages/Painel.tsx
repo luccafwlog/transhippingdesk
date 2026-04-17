@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Boxes, FileText, Receipt, ReceiptText, CheckCircle } from 'lucide-react'
+import { AlertTriangle, Boxes, FileText, Receipt, ReceiptText, CheckCircle, UserX, TableProperties } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, PageHeader } from '../components/ui/Card'
 import { normalizeContainerNumber } from '../lib/containerCounts'
@@ -7,7 +7,7 @@ import { supabase } from '../services/supabase'
 import { formatBRL } from '../lib/utils'
 
 async function fetchDashboard() {
-  const [totalContainers, bls, review, chargeReviewRequired, readyForBilling, pendingFinancial, invoices, alerts] =
+  const [totalContainers, bls, review, chargeReviewRequired, readyForBilling, pendingFinancial, invoices, alerts, blsWithoutCustomer] =
     await Promise.all([
       fetchDistinctContainerCount(),
       supabase.from('bls').select('id', { count: 'exact', head: true }),
@@ -17,6 +17,7 @@ async function fetchDashboard() {
       supabase.from('bls').select('id', { count: 'exact', head: true }).eq('financial_status', 'pending'),
       supabase.from('invoices').select('total_brl,status').in('status', ['issued', 'overdue']).range(0, 499),
       supabase.from('alerts').select('id', { count: 'exact', head: true }).neq('status', 'closed'),
+      supabase.from('bls').select('id', { count: 'exact', head: true }).is('customer_id', null),
     ])
 
   const invoiceAccessDenied = isPermissionError(invoices.error)
@@ -37,6 +38,7 @@ async function fetchDashboard() {
       : (invoices.data?.reduce((sum, invoice) => sum + Number(invoice.total_brl ?? 0), 0) ?? 0),
     invoicesAccessDenied: invoiceAccessDenied,
     openAlerts: alerts.count ?? 0,
+    blsWithoutCustomer: blsWithoutCustomer.count ?? 0,
   }
 }
 
@@ -148,6 +150,25 @@ export function Painel() {
           value={isLoading ? '...' : (data?.openAlerts ?? 0)}
           tone={data?.openAlerts ? 'text-red-400' : undefined}
           linkTo="/alertas"
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          icon={UserX}
+          label="B/Ls sem cliente"
+          value={isLoading ? '...' : (data?.blsWithoutCustomer ?? 0)}
+          tone={data?.blsWithoutCustomer ? 'text-red-400' : 'text-slate-400'}
+          detail={data?.blsWithoutCustomer ? 'Vincular em Revisão' : undefined}
+          linkTo="/revisao"
+        />
+        <KpiCard
+          icon={TableProperties}
+          label="PODs sem tabela de cobrança"
+          value={isLoading ? '...' : '—'}
+          tone="text-slate-400"
+          detail="Ver em Taxas Locais"
+          linkTo="/taxas-locais"
         />
       </div>
     </>

@@ -62,7 +62,7 @@ export async function parseCustomerBaseFile(file: File): Promise<ParsedCustomerB
 export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
   const uniqueRows = Array.from(new Map(rows.map((row) => [row.cnpj_cpf, row])).values())
   if (!uniqueRows.length) {
-    return { imported: 0, updated: 0, contactsCreated: 0 }
+    return { imported: 0, updated: 0, contactsCreated: 0, blsLinked: 0 }
   }
 
   const documents = uniqueRows.map((row) => row.cnpj_cpf)
@@ -168,7 +168,24 @@ export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
     }
   }
 
-  return { imported, updated, contactsCreated }
+  // Retroactive BL linking: find unlinked BLs whose manifest CNPJ matches an upserted customer
+  let blsLinked = 0
+  const linkResults = await Promise.all(
+    (upsertedCustomers ?? []).map((customer) =>
+      supabase
+        .from('bls')
+        .update({ customer_id: customer.id })
+        .eq('manifest_customer_cnpj_cpf', customer.cnpj_cpf)
+        .is('customer_id', null)
+        .select('id', { count: 'exact', head: true }),
+    ),
+  )
+  for (const result of linkResults) {
+    if (result.error) throw result.error
+    blsLinked += result.count ?? 0
+  }
+
+  return { imported, updated, contactsCreated, blsLinked }
 }
 
 function validateRequiredHeaders(rawHeaders: string[]) {

@@ -121,6 +121,20 @@ export function BlDetalhe() {
   const backHref = isContainerMode ? '/manifestos' : '/carga-solta'
   const backLabel = isContainerMode ? 'Voltar aos manifestos CNTR' : 'Voltar aos manifestos BB'
   const latestInvoice = bl?.id ? invoiceLinksByBl?.[bl.id]?.[0] : null
+
+  const currentCalcTotal = useMemo(() => {
+    if (!localChargeLines) return null
+    return localChargeLines
+      .filter((l) => l.status !== 'exempt')
+      .reduce((sum, l) => sum + Number(l.total_value_brl ?? 0), 0)
+  }, [localChargeLines])
+
+  const invoiceDiverges = useMemo(() => {
+    if (!latestInvoice?.total_brl || currentCalcTotal == null) return false
+    if (!['issued', 'overdue'].includes(latestInvoice.status ?? '')) return false
+    return Math.abs(currentCalcTotal - latestInvoice.total_brl) > 0.01
+  }, [latestInvoice, currentCalcTotal])
+
   const baselineForm = useMemo(() => (bl ? makeForm(bl) : null), [bl])
 
   const changes = useMemo(() => {
@@ -443,6 +457,9 @@ export function BlDetalhe() {
               <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latestInvoice.id}`}>
                 Invoice ativa: {latestInvoice.invoice_number ?? `INV-${latestInvoice.id}`}
               </Link>
+            ) : null}
+            {invoiceDiverges ? (
+              <Badge tone="yellow">Taxas recalculadas — invoice pode estar desatualizada</Badge>
             ) : null}
             {changes.length ? <Badge tone="yellow">{changes.length} alteracao(oes) pendentes</Badge> : null}
           </div>

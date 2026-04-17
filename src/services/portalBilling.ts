@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { InvoiceDetail } from './billing'
+import type { DemurrageInvoiceItem } from '../types/database'
 
 export type PortalLoginResult = {
   token: string
@@ -115,6 +116,51 @@ export async function portalInvoiceDetails(sessionToken: string, invoiceId: numb
     items: payload.items ?? [],
     payments: payload.payments ?? [],
   } as InvoiceDetail
+}
+
+export type PortalDemurrageInvoice = {
+  id: number
+  doc_number: string
+  doc_date: string | null
+  due_date: string | null
+  billed_at: string | null
+  paid_at: string | null
+  total_usd: number
+  frozen_roe: number | null
+  frozen_total_brl: number | null
+  status: string
+  pix_payload: string | null
+  dispute_open: boolean | null
+  discount_type: string | null
+  discount_value: number | null
+  discount_mode: string | null
+  bl_id: string
+  pol: string | null
+  pod: string | null
+  voyage_number: string | null
+  vessel_name: string | null
+}
+
+export type PortalDemurrageInvoiceDetail = {
+  invoice: PortalDemurrageInvoice & { customer_name: string; customer_cnpj_cpf: string }
+  items: DemurrageInvoiceItem[]
+}
+
+export async function portalListDemurrageInvoices(sessionToken: string): Promise<PortalDemurrageInvoice[]> {
+  const { data, error } = await supabase.rpc('portal_list_demurrage_invoices', { p_session_token: sessionToken })
+  if (error) throw error
+  return ((data ?? []) as PortalDemurrageInvoice[]).map((row) => ({
+    ...row,
+    total_usd: Number(row.total_usd ?? 0),
+    frozen_total_brl: row.frozen_total_brl != null ? Number(row.frozen_total_brl) : null,
+  }))
+}
+
+export async function portalGetDemurrageInvoiceDetail(sessionToken: string, invoiceId: number): Promise<PortalDemurrageInvoiceDetail> {
+  const { data, error } = await supabase.rpc('portal_get_demurrage_invoice_detail', { p_session_token: sessionToken, p_invoice_id: invoiceId })
+  if (error) throw error
+  const payload = (data ?? {}) as { invoice?: PortalDemurrageInvoiceDetail['invoice']; items?: DemurrageInvoiceItem[] }
+  return { invoice: payload.invoice!, items: payload.items ?? [] }
 }
 
 export async function portalCreateConsolidation(input: {

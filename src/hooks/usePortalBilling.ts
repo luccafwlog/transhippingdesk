@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePortalAuth } from './usePortalAuth'
 import {
   portalCreateConsolidation,
+  portalGetDemurrageInvoiceDetail,
   portalInvoiceDetails,
+  portalListDemurrageInvoices,
   portalListInvoices,
   portalListPendingBls,
 } from '../services/portalBilling'
@@ -34,6 +36,24 @@ export function usePortalInvoiceDetail(invoiceId?: number | null) {
     queryKey: ['portal-invoice-detail', sessionToken, invoiceId],
     enabled: Boolean(sessionToken && invoiceId),
     queryFn: () => portalInvoiceDetails(sessionToken!, Number(invoiceId)),
+  })
+}
+
+export function usePortalDemurrageInvoices() {
+  const { sessionToken } = usePortalAuth()
+  return useQuery({
+    queryKey: ['portal-demurrage-invoices', sessionToken],
+    enabled: Boolean(sessionToken),
+    queryFn: () => portalListDemurrageInvoices(sessionToken!),
+  })
+}
+
+export function usePortalDemurrageInvoiceDetail(invoiceId?: number | null) {
+  const { sessionToken } = usePortalAuth()
+  return useQuery({
+    queryKey: ['portal-demurrage-invoice-detail', sessionToken, invoiceId],
+    enabled: Boolean(sessionToken && invoiceId),
+    queryFn: () => portalGetDemurrageInvoiceDetail(sessionToken!, Number(invoiceId)),
   })
 }
 

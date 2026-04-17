@@ -507,15 +507,49 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
   }
 }
 
-export async function fetchROE(): Promise<number> {
+const ROE_CACHE_KEY = 'demurrage_roe_cache'
+
+type RoeCache = { roe: number; fetchedAt: string }
+
+function loadCachedROE(): RoeCache | null {
+  try {
+    const raw = localStorage.getItem(ROE_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as RoeCache
+  } catch {
+    return null
+  }
+}
+
+function saveROECache(roe: number) {
+  try {
+    const payload: RoeCache = { roe, fetchedAt: new Date().toISOString() }
+    localStorage.setItem(ROE_CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // localStorage unavailable — ignore
+  }
+}
+
+export type FetchROEResult = { roe: number; offline: boolean; cachedAt: string | null }
+
+export async function fetchROE(): Promise<FetchROEResult> {
   const today = new Date()
   const from = new Date(today)
   from.setDate(from.getDate() - 10)
   const fmt = (d: Date) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`
   const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial=%27${fmt(from)}%27&@dataFinalCotacao=%27${fmt(today)}%27&$top=1&$orderby=dataHoraCotacao%20desc&$format=json&$select=cotacaoVenda,dataHoraCotacao`
-  const resp = await fetch(url, { signal: AbortSignal.timeout(12000) })
-  if (!resp.ok) throw new Error(`BCB HTTP ${resp.status}`)
-  const json = await resp.json()
-  if (!json.value?.length || !json.value[0].cotacaoVenda) throw new Error('Sem cotações no BCB')
-  return parseFloat((parseFloat(json.value[0].cotacaoVenda) * 1.065).toFixed(4))
+
+  try {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(12000) })
+    if (!resp.ok) throw new Error(`BCB HTTP ${resp.status}`)
+    const json = await resp.json()
+    if (!json.value?.length || !json.value[0].cotacaoVenda) throw new Error('Sem cotações no BCB')
+    const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * 1.065).toFixed(4))
+    saveROECache(roe)
+    return { roe, offline: false, cachedAt: null }
+  } catch {
+    const cached = loadCachedROE()
+    if (cached) return { roe: cached.roe, offline: true, cachedAt: cached.fetchedAt }
+    throw new Error('BCB offline e sem cache de PTAX disponivel. Informe a taxa manualmente.')
+  }
 }

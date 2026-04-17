@@ -37,6 +37,7 @@ const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsua
 const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
 const DemurrageInvoices = lazyPage(() => import('./pages/DemurrageInvoices'), 'DemurrageInvoices')
 const DemurrageReconciliacao = lazyPage(() => import('./pages/DemurrageReconciliacao'), 'DemurrageReconciliacao')
+const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconciliacao')
 
 function RouteLoading() {
   return (
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/demurrage" element={withSuspense(<Demurrage />)} />
           <Route path="/demurrage/invoices" element={withSuspense(<DemurrageInvoices />)} />
           <Route path="/demurrage/reconciliacao" element={withSuspense(<DemurrageReconciliacao />)} />
+          <Route path="/reconciliacao" element={withSuspense(<Reconciliacao />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

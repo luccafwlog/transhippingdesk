@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Download, FilePlus2, LogOut } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -7,8 +8,17 @@ import { Field, Input, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { usePortalAuth } from '../hooks/usePortalAuth'
-import { usePortalCreateConsolidation, usePortalInvoiceDetail, usePortalInvoices, usePortalPendingBls } from '../hooks/usePortalBilling'
+import {
+  usePortalCreateConsolidation,
+  usePortalDemurrageInvoiceDetail,
+  usePortalDemurrageInvoices,
+  usePortalInvoiceDetail,
+  usePortalInvoices,
+  usePortalPendingBls,
+} from '../hooks/usePortalBilling'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
+
+type PortalTab = 'local' | 'demurrage'
 
 export function PortalBilling() {
   const { overview, signOut } = usePortalAuth()
@@ -17,13 +27,17 @@ export function PortalBilling() {
   const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = usePortalInvoices()
   const createConsolidationMutation = usePortalCreateConsolidation()
 
+  const [tab, setTab] = useState<PortalTab>('local')
   const [selectedBls, setSelectedBls] = useState<string[]>([])
   const [dueDate, setDueDate] = useState('')
   const [notes, setNotes] = useState('')
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
+  const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
 
   const detailQuery = usePortalInvoiceDetail(selectedInvoiceId)
+  const { data: demurrageInvoices, isLoading: demurrageLoading } = usePortalDemurrageInvoices()
+  const demurrageDetailQuery = usePortalDemurrageInvoiceDetail(selectedDemurrageId)
 
   const selectedSubtotal = useMemo(
     () =>
@@ -175,6 +189,63 @@ export function PortalBilling() {
           </Card>
         </div>
 
+        {/* Tab switcher */}
+        <div className="mt-5 flex gap-2 border-b border-[#30363d]">
+          <button type="button" className={`px-4 py-2 text-sm font-medium transition-colors ${tab === 'local' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} onClick={() => setTab('local')}>
+            Taxas Locais
+          </button>
+          <button type="button" className={`px-4 py-2 text-sm font-medium transition-colors ${tab === 'demurrage' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} onClick={() => setTab('demurrage')}>
+            Demurrage
+          </button>
+        </div>
+
+        {tab === 'demurrage' ? (
+          <Card className="mt-5 overflow-hidden p-0">
+            <div className="border-b border-[#30363d] px-5 py-4">
+              <h2 className="text-lg font-semibold text-white">Sobreestadia de containers (D&D)</h2>
+            </div>
+            <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Documento</th>
+                    <th className="px-4 py-3">BL / Trecho</th>
+                    <th className="px-4 py-3">Emissao</th>
+                    <th className="px-4 py-3">Vencimento</th>
+                    <th className="px-4 py-3">Total USD</th>
+                    <th className="px-4 py-3">Total BRL</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Acao</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {demurrageLoading ? (
+                    <tr><td className="px-4 py-8 text-center text-slate-400" colSpan={8}>Carregando...</td></tr>
+                  ) : null}
+                  {!demurrageLoading && !demurrageInvoices?.length ? (
+                    <tr><td className="px-4 py-8 text-center text-slate-400" colSpan={8}>Nenhuma invoice de demurrage emitida.</td></tr>
+                  ) : null}
+                  {demurrageInvoices?.map((inv) => (
+                    <tr key={inv.id}>
+                      <td className="px-4 py-3 font-semibold text-[#58a6ff]">{inv.doc_number}</td>
+                      <td className="px-4 py-3">{inv.bl_id} — {inv.pol ?? '-'} / {inv.pod ?? '-'}</td>
+                      <td className="px-4 py-3">{formatDate(inv.billed_at)}</td>
+                      <td className="px-4 py-3">{formatDate(inv.due_date)}</td>
+                      <td className="px-4 py-3">$ {Number(inv.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3">{inv.frozen_total_brl != null ? formatBRL(inv.frozen_total_brl) : '—'}</td>
+                      <td className="px-4 py-3">{renderDemurrageBadge(inv.status)}</td>
+                      <td className="px-4 py-3">
+                        <Button variant="secondary" onClick={() => setSelectedDemurrageId(inv.id)}>Detalhes</Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : null}
+
+        {tab === 'local' ? (
         <Card className="mt-5 overflow-hidden p-0">
           <div className="border-b border-[#30363d] px-5 py-4">
             <h2 className="text-lg font-semibold text-white">Invoices emitidas</h2>
@@ -227,6 +298,7 @@ export function PortalBilling() {
             </table>
           </div>
         </Card>
+        ) : null}
       </div>
 
       <Modal
@@ -358,6 +430,78 @@ export function PortalBilling() {
           ) : null}
         </div>
       </Modal>
+
+      {/* Demurrage Invoice Detail Modal */}
+      <Modal
+        open={Boolean(selectedDemurrageId)}
+        onClose={() => setSelectedDemurrageId(null)}
+        title={`Demurrage ${demurrageDetailQuery.data?.invoice?.doc_number ?? selectedDemurrageId ?? ''}`}
+      >
+        <div className="grid gap-5">
+          {demurrageDetailQuery.isLoading ? <div className="text-sm text-slate-400">Carregando...</div> : null}
+          {demurrageDetailQuery.error ? <div className="text-sm text-red-200">Falha ao carregar detalhe.</div> : null}
+          {demurrageDetailQuery.data ? (() => {
+            const { invoice, items } = demurrageDetailQuery.data
+            return (
+              <>
+                <div className="grid gap-4 md:grid-cols-4">
+                  <MetricCard label="Status" value={invoice.status === 'paid' ? 'Pago' : invoice.status === 'overdue' ? 'Vencida' : 'Emitida'} />
+                  <MetricCard label="Total USD" value={`$ ${Number(invoice.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+                  <MetricCard label="Total BRL" value={invoice.frozen_total_brl != null ? formatBRL(invoice.frozen_total_brl) : '—'} />
+                  <MetricCard label="Vencimento" value={formatDate(invoice.due_date) ?? '—'} />
+                </div>
+
+                <Card className="overflow-hidden p-0">
+                  <div className="border-b border-[#30363d] px-4 py-3 text-sm font-semibold text-slate-300">Containers</div>
+                  <div className="app-table-scroll">
+                    <table className="app-table app-table--compact min-w-[720px] text-sm">
+                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">Container</th>
+                          <th className="px-3 py-2">Tipo</th>
+                          <th className="px-3 py-2">Descarga</th>
+                          <th className="px-3 py-2">Devolucao</th>
+                          <th className="px-3 py-2">Dias</th>
+                          <th className="px-3 py-2">P1</th>
+                          <th className="px-3 py-2">P2</th>
+                          <th className="px-3 py-2">USD</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="px-3 py-2 font-semibold text-white">{item.container_number}</td>
+                            <td className="px-3 py-2">{item.container_type}</td>
+                            <td className="px-3 py-2">{formatDate(item.discharge_date)}</td>
+                            <td className="px-3 py-2">{formatDate(item.return_date)}</td>
+                            <td className="px-3 py-2">{item.total_days}</td>
+                            <td className="px-3 py-2">{item.days_p1}d × ${item.rate_p1_usd}</td>
+                            <td className="px-3 py-2">{item.days_p2}d × ${item.rate_p2_usd}</td>
+                            <td className="px-3 py-2 text-amber-300">$ {Number(item.subtotal_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+
+                {invoice.pix_payload ? (
+                  <Card className="p-4">
+                    <div className="mb-3 text-sm font-semibold text-slate-300">Pagamento via PIX</div>
+                    <div className="flex flex-col items-center gap-4 sm:flex-row">
+                      <QRCodeSVG value={invoice.pix_payload} size={120} level="M" />
+                      <div>
+                        <div className="mb-1 text-xs text-slate-500">Copia e cola</div>
+                        <div className="max-w-xs break-all rounded bg-[#0d1117] p-2 font-mono text-xs text-slate-200">{invoice.pix_payload}</div>
+                      </div>
+                    </div>
+                  </Card>
+                ) : null}
+              </>
+            )
+          })() : null}
+        </div>
+      </Modal>
     </main>
   )
 }
@@ -369,6 +513,12 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <div className="app-kpi-card__value app-kpi-card__value--navy">{value}</div>
     </Card>
   )
+}
+
+function renderDemurrageBadge(status: string | null) {
+  if (status === 'paid') return <Badge tone="green">Pago</Badge>
+  if (status === 'overdue') return <Badge tone="red">Vencida</Badge>
+  return <Badge tone="blue">Emitida</Badge>
 }
 
 function renderBillingBadge(status: string | null) {

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, FileText } from 'lucide-react'
+import { Clock, FileText, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
+import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { calculateDemurrage, createInvoiceForBL, fetchDemurrageKPIs, listDemurrageContainers } from '../services/demurrage'
 import type { DemurrageContainerListItem } from '../types/database'
 import { formatDate } from '../lib/utils'
@@ -36,6 +37,7 @@ export function Demurrage() {
   const { showToast } = useToast()
   const [search, setSearch] = useState('')
   const [generatingBl, setGeneratingBl] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   const { data: containers, isLoading, error } = useQuery({
     queryKey: ['demurrage-containers'],
@@ -82,16 +84,24 @@ export function Demurrage() {
 
   return (
     <>
+      <ContainerDatesImportModal open={importOpen} onClose={() => setImportOpen(false)} />
+
       <PageHeader
         title="Demurrage"
         description="Rastreamento de sobreestadia de containers"
         action={
-          <Link to="/demurrage/invoices">
-            <Button variant="secondary">
-              <FileText size={15} />
-              Invoices D&D
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              <Upload size={15} />
+              Importar Datas
             </Button>
-          </Link>
+            <Link to="/demurrage/invoices">
+              <Button variant="secondary">
+                <FileText size={15} />
+                Invoices D&D
+              </Button>
+            </Link>
+          </div>
         }
       />
 

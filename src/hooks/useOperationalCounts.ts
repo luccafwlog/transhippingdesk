@@ -6,6 +6,7 @@ export type OperationalCounts = {
   chargeReviewRequired: number
   readyForBilling: number
   openAlerts: number
+  blsWithoutCustomer: number
 }
 
 /**
@@ -66,10 +67,24 @@ export function useOperationalCounts(): OperationalCounts {
     staleTime: 60_000,
   })
 
+  const blsWithoutCustomer = useQuery({
+    queryKey: ['op-count', 'bls-without-customer'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('bls')
+        .select('*', { count: 'exact', head: true })
+        .is('customer_id', null)
+      if (error) return 0
+      return count ?? 0
+    },
+    staleTime: 60_000,
+  })
+
   return {
     pendingReview: pendingReview.data ?? 0,
     chargeReviewRequired: chargeReviewRequired.data ?? 0,
     readyForBilling: readyForBilling.data ?? 0,
     openAlerts: openAlerts.data ?? 0,
+    blsWithoutCustomer: blsWithoutCustomer.data ?? 0,
   }
 }

@@ -46,6 +46,7 @@ export function DemurrageInvoices() {
   const [docType, setDocType] = useState<'invoice' | 'receipt'>('invoice')
   const [payingId, setPayingId] = useState<number | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
+  const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
 
   const { data: invoices, isLoading, error } = useQuery({
     queryKey: ['demurrage-invoices', tab],
@@ -65,7 +66,11 @@ export function DemurrageInvoices() {
   }
 
   const issueMutation = useMutation({
-    mutationFn: async (id: number) => { const roe = await fetchROE(); await issueInvoice(id, roe) },
+    mutationFn: async (id: number) => {
+      const result = await fetchROE()
+      if (result.offline) setRoeOfflineWarning(result.cachedAt)
+      await issueInvoice(id, result.roe)
+    },
     onSuccess: () => { invalidate(); showToast('Fatura emitida. Valores congelados.', 'success') },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -79,7 +84,12 @@ export function DemurrageInvoices() {
   const payMutation = useMutation({
     mutationFn: async ({ id, date }: { id: number; date: string }) => {
       const inv = invoices?.find((i) => i.id === id)
-      const roe = inv?.frozen_roe ?? (await fetchROE())
+      let roe = inv?.frozen_roe ?? null
+      if (!roe) {
+        const result = await fetchROE()
+        if (result.offline) setRoeOfflineWarning(result.cachedAt)
+        roe = result.roe
+      }
       await markInvoicePaid(id, date, roe)
     },
     onSuccess: () => { invalidate(); setPayingId(null); showToast('Pagamento registrado.', 'success') },
@@ -107,6 +117,12 @@ export function DemurrageInvoices() {
   return (
     <>
       <PageHeader title="Invoices D&D" description="Faturamento de sobreestadia de containers" />
+
+      {roeOfflineWarning ? (
+        <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          BCB offline — usando PTAX em cache de {new Date(roeOfflineWarning).toLocaleString('pt-BR')}. Verifique a taxa antes de emitir faturas.
+        </div>
+      ) : null}
 
       {/* Tabs */}
       <div className="mb-4 flex gap-2 border-b border-[#30363d]">
