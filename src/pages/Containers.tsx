@@ -14,7 +14,6 @@ import {
   parseContainerFlagsImportFile,
   type ParsedContainerFlagsImport,
 } from '../services/containerFlagsImport'
-import { exportContainerWorkbook } from '../services/exports'
 
 const pageSizes = [20, 50, 100]
 
@@ -60,6 +59,7 @@ export function Containers() {
         return
       }
 
+      const { exportContainerWorkbook } = await import('../services/exports')
       await exportContainerWorkbook(rows)
       showToast(`Exportacao concluida com ${rows.length} container(es).`, 'success')
     } catch {

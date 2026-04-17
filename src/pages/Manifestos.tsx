@@ -15,7 +15,6 @@ import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useV
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { formatCnpjCpf } from '../lib/utils'
-import { exportManifestWorkbook } from '../services/exports'
 import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimitImportError } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 import { logOperationalEvent } from '../services/operationalEvents'
@@ -63,6 +62,7 @@ export function Manifestos() {
         return
       }
 
+      const { exportManifestWorkbook } = await import('../services/exports')
       await exportManifestWorkbook(rows)
       showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
     } catch {

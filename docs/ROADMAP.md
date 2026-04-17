@@ -156,6 +156,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Suite de testes unitarios com vitest: parser CNTR, parser BB, importacao de veiculos, reconciliacao e faturamento.
 - Suite de integracao com Supabase real disponivel via `npm run test:integration`.
 - Code splitting por rota e carregamento dinamico de `jspdf`, reduzindo o custo inicial do bundle principal.
+- Fluxos de exportacao (`xlsx`) e download de invoice foram empurrados para import dinamico sob clique, evitando custo desnecessario ao abrir telas operacionais e de faturamento.
 
 ---
 

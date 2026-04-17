@@ -13,7 +13,6 @@ import { fetchAllBls, type BlFilters, useBls, usePortOptions, useVoyageOptions }
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { formatDate } from '../lib/utils'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
-import { exportManifestWorkbook } from '../services/exports'
 import type { BLListItem } from '../types/database'
 
 const pageSizes = [20, 50, 100]
@@ -129,6 +128,7 @@ export function CargaSolta() {
         return
       }
 
+      const { exportManifestWorkbook } = await import('../services/exports')
       await exportManifestWorkbook(rows)
       showToast(`Exportacao concluida com ${rows.length} B/L(s) BB.`, 'success')
     } catch {

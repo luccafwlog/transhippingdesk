@@ -29,7 +29,6 @@ import {
   type Alert,
 } from '../services/alerts'
 import { logOperationalEvent } from '../services/operationalEvents'
-import { downloadInvoicePdf } from '../services/invoicePdf'
 import { formatBRL, formatDate } from '../lib/utils'
 
 function extractMessage(error: unknown, fallback: string): string {
@@ -278,6 +277,7 @@ export function Faturamento() {
     if (!detailQuery.data) return
     setIsPdfGenerating(true)
     try {
+      const { downloadInvoicePdf } = await import('../services/invoicePdf')
       await downloadInvoicePdf(detailQuery.data)
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao gerar PDF.', 'error')

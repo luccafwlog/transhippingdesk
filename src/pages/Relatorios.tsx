@@ -8,11 +8,6 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
 import {
-  exportCustomerReportWorkbook,
-  exportFinancialReportWorkbook,
-  exportOperationalReportWorkbook,
-} from '../services/exports'
-import {
   fetchCustomerReport,
   fetchFinancialReport,
   fetchOperationalReport,
@@ -94,6 +89,7 @@ function OperationalReportTab() {
     }
     setExporting(true)
     try {
+      const { exportOperationalReportWorkbook } = await import('../services/exports')
       await exportOperationalReportWorkbook(data.rows)
       showToast('Relatorio operacional exportado.', 'success')
     } catch {
@@ -252,6 +248,7 @@ function FinancialReportTab() {
     }
     setExporting(true)
     try {
+      const { exportFinancialReportWorkbook } = await import('../services/exports')
       await exportFinancialReportWorkbook(data.rows)
       showToast('Relatorio financeiro exportado.', 'success')
     } catch {
@@ -415,6 +412,7 @@ function CustomerReportTab() {
     }
     setExporting(true)
     try {
+      const { exportCustomerReportWorkbook } = await import('../services/exports')
       await exportCustomerReportWorkbook(data.rows)
       showToast('Relatorio por cliente exportado.', 'success')
     } catch {

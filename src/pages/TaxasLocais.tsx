@@ -38,7 +38,6 @@ import {
 } from '../hooks/useLocalCharges'
 import { formatBRL, formatDate } from '../lib/utils'
 import { useVoyageOptions } from '../hooks/useBls'
-import { exportLocalChargeOperationsWorkbook } from '../services/exports'
 
 type LocalChargeTab = 'tabelas' | 'overrides' | 'pendencias' | 'simulacao'
 
@@ -422,6 +421,7 @@ export function TaxasLocais() {
 
     setExportingOps(true)
     try {
+      const { exportLocalChargeOperationsWorkbook } = await import('../services/exports')
       await exportLocalChargeOperationsWorkbook(rows)
       showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
     } catch {

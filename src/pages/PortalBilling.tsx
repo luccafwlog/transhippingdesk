@@ -8,7 +8,6 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import { usePortalCreateConsolidation, usePortalInvoiceDetail, usePortalInvoices, usePortalPendingBls } from '../hooks/usePortalBilling'
-import { downloadInvoicePdf } from '../services/invoicePdf'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
 
 export function PortalBilling() {
@@ -65,6 +64,7 @@ export function PortalBilling() {
     if (!detailQuery.data) return
     setPdfLoading(true)
     try {
+      const { downloadInvoicePdf } = await import('../services/invoicePdf')
       await downloadInvoicePdf(detailQuery.data)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Falha ao gerar PDF.', 'error')
