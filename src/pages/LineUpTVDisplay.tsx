@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
-
-const HEADER_HEIGHT = 104
+const DISPLAY_ROW_HEIGHT = 46
 
 export function LineUpTVDisplay() {
-  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -22,18 +20,6 @@ export function LineUpTVDisplay() {
         new Date(data.lastChangedAt),
       )
     : '-'
-
-  const rowHeight = useMemo(() => {
-    if (rows.length === 0) return 88
-    const availableHeight = Math.max(viewportHeight - HEADER_HEIGHT - 24, 420)
-    return Math.max(60, Math.floor(availableHeight / Math.max(rows.length + 1, 1)))
-  }, [rows.length, viewportHeight])
-
-  useEffect(() => {
-    const handleResize = () => setViewportHeight(window.innerHeight)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -88,14 +74,14 @@ export function LineUpTVDisplay() {
     }, 7000)
 
     return () => window.clearInterval(interval)
-  }, [rows.length, rowHeight])
+  }, [rows.length])
 
   return (
     <main className="app-lineup-display-shell">
       <header className="app-lineup-display-header">
         <div className="app-lineup-display-brand">
           <img
-            src="/branding/transhipping-logo.png"
+            src="/branding/transhipping-logo-cropped.png"
             alt="Transhipping"
             className="app-lineup-display-brand__logo"
           />
@@ -120,7 +106,7 @@ export function LineUpTVDisplay() {
               emptyTitle="Nenhuma escala disponivel."
               emptyDescription="Aguarde o proximo ciclo de atualizacao."
               mode="display"
-              rowHeight={rowHeight}
+              rowHeight={DISPLAY_ROW_HEIGHT}
             />
           </div>
         )}
