@@ -31,20 +31,20 @@ export function LineUpTable({
         style={isDisplay && rowHeight ? ({ ['--lineup-display-row-height' as string]: `${rowHeight}px` } as CSSProperties) : undefined}
       >
         <colgroup>
-          <col className={isDisplay ? 'w-[17.4%]' : 'w-[22%]'} />
-          <col className={isDisplay ? 'w-[3%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4%]' : 'w-[7%]'} />
-          <col className={isDisplay ? 'w-[4.7%]' : 'w-[6%]'} />
-          <col className={isDisplay ? 'w-[4.7%]' : 'w-[6%]'} />
-          <col className={isDisplay ? 'w-[4.4%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4.4%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4.2%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4.8%]' : 'w-[6%]'} />
-          <col className={isDisplay ? 'w-[4.1%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4.1%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[6.2%]' : 'w-[10%]'} />
-          <col className={isDisplay ? 'w-[7.5%]' : 'w-[7%]'} />
-          <col className={isDisplay ? 'w-[6.5%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[18%]' : 'w-[22%]'} />
+          <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[7%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[5%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[7%]' : 'w-[10%]'} />
+          <col className={isDisplay ? 'w-[11%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
         </colgroup>
         <thead className={isDisplay ? 'bg-[#16325f] text-[13px] uppercase tracking-[0.18em] text-white' : 'bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500'}>
           <tr>
@@ -75,7 +75,7 @@ export function LineUpTable({
 
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className={isDisplay ? 'px-2 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>{row.vesselName}</td>
+              <td className={isDisplay ? 'px-1 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>{row.vesselName}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.pod}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.eta)}</td>
@@ -93,9 +93,17 @@ export function LineUpTable({
                   <span>{formatInteger(row.bbTotal)} TOTAL</span>
                 </div>
               </td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{renderCeStatus(row.ceStatus)}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
-                <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'YES' : 'NO'}</Badge>
+                {isDisplay ? renderDisplayCeStatus(row.ceStatus) : renderCeStatus(row.ceStatus)}
+              </td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                {isDisplay ? (
+                  <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                    {row.linked ? 'YES' : 'NO'}
+                  </span>
+                ) : (
+                  <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'YES' : 'NO'}</Badge>
+                )}
               </td>
             </tr>
           ))}
@@ -115,6 +123,12 @@ function renderCeStatus(status: LineUpRow['ceStatus']) {
   if (status === 'approved') return <Badge tone="green">Approved</Badge>
   if (status === 'partial') return <Badge tone="yellow">Partial</Badge>
   return <Badge tone="red">Missing</Badge>
+}
+
+function renderDisplayCeStatus(status: LineUpRow['ceStatus']) {
+  if (status === 'approved') return <span className="app-lineup-display-status app-lineup-display-status--green">Approved</span>
+  if (status === 'partial') return <span className="app-lineup-display-status app-lineup-display-status--amber">Partial</span>
+  return <span className="app-lineup-display-status app-lineup-display-status--red">Missing</span>
 }
 
 function formatShortDate(value: string | null) {

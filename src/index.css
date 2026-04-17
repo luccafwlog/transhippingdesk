@@ -1484,7 +1484,7 @@ textarea {
 }
 
 .app-table--lineup-display {
-  font-size: 20px;
+  font-size: 23px;
   color: #16324e;
 }
 
@@ -1500,7 +1500,7 @@ textarea {
   background: #16325f;
   color: #ffffff !important;
   text-align: center;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: 0.06em;
   line-height: 1;
@@ -1514,17 +1514,25 @@ textarea {
 .app-table--lineup-display tbody td {
   border-color: #d6dfeb;
   color: #18314f;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
   line-height: 0.96;
   vertical-align: middle;
+  white-space: nowrap;
+}
+
+.app-table--lineup-display tbody td:first-child {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
 }
 
 .app-table--lineup-display .app-lineup-bb {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 0.94;
   color: #16324e;
+  justify-items: center;
 }
 
 .app-lineup-display-shell {
@@ -1618,6 +1626,26 @@ textarea {
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.04em;
+}
+
+.app-lineup-display-status {
+  display: inline-block;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.app-lineup-display-status--green {
+  color: #2f7b1f;
+}
+
+.app-lineup-display-status--amber {
+  color: #9f5b00;
+}
+
+.app-lineup-display-status--red {
+  color: #d75b62;
 }
 
 .app-lineup-display-loading,
