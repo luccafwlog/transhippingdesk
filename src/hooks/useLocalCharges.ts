@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addManualBlCharge,
+  approveCustomerReconciliation,
   calculateLocalChargesBatch,
   calculateBlLocalCharges,
+  getBillingRunDetails,
   listLocalChargeOperationalRows,
+  listBillingRuns,
+  listCustomerReconciliationQueue,
   deleteChargeTableItem,
   deleteManualBlCharge,
   markLocalChargesReadyBatch,
@@ -22,6 +26,7 @@ import {
   listLocalChargePendencies,
   listLocalChargeTables,
   saveCustomerRateOverride,
+  rejectCustomerReconciliation,
   updateManualBlCharge,
 } from '../services/localCharges'
 
@@ -224,6 +229,28 @@ export function useLocalChargeOperations(filters?: {
   })
 }
 
+export function useBillingRuns(limit = 50) {
+  return useQuery({
+    queryKey: ['billing-runs', limit],
+    queryFn: () => listBillingRuns(limit),
+  })
+}
+
+export function useBillingRunDetails(billingRunId?: number | null) {
+  return useQuery({
+    queryKey: ['billing-run-detail', billingRunId],
+    enabled: Boolean(billingRunId),
+    queryFn: () => getBillingRunDetails(Number(billingRunId)),
+  })
+}
+
+export function useCustomerReconciliationQueue(status?: '' | 'pending' | 'approved' | 'rejected', limit = 200) {
+  return useQuery({
+    queryKey: ['customer-reconciliation-queue', status, limit],
+    queryFn: () => listCustomerReconciliationQueue(status, limit),
+  })
+}
+
 export function useCustomerRateOverrides(filters?: {
   customerSearch?: string
   cargoMode?: '' | 'container' | 'carga_solta'
@@ -329,6 +356,49 @@ export function useBatchMarkLocalChargesReady() {
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
+    },
+  })
+}
+
+export function useApproveCustomerReconciliation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { queueId: number; customerId?: number | null; notes?: string | null; actorId?: string | null }) =>
+      approveCustomerReconciliation(payload.queueId, {
+        customerId: payload.customerId ?? null,
+        notes: payload.notes ?? null,
+        actorId: payload.actorId ?? null,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['customer-reconciliation-queue'] }),
+        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
+        queryClient.invalidateQueries({ queryKey: ['billing-runs'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+      ])
+    },
+  })
+}
+
+export function useRejectCustomerReconciliation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { queueId: number; notes?: string | null; actorId?: string | null }) =>
+      rejectCustomerReconciliation(payload.queueId, {
+        notes: payload.notes ?? null,
+        actorId: payload.actorId ?? null,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['customer-reconciliation-queue'] }),
+        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
+        queryClient.invalidateQueries({ queryKey: ['billing-runs'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
       ])
     },
   })

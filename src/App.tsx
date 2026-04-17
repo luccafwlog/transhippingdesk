@@ -1,7 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
+import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Login } from './pages/Login'
+import { PortalBilling } from './pages/PortalBilling'
+import { PortalLogin } from './pages/PortalLogin'
 import { Painel } from './pages/Painel'
 import { Viagens } from './pages/Viagens'
 import { Manifestos } from './pages/Manifestos'
@@ -23,6 +26,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/portal/login" element={<PortalLogin />} />
+      <Route element={<PortalProtectedRoute />}>
+        <Route path="/portal/billing" element={<PortalBilling />} />
+      </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/painel" replace />} />

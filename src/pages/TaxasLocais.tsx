@@ -8,12 +8,16 @@ import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import {
+  useApproveCustomerReconciliation,
   useBlLocalChargeLines,
   useBatchCalculateLocalCharges,
   useBatchMarkLocalChargesReady,
   useBatchMarkLocalChargesReviewed,
+  useBillingRunDetails,
+  useBillingRuns,
   useManualChargeItemsForBl,
   useCalculateBlLocalCharges,
+  useCustomerReconciliationQueue,
   useDeleteChargeTableItem,
   useAddManualBlCharge,
   useDeleteManualBlCharge,
@@ -28,6 +32,7 @@ import {
   useLocalChargeTables,
   useOverrideChargeItems,
   useOverrideCustomers,
+  useRejectCustomerReconciliation,
   useSaveCustomerRateOverride,
   useLocalChargeOperations,
 } from '../hooks/useLocalCharges'
@@ -187,6 +192,12 @@ export function TaxasLocais() {
   const batchCalculateMutation = useBatchCalculateLocalCharges()
   const batchReviewedMutation = useBatchMarkLocalChargesReviewed()
   const batchReadyMutation = useBatchMarkLocalChargesReady()
+  const { data: billingRuns, isLoading: billingRunsLoading } = useBillingRuns(20)
+  const [selectedBillingRunId, setSelectedBillingRunId] = useState<number | null>(null)
+  const billingRunDetailsQuery = useBillingRunDetails(selectedBillingRunId)
+  const { data: reconciliationQueue, isLoading: reconciliationLoading } = useCustomerReconciliationQueue('pending', 50)
+  const approveReconciliationMutation = useApproveCustomerReconciliation()
+  const rejectReconciliationMutation = useRejectCustomerReconciliation()
   const { data: simulationLines, isLoading: simulationLinesLoading } = useBlLocalChargeLines(simulationBlId)
   const { data: manualChargeItems, isLoading: isManualChargeItemsLoading } = useManualChargeItemsForBl(simulationBlId)
   const calculateMutation = useCalculateBlLocalCharges(simulationBlId)
@@ -224,6 +235,8 @@ export function TaxasLocais() {
       notCalculated: rows.filter((row) => row.charge_status === 'not_calculated').length,
       reviewRequired: rows.filter((row) => row.charge_status === 'review_required').length,
       ready: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
+      reconciliationPending: rows.filter((row) => !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')).length,
+      blocked: rows.filter((row) => Boolean(row.billing_hold_reason)).length,
       totalBrl: rows.reduce((sum, row) => sum + Number(row.totals.total_brl ?? 0), 0),
       totalUsd: rows.reduce((sum, row) => sum + Number(row.totals.total_usd ?? 0), 0),
     }
@@ -447,6 +460,36 @@ export function TaxasLocais() {
       setSelectedOpsRows([])
     } catch {
       showToast('Falha ao executar processamento em lote.', 'error')
+    }
+  }
+
+  async function handleApproveQueueItem(queueId: number, customerId?: number | null) {
+    if (!customerId) {
+      showToast('Nao ha cliente vinculado para aprovacao automatica. Revise o cadastro antes.', 'error')
+      return
+    }
+
+    try {
+      await approveReconciliationMutation.mutateAsync({
+        queueId,
+        customerId,
+        actorId: user?.id ?? null,
+      })
+      showToast('Reconciliacao aprovada.', 'success')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliacao.', 'error')
+    }
+  }
+
+  async function handleRejectQueueItem(queueId: number) {
+    try {
+      await rejectReconciliationMutation.mutateAsync({
+        queueId,
+        actorId: user?.id ?? null,
+      })
+      showToast('Reconciliacao rejeitada.', 'success')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliacao.', 'error')
     }
   }
 
@@ -1174,11 +1217,13 @@ export function TaxasLocais() {
             </div>
           </Card>
 
-          <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-8">
             <MetricCard label="B/Ls na visao" value={String(operationsSummary.total)} />
             <MetricCard label="Nao calculado" value={String(operationsSummary.notCalculated)} />
             <MetricCard label="Revisao" value={String(operationsSummary.reviewRequired)} />
             <MetricCard label="Pronto faturar" value={String(operationsSummary.ready)} />
+            <MetricCard label="Reconcil. pendente" value={String(operationsSummary.reconciliationPending)} />
+            <MetricCard label="Bloqueados" value={String(operationsSummary.blocked)} />
             <MetricCard label="Subtotal BRL" value={formatBRL(operationsSummary.totalBrl)} />
             <MetricCard label="Subtotal USD" value={formatUSD(operationsSummary.totalUsd)} />
           </div>
@@ -1230,7 +1275,7 @@ export function TaxasLocais() {
           <Card className="overflow-hidden p-0">
             {operationsError ? <InlineError message="Falha ao carregar operacao de taxas locais." /> : null}
             <div className="app-table-scroll">
-              <table className="app-table app-table--compact min-w-[1480px] text-left text-sm whitespace-nowrap">
+              <table className="app-table app-table--compact min-w-[1760px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-4 py-3">
@@ -1244,27 +1289,29 @@ export function TaxasLocais() {
                     <th className="px-4 py-3">Trecho</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Reconcil.</th>
                     <th className="px-4 py-3">Linhas</th>
                     <th className="px-4 py-3">Subtotal BRL</th>
                     <th className="px-4 py-3">Subtotal USD</th>
                     <th className="px-4 py-3">Ult. calculo</th>
                     <th className="px-4 py-3">Ult. revisao</th>
+                    <th className="px-4 py-3">Billing run</th>
                     <th className="px-4 py-3">Ult. evento</th>
-                    <th className="px-4 py-3">Isencao/Review</th>
+                    <th className="px-4 py-3">Bloqueio/Review</th>
                     <th className="px-4 py-3">Acao</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {operationsLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={15}>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={17}>
                         Carregando operacao...
                       </td>
                     </tr>
                   ) : null}
                   {!operationsLoading && (operationsRows?.length ?? 0) === 0 ? (
                     <tr>
-                      <td colSpan={15} className="p-0">
+                      <td colSpan={17} className="p-0">
                         <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
                       </td>
                     </tr>
@@ -1287,6 +1334,7 @@ export function TaxasLocais() {
                       <td className="px-4 py-3">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
                       <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
                       <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
+                      <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
                       <td className="px-4 py-3">
                         {Number(row.totals.line_count).toLocaleString('pt-BR')}
                         {row.totals.review_required_count > 0 ? (
@@ -1297,14 +1345,18 @@ export function TaxasLocais() {
                       <td className="px-4 py-3">{formatUSD(row.totals.total_usd)}</td>
                       <td className="px-4 py-3">{formatDate(row.charges_calculated_at)}</td>
                       <td className="px-4 py-3">{formatDate(row.charges_reviewed_at)}</td>
+                      <td className="px-4 py-3">{row.last_billing_run_id ?? '-'}</td>
                       <td className="px-4 py-3">
                         <span className="app-table__truncate app-table__truncate--xl" title={row.trail.last_event_message ?? '-'}>
                           {row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="app-table__truncate app-table__truncate--xl" title={row.charge_exemption_reason ?? '-'}>
-                          {row.charge_exemption_reason ?? '-'}
+                        <span
+                          className="app-table__truncate app-table__truncate--xl"
+                          title={row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
+                        >
+                          {row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -1318,6 +1370,166 @@ export function TaxasLocais() {
               </table>
             </div>
           </Card>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            <Card className="overflow-hidden p-0">
+              <div className="border-b border-[#30363d] px-5 py-4">
+                <h3 className="text-lg font-semibold text-white">Fila de reconciliacao de cliente</h3>
+                <p className="mt-1 text-sm text-slate-400">B/Ls sem cliente validado ficam bloqueados ate aprovacao ou rejeicao.</p>
+              </div>
+              <div className="app-table-scroll">
+                <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
+                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">B/L</th>
+                      <th className="px-4 py-3">Manifesto</th>
+                      <th className="px-4 py-3">Cliente sugerido</th>
+                      <th className="px-4 py-3">Deteccao</th>
+                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Bloqueio</th>
+                      <th className="px-4 py-3">Acao</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    {reconciliationLoading ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                          Carregando fila de reconciliacao...
+                        </td>
+                      </tr>
+                    ) : null}
+                    {!reconciliationLoading && (reconciliationQueue?.length ?? 0) === 0 ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                          Nenhuma pendencia de reconciliacao aberta.
+                        </td>
+                      </tr>
+                    ) : null}
+                    {reconciliationQueue?.map((row) => (
+                      <tr key={row.id}>
+                        <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.bl_id}</td>
+                        <td className="px-4 py-3">
+                          <div>{row.manifest_customer_name ?? '-'}</div>
+                          <div className="text-xs text-slate-500">{row.cnpj_cpf ?? '-'}</div>
+                        </td>
+                        <td className="px-4 py-3">{row.current_customer_name ?? '-'}</td>
+                        <td className="px-4 py-3">{renderDetectionType(row.detection_type)}</td>
+                        <td className="px-4 py-3">{row.manifest_customer_email ?? '-'}</td>
+                        <td className="px-4 py-3">
+                          <span className="app-table__truncate app-table__truncate--lg" title={row.billing_hold_reason ?? row.notes ?? '-'}>
+                            {row.billing_hold_reason ?? row.notes ?? '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleApproveQueueItem(row.id, row.customer_id)}
+                              loading={approveReconciliationMutation.isPending}
+                              disabled={!row.customer_id || rejectReconciliationMutation.isPending}
+                            >
+                              Aprovar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleRejectQueueItem(row.id)}
+                              loading={rejectReconciliationMutation.isPending}
+                              disabled={approveReconciliationMutation.isPending}
+                            >
+                              Rejeitar
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            <Card className="overflow-hidden p-0">
+              <div className="border-b border-[#30363d] px-5 py-4">
+                <h3 className="text-lg font-semibold text-white">Billing runs recentes</h3>
+                <p className="mt-1 text-sm text-slate-400">Cada manifesto processado gera uma execucao auditavel de calculo.</p>
+              </div>
+              <div className="app-table-scroll">
+                <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
+                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Run</th>
+                      <th className="px-4 py-3">Manifesto</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">B/Ls</th>
+                      <th className="px-4 py-3">Bloqueados</th>
+                      <th className="px-4 py-3">Total BRL</th>
+                      <th className="px-4 py-3">Acao</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    {billingRunsLoading ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                          Carregando billing runs...
+                        </td>
+                      </tr>
+                    ) : null}
+                    {!billingRunsLoading && (billingRuns?.length ?? 0) === 0 ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                          Nenhuma execucao registrada.
+                        </td>
+                      </tr>
+                    ) : null}
+                    {billingRuns?.map((run) => (
+                      <tr key={run.id}>
+                        <td className="px-4 py-3 font-semibold text-[#58a6ff]">#{run.id}</td>
+                        <td className="px-4 py-3">
+                          <div>{run.filename}</div>
+                          <div className="text-xs text-slate-500">Manifesto {run.manifest_id}</div>
+                        </td>
+                        <td className="px-4 py-3">{renderBillingRunStatus(run.status)}</td>
+                        <td className="px-4 py-3">
+                          {run.calculated_bls}/{run.total_bls}
+                        </td>
+                        <td className="px-4 py-3">{run.blocked_bls}</td>
+                        <td className="px-4 py-3">{formatBRL(run.total_brl)}</td>
+                        <td className="px-4 py-3">
+                          <Button variant="secondary" onClick={() => setSelectedBillingRunId(run.id)}>
+                            Logs
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {billingRunDetailsQuery.data?.run ? (
+                <div className="border-t border-[#30363d] px-5 py-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="text-base font-semibold text-white">Detalhe do run #{billingRunDetailsQuery.data.run.id}</h4>
+                    <div className="text-sm text-slate-400">{formatDate(billingRunDetailsQuery.data.run.started_at)}</div>
+                  </div>
+                  <div className="grid gap-2">
+                    {billingRunDetailsQuery.data.logs.length === 0 ? (
+                      <div className="text-sm text-slate-400">Nenhum log registrado.</div>
+                    ) : (
+                      billingRunDetailsQuery.data.logs.slice(0, 8).map((log) => (
+                        <div key={log.id} className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {renderLogLevel(log.level)}
+                            <span className="text-sm font-semibold text-white">{log.code}</span>
+                            <span className="text-xs text-slate-500">{formatDate(log.created_at)}</span>
+                          </div>
+                          <div className="mt-2 text-sm text-slate-300">{log.message}</div>
+                          {log.bl_id ? <div className="mt-1 text-xs text-slate-500">B/L: {log.bl_id}</div> : null}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </Card>
+          </div>
         </>
       ) : null}
 
@@ -1754,6 +1966,34 @@ function renderChargeStatus(status: string | null) {
   if (status === 'exempt') return <Badge tone="slate">Isento</Badge>
   if (status === 'calculated') return <Badge tone="blue">Calculado</Badge>
   return <Badge tone="slate">Pendente</Badge>
+}
+
+function renderReconciliationStatus(status: string | null) {
+  if (status === 'reconciled') return <Badge tone="green">Reconciliado</Badge>
+  if (status === 'matched_document') return <Badge tone="blue">Match CNPJ</Badge>
+  if (status === 'matched_name') return <Badge tone="yellow">Match nome</Badge>
+  if (status === 'rejected') return <Badge tone="red">Rejeitado</Badge>
+  return <Badge tone="yellow">Pendente</Badge>
+}
+
+function renderDetectionType(type: string | null) {
+  if (type === 'document') return <Badge tone="blue">Documento</Badge>
+  if (type === 'name') return <Badge tone="yellow">Nome</Badge>
+  if (type === 'manual') return <Badge tone="green">Manual</Badge>
+  return <Badge tone="red">Ausente</Badge>
+}
+
+function renderBillingRunStatus(status: string | null) {
+  if (status === 'completed') return <Badge tone="green">Concluido</Badge>
+  if (status === 'completed_with_blocks') return <Badge tone="yellow">Concluido c/ bloqueios</Badge>
+  if (status === 'failed') return <Badge tone="red">Falhou</Badge>
+  return <Badge tone="blue">Executando</Badge>
+}
+
+function renderLogLevel(level: string | null) {
+  if (level === 'error') return <Badge tone="red">Erro</Badge>
+  if (level === 'warning') return <Badge tone="yellow">Aviso</Badge>
+  return <Badge tone="blue">Info</Badge>
 }
 
 function formatUSD(value: number) {

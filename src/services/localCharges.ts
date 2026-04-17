@@ -129,6 +129,10 @@ export type LocalChargeOperationalRow = {
   pol: string | null
   pod: string | null
   charge_status: string | null
+  customer_reconciliation_status: string | null
+  customer_reconciliation_notes: string | null
+  billing_hold_reason: string | null
+  last_billing_run_id: number | null
   charge_exemption_reason: string | null
   charges_calculated_at: string | null
   charges_reviewed_at: string | null
@@ -157,6 +161,60 @@ export type LocalChargeOperationalRow = {
     last_event_field: string | null
     last_event_message: string | null
   }
+}
+
+export type BillingRunSummary = {
+  id: number
+  manifest_id: number
+  filename: string
+  trigger_source: string
+  status: 'running' | 'completed' | 'completed_with_blocks' | 'failed'
+  started_at: string
+  completed_at: string | null
+  total_bls: number
+  eligible_bls: number
+  blocked_bls: number
+  calculated_bls: number
+  total_brl: number
+  total_usd: number
+}
+
+export type BillingRunDetail = {
+  run: BillingRunSummary & {
+    summary?: Record<string, unknown>
+  }
+  logs: Array<{
+    id: number
+    billing_run_id: number
+    manifest_id: number
+    bl_id: string | null
+    level: 'info' | 'warning' | 'error'
+    code: string
+    message: string
+    details: Record<string, unknown> | null
+    created_at: string
+  }>
+}
+
+export type CustomerReconciliationQueueRow = {
+  id: number
+  manifest_id: number | null
+  bl_id: string
+  customer_id: number | null
+  current_customer_name: string | null
+  cnpj_cpf: string | null
+  manifest_customer_name: string | null
+  manifest_customer_email: string | null
+  detection_type: 'document' | 'name' | 'missing' | 'manual'
+  status: 'pending' | 'approved' | 'rejected'
+  notes: string | null
+  resolution_notes: string | null
+  charge_status: string | null
+  financial_status: string | null
+  billing_hold_reason: string | null
+  created_at: string
+  approved_at: string | null
+  rejected_at: string | null
 }
 
 export type LocalChargeOverrideItem = {
@@ -413,6 +471,10 @@ export async function listLocalChargeOperationalRows(filters?: LocalChargeOperat
       pol,
       pod,
       charge_status,
+      customer_reconciliation_status,
+      customer_reconciliation_notes,
+      billing_hold_reason,
+      last_billing_run_id,
       charge_exemption_reason,
       charges_calculated_at,
       charges_reviewed_at,
@@ -762,6 +824,74 @@ export async function saveCustomerRateOverride(input: {
 export async function deleteCustomerRateOverride(id: number) {
   const { error } = await supabase.from('customer_rate_overrides').delete().eq('id', id)
   if (error) throw error
+}
+
+export async function listBillingRuns(limit = 50) {
+  const { data, error } = await supabase.rpc('list_billing_runs', {
+    p_limit: limit,
+  })
+
+  if (error) throw error
+  return (data ?? []) as BillingRunSummary[]
+}
+
+export async function getBillingRunDetails(billingRunId: number) {
+  const { data, error } = await supabase.rpc('get_billing_run_details', {
+    p_billing_run_id: billingRunId,
+  })
+
+  if (error) throw error
+  const payload = (data ?? {}) as BillingRunDetail
+  return {
+    run: payload.run ?? null,
+    logs: payload.logs ?? [],
+  } as BillingRunDetail
+}
+
+export async function listCustomerReconciliationQueue(status?: '' | 'pending' | 'approved' | 'rejected', limit = 200) {
+  const { data, error } = await supabase.rpc('list_customer_reconciliation_queue', {
+    p_status: status || null,
+    p_limit: limit,
+  })
+
+  if (error) throw error
+  return (data ?? []) as CustomerReconciliationQueueRow[]
+}
+
+export async function approveCustomerReconciliation(
+  queueId: number,
+  input?: {
+    customerId?: number | null
+    notes?: string | null
+    actorId?: string | null
+  },
+) {
+  const { data, error } = await supabase.rpc('approve_customer_reconciliation', {
+    p_queue_id: queueId,
+    p_customer_id: input?.customerId ?? null,
+    p_notes: input?.notes ?? null,
+    p_actor: input?.actorId ?? null,
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function rejectCustomerReconciliation(
+  queueId: number,
+  input?: {
+    notes?: string | null
+    actorId?: string | null
+  },
+) {
+  const { data, error } = await supabase.rpc('reject_customer_reconciliation', {
+    p_queue_id: queueId,
+    p_notes: input?.notes ?? null,
+    p_actor: input?.actorId ?? null,
+  })
+
+  if (error) throw error
+  return data
 }
 
 function normalizeCalculationResult(data: unknown): LocalChargeCalculationResult {

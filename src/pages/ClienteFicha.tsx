@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -9,7 +9,14 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerDetail } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
-import { deleteCustomerContact, updateCustomerWithAudit, upsertCustomerContact } from '../services/customers'
+import {
+  deleteCustomerContact,
+  getCustomerPortalAccount,
+  setCustomerPortalAccountActive,
+  updateCustomerWithAudit,
+  upsertCustomerContact,
+  upsertCustomerPortalAccount,
+} from '../services/customers'
 import type { CustomerContact } from '../types/database'
 
 type CustomerForm = {
@@ -48,7 +55,7 @@ const emptyContact: ContactForm = {
 export function ClienteFicha() {
   const { cnpj } = useParams()
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { showToast } = useToast()
   const { data, isLoading, error } = useCustomerDetail(cnpj)
   const [form, setForm] = useState<CustomerForm | null>(null)
@@ -59,6 +66,45 @@ export function ClienteFicha() {
   const [commercialSaving, setCommercialSaving] = useState(false)
   const [contactForm, setContactForm] = useState<ContactForm>(emptyContact)
   const [contactSaving, setContactSaving] = useState(false)
+  const [portalEmail, setPortalEmail] = useState('')
+  const [portalPassword, setPortalPassword] = useState('')
+  const [portalActive, setPortalActive] = useState(true)
+
+  const portalAccountQuery = useQuery({
+    queryKey: ['customer-portal-account', data?.id],
+    enabled: Boolean(data?.id),
+    queryFn: () => getCustomerPortalAccount(data!.id),
+  })
+
+  const savePortalMutation = useMutation({
+    mutationFn: async () => {
+      if (!data) throw new Error('Cliente nao carregado.')
+      return upsertCustomerPortalAccount({
+        customerId: data.id,
+        password: portalPassword,
+        contactEmail: portalEmail || null,
+        active: portalActive,
+        actorId: user?.id ?? null,
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['customer-portal-account', data?.id] })
+    },
+  })
+
+  const togglePortalActiveMutation = useMutation({
+    mutationFn: async (active: boolean) => {
+      if (!data) throw new Error('Cliente nao carregado.')
+      return setCustomerPortalAccountActive({
+        customerId: data.id,
+        active,
+        actorId: user?.id ?? null,
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['customer-portal-account', data?.id] })
+    },
+  })
 
   useEffect(() => {
     if (!data) return
@@ -77,6 +123,18 @@ export function ClienteFicha() {
       commercial_notes: data.commercial_notes ?? '',
     })
   }, [data])
+
+  useEffect(() => {
+    if (!data) return
+
+    const primaryContact =
+      data.customer_contacts?.find((contact) => contact.purpose === 'faturamento' && contact.email) ??
+      data.customer_contacts?.find((contact) => contact.is_primary && contact.email) ??
+      data.customer_contacts?.find((contact) => contact.email)
+
+    setPortalEmail(portalAccountQuery.data?.contact_email ?? primaryContact?.email ?? '')
+    setPortalActive(portalAccountQuery.data?.active ?? true)
+  }, [data, portalAccountQuery.data])
 
   async function handleSaveCustomer() {
     if (!data || !form || !user) return
@@ -238,6 +296,43 @@ export function ClienteFicha() {
     }
   }
 
+  async function handleSavePortalAccount() {
+    if (!data || !user) return
+    if (!isAdmin) {
+      showToast('Provisionamento do portal restrito ao perfil admin.', 'error')
+      return
+    }
+    if (portalPassword.trim().length < 8) {
+      showToast('Informe uma senha com no minimo 8 caracteres.', 'error')
+      return
+    }
+
+    try {
+      await savePortalMutation.mutateAsync()
+      setPortalPassword('')
+      showToast('Acesso do portal atualizado.', 'success')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao provisionar acesso do portal.', 'error')
+    }
+  }
+
+  async function handleTogglePortalActive() {
+    if (!data || !user) return
+    if (!isAdmin) {
+      showToast('Provisionamento do portal restrito ao perfil admin.', 'error')
+      return
+    }
+
+    const nextActive = !(portalAccountQuery.data?.active ?? portalActive)
+    try {
+      await togglePortalActiveMutation.mutateAsync(nextActive)
+      setPortalActive(nextActive)
+      showToast(nextActive ? 'Acesso do portal ativado.' : 'Acesso do portal desativado.', 'success')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao atualizar status do portal.', 'error')
+    }
+  }
+
   if (isLoading) {
     return <Card>Carregando ficha do cliente...</Card>
   }
@@ -301,6 +396,64 @@ export function ClienteFicha() {
         </div>
       </Card>
 
+      <Card className="mb-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Portal do cliente</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Provisiona login externo por CNPJ + senha para consulta e consolidacao de invoices.
+            </p>
+          </div>
+          <div className="text-sm text-slate-400">
+            {portalAccountQuery.data ? `Ultimo login: ${formatDate(portalAccountQuery.data.last_login_at)}` : 'Sem acesso provisionado'}
+          </div>
+        </div>
+
+        {!isAdmin ? (
+          <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
+            Somente admin pode criar ou alterar o acesso do portal.
+          </div>
+        ) : null}
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="Email de contato">
+            <Input value={portalEmail} onChange={(event) => setPortalEmail(event.target.value)} placeholder="financeiro@cliente.com" />
+          </Field>
+          <Field label="Senha do portal">
+            <Input
+              type="password"
+              value={portalPassword}
+              onChange={(event) => setPortalPassword(event.target.value)}
+              placeholder={portalAccountQuery.data ? 'Nova senha para reset' : 'Minimo 8 caracteres'}
+            />
+          </Field>
+          <Field label="Status">
+            <Select value={portalActive ? 'active' : 'inactive'} onChange={(event) => setPortalActive(event.target.value === 'active')}>
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
+            </Select>
+          </Field>
+          <div className="grid gap-1 rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+            <div className="text-xs uppercase tracking-wider text-slate-500">Conta portal</div>
+            <div className="text-2xl font-bold text-white">{portalAccountQuery.data ? 'Provisionada' : 'Pendente'}</div>
+            <div className="text-xs text-slate-400">{portalAccountQuery.data?.contact_email ?? 'Sem email definido'}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleTogglePortalActive}
+            loading={togglePortalActiveMutation.isPending}
+            disabled={!portalAccountQuery.data || !isAdmin}
+          >
+            {portalAccountQuery.data?.active ? 'Desativar portal' : 'Ativar portal'}
+          </Button>
+          <Button loading={savePortalMutation.isPending} onClick={handleSavePortalAccount} disabled={!isAdmin}>
+            {portalAccountQuery.data ? 'Salvar e resetar senha' : 'Criar acesso portal'}
+          </Button>
+        </div>
+      </Card>
       {commercialForm ? (
         <Card className="mb-5 grid gap-4">
           <h2 className="text-base font-semibold text-white">Regras Comerciais</h2>
@@ -541,3 +694,4 @@ function MetricCard({ label, value }: { label: string; value: string }) {
     </Card>
   )
 }
+
