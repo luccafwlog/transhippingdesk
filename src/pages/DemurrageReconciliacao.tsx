@@ -4,6 +4,7 @@ import { RefreshCw, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import type { DragEvent } from 'react'
 import { useToast } from '../components/ui/Toast'
 import { confirmPixReconciliation, matchPixTransactions, parsePixExtract } from '../services/demurrage'
 import type { PixMatch } from '../types/database'
@@ -59,25 +60,28 @@ export function DemurrageReconciliacao() {
       <PageHeader title="Conciliacao PIX" description="Importar extrato Itau e conciliar pagamentos de demurrage" />
 
       {/* Upload zone */}
-      <Card
-        className={`mb-6 cursor-pointer border-2 border-dashed p-8 text-center transition-colors ${dragOver ? 'border-blue-500 bg-blue-900/10' : 'border-[#30363d]'}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      <div
+        className={`mb-6 cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${dragOver ? 'border-blue-500 bg-blue-900/10' : 'border-[#30363d] bg-[#161b22]'}`}
+        onDragOver={(e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f) }}
+        onDrop={(e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) void processFile(f) }}
         onClick={() => fileRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click() }}
       >
         <input
           ref={fileRef}
           type="file"
           accept=".xlsx,.xls"
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f) }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void processFile(f) }}
         />
         <Upload size={32} className="mx-auto mb-3 text-slate-400" />
         <p className="font-medium text-slate-300">Arraste ou clique para selecionar a planilha</p>
         <p className="text-sm text-slate-500">Planilha "QR Codes recebidos" do Itau Empresas (.xlsx)</p>
         {loading && <p className="mt-3 text-sm text-blue-400">Processando...</p>}
-      </Card>
+      </div>
 
       {/* Preview table */}
       {matches && matches.length > 0 && (
@@ -88,8 +92,8 @@ export function DemurrageReconciliacao() {
               <span className="ml-3 text-sm text-slate-400">({nonAmbiguous.length} sem ambiguidade)</span>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={clearMatches}>Cancelar</Button>
-              <Button size="sm" disabled={!nonAmbiguous.length || confirmMutation.isPending} onClick={() => confirmMutation.mutate()}>
+              <Button variant="ghost" onClick={clearMatches}>Cancelar</Button>
+              <Button disabled={!nonAmbiguous.length || confirmMutation.isPending} onClick={() => confirmMutation.mutate()}>
                 <RefreshCw size={14} />
                 {confirmMutation.isPending ? 'Conciliando...' : `Confirmar ${nonAmbiguous.length} pagamento(s)`}
               </Button>

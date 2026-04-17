@@ -16,7 +16,7 @@ function fmtUSD(v: number) {
 }
 
 function DemurrageStatusBadge({ status }: { status: string | null }) {
-  if (status === 'returned') return <Badge tone="gray">Devolvido</Badge>
+  if (status === 'returned') return <Badge tone="slate">Devolvido</Badge>
   if (status === 'overdue') return <Badge tone="red">Em atraso</Badge>
   return <Badge tone="green">Free time</Badge>
 }
@@ -85,9 +85,9 @@ export function Demurrage() {
       <PageHeader
         title="Demurrage"
         description="Rastreamento de sobreestadia de containers"
-        actions={
+        action={
           <Link to="/demurrage/invoices">
-            <Button variant="secondary" size="sm">
+            <Button variant="secondary">
               <FileText size={15} />
               Invoices D&D
             </Button>
@@ -128,7 +128,7 @@ export function Demurrage() {
       {error && <InlineError message="Erro ao carregar containers." />}
 
       {!isLoading && !error && grouped.size === 0 && (
-        <EmptyState icon={<Clock size={32} />} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
+        <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
       )}
 
       {/* Grouped by BL */}
@@ -157,7 +157,6 @@ export function Demurrage() {
                 {blTotalUSD > 0 && <span className="text-sm font-semibold text-amber-400">{fmtUSD(blTotalUSD)}</span>}
                 {hasOverdue && (
                   <Button
-                    size="sm"
                     variant="secondary"
                     disabled={generatingBl === blId}
                     onClick={() => { setGeneratingBl(blId); generateMutation.mutate(blId) }}

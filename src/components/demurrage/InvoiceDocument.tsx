@@ -31,11 +31,9 @@ function longDate() {
 }
 
 export function InvoiceDocument({ detail, type }: Props) {
-  const { invoice, items } = detail
+  const { items, customer, bl, ...invoice } = detail
   const isInvoice = type === 'invoice'
 
-  const customer = detail.customer
-  const bl = detail.bl
   const vessel = bl?.voyage?.vessel?.name ?? '—'
   const voyageNumber = bl?.voyage?.voyage_number ?? '—'
 

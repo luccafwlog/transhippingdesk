@@ -34,7 +34,7 @@ function fmtBRL(v: number | null | undefined) {
 function StatusBadge({ status }: { status: DemurrageInvoice['status'] }) {
   if (status === 'paid') return <Badge tone="green">Pago</Badge>
   if (status === 'issued') return <Badge tone="blue">Faturado</Badge>
-  if (status === 'cancelled') return <Badge tone="gray">Cancelado</Badge>
+  if (status === 'cancelled') return <Badge tone="slate">Cancelado</Badge>
   return <Badge tone="yellow">Rascunho</Badge>
 }
 
@@ -125,7 +125,7 @@ export function DemurrageInvoices() {
       {isLoading && <Card>Carregando...</Card>}
       {error && <InlineError message="Erro ao carregar invoices." />}
       {!isLoading && !error && !invoices?.length && (
-        <EmptyState icon={<FileText size={32} />} title="Nenhuma invoice" description={`Nenhuma invoice com status "${tab}".`} />
+        <EmptyState icon={FileText} title="Nenhuma invoice" description={`Nenhuma invoice com status "${tab}".`} />
       )}
 
       {invoices && invoices.length > 0 && (
@@ -162,22 +162,22 @@ export function DemurrageInvoices() {
                         <div className="flex flex-wrap gap-1">
                           {inv.status === 'draft' && (
                             <>
-                              <Button size="sm" variant="secondary" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
-                              <Button size="sm" variant="ghost" onClick={() => cancelMutation.mutate(inv.id)}>Cancelar</Button>
+                              <Button variant="secondary" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
+                              <Button variant="ghost" onClick={() => cancelMutation.mutate(inv.id)}>Cancelar</Button>
                             </>
                           )}
                           {inv.status === 'issued' && (
                             <>
-                              <Button size="sm" variant="secondary" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
-                              <Button size="sm" variant="ghost" onClick={() => unissueMutation.mutate(inv.id)}>Desemitir</Button>
-                              <Button size="sm" variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
+                              <Button variant="secondary" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
+                              <Button variant="ghost" onClick={() => unissueMutation.mutate(inv.id)}>Desemitir</Button>
+                              <Button variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
                             </>
                           )}
                           {inv.status === 'paid' && (
                             <>
-                              <Button size="sm" variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('receipt') }}>Recibo</Button>
-                              <Button size="sm" variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
-                              <Button size="sm" variant="ghost" onClick={() => unpayMutation.mutate(inv.id)}>Desmarcar</Button>
+                              <Button variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('receipt') }}>Recibo</Button>
+                              <Button variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
+                              <Button variant="ghost" onClick={() => unpayMutation.mutate(inv.id)}>Desmarcar</Button>
                             </>
                           )}
                         </div>
@@ -210,7 +210,7 @@ export function DemurrageInvoices() {
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Quitacao'}>
           <div className="p-2">
             <div className="mb-2 flex justify-end gap-2">
-              <Button size="sm" variant="secondary" onClick={() => window.print()}>Imprimir</Button>
+              <Button variant="secondary" onClick={() => window.print()}>Imprimir</Button>
             </div>
             <InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} />
           </div>
