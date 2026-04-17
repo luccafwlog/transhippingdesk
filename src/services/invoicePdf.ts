@@ -1,6 +1,7 @@
-import { jsPDF } from 'jspdf'
 import { COMPANY } from '../config/company'
 import type { InvoiceDetail } from './billing'
+
+type PdfDocument = import('jspdf').jsPDF
 
 type PdfCursor = {
   y: number
@@ -27,13 +28,13 @@ function formatDate(value: string | null | undefined) {
   return parsed.toLocaleDateString('pt-BR')
 }
 
-function ensureSpace(doc: jsPDF, cursor: PdfCursor, minHeight: number) {
+function ensureSpace(doc: PdfDocument, cursor: PdfCursor, minHeight: number) {
   if (cursor.y + minHeight <= PAGE_BOTTOM) return
   doc.addPage()
   cursor.y = MARGIN
 }
 
-function writeKeyValue(doc: jsPDF, cursor: PdfCursor, key: string, value: string) {
+function writeKeyValue(doc: PdfDocument, cursor: PdfCursor, key: string, value: string) {
   ensureSpace(doc, cursor, LINE_HEIGHT * 2)
   doc.setFont('helvetica', 'bold')
   doc.text(key, MARGIN, cursor.y)
@@ -43,7 +44,7 @@ function writeKeyValue(doc: jsPDF, cursor: PdfCursor, key: string, value: string
   cursor.y += Math.max(LINE_HEIGHT, wrapped.length * LINE_HEIGHT)
 }
 
-function drawSectionTitle(doc: jsPDF, cursor: PdfCursor, title: string) {
+function drawSectionTitle(doc: PdfDocument, cursor: PdfCursor, title: string) {
   ensureSpace(doc, cursor, 28)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
@@ -55,7 +56,7 @@ function drawSectionTitle(doc: jsPDF, cursor: PdfCursor, title: string) {
   doc.setFontSize(10)
 }
 
-function drawItemsHeader(doc: jsPDF, cursor: PdfCursor) {
+function drawItemsHeader(doc: PdfDocument, cursor: PdfCursor) {
   ensureSpace(doc, cursor, 24)
   doc.setFillColor(21, 37, 68)
   doc.rect(MARGIN, cursor.y - 10, 515, 20, 'F')
@@ -71,7 +72,7 @@ function drawItemsHeader(doc: jsPDF, cursor: PdfCursor) {
 }
 
 function drawItemRow(
-  doc: jsPDF,
+  doc: PdfDocument,
   cursor: PdfCursor,
   description: string,
   quantity: number | null | undefined,
@@ -102,6 +103,7 @@ export async function downloadInvoicePdf(detail: InvoiceDetail) {
   if (!detail.invoice) {
     throw new Error('Invoice indisponivel para gerar PDF.')
   }
+  const { jsPDF } = await import('jspdf')
 
   const doc = new jsPDF({
     orientation: 'portrait',

@@ -91,6 +91,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Billing runs por manifesto com logs estruturados de bloqueio e calculo.
 - Fila de reconciliacao de cliente quando o manifesto nao encontra vinculo seguro.
 - Bloqueio formal de faturamento para B/L sem cliente reconciliado.
+- Aba `Operacao` reorganizada em `Visao executiva` e `Grade de B/Ls`, reduzindo densidade e trazendo reconciliacao e billing runs para a primeira dobra.
 - Exportacao da operacao filtrada.
 
 ### Faturamento
@@ -154,6 +155,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Observabilidade minima: eventos criticos em `audit_logs` com `entity_type = system_event`.
 - Suite de testes unitarios com vitest: parser CNTR, parser BB, importacao de veiculos, reconciliacao e faturamento.
 - Suite de integracao com Supabase real disponivel via `npm run test:integration`.
+- Code splitting por rota e carregamento dinamico de `jspdf`, reduzindo o custo inicial do bundle principal.
 
 ---
 

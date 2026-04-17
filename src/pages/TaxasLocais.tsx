@@ -138,6 +138,7 @@ export function TaxasLocais() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
+  const [operationPanel, setOperationPanel] = useState<'overview' | 'bls'>('overview')
   const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta'>('')
   const [podFilter, setPodFilter] = useState('')
   const [tableForm, setTableForm] = useState<ChargeTableForm>(EMPTY_TABLE_FORM)
@@ -1229,307 +1230,356 @@ export function TaxasLocais() {
           </div>
 
           <Card className="mb-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => runBatchOperation('calculate')}
-                loading={batchCalculateMutation.isPending}
-                disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
-              >
-                <Calculator size={15} />
-                Calcular selecionados
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => runBatchOperation('recalculate')}
-                loading={batchCalculateMutation.isPending}
-                disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
-              >
-                <RefreshCw size={15} />
-                Recalcular selecionados
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => runBatchOperation('review')}
-                loading={batchReviewedMutation.isPending}
-                disabled={batchCalculateMutation.isPending || batchReadyMutation.isPending}
-              >
-                <CheckSquare size={15} />
-                Marcar revisados
-              </Button>
-              <Button
-                onClick={() => runBatchOperation('ready')}
-                loading={batchReadyMutation.isPending}
-                disabled={batchCalculateMutation.isPending || batchReviewedMutation.isPending}
-              >
-                <CheckSquare size={15} />
-                Marcar pronto faturar
-              </Button>
-              <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
-                <Download size={15} />
-                Exportar visao
-              </Button>
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Superficie operacional</h3>
+                <p className="mt-1 text-sm text-slate-400">Use a visao executiva para tratar bloqueios e billing runs antes de abrir a grade detalhada de B/Ls.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <TabButton active={operationPanel === 'overview'} label="Visao executiva" onClick={() => setOperationPanel('overview')} />
+                <TabButton active={operationPanel === 'bls'} label="Grade de B/Ls" onClick={() => setOperationPanel('bls')} />
+              </div>
             </div>
           </Card>
 
-          <Card className="overflow-hidden p-0">
-            {operationsError ? <InlineError message="Falha ao carregar operacao de taxas locais." /> : null}
-            <div className="app-table-scroll">
-              <table className="app-table app-table--compact min-w-[1760px] text-left text-sm whitespace-nowrap">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">
-                      <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
-                        {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3">B/L</th>
-                    <th className="px-4 py-3">Modo</th>
-                    <th className="px-4 py-3">Navio/Viagem</th>
-                    <th className="px-4 py-3">Trecho</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Cliente</th>
-                    <th className="px-4 py-3">Reconcil.</th>
-                    <th className="px-4 py-3">Linhas</th>
-                    <th className="px-4 py-3">Subtotal BRL</th>
-                    <th className="px-4 py-3">Subtotal USD</th>
-                    <th className="px-4 py-3">Ult. calculo</th>
-                    <th className="px-4 py-3">Ult. revisao</th>
-                    <th className="px-4 py-3">Billing run</th>
-                    <th className="px-4 py-3">Ult. evento</th>
-                    <th className="px-4 py-3">Bloqueio/Review</th>
-                    <th className="px-4 py-3">Acao</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#30363d]">
-                  {operationsLoading ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={17}>
-                        Carregando operacao...
-                      </td>
-                    </tr>
-                  ) : null}
-                  {!operationsLoading && (operationsRows?.length ?? 0) === 0 ? (
-                    <tr>
-                      <td colSpan={17} className="p-0">
-                        <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
-                      </td>
-                    </tr>
-                  ) : null}
-                  {operationsRows?.map((row) => (
-                    <tr key={row.id}>
-                      <td className="px-4 py-3">
-                        <button
-                          className="app-table__icon-button"
-                          type="button"
-                          onClick={() => toggleOpsRow(row.id)}
-                          title="Selecionar B/L"
-                        >
-                          {selectedOpsRows.includes(row.id) ? <CheckSquare size={14} /> : <Square size={14} />}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.id}</td>
-                      <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
-                      <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
-                      <td className="px-4 py-3">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
-                      <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
-                      <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
-                      <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
-                      <td className="px-4 py-3">
-                        {Number(row.totals.line_count).toLocaleString('pt-BR')}
-                        {row.totals.review_required_count > 0 ? (
-                          <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
-                      <td className="px-4 py-3">{formatUSD(row.totals.total_usd)}</td>
-                      <td className="px-4 py-3">{formatDate(row.charges_calculated_at)}</td>
-                      <td className="px-4 py-3">{formatDate(row.charges_reviewed_at)}</td>
-                      <td className="px-4 py-3">{row.last_billing_run_id ?? '-'}</td>
-                      <td className="px-4 py-3">
-                        <span className="app-table__truncate app-table__truncate--xl" title={row.trail.last_event_message ?? '-'}>
-                          {row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="app-table__truncate app-table__truncate--xl"
-                          title={row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
-                        >
-                          {row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link className="app-table__action" to={`/manifestos/${row.id}`}>
-                          Abrir B/L
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          <div className="grid gap-5 xl:grid-cols-2">
-            <Card className="overflow-hidden p-0">
-              <div className="border-b border-[#30363d] px-5 py-4">
-                <h3 className="text-lg font-semibold text-white">Fila de reconciliacao de cliente</h3>
-                <p className="mt-1 text-sm text-slate-400">B/Ls sem cliente validado ficam bloqueados ate aprovacao ou rejeicao.</p>
-              </div>
-              <div className="app-table-scroll">
-                <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
-                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3">B/L</th>
-                      <th className="px-4 py-3">Manifesto</th>
-                      <th className="px-4 py-3">Cliente sugerido</th>
-                      <th className="px-4 py-3">Deteccao</th>
-                      <th className="px-4 py-3">Email</th>
-                      <th className="px-4 py-3">Bloqueio</th>
-                      <th className="px-4 py-3">Acao</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#30363d]">
-                    {reconciliationLoading ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                          Carregando fila de reconciliacao...
-                        </td>
-                      </tr>
-                    ) : null}
-                    {!reconciliationLoading && (reconciliationQueue?.length ?? 0) === 0 ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                          Nenhuma pendencia de reconciliacao aberta.
-                        </td>
-                      </tr>
-                    ) : null}
-                    {reconciliationQueue?.map((row) => (
-                      <tr key={row.id}>
-                        <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.bl_id}</td>
-                        <td className="px-4 py-3">
-                          <div>{row.manifest_customer_name ?? '-'}</div>
-                          <div className="text-xs text-slate-500">{row.cnpj_cpf ?? '-'}</div>
-                        </td>
-                        <td className="px-4 py-3">{row.current_customer_name ?? '-'}</td>
-                        <td className="px-4 py-3">{renderDetectionType(row.detection_type)}</td>
-                        <td className="px-4 py-3">{row.manifest_customer_email ?? '-'}</td>
-                        <td className="px-4 py-3">
-                          <span className="app-table__truncate app-table__truncate--lg" title={row.billing_hold_reason ?? row.notes ?? '-'}>
-                            {row.billing_hold_reason ?? row.notes ?? '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <Button
-                              variant="secondary"
-                              onClick={() => handleApproveQueueItem(row.id, row.customer_id)}
-                              loading={approveReconciliationMutation.isPending}
-                              disabled={!row.customer_id || rejectReconciliationMutation.isPending}
-                            >
-                              Aprovar
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              onClick={() => handleRejectQueueItem(row.id)}
-                              loading={rejectReconciliationMutation.isPending}
-                              disabled={approveReconciliationMutation.isPending}
-                            >
-                              Rejeitar
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-
-            <Card className="overflow-hidden p-0">
-              <div className="border-b border-[#30363d] px-5 py-4">
-                <h3 className="text-lg font-semibold text-white">Billing runs recentes</h3>
-                <p className="mt-1 text-sm text-slate-400">Cada manifesto processado gera uma execucao auditavel de calculo.</p>
-              </div>
-              <div className="app-table-scroll">
-                <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
-                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3">Run</th>
-                      <th className="px-4 py-3">Manifesto</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">B/Ls</th>
-                      <th className="px-4 py-3">Bloqueados</th>
-                      <th className="px-4 py-3">Total BRL</th>
-                      <th className="px-4 py-3">Acao</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#30363d]">
-                    {billingRunsLoading ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                          Carregando billing runs...
-                        </td>
-                      </tr>
-                    ) : null}
-                    {!billingRunsLoading && (billingRuns?.length ?? 0) === 0 ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                          Nenhuma execucao registrada.
-                        </td>
-                      </tr>
-                    ) : null}
-                    {billingRuns?.map((run) => (
-                      <tr key={run.id}>
-                        <td className="px-4 py-3 font-semibold text-[#58a6ff]">#{run.id}</td>
-                        <td className="px-4 py-3">
-                          <div>{run.filename}</div>
-                          <div className="text-xs text-slate-500">Manifesto {run.manifest_id}</div>
-                        </td>
-                        <td className="px-4 py-3">{renderBillingRunStatus(run.status)}</td>
-                        <td className="px-4 py-3">
-                          {run.calculated_bls}/{run.total_bls}
-                        </td>
-                        <td className="px-4 py-3">{run.blocked_bls}</td>
-                        <td className="px-4 py-3">{formatBRL(run.total_brl)}</td>
-                        <td className="px-4 py-3">
-                          <Button variant="secondary" onClick={() => setSelectedBillingRunId(run.id)}>
-                            Logs
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {billingRunDetailsQuery.data?.run ? (
-                <div className="border-t border-[#30363d] px-5 py-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h4 className="text-base font-semibold text-white">Detalhe do run #{billingRunDetailsQuery.data.run.id}</h4>
-                    <div className="text-sm text-slate-400">{formatDate(billingRunDetailsQuery.data.run.started_at)}</div>
-                  </div>
+          {operationPanel === 'overview' ? (
+            <>
+              <Card className="mb-5">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <div className="grid gap-2">
-                    {billingRunDetailsQuery.data.logs.length === 0 ? (
-                      <div className="text-sm text-slate-400">Nenhum log registrado.</div>
-                    ) : (
-                      billingRunDetailsQuery.data.logs.slice(0, 8).map((log) => (
-                        <div key={log.id} className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {renderLogLevel(log.level)}
-                            <span className="text-sm font-semibold text-white">{log.code}</span>
-                            <span className="text-xs text-slate-500">{formatDate(log.created_at)}</span>
-                          </div>
-                          <div className="mt-2 text-sm text-slate-300">{log.message}</div>
-                          {log.bl_id ? <div className="mt-1 text-xs text-slate-500">B/L: {log.bl_id}</div> : null}
-                        </div>
-                      ))
-                    )}
+                    <div className="text-sm font-semibold text-white">Radar rapido</div>
+                    <div className="text-sm text-slate-400">
+                      {operationsSummary.reconciliationPending} reconciliacao(oes) pendente(s), {operationsSummary.blocked} bloqueio(s) ativos e {operationsSummary.reviewRequired} B/L(s) em revisao.
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      A grade detalhada continua disponivel para selecao em lote. A exportacao usa os filtros atuais.
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={() => setOperationPanel('bls')}>
+                      <Square size={15} />
+                      Abrir grade de B/Ls
+                    </Button>
+                    <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
+                      <Download size={15} />
+                      Exportar visao
+                    </Button>
                   </div>
                 </div>
-              ) : null}
-            </Card>
-          </div>
+              </Card>
+
+              <div className="grid gap-5 xl:grid-cols-2">
+                <Card className="overflow-hidden p-0">
+                  <div className="border-b border-[#30363d] px-5 py-4">
+                    <h3 className="text-lg font-semibold text-white">Fila de reconciliacao de cliente</h3>
+                    <p className="mt-1 text-sm text-slate-400">B/Ls sem cliente validado ficam bloqueados ate aprovacao ou rejeicao.</p>
+                  </div>
+                  <div className="app-table-scroll">
+                    <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
+                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">B/L</th>
+                          <th className="px-4 py-3">Manifesto</th>
+                          <th className="px-4 py-3">Cliente sugerido</th>
+                          <th className="px-4 py-3">Deteccao</th>
+                          <th className="px-4 py-3">Email</th>
+                          <th className="px-4 py-3">Bloqueio</th>
+                          <th className="px-4 py-3">Acao</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {reconciliationLoading ? (
+                          <tr>
+                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                              Carregando fila de reconciliacao...
+                            </td>
+                          </tr>
+                        ) : null}
+                        {!reconciliationLoading && (reconciliationQueue?.length ?? 0) === 0 ? (
+                          <tr>
+                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                              Nenhuma pendencia de reconciliacao aberta.
+                            </td>
+                          </tr>
+                        ) : null}
+                        {reconciliationQueue?.map((row) => (
+                          <tr key={row.id}>
+                            <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.bl_id}</td>
+                            <td className="px-4 py-3">
+                              <div>{row.manifest_customer_name ?? '-'}</div>
+                              <div className="text-xs text-slate-500">{row.cnpj_cpf ?? '-'}</div>
+                            </td>
+                            <td className="px-4 py-3">{row.current_customer_name ?? '-'}</td>
+                            <td className="px-4 py-3">{renderDetectionType(row.detection_type)}</td>
+                            <td className="px-4 py-3">{row.manifest_customer_email ?? '-'}</td>
+                            <td className="px-4 py-3">
+                              <span className="app-table__truncate app-table__truncate--lg" title={row.billing_hold_reason ?? row.notes ?? '-'}>
+                                {row.billing_hold_reason ?? row.notes ?? '-'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => handleApproveQueueItem(row.id, row.customer_id)}
+                                  loading={approveReconciliationMutation.isPending}
+                                  disabled={!row.customer_id || rejectReconciliationMutation.isPending}
+                                >
+                                  Aprovar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => handleRejectQueueItem(row.id)}
+                                  loading={rejectReconciliationMutation.isPending}
+                                  disabled={approveReconciliationMutation.isPending}
+                                >
+                                  Rejeitar
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+
+                <Card className="overflow-hidden p-0">
+                  <div className="border-b border-[#30363d] px-5 py-4">
+                    <h3 className="text-lg font-semibold text-white">Billing runs recentes</h3>
+                    <p className="mt-1 text-sm text-slate-400">Cada manifesto processado gera uma execucao auditavel de calculo.</p>
+                  </div>
+                  <div className="app-table-scroll">
+                    <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
+                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">Run</th>
+                          <th className="px-4 py-3">Manifesto</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">B/Ls</th>
+                          <th className="px-4 py-3">Bloqueados</th>
+                          <th className="px-4 py-3">Total BRL</th>
+                          <th className="px-4 py-3">Acao</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {billingRunsLoading ? (
+                          <tr>
+                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                              Carregando billing runs...
+                            </td>
+                          </tr>
+                        ) : null}
+                        {!billingRunsLoading && (billingRuns?.length ?? 0) === 0 ? (
+                          <tr>
+                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                              Nenhuma execucao registrada.
+                            </td>
+                          </tr>
+                        ) : null}
+                        {billingRuns?.map((run) => (
+                          <tr key={run.id}>
+                            <td className="px-4 py-3 font-semibold text-[#58a6ff]">#{run.id}</td>
+                            <td className="px-4 py-3">
+                              <div>{run.filename}</div>
+                              <div className="text-xs text-slate-500">Manifesto {run.manifest_id}</div>
+                            </td>
+                            <td className="px-4 py-3">{renderBillingRunStatus(run.status)}</td>
+                            <td className="px-4 py-3">
+                              {run.calculated_bls}/{run.total_bls}
+                            </td>
+                            <td className="px-4 py-3">{run.blocked_bls}</td>
+                            <td className="px-4 py-3">{formatBRL(run.total_brl)}</td>
+                            <td className="px-4 py-3">
+                              <Button variant="secondary" onClick={() => setSelectedBillingRunId(run.id)}>
+                                Logs
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {billingRunDetailsQuery.data?.run ? (
+                    <div className="border-t border-[#30363d] px-5 py-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h4 className="text-base font-semibold text-white">Detalhe do run #{billingRunDetailsQuery.data.run.id}</h4>
+                        <div className="text-sm text-slate-400">{formatDate(billingRunDetailsQuery.data.run.started_at)}</div>
+                      </div>
+                      <div className="grid gap-2">
+                        {billingRunDetailsQuery.data.logs.length === 0 ? (
+                          <div className="text-sm text-slate-400">Nenhum log registrado.</div>
+                        ) : (
+                          billingRunDetailsQuery.data.logs.slice(0, 8).map((log) => (
+                            <div key={log.id} className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {renderLogLevel(log.level)}
+                                <span className="text-sm font-semibold text-white">{log.code}</span>
+                                <span className="text-xs text-slate-500">{formatDate(log.created_at)}</span>
+                              </div>
+                              <div className="mt-2 text-sm text-slate-300">{log.message}</div>
+                              {log.bl_id ? <div className="mt-1 text-xs text-slate-500">B/L: {log.bl_id}</div> : null}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </Card>
+              </div>
+            </>
+          ) : null}
+
+          {operationPanel === 'bls' ? (
+            <>
+              <Card className="mb-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => runBatchOperation('calculate')}
+                    loading={batchCalculateMutation.isPending}
+                    disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
+                  >
+                    <Calculator size={15} />
+                    Calcular selecionados
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => runBatchOperation('recalculate')}
+                    loading={batchCalculateMutation.isPending}
+                    disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
+                  >
+                    <RefreshCw size={15} />
+                    Recalcular selecionados
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => runBatchOperation('review')}
+                    loading={batchReviewedMutation.isPending}
+                    disabled={batchCalculateMutation.isPending || batchReadyMutation.isPending}
+                  >
+                    <CheckSquare size={15} />
+                    Marcar revisados
+                  </Button>
+                  <Button
+                    onClick={() => runBatchOperation('ready')}
+                    loading={batchReadyMutation.isPending}
+                    disabled={batchCalculateMutation.isPending || batchReviewedMutation.isPending}
+                  >
+                    <CheckSquare size={15} />
+                    Marcar pronto faturar
+                  </Button>
+                  <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
+                    <Download size={15} />
+                    Exportar visao
+                  </Button>
+                  <span className="text-xs text-slate-500">
+                    {selectedOpsRows.length} B/L(s) selecionado(s)
+                  </span>
+                </div>
+              </Card>
+
+              <Card className="overflow-hidden p-0">
+                {operationsError ? <InlineError message="Falha ao carregar operacao de taxas locais." /> : null}
+                <div className="app-table-scroll">
+                  <table className="app-table app-table--compact min-w-[1760px] text-left text-sm whitespace-nowrap">
+                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">
+                          <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
+                            {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                          </button>
+                        </th>
+                        <th className="px-4 py-3">B/L</th>
+                        <th className="px-4 py-3">Modo</th>
+                        <th className="px-4 py-3">Navio/Viagem</th>
+                        <th className="px-4 py-3">Trecho</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Cliente</th>
+                        <th className="px-4 py-3">Reconcil.</th>
+                        <th className="px-4 py-3">Linhas</th>
+                        <th className="px-4 py-3">Subtotal BRL</th>
+                        <th className="px-4 py-3">Subtotal USD</th>
+                        <th className="px-4 py-3">Ult. calculo</th>
+                        <th className="px-4 py-3">Ult. revisao</th>
+                        <th className="px-4 py-3">Billing run</th>
+                        <th className="px-4 py-3">Ult. evento</th>
+                        <th className="px-4 py-3">Bloqueio/Review</th>
+                        <th className="px-4 py-3">Acao</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {operationsLoading ? (
+                        <tr>
+                          <td className="px-4 py-8 text-center text-slate-400" colSpan={17}>
+                            Carregando operacao...
+                          </td>
+                        </tr>
+                      ) : null}
+                      {!operationsLoading && (operationsRows?.length ?? 0) === 0 ? (
+                        <tr>
+                          <td colSpan={17} className="p-0">
+                            <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
+                          </td>
+                        </tr>
+                      ) : null}
+                      {operationsRows?.map((row) => (
+                        <tr key={row.id}>
+                          <td className="px-4 py-3">
+                            <button
+                              className="app-table__icon-button"
+                              type="button"
+                              onClick={() => toggleOpsRow(row.id)}
+                              title="Selecionar B/L"
+                            >
+                              {selectedOpsRows.includes(row.id) ? <CheckSquare size={14} /> : <Square size={14} />}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.id}</td>
+                          <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
+                          <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
+                          <td className="px-4 py-3">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
+                          <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
+                          <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
+                          <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
+                          <td className="px-4 py-3">
+                            {Number(row.totals.line_count).toLocaleString('pt-BR')}
+                            {row.totals.review_required_count > 0 ? (
+                              <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
+                          <td className="px-4 py-3">{formatUSD(row.totals.total_usd)}</td>
+                          <td className="px-4 py-3">{formatDate(row.charges_calculated_at)}</td>
+                          <td className="px-4 py-3">{formatDate(row.charges_reviewed_at)}</td>
+                          <td className="px-4 py-3">{row.last_billing_run_id ?? '-'}</td>
+                          <td className="px-4 py-3">
+                            <span className="app-table__truncate app-table__truncate--xl" title={row.trail.last_event_message ?? '-'}>
+                              {row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className="app-table__truncate app-table__truncate--xl"
+                              title={row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
+                            >
+                              {row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link className="app-table__action" to={`/manifestos/${row.id}`}>
+                              Abrir B/L
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </>
+          ) : null}
+
         </>
       ) : null}
 

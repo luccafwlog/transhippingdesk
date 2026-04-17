@@ -1,58 +1,84 @@
+import { Suspense, lazy, type ComponentType, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
-import { Login } from './pages/Login'
-import { PortalBilling } from './pages/PortalBilling'
-import { PortalLogin } from './pages/PortalLogin'
-import { Painel } from './pages/Painel'
-import { Viagens } from './pages/Viagens'
-import { Manifestos } from './pages/Manifestos'
-import { Containers } from './pages/Containers'
-import { CargaSolta } from './pages/CargaSolta'
-import { Veiculos } from './pages/Veiculos'
-import { BlDetalhe } from './pages/BlDetalhe'
-import { Revisao } from './pages/Revisao'
-import { Clientes } from './pages/Clientes'
-import { ClienteFicha } from './pages/ClienteFicha'
-import { TaxasLocais } from './pages/TaxasLocais'
-import { Faturamento } from './pages/Faturamento'
-import { Alertas } from './pages/Alertas'
-import { Relatorios } from './pages/Relatorios'
-import { LineUpTV } from './pages/LineUpTV'
-import { AdminUsuarios } from './pages/AdminUsuarios'
+
+function lazyPage<T extends Record<string, unknown>, K extends keyof T & string>(
+  loader: () => Promise<T>,
+  exportName: K,
+) {
+  return lazy(async () => {
+    const module = await loader()
+    return { default: module[exportName] as ComponentType }
+  })
+}
+
+const Login = lazyPage(() => import('./pages/Login'), 'Login')
+const PortalLogin = lazyPage(() => import('./pages/PortalLogin'), 'PortalLogin')
+const PortalBilling = lazyPage(() => import('./pages/PortalBilling'), 'PortalBilling')
+const Painel = lazyPage(() => import('./pages/Painel'), 'Painel')
+const Viagens = lazyPage(() => import('./pages/Viagens'), 'Viagens')
+const Manifestos = lazyPage(() => import('./pages/Manifestos'), 'Manifestos')
+const Containers = lazyPage(() => import('./pages/Containers'), 'Containers')
+const CargaSolta = lazyPage(() => import('./pages/CargaSolta'), 'CargaSolta')
+const Veiculos = lazyPage(() => import('./pages/Veiculos'), 'Veiculos')
+const BlDetalhe = lazyPage(() => import('./pages/BlDetalhe'), 'BlDetalhe')
+const Revisao = lazyPage(() => import('./pages/Revisao'), 'Revisao')
+const Clientes = lazyPage(() => import('./pages/Clientes'), 'Clientes')
+const ClienteFicha = lazyPage(() => import('./pages/ClienteFicha'), 'ClienteFicha')
+const TaxasLocais = lazyPage(() => import('./pages/TaxasLocais'), 'TaxasLocais')
+const Faturamento = lazyPage(() => import('./pages/Faturamento'), 'Faturamento')
+const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
+const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
+const LineUpTV = lazyPage(() => import('./pages/LineUpTV'), 'LineUpTV')
+const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
+
+function RouteLoading() {
+  return (
+    <main className="px-6 py-10">
+      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-5 py-4 text-sm text-[var(--app-muted)] shadow-[var(--app-shadow)]">
+        Carregando tela...
+      </div>
+    </main>
+  )
+}
+
+function withSuspense(node: ReactNode) {
+  return <Suspense fallback={<RouteLoading />}>{node}</Suspense>
+}
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/portal/login" element={<PortalLogin />} />
+      <Route path="/login" element={withSuspense(<Login />)} />
+      <Route path="/portal/login" element={withSuspense(<PortalLogin />)} />
       <Route element={<PortalProtectedRoute />}>
-        <Route path="/portal/billing" element={<PortalBilling />} />
+        <Route path="/portal/billing" element={withSuspense(<PortalBilling />)} />
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/painel" replace />} />
-          <Route path="/painel" element={<Painel />} />
-          <Route path="/viagens" element={<Viagens />} />
-          <Route path="/manifestos" element={<Manifestos />} />
-          <Route path="/containers" element={<Containers />} />
-          <Route path="/carga-solta" element={<CargaSolta />} />
-          <Route path="/veiculos" element={<Veiculos />} />
-          <Route path="/manifestos/:blId" element={<BlDetalhe />} />
-          <Route path="/revisao" element={<Revisao />} />
-          <Route path="/clientes" element={<Clientes />} />
-          <Route path="/clientes/:cnpj" element={<ClienteFicha />} />
-          <Route path="/taxas-locais" element={<TaxasLocais />} />
-          <Route path="/faturamento" element={<Faturamento />} />
-          <Route path="/alertas" element={<Alertas />} />
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/line-up-tv" element={<LineUpTV />} />
+          <Route path="/painel" element={withSuspense(<Painel />)} />
+          <Route path="/viagens" element={withSuspense(<Viagens />)} />
+          <Route path="/manifestos" element={withSuspense(<Manifestos />)} />
+          <Route path="/containers" element={withSuspense(<Containers />)} />
+          <Route path="/carga-solta" element={withSuspense(<CargaSolta />)} />
+          <Route path="/veiculos" element={withSuspense(<Veiculos />)} />
+          <Route path="/manifestos/:blId" element={withSuspense(<BlDetalhe />)} />
+          <Route path="/revisao" element={withSuspense(<Revisao />)} />
+          <Route path="/clientes" element={withSuspense(<Clientes />)} />
+          <Route path="/clientes/:cnpj" element={withSuspense(<ClienteFicha />)} />
+          <Route path="/taxas-locais" element={withSuspense(<TaxasLocais />)} />
+          <Route path="/faturamento" element={withSuspense(<Faturamento />)} />
+          <Route path="/alertas" element={withSuspense(<Alertas />)} />
+          <Route path="/relatorios" element={withSuspense(<Relatorios />)} />
+          <Route path="/line-up-tv" element={withSuspense(<LineUpTV />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>
         <Route element={<AppLayout />}>
-          <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+          <Route path="/admin/usuarios" element={withSuspense(<AdminUsuarios />)} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/painel" replace />} />
