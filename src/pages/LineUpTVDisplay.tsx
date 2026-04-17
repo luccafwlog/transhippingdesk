@@ -1,11 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
-const DISPLAY_ROW_HEIGHT = 46
+
+const DISPLAY_VISIBLE_ROWS = 8
+const DISPLAY_MIN_ROW_HEIGHT = 58
 
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -55,25 +58,41 @@ export function LineUpTVDisplay() {
     if (!container) return
 
     container.scrollTop = 0
-    const maxScroll = container.scrollHeight - container.clientHeight
-    if (maxScroll <= 24) return
+    if (rows.length <= DISPLAY_VISIBLE_ROWS) return
 
-    let direction: 'down' | 'up' = 'down'
+    const maxIndex = rows.length - DISPLAY_VISIBLE_ROWS
+    let currentIndex = 0
     const interval = window.setInterval(() => {
-      const nextStep = Math.max(Math.floor(container.clientHeight * 0.82), 240)
-      if (direction === 'down') {
-        const next = Math.min(container.scrollTop + nextStep, maxScroll)
-        container.scrollTo({ top: next, behavior: 'smooth' })
-        if (next >= maxScroll) direction = 'up'
-        return
-      }
-
-      const next = Math.max(container.scrollTop - nextStep, 0)
-      container.scrollTo({ top: next, behavior: 'smooth' })
-      if (next <= 0) direction = 'down'
-    }, 7000)
+      currentIndex = currentIndex >= maxIndex ? 0 : currentIndex + 1
+      container.scrollTo({
+        top: currentIndex * rowHeight,
+        behavior: 'smooth',
+      })
+    }, 4200)
 
     return () => window.clearInterval(interval)
+  }, [rowHeight, rows.length])
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    const recalculate = () => {
+      const headerRow = container.querySelector('thead')
+      const headerHeight = Math.ceil(headerRow?.getBoundingClientRect().height ?? 38)
+      const availableHeight = Math.max(container.clientHeight - headerHeight, DISPLAY_MIN_ROW_HEIGHT * DISPLAY_VISIBLE_ROWS)
+      const next = Math.max(DISPLAY_MIN_ROW_HEIGHT, Math.floor(availableHeight / DISPLAY_VISIBLE_ROWS))
+      setRowHeight(next)
+    }
+
+    const observer = new ResizeObserver(recalculate)
+    observer.observe(container)
+    const headerRow = container.querySelector('thead')
+    if (headerRow) observer.observe(headerRow)
+
+    requestAnimationFrame(recalculate)
+
+    return () => observer.disconnect()
   }, [rows.length])
 
   return (
@@ -92,7 +111,7 @@ export function LineUpTVDisplay() {
         </div>
       </header>
 
-      <section ref={scrollRef} className="app-lineup-display-body">
+      <section className="app-lineup-display-body">
         {error ? (
           <div className="app-lineup-display-error">Falha ao carregar o quadro da TV.</div>
         ) : null}
@@ -106,7 +125,9 @@ export function LineUpTVDisplay() {
               emptyTitle="Nenhuma escala disponivel."
               emptyDescription="Aguarde o proximo ciclo de atualizacao."
               mode="display"
-              rowHeight={DISPLAY_ROW_HEIGHT}
+              rowHeight={rowHeight}
+              fillSlots={DISPLAY_VISIBLE_ROWS}
+              containerRef={scrollRef}
             />
           </div>
         )}

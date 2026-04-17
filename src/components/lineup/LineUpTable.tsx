@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import type { CSSProperties } from 'react'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
@@ -9,21 +10,26 @@ export function LineUpTable({
   emptyDescription,
   mode = 'app',
   rowHeight,
+  fillSlots,
+  containerRef,
 }: {
   rows: LineUpRow[]
   emptyTitle: string
   emptyDescription: string
   mode?: 'app' | 'display'
   rowHeight?: number
+  fillSlots?: number
+  containerRef?: Ref<HTMLDivElement>
 }) {
   const isDisplay = mode === 'display'
+  const placeholderSlots = isDisplay && rows.length > 0 ? Math.max(0, (fillSlots ?? 0) - rows.length) : 0
 
   return (
-    <div className={isDisplay ? 'app-lineup-display-scroll' : 'app-table-scroll'}>
+    <div ref={containerRef} className={isDisplay ? 'app-lineup-display-scroll' : 'app-table-scroll'}>
       <table
         className={`app-table app-table--dense app-table--lineup ${isDisplay ? 'app-table--lineup-display' : ''} min-w-full table-fixed text-left`}
         style={isDisplay && rowHeight ? ({ ['--lineup-display-row-height' as string]: `${rowHeight}px` } as CSSProperties) : undefined}
-        >
+      >
         <colgroup>
           <col className={isDisplay ? 'w-[15.2%]' : 'w-[22%]'} />
           <col className={isDisplay ? 'w-[3.1%]' : 'w-[5%]'} />
@@ -91,6 +97,12 @@ export function LineUpTable({
               <td className="px-3 py-3 text-center">
                 <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'YES' : 'NO'}</Badge>
               </td>
+            </tr>
+          ))}
+
+          {Array.from({ length: placeholderSlots }).map((_, index) => (
+            <tr key={`lineup-placeholder-${index}`} className="app-lineup-placeholder-row" aria-hidden="true">
+              <td colSpan={14} />
             </tr>
           ))}
         </tbody>

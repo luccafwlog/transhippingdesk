@@ -1494,6 +1494,10 @@ textarea {
 }
 
 .app-table--lineup-display thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #16325f;
   color: #ffffff !important;
   font-size: 13px;
   font-weight: 800;
@@ -1501,7 +1505,7 @@ textarea {
 }
 
 .app-table--lineup-display tbody tr {
-  height: var(--lineup-display-row-height, 46px);
+  height: var(--lineup-display-row-height, 72px);
 }
 
 .app-table--lineup-display tbody td {
@@ -1509,6 +1513,7 @@ textarea {
   color: #18314f;
   font-size: 12px;
   line-height: 1.1;
+  vertical-align: middle;
 }
 
 .app-table--lineup-display .app-lineup-bb {
@@ -1572,11 +1577,14 @@ textarea {
 
 .app-lineup-display-body {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  display: flex;
   padding: 8px 16px 14px;
 }
 
 .app-lineup-display-table-frame {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   border: 2px solid #c2d0e5;
   border-radius: 24px;
@@ -1585,7 +1593,18 @@ textarea {
 }
 
 .app-lineup-display-scroll {
+  height: 100%;
+  overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.app-lineup-display-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.app-lineup-placeholder-row td {
+  padding: 0;
 }
 
 .app-lineup-display-loading,
