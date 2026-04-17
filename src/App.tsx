@@ -34,6 +34,9 @@ const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
 const LineUpTV = lazyPage(() => import('./pages/LineUpTV'), 'LineUpTV')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
 const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
+const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
+const DemurrageInvoices = lazyPage(() => import('./pages/DemurrageInvoices'), 'DemurrageInvoices')
+const DemurrageReconciliacao = lazyPage(() => import('./pages/DemurrageReconciliacao'), 'DemurrageReconciliacao')
 
 function RouteLoading() {
   return (
@@ -76,6 +79,9 @@ export default function App() {
           <Route path="/alertas" element={withSuspense(<Alertas />)} />
           <Route path="/relatorios" element={withSuspense(<Relatorios />)} />
           <Route path="/line-up-tv" element={withSuspense(<LineUpTV />)} />
+          <Route path="/demurrage" element={withSuspense(<Demurrage />)} />
+          <Route path="/demurrage/invoices" element={withSuspense(<DemurrageInvoices />)} />
+          <Route path="/demurrage/reconciliacao" element={withSuspense(<DemurrageReconciliacao />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

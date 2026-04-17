@@ -24,6 +24,7 @@ import {
 import { formatBRL, formatDate, normalizeText } from '../lib/utils'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { supabase } from '../services/supabase'
+import { calculateDemurrage, updateContainerReturnDate } from '../services/demurrage'
 import type { BL, BLDetail } from '../types/database'
 
 const editableFields: (keyof Pick<
@@ -107,6 +108,8 @@ export function BlDetalhe() {
   const [saving, setSaving] = useState(false)
   const [vehicleSearch, setVehicleSearch] = useState('')
   const [manualChargeForm, setManualChargeForm] = useState<ManualChargeForm>(EMPTY_MANUAL_CHARGE_FORM)
+  const [returnDates, setReturnDates] = useState<Record<number, string>>({})
+  const [savingReturnDate, setSavingReturnDate] = useState<number | null>(null)
 
   useEffect(() => {
     if (!bl) return
@@ -388,6 +391,20 @@ export function BlDetalhe() {
       showToast('Falha ao salvar alteracoes do B/L.', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSaveReturnDate(containerId: number) {
+    const returnDate = returnDates[containerId] ?? null
+    setSavingReturnDate(containerId)
+    try {
+      await updateContainerReturnDate(containerId, returnDate || null)
+      await queryClient.invalidateQueries({ queryKey: ['bl', blId] })
+      showToast('Data de devolucao salva.', 'success')
+    } catch {
+      showToast('Erro ao salvar data de devolucao.', 'error')
+    } finally {
+      setSavingReturnDate(null)
     }
   }
 
@@ -823,16 +840,7 @@ export function BlDetalhe() {
 
           <div className="app-table-scroll">
             {isContainerMode ? (
-              <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                <colgroup>
-                  <col className="w-[26%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[9%]" />
-                </colgroup>
+              <table className="app-table app-table--compact min-w-[800px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                   <tr>
                     <th className="py-2">No. Container</th>
@@ -842,24 +850,65 @@ export function BlDetalhe() {
                     <th className="py-2">CBM</th>
                     <th className="py-2">OOG</th>
                     <th className="py-2">IMO</th>
+                    <th className="py-2">Descarga</th>
+                    <th className="py-2">Devolucao</th>
+                    <th className="py-2">Demurrage</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {bl.bl_containers?.length ? (
-                    bl.bl_containers.map((container) => (
-                      <tr key={container.id}>
-                        <td className="py-2 font-semibold text-white">{container.container_number}</td>
-                        <td className="py-2">{container.seal_number ?? '-'}</td>
-                        <td className="py-2">{container.type ?? '-'}</td>
-                        <td className="py-2">{formatNumber(container.gross_weight_kg)} kg</td>
-                        <td className="py-2">{formatNumber(container.cbm)}</td>
-                        <td className="py-2">{container.is_oog ? <Badge tone="yellow">OOG</Badge> : '-'}</td>
-                        <td className="py-2">{container.is_imo ? <Badge tone="red">IMO</Badge> : '-'}</td>
-                      </tr>
-                    ))
+                    bl.bl_containers.map((container) => {
+                      const returnDateVal = returnDates[container.id] ?? container.return_date ?? ''
+                      const demCalc = container.discharge_date && returnDateVal
+                        ? calculateDemurrage(container.type, container.discharge_date, returnDateVal, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+                        : null
+                      return (
+                        <tr key={container.id}>
+                          <td className="py-2 font-semibold text-white">{container.container_number}</td>
+                          <td className="py-2">{container.seal_number ?? '-'}</td>
+                          <td className="py-2">{container.type ?? '-'}</td>
+                          <td className="py-2">{formatNumber(container.gross_weight_kg)} kg</td>
+                          <td className="py-2">{formatNumber(container.cbm)}</td>
+                          <td className="py-2">{container.is_oog ? <Badge tone="yellow">OOG</Badge> : '-'}</td>
+                          <td className="py-2">{container.is_imo ? <Badge tone="red">IMO</Badge> : '-'}</td>
+                          <td className="py-2 text-slate-300">{container.discharge_date ? formatDate(container.discharge_date) : <span className="text-slate-500">—</span>}</td>
+                          <td className="py-2">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="date"
+                                className="rounded border border-[#30363d] bg-[#161b22] px-1 py-0.5 text-xs text-white"
+                                value={returnDateVal}
+                                onChange={(e) => setReturnDates((prev) => ({ ...prev, [container.id]: e.target.value }))}
+                              />
+                              <button
+                                type="button"
+                                className="rounded bg-blue-700 px-1.5 py-0.5 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
+                                disabled={savingReturnDate === container.id}
+                                onClick={() => void handleSaveReturnDate(container.id)}
+                              >
+                                {savingReturnDate === container.id ? '...' : <Save size={12} />}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-2">
+                            {demCalc ? (
+                              demCalc.status === 'within_free_time' ? (
+                                <span className="rounded bg-green-900/50 px-1.5 py-0.5 text-xs text-green-400">Free time</span>
+                              ) : (
+                                <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-xs text-red-400" title={`P1: ${demCalc.days_p1}d × $${demCalc.rate_p1_usd} | P2: ${demCalc.days_p2}d × $${demCalc.rate_p2_usd}`}>
+                                  {demCalc.total_days - demCalc.free_days}d — ${demCalc.total_usd.toFixed(2)}
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
                   ) : (
                     <tr>
-                      <td className="py-3 text-slate-400" colSpan={7}>
+                      <td className="py-3 text-slate-400" colSpan={10}>
                         Nenhum container vinculado a este B/L.
                       </td>
                     </tr>
