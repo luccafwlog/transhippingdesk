@@ -102,6 +102,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Detalhe da invoice: cabecalho, itens, pagamentos, B/Ls vinculados.
 - Geracao de PDF no frontend via jsPDF.
 - `billing_batches` para consolidacao explicitamente rastreada.
+- Tela interna de faturamento refinada com resumo de selecao na emissao e detalhe da invoice alinhado ao portal (contexto, snapshot, itens e pagamentos).
 
 ### Portal do Cliente
 
@@ -114,6 +115,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Download de PDF a partir do snapshot da invoice.
 - Consolidacao sob demanda via `portal_create_consolidation`.
 - Fluxo validado em 2026-04-17 com emissao real da invoice `INV-2026-0005` para o cliente `10268203000117` a partir de 2 B/Ls elegiveis.
+- Revisao visual ampliada executada em 2026-04-17 nas rotas internas e externas, com screenshots e checklist de UX.
 
 ### Alertas Operacionais
 

@@ -127,6 +127,39 @@ export function Faturamento() {
     return (readyBls ?? []).filter((row) => !term || row.id.includes(term) || String(row.customer?.name ?? '').toUpperCase().includes(term))
   }, [createSearch, readyBls])
 
+  const selectedReadyRows = useMemo(
+    () => (readyBls ?? []).filter((row) => selectedBls.includes(row.id)),
+    [readyBls, selectedBls],
+  )
+
+  const createSelectionSummary = useMemo(() => {
+    const customerNames = Array.from(new Set(selectedReadyRows.map((row) => row.customer?.name).filter(Boolean)))
+    const voyageLabels = Array.from(
+      new Set(
+        selectedReadyRows
+          .map((row) => {
+            const vessel = row.voyage?.vessel?.name ?? '-'
+            const voyage = row.voyage?.voyage_number ?? '-'
+            return `${vessel} / ${voyage}`
+          })
+          .filter(Boolean),
+      ),
+    )
+
+    return {
+      selectedCount: selectedReadyRows.length,
+      customerLabel: customerNames.length === 1 ? customerNames[0] ?? 'Detectar pelos B/Ls' : customerNames.length > 1 ? 'Clientes mistos' : 'Detectar pelos B/Ls',
+      voyageLabel: voyageLabels.length === 1 ? voyageLabels[0] ?? 'Todas as viagens' : voyageLabels.length > 1 ? `${voyageLabels.length} viagens` : 'Todas as viagens',
+      routePreview:
+        selectedReadyRows.length > 0
+          ? selectedReadyRows
+              .slice(0, 3)
+              .map((row) => `${row.pol ?? '-'} -> ${row.pod ?? '-'}`)
+              .join(' | ')
+          : 'Nenhum B/L selecionado',
+    }
+  }, [selectedReadyRows])
+
   const summary = useMemo(() => {
     const open = invoices.filter((row) => row.status === 'issued' || row.status === 'partially_paid' || row.status === 'overdue')
     return {
@@ -336,23 +369,39 @@ export function Faturamento() {
           </div>
           <Field label="Observacoes"><Textarea value={createNotes} onChange={(event) => setCreateNotes(event.target.value)} /></Field>
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">{createMode === 'single' ? 'Selecione exatamente 1 B/L.' : 'Selecione um ou mais B/Ls do mesmo cliente.'}</div>
-          <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
-            <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
-              <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-3 py-2">Sel.</th><th className="px-3 py-2">B/L</th><th className="px-3 py-2">Cliente</th><th className="px-3 py-2">Viagem</th><th className="px-3 py-2">Trecho</th></tr></thead>
-              <tbody className="divide-y divide-[#30363d]">
-                {loadingReadyBls ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Carregando B/Ls elegiveis...</td></tr> : null}
-                {!loadingReadyBls && filteredReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
-                {filteredReadyBls.map((row) => (
-                  <tr key={row.id}>
-                    <td className="px-3 py-2"><input type="checkbox" checked={selectedBls.includes(row.id)} onChange={() => toggleBl(row.id)} /></td>
-                    <td className="px-3 py-2 font-semibold text-[#58a6ff]">{row.id}</td>
-                    <td className="px-3 py-2">{row.customer?.name ?? '-'}</td>
-                    <td className="px-3 py-2">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
-                    <td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-5 xl:grid-cols-[1.6fr,0.8fr]">
+            <div className="app-table-scroll max-h-80 rounded-xl border border-[#30363d]">
+              <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-3 py-2">Sel.</th><th className="px-3 py-2">B/L</th><th className="px-3 py-2">Cliente</th><th className="px-3 py-2">Viagem</th><th className="px-3 py-2">Trecho</th></tr></thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {loadingReadyBls ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Carregando B/Ls elegiveis...</td></tr> : null}
+                  {!loadingReadyBls && filteredReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
+                  {filteredReadyBls.map((row) => (
+                    <tr key={row.id}>
+                      <td className="px-3 py-2"><input type="checkbox" checked={selectedBls.includes(row.id)} onChange={() => toggleBl(row.id)} /></td>
+                      <td className="px-3 py-2 font-semibold text-[#58a6ff]">{row.id}</td>
+                      <td className="px-3 py-2">{row.customer?.name ?? '-'}</td>
+                      <td className="px-3 py-2">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
+                      <td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Card className="border border-[#30363d] bg-[#0d1117]">
+              <h3 className="text-base font-semibold text-white">Resumo da selecao</h3>
+              <div className="mt-4 grid gap-3">
+                <SelectionMetric label="Modo" value={createMode === 'single' ? 'B/L unico' : 'Consolidada'} />
+                <SelectionMetric label="B/Ls selecionados" value={String(createSelectionSummary.selectedCount)} />
+                <SelectionMetric label="Cliente" value={createSelectionSummary.customerLabel} />
+                <SelectionMetric label="Viagem" value={createSelectionSummary.voyageLabel} />
+                <SelectionMetric label="Trechos" value={createSelectionSummary.routePreview} />
+                <SelectionMetric label="Vencimento" value={createDueDate ? formatDate(createDueDate) : 'Nao definido'} />
+              </div>
+              <div className="mt-4 rounded-xl border border-dashed border-[#30363d] bg-[#111827] px-3 py-3 text-xs text-slate-400">
+                A emissao bloqueia B/Ls com conflito financeiro, cliente nao reconciliado ou valores em USD.
+              </div>
+            </Card>
           </div>
           <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setCreateOpen(false); resetCreateState() }}>Cancelar</Button><Button loading={createInvoiceMutation.isPending} onClick={handleCreateInvoice}><DollarSign size={16} />Emitir invoice</Button></div>
         </div>
@@ -376,9 +425,105 @@ export function Faturamento() {
                 <MetricCard label="Saldo" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
                 <MetricCard label="B/Ls" value={String(detailQuery.data.bls.length)} />
               </div>
+              <div className="grid gap-4 xl:grid-cols-[1.1fr,0.9fr]">
+                <Card className="border border-[#30363d] bg-[#0d1117]">
+                  <h3 className="text-base font-semibold text-white">Contexto da invoice</h3>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <SelectionMetric label="Cliente" value={detailQuery.data.invoice.customer_name ?? '-'} />
+                    <SelectionMetric label="Documento" value={detailQuery.data.invoice.customer_cnpj_cpf ?? '-'} />
+                    <SelectionMetric label="Emissao" value={formatDate(detailQuery.data.invoice.issued_at)} />
+                    <SelectionMetric label="Vencimento" value={formatDate(detailQuery.data.invoice.due_date)} />
+                    <SelectionMetric label="Status" value={statusLabel(detailQuery.data.invoice.status)} />
+                    <SelectionMetric label="Notas" value={detailQuery.data.invoice.notes ?? '-'} />
+                  </div>
+                </Card>
+                <Card className="border border-[#30363d] bg-[#0d1117]">
+                  <h3 className="text-base font-semibold text-white">Snapshot financeiro</h3>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <SelectionMetric label="Itens" value={String(detailQuery.data.items.length)} />
+                    <SelectionMetric label="Pagamentos" value={String(detailQuery.data.payments.length)} />
+                    <SelectionMetric label="Total BRL" value={formatBRL(detailQuery.data.invoice.total_brl)} />
+                    <SelectionMetric label="Saldo BRL" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
+                  </div>
+                </Card>
+              </div>
               <Card className="overflow-hidden p-0">
                 <div className="app-table-scroll">
                   <table className="app-table app-table--compact min-w-[620px] text-left text-sm"><thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-3 py-2">B/L</th><th className="px-3 py-2">Trecho</th><th className="px-3 py-2">Subtotal BRL</th></tr></thead><tbody className="divide-y divide-[#30363d]">{detailQuery.data.bls.map((row) => <tr key={row.id}><td className="px-3 py-2 font-semibold text-[#58a6ff]"><Link className="hover:underline" to={`/manifestos/${row.bl_id}`}>{row.bl_id}</Link></td><td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td><td className="px-3 py-2">{formatBRL(row.subtotal_brl)}</td></tr>)}</tbody></table>
+                </div>
+              </Card>
+              <Card className="overflow-hidden p-0">
+                <div className="border-b border-[#30363d] px-4 py-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Itens da invoice</h3>
+                </div>
+                <div className="app-table-scroll">
+                  <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
+                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Descricao</th>
+                        <th className="px-3 py-2">B/L</th>
+                        <th className="px-3 py-2">Qtd</th>
+                        <th className="px-3 py-2">Origem</th>
+                        <th className="px-3 py-2">Unitario</th>
+                        <th className="px-3 py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {detailQuery.data.items.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-6 text-center text-slate-400" colSpan={6}>
+                            Nenhum item encontrado nesta invoice.
+                          </td>
+                        </tr>
+                      ) : (
+                        detailQuery.data.items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="px-3 py-2">{item.description ?? '-'}</td>
+                            <td className="px-3 py-2 font-semibold text-[#58a6ff]">{item.bl_id ?? '-'}</td>
+                            <td className="px-3 py-2">{item.quantity ?? 1}</td>
+                            <td className="px-3 py-2">{item.source === 'manual' ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}</td>
+                            <td className="px-3 py-2">{item.currency === 'USD' ? formatUSD(item.unit_value_usd) : formatBRL(item.unit_value_brl)}</td>
+                            <td className="px-3 py-2">{item.currency === 'USD' ? formatUSD(item.total_value_usd) : formatBRL(item.total_value_brl)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+              <Card className="overflow-hidden p-0">
+                <div className="border-b border-[#30363d] px-4 py-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Pagamentos registrados</h3>
+                </div>
+                <div className="app-table-scroll">
+                  <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Data</th>
+                        <th className="px-3 py-2">Metodo</th>
+                        <th className="px-3 py-2">Valor</th>
+                        <th className="px-3 py-2">Observacoes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {detailQuery.data.payments.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-6 text-center text-slate-400" colSpan={4}>
+                            Nenhum pagamento registrado.
+                          </td>
+                        </tr>
+                      ) : (
+                        detailQuery.data.payments.map((payment) => (
+                          <tr key={payment.id}>
+                            <td className="px-3 py-2">{formatDate(payment.paid_at)}</td>
+                            <td className="px-3 py-2">{renderPaymentMethod(payment.payment_method)}</td>
+                            <td className="px-3 py-2">{formatBRL(payment.amount_brl)}</td>
+                            <td className="px-3 py-2"><span className="app-table__truncate app-table__truncate--lg" title={payment.notes ?? '-'}>{payment.notes ?? '-'}</span></td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </Card>
               <div className="grid gap-4 xl:grid-cols-2">
@@ -395,6 +540,15 @@ export function Faturamento() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return <Card className="app-kpi-card app-kpi-card--navy"><div className="app-kpi-card__label">{label}</div><div className="app-kpi-card__value app-kpi-card__value--navy">{value}</div></Card>
+}
+
+function SelectionMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[#30363d] bg-[#111827] px-3 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-medium text-slate-100">{value}</div>
+    </div>
+  )
 }
 
 function FinancialAlertsPanel({ alerts, onUpdate }: { alerts: Alert[]; onUpdate: () => void }) {
@@ -486,4 +640,19 @@ function statusLabel(status: string | null) {
   if (status === 'paid') return 'Paga'
   if (status === 'draft') return 'Draft'
   return 'Emitida'
+}
+
+function renderPaymentMethod(method: PaymentMethod | string | null) {
+  if (method === 'pix') return 'PIX'
+  if (method === 'ted') return 'TED'
+  if (method === 'doc') return 'DOC'
+  if (method === 'boleto') return 'Boleto'
+  return 'Outros'
+}
+
+function formatUSD(value: number | null | undefined) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(Number(value ?? 0))
 }
