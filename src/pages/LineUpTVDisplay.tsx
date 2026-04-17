@@ -4,7 +4,8 @@ import { fetchLineUpSnapshot } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 
 const DISPLAY_VISIBLE_ROWS = 8
-const DISPLAY_MIN_ROW_HEIGHT = 58
+const DISPLAY_MIN_ROW_HEIGHT = 74
+const DISPLAY_MAX_ROW_HEIGHT = 88
 
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -81,7 +82,10 @@ export function LineUpTVDisplay() {
       const headerRow = container.querySelector('thead')
       const headerHeight = Math.ceil(headerRow?.getBoundingClientRect().height ?? 38)
       const availableHeight = Math.max(container.clientHeight - headerHeight, DISPLAY_MIN_ROW_HEIGHT * DISPLAY_VISIBLE_ROWS)
-      const next = Math.max(DISPLAY_MIN_ROW_HEIGHT, Math.floor(availableHeight / DISPLAY_VISIBLE_ROWS))
+      const next = Math.max(
+        DISPLAY_MIN_ROW_HEIGHT,
+        Math.min(DISPLAY_MAX_ROW_HEIGHT, Math.floor(availableHeight / DISPLAY_VISIBLE_ROWS)),
+      )
       setRowHeight(next)
     }
 

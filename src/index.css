@@ -1474,23 +1474,23 @@ textarea {
 
 .app-lineup-bb {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
   color: var(--app-text-strong);
   font-size: 10px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.05;
   text-transform: uppercase;
 }
 
 .app-table--lineup-display {
-  font-size: 14px;
+  font-size: 17px;
   color: #16324e;
 }
 
 .app-table--lineup-display thead th,
 .app-table--lineup-display tbody td {
-  padding: 4px 5px;
+  padding: 2px 3px;
 }
 
 .app-table--lineup-display thead th {
@@ -1499,26 +1499,30 @@ textarea {
   z-index: 3;
   background: #16325f;
   color: #ffffff !important;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .app-table--lineup-display tbody tr {
-  height: var(--lineup-display-row-height, 72px);
+  height: var(--lineup-display-row-height, 78px);
 }
 
 .app-table--lineup-display tbody td {
   border-color: #d6dfeb;
   color: #18314f;
-  font-size: 12px;
-  line-height: 1.1;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
   vertical-align: middle;
 }
 
 .app-table--lineup-display .app-lineup-bb {
-  font-size: 10px;
-  line-height: 1.05;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
   color: #16324e;
 }
 
@@ -1533,13 +1537,13 @@ textarea {
 
 .app-lineup-display-header {
   display: flex;
-  min-height: 118px;
+  min-height: 100px;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
   border-bottom: 4px solid #16325f;
   background: linear-gradient(180deg, #ffffff 0%, #f6f9fe 100%);
-  padding: 12px 28px 10px;
+  padding: 10px 22px 8px;
 }
 
 .app-lineup-display-brand {
@@ -1548,7 +1552,7 @@ textarea {
 }
 
 .app-lineup-display-brand__logo {
-  height: 96px;
+  height: 82px;
   width: auto;
   object-fit: contain;
 }
@@ -1561,15 +1565,15 @@ textarea {
 }
 
 .app-lineup-display-meta__label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #5e7696;
 }
 
 .app-lineup-display-meta__value {
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 900;
   line-height: 1;
   color: #16325f;
@@ -1579,7 +1583,7 @@ textarea {
   flex: 1;
   min-height: 0;
   display: flex;
-  padding: 8px 16px 14px;
+  padding: 4px 10px 10px;
 }
 
 .app-lineup-display-table-frame {
@@ -1605,6 +1609,14 @@ textarea {
 
 .app-lineup-placeholder-row td {
   padding: 0;
+}
+
+.app-table--lineup-display .app-badge {
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .app-lineup-display-loading,

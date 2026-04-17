@@ -31,37 +31,37 @@ export function LineUpTable({
         style={isDisplay && rowHeight ? ({ ['--lineup-display-row-height' as string]: `${rowHeight}px` } as CSSProperties) : undefined}
       >
         <colgroup>
-          <col className={isDisplay ? 'w-[15.2%]' : 'w-[22%]'} />
-          <col className={isDisplay ? 'w-[3.1%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4.1%]' : 'w-[7%]'} />
-          <col className={isDisplay ? 'w-[4.1%]' : 'w-[6%]'} />
-          <col className={isDisplay ? 'w-[4.1%]' : 'w-[6%]'} />
-          <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4.3%]' : 'w-[6%]'} />
-          <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[6.4%]' : 'w-[10%]'} />
-          <col className={isDisplay ? 'w-[4.5%]' : 'w-[7%]'} />
-          <col className={isDisplay ? 'w-[4.3%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[18.2%]' : 'w-[22%]'} />
+          <col className={isDisplay ? 'w-[3.2%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.2%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[5.1%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[5.1%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[4.6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[5.1%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[4.6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.2%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[7%]' : 'w-[10%]'} />
+          <col className={isDisplay ? 'w-[7.4%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[6.3%]' : 'w-[6%]'} />
         </colgroup>
         <thead className={isDisplay ? 'bg-[#16325f] text-[13px] uppercase tracking-[0.18em] text-white' : 'bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500'}>
           <tr>
-            <th className="px-3 py-3">Vessel</th>
-            <th className="px-3 py-3 text-center">Voy</th>
-            <th className="px-3 py-3 text-center">POD</th>
-            <th className="px-3 py-3 text-center">ETA</th>
-            <th className="px-3 py-3 text-center">ETB</th>
-            <th className="px-3 py-3 text-center">VIN</th>
-            <th className="px-3 py-3 text-center">CAR</th>
-            <th className="px-3 py-3 text-center">CG</th>
-            <th className="px-3 py-3 text-center">Total</th>
-            <th className="px-3 py-3 text-center">MTY</th>
-            <th className="px-3 py-3 text-center">RTW</th>
-            <th className="px-3 py-3">BB</th>
-            <th className="px-3 py-3 text-center">CEs</th>
-            <th className="px-3 py-3 text-center">Linked</th>
+            <th className="px-2 py-2">Vessel</th>
+            <th className="px-1 py-2 text-center">Voy</th>
+            <th className="px-1 py-2 text-center">POD</th>
+            <th className="px-1 py-2 text-center">ETA</th>
+            <th className="px-1 py-2 text-center">ETB</th>
+            <th className="px-1 py-2 text-center">VIN</th>
+            <th className="px-1 py-2 text-center">CAR</th>
+            <th className="px-1 py-2 text-center">CG</th>
+            <th className="px-1 py-2 text-center">Total</th>
+            <th className="px-1 py-2 text-center">MTY</th>
+            <th className="px-1 py-2 text-center">RTW</th>
+            <th className="px-1 py-2">BB</th>
+            <th className="px-1 py-2 text-center">CEs</th>
+            <th className="px-1 py-2 text-center">Linked</th>
           </tr>
         </thead>
         <tbody className={isDisplay ? 'divide-y divide-[#d6dfeb] bg-white' : 'divide-y divide-[#30363d]'}>
@@ -75,26 +75,26 @@ export function LineUpTable({
 
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className={isDisplay ? 'px-2 py-2 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>{row.vesselName}</td>
-              <td className={isDisplay ? 'px-2 py-2 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
-              <td className={isDisplay ? 'px-2 py-2 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.pod}</td>
-              <td className="px-3 py-3 text-center">{formatShortDate(row.eta)}</td>
-              <td className="px-3 py-3 text-center">{formatShortDate(row.etb)}</td>
-              <td className={isDisplay ? 'px-2 py-2 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{formatInteger(row.vin)}</td>
-              <td className="px-3 py-3 text-center">{formatInteger(row.car)}</td>
-              <td className="px-3 py-3 text-center">{formatInteger(row.cg)}</td>
-              <td className="px-3 py-3 text-center font-semibold text-[#58a6ff]">{formatInteger(row.total)}</td>
-              <td className="px-3 py-3 text-center">{formatInteger(row.mty)}</td>
-              <td className="px-3 py-3 text-center">{row.rtw === null ? '-' : formatInteger(row.rtw)}</td>
-              <td className="px-3 py-3">
+              <td className={isDisplay ? 'px-2 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>{row.vesselName}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.pod}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.eta)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.etb)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{formatInteger(row.vin)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.car)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.cg)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center font-semibold text-[#58a6ff]' : 'px-3 py-3 text-center font-semibold text-[#58a6ff]'}>{formatInteger(row.total)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.mty)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{row.rtw === null ? '-' : formatInteger(row.rtw)}</td>
+              <td className={isDisplay ? 'px-1 py-1' : 'px-3 py-3'}>
                 <div className="app-lineup-bb">
                   <span>{formatInteger(row.bbMachines)} MAQ</span>
                   <span>{formatInteger(row.bbPackages)} PACK</span>
                   <span>{formatInteger(row.bbTotal)} TOTAL</span>
                 </div>
               </td>
-              <td className="px-3 py-3 text-center">{renderCeStatus(row.ceStatus)}</td>
-              <td className="px-3 py-3 text-center">
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{renderCeStatus(row.ceStatus)}</td>
+              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
                 <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'YES' : 'NO'}</Badge>
               </td>
             </tr>
