@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
 import type { LineUpRow } from '../../services/lineup'
@@ -6,31 +7,40 @@ export function LineUpTable({
   rows,
   emptyTitle,
   emptyDescription,
+  mode = 'app',
+  rowHeight,
 }: {
   rows: LineUpRow[]
   emptyTitle: string
   emptyDescription: string
+  mode?: 'app' | 'display'
+  rowHeight?: number
 }) {
+  const isDisplay = mode === 'display'
+
   return (
-    <div className="app-table-scroll">
-      <table className="app-table app-table--dense app-table--lineup min-w-[1180px] table-fixed text-left text-[12px]">
+    <div className={isDisplay ? 'app-lineup-display-scroll' : 'app-table-scroll'}>
+      <table
+        className={`app-table app-table--dense app-table--lineup ${isDisplay ? 'app-table--lineup-display' : ''} min-w-full table-fixed text-left`}
+        style={isDisplay && rowHeight ? ({ ['--lineup-display-row-height' as string]: `${rowHeight}px` } as CSSProperties) : undefined}
+      >
         <colgroup>
-          <col className="w-[22%]" />
-          <col className="w-[5%]" />
-          <col className="w-[7%]" />
-          <col className="w-[6%]" />
-          <col className="w-[6%]" />
-          <col className="w-[5%]" />
-          <col className="w-[5%]" />
-          <col className="w-[5%]" />
-          <col className="w-[6%]" />
-          <col className="w-[5%]" />
-          <col className="w-[5%]" />
-          <col className="w-[10%]" />
-          <col className="w-[7%]" />
-          <col className="w-[6%]" />
+          <col className={isDisplay ? 'w-[17%]' : 'w-[22%]'} />
+          <col className={isDisplay ? 'w-[3.5%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.8%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[4.8%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[4.8%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[4.2%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.2%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.2%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.8%]' : 'w-[6%]'} />
+          <col className={isDisplay ? 'w-[4.2%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[4.2%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[7.2%]' : 'w-[10%]'} />
+          <col className={isDisplay ? 'w-[5.4%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[4.7%]' : 'w-[6%]'} />
         </colgroup>
-        <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+        <thead className={isDisplay ? 'bg-[#16325f] text-[13px] uppercase tracking-[0.18em] text-white' : 'bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500'}>
           <tr>
             <th className="px-3 py-3">Vessel</th>
             <th className="px-3 py-3 text-center">Voy</th>
@@ -48,7 +58,7 @@ export function LineUpTable({
             <th className="px-3 py-3 text-center">Linked</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#30363d]">
+        <tbody className={isDisplay ? 'divide-y divide-[#d6dfeb] bg-white' : 'divide-y divide-[#30363d]'}>
           {rows.length === 0 ? (
             <tr>
               <td colSpan={14} className="p-0">
@@ -59,12 +69,12 @@ export function LineUpTable({
 
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className="px-2 py-2 font-semibold text-white">{row.vesselName}</td>
-              <td className="px-3 py-3 text-center font-semibold text-white">{row.voyageNumber}</td>
-              <td className="px-3 py-3 text-center font-semibold text-white">{row.pod}</td>
+              <td className={isDisplay ? 'px-2 py-2 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>{row.vesselName}</td>
+              <td className={isDisplay ? 'px-2 py-2 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
+              <td className={isDisplay ? 'px-2 py-2 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.pod}</td>
               <td className="px-3 py-3 text-center">{formatShortDate(row.eta)}</td>
               <td className="px-3 py-3 text-center">{formatShortDate(row.etb)}</td>
-              <td className="px-3 py-3 text-center font-semibold text-white">{formatInteger(row.vin)}</td>
+              <td className={isDisplay ? 'px-2 py-2 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{formatInteger(row.vin)}</td>
               <td className="px-3 py-3 text-center">{formatInteger(row.car)}</td>
               <td className="px-3 py-3 text-center">{formatInteger(row.cg)}</td>
               <td className="px-3 py-3 text-center font-semibold text-[#58a6ff]">{formatInteger(row.total)}</td>

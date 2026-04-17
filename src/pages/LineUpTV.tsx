@@ -5,22 +5,22 @@ import { Monitor, RefreshCw } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { LineUpTable } from '../components/lineup/LineUpTable'
-import { fetchLineUpRows, type VoyageStatus } from '../services/lineup'
+import { fetchLineUpSnapshot, type VoyageStatus } from '../services/lineup'
 
 type FilterStatus = 'all' | 'active' | 'completed'
 
 export function LineUpTV() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
 
-  const { data, isLoading, error, dataUpdatedAt, refetch, isFetching } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['lineup-tv-v3'],
-    queryFn: fetchLineUpRows,
+    queryFn: fetchLineUpSnapshot,
     staleTime: 60_000,
     refetchInterval: 90_000,
   })
 
   const rows = useMemo(() => {
-    const current = data ?? []
+    const current = data?.rows ?? []
     if (statusFilter === 'all') return current
     return current.filter((row) => row.voyageStatus === statusFilter)
   }, [data, statusFilter])
@@ -34,9 +34,9 @@ export function LineUpTV() {
     }
   }, [rows])
 
-  const lastUpdate = dataUpdatedAt
+  const lastUpdate = data?.lastChangedAt
     ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
-        new Date(dataUpdatedAt),
+        new Date(data.lastChangedAt),
       )
     : '-'
 

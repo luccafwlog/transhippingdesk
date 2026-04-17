@@ -56,10 +56,15 @@ export type LineUpRow = {
   linked: boolean
 }
 
-export async function fetchLineUpRows(): Promise<LineUpRow[]> {
+export type LineUpSnapshot = {
+  rows: LineUpRow[]
+  lastChangedAt: string | null
+}
+
+export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const voyages = await fetchVoyages()
   const voyageIds = voyages.map((voyage) => voyage.id)
-  if (!voyageIds.length) return []
+  if (!voyageIds.length) return { rows: [], lastChangedAt: null }
 
   const [bls, vehicles] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
@@ -182,11 +187,23 @@ export async function fetchLineUpRows(): Promise<LineUpRow[]> {
     }
   }
 
-  return rows.sort((left, right) => {
+  const sortedRows = rows.sort((left, right) => {
     if (left.vesselName !== right.vesselName) return left.vesselName.localeCompare(right.vesselName, 'pt-BR')
     if (left.voyageNumber !== right.voyageNumber) return left.voyageNumber.localeCompare(right.voyageNumber, 'pt-BR')
     return left.pod.localeCompare(right.pod, 'pt-BR')
   })
+
+  const lastChangedAt = await fetchLastLineUpChangeAt(voyageIds, blIds, bls)
+
+  return {
+    rows: sortedRows,
+    lastChangedAt,
+  }
+}
+
+export async function fetchLineUpRows(): Promise<LineUpRow[]> {
+  const snapshot = await fetchLineUpSnapshot()
+  return snapshot.rows
 }
 
 async function fetchVoyages() {
@@ -274,6 +291,78 @@ async function fetchVehiclesByVoyageIds(voyageIds: number[]) {
   }
 
   return rows
+}
+
+async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], bls: LineUpBlRow[]) {
+  const scheduleEntityIds = Array.from(new Set(bls.map((bl) => buildVoyagePodEntityId(bl.voyage_id, bl.pod))))
+  const [voyageLatest, blLatest, containerLatest, vehicleLatest, scheduleLatest] = await Promise.all([
+    fetchLatestTimestamp(
+      supabase
+        .from('voyages')
+        .select('created_at')
+        .in('id', voyageIds)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      'created_at',
+    ),
+    blIds.length
+      ? fetchLatestTimestamp(
+          supabase
+            .from('bls')
+            .select('updated_at')
+            .in('id', blIds)
+            .order('updated_at', { ascending: false })
+            .limit(1),
+          'updated_at',
+        )
+      : Promise.resolve<string | null>(null),
+    blIds.length
+      ? fetchLatestTimestamp(
+          supabase
+            .from('bl_containers')
+            .select('created_at')
+            .in('bl_id', blIds)
+            .order('created_at', { ascending: false })
+            .limit(1),
+          'created_at',
+        )
+      : Promise.resolve<string | null>(null),
+    fetchLatestTimestamp(
+      supabase
+        .from('vehicles')
+        .select('created_at')
+        .in('voyage_id', voyageIds)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      'created_at',
+    ),
+    scheduleEntityIds.length
+      ? fetchLatestTimestamp(
+          supabase
+            .from('audit_logs')
+            .select('changed_at')
+            .eq('entity_type', 'voyage_pod_schedule')
+            .in('entity_id', scheduleEntityIds)
+            .order('changed_at', { ascending: false })
+            .limit(1),
+          'changed_at',
+        )
+      : Promise.resolve<string | null>(null),
+  ])
+
+  return [voyageLatest, blLatest, containerLatest, vehicleLatest, scheduleLatest]
+    .filter(Boolean)
+    .sort((left, right) => new Date(right!).getTime() - new Date(left!).getTime())[0] ?? null
+}
+
+async function fetchLatestTimestamp<T extends Record<string, unknown>>(
+  queryPromise: PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  field: keyof T,
+) {
+  const result = await queryPromise
+  if (result.error) throw result.error
+  const value = result.data?.[0]?.[field]
+  return typeof value === 'string' ? value : null
 }
 
 function chunkNumberArray(values: number[], chunkSize: number) {
