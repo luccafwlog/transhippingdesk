@@ -2,7 +2,11 @@ import { onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { Customer, CustomerContact } from '../types/database'
 
-type CustomerEditableFields = Pick<Customer, 'name' | 'trade_name' | 'address' | 'city' | 'state' | 'zip' | 'notes'>
+type CustomerEditableFields = Pick<
+  Customer,
+  'name' | 'trade_name' | 'address' | 'city' | 'state' | 'zip' | 'notes' |
+  'payment_terms_days' | 'discount_pct' | 'commercial_notes'
+>
 
 type CreateCustomerContactInput = {
   name: string

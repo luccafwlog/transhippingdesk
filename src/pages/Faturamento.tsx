@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Ban, DollarSign, FileDown, FilePlus2 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, Ban, DollarSign, FileDown, FilePlus2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -19,6 +20,15 @@ import {
   useRegisterInvoicePayment,
 } from '../hooks/useBilling'
 import type { InvoiceStatusFilter } from '../services/billing'
+import {
+  acknowledgeAlert,
+  closeAlert,
+  createAlert,
+  detectOverdueInvoices,
+  listFinancialAlerts,
+  type Alert,
+} from '../services/alerts'
+import { logOperationalEvent } from '../services/operationalEvents'
 import { downloadInvoicePdf } from '../services/invoicePdf'
 import { formatBRL, formatDate } from '../lib/utils'
 
@@ -50,6 +60,7 @@ export function Faturamento() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
 
   const [filters, setFilters] = useState<Filters>({
     search: '',
@@ -80,6 +91,23 @@ export function Faturamento() {
   const [cancelReason, setCancelReason] = useState('')
 
   const { data, isLoading, error } = useInvoices(filters)
+
+  const financialAlertsQuery = useQuery({
+    queryKey: ['financial-alerts'],
+    queryFn: listFinancialAlerts,
+    staleTime: 60_000,
+  })
+
+  useEffect(() => {
+    // Fire-and-forget: detecta invoices vencidas ao abrir a tela
+    void detectOverdueInvoices().then(() => {
+      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
+      void queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const { data: customerOptions } = useBillingCustomers(customerSearch)
   const { data: readyBls, isLoading: loadingReadyBls } = useBillingReadyBls({
     customerId: createCustomerId ? Number(createCustomerId) : null,
@@ -154,7 +182,12 @@ export function Faturamento() {
       resetCreateState()
       showToast('Invoice emitida com sucesso.', 'success')
     } catch (error) {
-      showToast(extractMessage(error, 'Falha ao emitir invoice.'), 'error')
+      const msg = extractMessage(error, 'Falha ao emitir invoice.')
+      showToast(msg, 'error')
+      void createAlert({ type: 'invoice_create_conflict', entityType: 'invoice', entityId: '', message: msg })
+      void logOperationalEvent({ code: 'invoice_create_conflict', message: msg, changedBy: user?.id ?? null })
+      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
+      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
     }
   }
 
@@ -179,7 +212,12 @@ export function Faturamento() {
       setPaymentNotes('')
       showToast('Pagamento registrado.', 'success')
     } catch (error) {
-      showToast(extractMessage(error, 'Falha ao registrar pagamento.'), 'error')
+      const msg = extractMessage(error, 'Falha ao registrar pagamento.')
+      showToast(msg, 'error')
+      void createAlert({ type: 'invoice_payment_invalid', entityType: 'invoice', entityId: String(selectedInvoiceId ?? ''), message: msg })
+      void logOperationalEvent({ code: 'invoice_payment_invalid', message: msg, changedBy: user?.id ?? null, entityId: String(selectedInvoiceId ?? '') })
+      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
+      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
     }
   }
 
@@ -194,7 +232,12 @@ export function Faturamento() {
       setCancelReason('')
       showToast('Invoice cancelada.', 'success')
     } catch (error) {
-      showToast(extractMessage(error, 'Falha ao cancelar invoice.'), 'error')
+      const msg = extractMessage(error, 'Falha ao cancelar invoice.')
+      showToast(msg, 'error')
+      void createAlert({ type: 'invoice_cancel_blocked', entityType: 'invoice', entityId: String(selectedInvoiceId ?? ''), message: msg })
+      void logOperationalEvent({ code: 'invoice_cancel_blocked', message: msg, changedBy: user?.id ?? null, entityId: String(selectedInvoiceId ?? '') })
+      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
+      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
     }
   }
 
@@ -225,6 +268,14 @@ export function Faturamento() {
         action={<Button onClick={() => setCreateOpen(true)}><FilePlus2 size={16} />Nova Invoice</Button>}
       />
 
+      <FinancialAlertsPanel
+        alerts={financialAlertsQuery.data ?? []}
+        onUpdate={() => {
+          void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
+          void queryClient.invalidateQueries({ queryKey: ['op-count'] })
+        }}
+      />
+
       <Card className="mb-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-8">
           <Field label="Invoice"><Input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} /></Field>
@@ -246,13 +297,13 @@ export function Faturamento() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        {error ? <div className="p-5 text-sm text-red-200">Erro ao carregar faturamento.</div> : null}
+        {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1040px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-4 py-3">Invoice</th><th className="px-4 py-3">Cliente</th><th className="px-4 py-3">Emissao</th><th className="px-4 py-3">Vencimento</th><th className="px-4 py-3">B/Ls</th><th className="px-4 py-3">Total</th><th className="px-4 py-3">Pago</th><th className="px-4 py-3">Saldo</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Acoes</th></tr></thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">Carregando invoices...</td></tr> : null}
-              {!isLoading && invoices.length === 0 ? <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">Nenhuma invoice encontrada.</td></tr> : null}
+              {!isLoading && invoices.length === 0 ? <tr><td colSpan={10} className="p-0"><EmptyState title="Nenhuma invoice encontrada." description="Emita uma nova invoice ou ajuste os filtros." /></td></tr> : null}
               {invoices.map((invoice) => (
                 <tr key={invoice.id}>
                   <td className="px-4 py-3 font-semibold text-[#58a6ff]">{invoice.invoice_number ?? `INV-${invoice.id}`}</td>
@@ -290,7 +341,7 @@ export function Faturamento() {
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-3 py-2">Sel.</th><th className="px-3 py-2">B/L</th><th className="px-3 py-2">Cliente</th><th className="px-3 py-2">Viagem</th><th className="px-3 py-2">Trecho</th></tr></thead>
               <tbody className="divide-y divide-[#30363d]">
                 {loadingReadyBls ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Carregando B/Ls elegiveis...</td></tr> : null}
-                {!loadingReadyBls && filteredReadyBls.length === 0 ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Nenhum B/L pronto para faturar.</td></tr> : null}
+                {!loadingReadyBls && filteredReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
                 {filteredReadyBls.map((row) => (
                   <tr key={row.id}>
                     <td className="px-3 py-2"><input type="checkbox" checked={selectedBls.includes(row.id)} onChange={() => toggleBl(row.id)} /></td>
@@ -344,6 +395,79 @@ export function Faturamento() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return <Card className="app-kpi-card app-kpi-card--navy"><div className="app-kpi-card__label">{label}</div><div className="app-kpi-card__value app-kpi-card__value--navy">{value}</div></Card>
+}
+
+function FinancialAlertsPanel({ alerts, onUpdate }: { alerts: Alert[]; onUpdate: () => void }) {
+  const { showToast } = useToast()
+  const [acting, setActing] = useState<number | null>(null)
+
+  if (!alerts.length) return null
+
+  async function handleAcknowledge(id: number) {
+    setActing(id)
+    try {
+      await acknowledgeAlert(id)
+      onUpdate()
+    } catch {
+      showToast('Falha ao reconhecer alerta.', 'error')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function handleClose(id: number) {
+    setActing(id)
+    try {
+      await closeAlert(id)
+      onUpdate()
+    } catch {
+      showToast('Falha ao fechar alerta.', 'error')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  return (
+    <div className="mb-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-100">
+        <AlertTriangle size={15} />
+        {alerts.length} alerta{alerts.length !== 1 ? 's' : ''} financeiro{alerts.length !== 1 ? 's' : ''} em aberto
+      </div>
+      <div className="grid gap-2">
+        {alerts.slice(0, 5).map((alert) => (
+          <div
+            key={alert.id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-amber-400/20 bg-[#0d1117]/60 px-3 py-2"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge tone={alert.status === 'acknowledged' ? 'blue' : 'yellow'}>
+                {alert.status === 'acknowledged' ? 'Reconhecido' : 'Aberto'}
+              </Badge>
+              <span className="truncate text-xs text-slate-200">{alert.message}</span>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              {alert.status === 'open' ? (
+                <Button variant="secondary" disabled={acting === alert.id} onClick={() => void handleAcknowledge(alert.id)}>
+                  Reconhecer
+                </Button>
+              ) : null}
+              <Button variant="secondary" disabled={acting === alert.id} onClick={() => void handleClose(alert.id)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        ))}
+        {alerts.length > 5 ? (
+          <div className="text-xs text-amber-300/70">
+            + {alerts.length - 5} alerta{alerts.length - 5 !== 1 ? 's' : ''}. Veja todos em{' '}
+            <a href="/alertas" className="underline hover:text-amber-200">
+              /alertas
+            </a>.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 function renderInvoiceStatus(status: string | null) {

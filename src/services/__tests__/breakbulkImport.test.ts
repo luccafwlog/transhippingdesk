@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { parseBreakbulkManifestBuffer } from '../breakbulkImport'
 import { jsonToBuffer } from './testWorkbook'
+
+// breakbulkImport importa customerReconciliation que importa supabase — mock necessário para
+// testes de parser que não usam o banco.
+vi.mock('../supabase', () => ({
+  supabase: { from: vi.fn(), rpc: vi.fn() },
+}))
 
 describe('breakbulkImport', () => {
   it('parseia o layout BB resumido', async () => {

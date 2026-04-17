@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DuplicateManifestImportError, importManifest, RateLimitImportError } from '../manifestImport'
 import type { ParsedManifest } from '../manifestParser'
 
@@ -100,6 +100,7 @@ describe('manifestImport customer reconciliation', () => {
     expect(batchId).toBe(101)
 
     expect(mockRpc).toHaveBeenCalledTimes(2)
+    // A importacao agora faz o import transacional e em seguida dispara o billing por manifesto.
     const [rpcName, rpcArgs] = mockRpc.mock.calls[0] as [string, Record<string, unknown>]
     expect(rpcName).toBe('import_manifest_transactional')
 
@@ -211,3 +212,4 @@ describe('manifestImport customer reconciliation', () => {
     ).rejects.toBeInstanceOf(RateLimitImportError)
   })
 })
+

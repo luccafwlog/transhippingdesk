@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  BarChart3,
+  Bell,
   Boxes,
   Car,
   ChevronDown,
@@ -12,17 +14,21 @@ import {
   Menu,
   ReceiptText,
   Ship,
+  ShieldCheck,
+  Tv,
   Users,
   X,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
+import { useOperationalCounts } from '../../hooks/useOperationalCounts'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
+  badge?: number
 }
 
 const importNavItems: NavItem[] = [
@@ -37,22 +43,32 @@ const primaryNavItems: NavItem[] = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/alertas', label: 'Alertas', icon: Bell },
+  { to: '/line-up-tv', label: 'Line up TV', icon: Tv },
+]
+
+const adminNavItems: NavItem[] = [
+  { to: '/admin/usuarios', label: 'Usuarios', icon: ShieldCheck },
 ]
 
 const financialNavItems: NavItem[] = [
   { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
+  { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
 ]
 
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, isAdmin } = useAuth()
+  const counts = useOperationalCounts()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
   const [mobileFinancialOpen, setMobileFinancialOpen] = useState(false)
   const [desktopFinancialOpen, setDesktopFinancialOpen] = useState(false)
+  const [mobileAdminOpen, setMobileAdminOpen] = useState(false)
+  const [desktopAdminOpen, setDesktopAdminOpen] = useState(false)
   const [isMobileNav, setIsMobileNav] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
   )
@@ -65,8 +81,21 @@ export function AppLayout() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date())
+  const primaryNavItemsWithBadges: NavItem[] = primaryNavItems.map((item) =>
+    item.to === '/alertas' ? { ...item, badge: counts.openAlerts || undefined } : item,
+  )
+  const importNavItemsWithBadges: NavItem[] = importNavItems.map((item) =>
+    item.to === '/revisao' ? { ...item, badge: counts.pendingReview || undefined } : item,
+  )
+  const financialNavItemsWithBadges: NavItem[] = financialNavItems.map((item) => {
+    if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
+    if (item.to === '/faturamento') return { ...item, badge: counts.readyForBilling || undefined }
+    return item
+  })
+
   const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
   const isFinancialSectionActive = financialNavItems.some((item) => isPathActive(location.pathname, item.to))
+  const isAdminSectionActive = adminNavItems.some((item) => isPathActive(location.pathname, item.to))
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 768px)')
@@ -76,9 +105,11 @@ export function AppLayout() {
         setMobileNavOpen(false)
         setMobileImportOpen(false)
         setMobileFinancialOpen(false)
+        setMobileAdminOpen(false)
       } else {
         setDesktopImportOpen(false)
         setDesktopFinancialOpen(false)
+        setDesktopAdminOpen(false)
       }
     }
 
@@ -96,6 +127,8 @@ export function AppLayout() {
     setDesktopImportOpen(false)
     setMobileFinancialOpen(false)
     setDesktopFinancialOpen(false)
+    setMobileAdminOpen(false)
+    setDesktopAdminOpen(false)
   }
 
   async function handleSignOut() {
@@ -162,42 +195,58 @@ export function AppLayout() {
         </div>
 
         <nav id="app-primary-navigation" className={cn('app-nav-scroll', mobileNavOpen && 'app-nav-scroll--open')}>
-          {primaryNavItems.slice(0, 2).map((item) => (
-            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
-          ))}
+  {primaryNavItemsWithBadges.slice(0, 2).map((item) => (
+    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+  ))}
 
-          <TopNavDropdownMenu
-            label="Importacao"
-            icon={FileSpreadsheet}
-            items={importNavItems}
-            isActive={isImportSectionActive}
-            isMobile={isMobileNav}
-            desktopOpen={desktopImportOpen}
-            mobileOpen={mobileImportOpen}
-            onOpenDesktop={() => setDesktopImportOpen(true)}
-            onCloseDesktop={() => setDesktopImportOpen(false)}
-            onToggleMobile={() => setMobileImportOpen((current) => !current)}
-            onNavigate={closeMobileMenus}
-          />
+  <TopNavDropdownMenu
+    label="Importacao"
+    icon={FileSpreadsheet}
+    items={importNavItemsWithBadges}
+    isActive={isImportSectionActive}
+    isMobile={isMobileNav}
+    desktopOpen={desktopImportOpen}
+    mobileOpen={mobileImportOpen}
+    onOpenDesktop={() => setDesktopImportOpen(true)}
+    onCloseDesktop={() => setDesktopImportOpen(false)}
+    onToggleMobile={() => setMobileImportOpen((current) => !current)}
+    onNavigate={closeMobileMenus}
+  />
 
-          {primaryNavItems.slice(2).map((item) => (
-            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
-          ))}
+  {primaryNavItemsWithBadges.slice(2).map((item) => (
+    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+  ))}
 
-          <TopNavDropdownMenu
-            label="Financeiro"
-            icon={DollarSign}
-            items={financialNavItems}
-            isActive={isFinancialSectionActive}
-            isMobile={isMobileNav}
-            desktopOpen={desktopFinancialOpen}
-            mobileOpen={mobileFinancialOpen}
-            onOpenDesktop={() => setDesktopFinancialOpen(true)}
-            onCloseDesktop={() => setDesktopFinancialOpen(false)}
-            onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
-            onNavigate={closeMobileMenus}
-          />
-        </nav>
+  <TopNavDropdownMenu
+    label="Financeiro"
+    icon={DollarSign}
+    items={financialNavItemsWithBadges}
+    isActive={isFinancialSectionActive}
+    isMobile={isMobileNav}
+    desktopOpen={desktopFinancialOpen}
+    mobileOpen={mobileFinancialOpen}
+    onOpenDesktop={() => setDesktopFinancialOpen(true)}
+    onCloseDesktop={() => setDesktopFinancialOpen(false)}
+    onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
+    onNavigate={closeMobileMenus}
+  />
+
+  {isAdmin && (
+    <TopNavDropdownMenu
+      label="Admin"
+      icon={ShieldCheck}
+      items={adminNavItems}
+      isActive={isAdminSectionActive}
+      isMobile={isMobileNav}
+      desktopOpen={desktopAdminOpen}
+      mobileOpen={mobileAdminOpen}
+      onOpenDesktop={() => setDesktopAdminOpen(true)}
+      onCloseDesktop={() => setDesktopAdminOpen(false)}
+      onToggleMobile={() => setMobileAdminOpen((current) => !current)}
+      onNavigate={closeMobileMenus}
+    />
+  )}
+</nav>
       </div>
 
       <main className="app-main">
@@ -211,26 +260,24 @@ function TopNavLink({
   to,
   label,
   icon: Icon,
+  badge,
   onNavigate,
 }: {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
+  badge?: number
   onNavigate?: () => void
 }) {
   return (
     <NavLink
       to={to}
       onClick={onNavigate}
-      className={({ isActive }) =>
-        cn(
-          'app-nav-link',
-          isActive && 'active',
-        )
-      }
+      className={({ isActive }) => cn('app-nav-link', isActive && 'active')}
     >
       <Icon size={18} />
       {label}
+      {badge ? <NavBadge count={badge} /> : null}
     </NavLink>
   )
 }
@@ -261,6 +308,7 @@ function TopNavDropdownMenu({
   onNavigate?: () => void
 }) {
   const isOpen = isMobile ? mobileOpen : desktopOpen
+  const totalBadge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0)
 
   return (
     <div
@@ -296,6 +344,7 @@ function TopNavDropdownMenu({
       >
         <Icon size={18} />
         {label}
+        {totalBadge > 0 && <NavBadge count={totalBadge} />}
         <ChevronDown size={16} className="app-nav-dropdown__chevron" />
       </button>
 
@@ -310,10 +359,19 @@ function TopNavDropdownMenu({
           >
             <item.icon size={16} />
             {item.label}
+            {item.badge ? <NavBadge count={item.badge} /> : null}
           </NavLink>
         ))}
       </div>
     </div>
+  )
+}
+
+function NavBadge({ count }: { count: number }) {
+  return (
+    <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white">
+      {count > 99 ? '99+' : count}
+    </span>
   )
 }
 

@@ -4,7 +4,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Field, Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -226,12 +226,12 @@ export function Viagens() {
         </div>
       </Card>
 
-      {error ? <Card className="mb-5 text-red-200">Erro ao carregar viagens.</Card> : null}
+      {error ? <InlineError message="Erro ao carregar viagens." /> : null}
 
       <div className="grid gap-4">
         {isLoading ? <Card>Carregando viagens...</Card> : null}
         {!isLoading && filteredVoyages.length === 0 ? (
-          <Card>Nenhuma viagem encontrada com os filtros atuais.</Card>
+          <EmptyState title="Nenhuma viagem encontrada." description="Ajuste os filtros ou crie uma nova viagem." />
         ) : null}
         {filteredVoyages.map((voyage) => {
           const vehicleStats = vehicleStatsByVoyage[voyage.id] ?? {

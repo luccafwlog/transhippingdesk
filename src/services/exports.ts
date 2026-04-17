@@ -1,6 +1,11 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import type { BLListItem, ContainerListItem } from '../types/database'
 import type { LocalChargeOperationalRow } from './localCharges'
+import type {
+  CustomerReportRow,
+  FinancialReportRow,
+  OperationalReportRow,
+} from './reports'
 
 export async function exportManifestWorkbook(rows: BLListItem[]) {
   const XLSX = await import('xlsx')
@@ -132,6 +137,67 @@ export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOpera
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'TaxasLocais')
   XLSX.writeFile(workbook, `taxas-locais-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportOperationalReportWorkbook(rows: OperationalReportRow[]) {
+  const XLSX = await import('xlsx')
+  const exportRows = rows.map((row) => ({
+    BL: row.id,
+    Modalidade: row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container',
+    Armador: row.voyage?.vessel?.carrier?.name ?? '',
+    Navio: row.voyage?.vessel?.name ?? '',
+    Viagem: row.voyage?.voyage_number ?? '',
+    POL: row.pol ?? '',
+    POD: row.pod ?? '',
+    Cliente: row.customer?.name ?? '',
+    CNPJ: row.customer?.cnpj_cpf ?? '',
+    Containers: (row.bl_containers ?? []).length,
+    PesoKg: Number(row.total_weight_kg ?? 0),
+    CBM: Number(row.total_cbm ?? 0),
+    Revisao: row.review_status ?? '',
+    Financeiro: row.financial_status ?? '',
+    CriadoEm: row.created_at ?? '',
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Operacional')
+  XLSX.writeFile(workbook, `relatorio-operacional-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportFinancialReportWorkbook(rows: FinancialReportRow[]) {
+  const XLSX = await import('xlsx')
+  const exportRows = rows.map((row) => ({
+    Invoice: row.invoice_number ?? `INV-${row.id}`,
+    Cliente: row.customer?.name ?? '',
+    CNPJ: row.customer?.cnpj_cpf ?? '',
+    Emissao: row.issued_at ?? '',
+    Vencimento: row.due_date ?? '',
+    TotalBRL: Number(row.total_brl ?? 0),
+    SaldoBRL: Number(row.balance_brl ?? 0),
+    Status: row.status ?? '',
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Financeiro')
+  XLSX.writeFile(workbook, `relatorio-financeiro-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
+  const XLSX = await import('xlsx')
+  const exportRows = rows.map((row) => ({
+    Cliente: row.name,
+    CNPJ: row.cnpj_cpf,
+    BLs: row.blCount,
+    PesoTotalKg: row.totalWeightKg,
+    CBMTotal: row.totalCbm,
+    Invoices: row.invoiceCount,
+    TotalEmitidoBRL: row.totalIssued,
+    SaldoPendenteBRL: row.totalBalance,
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Clientes')
+  XLSX.writeFile(workbook, `relatorio-clientes-${makeTimestamp()}.xlsx`)
 }
 
 function makeTimestamp() {

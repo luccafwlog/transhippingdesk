@@ -1,4 +1,4 @@
-import { onlyDigits } from '../lib/utils'
+﻿import { onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
@@ -16,10 +16,10 @@ export type ImportManifestArgs = {
 /**
  * Importa um manifesto CNTR de forma transacional.
  *
- * A operação inteira (criação do batch, upsert dos BLs, troca dos containers,
- * registro de erros e atualização de status) é delegada à função PL/pgSQL
+ * A operacao inteira (criacao do batch, upsert dos BLs, troca dos containers,
+ * registro de erros e atualizacao de status) e delegada a funcao PL/pgSQL
  * `import_manifest_transactional`. Isso garante atomicidade: se qualquer etapa
- * falhar, nada fica persistido — impedindo o cenário de BLs com zero
+ * falhar, nada fica persistido e impede o cenario de BLs com zero
  * containers por delete+insert parcial (F-01).
  *
  * Dedup: se `fileHash` for informado, a unique index parcial
@@ -168,6 +168,7 @@ export async function importManifest({
   return batchId as number
 }
 
+
 export class DuplicateManifestImportError extends Error {
   constructor(message: string) {
     super(message)
@@ -194,3 +195,4 @@ export async function computeFileHash(buffer: ArrayBuffer): Promise<string> {
   }
   return hex
 }
+

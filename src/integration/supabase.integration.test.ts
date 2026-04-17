@@ -110,7 +110,7 @@ describeIntegration('supabase integration - hardening gate', () => {
       }
     }
 
-    expect(limited).toBe(true)
+       expect(limited).toBe(true)
   })
 
   it('save_bl_review aplica optimistic lock e retorna PT409 em timestamp stale', async () => {

@@ -1,22 +1,26 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Boxes, FileText, Receipt } from 'lucide-react'
+import { AlertTriangle, Boxes, FileText, Receipt, ReceiptText, CheckCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Card, PageHeader } from '../components/ui/Card'
 import { normalizeContainerNumber } from '../lib/containerCounts'
 import { supabase } from '../services/supabase'
 import { formatBRL } from '../lib/utils'
 
 async function fetchDashboard() {
-  const [totalContainers, bls, review, pendingFinancial, invoices, alerts] = await Promise.all([
-    fetchDistinctContainerCount(),
-    supabase.from('bls').select('id', { count: 'exact', head: true }).range(0, 0),
-    supabase.from('bls').select('id', { count: 'exact', head: true }).eq('review_status', 'pending_review').range(0, 0),
-    supabase.from('bls').select('id', { count: 'exact', head: true }).eq('financial_status', 'pending').range(0, 0),
-    supabase.from('invoices').select('total_brl,status').in('status', ['issued', 'overdue']).range(0, 499),
-    supabase.from('alerts').select('id', { count: 'exact', head: true }).neq('status', 'closed').range(0, 0),
-  ])
+  const [totalContainers, bls, review, chargeReviewRequired, readyForBilling, pendingFinancial, invoices, alerts] =
+    await Promise.all([
+      fetchDistinctContainerCount(),
+      supabase.from('bls').select('id', { count: 'exact', head: true }),
+      supabase.from('bls').select('id', { count: 'exact', head: true }).eq('review_status', 'pending_review'),
+      supabase.from('bls').select('id', { count: 'exact', head: true }).eq('charge_status', 'review_required'),
+      supabase.from('bls').select('id', { count: 'exact', head: true }).eq('charge_status', 'ready_for_billing'),
+      supabase.from('bls').select('id', { count: 'exact', head: true }).eq('financial_status', 'pending'),
+      supabase.from('invoices').select('total_brl,status').in('status', ['issued', 'overdue']).range(0, 499),
+      supabase.from('alerts').select('id', { count: 'exact', head: true }).neq('status', 'closed'),
+    ])
 
   const invoiceAccessDenied = isPermissionError(invoices.error)
-  const firstError = [bls, review, pendingFinancial, alerts]
+  const firstError = [bls, review, chargeReviewRequired, readyForBilling, pendingFinancial, alerts]
     .find((result) => result.error)?.error ?? (!invoiceAccessDenied ? invoices.error : null)
   if (firstError) throw firstError
 
@@ -24,9 +28,13 @@ async function fetchDashboard() {
     totalBls: bls.count ?? 0,
     totalContainers,
     pendingReview: review.count ?? 0,
+    chargeReviewRequired: chargeReviewRequired.count ?? 0,
+    readyForBilling: readyForBilling.count ?? 0,
     pendingFinancial: pendingFinancial.count ?? 0,
     openInvoices: invoiceAccessDenied ? null : invoices.data?.length ?? 0,
-    openInvoicesAmount: invoiceAccessDenied ? null : invoices.data?.reduce((sum, invoice) => sum + Number(invoice.total_brl ?? 0), 0) ?? 0,
+    openInvoicesAmount: invoiceAccessDenied
+      ? null
+      : (invoices.data?.reduce((sum, invoice) => sum + Number(invoice.total_brl ?? 0), 0) ?? 0),
     invoicesAccessDenied: invoiceAccessDenied,
     openAlerts: alerts.count ?? 0,
   }
@@ -83,32 +91,64 @@ export function Painel() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard icon={FileText} label="B/Ls ativos" value={isLoading ? '...' : data?.totalBls ?? 0} />
-        <KpiCard icon={Boxes} label="Containers distintos" value={isLoading ? '...' : data?.totalContainers ?? 0} />
+        <KpiCard
+          icon={FileText}
+          label="B/Ls ativos"
+          value={isLoading ? '...' : (data?.totalBls ?? 0)}
+          linkTo="/manifestos"
+        />
+        <KpiCard
+          icon={Boxes}
+          label="Containers distintos"
+          value={isLoading ? '...' : (data?.totalContainers ?? 0)}
+          linkTo="/containers"
+          tone="text-[#58a6ff]"
+        />
         <KpiCard
           icon={AlertTriangle}
           label="Aguardando revisão"
-          value={isLoading ? '...' : data?.pendingReview ?? 0}
+          value={isLoading ? '...' : (data?.pendingReview ?? 0)}
           tone="text-amber-300"
+          linkTo="/revisao"
         />
         <KpiCard
           icon={Receipt}
           label="Invoices em aberto"
-          value={isLoading ? '...' : data?.openInvoices ?? 'Restrito'}
+          value={isLoading ? '...' : (data?.openInvoices ?? 'Restrito')}
           detail={data?.invoicesAccessDenied ? 'Admin only' : formatBRL(data?.openInvoicesAmount ?? 0)}
           tone="text-emerald-300"
+          linkTo="/faturamento"
         />
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <Card>
-          <div className="text-sm text-slate-400">B/Ls sem faturamento</div>
-          <div className="mt-2 text-3xl font-bold text-white">{isLoading ? '...' : data?.pendingFinancial ?? 0}</div>
-        </Card>
-        <Card>
-          <div className="text-sm text-slate-400">Alertas não fechados</div>
-          <div className="mt-2 text-3xl font-bold text-white">{isLoading ? '...' : data?.openAlerts ?? 0}</div>
-        </Card>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          icon={ReceiptText}
+          label="Taxas para revisar"
+          value={isLoading ? '...' : (data?.chargeReviewRequired ?? 0)}
+          tone="text-amber-300"
+          linkTo="/taxas-locais"
+        />
+        <KpiCard
+          icon={CheckCircle}
+          label="Prontos para faturar"
+          value={isLoading ? '...' : (data?.readyForBilling ?? 0)}
+          tone="text-emerald-300"
+          linkTo="/faturamento"
+        />
+        <KpiCard
+          icon={Receipt}
+          label="B/Ls sem faturamento"
+          value={isLoading ? '...' : (data?.pendingFinancial ?? 0)}
+          linkTo="/taxas-locais"
+        />
+        <KpiCard
+          icon={AlertTriangle}
+          label="Alertas não fechados"
+          value={isLoading ? '...' : (data?.openAlerts ?? 0)}
+          tone={data?.openAlerts ? 'text-red-400' : undefined}
+          linkTo="/alertas"
+        />
       </div>
     </>
   )
@@ -120,23 +160,25 @@ function KpiCard({
   value,
   detail,
   tone = 'text-[#58a6ff]',
+  linkTo,
 }: {
   icon: React.ComponentType<{ size?: number }>
   label: string
   value: string | number
   detail?: string
   tone?: string
+  linkTo?: string
 }) {
   const cardTone =
-    label === 'Invoices em aberto'
+    label === 'Invoices em aberto' || label === 'Prontos para faturar'
       ? 'green'
-      : label === 'Aguardando revisÃ£o'
+      : label === 'Aguardando revisão' || label === 'Taxas para revisar'
         ? 'gold'
         : label === 'Containers distintos'
           ? 'blue'
           : 'navy'
 
-  return (
+  const inner = (
     <Card className={`app-kpi-card app-kpi-card--${cardTone}`}>
       <div className={`${tone} mb-4`}>
         <Icon size={24} />
@@ -146,4 +188,14 @@ function KpiCard({
       {detail ? <div className="financial app-kpi-card__sub text-emerald-600">{detail}</div> : null}
     </Card>
   )
+
+  if (linkTo) {
+    return (
+      <Link to={linkTo} className="block transition-opacity hover:opacity-80">
+        {inner}
+      </Link>
+    )
+  }
+
+  return inner
 }

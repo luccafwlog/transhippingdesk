@@ -29,6 +29,12 @@ type CustomerForm = {
   notes: string
 }
 
+type CommercialForm = {
+  payment_terms_days: string
+  discount_pct: string
+  commercial_notes: string
+}
+
 type ContactForm = {
   id?: number
   name: string
@@ -55,6 +61,9 @@ export function ClienteFicha() {
   const [form, setForm] = useState<CustomerForm | null>(null)
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
+  const [commercialForm, setCommercialForm] = useState<CommercialForm | null>(null)
+  const [commercialJustification, setCommercialJustification] = useState('')
+  const [commercialSaving, setCommercialSaving] = useState(false)
   const [contactForm, setContactForm] = useState<ContactForm>(emptyContact)
   const [contactSaving, setContactSaving] = useState(false)
   const [portalEmail, setPortalEmail] = useState('')
@@ -108,6 +117,11 @@ export function ClienteFicha() {
       zip: data.zip ?? '',
       notes: data.notes ?? '',
     })
+    setCommercialForm({
+      payment_terms_days: data.payment_terms_days != null ? String(data.payment_terms_days) : '30',
+      discount_pct: data.discount_pct != null ? String(data.discount_pct) : '0',
+      commercial_notes: data.commercial_notes ?? '',
+    })
   }, [data])
 
   useEffect(() => {
@@ -141,6 +155,9 @@ export function ClienteFicha() {
           state: data.state,
           zip: data.zip,
           notes: data.notes,
+          payment_terms_days: data.payment_terms_days,
+          discount_pct: data.discount_pct,
+          commercial_notes: data.commercial_notes,
         },
         values: {
           name: form.name,
@@ -150,6 +167,9 @@ export function ClienteFicha() {
           state: form.state || null,
           zip: form.zip || null,
           notes: form.notes || null,
+          payment_terms_days: data.payment_terms_days,
+          discount_pct: data.discount_pct,
+          commercial_notes: data.commercial_notes,
         },
         changedBy: user.id,
         justification,
@@ -168,6 +188,73 @@ export function ClienteFicha() {
       showToast('Falha ao salvar o cadastro do cliente.', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSaveCommercial() {
+    if (!data || !commercialForm || !user) return
+    if (!commercialJustification.trim()) {
+      showToast('Informe a justificativa para salvar as regras comerciais.', 'error')
+      return
+    }
+
+    const paymentTermsDays = Number(commercialForm.payment_terms_days)
+    const discountPct = Number(String(commercialForm.discount_pct).replace(',', '.'))
+
+    if (!Number.isInteger(paymentTermsDays) || paymentTermsDays <= 0 || paymentTermsDays > 365) {
+      showToast('Prazo de pagamento deve ser um numero inteiro entre 1 e 365 dias.', 'error')
+      return
+    }
+    if (!Number.isFinite(discountPct) || discountPct < 0 || discountPct >= 100) {
+      showToast('Desconto deve ser um percentual entre 0 e 99.99.', 'error')
+      return
+    }
+
+    setCommercialSaving(true)
+    try {
+      const changed = await updateCustomerWithAudit({
+        customerId: data.id,
+        original: {
+          name: data.name,
+          trade_name: data.trade_name,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zip: data.zip,
+          notes: data.notes,
+          payment_terms_days: data.payment_terms_days,
+          discount_pct: data.discount_pct,
+          commercial_notes: data.commercial_notes,
+        },
+        values: {
+          name: data.name,
+          trade_name: data.trade_name,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zip: data.zip,
+          notes: data.notes,
+          payment_terms_days: paymentTermsDays,
+          discount_pct: discountPct,
+          commercial_notes: commercialForm.commercial_notes || null,
+        },
+        changedBy: user.id,
+        justification: commercialJustification,
+      })
+
+      if (!changed) {
+        showToast('Nenhuma alteracao detectada.', 'info')
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] })
+        await queryClient.invalidateQueries({ queryKey: ['customers'] })
+        showToast('Regras comerciais atualizadas.', 'success')
+      }
+
+      setCommercialJustification('')
+    } catch {
+      showToast('Falha ao salvar as regras comerciais.', 'error')
+    } finally {
+      setCommercialSaving(false)
     }
   }
 
@@ -367,6 +454,62 @@ export function ClienteFicha() {
           </Button>
         </div>
       </Card>
+      {commercialForm ? (
+        <Card className="mb-5 grid gap-4">
+          <h2 className="text-base font-semibold text-white">Regras Comerciais</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Prazo de pagamento (dias)">
+              <Input
+                type="number"
+                min={1}
+                max={365}
+                value={commercialForm.payment_terms_days}
+                onChange={(event) =>
+                  setCommercialForm((current) => current ? { ...current, payment_terms_days: event.target.value } : current)
+                }
+              />
+            </Field>
+            <Field label="Desconto (%)">
+              <Input
+                type="number"
+                min={0}
+                max={99.99}
+                step={0.01}
+                value={commercialForm.discount_pct}
+                onChange={(event) =>
+                  setCommercialForm((current) => current ? { ...current, discount_pct: event.target.value } : current)
+                }
+              />
+            </Field>
+            <div className="flex items-end text-sm text-slate-400">
+              {Number(commercialForm.discount_pct) > 0
+                ? `Desconto de ${commercialForm.discount_pct}% aplicado nas invoices.`
+                : 'Sem desconto aplicado.'}
+            </div>
+          </div>
+          <Field label="Notas comerciais">
+            <Textarea
+              value={commercialForm.commercial_notes}
+              onChange={(event) =>
+                setCommercialForm((current) => current ? { ...current, commercial_notes: event.target.value } : current)
+              }
+              placeholder="Ex: Contrato vigente ate 2026-12-31. Desconto aplicavel apenas em B/Ls consolidados."
+            />
+          </Field>
+          <Field label="Justificativa">
+            <Textarea
+              value={commercialJustification}
+              onChange={(event) => setCommercialJustification(event.target.value)}
+              required
+            />
+          </Field>
+          <div className="flex justify-end">
+            <Button loading={commercialSaving} onClick={handleSaveCommercial}>
+              Salvar regras comerciais
+            </Button>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Card>

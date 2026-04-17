@@ -26,6 +26,9 @@ export type Customer = {
   zip: string | null
   notes: string | null
   pending_balance: number | null
+  payment_terms_days: number | null
+  discount_pct: number | null
+  commercial_notes: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -657,6 +660,10 @@ export type Database = {
           p_invoice_id: number
         }
         Returns: Json
+      }
+      detect_overdue_invoices: {
+        Args: Record<string, never>
+        Returns: number
       }
     }
     Enums: Record<string, never>
