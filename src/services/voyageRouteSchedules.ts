@@ -16,7 +16,9 @@ export type VoyagePodSchedule = {
   voyageId: number
   pod: string
   eta: string | null
+  etb: string | null
   ata: string | null
+  atd: string | null
 }
 
 export function buildVoyagePolEntityId(voyageId: number, pol: string | null | undefined) {
@@ -65,7 +67,7 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     .eq('entity_type', POD_ENTITY_TYPE)
     .in('entity_id', entityIds)
     .order('changed_at', { ascending: false })
-    .range(0, Math.max(999, entityIds.length * 10))
+    .range(0, Math.max(999, entityIds.length * 20))
 
   if (error) throw error
 
@@ -76,7 +78,9 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     const current = schedules.get(entityId) ?? makeEmptyPodSchedule(entityId)
 
     if (row.field_name === 'eta' && current.eta === null) current.eta = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etb' && current.etb === null) current.etb = normalizeDateValue(row.new_value)
     if (row.field_name === 'ata' && current.ata === null) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atd' && current.atd === null) current.atd = normalizeDateValue(row.new_value)
 
     schedules.set(entityId, current)
   }
@@ -149,13 +153,17 @@ export async function saveVoyagePodSchedule({
   voyageId,
   pod,
   eta,
+  etb,
   ata,
+  atd,
   changedBy,
 }: {
   voyageId: number
   pod: string
   eta: string | null
+  etb: string | null
   ata: string | null
+  atd: string | null
   changedBy: string
 }) {
   const entityId = buildVoyagePodEntityId(voyageId, pod)
@@ -163,7 +171,9 @@ export async function saveVoyagePodSchedule({
 
   const changes = [
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'eta', current.eta, eta, changedBy, 'Atualizacao manual de ETA por POD'),
+    makeAuditRow(POD_ENTITY_TYPE, entityId, 'etb', current.etb, etb, changedBy, 'Atualizacao manual de ETB por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'ata', current.ata, ata, changedBy, 'Atualizacao manual de ATA por POD'),
+    makeAuditRow(POD_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, 'Atualizacao manual de ATD por POD'),
   ].filter(Boolean)
 
   if (!changes.length) return
@@ -189,14 +199,16 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     voyageId: Number(voyageId),
     pod: pod ?? '-',
     eta: null,
+    etb: null,
     ata: null,
+    atd: null,
   }
 }
 
 function makeAuditRow(
   entityType: string,
   entityId: string,
-  fieldName: 'etd' | 'eta' | 'ata',
+  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,

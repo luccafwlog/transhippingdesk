@@ -46,7 +46,6 @@ type RouteRow = {
   voyageNumber: string
   voyageStatus: VoyageStatus
   vesselName: string
-  carrierName: string
   pod: string
   eta: string | null
   etb: string | null
@@ -61,12 +60,6 @@ type RouteRow = {
   bbTotal: number
   ceStatus: 'approved' | 'partial' | 'missing'
   linked: boolean
-}
-
-const STATUS_META: Record<string, { label: string; tone: 'green' | 'slate' | 'red' }> = {
-  active: { label: 'Ativa', tone: 'green' },
-  completed: { label: 'Concluida', tone: 'slate' },
-  cancelled: { label: 'Cancelada', tone: 'red' },
 }
 
 async function fetchLineUpRows(): Promise<RouteRow[]> {
@@ -130,6 +123,7 @@ async function fetchLineUpRows(): Promise<RouteRow[]> {
       const routeBlIds = new Set(routeBls.map((bl) => bl.id))
       const scheduleKey = buildVoyagePodEntityId(voyage.id, pod)
       const schedule = podSchedules.get(scheduleKey)
+      if (schedule?.atd) continue
 
       const distinctContainers = new Map<
         string,
@@ -175,10 +169,9 @@ async function fetchLineUpRows(): Promise<RouteRow[]> {
         voyageNumber: voyage.voyage_number,
         voyageStatus: voyage.status,
         vesselName: voyage.vessel?.name ?? '-',
-        carrierName: voyage.vessel?.carrier?.name ?? '-',
         pod,
         eta: schedule?.eta ?? null,
-        etb: schedule?.ata ?? null,
+        etb: schedule?.etb ?? null,
         vin: routeVehicles.length,
         car: carContainers,
         cg: Math.max(totalContainers - carContainers, 0),
@@ -279,7 +272,8 @@ export function LineUpTV() {
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone="blue">ETB usa o segundo marco de data atual da escala</Badge>
+            <Badge tone="blue">ETB vinculado ao cadastro manual do POD</Badge>
+            <Badge tone="green">ATD remove a rota do quadro</Badge>
             <Badge tone="slate">RTW sem origem dedicada ainda</Badge>
           </div>
         </div>
@@ -292,7 +286,23 @@ export function LineUpTV() {
       ) : (
         <Card className="overflow-hidden p-0">
           <div className="app-table-scroll">
-            <table className="app-table app-table--dense min-w-[1420px] text-left text-sm">
+            <table className="app-table app-table--dense app-table--lineup min-w-[1180px] table-fixed text-left text-[12px]">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[5%]" />
+                <col className="w-[7%]" />
+                <col className="w-[6%]" />
+                <col className="w-[6%]" />
+                <col className="w-[5%]" />
+                <col className="w-[5%]" />
+                <col className="w-[5%]" />
+                <col className="w-[6%]" />
+                <col className="w-[5%]" />
+                <col className="w-[5%]" />
+                <col className="w-[10%]" />
+                <col className="w-[7%]" />
+                <col className="w-[6%]" />
+              </colgroup>
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-3 py-3">Vessel</th>
@@ -325,15 +335,7 @@ export function LineUpTV() {
 
                 {rows.map((row) => (
                   <tr key={row.id}>
-                    <td className="px-3 py-3">
-                      <div className="app-table__cell-stack">
-                        <div className="font-semibold text-white">{row.vesselName}</div>
-                        <div className="text-xs text-slate-500">{row.carrierName}</div>
-                        <div className="pt-1">
-                          {renderVoyageStatus(row.voyageStatus)}
-                        </div>
-                      </div>
-                    </td>
+                    <td className="px-2 py-2 font-semibold text-white">{row.vesselName}</td>
                     <td className="px-3 py-3 text-center font-semibold text-white">{row.voyageNumber}</td>
                     <td className="px-3 py-3 text-center font-semibold text-white">{row.pod}</td>
                     <td className="px-3 py-3 text-center">{formatShortDate(row.eta)}</td>
@@ -381,11 +383,6 @@ function LineUpMetricCard({
       <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
     </Card>
   )
-}
-
-function renderVoyageStatus(status: VoyageStatus) {
-  const meta = STATUS_META[status ?? ''] ?? { label: status ?? '-', tone: 'slate' as const }
-  return <Badge tone={meta.tone}>{meta.label}</Badge>
 }
 
 function renderCeStatus(status: RouteRow['ceStatus']) {

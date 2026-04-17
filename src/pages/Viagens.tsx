@@ -40,7 +40,9 @@ export function Viagens() {
     voyageLabel: string
     pod: string
     eta: string | null
+    etb: string | null
     ata: string | null
+    atd: string | null
   } | null>(null)
   const [editingPol, setEditingPol] = useState<{
     voyageId: number
@@ -287,7 +289,9 @@ export function Viagens() {
             return {
               pod,
               eta: schedule?.eta ?? null,
+              etb: schedule?.etb ?? null,
               ata: schedule?.ata ?? null,
+              atd: schedule?.atd ?? null,
             }
           })
           const routeRows = collectVoyageRoutes(voyage.bls).map((route) => {
@@ -300,9 +304,17 @@ export function Viagens() {
               ...route,
               etd: polSchedule?.etd ?? null,
               eta: podSchedule?.eta ?? null,
+              etb: podSchedule?.etb ?? null,
               ata: podSchedule?.ata ?? null,
+              atd: podSchedule?.atd ?? null,
             }
           })
+          const ceFilledCount = (voyage.bls ?? []).filter((bl) => String(bl.ce_mercante ?? '').trim()).length
+          const ceSummary =
+            totalBls === 0 ? '-' : ceFilledCount === totalBls ? 'Approved' : ceFilledCount > 0 ? 'Partial' : 'Missing'
+          const linkedRoutes = routeRows.filter((route) => route.eta || route.etb || route.ata || route.atd).length
+          const linkedSummary = routeRows.length ? `${linkedRoutes}/${routeRows.length}` : '-'
+          const rtwSummary = '-'
 
           return (
             <Card key={voyage.id} className="grid gap-5">
@@ -326,6 +338,9 @@ export function Viagens() {
                   <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
                   <Info label="B/Ls totais" value={String(totalBls)} />
                   <Info label="Trechos consolidados" value={String(routeRows.length)} />
+                  <Info label="RTW" value={rtwSummary} />
+                  <Info label="CEs" value={ceSummary} />
+                  <Info label="Linked" value={linkedSummary} />
                 </dl>
               </div>
 
@@ -421,7 +436,7 @@ export function Viagens() {
                   <div className="mb-3">
                     <div className="font-semibold text-white">Datas dos Portos de Destino</div>
                     <div className="text-sm text-slate-400">
-                      ETA e ATA devem ser informados manualmente uma unica vez por POD.
+                      ETA, ETB, ATA e ATD devem ser informados manualmente uma unica vez por POD.
                     </div>
                   </div>
 
@@ -429,16 +444,20 @@ export function Viagens() {
                     <div className="app-table-scroll">
                       <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                         <colgroup>
-                          <col className="w-[24%]" />
-                          <col className="w-[23%]" />
-                          <col className="w-[23%]" />
-                          <col className="w-[18%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[12%]" />
                         </colgroup>
                         <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                           <tr>
                             <th className="px-3 py-2">POD</th>
                             <th className="px-3 py-2">ETA</th>
+                            <th className="px-3 py-2">ETB</th>
                             <th className="px-3 py-2">ATA</th>
+                            <th className="px-3 py-2">ATD</th>
                             <th className="px-3 py-2">Acoes</th>
                           </tr>
                         </thead>
@@ -447,7 +466,9 @@ export function Viagens() {
                             <tr key={`${voyage.id}-pod-${row.pod}`}>
                               <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
                               <td className="px-3 py-2">{formatDate(row.eta)}</td>
+                              <td className="px-3 py-2">{formatDate(row.etb)}</td>
                               <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                              <td className="px-3 py-2">{formatDate(row.atd)}</td>
                               <td className="px-3 py-2">
                                 <Button
                                   variant="secondary"
@@ -459,7 +480,9 @@ export function Viagens() {
                                       voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
                                       pod: row.pod,
                                       eta: row.eta,
+                                      etb: row.etb,
                                       ata: row.ata,
+                                      atd: row.atd,
                                     })
                                   }
                                 >
@@ -494,7 +517,9 @@ export function Viagens() {
                           <th className="px-3 py-2">POD</th>
                           <th className="px-3 py-2">ETD</th>
                           <th className="px-3 py-2">ETA</th>
+                          <th className="px-3 py-2">ETB</th>
                           <th className="px-3 py-2">ATA</th>
+                          <th className="px-3 py-2">ATD</th>
                           <th className="px-3 py-2">B/Ls</th>
                         </tr>
                       </thead>
@@ -506,13 +531,15 @@ export function Viagens() {
                               <td className="px-3 py-2 font-semibold text-white">{route.pod}</td>
                               <td className="px-3 py-2">{formatDate(route.etd)}</td>
                               <td className="px-3 py-2">{formatDate(route.eta)}</td>
+                              <td className="px-3 py-2">{formatDate(route.etb)}</td>
                               <td className="px-3 py-2">{formatDate(route.ata)}</td>
+                              <td className="px-3 py-2">{formatDate(route.atd)}</td>
                               <td className="px-3 py-2">{route.blCount}</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={6} className="px-3 py-3 text-slate-400">
+                            <td colSpan={8} className="px-3 py-3 text-slate-400">
                               Nenhum trecho identificado nos manifestos desta viagem.
                             </td>
                           </tr>
@@ -606,7 +633,7 @@ export function Viagens() {
         open={editingPod !== null}
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, eta, ata }) => {
+        onSaved={async ({ voyageId, pod, eta, etb, ata, atd }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -616,7 +643,9 @@ export function Viagens() {
               voyageId,
               pod,
               eta,
+              etb,
               ata,
+              atd,
               changedBy: user.id,
             })
             await queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
@@ -952,19 +981,32 @@ function PodScheduleModal({
     voyageLabel: string
     pod: string
     eta: string | null
+    etb: string | null
     ata: string | null
+    atd: string | null
   } | null
   onClose: () => void
-  onSaved: (payload: { voyageId: number; pod: string; eta: string | null; ata: string | null }) => Promise<void>
+  onSaved: (payload: {
+    voyageId: number
+    pod: string
+    eta: string | null
+    etb: string | null
+    ata: string | null
+    atd: string | null
+  }) => Promise<void>
 }) {
   const [eta, setEta] = useState('')
+  const [etb, setEtb] = useState('')
   const [ata, setAta] = useState('')
+  const [atd, setAtd] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!podSchedule || !open) return
     setEta(podSchedule.eta ?? '')
+    setEtb(podSchedule.etb ?? '')
     setAta(podSchedule.ata ?? '')
+    setAtd(podSchedule.atd ?? '')
   }, [open, podSchedule])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -977,7 +1019,9 @@ function PodScheduleModal({
         voyageId: podSchedule.voyageId,
         pod: podSchedule.pod,
         eta: eta || null,
+        etb: etb || null,
         ata: ata || null,
+        atd: atd || null,
       })
     } finally {
       setSaving(false)
@@ -993,12 +1037,18 @@ function PodScheduleModal({
             <div className="mt-1">POD: {podSchedule.pod}</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="ETA">
               <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
             </Field>
+            <Field label="ETB">
+              <Input type="date" value={etb} onChange={(event) => setEtb(event.target.value)} />
+            </Field>
             <Field label="ATA">
               <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
+            </Field>
+            <Field label="ATD">
+              <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
             </Field>
           </div>
 

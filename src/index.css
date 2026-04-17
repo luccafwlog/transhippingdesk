@@ -1255,6 +1255,15 @@ textarea {
   padding: 10px 10px;
 }
 
+.app-table--lineup thead th,
+.app-table--lineup tbody td {
+  padding: 8px 8px;
+}
+
+.app-table--lineup tbody td {
+  vertical-align: middle;
+}
+
 .app-table__truncate {
   display: block;
   overflow: hidden;
@@ -1466,11 +1475,11 @@ textarea {
 .app-lineup-bb {
   display: grid;
   gap: 2px;
-  min-width: 112px;
+  min-width: 0;
   color: var(--app-text-strong);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  line-height: 1.35;
+  line-height: 1.25;
   text-transform: uppercase;
 }
 
