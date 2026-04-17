@@ -193,6 +193,10 @@ export type BL = {
   charge_exemption_reason: string | null
   container_load_type: 'FCL' | 'LCL' | null
   free_time_override: number | null
+  demurrage_rate_override_p1_usd: number | null
+  demurrage_rate_override_p2_usd: number | null
+  demurrage_roe_manual: boolean | null
+  demurrage_roe: number | null
   notes: string | null
   created_at: string | null
   updated_at: string | null
@@ -211,6 +215,9 @@ export type BLContainer = {
   is_imo: boolean | null
   imo_class: string | null
   un_number: string | null
+  discharge_date: string | null
+  return_date: string | null
+  demurrage_status: 'within_free_time' | 'overdue' | 'returned' | null
   created_at: string | null
 }
 
@@ -383,6 +390,8 @@ export type Database = {
       invoice_items: Row<InvoiceItem>
       payments: Row<InvoicePayment>
       invoice_bls: Row<InvoiceBlLink>
+      demurrage_invoices: Row<DemurrageInvoice>
+      demurrage_invoice_items: Row<DemurrageInvoiceItem>
     }
     Views: Record<string, never>
     Functions: {
@@ -669,6 +678,106 @@ export type Database = {
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
+}
+
+export type DemurrageCalcResult = {
+  total_days: number
+  free_days: number
+  days_p1: number
+  rate_p1_usd: number
+  days_p2: number
+  rate_p2_usd: number
+  total_usd: number
+  status: 'within_free_time' | 'overdue'
+}
+
+export type DemurrageInvoice = {
+  id: number
+  doc_number: string
+  bl_id: string
+  customer_id: number
+  doc_date: string | null
+  due_date: string | null
+  billed_at: string | null
+  first_billed_at: string | null
+  paid_at: string | null
+  ready_at: string | null
+  total_usd: number
+  roe: number | null
+  roe_manual: boolean | null
+  frozen_roe: number | null
+  frozen_total_brl: number | null
+  discount_type: 'comercial' | 'datas' | 'cortesia' | 'acordo' | 'erro' | null
+  discount_value: number | null
+  discount_mode: 'percent' | 'fixed' | null
+  discount_justification: string | null
+  discount_approver: string | null
+  dispute_open: boolean | null
+  dispute_subject: string | null
+  dispute_reason: string | null
+  dispute_status: 'aberto' | 'resolvido' | 'cancelado' | null
+  dispute_notes: string | null
+  pix_payload: string | null
+  pix_txid: string | null
+  conciliated_by_extract: boolean | null
+  status: 'draft' | 'issued' | 'paid' | 'cancelled'
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type DemurrageInvoiceItem = {
+  id: number
+  invoice_id: number
+  container_id: number
+  container_number: string
+  container_type: string
+  discharge_date: string
+  return_date: string
+  total_days: number
+  free_days: number
+  days_p1: number
+  rate_p1_usd: number
+  days_p2: number
+  rate_p2_usd: number
+  subtotal_usd: number
+  created_at: string
+}
+
+export type DemurrageInvoiceDetail = DemurrageInvoice & {
+  items: DemurrageInvoiceItem[]
+  customer?: Pick<Customer, 'id' | 'name' | 'cnpj_cpf'> | null
+  bl?: (Pick<BL, 'id' | 'pol' | 'pod'> & {
+    voyage?: (Pick<Voyage, 'id' | 'voyage_number'> & {
+      vessel?: Pick<Vessel, 'id' | 'name'> | null
+    }) | null
+  }) | null
+}
+
+export type DemurrageContainerListItem = Pick<
+  BLContainer,
+  'id' | 'bl_id' | 'container_number' | 'type' | 'discharge_date' | 'return_date' | 'demurrage_status'
+> & {
+  bl?: (Pick<BL, 'id' | 'pol' | 'pod' | 'free_time_override' | 'demurrage_rate_override_p1_usd' | 'demurrage_rate_override_p2_usd' | 'demurrage_roe_manual' | 'demurrage_roe'> & {
+    customer?: Pick<Customer, 'id' | 'name' | 'cnpj_cpf'> | null
+    voyage?: (Pick<Voyage, 'id' | 'voyage_number'> & {
+      vessel?: Pick<Vessel, 'id' | 'name'> | null
+    }) | null
+  }) | null
+}
+
+export type PixTransaction = {
+  txid: string
+  cnpj: string
+  date: string
+  amount: number
+}
+
+export type PixMatch = {
+  transaction: PixTransaction
+  invoice: DemurrageInvoice & { customer_cnpj_cpf?: string | null }
+  ambiguous: boolean
+  matchType: 'txid' | 'cnpj'
 }
 
 export type BLListItem = BL & {

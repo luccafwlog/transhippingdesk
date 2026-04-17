@@ -21,6 +21,9 @@ import { Alertas } from './pages/Alertas'
 import { Relatorios } from './pages/Relatorios'
 import { LineUpTV } from './pages/LineUpTV'
 import { AdminUsuarios } from './pages/AdminUsuarios'
+import { Demurrage } from './pages/Demurrage'
+import { DemurrageInvoices } from './pages/DemurrageInvoices'
+import { DemurrageReconciliacao } from './pages/DemurrageReconciliacao'
 
 export default function App() {
   return (
@@ -48,6 +51,9 @@ export default function App() {
           <Route path="/alertas" element={<Alertas />} />
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/line-up-tv" element={<LineUpTV />} />
+          <Route path="/demurrage" element={<Demurrage />} />
+          <Route path="/demurrage/invoices" element={<DemurrageInvoices />} />
+          <Route path="/demurrage/reconciliacao" element={<DemurrageReconciliacao />} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

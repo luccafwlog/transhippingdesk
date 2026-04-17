@@ -7,12 +7,14 @@ import {
   Boxes,
   Car,
   ChevronDown,
+  Clock,
   DollarSign,
   FileSpreadsheet,
   Home,
   LogOut,
   Menu,
   ReceiptText,
+  RefreshCw,
   Ship,
   ShieldCheck,
   Tv,
@@ -55,6 +57,9 @@ const financialNavItems: NavItem[] = [
   { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
+  { to: '/demurrage', label: 'Demurrage', icon: Clock },
+  { to: '/demurrage/invoices', label: 'Invoices D&D', icon: ReceiptText },
+  { to: '/demurrage/reconciliacao', label: 'Conciliacao PIX', icon: RefreshCw },
 ]
 
 export function AppLayout() {
