@@ -177,12 +177,12 @@ export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
         .update({ customer_id: customer.id })
         .eq('manifest_customer_cnpj_cpf', customer.cnpj_cpf)
         .is('customer_id', null)
-        .select('id', { count: 'exact', head: true }),
+        .select('id'),
     ),
   )
   for (const result of linkResults) {
     if (result.error) throw result.error
-    blsLinked += result.count ?? 0
+    blsLinked += result.data?.length ?? 0
   }
 
   return { imported, updated, contactsCreated, blsLinked }

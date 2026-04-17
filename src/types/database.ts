@@ -304,6 +304,8 @@ export type Invoice = {
   total_brl: number
   status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled' | null
   pix_payload: string | null
+  pix_txid: string | null
+  conciliated_by_extract: boolean | null
   notes: string | null
   total_paid_brl: number | null
   balance_brl: number | null
@@ -673,6 +675,14 @@ export type Database = {
       detect_overdue_invoices: {
         Args: Record<string, never>
         Returns: number
+      }
+      portal_list_demurrage_invoices: {
+        Args: { p_session_token: string }
+        Returns: Json
+      }
+      portal_get_demurrage_invoice_detail: {
+        Args: { p_session_token: string; p_invoice_id: number }
+        Returns: Json
       }
     }
     Enums: Record<string, never>

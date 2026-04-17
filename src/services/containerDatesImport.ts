@@ -42,7 +42,7 @@ export async function parseContainerDatesFile(file: File): Promise<ParsedContain
     throw new Error(`Colunas obrigatorias ausentes: ${missingRequired.join(', ')}.`)
   }
 
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', cellDates: true })
+  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' })
   return parseRows(objectRows)
 }
 
@@ -67,8 +67,9 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
   const blOverrides = new Map(bls?.map((b) => [b.id, b]) ?? [])
 
-  const containersByKey = new Map<string, { id: number; container_type: string | null; discharge_date: string | null; return_date: string | null; demurrage_status: string | null; bl_id: string | null }>()
-  for (const c of containers ?? []) {
+  type ContainerRow = { id: number; bl_id: string | null; container_number: string; container_type: string | null; discharge_date: string | null; return_date: string | null; demurrage_status: string | null }
+  const containersByKey = new Map<string, ContainerRow>()
+  for (const c of (containers as unknown as ContainerRow[]) ?? []) {
     containersByKey.set(makeKey(c.bl_id ?? '', c.container_number), c)
   }
 
@@ -98,7 +99,7 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
     const { error: updateError } = await supabase
       .from('bl_containers')
-      .update({ discharge_date: row.discharge_date, return_date: row.return_date ?? null, demurrage_status: newStatus })
+      .update({ discharge_date: row.discharge_date, return_date: row.return_date ?? null, demurrage_status: newStatus as 'within_free_time' | 'overdue' | 'returned' })
       .eq('id', container.id)
 
     if (updateError) throw updateError
