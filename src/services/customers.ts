@@ -174,12 +174,61 @@ export type CustomerPortalAccount = {
   updated_at: string | null
 }
 
+type PortalRpcAction = 'read' | 'upsert' | 'toggle'
+
+type SupabaseRpcError = {
+  code?: string | null
+  message?: string | null
+  details?: string | null
+  hint?: string | null
+}
+
+export function normalizeCustomerPortalRpcError(error: unknown, action: PortalRpcAction): string {
+  const fallback =
+    action === 'read'
+      ? 'Falha ao consultar o provisionamento do portal do cliente.'
+      : action === 'toggle'
+        ? 'Falha ao atualizar o status do acesso do portal.'
+        : 'Falha ao provisionar o acesso do portal.'
+
+  if (!error || typeof error !== 'object') {
+    return fallback
+  }
+
+  const rpcError = error as SupabaseRpcError
+  const code = rpcError.code ?? ''
+  const message = rpcError.message?.trim() ?? ''
+  const details = rpcError.details?.trim() ?? ''
+  const compositeMessage = `${message} ${details}`.trim().toLowerCase()
+
+  if (
+    code === 'PGRST202' ||
+    code === '42883' ||
+    compositeMessage.includes('schema cache') ||
+    compositeMessage.includes('could not find the function public.get_customer_portal_account') ||
+    compositeMessage.includes('could not find the function public.upsert_customer_portal_account') ||
+    compositeMessage.includes('could not find the function public.set_customer_portal_account_active')
+  ) {
+    return 'As RPCs do portal nao estao disponiveis no banco. Aplique a migration 025_billing_orchestration_portal.sql no projeto Supabase e recarregue a tela.'
+  }
+
+  if (code === '42501' || compositeMessage.includes('permissao administrativa')) {
+    return "Usuario autenticado sem permissao administrativa no Supabase. Verifique public.user_profiles.role = 'admin' e active = true."
+  }
+
+  if (message) {
+    return message
+  }
+
+  return fallback
+}
+
 export async function getCustomerPortalAccount(customerId: number) {
   const { data, error } = await supabase.rpc('get_customer_portal_account', {
     p_customer_id: customerId,
   })
 
-  if (error) throw error
+  if (error) throw new Error(normalizeCustomerPortalRpcError(error, 'read'))
   const payload = (data ?? {}) as CustomerPortalAccount
   return payload.id ? payload : null
 }
@@ -199,7 +248,7 @@ export async function upsertCustomerPortalAccount(input: {
     p_actor: input.actorId ?? null,
   })
 
-  if (error) throw error
+  if (error) throw new Error(normalizeCustomerPortalRpcError(error, 'upsert'))
   return (data ?? {}) as CustomerPortalAccount
 }
 
@@ -214,7 +263,7 @@ export async function setCustomerPortalAccountActive(input: {
     p_actor: input.actorId ?? null,
   })
 
-  if (error) throw error
+  if (error) throw new Error(normalizeCustomerPortalRpcError(error, 'toggle'))
   return (data ?? {}) as CustomerPortalAccount
 }
 

@@ -72,9 +72,13 @@ export function ClienteFicha() {
 
   const portalAccountQuery = useQuery({
     queryKey: ['customer-portal-account', data?.id],
-    enabled: Boolean(data?.id),
+    enabled: Boolean(data?.id && isAdmin),
+    retry: false,
     queryFn: () => getCustomerPortalAccount(data!.id),
   })
+
+  const portalProvisioningError =
+    portalAccountQuery.error instanceof Error ? portalAccountQuery.error.message : null
 
   const savePortalMutation = useMutation({
     mutationFn: async () => {
@@ -415,6 +419,12 @@ export function ClienteFicha() {
           </div>
         ) : null}
 
+        {portalProvisioningError ? (
+          <div className="mt-4 rounded-xl border border-red-400/30 bg-red-950/20 px-4 py-3 text-sm text-red-100">
+            {portalProvisioningError}
+          </div>
+        ) : null}
+
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Email de contato">
             <Input value={portalEmail} onChange={(event) => setPortalEmail(event.target.value)} placeholder="financeiro@cliente.com" />
@@ -435,7 +445,9 @@ export function ClienteFicha() {
           </Field>
           <div className="grid gap-1 rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
             <div className="text-xs uppercase tracking-wider text-slate-500">Conta portal</div>
-            <div className="text-2xl font-bold text-white">{portalAccountQuery.data ? 'Provisionada' : 'Pendente'}</div>
+            <div className="text-2xl font-bold text-white">
+              {portalAccountQuery.data ? 'Provisionada' : portalProvisioningError ? 'Indisponivel' : 'Pendente'}
+            </div>
             <div className="text-xs text-slate-400">{portalAccountQuery.data?.contact_email ?? 'Sem email definido'}</div>
           </div>
         </div>
