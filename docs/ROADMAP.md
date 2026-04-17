@@ -1,14 +1,14 @@
 # Roadmap do Sistema
 
-Estado de referencia do projeto em 2026-04-16.
+Estado de referencia do projeto em 2026-04-17.
 
 ## O que o sistema faz hoje
 
-O Transhipping Desk e uma plataforma operacional interna para agencia maritima. Cobre o ciclo completo de operacao: cadastro de viagens com multiplos POL e POD, importacao e revisao de manifestos CNTR e BB, gestao de veiculos, rastreamento de carga solta, gestao de clientes com regras comerciais, calculo de taxas locais com overrides por cliente, emissao de invoices unitaria e consolidada com registro de baixa e cancelamento, alertas operacionais com badges no nav, relatorios gerenciais exportaveis em xlsx, visualizacao de line up para TV e administracao de usuarios com controle de perfil. O backend roda em Supabase com RLS e autenticacao por email e senha; o frontend em React + TypeScript + Vite e publicado no Firebase Hosting.
+O Transhipping Desk e uma plataforma operacional interna para agencia maritima. Cobre o ciclo completo de operacao: cadastro de viagens com multiplos POL e POD, importacao e revisao de manifestos CNTR e BB, gestao de veiculos, rastreamento de carga solta, gestao de clientes com regras comerciais, calculo de taxas locais com overrides por cliente, emissao de invoices unitaria e consolidada com registro de baixa e cancelamento, orquestracao de billing por manifesto, reconciliacao de cliente para faturamento, portal do cliente para consulta e consolidacao, alertas operacionais com badges no nav, relatorios gerenciais exportaveis em xlsx, visualizacao de line up para TV e administracao de usuarios com controle de perfil. O backend roda em Supabase com RLS e autenticacao; o frontend em React + TypeScript + Vite e publicado no Firebase Hosting.
 
 ---
 
-## ✅ Entregue
+## Entregue
 
 ### Autenticacao e Acesso
 
@@ -21,7 +21,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 
 - KPIs operacionais: B/Ls, containers distintos, viagens, carga solta, veiculos.
 - KPIs financeiros: taxas a revisar, prontos para faturar, invoices abertas.
-- Cards clicanveis que navegam para a fila correspondente.
+- Cards clicaveis que navegam para a fila correspondente.
 - Correcao de encoding de caracteres especiais.
 
 ### Viagens
@@ -41,14 +41,14 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Importacao complementar de IMO/OOG e CE Mercante por planilha.
 - Detalhe do B/L com edicao manual e auditoria campo a campo em `audit_logs`.
 - Exportacao de manifestos.
-- Auto-trigger de calculo de taxas locais apos importacao (fire-and-forget, lotes de 5).
+- Auto-trigger de billing apos importacao bem-sucedida do manifesto.
 
-### Manifestos BB — Carga Solta
+### Manifestos BB - Carga Solta
 
 - Importacao de manifesto BB no layout operacional.
 - Consulta paginada com filtros e exportacao.
 - Importacao complementar de CE Mercante.
-- Auto-trigger de calculo de taxas locais apos importacao.
+- Auto-trigger de billing apos importacao.
 
 ### Containers
 
@@ -56,7 +56,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 
 ### Veiculos
 
-- Importacao de planilha de veiculos com validacao de vinculo viagem → container → B/L.
+- Importacao de planilha de veiculos com validacao de vinculo viagem -> container -> B/L.
 - Varios veiculos por container e por B/L.
 - Listagem com busca, filtros e cards de resumo.
 - Exibicao de veiculos no detalhe do B/L CNTR.
@@ -77,27 +77,43 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Importacao de base de clientes e multiplos emails por cliente.
 - Ficha com edicao, contatos por finalidade e historico de B/Ls e invoices.
 - Regras comerciais por cliente: prazo de pagamento, desconto percentual, notas.
+- Provisionamento de acesso ao portal na ficha do cliente.
 - Reconciliacao automatica por nome canonico (remove sufixos legais e pontuacao).
 - Filtros por email, B/L e saldo pendente.
 - Exclusao de cliente.
 
-### Taxas Locais
+### Taxas Locais e Billing
 
 - CRUD de tabelas de taxa e itens.
 - Overrides por cliente com indicador de vigencia: ativa / futura / vencida / aberta.
-- Linhas vencidas com opacidade reduzida e texto riscado.
 - Simulacao de taxa por B/L; lancamentos manuais de other charges.
 - Acoes em lote: calcular/recalcular, marcar revisado, marcar pronto para faturar.
+- Billing runs por manifesto com logs estruturados de bloqueio e calculo.
+- Fila de reconciliacao de cliente quando o manifesto nao encontra vinculo seguro.
+- Bloqueio formal de faturamento para B/L sem cliente reconciliado.
 - Exportacao da operacao filtrada.
 
 ### Faturamento
 
 - Emissao por B/L unico ou consolidada por multiplos B/Ls do mesmo cliente.
-- Snapshot de itens via `invoice_items`; vinculo N:N invoice ↔ B/L via `invoice_bls`.
+- Snapshot de itens via `invoice_items`; vinculo N:N invoice <-> B/L via `invoice_bls`.
 - Registro de baixa parcial e total.
 - Cancelamento com rollback de status financeiro do B/L.
 - Detalhe da invoice: cabecalho, itens, pagamentos, B/Ls vinculados.
 - Geracao de PDF no frontend via jsPDF.
+- `billing_batches` para consolidacao explicitamente rastreada.
+
+### Portal do Cliente
+
+- Login por CNPJ + senha propria.
+- Sessao isolada por cliente, sem acesso cross-customer.
+- Overview com saldo aberto derivado de invoices ativas.
+- Listagem de B/Ls elegiveis para consolidacao.
+- Listagem de invoices emitidas.
+- Detalhe de invoice com B/Ls, itens e pagamentos.
+- Download de PDF a partir do snapshot da invoice.
+- Consolidacao sob demanda via `portal_create_consolidation`.
+- Fluxo validado em 2026-04-17 com emissao real da invoice `INV-2026-0005` para o cliente `10268203000117` a partir de 2 B/Ls elegiveis.
 
 ### Alertas Operacionais
 
@@ -116,7 +132,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 ### Line up TV
 
 - Visao consolidada das viagens ativas e concluidas.
-- Colunas: armador, navio, viagem, rota (POL → POD), ETD/ETA/ATA, B/Ls, containers distintos, cargas soltas.
+- Colunas: armador, navio, viagem, rota (POL -> POD), ETD/ETA/ATA, B/Ls, containers distintos, cargas soltas.
 - Filtro por status (todas / ativas / concluidas).
 - Auto-refresh a cada 90 segundos com botao de atualizacao manual.
 
@@ -129,46 +145,47 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 ### Infraestrutura e Qualidade
 
 - React + TypeScript + Vite; Supabase Auth + PostgreSQL + RLS.
-- 24 migrations SQL versionadas em `supabase/migrations/`.
+- 27 migrations SQL versionadas em `supabase/migrations/`.
 - Deploy em Firebase Hosting (projeto `importmanager-bda3e`).
 - Global Error Boundary para excecoes React nao tratadas.
 - Validacao com Zod nos formularios criticos (viagens, clientes).
 - Observabilidade minima: eventos criticos em `audit_logs` com `entity_type = system_event`.
-- Suite de testes unitarios com vitest: parser CNTR, parser BB, importacao de veiculos, CE Mercante.
+- Suite de testes unitarios com vitest: parser CNTR, parser BB, importacao de veiculos, reconciliacao e faturamento.
 - Suite de integracao com Supabase real disponivel via `npm run test:integration`.
 
 ---
 
-## 🔄 Melhorias em Aberto
+## Melhorias em Aberto
 
-- **Parser de manifesto**: cobre os layouts conhecidos; ajustes iterativos necessarios conforme novos armadores aparecem.
+- **Parser de manifesto**: cobre os layouts conhecidos; ajustes iterativos ainda serao necessarios conforme novos armadores aparecem.
 - **Entidade de trecho**: o conceito de trecho ainda esta implicito nos B/Ls; nao ha entidade formal de trecho de viagem.
-- **Cobertura de testes**: fluxos principais exigem validacao manual complementar alem da suite automatica.
-- **UX operacional**: espaco para refinamento fino em tabelas, dropdowns, responsividade e densidade de informacao.
+- **Cobertura de testes**: os fluxos principais ainda exigem validacao manual complementar alem da suite automatica.
+- **UX operacional**: ainda ha espaco para refinamento fino em tabelas, dropdowns, responsividade e densidade de informacao.
+- **Fila de reconciliacao**: a base esta pronta, mas a selecao manual de cliente pela UI ainda pode ser ampliada.
 
 ---
 
-## 🗓️ Proximas Entregas — Curto Prazo
+## Proximas Entregas - Curto Prazo
 
-- Padronizacao de feedback visual em botoes (spinner de loading em acoes assincronas).
+- Melhorar a UI de reconciliacao para escolher cliente manualmente quando nao houver sugestao segura.
+- Padronizar feedback visual em botoes (spinner de loading em acoes assincronas).
 - Empty states com icone nas tabelas principais.
-- Padronizacao de mensagens de erro inline.
-- Remocao de rotas placeholder acessiveis por URL direta.
+- Padronizar mensagens de erro inline.
 
 ---
 
-## 🚀 Novas Funcionalidades — Medio Prazo
+## Novas Funcionalidades - Medio Prazo
 
 - Melhoria do parser para novos layouts de armador (depende de fixtures reais de novos armadores).
 - Formalizacao da entidade de trecho de viagem no modelo de dados.
 - Notificacoes em tempo real para alertas operacionais via Supabase Realtime.
-- Expansao da cobertura de testes automatizados para fluxos de faturamento e taxas.
+- Expansao da cobertura de testes automatizados para fluxos de faturamento e portal.
 
 ---
 
-## 💡 Visao de Longo Prazo
+## Visao de Longo Prazo
 
-- Portal do cliente para consulta de invoices e status de carga.
+- Portal do cliente com autenticao forte adicional e trilha antifraude.
 - Integracao automatizada com CE Mercante via API publica.
 - Modulo de relatorios avancados com drill-down por viagem e por cliente.
 - Auditoria completa e rastreabilidade por usuario em todas as entidades.
@@ -183,4 +200,4 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 | Vulnerabilidade conhecida no pacote `xlsx` | Medio | Sem patch disponivel no ecossistema atual; monitorar atualizacoes do pacote |
 | Modelo de trecho implicito nos B/Ls | Baixo | Operacao atual nao e afetada; migracao formal planejada para ciclo futuro |
 | Cobertura automatizada parcial nos fluxos principais | Medio | Suite de integracao disponivel para homologacao controlada com Supabase real |
-| Rotas placeholder acessiveis por URL direta | Baixo | Escondidas da navegacao principal; remocao planejada no ciclo atual |
+| Reconciliacao de cliente ainda depende de revisao humana em casos ambiguos | Medio | Billing bloqueia `ready_for_billing` ate a reconciliacao correta |
