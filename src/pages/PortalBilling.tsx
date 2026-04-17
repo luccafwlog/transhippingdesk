@@ -276,6 +276,84 @@ export function PortalBilling() {
                   </table>
                 </div>
               </Card>
+
+              <Card className="overflow-hidden p-0">
+                <div className="border-b border-[#30363d] px-4 py-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Itens da invoice</h3>
+                </div>
+                <div className="app-table-scroll">
+                  <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Descricao</th>
+                        <th className="px-3 py-2">B/L</th>
+                        <th className="px-3 py-2">Qtd</th>
+                        <th className="px-3 py-2">Unitario</th>
+                        <th className="px-3 py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {detailQuery.data.items.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-6 text-center text-slate-400" colSpan={5}>
+                            Nenhum item encontrado nesta invoice.
+                          </td>
+                        </tr>
+                      ) : (
+                        detailQuery.data.items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="px-3 py-2">{item.description ?? '-'}</td>
+                            <td className="px-3 py-2 font-semibold text-[#58a6ff]">{item.bl_id ?? '-'}</td>
+                            <td className="px-3 py-2">{item.quantity ?? 1}</td>
+                            <td className="px-3 py-2">{formatBRL(item.unit_value_brl)}</td>
+                            <td className="px-3 py-2">{formatBRL(item.total_value_brl)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+
+              <Card className="overflow-hidden p-0">
+                <div className="border-b border-[#30363d] px-4 py-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Pagamentos</h3>
+                </div>
+                <div className="app-table-scroll">
+                  <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Data</th>
+                        <th className="px-3 py-2">Metodo</th>
+                        <th className="px-3 py-2">Valor</th>
+                        <th className="px-3 py-2">Observacoes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {detailQuery.data.payments.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-6 text-center text-slate-400" colSpan={4}>
+                            Nenhum pagamento registrado.
+                          </td>
+                        </tr>
+                      ) : (
+                        detailQuery.data.payments.map((payment) => (
+                          <tr key={payment.id}>
+                            <td className="px-3 py-2">{formatDate(payment.paid_at)}</td>
+                            <td className="px-3 py-2">{renderPaymentMethod(payment.payment_method)}</td>
+                            <td className="px-3 py-2">{formatBRL(payment.amount_brl)}</td>
+                            <td className="px-3 py-2">
+                              <span className="app-table__truncate app-table__truncate--lg" title={payment.notes ?? '-'}>
+                                {payment.notes ?? '-'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </>
           ) : null}
         </div>
@@ -316,4 +394,13 @@ function statusLabel(status: string | null) {
   if (status === 'paid') return 'Paga'
   if (status === 'draft') return 'Draft'
   return 'Emitida'
+}
+
+function renderPaymentMethod(method: string | null) {
+  if (method === 'pix') return 'PIX'
+  if (method === 'ted') return 'TED'
+  if (method === 'doc') return 'DOC'
+  if (method === 'boleto') return 'Boleto'
+  if (method === 'outros') return 'Outros'
+  return method ?? '-'
 }
