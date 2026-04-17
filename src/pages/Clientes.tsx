@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { Download, Plus, Trash2, Upload } from 'lucide-react'
+import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
@@ -288,115 +289,152 @@ export function Clientes() {
         <MetricCard label="Saldo pendente" value={formatBRL(totals.pendingBalance)} />
       </div>
 
-      <Card className="mb-5">
-        <div className="mb-4 rounded-xl border border-[#1f6feb]/30 bg-[#1f6feb]/10 p-4 text-sm text-slate-200">
-          <div className="font-semibold text-white">Nova regra de cadastro</div>
-          <div className="mt-2">
-            Manifestos nao criam clientes automaticamente. O sistema vincula o B/L ao cadastro mestre quando o
-            CNPJ/CPF do manifesto ja existe nesta base.
+      <div className="app-section-grid app-section-grid--split mb-5">
+        <Card>
+          <div className="app-soft-panel">
+            <h3 className="app-soft-panel__title">Cadastro mestre antes da importacao</h3>
+            <p className="app-soft-panel__description">
+              Manifestos nao criam clientes automaticamente. O vinculo do B/L so acontece quando o CNPJ/CPF ja existe
+              nesta base.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge tone="blue">Manifesto nao cria cliente</Badge>
+              <Badge tone="green">Match por documento</Badge>
+              <Badge tone="yellow">Sem religacao retroativa</Badge>
+            </div>
           </div>
-          <div className="mt-2 text-slate-400">
-            Importe a base antes dos manifestos. Nesta versao, B/Ls antigos sem vinculo nao sao religados de forma
-            retroativa.
-          </div>
-        </div>
+        </Card>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Buscar por nome ou CNPJ">
-            <Input
-              value={filters.search}
-              onChange={(event) => setFilterField('search', event.target.value)}
-            />
-          </Field>
-          <Field label="E-mails vinculados">
-            <Select
-              value={filters.emailStatus}
-              onChange={(event) => setFilterField('emailStatus', event.target.value as '' | 'with' | 'without')}
-            >
-              <option value="">Todos</option>
-              <option value="with">Com e-mails</option>
-              <option value="without">Sem e-mails</option>
-            </Select>
-          </Field>
-          <Field label="BLs vinculados">
-            <Select
-              value={filters.blStatus}
-              onChange={(event) => setFilterField('blStatus', event.target.value as '' | 'with' | 'without')}
-            >
-              <option value="">Todos</option>
-              <option value="with">Com B/Ls</option>
-              <option value="without">Sem B/Ls</option>
-            </Select>
-          </Field>
-          <Field label="Valores pendentes">
-            <Select
-              value={filters.pendingStatus}
-              onChange={(event) => setFilterField('pendingStatus', event.target.value as '' | 'with' | 'without')}
-            >
-              <option value="">Todos</option>
-              <option value="with">Com saldo pendente</option>
-              <option value="without">Sem saldo pendente</option>
-            </Select>
-          </Field>
-        </div>
-      </Card>
+        <Card>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Buscar por nome ou CNPJ">
+              <Input
+                value={filters.search}
+                onChange={(event) => setFilterField('search', event.target.value)}
+                placeholder="Razao social, fantasia ou documento"
+              />
+            </Field>
+            <Field label="E-mails vinculados">
+              <Select
+                value={filters.emailStatus}
+                onChange={(event) => setFilterField('emailStatus', event.target.value as '' | 'with' | 'without')}
+              >
+                <option value="">Todos</option>
+                <option value="with">Com e-mails</option>
+                <option value="without">Sem e-mails</option>
+              </Select>
+            </Field>
+            <Field label="BLs vinculados">
+              <Select
+                value={filters.blStatus}
+                onChange={(event) => setFilterField('blStatus', event.target.value as '' | 'with' | 'without')}
+              >
+                <option value="">Todos</option>
+                <option value="with">Com B/Ls</option>
+                <option value="without">Sem B/Ls</option>
+              </Select>
+            </Field>
+            <Field label="Valores pendentes">
+              <Select
+                value={filters.pendingStatus}
+                onChange={(event) => setFilterField('pendingStatus', event.target.value as '' | 'with' | 'without')}
+              >
+                <option value="">Todos</option>
+                <option value="with">Com saldo pendente</option>
+                <option value="without">Sem saldo pendente</option>
+              </Select>
+            </Field>
+          </div>
+        </Card>
+      </div>
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar clientes." /> : null}
         <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
+          <table className="app-table app-table--compact min-w-[880px] table-fixed text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="w-[150px] px-4 py-3">CNPJ/CPF</th>
-                <th className="px-4 py-3">Razao Social</th>
-                <th className="px-4 py-3">No. B/Ls</th>
-                <th className="px-4 py-3">E-mails</th>
-                <th className="px-4 py-3">Taxas locais</th>
-                <th className="px-4 py-3">Saldo pendente</th>
-                <th className="px-4 py-3">Acao</th>
+                <th className="w-[31%] px-4 py-3">Cliente</th>
+                <th className="w-[17%] px-4 py-3">Contatos</th>
+                <th className="w-[22%] px-4 py-3">Operacao</th>
+                <th className="w-[16%] px-4 py-3">Financeiro</th>
+                <th className="w-[14%] px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                     Carregando clientes...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={7} className="p-0">
+                  <td colSpan={5} className="p-0">
                     <EmptyState title="Nenhum cliente encontrado." description="Importe uma base de clientes ou cadastre manualmente." />
                   </td>
                 </tr>
               ) : null}
-              {data?.rows.map((row) => (
-                <tr key={row.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3">{formatCnpjCpf(row.cnpj_cpf)}</td>
-                  <td className="px-4 py-3 font-semibold text-white" title={row.name}>
-                    <span className="app-table__truncate app-table__truncate--xl">{truncateCustomerName(row.name, 60)}</span>
-                  </td>
-                  <td className="px-4 py-3">{row.bls?.length ?? 0}</td>
-                  <td className="px-4 py-3">{row.customer_contacts?.length ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <span className="app-table__truncate app-table__truncate--lg" title={getCustomerChargeSummary(row.bls ?? [])}>
-                      {getCustomerChargeSummary(row.bls ?? [])}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{formatBRL(row.pending_balance)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
-                        Abrir ficha
-                      </Link>
-                      <Link className="app-table__action" to={`/faturamento?customer=${row.id}`}>
-                        Faturamento
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {data?.rows.map((row) => {
+                const summary = summarizeCustomerCharges(row.bls ?? [])
+                const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
+                return (
+                  <tr key={row.id} className="hover:bg-[#21262d]/60">
+                    <td className="px-4 py-3">
+                      <div className="app-table__cell-stack">
+                        <div className="app-table__cell-value" title={row.name}>
+                          {truncateCustomerName(row.name, 64)}
+                        </div>
+                        <div className="app-table__cell-meta">{formatCnpjCpf(row.cnpj_cpf)}</div>
+                        <div className="app-table__cell-meta">
+                          {[row.trade_name, row.city && row.state ? `${row.city}/${row.state}` : row.city || row.state]
+                            .filter(Boolean)
+                            .join(' • ') || 'Sem complemento cadastral'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="app-table__cell-stack">
+                        <div className="app-table__cell-value">{row.customer_contacts?.length ?? 0} contato(s)</div>
+                        <div className="app-table__cell-meta">
+                          {(row.customer_contacts?.length ?? 0) > 0 ? 'Base pronta para notificacao' : 'Sem e-mails cadastrados'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="app-table__cell-stack">
+                        <div className="app-table__cell-value">{row.bls?.length ?? 0} B/L(s) vinculados</div>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge tone="yellow">Pend {summary.pending}</Badge>
+                          <Badge tone="green">Pronto {summary.ready}</Badge>
+                          <Badge tone="slate">Isento {summary.exempt}</Badge>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="app-table__cell-stack">
+                        <div className="app-table__cell-value app-table__cell-value--financial">
+                          {formatBRL(row.pending_balance)}
+                        </div>
+                        <div className="app-table__cell-meta">
+                          {hasPendingBalance ? 'Com saldo em aberto' : 'Sem pendencia financeira'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
+                          Abrir ficha
+                        </Link>
+                        <Link className="app-table__action" to={`/faturamento?customer=${row.id}`}>
+                          Faturamento
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -678,10 +716,10 @@ function truncateCustomerName(value: string, maxLength: number) {
   return `${value.slice(0, maxLength).trimEnd()}...`
 }
 
-function getCustomerChargeSummary(bls: Array<{ charge_status?: string | null }>) {
-  const pending = bls.filter((bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated').length
-  const ready = bls.filter((bl) => bl.charge_status === 'ready_for_billing').length
-  const exempt = bls.filter((bl) => bl.charge_status === 'exempt').length
-
-  return `Pend: ${pending} | Pronto: ${ready} | Isento: ${exempt}`
+function summarizeCustomerCharges(bls: Array<{ charge_status?: string | null }>) {
+  return {
+    pending: bls.filter((bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated').length,
+    ready: bls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
+    exempt: bls.filter((bl) => bl.charge_status === 'exempt').length,
+  }
 }

@@ -738,6 +738,19 @@ export function TaxasLocais() {
       {tab === 'tabelas' ? (
         <>
           <Card className="mb-5">
+            <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+              <div className="app-table__cell-stack">
+                <div className="text-base font-semibold text-white">Filtro e cobertura das tabelas</div>
+                <div className="app-table__cell-meta">
+                  Refine por modo e POD antes de editar estrutura tarifaria ou publicar novos itens.
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="green">{tableSummary.active} ativa(s)</Badge>
+                <Badge tone="blue">{tableSummary.items} item(ns)</Badge>
+                <Badge tone="slate">{tableSummary.manualOnly} manual(is)</Badge>
+              </div>
+            </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Modo de carga">
                 <Select value={cargoModeFilter} onChange={(event) => setCargoModeFilter(event.target.value as '' | 'container' | 'carga_solta')}>
@@ -752,17 +765,15 @@ export function TaxasLocais() {
               <MetricCard label="Tabelas" value={String(tableSummary.tables)} />
               <MetricCard label="Itens ativos" value={String(tableSummary.items - tableSummary.manualOnly)} />
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge tone="green">{tableSummary.active} tabela(s) ativa(s)</Badge>
-              <Badge tone="blue">{tableSummary.items} item(ns) total</Badge>
-              <Badge tone="slate">{tableSummary.manualOnly} other charge(s) manual(is)</Badge>
-            </div>
           </Card>
 
           <div className="mb-5 grid gap-5 xl:grid-cols-2">
             <Card>
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-base font-semibold text-white">{tableForm.id ? 'Editar tabela' : 'Nova tabela'}</h3>
+                <div className="app-table__cell-stack">
+                  <h3 className="text-base font-semibold text-white">{tableForm.id ? 'Editar tabela' : 'Nova tabela'}</h3>
+                  <div className="app-table__cell-meta">Defina o escopo principal da tarifa antes de publicar itens.</div>
+                </div>
                 {tableForm.id ? (
                   <Button variant="ghost" type="button" onClick={() => setTableForm(EMPTY_TABLE_FORM)}>
                     <X size={15} />
@@ -867,7 +878,10 @@ export function TaxasLocais() {
 
             <Card>
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-base font-semibold text-white">{tableItemForm.id ? 'Editar item de taxa' : 'Novo item de taxa'}</h3>
+                <div className="app-table__cell-stack">
+                  <h3 className="text-base font-semibold text-white">{tableItemForm.id ? 'Editar item de taxa' : 'Novo item de taxa'}</h3>
+                  <div className="app-table__cell-meta">Mantenha a granularidade da regra aqui, sem inflar a grade principal.</div>
+                </div>
                 {tableItemForm.id ? (
                   <Button variant="ghost" type="button" onClick={() => setTableItemForm(EMPTY_TABLE_ITEM_FORM)}>
                     <X size={15} />
@@ -1035,16 +1049,16 @@ export function TaxasLocais() {
               </div>
             ) : null}
             <div className="app-table-scroll">
-              <table className="app-table app-table--compact min-w-[1320px] text-left text-sm whitespace-nowrap">
+              <table className="app-table app-table--compact min-w-[1160px] table-fixed text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Tabela</th>
-                    <th className="px-4 py-3">Modo</th>
-                    <th className="px-4 py-3">POD</th>
-                    <th className="px-4 py-3">Vigencia</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Itens</th>
-                    <th className="px-4 py-3">Acoes</th>
+                    <th className="w-[18%] px-4 py-3">Tabela</th>
+                    <th className="w-[10%] px-4 py-3">Modo</th>
+                    <th className="w-[10%] px-4 py-3">POD</th>
+                    <th className="w-[14%] px-4 py-3">Vigencia</th>
+                    <th className="w-[10%] px-4 py-3">Status</th>
+                    <th className="w-[28%] px-4 py-3">Itens</th>
+                    <th className="w-[10%] px-4 py-3">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
@@ -1077,20 +1091,26 @@ export function TaxasLocais() {
                         <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="min-w-[520px] space-y-1">
+                        <div className="grid gap-2">
                           {(table.charge_table_items?.length ?? 0) === 0 ? <span className="text-slate-400">Sem itens</span> : null}
                           {table.charge_table_items?.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between gap-2 rounded border border-[#30363d] px-2 py-1">
-                              <div className="truncate">
-                                <span className="font-semibold text-white">{item.name}</span>{' '}
-                                <span className="text-slate-400">
+                            <div key={item.id} className="rounded-xl border border-[#30363d] px-3 py-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-white">{item.name}</div>
+                                  <div className="text-xs text-slate-400">
+                                    {item.application_basis ?? '-'} • {item.cargo_profile ?? '-'} • {item.currency ?? '-'}
+                                  </div>
+                                </div>
+                                <div className="text-right text-xs font-semibold text-slate-400">
                                   {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
-                                </span>
-                                <span className="ml-2 text-xs text-slate-500">
-                                  [{item.application_basis ?? '-'} | {item.cargo_profile ?? '-'}]
-                                </span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1">
+                              <div className="mt-2 flex items-center gap-1">
+                                {item.manual_only ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}
+                                {!item.active ? <Badge tone="slate">Inativo</Badge> : null}
+                              </div>
+                              <div className="mt-2 flex items-center gap-1">
                                 <button
                                   className="app-table__icon-button"
                                   type="button"
@@ -1159,6 +1179,12 @@ export function TaxasLocais() {
       {tab === 'pendencias' ? (
         <>
           <Card className="mb-5">
+            <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+              <div className="app-table__cell-stack">
+                <div className="text-base font-semibold text-white">Filtro operacional</div>
+                <div className="app-table__cell-meta">Trabalhe bloqueios, reconciliacao e prontidao de faturamento sobre a mesma base filtrada.</div>
+              </div>
+            </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <Field label="Texto livre">
                 <Input
@@ -1586,6 +1612,13 @@ export function TaxasLocais() {
       {tab === 'overrides' ? (
         <>
           <Card className="mb-5">
+            <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+              <div className="app-table__cell-stack">
+                <div className="text-base font-semibold text-white">Overrides por cliente</div>
+                <div className="app-table__cell-meta">Sobrescreva valores pontuais sem contaminar a tabela base.</div>
+              </div>
+              <Badge tone="blue">{overrideRows?.length ?? 0} override(s) na visao</Badge>
+            </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Buscar cliente">
                 <Input

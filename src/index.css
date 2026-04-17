@@ -1087,6 +1087,34 @@ textarea {
   color: #92400e;
 }
 
+.app-section-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.app-soft-panel {
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--app-surface-strong), var(--app-surface-muted));
+  padding: 18px 20px;
+  box-shadow: var(--app-shadow);
+}
+
+.app-soft-panel__title {
+  margin: 0;
+  color: var(--app-text-strong);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.app-soft-panel__description {
+  margin: 8px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .app-auth {
   display: grid;
   place-items: center;
@@ -1254,6 +1282,30 @@ textarea {
   max-width: 280px;
 }
 
+.app-table__cell-stack {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.app-table__cell-meta {
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.app-table__cell-value {
+  color: var(--app-text-strong);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.app-table__cell-value--financial {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: -0.03em;
+}
+
 .app-table__action {
   display: inline-flex;
   align-items: center;
@@ -1409,6 +1461,17 @@ textarea {
   line-height: 1.2;
   white-space: nowrap;
   box-shadow: var(--app-shadow);
+}
+
+.app-lineup-bb {
+  display: grid;
+  gap: 2px;
+  min-width: 112px;
+  color: var(--app-text-strong);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-transform: uppercase;
 }
 
 .app-voyage-table-frame {
@@ -1692,6 +1755,10 @@ textarea {
     padding: 28px 20px 40px;
   }
 
+  .app-section-grid--split {
+    grid-template-columns: 1fr;
+  }
+
   .page-header {
     align-items: stretch;
     flex-direction: column;
@@ -1783,6 +1850,12 @@ textarea {
   .app-table__footer {
     align-items: center;
     flex-direction: row;
+  }
+}
+
+@media (min-width: 1200px) {
+  .app-section-grid--split {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   }
 }
 
