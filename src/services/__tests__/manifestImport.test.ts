@@ -99,7 +99,7 @@ describe('manifestImport customer reconciliation', () => {
 
     expect(batchId).toBe(101)
 
-    expect(mockRpc).toHaveBeenCalledOnce()
+    expect(mockRpc).toHaveBeenCalledTimes(2)
     const [rpcName, rpcArgs] = mockRpc.mock.calls[0] as [string, Record<string, unknown>]
     expect(rpcName).toBe('import_manifest_transactional')
 
@@ -117,6 +117,12 @@ describe('manifestImport customer reconciliation', () => {
     expect(containersPayload).toHaveLength(1)
 
     expect(syncManifestPolEtdSchedulesMock).toHaveBeenCalledOnce()
+    expect(mockRpc.mock.calls[1]?.[0]).toBe('run_billing_for_import_batch')
+    expect(mockRpc.mock.calls[1]?.[1]).toMatchObject({
+      p_batch_id: 101,
+      p_actor: 'tester',
+      p_recalculate: true,
+    })
   })
 
   it('mapeia unique violation de hash para DuplicateManifestImportError', async () => {

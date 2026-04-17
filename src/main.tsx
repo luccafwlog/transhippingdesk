@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App'
 import { AuthProvider } from './hooks/useAuth'
+import { PortalAuthProvider } from './hooks/usePortalAuth'
 import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 
@@ -23,9 +24,11 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <ToastProvider>
           <VisualThemeProvider>
-            <AuthProvider>
-              <App />
-            </AuthProvider>
+            <PortalAuthProvider>
+              <AuthProvider>
+                <App />
+              </AuthProvider>
+            </PortalAuthProvider>
           </VisualThemeProvider>
         </ToastProvider>
       </BrowserRouter>

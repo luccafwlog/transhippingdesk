@@ -87,9 +87,12 @@ export type ChargeTableItem = {
 export type ChargeCalculation = {
   id: number
   bl_id: string | null
+  manifest_id: number | null
   charge_table_id: number | null
   charge_item_id: number | null
   container_id: number | null
+  billing_run_id: number | null
+  pricing_rule_version_id: number | null
   quantity: number | null
   unit_value_brl: number | null
   unit_value_usd: number | null
@@ -158,6 +161,19 @@ export type BL = {
   consignee: string | null
   notify_party: string | null
   customer_id: number | null
+  manifest_customer_cnpj_cpf: string | null
+  manifest_customer_name: string | null
+  manifest_customer_email: string | null
+  customer_reconciliation_status:
+    | 'matched_document'
+    | 'matched_name'
+    | 'missing_customer'
+    | 'reconciled'
+    | 'rejected'
+    | null
+  customer_reconciliation_notes: string | null
+  billing_hold_reason: string | null
+  last_billing_run_id: number | null
   pol: string | null
   pod: string | null
   place_of_delivery: string | null
@@ -297,6 +313,18 @@ export type InvoiceItem = {
   quantity: number | null
   unit_value_brl: number | null
   total_value_brl: number
+  bl_id: string | null
+  manifest_id: number | null
+  charge_table_id: number | null
+  charge_item_id: number | null
+  source: string | null
+  currency: string | null
+  unit_value_usd: number | null
+  total_value_usd: number | null
+  pricing_rule_version_id: number | null
+  billing_run_id: number | null
+  calculation_key: string | null
+  snapshot_payload: Json | null
 }
 
 export type InvoicePayment = {
@@ -487,6 +515,121 @@ export type Database = {
           p_notes: string | null
           p_issue_now: boolean
           p_actor: string | null
+        }
+        Returns: Json
+      }
+      run_billing_for_import_batch: {
+        Args: {
+          p_batch_id: number
+          p_actor: string | null
+          p_recalculate: boolean
+        }
+        Returns: Json
+      }
+      list_billing_runs: {
+        Args: {
+          p_limit: number | null
+        }
+        Returns: Json
+      }
+      get_billing_run_details: {
+        Args: {
+          p_billing_run_id: number
+        }
+        Returns: Json
+      }
+      list_customer_reconciliation_queue: {
+        Args: {
+          p_status: string | null
+          p_limit: number | null
+        }
+        Returns: Json
+      }
+      approve_customer_reconciliation: {
+        Args: {
+          p_queue_id: number
+          p_customer_id: number | null
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      reject_customer_reconciliation: {
+        Args: {
+          p_queue_id: number
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      get_customer_portal_account: {
+        Args: {
+          p_customer_id: number
+        }
+        Returns: Json
+      }
+      upsert_customer_portal_account: {
+        Args: {
+          p_customer_id: number
+          p_password: string
+          p_contact_email: string | null
+          p_active: boolean
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      set_customer_portal_account_active: {
+        Args: {
+          p_customer_id: number
+          p_active: boolean
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      portal_login: {
+        Args: {
+          p_cnpj_cpf: string
+          p_password: string
+        }
+        Returns: Json
+      }
+      portal_logout: {
+        Args: {
+          p_session_token: string
+        }
+        Returns: Json
+      }
+      portal_get_session_overview: {
+        Args: {
+          p_session_token: string
+        }
+        Returns: Json
+      }
+      portal_list_pending_bls: {
+        Args: {
+          p_session_token: string
+        }
+        Returns: Json
+      }
+      portal_list_invoices: {
+        Args: {
+          p_session_token: string
+        }
+        Returns: Json
+      }
+      portal_invoice_details: {
+        Args: {
+          p_session_token: string
+          p_invoice_id: number
+        }
+        Returns: Json
+      }
+      portal_create_consolidation: {
+        Args: {
+          p_session_token: string
+          p_bl_ids: string[]
+          p_due_date: string | null
+          p_notes: string | null
         }
         Returns: Json
       }

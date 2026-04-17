@@ -52,6 +52,12 @@ export async function importManifest({
     const matchedCustomer = customerMatch?.customer ?? null
     const customerId = matchedCustomer?.id ?? null
     const reviewReasons = new Set(bl.review_reasons)
+    const reconciliationStatus =
+      customerId && customerMatch?.matchType === 'document'
+        ? 'matched_document'
+        : customerId && customerMatch?.matchType === 'name'
+          ? 'matched_name'
+          : 'missing_customer'
 
     if (!customerId && (document || bl.consignee)) {
       reviewReasons.add('Cliente nao vinculado automaticamente')
@@ -61,16 +67,32 @@ export async function importManifest({
       reviewReasons.add('Cliente vinculado por nome; validar CNPJ')
     }
 
+    if (!bl.customer_email) {
+      reviewReasons.add('E-mail do cliente ausente no manifesto')
+    }
+
     return {
       id: bl.id,
       shipper: bl.shipper,
       consignee: matchedCustomer?.name ?? bl.consignee,
+      manifest_customer_name: bl.consignee,
+      manifest_customer_email: bl.customer_email,
+      manifest_customer_cnpj_cpf: bl.cnpj_cpf,
       cargo_description: bl.cargo_description,
       customer_id: customerId,
       pol: bl.pol,
       pod: bl.pod,
       total_weight_kg: bl.total_weight_kg,
       total_cbm: bl.total_cbm,
+      customer_reconciliation_status: reconciliationStatus,
+      customer_reconciliation_notes:
+        reconciliationStatus === 'matched_document'
+          ? 'Cliente reconciliado automaticamente por CNPJ/CPF.'
+          : reconciliationStatus === 'matched_name'
+            ? 'Cliente sugerido por nome; validar documento.'
+            : 'Cliente nao encontrado na base cadastral.',
+      billing_hold_reason:
+        reconciliationStatus === 'matched_document' ? null : 'Aguardando reconciliacao de cliente antes do faturamento.',
       review_status: reviewReasons.size > 0 ? 'pending_review' : bl.review_status,
       financial_status: 'pending',
       notes: reviewReasons.size > 0 ? `Pendencias de importacao: ${Array.from(reviewReasons).join(', ')}` : null,
@@ -132,6 +154,16 @@ export async function importManifest({
     manifest,
     changedBy: uploadedBy,
   })
+
+  const { error: billingError } = await supabase.rpc('run_billing_for_import_batch', {
+    p_batch_id: batchId,
+    p_actor: uploadedBy,
+    p_recalculate: true,
+  })
+
+  if (billingError) {
+    throw billingError
+  }
 
   return batchId as number
 }

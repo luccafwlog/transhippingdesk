@@ -357,7 +357,7 @@ export function BlDetalhe() {
       })
 
       if (rpcError) {
-        if (rpcError.code === '40001') {
+        if (rpcError.code === 'PT409' || rpcError.code === '40001') {
           void logOperationalEvent({
             code: 'bl_review_concurrent_conflict',
             message: rpcError.message ?? 'Conflito concorrente ao salvar B/L',

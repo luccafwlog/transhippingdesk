@@ -8,6 +8,7 @@ const headerMap = {
   consignee: ['consignee', 'consignatario', 'importador'],
   cargo_description: ['description of goods', 'cargo description', 'descricao da carga', 'descricao', 'mercadoria'],
   cnpj_cpf: ['cnpj', 'cpf', 'cnpj/cpf', 'documento'],
+  email: ['email', 'e-mail', 'customer email', 'contato email'],
   pol: ['pol', 'port of loading', 'porto de embarque'],
   pod: ['pod', 'port of discharge', 'porto de destino'],
   container_number: ['container', 'cntr', 'container no', 'numero do container'],
@@ -54,6 +55,7 @@ export type ParsedBL = {
   id: string
   shipper: string | null
   consignee: string | null
+  customer_email?: string | null
   cargo_description: string | null
   cnpj_cpf: string | null
   pol: string | null
@@ -198,6 +200,7 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
       id: blNumber,
       shipper: asString(mapped.shipper) || null,
       consignee: asString(mapped.consignee) || null,
+      customer_email: asString(mapped.email).toLowerCase() || null,
       cargo_description: normalizeCargoDescription(asString(mapped.cargo_description)) || null,
       cnpj_cpf: cnpjCpf || null,
       pol: asString(mapped.pol) || null,
@@ -275,6 +278,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
           id: currentBL.bl,
           shipper: currentBL.shipper || null,
           consignee: currentBL.consignee || null,
+          customer_email: currentBL.email || null,
           cargo_description: currentBL.cargoDescription || null,
           cnpj_cpf: onlyDigits(currentBL.cnpj) || null,
           pol: currentBL.pol || null,

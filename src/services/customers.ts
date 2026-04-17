@@ -159,6 +159,61 @@ export async function linkBlToCustomer({
   if (auditError) throw auditError
 }
 
+export type CustomerPortalAccount = {
+  id: number
+  customer_id: number
+  contact_email: string | null
+  active: boolean
+  created_by: string | null
+  last_login_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export async function getCustomerPortalAccount(customerId: number) {
+  const { data, error } = await supabase.rpc('get_customer_portal_account', {
+    p_customer_id: customerId,
+  })
+
+  if (error) throw error
+  const payload = (data ?? {}) as CustomerPortalAccount
+  return payload.id ? payload : null
+}
+
+export async function upsertCustomerPortalAccount(input: {
+  customerId: number
+  password: string
+  contactEmail?: string | null
+  active?: boolean
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('upsert_customer_portal_account', {
+    p_customer_id: input.customerId,
+    p_password: input.password,
+    p_contact_email: input.contactEmail ?? null,
+    p_active: input.active ?? true,
+    p_actor: input.actorId ?? null,
+  })
+
+  if (error) throw error
+  return (data ?? {}) as CustomerPortalAccount
+}
+
+export async function setCustomerPortalAccountActive(input: {
+  customerId: number
+  active: boolean
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('set_customer_portal_account_active', {
+    p_customer_id: input.customerId,
+    p_active: input.active,
+    p_actor: input.actorId ?? null,
+  })
+
+  if (error) throw error
+  return (data ?? {}) as CustomerPortalAccount
+}
+
 function stringifyValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
 }
