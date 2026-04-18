@@ -40,10 +40,13 @@ const importNavItems: NavItem[] = [
   { to: '/manifestos', label: 'Manifestos CNTR', icon: FileSpreadsheet },
   { to: '/containers', label: 'Containers', icon: Boxes },
   { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
-  { to: '/granito', label: 'Granito', icon: Mountain },
-  { to: '/vazios', label: 'Vazios', icon: Package },
   { to: '/veiculos', label: 'Veiculos', icon: Car },
   { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
+]
+
+const exportNavItems: NavItem[] = [
+  { to: '/granito', label: 'Granito', icon: Mountain },
+  { to: '/vazios', label: 'Vazios', icon: Package },
 ]
 
 const primaryNavItems: NavItem[] = [
@@ -75,6 +78,8 @@ export function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
+  const [mobileExportOpen, setMobileExportOpen] = useState(false)
+  const [desktopExportOpen, setDesktopExportOpen] = useState(false)
   const [mobileFinancialOpen, setMobileFinancialOpen] = useState(false)
   const [desktopFinancialOpen, setDesktopFinancialOpen] = useState(false)
   const [mobileAdminOpen, setMobileAdminOpen] = useState(false)
@@ -97,6 +102,7 @@ export function AppLayout() {
   const importNavItemsWithBadges: NavItem[] = importNavItems.map((item) =>
     item.to === '/revisao' ? { ...item, badge: counts.pendingReview || undefined } : item,
   )
+  const exportNavItemsWithBadges: NavItem[] = exportNavItems
   const financialNavItemsWithBadges: NavItem[] = financialNavItems.map((item) => {
     if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
     if (item.to === '/faturamento') return { ...item, badge: counts.readyForBilling || undefined }
@@ -104,6 +110,7 @@ export function AppLayout() {
   })
 
   const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
+  const isExportSectionActive = exportNavItems.some((item) => isPathActive(location.pathname, item.to))
   const isFinancialSectionActive = financialNavItems.some((item) => isPathActive(location.pathname, item.to))
   const isAdminSectionActive = adminNavItems.some((item) => isPathActive(location.pathname, item.to))
 
@@ -114,10 +121,12 @@ export function AppLayout() {
       if (!matches) {
         setMobileNavOpen(false)
         setMobileImportOpen(false)
+        setMobileExportOpen(false)
         setMobileFinancialOpen(false)
         setMobileAdminOpen(false)
       } else {
         setDesktopImportOpen(false)
+        setDesktopExportOpen(false)
         setDesktopFinancialOpen(false)
         setDesktopAdminOpen(false)
       }
@@ -135,6 +144,8 @@ export function AppLayout() {
     setMobileNavOpen(false)
     setMobileImportOpen(false)
     setDesktopImportOpen(false)
+    setMobileExportOpen(false)
+    setDesktopExportOpen(false)
     setMobileFinancialOpen(false)
     setDesktopFinancialOpen(false)
     setMobileAdminOpen(false)
@@ -170,7 +181,7 @@ export function AppLayout() {
             <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
             <div className="app-header__titles">
               <div className="app-header__eyebrow">Desk operacional</div>
-              <div className="app-header__subtitle">manifestos, revisao e faturamento</div>
+              <div className="app-header__subtitle">importacao, exportacao e faturamento</div>
             </div>
           </button>
 
@@ -205,58 +216,72 @@ export function AppLayout() {
         </div>
 
         <nav id="app-primary-navigation" className={cn('app-nav-scroll', mobileNavOpen && 'app-nav-scroll--open')}>
-  {primaryNavItemsWithBadges.slice(0, 2).map((item) => (
-    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
-  ))}
+          {primaryNavItemsWithBadges.slice(0, 2).map((item) => (
+            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+          ))}
 
-  <TopNavDropdownMenu
-    label="Importacao"
-    icon={FileSpreadsheet}
-    items={importNavItemsWithBadges}
-    isActive={isImportSectionActive}
-    isMobile={isMobileNav}
-    desktopOpen={desktopImportOpen}
-    mobileOpen={mobileImportOpen}
-    onOpenDesktop={() => setDesktopImportOpen(true)}
-    onCloseDesktop={() => setDesktopImportOpen(false)}
-    onToggleMobile={() => setMobileImportOpen((current) => !current)}
-    onNavigate={closeMobileMenus}
-  />
+          <TopNavDropdownMenu
+            label="Importacao"
+            icon={FileSpreadsheet}
+            items={importNavItemsWithBadges}
+            isActive={isImportSectionActive}
+            isMobile={isMobileNav}
+            desktopOpen={desktopImportOpen}
+            mobileOpen={mobileImportOpen}
+            onOpenDesktop={() => setDesktopImportOpen(true)}
+            onCloseDesktop={() => setDesktopImportOpen(false)}
+            onToggleMobile={() => setMobileImportOpen((current) => !current)}
+            onNavigate={closeMobileMenus}
+          />
 
-  {primaryNavItemsWithBadges.slice(2).map((item) => (
-    <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
-  ))}
+          <TopNavDropdownMenu
+            label="Exportacao"
+            icon={Package}
+            items={exportNavItemsWithBadges}
+            isActive={isExportSectionActive}
+            isMobile={isMobileNav}
+            desktopOpen={desktopExportOpen}
+            mobileOpen={mobileExportOpen}
+            onOpenDesktop={() => setDesktopExportOpen(true)}
+            onCloseDesktop={() => setDesktopExportOpen(false)}
+            onToggleMobile={() => setMobileExportOpen((current) => !current)}
+            onNavigate={closeMobileMenus}
+          />
 
-  <TopNavDropdownMenu
-    label="Financeiro"
-    icon={DollarSign}
-    items={financialNavItemsWithBadges}
-    isActive={isFinancialSectionActive}
-    isMobile={isMobileNav}
-    desktopOpen={desktopFinancialOpen}
-    mobileOpen={mobileFinancialOpen}
-    onOpenDesktop={() => setDesktopFinancialOpen(true)}
-    onCloseDesktop={() => setDesktopFinancialOpen(false)}
-    onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
-    onNavigate={closeMobileMenus}
-  />
+          {primaryNavItemsWithBadges.slice(2).map((item) => (
+            <TopNavLink key={item.to} {...item} onNavigate={closeMobileMenus} />
+          ))}
 
-  {isAdmin && (
-    <TopNavDropdownMenu
-      label="Admin"
-      icon={ShieldCheck}
-      items={adminNavItems}
-      isActive={isAdminSectionActive}
-      isMobile={isMobileNav}
-      desktopOpen={desktopAdminOpen}
-      mobileOpen={mobileAdminOpen}
-      onOpenDesktop={() => setDesktopAdminOpen(true)}
-      onCloseDesktop={() => setDesktopAdminOpen(false)}
-      onToggleMobile={() => setMobileAdminOpen((current) => !current)}
-      onNavigate={closeMobileMenus}
-    />
-  )}
-</nav>
+          <TopNavDropdownMenu
+            label="Financeiro"
+            icon={DollarSign}
+            items={financialNavItemsWithBadges}
+            isActive={isFinancialSectionActive}
+            isMobile={isMobileNav}
+            desktopOpen={desktopFinancialOpen}
+            mobileOpen={mobileFinancialOpen}
+            onOpenDesktop={() => setDesktopFinancialOpen(true)}
+            onCloseDesktop={() => setDesktopFinancialOpen(false)}
+            onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
+            onNavigate={closeMobileMenus}
+          />
+
+          {isAdmin && (
+            <TopNavDropdownMenu
+              label="Admin"
+              icon={ShieldCheck}
+              items={adminNavItems}
+              isActive={isAdminSectionActive}
+              isMobile={isMobileNav}
+              desktopOpen={desktopAdminOpen}
+              mobileOpen={mobileAdminOpen}
+              onOpenDesktop={() => setDesktopAdminOpen(true)}
+              onCloseDesktop={() => setDesktopAdminOpen(false)}
+              onToggleMobile={() => setMobileAdminOpen((current) => !current)}
+              onNavigate={closeMobileMenus}
+            />
+          )}
+        </nav>
       </div>
 
       <main className="app-main">
