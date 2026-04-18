@@ -66,9 +66,10 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const voyageIds = voyages.map((voyage) => voyage.id)
   if (!voyageIds.length) return { rows: [], lastChangedAt: null }
 
-  const [bls, vehicles] = await Promise.all([
+  const [bls, vehicles, vaziosImportacaoMtyByVoyage] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
+    fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
   ])
 
   const blIds = bls.map((bl) => bl.id)
@@ -193,6 +194,18 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
     return left.pod.localeCompare(right.pod, 'pt-BR')
   })
 
+  // Vazios de importacao nao tem POD: somamos ao MTY da primeira linha de cada viagem
+  const creditedVoyageIds = new Set<number>()
+  for (const row of sortedRows) {
+    if (creditedVoyageIds.has(row.voyageId)) continue
+    const vaziosImportacaoCount = vaziosImportacaoMtyByVoyage.get(row.voyageId) ?? 0
+    if (vaziosImportacaoCount > 0) {
+      row.mty += vaziosImportacaoCount
+      row.total += vaziosImportacaoCount
+    }
+    creditedVoyageIds.add(row.voyageId)
+  }
+
   const lastChangedAt = await fetchLastLineUpChangeAt(voyageIds, blIds, Array.from(podSchedules.keys()))
 
   return {
@@ -291,6 +304,49 @@ async function fetchVehiclesByVoyageIds(voyageIds: number[]) {
   }
 
   return rows
+}
+
+async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
+  const countByVoyage = new Map<number, number>()
+  if (!voyageIds.length) return countByVoyage
+
+  for (const voyageChunk of chunkNumberArray(voyageIds, 50)) {
+    const { data: manifestRows, error: manifestError } = await supabase
+      .from('vazios_importacao_manifests')
+      .select('id, voyage_id')
+      .in('voyage_id', voyageChunk)
+    if (manifestError) throw manifestError
+
+    const manifestToVoyage = new Map<string, number>()
+    for (const row of (manifestRows ?? []) as unknown as Array<{ id: string; voyage_id: number | null }>) {
+      if (row.voyage_id != null) manifestToVoyage.set(row.id, row.voyage_id)
+    }
+    if (!manifestToVoyage.size) continue
+
+    const manifestIds = Array.from(manifestToVoyage.keys())
+    for (const manifestChunk of chunkStringArray(manifestIds, 200)) {
+      let from = 0
+      while (true) {
+        const { data: containerRows, error: containerError } = await supabase
+          .from('vazios_importacao_containers')
+          .select('manifest_id')
+          .in('manifest_id', manifestChunk)
+          .range(from, from + 999)
+        if (containerError) throw containerError
+        const batch = (containerRows ?? []) as unknown as Array<{ manifest_id: string }>
+        if (!batch.length) break
+        for (const container of batch) {
+          const voyageId = manifestToVoyage.get(container.manifest_id)
+          if (voyageId == null) continue
+          countByVoyage.set(voyageId, (countByVoyage.get(voyageId) ?? 0) + 1)
+        }
+        if (batch.length < 1000) break
+        from += 1000
+      }
+    }
+  }
+
+  return countByVoyage
 }
 
 async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], scheduleEntityIds: string[]) {
