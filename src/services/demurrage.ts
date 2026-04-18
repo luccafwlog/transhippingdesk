@@ -381,7 +381,6 @@ function normCnpj(str: string): string {
 
 export function parsePixExtract(arrayBuffer: ArrayBuffer): PixTransaction[] {
   // Dynamically import XLSX — bundled via vite's import
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const XLSX = (window as unknown as { XLSX?: unknown }).XLSX as { read: (data: Uint8Array, opts: object) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown, opts: object) => unknown[][] } } | undefined
   if (!XLSX) throw new Error('XLSX não disponível. Adicione a lib ao projeto.')
 

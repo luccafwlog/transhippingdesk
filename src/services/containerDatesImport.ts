@@ -165,7 +165,7 @@ function parseDate(value: unknown): string | null {
   // ISO format YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
   // Brazilian format DD/MM/YYYY or DD-MM-YYYY
-  const parts = s.split(/[\/\-]/)
+  const parts = s.split(/[-/]/)
   if (parts.length === 3 && parts[0].length <= 2) {
     const [d, m, y] = parts
     const iso = `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`

@@ -25,7 +25,7 @@ export function buildPixPayload(chavePix: string, nomeBeneficiario: string, cida
 
   const valorStr = valor > 0 ? valor.toFixed(2) : ''
 
-  let payload =
+  const payload =
     pixTLV('00', '01') +
     pixTLV('26', merchantAccountInfo) +
     pixTLV('52', '0000') +
