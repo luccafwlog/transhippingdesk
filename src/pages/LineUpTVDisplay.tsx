@@ -1,19 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
-const DISPLAY_SCROLL_INTERVAL_MS = 4200
-const DISPLAY_SCROLL_DURATION_MS = 900
+const DISPLAY_SCROLL_INTERVAL_MS = 6000
 
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
   const [windowStartIndex, setWindowStartIndex] = useState(0)
-  const [isAnimating, setIsAnimating] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -34,7 +31,7 @@ export function LineUpTVDisplay() {
   const displayRows = useMemo(() => {
     if (!hasAnimatedLoop) return rows
 
-    return Array.from({ length: DISPLAY_VISIBLE_ROWS + 1 }, (_, slotIndex) => {
+    return Array.from({ length: DISPLAY_VISIBLE_ROWS }, (_, slotIndex) => {
       const baseRow = rows[(windowStartIndex + slotIndex) % rows.length]
       return {
         ...baseRow,
@@ -42,14 +39,6 @@ export function LineUpTVDisplay() {
       }
     })
   }, [hasAnimatedLoop, rows, windowStartIndex])
-  const bodyStyle = useMemo<CSSProperties | undefined>(() => {
-    if (!hasAnimatedLoop) return undefined
-    return {
-      transform: `translateY(-${isAnimating ? rowHeight : 0}px)`,
-      transition: isAnimating ? `transform ${DISPLAY_SCROLL_DURATION_MS}ms ease-in-out` : 'none',
-      willChange: 'transform',
-    }
-  }, [hasAnimatedLoop, isAnimating, rowHeight])
 
   useEffect(() => {
     const root = document.documentElement
@@ -82,24 +71,17 @@ export function LineUpTVDisplay() {
 
   useEffect(() => {
     setWindowStartIndex(0)
-    setIsAnimating(false)
   }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
     if (!hasAnimatedLoop) return
 
-    let shiftTimeoutId: number | null = null
     const intervalId = window.setInterval(() => {
-      setIsAnimating(true)
-      shiftTimeoutId = window.setTimeout(() => {
-        setWindowStartIndex((currentIndex) => (currentIndex + 1) % rows.length)
-        setIsAnimating(false)
-      }, DISPLAY_SCROLL_DURATION_MS)
+      setWindowStartIndex((currentIndex) => (currentIndex + 1) % rows.length)
     }, DISPLAY_SCROLL_INTERVAL_MS)
 
     return () => {
       window.clearInterval(intervalId)
-      if (shiftTimeoutId !== null) window.clearTimeout(shiftTimeoutId)
     }
   }, [hasAnimatedLoop, rows.length])
 
@@ -164,7 +146,6 @@ export function LineUpTVDisplay() {
               rowHeight={rowHeight}
               fillSlots={hasAnimatedLoop ? undefined : DISPLAY_VISIBLE_ROWS}
               containerRef={scrollRef}
-              bodyStyle={bodyStyle}
               getRowKey={(row) => row.id}
             />
           </div>
