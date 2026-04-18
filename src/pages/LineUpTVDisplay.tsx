@@ -10,6 +10,7 @@ const DISPLAY_MAX_ROW_HEIGHT = 88
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
+  const rowHeightRef = useRef(DISPLAY_MIN_ROW_HEIGHT)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -54,6 +55,12 @@ export function LineUpTVDisplay() {
     void requestFullScreen()
   }, [])
 
+  // Keep ref in sync so the scroll interval always reads the latest rowHeight
+  // without needing to restart when rowHeight changes
+  useEffect(() => {
+    rowHeightRef.current = rowHeight
+  }, [rowHeight])
+
   useEffect(() => {
     const container = scrollRef.current
     if (!container) return
@@ -66,13 +73,13 @@ export function LineUpTVDisplay() {
     const interval = window.setInterval(() => {
       currentIndex = currentIndex >= maxIndex ? 0 : currentIndex + 1
       container.scrollTo({
-        top: currentIndex * rowHeight,
+        top: currentIndex * rowHeightRef.current,
         behavior: 'smooth',
       })
     }, 4200)
 
     return () => window.clearInterval(interval)
-  }, [rowHeight, rows.length])
+  }, [rows.length])
 
   useLayoutEffect(() => {
     const container = scrollRef.current
