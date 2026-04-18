@@ -172,6 +172,25 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 
 ## Proximas Entregas - Curto Prazo
 
+### Modulo Granito (planejado — ver `docs/PLANEJAMENTO_GRANITO_VAZIOS.md`)
+
+- Migrations `034_granite_module.sql` e `036_granite_billing_rpc.sql`: tabelas `granite_manifests`, `granite_bls`, `granite_rates`, `granite_bl_charges` com RLS e indices.
+- Parser `src/services/graniteImport.ts`: leitura da planilha COSCO "Relatorio de Cargas/Booking" com mapeamento de 26 colunas, parse de data `dd/mm/yy`, tratamento de CNPJ ausente e lookup de cliente por `shipper_cnpj`.
+- Servico `src/services/graniteCharges.ts`: calculo de faturamento por `real_weight_kg` com suporte a `per_kg`, `per_ton`, `per_bl` e `fixed`.
+- Tela `/granito` com modal de importacao em 3 passos (upload, preview com resolucao de CNPJ, confirmacao).
+- Tela `/granito/taxas`: CRUD de `granite_rates` restrito a admin.
+- Aba "Granito" no relatorio operacional com export XLSX.
+- Card "Granito pendente" no painel executivo.
+
+### Modulo Vazios (planejado — ver `docs/PLANEJAMENTO_GRANITO_VAZIOS.md`)
+
+- Migration `035_vazios_module.sql`: tabelas `vazios_manifests` e `vazios_bookings` (sem BL, identificados por booking number).
+- Parser `src/services/vaziosImport.ts`: leitura de template interno com 7 colunas.
+- Tela `/vazios` com modal de importacao, template para download, tabela de bookings por viagem.
+- Colunas "Granito (BLs)" e "Vazios (bookings)" no Line Up TV.
+
+### Melhorias UX
+
 - Melhorar a UI de reconciliacao para escolher cliente manualmente quando nao houver sugestao segura.
 - Padronizar feedback visual em botoes (spinner de loading em acoes assincronas).
 - Empty states com icone nas tabelas principais.
@@ -185,6 +204,7 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 - Formalizacao da entidade de trecho de viagem no modelo de dados.
 - Notificacoes em tempo real para alertas operacionais via Supabase Realtime.
 - Expansao da cobertura de testes automatizados para fluxos de faturamento e portal.
+- Relatorio consolidado de viagem unificando CNTR, BB, Granito e Vazios em uma unica visao.
 
 ---
 
@@ -206,3 +226,6 @@ O Transhipping Desk e uma plataforma operacional interna para agencia maritima. 
 | Modelo de trecho implicito nos B/Ls | Baixo | Operacao atual nao e afetada; migracao formal planejada para ciclo futuro |
 | Cobertura automatizada parcial nos fluxos principais | Medio | Suite de integracao disponivel para homologacao controlada com Supabase real |
 | Reconciliacao de cliente ainda depende de revisao humana em casos ambiguos | Medio | Billing bloqueia `ready_for_billing` ate a reconciliacao correta |
+| CNPJ ausente na planilha COSCO de Granito | Alto | Preview de importacao bloqueia commit por padrao; campo inline resolve antes do submit |
+| `granite_rates` sem vigencia por data | Medio | Adicionar `valid_from/valid_to` desde o inicio para evitar retrabalho de migracao |
+| Faturamento de Granito misturado com invoices existentes | Medio | Discriminador `manifest_type = 'granite'` na tabela `invoices`; filtros de UI por tipo |
