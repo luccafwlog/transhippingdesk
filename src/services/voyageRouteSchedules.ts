@@ -94,6 +94,13 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
   return schedules
 }
 
+export async function listVoyagePodSchedulesByVoyageIds(voyageIds: number[]) {
+  if (!voyageIds.length) return new Map<string, VoyagePodSchedule>()
+
+  const data = await listScheduleAuditRowsByVoyageIds(POD_ENTITY_TYPE, voyageIds)
+  return hydratePodSchedules(data)
+}
+
 export async function syncManifestPolEtdSchedules({
   voyageId,
   manifest,
@@ -140,7 +147,7 @@ export async function saveVoyagePolSchedule({
   voyageId: number
   pol: string
   etd: string | null
-  changedBy: string
+  changedBy: string | null
 }) {
   const entityId = buildVoyagePolEntityId(voyageId, pol)
   const current = (await listVoyagePolSchedules([entityId])).get(entityId) ?? makeEmptyPolSchedule(entityId)
@@ -176,7 +183,7 @@ export async function saveVoyagePodSchedule({
   rtw: number | null
   ceStatus: 'approved' | 'partial' | 'missing' | null
   linked: boolean | null
-  changedBy: string
+  changedBy: string | null
 }) {
   const entityId = buildVoyagePodEntityId(voyageId, pod)
   const current = (await listVoyagePodSchedules([entityId])).get(entityId) ?? makeEmptyPodSchedule(entityId)
@@ -219,6 +226,66 @@ export async function saveVoyagePodSchedule({
 
   const { error } = await supabase.from('audit_logs').insert(changes)
   if (error) throw error
+}
+
+async function listScheduleAuditRowsByVoyageIds(entityType: string, voyageIds: number[]) {
+  const voyagePrefixes = voyageIds.map((voyageId) => `${voyageId}::`)
+  const rows: Array<{
+    entity_id: string
+    field_name: string
+    new_value: string | null
+    changed_at: string | null
+  }> = []
+
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('entity_id, field_name, new_value, changed_at')
+      .eq('entity_type', entityType)
+      .order('changed_at', { ascending: false })
+      .range(from, from + 999)
+
+    if (error) throw error
+
+    const batch = data ?? []
+    rows.push(
+      ...batch.filter((row) => voyagePrefixes.some((prefix) => row.entity_id.startsWith(prefix))),
+    )
+
+    if (batch.length < 1000) break
+    from += 1000
+  }
+
+  return rows
+}
+
+function hydratePodSchedules(
+  rows: Array<{
+    entity_id: string
+    field_name: string
+    new_value: string | null
+    changed_at?: string | null
+  }>,
+) {
+  const schedules = new Map<string, VoyagePodSchedule>()
+
+  for (const row of rows) {
+    const entityId = row.entity_id
+    const current = schedules.get(entityId) ?? makeEmptyPodSchedule(entityId)
+
+    if (row.field_name === 'eta' && current.eta === null) current.eta = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etb' && current.etb === null) current.etb = normalizeDateValue(row.new_value)
+    if (row.field_name === 'ata' && current.ata === null) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atd' && current.atd === null) current.atd = normalizeDateValue(row.new_value)
+    if (row.field_name === 'rtw' && current.rtw === null) current.rtw = normalizeNumberValue(row.new_value)
+    if (row.field_name === 'ces' && current.ceStatus === null) current.ceStatus = normalizeCeStatusValue(row.new_value)
+    if (row.field_name === 'linked' && current.linked === null) current.linked = normalizeBooleanValue(row.new_value)
+
+    schedules.set(entityId, current)
+  }
+
+  return schedules
 }
 
 function makeEmptyPolSchedule(entityId: string): VoyagePolSchedule {

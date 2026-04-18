@@ -11,13 +11,13 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
-import { countDistinctContainerNumbers, countDistinctContainerNumbersBy, countDistinctContainersAcrossGroups } from '../lib/containerCounts'
+import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import { deleteVoyage } from '../services/voyages'
 import {
   buildVoyagePodEntityId,
   buildVoyagePolEntityId,
-  listVoyagePodSchedules,
+  listVoyagePodSchedulesByVoyageIds,
   listVoyagePolSchedules,
   saveVoyagePolSchedule,
   saveVoyagePodSchedule,
@@ -81,17 +81,6 @@ export function Viagens() {
     [filteredVoyages],
   )
 
-  const podEntityIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          filteredVoyages.flatMap((voyage) =>
-            collectVoyageRoutes(voyage.bls).map((route) => buildVoyagePodEntityId(voyage.id, route.pod)),
-          ),
-        ),
-      ),
-    [filteredVoyages],
-  )
   const filteredVoyageIds = useMemo(() => filteredVoyages.map((voyage) => voyage.id), [filteredVoyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(filteredVoyageIds)
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
@@ -116,78 +105,11 @@ export function Viagens() {
   })
 
   const { data: podSchedules } = useQuery({
-    queryKey: ['voyage-pod-schedules', podEntityIds],
-    enabled: podEntityIds.length > 0,
-    queryFn: () => listVoyagePodSchedules(podEntityIds),
+    queryKey: ['voyage-pod-schedules', filteredVoyageIds],
+    enabled: filteredVoyageIds.length > 0,
+    queryFn: () => listVoyagePodSchedulesByVoyageIds(filteredVoyageIds),
   })
-
-  const summary = useMemo(
-    () => ({
-      active: filteredVoyages.filter((voyage) => voyage.status === 'active').length,
-      totalContainerBls: filteredVoyages.reduce(
-        (sum, voyage) => sum + splitVoyageBls(voyage.bls).containerBls.length,
-        0,
-      ),
-      totalBreakbulkBls: filteredVoyages.reduce(
-        (sum, voyage) => sum + splitVoyageBls(voyage.bls).breakbulkBls.length,
-        0,
-      ),
-      totalContainers: countDistinctContainersAcrossGroups(
-        filteredVoyages,
-        (voyage) => splitVoyageBls(voyage.bls).containerBls.flatMap((bl) => bl.bl_containers ?? []),
-      ),
-      totalBreakbulkMachines: filteredVoyages.reduce(
-        (sum, voyage) =>
-          sum + splitVoyageBls(voyage.bls).breakbulkBls.reduce((itemSum, bl) => itemSum + Number(bl.bb_machine_qty ?? 0), 0),
-        0,
-      ),
-      totalBreakbulkPackages: filteredVoyages.reduce(
-        (sum, voyage) =>
-          sum + splitVoyageBls(voyage.bls).breakbulkBls.reduce((itemSum, bl) => itemSum + Number(bl.bb_packages_qty ?? 0), 0),
-        0,
-      ),
-      totalBreakbulkPackagesTotal: filteredVoyages.reduce(
-        (sum, voyage) =>
-          sum +
-          splitVoyageBls(voyage.bls).breakbulkBls.reduce(
-            (itemSum, bl) => itemSum + Number(bl.bb_packages_total ?? bl.bb_packages_qty ?? bl.bl_breakbulk_items?.length ?? 0),
-            0,
-          ),
-        0,
-      ),
-      totalBreakbulkWeightTon: filteredVoyages.reduce(
-        (sum, voyage) =>
-          sum +
-          splitVoyageBls(voyage.bls).breakbulkBls.reduce(
-            (itemSum, bl) =>
-              itemSum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
-            0,
-          ),
-        0,
-      ),
-      totalVehicles: filteredVoyages.reduce(
-        (sum, voyage) => sum + (vehicleStatsByVoyage[voyage.id]?.totalVehicles ?? 0),
-        0,
-      ),
-      totalGraniteManifests: filteredVoyages.reduce(
-        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.granite.totalManifests ?? 0),
-        0,
-      ),
-      totalGraniteBls: filteredVoyages.reduce(
-        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.granite.totalBls ?? 0),
-        0,
-      ),
-      totalVaziosManifests: filteredVoyages.reduce(
-        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.vazios.totalManifests ?? 0),
-        0,
-      ),
-      totalVaziosBookings: filteredVoyages.reduce(
-        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.vazios.totalBookings ?? 0),
-        0,
-      ),
-    }),
-    [filteredVoyages, moduleStatsByVoyage, vehicleStatsByVoyage],
-  )
+  const podSchedulesByVoyage = useMemo(() => groupPodSchedulesByVoyageId(podSchedules), [podSchedules])
   const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
 
   async function handleDeleteVoyage() {
@@ -199,9 +121,12 @@ export function Viagens() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-options'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['containers'] }),
         queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
       ])
 
       showToast('Viagem excluida com sucesso.', 'success')
@@ -218,7 +143,7 @@ export function Viagens() {
     <>
       <PageHeader
         title="Viagens"
-        description="Cadastro de navio/viagem com visao consolidada de CNTR, carga solta, Granito e Vazios. Cada modulo operacional vinculado a viagem aparece no mesmo painel."
+        description="Cadastro de navio/viagem com planejamento de escalas e visao separada entre operacao de importacao e exportacao."
         action={
           isAdmin ? (
             <Button onClick={() => setOpen(true)}>
@@ -228,22 +153,6 @@ export function Viagens() {
           ) : null
         }
       />
-
-      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Viagens ativas" value={summary.active} />
-        <MetricCard label="B/Ls CNTR" value={summary.totalContainerBls} />
-        <MetricCard label="CNTRS distintos" value={summary.totalContainers} />
-        <MetricCard label="B/Ls carga solta" value={summary.totalBreakbulkBls} />
-        <MetricCard label="Maquinas BB" value={summary.totalBreakbulkMachines} />
-        <MetricCard label="Packages BB" value={summary.totalBreakbulkPackages} />
-        <MetricCard label="Packages Total BB" value={summary.totalBreakbulkPackagesTotal} />
-        <MetricCard label="Weight BB (Ton)" value={Number(summary.totalBreakbulkWeightTon.toFixed(3))} />
-        <MetricCard label="Veiculos vinculados" value={summary.totalVehicles} />
-        <MetricCard label="Manifestos Granito" value={summary.totalGraniteManifests} />
-        <MetricCard label="B/Ls Granito" value={summary.totalGraniteBls} />
-        <MetricCard label="Manifestos Vazios" value={summary.totalVaziosManifests} />
-        <MetricCard label="Bookings Vazios" value={summary.totalVaziosBookings} />
-      </div>
 
       <Card className="mb-5">
         <div className="grid gap-4 md:grid-cols-2">
@@ -311,8 +220,14 @@ export function Viagens() {
           const totalBreakbulkCbm = breakbulkBls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)
           const graniteStats = moduleStatsByVoyage[voyage.id]?.granite ?? getGraniteModuleStats(voyage.granite_manifests)
           const vaziosStats = moduleStatsByVoyage[voyage.id]?.vazios ?? getVaziosModuleStats(voyage.vazios_manifests)
+          const scheduledPodRows = podSchedulesByVoyage.get(voyage.id) ?? []
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
-          const destinationPorts = collectVoyagePorts(voyage.bls, 'pod', voyage.pod?.name ?? null)
+          const destinationPorts = collectVoyagePorts(
+            voyage.bls,
+            'pod',
+            voyage.pod?.name ?? null,
+            scheduledPodRows.map((schedule) => schedule.pod),
+          )
           const containerTypes = summarizeContainerTypes(flatContainers)
           const generalCargoContainerTypes = summarizeContainerTypes(generalCargoContainers)
           const polRows = originPorts.map((pol) => {
@@ -324,7 +239,7 @@ export function Viagens() {
           })
           const podRows = destinationPorts.map((pod) => {
             const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
-            const routeBls = (voyage.bls ?? []).filter((bl) => (bl.pod?.trim() || '-') === pod)
+            const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(pod))
             const routeCeFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
             const autoCeStatus =
               routeBls.length === 0
@@ -345,6 +260,7 @@ export function Viagens() {
               linked: schedule?.linked ?? Boolean(schedule?.eta || schedule?.etb || schedule?.ata || schedule?.atd),
             }
           })
+          const plannedPodCount = podRows.filter((row) => row.eta || row.etb || row.ata || row.atd).length
           const routeRows = collectVoyageRoutes(voyage.bls).map((route) => {
             const polEntityId = buildVoyagePolEntityId(voyage.id, route.pol)
             const podEntityId = buildVoyagePodEntityId(voyage.id, route.pod)
@@ -376,21 +292,33 @@ export function Viagens() {
                 </span>
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-1">
-                <dl className="grid gap-3 text-sm text-slate-300">
-                  <Info label="Portos de Origem" value={originPorts.join(' | ') || 'Definidos por manifesto'} />
-                  <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
-                  <Info label="B/Ls totais" value={String(totalBls)} />
-                  <Info label="Trechos consolidados" value={String(routeRows.length)} />
-                  <Info label="Modulos ativos" value={summarizeModuleAvailability(graniteStats.totalManifests, vaziosStats.totalManifests)} />
-                </dl>
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+                  <div className="mb-3">
+                    <div className="font-semibold text-white">Visao geral da viagem</div>
+                    <div className="text-sm text-slate-400">
+                      Consolidado operacional para planejamento de descarga e acompanhamento dos modulos vinculados.
+                    </div>
+                  </div>
+                  <dl className="grid gap-3 text-sm text-slate-300">
+                    <Info label="Portos de origem" value={originPorts.join(' | ') || 'Definidos por manifesto'} />
+                    <Info label="Portos de destino" value={destinationPorts.join(' | ') || 'Nao informados'} />
+                    <Info label="B/Ls totais" value={String(totalBls)} />
+                    <Info label="Escalas planejadas" value={String(plannedPodCount)} />
+                    <Info label="Trechos consolidados" value={String(routeRows.length)} />
+                    <Info
+                      label="Modulos ativos"
+                      value={summarizeModuleAvailability(graniteStats.totalManifests, vaziosStats.totalManifests)}
+                    />
+                  </dl>
+                </div>
 
                 <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-[var(--app-text)]">Line up por POD</div>
+                      <div className="text-sm font-semibold text-[var(--app-text)]">Line-Up por POD</div>
                       <div className="text-xs text-[var(--app-muted)]">
-                        RTW, CEs e Linked sao editados por rota de descarga.
+                        RESTOW, Conhecimentos de Embarque e ESCALA sao controlados por porto de descarga.
                       </div>
                     </div>
                   </div>
@@ -408,44 +336,52 @@ export function Viagens() {
                         <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                           <tr>
                             <th className="px-3 py-2">POD</th>
-                            <th className="px-3 py-2">RTW</th>
-                            <th className="px-3 py-2">CEs</th>
-                            <th className="px-3 py-2">Linked</th>
+                            <th className="px-3 py-2">RESTOW</th>
+                            <th className="px-3 py-2">Conhecimentos de Embarque</th>
+                            <th className="px-3 py-2">ESCALA</th>
                             <th className="px-3 py-2">Acoes</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#30363d]">
-                          {podRows.map((row) => (
-                            <tr key={`${voyage.id}-lineup-${row.pod}`}>
-                              <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
-                              <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
-                              <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
-                              <td className="px-3 py-2">{row.linked === null ? 'Auto' : row.linked ? 'Yes' : 'No'}</td>
-                              <td className="px-3 py-2">
-                                <Button
-                                  variant="secondary"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Editar metadata do line up para o POD ${row.pod}`}
-                                  onClick={() =>
-                                    setEditingPod({
-                                      voyageId: voyage.id,
-                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                      pod: row.pod,
-                                      eta: row.eta,
-                                      etb: row.etb,
-                                      ata: row.ata,
-                                      atd: row.atd,
-                                      rtw: row.rtw,
-                                      ceStatus: row.ceStatus,
-                                      linked: row.linked,
-                                    })
-                                  }
-                                >
-                                  <Pencil size={15} />
-                                </Button>
+                          {podRows.length ? (
+                            podRows.map((row) => (
+                              <tr key={`${voyage.id}-lineup-${row.pod}`}>
+                                <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
+                                <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
+                                <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
+                                <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
+                                <td className="px-3 py-2">
+                                  <Button
+                                    variant="secondary"
+                                    className="app-voyage-icon-btn"
+                                    aria-label={`Editar planejamento do POD ${row.pod}`}
+                                    onClick={() =>
+                                      setEditingPod({
+                                        voyageId: voyage.id,
+                                        voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                        pod: row.pod,
+                                        eta: row.eta,
+                                        etb: row.etb,
+                                        ata: row.ata,
+                                        atd: row.atd,
+                                        rtw: row.rtw,
+                                        ceStatus: row.ceStatus,
+                                        linked: row.linked,
+                                      })
+                                    }
+                                  >
+                                    <Pencil size={15} />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={5} className="px-3 py-3 text-slate-400">
+                                Nenhum POD planejado para o Line-Up.
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -453,232 +389,265 @@ export function Viagens() {
                 </div>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-3 2xl:grid-cols-6">
-                <MetricPanel title="Container">
-                  <Info label="B/Ls CNTR" value={String(containerBls.length)} />
-                  <Info label="CNTRS distintos" value={String(totalContainers)} />
-                  <Info label="Containers IMO" value={String(totalImoContainers)} />
-                  <Info label="Containers OOG" value={String(totalOogContainers)} />
-                  <Info label="Tipos de container" value={containerTypes || '-'} />
-                </MetricPanel>
+              <MetricSection
+                title="Importacao"
+                description="Consolidado dos fluxos de CNTR, carga geral, carga solta e veiculos vinculados a viagem."
+              >
+                <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+                  <MetricPanel title="Container">
+                    <Info label="B/Ls CNTR" value={String(containerBls.length)} />
+                    <Info label="CNTRS distintos" value={String(totalContainers)} />
+                    <Info label="Containers IMO" value={String(totalImoContainers)} />
+                    <Info label="Containers OOG" value={String(totalOogContainers)} />
+                    <Info label="Tipos de container" value={containerTypes || '-'} />
+                  </MetricPanel>
 
-                <MetricPanel title="Container de Carga Geral">
-                  <Info label="CNTRS distintos" value={String(totalGeneralCargoContainers)} />
-                  <Info label="Containers IMO" value={String(totalGeneralCargoImoContainers)} />
-                  <Info label="Containers OOG" value={String(totalGeneralCargoOogContainers)} />
-                  <Info label="Tipos de container" value={generalCargoContainerTypes || '-'} />
-                </MetricPanel>
+                  <MetricPanel title="Container de Carga Geral">
+                    <Info label="CNTRS distintos" value={String(totalGeneralCargoContainers)} />
+                    <Info label="Containers IMO" value={String(totalGeneralCargoImoContainers)} />
+                    <Info label="Containers OOG" value={String(totalGeneralCargoOogContainers)} />
+                    <Info label="Tipos de container" value={generalCargoContainerTypes || '-'} />
+                  </MetricPanel>
 
-                <MetricPanel title="Carga solta">
-                  <Info label="B/Ls carga solta" value={String(breakbulkBls.length)} />
-                  <Info label="Maquinas" value={formatMetric(totalBreakbulkMachines)} />
-                  <Info label="Packages" value={formatMetric(totalBreakbulkPackages)} />
-                  <Info label="Packages total" value={formatMetric(totalBreakbulkPackagesTotal)} />
-                  <Info label="Weight total" value={`${formatMetric(totalBreakbulkWeightTon)} ton`} />
-                  <Info label="CBM total" value={formatMetric(totalBreakbulkCbm)} />
-                </MetricPanel>
+                  <MetricPanel title="Carga solta">
+                    <Info label="B/Ls carga solta" value={String(breakbulkBls.length)} />
+                    <Info label="Maquinas" value={formatMetric(totalBreakbulkMachines)} />
+                    <Info label="Packages" value={formatMetric(totalBreakbulkPackages)} />
+                    <Info label="Packages total" value={formatMetric(totalBreakbulkPackagesTotal)} />
+                    <Info label="Weight total" value={`${formatMetric(totalBreakbulkWeightTon)} ton`} />
+                    <Info label="CBM total" value={formatMetric(totalBreakbulkCbm)} />
+                  </MetricPanel>
 
-                <MetricPanel title="Veiculos">
-                  <Info label="Veiculos vinculados" value={String(vehicleStats.totalVehicles)} />
-                  <Info label="Containers com veiculos" value={String(vehicleStats.distinctContainerCount)} />
-                  <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
-                  <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
-                  <Info label="Tipos de Container" value={containerTypes || '-'} />
-                </MetricPanel>
+                  <MetricPanel title="Veiculos">
+                    <Info label="Veiculos vinculados" value={String(vehicleStats.totalVehicles)} />
+                    <Info label="Containers com veiculos" value={String(vehicleStats.distinctContainerCount)} />
+                    <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
+                    <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
+                    <Info label="Tipos de Container" value={containerTypes || '-'} />
+                  </MetricPanel>
+                </div>
+              </MetricSection>
 
-                <MetricPanel title="Granito">
-                  <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
-                  <Info label="B/Ls" value={String(graniteStats.totalBls)} />
-                  <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
-                  <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
-                  <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
-                  <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
-                </MetricPanel>
+              <MetricSection
+                title="Exportacao"
+                description="Resumo dos modulos de Granito e Vazios vinculados a mesma viagem."
+              >
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <MetricPanel title="Granito">
+                    <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
+                    <Info label="B/Ls" value={String(graniteStats.totalBls)} />
+                    <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
+                    <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
+                    <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
+                    <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
+                  </MetricPanel>
 
-                <MetricPanel title="Vazios">
-                  <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
-                  <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
-                  <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
-                  <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
-                  <Info label="Destinos" value={vaziosStats.destinations || '-'} />
-                  <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
-                </MetricPanel>
-              </div>
+                  <MetricPanel title="Vazios">
+                    <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
+                    <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
+                    <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
+                    <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
+                    <Info label="Destinos" value={vaziosStats.destinations || '-'} />
+                    <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
+                  </MetricPanel>
+                </div>
+              </MetricSection>
 
-              <div className="grid gap-4 2xl:grid-cols-12">
-                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-5">
-                  <div className="mb-3">
-                    <div className="font-semibold text-white">Datas dos Portos de Origem</div>
-                    <div className="text-sm text-slate-400">
-                      O ETD e identificado automaticamente pelo manifesto e pode ser ajustado manualmente por POL.
+              <MetricSection
+                title="Planejamento da viagem"
+                description="Datas operacionais e escalas cadastradas por porto, incluindo PODs planejados antes do recebimento dos manifestos."
+              >
+                <div className="grid gap-4 2xl:grid-cols-12">
+                  <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-5">
+                    <div className="mb-3">
+                      <div className="font-semibold text-white">Datas dos portos de origem</div>
+                      <div className="text-sm text-slate-400">
+                        O ETD e identificado automaticamente pelo manifesto e pode ser ajustado manualmente por POL.
+                      </div>
+                    </div>
+
+                    <div className="app-voyage-table-frame">
+                      <div className="app-table-scroll">
+                        <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                          <colgroup>
+                            <col className="w-[40%]" />
+                            <col className="w-[36%]" />
+                            <col className="w-[24%]" />
+                          </colgroup>
+                          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2">POL</th>
+                              <th className="px-3 py-2">ETD</th>
+                              <th className="px-3 py-2">Acoes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#30363d]">
+                            {polRows.length ? (
+                              polRows.map((row) => (
+                                <tr key={`${voyage.id}-pol-${row.pol}`}>
+                                  <td className="px-3 py-2 font-semibold text-white">{row.pol}</td>
+                                  <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                                  <td className="px-3 py-2">
+                                    <Button
+                                      variant="secondary"
+                                      className="app-voyage-icon-btn"
+                                      aria-label={`Editar ETD do POL ${row.pol}`}
+                                      onClick={() =>
+                                        setEditingPol({
+                                          voyageId: voyage.id,
+                                          voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                          pol: row.pol,
+                                          etd: row.etd,
+                                        })
+                                      }
+                                    >
+                                      <Pencil size={15} />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={3} className="px-3 py-3 text-slate-400">
+                                  Nenhum POL identificado para esta viagem.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-7">
+                    <div className="mb-3">
+                      <div className="font-semibold text-white">Datas dos portos de destino</div>
+                      <div className="text-sm text-slate-400">
+                        ETA, ETB, ATA e ATD podem ser planejados manualmente por POD antes da chegada dos manifestos.
+                      </div>
+                    </div>
+
+                    <div className="app-voyage-table-frame">
+                      <div className="app-table-scroll">
+                        <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                          <colgroup>
+                            <col className="w-[16%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[12%]" />
+                          </colgroup>
+                          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2">POD</th>
+                              <th className="px-3 py-2">ETA</th>
+                              <th className="px-3 py-2">ETB</th>
+                              <th className="px-3 py-2">ATA</th>
+                              <th className="px-3 py-2">ATD</th>
+                              <th className="px-3 py-2">Acoes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#30363d]">
+                            {podRows.length ? (
+                              podRows.map((row) => (
+                                <tr key={`${voyage.id}-pod-${row.pod}`}>
+                                  <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
+                                  <td className="px-3 py-2">{formatDate(row.eta)}</td>
+                                  <td className="px-3 py-2">{formatDate(row.etb)}</td>
+                                  <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                                  <td className="px-3 py-2">{formatDate(row.atd)}</td>
+                                  <td className="px-3 py-2">
+                                    <Button
+                                      variant="secondary"
+                                      className="app-voyage-icon-btn"
+                                      aria-label={`Editar datas do POD ${row.pod}`}
+                                      onClick={() =>
+                                        setEditingPod({
+                                          voyageId: voyage.id,
+                                          voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                          pod: row.pod,
+                                          eta: row.eta,
+                                          etb: row.etb,
+                                          ata: row.ata,
+                                          atd: row.atd,
+                                          rtw: row.rtw,
+                                          ceStatus: row.ceStatus,
+                                          linked: row.linked,
+                                        })
+                                      }
+                                    >
+                                      <Pencil size={15} />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={6} className="px-3 py-3 text-slate-400">
+                                  Nenhum POD cadastrado para esta viagem.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-white">Trechos consolidados</div>
+                      <div className="text-sm text-slate-400">
+                        Os trechos abaixo exibem as datas herdadas dos cadastros de POL e POD ja conhecidos na viagem.
+                      </div>
                     </div>
                   </div>
 
                   <div className="app-voyage-table-frame">
                     <div className="app-table-scroll">
-                      <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                        <colgroup>
-                          <col className="w-[40%]" />
-                          <col className="w-[36%]" />
-                          <col className="w-[24%]" />
-                        </colgroup>
+                      <table className="app-table app-table--compact min-w-[640px] text-left text-sm">
                         <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                           <tr>
                             <th className="px-3 py-2">POL</th>
-                            <th className="px-3 py-2">ETD</th>
-                            <th className="px-3 py-2">Acoes</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#30363d]">
-                          {polRows.map((row) => (
-                            <tr key={`${voyage.id}-pol-${row.pol}`}>
-                              <td className="px-3 py-2 font-semibold text-white">{row.pol}</td>
-                              <td className="px-3 py-2">{formatDate(row.etd)}</td>
-                              <td className="px-3 py-2">
-                                <Button
-                                  variant="secondary"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Editar ETD do POL ${row.pol}`}
-                                  onClick={() =>
-                                    setEditingPol({
-                                      voyageId: voyage.id,
-                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                      pol: row.pol,
-                                      etd: row.etd,
-                                    })
-                                  }
-                                >
-                                  <Pencil size={15} />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-7">
-                  <div className="mb-3">
-                    <div className="font-semibold text-white">Datas dos Portos de Destino</div>
-                    <div className="text-sm text-slate-400">
-                      ETA, ETB, ATA e ATD devem ser informados manualmente uma unica vez por POD.
-                    </div>
-                  </div>
-
-                  <div className="app-voyage-table-frame">
-                    <div className="app-table-scroll">
-                      <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                        <colgroup>
-                          <col className="w-[16%]" />
-                          <col className="w-[16%]" />
-                          <col className="w-[16%]" />
-                          <col className="w-[16%]" />
-                          <col className="w-[16%]" />
-                          <col className="w-[12%]" />
-                        </colgroup>
-                        <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                          <tr>
                             <th className="px-3 py-2">POD</th>
+                            <th className="px-3 py-2">ETD</th>
                             <th className="px-3 py-2">ETA</th>
                             <th className="px-3 py-2">ETB</th>
                             <th className="px-3 py-2">ATA</th>
                             <th className="px-3 py-2">ATD</th>
-                            <th className="px-3 py-2">Acoes</th>
+                            <th className="px-3 py-2">B/Ls</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#30363d]">
-                          {podRows.map((row) => (
-                            <tr key={`${voyage.id}-pod-${row.pod}`}>
-                              <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
-                              <td className="px-3 py-2">{formatDate(row.eta)}</td>
-                              <td className="px-3 py-2">{formatDate(row.etb)}</td>
-                              <td className="px-3 py-2">{formatDate(row.ata)}</td>
-                              <td className="px-3 py-2">{formatDate(row.atd)}</td>
-                              <td className="px-3 py-2">
-                                <Button
-                                  variant="secondary"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Editar datas do POD ${row.pod}`}
-                                  onClick={() =>
-                                    setEditingPod({
-                                      voyageId: voyage.id,
-                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                      pod: row.pod,
-                                      eta: row.eta,
-                                      etb: row.etb,
-                                      ata: row.ata,
-                                      atd: row.atd,
-                                      rtw: row.rtw,
-                                      ceStatus: row.ceStatus,
-                                      linked: row.linked,
-                                    })
-                                  }
-                                >
-                                  <Pencil size={15} />
-                                </Button>
+                          {routeRows.length ? (
+                            routeRows.map((route) => (
+                              <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
+                                <td className="px-3 py-2 font-semibold text-white">{route.pol}</td>
+                                <td className="px-3 py-2 font-semibold text-white">{route.pod}</td>
+                                <td className="px-3 py-2">{formatDate(route.etd)}</td>
+                                <td className="px-3 py-2">{formatDate(route.eta)}</td>
+                                <td className="px-3 py-2">{formatDate(route.etb)}</td>
+                                <td className="px-3 py-2">{formatDate(route.ata)}</td>
+                                <td className="px-3 py-2">{formatDate(route.atd)}</td>
+                                <td className="px-3 py-2">{route.blCount}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={8} className="px-3 py-3 text-slate-400">
+                                Nenhum trecho identificado nos manifestos desta viagem.
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-white">Trechos consolidados</div>
-                    <div className="text-sm text-slate-400">
-                      Os trechos consolidados abaixo apenas exibem as datas herdadas dos cadastros de POL e POD.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="app-voyage-table-frame">
-                  <div className="app-table-scroll">
-                    <table className="app-table app-table--compact min-w-[640px] text-left text-sm">
-                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">POL</th>
-                          <th className="px-3 py-2">POD</th>
-                          <th className="px-3 py-2">ETD</th>
-                          <th className="px-3 py-2">ETA</th>
-                          <th className="px-3 py-2">ETB</th>
-                          <th className="px-3 py-2">ATA</th>
-                          <th className="px-3 py-2">ATD</th>
-                          <th className="px-3 py-2">B/Ls</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#30363d]">
-                        {routeRows.length ? (
-                          routeRows.map((route) => (
-                            <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
-                              <td className="px-3 py-2 font-semibold text-white">{route.pol}</td>
-                              <td className="px-3 py-2 font-semibold text-white">{route.pod}</td>
-                              <td className="px-3 py-2">{formatDate(route.etd)}</td>
-                              <td className="px-3 py-2">{formatDate(route.eta)}</td>
-                              <td className="px-3 py-2">{formatDate(route.etb)}</td>
-                              <td className="px-3 py-2">{formatDate(route.ata)}</td>
-                              <td className="px-3 py-2">{formatDate(route.atd)}</td>
-                              <td className="px-3 py-2">{route.blCount}</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={8} className="px-3 py-3 text-slate-400">
-                              Nenhum trecho identificado nos manifestos desta viagem.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
+              </MetricSection>
 
               <div>
                 <div className="app-voyage-actions">
@@ -736,7 +705,6 @@ export function Viagens() {
       <VoyageCreateModal
         open={open}
         onClose={() => setOpen(false)}
-        onSaved={(voyageId) => navigate(`/manifestos?voyage=${voyageId}`)}
       />
 
       <VoyageCreateModal
@@ -744,7 +712,15 @@ export function Viagens() {
         onClose={() => setEditingVoyageId(null)}
         voyageId={editingVoyageId ?? undefined}
         title="Editar Viagem"
-        initialValues={makeVoyageInitialValues(data?.find((voyage) => voyage.id === editingVoyageId))}
+        initialValues={makeVoyageInitialValues(
+          data?.find((voyage) => voyage.id === editingVoyageId),
+          (podSchedulesByVoyage.get(editingVoyageId ?? -1) ?? [])
+            .filter((schedule) => Boolean(schedule.eta))
+            .map((schedule) => ({
+              pod: schedule.pod,
+              eta: schedule.eta ?? '',
+            })),
+        )}
         onSaved={() => setEditingVoyageId(null)}
       />
 
@@ -797,7 +773,11 @@ export function Viagens() {
               linked,
               changedBy: user.id,
             })
-            await queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+              queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+            ])
             showToast('Datas do POD atualizadas com sucesso.', 'success')
             setEditingPod(null)
           } catch {
@@ -831,28 +811,6 @@ export function Viagens() {
         }}
       />
     </>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: number }) {
-  const tone =
-    label.includes('Veiculos')
-      ? 'green'
-      : label.includes('Granito')
-        ? 'gold'
-        : label.includes('Vazios')
-          ? 'green'
-      : label.includes('Weight')
-        ? 'gold'
-        : label.includes('CNTRS')
-          ? 'blue'
-          : 'navy'
-
-  return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-    </Card>
   )
 }
 
@@ -892,6 +850,26 @@ function MetricPanel({
   )
 }
 
+function MetricSection({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <section className="grid gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+      <div>
+        <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
+        <div className="mt-1 text-sm text-slate-400">{description}</div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
 function tokenizeInfoValue(value: string) {
   if (!value || value === '-') return []
 
@@ -904,10 +882,15 @@ function tokenizeInfoValue(value: string) {
 }
 
 function renderCeStatusLabel(status: 'approved' | 'partial' | 'missing' | null) {
-  if (status === 'approved') return 'Approved'
-  if (status === 'partial') return 'Partial'
-  if (status === 'missing') return 'Missing'
+  if (status === 'approved') return 'Completo'
+  if (status === 'partial') return 'Parcial'
+  if (status === 'missing') return 'Pendente'
   return 'Automatico'
+}
+
+function renderLinkedLabel(linked: boolean | null) {
+  if (linked === null) return 'Automatica'
+  return linked ? 'Ativa' : 'Inativa'
 }
 
 type VoyageBl = {
@@ -1037,14 +1020,17 @@ function collectVoyagePorts(
   bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
   field: 'pol' | 'pod',
   fallback: string | null,
+  extraPorts: Array<string | null | undefined> = [],
 ) {
   const ports = Array.from(
     new Set(
-      (bls ?? [])
-        .map((bl) => bl[field]?.trim() ?? '')
+      [
+        ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
+        ...extraPorts.map((value) => String(value ?? '').trim()),
+      ]
         .filter(Boolean),
     ),
-  )
+  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   if (!ports.length && fallback) {
     return [fallback]
@@ -1136,6 +1122,29 @@ function summarizeOccurrences<T>(
     .join(' | ')
 }
 
+function groupPodSchedulesByVoyageId(
+  schedules:
+    | Map<
+        string,
+        {
+          voyageId: number
+          pod: string
+          eta: string | null
+        }
+      >
+    | undefined,
+) {
+  const grouped = new Map<number, Array<{ voyageId: number; pod: string; eta: string | null }>>()
+
+  for (const schedule of schedules?.values() ?? []) {
+    const current = grouped.get(schedule.voyageId) ?? []
+    current.push(schedule)
+    grouped.set(schedule.voyageId, current)
+  }
+
+  return grouped
+}
+
 function makeVoyageInitialValues(
   voyage:
     | {
@@ -1148,6 +1157,7 @@ function makeVoyageInitialValues(
         } | null
       }
     | undefined,
+  dischargePortEtas: Array<{ pod: string; eta: string }> = [],
 ) {
   if (!voyage) return undefined
 
@@ -1158,12 +1168,17 @@ function makeVoyageInitialValues(
     vesselImo: voyage.vessel?.imo ?? '',
     voyageNumber: voyage.voyage_number,
     status: normalizeVoyageStatus(voyage.status),
+    dischargePortEtas,
   }
 }
 
 function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 'cancelled' {
   if (status === 'completed' || status === 'cancelled') return status
   return 'active'
+}
+
+function normalizePortName(value: string | null | undefined) {
+  return (value ?? '').trim().toUpperCase() || '-'
 }
 
 function PolScheduleModal({
@@ -1308,7 +1323,7 @@ function PodScheduleModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar datas do POD">
+    <Modal open={open} onClose={onClose} title="Editar planejamento do POD">
       {podSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
@@ -1332,7 +1347,7 @@ function PodScheduleModal({
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="RTW">
+            <Field label="RESTOW">
               <Input
                 type="number"
                 min="0"
@@ -1342,19 +1357,19 @@ function PodScheduleModal({
                 placeholder="Quantidade de restow"
               />
             </Field>
-            <Field label="CEs">
+            <Field label="Conhecimentos de Embarque">
               <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as typeof ceStatus)}>
                 <option value="">Automatico</option>
-                <option value="approved">Approved</option>
-                <option value="partial">Partial</option>
-                <option value="missing">Missing</option>
+                <option value="approved">Completo</option>
+                <option value="partial">Parcial</option>
+                <option value="missing">Pendente</option>
               </select>
             </Field>
-            <Field label="Linked">
+            <Field label="ESCALA">
               <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as typeof linked)}>
                 <option value="">Automatico</option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
+                <option value="true">Ativa</option>
+                <option value="false">Inativa</option>
               </select>
             </Field>
           </div>

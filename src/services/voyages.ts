@@ -1,7 +1,12 @@
 import { supabase } from './supabase'
 import type { VoyageFormValues } from './voyageForm'
+import {
+  buildVoyagePodEntityId,
+  listVoyagePodSchedules,
+  saveVoyagePodSchedule,
+} from './voyageRouteSchedules'
 
-export async function createVoyage(form: VoyageFormValues) {
+export async function createVoyage(form: VoyageFormValues, changedBy: string | null) {
   const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
   const vesselId = await getOrCreateVessel(form.vesselName, form.vesselImo, carrierId)
 
@@ -19,10 +24,12 @@ export async function createVoyage(form: VoyageFormValues) {
 
   if (createError || !created) throw createError
 
+  await syncDischargePortEtas(created.id, form, changedBy)
+
   return created
 }
 
-export async function updateVoyage(voyageId: number, form: VoyageFormValues) {
+export async function updateVoyage(voyageId: number, form: VoyageFormValues, changedBy: string | null) {
   const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
   const vesselId = await getOrCreateVessel(form.vesselName, form.vesselImo, carrierId)
 
@@ -38,6 +45,8 @@ export async function updateVoyage(voyageId: number, form: VoyageFormValues) {
     .single()
 
   if (updateError || !updated) throw updateError
+
+  await syncDischargePortEtas(voyageId, form, changedBy)
 
   return updated
 }
@@ -88,6 +97,33 @@ async function getOrCreateCarrier(name: string, scac: string) {
 
   if (createError || !created) throw createError
   return created.id
+}
+
+async function syncDischargePortEtas(voyageId: number, form: VoyageFormValues, changedBy: string | null) {
+  if (!form.dischargePortEtas.length) return
+
+  const entityIds = form.dischargePortEtas.map((row) => buildVoyagePodEntityId(voyageId, row.pod))
+  const currentSchedules = await listVoyagePodSchedules(entityIds)
+
+  await Promise.all(
+    form.dischargePortEtas.map(async (row) => {
+      const entityId = buildVoyagePodEntityId(voyageId, row.pod)
+      const currentSchedule = currentSchedules.get(entityId)
+
+      await saveVoyagePodSchedule({
+        voyageId,
+        pod: row.pod,
+        eta: row.eta,
+        etb: currentSchedule?.etb ?? null,
+        ata: currentSchedule?.ata ?? null,
+        atd: currentSchedule?.atd ?? null,
+        rtw: currentSchedule?.rtw ?? null,
+        ceStatus: currentSchedule?.ceStatus ?? null,
+        linked: currentSchedule?.linked ?? null,
+        changedBy,
+      })
+    }),
+  )
 }
 
 async function getOrCreateVessel(name: string, imo: string, carrierId: number) {

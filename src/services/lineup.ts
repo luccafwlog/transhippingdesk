@@ -1,4 +1,4 @@
-import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
+import { buildVoyagePodEntityId, listVoyagePodSchedulesByVoyageIds } from './voyageRouteSchedules'
 import { supabase } from './supabase'
 
 export type VoyageStatus = 'active' | 'completed' | 'cancelled' | null
@@ -74,9 +74,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const blIds = bls.map((bl) => bl.id)
   const containers = await fetchContainersByBlIds(blIds)
 
-  const podSchedules = await listVoyagePodSchedules(
-    Array.from(new Set(bls.map((bl) => buildVoyagePodEntityId(bl.voyage_id, bl.pod)))),
-  )
+  const podSchedules = await listVoyagePodSchedulesByVoyageIds(voyageIds)
+  const podSchedulesByVoyage = groupPodSchedulesByVoyage(podSchedules)
 
   const blsByVoyage = new Map<number, LineUpBlRow[]>()
   for (const bl of bls) {
@@ -105,7 +104,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
 
   for (const voyage of voyages) {
     const voyageBls = blsByVoyage.get(voyage.id) ?? []
-    const routePods = Array.from(new Set(voyageBls.map((bl) => normalizePort(bl.pod))))
+    const scheduledPods = (podSchedulesByVoyage.get(voyage.id) ?? []).map((schedule) => normalizePort(schedule.pod))
+    const routePods = Array.from(new Set([...voyageBls.map((bl) => normalizePort(bl.pod)), ...scheduledPods]))
     const voyageVehicles = vehiclesByVoyage.get(voyage.id) ?? []
 
     for (const pod of routePods) {
@@ -193,7 +193,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
     return left.pod.localeCompare(right.pod, 'pt-BR')
   })
 
-  const lastChangedAt = await fetchLastLineUpChangeAt(voyageIds, blIds, bls)
+  const lastChangedAt = await fetchLastLineUpChangeAt(voyageIds, blIds, Array.from(podSchedules.keys()))
 
   return {
     rows: sortedRows,
@@ -293,8 +293,7 @@ async function fetchVehiclesByVoyageIds(voyageIds: number[]) {
   return rows
 }
 
-async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], bls: LineUpBlRow[]) {
-  const scheduleEntityIds = Array.from(new Set(bls.map((bl) => buildVoyagePodEntityId(bl.voyage_id, bl.pod))))
+async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], scheduleEntityIds: string[]) {
   const [voyageLatest, blLatest, containerLatest, vehicleLatest, scheduleLatest] = await Promise.all([
     fetchLatestTimestamp(
       supabase
@@ -385,6 +384,26 @@ function chunkStringArray(values: string[], chunkSize: number) {
 
 function normalizePort(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase() || '-'
+}
+
+function groupPodSchedulesByVoyage(
+  schedules: Map<
+    string,
+    {
+      voyageId: number
+      pod: string
+    }
+  >,
+) {
+  const grouped = new Map<number, Array<{ voyageId: number; pod: string }>>()
+
+  for (const schedule of schedules.values()) {
+    const current = grouped.get(schedule.voyageId) ?? []
+    current.push(schedule)
+    grouped.set(schedule.voyageId, current)
+  }
+
+  return grouped
 }
 
 function normalizeContainerKey(containerNumber: string | null | undefined, containerId: number) {
