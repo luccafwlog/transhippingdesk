@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -27,19 +28,21 @@ type Filters = {
 
 export function Vazios() {
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { showToast } = useToast()
   const { data: voyageOptions } = useVoyageOptions()
+  const initialVoyageId = searchParams.get('voyage') ?? ''
 
   const [filters, setFilters] = useState<Filters>({
     search: '',
-    voyageId: '',
+    voyageId: initialVoyageId,
     page: 1,
     pageSize: 20,
   })
 
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [voyageId, setVoyageId] = useState('')
+  const [voyageId, setVoyageId] = useState(initialVoyageId)
   const [file, setFile] = useState<File | null>(null)
   const [manifest, setManifest] = useState<ParsedVaziosManifest | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -82,7 +85,10 @@ export function Vazios() {
         manifest,
         uploadedBy: user.id,
       })
-      await queryClient.invalidateQueries({ queryKey: ['vazios-bookings'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['vazios-bookings'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
       showToast(`${manifest.bookings.length} bookings importados.`, 'success')
       setUploadOpen(false)
       setVoyageId('')

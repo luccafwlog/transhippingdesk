@@ -291,6 +291,22 @@ export function useVoyages() {
           vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
           pol:ports!voyages_pol_id_fkey(id, name, locode, country),
           pod:ports!voyages_pod_id_fkey(id, name, locode, country),
+          granite_manifests(
+            id,
+            voyage_id,
+            loading_port,
+            discharge_port,
+            total_bls,
+            total_weight_kg,
+            granite_bls(id, charge_status)
+          ),
+          vazios_manifests(
+            id,
+            voyage_id,
+            description,
+            total_bookings,
+            vazios_bookings(id, container_number, container_type, origin_terminal, destination)
+          ),
           bls(
             *,
             bl_containers(id, container_number, type, is_oog, is_imo),
@@ -303,21 +319,46 @@ export function useVoyages() {
 
       if (error) throw error
 
-      return (data ?? []) as unknown as Array<{
-        id: number
-        voyage_number: string
-        etd: string | null
-        eta: string | null
-        ata: string | null
-        status: string | null
-        vessel?: { id: number; name: string; imo: string | null; carrier?: { id: number; name: string; scac: string | null } | null } | null
-        pol?: { id: number; name: string; locode: string | null; country: string | null } | null
-        pod?: { id: number; name: string; locode: string | null; country: string | null } | null
-        bls?: Array<{
-          id: string
-          cargo_mode: 'container' | 'carga_solta' | null
-          ce_mercante: string | null
-          bb_machine_qty: number | null
+        return (data ?? []) as unknown as Array<{
+          id: number
+          voyage_number: string
+          etd: string | null
+          eta: string | null
+          ata: string | null
+          status: string | null
+          vessel?: { id: number; name: string; imo: string | null; carrier?: { id: number; name: string; scac: string | null } | null } | null
+          pol?: { id: number; name: string; locode: string | null; country: string | null } | null
+          pod?: { id: number; name: string; locode: string | null; country: string | null } | null
+          granite_manifests?: Array<{
+            id: string
+            voyage_id: number | null
+            loading_port: string | null
+            discharge_port: string | null
+            total_bls: number | null
+            total_weight_kg: number | null
+            granite_bls?: Array<{
+              id: string
+              charge_status: 'not_calculated' | 'calculated' | 'ready_for_billing' | 'invoiced' | null
+            }> | null
+          }> | null
+          vazios_manifests?: Array<{
+            id: string
+            voyage_id: number | null
+            description: string | null
+            total_bookings: number | null
+            vazios_bookings?: Array<{
+              id: string
+              container_number: string | null
+              container_type: string | null
+              origin_terminal: string | null
+              destination: string | null
+            }> | null
+          }> | null
+          bls?: Array<{
+            id: string
+            cargo_mode: 'container' | 'carga_solta' | null
+            ce_mercante: string | null
+            bb_machine_qty: number | null
           bb_packages_qty: number | null
           bb_packages_total: number | null
           bb_weight_ton: number | null

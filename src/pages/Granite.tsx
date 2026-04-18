@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -30,20 +31,22 @@ type Filters = {
 
 export function Granite() {
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { showToast } = useToast()
   const { data: voyageOptions } = useVoyageOptions()
+  const initialVoyageId = searchParams.get('voyage') ?? ''
 
   const [filters, setFilters] = useState<Filters>({
     search: '',
-    voyageId: '',
+    voyageId: initialVoyageId,
     dischargePort: '',
     page: 1,
     pageSize: 20,
   })
 
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [voyageId, setVoyageId] = useState('')
+  const [voyageId, setVoyageId] = useState(initialVoyageId)
   const [file, setFile] = useState<File | null>(null)
   const [manifest, setManifest] = useState<ParsedGraniteManifest | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -107,7 +110,10 @@ export function Granite() {
         manifest,
         uploadedBy: user.id,
       })
-      await queryClient.invalidateQueries({ queryKey: ['granite-bls'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
       const msg = pendingCount
         ? `Importado com ${manifest.bls.length} B/Ls. ${pendingCount} com faturamento pendente.`
         : `${manifest.bls.length} B/Ls importados com sucesso.`
@@ -129,7 +135,10 @@ export function Granite() {
       const lines = await calculateGraniteBlCharges(blId)
       setChargeLines(lines)
       setChargeBlId(blId)
-      await queryClient.invalidateQueries({ queryKey: ['granite-bls'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
       showToast('Taxas calculadas.', 'success')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao calcular taxas.', 'error')

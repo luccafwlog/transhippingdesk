@@ -95,6 +95,19 @@ export function Viagens() {
   const filteredVoyageIds = useMemo(() => filteredVoyages.map((voyage) => voyage.id), [filteredVoyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(filteredVoyageIds)
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
+  const moduleStatsByVoyage = useMemo(
+    () =>
+      Object.fromEntries(
+        filteredVoyages.map((voyage) => [
+          voyage.id,
+          {
+            granite: getGraniteModuleStats(voyage.granite_manifests),
+            vazios: getVaziosModuleStats(voyage.vazios_manifests),
+          },
+        ]),
+      ),
+    [filteredVoyages],
+  )
 
   const { data: polSchedules } = useQuery({
     queryKey: ['voyage-pol-schedules', polEntityIds],
@@ -156,8 +169,24 @@ export function Viagens() {
         (sum, voyage) => sum + (vehicleStatsByVoyage[voyage.id]?.totalVehicles ?? 0),
         0,
       ),
+      totalGraniteManifests: filteredVoyages.reduce(
+        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.granite.totalManifests ?? 0),
+        0,
+      ),
+      totalGraniteBls: filteredVoyages.reduce(
+        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.granite.totalBls ?? 0),
+        0,
+      ),
+      totalVaziosManifests: filteredVoyages.reduce(
+        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.vazios.totalManifests ?? 0),
+        0,
+      ),
+      totalVaziosBookings: filteredVoyages.reduce(
+        (sum, voyage) => sum + (moduleStatsByVoyage[voyage.id]?.vazios.totalBookings ?? 0),
+        0,
+      ),
     }),
-    [filteredVoyages, vehicleStatsByVoyage],
+    [filteredVoyages, moduleStatsByVoyage, vehicleStatsByVoyage],
   )
   const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
 
@@ -189,7 +218,7 @@ export function Viagens() {
     <>
       <PageHeader
         title="Viagens"
-        description="Cadastro de navio/viagem com metricas separadas para container e carga solta. Cada manifesto define seu proprio trecho POL/POD dentro da viagem."
+        description="Cadastro de navio/viagem com visao consolidada de CNTR, carga solta, Granito e Vazios. Cada modulo operacional vinculado a viagem aparece no mesmo painel."
         action={
           isAdmin ? (
             <Button onClick={() => setOpen(true)}>
@@ -210,6 +239,10 @@ export function Viagens() {
         <MetricCard label="Packages Total BB" value={summary.totalBreakbulkPackagesTotal} />
         <MetricCard label="Weight BB (Ton)" value={Number(summary.totalBreakbulkWeightTon.toFixed(3))} />
         <MetricCard label="Veiculos vinculados" value={summary.totalVehicles} />
+        <MetricCard label="Manifestos Granito" value={summary.totalGraniteManifests} />
+        <MetricCard label="B/Ls Granito" value={summary.totalGraniteBls} />
+        <MetricCard label="Manifestos Vazios" value={summary.totalVaziosManifests} />
+        <MetricCard label="Bookings Vazios" value={summary.totalVaziosBookings} />
       </div>
 
       <Card className="mb-5">
@@ -276,6 +309,8 @@ export function Viagens() {
             0,
           )
           const totalBreakbulkCbm = breakbulkBls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)
+          const graniteStats = moduleStatsByVoyage[voyage.id]?.granite ?? getGraniteModuleStats(voyage.granite_manifests)
+          const vaziosStats = moduleStatsByVoyage[voyage.id]?.vazios ?? getVaziosModuleStats(voyage.vazios_manifests)
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
           const destinationPorts = collectVoyagePorts(voyage.bls, 'pod', voyage.pod?.name ?? null)
           const containerTypes = summarizeContainerTypes(flatContainers)
@@ -347,6 +382,7 @@ export function Viagens() {
                   <Info label="Portos de Destino" value={destinationPorts.join(' | ') || 'Definidos por manifesto'} />
                   <Info label="B/Ls totais" value={String(totalBls)} />
                   <Info label="Trechos consolidados" value={String(routeRows.length)} />
+                  <Info label="Modulos ativos" value={summarizeModuleAvailability(graniteStats.totalManifests, vaziosStats.totalManifests)} />
                 </dl>
 
                 <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
@@ -417,7 +453,7 @@ export function Viagens() {
                 </div>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-4">
+              <div className="grid gap-4 xl:grid-cols-3 2xl:grid-cols-6">
                 <MetricPanel title="Container">
                   <Info label="B/Ls CNTR" value={String(containerBls.length)} />
                   <Info label="CNTRS distintos" value={String(totalContainers)} />
@@ -448,6 +484,24 @@ export function Viagens() {
                   <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
                   <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
                   <Info label="Tipos de Container" value={containerTypes || '-'} />
+                </MetricPanel>
+
+                <MetricPanel title="Granito">
+                  <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
+                  <Info label="B/Ls" value={String(graniteStats.totalBls)} />
+                  <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
+                  <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
+                  <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
+                  <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
+                </MetricPanel>
+
+                <MetricPanel title="Vazios">
+                  <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
+                  <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
+                  <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
+                  <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
+                  <Info label="Destinos" value={vaziosStats.destinations || '-'} />
+                  <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
                 </MetricPanel>
               </div>
 
@@ -644,6 +698,22 @@ export function Viagens() {
                   >
                     Ver manifestos BB
                   </Button>
+                  <Button
+                    variant="secondary"
+                    className="min-w-[170px]"
+                    disabled={graniteStats.totalManifests === 0}
+                    onClick={() => navigate(`/granito?voyage=${voyage.id}`)}
+                  >
+                    Ver Granito
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="min-w-[170px]"
+                    disabled={vaziosStats.totalManifests === 0}
+                    onClick={() => navigate(`/vazios?voyage=${voyage.id}`)}
+                  >
+                    Ver Vazios
+                  </Button>
                   {isAdmin ? (
                     <>
                       <Button variant="secondary" className="min-w-[150px]" onClick={() => setEditingVoyageId(voyage.id)}>
@@ -768,6 +838,10 @@ function MetricCard({ label, value }: { label: string; value: number }) {
   const tone =
     label.includes('Veiculos')
       ? 'green'
+      : label.includes('Granito')
+        ? 'gold'
+        : label.includes('Vazios')
+          ? 'green'
       : label.includes('Weight')
         ? 'gold'
         : label.includes('CNTRS')
@@ -865,6 +939,33 @@ type VoyageBl = {
   }> | null
 }
 
+type VoyageGraniteManifest = {
+  id: string
+  voyage_id: number | null
+  loading_port: string | null
+  discharge_port: string | null
+  total_bls: number | null
+  total_weight_kg: number | null
+  granite_bls?: Array<{
+    id: string
+    charge_status: 'not_calculated' | 'calculated' | 'ready_for_billing' | 'invoiced' | null
+  }> | null
+}
+
+type VoyageVaziosManifest = {
+  id: string
+  voyage_id: number | null
+  description: string | null
+  total_bookings: number | null
+  vazios_bookings?: Array<{
+    id: string
+    container_number: string | null
+    container_type: string | null
+    origin_terminal: string | null
+    destination: string | null
+  }> | null
+}
+
 function splitVoyageBls(bls: VoyageBl[] | null | undefined) {
   const containerBls: VoyageBl[] = []
   const breakbulkBls: VoyageBl[] = []
@@ -880,9 +981,56 @@ function splitVoyageBls(bls: VoyageBl[] | null | undefined) {
   return { containerBls, breakbulkBls }
 }
 
+function getGraniteModuleStats(manifests: VoyageGraniteManifest[] | null | undefined) {
+  const totalManifests = manifests?.length ?? 0
+  const totalBls = (manifests ?? []).reduce(
+    (sum, manifest) => sum + Number(manifest.total_bls ?? manifest.granite_bls?.length ?? 0),
+    0,
+  )
+  const totalWeightTon = (manifests ?? []).reduce(
+    (sum, manifest) => sum + Number(manifest.total_weight_kg ?? 0) / 1000,
+    0,
+  )
+  const graniteBls = (manifests ?? []).flatMap((manifest) => manifest.granite_bls ?? [])
+
+  return {
+    totalManifests,
+    totalBls,
+    totalWeightTon,
+    readyForBillingCount: graniteBls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
+    invoicedCount: graniteBls.filter((bl) => bl.charge_status === 'invoiced').length,
+    dischargePorts: summarizeUniqueValues((manifests ?? []).map((manifest) => manifest.discharge_port)),
+  }
+}
+
+function getVaziosModuleStats(manifests: VoyageVaziosManifest[] | null | undefined) {
+  const totalManifests = manifests?.length ?? 0
+  const totalBookings = (manifests ?? []).reduce(
+    (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
+    0,
+  )
+  const bookings = (manifests ?? []).flatMap((manifest) => manifest.vazios_bookings ?? [])
+
+  return {
+    totalManifests,
+    totalBookings,
+    distinctContainers: countDistinctContainerNumbers(bookings),
+    containerTypes: summarizeOccurrences(bookings, (booking) => booking.container_type, 'Nao informado'),
+    destinations: summarizeUniqueValues(bookings.map((booking) => booking.destination)),
+    originTerminals: summarizeUniqueValues(bookings.map((booking) => booking.origin_terminal)),
+  }
+}
+
 function formatMetric(value: number | null | undefined) {
   const amount = Number(value ?? 0)
   return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
+}
+
+function summarizeModuleAvailability(graniteManifestCount: number, vaziosManifestCount: number) {
+  const modules = []
+  if (graniteManifestCount > 0) modules.push(`Granito: ${graniteManifestCount}`)
+  if (vaziosManifestCount > 0) modules.push(`Vazios: ${vaziosManifestCount}`)
+  return modules.join(' | ') || 'Somente CNTR/BB'
 }
 
 function collectVoyagePorts(
@@ -955,6 +1103,36 @@ function summarizeContainerTypes(
     .map(([type, items]) => ({ type, count: countDistinctContainerNumbers(items) }))
     .sort((left, right) => right.count - left.count || left.type.localeCompare(right.type, 'pt-BR'))
     .map(({ type, count }) => `${type}: ${count}`)
+    .join(' | ')
+}
+
+function summarizeUniqueValues(values: Array<string | null | undefined>) {
+  const normalized = Array.from(
+    new Set(
+      values
+        .map((value) => String(value ?? '').trim())
+        .filter(Boolean),
+    ),
+  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
+
+  return normalized.join(' | ')
+}
+
+function summarizeOccurrences<T>(
+  items: T[] | null | undefined,
+  getLabel: (item: T) => string | null | undefined,
+  fallbackLabel: string,
+) {
+  const counts = new Map<string, number>()
+
+  for (const item of items ?? []) {
+    const label = String(getLabel(item) ?? '').trim() || fallbackLabel
+    counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
+
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'pt-BR'))
+    .map(([label, count]) => `${label}: ${count}`)
     .join(' | ')
 }
 
