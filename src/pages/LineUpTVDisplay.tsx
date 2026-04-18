@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
@@ -10,6 +10,7 @@ export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
   const rowHeightRef = useRef(DISPLAY_MIN_ROW_HEIGHT)
+  const animationFrameRef = useRef<number | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -99,13 +100,16 @@ export function LineUpTVDisplay() {
       }
 
       currentIndex = currentIndex >= scrollStops.length - 1 ? 0 : currentIndex + 1
-      container.scrollTo({
-        top: scrollStops[currentIndex],
-        behavior: 'smooth',
-      })
+      animateScrollTo(container, scrollStops[currentIndex], animationFrameRef)
     }, 4200)
 
-    return () => window.clearInterval(interval)
+    return () => {
+      window.clearInterval(interval)
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+    }
   }, [data?.lastChangedAt, rows.length])
 
   useLayoutEffect(() => {
@@ -214,4 +218,46 @@ function formatDisplayLeadDate(label: 'ETA' | 'ETB', value: string | null) {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return null
   return `${label} ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(parsed)}`
+}
+
+function animateScrollTo(
+  container: HTMLDivElement,
+  targetTop: number,
+  animationFrameRef: MutableRefObject<number | null>,
+) {
+  if (animationFrameRef.current !== null) {
+    window.cancelAnimationFrame(animationFrameRef.current)
+    animationFrameRef.current = null
+  }
+
+  const startTop = container.scrollTop
+  const distance = targetTop - startTop
+  if (Math.abs(distance) < 1) {
+    container.scrollTop = targetTop
+    return
+  }
+
+  const startTime = window.performance.now()
+  const duration = 900
+
+  const step = (timestamp: number) => {
+    const progress = Math.min((timestamp - startTime) / duration, 1)
+    const easedProgress = easeInOutQuad(progress)
+    container.scrollTop = Math.round(startTop + distance * easedProgress)
+
+    if (progress < 1) {
+      animationFrameRef.current = window.requestAnimationFrame(step)
+      return
+    }
+
+    container.scrollTop = targetTop
+    animationFrameRef.current = null
+  }
+
+  animationFrameRef.current = window.requestAnimationFrame(step)
+}
+
+function easeInOutQuad(progress: number) {
+  if (progress < 0.5) return 2 * progress * progress
+  return 1 - Math.pow(-2 * progress + 2, 2) / 2
 }
