@@ -11,11 +11,11 @@ const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'CAR', 'CG
 
 export function LineUpTVDisplay() {
   const viewportRef = useRef<HTMLDivElement | null>(null)
-  const trackRef = useRef<HTMLDivElement | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
-  const lastFrameTimeRef = useRef<number | null>(null)
-  const offsetRef = useRef(0)
+  const slideTimeoutRef = useRef<number | null>(null)
+  const restartFrameRef = useRef<number | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
+  const [startIndex, setStartIndex] = useState(0)
+  const [isSliding, setIsSliding] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -31,14 +31,14 @@ export function LineUpTVDisplay() {
   const displayRows = useMemo(() => {
     if (!hasAnimatedLoop) return rows
 
-    return Array.from({ length: rows.length * 2 }, (_, index) => {
-      const row = rows[index % rows.length]
+    return Array.from({ length: DISPLAY_VISIBLE_ROWS + 1 }, (_, offsetIndex) => {
+      const row = rows[(startIndex + offsetIndex) % rows.length]
       return {
         ...row,
-        id: `${row.id}::display-track-${index}`,
+        id: `${row.id}::display-track-${startIndex}-${offsetIndex}`,
       }
     })
-  }, [hasAnimatedLoop, rows])
+  }, [hasAnimatedLoop, rows, startIndex])
 
   const lastUpdate = data?.lastChangedAt
     ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
@@ -51,8 +51,9 @@ export function LineUpTVDisplay() {
       ({
         ['--lineup-display-columns' as string]: DISPLAY_GRID_TEMPLATE,
         ['--lineup-display-row-height' as string]: `${rowHeight}px`,
+        ['--lineup-display-track-offset' as string]: isSliding ? `-${rowHeight}px` : '0px',
       }) as CSSProperties,
-    [rowHeight],
+    [isSliding, rowHeight],
   )
 
   useEffect(() => {
@@ -85,50 +86,37 @@ export function LineUpTVDisplay() {
   }, [])
 
   useEffect(() => {
-    offsetRef.current = 0
-    lastFrameTimeRef.current = null
-    const track = trackRef.current
-    if (track) {
-      track.style.transform = 'translateY(0px)'
-    }
+    setStartIndex(0)
+    setIsSliding(false)
   }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
     if (!hasAnimatedLoop || rowHeight <= 0) return
 
-    const track = trackRef.current
-    const viewport = viewportRef.current
-    if (!track || !viewport) return
-
-    const firstTrackRow = track.querySelector<HTMLElement>('.app-lineup-display-board__row')
-    const measuredRowHeight = firstTrackRow?.getBoundingClientRect().height ?? rowHeight
-    const cycleHeight = measuredRowHeight * rows.length
-    const pixelsPerMs = measuredRowHeight / DISPLAY_ROW_TRAVEL_MS
-
-    const tick = (frameTime: number) => {
-      const previousFrameTime = lastFrameTimeRef.current ?? frameTime
-      const elapsedMs = frameTime - previousFrameTime
-      lastFrameTimeRef.current = frameTime
-
-      let nextOffset = offsetRef.current + elapsedMs * pixelsPerMs
-      while (nextOffset >= cycleHeight) {
-        nextOffset -= cycleHeight
-      }
-
-      offsetRef.current = nextOffset
-      track.style.transform = `translateY(-${nextOffset}px)`
-      animationFrameRef.current = window.requestAnimationFrame(tick)
+    const runCycle = () => {
+      setIsSliding(true)
+      slideTimeoutRef.current = window.setTimeout(() => {
+        setIsSliding(false)
+        setStartIndex((currentIndex) => (currentIndex + 1) % rows.length)
+        restartFrameRef.current = window.requestAnimationFrame(() => {
+          restartFrameRef.current = window.requestAnimationFrame(runCycle)
+        })
+      }, DISPLAY_ROW_TRAVEL_MS)
     }
 
-    viewport.scrollTop = 0
-    animationFrameRef.current = window.requestAnimationFrame(tick)
+    restartFrameRef.current = window.requestAnimationFrame(() => {
+      restartFrameRef.current = window.requestAnimationFrame(runCycle)
+    })
 
     return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
+      if (slideTimeoutRef.current !== null) {
+        window.clearTimeout(slideTimeoutRef.current)
+        slideTimeoutRef.current = null
       }
-      lastFrameTimeRef.current = null
+      if (restartFrameRef.current !== null) {
+        window.cancelAnimationFrame(restartFrameRef.current)
+        restartFrameRef.current = null
+      }
     }
   }, [hasAnimatedLoop, rowHeight, rows.length])
 
@@ -192,7 +180,7 @@ export function LineUpTVDisplay() {
                 </header>
 
                 <div ref={viewportRef} className="app-lineup-display-board__viewport">
-                  <div ref={trackRef} className="app-lineup-display-board__track">
+                  <div className={`app-lineup-display-board__track ${isSliding ? 'app-lineup-display-board__track--sliding' : ''}`}>
                     {displayRows.map((row) => (
                       <article key={row.id} className="app-lineup-display-board__row">
                         <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
