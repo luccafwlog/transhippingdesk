@@ -394,6 +394,12 @@ export type Database = {
       invoice_bls: Row<InvoiceBlLink>
       demurrage_invoices: Row<DemurrageInvoice>
       demurrage_invoice_items: Row<DemurrageInvoiceItem>
+      granite_manifests: Row<GraniteManifest>
+      granite_bls: Row<GraniteBl>
+      granite_rates: Row<GraniteRate>
+      granite_bl_charges: Row<GraniteBlCharge>
+      vazios_manifests: Row<VaziosManifest>
+      vazios_bookings: Row<VaziosBooking>
     }
     Views: Record<string, never>
     Functions: {

@@ -148,7 +148,7 @@ export async function listGraniteBls(filters: {
     const { data: manifestIds } = await supabase
       .from('granite_manifests')
       .select('id')
-      .eq('voyage_id', filters.voyageId)
+      .eq('voyage_id', Number(filters.voyageId))
     const ids = (manifestIds ?? []).map((m: { id: string }) => m.id)
     if (!ids.length) return { rows: [], count: 0 }
     query = query.in('manifest_id', ids)
