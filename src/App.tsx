@@ -41,6 +41,7 @@ const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconcili
 const Granite = lazyPage(() => import('./pages/Granite'), 'Granite')
 const GraniteRates = lazyPage(() => import('./pages/GraniteRates'), 'GraniteRates')
 const Vazios = lazyPage(() => import('./pages/Vazios'), 'Vazios')
+const VaziosImportacao = lazyPage(() => import('./pages/VaziosImportacao'), 'VaziosImportacao')
 
 function RouteLoading() {
   return (
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="/granito" element={withSuspense(<Granite />)} />
           <Route path="/granito/taxas" element={withSuspense(<GraniteRates />)} />
           <Route path="/vazios" element={withSuspense(<Vazios />)} />
+          <Route path="/vazios-importacao" element={withSuspense(<VaziosImportacao />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

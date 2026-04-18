@@ -1,0 +1,178 @@
+import { supabase } from './supabase'
+import { toNumber } from '../lib/utils'
+
+const HEADER_MAP: Record<string, string> = {
+  'container': 'container_number',
+  'conteiner': 'container_number',
+  'contêiner': 'container_number',
+  'numeração': 'container_number',
+  'numeracao': 'container_number',
+  'num. container': 'container_number',
+  'num container': 'container_number',
+  'tipo': 'container_type',
+  'type': 'container_type',
+  'tara': 'tare_kg',
+  'tare': 'tare_kg',
+  'tara (kg)': 'tare_kg',
+  'tara kg': 'tare_kg',
+  'tare (kg)': 'tare_kg',
+  'tare kg': 'tare_kg',
+}
+
+export type ParsedVaziosImportacaoContainer = {
+  rowNumber: number
+  container_number: string
+  container_type: string | null
+  tare_kg: number | null
+}
+
+export type ParsedVaziosImportacaoManifest = {
+  containers: ParsedVaziosImportacaoContainer[]
+  rowErrors: { row: number; message: string; raw: unknown }[]
+}
+
+export async function parseVaziosImportacaoFile(file: File): Promise<ParsedVaziosImportacaoManifest> {
+  const buffer = await file.arrayBuffer()
+  return parseVaziosImportacaoBuffer(buffer)
+}
+
+export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosImportacaoManifest> {
+  const XLSX = await import('xlsx')
+  const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
+  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+  if (!firstSheet) throw new Error('Arquivo sem abas validas.')
+
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
+  if (!rows.length) throw new Error('Planilha vazia.')
+
+  const sampleRow = rows[0]
+  const colMapping: Record<string, string> = {}
+  for (const originalKey of Object.keys(sampleRow)) {
+    const normalized = originalKey.trim().toLowerCase()
+    const mapped = HEADER_MAP[normalized]
+    if (mapped) colMapping[originalKey] = mapped
+  }
+
+  const containers: ParsedVaziosImportacaoContainer[] = []
+  const rowErrors: ParsedVaziosImportacaoManifest['rowErrors'] = []
+
+  rows.forEach((row, idx) => {
+    const rowNumber = idx + 2
+    const mapped: Record<string, unknown> = {}
+    for (const [originalKey, fieldName] of Object.entries(colMapping)) {
+      mapped[fieldName] = row[originalKey]
+    }
+
+    const containerNumber = String(mapped['container_number'] ?? '').trim()
+    if (!containerNumber) {
+      rowErrors.push({ row: rowNumber, message: 'Container ausente — linha ignorada.', raw: row })
+      return
+    }
+    if (!/^[A-Z]{4}\d{7}$/.test(containerNumber)) {
+      rowErrors.push({
+        row: rowNumber,
+        message: `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`,
+        raw: row,
+      })
+    }
+
+    const taraRaw = String(mapped['tare_kg'] ?? '').trim().replace(/[^\d.,]/g, '')
+    const tare_kg = toNumber(taraRaw)
+
+    containers.push({
+      rowNumber,
+      container_number: containerNumber,
+      container_type: String(mapped['container_type'] ?? '').trim() || null,
+      tare_kg,
+    })
+  })
+
+  return { containers, rowErrors }
+}
+
+export type ImportVaziosImportacaoArgs = {
+  manifest: ParsedVaziosImportacaoManifest
+  uploadedBy: string
+  description?: string
+}
+
+export async function importVaziosImportacaoManifest({
+  manifest,
+  uploadedBy,
+  description,
+}: ImportVaziosImportacaoArgs): Promise<{ manifestId: string }> {
+  const { data: manifestRow, error: manifestError } = await supabase
+    .from('vazios_importacao_manifests')
+    .insert({
+      description: description ?? null,
+      total_containers: manifest.containers.length,
+      imported_by: uploadedBy,
+    })
+    .select('id')
+    .single()
+
+  if (manifestError || !manifestRow) throw manifestError ?? new Error('Falha ao criar manifesto.')
+
+  const manifestId = manifestRow.id
+
+  if (manifest.containers.length) {
+    const rows = manifest.containers.map((c) => ({
+      manifest_id: manifestId,
+      container_number: c.container_number,
+      container_type: c.container_type,
+      tare_kg: c.tare_kg,
+    }))
+
+    const { error: insertError } = await supabase
+      .from('vazios_importacao_containers')
+      .upsert(rows, { onConflict: 'manifest_id,container_number' })
+    if (insertError) throw insertError
+  }
+
+  return { manifestId }
+}
+
+export async function listVaziosImportacaoContainers(filters: {
+  manifestId?: string
+  search?: string
+  page?: number
+  pageSize?: number
+}) {
+  const page = filters.page ?? 1
+  const pageSize = filters.pageSize ?? 20
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  let query = supabase
+    .from('vazios_importacao_containers')
+    .select(
+      `*, manifest:vazios_importacao_manifests(id, description, imported_at)`,
+      { count: 'exact' },
+    )
+    .range(from, to)
+    .order('created_at', { ascending: false })
+
+  if (filters.search) {
+    query = query.or(
+      `container_number.ilike.%${filters.search}%,container_type.ilike.%${filters.search}%`,
+    )
+  }
+
+  if (filters.manifestId) {
+    query = query.eq('manifest_id', filters.manifestId)
+  }
+
+  const { data, error, count } = await query
+  if (error) throw error
+  return { rows: data ?? [], count: count ?? 0 }
+}
+
+export async function listVaziosImportacaoManifests() {
+  const { data, error } = await supabase
+    .from('vazios_importacao_manifests')
+    .select('id, description, total_containers, imported_at')
+    .order('imported_at', { ascending: false })
+    .limit(50)
+  if (error) throw error
+  return data ?? []
+}
