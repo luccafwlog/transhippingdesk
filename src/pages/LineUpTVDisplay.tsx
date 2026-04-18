@@ -1,11 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchLineUpSnapshot } from '../services/lineup'
+import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
-const DISPLAY_MAX_ROW_HEIGHT = 88
 
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -19,12 +18,14 @@ export function LineUpTVDisplay() {
     refetchInterval: 30_000,
   })
 
-  const rows = data?.rows ?? []
+  const rows = useMemo(() => [...(data?.rows ?? [])].sort(compareDisplayRows), [data?.rows])
+  const firstRoute = rows[0] ?? null
   const lastUpdate = data?.lastChangedAt
     ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
         new Date(data.lastChangedAt),
       )
     : '-'
+  const firstRouteLabel = firstRoute ? buildDisplayLeadLabel(firstRoute) : '-'
 
   useEffect(() => {
     const root = document.documentElement
@@ -66,20 +67,46 @@ export function LineUpTVDisplay() {
     if (!container) return
 
     container.scrollTop = 0
-    if (rows.length <= DISPLAY_VISIBLE_ROWS) return
 
-    const maxIndex = rows.length - DISPLAY_VISIBLE_ROWS
+    const collectScrollStops = () => {
+      const maxScrollTop = Math.max(container.scrollHeight - container.clientHeight, 0)
+      if (maxScrollTop <= 0) return [0]
+
+      const headerHeight = Math.ceil(container.querySelector('thead')?.getBoundingClientRect().height ?? 0)
+      const visibleBodyHeight = Math.max(container.clientHeight - headerHeight, rowHeightRef.current)
+      const bodyRows = Array.from(container.querySelectorAll<HTMLTableRowElement>('tbody tr:not(.app-lineup-placeholder-row)'))
+      const stops = new Set<number>([0])
+
+      for (const row of bodyRows) {
+        const top = Math.max(Math.min(row.offsetTop - headerHeight, maxScrollTop), 0)
+        const bottom = top + row.getBoundingClientRect().height
+        if (bottom > visibleBodyHeight + 1) stops.add(top)
+      }
+
+      return Array.from(stops).sort((left, right) => left - right)
+    }
+
+    let scrollStops = collectScrollStops()
+    if (scrollStops.length <= 1) return
+
     let currentIndex = 0
     const interval = window.setInterval(() => {
-      currentIndex = currentIndex >= maxIndex ? 0 : currentIndex + 1
+      scrollStops = collectScrollStops()
+      if (scrollStops.length <= 1) {
+        currentIndex = 0
+        container.scrollTop = 0
+        return
+      }
+
+      currentIndex = currentIndex >= scrollStops.length - 1 ? 0 : currentIndex + 1
       container.scrollTo({
-        top: currentIndex * rowHeightRef.current,
+        top: scrollStops[currentIndex],
         behavior: 'smooth',
       })
     }, 4200)
 
     return () => window.clearInterval(interval)
-  }, [rows.length])
+  }, [data?.lastChangedAt, rows.length])
 
   useLayoutEffect(() => {
     const container = scrollRef.current
@@ -89,10 +116,7 @@ export function LineUpTVDisplay() {
       const headerRow = container.querySelector('thead')
       const headerHeight = Math.ceil(headerRow?.getBoundingClientRect().height ?? 38)
       const availableHeight = Math.max(container.clientHeight - headerHeight, DISPLAY_MIN_ROW_HEIGHT * DISPLAY_VISIBLE_ROWS)
-      const next = Math.max(
-        DISPLAY_MIN_ROW_HEIGHT,
-        Math.min(DISPLAY_MAX_ROW_HEIGHT, Math.floor(availableHeight / DISPLAY_VISIBLE_ROWS)),
-      )
+      const next = Math.max(DISPLAY_MIN_ROW_HEIGHT, Math.floor(availableHeight / DISPLAY_VISIBLE_ROWS))
       setRowHeight(next)
     }
 
@@ -117,8 +141,14 @@ export function LineUpTVDisplay() {
           />
         </div>
         <div className="app-lineup-display-meta">
-          <span className="app-lineup-display-meta__label">Ultima alteracao</span>
-          <strong className="app-lineup-display-meta__value">{lastUpdate}</strong>
+          <div className="app-lineup-display-meta__group">
+            <span className="app-lineup-display-meta__label">Inicio do ciclo</span>
+            <strong className="app-lineup-display-meta__value app-lineup-display-meta__value--route">{firstRouteLabel}</strong>
+          </div>
+          <div className="app-lineup-display-meta__group">
+            <span className="app-lineup-display-meta__label">Ultima alteracao</span>
+            <strong className="app-lineup-display-meta__value">{lastUpdate}</strong>
+          </div>
         </div>
       </header>
 
@@ -145,4 +175,43 @@ export function LineUpTVDisplay() {
       </section>
     </main>
   )
+}
+
+function compareDisplayRows(left: LineUpRow, right: LineUpRow) {
+  const etaComparison = compareDateValues(left.eta, right.eta)
+  if (etaComparison !== 0) return etaComparison
+
+  const etbComparison = compareDateValues(left.etb, right.etb)
+  if (etbComparison !== 0) return etbComparison
+
+  if (left.vesselName !== right.vesselName) return left.vesselName.localeCompare(right.vesselName, 'pt-BR')
+  if (left.voyageNumber !== right.voyageNumber) return left.voyageNumber.localeCompare(right.voyageNumber, 'pt-BR')
+  return left.pod.localeCompare(right.pod, 'pt-BR')
+}
+
+function compareDateValues(left: string | null, right: string | null) {
+  return toSortableDateValue(left) - toSortableDateValue(right)
+}
+
+function toSortableDateValue(value: string | null) {
+  if (!value) return Number.POSITIVE_INFINITY
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
+}
+
+function buildDisplayLeadLabel(row: LineUpRow) {
+  const etaLabel = formatDisplayLeadDate('ETA', row.eta)
+  if (etaLabel) return `${etaLabel} | ${row.vesselName} | ${row.pod}`
+
+  const etbLabel = formatDisplayLeadDate('ETB', row.etb)
+  if (etbLabel) return `${etbLabel} | ${row.vesselName} | ${row.pod}`
+
+  return `${row.vesselName} | ${row.pod}`
+}
+
+function formatDisplayLeadDate(label: 'ETA' | 'ETB', value: string | null) {
+  if (!value) return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return `${label} ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(parsed)}`
 }

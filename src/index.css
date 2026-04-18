@@ -1570,6 +1570,14 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  gap: 10px;
+  max-width: min(52vw, 860px);
+}
+
+.app-lineup-display-meta__group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
 }
 
@@ -1586,6 +1594,12 @@ textarea {
   font-weight: 900;
   line-height: 1;
   color: #16325f;
+}
+
+.app-lineup-display-meta__value--route {
+  font-size: 16px;
+  line-height: 1.2;
+  text-align: right;
 }
 
 .app-lineup-display-body {
