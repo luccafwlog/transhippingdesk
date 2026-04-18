@@ -12,6 +12,8 @@ export function LineUpTable({
   rowHeight,
   fillSlots,
   containerRef,
+  bodyStyle,
+  getRowKey,
 }: {
   rows: LineUpRow[]
   emptyTitle: string
@@ -20,6 +22,8 @@ export function LineUpTable({
   rowHeight?: number
   fillSlots?: number
   containerRef?: Ref<HTMLDivElement>
+  bodyStyle?: CSSProperties
+  getRowKey?: (row: LineUpRow, index: number) => string
 }) {
   const isDisplay = mode === 'display'
   const placeholderSlots = isDisplay && rows.length > 0 ? Math.max(0, (fillSlots ?? 0) - rows.length) : 0
@@ -64,7 +68,10 @@ export function LineUpTable({
             <th className="px-1 py-2 text-center">Linked</th>
           </tr>
         </thead>
-        <tbody className={isDisplay ? 'divide-y divide-[#d6dfeb] bg-white' : 'divide-y divide-[#30363d]'}>
+        <tbody
+          className={isDisplay ? 'divide-y divide-[#d6dfeb] bg-white' : 'divide-y divide-[#30363d]'}
+          style={bodyStyle}
+        >
           {rows.length === 0 ? (
             <tr>
               <td colSpan={14} className="p-0">
@@ -73,8 +80,8 @@ export function LineUpTable({
             </tr>
           ) : null}
 
-          {rows.map((row) => (
-            <tr key={row.id}>
+          {rows.map((row, index) => (
+            <tr key={getRowKey ? getRowKey(row, index) : row.id}>
               <td className={isDisplay ? 'px-1 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>{row.vesselName}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.pod}</td>

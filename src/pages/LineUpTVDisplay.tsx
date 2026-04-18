@@ -1,16 +1,19 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
+const DISPLAY_SCROLL_INTERVAL_MS = 4200
+const DISPLAY_SCROLL_DURATION_MS = 900
 
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
-  const rowHeightRef = useRef(DISPLAY_MIN_ROW_HEIGHT)
-  const animationFrameRef = useRef<number | null>(null)
+  const [windowStartIndex, setWindowStartIndex] = useState(0)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -21,12 +24,32 @@ export function LineUpTVDisplay() {
 
   const rows = useMemo(() => [...(data?.rows ?? [])].sort(compareDisplayRows), [data?.rows])
   const firstRoute = rows[0] ?? null
+  const hasAnimatedLoop = rows.length > DISPLAY_VISIBLE_ROWS
   const lastUpdate = data?.lastChangedAt
     ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
         new Date(data.lastChangedAt),
       )
     : '-'
   const firstRouteLabel = firstRoute ? buildDisplayLeadLabel(firstRoute) : '-'
+  const displayRows = useMemo(() => {
+    if (!hasAnimatedLoop) return rows
+
+    return Array.from({ length: DISPLAY_VISIBLE_ROWS + 1 }, (_, slotIndex) => {
+      const baseRow = rows[(windowStartIndex + slotIndex) % rows.length]
+      return {
+        ...baseRow,
+        id: `${baseRow.id}::display-slot-${windowStartIndex}-${slotIndex}`,
+      }
+    })
+  }, [hasAnimatedLoop, rows, windowStartIndex])
+  const bodyStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!hasAnimatedLoop) return undefined
+    return {
+      transform: `translateY(-${isAnimating ? rowHeight : 0}px)`,
+      transition: isAnimating ? `transform ${DISPLAY_SCROLL_DURATION_MS}ms ease-in-out` : 'none',
+      willChange: 'transform',
+    }
+  }, [hasAnimatedLoop, isAnimating, rowHeight])
 
   useEffect(() => {
     const root = document.documentElement
@@ -57,60 +80,28 @@ export function LineUpTVDisplay() {
     void requestFullScreen()
   }, [])
 
-  // Keep ref in sync so the scroll interval always reads the latest rowHeight
-  // without needing to restart when rowHeight changes
   useEffect(() => {
-    rowHeightRef.current = rowHeight
-  }, [rowHeight])
+    setWindowStartIndex(0)
+    setIsAnimating(false)
+  }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
-    const container = scrollRef.current
-    if (!container) return
+    if (!hasAnimatedLoop) return
 
-    container.scrollTop = 0
-
-    const collectScrollStops = () => {
-      const maxScrollTop = Math.max(container.scrollHeight - container.clientHeight, 0)
-      if (maxScrollTop <= 0) return [0]
-
-      const headerHeight = Math.ceil(container.querySelector('thead')?.getBoundingClientRect().height ?? 0)
-      const visibleBodyHeight = Math.max(container.clientHeight - headerHeight, rowHeightRef.current)
-      const bodyRows = Array.from(container.querySelectorAll<HTMLTableRowElement>('tbody tr:not(.app-lineup-placeholder-row)'))
-      const stops = new Set<number>([0])
-
-      for (const row of bodyRows) {
-        const top = Math.max(Math.min(row.offsetTop - headerHeight, maxScrollTop), 0)
-        const bottom = top + row.getBoundingClientRect().height
-        if (bottom > visibleBodyHeight + 1) stops.add(top)
-      }
-
-      return Array.from(stops).sort((left, right) => left - right)
-    }
-
-    let scrollStops = collectScrollStops()
-    if (scrollStops.length <= 1) return
-
-    let currentIndex = 0
-    const interval = window.setInterval(() => {
-      scrollStops = collectScrollStops()
-      if (scrollStops.length <= 1) {
-        currentIndex = 0
-        container.scrollTop = 0
-        return
-      }
-
-      currentIndex = currentIndex >= scrollStops.length - 1 ? 0 : currentIndex + 1
-      animateScrollTo(container, scrollStops[currentIndex], animationFrameRef)
-    }, 4200)
+    let shiftTimeoutId: number | null = null
+    const intervalId = window.setInterval(() => {
+      setIsAnimating(true)
+      shiftTimeoutId = window.setTimeout(() => {
+        setWindowStartIndex((currentIndex) => (currentIndex + 1) % rows.length)
+        setIsAnimating(false)
+      }, DISPLAY_SCROLL_DURATION_MS)
+    }, DISPLAY_SCROLL_INTERVAL_MS)
 
     return () => {
-      window.clearInterval(interval)
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
-      }
+      window.clearInterval(intervalId)
+      if (shiftTimeoutId !== null) window.clearTimeout(shiftTimeoutId)
     }
-  }, [data?.lastChangedAt, rows.length])
+  }, [hasAnimatedLoop, rows.length])
 
   useLayoutEffect(() => {
     const container = scrollRef.current
@@ -166,13 +157,15 @@ export function LineUpTVDisplay() {
         ) : (
           <div className="app-lineup-display-table-frame">
             <LineUpTable
-              rows={rows}
+              rows={displayRows}
               emptyTitle="Nenhuma escala disponivel."
               emptyDescription="Aguarde o proximo ciclo de atualizacao."
               mode="display"
               rowHeight={rowHeight}
-              fillSlots={DISPLAY_VISIBLE_ROWS}
+              fillSlots={hasAnimatedLoop ? undefined : DISPLAY_VISIBLE_ROWS}
               containerRef={scrollRef}
+              bodyStyle={bodyStyle}
+              getRowKey={(row) => row.id}
             />
           </div>
         )}
@@ -218,46 +211,4 @@ function formatDisplayLeadDate(label: 'ETA' | 'ETB', value: string | null) {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return null
   return `${label} ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(parsed)}`
-}
-
-function animateScrollTo(
-  container: HTMLDivElement,
-  targetTop: number,
-  animationFrameRef: MutableRefObject<number | null>,
-) {
-  if (animationFrameRef.current !== null) {
-    window.cancelAnimationFrame(animationFrameRef.current)
-    animationFrameRef.current = null
-  }
-
-  const startTop = container.scrollTop
-  const distance = targetTop - startTop
-  if (Math.abs(distance) < 1) {
-    container.scrollTop = targetTop
-    return
-  }
-
-  const startTime = window.performance.now()
-  const duration = 900
-
-  const step = (timestamp: number) => {
-    const progress = Math.min((timestamp - startTime) / duration, 1)
-    const easedProgress = easeInOutQuad(progress)
-    container.scrollTop = Math.round(startTop + distance * easedProgress)
-
-    if (progress < 1) {
-      animationFrameRef.current = window.requestAnimationFrame(step)
-      return
-    }
-
-    container.scrollTop = targetTop
-    animationFrameRef.current = null
-  }
-
-  animationFrameRef.current = window.requestAnimationFrame(step)
-}
-
-function easeInOutQuad(progress: number) {
-  if (progress < 0.5) return 2 * progress * progress
-  return 1 - Math.pow(-2 * progress + 2, 2) / 2
 }
