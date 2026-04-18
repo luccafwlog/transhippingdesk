@@ -69,7 +69,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const [bls, vehicles, vaziosImportacaoMtyByVoyage] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
-    fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
+    fetchVaziosImportacaoMtyByVoyageIds(voyageIds).catch(() => new Map<number, number>()),
   ])
 
   const blIds = bls.map((bl) => bl.id)
