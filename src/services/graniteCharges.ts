@@ -63,18 +63,12 @@ export async function calculateGraniteBlCharges(blId: string): Promise<GraniteBl
   }
 
   const chargeRows = activeRates.map((rate) => {
-    let quantity = 0
-    switch (rate.charge_type) {
-      case 'per_kg':
-        quantity = realWeightKg
-        break
-      case 'per_ton':
-        quantity = realWeightKg / 1000
-        break
-      default:
-        quantity = 1
-        break
-    }
+    const quantity =
+      rate.charge_type === 'per_kg'
+        ? realWeightKg
+        : rate.charge_type === 'per_ton'
+          ? realWeightKg / 1000
+          : 1
     const subtotal = Number((quantity * Number(rate.unit_value)).toFixed(2))
     return {
       bl_id: blId,

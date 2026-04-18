@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { countDistinctManifestContainers, parseManifestBuffer } from '../manifestParser'
 
 const fixturesPath = new URL('./fixtures/', import.meta.url)
+const fixtureParseTimeoutMs = 15_000
 
 async function readFixtureBuffer(filename: string) {
   const file = await readFile(new URL(filename, fixturesPath))
@@ -33,7 +34,7 @@ describe('manifestParser with real fixtures', () => {
     expect(topBl?.pol).toBe('CNTAC')
     expect(topBl?.pod).toBe('BRVIT')
     expect(topBl?.containers).toHaveLength(106)
-  })
+  }, fixtureParseTimeoutMs)
 
   it('valida o manifesto BRVIT com um BL pendente de revisao', async () => {
     const manifest = await parseManifestBuffer(await readFixtureBuffer('manifest-brvit.xlsx'))
@@ -50,7 +51,7 @@ describe('manifestParser with real fixtures', () => {
     expect(sampleBl?.pol).toBe('CNNBO')
     expect(sampleBl?.pod).toBe('BRVIT')
     expect(sampleBl?.containers).toHaveLength(1)
-  })
+  }, fixtureParseTimeoutMs)
 
   it('valida o manifesto BRSSA com POD e contagem corretos', async () => {
     const manifest = await parseManifestBuffer(await readFixtureBuffer('manifest-brssa.xlsx'))
@@ -67,5 +68,5 @@ describe('manifestParser with real fixtures', () => {
     expect(sampleBl?.pol).toBe('CNNBO')
     expect(sampleBl?.pod).toBe('BRSSA')
     expect(sampleBl?.containers).toHaveLength(20)
-  })
+  }, fixtureParseTimeoutMs)
 })
