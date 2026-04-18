@@ -877,3 +877,116 @@ export type VehicleListItem = Vehicle & {
     }) | null
   }) | null
 }
+
+// ---------------------------------------------------------------------------
+// Granite module
+// ---------------------------------------------------------------------------
+
+export type GraniteManifest = {
+  id: string
+  voyage_id: number | null
+  vessel_voyage: string
+  loading_port: string | null
+  discharge_port: string | null
+  total_bls: number | null
+  total_weight_kg: number | null
+  imported_at: string | null
+  imported_by: string | null
+}
+
+export type GraniteBl = {
+  id: string
+  manifest_id: string
+  client_id: number | null
+  sequence: number | null
+  booking_number: string | null
+  bl_number: string
+  shipper_ref: string | null
+  vessel_voyage: string | null
+  loading_port: string | null
+  discharge_port: string | null
+  shipper_name: string | null
+  shipper_cnpj: string | null
+  consignee_name: string | null
+  charter: string | null
+  shipper_m3: number | null
+  shipper_weight_kg: number | null
+  blocks_qty: number | null
+  received_blocks_qty: number | null
+  final_m3: number | null
+  real_weight_kg: number | null
+  stockyard: string | null
+  remarks: string | null
+  partial_restriction: boolean | null
+  cosco_transport: string | null
+  fragile_blocks: number | null
+  cssc_selection: string | null
+  cargo_readiness_date: string | null
+  phase: string | null
+  charge_status: 'not_calculated' | 'calculated' | 'ready_for_billing' | 'invoiced'
+  created_at: string | null
+}
+
+export type GraniteRate = {
+  id: string
+  description: string
+  charge_type: 'per_kg' | 'per_ton' | 'per_bl' | 'fixed'
+  unit_value: number
+  currency: string
+  valid_from: string | null
+  valid_to: string | null
+  active: boolean
+  created_at: string | null
+}
+
+export type GraniteBlCharge = {
+  id: string
+  bl_id: string
+  rate_id: string | null
+  description: string | null
+  charge_type: string | null
+  unit_value: number | null
+  quantity: number | null
+  subtotal: number | null
+  currency: string | null
+  calculated_at: string | null
+}
+
+export type GraniteBlListItem = GraniteBl & {
+  manifest?: Pick<GraniteManifest, 'id' | 'vessel_voyage' | 'voyage_id'> | null
+  customer?: Pick<Customer, 'id' | 'name'> | null
+}
+
+// ---------------------------------------------------------------------------
+// Vazios module
+// ---------------------------------------------------------------------------
+
+export type VaziosManifest = {
+  id: string
+  voyage_id: number | null
+  description: string | null
+  total_bookings: number | null
+  imported_at: string | null
+  imported_by: string | null
+}
+
+export type VaziosBooking = {
+  id: string
+  manifest_id: string
+  booking_number: string
+  container_number: string | null
+  container_type: string | null
+  movement_date: string | null
+  origin_terminal: string | null
+  destination: string | null
+  notes: string | null
+  created_at: string | null
+}
+
+export type VaziosBookingListItem = VaziosBooking & {
+  manifest?: Pick<VaziosManifest, 'id' | 'voyage_id'> & {
+    voyage?: Pick<Voyage, 'id' | 'voyage_number'> & {
+      vessel?: Pick<Vessel, 'id' | 'name'> | null
+    } | null
+  } | null
+}

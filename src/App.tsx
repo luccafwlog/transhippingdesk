@@ -38,6 +38,9 @@ const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
 const DemurrageInvoices = lazyPage(() => import('./pages/DemurrageInvoices'), 'DemurrageInvoices')
 const DemurrageReconciliacao = lazyPage(() => import('./pages/DemurrageReconciliacao'), 'DemurrageReconciliacao')
 const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconciliacao')
+const Granite = lazyPage(() => import('./pages/Granite'), 'Granite')
+const GraniteRates = lazyPage(() => import('./pages/GraniteRates'), 'GraniteRates')
+const Vazios = lazyPage(() => import('./pages/Vazios'), 'Vazios')
 
 function RouteLoading() {
   return (
@@ -84,6 +87,9 @@ export default function App() {
           <Route path="/demurrage/invoices" element={withSuspense(<DemurrageInvoices />)} />
           <Route path="/demurrage/reconciliacao" element={withSuspense(<DemurrageReconciliacao />)} />
           <Route path="/reconciliacao" element={withSuspense(<Reconciliacao />)} />
+          <Route path="/granito" element={withSuspense(<Granite />)} />
+          <Route path="/granito/taxas" element={withSuspense(<GraniteRates />)} />
+          <Route path="/vazios" element={withSuspense(<Vazios />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

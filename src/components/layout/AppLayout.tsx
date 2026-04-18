@@ -13,6 +13,8 @@ import {
   Home,
   LogOut,
   Menu,
+  Mountain,
+  Package,
   ReceiptText,
   RefreshCw,
   Ship,
@@ -38,6 +40,8 @@ const importNavItems: NavItem[] = [
   { to: '/manifestos', label: 'Manifestos CNTR', icon: FileSpreadsheet },
   { to: '/containers', label: 'Containers', icon: Boxes },
   { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
+  { to: '/granito', label: 'Granito', icon: Mountain },
+  { to: '/vazios', label: 'Vazios', icon: Package },
   { to: '/veiculos', label: 'Veiculos', icon: Car },
   { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
 ]
