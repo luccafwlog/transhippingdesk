@@ -15,6 +15,8 @@ Plataforma operacional interna para agencia maritima. Cobre o ciclo completo de 
 - **Manifestos BB** - Importacao e consulta de carga solta.
 - **Veiculos** - Importacao de planilha com vinculo viagem -> container -> B/L.
 - **Revisao Manual** - Fila de revisao com busca, filtros, navegacao no modal e avanco automatico.
+- **Manifestos Granito** _(planejado)_ - Importacao do "Relatorio de Cargas/Booking" da COSCO (`.xls`), preview com resolucao de CNPJ ausente, lista de BLs, calculo de faturamento por peso real (`real_weight_kg`) com tabela de taxas propria.
+- **Manifestos Vazios** _(planejado)_ - Importacao de planilha de movimentacao de containeres vazios identificados por booking number (sem B/L), vinculados a viagem.
 
 ### Comercial e Financeiro
 
@@ -37,12 +39,15 @@ Plataforma operacional interna para agencia maritima. Cobre o ciclo completo de 
 ```text
 1. Cadastrar viagem (navio, rota, datas)
 2. Importar manifesto CNTR ou BB -> sistema persiste o lote e dispara billing automatico
-3. Revisar B/Ls pendentes na fila de Revisao e na fila de reconciliacao de cliente, quando houver bloqueio
-4. Conferir e ajustar Taxas Locais por B/L; marcar pronto para faturar
-5. Emitir invoice em Faturamento (unitaria ou consolidada)
-6. Opcional: cliente acessa /portal/login e consolida B/Ls proprios em /portal/billing
-7. Registrar baixa apos pagamento
-8. Consultar Relatorios e exportar para xlsx
+3. (Granito) Importar planilha COSCO em /granito -> resolver CNPJs ausentes no preview -> confirmar importacao
+4. (Vazios) Importar planilha de bookings em /vazios -> registrar movimentacao operacional da viagem
+5. Revisar B/Ls pendentes na fila de Revisao e na fila de reconciliacao de cliente, quando houver bloqueio
+6. Conferir e ajustar Taxas Locais por B/L; marcar pronto para faturar
+7. (Granito) Calcular faturamento por peso real; revisar breakdown de taxas no detalhe do BL
+8. Emitir invoice em Faturamento (unitaria ou consolidada)
+9. Opcional: cliente acessa /portal/login e consolida B/Ls proprios em /portal/billing
+10. Registrar baixa apos pagamento
+11. Consultar Relatorios e exportar para xlsx
 ```
 
 ---
@@ -54,6 +59,9 @@ Plataforma operacional interna para agencia maritima. Cobre o ciclo completo de 
 - `/clientes/:cnpj` - ficha do cliente e provisionamento do acesso ao portal
 - `/portal/login` - autenticacao externa do cliente
 - `/portal/billing` - consultas e consolidacao pelo portal
+- `/granito` - lista de manifestos e BLs de granito; importacao da planilha COSCO _(planejado)_
+- `/granito/taxas` - CRUD da tabela de taxas de granito _(planejado)_
+- `/vazios` - lista de manifestos de containeres vazios; importacao por booking _(planejado)_
 
 ---
 
@@ -134,6 +142,7 @@ O acesso temporario criado para o teste foi removido ao final. A invoice gerada 
 | Arquivo | Conteudo |
 |---------|----------|
 | `docs/ROADMAP.md` | Estado do produto, funcionalidades entregues e proximos passos |
+| `docs/PLANEJAMENTO_GRANITO_VAZIOS.md` | Planejamento tecnico detalhado dos modulos Granito e Vazios |
 | `docs/VALIDACAO.md` | Roteiro de validacao operacional por modulo |
 | `docs/RESET_AMBIENTE.md` | Procedimento de reset do ambiente de testes |
 | `docs/templates/base-clientes-modelo.xlsx` | Modelo de planilha para importacao de clientes |
