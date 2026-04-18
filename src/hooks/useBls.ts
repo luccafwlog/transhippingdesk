@@ -307,13 +307,6 @@ export function useVoyages() {
             total_bookings,
             vazios_bookings(id, container_number, container_type, origin_terminal, destination)
           ),
-          vazios_importacao_manifests(
-            id,
-            voyage_id,
-            description,
-            total_containers,
-            vazios_importacao_containers(id, container_number, container_type, tare_kg)
-          ),
           bls(
             *,
             bl_containers(id, container_number, type, is_oog, is_imo),
@@ -359,18 +352,6 @@ export function useVoyages() {
               container_type: string | null
               origin_terminal: string | null
               destination: string | null
-            }> | null
-          }> | null
-          vazios_importacao_manifests?: Array<{
-            id: string
-            voyage_id: number | null
-            description: string | null
-            total_containers: number | null
-            vazios_importacao_containers?: Array<{
-              id: string
-              container_number: string | null
-              container_type: string | null
-              tare_kg: number | null
             }> | null
           }> | null
           bls?: Array<{

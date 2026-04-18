@@ -92,7 +92,6 @@ export function Viagens() {
           {
             granite: getGraniteModuleStats(voyage.granite_manifests),
             vazios: getVaziosModuleStats(voyage.vazios_manifests),
-            vaziosImportacao: getVaziosImportacaoModuleStats(voyage.vazios_importacao_manifests),
           },
         ]),
       ),
@@ -221,7 +220,6 @@ export function Viagens() {
           const totalBreakbulkCbm = breakbulkBls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)
           const graniteStats = moduleStatsByVoyage[voyage.id]?.granite ?? getGraniteModuleStats(voyage.granite_manifests)
           const vaziosStats = moduleStatsByVoyage[voyage.id]?.vazios ?? getVaziosModuleStats(voyage.vazios_manifests)
-          const vaziosImportacaoStats = moduleStatsByVoyage[voyage.id]?.vaziosImportacao ?? getVaziosImportacaoModuleStats(voyage.vazios_importacao_manifests)
           const scheduledPodRows = podSchedulesByVoyage.get(voyage.id) ?? []
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
           const destinationPorts = collectVoyagePorts(
@@ -313,7 +311,7 @@ export function Viagens() {
                       value={summarizeModuleAvailability(
                         graniteStats.totalManifests,
                         vaziosStats.totalManifests,
-                        vaziosImportacaoStats.totalManifests,
+                        0,
                       )}
                     />
                   </dl>
@@ -438,7 +436,7 @@ export function Viagens() {
                 title="Exportacao"
                 description="Resumo dos modulos de Granito e Vazios vinculados a mesma viagem."
               >
-                <div className="grid gap-4 xl:grid-cols-3">
+                <div className="grid gap-4 xl:grid-cols-2">
                   <MetricPanel title="Granito">
                     <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
                     <Info label="B/Ls" value={String(graniteStats.totalBls)} />
@@ -448,21 +446,13 @@ export function Viagens() {
                     <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
                   </MetricPanel>
 
-                  <MetricPanel title="Vazios (Exportacao)">
+                  <MetricPanel title="Vazios">
                     <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
                     <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
                     <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
                     <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
                     <Info label="Destinos" value={vaziosStats.destinations || '-'} />
                     <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
-                  </MetricPanel>
-
-                  <MetricPanel title="Vazios (Importacao)">
-                    <Info label="Manifestos" value={String(vaziosImportacaoStats.totalManifests)} />
-                    <Info label="Containers" value={String(vaziosImportacaoStats.totalContainers)} />
-                    <Info label="Containers distintos" value={String(vaziosImportacaoStats.distinctContainers)} />
-                    <Info label="Tipos" value={vaziosImportacaoStats.containerTypes || '-'} />
-                    <Info label="Tara total" value={`${formatMetric(vaziosImportacaoStats.totalTareKg)} kg`} />
                   </MetricPanel>
                 </div>
               </MetricSection>
@@ -963,19 +953,6 @@ type VoyageVaziosManifest = {
   }> | null
 }
 
-type VoyageVaziosImportacaoManifest = {
-  id: string
-  voyage_id: number | null
-  description: string | null
-  total_containers: number | null
-  vazios_importacao_containers?: Array<{
-    id: string
-    container_number: string | null
-    container_type: string | null
-    tare_kg: number | null
-  }> | null
-}
-
 function splitVoyageBls(bls: VoyageBl[] | null | undefined) {
   const containerBls: VoyageBl[] = []
   const breakbulkBls: VoyageBl[] = []
@@ -1031,23 +1008,6 @@ function getVaziosModuleStats(manifests: VoyageVaziosManifest[] | null | undefin
   }
 }
 
-function getVaziosImportacaoModuleStats(manifests: VoyageVaziosImportacaoManifest[] | null | undefined) {
-  const totalManifests = manifests?.length ?? 0
-  const containers = (manifests ?? []).flatMap((manifest) => manifest.vazios_importacao_containers ?? [])
-  const totalContainers = (manifests ?? []).reduce(
-    (sum, manifest) => sum + Number(manifest.total_containers ?? manifest.vazios_importacao_containers?.length ?? 0),
-    0,
-  )
-  const totalTareKg = containers.reduce((sum, c) => sum + Number(c.tare_kg ?? 0), 0)
-
-  return {
-    totalManifests,
-    totalContainers,
-    distinctContainers: countDistinctContainerNumbers(containers),
-    containerTypes: summarizeOccurrences(containers, (c) => c.container_type, 'Nao informado'),
-    totalTareKg,
-  }
-}
 
 function formatMetric(value: number | null | undefined) {
   const amount = Number(value ?? 0)
