@@ -51,7 +51,7 @@ export function LineUpTVDisplay() {
       ({
         ['--lineup-display-columns' as string]: DISPLAY_GRID_TEMPLATE,
         ['--lineup-display-row-height' as string]: `${rowHeight}px`,
-        ['--lineup-display-track-offset' as string]: isSliding ? `-${rowHeight}px` : '0px',
+        ['--lineup-display-row-shift' as string]: isSliding ? `-${rowHeight}px` : '0px',
       }) as CSSProperties,
     [isSliding, rowHeight],
   )
@@ -180,9 +180,13 @@ export function LineUpTVDisplay() {
                 </header>
 
                 <div ref={viewportRef} className="app-lineup-display-board__viewport">
-                  <div className={`app-lineup-display-board__track ${isSliding ? 'app-lineup-display-board__track--sliding' : ''}`}>
-                    {displayRows.map((row) => (
-                      <article key={row.id} className="app-lineup-display-board__row">
+                  <div className="app-lineup-display-board__track">
+                    {displayRows.map((row, slotIndex) => (
+                      <article
+                        key={row.id}
+                        className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''}`}
+                        style={{ top: `${slotIndex * rowHeight}px` }}
+                      >
                         <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
                         <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
                         <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
@@ -216,6 +220,7 @@ export function LineUpTVDisplay() {
                       <article
                         key={`lineup-display-placeholder-${index}`}
                         className="app-lineup-display-board__row app-lineup-display-board__row--placeholder"
+                        style={{ top: `${(displayRows.length + index) * rowHeight}px` }}
                         aria-hidden="true"
                       >
                         {Array.from({ length: DISPLAY_COLUMNS.length }).map((__, columnIndex) => (

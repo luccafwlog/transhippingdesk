@@ -1655,6 +1655,7 @@ textarea {
 }
 
 .app-lineup-display-board__viewport {
+  position: relative;
   height: 100%;
   min-height: 0;
   flex: 1;
@@ -1663,18 +1664,22 @@ textarea {
 }
 
 .app-lineup-display-board__track {
-  transform: translate3d(0, var(--lineup-display-track-offset, 0px), 0);
-  will-change: transform;
-}
-
-.app-lineup-display-board__track--sliding {
-  transition: transform 6000ms linear;
+  position: relative;
+  height: 100%;
 }
 
 .app-lineup-display-board__row {
+  position: absolute;
+  inset-inline: 0;
   height: var(--lineup-display-row-height);
   border-bottom: 1px solid #d6dfeb;
   background: #ffffff;
+  transform: translate3d(0, var(--lineup-display-row-shift, 0px), 0);
+  will-change: transform;
+}
+
+.app-lineup-display-board__row--sliding {
+  transition: transform 6000ms linear;
 }
 
 .app-lineup-display-board__row--placeholder {
