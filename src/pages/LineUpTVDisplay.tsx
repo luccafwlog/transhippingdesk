@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
@@ -11,7 +10,6 @@ const DISPLAY_ROW_TRAVEL_MS = 6000
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
-  const [{ startIndex, offset }, setRotation] = useState({ startIndex: 0, offset: 0 })
   const animationFrameRef = useRef<number | null>(null)
   const lastFrameTimeRef = useRef<number | null>(null)
 
@@ -34,23 +32,14 @@ export function LineUpTVDisplay() {
   const displayRows = useMemo(() => {
     if (!hasAnimatedLoop) return rows
 
-    return Array.from({ length: DISPLAY_VISIBLE_ROWS + 1 }, (_, slotIndex) => {
-      const baseRow = rows[(startIndex + slotIndex) % rows.length]
+    return Array.from({ length: rows.length * 2 }, (_, slotIndex) => {
+      const baseRow = rows[slotIndex % rows.length]
       return {
         ...baseRow,
-        id: `${baseRow.id}::display-slot-${startIndex}-${slotIndex}`,
+        id: `${baseRow.id}::display-loop-${slotIndex}`,
       }
     })
-  }, [hasAnimatedLoop, rows, startIndex])
-  const bodyStyle = useMemo<CSSProperties | undefined>(() => {
-    if (!hasAnimatedLoop) return undefined
-
-    return {
-      transform: `translateY(-${offset}px)`,
-      transition: 'none',
-      willChange: 'transform',
-    }
-  }, [hasAnimatedLoop, offset])
+  }, [hasAnimatedLoop, rows])
 
   useEffect(() => {
     const root = document.documentElement
@@ -82,34 +71,32 @@ export function LineUpTVDisplay() {
   }, [])
 
   useEffect(() => {
-    setRotation({ startIndex: 0, offset: 0 })
+    const container = scrollRef.current
+    if (container) container.scrollTop = 0
     lastFrameTimeRef.current = null
   }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
     if (!hasAnimatedLoop || rowHeight <= 0) return
+    const container = scrollRef.current
+    if (!container) return
 
-    const pixelsPerMs = rowHeight / DISPLAY_ROW_TRAVEL_MS
+    const firstBodyRow = container.querySelector('tbody tr')
+    const headerRow = container.querySelector('thead')
+    const measuredRowHeight = firstBodyRow ? firstBodyRow.getBoundingClientRect().height : rowHeight
+    const measuredHeaderHeight = headerRow ? headerRow.getBoundingClientRect().height : 0
+    const pixelsPerMs = measuredRowHeight / DISPLAY_ROW_TRAVEL_MS
+    const cycleHeight = Math.max((container.scrollHeight - measuredHeaderHeight) / 2, measuredRowHeight)
     const tick = (frameTime: number) => {
       const previousFrameTime = lastFrameTimeRef.current ?? frameTime
       const elapsedMs = frameTime - previousFrameTime
       lastFrameTimeRef.current = frameTime
 
-      setRotation((current) => {
-        let nextOffset = current.offset + elapsedMs * pixelsPerMs
-        let consumedRows = 0
-        while (nextOffset >= rowHeight) {
-          nextOffset -= rowHeight
-          consumedRows += 1
-        }
-
-        if (!consumedRows && Math.abs(nextOffset - current.offset) < 0.1) return current
-
-        return {
-          startIndex: consumedRows ? (current.startIndex + consumedRows) % rows.length : current.startIndex,
-          offset: nextOffset,
-        }
-      })
+      let nextScrollTop = container.scrollTop + elapsedMs * pixelsPerMs
+      while (nextScrollTop >= cycleHeight) {
+        nextScrollTop -= cycleHeight
+      }
+      container.scrollTop = nextScrollTop
 
       animationFrameRef.current = window.requestAnimationFrame(tick)
     }
@@ -186,7 +173,6 @@ export function LineUpTVDisplay() {
               rowHeight={rowHeight}
               fillSlots={hasAnimatedLoop ? undefined : DISPLAY_VISIBLE_ROWS}
               containerRef={scrollRef}
-              bodyStyle={bodyStyle}
               getRowKey={(row) => row.id}
             />
           </div>
