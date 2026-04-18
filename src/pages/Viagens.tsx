@@ -409,6 +409,14 @@ export function Viagens() {
                     <Info label="Tipos de container" value={generalCargoContainerTypes || '-'} />
                   </MetricPanel>
 
+                  <MetricPanel title="Veiculos">
+                    <Info label="Veiculos vinculados" value={String(vehicleStats.totalVehicles)} />
+                    <Info label="Containers com veiculos" value={String(vehicleStats.distinctContainerCount)} />
+                    <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
+                    <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
+                    <Info label="Tipos de Container" value={containerTypes || '-'} />
+                  </MetricPanel>
+
                   <MetricPanel title="Carga solta">
                     <Info label="B/Ls carga solta" value={String(breakbulkBls.length)} />
                     <Info label="Maquinas" value={formatMetric(totalBreakbulkMachines)} />
@@ -416,14 +424,6 @@ export function Viagens() {
                     <Info label="Packages total" value={formatMetric(totalBreakbulkPackagesTotal)} />
                     <Info label="Weight total" value={`${formatMetric(totalBreakbulkWeightTon)} ton`} />
                     <Info label="CBM total" value={formatMetric(totalBreakbulkCbm)} />
-                  </MetricPanel>
-
-                  <MetricPanel title="Veiculos">
-                    <Info label="Veiculos vinculados" value={String(vehicleStats.totalVehicles)} />
-                    <Info label="Containers com veiculos" value={String(vehicleStats.distinctContainerCount)} />
-                    <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
-                    <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
-                    <Info label="Tipos de Container" value={containerTypes || '-'} />
                   </MetricPanel>
                 </div>
               </MetricSection>
