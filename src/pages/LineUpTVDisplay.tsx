@@ -1,16 +1,23 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
-const DISPLAY_SCROLL_INTERVAL_MS = 6000
+const DISPLAY_SCROLL_INTERVAL_MS = 7000
+const DISPLAY_SLIDE_DURATION_MS = 850
+type DisplayTransitionPhase = 'idle' | 'exit' | 'enter'
 
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
   const [windowStartIndex, setWindowStartIndex] = useState(0)
+  const [transitionPhase, setTransitionPhase] = useState<DisplayTransitionPhase>('idle')
+  const transitionPhaseRef = useRef<DisplayTransitionPhase>('idle')
+  const exitTimeoutRef = useRef<number | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -39,6 +46,33 @@ export function LineUpTVDisplay() {
       }
     })
   }, [hasAnimatedLoop, rows, windowStartIndex])
+  const bodyStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!hasAnimatedLoop) return undefined
+
+    const slideOffset = Math.max(18, Math.round(rowHeight * 0.3))
+    if (transitionPhase === 'exit') {
+      return {
+        opacity: 0,
+        transform: `translateY(-${slideOffset}px)`,
+        transition: `transform ${DISPLAY_SLIDE_DURATION_MS}ms ease, opacity ${DISPLAY_SLIDE_DURATION_MS}ms ease`,
+      }
+    }
+
+    if (transitionPhase === 'enter') {
+      return {
+        opacity: 0,
+        transform: `translateY(${slideOffset}px)`,
+        transition: 'none',
+      }
+    }
+
+    return {
+      opacity: 1,
+      transform: 'translateY(0)',
+      transition: `transform ${DISPLAY_SLIDE_DURATION_MS}ms ease, opacity ${DISPLAY_SLIDE_DURATION_MS}ms ease`,
+      willChange: 'transform, opacity',
+    }
+  }, [hasAnimatedLoop, rowHeight, transitionPhase])
 
   useEffect(() => {
     const root = document.documentElement
@@ -70,18 +104,46 @@ export function LineUpTVDisplay() {
   }, [])
 
   useEffect(() => {
+    transitionPhaseRef.current = transitionPhase
+  }, [transitionPhase])
+
+  useEffect(() => {
+    transitionPhaseRef.current = 'idle'
     setWindowStartIndex(0)
+    setTransitionPhase('idle')
   }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
     if (!hasAnimatedLoop) return
 
     const intervalId = window.setInterval(() => {
-      setWindowStartIndex((currentIndex) => (currentIndex + 1) % rows.length)
+      if (transitionPhaseRef.current !== 'idle') return
+
+      transitionPhaseRef.current = 'exit'
+      setTransitionPhase('exit')
+      exitTimeoutRef.current = window.setTimeout(() => {
+        setWindowStartIndex((currentIndex) => (currentIndex + 1) % rows.length)
+        transitionPhaseRef.current = 'enter'
+        setTransitionPhase('enter')
+        animationFrameRef.current = window.requestAnimationFrame(() => {
+          animationFrameRef.current = window.requestAnimationFrame(() => {
+            transitionPhaseRef.current = 'idle'
+            setTransitionPhase('idle')
+          })
+        })
+      }, DISPLAY_SLIDE_DURATION_MS)
     }, DISPLAY_SCROLL_INTERVAL_MS)
 
     return () => {
       window.clearInterval(intervalId)
+      if (exitTimeoutRef.current !== null) {
+        window.clearTimeout(exitTimeoutRef.current)
+        exitTimeoutRef.current = null
+      }
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
     }
   }, [hasAnimatedLoop, rows.length])
 
@@ -146,6 +208,7 @@ export function LineUpTVDisplay() {
               rowHeight={rowHeight}
               fillSlots={hasAnimatedLoop ? undefined : DISPLAY_VISIBLE_ROWS}
               containerRef={scrollRef}
+              bodyStyle={bodyStyle}
               getRowKey={(row) => row.id}
             />
           </div>
