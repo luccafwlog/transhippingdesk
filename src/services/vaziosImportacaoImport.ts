@@ -94,17 +94,27 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
 export type ImportVaziosImportacaoArgs = {
   manifest: ParsedVaziosImportacaoManifest
   uploadedBy: string
+  voyageId: number
   description?: string
 }
 
 export async function importVaziosImportacaoManifest({
   manifest,
   uploadedBy,
+  voyageId,
   description,
 }: ImportVaziosImportacaoArgs): Promise<{ manifestId: string }> {
+  const { data: voyageRow, error: voyageError } = await supabase
+    .from('voyages')
+    .select('id')
+    .eq('id', voyageId)
+    .single()
+  if (voyageError || !voyageRow) throw new Error('Viagem nao encontrada.')
+
   const { data: manifestRow, error: manifestError } = await supabase
     .from('vazios_importacao_manifests')
     .insert({
+      voyage_id: voyageId,
       description: description ?? null,
       total_containers: manifest.containers.length,
       imported_by: uploadedBy,
@@ -135,6 +145,7 @@ export async function importVaziosImportacaoManifest({
 
 export async function listVaziosImportacaoContainers(filters: {
   manifestId?: string
+  voyageId?: string
   search?: string
   page?: number
   pageSize?: number
@@ -147,7 +158,7 @@ export async function listVaziosImportacaoContainers(filters: {
   let query = supabase
     .from('vazios_importacao_containers')
     .select(
-      `*, manifest:vazios_importacao_manifests(id, description, imported_at)`,
+      `*, manifest:vazios_importacao_manifests(id, voyage_id, description, imported_at)`,
       { count: 'exact' },
     )
     .range(from, to)
@@ -161,6 +172,16 @@ export async function listVaziosImportacaoContainers(filters: {
 
   if (filters.manifestId) {
     query = query.eq('manifest_id', filters.manifestId)
+  }
+
+  if (filters.voyageId) {
+    const { data: manifestIds } = await supabase
+      .from('vazios_importacao_manifests')
+      .select('id')
+      .eq('voyage_id', Number(filters.voyageId))
+    const ids = (manifestIds ?? []).map((m: { id: string }) => m.id)
+    if (!ids.length) return { rows: [], count: 0 }
+    query = query.in('manifest_id', ids)
   }
 
   const { data, error, count } = await query

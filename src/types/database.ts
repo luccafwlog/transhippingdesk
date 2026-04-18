@@ -1005,6 +1005,7 @@ export type VaziosBookingListItem = VaziosBooking & {
 
 export type VaziosImportacaoManifest = {
   id: string
+  voyage_id: number | null
   description: string | null
   total_containers: number | null
   imported_at: string
@@ -1021,5 +1022,5 @@ export type VaziosImportacaoContainer = {
 }
 
 export type VaziosImportacaoContainerListItem = VaziosImportacaoContainer & {
-  manifest?: Pick<VaziosImportacaoManifest, 'id' | 'description' | 'imported_at'> | null
+  manifest?: Pick<VaziosImportacaoManifest, 'id' | 'voyage_id' | 'description' | 'imported_at'> | null
 }

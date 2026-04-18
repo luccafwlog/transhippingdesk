@@ -7,6 +7,7 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
+import { useVoyageOptions } from '../hooks/useBls'
 import {
   parseVaziosImportacaoFile,
   importVaziosImportacaoManifest,
@@ -20,6 +21,7 @@ const pageSizes = [20, 50, 100]
 type Filters = {
   search: string
   manifestId: string
+  voyageId: string
   page: number
   pageSize: number
 }
@@ -28,15 +30,18 @@ export function VaziosImportacao() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
+  const { data: voyageOptions } = useVoyageOptions()
 
   const [filters, setFilters] = useState<Filters>({
     search: '',
     manifestId: '',
+    voyageId: '',
     page: 1,
     pageSize: 20,
   })
 
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [voyageId, setVoyageId] = useState('')
   const [description, setDescription] = useState('')
   const [manifest, setManifest] = useState<ParsedVaziosImportacaoManifest | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -60,6 +65,7 @@ export function VaziosImportacao() {
 
   function resetUpload() {
     setUploadOpen(false)
+    setVoyageId('')
     setDescription('')
     setManifest(null)
   }
@@ -80,17 +86,21 @@ export function VaziosImportacao() {
   }
 
   async function handleImport() {
-    if (!manifest || !user) return
+    if (!manifest || !user || !voyageId) return
     setSubmitting(true)
     try {
       await importVaziosImportacaoManifest({
         manifest,
         uploadedBy: user.id,
+        voyageId: Number(voyageId),
         description: description.trim() || undefined,
       })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['vazios-importacao-containers'] }),
         queryClient.invalidateQueries({ queryKey: ['vazios-importacao-manifests'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
       ])
       showToast(`${manifest.containers.length} containers importados.`, 'success')
       resetUpload()
@@ -115,13 +125,23 @@ export function VaziosImportacao() {
       />
 
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Texto livre">
             <Input
               placeholder="Container ou tipo"
               value={filters.search}
               onChange={(e) => updateFilter('search', e.target.value)}
             />
+          </Field>
+          <Field label="Viagem">
+            <Select value={filters.voyageId} onChange={(e) => updateFilter('voyageId', e.target.value)}>
+              <option value="">Todas</option>
+              {voyageOptions?.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Manifesto">
             <Select value={filters.manifestId} onChange={(e) => updateFilter('manifestId', e.target.value)}>
@@ -232,6 +252,17 @@ export function VaziosImportacao() {
             </div>
           </div>
 
+          <Field label="Viagem de destino">
+            <Select value={voyageId} onChange={(e) => setVoyageId(e.target.value)}>
+              <option value="">Selecione uma viagem</option>
+              {voyageOptions?.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <Field label="Descricao (opcional)">
             <Input
               placeholder="Ex: Importacao semana 15"
@@ -292,7 +323,7 @@ export function VaziosImportacao() {
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={resetUpload}>Cancelar</Button>
-            <Button disabled={!manifest || !user} loading={submitting} onClick={handleImport}>
+            <Button disabled={!manifest || !user || !voyageId} loading={submitting} onClick={handleImport}>
               Confirmar importacao
             </Button>
           </div>
