@@ -1,17 +1,21 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
-import { LineUpTable } from '../components/lineup/LineUpTable'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
 const DISPLAY_ROW_TRAVEL_MS = 6000
+const DISPLAY_GRID_TEMPLATE = '18fr 4fr 6fr 6fr 6fr 6fr 6fr 6fr 7fr 6fr 5fr 7fr 11fr 6fr'
+const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'CAR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
 export function LineUpTVDisplay() {
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-  const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const trackRef = useRef<HTMLDivElement | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const lastFrameTimeRef = useRef<number | null>(null)
+  const offsetRef = useRef(0)
+  const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -23,23 +27,33 @@ export function LineUpTVDisplay() {
   const rows = useMemo(() => [...(data?.rows ?? [])].sort(compareDisplayRows), [data?.rows])
   const firstRoute = rows[0] ?? null
   const hasAnimatedLoop = rows.length > DISPLAY_VISIBLE_ROWS
+  const placeholderCount = hasAnimatedLoop ? 0 : Math.max(0, DISPLAY_VISIBLE_ROWS - rows.length)
+  const displayRows = useMemo(() => {
+    if (!hasAnimatedLoop) return rows
+
+    return Array.from({ length: rows.length * 2 }, (_, index) => {
+      const row = rows[index % rows.length]
+      return {
+        ...row,
+        id: `${row.id}::display-track-${index}`,
+      }
+    })
+  }, [hasAnimatedLoop, rows])
+
   const lastUpdate = data?.lastChangedAt
     ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
         new Date(data.lastChangedAt),
       )
     : '-'
   const firstRouteLabel = firstRoute ? buildDisplayLeadLabel(firstRoute) : '-'
-  const displayRows = useMemo(() => {
-    if (!hasAnimatedLoop) return rows
-
-    return Array.from({ length: rows.length * 2 }, (_, slotIndex) => {
-      const baseRow = rows[slotIndex % rows.length]
-      return {
-        ...baseRow,
-        id: `${baseRow.id}::display-loop-${slotIndex}`,
-      }
-    })
-  }, [hasAnimatedLoop, rows])
+  const boardStyle = useMemo(
+    () =>
+      ({
+        ['--lineup-display-columns' as string]: DISPLAY_GRID_TEMPLATE,
+        ['--lineup-display-row-height' as string]: `${rowHeight}px`,
+      }) as CSSProperties,
+    [rowHeight],
+  )
 
   useEffect(() => {
     const root = document.documentElement
@@ -71,36 +85,42 @@ export function LineUpTVDisplay() {
   }, [])
 
   useEffect(() => {
-    const container = scrollRef.current
-    if (container) container.scrollTop = 0
+    offsetRef.current = 0
     lastFrameTimeRef.current = null
+    const track = trackRef.current
+    if (track) {
+      track.style.transform = 'translateY(0px)'
+    }
   }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
     if (!hasAnimatedLoop || rowHeight <= 0) return
-    const container = scrollRef.current
-    if (!container) return
 
-    const firstBodyRow = container.querySelector('tbody tr')
-    const headerRow = container.querySelector('thead')
-    const measuredRowHeight = firstBodyRow ? firstBodyRow.getBoundingClientRect().height : rowHeight
-    const measuredHeaderHeight = headerRow ? headerRow.getBoundingClientRect().height : 0
+    const track = trackRef.current
+    const viewport = viewportRef.current
+    if (!track || !viewport) return
+
+    const firstTrackRow = track.querySelector<HTMLElement>('.app-lineup-display-board__row')
+    const measuredRowHeight = firstTrackRow?.getBoundingClientRect().height ?? rowHeight
+    const cycleHeight = measuredRowHeight * rows.length
     const pixelsPerMs = measuredRowHeight / DISPLAY_ROW_TRAVEL_MS
-    const cycleHeight = Math.max((container.scrollHeight - measuredHeaderHeight) / 2, measuredRowHeight)
+
     const tick = (frameTime: number) => {
       const previousFrameTime = lastFrameTimeRef.current ?? frameTime
       const elapsedMs = frameTime - previousFrameTime
       lastFrameTimeRef.current = frameTime
 
-      let nextScrollTop = container.scrollTop + elapsedMs * pixelsPerMs
-      while (nextScrollTop >= cycleHeight) {
-        nextScrollTop -= cycleHeight
+      let nextOffset = offsetRef.current + elapsedMs * pixelsPerMs
+      while (nextOffset >= cycleHeight) {
+        nextOffset -= cycleHeight
       }
-      container.scrollTop = nextScrollTop
 
+      offsetRef.current = nextOffset
+      track.style.transform = `translateY(-${nextOffset}px)`
       animationFrameRef.current = window.requestAnimationFrame(tick)
     }
 
+    viewport.scrollTop = 0
     animationFrameRef.current = window.requestAnimationFrame(tick)
 
     return () => {
@@ -113,22 +133,16 @@ export function LineUpTVDisplay() {
   }, [hasAnimatedLoop, rowHeight, rows.length])
 
   useLayoutEffect(() => {
-    const container = scrollRef.current
-    if (!container) return
+    const viewport = viewportRef.current
+    if (!viewport) return
 
     const recalculate = () => {
-      const headerRow = container.querySelector('thead')
-      const headerHeight = Math.ceil(headerRow?.getBoundingClientRect().height ?? 38)
-      const availableHeight = Math.max(container.clientHeight - headerHeight, DISPLAY_MIN_ROW_HEIGHT * DISPLAY_VISIBLE_ROWS)
-      const next = Math.max(DISPLAY_MIN_ROW_HEIGHT, Math.floor(availableHeight / DISPLAY_VISIBLE_ROWS))
-      setRowHeight(next)
+      const nextHeight = Math.max(DISPLAY_MIN_ROW_HEIGHT, Math.floor(viewport.clientHeight / DISPLAY_VISIBLE_ROWS))
+      setRowHeight(nextHeight)
     }
 
     const observer = new ResizeObserver(recalculate)
-    observer.observe(container)
-    const headerRow = container.querySelector('thead')
-    if (headerRow) observer.observe(headerRow)
-
+    observer.observe(viewport)
     requestAnimationFrame(recalculate)
 
     return () => observer.disconnect()
@@ -165,21 +179,79 @@ export function LineUpTVDisplay() {
           <div className="app-lineup-display-loading">Carregando line up...</div>
         ) : (
           <div className="app-lineup-display-table-frame">
-            <LineUpTable
-              rows={displayRows}
-              emptyTitle="Nenhuma escala disponivel."
-              emptyDescription="Aguarde o proximo ciclo de atualizacao."
-              mode="display"
-              rowHeight={rowHeight}
-              fillSlots={hasAnimatedLoop ? undefined : DISPLAY_VISIBLE_ROWS}
-              containerRef={scrollRef}
-              getRowKey={(row) => row.id}
-            />
+            {rows.length === 0 ? (
+              <div className="app-lineup-display-loading">Nenhuma escala disponivel.</div>
+            ) : (
+              <section className="app-lineup-display-board" style={boardStyle}>
+                <header className="app-lineup-display-board__header">
+                  {DISPLAY_COLUMNS.map((label) => (
+                    <div key={label} className="app-lineup-display-board__head">
+                      {label}
+                    </div>
+                  ))}
+                </header>
+
+                <div ref={viewportRef} className="app-lineup-display-board__viewport">
+                  <div ref={trackRef} className="app-lineup-display-board__track">
+                    {displayRows.map((row) => (
+                      <article key={row.id} className="app-lineup-display-board__row">
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
+                        <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
+                        <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{formatInteger(row.vin)}</div>
+                        <div className="app-lineup-display-board__cell">{formatInteger(row.car)}</div>
+                        <div className="app-lineup-display-board__cell">{formatInteger(row.cg)}</div>
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">{formatInteger(row.total)}</div>
+                        <div className="app-lineup-display-board__cell">{formatInteger(row.mty)}</div>
+                        <div className="app-lineup-display-board__cell">{row.rtw === null ? '-' : formatInteger(row.rtw)}</div>
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">
+                          <div className="app-lineup-display-board__bb">
+                            <span>{formatInteger(row.bbMachines)} MAQ</span>
+                            <span>{formatInteger(row.bbPackages)} PACK</span>
+                            <span>{formatInteger(row.bbTotal)} TOTAL</span>
+                          </div>
+                        </div>
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                          {renderDisplayCeStatus(row.ceStatus)}
+                        </div>
+                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                          <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                            {row.linked ? 'YES' : 'NO'}
+                          </span>
+                        </div>
+                      </article>
+                    ))}
+
+                    {Array.from({ length: placeholderCount }).map((_, index) => (
+                      <article
+                        key={`lineup-display-placeholder-${index}`}
+                        className="app-lineup-display-board__row app-lineup-display-board__row--placeholder"
+                        aria-hidden="true"
+                      >
+                        {Array.from({ length: DISPLAY_COLUMNS.length }).map((__, columnIndex) => (
+                          <div key={columnIndex} className="app-lineup-display-board__cell">
+                            &nbsp;
+                          </div>
+                        ))}
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
         )}
       </section>
     </main>
   )
+}
+
+function renderDisplayCeStatus(status: LineUpRow['ceStatus']) {
+  if (status === 'approved') return <span className="app-lineup-display-status app-lineup-display-status--green">Approved</span>
+  if (status === 'partial') return <span className="app-lineup-display-status app-lineup-display-status--amber">Partial</span>
+  return <span className="app-lineup-display-status app-lineup-display-status--red">Missing</span>
 }
 
 function compareDisplayRows(left: LineUpRow, right: LineUpRow) {
@@ -219,4 +291,13 @@ function formatDisplayLeadDate(label: 'ETA' | 'ETB', value: string | null) {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return null
   return `${label} ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(parsed)}`
+}
+
+function formatShortDate(value: string | null) {
+  if (!value) return '-'
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(value))
+}
+
+function formatInteger(value: number) {
+  return new Intl.NumberFormat('pt-BR').format(Number(value ?? 0))
 }
