@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { toNumber } from '../lib/utils'
+import type { VaziosImportacaoContainerListItem, VaziosImportacaoManifest } from '../types/database'
 
 const HEADER_MAP: Record<string, string> = {
   'container': 'container_number',
@@ -164,7 +165,7 @@ export async function listVaziosImportacaoContainers(filters: {
 
   const { data, error, count } = await query
   if (error) throw error
-  return { rows: data ?? [], count: count ?? 0 }
+  return { rows: (data ?? []) as unknown as VaziosImportacaoContainerListItem[], count: count ?? 0 }
 }
 
 export async function listVaziosImportacaoManifests() {
@@ -174,5 +175,5 @@ export async function listVaziosImportacaoManifests() {
     .order('imported_at', { ascending: false })
     .limit(50)
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as unknown as VaziosImportacaoManifest[]
 }
