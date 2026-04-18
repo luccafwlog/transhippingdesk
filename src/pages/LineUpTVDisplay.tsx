@@ -6,18 +6,14 @@ import { LineUpTable } from '../components/lineup/LineUpTable'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
-const DISPLAY_SCROLL_INTERVAL_MS = 7000
-const DISPLAY_SLIDE_DURATION_MS = 850
-type DisplayTransitionPhase = 'idle' | 'exit' | 'enter'
+const DISPLAY_ROW_TRAVEL_MS = 6000
 
 export function LineUpTVDisplay() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
-  const [windowStartIndex, setWindowStartIndex] = useState(0)
-  const [transitionPhase, setTransitionPhase] = useState<DisplayTransitionPhase>('idle')
-  const transitionPhaseRef = useRef<DisplayTransitionPhase>('idle')
-  const exitTimeoutRef = useRef<number | null>(null)
+  const [{ startIndex, offset }, setRotation] = useState({ startIndex: 0, offset: 0 })
   const animationFrameRef = useRef<number | null>(null)
+  const lastFrameTimeRef = useRef<number | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
@@ -38,41 +34,23 @@ export function LineUpTVDisplay() {
   const displayRows = useMemo(() => {
     if (!hasAnimatedLoop) return rows
 
-    return Array.from({ length: DISPLAY_VISIBLE_ROWS }, (_, slotIndex) => {
-      const baseRow = rows[(windowStartIndex + slotIndex) % rows.length]
+    return Array.from({ length: DISPLAY_VISIBLE_ROWS + 1 }, (_, slotIndex) => {
+      const baseRow = rows[(startIndex + slotIndex) % rows.length]
       return {
         ...baseRow,
-        id: `${baseRow.id}::display-slot-${windowStartIndex}-${slotIndex}`,
+        id: `${baseRow.id}::display-slot-${startIndex}-${slotIndex}`,
       }
     })
-  }, [hasAnimatedLoop, rows, windowStartIndex])
+  }, [hasAnimatedLoop, rows, startIndex])
   const bodyStyle = useMemo<CSSProperties | undefined>(() => {
     if (!hasAnimatedLoop) return undefined
 
-    const slideOffset = Math.max(18, Math.round(rowHeight * 0.3))
-    if (transitionPhase === 'exit') {
-      return {
-        opacity: 0,
-        transform: `translateY(-${slideOffset}px)`,
-        transition: `transform ${DISPLAY_SLIDE_DURATION_MS}ms ease, opacity ${DISPLAY_SLIDE_DURATION_MS}ms ease`,
-      }
-    }
-
-    if (transitionPhase === 'enter') {
-      return {
-        opacity: 0,
-        transform: `translateY(${slideOffset}px)`,
-        transition: 'none',
-      }
-    }
-
     return {
-      opacity: 1,
-      transform: 'translateY(0)',
-      transition: `transform ${DISPLAY_SLIDE_DURATION_MS}ms ease, opacity ${DISPLAY_SLIDE_DURATION_MS}ms ease`,
-      willChange: 'transform, opacity',
+      transform: `translateY(-${offset}px)`,
+      transition: 'none',
+      willChange: 'transform',
     }
-  }, [hasAnimatedLoop, rowHeight, transitionPhase])
+  }, [hasAnimatedLoop, offset])
 
   useEffect(() => {
     const root = document.documentElement
@@ -104,48 +82,48 @@ export function LineUpTVDisplay() {
   }, [])
 
   useEffect(() => {
-    transitionPhaseRef.current = transitionPhase
-  }, [transitionPhase])
-
-  useEffect(() => {
-    transitionPhaseRef.current = 'idle'
-    setWindowStartIndex(0)
-    setTransitionPhase('idle')
+    setRotation({ startIndex: 0, offset: 0 })
+    lastFrameTimeRef.current = null
   }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
-    if (!hasAnimatedLoop) return
+    if (!hasAnimatedLoop || rowHeight <= 0) return
 
-    const intervalId = window.setInterval(() => {
-      if (transitionPhaseRef.current !== 'idle') return
+    const pixelsPerMs = rowHeight / DISPLAY_ROW_TRAVEL_MS
+    const tick = (frameTime: number) => {
+      const previousFrameTime = lastFrameTimeRef.current ?? frameTime
+      const elapsedMs = frameTime - previousFrameTime
+      lastFrameTimeRef.current = frameTime
 
-      transitionPhaseRef.current = 'exit'
-      setTransitionPhase('exit')
-      exitTimeoutRef.current = window.setTimeout(() => {
-        setWindowStartIndex((currentIndex) => (currentIndex + 1) % rows.length)
-        transitionPhaseRef.current = 'enter'
-        setTransitionPhase('enter')
-        animationFrameRef.current = window.requestAnimationFrame(() => {
-          animationFrameRef.current = window.requestAnimationFrame(() => {
-            transitionPhaseRef.current = 'idle'
-            setTransitionPhase('idle')
-          })
-        })
-      }, DISPLAY_SLIDE_DURATION_MS)
-    }, DISPLAY_SCROLL_INTERVAL_MS)
+      setRotation((current) => {
+        let nextOffset = current.offset + elapsedMs * pixelsPerMs
+        let consumedRows = 0
+        while (nextOffset >= rowHeight) {
+          nextOffset -= rowHeight
+          consumedRows += 1
+        }
+
+        if (!consumedRows && Math.abs(nextOffset - current.offset) < 0.1) return current
+
+        return {
+          startIndex: consumedRows ? (current.startIndex + consumedRows) % rows.length : current.startIndex,
+          offset: nextOffset,
+        }
+      })
+
+      animationFrameRef.current = window.requestAnimationFrame(tick)
+    }
+
+    animationFrameRef.current = window.requestAnimationFrame(tick)
 
     return () => {
-      window.clearInterval(intervalId)
-      if (exitTimeoutRef.current !== null) {
-        window.clearTimeout(exitTimeoutRef.current)
-        exitTimeoutRef.current = null
-      }
       if (animationFrameRef.current !== null) {
         window.cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
       }
+      lastFrameTimeRef.current = null
     }
-  }, [hasAnimatedLoop, rows.length])
+  }, [hasAnimatedLoop, rowHeight, rows.length])
 
   useLayoutEffect(() => {
     const container = scrollRef.current
