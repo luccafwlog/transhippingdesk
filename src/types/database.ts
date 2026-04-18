@@ -400,6 +400,8 @@ export type Database = {
       granite_bl_charges: Row<GraniteBlCharge>
       vazios_manifests: Row<VaziosManifest>
       vazios_bookings: Row<VaziosBooking>
+      vazios_importacao_manifests: Row<VaziosImportacaoManifest>
+      vazios_importacao_containers: Row<VaziosImportacaoContainer>
     }
     Views: Record<string, never>
     Functions: {
@@ -995,4 +997,29 @@ export type VaziosBookingListItem = VaziosBooking & {
       vessel?: Pick<Vessel, 'id' | 'name'> | null
     } | null
   } | null
+}
+
+// ---------------------------------------------------------------------------
+// Vazios Importacao module
+// ---------------------------------------------------------------------------
+
+export type VaziosImportacaoManifest = {
+  id: string
+  description: string | null
+  total_containers: number | null
+  imported_at: string
+  imported_by: string | null
+}
+
+export type VaziosImportacaoContainer = {
+  id: string
+  manifest_id: string
+  container_number: string
+  container_type: string | null
+  tare_kg: number | null
+  created_at: string | null
+}
+
+export type VaziosImportacaoContainerListItem = VaziosImportacaoContainer & {
+  manifest?: Pick<VaziosImportacaoManifest, 'id' | 'description' | 'imported_at'> | null
 }

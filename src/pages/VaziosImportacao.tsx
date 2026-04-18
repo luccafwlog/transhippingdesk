@@ -38,7 +38,6 @@ export function VaziosImportacao() {
 
   const [uploadOpen, setUploadOpen] = useState(false)
   const [description, setDescription] = useState('')
-  const [file, setFile] = useState<File | null>(null)
   const [manifest, setManifest] = useState<ParsedVaziosImportacaoManifest | null>(null)
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -62,13 +61,11 @@ export function VaziosImportacao() {
   function resetUpload() {
     setUploadOpen(false)
     setDescription('')
-    setFile(null)
     setManifest(null)
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null
-    setFile(nextFile)
     setManifest(null)
     if (!nextFile) return
     setParsing(true)
@@ -180,11 +177,10 @@ export function VaziosImportacao() {
                 </tr>
               ) : null}
               {(data?.rows ?? []).map((row) => {
-                const manifestData = (row as { manifest?: { description?: string; imported_at?: string } }).manifest
-                const manifestLabel = manifestData?.description
-                  ? manifestData.description
-                  : manifestData?.imported_at
-                    ? new Date(manifestData.imported_at).toLocaleDateString('pt-BR')
+                const manifestLabel = row.manifest?.description
+                  ? row.manifest.description
+                  : row.manifest?.imported_at
+                    ? new Date(row.manifest.imported_at).toLocaleDateString('pt-BR')
                     : '-'
                 return (
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
@@ -193,8 +189,8 @@ export function VaziosImportacao() {
                     <td className="px-4 py-3">{row.tare_kg != null ? String(row.tare_kg) : '-'}</td>
                     <td className="px-4 py-3">{manifestLabel}</td>
                     <td className="px-4 py-3">
-                      {manifestData?.imported_at
-                        ? new Date(manifestData.imported_at).toLocaleDateString('pt-BR')
+                      {row.manifest?.imported_at
+                        ? new Date(row.manifest.imported_at).toLocaleDateString('pt-BR')
                         : '-'}
                     </td>
                   </tr>
