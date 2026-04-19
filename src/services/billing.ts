@@ -226,7 +226,8 @@ export async function createInvoiceFromGraniteBls(input: {
   notes?: string | null
   actorId?: string | null
 }) {
-  const { data, error } = await supabase.rpc('create_invoice_from_granite_bls', {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('create_invoice_from_granite_bls', {
     p_granite_bl_ids: input.graniteBlIds,
     p_customer_id: input.customerId ?? null,
     p_due_date: input.dueDate ?? null,
