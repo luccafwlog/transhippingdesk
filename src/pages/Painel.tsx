@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Boxes, FileText, Receipt, ReceiptText, CheckCircle, UserX, TableProperties } from 'lucide-react'
+import { AlertTriangle, Boxes, FileText, Monitor, Receipt, ReceiptText, CheckCircle, UserX, TableProperties } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, PageHeader } from '../components/ui/Card'
 import { normalizeContainerNumber } from '../lib/containerCounts'
@@ -170,6 +170,28 @@ export function Painel() {
           detail="Ver em Taxas Locais"
           linkTo="/taxas-locais"
         />
+        <Card className="app-kpi-card app-kpi-card--navy">
+          <div className="text-slate-400 mb-4">
+            <Monitor size={24} />
+          </div>
+          <div className="app-kpi-card__label">LineUp TV</div>
+          <div className="mt-3 flex gap-2">
+            <Link
+              to="/line-up-tv/display"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 rounded-md bg-[#1A2744] px-3 py-1.5 text-center text-xs font-medium text-white hover:bg-[#243460] transition-colors"
+            >
+              Abrir Tela TV
+            </Link>
+            <Link
+              to="/line-up-tv"
+              className="flex-1 rounded-md border border-[#30363d] px-3 py-1.5 text-center text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              Configurar
+            </Link>
+          </div>
+        </Card>
       </div>
     </>
   )

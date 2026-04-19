@@ -10,6 +10,7 @@ export type CustomerMaps = {
   customersByDocument: Map<string, CustomerMatchRecord>
   customersByName: Map<string, CustomerMatchRecord>
   customersByCanonicalName: Map<string, CustomerMatchRecord>
+  canonicalList: { canonical: string; record: CustomerMatchRecord }[]
 }
 
 export type CustomerMatchResult = {
@@ -35,10 +36,30 @@ export function canonicalizeName(name: string): string {
     .trim()
 }
 
+// Similaridade de Levenshtein normalizada [0..1]. 1 = idêntico.
+function levenshteinSimilarity(a: string, b: string): number {
+  if (a === b) return 1
+  if (!a || !b) return 0
+  const m = a.length
+  const n = b.length
+  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i)
+  for (let i = 1; i <= m; i++) {
+    let prev = i
+    for (let j = 1; j <= n; j++) {
+      const val = a[i - 1] === b[j - 1] ? dp[j - 1] : 1 + Math.min(prev, dp[j], dp[j - 1])
+      dp[j - 1] = prev
+      prev = val
+    }
+    dp[n] = prev
+  }
+  return 1 - dp[n] / Math.max(m, n)
+}
+
 export async function loadCustomerMaps() {
   const customersByDocument = new Map<string, CustomerMatchRecord>()
   const customersByName = new Map<string, CustomerMatchRecord>()
   const customersByCanonicalName = new Map<string, CustomerMatchRecord>()
+  const canonicalList: { canonical: string; record: CustomerMatchRecord }[] = []
 
   let from = 0
   const pageSize = 1000
@@ -70,6 +91,7 @@ export async function loadCustomerMaps() {
       const canonical = canonicalizeName(customer.name)
       if (canonical && !customersByCanonicalName.has(canonical)) {
         customersByCanonicalName.set(canonical, record)
+        canonicalList.push({ canonical, record })
       }
     }
 
@@ -77,7 +99,7 @@ export async function loadCustomerMaps() {
     from += pageSize
   }
 
-  return { customersByDocument, customersByName, customersByCanonicalName }
+  return { customersByDocument, customersByName, customersByCanonicalName, canonicalList }
 }
 
 export function findMatchedCustomer(
@@ -105,12 +127,28 @@ export function findMatchedCustomer(
     }
   }
 
-  // Fallback: nome canônico (tolera pontuação diferente e sufixos legais ausentes/presentes)
+  // Nível 3: nome canônico (tolera pontuação diferente e sufixos legais ausentes/presentes)
   const canonicalConsignee = canonicalizeName(consignee)
   if (canonicalConsignee) {
     const customerByCanonical = maps.customersByCanonicalName.get(canonicalConsignee)
     if (customerByCanonical) {
       return { customer: customerByCanonical, matchType: 'name' }
+    }
+  }
+
+  // Nível 4: fuzzy match por similaridade Levenshtein ≥ 0.90
+  if (canonicalConsignee && maps.canonicalList.length > 0) {
+    let bestScore = 0
+    let bestRecord: CustomerMatchRecord | null = null
+    for (const entry of maps.canonicalList) {
+      const score = levenshteinSimilarity(canonicalConsignee, entry.canonical)
+      if (score > bestScore) {
+        bestScore = score
+        bestRecord = entry.record
+      }
+    }
+    if (bestScore >= 0.90 && bestRecord) {
+      return { customer: bestRecord, matchType: 'name' }
     }
   }
 

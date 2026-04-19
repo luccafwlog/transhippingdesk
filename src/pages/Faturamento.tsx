@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Ban, DollarSign, FileDown, FilePlus2 } from 'lucide-react'
+import { AlertTriangle, Ban, DollarSign, FilePlus2, Printer } from 'lucide-react'
+import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -13,7 +14,9 @@ import { useVoyageOptions } from '../hooks/useBls'
 import {
   useBillingCustomers,
   useBillingReadyBls,
+  useBillingReadyGraniteBls,
   useCancelInvoice,
+  useCreateGraniteInvoice,
   useCreateInvoice,
   useInvoiceDetail,
   useInvoices,
@@ -82,7 +85,7 @@ export function Faturamento() {
   const [createSearch, setCreateSearch] = useState('')
   const [selectedBls, setSelectedBls] = useState<string[]>([])
   const [customerSearch, setCustomerSearch] = useState('')
-  const [isPdfGenerating, setIsPdfGenerating] = useState(false)
+  const [printOpen, setPrintOpen] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix')
   const [paymentDate, setPaymentDate] = useState('')
@@ -113,48 +116,70 @@ export function Faturamento() {
     voyageId: createVoyageId ? Number(createVoyageId) : null,
     cargoMode: createCargoMode || null,
   })
+  const { data: readyGraniteBls, isLoading: loadingReadyGraniteBls } = useBillingReadyGraniteBls({
+    customerId: createCustomerId ? Number(createCustomerId) : null,
+  })
   const { data: voyageOptions } = useVoyageOptions()
   const detailQuery = useInvoiceDetail(selectedInvoiceId)
   const createInvoiceMutation = useCreateInvoice()
+  const createGraniteInvoiceMutation = useCreateGraniteInvoice()
   const registerPaymentMutation = useRegisterInvoicePayment()
   const cancelInvoiceMutation = useCancelInvoice()
 
+  type UnifiedBl = {
+    id: string
+    origin: 'local' | 'granite'
+    label: string
+    customerName: string | null
+    customerDoc: string | null
+    context: string
+  }
+
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
   const invoices = useMemo(() => data?.rows ?? [], [data?.rows])
-  const filteredReadyBls = useMemo(() => {
+
+  const unifiedReadyBls = useMemo((): UnifiedBl[] => {
     const term = createSearch.trim().toUpperCase()
-    return (readyBls ?? []).filter((row) => !term || row.id.includes(term) || String(row.customer?.name ?? '').toUpperCase().includes(term))
-  }, [createSearch, readyBls])
+    const local: UnifiedBl[] = (readyBls ?? []).map((row) => ({
+      id: row.id,
+      origin: 'local',
+      label: row.id,
+      customerName: row.customer?.name ?? null,
+      customerDoc: row.customer?.cnpj_cpf ?? null,
+      context: `${row.voyage?.vessel?.name ?? '-'} / ${row.voyage?.voyage_number ?? '-'} · ${row.pol ?? '-'} → ${row.pod ?? '-'} · ${row.cargo_mode === 'carga_solta' ? 'Carga solta' : 'Container'}`,
+    }))
+    const granite: UnifiedBl[] = (readyGraniteBls ?? []).map((row) => ({
+      id: row.id,
+      origin: 'granite',
+      label: row.bl_number,
+      customerName: (row.client as { name?: string } | null)?.name ?? null,
+      customerDoc: (row.client as { cnpj_cpf?: string } | null)?.cnpj_cpf ?? null,
+      context: `${(row.manifest as { vessel_voyage?: string } | null)?.vessel_voyage ?? '-'} · ${row.loading_port ?? '-'} → ${row.discharge_port ?? '-'} · Granito`,
+    }))
+    const all = [...local, ...granite]
+    if (!term) return all
+    return all.filter((row) => row.label.toUpperCase().includes(term) || (row.customerName ?? '').toUpperCase().includes(term))
+  }, [createSearch, readyBls, readyGraniteBls])
 
   const selectedReadyRows = useMemo(
-    () => (readyBls ?? []).filter((row) => selectedBls.includes(row.id)),
-    [readyBls, selectedBls],
+    () => unifiedReadyBls.filter((row) => selectedBls.includes(row.id)),
+    [unifiedReadyBls, selectedBls],
   )
 
   const createSelectionSummary = useMemo(() => {
-    const customerNames = Array.from(new Set(selectedReadyRows.map((row) => row.customer?.name).filter(Boolean)))
-    const voyageLabels = Array.from(
-      new Set(
-        selectedReadyRows
-          .map((row) => {
-            const vessel = row.voyage?.vessel?.name ?? '-'
-            const voyage = row.voyage?.voyage_number ?? '-'
-            return `${vessel} / ${voyage}`
-          })
-          .filter(Boolean),
-      ),
-    )
+    const customerNames = Array.from(new Set(selectedReadyRows.map((row) => row.customerName).filter(Boolean)))
+    const origins = Array.from(new Set(selectedReadyRows.map((row) => row.origin)))
 
     return {
       selectedCount: selectedReadyRows.length,
       customerLabel: customerNames.length === 1 ? customerNames[0] ?? 'Detectar pelos B/Ls' : customerNames.length > 1 ? 'Clientes mistos' : 'Detectar pelos B/Ls',
-      voyageLabel: voyageLabels.length === 1 ? voyageLabels[0] ?? 'Todas as viagens' : voyageLabels.length > 1 ? `${voyageLabels.length} viagens` : 'Todas as viagens',
+      voyageLabel: origins.includes('granite') && origins.includes('local') ? 'Misto (erro)' : origins[0] === 'granite' ? 'Modulo Granito' : 'Taxas locais',
       routePreview:
         selectedReadyRows.length > 0
           ? selectedReadyRows
               .slice(0, 3)
-              .map((row) => `${row.pol ?? '-'} -> ${row.pod ?? '-'}`)
-              .join(' | ')
+              .map((row) => row.label)
+              .join(', ')
           : 'Nenhum B/L selecionado',
     }
   }, [selectedReadyRows])
@@ -200,16 +225,34 @@ export function Faturamento() {
       showToast('Modo B/L unico permite somente 1 B/L.', 'error')
       return
     }
+    const selectedRows = unifiedReadyBls.filter((row) => selectedBls.includes(row.id))
+    const hasLocal = selectedRows.some((row) => row.origin === 'local')
+    const hasGranite = selectedRows.some((row) => row.origin === 'granite')
+    if (hasLocal && hasGranite) {
+      showToast('Nao e possivel misturar B/Ls locais e Granito na mesma invoice.', 'error')
+      return
+    }
     try {
-      const payload = await createInvoiceMutation.mutateAsync({
-        blIds: selectedBls,
-        customerId: createCustomerId ? Number(createCustomerId) : null,
-        dueDate: createDueDate || null,
-        notes: createNotes.trim() || null,
-        issueNow: true,
-        actorId: user?.id ?? null,
-      })
-      setSelectedInvoiceId(Number((payload as { invoice_id?: number }).invoice_id ?? 0))
+      let payload: { invoice_id?: number }
+      if (hasGranite) {
+        payload = await createGraniteInvoiceMutation.mutateAsync({
+          graniteBlIds: selectedBls,
+          customerId: createCustomerId ? Number(createCustomerId) : null,
+          dueDate: createDueDate || null,
+          notes: createNotes.trim() || null,
+          actorId: user?.id ?? null,
+        }) as { invoice_id?: number }
+      } else {
+        payload = await createInvoiceMutation.mutateAsync({
+          blIds: selectedBls,
+          customerId: createCustomerId ? Number(createCustomerId) : null,
+          dueDate: createDueDate || null,
+          notes: createNotes.trim() || null,
+          issueNow: true,
+          actorId: user?.id ?? null,
+        }) as { invoice_id?: number }
+      }
+      setSelectedInvoiceId(Number(payload.invoice_id ?? 0))
       setCreateOpen(false)
       resetCreateState()
       showToast('Invoice emitida com sucesso.', 'success')
@@ -273,17 +316,9 @@ export function Faturamento() {
     }
   }
 
-  async function handleDownloadPdf() {
+  function handlePrintInvoice() {
     if (!detailQuery.data) return
-    setIsPdfGenerating(true)
-    try {
-      const { downloadInvoicePdf } = await import('../services/invoicePdf')
-      await downloadInvoicePdf(detailQuery.data)
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Falha ao gerar PDF.', 'error')
-    } finally {
-      setIsPdfGenerating(false)
-    }
+    setPrintOpen(true)
   }
 
   function closeDetails() {
@@ -416,31 +451,33 @@ export function Faturamento() {
           </Card>
           <div className="grid gap-5 xl:grid-cols-[1.6fr,0.8fr]">
             <div className="app-table-scroll max-h-80 rounded-xl border border-[#30363d]">
-              <table className="app-table app-table--compact min-w-[780px] table-fixed text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="w-[10%] px-3 py-2">Sel.</th><th className="w-[20%] px-3 py-2">B/L</th><th className="w-[28%] px-3 py-2">Cliente</th><th className="w-[42%] px-3 py-2">Contexto</th></tr></thead>
+              <table className="app-table app-table--compact min-w-[820px] table-fixed text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="w-[8%] px-3 py-2">Sel.</th><th className="w-[12%] px-3 py-2">Origem</th><th className="w-[20%] px-3 py-2">B/L</th><th className="w-[28%] px-3 py-2">Cliente</th><th className="w-[32%] px-3 py-2">Contexto</th></tr></thead>
                 <tbody className="divide-y divide-[#30363d]">
-                  {loadingReadyBls ? <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400">Carregando B/Ls elegiveis...</td></tr> : null}
-                  {!loadingReadyBls && filteredReadyBls.length === 0 ? <tr><td colSpan={4} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
-                  {filteredReadyBls.map((row) => (
+                  {(loadingReadyBls || loadingReadyGraniteBls) ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Carregando B/Ls elegiveis...</td></tr> : null}
+                  {!loadingReadyBls && !loadingReadyGraniteBls && unifiedReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
+                  {unifiedReadyBls.map((row) => (
                     <tr key={row.id}>
                       <td className="px-3 py-2"><input type="checkbox" checked={selectedBls.includes(row.id)} onChange={() => toggleBl(row.id)} /></td>
-                      <td className="px-3 py-2 font-semibold text-[#58a6ff]">{row.id}</td>
+                      <td className="px-3 py-2">
+                        {row.origin === 'granite'
+                          ? <span className="inline-flex items-center rounded-md bg-amber-400/10 px-2 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-amber-400/30">Granito</span>
+                          : <span className="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-0.5 text-xs font-medium text-blue-300 ring-1 ring-blue-400/30">Local</span>
+                        }
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-[#58a6ff]">{row.label}</td>
                       <td className="px-3 py-2">
                         <div className="app-table__cell-stack">
                           <div className="app-table__cell-value">
-                            <span className="app-table__truncate app-table__truncate--lg" title={row.customer?.name ?? '-'}>
-                              {row.customer?.name ?? '-'}
+                            <span className="app-table__truncate app-table__truncate--lg" title={row.customerName ?? '-'}>
+                              {row.customerName ?? '-'}
                             </span>
                           </div>
-                          <div className="app-table__cell-meta">{row.customer?.cnpj_cpf ?? 'Sem documento'}</div>
+                          <div className="app-table__cell-meta">{row.customerDoc ?? 'Sem documento'}</div>
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        <div className="app-table__cell-stack">
-                          <div className="app-table__cell-value">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</div>
-                          <div className="app-table__cell-meta">{row.pol ?? '-'} {'->'} {row.pod ?? '-'}</div>
-                          <div className="app-table__cell-meta">{row.cargo_mode === 'carga_solta' ? 'Carga solta' : 'Container'}</div>
-                        </div>
+                        <div className="app-table__cell-value text-xs text-slate-400">{row.context}</div>
                       </td>
                     </tr>
                   ))}
@@ -462,7 +499,7 @@ export function Faturamento() {
               </div>
             </Card>
           </div>
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setCreateOpen(false); resetCreateState() }}>Cancelar</Button><Button loading={createInvoiceMutation.isPending} onClick={handleCreateInvoice}><DollarSign size={16} />Emitir invoice</Button></div>
+          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setCreateOpen(false); resetCreateState() }}>Cancelar</Button><Button loading={createInvoiceMutation.isPending || createGraniteInvoiceMutation.isPending} onClick={handleCreateInvoice}><DollarSign size={16} />Emitir invoice</Button></div>
         </div>
       </Modal>
 
@@ -473,8 +510,8 @@ export function Faturamento() {
           {detailQuery.data?.invoice ? (
             <>
               <div className="flex justify-end">
-                <Button variant="secondary" loading={isPdfGenerating} onClick={handleDownloadPdf}>
-                  <FileDown size={16} />Gerar PDF
+                <Button variant="secondary" onClick={handlePrintInvoice}>
+                  <Printer size={16} />Imprimir PDF
                 </Button>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -593,6 +630,20 @@ export function Faturamento() {
           ) : null}
         </div>
       </Modal>
+
+      {printOpen && detailQuery.data && (
+        <Modal open onClose={() => setPrintOpen(false)} title={`Imprimir ${detailQuery.data.invoice?.invoice_number ?? ''}`}>
+          <div className="p-2">
+            <div className="mb-3 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setPrintOpen(false)}>Fechar</Button>
+              <Button onClick={() => window.print()}><Printer size={16} />Imprimir</Button>
+            </div>
+            <div className="invoice-print-content">
+              <InvoiceDocumentLocal detail={detailQuery.data} />
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   )
 }

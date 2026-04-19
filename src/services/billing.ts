@@ -20,6 +20,17 @@ export type BillingReadyBlFilters = {
   cargoMode?: 'container' | 'carga_solta' | null
 }
 
+export type GraniteBillingReadyBl = {
+  id: string
+  bl_number: string
+  client_id: number | null
+  loading_port: string | null
+  discharge_port: string | null
+  charge_status: string
+  client: { id: number; name: string; cnpj_cpf: string } | null
+  manifest: { vessel_voyage: string } | null
+}
+
 export type InvoiceDetail = {
   invoice: (InvoiceSummary & {
     customer_name?: string | null
@@ -178,6 +189,54 @@ export async function listBillingReadyBls(filters?: BillingReadyBlFilters) {
   const { data, error } = await query
   if (error) throw error
   return (data ?? []) as unknown as BLListItem[]
+}
+
+export async function listBillingReadyGraniteBls(filters?: { customerId?: number | null }) {
+  let query = supabase
+    .from('granite_bls')
+    .select(
+      `
+      id,
+      bl_number,
+      client_id,
+      loading_port,
+      discharge_port,
+      charge_status,
+      client:customers(id,name,cnpj_cpf),
+      manifest:granite_manifests(vessel_voyage)
+    `,
+    )
+    .eq('charge_status', 'ready_for_billing')
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (filters?.customerId) {
+    query = query.eq('client_id', filters.customerId)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as unknown as GraniteBillingReadyBl[]
+}
+
+export async function createInvoiceFromGraniteBls(input: {
+  graniteBlIds: string[]
+  customerId?: number | null
+  dueDate?: string | null
+  notes?: string | null
+  actorId?: string | null
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('create_invoice_from_granite_bls', {
+    p_granite_bl_ids: input.graniteBlIds,
+    p_customer_id: input.customerId ?? null,
+    p_due_date: input.dueDate ?? null,
+    p_notes: input.notes ?? null,
+    p_actor: input.actorId ?? null,
+  })
+
+  if (error) throw error
+  return (data ?? {}) as Json
 }
 
 export async function createInvoiceFromBls(input: {

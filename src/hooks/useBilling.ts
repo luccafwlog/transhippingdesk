@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   cancelInvoice,
   createInvoiceFromBls,
+  createInvoiceFromGraniteBls,
   listBillingCustomers,
   listBillingReadyBls,
+  listBillingReadyGraniteBls,
   listInvoiceDetails,
   listInvoiceLinksByBls,
   listInvoices,
@@ -31,6 +33,13 @@ export function useBillingReadyBls(filters?: BillingReadyBlFilters) {
   return useQuery({
     queryKey: ['billing-ready-bls', filters],
     queryFn: () => listBillingReadyBls(filters),
+  })
+}
+
+export function useBillingReadyGraniteBls(filters?: { customerId?: number | null }) {
+  return useQuery({
+    queryKey: ['billing-ready-granite-bls', filters],
+    queryFn: () => listBillingReadyGraniteBls(filters),
   })
 }
 
@@ -63,6 +72,20 @@ export function useCreateInvoice() {
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
         queryClient.invalidateQueries({ queryKey: ['customer-detail'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
+    },
+  })
+}
+
+export function useCreateGraniteInvoice() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: createInvoiceFromGraniteBls,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+        queryClient.invalidateQueries({ queryKey: ['billing-ready-granite-bls'] }),
       ])
     },
   })

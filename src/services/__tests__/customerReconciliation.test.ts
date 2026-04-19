@@ -20,6 +20,11 @@ function makeMaps(): CustomerMaps {
       ['cliente beta', { id: 2, name: 'CLIENTE BETA S/A' }],
       ['allog galeria transportes internacionais', { id: 3, name: 'ALLOG GALERIA - TRANSPORTES INTERNACIONAIS LTDA' }],
     ]),
+    canonicalList: [
+      { canonical: 'cliente alfa', record: { id: 1, name: 'CLIENTE ALFA LTDA' } },
+      { canonical: 'cliente beta', record: { id: 2, name: 'CLIENTE BETA S/A' } },
+      { canonical: 'allog galeria transportes internacionais', record: { id: 3, name: 'ALLOG GALERIA - TRANSPORTES INTERNACIONAIS LTDA' } },
+    ],
   }
 }
 

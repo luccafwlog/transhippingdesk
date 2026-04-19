@@ -2194,3 +2194,37 @@ textarea {
     font-size: 1.8rem;
   }
 }
+
+@media print {
+  .app-market-strip,
+  .app-header,
+  .app-nav-bar,
+  .app-modal__overlay > *:not(.invoice-print-content),
+  button,
+  [role="dialog"] > *:not(.invoice-print-content) {
+    display: none !important;
+  }
+
+  .invoice-print-content {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 9999;
+    padding: 24px;
+    overflow: visible;
+  }
+
+  .inv-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .inv-logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}

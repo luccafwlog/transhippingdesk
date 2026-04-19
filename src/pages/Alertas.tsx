@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Bell, CheckCheck } from 'lucide-react'
+import { AlertTriangle, Bell, CheckCheck, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
@@ -140,6 +141,15 @@ export function Alertas() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
+                        {alert.type === 'portal_invoice_created' && alert.entity_id ? (
+                          <Link
+                            to={`/faturamento?invoice_id=${alert.entity_id}`}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-[#30363d] px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+                          >
+                            <ExternalLink size={13} />
+                            Ver Fatura
+                          </Link>
+                        ) : null}
                         {alert.status === 'open' ? (
                           <Button
                             variant="secondary"
