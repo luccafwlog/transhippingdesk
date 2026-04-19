@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Calculator, Pencil, RotateCcw, Save, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Save, Trash2, X } from 'lucide-react'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import { BLPipeline } from '../components/shared/BLPipeline'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
@@ -14,7 +15,6 @@ import { useInvoiceLinks } from '../hooks/useBilling'
 import {
   useAddManualBlCharge,
   useBlLocalChargeLines,
-  useCalculateBlLocalCharges,
   useDeleteManualBlCharge,
   useManualChargeItemsForBl,
   useMarkBlChargesReviewed,
@@ -97,7 +97,6 @@ export function BlDetalhe() {
   const { data: auditLogs } = useAuditLogs('bl', blId)
   const { data: localChargeLines, isLoading: isLocalChargeLinesLoading } = useBlLocalChargeLines(bl?.id)
   const { data: manualChargeItems, isLoading: isManualChargeItemsLoading } = useManualChargeItemsForBl(bl?.id)
-  const calculateLocalChargesMutation = useCalculateBlLocalCharges(bl?.id)
   const addManualChargeMutation = useAddManualBlCharge(bl?.id)
   const updateManualChargeMutation = useUpdateManualBlCharge(bl?.id)
   const deleteManualChargeMutation = useDeleteManualBlCharge(bl?.id)
@@ -183,31 +182,6 @@ export function BlDetalhe() {
       hasReviewRequired,
     }
   }, [localChargeLines])
-
-  async function handleCalculateLocalCharges(recalculate: boolean) {
-    if (!bl) return
-
-    try {
-      const result = await calculateLocalChargesMutation.mutateAsync({
-        actorId: user?.id ?? null,
-        recalculate,
-      })
-
-      if (result.status === 'exempt') {
-        showToast('B/L marcado como isento de taxas locais por regra de veiculos/LCL.', 'success')
-        return
-      }
-
-      if (result.status === 'review_required') {
-        showToast('Taxas calculadas com pendencia de revisao manual.', 'info')
-        return
-      }
-
-      showToast('Taxas locais calculadas com sucesso.', 'success')
-    } catch {
-      showToast('Falha ao calcular taxas locais para este B/L.', 'error')
-    }
-  }
 
   async function handleSaveManualCharge() {
     if (!bl || !user) return
@@ -447,6 +421,10 @@ export function BlDetalhe() {
         }
       />
 
+      <div className="mb-5">
+        <BLPipeline bl={bl} />
+      </div>
+
       <form className="grid gap-5" onSubmit={handleSubmit}>
         <Card>
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -636,25 +614,6 @@ export function BlDetalhe() {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="secondary"
-                onClick={() => handleCalculateLocalCharges(false)}
-                loading={calculateLocalChargesMutation.isPending}
-                disabled={calculateLocalChargesMutation.isPending}
-                type="button"
-              >
-                <Calculator size={16} />
-                Calcular taxas
-              </Button>
-              <Button
-                onClick={() => handleCalculateLocalCharges(true)}
-                loading={calculateLocalChargesMutation.isPending}
-                disabled={calculateLocalChargesMutation.isPending}
-                type="button"
-              >
-                <RotateCcw size={16} />
-                Recalcular taxas
-              </Button>
-              <Button
-                variant="secondary"
                 onClick={handleMarkChargesReviewed}
                 loading={markReviewedMutation.isPending}
                 disabled={markReviewedMutation.isPending || markReadyForBillingMutation.isPending}
@@ -672,6 +631,15 @@ export function BlDetalhe() {
               </Button>
             </div>
           </div>
+
+          {bl.charge_status === 'not_calculated' ? (
+            <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+              As taxas deste B/L ainda nao foram calculadas.{' '}
+              <Link to="/taxas-locais" className="font-semibold underline hover:text-amber-100">
+                Calcular em lote em Taxas Locais →
+              </Link>
+            </div>
+          ) : null}
 
           <div className="mb-4 flex flex-wrap gap-2">
             <Badge tone={resolveChargeStatusTone(bl.charge_status)}>{resolveChargeStatusLabel(bl.charge_status)}</Badge>

@@ -26,7 +26,7 @@ type Filters = {
   pageSize: number
 }
 
-export function Vazios() {
+export function EmbarqueVazios() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const { user } = useAuth()

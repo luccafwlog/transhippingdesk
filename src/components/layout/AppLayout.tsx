@@ -42,12 +42,12 @@ const importNavItems: NavItem[] = [
   { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
   { to: '/veiculos', label: 'Veiculos', icon: Car },
   { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
-  { to: '/vazios-importacao', label: 'Vazios Imp.', icon: Package },
+  { to: '/vazios-importacao', label: 'Vazios Importacao', icon: Package },
 ]
 
 const exportNavItems: NavItem[] = [
   { to: '/granito', label: 'Granito', icon: Mountain },
-  { to: '/vazios', label: 'Vazios', icon: Package },
+  { to: '/embarquevazios', label: 'Vazios Embarque', icon: Package },
 ]
 
 const primaryNavItems: NavItem[] = [
