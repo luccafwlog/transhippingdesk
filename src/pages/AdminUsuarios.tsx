@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
-import { Button } from '../components/ui/Button'
 import { useToast } from '../components/ui/Toast'
 import { MANAGED_PROFILES, PROFILE_LABELS, listAllUserProfiles, updateUserProfile } from '../services/adminUsers'
 import { supabase } from '../services/supabase'
@@ -13,7 +12,7 @@ type AdminTab = 'usuarios' | 'logs' | 'metricas'
 const VERSION = '2.0.0'
 
 type AuditLogRow = {
-  id: string
+  id: number
   entity_type: string
   entity_id: string
   field_name: string | null
@@ -33,7 +32,7 @@ async function fetchRecentAuditLogs(): Promise<AuditLogRow[]> {
     .limit(100)
   if (error) throw error
 
-  const rows = (data ?? []) as Omit<AuditLogRow, 'changer_name'>[]
+  const rows = (data ?? []) as unknown as Omit<AuditLogRow, 'changer_name'>[]
   if (!rows.length) return []
 
   const changerIds = Array.from(new Set(rows.map((r) => r.changed_by).filter(Boolean))) as string[]

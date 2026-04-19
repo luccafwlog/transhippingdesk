@@ -108,7 +108,7 @@ function CntrImportModal({
     if (!file || !preview) return
     setImporting(true)
     try {
-      const fileHash = await computeFileHash(file).catch(() => null)
+      const fileHash = await file.arrayBuffer().then((buf) => computeFileHash(buf)).catch(() => null)
       await importManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, fileHash })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
@@ -304,14 +304,12 @@ function VaziosImportModal({
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof parseVaziosImportacaoFile>> | null>(null)
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
-    setFile(f)
     setPreview(null)
     if (!f) return
     setParsing(true)
