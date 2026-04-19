@@ -1,5 +1,6 @@
 import type { Ref } from 'react'
 import type { CSSProperties } from 'react'
+import { Link } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
 import type { LineUpRow } from '../../services/lineup'
@@ -82,7 +83,16 @@ export function LineUpTable({
 
           {rows.map((row, index) => (
             <tr key={getRowKey ? getRowKey(row, index) : row.id}>
-              <td className={isDisplay ? 'px-1 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>{row.vesselName}</td>
+              <td className={isDisplay ? 'px-1 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>
+                {isDisplay ? row.vesselName : (
+                  <Link
+                    to={`/viagens?vessel=${encodeURIComponent(row.vesselName)}`}
+                    className="hover:underline hover:text-[#58a6ff]"
+                  >
+                    {row.vesselName}
+                  </Link>
+                )}
+              </td>
               <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.pod}</td>
               <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.eta)}</td>

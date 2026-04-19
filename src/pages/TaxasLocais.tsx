@@ -30,6 +30,7 @@ import {
 } from '../hooks/useLocalCharges'
 import { formatBRL, formatDate } from '../lib/utils'
 import { useVoyageOptions } from '../hooks/useBls'
+import { createInvoiceFromBls } from '../services/billing'
 
 type LocalChargeTab = 'tabelas' | 'overrides' | 'pendencias'
 
@@ -112,8 +113,10 @@ const EMPTY_TABLE_ITEM_FORM: ChargeTableItemForm = {
 }
 
 export function TaxasLocais() {
-  const { user } = useAuth()
+  const { user, can } = useAuth()
   const { showToast } = useToast()
+  const canManageTables = can('charge_tables')
+  const canManageOverrides = can('charge_overrides')
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
   const [operationPanel, setOperationPanel] = useState<'overview' | 'bls'>('overview')
   const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta'>('')
@@ -282,6 +285,26 @@ export function TaxasLocais() {
       } else {
         showToast(`Processamento concluido para ${result.successCount} B/L(s).`, 'success')
       }
+
+      // Auto-generate invoices for single-BL cases when marking ready for billing
+      if (action === 'ready' && result.successCount > 0) {
+        const successIds = new Set(result.errors.map((e) => e.blId))
+        const readyBls = (operationsRows ?? []).filter((row) => ids.includes(row.id) && !successIds.has(row.id))
+        let invoiced = 0
+        for (const bl of readyBls) {
+          if (!bl.customer?.id) continue
+          try {
+            await createInvoiceFromBls({ blIds: [bl.id], customerId: bl.customer.id, actorId: user?.id })
+            invoiced++
+          } catch {
+            // Non-fatal: BL is marked ready but invoice will need to be created manually
+          }
+        }
+        if (invoiced > 0) {
+          showToast(`${invoiced} fatura(s) gerada(s) automaticamente.`, 'success')
+        }
+      }
+
       setSelectedOpsRows([])
     } catch {
       showToast('Falha ao executar processamento em lote.', 'error')
@@ -553,12 +576,12 @@ export function TaxasLocais() {
       />
 
       <div className="mb-5 flex flex-wrap gap-2">
-        <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} />
-        <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} />
+        {canManageTables ? <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} /> : null}
+        {canManageOverrides ? <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} /> : null}
         <TabButton active={tab === 'pendencias'} label="Operacao" onClick={() => setTab('pendencias')} />
       </div>
 
-      {tab === 'tabelas' ? (
+      {tab === 'tabelas' && canManageTables ? (
         <>
           <Card className="mb-5">
             <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
@@ -1432,7 +1455,7 @@ export function TaxasLocais() {
         </>
       ) : null}
 
-      {tab === 'overrides' ? (
+      {tab === 'overrides' && canManageOverrides ? (
         <>
           <Card className="mb-5">
             <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">

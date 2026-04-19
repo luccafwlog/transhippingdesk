@@ -160,13 +160,10 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
 
     if (containerNumber) {
       const previousBl = allContainers.get(containerNumber)
-      if (previousBl) {
-        if (previousBl === blNumber) {
-          reasons.add('Container duplicado no mesmo B/L')
-        } else {
-          reasons.add(`Container vinculado tambem ao B/L ${previousBl}`)
-        }
+      if (previousBl && previousBl === blNumber) {
+        reasons.add('Container duplicado no mesmo B/L')
       }
+      // Container in multiple BLs = Part Lot scenario, not a review error
       allContainers.set(containerNumber, blNumber)
     }
 
@@ -306,13 +303,10 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
 
     if (line.container) {
       const previousBl = allContainers.get(line.container)
-      if (previousBl) {
-        if (previousBl === currentBL.bl) {
-          reasons.add('Container duplicado no mesmo B/L')
-        } else {
-          reasons.add(`Container vinculado tambem ao B/L ${previousBl}`)
-        }
+      if (previousBl && previousBl === currentBL.bl) {
+        reasons.add('Container duplicado no mesmo B/L')
       }
+      // Container in multiple BLs = Part Lot scenario, not a review error
       allContainers.set(line.container, currentBL.bl)
     }
 

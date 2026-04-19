@@ -128,6 +128,9 @@ export function Veiculos() {
         `Importacao concluida: ${result.successCount} sucesso(s), ${result.errorCount} erro(s), ${result.processed} processado(s).`,
         result.errorCount ? 'info' : 'success',
       )
+      if (!result.errorCount) {
+        resetImportState()
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Falha ao importar veiculos.'
       showToast(`Falha ao importar veiculos: ${message}`, 'error')
