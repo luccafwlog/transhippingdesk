@@ -138,6 +138,39 @@ export async function syncManifestPolEtdSchedules({
   if (error) throw error
 }
 
+export async function syncManifestPodLinked({
+  voyageId,
+  manifest,
+  changedBy,
+}: {
+  voyageId: number
+  manifest: ParsedManifest
+  changedBy: string
+}) {
+  const distinctPods = Array.from(new Set(manifest.bls.map((bl) => bl.pod).filter(Boolean))) as string[]
+  if (!distinctPods.length) return
+
+  const entityIds = distinctPods.map((pod) => buildVoyagePodEntityId(voyageId, pod))
+  const existingSchedules = await listVoyagePodSchedules(entityIds)
+
+  const inserts = entityIds
+    .filter((entityId) => existingSchedules.has(entityId) && existingSchedules.get(entityId)?.linked !== true)
+    .map((entityId) => ({
+      entity_type: POD_ENTITY_TYPE,
+      entity_id: entityId,
+      field_name: 'linked',
+      old_value: null,
+      new_value: 'true',
+      changed_by: changedBy,
+      justification: 'POD reconciliado automaticamente ao importar manifesto',
+    }))
+
+  if (!inserts.length) return
+
+  const { error } = await supabase.from('audit_logs').insert(inserts)
+  if (error) throw error
+}
+
 export async function saveVoyagePolSchedule({
   voyageId,
   pol,

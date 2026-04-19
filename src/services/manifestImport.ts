@@ -2,7 +2,7 @@
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
-import { syncManifestPolEtdSchedules } from './voyageRouteSchedules'
+import { syncManifestPolEtdSchedules, syncManifestPodLinked } from './voyageRouteSchedules'
 
 export type ImportManifestArgs = {
   filename: string
@@ -150,6 +150,12 @@ export async function importManifest({
   }
 
   await syncManifestPolEtdSchedules({
+    voyageId,
+    manifest,
+    changedBy: uploadedBy,
+  })
+
+  await syncManifestPodLinked({
     voyageId,
     manifest,
     changedBy: uploadedBy,

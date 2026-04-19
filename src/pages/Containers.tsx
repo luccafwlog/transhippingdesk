@@ -1,13 +1,14 @@
 import { useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, Download } from 'lucide-react'
+import { Boxes, CalendarDays, Download } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions } from '../hooks/useBls'
 import {
   importContainerFlagsRows,
@@ -36,6 +37,7 @@ export function Containers() {
     pageSize: 20,
   })
   const [exporting, setExporting] = useState(false)
+  const [datesImportOpen, setDatesImportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [flagsFileName, setFlagsFileName] = useState('')
   const [parsedFlags, setParsedFlags] = useState<ParsedContainerFlagsImport | null>(null)
@@ -135,6 +137,10 @@ export function Containers() {
         description="Lista consolidada dos containers importados via manifestos. O total distinto considera o numero do container, mesmo quando ele aparece em mais de um B/L."
         action={
           <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDatesImportOpen(true)}>
+              <CalendarDays size={16} />
+              Importar Datas Demurrage
+            </Button>
             <Button variant="secondary" onClick={() => setImportOpen(true)}>
               Importar IMO/OOG
             </Button>
@@ -371,6 +377,8 @@ export function Containers() {
           </div>
         </div>
       </Card>
+
+      <ContainerDatesImportModal open={datesImportOpen} onClose={() => setDatesImportOpen(false)} />
 
       <Modal open={importOpen} onClose={resetImportModal} title="Importar Flags de IMO/OOG">
         <div className="grid gap-5">

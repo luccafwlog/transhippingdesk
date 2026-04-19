@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Field, Input } from '../components/ui/Input'
@@ -22,9 +22,11 @@ import {
   saveVoyagePolSchedule,
   saveVoyagePodSchedule,
 } from '../services/voyageRouteSchedules'
+import { VoyageImportActions } from '../components/shared/VoyageImportActions'
 
 export function Viagens() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { isAdmin, user } = useAuth()
@@ -33,7 +35,7 @@ export function Viagens() {
   const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
   const [deletingVoyageId, setDeletingVoyageId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [vesselFilter, setVesselFilter] = useState('')
+  const [vesselFilter, setVesselFilter] = useState(() => searchParams.get('vessel') ?? '')
   const [voyageFilter, setVoyageFilter] = useState('')
   const [editingPod, setEditingPod] = useState<{
     voyageId: number
@@ -652,6 +654,16 @@ export function Viagens() {
                   </div>
                 </div>
               </MetricSection>
+
+              {user?.id ? (
+                <MetricSection title="Importacao rapida" description="Importe manifestos e planilhas diretamente nesta viagem sem sair da tela.">
+                  <VoyageImportActions
+                    voyageId={voyage.id}
+                    voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
+                    userId={user.id}
+                  />
+                </MetricSection>
+              ) : null}
 
               <div>
                 <div className="app-voyage-actions">

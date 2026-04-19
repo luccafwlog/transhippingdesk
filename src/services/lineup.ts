@@ -115,24 +115,13 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       const schedule = podSchedules.get(buildVoyagePodEntityId(voyage.id, pod))
       if (schedule?.atd) continue
 
-      const distinctContainers = new Map<
-        string,
-        {
-          id: number
-          gross: number
-          tare: number
-        }
-      >()
+      const distinctContainers = new Map<string, { id: number }>()
 
       for (const bl of routeBls) {
         for (const container of containersByBl.get(bl.id) ?? []) {
           const key = normalizeContainerKey(container.container_number, container.id)
           if (!key || distinctContainers.has(key)) continue
-          distinctContainers.set(key, {
-            id: container.id,
-            gross: Number(container.gross_weight_kg ?? 0),
-            tare: Number(container.tare_weight_kg ?? 0),
-          })
+          distinctContainers.set(key, { id: container.id })
         }
       }
 
@@ -177,7 +166,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         car: carContainers,
         cg: Math.max(totalContainers - carContainers, 0),
         total: totalContainers,
-        mty: Array.from(distinctContainers.values()).filter(isEmptyLikeContainer).length,
+        mty: 0,
         rtw: schedule?.rtw ?? null,
         bbMachines,
         bbPackages,
@@ -194,15 +183,12 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
     return left.pod.localeCompare(right.pod, 'pt-BR')
   })
 
-  // Vazios de importacao nao tem POD: somamos ao MTY da primeira linha de cada viagem
+  // MTY = exclusively Vazios Importacao containers, credited to the first route of each voyage
   const creditedVoyageIds = new Set<number>()
   for (const row of sortedRows) {
     if (creditedVoyageIds.has(row.voyageId)) continue
     const vaziosImportacaoCount = vaziosImportacaoMtyByVoyage.get(row.voyageId) ?? 0
-    if (vaziosImportacaoCount > 0) {
-      row.mty += vaziosImportacaoCount
-      row.total += vaziosImportacaoCount
-    }
+    row.mty = vaziosImportacaoCount
     creditedVoyageIds.add(row.voyageId)
   }
 
@@ -468,8 +454,3 @@ function normalizeContainerKey(containerNumber: string | null | undefined, conta
   return Number.isInteger(containerId) ? `ID-${containerId}` : ''
 }
 
-function isEmptyLikeContainer(container: { gross: number; tare: number }) {
-  if (container.gross <= 0) return true
-  if (container.tare > 0 && container.gross <= container.tare) return true
-  return false
-}

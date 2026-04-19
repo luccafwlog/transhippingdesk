@@ -1,6 +1,6 @@
 import { normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
-import { calculateDemurrage } from './demurrage'
+import { calculateDemurrage, createInvoiceForReturnedBL } from './demurrage'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -79,6 +79,9 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
   const uniqueRows = Array.from(new Map(rows.map((r) => [makeKey(r.bl_id, r.container_number), r])).values())
 
+  // Track BL IDs where a container was newly set to 'returned'
+  const blsToCheckForInvoice = new Set<string>()
+
   for (const row of uniqueRows) {
     const container = containersByKey.get(makeKey(row.bl_id, row.container_number))
     if (!container) { missing += 1; continue }
@@ -104,6 +107,24 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
     if (updateError) throw updateError
     updated += 1
+
+    if (newStatus === 'returned') blsToCheckForInvoice.add(row.bl_id)
+  }
+
+  // For each BL that had a container newly returned, check if ALL containers are now returned
+  // and auto-generate a demurrage invoice if any demurrage is owed.
+  for (const blId of blsToCheckForInvoice) {
+    const blContainers = (containers as unknown as ContainerRow[]).filter((c) => c.bl_id === blId)
+    const updatesForBl = new Map(uniqueRows.filter((r) => r.bl_id === blId).map((r) => [makeKey(r.bl_id, r.container_number), r]))
+
+    const allReturned = blContainers.every((c) => {
+      const update = updatesForBl.get(makeKey(c.bl_id ?? '', c.container_number))
+      return update ? !!update.return_date : c.demurrage_status === 'returned'
+    })
+
+    if (allReturned) {
+      try { await createInvoiceForReturnedBL(blId) } catch { /* non-fatal */ }
+    }
   }
 
   return { updated, unchanged, missing }

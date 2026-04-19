@@ -7,10 +7,12 @@ type Row<T> = {
   Relationships: []
 }
 
+export type UserProfileRole = 'admin' | 'operator' | 'administrativo' | 'financeiro' | 'operacoes' | 'documentacao'
+
 export type UserProfile = {
   id: string
   full_name: string
-  role: 'admin' | 'operator'
+  role: UserProfileRole
   active: boolean
   created_at: string | null
 }

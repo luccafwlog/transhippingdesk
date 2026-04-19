@@ -234,6 +234,69 @@ export async function createInvoiceForBL(blId: string): Promise<number> {
   return inv.id
 }
 
+// Called automatically when all containers in a BL are returned; creates invoice only if demurrage is owed.
+export async function createInvoiceForReturnedBL(blId: string): Promise<number | null> {
+  const { data: bl, error: blErr } = await supabase
+    .from('bls')
+    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd, demurrage_roe_manual, demurrage_roe')
+    .eq('id', blId)
+    .single()
+  if (blErr) throw blErr
+  if (!bl.customer_id) return null
+
+  const { data: containers, error: cErr } = await supabase
+    .from('bl_containers')
+    .select('id, container_number, type, discharge_date, return_date, demurrage_status')
+    .eq('bl_id', blId)
+    .eq('demurrage_status', 'returned')
+    .not('discharge_date', 'is', null)
+    .not('return_date', 'is', null)
+  if (cErr) throw cErr
+  if (!containers?.length) return null
+
+  const items = containers
+    .map((c) => {
+      const calc = calculateDemurrage(c.type, c.discharge_date!, c.return_date!, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+      return { container: c, calc }
+    })
+    .filter((i) => i.calc.total_usd > 0)
+
+  if (!items.length) return null
+
+  const total_usd = items.reduce((sum, i) => sum + i.calc.total_usd, 0)
+  const doc_number = genDemurrageDocnum(blId)
+  const due_date = nextBusinessDay()
+  const ready_at = containers.reduce((max, c) => (c.return_date! > max ? c.return_date! : max), containers[0].return_date!)
+
+  const { data: inv, error: invErr } = await supabase
+    .from('demurrage_invoices')
+    .insert({ doc_number, bl_id: blId, customer_id: bl.customer_id, total_usd, due_date, ready_at, roe_manual: bl.demurrage_roe_manual ?? false, roe: bl.demurrage_roe ?? null })
+    .select('id')
+    .single()
+  if (invErr) throw invErr
+
+  const itemRows = items.map(({ container: c, calc }) => ({
+    invoice_id: inv.id,
+    container_id: c.id,
+    container_number: c.container_number,
+    container_type: c.type ?? '',
+    discharge_date: c.discharge_date!,
+    return_date: c.return_date!,
+    total_days: calc.total_days,
+    free_days: calc.free_days,
+    days_p1: calc.days_p1,
+    rate_p1_usd: calc.rate_p1_usd,
+    days_p2: calc.days_p2,
+    rate_p2_usd: calc.rate_p2_usd,
+    subtotal_usd: calc.total_usd,
+  }))
+
+  const { error: itemErr } = await supabase.from('demurrage_invoice_items').insert(itemRows)
+  if (itemErr) throw itemErr
+
+  return inv.id
+}
+
 export async function issueInvoice(invoiceId: number, roe: number): Promise<void> {
   const { data: inv, error: fetchErr } = await supabase
     .from('demurrage_invoices')
