@@ -525,7 +525,33 @@ export function Viagens() {
                 </span>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+              <section className="app-voyage-tab-shell">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
+                      Detalhes complementares
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">
+                      Use as abas para abrir importacao, exportacao e origem/trechos sem alongar o painel principal.
+                    </div>
+                  </div>
+                  <div className="app-voyage-tab-list">
+                    {VOYAGE_TAB_ITEMS.map((item) => (
+                      <button
+                        key={`${voyage.id}-${item.key}`}
+                        type="button"
+                        onClick={() => toggleVoyageTab(voyage.id, item.key)}
+                        className={`app-tab ${activeTab === item.key ? 'app-tab--active' : ''}`}
+                        aria-expanded={activeTab === item.key}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <div className="grid gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]">
                 <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
                   <div className="mb-3">
                     <div className="font-semibold text-white">Visao geral da viagem</div>
@@ -553,26 +579,23 @@ export function Viagens() {
                 <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-[var(--app-text)]">Line-Up por POD</div>
+                      <div className="text-sm font-semibold text-[var(--app-text)]">Planejamento por POD</div>
                       <div className="text-xs text-[var(--app-muted)]">
-                        RESTOW, BLs e CEs e ESCALA sao controlados por porto de descarga.
+                        Datas ETA, ETB, ATA e ATD, RESTOW, BLs e CEs e ESCALA sao controlados por porto de descarga.
                       </div>
                     </div>
                   </div>
 
                   <div className="app-voyage-table-frame">
                     <div className="app-table-scroll">
-                      <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                        <colgroup>
-                          <col className="w-[20%]" />
-                          <col className="w-[18%]" />
-                          <col className="w-[28%]" />
-                          <col className="w-[18%]" />
-                          <col className="w-[16%]" />
-                        </colgroup>
+                      <table className="app-table app-table--compact app-table--dense min-w-[980px] text-left text-sm">
                         <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                           <tr>
                             <th className="px-3 py-2">POD</th>
+                            <th className="px-3 py-2">ETA</th>
+                            <th className="px-3 py-2">ETB</th>
+                            <th className="px-3 py-2">ATA</th>
+                            <th className="px-3 py-2">ATD</th>
                             <th className="px-3 py-2">RESTOW</th>
                             <th className="px-3 py-2">BLs e CEs</th>
                             <th className="px-3 py-2">ESCALA</th>
@@ -584,6 +607,10 @@ export function Viagens() {
                             podRows.map((row) => (
                               <tr key={`${voyage.id}-lineup-${row.pod}`}>
                                 <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
+                                <td className="px-3 py-2">{formatDate(row.eta)}</td>
+                                <td className="px-3 py-2">{formatDate(row.etb)}</td>
+                                <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                                <td className="px-3 py-2">{formatDate(row.atd)}</td>
                                 <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
                                 <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
                                 <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
@@ -614,8 +641,8 @@ export function Viagens() {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={5} className="px-3 py-3 text-slate-400">
-                                Nenhum POD planejado para o Line-Up.
+                              <td colSpan={9} className="px-3 py-3 text-slate-400">
+                                Nenhum POD planejado para esta viagem.
                               </td>
                             </tr>
                           )}
@@ -626,105 +653,7 @@ export function Viagens() {
                 </div>
               </div>
 
-              <MetricSection
-                title="Datas dos portos de destino"
-                description="ETA, ETB, ATA e ATD permanecem visiveis no painel da viagem para consulta e ajuste rapido por POD."
-              >
-                <div className="app-voyage-table-frame">
-                  <div className="app-table-scroll">
-                    <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                      <colgroup>
-                        <col className="w-[16%]" />
-                        <col className="w-[16%]" />
-                        <col className="w-[16%]" />
-                        <col className="w-[16%]" />
-                        <col className="w-[16%]" />
-                        <col className="w-[12%]" />
-                      </colgroup>
-                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">POD</th>
-                          <th className="px-3 py-2">ETA</th>
-                          <th className="px-3 py-2">ETB</th>
-                          <th className="px-3 py-2">ATA</th>
-                          <th className="px-3 py-2">ATD</th>
-                          <th className="px-3 py-2">Acoes</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#30363d]">
-                        {podRows.length ? (
-                          podRows.map((row) => (
-                            <tr key={`${voyage.id}-pod-${row.pod}`}>
-                              <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
-                              <td className="px-3 py-2">{formatDate(row.eta)}</td>
-                              <td className="px-3 py-2">{formatDate(row.etb)}</td>
-                              <td className="px-3 py-2">{formatDate(row.ata)}</td>
-                              <td className="px-3 py-2">{formatDate(row.atd)}</td>
-                              <td className="px-3 py-2">
-                                <Button
-                                  variant="secondary"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Editar datas do POD ${row.pod}`}
-                                  onClick={() =>
-                                    setEditingPod({
-                                      voyageId: voyage.id,
-                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                      pod: row.pod,
-                                      eta: row.eta,
-                                      etb: row.etb,
-                                      ata: row.ata,
-                                      atd: row.atd,
-                                      rtw: row.rtw,
-                                      ceStatus: row.ceStatus,
-                                      linked: row.linked,
-                                    })
-                                  }
-                                >
-                                  <Pencil size={15} />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={6} className="px-3 py-3 text-slate-400">
-                              Nenhum POD cadastrado para esta viagem.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </MetricSection>
-
-              <section className="app-voyage-tab-shell">
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
-                      Navegacao da viagem
-                    </div>
-                    <div className="mt-1 text-sm text-slate-400">
-                      Abra apenas o bloco que deseja analisar. Cada viagem controla suas abas de forma independente.
-                    </div>
-                  </div>
-                  <div className="app-voyage-tab-list">
-                    {VOYAGE_TAB_ITEMS.map((item) => (
-                      <button
-                        key={`${voyage.id}-${item.key}`}
-                        type="button"
-                        onClick={() => toggleVoyageTab(voyage.id, item.key)}
-                        className={`app-tab ${activeTab === item.key ? 'app-tab--active' : ''}`}
-                        aria-expanded={activeTab === item.key}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {tabContent ? <div className="app-voyage-tab-panel">{tabContent}</div> : null}
-              </section>
+              {tabContent ? <div className="app-voyage-tab-panel">{tabContent}</div> : null}
 
               <div>
                 <div className="app-voyage-actions">
