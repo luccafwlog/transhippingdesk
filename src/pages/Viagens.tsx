@@ -44,8 +44,8 @@ const VOYAGE_SECTION_ITEMS: Array<{ key: VoyageSectionKey; label: string; descri
   },
   {
     key: 'origemTrechos',
-    label: 'Origem e Trechos',
-    description: 'Datas operacionais dos portos de origem e consolidado dos trechos identificados.',
+    label: 'Origem e Manifestos',
+    description: 'ETD editavel por manifesto e consolidado dos manifestos identificados na viagem.',
   },
 ]
 
@@ -102,7 +102,7 @@ export function Viagens() {
       Array.from(
         new Set(
           filteredVoyages.flatMap((voyage) =>
-            collectVoyageRoutes(voyage.bls).map((route) => buildVoyagePolEntityId(voyage.id, route.pol)),
+            collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null).map((pol) => buildVoyagePolEntityId(voyage.id, pol)),
           ),
         ),
       ),
@@ -227,6 +227,15 @@ export function Viagens() {
             vehicleByContainerTypeSummary: '-',
           }
           const { containerBls, breakbulkBls } = splitVoyageBls(voyage.bls)
+          const importBatches = voyage.import_batches ?? []
+          const distinctContainerBatchCount = countDistinctBatchIds(containerBls)
+          const distinctBreakbulkBatchCount = countDistinctBatchIds(breakbulkBls)
+          const containerManifestCount =
+            importBatches.filter((batch) => batch.cargo_mode !== 'carga_solta').length || distinctContainerBatchCount
+          const breakbulkManifestCount =
+            importBatches.filter((batch) => batch.cargo_mode === 'carga_solta').length || distinctBreakbulkBatchCount
+          const totalImportManifestCount =
+            importBatches.length || containerManifestCount + breakbulkManifestCount
           const totalBls = (voyage.bls ?? []).length
           const flatContainers = containerBls.flatMap((bl) => bl.bl_containers ?? [])
           const vehicleContainerNumbers = new Set(vehicleStats.containerNumbers)
@@ -268,13 +277,6 @@ export function Viagens() {
           )
           const containerTypes = summarizeContainerTypes(flatContainers)
           const generalCargoContainerTypes = summarizeContainerTypes(generalCargoContainers)
-          const polRows = originPorts.map((pol) => {
-            const schedule = polSchedules?.get(buildVoyagePolEntityId(voyage.id, pol))
-            return {
-              pol,
-              etd: schedule?.etd ?? null,
-            }
-          })
           const podRows = destinationPorts.map((pod) => {
             const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
             const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(pod))
@@ -299,20 +301,11 @@ export function Viagens() {
             }
           })
           const plannedPodCount = podRows.filter((row) => row.eta || row.etb || row.ata || row.atd).length
-          const routeRows = collectVoyageRoutes(voyage.bls).map((route) => {
-            const polEntityId = buildVoyagePolEntityId(voyage.id, route.pol)
-            const podEntityId = buildVoyagePodEntityId(voyage.id, route.pod)
-            const polSchedule = polSchedules?.get(polEntityId)
-            const podSchedule = podSchedules?.get(podEntityId)
-
-            return {
-              ...route,
-              etd: polSchedule?.etd ?? null,
-              eta: podSchedule?.eta ?? null,
-              etb: podSchedule?.etb ?? null,
-              ata: podSchedule?.ata ?? null,
-              atd: podSchedule?.atd ?? null,
-            }
+          const manifestRows = collectVoyageManifestRows({
+            voyageId: voyage.id,
+            batches: importBatches,
+            bls: voyage.bls,
+            polSchedules,
           })
           const voyageSectionState = openVoyageSections[voyage.id] ?? {}
 
@@ -390,115 +383,70 @@ export function Viagens() {
           )
 
           const origemTrechosContent = (
-            <div className="grid gap-4 2xl:grid-cols-12">
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-5">
-                <div className="mb-3">
-                  <div className="font-semibold text-white">Datas dos portos de origem</div>
-                  <div className="text-sm text-slate-400">
-                    O ETD e identificado automaticamente pelo manifesto e pode ser ajustado manualmente por POL.
-                  </div>
-                </div>
-
-                <div className="app-voyage-table-frame">
-                  <div className="app-table-scroll">
-                    <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                      <colgroup>
-                        <col className="w-[40%]" />
-                        <col className="w-[36%]" />
-                        <col className="w-[24%]" />
-                      </colgroup>
-                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">POL</th>
-                          <th className="px-3 py-2">ETD</th>
-                          <th className="px-3 py-2">Acoes</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#30363d]">
-                        {polRows.length ? (
-                          polRows.map((row) => (
-                            <tr key={`${voyage.id}-pol-${row.pol}`}>
-                              <td className="px-3 py-2 font-semibold text-white">{row.pol}</td>
-                              <td className="px-3 py-2">{formatDate(row.etd)}</td>
-                              <td className="px-3 py-2">
-                                <Button
-                                  variant="secondary"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Editar ETD do POL ${row.pol}`}
-                                  onClick={() =>
-                                    setEditingPol({
-                                      voyageId: voyage.id,
-                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                      pol: row.pol,
-                                      etd: row.etd,
-                                    })
-                                  }
-                                >
-                                  <Pencil size={15} />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={3} className="px-3 py-3 text-slate-400">
-                              Nenhum POL identificado para esta viagem.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+            <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+              <div className="mb-3">
+                <div className="font-semibold text-white">Manifestos vinculados</div>
+                <div className="text-sm text-slate-400">
+                  Um manifesto por linha, com ETD editavel e quantidade de B/Ls vinculados.
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-7">
-                <div className="mb-3">
-                  <div className="font-semibold text-white">Trechos consolidados</div>
-                  <div className="text-sm text-slate-400">
-                    Os trechos abaixo exibem as datas herdadas dos cadastros de POL e POD ja conhecidos na viagem.
-                  </div>
-                </div>
-
-                <div className="app-voyage-table-frame">
-                  <div className="app-table-scroll">
-                    <table className="app-table app-table--compact min-w-[640px] text-left text-sm">
-                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">POL</th>
-                          <th className="px-3 py-2">POD</th>
-                          <th className="px-3 py-2">ETD</th>
-                          <th className="px-3 py-2">ETA</th>
-                          <th className="px-3 py-2">ETB</th>
-                          <th className="px-3 py-2">ATA</th>
-                          <th className="px-3 py-2">ATD</th>
-                          <th className="px-3 py-2">B/Ls</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#30363d]">
-                        {routeRows.length ? (
-                          routeRows.map((route) => (
-                            <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
-                              <td className="px-3 py-2 font-semibold text-white">{route.pol}</td>
-                              <td className="px-3 py-2 font-semibold text-white">{route.pod}</td>
-                              <td className="px-3 py-2">{formatDate(route.etd)}</td>
-                              <td className="px-3 py-2">{formatDate(route.eta)}</td>
-                              <td className="px-3 py-2">{formatDate(route.etb)}</td>
-                              <td className="px-3 py-2">{formatDate(route.ata)}</td>
-                              <td className="px-3 py-2">{formatDate(route.atd)}</td>
-                              <td className="px-3 py-2">{route.blCount}</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={8} className="px-3 py-3 text-slate-400">
-                              Nenhum trecho identificado nos manifestos desta viagem.
+              <div className="app-voyage-table-frame">
+                <div className="app-table-scroll">
+                  <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                    <colgroup>
+                      <col className="w-[52%]" />
+                      <col className="w-[18%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[16%]" />
+                    </colgroup>
+                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Manifesto</th>
+                        <th className="px-3 py-2">ETD</th>
+                        <th className="px-3 py-2">B/Ls</th>
+                        <th className="px-3 py-2">Acoes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {manifestRows.length ? (
+                        manifestRows.map((row) => (
+                          <tr key={`${voyage.id}-manifest-${row.batchId}`}>
+                            <td className="px-3 py-2">
+                              <div className="font-semibold text-white">{row.routeLabel}</div>
+                              <div className="text-xs text-slate-400">{row.filenameLabel}</div>
+                            </td>
+                            <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                            <td className="px-3 py-2">{row.blCount}</td>
+                            <td className="px-3 py-2">
+                              <Button
+                                variant="secondary"
+                                className="app-voyage-icon-btn"
+                                aria-label={`Editar ETD do manifesto ${row.filenameLabel}`}
+                                onClick={() =>
+                                  setEditingPol({
+                                    voyageId: voyage.id,
+                                    voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                    pol: row.pol,
+                                    etd: row.etd,
+                                  })
+                                }
+                                disabled={!row.pol || row.pol === '-'}
+                              >
+                                <Pencil size={15} />
+                              </Button>
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-3 text-slate-400">
+                            Nenhum manifesto identificado nesta viagem.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -528,8 +476,14 @@ export function Viagens() {
                         `${totalBls} B/Ls`,
                         `${totalContainers} CNTRs`,
                         `${plannedPodCount} Escala${plannedPodCount === 1 ? '' : 's'} planejada${plannedPodCount === 1 ? '' : 's'}`,
-                        `${routeRows.length} Trecho${routeRows.length === 1 ? '' : 's'}`,
-                        `Modulos: ${summarizeModuleAvailability(graniteStats.totalManifests, vaziosStats.totalManifests, 0)}`,
+                        `${totalImportManifestCount} Manifesto${totalImportManifestCount === 1 ? '' : 's'}`,
+                        `Modulos: ${summarizeModuleAvailability({
+                          hasCntrs: containerBls.length > 0,
+                          hasBreakbulk: breakbulkBls.length > 0,
+                          hasVehicles: vehicleStats.totalVehicles > 0,
+                          hasGranite: graniteStats.totalManifests > 0,
+                          hasVazios: vaziosStats.totalManifests > 0,
+                        })}`,
                       ].map((item) => (
                         <span key={`${voyage.id}-${item}`} className="app-voyage-hero-stat">
                           {item}
@@ -666,14 +620,14 @@ export function Viagens() {
                 <NavigationCard
                   icon={Boxes}
                   title="Manifestos CNTR"
-                  metrics={[`${containerBls.length} B/Ls`, `${totalContainers} containers distintos`, `${totalImoContainers} IMO`]}
+                  metrics={[`${containerManifestCount} manifestos`, `${containerBls.length} B/Ls`, `${totalContainers} containers distintos`]}
                   onClick={() => navigate(`/manifestos?voyage=${voyage.id}`)}
                   disabled={containerBls.length === 0}
                 />
                 <NavigationCard
                   icon={FileText}
                   title="Manifestos BB"
-                  metrics={[`${breakbulkBls.length} B/Ls`, `${formatMetric(totalBreakbulkPackagesTotal)} packages`, `${formatMetric(totalBreakbulkWeightTon)} ton`]}
+                  metrics={[`${breakbulkManifestCount} manifestos`, `${breakbulkBls.length} B/Ls`, `${formatMetric(totalBreakbulkWeightTon)} ton`]}
                   onClick={() => navigate(`/carga-solta?voyage=${voyage.id}`)}
                   disabled={breakbulkBls.length === 0}
                 />
@@ -973,6 +927,7 @@ function renderLinkedLabel(linked: boolean | null) {
 
 type VoyageBl = {
   id: string
+  batch_id?: number | null
   cargo_mode: 'container' | 'carga_solta' | null
   ce_mercante: string | null
   bb_machine_qty: number | null
@@ -998,6 +953,16 @@ type VoyageBl = {
     gross_weight_kg?: number | null
     cbm?: number | null
   }> | null
+}
+
+type VoyageImportBatch = {
+  id: number
+  voyage_id: number | null
+  cargo_mode: 'container' | 'carga_solta' | null
+  filename: string
+  uploaded_at: string | null
+  status: 'processing' | 'completed' | 'partial' | 'failed' | null
+  total_bls: number | null
 }
 
 type VoyageGraniteManifest = {
@@ -1040,6 +1005,10 @@ function splitVoyageBls(bls: VoyageBl[] | null | undefined) {
   }
 
   return { containerBls, breakbulkBls }
+}
+
+function countDistinctBatchIds(bls: VoyageBl[] | null | undefined) {
+  return new Set((bls ?? []).map((bl) => bl.batch_id).filter((batchId): batchId is number => Number.isInteger(batchId))).size
 }
 
 function getGraniteModuleStats(manifests: VoyageGraniteManifest[] | null | undefined) {
@@ -1088,16 +1057,26 @@ function formatMetric(value: number | null | undefined) {
   return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
 }
 
-function summarizeModuleAvailability(
-  graniteManifestCount: number,
-  vaziosManifestCount: number,
-  vaziosImportacaoManifestCount: number,
-) {
+function summarizeModuleAvailability({
+  hasCntrs,
+  hasBreakbulk,
+  hasVehicles,
+  hasGranite,
+  hasVazios,
+}: {
+  hasCntrs: boolean
+  hasBreakbulk: boolean
+  hasVehicles: boolean
+  hasGranite: boolean
+  hasVazios: boolean
+}) {
   const modules = []
-  if (graniteManifestCount > 0) modules.push(`Granito: ${graniteManifestCount}`)
-  if (vaziosManifestCount > 0) modules.push(`Vazios Exp: ${vaziosManifestCount}`)
-  if (vaziosImportacaoManifestCount > 0) modules.push(`Vazios Imp: ${vaziosImportacaoManifestCount}`)
-  return modules.join(' | ') || 'Somente CNTR/BB'
+  if (hasCntrs) modules.push('CNTRS')
+  if (hasBreakbulk) modules.push('BB')
+  if (hasVehicles) modules.push('VEICULOS')
+  if (hasGranite) modules.push('GRANITO')
+  if (hasVazios) modules.push('VAZIOS')
+  return modules.join('/') || '-'
 }
 
 function collectVoyagePorts(
@@ -1123,28 +1102,61 @@ function collectVoyagePorts(
   return ports
 }
 
-function collectVoyageRoutes(bls: Array<{ pol: string | null; pod: string | null }> | null | undefined) {
-  const routes = new Map<string, { pol: string; pod: string; blCount: number }>()
+function collectVoyageManifestRows({
+  voyageId,
+  batches,
+  bls,
+  polSchedules,
+}: {
+  voyageId: number
+  batches: VoyageImportBatch[] | null | undefined
+  bls: VoyageBl[] | null | undefined
+  polSchedules?: Map<string, { etd: string | null }> | undefined
+}) {
+  const blsByBatch = new Map<number, VoyageBl[]>()
 
   for (const bl of bls ?? []) {
-    const pol = bl.pol?.trim() || '-'
-    const pod = bl.pod?.trim() || '-'
-    const key = `${pol}::${pod}`
-    const current = routes.get(key)
-
-    routes.set(
-      key,
-      current
-        ? { ...current, blCount: current.blCount + 1 }
-        : {
-            pol,
-            pod,
-            blCount: 1,
-          },
-    )
+    if (!bl.batch_id) continue
+    const current = blsByBatch.get(bl.batch_id) ?? []
+    current.push(bl)
+    blsByBatch.set(bl.batch_id, current)
   }
 
-  return Array.from(routes.values())
+  return [...(batches ?? [])]
+    .sort((left, right) => {
+      const leftDate = Date.parse(left.uploaded_at ?? '')
+      const rightDate = Date.parse(right.uploaded_at ?? '')
+      if (Number.isFinite(leftDate) && Number.isFinite(rightDate) && leftDate !== rightDate) return leftDate - rightDate
+      return left.id - right.id
+    })
+    .map((batch) => {
+      const batchBls = blsByBatch.get(batch.id) ?? []
+      const pols = summarizeUniqueValues(batchBls.map((bl) => bl.pol))
+      const pods = summarizeUniqueValues(batchBls.map((bl) => bl.pod))
+      const pol = batchBls[0]?.pol?.trim() || '-'
+      const routeLabel = [pols || 'Origem a definir', pods ? `→ ${pods}` : '']
+        .filter(Boolean)
+        .join(' ')
+
+      return {
+        batchId: batch.id,
+        pol,
+        etd: polSchedules?.get(buildVoyagePolEntityId(voyageId, pol))?.etd ?? null,
+        blCount: Number(batch.total_bls ?? batchBls.length),
+        routeLabel,
+        filenameLabel: buildManifestLabel(batch),
+      }
+    })
+}
+
+function buildManifestLabel(batch: VoyageImportBatch) {
+  const modeLabel = batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'
+  const filename = stripFileExtension(batch.filename || `manifesto-${batch.id}`)
+  return `${modeLabel} | ${filename}`
+}
+
+function stripFileExtension(filename: string) {
+  return filename.replace(/\.[^.]+$/, '')
 }
 
 function summarizeContainerTypes(
