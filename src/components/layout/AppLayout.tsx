@@ -19,7 +19,6 @@ import {
   RefreshCw,
   Ship,
   ShieldCheck,
-  Tv,
   User,
   Users,
   X,
@@ -55,7 +54,6 @@ const primaryNavItems: NavItem[] = [
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/alertas', label: 'Alertas', icon: Bell },
-  { to: '/line-up-tv', label: 'Line up TV', icon: Tv },
 ]
 
 const adminNavItems: NavItem[] = [

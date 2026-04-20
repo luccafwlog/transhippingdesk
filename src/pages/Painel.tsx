@@ -1,10 +1,27 @@
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Boxes, FileText, Monitor, Receipt, ReceiptText, CheckCircle, UserX, TableProperties } from 'lucide-react'
+import {
+  AlertTriangle,
+  Boxes,
+  CheckCircle,
+  FileText,
+  Monitor,
+  Receipt,
+  ReceiptText,
+  RefreshCw,
+  TableProperties,
+  UserX,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
+import { Card, InlineError, PageHeader } from '../components/ui/Card'
+import { LineUpTable } from '../components/lineup/LineUpTable'
 import { normalizeContainerNumber } from '../lib/containerCounts'
-import { supabase } from '../services/supabase'
 import { formatBRL } from '../lib/utils'
+import { fetchLineUpSnapshot } from '../services/lineup'
+import { supabase } from '../services/supabase'
+
+type FilterStatus = 'all' | 'active' | 'completed'
 
 async function fetchDashboard() {
   const [totalContainers, bls, review, chargeReviewRequired, readyForBilling, pendingFinancial, invoices, alerts, blsWithoutCustomer] =
@@ -77,18 +94,60 @@ async function fetchDistinctContainerCount() {
 }
 
 export function Painel() {
-  const { data, isLoading, error } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard })
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const {
+    data: dashboard,
+    isLoading: isDashboardLoading,
+    error: dashboardError,
+  } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard })
+  const {
+    data: lineup,
+    isLoading: isLineUpLoading,
+    error: lineUpError,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ['lineup-tv-v3'],
+    queryFn: fetchLineUpSnapshot,
+    staleTime: 60_000,
+    refetchInterval: 90_000,
+  })
+
+  const rows = useMemo(() => {
+    const current = lineup?.rows ?? []
+    if (statusFilter === 'all') return current
+    return current.filter((row) => row.voyageStatus === statusFilter)
+  }, [lineup, statusFilter])
+
+  const lastUpdate = lineup?.lastChangedAt
+    ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
+        new Date(lineup.lastChangedAt),
+      )
+    : '-'
 
   return (
     <>
       <PageHeader
-        title="Painel executivo"
-        description="KPIs operacionais carregados por consultas pontuais, sem snapshot global da base."
+        title="Painel"
+        description="KPIs operacionais e quadro Line Up consolidados na pagina principal do sistema."
+        action={
+          <div className="flex flex-wrap items-center gap-3">
+            <Link to="/line-up-tv/display" target="_blank" rel="noreferrer" className="app-btn app-btn--secondary">
+              <Monitor size={14} />
+              Abrir tela TV
+            </Link>
+            <span className="text-xs text-slate-500">Atualizado: {lastUpdate}</span>
+            <button type="button" onClick={() => void refetch()} className="app-btn app-btn--secondary">
+              <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+              Atualizar
+            </button>
+          </div>
+        }
       />
 
-      {error ? (
-        <Card className="border-red-400/30 bg-red-950/30 text-sm text-red-100">
-          Não foi possível carregar o painel. Verifique as variáveis do Supabase e as migrations.
+      {dashboardError ? (
+        <Card className="mb-5 border-red-400/30 bg-red-950/30 text-sm text-red-100">
+          Nao foi possivel carregar os indicadores do painel. Verifique as variaveis do Supabase e as migrations.
         </Card>
       ) : null}
 
@@ -96,28 +155,28 @@ export function Painel() {
         <KpiCard
           icon={FileText}
           label="B/Ls ativos"
-          value={isLoading ? '...' : (data?.totalBls ?? 0)}
+          value={isDashboardLoading ? '...' : (dashboard?.totalBls ?? 0)}
           linkTo="/manifestos"
         />
         <KpiCard
           icon={Boxes}
           label="Containers distintos"
-          value={isLoading ? '...' : (data?.totalContainers ?? 0)}
+          value={isDashboardLoading ? '...' : (dashboard?.totalContainers ?? 0)}
           linkTo="/containers"
           tone="text-[#58a6ff]"
         />
         <KpiCard
           icon={AlertTriangle}
-          label="Aguardando revisão"
-          value={isLoading ? '...' : (data?.pendingReview ?? 0)}
+          label="Aguardando revisao"
+          value={isDashboardLoading ? '...' : (dashboard?.pendingReview ?? 0)}
           tone="text-amber-300"
           linkTo="/revisao"
         />
         <KpiCard
           icon={Receipt}
           label="Invoices em aberto"
-          value={isLoading ? '...' : (data?.openInvoices ?? 'Restrito')}
-          detail={data?.invoicesAccessDenied ? 'Admin only' : formatBRL(data?.openInvoicesAmount ?? 0)}
+          value={isDashboardLoading ? '...' : (dashboard?.openInvoices ?? 'Restrito')}
+          detail={dashboard?.invoicesAccessDenied ? 'Admin only' : formatBRL(dashboard?.openInvoicesAmount ?? 0)}
           tone="text-emerald-300"
           linkTo="/faturamento"
         />
@@ -127,28 +186,28 @@ export function Painel() {
         <KpiCard
           icon={ReceiptText}
           label="Taxas para revisar"
-          value={isLoading ? '...' : (data?.chargeReviewRequired ?? 0)}
+          value={isDashboardLoading ? '...' : (dashboard?.chargeReviewRequired ?? 0)}
           tone="text-amber-300"
           linkTo="/taxas-locais"
         />
         <KpiCard
           icon={CheckCircle}
           label="Prontos para faturar"
-          value={isLoading ? '...' : (data?.readyForBilling ?? 0)}
+          value={isDashboardLoading ? '...' : (dashboard?.readyForBilling ?? 0)}
           tone="text-emerald-300"
           linkTo="/faturamento"
         />
         <KpiCard
           icon={Receipt}
           label="B/Ls sem faturamento"
-          value={isLoading ? '...' : (data?.pendingFinancial ?? 0)}
+          value={isDashboardLoading ? '...' : (dashboard?.pendingFinancial ?? 0)}
           linkTo="/taxas-locais"
         />
         <KpiCard
           icon={AlertTriangle}
-          label="Alertas não fechados"
-          value={isLoading ? '...' : (data?.openAlerts ?? 0)}
-          tone={data?.openAlerts ? 'text-red-400' : undefined}
+          label="Alertas nao fechados"
+          value={isDashboardLoading ? '...' : (dashboard?.openAlerts ?? 0)}
+          tone={dashboard?.openAlerts ? 'text-red-400' : undefined}
           linkTo="/alertas"
         />
       </div>
@@ -157,42 +216,56 @@ export function Painel() {
         <KpiCard
           icon={UserX}
           label="B/Ls sem cliente"
-          value={isLoading ? '...' : (data?.blsWithoutCustomer ?? 0)}
-          tone={data?.blsWithoutCustomer ? 'text-red-400' : 'text-slate-400'}
-          detail={data?.blsWithoutCustomer ? 'Vincular em Revisão' : undefined}
+          value={isDashboardLoading ? '...' : (dashboard?.blsWithoutCustomer ?? 0)}
+          tone={dashboard?.blsWithoutCustomer ? 'text-red-400' : 'text-slate-400'}
+          detail={dashboard?.blsWithoutCustomer ? 'Vincular em Revisao' : undefined}
           linkTo="/revisao"
         />
         <KpiCard
           icon={TableProperties}
-          label="PODs sem tabela de cobrança"
-          value={isLoading ? '...' : '—'}
+          label="PODs sem tabela de cobranca"
+          value={isDashboardLoading ? '...' : '-'}
           tone="text-slate-400"
           detail="Ver em Taxas Locais"
           linkTo="/taxas-locais"
         />
-        <Card className="app-kpi-card app-kpi-card--navy">
-          <div className="text-slate-400 mb-4">
-            <Monitor size={24} />
-          </div>
-          <div className="app-kpi-card__label">LineUp TV</div>
-          <div className="mt-3 flex gap-2">
-            <Link
-              to="/line-up-tv/display"
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 rounded-md bg-[#1A2744] px-3 py-1.5 text-center text-xs font-medium text-white hover:bg-[#243460] transition-colors"
-            >
-              Abrir Tela TV
-            </Link>
-            <Link
-              to="/line-up-tv"
-              className="flex-1 rounded-md border border-[#30363d] px-3 py-1.5 text-center text-xs font-medium text-slate-300 hover:text-white transition-colors"
-            >
-              Configurar
-            </Link>
-          </div>
-        </Card>
       </div>
+
+      <Card className="mb-5 mt-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {(['all', 'active', 'completed'] as FilterStatus[]).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setStatusFilter(filter)}
+                className={`app-tab ${statusFilter === filter ? 'app-tab--active' : ''}`}
+              >
+                {filter === 'all' ? 'Todas as escalas' : filter === 'active' ? 'Escalas ativas' : 'Escalas concluidas'}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="blue">ETB vinculado ao cadastro manual do POD</Badge>
+            <Badge tone="green">ATD remove a rota do quadro</Badge>
+            <Badge tone="slate">Tela TV: /line-up-tv/display</Badge>
+          </div>
+        </div>
+      </Card>
+
+      {lineUpError ? <InlineError message="Erro ao carregar o Line Up TV." /> : null}
+
+      {isLineUpLoading ? (
+        <div className="py-16 text-center text-slate-400">Carregando line up...</div>
+      ) : (
+        <Card className="overflow-hidden p-0">
+          <LineUpTable
+            rows={rows}
+            emptyTitle="Nenhuma escala encontrada."
+            emptyDescription="Ajuste o filtro de status ou aguarde o proximo ciclo de atualizacao."
+          />
+        </Card>
+      )}
     </>
   )
 }
@@ -215,7 +288,7 @@ function KpiCard({
   const cardTone =
     label === 'Invoices em aberto' || label === 'Prontos para faturar'
       ? 'green'
-      : label === 'Aguardando revisão' || label === 'Taxas para revisar'
+      : label === 'Aguardando revisao' || label === 'Taxas para revisar'
         ? 'gold'
         : label === 'Containers distintos'
           ? 'blue'
@@ -223,8 +296,8 @@ function KpiCard({
 
   const inner = (
     <Card className={`app-kpi-card app-kpi-card--${cardTone}`}>
-      <div className={`${tone} mb-4`}>
-        <Icon size={24} />
+      <div className={`${tone} mb-3`}>
+        <Icon size={20} />
       </div>
       <div className="app-kpi-card__label">{label}</div>
       <div className={`app-kpi-card__value app-kpi-card__value--${cardTone}`}>{value}</div>
