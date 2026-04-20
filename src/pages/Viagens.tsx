@@ -301,7 +301,7 @@ export function Viagens() {
             }
           })
           const plannedPodCount = podRows.filter((row) => row.eta || row.etb || row.ata || row.atd).length
-          const manifestRows = collectVoyageManifestRows({
+          const manifestRows = collectVoyageManifestRowsGroupedByRoute({
             voyageId: voyage.id,
             batches: importBatches,
             bls: voyage.bls,
@@ -1172,8 +1172,106 @@ function buildManifestLabel(batch: VoyageImportBatch) {
   return `${modeLabel} | ${filename}`
 }
 
+void collectVoyageManifestRows
+
 function stripFileExtension(filename: string) {
   return filename.replace(/\.[^.]+$/, '')
+}
+
+function collectVoyageManifestRowsGroupedByRoute({
+  voyageId,
+  batches,
+  bls,
+  polSchedules,
+}: {
+  voyageId: number
+  batches: VoyageImportBatch[] | null | undefined
+  bls: VoyageBl[] | null | undefined
+  polSchedules?: Map<string, { etd: string | null }> | undefined
+}) {
+  const blsByBatch = new Map<number, VoyageBl[]>()
+  const routeGroups = new Map<
+    string,
+    {
+      pol: string
+      pod: string
+      blCount: number
+      filenames: string[]
+      modeLabels: string[]
+      batchIds: number[]
+      sortDate: number
+    }
+  >()
+
+  for (const bl of bls ?? []) {
+    if (!bl.batch_id) continue
+    const current = blsByBatch.get(bl.batch_id) ?? []
+    current.push(bl)
+    blsByBatch.set(bl.batch_id, current)
+  }
+
+  for (const batch of batches ?? []) {
+    const batchBls = blsByBatch.get(batch.id) ?? []
+    const pol = batchBls[0]?.pol?.trim() || '-'
+    const pod = batchBls[0]?.pod?.trim() || '-'
+    const routeKey = `${normalizePortName(pol)}::${normalizePortName(pod)}`
+    const filename = stripFileExtension(batch.filename || `manifesto-${batch.id}`)
+    const modeLabel = batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'
+    const batchSortDate = Date.parse(batch.uploaded_at ?? '')
+    const current = routeGroups.get(routeKey)
+
+    if (current) {
+      current.blCount += Number(batch.total_bls ?? batchBls.length)
+      current.batchIds.push(batch.id)
+      if (!current.filenames.includes(filename)) current.filenames.push(filename)
+      if (!current.modeLabels.includes(modeLabel)) current.modeLabels.push(modeLabel)
+      if (Number.isFinite(batchSortDate) && (!Number.isFinite(current.sortDate) || batchSortDate < current.sortDate)) {
+        current.sortDate = batchSortDate
+      }
+      continue
+    }
+
+    routeGroups.set(routeKey, {
+      pol,
+      pod,
+      blCount: Number(batch.total_bls ?? batchBls.length),
+      filenames: [filename],
+      modeLabels: [modeLabel],
+      batchIds: [batch.id],
+      sortDate: batchSortDate,
+    })
+  }
+
+  return Array.from(routeGroups.values())
+    .sort((left, right) => {
+      if (Number.isFinite(left.sortDate) && Number.isFinite(right.sortDate) && left.sortDate !== right.sortDate) {
+        return left.sortDate - right.sortDate
+      }
+      return left.pol.localeCompare(right.pol, 'pt-BR') || left.pod.localeCompare(right.pod, 'pt-BR')
+    })
+    .map((group) => ({
+      batchId: group.batchIds.join('-'),
+      pol: group.pol,
+      etd: polSchedules?.get(buildVoyagePolEntityId(voyageId, group.pol))?.etd ?? null,
+      blCount: group.blCount,
+      routeLabel: `${formatPortDisplayName(group.pol)} -> ${formatPortDisplayName(group.pod)}`,
+      filenameLabel: `${group.modeLabels.join('/')} | ${group.filenames.join(', ')}`,
+    }))
+}
+
+function formatPortDisplayName(port: string | null | undefined) {
+  const normalized = normalizePortName(port)
+
+  const portNames: Record<string, string> = {
+    CNNBO: 'NINGBO',
+    CNNSA: 'NANSHA',
+    CNSHG: 'SHANGHAI',
+    CNTAC: 'TAICANG',
+    BRVIT: 'VITORIA',
+    VIX: 'VITORIA',
+  }
+
+  return portNames[normalized] ?? (String(port ?? '').trim() || '-')
 }
 
 function summarizeContainerTypes(
