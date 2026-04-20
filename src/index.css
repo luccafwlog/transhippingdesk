@@ -1873,6 +1873,28 @@ textarea {
   padding-top: 14px;
 }
 
+.app-voyage-tab-shell {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid var(--app-border);
+  padding-top: 14px;
+}
+
+.app-voyage-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.app-voyage-tab-list .app-tab {
+  min-width: 144px;
+}
+
+.app-voyage-tab-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .app-voyage-actions .app-btn {
   min-height: 38px;
   box-shadow: var(--app-shadow);
