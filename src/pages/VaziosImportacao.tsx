@@ -114,8 +114,8 @@ export function VaziosImportacao() {
   return (
     <>
       <PageHeader
-        title="Vazios Importacao"
-        description="Manifestos de containers vazios de importacao (container, tipo, tara)."
+        title="Vazios — Importacao"
+        description="Containers vazios que descarregam (chegam) ao porto. Sao os futuros vazios de exportacao."
         action={
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />

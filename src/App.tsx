@@ -35,7 +35,6 @@ const LineUpTV = lazyPage(() => import('./pages/LineUpTV'), 'LineUpTV')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
 const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
 const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
-const DemurrageInvoices = lazyPage(() => import('./pages/DemurrageInvoices'), 'DemurrageInvoices')
 const DemurrageReconciliacao = lazyPage(() => import('./pages/DemurrageReconciliacao'), 'DemurrageReconciliacao')
 const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconciliacao')
 const Granite = lazyPage(() => import('./pages/Granite'), 'Granite')
@@ -85,7 +84,7 @@ export default function App() {
           <Route path="/relatorios" element={withSuspense(<Relatorios />)} />
           <Route path="/line-up-tv" element={withSuspense(<LineUpTV />)} />
           <Route path="/demurrage" element={withSuspense(<Demurrage />)} />
-          <Route path="/demurrage/invoices" element={withSuspense(<DemurrageInvoices />)} />
+          <Route path="/demurrage/invoices" element={<Navigate to="/demurrage" replace />} />
           <Route path="/demurrage/reconciliacao" element={withSuspense(<DemurrageReconciliacao />)} />
           <Route path="/reconciliacao" element={withSuspense(<Reconciliacao />)} />
           <Route path="/granito" element={withSuspense(<Granite />)} />

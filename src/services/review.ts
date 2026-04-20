@@ -103,6 +103,33 @@ export async function saveBlReview({
   return (data as string) ?? null
 }
 
+export async function saveGraniteBlReview({
+  graniteBlId,
+  clientId,
+  changedBy,
+}: {
+  graniteBlId: string
+  clientId: number
+  changedBy: string
+}): Promise<void> {
+  const { error } = await supabase
+    .from('granite_bls')
+    .update({ client_id: clientId })
+    .eq('id', graniteBlId)
+
+  if (error) throw error
+
+  await supabase.from('audit_logs').insert({
+    entity_type: 'granite_bl',
+    entity_id: graniteBlId,
+    field_name: 'client_id',
+    old_value: null,
+    new_value: String(clientId),
+    changed_by: changedBy,
+    justification: 'Cliente vinculado via fila de revisao',
+  })
+}
+
 export class ConcurrentEditError extends Error {
   constructor(message: string) {
     super(message)

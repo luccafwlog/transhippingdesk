@@ -104,8 +104,8 @@ export function EmbarqueVazios() {
   return (
     <>
       <PageHeader
-        title="Manifestos Vazios"
-        description="Movimentacao de containeres vazios identificados por booking number."
+        title="Vazios — Exportacao"
+        description="Containers vazios que embarcam (saem) pelo porto. Identificados por booking number."
         action={
           <div className="flex flex-wrap gap-2">
             <a
