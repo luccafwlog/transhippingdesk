@@ -354,6 +354,7 @@ export function Viagens() {
                     voyageId={voyage.id}
                     voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
                     userId={user.id}
+                    types={['cntr', 'bb', 'vaziosImp', 'vehicles']}
                   />
                 </MetricSection>
               ) : null}
@@ -361,25 +362,41 @@ export function Viagens() {
           )
 
           const exportacaoContent = (
-            <div className="grid gap-4 xl:grid-cols-2">
-              <MetricPanel title="Granito">
-                <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
-                <Info label="B/Ls" value={String(graniteStats.totalBls)} />
-                <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
-                <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
-                <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
-                <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
-              </MetricPanel>
+            <>
+              <div className="grid gap-4 xl:grid-cols-2">
+                <MetricPanel title="Granito">
+                  <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
+                  <Info label="B/Ls" value={String(graniteStats.totalBls)} />
+                  <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
+                  <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
+                  <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
+                  <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
+                </MetricPanel>
 
-              <MetricPanel title="Vazios">
-                <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
-                <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
-                <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
-                <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
-                <Info label="Destinos" value={vaziosStats.destinations || '-'} />
-                <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
-              </MetricPanel>
-            </div>
+                <MetricPanel title="Vazios">
+                  <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
+                  <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
+                  <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
+                  <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
+                  <Info label="Destinos" value={vaziosStats.destinations || '-'} />
+                  <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
+                </MetricPanel>
+              </div>
+
+              {user?.id ? (
+                <MetricSection
+                  title="Exportacao rapida"
+                  description="Importe manifestos e planilhas de exportacao diretamente nesta viagem."
+                >
+                  <VoyageImportActions
+                    voyageId={voyage.id}
+                    voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
+                    userId={user.id}
+                    types={['granite', 'vaziosExp']}
+                  />
+                </MetricSection>
+              ) : null}
+            </>
           )
 
           const origemTrechosContent = (

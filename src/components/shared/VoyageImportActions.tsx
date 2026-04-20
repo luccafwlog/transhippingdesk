@@ -9,16 +9,18 @@ import { computeFileHash, importManifest } from '../../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile } from '../../services/manifestParser'
 import { importBreakbulkManifest, parseBreakbulkManifestFile } from '../../services/breakbulkImport'
 import { importGraniteManifest, parseGraniteManifestFile } from '../../services/graniteImport'
+import { importVaziosManifest, parseVaziosManifestFile } from '../../services/vaziosImport'
 import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../../services/vaziosImportacaoImport'
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
 
-type ImportType = 'cntr' | 'bb' | 'granite' | 'vazios' | 'vehicles'
+type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
   cntr: 'Manifesto CNTR',
   bb: 'Manifesto BB',
   granite: 'Manifesto Granito',
-  vazios: 'Manifesto Vazios Imp.',
+  vaziosImp: 'Manifesto Vazios Imp.',
+  vaziosExp: 'Vazios Exp',
   vehicles: 'Planilha Veiculos',
 }
 
@@ -26,17 +28,19 @@ export function VoyageImportActions({
   voyageId,
   voyageLabel,
   userId,
+  types,
 }: {
   voyageId: number
   voyageLabel: string
   userId: string
+  types: ImportType[]
 }) {
   const [activeType, setActiveType] = useState<ImportType | null>(null)
 
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {(['cntr', 'bb', 'granite', 'vazios', 'vehicles'] as ImportType[]).map((type) => (
+        {types.map((type) => (
           <Button key={type} variant="secondary" className="text-xs" onClick={() => setActiveType(type)}>
             <Upload size={13} />
             {IMPORT_LABELS[type]}
@@ -53,8 +57,11 @@ export function VoyageImportActions({
       {activeType === 'granite' ? (
         <GraniteImportModal voyageId={voyageId} voyageLabel={voyageLabel} userId={userId} onClose={() => setActiveType(null)} />
       ) : null}
-      {activeType === 'vazios' ? (
-        <VaziosImportModal voyageId={voyageId} voyageLabel={voyageLabel} userId={userId} onClose={() => setActiveType(null)} />
+      {activeType === 'vaziosImp' ? (
+        <VaziosImportacaoModal voyageId={voyageId} voyageLabel={voyageLabel} userId={userId} onClose={() => setActiveType(null)} />
+      ) : null}
+      {activeType === 'vaziosExp' ? (
+        <VaziosExportacaoModal voyageId={voyageId} voyageLabel={voyageLabel} userId={userId} onClose={() => setActiveType(null)} />
       ) : null}
       {activeType === 'vehicles' ? (
         <VehiclesImportModal voyageId={voyageId} voyageLabel={voyageLabel} userId={userId} onClose={() => setActiveType(null)} />
@@ -291,7 +298,7 @@ function GraniteImportModal({
   )
 }
 
-function VaziosImportModal({
+function VaziosImportacaoModal({
   voyageId,
   voyageLabel,
   userId,
@@ -356,6 +363,89 @@ function VaziosImportModal({
           </div>
         ) : null}
         <ModalActions disabled={!preview?.containers.length} loading={importing} onConfirm={() => void handleImport()} onCancel={onClose} />
+      </div>
+    </Modal>
+  )
+}
+
+function VaziosExportacaoModal({
+  voyageId,
+  voyageLabel,
+  userId,
+  onClose,
+}: {
+  voyageId: number
+  voyageLabel: string
+  userId: string
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<Awaited<ReturnType<typeof parseVaziosManifestFile>> | null>(null)
+  const [parsing, setParsing] = useState(false)
+  const [importing, setImporting] = useState(false)
+
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const f = event.target.files?.[0] ?? null
+    setFile(f)
+    setPreview(null)
+    if (!f) return
+    setParsing(true)
+    try {
+      setPreview(await parseVaziosManifestFile(f))
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao ler arquivo.', 'error')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  async function handleImport() {
+    if (!preview || !file) return
+    setImporting(true)
+    try {
+      await importVaziosManifest({
+        filename: file.name,
+        voyageId,
+        manifest: preview,
+        uploadedBy: userId,
+        description: file.name,
+      })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: ['vazios-bookings'] }),
+      ])
+      showToast(`Vazios Exp importado: ${preview.bookings.length} booking(s).`, 'success')
+      onClose()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao importar Vazios Exp.', 'error')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Importar Vazios Exportacao">
+      <div className="grid gap-4">
+        <VoyageContext label={voyageLabel} />
+        <Field label="Arquivo .xlsx / .xls / .csv">
+          <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
+        </Field>
+        {parsing ? <div className="text-sm text-slate-400">Processando...</div> : null}
+        {preview ? (
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="Bookings" value={preview.bookings.length} />
+            <Stat label="Erros" value={preview.rowErrors.length} />
+            <Stat label="Linhas" value={preview.bookings.length + preview.rowErrors.length} />
+          </div>
+        ) : null}
+        <ModalActions
+          disabled={!preview?.bookings.length}
+          loading={importing}
+          onConfirm={() => void handleImport()}
+          onCancel={onClose}
+        />
       </div>
     </Modal>
   )
