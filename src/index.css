@@ -1865,34 +1865,54 @@ textarea {
   color: #1d4ed8;
 }
 
+.app-voyage-tab-shell {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
+  box-shadow: var(--app-shadow);
+}
+
+.app-voyage-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.app-voyage-tab-list .app-tab {
+  min-width: 168px;
+  min-height: 42px;
+  padding: 0 18px;
+  background: #ffffff;
+  color: var(--app-text);
+  border-color: color-mix(in srgb, var(--app-blue) 18%, var(--app-border-strong));
+  box-shadow: var(--app-shadow);
+}
+
+.app-voyage-tab-list .app-tab:hover {
+  border-color: color-mix(in srgb, var(--app-blue) 60%, var(--app-border-strong));
+  background: color-mix(in srgb, #ffffff 70%, var(--app-blue-soft) 30%);
+}
+
+.app-voyage-tab-list .app-tab.app-tab--active {
+  background: var(--app-navy);
+  border-color: var(--app-navy);
+  color: #ffffff;
+}
+
+.app-voyage-tab-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .app-voyage-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   border-top: 1px solid var(--app-border);
   padding-top: 14px;
-}
-
-.app-voyage-tab-shell {
-  display: grid;
-  gap: 14px;
-  border-top: 1px solid var(--app-border);
-  padding-top: 14px;
-}
-
-.app-voyage-tab-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.app-voyage-tab-list .app-tab {
-  min-width: 144px;
-}
-
-.app-voyage-tab-panel {
-  display: grid;
-  gap: 16px;
 }
 
 .app-voyage-actions .app-btn {
