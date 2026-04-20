@@ -224,6 +224,7 @@ export async function createInvoiceFromGraniteBls(input: {
   customerId?: number | null
   dueDate?: string | null
   notes?: string | null
+  issueNow?: boolean
   actorId?: string | null
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -232,6 +233,7 @@ export async function createInvoiceFromGraniteBls(input: {
     p_customer_id: input.customerId ?? null,
     p_due_date: input.dueDate ?? null,
     p_notes: input.notes ?? null,
+    p_issue_now: input.issueNow ?? true,
     p_actor: input.actorId ?? null,
   })
 

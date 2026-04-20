@@ -14,7 +14,7 @@ import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import { formatCnpjCpf } from '../lib/utils'
 import { createCustomer } from '../services/customers'
 import { logOperationalEvent } from '../services/operationalEvents'
-import { ConcurrentEditError, saveBlReview } from '../services/review'
+import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
 
 export function Revisao() {
   const { data, isLoading, error } = useReviewQueue()
@@ -157,7 +157,12 @@ export function Revisao() {
               ) : null}
               {filteredData.map((item, index) => (
                 <tr key={item.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3 font-semibold text-white">{item.id}</td>
+                  <td className="px-4 py-3 font-semibold text-white">
+                    <div className="flex items-center gap-2">
+                      {item.source === 'granite' ? <Badge tone="blue">Granito</Badge> : null}
+                      {item.source === 'granite' ? item.bl_number : item.id}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
                       {(item.review_reasons?.length ? item.review_reasons : ['Pendente de revisao']).map((reason) => (
@@ -167,7 +172,7 @@ export function Revisao() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3">{item.consignee ?? '-'}</td>
+                  <td className="px-4 py-3">{item.consignee ?? item.shipper ?? '-'}</td>
                   <td className="px-4 py-3">{item.customer?.name ?? 'Nao vinculado'}</td>
                   <td className="px-4 py-3">
                     {item.voyage?.vessel?.name ?? '-'} / {item.voyage?.voyage_number ?? '-'}
@@ -177,9 +182,15 @@ export function Revisao() {
                       <Button variant="secondary" onClick={() => openItem(index)}>
                         Corrigir
                       </Button>
-                      <Link className="app-table__action" to={`/manifestos/${item.id}`}>
-                        Abrir B/L
-                      </Link>
+                      {item.source === 'bl' ? (
+                        <Link className="app-table__action" to={`/manifestos/${item.id}`}>
+                          Abrir B/L
+                        </Link>
+                      ) : (
+                        <Link className="app-table__action" to={`/granito`}>
+                          Abrir Granito
+                        </Link>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -276,36 +287,46 @@ function ReviewModal({
 
     setSaving(true)
     try {
-      await saveBlReview({
-        blId: item.id,
-        original: {
-          shipper: item.shipper,
-          consignee: item.consignee,
-          pol: item.pol,
-          pod: item.pod,
-          total_weight_kg: item.total_weight_kg,
-          total_cbm: item.total_cbm,
-          notes: item.notes,
-        },
-        values: {
-          shipper,
-          consignee,
-          pol,
-          pod,
-          total_weight_kg: totalWeightKg === '' ? null : Number(totalWeightKg),
-          total_cbm: totalCbm === '' ? null : Number(totalCbm),
-          notes,
-        },
-        customerId: selectedCustomerId,
-        previousCustomerId: item.customer_id ?? null,
-        changedBy: user.id,
-        justification,
-        expectedUpdatedAt: item.updated_at ?? null,
-      })
+      if (item.source === 'granite') {
+        if (!selectedCustomerId) {
+          showToast('Selecione um cliente para vincular.', 'error')
+          setSaving(false)
+          return
+        }
+        await saveGraniteBlReview({ graniteBlId: item.id, clientId: selectedCustomerId, changedBy: user.id })
+      } else {
+        await saveBlReview({
+          blId: item.id,
+          original: {
+            shipper: item.shipper,
+            consignee: item.consignee,
+            pol: item.pol,
+            pod: item.pod,
+            total_weight_kg: item.total_weight_kg,
+            total_cbm: item.total_cbm,
+            notes: item.notes,
+          },
+          values: {
+            shipper,
+            consignee,
+            pol,
+            pod,
+            total_weight_kg: totalWeightKg === '' ? null : Number(totalWeightKg),
+            total_cbm: totalCbm === '' ? null : Number(totalCbm),
+            notes,
+          },
+          customerId: selectedCustomerId,
+          previousCustomerId: item.customer_id ?? null,
+          changedBy: user.id,
+          justification,
+          expectedUpdatedAt: item.updated_at ?? null,
+        })
+      }
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail', item.id] }),
         queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', item.id] }),
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
@@ -343,8 +364,11 @@ function ReviewModal({
   const canGoPrev = currentIndex !== null && currentIndex > 0
   const canGoNext = currentIndex !== null && currentIndex < totalItems - 1
 
+  const isGranite = item?.source === 'granite'
+
   return (
-    <Modal open={Boolean(item)} onClose={onClose} title={item ? `Revisar B/L ${item.id}` : 'Revisar B/L'}>
+    <Modal open={Boolean(item)} onClose={onClose} title={item ? (isGranite ? `Vincular cliente — Granito ${item.bl_number}` : `Revisar B/L ${item.id}`) : 'Revisar'}>
+
       {item ? (
         <div className="grid gap-5">
           {totalItems > 1 && currentIndex !== null ? (
@@ -387,30 +411,33 @@ function ReviewModal({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Shipper">
-              <Input value={shipper} onChange={(event) => setShipper(event.target.value)} />
-            </Field>
-            <Field label="Consignatario">
-              <Input value={consignee} onChange={(event) => setConsignee(event.target.value)} />
-            </Field>
-            <Field label="POL">
-              <Input value={pol} onChange={(event) => setPol(event.target.value)} />
-            </Field>
-            <Field label="POD">
-              <Input value={pod} onChange={(event) => setPod(event.target.value)} />
-            </Field>
-            <Field label="Peso total (kg)">
-              <Input type="number" value={totalWeightKg} onChange={(event) => setTotalWeightKg(event.target.value)} />
-            </Field>
-            <Field label="CBM total">
-              <Input type="number" value={totalCbm} onChange={(event) => setTotalCbm(event.target.value)} />
-            </Field>
-          </div>
-
-          <Field label="Notas da revisao">
-            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
-          </Field>
+          {!isGranite ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Shipper">
+                  <Input value={shipper} onChange={(event) => setShipper(event.target.value)} />
+                </Field>
+                <Field label="Consignatario">
+                  <Input value={consignee} onChange={(event) => setConsignee(event.target.value)} />
+                </Field>
+                <Field label="POL">
+                  <Input value={pol} onChange={(event) => setPol(event.target.value)} />
+                </Field>
+                <Field label="POD">
+                  <Input value={pod} onChange={(event) => setPod(event.target.value)} />
+                </Field>
+                <Field label="Peso total (kg)">
+                  <Input type="number" value={totalWeightKg} onChange={(event) => setTotalWeightKg(event.target.value)} />
+                </Field>
+                <Field label="CBM total">
+                  <Input type="number" value={totalCbm} onChange={(event) => setTotalCbm(event.target.value)} />
+                </Field>
+              </div>
+              <Field label="Notas da revisao">
+                <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+              </Field>
+            </>
+          ) : null}
 
           <Card className="grid gap-4 bg-[#0d1117]">
             <div className="font-semibold text-white">Vinculacao de cliente</div>

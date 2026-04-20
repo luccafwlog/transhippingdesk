@@ -42,12 +42,12 @@ const importNavItems: NavItem[] = [
   { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
   { to: '/veiculos', label: 'Veiculos', icon: Car },
   { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
-  { to: '/vazios-importacao', label: 'Vazios Importacao', icon: Package },
+  { to: '/vazios-importacao', label: 'Vazios — Importacao', icon: Package },
 ]
 
 const exportNavItems: NavItem[] = [
   { to: '/granito', label: 'Granito', icon: Mountain },
-  { to: '/embarquevazios', label: 'Vazios Embarque', icon: Package },
+  { to: '/embarquevazios', label: 'Vazios — Exportacao', icon: Package },
 ]
 
 const primaryNavItems: NavItem[] = [
@@ -67,8 +67,8 @@ const financialNavItems: NavItem[] = [
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
   { to: '/demurrage', label: 'Demurrage', icon: Clock },
-  { to: '/demurrage/invoices', label: 'Invoices D&D', icon: ReceiptText },
-  { to: '/reconciliacao', label: 'Conciliacao PIX', icon: RefreshCw },
+  { to: '/demurrage/reconciliacao', label: 'Conciliacao PIX', icon: RefreshCw },
+  { to: '/reconciliacao', label: 'Conciliacao', icon: RefreshCw },
 ]
 
 export function AppLayout() {

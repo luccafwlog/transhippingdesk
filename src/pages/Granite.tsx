@@ -16,6 +16,7 @@ import {
   type ReconciliationStatus,
 } from '../services/graniteImport'
 import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCharges'
+import { createInvoiceFromGraniteBls } from '../services/billing'
 import { onlyDigits } from '../lib/utils'
 import { loadCustomerMaps, findMatchedCustomer } from '../services/customerReconciliation'
 
@@ -54,7 +55,9 @@ export function Granite() {
   // Overrides de CNPJ feitos inline no preview
   const [cnpjOverrides, setCnpjOverrides] = useState<Record<number, string>>({})
   const [chargeBlId, setChargeBlId] = useState<string | null>(null)
+  const [chargeBlClientId, setChargeBlClientId] = useState<number | null>(null)
   const [chargeLines, setChargeLines] = useState<Array<{ description: string | null; charge_type: string | null; quantity: number | null; unit_value: number | null; subtotal: number | null; currency: string | null }>>([])
+  const [invoicing, setInvoicing] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['granite-bls', filters],
@@ -130,11 +133,12 @@ export function Granite() {
     }
   }
 
-  async function handleCalculateCharges(blId: string) {
+  async function handleCalculateCharges(blId: string, clientId: number | null) {
     try {
       const lines = await calculateGraniteBlCharges(blId)
       setChargeLines(lines)
       setChargeBlId(blId)
+      setChargeBlClientId(clientId)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
@@ -142,6 +146,31 @@ export function Granite() {
       showToast('Taxas calculadas.', 'success')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao calcular taxas.', 'error')
+    }
+  }
+
+  async function handleApproveAndInvoice() {
+    if (!chargeBlId || !chargeBlClientId || !user) return
+    setInvoicing(true)
+    try {
+      await createInvoiceFromGraniteBls({
+        graniteBlIds: [chargeBlId],
+        customerId: chargeBlClientId,
+        issueNow: true,
+        actorId: user.id,
+      })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+      ])
+      showToast('Fatura de granito emitida com sucesso.', 'success')
+      setChargeBlId(null)
+      setChargeLines([])
+      setChargeBlClientId(null)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao emitir fatura.', 'error')
+    } finally {
+      setInvoicing(false)
     }
   }
 
@@ -258,7 +287,7 @@ export function Granite() {
                   <td className="px-4 py-3">
                     <button
                       className="app-table__action mr-2"
-                      onClick={() => handleCalculateCharges(bl.id)}
+                      onClick={() => handleCalculateCharges(bl.id, (bl as { client_id?: number | null }).client_id ?? null)}
                     >
                       Calcular taxas
                     </button>
@@ -293,7 +322,7 @@ export function Granite() {
       </Card>
 
       {/* Modal de taxas calculadas */}
-      <Modal open={chargeBlId !== null} onClose={() => { setChargeBlId(null); setChargeLines([]) }} title="Taxas do B/L">
+      <Modal open={chargeBlId !== null} onClose={() => { setChargeBlId(null); setChargeLines([]); setChargeBlClientId(null) }} title="Taxas do B/L">
         {chargeLines.length === 0 ? (
           <p className="text-sm text-slate-400">Nenhuma taxa ativa cadastrada. Acesse Granito &gt; Taxas para cadastrar.</p>
         ) : (
@@ -331,6 +360,18 @@ export function Granite() {
             </table>
           </div>
         )}
+        <div className="mt-4 flex justify-end gap-2 border-t border-[#30363d] pt-4">
+          {chargeBlClientId ? (
+            <Button loading={invoicing} onClick={handleApproveAndInvoice}>
+              Aprovar e Faturar
+            </Button>
+          ) : (
+            <p className="text-sm text-amber-400">Vincule um cliente antes de faturar.</p>
+          )}
+          <Button variant="ghost" onClick={() => { setChargeBlId(null); setChargeLines([]); setChargeBlClientId(null) }}>
+            Fechar
+          </Button>
+        </div>
       </Modal>
 
       {/* Modal de importação */}
