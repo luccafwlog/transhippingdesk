@@ -29,6 +29,14 @@ import {
 } from '../services/voyageRouteSchedules'
 import { VoyageImportActions } from '../components/shared/VoyageImportActions'
 
+type VoyageTabKey = 'importacao' | 'exportacao' | 'origemTrechos'
+
+const VOYAGE_TAB_ITEMS: Array<{ key: VoyageTabKey; label: string }> = [
+  { key: 'importacao', label: 'Importacao' },
+  { key: 'exportacao', label: 'Exportacao' },
+  { key: 'origemTrechos', label: 'Origem e Trechos' },
+]
+
 export function Viagens() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -42,6 +50,7 @@ export function Viagens() {
   const [deleting, setDeleting] = useState(false)
   const [vesselFilter, setVesselFilter] = useState(() => searchParams.get('vessel') ?? '')
   const [voyageFilter, setVoyageFilter] = useState('')
+  const [activeVoyageTabs, setActiveVoyageTabs] = useState<Record<number, VoyageTabKey | null>>({})
   const [editingPod, setEditingPod] = useState<{
     voyageId: number
     voyageLabel: string
@@ -118,6 +127,13 @@ export function Viagens() {
   })
   const podSchedulesByVoyage = useMemo(() => groupPodSchedulesByVoyageId(podSchedules), [podSchedules])
   const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
+
+  function toggleVoyageTab(voyageId: number, tab: VoyageTabKey) {
+    setActiveVoyageTabs((current) => ({
+      ...current,
+      [voyageId]: current[voyageId] === tab ? null : tab,
+    }))
+  }
 
   async function handleDeleteVoyage() {
     if (!deletingVoyageId) return
@@ -283,6 +299,216 @@ export function Viagens() {
               atd: podSchedule?.atd ?? null,
             }
           })
+          const activeTab = activeVoyageTabs[voyage.id] ?? null
+          let tabContent: ReactNode | null = null
+
+          if (activeTab === 'importacao') {
+            tabContent = (
+              <>
+                <MetricSection
+                  title="Importacao"
+                  description="Consolidado dos fluxos de CNTR, carga geral, carga solta e veiculos vinculados a viagem."
+                >
+                  <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+                    <MetricPanel title="Container">
+                      <Info label="B/Ls CNTR" value={String(containerBls.length)} />
+                      <Info label="CNTRS distintos" value={String(totalContainers)} />
+                      <Info label="Containers IMO" value={String(totalImoContainers)} />
+                      <Info label="Containers OOG" value={String(totalOogContainers)} />
+                      <Info label="Tipos de container" value={containerTypes || '-'} />
+                    </MetricPanel>
+
+                    <MetricPanel title="Container de Carga Geral">
+                      <Info label="CNTRS distintos" value={String(totalGeneralCargoContainers)} />
+                      <Info label="Containers IMO" value={String(totalGeneralCargoImoContainers)} />
+                      <Info label="Containers OOG" value={String(totalGeneralCargoOogContainers)} />
+                      <Info label="Tipos de container" value={generalCargoContainerTypes || '-'} />
+                    </MetricPanel>
+
+                    <MetricPanel title="Veiculos">
+                      <Info label="Veiculos vinculados" value={String(vehicleStats.totalVehicles)} />
+                      <Info label="Containers com veiculos" value={String(vehicleStats.distinctContainerCount)} />
+                      <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
+                      <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
+                      <Info label="Tipos de Container" value={containerTypes || '-'} />
+                    </MetricPanel>
+
+                    <MetricPanel title="Carga solta">
+                      <Info label="B/Ls carga solta" value={String(breakbulkBls.length)} />
+                      <Info label="Maquinas" value={formatMetric(totalBreakbulkMachines)} />
+                      <Info label="Packages" value={formatMetric(totalBreakbulkPackages)} />
+                      <Info label="Packages total" value={formatMetric(totalBreakbulkPackagesTotal)} />
+                      <Info label="Weight total" value={`${formatMetric(totalBreakbulkWeightTon)} ton`} />
+                      <Info label="CBM total" value={formatMetric(totalBreakbulkCbm)} />
+                    </MetricPanel>
+                  </div>
+                </MetricSection>
+
+                {user?.id ? (
+                  <MetricSection
+                    title="Importacao rapida"
+                    description="Importe manifestos e planilhas diretamente nesta viagem sem sair da tela."
+                  >
+                    <VoyageImportActions
+                      voyageId={voyage.id}
+                      voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
+                      userId={user.id}
+                    />
+                  </MetricSection>
+                ) : null}
+              </>
+            )
+          } else if (activeTab === 'exportacao') {
+            tabContent = (
+              <MetricSection
+                title="Exportacao"
+                description="Resumo dos modulos de Granito e Vazios vinculados a mesma viagem."
+              >
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <MetricPanel title="Granito">
+                    <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
+                    <Info label="B/Ls" value={String(graniteStats.totalBls)} />
+                    <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
+                    <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
+                    <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
+                    <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
+                  </MetricPanel>
+
+                  <MetricPanel title="Vazios">
+                    <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
+                    <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
+                    <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
+                    <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
+                    <Info label="Destinos" value={vaziosStats.destinations || '-'} />
+                    <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
+                  </MetricPanel>
+                </div>
+              </MetricSection>
+            )
+          } else if (activeTab === 'origemTrechos') {
+            tabContent = (
+              <MetricSection
+                title="Origem e Trechos"
+                description="Datas operacionais dos portos de origem e consolidado dos trechos ja identificados para a viagem."
+              >
+                <div className="grid gap-4 2xl:grid-cols-12">
+                  <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-5">
+                    <div className="mb-3">
+                      <div className="font-semibold text-white">Datas dos portos de origem</div>
+                      <div className="text-sm text-slate-400">
+                        O ETD e identificado automaticamente pelo manifesto e pode ser ajustado manualmente por POL.
+                      </div>
+                    </div>
+
+                    <div className="app-voyage-table-frame">
+                      <div className="app-table-scroll">
+                        <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                          <colgroup>
+                            <col className="w-[40%]" />
+                            <col className="w-[36%]" />
+                            <col className="w-[24%]" />
+                          </colgroup>
+                          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2">POL</th>
+                              <th className="px-3 py-2">ETD</th>
+                              <th className="px-3 py-2">Acoes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#30363d]">
+                            {polRows.length ? (
+                              polRows.map((row) => (
+                                <tr key={`${voyage.id}-pol-${row.pol}`}>
+                                  <td className="px-3 py-2 font-semibold text-white">{row.pol}</td>
+                                  <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                                  <td className="px-3 py-2">
+                                    <Button
+                                      variant="secondary"
+                                      className="app-voyage-icon-btn"
+                                      aria-label={`Editar ETD do POL ${row.pol}`}
+                                      onClick={() =>
+                                        setEditingPol({
+                                          voyageId: voyage.id,
+                                          voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                          pol: row.pol,
+                                          etd: row.etd,
+                                        })
+                                      }
+                                    >
+                                      <Pencil size={15} />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={3} className="px-3 py-3 text-slate-400">
+                                  Nenhum POL identificado para esta viagem.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-7">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-white">Trechos consolidados</div>
+                        <div className="text-sm text-slate-400">
+                          Os trechos abaixo exibem as datas herdadas dos cadastros de POL e POD ja conhecidos na viagem.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="app-voyage-table-frame">
+                      <div className="app-table-scroll">
+                        <table className="app-table app-table--compact min-w-[640px] text-left text-sm">
+                          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2">POL</th>
+                              <th className="px-3 py-2">POD</th>
+                              <th className="px-3 py-2">ETD</th>
+                              <th className="px-3 py-2">ETA</th>
+                              <th className="px-3 py-2">ETB</th>
+                              <th className="px-3 py-2">ATA</th>
+                              <th className="px-3 py-2">ATD</th>
+                              <th className="px-3 py-2">B/Ls</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#30363d]">
+                            {routeRows.length ? (
+                              routeRows.map((route) => (
+                                <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
+                                  <td className="px-3 py-2 font-semibold text-white">{route.pol}</td>
+                                  <td className="px-3 py-2 font-semibold text-white">{route.pod}</td>
+                                  <td className="px-3 py-2">{formatDate(route.etd)}</td>
+                                  <td className="px-3 py-2">{formatDate(route.eta)}</td>
+                                  <td className="px-3 py-2">{formatDate(route.etb)}</td>
+                                  <td className="px-3 py-2">{formatDate(route.ata)}</td>
+                                  <td className="px-3 py-2">{formatDate(route.atd)}</td>
+                                  <td className="px-3 py-2">{route.blCount}</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={8} className="px-3 py-3 text-slate-400">
+                                  Nenhum trecho identificado nos manifestos desta viagem.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </MetricSection>
+            )
+          }
+
           return (
             <Card key={voyage.id} className="grid gap-5">
               <div className="flex items-start justify-between gap-4">
@@ -401,274 +627,104 @@ export function Viagens() {
               </div>
 
               <MetricSection
-                title="Importacao"
-                description="Consolidado dos fluxos de CNTR, carga geral, carga solta e veiculos vinculados a viagem."
+                title="Datas dos portos de destino"
+                description="ETA, ETB, ATA e ATD permanecem visiveis no painel da viagem para consulta e ajuste rapido por POD."
               >
-                <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
-                  <MetricPanel title="Container">
-                    <Info label="B/Ls CNTR" value={String(containerBls.length)} />
-                    <Info label="CNTRS distintos" value={String(totalContainers)} />
-                    <Info label="Containers IMO" value={String(totalImoContainers)} />
-                    <Info label="Containers OOG" value={String(totalOogContainers)} />
-                    <Info label="Tipos de container" value={containerTypes || '-'} />
-                  </MetricPanel>
-
-                  <MetricPanel title="Container de Carga Geral">
-                    <Info label="CNTRS distintos" value={String(totalGeneralCargoContainers)} />
-                    <Info label="Containers IMO" value={String(totalGeneralCargoImoContainers)} />
-                    <Info label="Containers OOG" value={String(totalGeneralCargoOogContainers)} />
-                    <Info label="Tipos de container" value={generalCargoContainerTypes || '-'} />
-                  </MetricPanel>
-
-                  <MetricPanel title="Veiculos">
-                    <Info label="Veiculos vinculados" value={String(vehicleStats.totalVehicles)} />
-                    <Info label="Containers com veiculos" value={String(vehicleStats.distinctContainerCount)} />
-                    <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
-                    <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
-                    <Info label="Tipos de Container" value={containerTypes || '-'} />
-                  </MetricPanel>
-
-                  <MetricPanel title="Carga solta">
-                    <Info label="B/Ls carga solta" value={String(breakbulkBls.length)} />
-                    <Info label="Maquinas" value={formatMetric(totalBreakbulkMachines)} />
-                    <Info label="Packages" value={formatMetric(totalBreakbulkPackages)} />
-                    <Info label="Packages total" value={formatMetric(totalBreakbulkPackagesTotal)} />
-                    <Info label="Weight total" value={`${formatMetric(totalBreakbulkWeightTon)} ton`} />
-                    <Info label="CBM total" value={formatMetric(totalBreakbulkCbm)} />
-                  </MetricPanel>
-                </div>
-              </MetricSection>
-
-              <MetricSection
-                title="Exportacao"
-                description="Resumo dos modulos de Granito e Vazios vinculados a mesma viagem."
-              >
-                <div className="grid gap-4 xl:grid-cols-2">
-                  <MetricPanel title="Granito">
-                    <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
-                    <Info label="B/Ls" value={String(graniteStats.totalBls)} />
-                    <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
-                    <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
-                    <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
-                    <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
-                  </MetricPanel>
-
-                  <MetricPanel title="Vazios">
-                    <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
-                    <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
-                    <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
-                    <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
-                    <Info label="Destinos" value={vaziosStats.destinations || '-'} />
-                    <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
-                  </MetricPanel>
-                </div>
-              </MetricSection>
-
-              <MetricSection
-                title="Planejamento da viagem"
-                description="Datas operacionais e escalas cadastradas por porto, incluindo PODs planejados antes do recebimento dos manifestos."
-              >
-                <div className="grid gap-4 2xl:grid-cols-12">
-                  <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-5">
-                    <div className="mb-3">
-                      <div className="font-semibold text-white">Datas dos portos de origem</div>
-                      <div className="text-sm text-slate-400">
-                        O ETD e identificado automaticamente pelo manifesto e pode ser ajustado manualmente por POL.
-                      </div>
-                    </div>
-
-                    <div className="app-voyage-table-frame">
-                      <div className="app-table-scroll">
-                        <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                          <colgroup>
-                            <col className="w-[40%]" />
-                            <col className="w-[36%]" />
-                            <col className="w-[24%]" />
-                          </colgroup>
-                          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                            <tr>
-                              <th className="px-3 py-2">POL</th>
-                              <th className="px-3 py-2">ETD</th>
-                              <th className="px-3 py-2">Acoes</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#30363d]">
-                            {polRows.length ? (
-                              polRows.map((row) => (
-                                <tr key={`${voyage.id}-pol-${row.pol}`}>
-                                  <td className="px-3 py-2 font-semibold text-white">{row.pol}</td>
-                                  <td className="px-3 py-2">{formatDate(row.etd)}</td>
-                                  <td className="px-3 py-2">
-                                    <Button
-                                      variant="secondary"
-                                      className="app-voyage-icon-btn"
-                                      aria-label={`Editar ETD do POL ${row.pol}`}
-                                      onClick={() =>
-                                        setEditingPol({
-                                          voyageId: voyage.id,
-                                          voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                          pol: row.pol,
-                                          etd: row.etd,
-                                        })
-                                      }
-                                    >
-                                      <Pencil size={15} />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={3} className="px-3 py-3 text-slate-400">
-                                  Nenhum POL identificado para esta viagem.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 2xl:col-span-7">
-                    <div className="mb-3">
-                      <div className="font-semibold text-white">Datas dos portos de destino</div>
-                      <div className="text-sm text-slate-400">
-                        ETA, ETB, ATA e ATD podem ser planejados manualmente por POD antes da chegada dos manifestos.
-                      </div>
-                    </div>
-
-                    <div className="app-voyage-table-frame">
-                      <div className="app-table-scroll">
-                        <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-                          <colgroup>
-                            <col className="w-[16%]" />
-                            <col className="w-[16%]" />
-                            <col className="w-[16%]" />
-                            <col className="w-[16%]" />
-                            <col className="w-[16%]" />
-                            <col className="w-[12%]" />
-                          </colgroup>
-                          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                            <tr>
-                              <th className="px-3 py-2">POD</th>
-                              <th className="px-3 py-2">ETA</th>
-                              <th className="px-3 py-2">ETB</th>
-                              <th className="px-3 py-2">ATA</th>
-                              <th className="px-3 py-2">ATD</th>
-                              <th className="px-3 py-2">Acoes</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#30363d]">
-                            {podRows.length ? (
-                              podRows.map((row) => (
-                                <tr key={`${voyage.id}-pod-${row.pod}`}>
-                                  <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
-                                  <td className="px-3 py-2">{formatDate(row.eta)}</td>
-                                  <td className="px-3 py-2">{formatDate(row.etb)}</td>
-                                  <td className="px-3 py-2">{formatDate(row.ata)}</td>
-                                  <td className="px-3 py-2">{formatDate(row.atd)}</td>
-                                  <td className="px-3 py-2">
-                                    <Button
-                                      variant="secondary"
-                                      className="app-voyage-icon-btn"
-                                      aria-label={`Editar datas do POD ${row.pod}`}
-                                      onClick={() =>
-                                        setEditingPod({
-                                          voyageId: voyage.id,
-                                          voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                          pod: row.pod,
-                                          eta: row.eta,
-                                          etb: row.etb,
-                                          ata: row.ata,
-                                          atd: row.atd,
-                                          rtw: row.rtw,
-                                          ceStatus: row.ceStatus,
-                                          linked: row.linked,
-                                        })
-                                      }
-                                    >
-                                      <Pencil size={15} />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={6} className="px-3 py-3 text-slate-400">
-                                  Nenhum POD cadastrado para esta viagem.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-white">Trechos consolidados</div>
-                      <div className="text-sm text-slate-400">
-                        Os trechos abaixo exibem as datas herdadas dos cadastros de POL e POD ja conhecidos na viagem.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="app-voyage-table-frame">
-                    <div className="app-table-scroll">
-                      <table className="app-table app-table--compact min-w-[640px] text-left text-sm">
-                        <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                          <tr>
-                            <th className="px-3 py-2">POL</th>
-                            <th className="px-3 py-2">POD</th>
-                            <th className="px-3 py-2">ETD</th>
-                            <th className="px-3 py-2">ETA</th>
-                            <th className="px-3 py-2">ETB</th>
-                            <th className="px-3 py-2">ATA</th>
-                            <th className="px-3 py-2">ATD</th>
-                            <th className="px-3 py-2">B/Ls</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#30363d]">
-                          {routeRows.length ? (
-                            routeRows.map((route) => (
-                              <tr key={`${voyage.id}-${route.pol}-${route.pod}`}>
-                                <td className="px-3 py-2 font-semibold text-white">{route.pol}</td>
-                                <td className="px-3 py-2 font-semibold text-white">{route.pod}</td>
-                                <td className="px-3 py-2">{formatDate(route.etd)}</td>
-                                <td className="px-3 py-2">{formatDate(route.eta)}</td>
-                                <td className="px-3 py-2">{formatDate(route.etb)}</td>
-                                <td className="px-3 py-2">{formatDate(route.ata)}</td>
-                                <td className="px-3 py-2">{formatDate(route.atd)}</td>
-                                <td className="px-3 py-2">{route.blCount}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={8} className="px-3 py-3 text-slate-400">
-                                Nenhum trecho identificado nos manifestos desta viagem.
+                <div className="app-voyage-table-frame">
+                  <div className="app-table-scroll">
+                    <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                      <colgroup>
+                        <col className="w-[16%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[12%]" />
+                      </colgroup>
+                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">POD</th>
+                          <th className="px-3 py-2">ETA</th>
+                          <th className="px-3 py-2">ETB</th>
+                          <th className="px-3 py-2">ATA</th>
+                          <th className="px-3 py-2">ATD</th>
+                          <th className="px-3 py-2">Acoes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {podRows.length ? (
+                          podRows.map((row) => (
+                            <tr key={`${voyage.id}-pod-${row.pod}`}>
+                              <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
+                              <td className="px-3 py-2">{formatDate(row.eta)}</td>
+                              <td className="px-3 py-2">{formatDate(row.etb)}</td>
+                              <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                              <td className="px-3 py-2">{formatDate(row.atd)}</td>
+                              <td className="px-3 py-2">
+                                <Button
+                                  variant="secondary"
+                                  className="app-voyage-icon-btn"
+                                  aria-label={`Editar datas do POD ${row.pod}`}
+                                  onClick={() =>
+                                    setEditingPod({
+                                      voyageId: voyage.id,
+                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                      pod: row.pod,
+                                      eta: row.eta,
+                                      etb: row.etb,
+                                      ata: row.ata,
+                                      atd: row.atd,
+                                      rtw: row.rtw,
+                                      ceStatus: row.ceStatus,
+                                      linked: row.linked,
+                                    })
+                                  }
+                                >
+                                  <Pencil size={15} />
+                                </Button>
                               </td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-3 text-slate-400">
+                              Nenhum POD cadastrado para esta viagem.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </MetricSection>
 
-              {user?.id ? (
-                <MetricSection title="Importacao rapida" description="Importe manifestos e planilhas diretamente nesta viagem sem sair da tela.">
-                  <VoyageImportActions
-                    voyageId={voyage.id}
-                    voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
-                    userId={user.id}
-                  />
-                </MetricSection>
-              ) : null}
+              <section className="app-voyage-tab-shell">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
+                      Navegacao da viagem
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">
+                      Abra apenas o bloco que deseja analisar. Cada viagem controla suas abas de forma independente.
+                    </div>
+                  </div>
+                  <div className="app-voyage-tab-list">
+                    {VOYAGE_TAB_ITEMS.map((item) => (
+                      <button
+                        key={`${voyage.id}-${item.key}`}
+                        type="button"
+                        onClick={() => toggleVoyageTab(voyage.id, item.key)}
+                        className={`app-tab ${activeTab === item.key ? 'app-tab--active' : ''}`}
+                        aria-expanded={activeTab === item.key}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {tabContent ? <div className="app-voyage-tab-panel">{tabContent}</div> : null}
+              </section>
 
               <div>
                 <div className="app-voyage-actions">
