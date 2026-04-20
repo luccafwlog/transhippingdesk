@@ -145,92 +145,6 @@ export function Painel() {
         }
       />
 
-      {dashboardError ? (
-        <Card className="mb-5 border-red-400/30 bg-red-950/30 text-sm text-red-100">
-          Nao foi possivel carregar os indicadores do painel. Verifique as variaveis do Supabase e as migrations.
-        </Card>
-      ) : null}
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          icon={FileText}
-          label="B/Ls ativos"
-          value={isDashboardLoading ? '...' : (dashboard?.totalBls ?? 0)}
-          linkTo="/manifestos"
-        />
-        <KpiCard
-          icon={Boxes}
-          label="Containers distintos"
-          value={isDashboardLoading ? '...' : (dashboard?.totalContainers ?? 0)}
-          linkTo="/containers"
-          tone="text-[#58a6ff]"
-        />
-        <KpiCard
-          icon={AlertTriangle}
-          label="Aguardando revisao"
-          value={isDashboardLoading ? '...' : (dashboard?.pendingReview ?? 0)}
-          tone="text-amber-300"
-          linkTo="/revisao"
-        />
-        <KpiCard
-          icon={Receipt}
-          label="Invoices em aberto"
-          value={isDashboardLoading ? '...' : (dashboard?.openInvoices ?? 'Restrito')}
-          detail={dashboard?.invoicesAccessDenied ? 'Admin only' : formatBRL(dashboard?.openInvoicesAmount ?? 0)}
-          tone="text-emerald-300"
-          linkTo="/faturamento"
-        />
-      </div>
-
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          icon={ReceiptText}
-          label="Taxas para revisar"
-          value={isDashboardLoading ? '...' : (dashboard?.chargeReviewRequired ?? 0)}
-          tone="text-amber-300"
-          linkTo="/taxas-locais"
-        />
-        <KpiCard
-          icon={CheckCircle}
-          label="Prontos para faturar"
-          value={isDashboardLoading ? '...' : (dashboard?.readyForBilling ?? 0)}
-          tone="text-emerald-300"
-          linkTo="/faturamento"
-        />
-        <KpiCard
-          icon={Receipt}
-          label="B/Ls sem faturamento"
-          value={isDashboardLoading ? '...' : (dashboard?.pendingFinancial ?? 0)}
-          linkTo="/taxas-locais"
-        />
-        <KpiCard
-          icon={AlertTriangle}
-          label="Alertas nao fechados"
-          value={isDashboardLoading ? '...' : (dashboard?.openAlerts ?? 0)}
-          tone={dashboard?.openAlerts ? 'text-red-400' : undefined}
-          linkTo="/alertas"
-        />
-      </div>
-
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          icon={UserX}
-          label="B/Ls sem cliente"
-          value={isDashboardLoading ? '...' : (dashboard?.blsWithoutCustomer ?? 0)}
-          tone={dashboard?.blsWithoutCustomer ? 'text-red-400' : 'text-slate-400'}
-          detail={dashboard?.blsWithoutCustomer ? 'Vincular em Revisao' : undefined}
-          linkTo="/revisao"
-        />
-        <KpiCard
-          icon={TableProperties}
-          label="PODs sem tabela de cobranca"
-          value={isDashboardLoading ? '...' : '-'}
-          tone="text-slate-400"
-          detail="Ver em Taxas Locais"
-          linkTo="/taxas-locais"
-        />
-      </div>
-
       <Card className="mb-5 mt-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
@@ -266,6 +180,86 @@ export function Painel() {
           />
         </Card>
       )}
+
+      {dashboardError ? (
+        <Card className="mb-5 mt-8 border-red-400/30 bg-red-950/30 text-sm text-red-100">
+          Nao foi possivel carregar os indicadores do painel. Verifique as variaveis do Supabase e as migrations.
+        </Card>
+      ) : null}
+
+      <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          icon={FileText}
+          label="B/Ls ativos"
+          value={isDashboardLoading ? '...' : (dashboard?.totalBls ?? 0)}
+          linkTo="/manifestos"
+        />
+        <KpiCard
+          icon={Boxes}
+          label="Containers distintos"
+          value={isDashboardLoading ? '...' : (dashboard?.totalContainers ?? 0)}
+          linkTo="/containers"
+          tone="text-[#58a6ff]"
+        />
+        <KpiCard
+          icon={AlertTriangle}
+          label="Aguardando revisao"
+          value={isDashboardLoading ? '...' : (dashboard?.pendingReview ?? 0)}
+          tone="text-amber-300"
+          linkTo="/revisao"
+        />
+        <KpiCard
+          icon={Receipt}
+          label="Invoices em aberto"
+          value={isDashboardLoading ? '...' : (dashboard?.openInvoices ?? 'Restrito')}
+          detail={dashboard?.invoicesAccessDenied ? 'Admin only' : formatBRL(dashboard?.openInvoicesAmount ?? 0)}
+          tone="text-emerald-300"
+          linkTo="/faturamento"
+        />
+        <KpiCard
+          icon={ReceiptText}
+          label="Taxas para revisar"
+          value={isDashboardLoading ? '...' : (dashboard?.chargeReviewRequired ?? 0)}
+          tone="text-amber-300"
+          linkTo="/taxas-locais"
+        />
+        <KpiCard
+          icon={CheckCircle}
+          label="Prontos para faturar"
+          value={isDashboardLoading ? '...' : (dashboard?.readyForBilling ?? 0)}
+          tone="text-emerald-300"
+          linkTo="/faturamento"
+        />
+        <KpiCard
+          icon={Receipt}
+          label="B/Ls sem faturamento"
+          value={isDashboardLoading ? '...' : (dashboard?.pendingFinancial ?? 0)}
+          linkTo="/taxas-locais"
+        />
+        <KpiCard
+          icon={AlertTriangle}
+          label="Alertas nao fechados"
+          value={isDashboardLoading ? '...' : (dashboard?.openAlerts ?? 0)}
+          tone={dashboard?.openAlerts ? 'text-red-400' : undefined}
+          linkTo="/alertas"
+        />
+        <KpiCard
+          icon={UserX}
+          label="B/Ls sem cliente"
+          value={isDashboardLoading ? '...' : (dashboard?.blsWithoutCustomer ?? 0)}
+          tone={dashboard?.blsWithoutCustomer ? 'text-red-400' : 'text-slate-400'}
+          detail={dashboard?.blsWithoutCustomer ? 'Vincular em Revisao' : undefined}
+          linkTo="/revisao"
+        />
+        <KpiCard
+          icon={TableProperties}
+          label="PODs sem tabela de cobranca"
+          value={isDashboardLoading ? '...' : '-'}
+          tone="text-slate-400"
+          detail="Ver em Taxas Locais"
+          linkTo="/taxas-locais"
+        />
+      </div>
     </>
   )
 }
@@ -295,13 +289,17 @@ function KpiCard({
           : 'navy'
 
   const inner = (
-    <Card className={`app-kpi-card app-kpi-card--${cardTone}`}>
-      <div className={`${tone} mb-3`}>
-        <Icon size={20} />
+    <Card className={`app-kpi-card painel-kpi-card app-kpi-card--${cardTone}`}>
+      <div className={`painel-kpi-card__icon ${tone}`}>
+        <Icon size={24} />
       </div>
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${cardTone}`}>{value}</div>
-      {detail ? <div className="financial app-kpi-card__sub text-emerald-600">{detail}</div> : null}
+      <div className="painel-kpi-card__copy">
+        <div className="app-kpi-card__label">{label}</div>
+        <div className={`app-kpi-card__value app-kpi-card__value--${cardTone}`}>{value}</div>
+      </div>
+      <div className={`financial app-kpi-card__sub ${detail ? 'text-emerald-600' : 'painel-kpi-card__sub--empty'}`}>
+        {detail ?? ''}
+      </div>
     </Card>
   )
 
