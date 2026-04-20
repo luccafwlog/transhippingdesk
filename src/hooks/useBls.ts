@@ -291,6 +291,15 @@ export function useVoyages() {
           vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
           pol:ports!voyages_pol_id_fkey(id, name, locode, country),
           pod:ports!voyages_pod_id_fkey(id, name, locode, country),
+          import_batches(
+            id,
+            voyage_id,
+            cargo_mode,
+            filename,
+            uploaded_at,
+            status,
+            total_bls
+          ),
           granite_manifests(
             id,
             voyage_id,
@@ -329,6 +338,15 @@ export function useVoyages() {
           vessel?: { id: number; name: string; imo: string | null; carrier?: { id: number; name: string; scac: string | null } | null } | null
           pol?: { id: number; name: string; locode: string | null; country: string | null } | null
           pod?: { id: number; name: string; locode: string | null; country: string | null } | null
+          import_batches?: Array<{
+            id: number
+            voyage_id: number | null
+            cargo_mode: 'container' | 'carga_solta' | null
+            filename: string
+            uploaded_at: string | null
+            status: 'processing' | 'completed' | 'partial' | 'failed' | null
+            total_bls: number | null
+          }> | null
           granite_manifests?: Array<{
             id: string
             voyage_id: number | null
@@ -356,6 +374,7 @@ export function useVoyages() {
           }> | null
           bls?: Array<{
             id: string
+            batch_id: number | null
             cargo_mode: 'container' | 'carga_solta' | null
             ce_mercante: string | null
             bb_machine_qty: number | null
