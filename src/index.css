@@ -1865,9 +1865,9 @@ textarea {
   color: #1d4ed8;
 }
 
-.app-voyage-tab-shell {
+.app-voyage-hero {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   border: 1px solid var(--app-border);
   border-radius: 18px;
   padding: 16px 18px;
@@ -1875,44 +1875,98 @@ textarea {
   box-shadow: var(--app-shadow);
 }
 
-.app-voyage-tab-list {
+.app-voyage-hero-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-.app-voyage-tab-list .app-tab {
-  min-width: 168px;
-  min-height: 42px;
-  padding: 0 18px;
-  background: #ffffff;
+.app-voyage-hero-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
   color: var(--app-text);
-  border-color: color-mix(in srgb, var(--app-blue) 18%, var(--app-border-strong));
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.app-voyage-hero-stat:not(:last-child)::after {
+  content: '';
+  width: 1px;
+  height: 16px;
+  background: var(--app-border);
+}
+
+.app-voyage-action-icon {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  background: transparent;
+  color: var(--app-text);
+}
+
+.app-voyage-action-icon--danger {
+  color: #dc2626;
+}
+
+.app-voyage-nav-card {
+  display: grid;
+  min-height: 220px;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
+  box-shadow: var(--app-shadow);
+  text-align: left;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.app-voyage-nav-card:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--app-blue) 35%, var(--app-border));
+}
+
+.app-voyage-nav-card--disabled {
+  opacity: 0.72;
+}
+
+.app-voyage-nav-card__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.app-voyage-accordion {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
   box-shadow: var(--app-shadow);
 }
 
-.app-voyage-tab-list .app-tab:hover {
-  border-color: color-mix(in srgb, var(--app-blue) 60%, var(--app-border-strong));
-  background: color-mix(in srgb, #ffffff 70%, var(--app-blue-soft) 30%);
-}
-
-.app-voyage-tab-list .app-tab.app-tab--active {
-  background: var(--app-navy);
-  border-color: var(--app-navy);
-  color: #ffffff;
-}
-
-.app-voyage-tab-panel {
-  display: grid;
-  gap: 16px;
-}
-
-.app-voyage-actions {
+.app-voyage-accordion__trigger {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  border-top: 1px solid var(--app-border);
-  padding-top: 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  text-align: left;
+}
+
+.app-voyage-accordion__content {
+  display: grid;
+  gap: 16px;
 }
 
 .app-voyage-actions .app-btn {
