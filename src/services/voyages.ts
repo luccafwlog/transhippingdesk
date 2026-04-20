@@ -145,3 +145,18 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
   if (createError || !created) throw createError
   return created.id
 }
+
+export async function fetchVoyagesWithUnpaidBls(voyageIds: number[]): Promise<Set<number>> {
+  if (!voyageIds.length) return new Set<number>()
+
+  const { data, error } = await supabase
+    .from('bls')
+    .select('voyage_id')
+    .in('voyage_id', voyageIds)
+    .neq('charge_status', 'paid')
+    .neq('charge_status', 'exempt')
+    .limit(5000)
+
+  if (error) throw error
+  return new Set((data ?? []).map((row) => Number((row as { voyage_id: number }).voyage_id)).filter(Boolean))
+}

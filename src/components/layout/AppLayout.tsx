@@ -65,8 +65,7 @@ const financialNavItems: NavItem[] = [
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
   { to: '/demurrage', label: 'Demurrage', icon: Clock },
-  { to: '/demurrage/reconciliacao', label: 'Conciliacao PIX', icon: RefreshCw },
-  { to: '/reconciliacao', label: 'Conciliacao', icon: RefreshCw },
+  { to: '/reconciliacao', label: 'Conciliacao PIX', icon: RefreshCw },
 ]
 
 export function AppLayout() {
