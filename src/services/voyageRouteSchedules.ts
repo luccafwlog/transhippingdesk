@@ -4,6 +4,17 @@ import { supabase } from './supabase'
 const POL_ENTITY_TYPE = 'voyage_pol_schedule'
 const POD_ENTITY_TYPE = 'voyage_pod_schedule'
 
+export const POD_CE_STATUS_OPTIONS = [
+  { value: 'waiting', label: 'Waiting' },
+  { value: 'received', label: 'Received' },
+  { value: 'launching', label: 'Launching' },
+  { value: 'approving', label: 'Approving' },
+  { value: 'approved', label: 'Approved' },
+] as const
+
+export type EditableVoyagePodCeStatus = (typeof POD_CE_STATUS_OPTIONS)[number]['value']
+export type VoyagePodCeStatus = EditableVoyagePodCeStatus | 'partial' | 'missing'
+
 export type VoyagePolSchedule = {
   entityId: string
   voyageId: number
@@ -20,8 +31,23 @@ export type VoyagePodSchedule = {
   ata: string | null
   atd: string | null
   rtw: number | null
-  ceStatus: 'approved' | 'partial' | 'missing' | null
+  ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
+}
+
+export function getEditableVoyagePodCeStatus(status: VoyagePodCeStatus | null | undefined): EditableVoyagePodCeStatus {
+  if (status === 'approved' || status === 'received' || status === 'launching' || status === 'approving') return status
+  if (status === 'partial') return 'launching'
+  return 'waiting'
+}
+
+export function getVoyagePodCeStatusLabel(status: VoyagePodCeStatus | null | undefined) {
+  if (status === 'approved') return 'Approved'
+  if (status === 'approving') return 'Approving'
+  if (status === 'launching' || status === 'partial') return 'Launching'
+  if (status === 'received') return 'Received'
+  if (status === 'missing') return 'Missing'
+  return 'Waiting'
 }
 
 export function buildVoyagePolEntityId(voyageId: number, pol: string | null | undefined) {
@@ -214,7 +240,7 @@ export async function saveVoyagePodSchedule({
   ata: string | null
   atd: string | null
   rtw: number | null
-  ceStatus: 'approved' | 'partial' | 'missing' | null
+  ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   changedBy: string | null
 }) {
@@ -398,7 +424,15 @@ function normalizeBooleanValue(value: string | null | undefined) {
 
 function normalizeCeStatusValue(value: string | null | undefined): VoyagePodSchedule['ceStatus'] {
   const normalized = (value ?? '').trim().toLowerCase()
-  if (normalized === 'approved' || normalized === 'partial' || normalized === 'missing') {
+  if (
+    normalized === 'waiting' ||
+    normalized === 'received' ||
+    normalized === 'launching' ||
+    normalized === 'approving' ||
+    normalized === 'approved' ||
+    normalized === 'partial' ||
+    normalized === 'missing'
+  ) {
     return normalized
   }
   return null

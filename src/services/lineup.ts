@@ -1,4 +1,4 @@
-import { buildVoyagePodEntityId, listVoyagePodSchedulesByVoyageIds } from './voyageRouteSchedules'
+import { buildVoyagePodEntityId, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
 import { supabase } from './supabase'
 
 export type VoyageStatus = 'active' | 'completed' | 'cancelled' | null
@@ -52,7 +52,7 @@ export type LineUpRow = {
   bbMachines: number
   bbPackages: number
   bbTotal: number
-  ceStatus: 'approved' | 'partial' | 'missing'
+  ceStatus: VoyagePodCeStatus
   linked: boolean
 }
 

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
 import type { LineUpRow } from '../../services/lineup'
+import { getVoyagePodCeStatusLabel } from '../../services/voyageRouteSchedules'
 
 export function LineUpTable({
   rows,
@@ -137,15 +138,21 @@ export function LineUpTable({
 }
 
 function renderCeStatus(status: LineUpRow['ceStatus']) {
-  if (status === 'approved') return <Badge tone="green">Approved</Badge>
-  if (status === 'partial') return <Badge tone="yellow">Partial</Badge>
-  return <Badge tone="red">Missing</Badge>
+  if (status === 'approved') return <Badge tone="green">{getVoyagePodCeStatusLabel(status)}</Badge>
+  if (status === 'received' || status === 'approving') return <Badge tone="blue">{getVoyagePodCeStatusLabel(status)}</Badge>
+  if (status === 'launching' || status === 'partial') return <Badge tone="yellow">{getVoyagePodCeStatusLabel(status)}</Badge>
+  if (status === 'waiting') return <Badge tone="slate">{getVoyagePodCeStatusLabel(status)}</Badge>
+  return <Badge tone="red">{getVoyagePodCeStatusLabel(status)}</Badge>
 }
 
 function renderDisplayCeStatus(status: LineUpRow['ceStatus']) {
-  if (status === 'approved') return <span className="app-lineup-display-status app-lineup-display-status--green">Approved</span>
-  if (status === 'partial') return <span className="app-lineup-display-status app-lineup-display-status--amber">Partial</span>
-  return <span className="app-lineup-display-status app-lineup-display-status--red">Missing</span>
+  if (status === 'approved') {
+    return <span className="app-lineup-display-status app-lineup-display-status--green">{getVoyagePodCeStatusLabel(status)}</span>
+  }
+  if (status === 'received' || status === 'approving' || status === 'launching' || status === 'partial') {
+    return <span className="app-lineup-display-status app-lineup-display-status--amber">{getVoyagePodCeStatusLabel(status)}</span>
+  }
+  return <span className="app-lineup-display-status app-lineup-display-status--red">{getVoyagePodCeStatusLabel(status)}</span>
 }
 
 function formatShortDate(value: string | null) {

@@ -17,10 +17,15 @@ import { deleteVoyage } from '../services/voyages'
 import {
   buildVoyagePodEntityId,
   buildVoyagePolEntityId,
+  getEditableVoyagePodCeStatus,
+  getVoyagePodCeStatusLabel,
   listVoyagePodSchedulesByVoyageIds,
   listVoyagePolSchedules,
+  POD_CE_STATUS_OPTIONS,
   saveVoyagePolSchedule,
   saveVoyagePodSchedule,
+  type EditableVoyagePodCeStatus,
+  type VoyagePodCeStatus,
 } from '../services/voyageRouteSchedules'
 import { VoyageImportActions } from '../components/shared/VoyageImportActions'
 
@@ -46,7 +51,7 @@ export function Viagens() {
     ata: string | null
     atd: string | null
     rtw: number | null
-    ceStatus: 'approved' | 'partial' | 'missing' | null
+    ceStatus: VoyagePodCeStatus | null
     linked: boolean | null
   } | null>(null)
   const [editingPol, setEditingPol] = useState<{
@@ -324,7 +329,7 @@ export function Viagens() {
                     <div>
                       <div className="text-sm font-semibold text-[var(--app-text)]">Line-Up por POD</div>
                       <div className="text-xs text-[var(--app-muted)]">
-                        RESTOW, Conhecimentos de Embarque e ESCALA sao controlados por porto de descarga.
+                        RESTOW, BLs e CEs e ESCALA sao controlados por porto de descarga.
                       </div>
                     </div>
                   </div>
@@ -343,7 +348,7 @@ export function Viagens() {
                           <tr>
                             <th className="px-3 py-2">POD</th>
                             <th className="px-3 py-2">RESTOW</th>
-                            <th className="px-3 py-2">Conhecimentos de Embarque</th>
+                            <th className="px-3 py-2">BLs e CEs</th>
                             <th className="px-3 py-2">ESCALA</th>
                             <th className="px-3 py-2">Acoes</th>
                           </tr>
@@ -897,16 +902,12 @@ function tokenizeInfoValue(value: string) {
   return tokens.length > 1 ? tokens : []
 }
 
-function renderCeStatusLabel(status: 'approved' | 'partial' | 'missing' | null) {
-  if (status === 'approved') return 'Completo'
-  if (status === 'partial') return 'Parcial'
-  if (status === 'missing') return 'Pendente'
-  return 'Automatico'
+function renderCeStatusLabel(status: VoyagePodCeStatus | null) {
+  return getVoyagePodCeStatusLabel(status)
 }
 
 function renderLinkedLabel(linked: boolean | null) {
-  if (linked === null) return 'Automatica'
-  return linked ? 'Ativa' : 'Inativa'
+  return linked ? 'YES' : 'NO'
 }
 
 type VoyageBl = {
@@ -1286,7 +1287,7 @@ function PodScheduleModal({
     ata: string | null
     atd: string | null
     rtw: number | null
-    ceStatus: 'approved' | 'partial' | 'missing' | null
+    ceStatus: VoyagePodCeStatus | null
     linked: boolean | null
   } | null
   onClose: () => void
@@ -1298,8 +1299,8 @@ function PodScheduleModal({
     ata: string | null
     atd: string | null
     rtw: number | null
-    ceStatus: 'approved' | 'partial' | 'missing' | null
-    linked: boolean | null
+    ceStatus: EditableVoyagePodCeStatus
+    linked: boolean
   }) => Promise<void>
 }) {
   const [eta, setEta] = useState('')
@@ -1307,8 +1308,8 @@ function PodScheduleModal({
   const [ata, setAta] = useState('')
   const [atd, setAtd] = useState('')
   const [rtw, setRtw] = useState('')
-  const [ceStatus, setCeStatus] = useState<'approved' | 'partial' | 'missing' | ''>('')
-  const [linked, setLinked] = useState<'true' | 'false' | ''>('')
+  const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
+  const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -1318,8 +1319,8 @@ function PodScheduleModal({
     setAta(podSchedule.ata ?? '')
     setAtd(podSchedule.atd ?? '')
     setRtw(podSchedule.rtw === null ? '' : String(podSchedule.rtw))
-    setCeStatus(podSchedule.ceStatus ?? '')
-    setLinked(podSchedule.linked === null ? '' : podSchedule.linked ? 'true' : 'false')
+    setCeStatus(getEditableVoyagePodCeStatus(podSchedule.ceStatus))
+    setLinked(podSchedule.linked ? 'true' : 'false')
   }, [open, podSchedule])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1336,8 +1337,8 @@ function PodScheduleModal({
         ata: ata || null,
         atd: atd || null,
         rtw: rtw.trim() ? Number(rtw) : null,
-        ceStatus: ceStatus || null,
-        linked: linked === '' ? null : linked === 'true',
+        ceStatus,
+        linked: linked === 'true',
       })
     } finally {
       setSaving(false)
@@ -1379,19 +1380,19 @@ function PodScheduleModal({
                 placeholder="Quantidade de restow"
               />
             </Field>
-            <Field label="Conhecimentos de Embarque">
-              <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as typeof ceStatus)}>
-                <option value="">Automatico</option>
-                <option value="approved">Completo</option>
-                <option value="partial">Parcial</option>
-                <option value="missing">Pendente</option>
+            <Field label="BLs e CEs">
+              <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as EditableVoyagePodCeStatus)}>
+                {POD_CE_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="ESCALA">
-              <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as typeof linked)}>
-                <option value="">Automatico</option>
-                <option value="true">Ativa</option>
-                <option value="false">Inativa</option>
+              <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
+                <option value="true">YES</option>
+                <option value="false">NO</option>
               </select>
             </Field>
           </div>
