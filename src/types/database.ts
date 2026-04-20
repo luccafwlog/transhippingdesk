@@ -793,13 +793,6 @@ export type PixTransaction = {
   amount: number
 }
 
-export type PixMatch = {
-  transaction: PixTransaction
-  invoice: DemurrageInvoice & { customer_cnpj_cpf?: string | null }
-  ambiguous: boolean
-  matchType: 'txid' | 'cnpj'
-}
-
 export type BLListItem = BL & {
   customer?: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
   voyage?: (Pick<Voyage, 'id' | 'voyage_number' | 'eta' | 'ata' | 'status'> & {

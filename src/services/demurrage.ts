@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { buildTransshippingPixPayload } from '../lib/pix'
-import type { DemurrageCalcResult, DemurrageInvoice, DemurrageInvoiceItem, DemurrageContainerListItem, PixTransaction, PixMatch } from '../types/database'
+import type { DemurrageCalcResult, DemurrageInvoice, DemurrageInvoiceItem, DemurrageContainerListItem, PixTransaction } from '../types/database'
 
 // ── Rate groups (port of DM rates.js RATES array) ─────────────
 type RateGroup = {
@@ -435,13 +435,6 @@ export async function updateDemurrageInvoice(invoiceId: number, patch: Partial<P
 
 // ── PIX Reconciliation ────────────────────────────────────────
 
-function normTxid(str: string): string {
-  return (str ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-}
-function normCnpj(str: string): string {
-  return (str ?? '').replace(/\D/g, '')
-}
-
 export function parsePixExtract(arrayBuffer: ArrayBuffer): PixTransaction[] {
   // Dynamically import XLSX — bundled via vite's import
   const XLSX = (window as unknown as { XLSX?: unknown }).XLSX as { read: (data: Uint8Array, opts: object) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown, opts: object) => unknown[][] } } | undefined
@@ -494,59 +487,6 @@ export function parsePixExtract(arrayBuffer: ArrayBuffer): PixTransaction[] {
   return transactions
 }
 
-export async function matchPixTransactions(transactions: PixTransaction[]): Promise<PixMatch[]> {
-  const { data: invoices, error } = await supabase
-    .from('demurrage_invoices')
-    .select('*, customer:customers(id,name,cnpj_cpf)')
-    .eq('status', 'issued')
-  if (error) throw error
-
-  type InvWithCnpj = DemurrageInvoice & { customer?: { cnpj_cpf: string } | null }
-  const issuedInvoices = (invoices ?? []) as unknown as InvWithCnpj[]
-
-  const txidMap: Record<string, InvWithCnpj> = {}
-  const cnpjMap: Record<string, InvWithCnpj[]> = {}
-  const usedTxids = new Set(issuedInvoices.map((inv) => inv.pix_txid).filter(Boolean))
-
-  for (const inv of issuedInvoices) {
-    const key = normTxid(inv.doc_number)
-    if (key) txidMap[key] = inv
-    const cnpj = normCnpj(inv.customer?.cnpj_cpf ?? '')
-    if (cnpj.length === 14) {
-      if (!cnpjMap[cnpj]) cnpjMap[cnpj] = []
-      cnpjMap[cnpj].push(inv)
-    }
-  }
-
-  const matches: PixMatch[] = []
-  for (const tx of transactions) {
-    if (usedTxids.has(tx.txid)) continue
-    const key = normTxid(tx.txid)
-    if (key && txidMap[key]) {
-      matches.push({ transaction: tx, invoice: txidMap[key] as DemurrageInvoice & { customer_cnpj_cpf?: string | null }, ambiguous: false, matchType: 'txid' })
-      continue
-    }
-    const cnpj = normCnpj(tx.cnpj)
-    if (!cnpj || cnpj.length !== 14) continue
-    const candidates = (cnpjMap[cnpj] ?? []).filter((inv) => inv.frozen_total_brl != null && Math.abs(inv.frozen_total_brl - tx.amount) < 0.02)
-    if (!candidates.length) continue
-    matches.push({ transaction: tx, invoice: candidates[0] as DemurrageInvoice & { customer_cnpj_cpf?: string | null }, ambiguous: candidates.length > 1, matchType: 'cnpj' })
-  }
-
-  return matches
-}
-
-export async function confirmPixReconciliation(matches: PixMatch[]): Promise<void> {
-  for (const m of matches) {
-    if (m.ambiguous) continue
-    await supabase.from('demurrage_invoices').update({
-      status: 'paid',
-      paid_at: m.transaction.date || new Date().toISOString().slice(0, 10),
-      pix_txid: m.transaction.txid,
-      conciliated_by_extract: true,
-    }).eq('id', m.invoice.id)
-  }
-}
 
 // ── KPIs ──────────────────────────────────────────────────────
 

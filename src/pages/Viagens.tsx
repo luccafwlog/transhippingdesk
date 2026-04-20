@@ -13,7 +13,7 @@ import { useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
-import { deleteVoyage } from '../services/voyages'
+import { deleteVoyage, fetchVoyagesWithUnpaidBls } from '../services/voyages'
 import {
   buildVoyagePodEntityId,
   buildVoyagePolEntityId,
@@ -111,6 +111,12 @@ export function Viagens() {
 
   const filteredVoyageIds = useMemo(() => filteredVoyages.map((voyage) => voyage.id), [filteredVoyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(filteredVoyageIds)
+  const { data: voyagesWithUnpaidBls } = useQuery({
+    queryKey: ['voyage-billing-status', filteredVoyageIds],
+    enabled: filteredVoyageIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => fetchVoyagesWithUnpaidBls(filteredVoyageIds),
+  })
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const moduleStatsByVoyage = useMemo(
     () =>
@@ -237,6 +243,7 @@ export function Viagens() {
           const totalImportManifestCount =
             importBatches.length || containerManifestCount + breakbulkManifestCount
           const totalBls = (voyage.bls ?? []).length
+          const billingClosed = totalBls > 0 && voyagesWithUnpaidBls != null && !voyagesWithUnpaidBls.has(voyage.id)
           const flatContainers = containerBls.flatMap((bl) => bl.bl_containers ?? [])
           const vehicleContainerNumbers = new Set(vehicleStats.containerNumbers)
           const generalCargoContainers = flatContainers.filter(
@@ -485,6 +492,14 @@ export function Viagens() {
                         <span className="rounded-full border border-[#1f6feb]/30 bg-[#1f6feb]/10 px-3 py-1 text-xs font-semibold text-[#8cc8ff]">
                           {voyage.status ?? 'active'}
                         </span>
+                        {billingClosed ? (
+                          <span
+                            className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300"
+                            title="Todos os B/Ls desta viagem estao quitados ou isentos."
+                          >
+                            Faturamento Encerrado
+                          </span>
+                        ) : null}
                       </div>
                     </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Pencil, Save, Trash2, X } from 'lucide-react'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
@@ -72,6 +72,19 @@ const editableFields: (keyof Pick<
 
 type BlForm = Pick<BL, (typeof editableFields)[number]>
 type CargoMode = 'container' | 'carga_solta'
+type BlTab = 'operacional' | 'carga' | 'cobrancas' | 'financeiro' | 'historico'
+
+const BL_TABS: { key: BlTab; label: string }[] = [
+  { key: 'operacional', label: 'Operacional' },
+  { key: 'carga', label: 'Carga' },
+  { key: 'cobrancas', label: 'Cobrancas' },
+  { key: 'financeiro', label: 'Financeiro' },
+  { key: 'historico', label: 'Historico' },
+]
+
+function isBlTab(value: string | null): value is BlTab {
+  return value === 'operacional' || value === 'carga' || value === 'cobrancas' || value === 'financeiro' || value === 'historico'
+}
 const INVALID_NUMERIC_VALUE = Symbol('INVALID_NUMERIC_VALUE')
 type ManualChargeForm = {
   chargeItemId: string
@@ -89,6 +102,9 @@ const EMPTY_MANUAL_CHARGE_FORM: ManualChargeForm = {
 
 export function BlDetalhe() {
   const { blId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'operacional'
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -425,6 +441,32 @@ export function BlDetalhe() {
         <BLPipeline bl={bl} />
       </div>
 
+      <div className="mb-5 flex flex-wrap gap-1 border-b border-[#30363d]">
+        {BL_TABS.map((tab) => {
+          const isActive = tab.key === activeTab
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams)
+                if (tab.key === 'operacional') next.delete('tab')
+                else next.set('tab', tab.key)
+                setSearchParams(next, { replace: true })
+              }}
+              className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                isActive
+                  ? 'border-b-2 border-[#1f6feb] text-white'
+                  : 'border-b-2 border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab === 'operacional' ? (
       <form className="grid gap-5" onSubmit={handleSubmit}>
         <Card>
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -584,9 +626,9 @@ export function BlDetalhe() {
           </div>
         </Card>
       </form>
+      ) : null}
 
-      <div className="mt-5 grid gap-5">
-        <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+      {activeTab === 'financeiro' ? (
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Financeiro e cliente</h2>
           <dl className="grid gap-3 text-sm">
@@ -602,7 +644,9 @@ export function BlDetalhe() {
             />
           </dl>
         </Card>
+      ) : null}
 
+      {activeTab === 'cobrancas' ? (
         <Card>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -800,8 +844,10 @@ export function BlDetalhe() {
             </table>
           </div>
         </Card>
-        </div>
+      ) : null}
 
+      {activeTab === 'carga' ? (
+        <div className="grid gap-5">
         <Card>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-white">
@@ -1029,7 +1075,10 @@ export function BlDetalhe() {
             </div>
           </Card>
         ) : null}
+        </div>
+      ) : null}
 
+      {activeTab === 'historico' ? (
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Auditoria</h2>
           <div className="grid gap-3">
@@ -1046,7 +1095,7 @@ export function BlDetalhe() {
             ))}
           </div>
         </Card>
-      </div>
+      ) : null}
     </>
   )
 
