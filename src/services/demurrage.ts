@@ -513,11 +513,21 @@ const ROE_CACHE_KEY = 'demurrage_roe_cache'
 
 type RoeCache = { roe: number; fetchedAt: string }
 
+function isRoeCache(v: unknown): v is RoeCache {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    typeof (v as Record<string, unknown>).roe === 'number' &&
+    typeof (v as Record<string, unknown>).fetchedAt === 'string'
+  )
+}
+
 function loadCachedROE(): RoeCache | null {
   try {
     const raw = localStorage.getItem(ROE_CACHE_KEY)
     if (!raw) return null
-    return JSON.parse(raw) as RoeCache
+    const parsed: unknown = JSON.parse(raw)
+    return isRoeCache(parsed) ? parsed : null
   } catch {
     return null
   }

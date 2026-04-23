@@ -27,8 +27,13 @@ export function PortalLogin() {
     try {
       await signIn(onlyDigits(cnpjCpf), password)
       navigate('/portal/billing', { replace: true })
-    } catch {
-      setError('Credenciais invalidas para o portal do cliente.')
+    } catch (err: unknown) {
+      const code = typeof err === 'object' && err !== null ? String((err as { code?: string }).code ?? '') : ''
+      if (code === 'P0429') {
+        setError('Muitas tentativas de acesso. Aguarde alguns minutos antes de tentar novamente.')
+      } else {
+        setError('Credenciais invalidas para o portal do cliente.')
+      }
     } finally {
       setSubmitting(false)
     }

@@ -116,7 +116,14 @@ type ManifestLine = {
   unNumber: string | null
 }
 
+const MAX_MANIFEST_BYTES = 10 * 1024 * 1024 // 10 MB
+
 export async function parseManifestFile(file: File): Promise<ParsedManifest> {
+  if (file.size > MAX_MANIFEST_BYTES) {
+    throw new Error(
+      `Arquivo muito grande (${(file.size / 1_048_576).toFixed(1)} MB). O limite é 10 MB.`
+    )
+  }
   const buffer = await file.arrayBuffer()
   return parseManifestBuffer(buffer)
 }
