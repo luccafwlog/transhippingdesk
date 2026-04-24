@@ -50,7 +50,10 @@ export function getRate(containerType: string | null, freeTimeOverride?: number 
 }
 
 function noonMs(dateStr: string): number {
-  return new Date(`${dateStr}T12:00:00`).getTime()
+  if (!dateStr) throw new Error(`Data inválida em cálculo de demurrage: string vazia`)
+  const ms = new Date(`${dateStr}T12:00:00`).getTime()
+  if (!Number.isFinite(ms)) throw new Error(`Data inválida em cálculo de demurrage: "${dateStr}"`)
+  return ms
 }
 
 export function calculateDemurrage(
@@ -80,10 +83,11 @@ export function computeTotalBRL(invoice: Pick<DemurrageInvoice, 'status' | 'froz
     return invoice.frozen_total_brl
   }
   if (!liveRoe) return 0
-  let brl = invoice.total_usd * liveRoe
+  let brl = (invoice.total_usd ?? 0) * liveRoe
   if (invoice.discount_value && invoice.discount_value > 0) {
     if (invoice.discount_mode === 'percent') {
-      brl = brl * (1 - invoice.discount_value / 100)
+      const pct = Math.min(100, Math.max(0, invoice.discount_value))
+      brl = brl * (1 - pct / 100)
     } else {
       brl = Math.max(0, brl - invoice.discount_value)
     }
@@ -345,14 +349,18 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
     .single()
   if (fetchErr) throw fetchErr
 
+  if (inv.status !== 'issued' && inv.status !== 'overdue') {
+    throw new Error(`Fatura não pode ser marcada como paga no status atual: ${inv.status}`)
+  }
+
   let frozenRoe = inv.frozen_roe
   let frozenTotalBrl = inv.frozen_total_brl
 
   if (frozenRoe == null && roe != null) {
     frozenRoe = roe
-    let totalBRL = inv.total_usd * roe
+    let totalBRL = (inv.total_usd ?? 0) * roe
     if (inv.discount_value && inv.discount_value > 0) {
-      if (inv.discount_mode === 'percent') totalBRL = totalBRL * (1 - inv.discount_value / 100)
+      if (inv.discount_mode === 'percent') totalBRL = totalBRL * (1 - Math.min(100, inv.discount_value) / 100)
       else totalBRL = Math.max(0, totalBRL - inv.discount_value)
     }
     frozenTotalBrl = parseFloat(totalBRL.toFixed(2))

@@ -288,8 +288,8 @@ export function TaxasLocais() {
 
       // Auto-generate invoices for single-BL cases when marking ready for billing
       if (action === 'ready' && result.successCount > 0) {
-        const successIds = new Set(result.errors.map((e) => e.blId))
-        const readyBls = (operationsRows ?? []).filter((row) => ids.includes(row.id) && !successIds.has(row.id))
+        const failedIds = new Set(result.errors.map((e) => e.blId))
+        const readyBls = (operationsRows ?? []).filter((row) => ids.includes(row.id) && !failedIds.has(row.id))
         let invoiced = 0
         for (const bl of readyBls) {
           if (!bl.customer?.id) continue

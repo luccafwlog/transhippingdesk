@@ -531,6 +531,17 @@ export type Database = {
         }
         Returns: Json
       }
+      create_invoice_from_granite_bls: {
+        Args: {
+          p_granite_bl_ids: string[]
+          p_customer_id: number | null
+          p_due_date: string | null
+          p_notes: string | null
+          p_issue_now: boolean
+          p_actor: string | null
+        }
+        Returns: Json
+      }
       create_invoice_from_bls: {
         Args: {
           p_bl_ids: string[]
