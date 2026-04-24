@@ -28,6 +28,7 @@ const customerCreateSchema = z.object({
 type CustomerCreateErrors = Partial<{ cnpjCpf: string; name: string }>
 
 type ContactForm = {
+  _id: string
   name: string
   email: string
   phone: string
@@ -47,12 +48,8 @@ type CreateCustomerForm = {
   contacts: ContactForm[]
 }
 
-const emptyContact: ContactForm = {
-  name: '',
-  email: '',
-  phone: '',
-  purpose: 'geral',
-  is_primary: false,
+function newContact(): ContactForm {
+  return { _id: crypto.randomUUID(), name: '', email: '', phone: '', purpose: 'geral', is_primary: false }
 }
 
 const emptyCreateForm: CreateCustomerForm = {
@@ -64,7 +61,7 @@ const emptyCreateForm: CreateCustomerForm = {
   state: '',
   zip: '',
   notes: '',
-  contacts: [{ ...emptyContact }],
+  contacts: [newContact()],
 }
 
 export function Clientes() {
@@ -254,13 +251,13 @@ export function Clientes() {
   }
 
   function addContact() {
-    setCreateForm((current) => ({ ...current, contacts: [...current.contacts, { ...emptyContact }] }))
+    setCreateForm((current) => ({ ...current, contacts: [...current.contacts, newContact()] }))
   }
 
   function removeContact(index: number) {
     setCreateForm((current) => ({
       ...current,
-      contacts: current.contacts.length === 1 ? [{ ...emptyContact }] : current.contacts.filter((_, currentIndex) => currentIndex !== index),
+      contacts: current.contacts.length === 1 ? [newContact()] : current.contacts.filter((_, currentIndex) => currentIndex !== index),
     }))
   }
 
@@ -515,7 +512,7 @@ export function Clientes() {
 
             <div className="grid gap-4">
               {createForm.contacts.map((contact, index) => (
-                <div key={index} className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
+                <div key={contact._id} className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <div className="font-semibold text-white">Contato {index + 1}</div>
                     <Button variant="ghost" onClick={() => removeContact(index)}>
