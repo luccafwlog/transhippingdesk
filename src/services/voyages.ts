@@ -153,7 +153,6 @@ export async function fetchVoyagesWithUnpaidBls(voyageIds: number[]): Promise<Se
     .from('bls')
     .select('voyage_id')
     .in('voyage_id', voyageIds)
-    .neq('charge_status', 'paid')
     .neq('charge_status', 'exempt')
     .limit(5000)
 
