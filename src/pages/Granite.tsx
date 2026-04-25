@@ -56,7 +56,6 @@ export function Granite() {
   const [cnpjOverrides, setCnpjOverrides] = useState<Record<number, string>>({})
   const [chargeBlId, setChargeBlId] = useState<string | null>(null)
   const [chargeLines, setChargeLines] = useState<Array<{ description: string | null; charge_type: string | null; quantity: number | null; unit_value: number | null; subtotal: number | null; currency: string | null }>>([])
-  const [invoicing, setInvoicing] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['granite-bls', filters],
@@ -140,14 +139,9 @@ export function Granite() {
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
       if (clientId && user) {
-        setInvoicing(true)
-        try {
-          await createInvoiceFromGraniteBls({ graniteBlIds: [blId], customerId: clientId, issueNow: true, actorId: user.id })
-          await queryClient.invalidateQueries({ queryKey: ['invoices'] })
-          showToast('Taxas calculadas e fatura emitida automaticamente.', 'success')
-        } finally {
-          setInvoicing(false)
-        }
+        await createInvoiceFromGraniteBls({ graniteBlIds: [blId], customerId: clientId, issueNow: true, actorId: user.id })
+        await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+        showToast('Taxas calculadas e fatura emitida automaticamente.', 'success')
       } else {
         setChargeLines(lines)
         setChargeBlId(blId)
@@ -306,7 +300,7 @@ export function Granite() {
       </Card>
 
       {/* Modal de taxas calculadas */}
-      <Modal open={chargeBlId !== null} onClose={() => { setChargeBlId(null); setChargeLines([]); setChargeBlClientId(null) }} title="Taxas do B/L">
+      <Modal open={chargeBlId !== null} onClose={() => { setChargeBlId(null); setChargeLines([]) }} title="Taxas do B/L">
         {chargeLines.length === 0 ? (
           <p className="text-sm text-slate-400">Nenhuma taxa ativa cadastrada. Acesse Granito &gt; Taxas para cadastrar.</p>
         ) : (

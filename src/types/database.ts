@@ -751,7 +751,7 @@ export type DemurrageInvoice = {
   pix_payload: string | null
   pix_txid: string | null
   conciliated_by_extract: boolean | null
-  status: 'draft' | 'issued' | 'paid' | 'cancelled'
+  status: 'draft' | 'issued' | 'paid' | 'overdue' | 'cancelled'
   notes: string | null
   created_at: string
   updated_at: string
