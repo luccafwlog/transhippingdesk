@@ -345,7 +345,15 @@ export function Demurrage() {
           {invoicesLoading && <Card>Carregando...</Card>}
           {invoicesError && <InlineError message="Erro ao carregar invoices." />}
           {!invoicesLoading && !invoicesError && !invoices?.length && (
-            <EmptyState icon={FileText} title="Nenhuma invoice" description={`Nenhuma invoice com status "${tab}".`} />
+            <EmptyState
+              icon={FileText}
+              title="Nenhuma invoice"
+              description={
+                tab === 'rascunhos'
+                  ? 'Nenhum rascunho. Faturas geradas por importacao sao emitidas automaticamente — rascunhos aparecem apenas quando a BCB esta offline.'
+                  : `Nenhuma invoice com status "${tab}".`
+              }
+            />
           )}
 
           {invoices && invoices.length > 0 && (

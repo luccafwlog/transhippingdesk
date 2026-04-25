@@ -55,7 +55,6 @@ export function Granite() {
   // Overrides de CNPJ feitos inline no preview
   const [cnpjOverrides, setCnpjOverrides] = useState<Record<number, string>>({})
   const [chargeBlId, setChargeBlId] = useState<string | null>(null)
-  const [chargeBlClientId, setChargeBlClientId] = useState<number | null>(null)
   const [chargeLines, setChargeLines] = useState<Array<{ description: string | null; charge_type: string | null; quantity: number | null; unit_value: number | null; subtotal: number | null; currency: string | null }>>([])
   const [invoicing, setInvoicing] = useState(false)
 
@@ -136,41 +135,26 @@ export function Granite() {
   async function handleCalculateCharges(blId: string, clientId: number | null) {
     try {
       const lines = await calculateGraniteBlCharges(blId)
-      setChargeLines(lines)
-      setChargeBlId(blId)
-      setChargeBlClientId(clientId)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
-      showToast('Taxas calculadas.', 'success')
+      if (clientId && user) {
+        setInvoicing(true)
+        try {
+          await createInvoiceFromGraniteBls({ graniteBlIds: [blId], customerId: clientId, issueNow: true, actorId: user.id })
+          await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+          showToast('Taxas calculadas e fatura emitida automaticamente.', 'success')
+        } finally {
+          setInvoicing(false)
+        }
+      } else {
+        setChargeLines(lines)
+        setChargeBlId(blId)
+        showToast('Taxas calculadas. Vincule um cliente via Revisão para faturar.', 'info')
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao calcular taxas.', 'error')
-    }
-  }
-
-  async function handleApproveAndInvoice() {
-    if (!chargeBlId || !chargeBlClientId || !user) return
-    setInvoicing(true)
-    try {
-      await createInvoiceFromGraniteBls({
-        graniteBlIds: [chargeBlId],
-        customerId: chargeBlClientId,
-        issueNow: true,
-        actorId: user.id,
-      })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
-      ])
-      showToast('Fatura de granito emitida com sucesso.', 'success')
-      setChargeBlId(null)
-      setChargeLines([])
-      setChargeBlClientId(null)
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Erro ao emitir fatura.', 'error')
-    } finally {
-      setInvoicing(false)
     }
   }
 
@@ -361,14 +345,8 @@ export function Granite() {
           </div>
         )}
         <div className="mt-4 flex justify-end gap-2 border-t border-[#30363d] pt-4">
-          {chargeBlClientId ? (
-            <Button loading={invoicing} onClick={handleApproveAndInvoice}>
-              Aprovar e Faturar
-            </Button>
-          ) : (
-            <p className="text-sm text-amber-400">Vincule um cliente antes de faturar.</p>
-          )}
-          <Button variant="ghost" onClick={() => { setChargeBlId(null); setChargeLines([]); setChargeBlClientId(null) }}>
+          <p className="mr-auto text-sm text-slate-400">Para faturar, vincule o cliente na Revisão e recalcule as taxas.</p>
+          <Button variant="ghost" onClick={() => { setChargeBlId(null); setChargeLines([]) }}>
             Fechar
           </Button>
         </div>

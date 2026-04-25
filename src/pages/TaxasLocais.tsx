@@ -294,7 +294,7 @@ export function TaxasLocais() {
         for (const bl of readyBls) {
           if (!bl.customer?.id) continue
           try {
-            await createInvoiceFromBls({ blIds: [bl.id], customerId: bl.customer.id, actorId: user?.id })
+            await createInvoiceFromBls({ blIds: [bl.id], customerId: bl.customer.id, issueNow: true, actorId: user?.id })
             invoiced++
           } catch {
             // Non-fatal: BL is marked ready but invoice will need to be created manually

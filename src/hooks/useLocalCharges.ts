@@ -148,6 +148,7 @@ export function useMarkBlReadyForBilling(blId?: string) {
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
       ])
     },
   })

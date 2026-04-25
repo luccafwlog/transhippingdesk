@@ -22,6 +22,7 @@ import {
   useUpdateManualBlCharge,
 } from '../hooks/useLocalCharges'
 import { formatBRL, formatDate, normalizeText } from '../lib/utils'
+import { createInvoiceFromBls } from '../services/billing'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { supabase } from '../services/supabase'
 import { calculateDemurrage, updateContainerReturnDate } from '../services/demurrage'
@@ -285,10 +286,16 @@ export function BlDetalhe() {
   }
 
   async function handleMarkReadyForBilling() {
-    if (!user) return
+    if (!user || !bl) return
     try {
       await markReadyForBillingMutation.mutateAsync({ actorId: user.id })
-      showToast('B/L marcado como pronto para faturar.', 'success')
+      if (bl.customer_id) {
+        await createInvoiceFromBls({ blIds: [bl.id], customerId: bl.customer_id, issueNow: true, actorId: user.id })
+        await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+        showToast('B/L pronto para faturar. Fatura emitida automaticamente.', 'success')
+      } else {
+        showToast('B/L marcado como pronto para faturar. Sem cliente vinculado — gere a fatura manualmente em Faturamento.', 'success')
+      }
     } catch (error) {
       if (String((error as { message?: string }).message ?? '').includes('pendencia de revisao')) {
         showToast('Ainda existem linhas com pendencia de revisao.', 'error')

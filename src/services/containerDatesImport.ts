@@ -1,6 +1,6 @@
 import { normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
-import { calculateDemurrage, createInvoiceForReturnedBL } from './demurrage'
+import { calculateDemurrage, createInvoiceForReturnedBL, fetchROE, issueInvoice } from './demurrage'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -123,7 +123,15 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     })
 
     if (allReturned) {
-      try { await createInvoiceForReturnedBL(blId) } catch { /* non-fatal */ }
+      try {
+        const invoiceId = await createInvoiceForReturnedBL(blId)
+        if (invoiceId !== null) {
+          const { roe } = await fetchROE()
+          await issueInvoice(invoiceId, roe)
+        }
+      } catch (err) {
+        console.error('[auto-demurrage-issue] blId=%s', blId, err)
+      }
     }
   }
 
