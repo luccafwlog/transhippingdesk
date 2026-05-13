@@ -16,8 +16,8 @@ describe('manifestParser with real fixtures', () => {
 
     expect(manifest.bls).toHaveLength(13)
     expect(countDistinctManifestContainers(manifest)).toBe(748)
-    // 8 B/Ls compartilham containers com outros B/Ls neste arquivo (F-09).
-    expect(manifest.bls.filter((bl) => bl.review_status === 'pending_review')).toHaveLength(8)
+    // Containers compartilhados entre B/Ls sao tratados como Part Lot, sem pendencia automatica.
+    expect(manifest.bls.filter((bl) => bl.review_status === 'pending_review')).toHaveLength(0)
     expect(manifest.manifest_etd).toBe('2026-02-10')
     expect(manifest.suggestedVoyage).toMatchObject({
       carrierName: 'Cosco Shipping Specialized Carriers',

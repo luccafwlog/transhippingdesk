@@ -2,10 +2,11 @@
 import { DuplicateManifestImportError, importManifest, RateLimitImportError } from '../manifestImport'
 import type { ParsedManifest } from '../manifestParser'
 
-const { mockFrom, mockRpc, syncManifestPolEtdSchedulesMock } = vi.hoisted(() => ({
+const { mockFrom, mockRpc, syncManifestPolEtdSchedulesMock, syncManifestPodLinkedMock } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
   mockRpc: vi.fn(),
   syncManifestPolEtdSchedulesMock: vi.fn(),
+  syncManifestPodLinkedMock: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
@@ -17,6 +18,7 @@ vi.mock('../supabase', () => ({
 
 vi.mock('../voyageRouteSchedules', () => ({
   syncManifestPolEtdSchedules: syncManifestPolEtdSchedulesMock,
+  syncManifestPodLinked: syncManifestPodLinkedMock,
 }))
 
 describe('manifestImport customer reconciliation', () => {
@@ -24,7 +26,9 @@ describe('manifestImport customer reconciliation', () => {
     mockFrom.mockReset()
     mockRpc.mockReset()
     syncManifestPolEtdSchedulesMock.mockReset()
+    syncManifestPodLinkedMock.mockReset()
     syncManifestPolEtdSchedulesMock.mockResolvedValue(undefined)
+    syncManifestPodLinkedMock.mockResolvedValue(undefined)
   })
 
   it('vincula cliente por nome quando o documento nao bate e marca revisao', async () => {
@@ -118,6 +122,7 @@ describe('manifestImport customer reconciliation', () => {
     expect(containersPayload).toHaveLength(1)
 
     expect(syncManifestPolEtdSchedulesMock).toHaveBeenCalledOnce()
+    expect(syncManifestPodLinkedMock).toHaveBeenCalledOnce()
     expect(mockRpc.mock.calls[1]?.[0]).toBe('run_billing_for_import_batch')
     expect(mockRpc.mock.calls[1]?.[1]).toMatchObject({
       p_batch_id: 101,

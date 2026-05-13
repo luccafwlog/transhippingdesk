@@ -139,7 +139,7 @@ export function Granite() {
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
       if (clientId && user) {
-        await createInvoiceFromGraniteBls({ graniteBlIds: [blId], customerId: clientId, issueNow: true, actorId: user.id })
+        await createInvoiceFromGraniteBls({ graniteBlIds: [blId], customerId: clientId, actorId: user.id })
         await queryClient.invalidateQueries({ queryKey: ['invoices'] })
         showToast('Taxas calculadas e fatura emitida automaticamente.', 'success')
       } else {
