@@ -43,8 +43,7 @@ const EMPTY_FORM: DemurrageRateForm = {
 }
 
 async function listDemurrageRates(): Promise<DemurrageRate[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('demurrage_rates')
     .select('*')
     .order('container_type', { ascending: true })
@@ -52,21 +51,18 @@ async function listDemurrageRates(): Promise<DemurrageRate[]> {
   return (data ?? []) as DemurrageRate[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any
-
 async function upsertDemurrageRate(rate: Partial<DemurrageRate> & { container_type: string }) {
-  const { error } = await db.from('demurrage_rates').upsert(rate)
+  const { error } = await supabase.from('demurrage_rates').upsert(rate)
   if (error) throw error
 }
 
 async function deleteDemurrageRate(id: number) {
-  const { error } = await db.from('demurrage_rates').delete().eq('id', id)
+  const { error } = await supabase.from('demurrage_rates').delete().eq('id', id)
   if (error) throw error
 }
 
 async function toggleDemurrageRateActive(id: number, active: boolean) {
-  const { error } = await db.from('demurrage_rates').update({ active }).eq('id', id)
+  const { error } = await supabase.from('demurrage_rates').update({ active }).eq('id', id)
   if (error) throw error
 }
 

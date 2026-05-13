@@ -65,8 +65,7 @@ function isPermissionError(error: { code?: string | null; message?: string | nul
 }
 
 async function fetchDistinctContainerCount() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('count_distinct_containers')
+  const { data, error } = await supabase.rpc('count_distinct_containers')
   if (error) throw error
   return Number(data ?? 0)
 }
