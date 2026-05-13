@@ -1,14 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
+import { supabase } from '../services/supabase'
 import { portalGetSessionOverview, portalLogin, portalLogout, type PortalSessionOverview } from '../services/portalBilling'
 
+// Token legado (compatibilidade com contas sem auth_user_id provisionado)
 const STORAGE_KEY = 'td.portal.session.token'
+
+type AuthMethod = 'supabase_auth' | 'legacy_token'
 
 type PortalAuthContextValue = {
   sessionToken: string | null
   overview: PortalSessionOverview | null
   loading: boolean
   isAuthenticated: boolean
+  authMethod: AuthMethod | null
   signIn: (cnpjCpf: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   refreshOverview: () => Promise<void>
@@ -36,36 +41,64 @@ function isPortalSessionError(error: unknown) {
   return code === '28000' || message.toLowerCase().includes('sessao do portal')
 }
 
+// Busca visão geral via Supabase Auth (RPC v2 sem token)
+async function fetchOverviewViaSupabaseAuth(): Promise<PortalSessionOverview> {
+  const { data, error } = await supabase.rpc('portal_get_session_overview_v2')
+  if (error) throw error
+  return data as PortalSessionOverview
+}
+
+// Verifica qual método de auth está disponível para o cnpj_cpf
+async function checkAuthMethod(cnpjCpf: string): Promise<{ method: string; portal_email?: string }> {
+  const { data, error } = await supabase.rpc('portal_check_auth_method', { p_cnpj_cpf: cnpjCpf })
+  if (error) throw error
+  return data as { method: string; portal_email?: string }
+}
+
 export function PortalAuthProvider({ children }: PropsWithChildren) {
   const [sessionToken, setSessionToken] = useState<string | null>(() => readStoredToken())
   const [overview, setOverview] = useState<PortalSessionOverview | null>(null)
   const [loading, setLoading] = useState(true)
-
-  const loadOverview = useCallback(async (token: string) => {
-    const nextOverview = await portalGetSessionOverview(token)
-    setOverview(nextOverview)
-  }, [])
+  const [authMethod, setAuthMethod] = useState<AuthMethod | null>(null)
 
   const clearSession = useCallback(() => {
     setSessionToken(null)
     setOverview(null)
+    setAuthMethod(null)
     persistToken(null)
   }, [])
 
+  // Hidratação: detectar se há sessão Supabase Auth ativa primeiro
   useEffect(() => {
     let mounted = true
 
     async function hydrate() {
-      if (!sessionToken) {
-        if (mounted) setLoading(false)
-        return
-      }
-
       try {
-        await loadOverview(sessionToken)
+        // Tentar sessão Supabase Auth primeiro
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const ov = await fetchOverviewViaSupabaseAuth()
+          if (mounted) {
+            setOverview(ov)
+            setAuthMethod('supabase_auth')
+          }
+          return
+        }
+
+        // Fallback: token legado em localStorage
+        const token = readStoredToken()
+        if (!token) return
+
+        const ov = await portalGetSessionOverview(token)
+        if (mounted) {
+          setOverview(ov)
+          setSessionToken(token)
+          setAuthMethod('legacy_token')
+        }
       } catch (error) {
         if (isPortalSessionError(error) && mounted) {
           clearSession()
+          await supabase.auth.signOut()
         }
       } finally {
         if (mounted) setLoading(false)
@@ -73,63 +106,102 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
     }
 
     void hydrate()
-
-    return () => {
-      mounted = false
-    }
-  }, [clearSession, loadOverview, sessionToken])
+    return () => { mounted = false }
+  }, [clearSession])
 
   const signIn = useCallback(async (cnpjCpf: string, password: string) => {
     setLoading(true)
     try {
-      const result = await portalLogin(cnpjCpf, password)
-      persistToken(result.token)
-      setSessionToken(result.token)
-      await loadOverview(result.token)
+      const methodInfo = await checkAuthMethod(cnpjCpf)
+
+      if (methodInfo.method === 'supabase_auth' && methodInfo.portal_email) {
+        // Fluxo Supabase Auth
+        const { error } = await supabase.auth.signInWithPassword({
+          email: methodInfo.portal_email,
+          password,
+        })
+        if (error) throw new Error(error.message)
+        const ov = await fetchOverviewViaSupabaseAuth()
+        setOverview(ov)
+        setAuthMethod('supabase_auth')
+        persistToken(null) // garantir que token legado não fica ativo
+      } else if (methodInfo.method === 'legacy_token') {
+        // Fluxo legado (token)
+        const result = await portalLogin(cnpjCpf, password)
+        persistToken(result.token)
+        setSessionToken(result.token)
+        const ov = await portalGetSessionOverview(result.token)
+        setOverview(ov)
+        setAuthMethod('legacy_token')
+      } else if (methodInfo.method === 'inactive') {
+        throw new Error('Acesso ao portal desativado. Entre em contato com o suporte.')
+      } else {
+        throw new Error('Credenciais invalidas.')
+      }
     } finally {
       setLoading(false)
     }
-  }, [loadOverview])
+  }, [])
 
   const signOut = useCallback(async () => {
     const token = sessionToken
+    const method = authMethod
     clearSession()
-    if (!token) return
 
-    try {
-      await portalLogout(token)
-    } catch {
-      // local session is already cleared
+    if (method === 'supabase_auth') {
+      await supabase.auth.signOut()
+    } else if (token) {
+      try {
+        await portalLogout(token)
+      } catch {
+        // local session already cleared
+      }
     }
-  }, [clearSession, sessionToken])
+  }, [clearSession, sessionToken, authMethod])
 
   const refreshOverview = useCallback(async () => {
+    if (authMethod === 'supabase_auth') {
+      try {
+        const ov = await fetchOverviewViaSupabaseAuth()
+        setOverview(ov)
+      } catch (error) {
+        if (isPortalSessionError(error)) {
+          clearSession()
+          await supabase.auth.signOut()
+        }
+        throw error
+      }
+      return
+    }
+
     if (!sessionToken) {
       clearSession()
       return
     }
 
     try {
-      await loadOverview(sessionToken)
+      const ov = await portalGetSessionOverview(sessionToken)
+      setOverview(ov)
     } catch (error) {
       if (isPortalSessionError(error)) {
         clearSession()
       }
       throw error
     }
-  }, [clearSession, loadOverview, sessionToken])
+  }, [authMethod, clearSession, sessionToken])
 
   const value = useMemo(
     () => ({
       sessionToken,
       overview,
       loading,
-      isAuthenticated: Boolean(sessionToken && overview),
+      isAuthenticated: Boolean(overview),
+      authMethod,
       signIn,
       signOut,
       refreshOverview,
     }),
-    [loading, overview, refreshOverview, sessionToken, signIn, signOut],
+    [authMethod, loading, overview, refreshOverview, sessionToken, signIn, signOut],
   )
 
   return <PortalAuthContext.Provider value={value}>{children}</PortalAuthContext.Provider>

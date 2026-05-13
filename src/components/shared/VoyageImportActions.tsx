@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -6,6 +6,7 @@ import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { computeFileHash, importManifest } from '../../services/manifestImport'
+import { supabase } from '../../services/supabase'
 import { countDistinctManifestContainers, parseManifestFile } from '../../services/manifestParser'
 import { importBreakbulkManifest, parseBreakbulkManifestFile } from '../../services/breakbulkImport'
 import { importGraniteManifest, parseGraniteManifestFile } from '../../services/graniteImport'
@@ -95,11 +96,39 @@ function CntrImportModal({
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof parseManifestFile>> | null>(null)
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [existingBlIds, setExistingBlIds] = useState<Set<string>>(new Set())
+
+  // Fetch existing B/Ls for this voyage to compute diff
+  useEffect(() => {
+    if (!preview?.bls.length || !voyageId) {
+      setExistingBlIds(new Set())
+      return
+    }
+    const blNumbers = preview.bls.map((bl) => bl.id).filter(Boolean)
+    if (!blNumbers.length) return
+
+    supabase
+      .from('bls')
+      .select('id, bl_number')
+      .eq('voyage_id', voyageId)
+      .in('bl_number', blNumbers)
+      .then(({ data }) => {
+        setExistingBlIds(new Set((data ?? []).map((r) => String(r.bl_number ?? ''))))
+      })
+  }, [preview, voyageId])
+
+  const diffStats = preview
+    ? {
+        newBls: preview.bls.filter((bl) => !existingBlIds.has(bl.id ?? '')).length,
+        updatedBls: preview.bls.filter((bl) => existingBlIds.has(bl.id ?? '')).length,
+      }
+    : null
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
     setFile(f)
     setPreview(null)
+    setExistingBlIds(new Set())
     if (!f) return
     setParsing(true)
     try {
@@ -141,11 +170,22 @@ function CntrImportModal({
         </Field>
         {parsing ? <div className="text-sm text-slate-400">Processando...</div> : null}
         {preview ? (
-          <div className="grid grid-cols-3 gap-3">
-            <Stat label="B/Ls" value={preview.bls.length} />
-            <Stat label="Containers" value={countDistinctManifestContainers(preview)} />
-            <Stat label="Erros" value={preview.rowErrors.length} />
-          </div>
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="B/Ls" value={preview.bls.length} />
+              <Stat label="Containers" value={countDistinctManifestContainers(preview)} />
+              <Stat label="Erros" value={preview.rowErrors.length} />
+            </div>
+            {diffStats && (diffStats.newBls > 0 || diffStats.updatedBls > 0) ? (
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-sm">
+                <span className="text-green-400 font-semibold">{diffStats.newBls} novo(s)</span>
+                {diffStats.updatedBls > 0 && (
+                  <span className="ml-3 text-amber-400 font-semibold">{diffStats.updatedBls} será(ão) atualizado(s)</span>
+                )}
+                <span className="ml-2 text-slate-400 text-xs">— revisão de impacto antes de confirmar</span>
+              </div>
+            ) : null}
+          </>
         ) : null}
         <ModalActions disabled={!preview?.bls.length} loading={importing} onConfirm={() => void handleImport()} onCancel={onClose} />
       </div>

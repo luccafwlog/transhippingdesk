@@ -6,6 +6,7 @@ import {
   CheckCircle,
   FileText,
   Monitor,
+  Package,
   Receipt,
   ReceiptText,
   RefreshCw,
@@ -16,7 +17,6 @@ import { Link } from 'react-router-dom'
 import { Badge } from '../components/ui/Badge'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { LineUpTable } from '../components/lineup/LineUpTable'
-import { normalizeContainerNumber } from '../lib/containerCounts'
 import { formatBRL } from '../lib/utils'
 import { fetchLineUpSnapshot } from '../services/lineup'
 import { supabase } from '../services/supabase'
@@ -65,32 +65,9 @@ function isPermissionError(error: { code?: string | null; message?: string | nul
 }
 
 async function fetchDistinctContainerCount() {
-  const containerNumbers = new Set<string>()
-  let from = 0
-  const batchSize = 1000
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('bl_containers')
-      .select('container_number')
-      .order('id', { ascending: true })
-      .range(from, from + batchSize - 1)
-
-    if (error) throw error
-
-    const batch = data ?? []
-    for (const row of batch) {
-      const containerNumber = normalizeContainerNumber(row.container_number)
-      if (containerNumber) {
-        containerNumbers.add(containerNumber)
-      }
-    }
-
-    if (batch.length < batchSize) break
-    from += batchSize
-  }
-
-  return containerNumbers.size
+  const { data, error } = await supabase.rpc('count_distinct_containers')
+  if (error) throw error
+  return Number(data ?? 0)
 }
 
 export function Painel() {
@@ -258,6 +235,13 @@ export function Painel() {
           tone="text-slate-400"
           detail="Ver em Taxas Locais"
           linkTo="/taxas-locais"
+        />
+        <KpiCard
+          icon={Package}
+          label="Vazios Importacao (MTY)"
+          value={isLineUpLoading ? '...' : (lineup?.rows ?? []).reduce((sum, r) => sum + (r.mty ?? 0), 0)}
+          tone="text-slate-300"
+          linkTo="/vazios-importacao"
         />
       </div>
     </>

@@ -19,24 +19,25 @@ export function Reconciliacao() {
   const { showToast } = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [matches, setMatches] = useState<UnifiedPixMatch[] | null>(null)
-  const [loading, setLoading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
 
-  async function processFile(file: File) {
-    setLoading(true)
-    setMatches(null)
-    try {
+  const matchMutation = useMutation({
+    mutationFn: async (file: File) => {
       const buf = await file.arrayBuffer()
       const transactions = parsePixExtract(buf)
-      if (!transactions.length) { showToast('Nenhuma transacao PIX encontrada.', 'error'); return }
-      const found = await matchUnifiedPixTransactions(transactions)
+      if (!transactions.length) throw new Error('Nenhuma transacao PIX encontrada.')
+      return matchUnifiedPixTransactions(transactions)
+    },
+    onSuccess: (found) => {
       setMatches(found)
       if (!found.length) showToast('Nenhuma correspondencia encontrada.', 'info')
-    } catch (e: unknown) {
-      showToast((e instanceof Error ? e.message : 'Erro ao processar arquivo.'), 'error')
-    } finally {
-      setLoading(false)
-    }
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
+  function processFile(file: File) {
+    setMatches(null)
+    matchMutation.mutate(file)
   }
 
   const confirmMutation = useMutation({
@@ -78,7 +79,7 @@ export function Reconciliacao() {
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void processFile(f) }} />
       </div>
 
-      {loading && <Card className="text-center text-sm text-slate-400">Processando...</Card>}
+      {matchMutation.isPending && <Card className="text-center text-sm text-slate-400">Processando...</Card>}
 
       {matches !== null && (
         <>

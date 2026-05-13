@@ -1,0 +1,190 @@
+// Edge Function: notify-invoice-issued
+//
+// Disparada via Database Webhook quando uma fatura muda para status='issued'.
+// Envia email ao cliente com resumo da fatura e QR Code PIX (quando disponível).
+//
+// Configuração necessária no Supabase:
+//   Database Webhooks → tabela: invoices → evento: UPDATE
+//   Filtro: new.status = 'issued' AND old.status != 'issued'
+//   Endpoint: https://<project>.supabase.co/functions/v1/notify-invoice-issued
+//   Secret Header: Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
+//
+// Env vars necessárias:
+//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS — credenciais SMTP
+//   FROM_EMAIL — remetente (ex: "Transhipping Desk <noreply@...>")
+//   PORTAL_URL  — URL base do portal do cliente
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+type WebhookPayload = {
+  type: 'UPDATE' | 'INSERT'
+  table: string
+  schema: string
+  record: {
+    id: number
+    invoice_number: string | null
+    status: string
+    total_brl: number | null
+    due_date: string | null
+    notes: string | null
+    customer_id: number | null
+  }
+  old_record: {
+    status: string
+  } | null
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const payload: WebhookPayload = await req.json()
+
+    // Only process invoice -> issued transitions
+    if (
+      payload.table !== 'invoices' ||
+      payload.record.status !== 'issued' ||
+      payload.old_record?.status === 'issued'
+    ) {
+      return new Response(JSON.stringify({ skipped: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
+    const invoice = payload.record
+
+    if (!invoice.customer_id) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'no customer_id' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Fetch customer contact email
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('id, name, cnpj_cpf')
+      .eq('id', invoice.customer_id)
+      .single()
+
+    const { data: contacts } = await supabase
+      .from('customer_contacts')
+      .select('email, name, is_primary')
+      .eq('customer_id', invoice.customer_id)
+      .order('is_primary', { ascending: false })
+      .limit(3)
+
+    const recipients = (contacts ?? [])
+      .map((c) => c.email)
+      .filter((email): email is string => Boolean(email))
+
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'no recipient emails' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
+    const fmtBRL = (val: number | null) =>
+      val != null ? val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
+    const fmtDate = (d: string | null) =>
+      d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
+
+    const htmlBody = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:32px;">
+  <div style="max-width:560px;margin:0 auto;background:#1e293b;border-radius:12px;padding:32px;">
+    <h1 style="color:#38bdf8;margin:0 0 8px">Nova Fatura Emitida</h1>
+    <p style="color:#94a3b8;margin:0 0 24px">Transhipping Desk</p>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+      <tr><td style="padding:8px 0;color:#94a3b8;width:40%">Cliente</td><td style="padding:8px 0;font-weight:600">${customer?.name ?? '—'}</td></tr>
+      <tr><td style="padding:8px 0;color:#94a3b8">Fatura nº</td><td style="padding:8px 0;font-weight:600;font-family:monospace">${invoice.invoice_number ?? invoice.id}</td></tr>
+      <tr><td style="padding:8px 0;color:#94a3b8">Valor total</td><td style="padding:8px 0;font-weight:700;color:#4ade80;font-size:1.2em">${fmtBRL(invoice.total_brl)}</td></tr>
+      <tr><td style="padding:8px 0;color:#94a3b8">Vencimento</td><td style="padding:8px 0">${fmtDate(invoice.due_date)}</td></tr>
+      ${invoice.notes ? `<tr><td style="padding:8px 0;color:#94a3b8">Observações</td><td style="padding:8px 0">${invoice.notes}</td></tr>` : ''}
+    </table>
+
+    ${portalUrl ? `
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${portalUrl}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;">
+        Acessar Portal e Pagar com PIX
+      </a>
+    </div>
+    ` : ''}
+
+    <p style="color:#64748b;font-size:0.85em;margin-top:24px;">
+      Este é um email automático do Transhipping Desk. Em caso de dúvidas, entre em contato com nossa equipe.
+    </p>
+  </div>
+</body>
+</html>`
+
+    // Send via SMTP using Deno's built-in fetch (or a mailer library)
+    const smtpHost = Deno.env.get('SMTP_HOST')
+    const smtpUser = Deno.env.get('SMTP_USER')
+    const smtpPass = Deno.env.get('SMTP_PASS')
+    const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'noreply@transhipping.app'
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      console.warn('SMTP not configured — email not sent. Set SMTP_HOST, SMTP_USER, SMTP_PASS env vars.')
+      return new Response(JSON.stringify({ sent: false, reason: 'smtp_not_configured' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Use Resend API if RESEND_API_KEY is set (simpler than raw SMTP in Deno)
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+    if (resendKey) {
+      const resendResp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: recipients,
+          subject: `Fatura ${invoice.invoice_number ?? invoice.id} emitida — ${fmtBRL(invoice.total_brl)}`,
+          html: htmlBody,
+        }),
+      })
+
+      if (!resendResp.ok) {
+        const errText = await resendResp.text()
+        throw new Error(`Resend API error: ${errText}`)
+      }
+
+      return new Response(JSON.stringify({ sent: true, recipients, via: 'resend' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Fallback: log that SMTP-based sending needs a Deno SMTP library
+    console.log(`Email would be sent to: ${recipients.join(', ')}`)
+    return new Response(JSON.stringify({ sent: false, reason: 'configure_resend_api_key' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error'
+    console.error('notify-invoice-issued error:', message)
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})

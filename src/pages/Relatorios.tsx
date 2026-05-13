@@ -10,13 +10,16 @@ import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
 import {
   fetchCustomerReport,
   fetchFinancialReport,
+  fetchFinancialReportForExport,
   fetchOperationalReport,
+  fetchOperationalReportForExport,
   type FinancialReportFilters,
   type OperationalReportFilters,
   type ReportFilters,
 } from '../services/reports'
+import { listDemurrageInvoices } from '../services/demurrage'
 
-type ReportTab = 'operacional' | 'financeiro' | 'clientes'
+type ReportTab = 'operacional' | 'financeiro' | 'clientes' | 'demurrage'
 
 export function Relatorios() {
   const [tab, setTab] = useState<ReportTab>('operacional')
@@ -32,11 +35,13 @@ export function Relatorios() {
         <TabButton active={tab === 'operacional'} label="Operacional" onClick={() => setTab('operacional')} />
         <TabButton active={tab === 'financeiro'} label="Financeiro" onClick={() => setTab('financeiro')} />
         <TabButton active={tab === 'clientes'} label="Por Cliente" onClick={() => setTab('clientes')} />
+        <TabButton active={tab === 'demurrage'} label="Demurrage" onClick={() => setTab('demurrage')} />
       </div>
 
       {tab === 'operacional' ? <OperationalReportTab /> : null}
       {tab === 'financeiro' ? <FinancialReportTab /> : null}
       {tab === 'clientes' ? <CustomerReportTab /> : null}
+      {tab === 'demurrage' ? <DemurrageReportTab /> : null}
     </>
   )
 }
@@ -83,15 +88,13 @@ function OperationalReportTab() {
   })
 
   async function handleExport() {
-    if (!data?.rows.length) {
-      showToast('Nenhum dado para exportar.', 'info')
-      return
-    }
     setExporting(true)
     try {
+      // Export fetches without row limit for complete data
+      const rows = await fetchOperationalReportForExport(filters)
       const { exportOperationalReportWorkbook } = await import('../services/exports')
-      await exportOperationalReportWorkbook(data.rows)
-      showToast('Relatorio operacional exportado.', 'success')
+      await exportOperationalReportWorkbook(rows)
+      showToast(`Relatorio operacional exportado (${rows.length} linhas).`, 'success')
     } catch {
       showToast('Falha ao exportar o relatorio.', 'error')
     } finally {
@@ -242,15 +245,12 @@ function FinancialReportTab() {
   })
 
   async function handleExport() {
-    if (!data?.rows.length) {
-      showToast('Nenhum dado para exportar.', 'info')
-      return
-    }
     setExporting(true)
     try {
+      const rows = await fetchFinancialReportForExport(filters)
       const { exportFinancialReportWorkbook } = await import('../services/exports')
-      await exportFinancialReportWorkbook(data.rows)
-      showToast('Relatorio financeiro exportado.', 'success')
+      await exportFinancialReportWorkbook(rows)
+      showToast(`Relatorio financeiro exportado (${rows.length} linhas).`, 'success')
     } catch {
       showToast('Falha ao exportar o relatorio.', 'error')
     } finally {
@@ -515,6 +515,122 @@ function CustomerReportTab() {
                   <td className="px-4 py-3 text-right font-mono text-amber-200">{formatBRL(row.totalBalance)}</td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
+  )
+}
+
+function DemurrageReportTab() {
+  const today = new Date().toISOString().slice(0, 10)
+  const firstOfYear = today.slice(0, 4) + '-01-01'
+  const [dateFrom, setDateFrom] = useState(firstOfYear)
+  const [dateTo, setDateTo] = useState(today)
+  const [statusFilter, setStatusFilter] = useState('')
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['demurrage-report', dateFrom, dateTo, statusFilter],
+    queryFn: () => listDemurrageInvoices({
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      status: (statusFilter as 'draft' | 'issued' | 'paid' | 'cancelled') || undefined,
+    }),
+    staleTime: 60_000,
+  })
+
+  const invoices = data ?? []
+  const totalUSD = invoices.reduce((s, inv) => s + (inv.total_usd ?? 0), 0)
+  const totalBRL = invoices.reduce((s, inv) => s + (inv.frozen_total_brl ?? 0), 0)
+  const paidBRL = invoices.filter((i) => i.status === 'paid').reduce((s, inv) => s + (inv.frozen_total_brl ?? 0), 0)
+
+  function fmtUSD(v: number) {
+    return '$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+
+  return (
+    <>
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="De">
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
+          </Field>
+          <Field label="Ate">
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+          </Field>
+          <Field label="Status">
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="draft">Rascunho</option>
+              <option value="issued">Faturado</option>
+              <option value="paid">Pago</option>
+              <option value="cancelled">Cancelado</option>
+            </Select>
+          </Field>
+        </div>
+      </Card>
+
+      {invoices.length > 0 && (
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3">
+            <div className="text-xs text-slate-500">Total USD</div>
+            <div className="mt-1 text-lg font-semibold text-amber-300">{fmtUSD(totalUSD)}</div>
+          </div>
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3">
+            <div className="text-xs text-slate-500">Total BRL (emitido)</div>
+            <div className="mt-1 text-lg font-semibold text-green-300">{formatBRL(totalBRL)}</div>
+          </div>
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3">
+            <div className="text-xs text-slate-500">Total Recebido (pago)</div>
+            <div className="mt-1 text-lg font-semibold text-emerald-400">{formatBRL(paidBRL)}</div>
+          </div>
+        </div>
+      )}
+
+      {error ? <InlineError message="Erro ao carregar relatorio de demurrage." /> : null}
+
+      <Card className="overflow-hidden p-0">
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
+            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Doc</th>
+                <th className="px-4 py-3">BL</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Emissao</th>
+                <th className="px-4 py-3">Vencimento</th>
+                <th className="px-4 py-3 text-right">Total USD</th>
+                <th className="px-4 py-3 text-right">Total BRL</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#30363d]">
+              {isLoading ? (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Carregando...</td></tr>
+              ) : null}
+              {!isLoading && !invoices.length ? (
+                <tr><td colSpan={8} className="p-0"><EmptyState title="Nenhuma invoice no periodo." /></td></tr>
+              ) : null}
+              {invoices.map((inv) => {
+                const customer = (inv as { customer?: { name?: string } }).customer
+                return (
+                  <tr key={inv.id} className="hover:bg-[#21262d]/60">
+                    <td className="px-4 py-2 font-mono text-xs text-white">{inv.doc_number}</td>
+                    <td className="px-4 py-2 text-blue-400">{inv.bl_id}</td>
+                    <td className="px-4 py-2">{customer?.name ?? '—'}</td>
+                    <td className="px-4 py-2 text-slate-400">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
+                    <td className="px-4 py-2 text-slate-400">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-amber-400">{fmtUSD(inv.total_usd ?? 0)}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-green-400">{formatBRL(inv.frozen_total_brl ?? 0)}</td>
+                    <td className="px-4 py-2">
+                      <Badge tone={inv.status === 'paid' ? 'green' : inv.status === 'issued' ? 'blue' : inv.status === 'cancelled' ? 'slate' : 'yellow'}>
+                        {inv.status === 'paid' ? 'Pago' : inv.status === 'issued' ? 'Faturado' : inv.status === 'cancelled' ? 'Cancelado' : 'Rascunho'}
+                      </Badge>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

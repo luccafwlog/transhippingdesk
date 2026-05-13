@@ -8,6 +8,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../hooks/useAuth'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions } from '../hooks/useBls'
 import {
@@ -23,6 +24,7 @@ export function Containers() {
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
   const { showToast } = useToast()
+  const { user } = useAuth()
   const [filters, setFilters] = useState<ContainerFilters>({
     search: '',
     voyageId: initialVoyage,
@@ -101,7 +103,7 @@ export function Containers() {
 
     setImportingFlags(true)
     try {
-      const result = await importContainerFlagsRows(parsedFlags.rows)
+      const result = await importContainerFlagsRows(parsedFlags.rows, user?.id)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['containers'] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),

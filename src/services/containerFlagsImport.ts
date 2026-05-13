@@ -55,7 +55,7 @@ export async function parseContainerFlagsImportFile(file: File): Promise<ParsedC
   return parseContainerFlagsImportRows(objectRows)
 }
 
-export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[]) {
+export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[], actorId?: string | null) {
   const uniqueRows = Array.from(
     new Map(rows.map((row) => [makeContainerKey(row.bl_id, row.container_number), row])).values(),
   )
@@ -84,6 +84,19 @@ export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[]) 
   let unchanged = 0
   let missing = 0
 
+  const auditEntries: {
+    entity_type: string
+    entity_id: string
+    field_name: string
+    old_value: string
+    new_value: string
+    changed_by: string | null
+    changed_at: string
+    justification: string
+  }[] = []
+
+  const now = new Date().toISOString()
+
   for (const row of uniqueRows) {
     const matches = containersByKey.get(makeContainerKey(row.bl_id, row.container_number))
     if (!matches?.length) {
@@ -91,20 +104,20 @@ export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[]) 
       continue
     }
 
-    const idsToUpdate = matches
-      .filter(
-        (container) =>
-          Boolean(container.is_imo) !== row.is_imo ||
-          Boolean(container.is_oog) !== row.is_oog ||
-          normalizeValue(container.imo_class) !== normalizeValue(row.imo_class) ||
-          normalizeValue(container.un_number) !== normalizeValue(row.un_number),
-      )
-      .map((container) => container.id)
+    const containersToUpdate = matches.filter(
+      (container) =>
+        Boolean(container.is_imo) !== row.is_imo ||
+        Boolean(container.is_oog) !== row.is_oog ||
+        normalizeValue(container.imo_class) !== normalizeValue(row.imo_class) ||
+        normalizeValue(container.un_number) !== normalizeValue(row.un_number),
+    )
 
-    if (!idsToUpdate.length) {
+    if (!containersToUpdate.length) {
       unchanged += 1
       continue
     }
+
+    const idsToUpdate = containersToUpdate.map((c) => c.id)
 
     const { error: updateError } = await supabase
       .from('bl_containers')
@@ -117,7 +130,37 @@ export async function importContainerFlagsRows(rows: ContainerFlagsImportRow[]) 
       .in('id', idsToUpdate)
 
     if (updateError) throw updateError
+
+    for (const container of containersToUpdate) {
+      const oldFlags = {
+        is_imo: Boolean(container.is_imo),
+        imo_class: container.imo_class ?? null,
+        un_number: container.un_number ?? null,
+        is_oog: Boolean(container.is_oog),
+      }
+      const newFlags = {
+        is_imo: row.is_imo,
+        imo_class: row.is_imo ? row.imo_class : null,
+        un_number: row.is_imo ? row.un_number : null,
+        is_oog: row.is_oog,
+      }
+      auditEntries.push({
+        entity_type: 'bl_container',
+        entity_id: String(container.id),
+        field_name: 'imo_oog_flags',
+        old_value: JSON.stringify(oldFlags),
+        new_value: JSON.stringify(newFlags),
+        changed_by: actorId ?? null,
+        changed_at: now,
+        justification: 'Importacao de flags IMO/OOG via planilha',
+      })
+    }
+
     updated += 1
+  }
+
+  if (auditEntries.length > 0) {
+    await supabase.from('audit_logs').insert(auditEntries)
   }
 
   return { updated, unchanged, missing }

@@ -18,9 +18,15 @@ import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../servi
 
 export function Revisao() {
   const { data, isLoading, error } = useReviewQueue()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const { showToast } = useToast()
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [batchJustification, setBatchJustification] = useState('')
+  const [batchSaving, setBatchSaving] = useState(false)
 
   const filteredData = useMemo(() => {
     if (!data) return []
@@ -61,12 +67,79 @@ export function Revisao() {
 
   function handleSaveSuccess() {
     if (selectedIndex === null) return
-    // Advance to next item; if last, close
     if (selectedIndex < filteredData.length - 1) {
       setSelectedIndex(selectedIndex + 1)
     } else {
       setSelectedIndex(null)
     }
+  }
+
+  function toggleCheck(id: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const checkedItems = filteredData.filter((item) => checkedIds.has(item.id))
+  const checkedWithCustomer = checkedItems.filter((item) => item.customer_id != null)
+  const canBatchReview = checkedItems.length > 1 && checkedItems.every((item) => item.customer_id != null)
+
+  async function handleBatchReview() {
+    if (!canBatchReview || !user || !batchJustification.trim()) {
+      if (!batchJustification.trim()) showToast('Informe a justificativa para a revisao em lote.', 'error')
+      return
+    }
+    setBatchSaving(true)
+    let successCount = 0
+    for (const item of checkedItems) {
+      try {
+        if (item.source === 'granite') {
+          await saveGraniteBlReview({ graniteBlId: item.id, clientId: item.customer_id!, changedBy: user.id })
+        } else {
+          await saveBlReview({
+            blId: item.id,
+            original: {
+              shipper: item.shipper,
+              consignee: item.consignee,
+              pol: item.pol,
+              pod: item.pod,
+              total_weight_kg: item.total_weight_kg,
+              total_cbm: item.total_cbm,
+              notes: item.notes,
+            },
+            values: {
+              shipper: item.shipper,
+              consignee: item.consignee,
+              pol: item.pol,
+              pod: item.pod,
+              total_weight_kg: item.total_weight_kg ?? null,
+              total_cbm: item.total_cbm ?? null,
+              notes: item.notes,
+            },
+            customerId: item.customer_id ?? null,
+            previousCustomerId: item.customer_id ?? null,
+            changedBy: user.id,
+            justification: batchJustification,
+            expectedUpdatedAt: item.updated_at ?? null,
+          })
+        }
+        successCount++
+      } catch {
+        // continue with remaining items
+      }
+    }
+    setBatchSaving(false)
+    setCheckedIds(new Set())
+    setBatchJustification('')
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
+      queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['op-count'] }),
+    ])
+    showToast(`${successCount} de ${checkedItems.length} B/Ls revisados em lote.`, 'success')
   }
 
   return (
@@ -122,6 +195,35 @@ export function Revisao() {
         ) : null}
       </div>
 
+      {checkedItems.length > 1 && (
+        <div className="mb-3 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
+          <div className="mb-2 text-sm font-medium text-blue-200">
+            {checkedItems.length} B/Ls selecionados
+            {checkedItems.length !== checkedWithCustomer.length && (
+              <span className="ml-1 text-amber-300">
+                ({checkedItems.length - checkedWithCustomer.length} sem cliente — serão ignorados)
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <input
+              className="flex-1 min-w-[260px] rounded border border-[#30363d] bg-[#161b22] px-3 py-1.5 text-sm text-white placeholder-slate-500"
+              placeholder="Justificativa da revisao em lote (obrigatório)"
+              value={batchJustification}
+              onChange={(e) => setBatchJustification(e.target.value)}
+            />
+            <Button
+              loading={batchSaving}
+              disabled={!canBatchReview}
+              onClick={handleBatchReview}
+            >
+              Revisar selecionados ({checkedWithCustomer.length})
+            </Button>
+            <Button variant="ghost" onClick={() => setCheckedIds(new Set())}>Limpar</Button>
+          </div>
+        </div>
+      )}
+
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar a fila de revisao." /> : null}
 
@@ -129,6 +231,7 @@ export function Revisao() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
+                <th className="px-4 py-3 w-8"></th>
                 <th className="px-4 py-3">B/L</th>
                 <th className="px-4 py-3">Pendencias</th>
                 <th className="px-4 py-3">Consignatario</th>
@@ -140,14 +243,14 @@ export function Revisao() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Carregando fila de revisao...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !filteredData.length ? (
                 <tr>
-                  <td colSpan={6} className="p-0">
+                  <td colSpan={7} className="p-0">
                     <EmptyState
                       title={data?.length ? 'Nenhum B/L corresponde ao filtro.' : 'Nenhum B/L pendente de revisao.'}
                       description={data?.length ? 'Limpe os filtros para ver todos os pendentes.' : undefined}
@@ -157,6 +260,14 @@ export function Revisao() {
               ) : null}
               {filteredData.map((item, index) => (
                 <tr key={item.id} className="hover:bg-[#21262d]/60">
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-[#30363d] accent-blue-500"
+                      checked={checkedIds.has(item.id)}
+                      onChange={() => toggleCheck(item.id)}
+                    />
+                  </td>
                   <td className="px-4 py-3 font-semibold text-white">
                     <div className="flex items-center gap-2">
                       {item.source === 'granite' ? <Badge tone="blue">Granito</Badge> : null}

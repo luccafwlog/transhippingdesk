@@ -297,8 +297,13 @@ export function BlDetalhe() {
         showToast('B/L marcado como pronto para faturar. Sem cliente vinculado — gere a fatura manualmente em Faturamento.', 'success')
       }
     } catch (error) {
-      if (String((error as { message?: string }).message ?? '').includes('pendencia de revisao')) {
+      const msg = String((error as { message?: string }).message ?? '')
+      if (msg.includes('pendencia de revisao')) {
         showToast('Ainda existem linhas com pendencia de revisao.', 'error')
+        return
+      }
+      if (msg.includes('nao possui cliente vinculado') || msg.includes('P0003')) {
+        showToast('B/L sem cliente vinculado. Acesse Revisão para vincular um cliente antes de faturar.', 'error')
         return
       }
       showToast('Falha ao marcar B/L como pronto para faturar.', 'error')

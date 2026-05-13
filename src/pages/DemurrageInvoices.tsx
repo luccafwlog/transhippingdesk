@@ -69,7 +69,7 @@ export function DemurrageInvoices() {
     mutationFn: async (id: number) => {
       const result = await fetchROE()
       if (result.offline) setRoeOfflineWarning(result.cachedAt)
-      await issueInvoice(id, result.roe)
+      await issueInvoice(id, result.roe, result.source)
     },
     onSuccess: () => { invalidate(); showToast('Fatura emitida. Valores congelados.', 'success') },
     onError: (e: Error) => showToast(e.message, 'error'),

@@ -304,3 +304,49 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
 
   return { rows, kpis, invoicesAccessDenied }
 }
+
+// ─── Export variants (no row limit — for XLSX download) ───────────────────
+
+export async function fetchOperationalReportForExport(filters: OperationalReportFilters): Promise<OperationalReportRow[]> {
+  let query = supabase
+    .from('bls')
+    .select(
+      `
+      id, pol, pod, cargo_mode, review_status, financial_status,
+      total_weight_kg, total_cbm, created_at, voyage_id,
+      customer:customers(id, name, cnpj_cpf),
+      voyage:voyages(id, voyage_number, vessel:vessels(id, name, carrier:carriers(id, name))),
+      bl_containers(id, container_number)
+    `,
+    )
+    .order('created_at', { ascending: false })
+
+  if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
+  if (filters.dateTo) query = query.lte('created_at', `${filters.dateTo}T23:59:59`)
+  if (filters.pod) query = query.eq('pod', filters.pod.toUpperCase())
+  if (filters.cargoMode) query = query.eq('cargo_mode', filters.cargoMode)
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as unknown as OperationalReportRow[]
+}
+
+export async function fetchFinancialReportForExport(filters: FinancialReportFilters): Promise<FinancialReportRow[]> {
+  let query = supabase
+    .from('invoices')
+    .select(
+      `
+      id, invoice_number, status, total_brl, balance_brl, issued_at, due_date, created_at,
+      customer:customers(id, name, cnpj_cpf)
+    `,
+    )
+    .order('issued_at', { ascending: false, nullsFirst: false })
+
+  if (filters.dateFrom) query = query.gte('issued_at', filters.dateFrom)
+  if (filters.dateTo) query = query.lte('issued_at', filters.dateTo)
+  if (filters.status) query = query.eq('status', filters.status)
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as unknown as FinancialReportRow[]
+}
