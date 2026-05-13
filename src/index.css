@@ -4,6 +4,7 @@
 :root,
 :root[data-visual-theme='current'] {
   color-scheme: light;
+  --app-header-height: 74px;
   --app-bg: #edf3f8;
   --app-bg-elevated: #f7fafe;
   --app-surface: rgba(255, 255, 255, 0.94);
@@ -38,6 +39,7 @@
 
 :root[data-visual-theme='dark'] {
   color-scheme: dark;
+  --app-header-height: 74px;
   --app-bg: #091220;
   --app-bg-elevated: #0e1728;
   --app-surface: rgba(16, 26, 45, 0.92);
@@ -71,6 +73,7 @@
 
 :root[data-visual-theme='light'] {
   color-scheme: light;
+  --app-header-height: 74px;
   --app-bg: #edf3f8;
   --app-bg-elevated: #f7fafe;
   --app-surface: rgba(255, 255, 255, 0.94);
@@ -235,7 +238,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 74px;
+  min-height: var(--app-header-height);
   padding: 0 34px;
 }
 
@@ -364,8 +367,9 @@ textarea {
 .app-nav-bar {
   background: linear-gradient(180deg, rgba(22, 36, 64, 0.98), rgba(21, 33, 58, 0.94));
   border-bottom: 2px solid rgba(242, 169, 59, 0.95);
-  position: relative;
-  z-index: 210;
+  position: sticky;
+  top: var(--app-header-height);
+  z-index: 190;
   box-shadow: 0 14px 26px rgba(10, 17, 29, 0.16);
   backdrop-filter: blur(12px);
 }
@@ -2214,6 +2218,13 @@ textarea {
 }
 
 @media (max-width: 768px) {
+  :root,
+  :root[data-visual-theme='current'],
+  :root[data-visual-theme='light'],
+  :root[data-visual-theme='dark'] {
+    --app-header-height: 64px;
+  }
+
   .app-market-strip__content,
   .app-header__content,
   .app-nav-mobile-bar,
@@ -2223,7 +2234,7 @@ textarea {
   }
 
   .app-header__content {
-    min-height: 64px;
+    min-height: var(--app-header-height);
   }
 
   .app-header__subtitle {
