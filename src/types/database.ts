@@ -724,6 +724,10 @@ export type Database = {
         Args: { p_session_token: string; p_invoice_id: number }
         Returns: Json
       }
+      count_distinct_containers: {
+        Args: Record<string, never>
+        Returns: number
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
