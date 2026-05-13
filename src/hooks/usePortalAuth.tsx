@@ -43,14 +43,16 @@ function isPortalSessionError(error: unknown) {
 
 // Busca visão geral via Supabase Auth (RPC v2 sem token)
 async function fetchOverviewViaSupabaseAuth(): Promise<PortalSessionOverview> {
-  const { data, error } = await supabase.rpc('portal_get_session_overview_v2')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('portal_get_session_overview_v2')
   if (error) throw error
   return data as PortalSessionOverview
 }
 
 // Verifica qual método de auth está disponível para o cnpj_cpf
 async function checkAuthMethod(cnpjCpf: string): Promise<{ method: string; portal_email?: string }> {
-  const { data, error } = await supabase.rpc('portal_check_auth_method', { p_cnpj_cpf: cnpjCpf })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('portal_check_auth_method', { p_cnpj_cpf: cnpjCpf })
   if (error) throw error
   return data as { method: string; portal_email?: string }
 }
