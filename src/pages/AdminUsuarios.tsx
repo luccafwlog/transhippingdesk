@@ -10,6 +10,7 @@ import type { UserProfileRole } from '../types/database'
 type AdminTab = 'usuarios' | 'logs' | 'metricas'
 
 const VERSION = '2.0.0'
+const COMMIT_SHA = String(import.meta.env.VITE_APP_COMMIT_SHA ?? 'unknown')
 
 type AuditLogRow = {
   id: number
@@ -158,7 +159,7 @@ export function AdminUsuarios() {
         <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
           <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
             <span className="text-slate-400">Versao</span>
-            <span className="font-semibold text-white">{VERSION}</span>
+            <span className="font-semibold text-white">{`${VERSION} (${COMMIT_SHA})`}</span>
           </div>
           <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
             <span className="text-slate-400">Ambiente</span>
