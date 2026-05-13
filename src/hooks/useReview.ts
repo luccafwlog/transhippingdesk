@@ -77,8 +77,15 @@ export function useReviewQueue() {
           .is('client_id', null)
           .order('created_at', { ascending: false })
           .range(0, 499)
-        if (fallback.error) throw fallback.error
-        graniteData = fallback.data
+        if (fallback.error) {
+          console.error('[review-queue] granite query failed (primary + fallback)', {
+            primary: graniteResult.error,
+            fallback: fallback.error,
+          })
+          graniteData = []
+        } else {
+          graniteData = fallback.data
+        }
       }
 
       const graniteRows = (graniteData ?? []) as unknown as Array<{
