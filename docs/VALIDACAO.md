@@ -1,24 +1,8 @@
 # Validacao do Sistema
 
-Roteiro de validacao do estado atual em 2026-04-14.
-
-Este roteiro cobre os modulos que hoje ja existem como produto operacional:
-
-- Login
-- Viagens
-- Manifestos CNTR
-- Containers
-- Manifestos BB
-- Veiculos
-- Revisao Manual
-- Clientes
-- CE Mercante
-- Taxas Locais
-- Faturamento
+Roteiro de validacao do estado atual em 2026-05-13.
 
 ## 1. Validacao tecnica local
-
-Execute na raiz do projeto:
 
 ```powershell
 npm install
@@ -29,269 +13,62 @@ npm run build
 
 Resultado esperado:
 
-- `npm test` finaliza com todos os testes passando.
-- `npm run lint` finaliza sem erros.
-- `npm run build` finaliza sem erros.
-- O build mostra chunk separado de `xlsx`, confirmando o carregamento sob demanda.
+- testes, lint e build sem erro
+- build finalizado com geracao normal de bundles
 
-## 1.1 Validacao de integracao com Supabase real
+## 2. Validacao de rotas principais
 
-Configure as variaveis de ambiente descritas em `.env.example` e rode:
+1. Login interno: `/login` -> `/painel`
+2. Modulo Granito: `/granito`
+3. Taxas de Granito: `/granito/taxas`
+4. Vazios Importacao: `/vazios-importacao`
+5. Vazios Exportacao: `/embarquevazios`
+6. Redirecionamentos:
+   - `/vazios` -> `/embarquevazios`
+   - `/demurrage/invoices` -> `/demurrage`
+   - `/demurrage/reconciliacao` -> `/reconciliacao`
 
-```powershell
-$env:SUPABASE_RUN_INTEGRATION="1"
-npm run test:integration
-```
+## 3. Fluxos minimos - Granito
 
-Resultado esperado:
+1. Acessar `/granito`.
+2. Importar planilha COSCO valida.
+3. Confirmar preview com BLs e status de vinculacao de cliente.
+4. Resolver pendencias de CNPJ quando houver.
+5. Confirmar importacao.
+6. Verificar listagem atualizada e acoes de calculo/faturamento.
 
-- dedupe de hash retorna `23505`
-- rate limit de import retorna `P0429`
-- optimistic lock de revisao retorna `40001`
-- (opcional) leitura financeira para operador retorna `42501`
-- (opcional) fluxo de faturamento hibrido com `SUPABASE_TEST_BILLING_BL_IDS`
+## 4. Fluxos minimos - Vazios Importacao
 
-Observacao:
+1. Acessar `/vazios-importacao`.
+2. Importar planilha de containers vazios de chegada.
+3. Confirmar preview.
+4. Confirmar importacao.
+5. Validar listagem e filtros.
 
-- `xlsx` pode aparecer em auditorias com vulnerabilidade conhecida sem fix disponivel no ecossistema atual.
+## 5. Fluxos minimos - Vazios Exportacao
 
-## 2. Preparar o ambiente Supabase
+1. Acessar `/embarquevazios`.
+2. Baixar template e conferir formato.
+3. Importar planilha de bookings de saida.
+4. Confirmar preview.
+5. Confirmar importacao.
+6. Validar listagem e filtros.
 
-1. Crie o projeto no Supabase.
-2. Rode as migrations de `supabase/migrations` na ordem correta.
-3. Crie um usuario em Authentication.
-4. Crie ou atualize o perfil em `user_profiles`.
-5. Confirme que o usuario esta `active = true`.
+## 6. Fluxos complementares em producao
 
-## 3. Configurar o app
+- Alertas (`/alertas`): listar, reconhecer e fechar.
+- Relatorios (`/relatorios`): abrir abas e exportar.
+- Line Up TV (`/line-up-tv/display`): carregar painel.
+- Admin Usuarios (`/admin/usuarios`, perfil admin): alterar role/status.
 
-Crie `.env` a partir de `.env.example`:
+## 7. Validacao de faturamento e portal
 
-```env
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-anon
-```
+1. Emitir invoice em `/faturamento`.
+2. Registrar pagamento parcial e total.
+3. Validar acesso ao portal:
+   - `/portal/login`
+   - `/portal/billing`
 
-Rode:
+## 8. Observacao sobre escopo
 
-```powershell
-npm run dev
-```
-
-## 4. Fluxo de validacao - Login e Painel
-
-1. Acesse `/login`.
-2. Faca login com usuario ativo.
-3. Confirme que `/painel` abre sem erro.
-4. Confirme que o header, menu principal e submenu `Importacao` funcionam.
-
-## 5. Fluxo de validacao - Viagens
-
-1. Acesse `/viagens`.
-2. Crie uma nova viagem.
-3. Edite a viagem criada.
-4. Confirme:
-   - armador padrao
-   - SCAC padrao
-   - card da viagem visivel
-   - filtros por navio e viagem funcionando
-5. Verifique os blocos:
-   - `Container`
-   - `Container de Carga Geral`
-   - `Carga solta`
-   - `Veiculos`
-6. Ajuste ETD em um POL.
-7. Ajuste ETA e ATA em um POD.
-8. Exclua a viagem apenas se ela estiver sem vinculos operacionais.
-
-## 6. Fluxo de validacao - Manifestos CNTR
-
-1. Acesse `/manifestos`.
-2. Clique em `Importar Manifesto CNTR`.
-3. Selecione uma viagem existente.
-4. Envie um manifesto real ou fixture de validacao.
-5. No preview, confirme:
-   - quantidade de B/Ls
-   - `Ocorrencias CNTR`
-   - `Containers distintos`
-   - pendencias de revisao
-   - trecho detectado
-6. Conclua a importacao.
-7. Tente reenviar o mesmo arquivo sem alteracao e confirme bloqueio por dedupe (`23505`).
-8. Tente disparar varios imports em sequencia e confirme bloqueio de taxa (`P0429`).
-9. Verifique na grade:
-   - filtros
-   - exportacao
-   - abertura do detalhe do B/L
-   - coluna de CE Mercante
-10. Importe planilha complementar de:
-   - IMO/OOG
-   - CE Mercante
-
-## 7. Fluxo de validacao - Containers
-
-1. Acesse `/containers`.
-2. Confirme filtros por:
-   - texto
-   - viagem
-   - POL
-   - POD
-   - perfil
-3. Confirme cards:
-   - registros filtrados
-   - containers distintos
-   - B/Ls envolvidos
-   - OOG distintos
-   - IMO distintos
-4. Confirme resumo por tipo.
-5. Abra um B/L a partir da tela de containers.
-
-## 8. Fluxo de validacao - Manifestos BB
-
-1. Acesse `/carga-solta`.
-2. Clique em `Importar Manifesto BB`.
-3. Vincule a uma viagem.
-4. Envie arquivo no layout operacional atual.
-5. Confirme:
-   - importacao concluida
-   - B/Ls listados
-   - campos de maquinas, packages, packages total, weight e CBM
-   - CE Mercante importavel por planilha
-6. Teste exportacao da grade.
-
-## 9. Fluxo de validacao - Veiculos
-
-1. Acesse `/veiculos`.
-2. Confirme filtros de visualizacao:
-   - navio
-   - viagem
-   - busca por chassi
-   - container
-   - BL
-3. Clique em `Importar Veiculos`.
-4. Selecione a viagem no modal.
-5. Envie planilha modelo.
-6. Confirme preview e resultado:
-   - total processado
-   - sucessos
-   - erros
-7. Abra um B/L CNTR que tenha veiculos e confirme a secao `Veiculos vinculados`.
-
-## 10. Fluxo de validacao - Revisao Manual
-
-1. Acesse `/revisao`.
-2. Confirme listagem de B/Ls pendentes.
-3. Abra um B/L pendente.
-4. Edite os campos necessarios.
-5. Salve.
-6. Confirme que o B/L sai da fila quando estiver regularizado.
-7. Simule edicao concorrente (duas abas abertas no mesmo B/L) e confirme aviso de conflito.
-
-## 11. Fluxo de validacao - Clientes
-
-1. Acesse `/clientes`.
-2. Importe uma base mestre de clientes.
-3. Confirme:
-   - CNPJ/CPF obrigatorio
-   - Razao Social obrigatoria
-   - emails multiples por cliente
-4. Crie cliente manualmente.
-5. Abra a ficha do cliente.
-6. Edite dados gerais e contatos.
-7. Exclua um cliente apenas se a regra operacional permitir.
-
-## 12. Fluxo de validacao - CE Mercante
-
-1. Gere planilha simples com colunas:
-   - `BL`
-   - `CE MERCANTE`
-2. Importe em `Manifestos CNTR`.
-3. Importe em `Manifestos BB`.
-4. Confirme que o campo aparece:
-   - na grade
-   - no detalhe do B/L
-
-## 13. Consultas SQL de apoio
-
-Use no SQL Editor do Supabase:
-
-```sql
-select count(*) from voyages;
-select count(*) from bls;
-select count(*) from bl_containers;
-select count(*) from vehicles;
-select count(*) from customers;
-select count(*) from import_batches;
-```
-
-Conferencias adicionais:
-
-```sql
-select cargo_mode, count(*)
-from bls
-group by cargo_mode
-order by cargo_mode;
-
-select status, count(*)
-from user_profiles
-group by status
-order by status;
-
-select field_name, count(*)
-from audit_logs
-where entity_type = 'system_event'
-  and field_name in (
-    'manifest_import_rate_limited',
-    'manifest_import_duplicate_hash',
-    'bl_review_concurrent_conflict'
-  )
-group by field_name
-order by field_name;
-```
-
-## 14. Fluxo de validacao - Taxas Locais
-
-1. Acesse `/taxas-locais`.
-2. Aba `Tabelas`:
-   - crie/edite tabela CNTR ou BB
-   - crie/edite item de taxa
-   - ative/desative tabela
-3. Aba `Overrides`:
-   - crie override por cliente/item
-   - confirme refletir no calculo do B/L
-4. Aba `Operacao`:
-   - filtre por status de taxa
-   - execute lote de calcular/recalcular
-   - marque revisado e pronto para faturar
-   - exporte resultado
-5. Aba `Simulacao`:
-   - informe B/L
-   - calcule
-   - inclua/remova linha manual
-   - valide subtotal BRL/USD e status final.
-
-## 15. Fluxo de validacao - Faturamento
-
-1. Acesse `/faturamento`.
-2. Clique `Nova Invoice`.
-3. Teste emissao:
-   - modo `B/L unico`
-   - modo `Consolidada`
-4. Abra detalhe e valide:
-   - B/Ls vinculados
-   - itens snapshot
-   - total e saldo
-5. Registre pagamento parcial e confirme status `partially_paid`.
-6. Registre pagamento final e confirme status `paid`.
-7. Emita nova invoice sem pagamento e teste cancelamento.
-8. Gere PDF e confirme download sem erro.
-
-## 16. O que ainda nao entra na validacao operacional
-
-Os itens abaixo ainda existem apenas como placeholder, estrutura inicial ou area em aberto:
-
-- Alertas
-- Relatorios
-- Line up TV
-- Admin - Usuarios
-- Admin - Tarifas
+Este roteiro cobre apenas funcionalidades ativas no produto. Documentos historicos e baseline legado ficam em `docs/archive/`.

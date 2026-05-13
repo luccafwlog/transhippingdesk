@@ -1,51 +1,24 @@
 # Reset do Ambiente de Testes
 
-Use este procedimento quando precisar zerar a base operacional entre rodadas de teste.
+Atualizado em 2026-05-13.
 
-## O que o reset preserva
+Use este procedimento quando precisar zerar dados operacionais entre rodadas de teste.
 
-- `auth.users`
-- `public.user_profiles`
-- `public.carriers`
-- `public.vessels`
-- `public.ports`
-- `public.voyages`
-- `public.customers`
-- `public.customer_contacts`
-- `public.customer_rate_overrides`
-- `public.charge_tables`
-- `public.charge_table_items`
+## Script oficial
 
-## O que o reset remove
+Arquivo de reset:
 
-- lotes de importacao de manifesto
-- B/Ls
-- containers
-- calculos
-- invoices
-- pagamentos
-- alertas
-- auditoria
-- contador de invoice
+`supabase/scripts/reset_operational_data.sql`
 
 ## Como executar
 
 1. Abra o projeto no Supabase.
 2. Entre em `SQL Editor`.
-3. Abra o arquivo:
-
-`supabase/scripts/reset_operational_data.sql`
-
+3. Abra o arquivo `supabase/scripts/reset_operational_data.sql`.
 4. Cole o conteudo no editor.
 5. Execute.
 
-## Arquivo de reset
-
-[reset_operational_data.sql](C:\Users\lucca\OneDrive - Fwlog Brasil Representações Ltda\Transhipping Desk\supabase\scripts\reset_operational_data.sql)
-
 ## Conferencia minima
-
-Rode esta consulta para confirmar o reset:
 
 ```sql
 SELECT 'import_batches' AS table_name, COUNT(*) AS total FROM public.import_batches
@@ -63,10 +36,10 @@ SELECT 'audit_logs', COUNT(*) FROM public.audit_logs;
 
 Resultado esperado:
 
-- `import_batches`, `bls`, `bl_containers` e `audit_logs` devem retornar `0`
-- `customers_preserved` e `customer_contacts_preserved` devem manter seus valores
-- `voyages`, `carriers`, `vessels` e `ports` continuam disponiveis
+- `import_batches`, `bls`, `bl_containers` e `audit_logs` zerados
+- `customers_preserved` e `customer_contacts_preserved` mantidos
 
-## Observacao
+## Nota
 
-Esse reset foi desenhado para repetir testes rapidamente sem precisar recriar nem a estrutura da viagem nem o cadastro mestre de clientes.
+Referencias antigas com caminho absoluto local foram descontinuadas.
+Sempre use caminho relativo ao repositorio.

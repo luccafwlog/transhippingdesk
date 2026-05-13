@@ -542,3 +542,7 @@ Adicionar na seção "Operação":
 | Line Up TV | Abrir `/lineup`; colunas "Granito (BLs)" e "Vazios (bookings)" exibem contagens corretas por viagem |
 | RLS | Verificar com usuário autenticado sem role admin que SELECT em `granite_bls` e `vazios_bookings` funciona; INSERT só via RPC |
 | Testes de parser | `npm test` — adicionar fixture da planilha COSCO e verificar parse de `Prontidão de Carga`, `Restrição parcial`, `Real Weight` |
+# DOCUMENTO HISTORICO
+
+Este documento registra decisoes de planejamento ja incorporadas ao produto.
+Nao use este arquivo como fonte de verdade operacional.
