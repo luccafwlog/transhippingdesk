@@ -99,6 +99,7 @@ export async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<P
   const customerMaps = await loadCustomerMaps()
   const bls: ParsedGraniteBl[] = []
   const rowErrors: ParsedGraniteManifest['rowErrors'] = []
+  const seenBlNumbers = new Set<string>()
 
   rows.forEach((row, idx) => {
     const rowNumber = idx + 2 // linha 1 = cabeçalho, dados começam na 2
@@ -109,11 +110,16 @@ export async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<P
       mapped[fieldName] = row[originalKey]
     }
 
-    const blNumber = String(mapped['bl_number'] ?? '').trim()
+    const blNumber = String(mapped['bl_number'] ?? '').trim().toUpperCase()
     if (!blNumber) {
       rowErrors.push({ row: rowNumber, message: 'BL ausente — linha ignorada.', raw: row })
       return
     }
+    if (seenBlNumbers.has(blNumber)) {
+      rowErrors.push({ row: rowNumber, message: `BL ${blNumber} duplicado na planilha.`, raw: row })
+      return
+    }
+    seenBlNumbers.add(blNumber)
 
     const realWeightRaw = toNumber(String(mapped['real_weight_kg'] ?? ''))
     if (realWeightRaw === null || realWeightRaw <= 0) {
