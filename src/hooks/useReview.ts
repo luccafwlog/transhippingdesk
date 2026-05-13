@@ -60,6 +60,7 @@ export function useReviewQueue() {
       ])
 
       if (blResult.error) throw blResult.error
+      if (graniteResult.error) throw graniteResult.error
 
       const blItems = ((blResult.data ?? []) as unknown as (Omit<ReviewQueueItem & { source: 'bl' }, 'source'>)[]).map((row) => ({
         ...row,
