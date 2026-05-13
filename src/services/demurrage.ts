@@ -301,7 +301,7 @@ export async function createInvoiceForReturnedBL(blId: string): Promise<number |
   return inv.id
 }
 
-export async function issueInvoice(invoiceId: number, roe: number): Promise<void> {
+export async function issueInvoice(invoiceId: number, roe: number, roeSource: RoeSource = 'bcb_live'): Promise<void> {
   const { data: inv, error: fetchErr } = await supabase
     .from('demurrage_invoices')
     .select('total_usd, discount_mode, discount_value, first_billed_at, doc_number')
@@ -324,6 +324,7 @@ export async function issueInvoice(invoiceId: number, roe: number): Promise<void
     first_billed_at: inv.first_billed_at ?? today,
     frozen_roe: roe,
     frozen_total_brl: parseFloat(totalBRL.toFixed(2)),
+    roe_source: roeSource,
     pix_payload,
   }).eq('id', invoiceId)
   if (error) throw error
@@ -550,7 +551,8 @@ function saveROECache(roe: number) {
   }
 }
 
-export type FetchROEResult = { roe: number; offline: boolean; cachedAt: string | null }
+export type RoeSource = 'bcb_live' | 'cached' | 'manual'
+export type FetchROEResult = { roe: number; offline: boolean; cachedAt: string | null; source: RoeSource }
 
 export async function fetchROE(): Promise<FetchROEResult> {
   const today = new Date()
@@ -566,10 +568,10 @@ export async function fetchROE(): Promise<FetchROEResult> {
     if (!json.value?.length || !json.value[0].cotacaoVenda) throw new Error('Sem cotações no BCB')
     const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * 1.065).toFixed(4))
     saveROECache(roe)
-    return { roe, offline: false, cachedAt: null }
+    return { roe, offline: false, cachedAt: null, source: 'bcb_live' }
   } catch {
     const cached = loadCachedROE()
-    if (cached) return { roe: cached.roe, offline: true, cachedAt: cached.fetchedAt }
+    if (cached) return { roe: cached.roe, offline: true, cachedAt: cached.fetchedAt, source: 'cached' }
     throw new Error('BCB offline e sem cache de PTAX disponivel. Informe a taxa manualmente.')
   }
 }

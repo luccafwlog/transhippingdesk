@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { normalizeText } from '../lib/utils'
 import { supabase } from '../services/supabase'
 import type { VehicleListItem } from '../types/database'
 
@@ -54,8 +53,54 @@ export function useVehicleOptions() {
 }
 
 export function useVehicles(voyageId: number | null, filters: VehiclePageFilters) {
-  const query = useQuery({
-    queryKey: ['vehicles', voyageId],
+  // Paginated, server-side filtered list query
+  const listQuery = useQuery({
+    queryKey: ['vehicles', voyageId, filters],
+    enabled: Boolean(voyageId),
+    queryFn: async () => {
+      const rangeFrom = (filters.page - 1) * filters.pageSize
+      const rangeTo = rangeFrom + filters.pageSize - 1
+
+      let q = supabase
+        .from('vehicles')
+        .select(
+          `
+          *,
+          container:bl_containers(id, container_number, type, seal_number),
+          bl:bls(id, voyage_id, voyage:voyages(id, voyage_number, vessel:vessels(id, name)))
+        `,
+          { count: 'exact' },
+        )
+        .eq('voyage_id', voyageId!)
+        .order('created_at', { ascending: false })
+        .range(rangeFrom, rangeTo)
+
+      if (filters.search) q = q.ilike('chassis', `%${filters.search}%`)
+
+      // container and bl filters need join — apply post-fetch for now since Supabase
+      // doesn't support ilike on nested select columns in .filter()
+      const { data, error, count } = await q
+      if (error) throw error
+
+      let rows = (data ?? []) as unknown as VehicleListItem[]
+
+      // Apply container/bl filters client-side (these are short pages, not full datasets)
+      if (filters.container) {
+        const term = filters.container.toLowerCase()
+        rows = rows.filter((r) => (r.container?.container_number ?? '').toLowerCase().includes(term))
+      }
+      if (filters.bl) {
+        const term = filters.bl.toLowerCase()
+        rows = rows.filter((r) => (r.bl?.id ?? '').toLowerCase().includes(term))
+      }
+
+      return { rows, count: count ?? 0 }
+    },
+  })
+
+  // Separate stats query — loads all vehicles for voyage (no filters, for breakdown cards)
+  const statsQuery = useQuery({
+    queryKey: ['vehicle-stats', voyageId],
     enabled: Boolean(voyageId),
     queryFn: async () => {
       const batchSize = 1000
@@ -65,22 +110,14 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
       while (true) {
         const { data, error } = await supabase
           .from('vehicles')
-          .select(
-            `
-            *,
-            container:bl_containers(id, container_number, type, seal_number),
-            bl:bls(id, voyage_id, voyage:voyages(id, voyage_number, vessel:vessels(id, name)))
-          `,
-          )
+          .select('id, brand, weight_kg, cbm, container:bl_containers(id, container_number, type), bl:bls(id)')
           .eq('voyage_id', voyageId!)
-          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
           .range(from, from + batchSize - 1)
 
         if (error) throw error
-
         const batch = (data ?? []) as unknown as VehicleListItem[]
         if (!batch.length) break
-
         rows.push(...batch)
         if (batch.length < batchSize) break
         from += batchSize
@@ -90,51 +127,30 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
     },
   })
 
-  const filtered = useMemo(() => {
-    const rows = query.data ?? []
-    const searchTerm = normalizeText(filters.search)
-    const containerTerm = normalizeText(filters.container)
-    const blTerm = normalizeText(filters.bl)
+  const stats = useMemo(() => {
+    const all = statsQuery.data ?? []
+    const brandMap = new Map<string, number>()
+    const vehicleTypeMap = new Map<string, number>()
+    const containerTypeMap = new Map<string, Set<string>>()
 
-    return rows.filter((row) => {
-      if (searchTerm && !normalizeText(row.chassis).includes(searchTerm)) return false
-      if (containerTerm && !normalizeText(row.container?.container_number ?? '').includes(containerTerm)) return false
-      if (blTerm && !normalizeText(row.bl?.id ?? '').includes(blTerm)) return false
-      return true
-    })
-  }, [filters.bl, filters.container, filters.search, query.data])
+    for (const row of all) {
+      const brand = String(row.brand ?? '').trim() || 'Nao informado'
+      brandMap.set(brand, (brandMap.get(brand) ?? 0) + 1)
 
-  const from = (filters.page - 1) * filters.pageSize
-  const to = from + filters.pageSize
+      const containerType = String(row.container?.type ?? '').trim() || 'Nao informado'
+      vehicleTypeMap.set(containerType, (vehicleTypeMap.get(containerType) ?? 0) + 1)
 
-  const brandMap = new Map<string, number>()
-  const vehicleTypeMap = new Map<string, number>()
-  const containerTypeMap = new Map<string, Set<string>>()
-
-  for (const row of filtered) {
-    const brand = String(row.brand ?? '').trim() || 'Nao informado'
-    brandMap.set(brand, (brandMap.get(brand) ?? 0) + 1)
-
-    const containerType = String(row.container?.type ?? '').trim() || 'Nao informado'
-    vehicleTypeMap.set(containerType, (vehicleTypeMap.get(containerType) ?? 0) + 1)
-
-    const containerNumber = String(row.container?.container_number ?? '').trim().toUpperCase()
-    const currentSet = containerTypeMap.get(containerType) ?? new Set<string>()
-    if (containerNumber) {
-      currentSet.add(containerNumber)
+      const containerNumber = String(row.container?.container_number ?? '').trim().toUpperCase()
+      const currentSet = containerTypeMap.get(containerType) ?? new Set<string>()
+      if (containerNumber) currentSet.add(containerNumber)
+      containerTypeMap.set(containerType, currentSet)
     }
-    containerTypeMap.set(containerType, currentSet)
-  }
 
-  return {
-    ...query,
-    data: {
-      rows: filtered.slice(from, to),
-      count: filtered.length,
-      totalWeightKg: filtered.reduce((sum, row) => sum + Number(row.weight_kg ?? 0), 0),
-      totalCbm: filtered.reduce((sum, row) => sum + Number(row.cbm ?? 0), 0),
-      distinctContainerCount: new Set(filtered.map((row) => row.container?.container_number).filter(Boolean)).size,
-      distinctBlCount: new Set(filtered.map((row) => row.bl?.id).filter(Boolean)).size,
+    return {
+      totalWeightKg: all.reduce((sum, row) => sum + Number(row.weight_kg ?? 0), 0),
+      totalCbm: all.reduce((sum, row) => sum + Number(row.cbm ?? 0), 0),
+      distinctContainerCount: new Set(all.map((row) => row.container?.container_number).filter(Boolean)).size,
+      distinctBlCount: new Set(all.map((row) => row.bl?.id).filter(Boolean)).size,
       vehiclesByBrand: Array.from(brandMap.entries())
         .map(([label, count]) => ({ label, count }))
         .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'pt-BR')),
@@ -144,6 +160,16 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
       containersByContainerType: Array.from(containerTypeMap.entries())
         .map(([label, numbers]) => ({ label, count: numbers.size }))
         .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'pt-BR')),
+    }
+  }, [statsQuery.data])
+
+  return {
+    isLoading: listQuery.isLoading || statsQuery.isLoading,
+    error: listQuery.error ?? statsQuery.error,
+    data: {
+      rows: listQuery.data?.rows ?? [],
+      count: listQuery.data?.count ?? 0,
+      ...stats,
     },
   }
 }

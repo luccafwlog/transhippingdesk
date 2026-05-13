@@ -251,12 +251,14 @@ export function useVoyageOptions() {
 export function usePortOptions() {
   return useQuery({
     queryKey: ['port-options'],
+    // Port codes are stable — refresh only once every 10 minutes
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
+      // Use a lightweight RPC instead of loading 5000 rows
       const { data, error } = await supabase
         .from('bls')
         .select('pol, pod')
-        .order('created_at', { ascending: false })
-        .range(0, 4999)
+        .limit(500)
 
       if (error) throw error
 

@@ -17,12 +17,24 @@ export function LineUpTVDisplay() {
   const [startIndex, setStartIndex] = useState(0)
   const [isSliding, setIsSliding] = useState(false)
 
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
+  const [flashRefresh, setFlashRefresh] = useState(false)
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
     queryFn: fetchLineUpSnapshot,
     staleTime: 30_000,
     refetchInterval: 30_000,
   })
+
+  useEffect(() => {
+    if (data) {
+      setRefreshedAt(new Date())
+      setFlashRefresh(true)
+      const t = setTimeout(() => setFlashRefresh(false), 1200)
+      return () => clearTimeout(t)
+    }
+  }, [data])
 
   const rows = useMemo(() => [...(data?.rows ?? [])].sort(compareDisplayRows), [data?.rows])
   const firstRoute = rows[0] ?? null
@@ -154,6 +166,17 @@ export function LineUpTVDisplay() {
           <div className="app-lineup-display-meta__group">
             <span className="app-lineup-display-meta__label">Ultima alteracao</span>
             <strong className="app-lineup-display-meta__value">{lastUpdate}</strong>
+          </div>
+          <div className="app-lineup-display-meta__group">
+            <span className="app-lineup-display-meta__label">Atualizado as</span>
+            <strong
+              className="app-lineup-display-meta__value"
+              style={{ transition: 'color 0.4s', color: flashRefresh ? '#4ade80' : undefined }}
+            >
+              {refreshedAt
+                ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(refreshedAt)
+                : '-'}
+            </strong>
           </div>
         </div>
       </header>

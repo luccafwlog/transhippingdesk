@@ -350,8 +350,14 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
 }
 
 export async function listBillingCustomers(search = '') {
-  let query = supabase.from('customers').select('id,name,cnpj_cpf').order('name', { ascending: true }).limit(300)
   const normalizedSearch = String(search ?? '').trim()
+
+  let query = supabase
+    .from('customers')
+    .select('id,name,cnpj_cpf')
+    .order('name', { ascending: true })
+    .limit(50)
+
   if (normalizedSearch.length >= 2) {
     query = query.or(`name.ilike.%${normalizedSearch}%,cnpj_cpf.ilike.%${normalizedSearch}%`)
   }

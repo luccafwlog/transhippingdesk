@@ -737,6 +737,7 @@ export type DemurrageInvoice = {
   roe: number | null
   roe_manual: boolean | null
   frozen_roe: number | null
+  roe_source: 'bcb_live' | 'cached' | 'manual' | null
   frozen_total_brl: number | null
   discount_type: 'comercial' | 'datas' | 'cortesia' | 'acordo' | 'erro' | null
   discount_value: number | null

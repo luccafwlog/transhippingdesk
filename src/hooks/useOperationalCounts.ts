@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 
 export type OperationalCounts = {
@@ -15,6 +16,18 @@ export type OperationalCounts = {
  * Em caso de erro retorna 0 em todos os campos para não quebrar o layout.
  */
 export function useOperationalCounts(): OperationalCounts {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('op-counts-alerts-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts' }, () => {
+        void queryClient.invalidateQueries({ queryKey: ['op-count', 'open-alerts'] })
+      })
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [queryClient])
+
   const pendingReview = useQuery({
     queryKey: ['op-count', 'pending-review'],
     queryFn: async () => {

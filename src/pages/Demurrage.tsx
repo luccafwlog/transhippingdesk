@@ -137,7 +137,7 @@ export function Demurrage() {
     mutationFn: async (id: number) => {
       const result = await fetchROE()
       if (result.offline) setRoeOfflineWarning(result.cachedAt)
-      await issueInvoice(id, result.roe)
+      await issueInvoice(id, result.roe, result.source)
     },
     onSuccess: () => { invalidateInvoices(); showToast('Fatura emitida. Valores congelados.', 'success') },
     onError: (e: Error) => showToast(e.message, 'error'),
@@ -384,7 +384,12 @@ export function Demurrage() {
                           <td className="py-2">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
                           <td className="py-2">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
                           <td className="py-2 font-semibold text-amber-400">{fmtUSD(inv.total_usd)}</td>
-                          <td className="py-2 font-semibold text-green-400">{fmtBRL(inv.frozen_total_brl)}</td>
+                          <td className="py-2 font-semibold text-green-400">
+                            {fmtBRL(inv.frozen_total_brl)}
+                            {inv.roe_source === 'cached' && (
+                              <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 text-xs text-amber-400" title="ROE via cache (BCB offline)">ROE cache</span>
+                            )}
+                          </td>
                           <td className="py-2"><InvoiceStatusBadge status={inv.status} /></td>
                           <td className="py-2">
                             <div className="flex flex-wrap gap-1">
