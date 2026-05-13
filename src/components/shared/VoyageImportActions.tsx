@@ -109,11 +109,11 @@ function CntrImportModal({
 
     supabase
       .from('bls')
-      .select('id, bl_number')
+      .select('id')
       .eq('voyage_id', voyageId)
-      .in('bl_number', blNumbers)
+      .in('id', blNumbers)
       .then(({ data }) => {
-        setExistingBlIds(new Set((data ?? []).map((r) => String(r.bl_number ?? ''))))
+        setExistingBlIds(new Set((data ?? []).map((r) => String(r.id ?? ''))))
       })
   }, [preview, voyageId])
 
