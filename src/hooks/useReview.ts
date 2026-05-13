@@ -60,7 +60,6 @@ export function useReviewQueue() {
       ])
 
       if (blResult.error) throw blResult.error
-      if (graniteResult.error) throw graniteResult.error
 
       const blItems = ((blResult.data ?? []) as unknown as (Omit<ReviewQueueItem & { source: 'bl' }, 'source'>)[]).map((row) => ({
         ...row,
@@ -68,7 +67,21 @@ export function useReviewQueue() {
         source: 'bl' as const,
       }))
 
-      const graniteRows = (graniteResult.data ?? []) as unknown as Array<{
+      let graniteData = graniteResult.data
+      if (graniteResult.error) {
+        // Fallback defensivo: se o join de relacoes falhar por schema/permissao,
+        // ainda retornamos a fila de granito sem metadados de viagem.
+        const fallback = await supabase
+          .from('granite_bls')
+          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, updated_at, client_id, customer:customers(id, cnpj_cpf, name)')
+          .is('client_id', null)
+          .order('created_at', { ascending: false })
+          .range(0, 499)
+        if (fallback.error) throw fallback.error
+        graniteData = fallback.data
+      }
+
+      const graniteRows = (graniteData ?? []) as unknown as Array<{
         id: string
         bl_number: string
         shipper_name: string | null
@@ -79,7 +92,7 @@ export function useReviewQueue() {
         updated_at: string | null
         client_id: number | null
         customer: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
-        manifest: { voyage: { id: number; voyage_number: string; vessel: { id: number; name: string } | null } | null } | null
+        manifest?: { voyage: { id: number; voyage_number: string; vessel: { id: number; name: string } | null } | null } | null
       }>
 
       const graniteItems = graniteRows.map((row) => ({
