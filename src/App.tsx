@@ -9,8 +9,18 @@ function lazyPage<T extends Record<string, unknown>, K extends keyof T & string>
   exportName: K,
 ) {
   return lazy(async () => {
-    const module = await loader()
-    return { default: module[exportName] as ComponentType }
+    try {
+      const module = await loader()
+      return { default: module[exportName] as ComponentType }
+    } catch (e) {
+      // Chunk hash changed after deploy — force a hard reload to pick up new assets
+      if (e instanceof TypeError && !sessionStorage.getItem('chunk-reload')) {
+        sessionStorage.setItem('chunk-reload', '1')
+        window.location.reload()
+        return new Promise<never>(() => {})
+      }
+      throw e
+    }
   })
 }
 
