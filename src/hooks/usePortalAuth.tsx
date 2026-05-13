@@ -42,19 +42,27 @@ function isPortalSessionError(error: unknown) {
 }
 
 // Busca visão geral via Supabase Auth (RPC v2 sem token)
+function normalizePortalOverview(payload: Record<string, unknown>) {
+  return {
+    customer_id: Number(payload.customer_id ?? 0),
+    customer_name: String(payload.customer_name ?? ''),
+    customer_cnpj_cpf: String(payload.customer_cnpj_cpf ?? payload.cnpj_cpf ?? ''),
+    pending_balance: payload.pending_balance == null ? null : Number(payload.pending_balance),
+    contact_email: payload.contact_email == null ? null : String(payload.contact_email),
+  } as PortalSessionOverview
+}
+
 async function fetchOverviewViaSupabaseAuth(): Promise<PortalSessionOverview> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('portal_get_session_overview_v2')
+  const { data, error } = await supabase.rpc('portal_get_session_overview_v2')
   if (error) throw error
-  return data as PortalSessionOverview
+  return normalizePortalOverview((data ?? {}) as Record<string, unknown>)
 }
 
 // Verifica qual método de auth está disponível para o cnpj_cpf
 async function checkAuthMethod(cnpjCpf: string): Promise<{ method: string; portal_email?: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('portal_check_auth_method', { p_cnpj_cpf: cnpjCpf })
+  const { data, error } = await supabase.rpc('portal_check_auth_method', { p_cnpj_cpf: cnpjCpf })
   if (error) throw error
-  return data as { method: string; portal_email?: string }
+  return (data ?? { method: 'none' }) as { method: string; portal_email?: string }
 }
 
 export function PortalAuthProvider({ children }: PropsWithChildren) {

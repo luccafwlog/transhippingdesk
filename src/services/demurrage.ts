@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { buildTransshippingPixPayload } from '../lib/pix'
-import type { DemurrageCalcResult, DemurrageInvoice, DemurrageInvoiceItem, DemurrageContainerListItem, PixTransaction } from '../types/database'
+import type { DemurrageCalcResult, DemurrageInvoice, DemurrageInvoiceItem, DemurrageContainerListItem, DemurrageRate, PixTransaction } from '../types/database'
 
 // ── Rate groups (port of DM rates.js RATES array) ─────────────
 type RateGroup = {
@@ -10,7 +10,7 @@ type RateGroup = {
   p2: { range: [number, number]; usd: number }
 }
 
-const RATE_GROUPS: RateGroup[] = [
+const STATIC_RATE_GROUPS: RateGroup[] = [
   { aliases: ['20GP', '20G0', '20HC', '20HQ', '22G1', '20G1'], freeUntil: 21, p1: { range: [22, 30], usd: 30 }, p2: { range: [31, Infinity], usd: 50 } },
   { aliases: ['40GP', '40G0', '40HC', '40HQ', '40G1', '42G1', '45G1'], freeUntil: 21, p1: { range: [22, 30], usd: 60 }, p2: { range: [31, Infinity], usd: 80 } },
   { aliases: ['20FR', '20OT', '20FT'], freeUntil: 21, p1: { range: [22, 30], usd: 50 }, p2: { range: [31, Infinity], usd: 80 } },
@@ -19,7 +19,10 @@ const RATE_GROUPS: RateGroup[] = [
   { aliases: ['40RF', '40RQ', '40R1', '45R1'], freeUntil: 10, p1: { range: [11, 19], usd: 190 }, p2: { range: [20, Infinity], usd: 220 } },
 ]
 
-const DEFAULT_RATE: RateGroup = RATE_GROUPS[0]
+const DEFAULT_RATE: RateGroup = STATIC_RATE_GROUPS[0]
+const RATE_CACHE_TTL_MS = 5 * 60 * 1000
+let dynamicRateGroups: RateGroup[] | null = null
+let dynamicRateGroupsLoadedAt = 0
 
 type ResolvedRate = {
   freeUntil: number
@@ -27,9 +30,76 @@ type ResolvedRate = {
   p2: { range: [number, number]; usd: number }
 }
 
+function resolveActiveRateGroups() {
+  if (dynamicRateGroups && dynamicRateGroups.length > 0) {
+    return dynamicRateGroups
+  }
+  return STATIC_RATE_GROUPS
+}
+
+function toRateGroups(rows: DemurrageRate[]) {
+  const grouped = new Map<string, DemurrageRate>()
+  for (const row of rows) {
+    const key = String(row.container_type ?? '').trim().toUpperCase()
+    if (!key || grouped.has(key)) continue
+    grouped.set(key, row)
+  }
+
+  const groups: RateGroup[] = []
+  for (const row of grouped.values()) {
+    groups.push({
+      aliases: [String(row.container_type).trim().toUpperCase()],
+      freeUntil: Number(row.free_days ?? 0),
+      p1: {
+        range: [Number(row.p1_day_from ?? 0), Number(row.p1_day_to ?? 0)],
+        usd: Number(row.p1_usd ?? 0),
+      },
+      p2: {
+        range: [Number(row.p2_day_from ?? 0), Infinity],
+        usd: Number(row.p2_usd ?? 0),
+      },
+    })
+  }
+  return groups
+}
+
+export async function ensureDemurrageRatesLoaded(force = false) {
+  const now = Date.now()
+  if (!force && dynamicRateGroups && now - dynamicRateGroupsLoadedAt < RATE_CACHE_TTL_MS) {
+    return
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const { data, error } = await supabase
+    .from('demurrage_rates')
+    .select('*')
+    .eq('active', true)
+    .lte('valid_from', today)
+    .or(`valid_to.is.null,valid_to.gte.${today}`)
+    .order('valid_from', { ascending: false })
+    .order('id', { ascending: false })
+
+  if (error) {
+    if (!dynamicRateGroups) {
+      dynamicRateGroups = STATIC_RATE_GROUPS
+    }
+    dynamicRateGroupsLoadedAt = now
+    return
+  }
+
+  const resolved = toRateGroups((data ?? []) as DemurrageRate[])
+  dynamicRateGroups = resolved.length > 0 ? resolved : STATIC_RATE_GROUPS
+  dynamicRateGroupsLoadedAt = now
+}
+
+export function invalidateDemurrageRatesCache() {
+  dynamicRateGroupsLoadedAt = 0
+}
+
 export function getRate(containerType: string | null, freeTimeOverride?: number | null, ov1?: number | null, ov2?: number | null): ResolvedRate {
   const type = (containerType ?? '').toUpperCase().trim()
-  const group = RATE_GROUPS.find((g) => g.aliases.includes(type)) ?? DEFAULT_RATE
+  const groups = resolveActiveRateGroups()
+  const group = groups.find((g) => g.aliases.includes(type)) ?? groups[0] ?? DEFAULT_RATE
 
   let freeUntil = group.freeUntil
   let p1 = { ...group.p1 }
@@ -125,6 +195,8 @@ export type DemurrageContainerFilters = {
 }
 
 export async function listDemurrageContainers(filters?: DemurrageContainerFilters): Promise<DemurrageContainerListItem[]> {
+  await ensureDemurrageRatesLoaded()
+
   let query = supabase
     .from('bl_containers')
     .select(`
@@ -173,6 +245,7 @@ export async function updateContainerReturnDate(containerId: number, returnDate:
   if (fetchErr) throw fetchErr
 
   const bl = (row as unknown as { bl?: { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null }).bl
+  await ensureDemurrageRatesLoaded()
   const calc = calculateDemurrage(row.type, row.discharge_date ?? '', returnDate, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd)
 
   const demurrage_status = calc.status === 'overdue' ? 'overdue' : 'within_free_time'
@@ -183,6 +256,8 @@ export async function updateContainerReturnDate(containerId: number, returnDate:
 // ── DB: Invoice CRUD ──────────────────────────────────────────
 
 export async function createInvoiceForBL(blId: string): Promise<number> {
+  await ensureDemurrageRatesLoaded()
+
   const { data: bl, error: blErr } = await supabase
     .from('bls')
     .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd, demurrage_roe_manual, demurrage_roe')
@@ -240,6 +315,8 @@ export async function createInvoiceForBL(blId: string): Promise<number> {
 
 // Called automatically when all containers in a BL are returned; creates invoice only if demurrage is owed.
 export async function createInvoiceForReturnedBL(blId: string): Promise<number | null> {
+  await ensureDemurrageRatesLoaded()
+
   const { data: bl, error: blErr } = await supabase
     .from('bls')
     .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd, demurrage_roe_manual, demurrage_roe')

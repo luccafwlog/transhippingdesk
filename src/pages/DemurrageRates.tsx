@@ -8,6 +8,7 @@ import { Field, Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
+import { invalidateDemurrageRatesCache } from '../services/demurrage'
 import { supabase } from '../services/supabase'
 
 type DemurrageRate = {
@@ -105,6 +106,7 @@ export function DemurrageRates() {
     setSaving(true)
     try {
       await upsertDemurrageRate(form)
+      invalidateDemurrageRatesCache()
       await queryClient.invalidateQueries({ queryKey: ['demurrage-rates'] })
       showToast(form.id ? 'Tarifa atualizada.' : 'Tarifa criada.', 'success')
       setModalOpen(false)
@@ -119,6 +121,7 @@ export function DemurrageRates() {
     setDeletingId(id)
     try {
       await deleteDemurrageRate(id)
+      invalidateDemurrageRatesCache()
       await queryClient.invalidateQueries({ queryKey: ['demurrage-rates'] })
       showToast('Tarifa removida.', 'success')
     } catch {
@@ -131,6 +134,7 @@ export function DemurrageRates() {
   async function handleToggleActive(rate: DemurrageRate) {
     try {
       await toggleDemurrageRateActive(rate.id, !rate.active)
+      invalidateDemurrageRatesCache()
       await queryClient.invalidateQueries({ queryKey: ['demurrage-rates'] })
     } catch {
       showToast('Falha ao alterar status.', 'error')

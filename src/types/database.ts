@@ -363,6 +363,14 @@ export type InvoiceBlLink = {
   created_at: string | null
 }
 
+export type InvoiceGraniteBlLink = {
+  id: number
+  invoice_id: number
+  granite_bl_id: string
+  subtotal_brl: number
+  created_at: string | null
+}
+
 export type InvoiceSummary = Invoice & {
   customer?: Pick<Customer, 'id' | 'name' | 'cnpj_cpf'> | null
   invoice_bls?: Pick<InvoiceBlLink, 'id' | 'bl_id' | 'subtotal_brl' | 'subtotal_usd'>[] | null
@@ -394,8 +402,10 @@ export type Database = {
       invoice_items: Row<InvoiceItem>
       payments: Row<InvoicePayment>
       invoice_bls: Row<InvoiceBlLink>
+      invoice_granite_bls: Row<InvoiceGraniteBlLink>
       demurrage_invoices: Row<DemurrageInvoice>
       demurrage_invoice_items: Row<DemurrageInvoiceItem>
+      demurrage_rates: Row<DemurrageRate>
       granite_manifests: Row<GraniteManifest>
       granite_bls: Row<GraniteBl>
       granite_rates: Row<GraniteRate>
@@ -537,7 +547,6 @@ export type Database = {
           p_customer_id: number | null
           p_due_date: string | null
           p_notes: string | null
-          p_issue_now: boolean
           p_actor: string | null
         }
         Returns: Json
@@ -637,6 +646,16 @@ export type Database = {
       portal_get_session_overview: {
         Args: {
           p_session_token: string
+        }
+        Returns: Json
+      }
+      portal_get_session_overview_v2: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      portal_check_auth_method: {
+        Args: {
+          p_cnpj_cpf: string
         }
         Returns: Json
       }
@@ -774,6 +793,23 @@ export type DemurrageInvoiceItem = {
   rate_p2_usd: number
   subtotal_usd: number
   created_at: string
+}
+
+export type DemurrageRate = {
+  id: number
+  container_type: string
+  free_days: number
+  p1_day_from: number
+  p1_day_to: number
+  p1_usd: number
+  p2_day_from: number
+  p2_usd: number
+  valid_from: string | null
+  valid_to: string | null
+  active: boolean
+  notes: string | null
+  created_at: string | null
+  updated_at: string | null
 }
 
 export type DemurrageInvoiceDetail = DemurrageInvoice & {
