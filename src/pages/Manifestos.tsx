@@ -532,6 +532,8 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
       }
 
       await queryClient.invalidateQueries({ queryKey: ['bls'] })
+      await queryClient.invalidateQueries({ queryKey: ['bl-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['invoice-links'] })
       await queryClient.invalidateQueries({ queryKey: ['voyages'] })
       setImportSummary(results)
       const successCount = results.filter((item) => item.status === 'success').length
