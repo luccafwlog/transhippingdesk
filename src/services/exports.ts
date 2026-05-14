@@ -1,5 +1,6 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import type { BLListItem, ContainerListItem } from '../types/database'
+import type { CustomerListItem } from '../types/database'
 import type { LocalChargeOperationalRow } from './localCharges'
 import type {
   CustomerReportRow,
@@ -198,6 +199,26 @@ export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Clientes')
   XLSX.writeFile(workbook, `relatorio-clientes-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {
+  const XLSX = await import('xlsx')
+  const exportRows = rows.map((row) => ({
+    CNPJ_CPF: row.cnpj_cpf ?? '',
+    RazaoSocial: row.name ?? '',
+    NomeFantasia: row.trade_name ?? '',
+    Endereco: row.address ?? '',
+    Cidade: row.city ?? '',
+    UF: row.state ?? '',
+    CEP: row.zip ?? '',
+    SaldoPendenteBRL: Number(row.pending_balance ?? 0),
+    TotalBlsVinculados: row.bls?.length ?? 0,
+    TotalContatos: row.customer_contacts?.length ?? 0,
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'BaseClientes')
+  XLSX.writeFile(workbook, `base-clientes-${makeTimestamp()}.xlsx`)
 }
 
 function makeTimestamp() {

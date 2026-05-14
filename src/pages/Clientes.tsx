@@ -13,6 +13,9 @@ import { useCustomers } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { createCustomer } from '../services/customers'
+import { exportCustomerBaseWorkbook } from '../services/exports'
+import { supabase } from '../services/supabase'
+import type { CustomerListItem } from '../types/database'
 
 const customerCreateSchema = z.object({
   cnpjCpf: z
@@ -222,6 +225,40 @@ export function Clientes() {
     }
   }
 
+  async function handleExportBase() {
+    try {
+      let query = supabase.from('customers').select('*, bls(id, charge_status), customer_contacts(id)').order('name', { ascending: true })
+
+      if (filters.search) {
+        query = query.or(
+          `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%`,
+        )
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      const rows = ((data ?? []) as unknown as CustomerListItem[]).filter((row) => {
+        const hasEmails = (row.customer_contacts?.length ?? 0) > 0
+        const hasBls = (row.bls?.length ?? 0) > 0
+        const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
+
+        if (filters.emailStatus === 'with' && !hasEmails) return false
+        if (filters.emailStatus === 'without' && hasEmails) return false
+        if (filters.blStatus === 'with' && !hasBls) return false
+        if (filters.blStatus === 'without' && hasBls) return false
+        if (filters.pendingStatus === 'with' && !hasPendingBalance) return false
+        if (filters.pendingStatus === 'without' && hasPendingBalance) return false
+        return true
+      })
+
+      await exportCustomerBaseWorkbook(rows)
+      showToast(`Base exportada com ${rows.length} cliente(s).`, 'success')
+    } catch {
+      showToast('Falha ao exportar base de clientes.', 'error')
+    }
+  }
+
   function resetImportModal() {
     setImportOpen(false)
     setBaseFileName('')
@@ -271,6 +308,10 @@ export function Clientes() {
             <Button variant="secondary" onClick={() => setImportOpen(true)}>
               <Upload size={16} />
               Importar base
+            </Button>
+            <Button variant="secondary" onClick={handleExportBase}>
+              <Download size={16} />
+              Exportar base
             </Button>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus size={16} />
