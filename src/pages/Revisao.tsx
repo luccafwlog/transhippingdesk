@@ -11,7 +11,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
-import { formatCnpjCpf } from '../lib/utils'
+import { formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { createCustomer } from '../services/customers'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
@@ -377,6 +377,11 @@ function ReviewModal({
       showToast('Informe nome e CNPJ/CPF para criar o cliente.', 'error')
       return
     }
+    const documentDigits = onlyDigits(newCustomerCnpj)
+    if (documentDigits.length !== 11 && documentDigits.length !== 14) {
+      showToast('Informe um CNPJ (14 dígitos) ou CPF (11 dígitos) válido.', 'error')
+      return
+    }
 
     try {
       const customer = await createCustomer({ cnpjCpf: newCustomerCnpj, name: newCustomerName })
@@ -384,7 +389,12 @@ function ReviewModal({
       setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
       showToast('Cliente criado e pronto para vinculacao.', 'success')
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : ''
+      if (message.includes('duplicate key') || message.includes('customers_cnpj_cpf_key')) {
+        showToast('Este CNPJ/CPF já está cadastrado. Selecione o cliente na busca acima.', 'error')
+        return
+      }
       showToast('Falha ao criar cliente.', 'error')
     }
   }
