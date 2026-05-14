@@ -415,6 +415,8 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState<Array<{ file: string; status: 'success' | 'error'; message: string }>>([])
   const [previewIndex, setPreviewIndex] = useState(0)
+  const [importStatusMessage, setImportStatusMessage] = useState<string | null>(null)
+  const [waitMessage, setWaitMessage] = useState<string | null>(null)
 
   const primaryManifest = files.length ? manifestsByFile[files[previewIndex]?.name] ?? null : null
   const totals = useMemo(
@@ -472,6 +474,8 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
     setSubmitting(true)
     setImportSummary([])
+    setImportStatusMessage(null)
+    setWaitMessage(null)
     setProgress({ current: 0, total: files.length })
     const results: Array<{ file: string; status: 'success' | 'error'; message: string }> = []
     try {
@@ -491,8 +495,15 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             manifest,
             uploadedBy: user.id,
             fileHash: fileHash || null,
+            onRateLimitWait: (seconds) => setWaitMessage(`Limite atingido. Aguardando ${seconds}s para retomar...`),
+            onResume: () => setWaitMessage(null),
           })
           results.push({ file: file.name, status: 'success', message: 'Importado com sucesso.' })
+          if (index < files.length - 1) {
+            setWaitMessage('Aguardando alguns segundos antes do proximo arquivo...')
+            await sleep(3000)
+            setWaitMessage(null)
+          }
         } catch (error) {
           if (error instanceof DuplicateManifestImportError) {
             void logOperationalEvent({
@@ -525,7 +536,13 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
       setImportSummary(results)
       const successCount = results.filter((item) => item.status === 'success').length
       const errorCount = results.length - successCount
-      if (errorCount === 0) {
+      const allProcessed = results.length === files.length
+      const allSucceeded = allProcessed && successCount === files.length
+
+      if (allSucceeded) {
+        setImportStatusMessage(
+          successCount === 1 ? 'Manifesto importado com sucesso.' : `${successCount} manifestos importados com sucesso.`,
+        )
         showToast(
           successCount === 1 ? 'Manifesto importado com sucesso.' : `${successCount} manifestos importados com sucesso.`,
           'success',
@@ -533,8 +550,10 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         onClose()
         return
       } else if (successCount > 0) {
+        setImportStatusMessage(`Importacao parcial: ${successCount} sucesso(s), ${errorCount} erro(s).`)
         showToast(`Importacao concluida com ${successCount} sucesso(s) e ${errorCount} erro(s).`, 'info')
       } else {
+        setImportStatusMessage('Falha na importacao: nenhum manifesto foi importado.')
         showToast('Nenhum manifesto foi importado. Revise os erros abaixo.', 'error')
       }
       if (files.length > 1) {
@@ -633,8 +652,14 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         ) : null}
 
         {submitting ? (
-          <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-sm font-semibold text-blue-100">
+          <div className="rounded-xl border border-blue-500/40 bg-blue-500/15 p-3 text-sm font-bold text-blue-900">
             Importando arquivo {progress.current} de {progress.total}...
+          </div>
+        ) : null}
+
+        {waitMessage ? (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/15 p-3 text-sm font-semibold text-amber-900">
+            {waitMessage}
           </div>
         ) : null}
 
@@ -648,6 +673,12 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                 </div>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {importStatusMessage ? (
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-slate-200">
+            {importStatusMessage}
           </div>
         ) : null}
 
@@ -709,17 +740,21 @@ async function importManifestWithRetry(payload: {
   manifest: ParsedManifest
   uploadedBy: string
   fileHash: string | null
+  onRateLimitWait?: (seconds: number) => void
+  onResume?: () => void
 }) {
-  const maxAttempts = 3
+  const maxAttempts = 2
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
+      payload.onResume?.()
       await importManifest(payload)
       return
     } catch (error) {
       const isRateLimit = error instanceof RateLimitImportError
       const isLast = attempt === maxAttempts
       if (!isRateLimit || isLast) throw error
-      await sleep(attempt * 1200)
+      payload.onRateLimitWait?.(60)
+      await sleep(60000)
     }
   }
 }
