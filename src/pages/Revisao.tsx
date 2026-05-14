@@ -15,6 +15,7 @@ import { formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { createCustomer } from '../services/customers'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
+import { supabase } from '../services/supabase'
 
 export function Revisao() {
   const { data, isLoading, error } = useReviewQueue()
@@ -392,7 +393,24 @@ function ReviewModal({
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : ''
       if (message.includes('duplicate key') || message.includes('customers_cnpj_cpf_key')) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id, name, cnpj_cpf')
+          .eq('cnpj_cpf', documentDigits)
+          .maybeSingle()
+
+        if (existing) {
+          setSelectedCustomerId(existing.id)
+          setCustomerSearch(`${existing.name} ${formatCnpjCpf(existing.cnpj_cpf)}`)
+          showToast('Cliente já existia e foi selecionado para vinculação.', 'success')
+          return
+        }
+
         showToast('Este CNPJ/CPF já está cadastrado. Selecione o cliente na busca acima.', 'error')
+        return
+      }
+      if (message.includes('permission denied') || message.includes('42501')) {
+        showToast('Seu usuário não tem permissão para cadastrar cliente. Solicite acesso administrativo.', 'error')
         return
       }
       showToast('Falha ao criar cliente.', 'error')
