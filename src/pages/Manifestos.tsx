@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, Download, Upload } from 'lucide-react'
+import { Boxes, Download, Trash2, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -18,10 +18,12 @@ import { formatCnpjCpf } from '../lib/utils'
 import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimitImportError } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 import { logOperationalEvent } from '../services/operationalEvents'
+import { supabase } from '../services/supabase'
 
 const pageSizes = [20, 50, 100]
 
 export function Manifestos() {
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
   const [filters, setFilters] = useState<BlFilters>({
@@ -40,6 +42,8 @@ export function Manifestos() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+const [deletingBlId, setDeletingBlId] = useState<string | null>(null)
+  const [confirmBlText, setConfirmBlText] = useState('')
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
   const { data: summary, isLoading: isSummaryLoading } = useBlSummary(filters)
@@ -51,6 +55,28 @@ export function Manifestos() {
 
   function updateFilter<K extends keyof BlFilters>(key: K, value: BlFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+
+  async function handleDeleteBl() {
+    if (!deletingBlId || confirmBlText.trim() !== deletingBlId) return
+
+    const { error } = await supabase.from('bls').delete().eq('id', deletingBlId)
+    if (error) {
+      showToast('Falha ao excluir B/L. Verifique se nao ha dependencias bloqueando a exclusao.', 'error')
+      return
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['containers'] }),
+      queryClient.invalidateQueries({ queryKey: ['bl-summary'] }),
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+    ])
+
+    showToast(`B/L ${deletingBlId} excluido com sucesso.`, 'success')
+    setDeletingBlId(null)
+    setConfirmBlText('')
   }
 
   async function handleExport() {
@@ -258,12 +284,16 @@ export function Manifestos() {
                     <InvoiceLink links={invoiceLinksByBl?.[bl.id] ?? []} />
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      className="app-table__action"
-                      to={`/manifestos/${bl.id}`}
-                    >
-                      Abrir B/L
-                    </Link>
+                    <div className="flex gap-3">
+                      <Link className="app-table__action" to={`/manifestos/${bl.id}`}>
+                        Abrir B/L
+                      </Link>
+                      <button className="text-rose-300 transition hover:text-rose-200" onClick={() => setDeletingBlId(bl.id)} type="button">
+                        <span className="inline-flex items-center gap-1">
+                          <Trash2 size={14} /> Excluir
+                        </span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -304,6 +334,21 @@ export function Manifestos() {
           </div>
         </div>
       </Card>
+
+
+      <Modal open={Boolean(deletingBlId)} onClose={() => { setDeletingBlId(null); setConfirmBlText('') }} title="Excluir B/L">
+        <div className="grid gap-4">
+          <p className="text-sm text-slate-300">Esta acao remove o B/L e os registros relacionados. Para confirmar, digite o numero do B/L abaixo.</p>
+          <div className="rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-slate-200">B/L selecionado: <span className="font-semibold text-white">{deletingBlId}</span></div>
+          <Field label="Confirmacao (digite o B/L)">
+            <Input value={confirmBlText} onChange={(event) => setConfirmBlText(event.target.value)} />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setDeletingBlId(null); setConfirmBlText('') }}>Cancelar</Button>
+            <Button disabled={!deletingBlId || confirmBlText.trim() !== deletingBlId} variant="danger" onClick={handleDeleteBl}>Excluir B/L</Button>
+          </div>
+        </div>
+      </Modal>
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />

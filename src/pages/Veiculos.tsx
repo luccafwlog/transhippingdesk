@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Download, Upload } from 'lucide-react'
+import { Download, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -9,6 +9,7 @@ import { useToast } from '../components/ui/Toast'
 import { useVehicleOptions, useVehicles, type VehiclePageFilters } from '../hooks/useVehicles'
 import { formatDate } from '../lib/utils'
 import { importVehicleRows, parseVehicleImportFile, type ParsedVehicleImport } from '../services/vehicleImport'
+import { supabase } from '../services/supabase'
 
 const pageSizes = [20, 50, 100]
 
@@ -31,6 +32,7 @@ export function Veiculos() {
   const [parsedImport, setParsedImport] = useState<ParsedVehicleImport | null>(null)
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [deletingVehicleId, setDeletingVehicleId] = useState<number | null>(null)
   const [importReport, setImportReport] = useState<{
     processed: number
     successCount: number
@@ -109,6 +111,25 @@ export function Veiculos() {
     } finally {
       setParsing(false)
     }
+  }
+
+  async function handleDeleteVehicle(vehicleId: number) {
+    if (!window.confirm('Confirma a exclusao permanente deste veiculo?')) return
+
+    setDeletingVehicleId(vehicleId)
+    const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId)
+    if (error) {
+      showToast('Falha ao excluir veiculo.', 'error')
+      setDeletingVehicleId(null)
+      return
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+      queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+    ])
+    showToast('Veiculo excluido com sucesso.', 'success')
+    setDeletingVehicleId(null)
   }
 
   async function handleImport() {
@@ -243,19 +264,20 @@ export function Veiculos() {
                 <th className="px-4 py-3">Tipo Container</th>
                 <th className="px-4 py-3">Lacre</th>
                 <th className="px-4 py-3">BL</th>
+                <th className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={10}>
                     Carregando veiculos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={9} className="p-0">
+                  <td colSpan={10} className="p-0">
                     <EmptyState title="Nenhum veiculo encontrado." description="Importe uma planilha de veiculos ou ajuste os filtros." />
                   </td>
                 </tr>
@@ -271,6 +293,11 @@ export function Veiculos() {
                   <td className="px-4 py-3">{row.container?.type ?? '-'}</td>
                   <td className="px-4 py-3">{row.container?.seal_number ?? '-'}</td>
                   <td className="px-4 py-3">{row.bl?.id ?? '-'}</td>
+                  <td className="px-4 py-3">
+                    <button className="text-rose-300 transition hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingVehicleId === row.id} onClick={() => handleDeleteVehicle(row.id)} type="button">
+                      <span className="inline-flex items-center gap-1"><Trash2 size={14} /> Excluir</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

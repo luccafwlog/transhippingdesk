@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, CalendarDays, Download } from 'lucide-react'
+import { Boxes, CalendarDays, Download, Trash2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -16,6 +16,7 @@ import {
   parseContainerFlagsImportFile,
   type ParsedContainerFlagsImport,
 } from '../services/containerFlagsImport'
+import { supabase } from '../services/supabase'
 
 const pageSizes = [20, 50, 100]
 
@@ -45,6 +46,7 @@ export function Containers() {
   const [parsedFlags, setParsedFlags] = useState<ParsedContainerFlagsImport | null>(null)
   const [parsingFlags, setParsingFlags] = useState(false)
   const [importingFlags, setImportingFlags] = useState(false)
+  const [deletingContainerId, setDeletingContainerId] = useState<number | null>(null)
   const { data, isLoading, error } = useContainers(filters)
   const { data: portOptions } = usePortOptions()
 
@@ -122,6 +124,27 @@ export function Containers() {
     } finally {
       setImportingFlags(false)
     }
+  }
+
+  async function handleDeleteContainer(containerId: number) {
+    if (!window.confirm('Confirma a exclusao permanente deste container?')) return
+
+    setDeletingContainerId(containerId)
+    const { error } = await supabase.from('bl_containers').delete().eq('id', containerId)
+    if (error) {
+      showToast('Falha ao excluir container. Verifique dependencias vinculadas.', 'error')
+      setDeletingContainerId(null)
+      return
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['containers'] }),
+      queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['bl-summary'] }),
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+    ])
+    showToast('Container excluido com sucesso.', 'success')
+    setDeletingContainerId(null)
   }
 
   function resetImportModal() {
@@ -333,12 +356,12 @@ export function Containers() {
                     <ChargeStatusBadge status={container.bl?.charge_status ?? null} />
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      className="app-table__action"
-                      to={`/manifestos/${container.bl?.id}`}
-                    >
-                      Abrir B/L
-                    </Link>
+                    <div className="flex gap-3">
+                      <Link className="app-table__action" to={`/manifestos/${container.bl?.id}`}>Abrir B/L</Link>
+                      <button className="text-rose-300 transition hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingContainerId === container.id} onClick={() => handleDeleteContainer(container.id)} type="button">
+                        <span className="inline-flex items-center gap-1"><Trash2 size={14} /> Excluir</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
