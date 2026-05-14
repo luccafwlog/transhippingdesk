@@ -597,12 +597,21 @@ function ReviewModal({
                         ? 'border-[#1f6feb] bg-[#1f6feb]/15 text-white'
                         : 'border-[#30363d] bg-[#161b22] text-slate-300 hover:bg-[#21262d]'
                     }`}
-                    onClick={() => setSelectedCustomerId(customer.id)}
+                    onClick={() => {
+                      setSelectedCustomerId(customer.id)
+                      setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
+                    }}
                   >
                     <div className="font-semibold">{customer.name}</div>
                     <div className="text-xs text-slate-400">{formatCnpjCpf(customer.cnpj_cpf)}</div>
                   </button>
                 ))}
+              </div>
+            ) : null}
+
+            {selectedCustomerId ? (
+              <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
+                Cliente selecionado para vinculação.
               </div>
             ) : null}
 
