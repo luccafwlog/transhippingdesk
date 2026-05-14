@@ -534,8 +534,6 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         return
       } else if (successCount > 0) {
         showToast(`Importacao concluida com ${successCount} sucesso(s) e ${errorCount} erro(s).`, 'info')
-        onClose()
-        return
       } else {
         showToast('Nenhum manifesto foi importado. Revise os erros abaixo.', 'error')
       }
@@ -635,8 +633,8 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         ) : null}
 
         {submitting ? (
-          <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-sm text-blue-100">
-            Importando {progress.current} de {progress.total} arquivo(s)...
+          <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-sm font-semibold text-blue-100">
+            Importando arquivo {progress.current} de {progress.total}...
           </div>
         ) : null}
 
