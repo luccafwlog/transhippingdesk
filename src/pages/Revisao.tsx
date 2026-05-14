@@ -391,7 +391,7 @@ function ReviewModal({
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
       showToast('Cliente criado e pronto para vinculacao.', 'success')
     } catch (error) {
-      const message = error instanceof Error ? error.message.toLowerCase() : ''
+      const message = extractErrorText(error)
       if (message.includes('duplicate key') || message.includes('customers_cnpj_cpf_key')) {
         const { data: existing } = await supabase
           .from('customers')
@@ -413,7 +413,7 @@ function ReviewModal({
         showToast('Seu usuário não tem permissão para cadastrar cliente. Solicite acesso administrativo.', 'error')
         return
       }
-      showToast('Falha ao criar cliente.', 'error')
+      showToast(`Falha ao criar cliente. ${message ? `Motivo: ${message}` : ''}`.trim(), 'error')
     }
   }
 
@@ -637,4 +637,18 @@ function ReviewModal({
       ) : null}
     </Modal>
   )
+}
+
+function extractErrorText(error: unknown) {
+  if (!error) return ''
+  if (error instanceof Error) return error.message.toLowerCase()
+  if (typeof error === 'string') return error.toLowerCase()
+  if (typeof error === 'object') {
+    const candidate = error as { message?: string | null; details?: string | null; code?: string | null; hint?: string | null }
+    return [candidate.code, candidate.message, candidate.details, candidate.hint]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+  }
+  return ''
 }
