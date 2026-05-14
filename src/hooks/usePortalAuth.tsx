@@ -87,10 +87,19 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
         // Tentar sessão Supabase Auth primeiro
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
-          const ov = await fetchOverviewViaSupabaseAuth()
-          if (mounted) {
-            setOverview(ov)
-            setAuthMethod('supabase_auth')
+          try {
+            const ov = await fetchOverviewViaSupabaseAuth()
+            if (mounted) {
+              setOverview(ov)
+              setAuthMethod('supabase_auth')
+            }
+          } catch (error) {
+            // Sessão interna pode existir sem perfil de portal; não encerrar auth global.
+            if (isPortalSessionError(error) && mounted) {
+              clearSession()
+            } else {
+              throw error
+            }
           }
           return
         }
@@ -108,7 +117,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
       } catch (error) {
         if (isPortalSessionError(error) && mounted) {
           clearSession()
-          await supabase.auth.signOut()
+          return
         }
       } finally {
         if (mounted) setLoading(false)
@@ -177,7 +186,6 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
       } catch (error) {
         if (isPortalSessionError(error)) {
           clearSession()
-          await supabase.auth.signOut()
         }
         throw error
       }
