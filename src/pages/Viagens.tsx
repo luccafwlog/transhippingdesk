@@ -701,7 +701,7 @@ export function Viagens() {
                                           queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
                                           queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
                                         ])
-                                        showToast('Planejamento do POD removido com sucesso.', 'success')
+                                        showToast('Dados do planejamento do POD limpos com sucesso.', 'success')
                                       } catch (error) {
                                         const errorText = extractErrorText(error)
                                         if (errorText.includes('42501') || errorText.includes('permission denied')) {

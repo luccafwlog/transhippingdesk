@@ -72,14 +72,18 @@ export async function listVoyagePolSchedules(entityIds: string[]) {
   if (error) throw error
 
   const schedules = new Map<string, VoyagePolSchedule>()
+  const seenFieldsByEntity = new Map<string, Set<string>>()
 
   for (const row of data ?? []) {
     if (row.field_name !== 'etd') continue
 
     const entityId = row.entity_id
     const current = schedules.get(entityId) ?? makeEmptyPolSchedule(entityId)
-    if (current.etd === null) {
+    const seenFields = seenFieldsByEntity.get(entityId) ?? new Set<string>()
+    if (!seenFields.has('etd')) {
       current.etd = normalizeDateValue(row.new_value)
+      seenFields.add('etd')
+      seenFieldsByEntity.set(entityId, seenFields)
     }
     schedules.set(entityId, current)
   }
@@ -101,18 +105,23 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
   if (error) throw error
 
   const schedules = new Map<string, VoyagePodSchedule>()
+  const seenFieldsByEntity = new Map<string, Set<string>>()
 
   for (const row of data ?? []) {
     const entityId = row.entity_id
     const current = schedules.get(entityId) ?? makeEmptyPodSchedule(entityId)
+    const seenFields = seenFieldsByEntity.get(entityId) ?? new Set<string>()
 
-    if (row.field_name === 'eta' && current.eta === null) current.eta = normalizeDateValue(row.new_value)
-    if (row.field_name === 'etb' && current.etb === null) current.etb = normalizeDateValue(row.new_value)
-    if (row.field_name === 'ata' && current.ata === null) current.ata = normalizeDateValue(row.new_value)
-    if (row.field_name === 'atd' && current.atd === null) current.atd = normalizeDateValue(row.new_value)
-    if (row.field_name === 'rtw' && current.rtw === null) current.rtw = normalizeNumberValue(row.new_value)
-    if (row.field_name === 'ces' && current.ceStatus === null) current.ceStatus = normalizeCeStatusValue(row.new_value)
-    if (row.field_name === 'linked' && current.linked === null) current.linked = normalizeBooleanValue(row.new_value)
+    if (row.field_name === 'eta' && !seenFields.has('eta')) current.eta = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etb' && !seenFields.has('etb')) current.etb = normalizeDateValue(row.new_value)
+    if (row.field_name === 'ata' && !seenFields.has('ata')) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atd' && !seenFields.has('atd')) current.atd = normalizeDateValue(row.new_value)
+    if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
+    if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
+    if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
+
+    seenFields.add(row.field_name)
+    seenFieldsByEntity.set(entityId, seenFields)
 
     schedules.set(entityId, current)
   }
@@ -328,18 +337,23 @@ function hydratePodSchedules(
   }>,
 ) {
   const schedules = new Map<string, VoyagePodSchedule>()
+  const seenFieldsByEntity = new Map<string, Set<string>>()
 
   for (const row of rows) {
     const entityId = row.entity_id
     const current = schedules.get(entityId) ?? makeEmptyPodSchedule(entityId)
+    const seenFields = seenFieldsByEntity.get(entityId) ?? new Set<string>()
 
-    if (row.field_name === 'eta' && current.eta === null) current.eta = normalizeDateValue(row.new_value)
-    if (row.field_name === 'etb' && current.etb === null) current.etb = normalizeDateValue(row.new_value)
-    if (row.field_name === 'ata' && current.ata === null) current.ata = normalizeDateValue(row.new_value)
-    if (row.field_name === 'atd' && current.atd === null) current.atd = normalizeDateValue(row.new_value)
-    if (row.field_name === 'rtw' && current.rtw === null) current.rtw = normalizeNumberValue(row.new_value)
-    if (row.field_name === 'ces' && current.ceStatus === null) current.ceStatus = normalizeCeStatusValue(row.new_value)
-    if (row.field_name === 'linked' && current.linked === null) current.linked = normalizeBooleanValue(row.new_value)
+    if (row.field_name === 'eta' && !seenFields.has('eta')) current.eta = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etb' && !seenFields.has('etb')) current.etb = normalizeDateValue(row.new_value)
+    if (row.field_name === 'ata' && !seenFields.has('ata')) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atd' && !seenFields.has('atd')) current.atd = normalizeDateValue(row.new_value)
+    if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
+    if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
+    if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
+
+    seenFields.add(row.field_name)
+    seenFieldsByEntity.set(entityId, seenFields)
 
     schedules.set(entityId, current)
   }
