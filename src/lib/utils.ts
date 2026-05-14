@@ -29,6 +29,26 @@ export function formatDate(value?: string | null) {
   }).format(new Date(value))
 }
 
+export function isDateOnly(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+export function formatDateOnlyToBRShort(value: string) {
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!dateOnlyMatch) return null
+  const [, , month, day] = dateOnlyMatch
+  return `${day}/${month}`
+}
+
+export function formatShortDateSafe(value?: string | null) {
+  if (!value) return '-'
+
+  const shortDate = formatDateOnlyToBRShort(value)
+  if (shortDate) return shortDate
+
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(value))
+}
+
 export function normalizeText(value: string) {
   return value
     .normalize('NFD')

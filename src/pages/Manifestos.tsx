@@ -407,22 +407,25 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const { showToast } = useToast()
   const { data: voyages } = useVoyageOptions()
   const [voyageId, setVoyageId] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [manifest, setManifest] = useState<ParsedManifest | null>(null)
+  const [files, setFiles] = useState<File[]>([])
+  const [manifestsByFile, setManifestsByFile] = useState<Record<string, ParsedManifest>>({})
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [createVoyageOpen, setCreateVoyageOpen] = useState(false)
+  const [progress, setProgress] = useState({ current: 0, total: 0 })
+  const [importSummary, setImportSummary] = useState<Array<{ file: string; status: 'success' | 'error'; message: string }>>([])
 
+  const primaryManifest = files.length ? manifestsByFile[files[0].name] ?? null : null
   const totals = useMemo(
     () => ({
-      bls: manifest?.bls.length ?? 0,
-      containerOccurrences: manifest?.bls.reduce((sum, bl) => sum + (bl.containers?.length ?? 0), 0) ?? 0,
-      containers: countDistinctManifestContainers(manifest),
-      pending: manifest?.bls.filter((bl) => bl.review_status === 'pending_review').length ?? 0,
+      bls: primaryManifest?.bls.length ?? 0,
+      containerOccurrences: primaryManifest?.bls.reduce((sum, bl) => sum + (bl.containers?.length ?? 0), 0) ?? 0,
+      containers: countDistinctManifestContainers(primaryManifest),
+      pending: primaryManifest?.bls.filter((bl) => bl.review_status === 'pending_review').length ?? 0,
     }),
-    [manifest],
+    [primaryManifest],
   )
-  const routeSummary = useMemo(() => summarizeManifestRoutes(manifest), [manifest])
+  const routeSummary = useMemo(() => summarizeManifestRoutes(primaryManifest), [primaryManifest])
 
   useEffect(() => {
     if (!open || voyageId || !voyages?.length) return
@@ -433,16 +436,28 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   }, [open, voyageId, voyages])
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const nextFile = event.target.files?.[0] ?? null
-    setFile(nextFile)
-    setManifest(null)
-
-    if (!nextFile) return
+    const nextFiles = Array.from(event.target.files ?? [])
+    setFiles(nextFiles)
+    setManifestsByFile({})
+    setImportSummary([])
+    setProgress({ current: 0, total: 0 })
+    if (!nextFiles.length) return
 
     setParsing(true)
     try {
-      setManifest(await parseManifestFile(nextFile))
-      showToast('Preview do manifesto carregado.', 'success')
+      const parsedEntries = await Promise.all(
+        nextFiles.map(async (currentFile) => ({
+          name: currentFile.name,
+          manifest: await parseManifestFile(currentFile),
+        })),
+      )
+      const nextManifests: Record<string, ParsedManifest> = {}
+      for (const entry of parsedEntries) nextManifests[entry.name] = entry.manifest
+      setManifestsByFile(nextManifests)
+      showToast(
+        nextFiles.length === 1 ? 'Preview do manifesto carregado.' : `Preview de ${nextFiles.length} manifestos carregado.`,
+        'success',
+      )
     } catch {
       showToast('Nao foi possivel ler o arquivo. Confira o formato .xlsx ou .csv.', 'error')
     } finally {
@@ -451,56 +466,73 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   async function handleImport() {
-    if (!manifest || !file || !voyageId || !user) return
+    if (!files.length || !voyageId || !user) return
 
     setSubmitting(true)
+    setImportSummary([])
+    setProgress({ current: 0, total: files.length })
+    const results: Array<{ file: string; status: 'success' | 'error'; message: string }> = []
     try {
-      const fileHash = await computeFileHash(await file.arrayBuffer())
-      await importManifest({
-        filename: file.name,
-        voyageId: Number(voyageId),
-        manifest,
-        uploadedBy: user.id,
-        fileHash: fileHash || null,
-      })
-      await queryClient.invalidateQueries({ queryKey: ['bls'] })
-      await queryClient.invalidateQueries({ queryKey: ['voyages'] })
-      showToast('Manifesto importado com sucesso.', 'success')
-      onClose()
-      setFile(null)
-      setManifest(null)
-      setVoyageId('')
-    } catch (error) {
-      if (error instanceof DuplicateManifestImportError) {
-        void logOperationalEvent({
-          code: 'manifest_import_duplicate_hash',
-          message: error.message,
-          changedBy: user?.id ?? null,
-          entityId: file?.name ?? null,
-          context: {
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index]
+        const manifest = manifestsByFile[file.name]
+        setProgress({ current: index + 1, total: files.length })
+        if (!manifest) {
+          results.push({ file: file.name, status: 'error', message: 'Preview nao carregado para este arquivo.' })
+          continue
+        }
+        try {
+          const fileHash = await computeFileHash(await file.arrayBuffer())
+          await importManifest({
+            filename: file.name,
             voyageId: Number(voyageId),
-            filename: file?.name ?? null,
-          },
-        })
-        showToast(error.message, 'error')
-        return
+            manifest,
+            uploadedBy: user.id,
+            fileHash: fileHash || null,
+          })
+          results.push({ file: file.name, status: 'success', message: 'Importado com sucesso.' })
+        } catch (error) {
+          if (error instanceof DuplicateManifestImportError) {
+            void logOperationalEvent({
+              code: 'manifest_import_duplicate_hash',
+              message: error.message,
+              changedBy: user?.id ?? null,
+              entityId: file.name,
+              context: { voyageId: Number(voyageId), filename: file.name },
+            })
+            results.push({ file: file.name, status: 'error', message: error.message })
+            continue
+          }
+          if (error instanceof RateLimitImportError) {
+            void logOperationalEvent({
+              code: 'manifest_import_rate_limited',
+              message: error.message,
+              changedBy: user?.id ?? null,
+              entityId: file.name,
+              context: { voyageId: Number(voyageId), filename: file.name },
+            })
+            results.push({ file: file.name, status: 'error', message: error.message })
+            continue
+          }
+          results.push({ file: file.name, status: 'error', message: 'Falha ao importar manifesto.' })
+        }
       }
 
-      if (error instanceof RateLimitImportError) {
-        void logOperationalEvent({
-          code: 'manifest_import_rate_limited',
-          message: error.message,
-          changedBy: user?.id ?? null,
-          entityId: file?.name ?? null,
-          context: {
-            voyageId: Number(voyageId),
-            filename: file?.name ?? null,
-          },
-        })
-        showToast(error.message, 'error')
-        return
+      await queryClient.invalidateQueries({ queryKey: ['bls'] })
+      await queryClient.invalidateQueries({ queryKey: ['voyages'] })
+      setImportSummary(results)
+      const successCount = results.filter((item) => item.status === 'success').length
+      const errorCount = results.length - successCount
+      if (errorCount === 0) {
+        showToast(
+          successCount === 1 ? 'Manifesto importado com sucesso.' : `${successCount} manifestos importados com sucesso.`,
+          'success',
+        )
+      } else if (successCount > 0) {
+        showToast(`Importacao concluida com ${successCount} sucesso(s) e ${errorCount} erro(s).`, 'info')
+      } else {
+        showToast('Nenhum manifesto foi importado. Revise os erros abaixo.', 'error')
       }
-      showToast('Falha ao importar manifesto. Verifique os dados e permissoes no Supabase.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -517,8 +549,8 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             Criar viagem agora
           </Button>
         </div>
-        <Field label="Arquivo .xlsx ou .csv">
-          <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
+        <Field label="Arquivos .xlsx ou .csv">
+          <Input accept=".xlsx,.xls,.csv" type="file" multiple onChange={handleFile} />
         </Field>
 
         <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
@@ -528,7 +560,13 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
         {parsing ? <div className="text-sm text-slate-400">Processando arquivo com SheetJS sob demanda...</div> : null}
 
-        {manifest ? (
+        {files.length > 0 ? (
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+            {files.length} arquivo(s) selecionado(s). O preview detalhado abaixo mostra o primeiro arquivo.
+          </div>
+        ) : null}
+
+        {primaryManifest ? (
           <div className="grid gap-4">
             <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
               <div className="text-xs uppercase tracking-wider text-slate-500">Trecho detectado no manifesto</div>
@@ -563,7 +601,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
-                  {manifest.bls.slice(0, 25).map((bl) => (
+                  {primaryManifest.bls.slice(0, 25).map((bl) => (
                     <tr key={bl.id}>
                       <td className="px-3 py-2 font-semibold text-white">{bl.id}</td>
                       <td className="px-3 py-2">{bl.consignee ?? '-'}</td>
@@ -578,11 +616,30 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
               </table>
             </div>
 
-            {manifest.rowErrors.length ? (
+            {primaryManifest.rowErrors.length ? (
               <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
-                {manifest.rowErrors.length} linha(s) com erro serao registradas em import_errors.
+                {primaryManifest.rowErrors.length} linha(s) com erro serao registradas em import_errors.
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {submitting ? (
+          <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-sm text-blue-100">
+            Importando {progress.current} de {progress.total} arquivo(s)...
+          </div>
+        ) : null}
+
+        {importSummary.length ? (
+          <div className="max-h-44 overflow-auto rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm">
+            <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">Resumo da importacao</div>
+            <div className="grid gap-1">
+              {importSummary.map((item) => (
+                <div key={`${item.file}-${item.message}`} className={item.status === 'success' ? 'text-green-300' : 'text-red-300'}>
+                  {item.status === 'success' ? 'OK' : 'ERRO'} | {item.file} | {item.message}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -590,7 +647,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button disabled={!manifest || !voyageId} loading={submitting} onClick={handleImport}>
+          <Button disabled={!files.length || !voyageId} loading={submitting} onClick={handleImport}>
             Confirmar importacao
           </Button>
         </div>
@@ -603,9 +660,9 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         open={createVoyageOpen}
         onClose={() => setCreateVoyageOpen(false)}
         title="Criar viagem para este manifesto"
-        initialValues={manifest?.suggestedVoyage}
+        initialValues={primaryManifest?.suggestedVoyage}
         note={
-          manifest
+          primaryManifest
             ? `Trecho detectado neste arquivo: ${routeSummary.label}. A viagem sera criada sem amarrar esse trecho, porque cada manifesto da viagem carrega seu proprio POL/POD.`
             : undefined
         }

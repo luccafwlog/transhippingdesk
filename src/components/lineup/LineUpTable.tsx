@@ -5,6 +5,7 @@ import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
 import type { LineUpRow } from '../../services/lineup'
 import { getVoyagePodCeStatusLabel } from '../../services/voyageRouteSchedules'
+import { formatShortDateSafe } from '../../lib/utils'
 
 export function LineUpTable({
   rows,
@@ -156,8 +157,7 @@ function renderDisplayCeStatus(status: LineUpRow['ceStatus']) {
 }
 
 function formatShortDate(value: string | null) {
-  if (!value) return '-'
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(value))
+  return formatShortDateSafe(value)
 }
 
 function formatInteger(value: number) {

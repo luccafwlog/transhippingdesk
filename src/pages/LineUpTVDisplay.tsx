@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
+import { formatDateOnlyToBRShort, isDateOnly, formatShortDateSafe } from '../lib/utils'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
@@ -288,6 +289,10 @@ function compareDateValues(left: string | null, right: string | null) {
 
 function toSortableDateValue(value: string | null) {
   if (!value) return Number.POSITIVE_INFINITY
+  if (isDateOnly(value)) {
+    const timestamp = Date.parse(`${value}T00:00:00`)
+    return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
+  }
   const timestamp = new Date(value).getTime()
   return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
 }
@@ -304,14 +309,15 @@ function buildDisplayLeadLabel(row: LineUpRow) {
 
 function formatDisplayLeadDate(label: 'ETA' | 'ETB', value: string | null) {
   if (!value) return null
+  const shortDate = formatDateOnlyToBRShort(value)
+  if (shortDate) return `${label} ${shortDate}`
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return null
   return `${label} ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(parsed)}`
 }
 
 function formatShortDate(value: string | null) {
-  if (!value) return '-'
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(value))
+  return formatShortDateSafe(value)
 }
 
 function formatInteger(value: number) {

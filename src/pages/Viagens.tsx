@@ -81,6 +81,7 @@ export function Viagens() {
     pol: string
     etd: string | null
   } | null>(null)
+  const [addingPodVoyage, setAddingPodVoyage] = useState<{ voyageId: number; voyageLabel: string } | null>(null)
 
   const filteredVoyages = useMemo(() => {
     const normalizedVesselFilter = vesselFilter.trim().toUpperCase()
@@ -280,7 +281,15 @@ export function Viagens() {
             voyage.bls,
             'pod',
             voyage.pod?.name ?? null,
-            scheduledPodRows.map((schedule) => schedule.pod),
+            scheduledPodRows
+              .filter(
+                (schedule) =>
+                  Boolean(schedule.eta || schedule.etb || schedule.ata || schedule.atd) ||
+                  schedule.rtw !== null ||
+                  schedule.linked === true ||
+                  (schedule.ceStatus !== null && schedule.ceStatus !== 'missing' && schedule.ceStatus !== 'waiting'),
+              )
+              .map((schedule) => schedule.pod),
           )
           const containerTypes = summarizeContainerTypes(flatContainers)
           const generalCargoContainerTypes = summarizeContainerTypes(generalCargoContainers)
@@ -573,6 +582,22 @@ export function Viagens() {
                 title="Planejamento por POD"
                 description="Datas ETA, ETB, ATA e ATD, RESTOW, BLs e CEs e ESCALA sao controlados por porto de descarga."
               >
+                {isAdmin ? (
+                  <div className="mb-3 flex justify-end">
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        setAddingPodVoyage({
+                          voyageId: voyage.id,
+                          voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                        })
+                      }
+                    >
+                      <Plus size={15} />
+                      Adicionar POD
+                    </Button>
+                  </div>
+                ) : null}
                 <div className="app-voyage-table-frame">
                   <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                     <colgroup>
@@ -612,27 +637,80 @@ export function Viagens() {
                             <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
                             <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
                             <td className="px-3 py-2">
-                              <Button
-                                variant="secondary"
-                                className="app-voyage-icon-btn"
-                                aria-label={`Editar planejamento do POD ${row.pod}`}
-                                onClick={() =>
-                                  setEditingPod({
-                                    voyageId: voyage.id,
-                                    voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
-                                    pod: row.pod,
-                                    eta: row.eta,
-                                    etb: row.etb,
-                                    ata: row.ata,
-                                    atd: row.atd,
-                                    rtw: row.rtw,
-                                    ceStatus: row.ceStatus,
-                                    linked: row.linked,
-                                  })
-                                }
-                              >
-                                <Pencil size={15} />
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="secondary"
+                                  className="app-voyage-icon-btn"
+                                  aria-label={`Editar planejamento do POD ${row.pod}`}
+                                  onClick={() =>
+                                    setEditingPod({
+                                      voyageId: voyage.id,
+                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                      pod: row.pod,
+                                      eta: row.eta,
+                                      etb: row.etb,
+                                      ata: row.ata,
+                                      atd: row.atd,
+                                      rtw: row.rtw,
+                                      ceStatus: row.ceStatus,
+                                      linked: row.linked,
+                                    })
+                                  }
+                                >
+                                  <Pencil size={15} />
+                                </Button>
+                                {isAdmin ? (
+                                  <Button
+                                    variant="danger"
+                                    className="app-voyage-icon-btn"
+                                    aria-label={`Excluir planejamento do POD ${row.pod}`}
+                                    onClick={async () => {
+                                      const routeBls = (voyage.bls ?? []).filter(
+                                        (bl) => normalizePortName(bl.pod) === normalizePortName(row.pod),
+                                      )
+                                      const hasScheduleData = Boolean(
+                                        row.eta || row.etb || row.ata || row.atd || row.rtw !== null,
+                                      )
+                                      if (routeBls.length > 0) {
+                                        showToast('Nao e possivel excluir este POD: existem B/Ls vinculados.', 'error')
+                                        return
+                                      }
+                                      if (!hasScheduleData && row.linked !== true) {
+                                        showToast('Este POD ja nao possui dados planejados para remover.', 'info')
+                                        return
+                                      }
+                                      if (!user?.id) {
+                                        showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
+                                        return
+                                      }
+                                      try {
+                                        await saveVoyagePodSchedule({
+                                          voyageId: voyage.id,
+                                          pod: row.pod,
+                                          eta: null,
+                                          etb: null,
+                                          ata: null,
+                                          atd: null,
+                                          rtw: null,
+                                          ceStatus: 'waiting',
+                                          linked: false,
+                                          changedBy: user.id,
+                                        })
+                                        await Promise.all([
+                                          queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+                                          queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+                                          queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+                                        ])
+                                        showToast('Planejamento do POD removido com sucesso.', 'success')
+                                      } catch {
+                                        showToast('Falha ao excluir planejamento do POD.', 'error')
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 size={15} />
+                                  </Button>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -809,7 +887,109 @@ export function Viagens() {
           }
         }}
       />
+
+      <AddPodToVoyageModal
+        open={addingPodVoyage !== null}
+        voyage={addingPodVoyage}
+        onClose={() => setAddingPodVoyage(null)}
+        onSaved={async ({ voyageId, pod, eta }) => {
+          if (!user?.id) {
+            showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
+            return
+          }
+          try {
+            await saveVoyagePodSchedule({
+              voyageId,
+              pod,
+              eta,
+              etb: null,
+              ata: null,
+              atd: null,
+              rtw: null,
+              ceStatus: 'waiting',
+              linked: Boolean(eta),
+              changedBy: user.id,
+            })
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+              queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+            ])
+            showToast('POD adicionado ao planejamento da viagem.', 'success')
+            setAddingPodVoyage(null)
+          } catch {
+            showToast('Falha ao adicionar POD ao planejamento.', 'error')
+          }
+        }}
+      />
     </>
+  )
+}
+
+const POD_SUGGESTIONS = ['BRSSA', 'BRVIX', 'BRSSZ', 'BRPEC', 'BRSUA', 'BRIGI'] as const
+
+function AddPodToVoyageModal({
+  open,
+  voyage,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  voyage: { voyageId: number; voyageLabel: string } | null
+  onClose: () => void
+  onSaved: (payload: { voyageId: number; pod: string; eta: string | null }) => Promise<void>
+}) {
+  const [pod, setPod] = useState('')
+  const [eta, setEta] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setPod('')
+    setEta('')
+  }, [open])
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!voyage) return
+    const normalizedPod = pod.trim().toUpperCase()
+    if (!normalizedPod) return
+    setSaving(true)
+    try {
+      await onSaved({ voyageId: voyage.voyageId, pod: normalizedPod, eta: eta || null })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Adicionar POD ao planejamento">
+      {voyage ? (
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+            <div className="font-semibold text-white">{voyage.voyageLabel}</div>
+            <div className="mt-1">
+              Sugestoes: {POD_SUGGESTIONS.join(', ')}
+            </div>
+          </div>
+          <Field label="POD">
+            <Input list="pod-suggestions" value={pod} onChange={(event) => setPod(event.target.value.toUpperCase())} placeholder="Ex.: BRSSA" />
+            <datalist id="pod-suggestions">
+              {POD_SUGGESTIONS.map((value) => (
+                <option key={value} value={value} />
+              ))}
+            </datalist>
+          </Field>
+          <Field label="ETA (opcional)">
+            <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+            <Button loading={saving} type="submit" disabled={!pod.trim()}>Adicionar POD</Button>
+          </div>
+        </form>
+      ) : null}
+    </Modal>
   )
 }
 
@@ -1356,11 +1536,30 @@ function groupPodSchedulesByVoyageId(
           voyageId: number
           pod: string
           eta: string | null
+          etb: string | null
+          ata: string | null
+          atd: string | null
+          rtw: number | null
+          ceStatus: VoyagePodCeStatus | null
+          linked: boolean | null
         }
       >
     | undefined,
 ) {
-  const grouped = new Map<number, Array<{ voyageId: number; pod: string; eta: string | null }>>()
+  const grouped = new Map<
+    number,
+    Array<{
+      voyageId: number
+      pod: string
+      eta: string | null
+      etb: string | null
+      ata: string | null
+      atd: string | null
+      rtw: number | null
+      ceStatus: VoyagePodCeStatus | null
+      linked: boolean | null
+    }>
+  >()
 
   for (const schedule of schedules?.values() ?? []) {
     const current = grouped.get(schedule.voyageId) ?? []
