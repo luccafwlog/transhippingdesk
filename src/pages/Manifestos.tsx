@@ -414,8 +414,9 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const [createVoyageOpen, setCreateVoyageOpen] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState<Array<{ file: string; status: 'success' | 'error'; message: string }>>([])
+  const [previewIndex, setPreviewIndex] = useState(0)
 
-  const primaryManifest = files.length ? manifestsByFile[files[0].name] ?? null : null
+  const primaryManifest = files.length ? manifestsByFile[files[previewIndex]?.name] ?? null : null
   const totals = useMemo(
     () => ({
       bls: primaryManifest?.bls.length ?? 0,
@@ -441,6 +442,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
     setManifestsByFile({})
     setImportSummary([])
     setProgress({ current: 0, total: 0 })
+    setPreviewIndex(0)
     if (!nextFiles.length) return
 
     setParsing(true)
@@ -528,10 +530,16 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           successCount === 1 ? 'Manifesto importado com sucesso.' : `${successCount} manifestos importados com sucesso.`,
           'success',
         )
+        onClose()
+        return
       } else if (successCount > 0) {
         showToast(`Importacao concluida com ${successCount} sucesso(s) e ${errorCount} erro(s).`, 'info')
       } else {
         showToast('Nenhum manifesto foi importado. Revise os erros abaixo.', 'error')
+      }
+      if (files.length > 1) {
+        const nextPendingIndex = files.findIndex((file, index) => index > previewIndex && !results.some((row) => row.file === file.name))
+        if (nextPendingIndex >= 0) setPreviewIndex(nextPendingIndex)
       }
     } finally {
       setSubmitting(false)
@@ -562,7 +570,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
         {files.length > 0 ? (
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-            {files.length} arquivo(s) selecionado(s). O preview detalhado abaixo mostra o primeiro arquivo.
+            {files.length} arquivo(s) selecionado(s). O preview detalhado abaixo mostra o arquivo {Math.min(previewIndex + 1, files.length)}.
           </div>
         ) : null}
 
@@ -631,7 +639,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         ) : null}
 
         {importSummary.length ? (
-          <div className="max-h-44 overflow-auto rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm">
+            <div className="max-h-44 overflow-auto rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm">
             <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">Resumo da importacao</div>
             <div className="grid gap-1">
               {importSummary.map((item) => (
@@ -639,6 +647,26 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                   {item.status === 'success' ? 'OK' : 'ERRO'} | {item.file} | {item.message}
                 </div>
               ))}
+            </div>
+          </div>
+        ) : null}
+
+        {files.length > 1 ? (
+          <div className="flex items-center justify-between rounded-xl border border-[#30363d] bg-[#0d1117] px-3 py-2 text-xs text-slate-400">
+            <span>
+              Arquivo em preview: <span className="font-semibold text-white">{files[previewIndex]?.name ?? '-'}</span>
+            </span>
+            <div className="flex gap-2">
+              <Button variant="ghost" disabled={previewIndex <= 0} onClick={() => setPreviewIndex((current) => Math.max(0, current - 1))}>
+                Anterior
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={previewIndex >= files.length - 1}
+                onClick={() => setPreviewIndex((current) => Math.min(files.length - 1, current + 1))}
+              >
+                Proximo
+              </Button>
             </div>
           </div>
         ) : null}
