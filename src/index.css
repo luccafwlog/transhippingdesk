@@ -496,7 +496,7 @@ textarea {
 
 .app-nav-dropdown__menu {
   position: absolute;
-  top: calc(100% + 2px);
+  top: 100%;
   left: 0;
   z-index: 260;
   display: none;
@@ -507,6 +507,15 @@ textarea {
   background: linear-gradient(180deg, rgba(31, 47, 79, 0.98), rgba(24, 38, 66, 0.96));
   box-shadow: 0 22px 44px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(12px);
+}
+
+.app-nav-dropdown__menu::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
 }
 
 .app-nav-scroll,

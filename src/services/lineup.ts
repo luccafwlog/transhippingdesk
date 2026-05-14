@@ -76,7 +76,6 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const containers = await fetchContainersByBlIds(blIds)
 
   const podSchedules = await listVoyagePodSchedulesByVoyageIds(voyageIds)
-  const podSchedulesByVoyage = groupPodSchedulesByVoyage(podSchedules)
 
   const blsByVoyage = new Map<number, LineUpBlRow[]>()
   for (const bl of bls) {
@@ -105,7 +104,10 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
 
   for (const voyage of voyages) {
     const voyageBls = blsByVoyage.get(voyage.id) ?? []
-    const scheduledPods = (podSchedulesByVoyage.get(voyage.id) ?? []).map((schedule) => normalizePort(schedule.pod))
+    const scheduledPods = Array.from(podSchedules.values())
+      .filter((schedule) => schedule.voyageId === voyage.id)
+      .filter((schedule) => hasActivePodScheduleData(schedule))
+      .map((schedule) => normalizePort(schedule.pod))
     const routePods = Array.from(new Set([...voyageBls.map((bl) => normalizePort(bl.pod)), ...scheduledPods]))
     const voyageVehicles = vehiclesByVoyage.get(voyage.id) ?? []
 
@@ -198,6 +200,22 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
     rows: sortedRows,
     lastChangedAt,
   }
+}
+
+function hasActivePodScheduleData(schedule: {
+  eta?: string | null
+  etb?: string | null
+  ata?: string | null
+  atd?: string | null
+  rtw?: number | null
+  ceStatus?: VoyagePodCeStatus | null
+  linked?: boolean | null
+}) {
+  if (schedule.eta || schedule.etb || schedule.ata || schedule.atd) return true
+  if (schedule.rtw !== null) return true
+  if (schedule.linked === true) return true
+  if (schedule.ceStatus && schedule.ceStatus !== 'waiting' && schedule.ceStatus !== 'missing') return true
+  return false
 }
 
 export async function fetchLineUpRows(): Promise<LineUpRow[]> {
@@ -426,26 +444,6 @@ function chunkStringArray(values: string[], chunkSize: number) {
 
 function normalizePort(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase() || '-'
-}
-
-function groupPodSchedulesByVoyage(
-  schedules: Map<
-    string,
-    {
-      voyageId: number
-      pod: string
-    }
-  >,
-) {
-  const grouped = new Map<number, Array<{ voyageId: number; pod: string }>>()
-
-  for (const schedule of schedules.values()) {
-    const current = grouped.get(schedule.voyageId) ?? []
-    current.push(schedule)
-    grouped.set(schedule.voyageId, current)
-  }
-
-  return grouped
 }
 
 function normalizeContainerKey(containerNumber: string | null | undefined, containerId: number) {
