@@ -485,7 +485,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         }
         try {
           const fileHash = await computeFileHash(await file.arrayBuffer())
-          await importManifest({
+          await importManifestWithRetry({
             filename: file.name,
             voyageId: Number(voyageId),
             manifest,
@@ -534,6 +534,8 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         return
       } else if (successCount > 0) {
         showToast(`Importacao concluida com ${successCount} sucesso(s) e ${errorCount} erro(s).`, 'info')
+        onClose()
+        return
       } else {
         showToast('Nenhum manifesto foi importado. Revise os erros abaixo.', 'error')
       }
@@ -701,6 +703,31 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
       />
     </Modal>
   )
+}
+
+async function importManifestWithRetry(payload: {
+  filename: string
+  voyageId: number
+  manifest: ParsedManifest
+  uploadedBy: string
+  fileHash: string | null
+}) {
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await importManifest(payload)
+      return
+    } catch (error) {
+      const isRateLimit = error instanceof RateLimitImportError
+      const isLast = attempt === maxAttempts
+      if (!isRateLimit || isLast) throw error
+      await sleep(attempt * 1200)
+    }
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
