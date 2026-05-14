@@ -204,16 +204,14 @@ export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
 export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {
   const XLSX = await import('xlsx')
   const exportRows = rows.map((row) => ({
-    CNPJ_CPF: row.cnpj_cpf ?? '',
-    RazaoSocial: row.name ?? '',
-    NomeFantasia: row.trade_name ?? '',
+    'CNPJ/CPF': row.cnpj_cpf ?? '',
+    'Razao Social': row.name ?? '',
+    'Nome Fantasia': row.trade_name ?? '',
+    Email: '',
     Endereco: row.address ?? '',
     Cidade: row.city ?? '',
     UF: row.state ?? '',
     CEP: row.zip ?? '',
-    SaldoPendenteBRL: Number(row.pending_balance ?? 0),
-    TotalBlsVinculados: row.bls?.length ?? 0,
-    TotalContatos: row.customer_contacts?.length ?? 0,
   }))
 
   const workbook = XLSX.utils.book_new()
