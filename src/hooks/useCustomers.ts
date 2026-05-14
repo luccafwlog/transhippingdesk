@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
+import { onlyDigits } from '../lib/utils'
 import type { Customer, CustomerDetail, CustomerListItem } from '../types/database'
 
 export type CustomerFilters = {
@@ -25,8 +26,10 @@ export function useCustomers(filters: CustomerFilters) {
         .range(from, to)
 
       if (filters.search) {
+        const normalizedDocument = onlyDigits(filters.search)
+        const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
         query = query.or(
-          `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%`,
+          `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%${documentClause}`,
         )
       }
 

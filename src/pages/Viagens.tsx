@@ -702,8 +702,16 @@ export function Viagens() {
                                           queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
                                         ])
                                         showToast('Planejamento do POD removido com sucesso.', 'success')
-                                      } catch {
-                                        showToast('Falha ao excluir planejamento do POD.', 'error')
+                                      } catch (error) {
+                                        const errorText = extractErrorText(error)
+                                        if (errorText.includes('42501') || errorText.includes('permission denied')) {
+                                          showToast('Sem permissão para excluir planejamento do POD. Solicite acesso administrativo.', 'error')
+                                          return
+                                        }
+                                        showToast(
+                                          `Falha ao excluir planejamento do POD.${errorText ? ` Motivo: ${errorText}` : ''}`,
+                                          'error',
+                                        )
                                       }
                                     }}
                                   >
@@ -1604,6 +1612,17 @@ function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 
 
 function normalizePortName(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase() || '-'
+}
+
+function extractErrorText(error: unknown) {
+  if (!error) return ''
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  if (typeof error === 'object') {
+    const candidate = error as { code?: string | null; message?: string | null; details?: string | null; hint?: string | null }
+    return [candidate.code, candidate.message, candidate.details, candidate.hint].filter(Boolean).join(' ').trim()
+  }
+  return ''
 }
 
 function PolScheduleModal({
