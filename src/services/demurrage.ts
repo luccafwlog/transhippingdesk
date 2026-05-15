@@ -188,6 +188,29 @@ export function genDemurrageDocnum(blId: string): string {
 
 // ── DB: Containers ─────────────────────────────────────────────
 
+export async function updateContainerDates(containerId: number, dischargeDate: string, returnDate: string | null): Promise<void> {
+  if (!returnDate) {
+    const { error } = await supabase.from('bl_containers').update({ discharge_date: dischargeDate, return_date: null, demurrage_status: 'within_free_time' }).eq('id', containerId)
+    if (error) throw error
+    return
+  }
+
+  const { data: row, error: fetchErr } = await supabase
+    .from('bl_containers')
+    .select('type, bl:bls(free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd)')
+    .eq('id', containerId)
+    .single()
+  if (fetchErr) throw fetchErr
+
+  const bl = (row as unknown as { bl?: { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null }).bl
+  await ensureDemurrageRatesLoaded()
+  const calc = calculateDemurrage(row.type, dischargeDate, returnDate, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd)
+
+  const demurrage_status = calc.status === 'overdue' ? 'overdue' : 'within_free_time'
+  const { error } = await supabase.from('bl_containers').update({ discharge_date: dischargeDate, return_date: returnDate, demurrage_status }).eq('id', containerId)
+  if (error) throw error
+}
+
 export type DemurrageContainerFilters = {
   customerId?: number | null
   blId?: string | null

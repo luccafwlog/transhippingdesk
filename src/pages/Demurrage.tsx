@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, FileText, Upload } from 'lucide-react'
+import { Clock, FileText, Pencil, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -23,12 +23,30 @@ import {
   markInvoicePaid,
   unissueInvoice,
   unmarkInvoicePaid,
+  updateContainerDates,
+  updateDemurrageInvoice,
 } from '../services/demurrage'
-import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail } from '../types/database'
+import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { formatDate } from '../lib/utils'
 
 type DemurrageTab = 'containers' | 'rascunhos' | 'emitidas' | 'pagas'
 type InvoiceStatus = 'draft' | 'issued' | 'paid'
+
+type DiscountForm = {
+  discount_type: DemurrageInvoice['discount_type']
+  discount_value: string
+  discount_mode: 'percent' | 'fixed'
+  discount_justification: string
+  discount_approver: string
+}
+
+type DisputeForm = {
+  dispute_open: boolean
+  dispute_subject: string
+  dispute_reason: string
+  dispute_status: DemurrageInvoice['dispute_status']
+  dispute_notes: string
+}
 
 function fmtUSD(v: number | null | undefined) {
   if (v == null) return '—'
@@ -75,6 +93,36 @@ const TAB_TO_STATUS: Record<Exclude<DemurrageTab, 'containers'>, InvoiceStatus> 
   pagas: 'paid',
 }
 
+const DISCOUNT_TYPE_LABELS: Record<NonNullable<DemurrageInvoice['discount_type']>, string> = {
+  comercial: 'Comercial',
+  datas: 'Datas',
+  cortesia: 'Cortesia',
+  acordo: 'Acordo',
+  erro: 'Erro',
+}
+
+const DISPUTE_STATUS_LABELS: Record<NonNullable<DemurrageInvoice['dispute_status']>, string> = {
+  aberto: 'Aberto',
+  resolvido: 'Resolvido',
+  cancelado: 'Cancelado',
+}
+
+const EMPTY_DISCOUNT: DiscountForm = {
+  discount_type: null,
+  discount_value: '',
+  discount_mode: 'percent',
+  discount_justification: '',
+  discount_approver: '',
+}
+
+const EMPTY_DISPUTE: DisputeForm = {
+  dispute_open: false,
+  dispute_subject: '',
+  dispute_reason: '',
+  dispute_status: null,
+  dispute_notes: '',
+}
+
 export function Demurrage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -83,12 +131,24 @@ export function Demurrage() {
   const [generatingBl, setGeneratingBl] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
 
+  // Container edit state
+  const [editingContainer, setEditingContainer] = useState<DemurrageContainerListItem | null>(null)
+  const [editDischarge, setEditDischarge] = useState('')
+  const [editReturn, setEditReturn] = useState('')
+
   // Invoice panel state
   const [viewInvoiceId, setViewInvoiceId] = useState<number | null>(null)
   const [docType, setDocType] = useState<'invoice' | 'receipt'>('invoice')
   const [payingId, setPayingId] = useState<number | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
   const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
+
+  // Breakdown, discount, dispute modal state
+  const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null)
+  const [discountInvoiceId, setDiscountInvoiceId] = useState<number | null>(null)
+  const [discountForm, setDiscountForm] = useState<DiscountForm>(EMPTY_DISCOUNT)
+  const [disputeInvoiceId, setDisputeInvoiceId] = useState<number | null>(null)
+  const [disputeForm, setDisputeForm] = useState<DisputeForm>(EMPTY_DISPUTE)
 
   const { data: containers, isLoading: containersLoading, error: containersError } = useQuery({
     queryKey: ['demurrage-containers'],
@@ -117,10 +177,55 @@ export function Demurrage() {
     enabled: viewInvoiceId != null,
   })
 
+  const { data: breakdownDetail } = useQuery({
+    queryKey: ['demurrage-invoice-detail', detailInvoiceId],
+    queryFn: () => getInvoiceDetail(detailInvoiceId!),
+    enabled: detailInvoiceId != null,
+  })
+
   function invalidateInvoices() {
     void queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] })
     void queryClient.invalidateQueries({ queryKey: ['demurrage-kpis'] })
   }
+
+  function openEditContainer(c: DemurrageContainerListItem) {
+    setEditingContainer(c)
+    setEditDischarge(c.discharge_date ?? '')
+    setEditReturn(c.return_date ?? '')
+  }
+
+  function openDiscount(inv: DemurrageInvoice) {
+    setDiscountForm({
+      discount_type: inv.discount_type,
+      discount_value: inv.discount_value != null ? String(inv.discount_value) : '',
+      discount_mode: inv.discount_mode ?? 'percent',
+      discount_justification: inv.discount_justification ?? '',
+      discount_approver: inv.discount_approver ?? '',
+    })
+    setDiscountInvoiceId(inv.id)
+  }
+
+  function openDispute(inv: DemurrageInvoice) {
+    setDisputeForm({
+      dispute_open: inv.dispute_open ?? false,
+      dispute_subject: inv.dispute_subject ?? '',
+      dispute_reason: inv.dispute_reason ?? '',
+      dispute_status: inv.dispute_status,
+      dispute_notes: inv.dispute_notes ?? '',
+    })
+    setDisputeInvoiceId(inv.id)
+  }
+
+  const containerDatesMutation = useMutation({
+    mutationFn: ({ id, discharge, ret }: { id: number; discharge: string; ret: string | null }) =>
+      updateContainerDates(id, discharge, ret),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['demurrage-containers'] })
+      setEditingContainer(null)
+      showToast('Datas atualizadas.', 'success')
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
 
   const generateMutation = useMutation({
     mutationFn: (blId: string) => createInvoiceForBL(blId),
@@ -173,6 +278,40 @@ export function Demurrage() {
   const cancelMutation = useMutation({
     mutationFn: cancelDemurrageInvoice,
     onSuccess: () => { invalidateInvoices(); showToast('Invoice cancelada.', 'success') },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
+  const discountMutation = useMutation({
+    mutationFn: ({ id, form }: { id: number; form: DiscountForm }) =>
+      updateDemurrageInvoice(id, {
+        discount_type: form.discount_type,
+        discount_value: form.discount_value !== '' ? parseFloat(form.discount_value) : null,
+        discount_mode: form.discount_mode,
+        discount_justification: form.discount_justification || null,
+        discount_approver: form.discount_approver || null,
+      }),
+    onSuccess: () => {
+      invalidateInvoices()
+      setDiscountInvoiceId(null)
+      showToast('Desconto atualizado.', 'success')
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
+  const disputeMutation = useMutation({
+    mutationFn: ({ id, form }: { id: number; form: DisputeForm }) =>
+      updateDemurrageInvoice(id, {
+        dispute_open: form.dispute_open,
+        dispute_subject: form.dispute_subject || null,
+        dispute_reason: form.dispute_reason || null,
+        dispute_status: form.dispute_status,
+        dispute_notes: form.dispute_notes || null,
+      }),
+    onSuccess: () => {
+      invalidateInvoices()
+      setDisputeInvoiceId(null)
+      showToast('Disputa atualizada.', 'success')
+    },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
 
@@ -302,7 +441,7 @@ export function Demurrage() {
                   </div>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="app-table app-table--compact min-w-[820px] text-left text-sm">
+                  <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                       <tr>
                         <th className="py-2">Container</th>
@@ -312,6 +451,7 @@ export function Demurrage() {
                         <th className="py-2">Dias totais</th>
                         <th className="py-2">Status</th>
                         <th className="py-2">USD</th>
+                        <th className="py-2"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -327,6 +467,16 @@ export function Demurrage() {
                             <td className="py-2">{calc ? calc.total_days : '—'}</td>
                             <td className="py-2"><DemurrageStatusBadge status={c.demurrage_status} /></td>
                             <td className="py-2 font-semibold text-amber-400">{calc && calc.total_usd > 0 ? fmtUSD(calc.total_usd) : '—'}</td>
+                            <td className="py-2">
+                              <button
+                                type="button"
+                                className="rounded p-1 text-slate-500 transition-colors hover:text-slate-200"
+                                title="Editar datas"
+                                onClick={() => openEditContainer(c)}
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            </td>
                           </tr>
                         )
                       })}
@@ -359,7 +509,7 @@ export function Demurrage() {
           {invoices && invoices.length > 0 && (
             <Card>
               <div className="overflow-x-auto">
-                <table className="app-table min-w-[900px] text-left text-sm">
+                <table className="app-table min-w-[1000px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                     <tr>
                       <th className="py-2">Nº Doc</th>
@@ -376,6 +526,9 @@ export function Demurrage() {
                   <tbody className="divide-y divide-[#30363d]">
                     {invoices.map((inv) => {
                       const customer = (inv as { customer?: { name?: string } }).customer
+                      const hasDiscount = (inv.discount_value ?? 0) > 0
+                      const disputeActive = inv.dispute_open
+                      const disputePast = !inv.dispute_open && inv.dispute_status != null
                       return (
                         <tr key={inv.id}>
                           <td className="py-2 font-mono text-xs text-white">{inv.doc_number}</td>
@@ -393,6 +546,26 @@ export function Demurrage() {
                           <td className="py-2"><InvoiceStatusBadge status={inv.status} /></td>
                           <td className="py-2">
                             <div className="flex flex-wrap gap-1">
+                              <Button
+                                variant="ghost"
+                                onClick={() => setDetailInvoiceId(inv.id)}
+                              >
+                                Detalhes
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                className={hasDiscount ? 'text-green-400' : ''}
+                                onClick={() => openDiscount(inv)}
+                              >
+                                Desconto
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                className={disputeActive ? 'text-amber-400' : disputePast ? 'text-slate-400' : ''}
+                                onClick={() => openDispute(inv)}
+                              >
+                                Disputa
+                              </Button>
                               {inv.status === 'draft' && (
                                 <>
                                   <Button variant="secondary" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
@@ -425,6 +598,241 @@ export function Demurrage() {
           )}
         </>
       ) : null}
+
+      {/* ── Modal: Editar datas do container ── */}
+      <Modal open={editingContainer != null} onClose={() => setEditingContainer(null)} title="Editar datas do container">
+        {editingContainer && (
+          <div className="space-y-4 p-4">
+            <div className="text-sm font-semibold text-white">{editingContainer.container_number}</div>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block text-sm text-slate-300">
+                Data de descarga
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+                  value={editDischarge}
+                  onChange={(e) => setEditDischarge(e.target.value)}
+                />
+              </label>
+              <label className="block text-sm text-slate-300">
+                Data de devolução
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+                  value={editReturn}
+                  onChange={(e) => setEditReturn(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                loading={containerDatesMutation.isPending}
+                onClick={() => {
+                  if (!editDischarge) return showToast('Data de descarga obrigatória.', 'error')
+                  containerDatesMutation.mutate({ id: editingContainer.id, discharge: editDischarge, ret: editReturn || null })
+                }}
+              >
+                Salvar
+              </Button>
+              <Button variant="ghost" onClick={() => setEditingContainer(null)}>Cancelar</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Modal: Breakdown da invoice ── */}
+      <Modal open={detailInvoiceId != null} onClose={() => setDetailInvoiceId(null)} title="Detalhes da invoice">
+        {breakdownDetail ? (
+          <div className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm text-slate-400">
+                {breakdownDetail.invoice.doc_number} — {fmtUSD(breakdownDetail.invoice.total_usd)}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="app-table app-table--compact min-w-[700px] text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="py-2">Container</th>
+                    <th className="py-2">Tipo</th>
+                    <th className="py-2">Descarga</th>
+                    <th className="py-2">Devolucao</th>
+                    <th className="py-2">Dias</th>
+                    <th className="py-2">Free</th>
+                    <th className="py-2">P1</th>
+                    <th className="py-2">P2</th>
+                    <th className="py-2">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {(breakdownDetail.items as DemurrageInvoiceItem[]).map((item) => (
+                    <tr key={item.id}>
+                      <td className="py-2 font-semibold text-white">{item.container_number}</td>
+                      <td className="py-2">{item.container_type}</td>
+                      <td className="py-2">{formatDate(item.discharge_date)}</td>
+                      <td className="py-2">{formatDate(item.return_date)}</td>
+                      <td className="py-2">{item.total_days}d</td>
+                      <td className="py-2 text-slate-400">{item.free_days}d</td>
+                      <td className="py-2">
+                        {item.days_p1 > 0 ? (
+                          <span className="text-amber-400">{item.days_p1}d @ ${item.rate_p1_usd}</span>
+                        ) : '—'}
+                      </td>
+                      <td className="py-2">
+                        {item.days_p2 > 0 ? (
+                          <span className="text-red-400">{item.days_p2}d @ ${item.rate_p2_usd}</span>
+                        ) : '—'}
+                      </td>
+                      <td className="py-2 font-semibold text-amber-400">{fmtUSD(item.subtotal_usd)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 flex justify-end text-sm font-semibold text-amber-400">
+              Total: {fmtUSD(breakdownDetail.invoice.total_usd)}
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 text-sm text-slate-400">Carregando...</div>
+        )}
+      </Modal>
+
+      {/* ── Modal: Desconto ── */}
+      <Modal open={discountInvoiceId != null} onClose={() => setDiscountInvoiceId(null)} title="Desconto">
+        <div className="space-y-4 p-4">
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block text-sm text-slate-300">
+              Tipo de desconto
+              <select
+                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+                value={discountForm.discount_type ?? ''}
+                onChange={(e) => setDiscountForm((f) => ({ ...f, discount_type: (e.target.value || null) as DemurrageInvoice['discount_type'] }))}
+              >
+                <option value="">Sem desconto</option>
+                {(Object.entries(DISCOUNT_TYPE_LABELS) as [NonNullable<DemurrageInvoice['discount_type']>, string][]).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm text-slate-300">
+              Modo
+              <select
+                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+                value={discountForm.discount_mode}
+                onChange={(e) => setDiscountForm((f) => ({ ...f, discount_mode: e.target.value as 'percent' | 'fixed' }))}
+              >
+                <option value="percent">Percentual (%)</option>
+                <option value="fixed">Valor fixo (BRL)</option>
+              </select>
+            </label>
+          </div>
+          <label className="block text-sm text-slate-300">
+            Valor do desconto
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+              value={discountForm.discount_value}
+              onChange={(e) => setDiscountForm((f) => ({ ...f, discount_value: e.target.value }))}
+            />
+          </label>
+          <label className="block text-sm text-slate-300">
+            Justificativa
+            <textarea
+              rows={2}
+              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+              value={discountForm.discount_justification}
+              onChange={(e) => setDiscountForm((f) => ({ ...f, discount_justification: e.target.value }))}
+            />
+          </label>
+          <label className="block text-sm text-slate-300">
+            Aprovador
+            <input
+              type="text"
+              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+              value={discountForm.discount_approver}
+              onChange={(e) => setDiscountForm((f) => ({ ...f, discount_approver: e.target.value }))}
+            />
+          </label>
+          <div className="flex gap-2">
+            <Button
+              loading={discountMutation.isPending}
+              onClick={() => discountInvoiceId && discountMutation.mutate({ id: discountInvoiceId, form: discountForm })}
+            >
+              Salvar
+            </Button>
+            <Button variant="ghost" onClick={() => setDiscountInvoiceId(null)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal: Disputa ── */}
+      <Modal open={disputeInvoiceId != null} onClose={() => setDisputeInvoiceId(null)} title="Disputa">
+        <div className="space-y-4 p-4">
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              className="rounded"
+              checked={disputeForm.dispute_open}
+              onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_open: e.target.checked }))}
+            />
+            Disputa em aberto
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block text-sm text-slate-300">
+              Assunto
+              <input
+                type="text"
+                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+                value={disputeForm.dispute_subject}
+                onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_subject: e.target.value }))}
+              />
+            </label>
+            <label className="block text-sm text-slate-300">
+              Status
+              <select
+                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+                value={disputeForm.dispute_status ?? ''}
+                onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_status: (e.target.value || null) as DemurrageInvoice['dispute_status'] }))}
+              >
+                <option value="">Sem status</option>
+                {(Object.entries(DISPUTE_STATUS_LABELS) as [NonNullable<DemurrageInvoice['dispute_status']>, string][]).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block text-sm text-slate-300">
+            Motivo
+            <textarea
+              rows={2}
+              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+              value={disputeForm.dispute_reason}
+              onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_reason: e.target.value }))}
+            />
+          </label>
+          <label className="block text-sm text-slate-300">
+            Notas
+            <textarea
+              rows={2}
+              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+              value={disputeForm.dispute_notes}
+              onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_notes: e.target.value }))}
+            />
+          </label>
+          <div className="flex gap-2">
+            <Button
+              loading={disputeMutation.isPending}
+              onClick={() => disputeInvoiceId && disputeMutation.mutate({ id: disputeInvoiceId, form: disputeForm })}
+            >
+              Salvar
+            </Button>
+            <Button variant="ghost" onClick={() => setDisputeInvoiceId(null)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Payment modal */}
       <Modal open={payingId != null} onClose={() => setPayingId(null)} title="Registrar Pagamento">
