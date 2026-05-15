@@ -4,273 +4,251 @@
   <meta charset="UTF-8" />
   <title>Preview — Fatura de Demurrage</title>
   <style>
-    body { background: #e5e7eb; display: flex; justify-content: center; padding: 40px 20px; }
-    .page { background: white; width: 820px; padding: 40px 48px; box-shadow: 0 4px 32px rgba(0,0,0,.18); border-radius: 4px; }
-    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+    body { background: #e5e7eb; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; font-family: Arial, sans-serif; }
+    .page { background: white; width: 820px; padding: 40px 48px; box-shadow: 0 4px 32px rgba(0,0,0,.18); border-radius: 4px; font-size: 13px; color: #111; }
+    .sep { width: 820px; margin: 48px auto 16px; text-align: center; font-size: 13px; color: #555; }
+    table { width: 100%; border-collapse: collapse; }
+    .lbl { font-weight: 700; width: 130px; white-space: nowrap; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    .val { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; }
   </style>
 </head>
 <body>
-<div class="page" style="font-family: Arial, sans-serif; font-size: 13px; color: #111;">
+
+<!-- ══════════ FATURA ══════════ -->
+<div class="page">
 
   <!-- Header -->
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-    <div style="display:flex; align-items:center; gap:14px;">
-      <!-- Logo placeholder -->
-      <div style="width:56px; height:48px; background:#1A2744; border-radius:4px; display:flex; align-items:center; justify-content:center;">
-        <span style="color:white; font-size:10px; font-weight:700; text-align:center; line-height:1.2;">TR<br>SHIP</span>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="width:52px;height:52px;border-radius:50%;border:2px solid #1A2744;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:9px;font-weight:700;color:#1A2744;text-align:center;line-height:1.2;">TR<br>SHIP</span>
       </div>
       <div>
-        <div style="font-weight:700; font-size:15px; color:#1A2744;">TRANSHIPPING</div>
-        <div style="font-size:11px; color:#666;">Agenciamento Marítimo</div>
+        <div style="font-weight:700;font-size:15px;color:#1A2744;letter-spacing:.5px;">TRANSHIPPING</div>
+        <div style="font-size:10px;color:#666;letter-spacing:1px;">AGENCIAMENTO MARÍTIMO</div>
       </div>
     </div>
-    <div style="font-size:14px; font-weight:600; color:#1A2744;">Nº DEM-2026-A3F9001</div>
+    <div style="font-size:14px;font-weight:700;color:#1A2744;">Nº DEM-2026-Z7K4624</div>
   </div>
 
   <!-- Title -->
-  <div style="text-align:center; font-size:17px; font-weight:700; text-transform:uppercase; margin:12px 0 4px;">
-    FATURA DE SOBREESTADIA DE CONTAINER
-  </div>
-  <hr style="border-top:2px solid #1A2744; margin:8px 0 16px;" />
+  <div style="text-align:center;font-size:16px;font-weight:700;margin:12px 0 6px;">FATURA DE SOBREESTADIA DE CONTAINER</div>
+  <hr style="border:none;border-top:2px solid #111;margin:0 0 16px;">
 
   <!-- Client -->
-  <div style="display:flex; gap:8px; margin-bottom:6px;">
-    <span style="font-weight:600; min-width:110px;">Cliente:</span>
-    <span>CARGOFAST LOGÍSTICA DO BRASIL LTDA<br>CNPJ: 12.345.678/0001-90</span>
-  </div>
-  <hr style="border-top:1px solid #ddd; margin:10px 0;" />
+  <table style="margin-bottom:0;">
+    <tr>
+      <td class="lbl">Cliente:</td>
+      <td class="val">CARGOFAST LOGISTICS DO BRASIL LTDA<br>CNPJ: 10.268.203/0001-17</td>
+    </tr>
+  </table>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 0;">
 
-  <!-- Shipping details -->
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">BL:</span><span>CSSC45380603J00</span></div>
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">Navio / Viagem:</span><span>GREEN HELSINKI / V.6</span></div>
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">POL:</span><span>TAICANG</span></div>
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">POD:</span><span>SALVADOR</span></div>
+  <!-- Shipment info -->
+  <table style="margin-bottom:12px;">
+    <tr><td class="lbl">BL</td><td class="val">CSC45380603J00</td></tr>
+    <tr><td class="lbl">Container(s)</td><td class="val">CAAU6215279, SEKU6859234</td></tr>
+    <tr><td class="lbl">Navio/Voy:</td><td class="val">GREEN SHANGHAI V2</td></tr>
+    <tr><td class="lbl">From:</td><td class="val">NANSHA</td></tr>
+    <tr><td class="lbl">To:</td><td class="val">VITÓRIA</td></tr>
+  </table>
 
   <!-- ROE -->
-  <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-    <div style="background:#F59E0B; padding:6px 16px; display:flex; gap:12px; font-weight:600; border-radius:4px;">
-      <span>ROE</span>
-      <span>R$ 5,3047</span>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <div style="background:#F59E0B;padding:5px 18px;display:flex;gap:24px;font-weight:700;border-radius:3px;font-size:13px;">
+      <span>ROE</span><span>5,2156</span>
     </div>
   </div>
 
   <!-- Items table -->
-  <table>
+  <table style="font-size:12px;margin-bottom:0;">
     <thead>
-      <tr style="background:#1A2744; color:white;">
-        <th style="padding:9px 7px; text-align:left;">Container</th>
-        <th style="padding:9px 7px; text-align:center;">Tipo</th>
-        <th style="padding:9px 7px; text-align:center;">Dias 1º Per.</th>
-        <th style="padding:9px 7px; text-align:center;">USD/Dia P1</th>
-        <th style="padding:9px 7px; text-align:center;">Dias 2º Per.</th>
-        <th style="padding:9px 7px; text-align:center;">USD/Dia P2</th>
-        <th style="padding:9px 7px; text-align:center;">Descarga</th>
-        <th style="padding:9px 7px; text-align:center;">Retorno</th>
-        <th style="padding:9px 7px; text-align:right;">Líquido USD</th>
+      <tr style="background:#1A2744;color:white;">
+        <th style="padding:9px 8px;text-align:left;font-size:11px;">CONTAINER</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">TIPO</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">DIAS 1º PER.</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">USD/Dia</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">DIAS 2º PER.</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">USD/Dia</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">DESCARGA</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">RETORNO</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">LÍQUIDO</th>
       </tr>
     </thead>
     <tbody>
-      <tr style="background:#f9fafb; border-bottom:1px solid #eee;">
-        <td style="padding:8px 7px; font-weight:600;">CAAU6215279</td>
-        <td style="padding:8px 7px; text-align:center;">45G1</td>
-        <td style="padding:8px 7px; text-align:center;">9</td>
-        <td style="padding:8px 7px; text-align:center;">$ 60,00</td>
-        <td style="padding:8px 7px; text-align:center;">14</td>
-        <td style="padding:8px 7px; text-align:center;">$ 80,00</td>
-        <td style="padding:8px 7px; text-align:center;">02/09/2024</td>
-        <td style="padding:8px 7px; text-align:center;">16/10/2024</td>
-        <td style="padding:8px 7px; text-align:right; font-weight:600;">$ 1.660,00</td>
+      <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+        <td style="padding:8px;font-weight:600;">CAAU6215279</td>
+        <td style="padding:8px;text-align:center;">45G1</td>
+        <td style="padding:8px;text-align:center;">5</td>
+        <td style="padding:8px;text-align:center;">60.00</td>
+        <td style="padding:8px;text-align:center;">0</td>
+        <td style="padding:8px;text-align:center;">80.00</td>
+        <td style="padding:8px;text-align:center;">11/04/2026</td>
+        <td style="padding:8px;text-align:center;">07/05/2026</td>
+        <td style="padding:8px;text-align:right;font-weight:600;">R$ 1.564,68</td>
       </tr>
-      <tr style="background:white; border-bottom:1px solid #eee;">
-        <td style="padding:8px 7px; font-weight:600;">SEKU6859234</td>
-        <td style="padding:8px 7px; text-align:center;">45G1</td>
-        <td style="padding:8px 7px; text-align:center;">9</td>
-        <td style="padding:8px 7px; text-align:center;">$ 60,00</td>
-        <td style="padding:8px 7px; text-align:center;">7</td>
-        <td style="padding:8px 7px; text-align:center;">$ 80,00</td>
-        <td style="padding:8px 7px; text-align:center;">02/09/2024</td>
-        <td style="padding:8px 7px; text-align:center;">30/09/2024</td>
-        <td style="padding:8px 7px; text-align:right; font-weight:600;">$ 1.100,00</td>
+      <tr style="background:white;border-bottom:1px solid #e5e7eb;">
+        <td style="padding:8px;font-weight:600;">SEKU6859234</td>
+        <td style="padding:8px;text-align:center;">45G1</td>
+        <td style="padding:8px;text-align:center;">6</td>
+        <td style="padding:8px;text-align:center;">60.00</td>
+        <td style="padding:8px;text-align:center;">0</td>
+        <td style="padding:8px;text-align:center;">80.00</td>
+        <td style="padding:8px;text-align:center;">11/04/2026</td>
+        <td style="padding:8px;text-align:center;">08/05/2026</td>
+        <td style="padding:8px;text-align:right;font-weight:600;">R$ 1.877,62</td>
       </tr>
-      <!-- SUBTOTAL (with discount example) -->
-      <tr>
-        <td colspan="8" style="padding:9px 12px; text-align:right; font-weight:700; background:#F59E0B;">SUBTOTAL:</td>
-        <td style="padding:9px 12px; text-align:right; font-weight:700; background:#F59E0B;">R$ 14.604,94</td>
-      </tr>
-      <tr style="background:#f0fdf4;">
-        <td colspan="8" style="padding:8px 12px;">DESCONTO (10%) — comercial:</td>
-        <td style="padding:8px 12px; text-align:right; color:#166534;">- R$ 1.460,49</td>
-      </tr>
-      <!-- TOTAL -->
       <tr style="background:#F59E0B;">
-        <td colspan="8" style="padding:9px 12px; text-align:right; font-weight:700;">TOTAL FINAL:</td>
-        <td style="padding:9px 12px; text-align:right; font-weight:700;">R$ 13.144,45</td>
+        <td colspan="8" style="padding:9px 10px;text-align:right;font-weight:700;">TOTAL:</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:700;">R$ 3.442,30</td>
       </tr>
-      <!-- VENCIMENTO -->
-      <tr style="background:#1A2744; color:white;">
-        <td colspan="8" style="padding:9px 12px; text-align:right; font-weight:600;">VENCIMENTO:</td>
-        <td style="padding:9px 12px; text-align:right; font-weight:600;">16/05/2026</td>
+      <tr style="background:#1A2744;color:white;">
+        <td colspan="8" style="padding:9px 10px;text-align:right;font-weight:600;">VENCIMENTO DIA</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:600;">12/05/2026</td>
       </tr>
     </tbody>
   </table>
 
-  <!-- Bank details + total -->
-  <div style="margin-top:20px; font-size:12.5px; display:flex; justify-content:space-between; align-items:flex-start;">
-    <div>
-      <strong>Detalhes Bancários</strong>
-      <div style="margin-top:6px; line-height:1.7;">
-        TRANSHIPPING AGENCIAMENTO MARITIMO Ltda.<br>
-        CNPJ 06.352.972/0001-21<br>
-        BANCO: ITAU<br>
-        AGÊNCIA: 0870 - PRAIA DO CANTO<br>
-        CONTA CORRENTE 37293-5
-      </div>
+  <!-- Bank details -->
+  <div style="margin-top:20px;font-size:12.5px;line-height:1.7;">
+    <strong>DETALHES BANCÁRIOS</strong>
+    <div style="margin-top:4px;">
+      TRANSHIPPING AGENCIAMENTO MARITIMO Ltda.<br>
+      CNPJ 06.352.972/0001-21<br>
+      BANCO: ITAU<br>
+      AGÊNCIA: 0870 - PRAIA DO CANTO<br>
+      CONTA CORRENTE 37293-5
     </div>
-    <div style="background:#F59E0B; font-weight:700; padding:6px 14px; font-size:15px; border-radius:4px;">
-      R$ 13.144,45
+    <div style="display:inline-block;background:#F59E0B;font-weight:700;padding:5px 14px;font-size:14px;border-radius:3px;margin-top:8px;">
+      R$ 3.442,30
     </div>
   </div>
 
   <!-- PIX section -->
-  <div style="display:flex; gap:18px; margin-top:20px; padding-top:16px; border-top:1px solid #e5e7eb;">
-    <div style="flex-shrink:0;">
-      <!-- QR code placeholder -->
-      <div style="width:100px; height:100px; background:#f3f4f6; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999; text-align:center; border-radius:2px;">
-        QR Code<br>PIX
-      </div>
+  <div style="display:flex;gap:18px;margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;align-items:flex-start;">
+    <!-- QR placeholder -->
+    <div style="flex-shrink:0;width:90px;height:90px;background:#111;border-radius:2px;display:flex;align-items:center;justify-content:center;">
+      <span style="color:white;font-size:9px;text-align:center;">QR Code<br>PIX</span>
     </div>
-    <div style="flex:1; font-size:12px; color:#333; line-height:1.6;">
-      <strong>Pagamento via PIX</strong><br>
-      Escaneie o QR Code ou use o Pix Copia e Cola:<br>
-      <span style="display:block; font-family:monospace; font-size:8.5px; background:#f3f4f6; padding:5px 8px; border-radius:4px; margin-top:6px; word-break:break-all;">
-        00020126580014BR.GOV.BCB.PIX013636c8b4a2-f1d2-4e3a-9b7c-2e8f1a0d5c340211DEM2026A3F900152040000530398654071306.4855802BR5921TRANSHIPPING AGENC6009SAO PAULO62070503***6304A1B2
+    <div style="flex:1;font-size:12px;color:#333;line-height:1.6;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:4px;">PAGAMENTO VIA PIX</div>
+      <div>Escaneie o QR Code ao lado ou utilize o código Pix Copia e Cola abaixo para realizar o pagamento.</div>
+      <div style="margin-top:4px;">Valor da fatura:</div>
+      <div style="font-weight:700;margin-bottom:6px;">R$ 3.442,30</div>
+      <div style="font-size:10px;color:#6b7280;font-weight:600;letter-spacing:.05em;margin-bottom:3px;">PIX COPIA E COLA</div>
+      <span style="display:block;font-family:monospace;font-size:8px;background:#f3f4f6;padding:5px 8px;border-radius:3px;word-break:break-all;color:#374151;">
+        00020126540014br.gov.bcb.pix0114063529720001210514DEM2026Z7K462452040000530398654073442.305802BR5925TRANSHIPPING AGENC MARITI6003VIT62180514DEM2026Z7K462463040CF2
       </span>
     </div>
   </div>
 
-  <!-- Footer date -->
-  <div style="margin-top:24px; text-align:right; font-size:12px; color:#555;">
-    Vitória, quinta-feira, 15 de maio de 2026
+  <!-- Footer -->
+  <div style="margin-top:28px;text-align:right;font-size:12px;color:#555;">
+    Vitória, Quinta-feira, 14 de maio de 2026
   </div>
 
 </div>
 
-<!-- Separator: Receipt version -->
-<div style="width:820px; margin:60px auto 16px; text-align:center; font-size:13px; color:#666; font-family:Arial;">
-  ── Abaixo: versão <strong>RECIBO</strong> (mesmo documento após pagamento) ──
-</div>
+<!-- ══════════ RECIBO ══════════ -->
+<div class="sep">── Abaixo: versão <strong>RECIBO</strong> após pagamento ──</div>
+<div class="page">
 
-<div class="page" style="font-family: Arial, sans-serif; font-size: 13px; color: #111; margin-top:0;">
-
-  <!-- Header -->
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-    <div style="display:flex; align-items:center; gap:14px;">
-      <div style="width:56px; height:48px; background:#1A2744; border-radius:4px; display:flex; align-items:center; justify-content:center;">
-        <span style="color:white; font-size:10px; font-weight:700; text-align:center; line-height:1.2;">TR<br>SHIP</span>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:52px;height:52px;border-radius:50%;border:2px solid #1A2744;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:9px;font-weight:700;color:#1A2744;text-align:center;line-height:1.2;">TR<br>SHIP</span>
       </div>
       <div>
-        <div style="font-weight:700; font-size:15px; color:#1A2744;">TRANSHIPPING</div>
-        <div style="font-size:11px; color:#666;">Agenciamento Marítimo</div>
+        <div style="font-weight:700;font-size:15px;color:#1A2744;letter-spacing:.5px;">TRANSHIPPING</div>
+        <div style="font-size:10px;color:#666;letter-spacing:1px;">AGENCIAMENTO MARÍTIMO</div>
       </div>
     </div>
-    <div style="font-size:14px; font-weight:600; color:#1A2744;">Nº DEM-2026-A3F9001</div>
+    <div style="font-size:14px;font-weight:700;color:#1A2744;">Nº DEM-2026-Z7K4624</div>
   </div>
 
-  <div style="text-align:center; font-size:17px; font-weight:700; text-transform:uppercase; margin:12px 0 4px;">
-    RECIBO DE QUITAÇÃO DE SOBREESTADIA
-  </div>
-  <hr style="border-top:2px solid #1A2744; margin:8px 0 16px;" />
+  <div style="text-align:center;font-size:16px;font-weight:700;margin:12px 0 6px;">RECIBO DE QUITAÇÃO DE SOBREESTADIA</div>
+  <hr style="border:none;border-top:2px solid #111;margin:0 0 16px;">
 
-  <div style="display:flex; gap:8px; margin-bottom:6px;">
-    <span style="font-weight:600; min-width:110px;">Cliente:</span>
-    <span>CARGOFAST LOGÍSTICA DO BRASIL LTDA<br>CNPJ: 12.345.678/0001-90</span>
-  </div>
-  <hr style="border-top:1px solid #ddd; margin:10px 0;" />
+  <table style="margin-bottom:0;">
+    <tr><td class="lbl">Cliente:</td><td class="val">CARGOFAST LOGISTICS DO BRASIL LTDA<br>CNPJ: 10.268.203/0001-17</td></tr>
+  </table>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 0;">
+  <table style="margin-bottom:12px;">
+    <tr><td class="lbl">BL</td><td class="val">CSC45380603J00</td></tr>
+    <tr><td class="lbl">Container(s)</td><td class="val">CAAU6215279, SEKU6859234</td></tr>
+    <tr><td class="lbl">Navio/Voy:</td><td class="val">GREEN SHANGHAI V2</td></tr>
+    <tr><td class="lbl">From:</td><td class="val">NANSHA</td></tr>
+    <tr><td class="lbl">To:</td><td class="val">VITÓRIA</td></tr>
+  </table>
 
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">BL:</span><span>CSSC45380603J00</span></div>
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">Navio / Viagem:</span><span>GREEN HELSINKI / V.6</span></div>
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">POL:</span><span>TAICANG</span></div>
-  <div style="display:flex; gap:8px; margin-bottom:6px;"><span style="font-weight:600; min-width:110px;">POD:</span><span>SALVADOR</span></div>
-
-  <table>
+  <table style="font-size:12px;margin-bottom:0;">
     <thead>
-      <tr style="background:#1A2744; color:white;">
-        <th style="padding:9px 7px; text-align:left;">Container</th>
-        <th style="padding:9px 7px; text-align:center;">Tipo</th>
-        <th style="padding:9px 7px; text-align:center;">Dias 1º Per.</th>
-        <th style="padding:9px 7px; text-align:center;">USD/Dia P1</th>
-        <th style="padding:9px 7px; text-align:center;">Dias 2º Per.</th>
-        <th style="padding:9px 7px; text-align:center;">USD/Dia P2</th>
-        <th style="padding:9px 7px; text-align:center;">Descarga</th>
-        <th style="padding:9px 7px; text-align:center;">Retorno</th>
-        <th style="padding:9px 7px; text-align:right;">Líquido USD</th>
+      <tr style="background:#1A2744;color:white;">
+        <th style="padding:9px 8px;text-align:left;font-size:11px;">CONTAINER</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">TIPO</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">DIAS 1º PER.</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">USD/Dia</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">DIAS 2º PER.</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">USD/Dia</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">DESCARGA</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">RETORNO</th>
+        <th style="padding:9px 8px;text-align:center;font-size:11px;">LÍQUIDO</th>
       </tr>
     </thead>
     <tbody>
-      <tr style="background:#f9fafb; border-bottom:1px solid #eee;">
-        <td style="padding:8px 7px; font-weight:600;">CAAU6215279</td>
-        <td style="padding:8px 7px; text-align:center;">45G1</td>
-        <td style="padding:8px 7px; text-align:center;">9</td>
-        <td style="padding:8px 7px; text-align:center;">$ 60,00</td>
-        <td style="padding:8px 7px; text-align:center;">14</td>
-        <td style="padding:8px 7px; text-align:center;">$ 80,00</td>
-        <td style="padding:8px 7px; text-align:center;">02/09/2024</td>
-        <td style="padding:8px 7px; text-align:center;">16/10/2024</td>
-        <td style="padding:8px 7px; text-align:right; font-weight:600;">$ 1.660,00</td>
+      <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+        <td style="padding:8px;font-weight:600;">CAAU6215279</td>
+        <td style="padding:8px;text-align:center;">45G1</td>
+        <td style="padding:8px;text-align:center;">5</td>
+        <td style="padding:8px;text-align:center;">60.00</td>
+        <td style="padding:8px;text-align:center;">0</td>
+        <td style="padding:8px;text-align:center;">80.00</td>
+        <td style="padding:8px;text-align:center;">11/04/2026</td>
+        <td style="padding:8px;text-align:center;">07/05/2026</td>
+        <td style="padding:8px;text-align:right;font-weight:600;">R$ 1.564,68</td>
       </tr>
-      <tr style="background:white; border-bottom:1px solid #eee;">
-        <td style="padding:8px 7px; font-weight:600;">SEKU6859234</td>
-        <td style="padding:8px 7px; text-align:center;">45G1</td>
-        <td style="padding:8px 7px; text-align:center;">9</td>
-        <td style="padding:8px 7px; text-align:center;">$ 60,00</td>
-        <td style="padding:8px 7px; text-align:center;">7</td>
-        <td style="padding:8px 7px; text-align:center;">$ 80,00</td>
-        <td style="padding:8px 7px; text-align:center;">02/09/2024</td>
-        <td style="padding:8px 7px; text-align:center;">30/09/2024</td>
-        <td style="padding:8px 7px; text-align:right; font-weight:600;">$ 1.100,00</td>
-      </tr>
-      <tr>
-        <td colspan="8" style="padding:9px 12px; text-align:right; font-weight:700; background:#F59E0B;">SUBTOTAL:</td>
-        <td style="padding:9px 12px; text-align:right; font-weight:700; background:#F59E0B;">R$ 14.604,94</td>
-      </tr>
-      <tr style="background:#f0fdf4;">
-        <td colspan="8" style="padding:8px 12px;">DESCONTO (10%) — comercial:</td>
-        <td style="padding:8px 12px; text-align:right; color:#166534;">- R$ 1.460,49</td>
+      <tr style="background:white;border-bottom:1px solid #e5e7eb;">
+        <td style="padding:8px;font-weight:600;">SEKU6859234</td>
+        <td style="padding:8px;text-align:center;">45G1</td>
+        <td style="padding:8px;text-align:center;">6</td>
+        <td style="padding:8px;text-align:center;">60.00</td>
+        <td style="padding:8px;text-align:center;">0</td>
+        <td style="padding:8px;text-align:center;">80.00</td>
+        <td style="padding:8px;text-align:center;">11/04/2026</td>
+        <td style="padding:8px;text-align:center;">08/05/2026</td>
+        <td style="padding:8px;text-align:right;font-weight:600;">R$ 1.877,62</td>
       </tr>
       <tr style="background:#F59E0B;">
-        <td colspan="8" style="padding:9px 12px; text-align:right; font-weight:700;">TOTAL FINAL:</td>
-        <td style="padding:9px 12px; text-align:right; font-weight:700;">R$ 13.144,45</td>
+        <td colspan="8" style="padding:9px 10px;text-align:right;font-weight:700;">TOTAL:</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:700;">R$ 3.442,30</td>
       </tr>
-      <tr style="background:#166534; color:white;">
-        <td colspan="8" style="padding:9px 12px; text-align:right; font-weight:600;">DATA DE PAGAMENTO:</td>
-        <td style="padding:9px 12px; text-align:right; font-weight:600;">15/05/2026</td>
+      <tr style="background:#166534;color:white;">
+        <td colspan="8" style="padding:9px 10px;text-align:right;font-weight:600;">DATA DE PAGAMENTO:</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:600;">15/05/2026</td>
       </tr>
     </tbody>
   </table>
 
-  <div style="margin-top:20px; font-size:12.5px; display:flex; justify-content:space-between; align-items:flex-start;">
-    <div>
-      <strong>Detalhes Bancários</strong>
-      <div style="margin-top:6px; line-height:1.7;">
-        TRANSHIPPING AGENCIAMENTO MARITIMO Ltda.<br>
-        CNPJ 06.352.972/0001-21<br>
-        BANCO: ITAU<br>
-        AGÊNCIA: 0870 - PRAIA DO CANTO<br>
-        CONTA CORRENTE 37293-5
-      </div>
+  <div style="margin-top:20px;font-size:12.5px;line-height:1.7;">
+    <strong>DETALHES BANCÁRIOS</strong>
+    <div style="margin-top:4px;">
+      TRANSHIPPING AGENCIAMENTO MARITIMO Ltda.<br>
+      CNPJ 06.352.972/0001-21<br>
+      BANCO: ITAU<br>
+      AGÊNCIA: 0870 - PRAIA DO CANTO<br>
+      CONTA CORRENTE 37293-5
     </div>
-    <div style="background:#F59E0B; font-weight:700; padding:6px 14px; font-size:15px; border-radius:4px;">
-      R$ 13.144,45
+    <div style="display:inline-block;background:#F59E0B;font-weight:700;padding:5px 14px;font-size:14px;border-radius:3px;margin-top:8px;">
+      R$ 3.442,30
     </div>
   </div>
 
-  <!-- PAGO stamp -->
-  <div style="text-align:center; margin:20px 0; font-size:32px; font-weight:900; color:#166534; border:4px solid #166534; border-radius:8px; padding:8px 0; letter-spacing:8px;">
+  <div style="text-align:center;margin:20px 0;font-size:32px;font-weight:900;color:#166534;border:4px solid #166534;border-radius:8px;padding:8px 0;letter-spacing:8px;">
     PAGO
   </div>
 
-  <div style="margin-top:24px; text-align:right; font-size:12px; color:#555;">
-    Vitória, quinta-feira, 15 de maio de 2026
+  <div style="margin-top:28px;text-align:right;font-size:12px;color:#555;">
+    Vitória, Quinta-feira, 15 de maio de 2026
   </div>
 
 </div>
