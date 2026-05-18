@@ -546,7 +546,7 @@ export async function updateDemurrageInvoice(invoiceId: number, patch: Partial<P
 
 export function parsePixExtract(arrayBuffer: ArrayBuffer): PixTransaction[] {
   // Dynamically import XLSX — bundled via vite's import
-  const XLSX = (window as unknown as { XLSX?: unknown }).XLSX as { read: (data: Uint8Array, opts: object) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown, opts: object) => unknown[][] } } | undefined
+  const XLSX = (window as unknown as { XLSX?: unknown }).XLSX as { read: (data: Uint8Array, opts: { type: string; raw: boolean }) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown, opts: { header: number; defval: string }) => unknown[][] } } | undefined
   if (!XLSX) throw new Error('XLSX não disponível. Adicione a lib ao projeto.')
 
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', raw: false })
