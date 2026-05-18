@@ -98,7 +98,6 @@ function CntrImportModal({
   const [importing, setImporting] = useState(false)
   const [existingBlIds, setExistingBlIds] = useState<Set<string>>(new Set())
 
-  // Fetch existing B/Ls for this voyage to compute diff
   useEffect(() => {
     if (!preview?.bls.length || !voyageId) {
       setExistingBlIds(new Set())

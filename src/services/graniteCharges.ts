@@ -43,7 +43,6 @@ export async function calculateGraniteBlCharges(blId: string): Promise<GraniteBl
     .eq('active', true)
   if (ratesError) throw ratesError
 
-  // Remover linhas antigas
   const { error: delError } = await supabase.from('granite_bl_charges').delete().eq('bl_id', blId)
   if (delError) throw delError
 

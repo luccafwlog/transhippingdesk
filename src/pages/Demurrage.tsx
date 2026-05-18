@@ -131,19 +131,16 @@ export function Demurrage() {
   const [generatingBl, setGeneratingBl] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
 
-  // Container edit state
   const [editingContainer, setEditingContainer] = useState<DemurrageContainerListItem | null>(null)
   const [editDischarge, setEditDischarge] = useState('')
   const [editReturn, setEditReturn] = useState('')
 
-  // Invoice panel state
   const [viewInvoiceId, setViewInvoiceId] = useState<number | null>(null)
   const [docType, setDocType] = useState<'invoice' | 'receipt'>('invoice')
   const [payingId, setPayingId] = useState<number | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
   const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
 
-  // Breakdown, discount, dispute modal state
   const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null)
   const [discountInvoiceId, setDiscountInvoiceId] = useState<number | null>(null)
   const [discountForm, setDiscountForm] = useState<DiscountForm>(EMPTY_DISCOUNT)

@@ -53,7 +53,6 @@ export function useVehicleOptions() {
 }
 
 export function useVehicles(voyageId: number | null, filters: VehiclePageFilters) {
-  // Paginated, server-side filtered list query
   const listQuery = useQuery({
     queryKey: ['vehicles', voyageId, filters],
     enabled: Boolean(voyageId),

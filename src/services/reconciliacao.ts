@@ -45,7 +45,6 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
     ...demurrageInvoices.map((i) => i.pix_txid ?? '').filter(Boolean),
   ])
 
-  // Build txid and cnpj maps for both sources
   type InvEntry = { source: 'local' | 'demurrage'; id: number; docNumber: string; customerName: string; customerCnpj: string; amount: number }
 
   const txidMap: Record<string, InvEntry> = {}

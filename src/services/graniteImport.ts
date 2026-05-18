@@ -87,7 +87,6 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
   if (!rows.length) throw new Error('Planilha vazia.')
 
-  // Mapear os headers reais para campos internos
   const sampleRow = rows[0]
   const colMapping: Record<string, string> = {}
   for (const originalKey of Object.keys(sampleRow)) {
@@ -104,7 +103,6 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
   rows.forEach((row, idx) => {
     const rowNumber = idx + 2 // linha 1 = cabeçalho, dados começam na 2
 
-    // Extrair valores mapeados
     const mapped: Record<string, unknown> = {}
     for (const [originalKey, fieldName] of Object.entries(colMapping)) {
       mapped[fieldName] = row[originalKey]
