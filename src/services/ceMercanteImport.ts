@@ -1,4 +1,4 @@
-import { onlyDigits } from '../lib/utils'
+import { asString, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -236,10 +236,6 @@ function normalizeHeader(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
-}
-
-function asString(value: unknown) {
-  return String(value ?? '').trim()
 }
 
 function normalizeBlId(value: unknown) {
