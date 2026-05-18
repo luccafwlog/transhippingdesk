@@ -1,5 +1,0 @@
-b/l,shipper,consignee,cnpj,pol,pod,container,type,gross weight,cbm,seal,height,class
-VALD0012345,Exportador Alpha,Importador Alpha Ltda,12345678000195,Shanghai,Santos,VALD1234567,40HC,24500,68.5,SL001,,
-VALD0012345,Exportador Alpha,Importador Alpha Ltda,12345678000195,Shanghai,Santos,VALD7654321,40HC,22100,65.2,SL002,,
-VALD0099999,Exportador Beta,Importador Beta Ltda,,Shanghai,Santos,VALD2222222,20GP,0,28.1,SL003,,
-VALDIMO0001,Exportador Gamma,Importador Gamma Ltda,11222333000144,Shanghai,Santos,VALD3333333,20GP,18800,26.9,SL004,1.5,IMO 3 UN1203
