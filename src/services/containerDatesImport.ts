@@ -1,4 +1,4 @@
-import { normalizeText } from '../lib/utils'
+import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 import { calculateDemurrage, createInvoiceForReturnedBL, fetchROE, issueInvoice } from './demurrage'
 
@@ -123,14 +123,10 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     })
 
     if (allReturned) {
-      try {
-        const invoiceId = await createInvoiceForReturnedBL(blId)
-        if (invoiceId !== null) {
-          const { roe } = await fetchROE()
-          await issueInvoice(invoiceId, roe)
-        }
-      } catch (err) {
-        console.error('[auto-demurrage-issue] blId=%s', blId, err)
+      const invoiceId = await createInvoiceForReturnedBL(blId)
+      if (invoiceId !== null) {
+        const { roe } = await fetchROE()
+        await issueInvoice(invoiceId, roe)
       }
     }
   }
@@ -219,6 +215,3 @@ function makeKey(blId: string, containerNumber: string) {
   return `${String(blId).toUpperCase()}::${String(containerNumber).toUpperCase()}`
 }
 
-function asString(value: unknown) {
-  return String(value ?? '').trim()
-}

@@ -75,6 +75,10 @@ export function formatCnpjCpf(value?: string | null) {
   return value || '-'
 }
 
+export function asString(value: unknown) {
+  return String(value ?? '').trim()
+}
+
 export function toNumber(value: unknown) {
   if (typeof value === 'number') return value
   if (typeof value !== 'string') return null

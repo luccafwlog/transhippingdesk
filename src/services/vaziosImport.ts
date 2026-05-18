@@ -41,7 +41,7 @@ export async function parseVaziosManifestFile(file: File): Promise<ParsedVaziosM
   return parseVaziosManifestBuffer(buffer)
 }
 
-export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosManifest> {
+async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosManifest> {
   const XLSX = await import('xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]

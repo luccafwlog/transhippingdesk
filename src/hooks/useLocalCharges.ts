@@ -46,7 +46,7 @@ export function useManualChargeItemsForBl(blId?: string) {
   })
 }
 
-export function useCalculateBlLocalCharges(blId?: string) {
+function useCalculateBlLocalCharges(blId?: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -209,7 +209,7 @@ export function useDeleteChargeTableItem() {
   })
 }
 
-export function useChargePendencies(limit = 100) {
+function useChargePendencies(limit = 100) {
   return useQuery({
     queryKey: ['local-charge-pendencies', limit],
     queryFn: () => listLocalChargePendencies(limit),

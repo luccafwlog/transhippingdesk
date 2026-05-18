@@ -43,7 +43,6 @@ export async function calculateGraniteBlCharges(blId: string): Promise<GraniteBl
     .eq('active', true)
   if (ratesError) throw ratesError
 
-  // Remover linhas antigas
   const { error: delError } = await supabase.from('granite_bl_charges').delete().eq('bl_id', blId)
   if (delError) throw delError
 
@@ -96,7 +95,7 @@ export async function calculateGraniteBlCharges(blId: string): Promise<GraniteBl
   return (inserted ?? []) as GraniteBlCharge[]
 }
 
-export async function listGraniteBlCharges(blId: string): Promise<GraniteBlCharge[]> {
+async function listGraniteBlCharges(blId: string): Promise<GraniteBlCharge[]> {
   const { data, error } = await supabase
     .from('granite_bl_charges')
     .select('*')
@@ -153,7 +152,7 @@ export async function listGraniteBls(filters: {
   return { rows: data ?? [], count: count ?? 0 }
 }
 
-export async function listGraniteManifests(voyageId?: number) {
+async function listGraniteManifests(voyageId?: number) {
   let query = supabase
     .from('granite_manifests')
     .select('*, voyage:voyages(id, voyage_number, vessel:vessels(id, name))')

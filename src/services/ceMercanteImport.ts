@@ -1,4 +1,4 @@
-import { onlyDigits } from '../lib/utils'
+import { asString, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -41,7 +41,7 @@ export type CeMercanteImportResult = {
   }>
 }
 
-export const CE_MERCANTE_LENGTH = 15
+const CE_MERCANTE_LENGTH = 15
 
 export async function parseCeMercanteFile(file: File): Promise<ParsedCeMercanteFile> {
   const buffer = await file.arrayBuffer()
@@ -236,10 +236,6 @@ function normalizeHeader(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
-}
-
-function asString(value: unknown) {
-  return String(value ?? '').trim()
 }
 
 function normalizeBlId(value: unknown) {

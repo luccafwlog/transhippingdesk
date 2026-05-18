@@ -1,4 +1,4 @@
-import { normalizeText } from '../lib/utils'
+import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -382,10 +382,6 @@ function parseSpreadsheetNumber(value: unknown) {
 
   const number = Number(text)
   return Number.isFinite(number) ? number : null
-}
-
-function asString(value: unknown) {
-  return String(value ?? '').trim()
 }
 
 function normalizeKey(value: unknown) {

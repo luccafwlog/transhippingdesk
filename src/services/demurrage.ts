@@ -63,7 +63,7 @@ function toRateGroups(rows: DemurrageRate[]) {
   return groups
 }
 
-export async function ensureDemurrageRatesLoaded(force = false) {
+async function ensureDemurrageRatesLoaded(force = false) {
   const now = Date.now()
   if (!force && dynamicRateGroups && now - dynamicRateGroupsLoadedAt < RATE_CACHE_TTL_MS) {
     return
@@ -96,7 +96,7 @@ export function invalidateDemurrageRatesCache() {
   dynamicRateGroupsLoadedAt = 0
 }
 
-export function getRate(containerType: string | null, freeTimeOverride?: number | null, ov1?: number | null, ov2?: number | null): ResolvedRate {
+function getRate(containerType: string | null, freeTimeOverride?: number | null, ov1?: number | null, ov2?: number | null): ResolvedRate {
   const type = (containerType ?? '').toUpperCase().trim()
   const groups = resolveActiveRateGroups()
   const group = groups.find((g) => g.aliases.includes(type)) ?? groups[0] ?? DEFAULT_RATE
@@ -148,7 +148,7 @@ export function calculateDemurrage(
   return { total_days: dc, free_days: rate.freeUntil, days_p1: diasP1, rate_p1_usd: rate.p1.usd, days_p2: diasP2, rate_p2_usd: rate.p2.usd, total_usd: totalUSD, status: 'overdue' }
 }
 
-export function computeTotalBRL(invoice: Pick<DemurrageInvoice, 'status' | 'frozen_total_brl' | 'total_usd' | 'discount_mode' | 'discount_value'>, liveRoe: number | null): number {
+function computeTotalBRL(invoice: Pick<DemurrageInvoice, 'status' | 'frozen_total_brl' | 'total_usd' | 'discount_mode' | 'discount_value'>, liveRoe: number | null): number {
   if ((invoice.status === 'issued' || invoice.status === 'paid') && invoice.frozen_total_brl != null) {
     return invoice.frozen_total_brl
   }
@@ -165,7 +165,7 @@ export function computeTotalBRL(invoice: Pick<DemurrageInvoice, 'status' | 'froz
   return brl
 }
 
-export function nextBusinessDay(fromDate?: string): string {
+function nextBusinessDay(fromDate?: string): string {
   const d = fromDate ? new Date(`${fromDate}T12:00:00`) : new Date()
   d.setDate(d.getDate() + 1)
   if (d.getDay() === 6) d.setDate(d.getDate() + 2)
@@ -173,7 +173,7 @@ export function nextBusinessDay(fromDate?: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function genDemurrageDocnum(blId: string): string {
+function genDemurrageDocnum(blId: string): string {
   const year = new Date().getFullYear()
   const ts = Date.now().toString(36).slice(-4).toUpperCase()
   const s = String(blId || '').toUpperCase()
@@ -546,7 +546,7 @@ export async function updateDemurrageInvoice(invoiceId: number, patch: Partial<P
 
 export function parsePixExtract(arrayBuffer: ArrayBuffer): PixTransaction[] {
   // Dynamically import XLSX — bundled via vite's import
-  const XLSX = (window as unknown as { XLSX?: unknown }).XLSX as { read: (data: Uint8Array, opts: object) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown, opts: object) => unknown[][] } } | undefined
+  const XLSX = (window as unknown as { XLSX?: unknown }).XLSX as { read: (data: Uint8Array, opts: { type: string; raw: boolean }) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown, opts: { header: number; defval: string }) => unknown[][] } } | undefined
   if (!XLSX) throw new Error('XLSX não disponível. Adicione a lib ao projeto.')
 
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', raw: false })

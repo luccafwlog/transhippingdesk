@@ -69,7 +69,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const [bls, vehicles, vaziosImportacaoMtyByVoyage] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
-    fetchVaziosImportacaoMtyByVoyageIds(voyageIds).catch(() => new Map<number, number>()),
+    fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
   ])
 
   const blIds = bls.map((bl) => bl.id)
@@ -218,7 +218,7 @@ function hasActivePodScheduleData(schedule: {
   return false
 }
 
-export async function fetchLineUpRows(): Promise<LineUpRow[]> {
+async function fetchLineUpRows(): Promise<LineUpRow[]> {
   const snapshot = await fetchLineUpSnapshot()
   return snapshot.rows
 }
