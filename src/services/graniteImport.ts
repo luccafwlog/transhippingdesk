@@ -78,7 +78,7 @@ export async function parseGraniteManifestFile(file: File): Promise<ParsedGranit
   return parseGraniteManifestBuffer(buffer)
 }
 
-export async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
+async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
   const XLSX = await import('xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]

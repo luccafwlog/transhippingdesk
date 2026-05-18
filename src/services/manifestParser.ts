@@ -78,7 +78,7 @@ export function countDistinctManifestContainers(manifest: ParsedManifest | null 
   return countDistinctParsedContainers(manifest?.bls ?? [])
 }
 
-export function countDistinctParsedContainers(bls: ParsedBL[]) {
+function countDistinctParsedContainers(bls: ParsedBL[]) {
   return countDistinctContainersAcrossGroups(bls, (bl) => bl.containers)
 }
 

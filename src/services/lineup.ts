@@ -218,7 +218,7 @@ function hasActivePodScheduleData(schedule: {
   return false
 }
 
-export async function fetchLineUpRows(): Promise<LineUpRow[]> {
+async function fetchLineUpRows(): Promise<LineUpRow[]> {
   const snapshot = await fetchLineUpSnapshot()
   return snapshot.rows
 }

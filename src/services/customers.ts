@@ -134,7 +134,7 @@ export async function deleteCustomerContact(contactId: number) {
   if (error) throw error
 }
 
-export async function linkBlToCustomer({
+async function linkBlToCustomer({
   blId,
   customerId,
   previousCustomerId,
