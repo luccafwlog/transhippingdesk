@@ -1,4 +1,4 @@
-import { normalizeText } from '../lib/utils'
+import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 import { calculateDemurrage, createInvoiceForReturnedBL, fetchROE, issueInvoice } from './demurrage'
 
@@ -215,6 +215,3 @@ function makeKey(blId: string, containerNumber: string) {
   return `${String(blId).toUpperCase()}::${String(containerNumber).toUpperCase()}`
 }
 
-function asString(value: unknown) {
-  return String(value ?? '').trim()
-}

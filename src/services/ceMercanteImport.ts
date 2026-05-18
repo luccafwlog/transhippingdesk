@@ -41,7 +41,7 @@ export type CeMercanteImportResult = {
   }>
 }
 
-export const CE_MERCANTE_LENGTH = 15
+const CE_MERCANTE_LENGTH = 15
 
 export async function parseCeMercanteFile(file: File): Promise<ParsedCeMercanteFile> {
   const buffer = await file.arrayBuffer()

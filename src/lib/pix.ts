@@ -1,6 +1,6 @@
 // Port verbatim from DM billing.js — PIX EMV (BR Code) payload builder
 
-export function pixCRC16(payload: string): string {
+function pixCRC16(payload: string): string {
   let crc = 0xffff
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8
@@ -11,7 +11,7 @@ export function pixCRC16(payload: string): string {
   return (crc & 0xffff).toString(16).toUpperCase().padStart(4, '0')
 }
 
-export function pixTLV(id: string, value: string): string {
+function pixTLV(id: string, value: string): string {
   return id + String(value.length).padStart(2, '0') + value
 }
 
@@ -41,9 +41,9 @@ export function buildPixPayload(chavePix: string, nomeBeneficiario: string, cida
 }
 
 // Baked-in Transhipping constants
-export const PIX_CNPJ = '06352972000121'
-export const PIX_MERCHANT = 'TRANSHIPPING AGENCIAMENTO MARITIMO'
-export const PIX_CITY = 'VIT'
+const PIX_CNPJ = '06352972000121'
+const PIX_MERCHANT = 'TRANSHIPPING AGENCIAMENTO MARITIMO'
+const PIX_CITY = 'VIT'
 
 export function buildTransshippingPixPayload(valorBRL: number, txid: string): string {
   return buildPixPayload(PIX_CNPJ, PIX_MERCHANT, PIX_CITY, valorBRL, txid)
