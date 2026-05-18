@@ -10,6 +10,23 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Rate limiting: max 20 provisões por hora por usuário chamador.
+// Estado em memória — efetivo por instância; suficiente para impedir abuso em escala.
+const rateLimitMap = new Map<string, number[]>()
+const RATE_LIMIT_MAX = 20
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const calls = (rateLimitMap.get(userId) ?? []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+  if (calls.length >= RATE_LIMIT_MAX) return false
+  calls.push(now)
+  rateLimitMap.set(userId, calls)
+  return true
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -58,6 +75,13 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    if (!checkRateLimit(callerUser.id)) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Tente novamente em 1 hora.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const body = await req.json() as {
       customer_portal_account_id: number
       portal_email: string
@@ -66,6 +90,13 @@ Deno.serve(async (req: Request) => {
 
     if (!body.customer_portal_account_id || !body.portal_email || !body.password) {
       return new Response(JSON.stringify({ error: 'Missing required fields: customer_portal_account_id, portal_email, password' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!EMAIL_REGEX.test(body.portal_email)) {
+      return new Response(JSON.stringify({ error: 'Invalid email format' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

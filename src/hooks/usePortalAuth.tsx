@@ -3,7 +3,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from '../services/supabase'
 import { portalGetSessionOverview, portalLogin, portalLogout, type PortalSessionOverview } from '../services/portalBilling'
 
-// Token legado (compatibilidade com contas sem auth_user_id provisionado)
+// Token legado (compatibilidade com contas sem auth_user_id provisionado).
+// Usa sessionStorage em vez de localStorage para limitar exposição: tokens não
+// persistem entre sessões do browser e ficam isolados por aba.
 const STORAGE_KEY = 'td.portal.session.token'
 
 type AuthMethod = 'supabase_auth' | 'legacy_token'
@@ -23,16 +25,16 @@ const PortalAuthContext = createContext<PortalAuthContextValue | null>(null)
 
 function readStoredToken() {
   if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(STORAGE_KEY)
+  return window.sessionStorage.getItem(STORAGE_KEY)
 }
 
 function persistToken(token: string | null) {
   if (typeof window === 'undefined') return
   if (token) {
-    window.localStorage.setItem(STORAGE_KEY, token)
+    window.sessionStorage.setItem(STORAGE_KEY, token)
     return
   }
-  window.localStorage.removeItem(STORAGE_KEY)
+  window.sessionStorage.removeItem(STORAGE_KEY)
 }
 
 function isPortalSessionError(error: unknown) {
