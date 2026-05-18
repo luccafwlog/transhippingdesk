@@ -123,14 +123,10 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     })
 
     if (allReturned) {
-      try {
-        const invoiceId = await createInvoiceForReturnedBL(blId)
-        if (invoiceId !== null) {
-          const { roe } = await fetchROE()
-          await issueInvoice(invoiceId, roe)
-        }
-      } catch (err) {
-        console.error('[auto-demurrage-issue] blId=%s', blId, err)
+      const invoiceId = await createInvoiceForReturnedBL(blId)
+      if (invoiceId !== null) {
+        const { roe } = await fetchROE()
+        await issueInvoice(invoiceId, roe)
       }
     }
   }

@@ -78,16 +78,12 @@ export function CargaSolta() {
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
+    void (async () => {
       const rows = await fetchAllBls(summaryFilters)
       if (!cancelled) {
         setSummaryRows(rows)
       }
-    })().catch(() => {
-      if (!cancelled) {
-        setSummaryRows([])
-      }
-    })
+    })()
     return () => {
       cancelled = true
     }
