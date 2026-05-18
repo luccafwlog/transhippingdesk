@@ -10,26 +10,17 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Rate limiting: max 20 provisões por hora por usuário chamador.
-// Estado em memória — efetivo por instância; suficiente para impedir abuso em escala.
-const rateLimitMap = new Map<string, number[]>()
-const RATE_LIMIT_MAX = 20
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
-
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now()
-  const calls = (rateLimitMap.get(userId) ?? []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
-  if (calls.length >= RATE_LIMIT_MAX) return false
-  calls.push(now)
-  rateLimitMap.set(userId, calls)
-  return true
-}
-
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PASSWORD_MIN_LENGTH = 8
+
+// CORS restrito ao domínio do app. A env var APP_URL deve ser configurada
+// no projeto Supabase (ex: https://transhipping.app).
+const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? Deno.env.get('SUPABASE_URL') ?? ''
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Vary': 'Origin',
 }
 
 Deno.serve(async (req: Request) => {
@@ -68,14 +59,19 @@ Deno.serve(async (req: Request) => {
       .eq('id', callerUser.id)
       .single()
 
-    if (!profile?.active || profile?.role !== 'administrativo') {
+    if (!profile?.active || (profile?.role !== 'administrativo' && profile?.role !== 'admin')) {
       return new Response(JSON.stringify({ error: 'Forbidden: only administrativo role can provision portal users' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    if (!checkRateLimit(callerUser.id)) {
+    // Rate limit via DB — persistente entre instâncias (substitui o mapa em memória)
+    const adminClientForRateLimit = createClient(supabaseUrl, serviceRoleKey)
+    const { data: rateLimitOk, error: rateLimitError } = await adminClientForRateLimit
+      .rpc('check_provision_rate_limit', { p_user_id: callerUser.id })
+
+    if (rateLimitError || !rateLimitOk) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Tente novamente em 1 hora.' }), {
         status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -97,6 +93,13 @@ Deno.serve(async (req: Request) => {
 
     if (!EMAIL_REGEX.test(body.portal_email)) {
       return new Response(JSON.stringify({ error: 'Invalid email format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (body.password.length < PASSWORD_MIN_LENGTH) {
+      return new Response(JSON.stringify({ error: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
