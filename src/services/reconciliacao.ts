@@ -1,5 +1,6 @@
-import { supabase } from './supabase'
+import { onlyDigits } from '../lib/utils'
 import { registerInvoicePayment } from './billing'
+import { supabase } from './supabase'
 import type { PixTransaction } from '../types/database'
 
 export type UnifiedPixMatch = {
@@ -16,9 +17,6 @@ export type UnifiedPixMatch = {
 
 function normTxid(str: string) {
   return (str ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-}
-function normCnpj(str: string) {
-  return (str ?? '').replace(/\D/g, '')
 }
 
 export async function matchUnifiedPixTransactions(transactions: PixTransaction[]): Promise<UnifiedPixMatch[]> {
@@ -55,7 +53,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
 
   for (const inv of localInvoices) {
     const docNum = inv.invoice_number ?? String(inv.id)
-    const entry: InvEntry = { source: 'local', id: inv.id, docNumber: docNum, customerName: inv.customer?.name ?? '', customerCnpj: normCnpj(inv.customer?.cnpj_cpf ?? ''), amount: inv.total_brl ?? 0 }
+    const entry: InvEntry = { source: 'local', id: inv.id, docNumber: docNum, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.total_brl ?? 0 }
     const key = normTxid(docNum)
     if (key) txidMap[key] = entry
     const cnpj = entry.customerCnpj
@@ -63,7 +61,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   }
 
   for (const inv of demurrageInvoices) {
-    const entry: InvEntry = { source: 'demurrage', id: inv.id, docNumber: inv.doc_number, customerName: inv.customer?.name ?? '', customerCnpj: normCnpj(inv.customer?.cnpj_cpf ?? ''), amount: inv.frozen_total_brl ?? 0 }
+    const entry: InvEntry = { source: 'demurrage', id: inv.id, docNumber: inv.doc_number, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.frozen_total_brl ?? 0 }
     const key = normTxid(inv.doc_number)
     if (key) txidMap[key] = entry
     const cnpj = entry.customerCnpj
@@ -81,7 +79,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       continue
     }
 
-    const cnpj = normCnpj(tx.cnpj)
+    const cnpj = onlyDigits(tx.cnpj)
     if (!cnpj || cnpj.length !== 14) continue
     const candidates = (cnpjMap[cnpj] ?? []).filter((e) => Math.abs(e.amount - tx.amount) < 0.02)
     if (!candidates.length) continue
