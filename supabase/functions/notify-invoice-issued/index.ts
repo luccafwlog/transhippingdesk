@@ -10,7 +10,7 @@
 //   Secret Header: Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
 //
 // Env vars necessárias:
-//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS — credenciais SMTP
+//   RESEND_API_KEY — chave de API Resend para envio de email
 //   FROM_EMAIL — remetente (ex: "Transhipping Desk <noreply@...>")
 //   PORTAL_URL  — URL base do portal do cliente
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -134,49 +134,36 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`
 
-    // Send via SMTP using Deno's built-in fetch (or a mailer library)
-    const smtpHost = Deno.env.get('SMTP_HOST')
-    const smtpUser = Deno.env.get('SMTP_USER')
-    const smtpPass = Deno.env.get('SMTP_PASS')
     const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'noreply@transhipping.app'
-
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      console.warn('SMTP not configured — email not sent. Set SMTP_HOST, SMTP_USER, SMTP_PASS env vars.')
-      return new Response(JSON.stringify({ sent: false, reason: 'smtp_not_configured' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Use Resend API if RESEND_API_KEY is set (simpler than raw SMTP in Deno)
     const resendKey = Deno.env.get('RESEND_API_KEY')
-    if (resendKey) {
-      const resendResp = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: recipients,
-          subject: `Fatura ${invoice.invoice_number ?? invoice.id} emitida — ${fmtBRL(invoice.total_brl)}`,
-          html: htmlBody,
-        }),
-      })
 
-      if (!resendResp.ok) {
-        const errText = await resendResp.text()
-        throw new Error(`Resend API error: ${errText}`)
-      }
-
-      return new Response(JSON.stringify({ sent: true, recipients, via: 'resend' }), {
+    if (!resendKey) {
+      console.warn('RESEND_API_KEY not configured — email not sent.')
+      return new Response(JSON.stringify({ sent: false, reason: 'resend_api_key_not_configured' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Fallback: log that SMTP-based sending needs a Deno SMTP library
-    console.log(`Email would be sent to: ${recipients.join(', ')}`)
-    return new Response(JSON.stringify({ sent: false, reason: 'configure_resend_api_key' }), {
+    const resendResp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: recipients,
+        subject: `Fatura ${invoice.invoice_number ?? invoice.id} emitida — ${fmtBRL(invoice.total_brl)}`,
+        html: htmlBody,
+      }),
+    })
+
+    if (!resendResp.ok) {
+      const errText = await resendResp.text()
+      throw new Error(`Resend API error: ${errText}`)
+    }
+
+    return new Response(JSON.stringify({ sent: true, recipients, via: 'resend' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {

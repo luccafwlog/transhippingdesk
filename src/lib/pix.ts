@@ -15,7 +15,7 @@ function pixTLV(id: string, value: string): string {
   return id + String(value.length).padStart(2, '0') + value
 }
 
-export function buildPixPayload(chavePix: string, nomeBeneficiario: string, cidade: string, valor: number, txid: string): string {
+function buildPixPayload(chavePix: string, nomeBeneficiario: string, cidade: string, valor: number, txid: string): string {
   const nome = nomeBeneficiario.substring(0, 25).replace(/[^A-Za-z0-9 ]/g, '').trim()
   const cid = cidade.substring(0, 15).replace(/[^A-Za-z0-9 ]/g, '').trim()
   const chave = chavePix.replace(/[^0-9]/g, '')
