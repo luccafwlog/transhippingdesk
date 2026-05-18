@@ -1,4 +1,4 @@
-import { onlyDigits } from '../lib/utils'
+import { asString, onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { calculateBlLocalCharges } from './localCharges'
 import { supabase } from './supabase'
@@ -704,10 +704,6 @@ function extractTaxId(value: string) {
   if (digits.length >= 14) return digits.slice(0, 14)
   if (digits.length >= 11 && /^CPF[:\s]/i.test(value)) return digits.slice(0, 11)
   return ''
-}
-
-function asString(value: unknown) {
-  return String(value ?? '').trim()
 }
 
 function asNullableString(value: unknown) {
