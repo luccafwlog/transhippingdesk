@@ -8,25 +8,11 @@ import { Field, Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
+import type { DemurrageRate } from '../types/database'
 import { invalidateDemurrageRatesCache } from '../services/demurrage'
 import { supabase } from '../services/supabase'
 
-type DemurrageRate = {
-  id: number
-  container_type: string
-  free_days: number
-  p1_day_from: number
-  p1_day_to: number
-  p1_usd: number
-  p2_day_from: number
-  p2_usd: number
-  valid_from: string | null
-  valid_to: string | null
-  active: boolean
-  notes: string | null
-}
-
-type DemurrageRateForm = Omit<DemurrageRate, 'id'>
+type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at'>
 
 const EMPTY_FORM: DemurrageRateForm = {
   container_type: '',

@@ -1,17 +1,7 @@
+import type { Alert } from '../types/database'
 import { supabase } from './supabase'
 
-export type Alert = {
-  id: number
-  type: string
-  entity_type: string | null
-  entity_id: string | null
-  message: string
-  status: 'open' | 'acknowledged' | 'closed'
-  assigned_to: string | null
-  created_at: string
-  closed_at: string | null
-  notified_at: string | null
-}
+export type { Alert }
 
 export type AlertStatusFilter = 'all' | 'open' | 'acknowledged'
 
