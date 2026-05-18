@@ -95,16 +95,6 @@ export async function calculateGraniteBlCharges(blId: string): Promise<GraniteBl
   return (inserted ?? []) as GraniteBlCharge[]
 }
 
-async function listGraniteBlCharges(blId: string): Promise<GraniteBlCharge[]> {
-  const { data, error } = await supabase
-    .from('granite_bl_charges')
-    .select('*')
-    .eq('bl_id', blId)
-    .order('calculated_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []) as GraniteBlCharge[]
-}
-
 export async function listGraniteBls(filters: {
   voyageId?: string
   dischargePort?: string
@@ -152,13 +142,3 @@ export async function listGraniteBls(filters: {
   return { rows: data ?? [], count: count ?? 0 }
 }
 
-async function listGraniteManifests(voyageId?: number) {
-  let query = supabase
-    .from('granite_manifests')
-    .select('*, voyage:voyages(id, voyage_number, vessel:vessels(id, name))')
-    .order('imported_at', { ascending: false })
-  if (voyageId) query = query.eq('voyage_id', voyageId)
-  const { data, error } = await query
-  if (error) throw error
-  return data ?? []
-}

@@ -218,11 +218,6 @@ function hasActivePodScheduleData(schedule: {
   return false
 }
 
-async function fetchLineUpRows(): Promise<LineUpRow[]> {
-  const snapshot = await fetchLineUpSnapshot()
-  return snapshot.rows
-}
-
 async function fetchVoyages() {
   const { data, error } = await supabase
     .from('voyages')

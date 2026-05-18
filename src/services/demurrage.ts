@@ -148,23 +148,6 @@ export function calculateDemurrage(
   return { total_days: dc, free_days: rate.freeUntil, days_p1: diasP1, rate_p1_usd: rate.p1.usd, days_p2: diasP2, rate_p2_usd: rate.p2.usd, total_usd: totalUSD, status: 'overdue' }
 }
 
-function computeTotalBRL(invoice: Pick<DemurrageInvoice, 'status' | 'frozen_total_brl' | 'total_usd' | 'discount_mode' | 'discount_value'>, liveRoe: number | null): number {
-  if ((invoice.status === 'issued' || invoice.status === 'paid') && invoice.frozen_total_brl != null) {
-    return invoice.frozen_total_brl
-  }
-  if (!liveRoe) return 0
-  let brl = (invoice.total_usd ?? 0) * liveRoe
-  if (invoice.discount_value && invoice.discount_value > 0) {
-    if (invoice.discount_mode === 'percent') {
-      const pct = Math.min(100, Math.max(0, invoice.discount_value))
-      brl = brl * (1 - pct / 100)
-    } else {
-      brl = Math.max(0, brl - invoice.discount_value)
-    }
-  }
-  return brl
-}
-
 function nextBusinessDay(fromDate?: string): string {
   const d = fromDate ? new Date(`${fromDate}T12:00:00`) : new Date()
   d.setDate(d.getDate() + 1)
