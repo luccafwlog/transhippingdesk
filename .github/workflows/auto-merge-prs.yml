@@ -12,20 +12,22 @@ jobs:
       pull-requests: write
     steps:
       - name: Merge PR
+        id: merge
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            await github.rest.pulls.merge({
+            const result = await github.rest.pulls.merge({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.payload.pull_request.number,
               merge_method: 'squash',
             })
+            core.setOutput('sha', result.data.sha)
 
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ steps.merge.outputs.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -40,11 +42,11 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_COMMIT_SHA: ${{ steps.merge.outputs.sha }}
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E }}
           channelId: live
           projectId: importmanager-bda3e
