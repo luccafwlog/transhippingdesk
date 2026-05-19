@@ -266,7 +266,7 @@ function extractEmails(value: string) {
 }
 
 function normalizeEmail(value?: string | null) {
-  const text = asString(value).toUpperCase()
+  const text = asString(value).trim().toLowerCase()
   return text || ''
 }
 

@@ -184,11 +184,13 @@ export async function importManifest({
 async function syncManifestContactEmails(
   blPayload: Array<{ customer_id: number | null; manifest_customer_email?: string | null }>,
 ) {
-  const toSync = new Map<number, string>()
+  const toSync = new Map<number, Set<string>>()
   for (const bl of blPayload) {
     const email = bl.manifest_customer_email?.trim().toLowerCase()
     if (bl.customer_id && email) {
-      toSync.set(bl.customer_id, email)
+      const existing = toSync.get(bl.customer_id) ?? new Set<string>()
+      existing.add(email)
+      toSync.set(bl.customer_id, existing)
     }
   }
 
@@ -207,15 +209,17 @@ async function syncManifestContactEmails(
       .map((c) => `${c.customer_id}:${c.email!.trim().toLowerCase()}`),
   )
 
-  const toInsert = Array.from(toSync.entries())
-    .filter(([customerId, email]) => !existingSet.has(`${customerId}:${email}`))
-    .map(([customerId, email]) => ({
-      customer_id: customerId,
-      name: 'Contato manifesto',
-      email,
-      purpose: 'financeiro' as const,
-      is_primary: false,
-    }))
+  const toInsert = Array.from(toSync.entries()).flatMap(([customerId, emails]) =>
+    Array.from(emails)
+      .filter((email) => !existingSet.has(`${customerId}:${email}`))
+      .map((email) => ({
+        customer_id: customerId,
+        name: 'Contato manifesto',
+        email,
+        purpose: 'financeiro' as const,
+        is_primary: false,
+      })),
+  )
 
   if (!toInsert.length) return
 
