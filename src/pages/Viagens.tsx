@@ -370,7 +370,7 @@ export function Viagens() {
                     voyageId={voyage.id}
                     voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
                     userId={user.id}
-                    types={['cntr', 'bb', 'vaziosImp', 'vehicles']}
+                    types={['cntr', 'bb', 'vaziosImp', 'vehicles', 'baplie']}
                   />
                 </MetricSection>
               ) : null}
