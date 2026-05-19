@@ -12,6 +12,37 @@ export type CustomerFilters = {
   pageSize: number
 }
 
+export function useCustomerSummary() {
+  return useQuery({
+    queryKey: ['customers-summary'],
+    queryFn: async () => {
+      const { data, count, error } = await supabase
+        .from('customers')
+        .select('pending_balance, bls(id, charge_status)', { count: 'exact' })
+
+      if (error) throw error
+
+      const customers = (data ?? []) as Array<{
+        pending_balance: number | null
+        bls: Array<{ id: string; charge_status: string | null }>
+      }>
+
+      const bls = customers.flatMap((c) => c.bls ?? [])
+
+      return {
+        totalCustomers: count ?? 0,
+        totalBls: bls.length,
+        chargePending: bls.filter(
+          (bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated',
+        ).length,
+        chargeReady: bls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
+        pendingBalance: customers.reduce((sum, c) => sum + Number(c.pending_balance ?? 0), 0),
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
 export function useCustomers(filters: CustomerFilters) {
   return useQuery({
     queryKey: ['customers', filters],
@@ -19,11 +50,23 @@ export function useCustomers(filters: CustomerFilters) {
       const from = filters.page * filters.pageSize
       const to = from + filters.pageSize - 1
 
+      // For "without related records", PostgREST !inner can't help — fetch all and paginate manually
+      const hasClientSideFilter = filters.emailStatus === 'without' || filters.blStatus === 'without'
+
+      // Use !inner join to filter server-side when "with" is selected
+      const contactsJoin =
+        filters.emailStatus === 'with' ? 'customer_contacts!inner(id)' : 'customer_contacts(id)'
+      const blsJoin =
+        filters.blStatus === 'with' ? 'bls!inner(id, charge_status)' : 'bls(id, charge_status)'
+
       let query = supabase
         .from('customers')
-        .select('*, bls(id, charge_status), customer_contacts(id)', { count: 'exact' })
+        .select(`*, ${blsJoin}, ${contactsJoin}`, { count: 'exact' })
         .order('name', { ascending: true })
-        .range(from, to)
+
+      if (!hasClientSideFilter) {
+        query = query.range(from, to)
+      }
 
       if (filters.search) {
         const normalizedDocument = onlyDigits(filters.search)
@@ -33,30 +76,40 @@ export function useCustomers(filters: CustomerFilters) {
         )
       }
 
+      if (filters.pendingStatus === 'with') {
+        query = query.gt('pending_balance', 0)
+      } else if (filters.pendingStatus === 'without') {
+        query = query.or('pending_balance.eq.0,pending_balance.is.null')
+      }
+
       const { data, error, count } = await query
       if (error) throw error
 
-      const rows = ((data ?? []) as unknown as CustomerListItem[]).filter((row) => {
-        const hasEmails = (row.customer_contacts?.length ?? 0) > 0
-        const hasBls = (row.bls?.length ?? 0) > 0
-        const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
+      let rows = (data ?? []) as unknown as CustomerListItem[]
 
-        if (filters.emailStatus === 'with' && !hasEmails) return false
-        if (filters.emailStatus === 'without' && hasEmails) return false
+      // Client-side filter only for "without" cases (absence of related records)
+      if (filters.emailStatus === 'without') {
+        rows = rows.filter((row) => (row.customer_contacts?.length ?? 0) === 0)
+      }
+      if (filters.blStatus === 'without') {
+        rows = rows.filter((row) => (row.bls?.length ?? 0) === 0)
+      }
 
-        if (filters.blStatus === 'with' && !hasBls) return false
-        if (filters.blStatus === 'without' && hasBls) return false
-
-        if (filters.pendingStatus === 'with' && !hasPendingBalance) return false
-        if (filters.pendingStatus === 'without' && hasPendingBalance) return false
-
-        return true
-      })
+      // When client-side filter is active all records are fetched; paginate manually
+      let paginatedRows: CustomerListItem[]
+      let totalCount: number
+      if (hasClientSideFilter) {
+        totalCount = rows.length
+        paginatedRows = rows.slice(from, from + filters.pageSize)
+      } else {
+        totalCount = count ?? 0
+        paginatedRows = rows
+      }
 
       return {
-        rows,
-        count: rows.length,
-        totalCount: count ?? 0,
+        rows: paginatedRows,
+        count: paginatedRows.length,
+        totalCount,
       }
     },
   })

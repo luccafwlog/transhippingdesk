@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -9,7 +9,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
-import { useCustomers } from '../hooks/useCustomers'
+import { useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { createCustomer } from '../services/customers'
@@ -96,28 +96,7 @@ export function Clientes() {
   const [parsingBase, setParsingBase] = useState(false)
   const [importingBase, setImportingBase] = useState(false)
   const { data, isLoading, error } = useCustomers(filters)
-
-  const totals = useMemo(
-    () => ({
-      customers: data?.totalCount ?? 0,
-      bls: data?.rows.reduce((sum, row) => sum + (row.bls?.length ?? 0), 0) ?? 0,
-      pendingBalance: data?.rows.reduce((sum, row) => sum + Number(row.pending_balance ?? 0), 0) ?? 0,
-      chargeReady:
-        data?.rows.reduce(
-          (sum, row) => sum + (row.bls?.filter((bl) => bl.charge_status === 'ready_for_billing').length ?? 0),
-          0,
-        ) ?? 0,
-      chargePending:
-        data?.rows.reduce(
-          (sum, row) =>
-            sum +
-            (row.bls?.filter((bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated')
-              .length ?? 0),
-          0,
-        ) ?? 0,
-    }),
-    [data],
-  )
+  const { data: summary } = useCustomerSummary()
 
   const totalPages = Math.ceil((data?.totalCount ?? 0) / filters.pageSize)
 
@@ -322,11 +301,11 @@ export function Clientes() {
       />
 
       <div className="mb-5 grid gap-4 md:grid-cols-5">
-        <MetricCard label="Clientes" value={String(totals.customers)} />
-        <MetricCard label="B/Ls vinculados" value={String(totals.bls)} />
-        <MetricCard label="Taxas pendentes" value={String(totals.chargePending)} />
-        <MetricCard label="Pronto faturar" value={String(totals.chargeReady)} />
-        <MetricCard label="Saldo pendente" value={formatBRL(totals.pendingBalance)} />
+        <MetricCard label="Clientes" value={String(summary?.totalCustomers ?? 0)} />
+        <MetricCard label="B/Ls vinculados" value={String(summary?.totalBls ?? 0)} />
+        <MetricCard label="Taxas pendentes" value={String(summary?.chargePending ?? 0)} />
+        <MetricCard label="Pronto faturar" value={String(summary?.chargeReady ?? 0)} />
+        <MetricCard label="Saldo pendente" value={formatBRL(summary?.pendingBalance ?? 0)} />
       </div>
 
       <div className="mb-5">
