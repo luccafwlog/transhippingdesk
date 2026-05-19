@@ -13,8 +13,10 @@ import { importGraniteManifest, parseGraniteManifestFile } from '../../services/
 import { importVaziosManifest, parseVaziosManifestFile } from '../../services/vaziosImport'
 import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../../services/vaziosImportacaoImport'
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
+import { parseBaplieFile, type ParsedBaplie } from '../../services/baplieParser'
+import { importBaplieFlags } from '../../services/baplieImport'
 
-type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles'
+type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
   cntr: 'Manifesto CNTR',
@@ -23,6 +25,7 @@ const IMPORT_LABELS: Record<ImportType, string> = {
   vaziosImp: 'Manifesto Vazios Imp.',
   vaziosExp: 'Vazios Exp',
   vehicles: 'Planilha Veiculos',
+  baplie: 'Baplie EDI',
 }
 
 export function VoyageImportActions({
@@ -66,6 +69,9 @@ export function VoyageImportActions({
       ) : null}
       {activeType === 'vehicles' ? (
         <VehiclesImportModal voyageId={voyageId} voyageLabel={voyageLabel} userId={userId} onClose={() => setActiveType(null)} />
+      ) : null}
+      {activeType === 'baplie' ? (
+        <BaplieImportModal voyageId={voyageId} voyageLabel={voyageLabel} userId={userId} onClose={() => setActiveType(null)} />
       ) : null}
     </>
   )
@@ -559,6 +565,135 @@ function VehiclesImportModal({
           </div>
         ) : null}
         <ModalActions disabled={!preview?.rows.length} loading={importing} onConfirm={() => void handleImport()} onCancel={onClose} />
+      </div>
+    </Modal>
+  )
+}
+
+function BaplieImportModal({
+  voyageId,
+  voyageLabel,
+  userId,
+  onClose,
+}: {
+  voyageId: number
+  voyageLabel: string
+  userId: string
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const [preview, setPreview] = useState<ParsedBaplie | null>(null)
+  const [selectedPods, setSelectedPods] = useState<Set<string>>(new Set())
+  const [parsing, setParsing] = useState(false)
+  const [importing, setImporting] = useState(false)
+
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const f = event.target.files?.[0] ?? null
+    setPreview(null)
+    setSelectedPods(new Set())
+    if (!f) return
+    setParsing(true)
+    try {
+      const parsed = await parseBaplieFile(f)
+      setPreview(parsed)
+      setSelectedPods(new Set(parsed.pods))
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao ler arquivo Baplie.', 'error')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  function togglePod(pod: string) {
+    setSelectedPods((prev) => {
+      const next = new Set(prev)
+      if (next.has(pod)) next.delete(pod)
+      else next.add(pod)
+      return next
+    })
+  }
+
+  const filteredContainers = preview?.containers.filter((c) => c.pod && selectedPods.has(c.pod)) ?? []
+  const imoCount = filteredContainers.filter((c) => c.is_imo).length
+  const oogCount = filteredContainers.filter((c) => c.is_oog).length
+  const emptyCount = filteredContainers.filter((c) => c.status === 'empty').length
+  const fullCount = filteredContainers.filter((c) => c.status === 'full').length
+
+  async function handleImport() {
+    if (!preview || !filteredContainers.length) return
+    setImporting(true)
+    try {
+      const result = await importBaplieFlags(voyageId, filteredContainers, userId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['containers'] }),
+      ])
+      showToast(
+        `Baplie importado: ${result.updated} atualizado(s), ${result.unchanged} sem mudanca, ${result.missing} nao encontrado(s).`,
+        result.missing > 0 ? 'info' : 'success',
+      )
+      onClose()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao importar Baplie.', 'error')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Importar Baplie EDI">
+      <div className="grid gap-4">
+        <VoyageContext label={voyageLabel} />
+        <Field label="Arquivo .EDI / .edi / .txt">
+          <Input accept=".edi,.EDI,.txt" type="file" onChange={handleFile} />
+        </Field>
+        {parsing ? <div className="text-sm text-slate-400">Processando...</div> : null}
+        {preview ? (
+          <>
+            {preview.vessel_name || preview.voyage_number ? (
+              <div className="rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-slate-300">
+                {preview.vessel_name && <span className="font-semibold text-white">{preview.vessel_name}</span>}
+                {preview.voyage_number && <span className="ml-2 text-slate-400">V.{preview.voyage_number}</span>}
+              </div>
+            ) : null}
+            <div className="grid grid-cols-2 gap-3">
+              <Stat label="Containers (arquivo)" value={preview.containers.length} />
+              <Stat label="Containers (selecionados)" value={filteredContainers.length} />
+              <Stat label="IMO" value={imoCount} />
+              <Stat label="OOG" value={oogCount} />
+              <Stat label="Cheios" value={fullCount} />
+              <Stat label="Vazios" value={emptyCount} />
+            </div>
+            {preview.pods.length > 0 ? (
+              <div>
+                <div className="mb-1 text-xs text-slate-400">Portos de descarga encontrados — selecione quais importar:</div>
+                <div className="flex flex-wrap gap-2">
+                  {preview.pods.map((pod) => (
+                    <button
+                      key={pod}
+                      type="button"
+                      onClick={() => togglePod(pod)}
+                      className={`rounded-md border px-3 py-1 text-xs font-mono transition-colors ${
+                        selectedPods.has(pod)
+                          ? 'border-sky-500 bg-sky-500/10 text-sky-300'
+                          : 'border-[#30363d] bg-[#0d1117] text-slate-500'
+                      }`}
+                    >
+                      {pod}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        <ModalActions
+          disabled={filteredContainers.length === 0}
+          loading={importing}
+          onConfirm={() => void handleImport()}
+          onCancel={onClose}
+        />
       </div>
     </Modal>
   )
