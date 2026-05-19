@@ -24,6 +24,7 @@ import {
 } from '../hooks/useLocalCharges'
 import { formatBRL, formatDate, normalizeText } from '../lib/utils'
 import { createInvoiceFromBls } from '../services/billing'
+import { createCustomer } from '../services/customers'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { supabase } from '../services/supabase'
 import { calculateDemurrage, updateContainerReturnDate } from '../services/demurrage'
@@ -130,6 +131,7 @@ export function BlDetalhe() {
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
   const [savingCustomer, setSavingCustomer] = useState(false)
+  const [creatingManifestCustomer, setCreatingManifestCustomer] = useState(false)
   const [demurrageOverrideForm, setDemurrageOverrideForm] = useState({ p1: '', p2: '' })
   const [savingDemurrageOverride, setSavingDemurrageOverride] = useState(false)
   const { data: customerOptions } = useOverrideCustomers(customerSearch)
@@ -350,6 +352,37 @@ export function BlDetalhe() {
       showToast('Falha ao vincular cliente.', 'error')
     } finally {
       setSavingCustomer(false)
+    }
+  }
+
+  async function handleCreateManifestCustomer() {
+    if (!bl) return
+    const name = bl.manifest_customer_name?.trim()
+    const cnpj = bl.manifest_customer_cnpj_cpf?.trim()
+    if (!name || !cnpj) return
+    setCreatingManifestCustomer(true)
+    try {
+      const contacts = bl.manifest_customer_email?.trim()
+        ? [{ name: 'Contato manifesto', email: bl.manifest_customer_email.trim(), purpose: 'financeiro' as const, is_primary: true }]
+        : []
+      const customer = await createCustomer({ cnpjCpf: cnpj, name, contacts })
+      await handleLinkCustomer(customer.id)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase()
+      if (msg.includes('duplicate key') || msg.includes('customers_cnpj_cpf_key')) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('cnpj_cpf', cnpj.replace(/\D/g, ''))
+          .maybeSingle()
+        if (existing) {
+          await handleLinkCustomer(existing.id)
+          return
+        }
+      }
+      showToast('Falha ao cadastrar cliente do manifesto.', 'error')
+    } finally {
+      setCreatingManifestCustomer(false)
     }
   }
 
@@ -720,11 +753,21 @@ export function BlDetalhe() {
             {(bl.manifest_customer_name ?? bl.manifest_customer_cnpj_cpf) ? (
               <div className="mb-4 rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Dados do manifesto</div>
-                <dl className="grid gap-2 text-sm">
+                <dl className="mb-3 grid gap-2 text-sm">
                   <InfoLine label="Nome" value={bl.manifest_customer_name ?? '-'} />
                   <InfoLine label="CNPJ/CPF" value={bl.manifest_customer_cnpj_cpf ?? '-'} />
                   <InfoLine label="Email" value={bl.manifest_customer_email ?? '-'} />
                 </dl>
+                {!bl.customer_id && bl.manifest_customer_name && bl.manifest_customer_cnpj_cpf ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    loading={creatingManifestCustomer}
+                    onClick={handleCreateManifestCustomer}
+                  >
+                    Cadastrar e vincular cliente do manifesto
+                  </Button>
+                ) : null}
               </div>
             ) : null}
 
