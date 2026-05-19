@@ -16,31 +16,61 @@ export function useCustomerSummary() {
   return useQuery({
     queryKey: ['customers-summary'],
     queryFn: async () => {
-      const { data, count, error } = await supabase
-        .from('customers')
-        .select('pending_balance, bls(id, charge_status)', { count: 'exact' })
-
-      if (error) throw error
-
-      const customers = (data ?? []) as Array<{
-        pending_balance: number | null
-        bls: Array<{ id: string; charge_status: string | null }>
-      }>
-
-      const bls = customers.flatMap((c) => c.bls ?? [])
+      // Query bls directly to avoid max_rows truncation from the customers join
+      const [customersResult, blsResult] = await Promise.all([
+        fetchAllCustomersPendingBalance(),
+        fetchAllLinkedBls(),
+      ])
 
       return {
-        totalCustomers: count ?? 0,
-        totalBls: bls.length,
-        chargePending: bls.filter(
+        totalCustomers: customersResult.count,
+        pendingBalance: customersResult.pendingBalance,
+        totalBls: blsResult.length,
+        chargePending: blsResult.filter(
           (bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated',
         ).length,
-        chargeReady: bls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
-        pendingBalance: customers.reduce((sum, c) => sum + Number(c.pending_balance ?? 0), 0),
+        chargeReady: blsResult.filter((bl) => bl.charge_status === 'ready_for_billing').length,
       }
     },
     staleTime: 60_000,
   })
+}
+
+async function fetchAllLinkedBls(): Promise<Array<{ charge_status: string | null }>> {
+  const pageSize = 1000
+  const result: Array<{ charge_status: string | null }> = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('bls')
+      .select('charge_status')
+      .not('customer_id', 'is', null)
+      .range(from, from + pageSize - 1)
+    if (error) throw error
+    result.push(...(data ?? []))
+    if ((data ?? []).length < pageSize) break
+    from += pageSize
+  }
+  return result
+}
+
+async function fetchAllCustomersPendingBalance(): Promise<{ count: number; pendingBalance: number }> {
+  const pageSize = 1000
+  let count = 0
+  let pendingBalance = 0
+  let from = 0
+  while (true) {
+    const { data, count: total, error } = await supabase
+      .from('customers')
+      .select('pending_balance', { count: 'exact' })
+      .range(from, from + pageSize - 1)
+    if (error) throw error
+    if (from === 0) count = total ?? 0
+    for (const row of data ?? []) pendingBalance += Number(row.pending_balance ?? 0)
+    if ((data ?? []).length < pageSize) break
+    from += pageSize
+  }
+  return { count, pendingBalance }
 }
 
 export function useCustomers(filters: CustomerFilters) {
