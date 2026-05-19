@@ -116,6 +116,7 @@ export function TaxasLocais() {
   const canManageTables = can('charge_tables')
   const canManageOverrides = can('charge_overrides')
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
+  const [expandedTableId, setExpandedTableId] = useState<number | null>(null)
   const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
   const [reconciliationFilter, setReconciliationFilter] = useState(false)
   const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta'>('')
@@ -918,126 +919,168 @@ export function TaxasLocais() {
               </div>
             ) : null}
             <div className="app-table-scroll">
-              <table className="app-table app-table--compact min-w-[1160px] table-fixed text-left text-sm">
+              <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="w-[18%] px-4 py-3">Tabela</th>
-                    <th className="w-[10%] px-4 py-3">Modo</th>
-                    <th className="w-[10%] px-4 py-3">POD</th>
-                    <th className="w-[14%] px-4 py-3">Vigencia</th>
-                    <th className="w-[10%] px-4 py-3">Status</th>
-                    <th className="w-[28%] px-4 py-3">Itens</th>
-                    <th className="w-[10%] px-4 py-3">Acoes</th>
+                    <th className="px-4 py-3">Tabela</th>
+                    <th className="px-4 py-3">Modo</th>
+                    <th className="px-4 py-3">POD</th>
+                    <th className="px-4 py-3">Vigencia</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Itens</th>
+                    <th className="px-4 py-3">Acoes</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {tablesLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
                         Carregando tabelas...
                       </td>
                     </tr>
                   ) : null}
                   {!tablesLoading && (tables?.length ?? 0) === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-0">
+                      <td colSpan={8} className="p-0">
                         <EmptyState title="Nenhuma tabela encontrada." />
                       </td>
                     </tr>
                   ) : null}
-                  {tables?.map((table) => (
-                    <tr key={table.id}>
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-white">{table.name}</div>
-                        {table.notes ? <div className="text-xs text-slate-400">{table.notes}</div> : null}
-                      </td>
-                      <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
-                      <td className="px-4 py-3">{table.pod ?? '-'}</td>
-                      <td className="px-4 py-3">
-                        {table.valid_from} {table.valid_to ? `ate ${table.valid_to}` : '(aberta)'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="grid gap-2">
-                          {(table.charge_table_items?.length ?? 0) === 0 ? <span className="text-slate-400">Sem itens</span> : null}
-                          {table.charge_table_items?.map((item) => (
-                            <div key={item.id} className="rounded-xl border border-[#30363d] px-3 py-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-white">{item.name}</div>
-                                  <div className="text-xs text-slate-400">
-                                    {item.application_basis ?? '-'} • {item.cargo_profile ?? '-'} • {item.currency ?? '-'}
-                                  </div>
-                                </div>
-                                <div className="text-right text-xs font-semibold text-slate-400">
-                                  {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
-                                </div>
-                              </div>
-                              <div className="mt-2 flex items-center gap-1">
-                                {item.manual_only ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}
-                                {!item.active ? <Badge tone="slate">Inativo</Badge> : null}
-                              </div>
-                              <div className="mt-2 flex items-center gap-1">
-                                <button
-                                  className="app-table__icon-button"
-                                  type="button"
-                                  onClick={() => handleEditTableItem(table.id, item.id)}
-                                  aria-label="Editar item de taxa"
-                                  title="Editar item de taxa"
-                                >
-                                  <Pencil size={13} />
-                                </button>
-                                <button
-                                  className="app-table__icon-button app-table__icon-button--danger"
-                                  type="button"
-                                  onClick={() => handleDeleteTableItem(item.id)}
-                                  aria-label="Excluir item de taxa"
-                                  title="Excluir item de taxa"
-                                  disabled={deleteChargeTableItemMutation.isPending}
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
+                  {tables?.map((table) => {
+                    const isExpanded = expandedTableId === table.id
+                    const autoCount = table.charge_table_items?.filter((i) => !i.manual_only).length ?? 0
+                    const manualCount = table.charge_table_items?.filter((i) => i.manual_only).length ?? 0
+                    return (
+                      <>
+                        <tr key={table.id} className={isExpanded ? 'bg-[#161b22]' : undefined}>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-white">{table.name}</div>
+                            {table.notes ? <div className="mt-0.5 text-xs text-slate-400">{table.notes}</div> : null}
+                          </td>
+                          <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
+                          <td className="px-4 py-3">{table.pod ?? '-'}</td>
+                          <td className="px-4 py-3">
+                            {table.valid_from}{table.valid_to ? ` até ${table.valid_to}` : ' (aberta)'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Badge tone="blue">{autoCount} auto</Badge>
+                              {manualCount > 0 ? <Badge tone="yellow">{manualCount} manual</Badge> : null}
                             </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="app-table__icon-button"
-                            type="button"
-                            onClick={() => handleEditTable(table.id)}
-                            aria-label="Editar tabela"
-                            title="Editar tabela"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            className="app-table__icon-button"
-                            type="button"
-                            onClick={() => handlePrepareTableItem(table.id)}
-                            aria-label="Novo item nesta tabela"
-                            title="Novo item nesta tabela"
-                          >
-                            <Plus size={13} />
-                          </button>
-                          <button
-                            className={`app-table__icon-button ${table.active ? 'app-table__icon-button--danger' : ''}`}
-                            type="button"
-                            onClick={() => handleToggleTableActive(table.id, table.active)}
-                            aria-label={table.active ? 'Inativar tabela' : 'Ativar tabela'}
-                            title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
-                            disabled={setChargeTableActiveMutation.isPending}
-                          >
-                            {table.active ? <X size={13} /> : <Save size={13} />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                className="app-table__icon-button"
+                                type="button"
+                                onClick={() => handleEditTable(table.id)}
+                                aria-label="Editar tabela"
+                                title="Editar tabela"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                className="app-table__icon-button"
+                                type="button"
+                                onClick={() => handlePrepareTableItem(table.id)}
+                                aria-label="Novo item nesta tabela"
+                                title="Novo item nesta tabela"
+                              >
+                                <Plus size={13} />
+                              </button>
+                              <button
+                                className={`app-table__icon-button ${table.active ? 'app-table__icon-button--danger' : ''}`}
+                                type="button"
+                                onClick={() => handleToggleTableActive(table.id, table.active)}
+                                aria-label={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                                title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                                disabled={setChargeTableActiveMutation.isPending}
+                              >
+                                {table.active ? <X size={13} /> : <Save size={13} />}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              className="app-table__icon-button"
+                              type="button"
+                              onClick={() => setExpandedTableId(isExpanded ? null : table.id)}
+                              title={isExpanded ? 'Recolher itens' : 'Ver itens'}
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded ? (
+                          <tr key={`${table.id}-items`} className="bg-[#0d1117]">
+                            <td colSpan={8} className="px-6 py-3">
+                              {(table.charge_table_items?.length ?? 0) === 0 ? (
+                                <div className="py-4 text-center text-sm text-slate-400">Nenhum item cadastrado nesta tabela.</div>
+                              ) : (
+                                <table className="w-full text-left text-sm">
+                                  <thead className="text-xs uppercase tracking-wider text-slate-500">
+                                    <tr>
+                                      <th className="py-2 pr-4">Item</th>
+                                      <th className="py-2 pr-4">Perfil</th>
+                                      <th className="py-2 pr-4">Base</th>
+                                      <th className="py-2 pr-4">Moeda</th>
+                                      <th className="py-2 pr-4 text-right">Valor</th>
+                                      <th className="py-2 pr-4">Tipo</th>
+                                      <th className="py-2"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-[#30363d]">
+                                    {table.charge_table_items?.map((item) => (
+                                      <tr key={item.id}>
+                                        <td className="py-2 pr-4 font-medium text-white">
+                                          {item.name}
+                                          {!item.active ? <span className="ml-2 text-xs text-slate-500">(inativo)</span> : null}
+                                        </td>
+                                        <td className="py-2 pr-4 text-slate-400">{item.cargo_profile ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-slate-400">{item.application_basis ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-slate-400">{item.currency ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-right font-semibold text-white">
+                                          {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
+                                        </td>
+                                        <td className="py-2 pr-4">
+                                          {item.manual_only ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}
+                                        </td>
+                                        <td className="py-2">
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              className="app-table__icon-button"
+                                              type="button"
+                                              onClick={() => handleEditTableItem(table.id, item.id)}
+                                              title="Editar item"
+                                            >
+                                              <Pencil size={13} />
+                                            </button>
+                                            <button
+                                              className="app-table__icon-button app-table__icon-button--danger"
+                                              type="button"
+                                              onClick={() => handleDeleteTableItem(item.id)}
+                                              disabled={deleteChargeTableItemMutation.isPending}
+                                              title="Excluir item"
+                                            >
+                                              <Trash2 size={13} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
