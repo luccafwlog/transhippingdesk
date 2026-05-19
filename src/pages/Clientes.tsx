@@ -329,22 +329,7 @@ export function Clientes() {
         <MetricCard label="Saldo pendente" value={formatBRL(totals.pendingBalance)} />
       </div>
 
-      <div className="app-section-grid app-section-grid--split mb-5">
-        <Card>
-          <div className="app-soft-panel">
-            <h3 className="app-soft-panel__title">Cadastro mestre antes da importacao</h3>
-            <p className="app-soft-panel__description">
-              Manifestos nao criam clientes automaticamente. O vinculo do B/L so acontece quando o CNPJ/CPF ja existe
-              nesta base.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge tone="blue">Manifesto nao cria cliente</Badge>
-              <Badge tone="green">Match por documento</Badge>
-              <Badge tone="yellow">Sem religacao retroativa</Badge>
-            </div>
-          </div>
-        </Card>
-
+      <div className="mb-5">
         <Card>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Buscar por nome ou CNPJ">
