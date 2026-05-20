@@ -2,19 +2,59 @@ import { supabase } from './supabase'
 import type { BaplieContainer } from './baplieParser'
 
 export type BaplieImportResult = {
+  staged: number
   updated: number
   unchanged: number
   missing: number
 }
 
+/** Persiste containers do Baplie no staging. Substitui staging anterior da mesma viagem. */
+export async function importBaplieStaging(
+  voyageId: number,
+  containers: BaplieContainer[],
+  actorId?: string | null,
+): Promise<{ staged: number }> {
+  const { error: deleteError } = await supabase
+    .from('baplie_containers')
+    .delete()
+    .eq('voyage_id', voyageId)
+
+  if (deleteError) throw deleteError
+
+  if (!containers.length) return { staged: 0 }
+
+  const rows = containers.map((c) => ({
+    voyage_id: voyageId,
+    container_number: c.container_number,
+    size_type: c.size_type,
+    status: c.status,
+    weight_kg: c.weight_kg,
+    pol: c.pol,
+    pod: c.pod,
+    final_dest: c.final_dest,
+    bl_ref: c.bl_ref,
+    slot: c.slot,
+    is_imo: c.is_imo,
+    imo_class: c.imo_class,
+    un_number: c.un_number,
+    is_oog: c.is_oog,
+    imported_by: actorId ?? null,
+  }))
+
+  const { error: insertError } = await supabase.from('baplie_containers').insert(rows)
+  if (insertError) throw insertError
+
+  return { staged: rows.length }
+}
+
+/** Aplica flags IMO/OOG do Baplie em bl_containers já existentes (fluxo retroativo: manifesto importado antes do Baplie). */
 export async function importBaplieFlags(
   voyageId: number,
   containers: BaplieContainer[],
   actorId?: string | null,
 ): Promise<BaplieImportResult> {
-  if (!containers.length) return { updated: 0, unchanged: 0, missing: 0 }
+  if (!containers.length) return { updated: 0, unchanged: 0, missing: 0, staged: 0 }
 
-  // Fetch all bl_containers for this voyage
   const { data: blRows, error: blError } = await supabase
     .from('bls')
     .select('id')
@@ -23,7 +63,7 @@ export async function importBaplieFlags(
   if (blError) throw blError
 
   const blIds = (blRows ?? []).map((r) => r.id)
-  if (!blIds.length) return { updated: 0, unchanged: 0, missing: containers.length }
+  if (!blIds.length) return { updated: 0, unchanged: 0, missing: containers.length, staged: 0 }
 
   const { data: existingContainers, error } = await supabase
     .from('bl_containers')
@@ -32,7 +72,6 @@ export async function importBaplieFlags(
 
   if (error) throw error
 
-  // Index by container_number (normalized, no spaces)
   const byNumber = new Map<string, typeof existingContainers>()
   for (const c of existingContainers ?? []) {
     const key = c.container_number.replace(/\s+/g, '').toUpperCase()
@@ -113,7 +152,7 @@ export async function importBaplieFlags(
     await supabase.from('audit_logs').insert(auditEntries)
   }
 
-  return { updated, unchanged, missing }
+  return { updated, unchanged, missing, staged: 0 }
 }
 
 function normalizeVal(v: string | null | undefined) {
