@@ -9,13 +9,6 @@ export type VoyageVaziosImportacaoStat = {
   destinations: string
 }
 
-const EMPTY_STAT: VoyageVaziosImportacaoStat = {
-  totalManifests: 0,
-  distinctContainers: 0,
-  containerTypes: '',
-  destinations: '',
-}
-
 export function useVaziosImportacaoStats(voyageIds: number[]) {
   const normalizedIds = useMemo(
     () => Array.from(new Set(voyageIds)).filter((id) => Number.isFinite(id)).sort((a, b) => a - b),
