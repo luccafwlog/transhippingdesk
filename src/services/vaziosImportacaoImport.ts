@@ -153,17 +153,17 @@ export async function importVaziosFromBaplie({
   description?: string
 }): Promise<{ manifestId: string; total: number }> {
   const PAGE = 1000
-  let containers: { container_number: string; size_type: string | null }[] = []
+  let containers: { container_number: string; size_type: string | null; weight_kg: number | null; pod: string | null }[] = []
   let from = 0
   while (true) {
     const { data, error: stagedError } = await supabase
       .from('baplie_containers' as never)
-      .select('container_number, size_type')
+      .select('container_number, size_type, weight_kg, pod')
       .eq('voyage_id', voyageId)
       .eq('status', 'empty')
       .range(from, from + PAGE - 1)
     if (stagedError) throw stagedError
-    containers = containers.concat((data ?? []) as { container_number: string; size_type: string | null }[])
+    containers = containers.concat((data ?? []) as { container_number: string; size_type: string | null; weight_kg: number | null; pod: string | null }[])
     if (!data || data.length < PAGE) break
     from += PAGE
   }
@@ -186,7 +186,8 @@ export async function importVaziosFromBaplie({
     manifest_id: manifestRow.id,
     container_number: c.container_number,
     container_type: c.size_type,
-    tare_kg: null,
+    tare_kg: c.weight_kg,
+    pod: c.pod,
   }))
 
   const { error: insertError } = await supabase
@@ -212,7 +213,7 @@ export async function listVaziosImportacaoContainers(filters: {
   let query = supabase
     .from('vazios_importacao_containers')
     .select(
-      `*, manifest:vazios_importacao_manifests(id, voyage_id, description, imported_at)`,
+      `*, manifest:vazios_importacao_manifests(id, voyage_id, description, imported_at, voyage:voyages(voyage_number, vessel:vessels(name)))`,
       { count: 'exact' },
     )
     .range(from, to)

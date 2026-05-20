@@ -1065,11 +1065,14 @@ export type VaziosImportacaoContainer = {
   container_number: string
   container_type: string | null
   tare_kg: number | null
+  pod: string | null
   created_at: string | null
 }
 
 export type VaziosImportacaoContainerListItem = VaziosImportacaoContainer & {
-  manifest?: Pick<VaziosImportacaoManifest, 'id' | 'voyage_id' | 'description' | 'imported_at'> | null
+  manifest?: (Pick<VaziosImportacaoManifest, 'id' | 'voyage_id' | 'description' | 'imported_at'> & {
+    voyage?: { voyage_number: string; vessel: { name: string } | null } | null
+  }) | null
 }
 
 export type BaplieContainer = {
