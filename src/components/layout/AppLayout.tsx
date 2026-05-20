@@ -41,7 +41,7 @@ const importNavItems: NavItem[] = [
   { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
   { to: '/containers', label: 'Containers', icon: Boxes },
   { to: '/veiculos', label: 'Veiculos', icon: Car },
-  { to: '/vazios-importacao', label: 'Vazios — Importacao', icon: Package },
+  { to: '/vazios-importacao', label: 'Vazios IMP', icon: Package },
   { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
 ]
 
