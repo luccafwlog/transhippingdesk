@@ -229,7 +229,7 @@ export function Faturamento() {
     const hasLocal = selectedRows.some((row) => row.origin === 'local')
     const hasGranite = selectedRows.some((row) => row.origin === 'granite')
     if (hasLocal && hasGranite) {
-      showToast('Nao e possivel misturar B/Ls locais e Granito na mesma invoice.', 'error')
+      showToast('Não é possível misturar B/Ls locais e Granito na mesma invoice.', 'error')
       return
     }
     try {
@@ -332,7 +332,7 @@ export function Faturamento() {
     <>
       <PageHeader
         title="Faturamento"
-        description="Emissao de invoice por B/L unico ou consolidada por cliente, com baixa parcial/total e cancelamento."
+        description="Emissão de invoice por B/L único ou consolidada por cliente, com baixa parcial/total e cancelamento."
         action={<Button onClick={() => setCreateOpen(true)}><FilePlus2 size={16} />Nova Invoice</Button>}
       />
 
@@ -352,16 +352,16 @@ export function Faturamento() {
           <Field label="B/L vinculado"><Input value={filters.blSearch} onChange={(event) => updateFilter('blSearch', event.target.value)} /></Field>
           <Field label="Emissao de"><Input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} /></Field>
           <Field label="Emissao ate"><Input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} /></Field>
-          <Field label="Itens por pagina"><Select value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>{pageSizes.map((size) => <option key={size} value={size}>{size}/pag.</option>)}</Select></Field>
-          <Field label="Busca rapida de cliente"><Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Refina listas e emissao" /></Field>
+          <Field label="Itens por página"><Select value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>{pageSizes.map((size) => <option key={size} value={size}>{size}/pág.</option>)}</Select></Field>
+          <Field label="Busca rápida de cliente"><Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Refina listas e emissão" /></Field>
         </div>
       </Card>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Invoices filtradas" value={String(summary.count)} />
         <MetricCard label="Saldo aberto" value={formatBRL(summary.openBalance)} />
-        <MetricCard label="Pagas (pagina)" value={String(summary.paidCount)} />
-        <MetricCard label="Vencidas (pagina)" value={String(summary.overdueCount)} />
+        <MetricCard label="Pagas (página)" value={String(summary.paidCount)} />
+        <MetricCard label="Vencidas (página)" value={String(summary.overdueCount)} />
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -382,7 +382,7 @@ export function Faturamento() {
                           {invoice.customer?.name ?? '-'}
                         </span>
                       </div>
-                      <div className="app-table__cell-meta">{invoice.customer?.cnpj_cpf ?? 'Cliente nao identificado'}</div>
+                      <div className="app-table__cell-meta">{invoice.customer?.cnpj_cpf ?? 'Cliente não identificado'}</div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -429,7 +429,7 @@ export function Faturamento() {
               <Field label="Vencimento"><Input type="date" value={createDueDate} onChange={(event) => setCreateDueDate(event.target.value)} /></Field>
               <Field label="Buscar B/L"><Input value={createSearch} onChange={(event) => setCreateSearch(event.target.value)} /></Field>
               <div className="md:col-span-2 xl:col-span-2">
-                <Field label="Observacoes"><Textarea value={createNotes} onChange={(event) => setCreateNotes(event.target.value)} /></Field>
+                <Field label="Observações"><Textarea value={createNotes} onChange={(event) => setCreateNotes(event.target.value)} /></Field>
               </div>
             </div>
           </Card>
@@ -492,10 +492,10 @@ export function Faturamento() {
                 <SelectionMetric label="Cliente" value={createSelectionSummary.customerLabel} />
                 <SelectionMetric label="Viagem" value={createSelectionSummary.voyageLabel} />
                 <SelectionMetric label="Trechos" value={createSelectionSummary.routePreview} />
-                <SelectionMetric label="Vencimento" value={createDueDate ? formatDate(createDueDate) : 'Nao definido'} />
+                <SelectionMetric label="Vencimento" value={createDueDate ? formatDate(createDueDate) : 'Não definido'} />
               </div>
               <div className="mt-4 rounded-xl border border-dashed border-[#30363d] bg-[#111827] px-3 py-3 text-xs text-slate-400">
-                A emissao bloqueia B/Ls com conflito financeiro, cliente nao reconciliado ou valores em USD.
+                A emissão bloqueia B/Ls com conflito financeiro, cliente não reconciliado ou valores em USD.
               </div>
             </Card>
           </div>
@@ -598,7 +598,7 @@ export function Faturamento() {
                         <th className="px-3 py-2">Data</th>
                         <th className="px-3 py-2">Metodo</th>
                         <th className="px-3 py-2">Valor</th>
-                        <th className="px-3 py-2">Observacoes</th>
+                        <th className="px-3 py-2">Observações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">

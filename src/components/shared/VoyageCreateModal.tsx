@@ -178,7 +178,7 @@ export function VoyageCreateModal({
             <div>
               <div className="font-semibold text-white">Portos de descarga para o Line-Up</div>
               <div className="text-sm text-slate-400">
-                Informe um ETA para cada POD que precisa aparecer no quadro antes da importacao dos manifestos.
+                Informe um ETA para cada POD que precisa aparecer no quadro antes da importação dos manifestos.
               </div>
             </div>
             <Button variant="secondary" type="button" onClick={addDischargePort}>

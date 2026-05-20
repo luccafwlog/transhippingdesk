@@ -32,7 +32,7 @@ export function PortalLogin() {
       if (code === 'P0429') {
         setError('Muitas tentativas de acesso. Aguarde alguns minutos antes de tentar novamente.')
       } else {
-        setError('Credenciais invalidas para o portal do cliente.')
+        setError('Credenciais inválidas para o portal do cliente.')
       }
     } finally {
       setSubmitting(false)
@@ -81,7 +81,7 @@ export function PortalLogin() {
           </Button>
         </form>
 
-        <p className="app-auth__meta">Acesso provisionado internamente por cliente. Nao ha cadastro publico.</p>
+        <p className="app-auth__meta">Acesso provisionado internamente por cliente. Não há cadastro público.</p>
       </Card>
     </main>
   )

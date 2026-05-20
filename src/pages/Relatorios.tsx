@@ -27,8 +27,8 @@ export function Relatorios() {
   return (
     <>
       <PageHeader
-        title="Relatorios"
-        description="Visao consolidada de operacao, faturamento e clientes por periodo. Limite de 2.000 linhas por consulta."
+        title="Relatórios"
+        description="Visão consolidada de operação, faturamento e clientes por período. Limite de 2.000 linhas por consulta."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -94,9 +94,9 @@ function OperationalReportTab() {
       const rows = await fetchOperationalReportForExport(filters)
       const { exportOperationalReportWorkbook } = await import('../services/exports')
       await exportOperationalReportWorkbook(rows)
-      showToast(`Relatorio operacional exportado (${rows.length} linhas).`, 'success')
+      showToast(`Relatório operacional exportado (${rows.length} linhas).`, 'success')
     } catch {
-      showToast('Falha ao exportar o relatorio.', 'error')
+      showToast('Falha ao exportar o relatório.', 'error')
     } finally {
       setExporting(false)
     }
@@ -158,12 +158,12 @@ function OperationalReportTab() {
 
       {data?.kpis.truncated ? (
         <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Limite de 2.000 linhas atingido. Ajuste o periodo para ver resultados mais recentes.
+          Limite de 2.000 linhas atingido. Ajuste o período para ver resultados mais recentes.
         </div>
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        {error ? <InlineError message="Erro ao carregar relatorio operacional." /> : null}
+        {error ? <InlineError message="Erro ao carregar relatório operacional." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1100px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -176,7 +176,7 @@ function OperationalReportTab() {
                 <th className="px-4 py-3">Containers</th>
                 <th className="px-4 py-3 text-right">Peso (kg)</th>
                 <th className="px-4 py-3 text-right">CBM</th>
-                <th className="px-4 py-3">Revisao</th>
+                <th className="px-4 py-3">Revisão</th>
                 <th className="px-4 py-3">Financeiro</th>
               </tr>
             </thead>
@@ -184,14 +184,14 @@ function OperationalReportTab() {
               {isLoading ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
-                    Carregando relatorio...
+                    Carregando relatório...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
                   <td colSpan={10} className="p-0">
-                    <EmptyState title="Nenhum dado encontrado." description="Ajuste o periodo ou os filtros aplicados." />
+                    <EmptyState title="Nenhum dado encontrado." description="Ajuste o período ou os filtros aplicados." />
                   </td>
                 </tr>
               ) : null}
@@ -250,9 +250,9 @@ function FinancialReportTab() {
       const rows = await fetchFinancialReportForExport(filters)
       const { exportFinancialReportWorkbook } = await import('../services/exports')
       await exportFinancialReportWorkbook(rows)
-      showToast(`Relatorio financeiro exportado (${rows.length} linhas).`, 'success')
+      showToast(`Relatório financeiro exportado (${rows.length} linhas).`, 'success')
     } catch {
-      showToast('Falha ao exportar o relatorio.', 'error')
+      showToast('Falha ao exportar o relatório.', 'error')
     } finally {
       setExporting(false)
     }
@@ -303,7 +303,7 @@ function FinancialReportTab() {
 
       {data?.accessDenied ? (
         <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Visualizacao financeira restrita ao perfil admin.
+          Visualização financeira restrita ao perfil admin.
         </div>
       ) : null}
 
@@ -317,19 +317,19 @@ function FinancialReportTab() {
 
       {data?.kpis.truncated ? (
         <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Limite de 2.000 linhas atingido. Ajuste o periodo para ver resultados mais recentes.
+          Limite de 2.000 linhas atingido. Ajuste o período para ver resultados mais recentes.
         </div>
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        {error ? <InlineError message="Erro ao carregar relatorio financeiro." /> : null}
+        {error ? <InlineError message="Erro ao carregar relatório financeiro." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Invoice</th>
                 <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Emissao</th>
+                <th className="px-4 py-3">Emissão</th>
                 <th className="px-4 py-3">Vencimento</th>
                 <th className="px-4 py-3 text-right">Total BRL</th>
                 <th className="px-4 py-3 text-right">Saldo BRL</th>
@@ -340,14 +340,14 @@ function FinancialReportTab() {
               {isLoading ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    Carregando relatorio...
+                    Carregando relatório...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length && !data?.accessDenied ? (
                 <tr>
                   <td colSpan={7} className="p-0">
-                    <EmptyState title="Nenhum dado encontrado." description="Ajuste o periodo ou os filtros aplicados." />
+                    <EmptyState title="Nenhum dado encontrado." description="Ajuste o período ou os filtros aplicados." />
                   </td>
                 </tr>
               ) : null}
@@ -414,9 +414,9 @@ function CustomerReportTab() {
     try {
       const { exportCustomerReportWorkbook } = await import('../services/exports')
       await exportCustomerReportWorkbook(data.rows)
-      showToast('Relatorio por cliente exportado.', 'success')
+      showToast('Relatório por cliente exportado.', 'success')
     } catch {
-      showToast('Falha ao exportar o relatorio.', 'error')
+      showToast('Falha ao exportar o relatório.', 'error')
     } finally {
       setExporting(false)
     }
@@ -451,7 +451,7 @@ function CustomerReportTab() {
 
       {data?.invoicesAccessDenied ? (
         <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Totais financeiros por cliente indisponiveis para este perfil. Exibindo apenas metricas operacionais.
+          Totais financeiros por cliente indisponíveis para este perfil. Exibindo apenas métricas operacionais.
         </div>
       ) : null}
 
@@ -464,12 +464,12 @@ function CustomerReportTab() {
 
       {data?.kpis.truncated ? (
         <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Limite de linhas atingido. Ajuste o periodo para resultados mais precisos.
+          Limite de linhas atingido. Ajuste o período para resultados mais precisos.
         </div>
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        {error ? <InlineError message="Erro ao carregar relatorio por cliente." /> : null}
+        {error ? <InlineError message="Erro ao carregar relatório por cliente." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1020px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -488,14 +488,14 @@ function CustomerReportTab() {
               {isLoading ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
-                    Carregando relatorio...
+                    Carregando relatório...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
                   <td colSpan={8} className="p-0">
-                    <EmptyState title="Nenhum dado encontrado." description="Ajuste o periodo ou os filtros aplicados." />
+                    <EmptyState title="Nenhum dado encontrado." description="Ajuste o período ou os filtros aplicados." />
                   </td>
                 </tr>
               ) : null}
@@ -588,7 +588,7 @@ function DemurrageReportTab() {
         </div>
       )}
 
-      {error ? <InlineError message="Erro ao carregar relatorio de demurrage." /> : null}
+      {error ? <InlineError message="Erro ao carregar relatório de demurrage." /> : null}
 
       <Card className="overflow-hidden p-0">
         <div className="app-table-scroll">
@@ -598,7 +598,7 @@ function DemurrageReportTab() {
                 <th className="px-4 py-3">Doc</th>
                 <th className="px-4 py-3">BL</th>
                 <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Emissao</th>
+                <th className="px-4 py-3">Emissão</th>
                 <th className="px-4 py-3">Vencimento</th>
                 <th className="px-4 py-3 text-right">Total USD</th>
                 <th className="px-4 py-3 text-right">Total BRL</th>
@@ -610,7 +610,7 @@ function DemurrageReportTab() {
                 <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Carregando...</td></tr>
               ) : null}
               {!isLoading && !invoices.length ? (
-                <tr><td colSpan={8} className="p-0"><EmptyState title="Nenhuma invoice no periodo." /></td></tr>
+                <tr><td colSpan={8} className="p-0"><EmptyState title="Nenhuma invoice no período." /></td></tr>
               ) : null}
               {invoices.map((inv) => {
                 const customer = (inv as { customer?: { name?: string } }).customer

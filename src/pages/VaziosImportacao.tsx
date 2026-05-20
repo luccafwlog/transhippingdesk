@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyageOptions } from '../hooks/useBls'
+import { formatDate } from '../lib/utils'
 import {
   parseVaziosImportacaoFile,
   importVaziosImportacaoManifest,
@@ -115,7 +116,7 @@ export function VaziosImportacao() {
     <>
       <PageHeader
         title="Vazios — Importacao"
-        description="Containers vazios que descarregam (chegam) ao porto. Sao os futuros vazios de exportacao."
+        description="Containers vazios que descarregam (chegam) ao porto. São os futuros vazios de exportação."
         action={
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />
@@ -148,15 +149,13 @@ export function VaziosImportacao() {
               <option value="">Todos</option>
               {(manifests ?? []).map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.description
-                    ? m.description
-                    : new Date(m.imported_at).toLocaleDateString('pt-BR')}{' '}
+                  {m.description ? m.description : formatDate(m.imported_at)}{' '}
                   ({m.total_containers} ctrs)
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="Por pagina">
+          <Field label="Por página">
             <Select value={filters.pageSize} onChange={(e) => updateFilter('pageSize', Number(e.target.value))}>
               {pageSizes.map((s) => (
                 <option key={s} value={s}>{s}/pag.</option>
@@ -176,6 +175,8 @@ export function VaziosImportacao() {
                 <th className="px-4 py-3">Container</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Tara (kg)</th>
+                <th className="px-4 py-3">POD</th>
+                <th className="px-4 py-3">Navio / Viagem</th>
                 <th className="px-4 py-3">Manifesto</th>
                 <th className="px-4 py-3">Importado em</th>
               </tr>
@@ -183,12 +184,12 @@ export function VaziosImportacao() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={5}>Carregando...</td>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>Carregando...</td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-0">
+                  <td colSpan={7} className="p-0">
                     <EmptyState
                       title="Nenhum container encontrado."
                       description="Importe uma planilha ou ajuste os filtros."
@@ -199,20 +200,20 @@ export function VaziosImportacao() {
               {(data?.rows ?? []).map((row) => {
                 const manifestLabel = row.manifest?.description
                   ? row.manifest.description
-                  : row.manifest?.imported_at
-                    ? new Date(row.manifest.imported_at).toLocaleDateString('pt-BR')
-                    : '-'
+                  : formatDate(row.manifest?.imported_at)
                 return (
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
                     <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.container_number}</td>
                     <td className="px-4 py-3">{row.container_type ?? '-'}</td>
                     <td className="px-4 py-3">{row.tare_kg != null ? String(row.tare_kg) : '-'}</td>
-                    <td className="px-4 py-3">{manifestLabel}</td>
+                    <td className="px-4 py-3">{row.pod ?? '-'}</td>
                     <td className="px-4 py-3">
-                      {row.manifest?.imported_at
-                        ? new Date(row.manifest.imported_at).toLocaleDateString('pt-BR')
+                      {row.manifest?.voyage
+                        ? `${row.manifest.voyage.vessel?.name ?? '-'} / ${row.manifest.voyage.voyage_number}`
                         : '-'}
                     </td>
+                    <td className="px-4 py-3">{manifestLabel}</td>
+                    <td className="px-4 py-3">{formatDate(row.manifest?.imported_at)}</td>
                   </tr>
                 )
               })}
@@ -324,7 +325,7 @@ export function VaziosImportacao() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={resetUpload}>Cancelar</Button>
             <Button disabled={!manifest || !user || !voyageId} loading={submitting} onClick={handleImport}>
-              Confirmar importacao
+              Confirmar importação
             </Button>
           </div>
         </div>

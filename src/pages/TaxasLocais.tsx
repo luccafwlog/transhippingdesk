@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calculator, CheckSquare, Download, Pencil, Plus, RefreshCw, Save, Square, Trash2, X } from 'lucide-react'
+import { Calculator, CheckCircle, CheckSquare, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Save, Square, Trash2, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -12,8 +12,6 @@ import {
   useBatchCalculateLocalCharges,
   useBatchMarkLocalChargesReady,
   useBatchMarkLocalChargesReviewed,
-  useBillingRunDetails,
-  useBillingRuns,
   useCustomerReconciliationQueue,
   useDeleteChargeTableItem,
   useSaveChargeTable,
@@ -118,7 +116,9 @@ export function TaxasLocais() {
   const canManageTables = can('charge_tables')
   const canManageOverrides = can('charge_overrides')
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
-  const [operationPanel, setOperationPanel] = useState<'overview' | 'bls'>('overview')
+  const [expandedTableId, setExpandedTableId] = useState<number | null>(null)
+  const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
+  const [reconciliationFilter, setReconciliationFilter] = useState(false)
   const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta'>('')
   const [podFilter, setPodFilter] = useState('')
   const [tableForm, setTableForm] = useState<ChargeTableForm>(EMPTY_TABLE_FORM)
@@ -170,10 +170,7 @@ export function TaxasLocais() {
   const batchCalculateMutation = useBatchCalculateLocalCharges()
   const batchReviewedMutation = useBatchMarkLocalChargesReviewed()
   const batchReadyMutation = useBatchMarkLocalChargesReady()
-  const { data: billingRuns, isLoading: billingRunsLoading } = useBillingRuns(20)
-  const [selectedBillingRunId, setSelectedBillingRunId] = useState<number | null>(null)
-  const billingRunDetailsQuery = useBillingRunDetails(selectedBillingRunId)
-  const { data: reconciliationQueue, isLoading: reconciliationLoading } = useCustomerReconciliationQueue('pending', 50)
+  const { data: reconciliationQueue } = useCustomerReconciliationQueue('pending', 50)
   const approveReconciliationMutation = useApproveCustomerReconciliation()
   const rejectReconciliationMutation = useRejectCustomerReconciliation()
 
@@ -196,6 +193,7 @@ export function TaxasLocais() {
       total: rows.length,
       notCalculated: rows.filter((row) => row.charge_status === 'not_calculated').length,
       reviewRequired: rows.filter((row) => row.charge_status === 'review_required').length,
+      reviewed: rows.filter((row) => row.charge_status === 'reviewed').length,
       ready: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
       reconciliationPending: rows.filter((row) => !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')).length,
       blocked: rows.filter((row) => Boolean(row.billing_hold_reason)).length,
@@ -204,15 +202,44 @@ export function TaxasLocais() {
     }
   }, [operationsRows])
 
-  const areAllOpsRowsSelected = useMemo(() => {
+  const displayedRows = useMemo(() => {
     const rows = operationsRows ?? []
-    if (rows.length === 0) return false
-    return rows.every((row) => selectedOpsRows.includes(row.id))
-  }, [operationsRows, selectedOpsRows])
+    if (reconciliationFilter) {
+      return rows.filter((row) => !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? ''))
+    }
+    return rows
+  }, [operationsRows, reconciliationFilter])
+
+  const pipelineBottleneck = useMemo(() => {
+    if (operationsSummary.reconciliationPending > 0) return 'reconciliation'
+    if (operationsSummary.notCalculated > 0) return 'not_calculated'
+    if (operationsSummary.reviewRequired > 0) return 'review_required'
+    if (operationsSummary.reviewed > 0) return 'reviewed'
+    if (operationsSummary.ready > 0) return 'ready_for_billing'
+    return null
+  }, [operationsSummary])
+
+  const areAllOpsRowsSelected = useMemo(() => {
+    if (displayedRows.length === 0) return false
+    return displayedRows.every((row) => selectedOpsRows.includes(row.id))
+  }, [displayedRows, selectedOpsRows])
 
   function updateOpsFilter<K extends keyof LocalChargeOpsFilters>(field: K, value: LocalChargeOpsFilters[K]) {
     setOpsFilters((current) => ({ ...current, [field]: value }))
     setSelectedOpsRows([])
+    setReconciliationFilter(false)
+  }
+
+  function handlePipelineStep(step: 'reconciliation' | 'not_calculated' | 'review_required' | 'reviewed' | 'ready_for_billing') {
+    if (step === 'reconciliation') {
+      setReconciliationFilter(true)
+      setOpsFilters((f) => ({ ...f, chargeStatus: '' }))
+    } else {
+      setReconciliationFilter(false)
+      setOpsFilters((f) => ({ ...f, chargeStatus: step }))
+    }
+    setSelectedOpsRows([])
+    setExpandedBlId(null)
   }
 
   function toggleOpsRow(blId: string) {
@@ -225,24 +252,21 @@ export function TaxasLocais() {
   }
 
   function toggleAllOpsRows() {
-    const rows = operationsRows ?? []
-    if (!rows.length) {
+    if (!displayedRows.length) {
       setSelectedOpsRows([])
       return
     }
-
     if (areAllOpsRowsSelected) {
       setSelectedOpsRows([])
       return
     }
-
-    setSelectedOpsRows(rows.map((row) => row.id))
+    setSelectedOpsRows(displayedRows.map((row) => row.id))
   }
 
   async function handleExportOperations() {
     const rows = operationsRows ?? []
     if (!rows.length) {
-      showToast('Nao ha dados para exportar com os filtros atuais.', 'info')
+      showToast('Não há dados para exportar com os filtros atuais.', 'info')
       return
     }
 
@@ -252,7 +276,7 @@ export function TaxasLocais() {
       await exportLocalChargeOperationsWorkbook(rows)
       showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
     } catch {
-      showToast('Falha ao exportar operacao de taxas locais.', 'error')
+      showToast('Falha ao exportar operação de taxas locais.', 'error')
     } finally {
       setExportingOps(false)
     }
@@ -313,7 +337,7 @@ export function TaxasLocais() {
 
   async function handleApproveQueueItem(queueId: number, customerId?: number | null) {
     if (!customerId) {
-      showToast('Nao ha cliente vinculado para aprovacao automatica. Revise o cadastro antes.', 'error')
+      showToast('Não há cliente vinculado para aprovação automática. Revise o cadastro antes.', 'error')
       return
     }
 
@@ -323,9 +347,9 @@ export function TaxasLocais() {
         customerId,
         actorId: user?.id ?? null,
       })
-      showToast('Reconciliacao aprovada.', 'success')
+      showToast('Reconciliação aprovada.', 'success')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliacao.', 'error')
+      showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliação.', 'error')
     }
   }
 
@@ -335,9 +359,9 @@ export function TaxasLocais() {
         queueId,
         actorId: user?.id ?? null,
       })
-      showToast('Reconciliacao rejeitada.', 'success')
+      showToast('Reconciliação rejeitada.', 'success')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliacao.', 'error')
+      showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliação.', 'error')
     }
   }
 
@@ -359,7 +383,7 @@ export function TaxasLocais() {
       return
     }
     if (overrideForm.validFrom && overrideForm.validTo && overrideForm.validTo < overrideForm.validFrom) {
-      showToast('A vigencia final nao pode ser anterior a vigencia inicial.', 'error')
+      showToast('A vigência final não pode ser anterior à vigência inicial.', 'error')
       return
     }
 
@@ -425,11 +449,11 @@ export function TaxasLocais() {
       return
     }
     if (!tableForm.validFrom) {
-      showToast('Informe a vigencia inicial da tabela.', 'error')
+      showToast('Informe a vigência inicial da tabela.', 'error')
       return
     }
     if (tableForm.validTo && tableForm.validTo < tableForm.validFrom) {
-      showToast('Vigencia final nao pode ser anterior a inicial.', 'error')
+      showToast('Vigência final não pode ser anterior à inicial.', 'error')
       return
     }
 
@@ -623,7 +647,7 @@ export function TaxasLocais() {
                 {tableForm.id ? (
                   <Button variant="ghost" type="button" onClick={() => setTableForm(EMPTY_TABLE_FORM)}>
                     <X size={15} />
-                    Cancelar edicao
+                    Cancelar edição
                   </Button>
                 ) : null}
               </div>
@@ -700,7 +724,7 @@ export function TaxasLocais() {
                   />
                 </Field>
                 <div className="md:col-span-2">
-                  <Field label="Observacoes">
+                  <Field label="Observações">
                     <Textarea
                       value={tableForm.notes}
                       onChange={(event) =>
@@ -709,7 +733,7 @@ export function TaxasLocais() {
                           notes: event.target.value,
                         }))
                       }
-                      placeholder="Escopo da tabela, versao, premissas"
+                      placeholder="Escopo da tabela, versão, premissas"
                     />
                   </Field>
                 </div>
@@ -731,7 +755,7 @@ export function TaxasLocais() {
                 {tableItemForm.id ? (
                   <Button variant="ghost" type="button" onClick={() => setTableItemForm(EMPTY_TABLE_ITEM_FORM)}>
                     <X size={15} />
-                    Cancelar edicao
+                    Cancelar edição
                   </Button>
                 ) : null}
               </div>
@@ -891,130 +915,172 @@ export function TaxasLocais() {
           <Card className="overflow-hidden p-0">
             {tablesError ? (
               <div className="p-5 text-sm text-amber-200">
-                Nao foi possivel consultar tabelas de taxas locais. Se voce for operador, este acesso pode estar restrito por role.
+                Não foi possível consultar tabelas de taxas locais. Se você for operador, este acesso pode estar restrito por role.
               </div>
             ) : null}
             <div className="app-table-scroll">
-              <table className="app-table app-table--compact min-w-[1160px] table-fixed text-left text-sm">
+              <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="w-[18%] px-4 py-3">Tabela</th>
-                    <th className="w-[10%] px-4 py-3">Modo</th>
-                    <th className="w-[10%] px-4 py-3">POD</th>
-                    <th className="w-[14%] px-4 py-3">Vigencia</th>
-                    <th className="w-[10%] px-4 py-3">Status</th>
-                    <th className="w-[28%] px-4 py-3">Itens</th>
-                    <th className="w-[10%] px-4 py-3">Acoes</th>
+                    <th className="px-4 py-3">Tabela</th>
+                    <th className="px-4 py-3">Modo</th>
+                    <th className="px-4 py-3">POD</th>
+                    <th className="px-4 py-3">Vigencia</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Itens</th>
+                    <th className="px-4 py-3">Acoes</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {tablesLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
                         Carregando tabelas...
                       </td>
                     </tr>
                   ) : null}
                   {!tablesLoading && (tables?.length ?? 0) === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-0">
+                      <td colSpan={8} className="p-0">
                         <EmptyState title="Nenhuma tabela encontrada." />
                       </td>
                     </tr>
                   ) : null}
-                  {tables?.map((table) => (
-                    <tr key={table.id}>
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-white">{table.name}</div>
-                        {table.notes ? <div className="text-xs text-slate-400">{table.notes}</div> : null}
-                      </td>
-                      <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
-                      <td className="px-4 py-3">{table.pod ?? '-'}</td>
-                      <td className="px-4 py-3">
-                        {table.valid_from} {table.valid_to ? `ate ${table.valid_to}` : '(aberta)'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="grid gap-2">
-                          {(table.charge_table_items?.length ?? 0) === 0 ? <span className="text-slate-400">Sem itens</span> : null}
-                          {table.charge_table_items?.map((item) => (
-                            <div key={item.id} className="rounded-xl border border-[#30363d] px-3 py-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-white">{item.name}</div>
-                                  <div className="text-xs text-slate-400">
-                                    {item.application_basis ?? '-'} • {item.cargo_profile ?? '-'} • {item.currency ?? '-'}
-                                  </div>
-                                </div>
-                                <div className="text-right text-xs font-semibold text-slate-400">
-                                  {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
-                                </div>
-                              </div>
-                              <div className="mt-2 flex items-center gap-1">
-                                {item.manual_only ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}
-                                {!item.active ? <Badge tone="slate">Inativo</Badge> : null}
-                              </div>
-                              <div className="mt-2 flex items-center gap-1">
-                                <button
-                                  className="app-table__icon-button"
-                                  type="button"
-                                  onClick={() => handleEditTableItem(table.id, item.id)}
-                                  aria-label="Editar item de taxa"
-                                  title="Editar item de taxa"
-                                >
-                                  <Pencil size={13} />
-                                </button>
-                                <button
-                                  className="app-table__icon-button app-table__icon-button--danger"
-                                  type="button"
-                                  onClick={() => handleDeleteTableItem(item.id)}
-                                  aria-label="Excluir item de taxa"
-                                  title="Excluir item de taxa"
-                                  disabled={deleteChargeTableItemMutation.isPending}
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
+                  {tables?.map((table) => {
+                    const isExpanded = expandedTableId === table.id
+                    const autoCount = table.charge_table_items?.filter((i) => !i.manual_only).length ?? 0
+                    const manualCount = table.charge_table_items?.filter((i) => i.manual_only).length ?? 0
+                    return (
+                      <>
+                        <tr key={table.id} className={isExpanded ? 'bg-[#161b22]' : undefined}>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-white">{table.name}</div>
+                            {table.notes ? <div className="mt-0.5 text-xs text-slate-400">{table.notes}</div> : null}
+                          </td>
+                          <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
+                          <td className="px-4 py-3">{table.pod ?? '-'}</td>
+                          <td className="px-4 py-3">
+                            {table.valid_from}{table.valid_to ? ` até ${table.valid_to}` : ' (aberta)'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Badge tone="blue">{autoCount} auto</Badge>
+                              {manualCount > 0 ? <Badge tone="yellow">{manualCount} manual</Badge> : null}
                             </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="app-table__icon-button"
-                            type="button"
-                            onClick={() => handleEditTable(table.id)}
-                            aria-label="Editar tabela"
-                            title="Editar tabela"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            className="app-table__icon-button"
-                            type="button"
-                            onClick={() => handlePrepareTableItem(table.id)}
-                            aria-label="Novo item nesta tabela"
-                            title="Novo item nesta tabela"
-                          >
-                            <Plus size={13} />
-                          </button>
-                          <button
-                            className={`app-table__icon-button ${table.active ? 'app-table__icon-button--danger' : ''}`}
-                            type="button"
-                            onClick={() => handleToggleTableActive(table.id, table.active)}
-                            aria-label={table.active ? 'Inativar tabela' : 'Ativar tabela'}
-                            title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
-                            disabled={setChargeTableActiveMutation.isPending}
-                          >
-                            {table.active ? <X size={13} /> : <Save size={13} />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                className="app-table__icon-button"
+                                type="button"
+                                onClick={() => handleEditTable(table.id)}
+                                aria-label="Editar tabela"
+                                title="Editar tabela"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                className="app-table__icon-button"
+                                type="button"
+                                onClick={() => handlePrepareTableItem(table.id)}
+                                aria-label="Novo item nesta tabela"
+                                title="Novo item nesta tabela"
+                              >
+                                <Plus size={13} />
+                              </button>
+                              <button
+                                className={`app-table__icon-button ${table.active ? 'app-table__icon-button--danger' : ''}`}
+                                type="button"
+                                onClick={() => handleToggleTableActive(table.id, table.active)}
+                                aria-label={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                                title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                                disabled={setChargeTableActiveMutation.isPending}
+                              >
+                                {table.active ? <X size={13} /> : <Save size={13} />}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              className="app-table__icon-button"
+                              type="button"
+                              onClick={() => setExpandedTableId(isExpanded ? null : table.id)}
+                              title={isExpanded ? 'Recolher itens' : 'Ver itens'}
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded ? (
+                          <tr key={`${table.id}-items`} className="bg-[#0d1117]">
+                            <td colSpan={8} className="px-6 py-3">
+                              {(table.charge_table_items?.length ?? 0) === 0 ? (
+                                <div className="py-4 text-center text-sm text-slate-400">Nenhum item cadastrado nesta tabela.</div>
+                              ) : (
+                                <table className="w-full text-left text-sm">
+                                  <thead className="text-xs uppercase tracking-wider text-slate-500">
+                                    <tr>
+                                      <th className="py-2 pr-4">Item</th>
+                                      <th className="py-2 pr-4">Perfil</th>
+                                      <th className="py-2 pr-4">Base</th>
+                                      <th className="py-2 pr-4">Moeda</th>
+                                      <th className="py-2 pr-4 text-right">Valor</th>
+                                      <th className="py-2 pr-4">Tipo</th>
+                                      <th className="py-2"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-[#30363d]">
+                                    {table.charge_table_items?.map((item) => (
+                                      <tr key={item.id}>
+                                        <td className="py-2 pr-4 font-medium text-white">
+                                          {item.name}
+                                          {!item.active ? <span className="ml-2 text-xs text-slate-500">(inativo)</span> : null}
+                                        </td>
+                                        <td className="py-2 pr-4 text-slate-400">{item.cargo_profile ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-slate-400">{item.application_basis ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-slate-400">{item.currency ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-right font-semibold text-white">
+                                          {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
+                                        </td>
+                                        <td className="py-2 pr-4">
+                                          {item.manual_only ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}
+                                        </td>
+                                        <td className="py-2">
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              className="app-table__icon-button"
+                                              type="button"
+                                              onClick={() => handleEditTableItem(table.id, item.id)}
+                                              title="Editar item"
+                                            >
+                                              <Pencil size={13} />
+                                            </button>
+                                            <button
+                                              className="app-table__icon-button app-table__icon-button--danger"
+                                              type="button"
+                                              onClick={() => handleDeleteTableItem(item.id)}
+                                              disabled={deleteChargeTableItemMutation.isPending}
+                                              title="Excluir item"
+                                            >
+                                              <Trash2 size={13} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1028,7 +1094,7 @@ export function TaxasLocais() {
             <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
               <div className="app-table__cell-stack">
                 <div className="text-base font-semibold text-white">Filtro operacional</div>
-                <div className="app-table__cell-meta">Trabalhe bloqueios, reconciliacao e prontidao de faturamento sobre a mesma base filtrada.</div>
+                <div className="app-table__cell-meta">Trabalhe bloqueios, conciliação e prontidão de faturamento sobre a mesma base filtrada.</div>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
@@ -1074,7 +1140,7 @@ export function TaxasLocais() {
                   }
                 >
                   <option value="">Todos</option>
-                  <option value="not_calculated">Nao calculado</option>
+                  <option value="not_calculated">Não calculado</option>
                   <option value="calculated">Calculado</option>
                   <option value="review_required">Revisao</option>
                   <option value="reviewed">Revisado</option>
@@ -1090,313 +1156,152 @@ export function TaxasLocais() {
             </div>
           </Card>
 
-          <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-8">
-            <MetricCard label="B/Ls na visao" value={String(operationsSummary.total)} />
-            <MetricCard label="Nao calculado" value={String(operationsSummary.notCalculated)} />
-            <MetricCard label="Revisao" value={String(operationsSummary.reviewRequired)} />
-            <MetricCard label="Pronto faturar" value={String(operationsSummary.ready)} />
-            <MetricCard label="Reconcil. pendente" value={String(operationsSummary.reconciliationPending)} />
-            <MetricCard label="Bloqueados" value={String(operationsSummary.blocked)} />
-            <MetricCard label="Subtotal BRL" value={formatBRL(operationsSummary.totalBrl)} />
-            <MetricCard label="Subtotal USD" value={formatUSD(operationsSummary.totalUsd)} />
-          </div>
-
           <Card className="mb-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-white">Superficie operacional</h3>
-                <p className="mt-1 text-sm text-slate-400">Use a visao executiva para tratar bloqueios e billing runs antes de abrir a grade detalhada de B/Ls.</p>
+                <div className="text-base font-semibold text-white">Fila de prioridades</div>
+                <div className="text-sm text-slate-400">Clique em um passo para filtrar a grade abaixo.</div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <TabButton active={operationPanel === 'overview'} label="Visao executiva" onClick={() => setOperationPanel('overview')} />
-                <TabButton active={operationPanel === 'bls'} label="Grade de B/Ls" onClick={() => setOperationPanel('bls')} />
-              </div>
+              {pipelineBottleneck === null && !operationsLoading ? (
+                <div className="flex items-center gap-2 rounded-xl border border-green-800 bg-green-950/40 px-4 py-2">
+                  <CheckCircle size={16} className="text-green-400" />
+                  <span className="text-sm font-medium text-green-300">Tudo em dia</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+              <PipelineStep
+                number={1}
+                label="Conciliação"
+                count={operationsSummary.reconciliationPending}
+                isBottleneck={pipelineBottleneck === 'reconciliation'}
+                active={reconciliationFilter}
+                onClick={() => handlePipelineStep('reconciliation')}
+              />
+              <PipelineStep
+                number={2}
+                label="Não calculados"
+                count={operationsSummary.notCalculated}
+                isBottleneck={pipelineBottleneck === 'not_calculated'}
+                active={opsFilters.chargeStatus === 'not_calculated' && !reconciliationFilter}
+                onClick={() => handlePipelineStep('not_calculated')}
+              />
+              <PipelineStep
+                number={3}
+                label="Em revisao"
+                count={operationsSummary.reviewRequired}
+                isBottleneck={pipelineBottleneck === 'review_required'}
+                active={opsFilters.chargeStatus === 'review_required' && !reconciliationFilter}
+                onClick={() => handlePipelineStep('review_required')}
+              />
+              <PipelineStep
+                number={4}
+                label="Revisados"
+                count={operationsSummary.reviewed}
+                isBottleneck={pipelineBottleneck === 'reviewed'}
+                active={opsFilters.chargeStatus === 'reviewed' && !reconciliationFilter}
+                onClick={() => handlePipelineStep('reviewed')}
+              />
+              <PipelineStep
+                number={5}
+                label="Pronto faturar"
+                count={operationsSummary.ready}
+                isBottleneck={pipelineBottleneck === 'ready_for_billing'}
+                active={opsFilters.chargeStatus === 'ready_for_billing' && !reconciliationFilter}
+                onClick={() => handlePipelineStep('ready_for_billing')}
+              />
             </div>
           </Card>
 
-          {operationPanel === 'overview' ? (
-            <>
-              <Card className="mb-5">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="grid gap-2">
-                    <div className="text-sm font-semibold text-white">Radar rapido</div>
-                    <div className="text-sm text-slate-400">
-                      {operationsSummary.reconciliationPending} reconciliacao(oes) pendente(s), {operationsSummary.blocked} bloqueio(s) ativos e {operationsSummary.reviewRequired} B/L(s) em revisao.
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      A grade detalhada continua disponivel para selecao em lote. A exportacao usa os filtros atuais.
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => setOperationPanel('bls')}>
-                      <Square size={15} />
-                      Abrir grade de B/Ls
-                    </Button>
-                    <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
-                      <Download size={15} />
-                      Exportar visao
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+          <Card className="mb-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => runBatchOperation('calculate')}
+                loading={batchCalculateMutation.isPending}
+                disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
+              >
+                <Calculator size={15} />
+                Calcular selecionados
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => runBatchOperation('recalculate')}
+                loading={batchCalculateMutation.isPending}
+                disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
+              >
+                <RefreshCw size={15} />
+                Recalcular selecionados
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => runBatchOperation('review')}
+                loading={batchReviewedMutation.isPending}
+                disabled={batchCalculateMutation.isPending || batchReadyMutation.isPending}
+              >
+                <CheckSquare size={15} />
+                Marcar revisados
+              </Button>
+              <Button
+                onClick={() => runBatchOperation('ready')}
+                loading={batchReadyMutation.isPending}
+                disabled={batchCalculateMutation.isPending || batchReviewedMutation.isPending}
+              >
+                <CheckSquare size={15} />
+                Marcar pronto faturar
+              </Button>
+              <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
+                <Download size={15} />
+                Exportar visao
+              </Button>
+              <span className="text-xs text-slate-500">{selectedOpsRows.length} B/L(s) selecionado(s)</span>
+            </div>
+          </Card>
 
-              <div className="grid gap-5 xl:grid-cols-2">
-                <Card className="overflow-hidden p-0">
-                  <div className="border-b border-[#30363d] px-5 py-4">
-                    <h3 className="text-lg font-semibold text-white">Fila de reconciliacao de cliente</h3>
-                    <p className="mt-1 text-sm text-slate-400">B/Ls sem cliente validado ficam bloqueados ate aprovacao ou rejeicao.</p>
-                  </div>
-                  <div className="app-table-scroll">
-                    <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
-                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                        <tr>
-                          <th className="px-4 py-3">B/L</th>
-                          <th className="px-4 py-3">Manifesto</th>
-                          <th className="px-4 py-3">Cliente sugerido</th>
-                          <th className="px-4 py-3">Deteccao</th>
-                          <th className="px-4 py-3">Email</th>
-                          <th className="px-4 py-3">Bloqueio</th>
-                          <th className="px-4 py-3">Acao</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#30363d]">
-                        {reconciliationLoading ? (
-                          <tr>
-                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                              Carregando fila de reconciliacao...
-                            </td>
-                          </tr>
-                        ) : null}
-                        {!reconciliationLoading && (reconciliationQueue?.length ?? 0) === 0 ? (
-                          <tr>
-                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                              Nenhuma pendencia de reconciliacao aberta.
-                            </td>
-                          </tr>
-                        ) : null}
-                        {reconciliationQueue?.map((row) => (
-                          <tr key={row.id}>
-                            <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.bl_id}</td>
-                            <td className="px-4 py-3">
-                              <div>{row.manifest_customer_name ?? '-'}</div>
-                              <div className="text-xs text-slate-500">{row.cnpj_cpf ?? '-'}</div>
-                            </td>
-                            <td className="px-4 py-3">{row.current_customer_name ?? '-'}</td>
-                            <td className="px-4 py-3">{renderDetectionType(row.detection_type)}</td>
-                            <td className="px-4 py-3">{row.manifest_customer_email ?? '-'}</td>
-                            <td className="px-4 py-3">
-                              <span className="app-table__truncate app-table__truncate--lg" title={row.billing_hold_reason ?? row.notes ?? '-'}>
-                                {row.billing_hold_reason ?? row.notes ?? '-'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => handleApproveQueueItem(row.id, row.customer_id)}
-                                  loading={approveReconciliationMutation.isPending}
-                                  disabled={!row.customer_id || rejectReconciliationMutation.isPending}
-                                >
-                                  Aprovar
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => handleRejectQueueItem(row.id)}
-                                  loading={rejectReconciliationMutation.isPending}
-                                  disabled={approveReconciliationMutation.isPending}
-                                >
-                                  Rejeitar
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-
-                <Card className="overflow-hidden p-0">
-                  <div className="border-b border-[#30363d] px-5 py-4">
-                    <h3 className="text-lg font-semibold text-white">Billing runs recentes</h3>
-                    <p className="mt-1 text-sm text-slate-400">Cada manifesto processado gera uma execucao auditavel de calculo.</p>
-                  </div>
-                  <div className="app-table-scroll">
-                    <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
-                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                        <tr>
-                          <th className="px-4 py-3">Run</th>
-                          <th className="px-4 py-3">Manifesto</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3">B/Ls</th>
-                          <th className="px-4 py-3">Bloqueados</th>
-                          <th className="px-4 py-3">Total BRL</th>
-                          <th className="px-4 py-3">Acao</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#30363d]">
-                        {billingRunsLoading ? (
-                          <tr>
-                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                              Carregando billing runs...
-                            </td>
-                          </tr>
-                        ) : null}
-                        {!billingRunsLoading && (billingRuns?.length ?? 0) === 0 ? (
-                          <tr>
-                            <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                              Nenhuma execucao registrada.
-                            </td>
-                          </tr>
-                        ) : null}
-                        {billingRuns?.map((run) => (
-                          <tr key={run.id}>
-                            <td className="px-4 py-3 font-semibold text-[#58a6ff]">#{run.id}</td>
-                            <td className="px-4 py-3">
-                              <div>{run.filename}</div>
-                              <div className="text-xs text-slate-500">Manifesto {run.manifest_id}</div>
-                            </td>
-                            <td className="px-4 py-3">{renderBillingRunStatus(run.status)}</td>
-                            <td className="px-4 py-3">
-                              {run.calculated_bls}/{run.total_bls}
-                            </td>
-                            <td className="px-4 py-3">{run.blocked_bls}</td>
-                            <td className="px-4 py-3">{formatBRL(run.total_brl)}</td>
-                            <td className="px-4 py-3">
-                              <Button variant="secondary" onClick={() => setSelectedBillingRunId(run.id)}>
-                                Logs
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {billingRunDetailsQuery.data?.run ? (
-                    <div className="border-t border-[#30363d] px-5 py-4">
-                      <div className="mb-3 flex items-center justify-between">
-                        <h4 className="text-base font-semibold text-white">Detalhe do run #{billingRunDetailsQuery.data.run.id}</h4>
-                        <div className="text-sm text-slate-400">{formatDate(billingRunDetailsQuery.data.run.started_at)}</div>
-                      </div>
-                      <div className="grid gap-2">
-                        {billingRunDetailsQuery.data.logs.length === 0 ? (
-                          <div className="text-sm text-slate-400">Nenhum log registrado.</div>
-                        ) : (
-                          billingRunDetailsQuery.data.logs.slice(0, 8).map((log) => (
-                            <div key={log.id} className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {renderLogLevel(log.level)}
-                                <span className="text-sm font-semibold text-white">{log.code}</span>
-                                <span className="text-xs text-slate-500">{formatDate(log.created_at)}</span>
-                              </div>
-                              <div className="mt-2 text-sm text-slate-300">{log.message}</div>
-                              {log.bl_id ? <div className="mt-1 text-xs text-slate-500">B/L: {log.bl_id}</div> : null}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
+          <Card className="overflow-hidden p-0">
+            {operationsError ? <InlineError message="Falha ao carregar operação de taxas locais." /> : null}
+            <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[1100px] text-left text-sm whitespace-nowrap">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">
+                      <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
+                        {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">B/L</th>
+                    <th className="px-4 py-3">Modo</th>
+                    <th className="px-4 py-3">Navio/Viagem</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Reconcil.</th>
+                    <th className="px-4 py-3">Subtotal BRL</th>
+                    <th className="px-4 py-3">Bloqueio</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {operationsLoading ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={10}>
+                        Carregando operação...
+                      </td>
+                    </tr>
                   ) : null}
-                </Card>
-              </div>
-            </>
-          ) : null}
-
-          {operationPanel === 'bls' ? (
-            <>
-              <Card className="mb-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => runBatchOperation('calculate')}
-                    loading={batchCalculateMutation.isPending}
-                    disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
-                  >
-                    <Calculator size={15} />
-                    Calcular selecionados
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => runBatchOperation('recalculate')}
-                    loading={batchCalculateMutation.isPending}
-                    disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
-                  >
-                    <RefreshCw size={15} />
-                    Recalcular selecionados
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => runBatchOperation('review')}
-                    loading={batchReviewedMutation.isPending}
-                    disabled={batchCalculateMutation.isPending || batchReadyMutation.isPending}
-                  >
-                    <CheckSquare size={15} />
-                    Marcar revisados
-                  </Button>
-                  <Button
-                    onClick={() => runBatchOperation('ready')}
-                    loading={batchReadyMutation.isPending}
-                    disabled={batchCalculateMutation.isPending || batchReviewedMutation.isPending}
-                  >
-                    <CheckSquare size={15} />
-                    Marcar pronto faturar
-                  </Button>
-                  <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
-                    <Download size={15} />
-                    Exportar visao
-                  </Button>
-                  <span className="text-xs text-slate-500">
-                    {selectedOpsRows.length} B/L(s) selecionado(s)
-                  </span>
-                </div>
-              </Card>
-
-              <Card className="overflow-hidden p-0">
-                {operationsError ? <InlineError message="Falha ao carregar operacao de taxas locais." /> : null}
-                <div className="app-table-scroll">
-                  <table className="app-table app-table--compact min-w-[1760px] text-left text-sm whitespace-nowrap">
-                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">
-                          <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
-                            {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                          </button>
-                        </th>
-                        <th className="px-4 py-3">B/L</th>
-                        <th className="px-4 py-3">Modo</th>
-                        <th className="px-4 py-3">Navio/Viagem</th>
-                        <th className="px-4 py-3">Trecho</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">Cliente</th>
-                        <th className="px-4 py-3">Reconcil.</th>
-                        <th className="px-4 py-3">Linhas</th>
-                        <th className="px-4 py-3">Subtotal BRL</th>
-                        <th className="px-4 py-3">Subtotal USD</th>
-                        <th className="px-4 py-3">Ult. calculo</th>
-                        <th className="px-4 py-3">Ult. revisao</th>
-                        <th className="px-4 py-3">Billing run</th>
-                        <th className="px-4 py-3">Ult. evento</th>
-                        <th className="px-4 py-3">Bloqueio/Review</th>
-                        <th className="px-4 py-3">Acao</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#30363d]">
-                      {operationsLoading ? (
-                        <tr>
-                          <td className="px-4 py-8 text-center text-slate-400" colSpan={17}>
-                            Carregando operacao...
-                          </td>
-                        </tr>
-                      ) : null}
-                      {!operationsLoading && (operationsRows?.length ?? 0) === 0 ? (
-                        <tr>
-                          <td colSpan={17} className="p-0">
-                            <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
-                          </td>
-                        </tr>
-                      ) : null}
-                      {operationsRows?.map((row) => (
-                        <tr key={row.id}>
+                  {!operationsLoading && displayedRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="p-0">
+                        <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
+                      </td>
+                    </tr>
+                  ) : null}
+                  {displayedRows.map((row) => {
+                    const isExpanded = expandedBlId === row.id
+                    const reconciliationPending = !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')
+                    const queueItem = reconciliationPending ? (reconciliationQueue?.find((q) => q.bl_id === row.id) ?? null) : null
+                    return (
+                      <>
+                        <tr key={row.id} className={isExpanded ? 'bg-[#161b22]' : undefined}>
                           <td className="px-4 py-3">
                             <button
                               className="app-table__icon-button"
@@ -1410,48 +1315,133 @@ export function TaxasLocais() {
                           <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.id}</td>
                           <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
                           <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
-                          <td className="px-4 py-3">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
                           <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
                           <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
                           <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
-                          <td className="px-4 py-3">
-                            {Number(row.totals.line_count).toLocaleString('pt-BR')}
-                            {row.totals.review_required_count > 0 ? (
-                              <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
-                            ) : null}
-                          </td>
                           <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
-                          <td className="px-4 py-3">{formatUSD(row.totals.total_usd)}</td>
-                          <td className="px-4 py-3">{formatDate(row.charges_calculated_at)}</td>
-                          <td className="px-4 py-3">{formatDate(row.charges_reviewed_at)}</td>
-                          <td className="px-4 py-3">{row.last_billing_run_id ?? '-'}</td>
-                          <td className="px-4 py-3">
-                            <span className="app-table__truncate app-table__truncate--xl" title={row.trail.last_event_message ?? '-'}>
-                              {row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}
-                            </span>
-                          </td>
                           <td className="px-4 py-3">
                             <span
-                              className="app-table__truncate app-table__truncate--xl"
+                              className="app-table__truncate app-table__truncate--lg"
                               title={row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
                             >
                               {row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <Link className="app-table__action" to={`/manifestos/${row.id}`}>
-                              Abrir B/L
-                            </Link>
+                            <button
+                              className="app-table__icon-button"
+                              type="button"
+                              onClick={() => setExpandedBlId(isExpanded ? null : row.id)}
+                              title={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </>
-          ) : null}
-
+                        {isExpanded ? (
+                          <tr key={`${row.id}-detail`} className="bg-[#0d1117]">
+                            <td colSpan={10} className="px-6 py-4">
+                              <div className="grid gap-4 xl:grid-cols-2">
+                                <div className="grid gap-3">
+                                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Detalhes</div>
+                                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                                    <div>
+                                      <div className="text-slate-500">Trecho</div>
+                                      <div className="text-white">{row.pol ?? '-'} → {row.pod ?? '-'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-slate-500">Linhas</div>
+                                      <div className="text-white">
+                                        {Number(row.totals.line_count).toLocaleString('pt-BR')}
+                                        {row.totals.review_required_count > 0 ? (
+                                          <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-slate-500">Subtotal USD</div>
+                                      <div className="text-white">{formatUSD(row.totals.total_usd)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-slate-500">Billing run</div>
+                                      <div className="text-white">{row.last_billing_run_id ?? '-'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-slate-500">Ult. calculo</div>
+                                      <div className="text-white">{formatDate(row.charges_calculated_at)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-slate-500">Ult. revisao</div>
+                                      <div className="text-white">{formatDate(row.charges_reviewed_at)}</div>
+                                    </div>
+                                    <div className="col-span-2">
+                                      <div className="text-slate-500">Ult. evento</div>
+                                      <div className="text-white">{row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}</div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-1">
+                                    <Link className="app-table__action" to={`/manifestos/${row.id}`}>
+                                      Abrir B/L →
+                                    </Link>
+                                  </div>
+                                </div>
+                                {reconciliationPending && queueItem ? (
+                                  <div className="rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
+                                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-400">Conciliação pendente</div>
+                                    <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                      <div>
+                                        <div className="text-slate-500">Cliente no manifesto</div>
+                                        <div className="text-white">{queueItem.manifest_customer_name ?? '-'}</div>
+                                      </div>
+                                      <div>
+                                        <div className="text-slate-500">CNPJ/CPF</div>
+                                        <div className="text-white">{queueItem.cnpj_cpf ?? '-'}</div>
+                                      </div>
+                                      <div>
+                                        <div className="text-slate-500">Cliente sugerido</div>
+                                        <div className="text-white">{queueItem.current_customer_name ?? '-'}</div>
+                                      </div>
+                                      <div>
+                                        <div className="text-slate-500">Deteccao</div>
+                                        <div>{renderDetectionType(queueItem.detection_type)}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        variant="secondary"
+                                        onClick={() => handleApproveQueueItem(queueItem.id, queueItem.customer_id)}
+                                        loading={approveReconciliationMutation.isPending}
+                                        disabled={!queueItem.customer_id || rejectReconciliationMutation.isPending}
+                                      >
+                                        Aprovar
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        onClick={() => handleRejectQueueItem(queueItem.id)}
+                                        loading={rejectReconciliationMutation.isPending}
+                                        disabled={approveReconciliationMutation.isPending}
+                                      >
+                                        Rejeitar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : reconciliationPending ? (
+                                  <div className="rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
+                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">Conciliação pendente</div>
+                                    <div className="text-sm text-slate-400">Nenhum item de conciliação encontrado na fila para este B/L.</div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </>
       ) : null}
 
@@ -1497,7 +1487,7 @@ export function TaxasLocais() {
                   onClick={() => setOverrideForm(EMPTY_OVERRIDE_FORM)}
                 >
                   <X size={15} />
-                  Cancelar edicao
+                  Cancelar edição
                 </Button>
               ) : null}
             </div>
@@ -1549,7 +1539,7 @@ export function TaxasLocais() {
                   onChange={(event) => setOverrideForm((prev) => ({ ...prev, validTo: event.target.value }))}
                 />
               </Field>
-              <Field label="Observacoes">
+              <Field label="Observações">
                 <Textarea
                   value={overrideForm.notes}
                   onChange={(event) => setOverrideForm((prev) => ({ ...prev, notes: event.target.value }))}
@@ -1719,17 +1709,59 @@ function renderDetectionType(type: string | null) {
   return <Badge tone="red">Ausente</Badge>
 }
 
-function renderBillingRunStatus(status: string | null) {
-  if (status === 'completed') return <Badge tone="green">Concluido</Badge>
-  if (status === 'completed_with_blocks') return <Badge tone="yellow">Concluido c/ bloqueios</Badge>
-  if (status === 'failed') return <Badge tone="red">Falhou</Badge>
-  return <Badge tone="blue">Executando</Badge>
-}
-
-function renderLogLevel(level: string | null) {
-  if (level === 'error') return <Badge tone="red">Erro</Badge>
-  if (level === 'warning') return <Badge tone="yellow">Aviso</Badge>
-  return <Badge tone="blue">Info</Badge>
+function PipelineStep({
+  number,
+  label,
+  count,
+  isBottleneck,
+  active,
+  onClick,
+}: {
+  number: number
+  label: string
+  count: number
+  isBottleneck: boolean
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={count === 0}
+      className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors ${
+        active
+          ? 'border-[#58a6ff] bg-[#0d1117]'
+          : isBottleneck && count > 0
+            ? 'border-amber-600 bg-amber-950/20 hover:border-amber-500'
+            : count === 0
+              ? 'cursor-default border-[#30363d] bg-[#0d1117] opacity-40'
+              : 'border-[#30363d] bg-[#0d1117] hover:border-[#58a6ff]'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
+            active
+              ? 'bg-[#58a6ff] text-[#0d1117]'
+              : isBottleneck && count > 0
+                ? 'bg-amber-500 text-[#0d1117]'
+                : 'bg-[#30363d] text-slate-400'
+          }`}
+        >
+          {number}
+        </span>
+        <span className="text-xs font-medium text-slate-400">{label}</span>
+      </div>
+      <div
+        className={`text-2xl font-bold ${
+          active ? 'text-[#58a6ff]' : isBottleneck && count > 0 ? 'text-amber-400' : count === 0 ? 'text-slate-600' : 'text-white'
+        }`}
+      >
+        {count}
+      </div>
+    </button>
+  )
 }
 
 function formatUSD(value: number) {

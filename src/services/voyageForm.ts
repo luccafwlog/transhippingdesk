@@ -57,7 +57,7 @@ export function normalizeVoyageFormValues(values: VoyageFormValues): VoyageFormV
   }
 }
 
-export function normalizeDischargePortEtas(values: VoyageDischargePortEta[]) {
+function normalizeDischargePortEtas(values: VoyageDischargePortEta[]) {
   const normalized = new Map<string, VoyageDischargePortEta>()
 
   for (const value of values) {

@@ -47,7 +47,7 @@ export function CeMercanteImportModal({
       setPreview(parsed)
       showToast('Preview de CE Mercante carregado.', 'success')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nao foi possivel ler o arquivo.'
+      const message = error instanceof Error ? error.message : 'Não foi possível ler o arquivo.'
       showToast(message, 'error')
     } finally {
       setParsing(false)
@@ -178,7 +178,7 @@ export function CeMercanteImportModal({
           </Button>
           <Button disabled={!preview?.rows.length} loading={submitting} onClick={handleImport}>
             <Upload size={16} />
-            Confirmar importacao
+            Confirmar importação
           </Button>
         </div>
       </div>

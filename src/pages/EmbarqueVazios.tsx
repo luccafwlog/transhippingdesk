@@ -143,7 +143,7 @@ export function EmbarqueVazios() {
               ))}
             </Select>
           </Field>
-          <Field label="Por pagina">
+          <Field label="Por página">
             <Select value={filters.pageSize} onChange={(e) => updateFilter('pageSize', Number(e.target.value))}>
               {pageSizes.map((s) => (
                 <option key={s} value={s}>{s}/pag.</option>
@@ -167,7 +167,7 @@ export function EmbarqueVazios() {
                 <th className="px-4 py-3">Data Movimentacao</th>
                 <th className="px-4 py-3">Terminal Origem</th>
                 <th className="px-4 py-3">Destino</th>
-                <th className="px-4 py-3">Observacoes</th>
+                <th className="px-4 py-3">Observações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -244,7 +244,7 @@ export function EmbarqueVazios() {
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
             <div className="font-semibold text-white">Formato esperado</div>
             <div className="mt-2 text-slate-400">
-              Colunas: <strong>Booking</strong> (obrigatorio), Container, Tipo, Data Movimentacao, Terminal Origem, Destino, Observacoes.
+              Colunas: <strong>Booking</strong> (obrigatorio), Container, Tipo, Data Movimentacao, Terminal Origem, Destino, Observações.
               Use o template disponivel no botao "Baixar template".
             </div>
           </div>
@@ -315,7 +315,7 @@ export function EmbarqueVazios() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setUploadOpen(false)}>Cancelar</Button>
             <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
-              Confirmar importacao
+              Confirmar importação
             </Button>
           </div>
         </div>

@@ -158,7 +158,7 @@ export function Granite() {
     <>
       <PageHeader
         title="Manifestos Granito"
-        description="Importacao do relatorio de cargas COSCO (Granito)."
+        description="Importação do relatório de cargas COSCO (Granito)."
         action={
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />
@@ -193,7 +193,7 @@ export function Granite() {
               onChange={(e) => updateFilter('dischargePort', e.target.value)}
             />
           </Field>
-          <Field label="Por pagina">
+          <Field label="Por página">
             <Select value={filters.pageSize} onChange={(e) => updateFilter('pageSize', Number(e.target.value))}>
               {pageSizes.map((s) => (
                 <option key={s} value={s}>{s}/pag.</option>
@@ -443,7 +443,7 @@ export function Granite() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setUploadOpen(false)}>Cancelar</Button>
             <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
-              Confirmar importacao
+              Confirmar importação
             </Button>
           </div>
         </div>
@@ -457,7 +457,7 @@ function ChargeStatusBadge({ status }: { status: string }) {
     case 'calculated': return <span className="app-badge app-badge--blue">Calculado</span>
     case 'ready_for_billing': return <span className="app-badge app-badge--green">Pronto</span>
     case 'invoiced': return <span className="app-badge app-badge--green">Faturado</span>
-    default: return <span className="app-badge app-badge--slate">Nao calc.</span>
+    default: return <span className="app-badge app-badge--slate">Não calc.</span>
   }
 }
 
@@ -465,7 +465,7 @@ function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
   switch (status) {
     case 'matched': return <span className="app-badge app-badge--green">✓ OK</span>
     case 'missing_cnpj': return <span className="app-badge app-badge--yellow">⚠ CNPJ</span>
-    case 'not_found': return <span className="app-badge app-badge--red">✗ Nao cad.</span>
+    case 'not_found': return <span className="app-badge app-badge--red">✗ Não cad.</span>
   }
 }
 

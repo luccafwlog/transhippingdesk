@@ -1,4 +1,4 @@
-import { normalizeText, onlyDigits } from '../lib/utils'
+import { asString, normalizeText, onlyDigits } from '../lib/utils'
 import type { Customer, CustomerContact } from '../types/database'
 import { supabase } from './supabase'
 
@@ -266,7 +266,7 @@ function extractEmails(value: string) {
 }
 
 function normalizeEmail(value?: string | null) {
-  const text = asString(value).toUpperCase()
+  const text = asString(value).trim().toLowerCase()
   return text || ''
 }
 
@@ -296,10 +296,6 @@ function normalizeZip(value?: string | null) {
 function asNullableText(value: unknown) {
   const text = asString(value)
   return text || null
-}
-
-function asString(value: unknown) {
-  return String(value ?? '').trim()
 }
 
 function mergeBestRow(rows: CustomerBaseRow[]) {

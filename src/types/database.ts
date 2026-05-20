@@ -1065,9 +1065,32 @@ export type VaziosImportacaoContainer = {
   container_number: string
   container_type: string | null
   tare_kg: number | null
+  pod: string | null
   created_at: string | null
 }
 
 export type VaziosImportacaoContainerListItem = VaziosImportacaoContainer & {
-  manifest?: Pick<VaziosImportacaoManifest, 'id' | 'voyage_id' | 'description' | 'imported_at'> | null
+  manifest?: (Pick<VaziosImportacaoManifest, 'id' | 'voyage_id' | 'description' | 'imported_at'> & {
+    voyage?: { voyage_number: string; vessel: { name: string } | null } | null
+  }) | null
+}
+
+export type BaplieContainer = {
+  id: number
+  voyage_id: number
+  container_number: string
+  size_type: string | null
+  status: string | null
+  weight_kg: number | null
+  pol: string | null
+  pod: string | null
+  final_dest: string | null
+  bl_ref: string | null
+  slot: string | null
+  is_imo: boolean
+  imo_class: string | null
+  un_number: string | null
+  is_oog: boolean
+  imported_at: string
+  imported_by: string | null
 }

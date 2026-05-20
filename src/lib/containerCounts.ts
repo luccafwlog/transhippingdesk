@@ -2,11 +2,11 @@ type ContainerLike = {
   container_number?: string | null
 }
 
-export function normalizeContainerNumber(value: string | null | undefined) {
+function normalizeContainerNumber(value: string | null | undefined) {
   return String(value ?? '').trim().toUpperCase()
 }
 
-export function getDistinctContainerNumbers<T extends ContainerLike>(containers: T[] | null | undefined) {
+function getDistinctContainerNumbers<T extends ContainerLike>(containers: T[] | null | undefined) {
   const numbers = new Set<string>()
 
   for (const container of containers ?? []) {

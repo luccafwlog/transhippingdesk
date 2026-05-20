@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 const appCommitSha = resolveCommitSha()
 
 function resolveCommitSha() {
+  if (process.env.VITE_APP_COMMIT_SHA) return process.env.VITE_APP_COMMIT_SHA.slice(0, 12)
   try {
     return execSync('git rev-parse --short=12 HEAD', {
       stdio: ['ignore', 'pipe', 'ignore'],

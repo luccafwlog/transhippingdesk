@@ -51,6 +51,7 @@ const GraniteRates = lazyPage(() => import('./pages/GraniteRates'), 'GraniteRate
 const DemurrageRates = lazyPage(() => import('./pages/DemurrageRates'), 'DemurrageRates')
 const EmbarqueVazios = lazyPage(() => import('./pages/EmbarqueVazios'), 'EmbarqueVazios')
 const VaziosImportacao = lazyPage(() => import('./pages/VaziosImportacao'), 'VaziosImportacao')
+const BaplieEDI = lazyPage(() => import('./pages/Baplie'), 'Baplie')
 
 function RouteLoading() {
   return (
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="/embarquevazios" element={withSuspense(<EmbarqueVazios />)} />
           <Route path="/vazios" element={<Navigate to="/embarquevazios" replace />} />
           <Route path="/vazios-importacao" element={withSuspense(<VaziosImportacao />)} />
+          <Route path="/baplie" element={withSuspense(<BaplieEDI />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

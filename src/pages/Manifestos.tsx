@@ -76,7 +76,7 @@ export function Manifestos() {
     <>
       <PageHeader
         title="Manifestos CNTR"
-        description="Consulta paginada de B/Ls de container e importacao de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
+        description="Consulta paginada de B/Ls de container e importação de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Link
@@ -157,7 +157,7 @@ export function Manifestos() {
           <Field label="Status taxas locais">
             <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
               <option value="">Todos</option>
-              <option value="not_calculated">Nao calculado</option>
+              <option value="not_calculated">Não calculado</option>
               <option value="calculated">Calculado</option>
               <option value="review_required">Revisao</option>
               <option value="reviewed">Revisado</option>
@@ -307,6 +307,7 @@ export function Manifestos() {
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
+
     </>
   )
 }
@@ -367,7 +368,7 @@ function ChargeStatusBadge({ status }: { status: string | null }) {
     case 'exempt':
       return <Badge tone="slate">Isento</Badge>
     default:
-      return <Badge tone="slate">Nao calc.</Badge>
+      return <Badge tone="slate">Não calc.</Badge>
   }
 }
 
@@ -463,7 +464,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         'success',
       )
     } catch {
-      showToast('Nao foi possivel ler o arquivo. Confira o formato .xlsx ou .csv.', 'error')
+      showToast('Não foi possível ler o arquivo. Confira o formato .xlsx ou .csv.', 'error')
     } finally {
       setParsing(false)
     }
@@ -484,7 +485,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         const manifest = manifestsByFile[file.name]
         setProgress({ current: index + 1, total: files.length })
         if (!manifest) {
-          results.push({ file: file.name, status: 'error', message: 'Preview nao carregado para este arquivo.' })
+          results.push({ file: file.name, status: 'error', message: 'Preview não carregado para este arquivo.' })
           continue
         }
         try {
@@ -555,7 +556,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         setImportStatusMessage(`Importacao parcial: ${successCount} sucesso(s), ${errorCount} erro(s).`)
         showToast(`Importacao concluida com ${successCount} sucesso(s) e ${errorCount} erro(s).`, 'info')
       } else {
-        setImportStatusMessage('Falha na importacao: nenhum manifesto foi importado.')
+        setImportStatusMessage('Falha na importação: nenhum manifesto foi importado.')
         showToast('Nenhum manifesto foi importado. Revise os erros abaixo.', 'error')
       }
       if (files.length > 1) {
@@ -584,7 +585,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
         <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
           Clientes sao vinculados por CNPJ/CPF ja existente em <span className="font-semibold text-white">Clientes &gt; Importar base</span>.
-          Manifestos nao criam novos cadastros automaticamente.
+          Manifestos não criam novos cadastros automaticamente.
         </div>
 
         {parsing ? <div className="text-sm text-slate-400">Processando arquivo com SheetJS sob demanda...</div> : null}
@@ -667,7 +668,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
         {importSummary.length ? (
             <div className="max-h-44 overflow-auto rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm">
-            <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">Resumo da importacao</div>
+            <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">Resumo da importação</div>
             <div className="grid gap-1">
               {importSummary.map((item) => (
                 <div key={`${item.file}-${item.message}`} className={item.status === 'success' ? 'text-green-300' : 'text-red-300'}>
@@ -709,11 +710,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             Cancelar
           </Button>
           <Button disabled={!files.length || !voyageId} loading={submitting} onClick={handleImport}>
-            Confirmar importacao
+            Confirmar importação
           </Button>
         </div>
         {!voyageId ? (
-          <div className="text-sm text-amber-200">Selecione ou crie uma viagem de destino para habilitar a confirmacao.</div>
+          <div className="text-sm text-amber-200">Selecione ou crie uma viagem de destino para habilitar a confirmação.</div>
         ) : null}
       </div>
 
@@ -732,6 +733,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           setCreateVoyageOpen(false)
         }}
       />
+
     </Modal>
   )
 }
@@ -793,7 +795,7 @@ function summarizeManifestRoutes(manifest: ParsedManifest | null) {
   )
 
   if (routeLabels.length === 0) {
-    return { label: 'Nao identificado', multipleRoutes: false }
+    return { label: 'Não identificado', multipleRoutes: false }
   }
 
   if (routeLabels.length === 1) {

@@ -131,19 +131,16 @@ export function Demurrage() {
   const [generatingBl, setGeneratingBl] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
 
-  // Container edit state
   const [editingContainer, setEditingContainer] = useState<DemurrageContainerListItem | null>(null)
   const [editDischarge, setEditDischarge] = useState('')
   const [editReturn, setEditReturn] = useState('')
 
-  // Invoice panel state
   const [viewInvoiceId, setViewInvoiceId] = useState<number | null>(null)
   const [docType, setDocType] = useState<'invoice' | 'receipt'>('invoice')
   const [payingId, setPayingId] = useState<number | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
   const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
 
-  // Breakdown, discount, dispute modal state
   const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null)
   const [discountInvoiceId, setDiscountInvoiceId] = useState<number | null>(null)
   const [discountForm, setDiscountForm] = useState<DiscountForm>(EMPTY_DISCOUNT)
@@ -404,7 +401,7 @@ export function Demurrage() {
           {containersError && <InlineError message="Erro ao carregar containers." />}
 
           {!containersLoading && !containersError && grouped.size === 0 && (
-            <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou nao ha descargas registradas." />
+            <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
           )}
 
           {Array.from(grouped.entries()).map(([blId, blContainers]) => {
@@ -500,7 +497,7 @@ export function Demurrage() {
               title="Nenhuma invoice"
               description={
                 tab === 'rascunhos'
-                  ? 'Nenhum rascunho. Faturas geradas por importacao sao emitidas automaticamente — rascunhos aparecem apenas quando a BCB esta offline.'
+                  ? 'Nenhum rascunho. Faturas geradas por importação são emitidas automaticamente — rascunhos aparecem apenas quando a BCB está offline.'
                   : `Nenhuma invoice com status "${tab}".`
               }
             />

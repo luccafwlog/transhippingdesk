@@ -78,7 +78,7 @@ export async function parseGraniteManifestFile(file: File): Promise<ParsedGranit
   return parseGraniteManifestBuffer(buffer)
 }
 
-export async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
+async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
   const XLSX = await import('xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -87,7 +87,6 @@ export async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<P
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
   if (!rows.length) throw new Error('Planilha vazia.')
 
-  // Mapear os headers reais para campos internos
   const sampleRow = rows[0]
   const colMapping: Record<string, string> = {}
   for (const originalKey of Object.keys(sampleRow)) {
@@ -104,7 +103,6 @@ export async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<P
   rows.forEach((row, idx) => {
     const rowNumber = idx + 2 // linha 1 = cabeçalho, dados começam na 2
 
-    // Extrair valores mapeados
     const mapped: Record<string, unknown> = {}
     for (const [originalKey, fieldName] of Object.entries(colMapping)) {
       mapped[fieldName] = row[originalKey]

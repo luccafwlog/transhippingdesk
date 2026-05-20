@@ -147,7 +147,7 @@ export function Revisao() {
     <>
       <PageHeader
         title="Revisao Manual"
-        description="Fila de B/Ls com pendencias de importacao que exigem validacao humana."
+        description="Fila de B/Ls com pendencias de importação que exigem validação humana."
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -285,7 +285,7 @@ export function Revisao() {
                     </div>
                   </td>
                   <td className="px-4 py-3">{item.consignee ?? item.shipper ?? '-'}</td>
-                  <td className="px-4 py-3">{item.customer?.name ?? 'Nao vinculado'}</td>
+                  <td className="px-4 py-3">{item.customer?.name ?? 'Não vinculado'}</td>
                   <td className="px-4 py-3">
                     {item.voyage?.vessel?.name ?? '-'} / {item.voyage?.voyage_number ?? '-'}
                   </td>
@@ -353,6 +353,7 @@ function ReviewModal({
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
   const [newCustomerName, setNewCustomerName] = useState('')
   const [newCustomerCnpj, setNewCustomerCnpj] = useState('')
+  const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
   const customerLookup = useCustomerLookup(customerSearch)
@@ -368,8 +369,12 @@ function ReviewModal({
     setNotes(item.notes ?? '')
     setSelectedCustomerId(item.customer_id ?? null)
     setCustomerSearch('')
-    setNewCustomerName(item.consignee ?? '')
-    setNewCustomerCnpj('')
+    const manifestName = item.source === 'bl' ? (item.manifest_customer_name ?? null) : null
+    const manifestCnpj = item.source === 'bl' ? (item.manifest_customer_cnpj_cpf ?? null) : null
+    const manifestEmail = item.source === 'bl' ? (item.manifest_customer_email ?? null) : null
+    setNewCustomerName(manifestName ?? item.consignee ?? '')
+    setNewCustomerCnpj(manifestCnpj ?? '')
+    setNewCustomerEmail(manifestEmail ?? '')
     setJustification('')
   }, [item])
 
@@ -385,7 +390,10 @@ function ReviewModal({
     }
 
     try {
-      const customer = await createCustomer({ cnpjCpf: newCustomerCnpj, name: newCustomerName })
+      const contacts = newCustomerEmail.trim()
+        ? [{ name: 'Contato manifesto', email: newCustomerEmail.trim(), purpose: 'financeiro' as const, is_primary: true }]
+        : []
+      const customer = await createCustomer({ cnpjCpf: newCustomerCnpj, name: newCustomerName, contacts })
       setSelectedCustomerId(customer.id)
       setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
@@ -491,7 +499,7 @@ function ReviewModal({
           context: { source: 'review_modal' },
         })
         await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
-        showToast('Este B/L foi alterado por outro usuario. A fila foi recarregada.', 'error')
+        showToast('Este B/L foi alterado por outro usuário. A fila foi recarregada.', 'error')
         return
       }
       showToast('Falha ao salvar a revisao do B/L.', 'error')
@@ -615,12 +623,15 @@ function ReviewModal({
               </div>
             ) : null}
 
-            <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
+            <div className="grid gap-3 md:grid-cols-[1fr_220px_1fr_auto]">
               <Field label="Novo cliente - nome">
                 <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} />
               </Field>
               <Field label="Novo cliente - CNPJ/CPF">
                 <Input value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(event.target.value)} />
+              </Field>
+              <Field label="Novo cliente - e-mail">
+                <Input value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} placeholder="(opcional)" />
               </Field>
               <div className="flex items-end">
                 <Button type="button" variant="secondary" onClick={handleCreateCustomer}>

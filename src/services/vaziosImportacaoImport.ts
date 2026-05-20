@@ -37,7 +37,7 @@ export async function parseVaziosImportacaoFile(file: File): Promise<ParsedVazio
   return parseVaziosImportacaoBuffer(buffer)
 }
 
-export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosImportacaoManifest> {
+async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosImportacaoManifest> {
   const XLSX = await import('xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -143,6 +143,88 @@ export async function importVaziosImportacaoManifest({
   return { manifestId }
 }
 
+export async function importVaziosFromBaplie({
+  voyageId,
+  uploadedBy,
+  description,
+}: {
+  voyageId: number
+  uploadedBy: string
+  description?: string
+}): Promise<{ manifestId: string; total: number }> {
+  const PAGE = 1000
+  let containers: { container_number: string; size_type: string | null; weight_kg: number | null; pod: string | null }[] = []
+  let from = 0
+  while (true) {
+    const { data, error: stagedError } = await supabase
+      .from('baplie_containers' as never)
+      .select('container_number, size_type, weight_kg, pod')
+      .eq('voyage_id', voyageId)
+      .eq('status', 'empty')
+      .range(from, from + PAGE - 1)
+    if (stagedError) throw stagedError
+    containers = containers.concat((data ?? []) as { container_number: string; size_type: string | null; weight_kg: number | null; pod: string | null }[])
+    if (!data || data.length < PAGE) break
+    from += PAGE
+  }
+  if (!containers.length) throw new Error('Nenhum container vazio encontrado no Baplie desta viagem.')
+
+  const { data: manifestRow, error: manifestError } = await supabase
+    .from('vazios_importacao_manifests')
+    .insert({
+      voyage_id: voyageId,
+      description: description ?? 'Importado via Baplie EDI',
+      total_containers: containers.length,
+      imported_by: uploadedBy,
+      source: 'baplie',
+    } as never)
+    .select('id')
+    .single()
+
+  if (manifestError || !manifestRow) throw manifestError ?? new Error('Falha ao criar manifesto.')
+
+  const rows = containers.map((c) => ({
+    manifest_id: manifestRow.id,
+    container_number: c.container_number,
+    container_type: c.size_type,
+    tare_kg: c.weight_kg,
+    pod: c.pod,
+  }))
+
+  const { error: insertError } = await supabase
+    .from('vazios_importacao_containers')
+    .upsert(rows, { onConflict: 'manifest_id,container_number' })
+  if (insertError) throw insertError
+
+  return { manifestId: manifestRow.id, total: containers.length }
+}
+
+export async function getBaplieManifestForVoyage(voyageId: number): Promise<{
+  id: string
+  total_containers: number
+  imported_at: string
+} | null> {
+  const { data, error } = await supabase
+    .from('vazios_importacao_manifests')
+    .select('id, total_containers, imported_at')
+    .eq('voyage_id', voyageId)
+    .eq('source' as never, 'baplie')
+    .order('imported_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data as { id: string; total_containers: number; imported_at: string } | null
+}
+
+export async function deleteBaplieManifestForVoyage(voyageId: number): Promise<void> {
+  const { error } = await supabase
+    .from('vazios_importacao_manifests')
+    .delete()
+    .eq('voyage_id', voyageId)
+    .eq('source' as never, 'baplie')
+  if (error) throw error
+}
+
 export async function listVaziosImportacaoContainers(filters: {
   manifestId?: string
   voyageId?: string
@@ -158,16 +240,20 @@ export async function listVaziosImportacaoContainers(filters: {
   let query = supabase
     .from('vazios_importacao_containers')
     .select(
-      `*, manifest:vazios_importacao_manifests(id, voyage_id, description, imported_at)`,
+      `*, manifest:vazios_importacao_manifests(id, voyage_id, description, imported_at, voyage:voyages(voyage_number, vessel:vessels(name)))`,
       { count: 'exact' },
     )
     .range(from, to)
     .order('created_at', { ascending: false })
 
   if (filters.search) {
-    query = query.or(
-      `container_number.ilike.%${filters.search}%,container_type.ilike.%${filters.search}%`,
-    )
+    // Strip chars that could break PostgREST or() filter syntax (comma, parens)
+    const safe = filters.search.replace(/[(),]/g, '').trim()
+    if (safe) {
+      query = query.or(
+        `container_number.ilike.%${safe}%,container_type.ilike.%${safe}%`,
+      )
+    }
   }
 
   if (filters.manifestId) {

@@ -27,7 +27,7 @@ export function Login() {
       await signIn(email, password)
       navigate('/painel', { replace: true })
     } catch {
-      setError('Credenciais invalidas ou usuario sem permissao ativa.')
+      setError('Credenciais inválidas ou usuário sem permissão ativa.')
     } finally {
       setSubmitting(false)
     }
@@ -71,7 +71,7 @@ export function Login() {
           </Button>
         </form>
 
-        <p className="app-auth__meta">Nao ha cadastro publico. Usuarios sao provisionados pelo admin.</p>
+        <p className="app-auth__meta">Não há cadastro público. Usuários são provisionados pelo admin.</p>
       </Card>
     </main>
   )

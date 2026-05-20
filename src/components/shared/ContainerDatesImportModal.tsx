@@ -34,7 +34,7 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
       const parsed = await parseContainerDatesFile(nextFile)
       setPreview(parsed)
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Nao foi possivel ler o arquivo.', 'error')
+      showToast(error instanceof Error ? error.message : 'Não foi possível ler o arquivo.', 'error')
     } finally {
       setParsing(false)
     }
@@ -95,7 +95,7 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
             <div className="grid gap-3 md:grid-cols-3">
               <PreviewBox label="Linhas validas" value={preview.rows.length} />
               <PreviewBox label="Erros de estrutura" value={preview.rowErrors.length} />
-              {report ? <PreviewBox label="Nao encontrados" value={report.missing} /> : null}
+              {report ? <PreviewBox label="Não encontrados" value={report.missing} /> : null}
             </div>
 
             <div className="app-table-scroll max-h-64 rounded-xl border border-[#30363d]">

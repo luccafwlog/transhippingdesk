@@ -13,7 +13,6 @@ import { importGraniteManifest, parseGraniteManifestFile } from '../../services/
 import { importVaziosManifest, parseVaziosManifestFile } from '../../services/vaziosImport'
 import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../../services/vaziosImportacaoImport'
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
-
 type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
@@ -98,7 +97,6 @@ function CntrImportModal({
   const [importing, setImporting] = useState(false)
   const [existingBlIds, setExistingBlIds] = useState<Set<string>>(new Set())
 
-  // Fetch existing B/Ls for this voyage to compute diff
   useEffect(() => {
     if (!preview?.bls.length || !voyageId) {
       setExistingBlIds(new Set())
