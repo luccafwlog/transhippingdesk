@@ -42,6 +42,7 @@ const importNavItems: NavItem[] = [
   { to: '/veiculos', label: 'Veiculos', icon: Car },
   { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
   { to: '/vazios-importacao', label: 'Vazios — Importacao', icon: Package },
+  { to: '/baplie', label: 'Baplie EDI', icon: FileSpreadsheet },
 ]
 
 const exportNavItems: NavItem[] = [

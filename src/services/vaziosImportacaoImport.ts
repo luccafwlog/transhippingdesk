@@ -176,7 +176,8 @@ export async function importVaziosFromBaplie({
       description: description ?? 'Importado via Baplie EDI',
       total_containers: containers.length,
       imported_by: uploadedBy,
-    })
+      source: 'baplie',
+    } as never)
     .select('id')
     .single()
 
@@ -196,6 +197,32 @@ export async function importVaziosFromBaplie({
   if (insertError) throw insertError
 
   return { manifestId: manifestRow.id, total: containers.length }
+}
+
+export async function getBaplieManifestForVoyage(voyageId: number): Promise<{
+  id: string
+  total_containers: number
+  imported_at: string
+} | null> {
+  const { data, error } = await supabase
+    .from('vazios_importacao_manifests')
+    .select('id, total_containers, imported_at')
+    .eq('voyage_id', voyageId)
+    .eq('source' as never, 'baplie')
+    .order('imported_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data as { id: string; total_containers: number; imported_at: string } | null
+}
+
+export async function deleteBaplieManifestForVoyage(voyageId: number): Promise<void> {
+  const { error } = await supabase
+    .from('vazios_importacao_manifests')
+    .delete()
+    .eq('voyage_id', voyageId)
+    .eq('source' as never, 'baplie')
+  if (error) throw error
 }
 
 export async function listVaziosImportacaoContainers(filters: {

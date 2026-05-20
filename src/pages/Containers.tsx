@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, CalendarDays, Download } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -16,9 +16,6 @@ import {
   parseContainerFlagsImportFile,
   type ParsedContainerFlagsImport,
 } from '../services/containerFlagsImport'
-import { importVaziosFromBaplie } from '../services/vaziosImportacaoImport'
-import { supabase } from '../services/supabase'
-import type { BaplieContainer } from '../types/database'
 
 const pageSizes = [20, 50, 100]
 
@@ -383,10 +380,6 @@ export function Containers() {
         </div>
       </Card>
 
-      {filters.voyageId ? (
-        <BaplieStaging voyageId={Number(filters.voyageId)} />
-      ) : null}
-
       <ContainerDatesImportModal open={datesImportOpen} onClose={() => setDatesImportOpen(false)} />
 
       <Modal open={importOpen} onClose={resetImportModal} title="Importar Flags de IMO/OOG">
@@ -483,127 +476,6 @@ export function Containers() {
         </div>
       </Modal>
     </>
-  )
-}
-
-function BaplieStaging({ voyageId }: { voyageId: number }) {
-  const { user } = useAuth()
-  const { showToast } = useToast()
-  const queryClient = useQueryClient()
-  const [importing, setImporting] = useState(false)
-  const [page, setPage] = useState(1)
-  const pageSize = 20
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['baplie-staging', voyageId],
-    queryFn: async () => {
-      const PAGE = 1000
-      let all: BaplieContainer[] = []
-      let from = 0
-      while (true) {
-        const { data, error } = await supabase
-          .from('baplie_containers' as never)
-          .select('*')
-          .eq('voyage_id', voyageId)
-          .order('container_number')
-          .range(from, from + PAGE - 1)
-        if (error) throw error
-        all = all.concat((data ?? []) as BaplieContainer[])
-        if (!data || data.length < PAGE) break
-        from += PAGE
-      }
-      return all
-    },
-    enabled: !!voyageId,
-  })
-
-  const containers = data ?? []
-  if (!isLoading && !containers.length) return null
-
-  const empty = containers.filter((c) => c.status === 'empty')
-  const totalPages = Math.max(1, Math.ceil(containers.length / pageSize))
-  const paginated = containers.slice((page - 1) * pageSize, page * pageSize)
-
-  async function handleImportVazios() {
-    if (!user) return
-    setImporting(true)
-    try {
-      const { total } = await importVaziosFromBaplie({ voyageId, uploadedBy: user.id })
-      await queryClient.invalidateQueries({ queryKey: ['vazios-importacao'] })
-      showToast(`${total} container(s) vazio(s) cadastrados em Vazios Importação.`, 'success')
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Falha ao cadastrar vazios.', 'error')
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  return (
-    <Card className="mt-5 overflow-hidden p-0">
-      <div className="flex items-center justify-between border-b border-[#30363d] px-4 py-3">
-        <div>
-          <div className="text-sm font-semibold text-white">Baplie EDI — Staging</div>
-          <div className="text-xs text-slate-500">
-            {isLoading ? 'Carregando...' : `${containers.length} container(s) · ${empty.length} vazio(s)`}
-          </div>
-        </div>
-        {empty.length > 0 ? (
-          <Button variant="secondary" loading={importing} onClick={handleImportVazios}>
-            Cadastrar {empty.length} Vazio(s) em Importação
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="app-table-scroll">
-        <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
-          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Container</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">POL</th>
-              <th className="px-4 py-3">POD</th>
-              <th className="px-4 py-3">Slot</th>
-              <th className="px-4 py-3">B/L ref.</th>
-              <th className="px-4 py-3">Perfil</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#30363d]">
-            {isLoading ? (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Carregando...</td></tr>
-            ) : null}
-            {paginated.map((c) => (
-              <tr key={c.id} className="hover:bg-[#21262d]/60">
-                <td className="px-4 py-3 font-semibold text-white">{c.container_number}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={c.status === 'empty' ? 'slate' : 'blue'}>
-                    {c.status === 'empty' ? 'Vazio' : 'Cheio'}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3">{c.size_type ?? '-'}</td>
-                <td className="px-4 py-3">{c.pol ?? '-'}</td>
-                <td className="px-4 py-3">{c.pod ?? '-'}</td>
-                <td className="px-4 py-3">{c.slot ?? '-'}</td>
-                <td className="px-4 py-3">{c.bl_ref ?? '-'}</td>
-                <td className="px-4 py-3">
-                  {c.is_imo ? <Badge tone="red">IMO</Badge> : c.is_oog ? <Badge tone="yellow">OOG</Badge> : <Badge tone="blue">Padrao</Badge>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 ? (
-        <div className="app-table__footer">
-          <span>Pagina {page} de {totalPages} · {containers.length} containers</span>
-          <div className="app-table__footer-controls">
-            <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-            <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Proxima</Button>
-          </div>
-        </div>
-      ) : null}
-    </Card>
   )
 }
 
