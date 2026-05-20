@@ -19,6 +19,8 @@ import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimi
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { applyBaplieAttribute, reconcileBaplieWithManifest, type BaplieReconciliationItem, type AttributeDivergence } from '../services/baplieReconciliation'
+import { importBaplieStaging } from '../services/baplieImport'
+import { parseBaplieFile, type ParsedBaplie } from '../services/baplieParser'
 
 const pageSizes = [20, 50, 100]
 
@@ -40,6 +42,7 @@ export function Manifestos() {
   })
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
+  const [baplieOpen, setBaplieOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
@@ -94,6 +97,10 @@ export function Manifestos() {
             <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
               <Upload size={16} />
               Importar CE Mercante
+            </Button>
+            <Button variant="secondary" onClick={() => setBaplieOpen(true)}>
+              <Upload size={16} />
+              Importar Baplie EDI
             </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload size={16} />
@@ -308,6 +315,7 @@ export function Manifestos() {
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
+      <UploadBaplieModal open={baplieOpen} onClose={() => setBaplieOpen(false)} />
 
     </>
   )
@@ -400,6 +408,126 @@ function VoyageSelect({
         </option>
       ))}
     </Select>
+  )
+}
+
+function UploadBaplieModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user } = useAuth()
+  const { showToast } = useToast()
+  const { data: voyages } = useVoyageOptions()
+  const [voyageId, setVoyageId] = useState('')
+  const [_file, setFile] = useState<File | null>(null)
+  const [parsed, setParsed] = useState<ParsedBaplie | null>(null)
+  const [parsing, setParsing] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open || voyageId || !voyages?.length) return
+    if (voyages.length === 1) setVoyageId(String(voyages[0].id))
+  }, [open, voyageId, voyages])
+
+  function handleClose() {
+    setFile(null)
+    setParsed(null)
+    setVoyageId('')
+    onClose()
+  }
+
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const f = event.target.files?.[0] ?? null
+    setFile(f)
+    setParsed(null)
+    if (!f) return
+    setParsing(true)
+    try {
+      const result = await parseBaplieFile(f)
+      setParsed(result)
+    } catch {
+      showToast('Nao foi possivel ler o arquivo. Verifique o formato EDI.', 'error')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  async function handleImport() {
+    if (!parsed || !voyageId || !user) return
+    setSubmitting(true)
+    try {
+      const { staged } = await importBaplieStaging(Number(voyageId), parsed.containers, user.id)
+      showToast(`Baplie importado: ${staged} container(s) em staging.`, 'success')
+      handleClose()
+    } catch {
+      showToast('Falha ao importar Baplie EDI.', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const pods = parsed?.pods ?? []
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Importar Baplie EDI">
+      <div className="grid gap-5">
+        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+          Importe o Baplie EDI antes do manifesto. Os containers ficam em staging e serao conciliados automaticamente na importacao do manifesto CNTR.
+        </div>
+
+        <Field label="Viagem de destino">
+          <VoyageSelect value={voyageId} onChange={setVoyageId} emptyLabel="Selecione uma viagem" />
+        </Field>
+
+        <Field label="Arquivo .edi ou .txt">
+          <Input accept=".edi,.txt,.edi2" type="file" onChange={handleFile} />
+        </Field>
+
+        {parsing ? <div className="text-sm text-slate-400">Processando arquivo EDI...</div> : null}
+
+        {parsed ? (
+          <div className="grid gap-3">
+            {parsed.vessel_name || parsed.voyage_number ? (
+              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+                <div className="text-xs uppercase tracking-wider text-slate-500">Detectado no arquivo</div>
+                <div className="mt-1 font-semibold text-white">
+                  {parsed.vessel_name ?? '-'} / {parsed.voyage_number ?? '-'}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+                <div className="text-xs uppercase text-slate-500">Containers</div>
+                <div className="mt-1 text-2xl font-bold text-white">{parsed.containers.length}</div>
+              </div>
+              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+                <div className="text-xs uppercase text-slate-500">IMO</div>
+                <div className="mt-1 text-2xl font-bold text-white">{parsed.containers.filter((c) => c.is_imo).length}</div>
+              </div>
+              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+                <div className="text-xs uppercase text-slate-500">OOG</div>
+                <div className="mt-1 text-2xl font-bold text-white">{parsed.containers.filter((c) => c.is_oog).length}</div>
+              </div>
+            </div>
+
+            {pods.length > 0 ? (
+              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+                <span className="text-xs uppercase tracking-wider text-slate-500">PODs: </span>
+                {pods.join(', ')}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
+          <Button disabled={!parsed || !voyageId} loading={submitting} onClick={handleImport}>
+            Confirmar importacao
+          </Button>
+        </div>
+        {!voyageId ? (
+          <div className="text-sm text-amber-200">Selecione uma viagem de destino para habilitar a confirmacao.</div>
+        ) : null}
+      </div>
+    </Modal>
   )
 }
 

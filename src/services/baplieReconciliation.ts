@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { BLContainer } from '../types/database'
+import type { BLContainer, BaplieContainer as BaplieContainerRow } from '../types/database'
 
 export type AttributeDivergence = {
   field: 'status' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'
@@ -27,26 +27,6 @@ export type BaplieReconciliationResult = {
   items: BaplieReconciliationItem[]
 }
 
-type StagedContainer = {
-  id: number
-  voyage_id: number
-  container_number: string
-  size_type: string | null
-  status: string | null
-  weight_kg: number | null
-  pol: string | null
-  pod: string | null
-  final_dest: string | null
-  bl_ref: string | null
-  slot: string | null
-  is_imo: boolean
-  imo_class: string | null
-  un_number: string | null
-  is_oog: boolean
-  imported_at: string
-  imported_by: string | null
-}
-
 export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
   const [{ data: stagedRaw, error: stagedError }, { data: blRows, error: blError }] = await Promise.all([
     supabase.from('baplie_containers' as never).select('*').eq('voyage_id', voyageId),
@@ -56,7 +36,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
   if (stagedError) throw stagedError
   if (blError) throw blError
 
-  const staged = (stagedRaw ?? []) as StagedContainer[]
+  const staged = (stagedRaw ?? []) as BaplieContainerRow[]
   if (!staged.length) return { items: [] }
 
   const blIds = (blRows ?? []).map((b) => b.id)
@@ -71,7 +51,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
 
   if (containerError) throw containerError
 
-  const manifestByNumber = new Map<string, typeof blContainers>()
+  const manifestByNumber = new Map<string, NonNullable<typeof blContainers>>()
   for (const c of blContainers ?? []) {
     const key = c.container_number.replace(/\s+/g, '').toUpperCase()
     const list = manifestByNumber.get(key) ?? []
@@ -116,7 +96,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
 
       const bl = blById.get(mc.bl_id as string)
       const blRef = baplieC.bl_ref
-      const blNumber: string | null = bl ? (bl.id as string) : null
+      const blNumber: string | null = bl ? bl.id : null
       const blRefDiverges = blRef && blNumber && normalizeVal(blRef) !== normalizeVal(blNumber)
 
       if (divergences.length > 0 || blRefDiverges) {

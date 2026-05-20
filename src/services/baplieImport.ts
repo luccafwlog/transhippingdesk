@@ -14,7 +14,8 @@ export async function importBaplieStaging(
   containers: BaplieContainer[],
   actorId?: string | null,
 ): Promise<{ staged: number }> {
-  const { error: deleteError } = await (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('baplie_containers')
+  const { error: deleteError } = await supabase
+    .from('baplie_containers' as never)
     .delete()
     .eq('voyage_id', voyageId)
 
@@ -40,7 +41,7 @@ export async function importBaplieStaging(
     imported_by: actorId ?? null,
   }))
 
-  const { error: insertError } = await (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('baplie_containers').insert(rows as never)
+  const { error: insertError } = await supabase.from('baplie_containers' as never).insert(rows as never)
   if (insertError) throw insertError
 
   return { staged: rows.length }
