@@ -313,7 +313,8 @@ function ReconciliacaoSection({
   onApplied: () => void
 }) {
   const { showToast } = useToast()
-  const [applying, setApplying] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [applying, setApplying] = useState(false)
 
   const missing = items.filter(
     (item): item is Extract<BaplieReconciliationItem, { kind: 'missing_in_manifest' }> =>
@@ -324,18 +325,59 @@ function ReconciliacaoSection({
       item.kind === 'attribute_divergence',
   )
 
-  async function handleAccept(blContainerId: number, field: AttributeDivergence['field'], value: string | boolean | null) {
-    const key = `${blContainerId}-${field}`
-    setApplying(key)
-    try {
-      await applyBaplieAttribute(blContainerId, field, value, actorId)
-      showToast(`Campo "${fieldLabel(field)}" atualizado com valor do Baplie.`, 'success')
-      onApplied()
-    } catch {
-      showToast('Falha ao aplicar valor do Baplie.', 'error')
-    } finally {
-      setApplying(null)
+  const allRows = divergent.flatMap((item) =>
+    item.divergences.map((div) => ({
+      key: `${item.bl_container_id}-${div.field}`,
+      blContainerId: item.bl_container_id,
+      containerNumber: item.container_number,
+      blNumber: item.bl_number,
+      field: div.field,
+      baplieValue: div.baplie_value,
+      manifestValue: div.manifest_value,
+    })),
+  )
+
+  const allKeys = allRows.map((r) => r.key)
+  const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k))
+  const someSelected = selected.size > 0
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(allKeys))
     }
+  }
+
+  function toggleRow(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  async function handleApplySelected() {
+    const toApply = allRows.filter((r) => selected.has(r.key))
+    if (!toApply.length) return
+    setApplying(true)
+    let errors = 0
+    for (const row of toApply) {
+      try {
+        await applyBaplieAttribute(row.blContainerId, row.field, row.baplieValue, actorId)
+      } catch {
+        errors++
+      }
+    }
+    setApplying(false)
+    setSelected(new Set())
+    if (errors > 0) {
+      showToast(`${toApply.length - errors} aplicado(s), ${errors} com erro.`, 'info')
+    } else {
+      showToast(`${toApply.length} divergencia(s) aplicada(s) com sucesso.`, 'success')
+    }
+    onApplied()
   }
 
   if (!items.length) {
@@ -355,7 +397,7 @@ function ReconciliacaoSection({
             {items.length}
           </span>
         </div>
-        <div className="text-xs text-slate-500 mt-0.5">Revise e aceite os valores do Baplie para atualizar o manifesto.</div>
+        <div className="text-xs text-slate-500 mt-0.5">Selecione as divergencias e aplique os valores do Baplie de uma vez.</div>
       </div>
 
       {missing.length > 0 ? (
@@ -389,48 +431,64 @@ function ReconciliacaoSection({
 
       {divergent.length > 0 ? (
         <div className="p-4">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-400">
-            Divergencias de atributos ({divergent.length})
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+              Divergencias de atributos ({allRows.length})
+            </div>
+            {someSelected ? (
+              <Button loading={applying} onClick={handleApplySelected}>
+                Aceitar selecionados ({selected.size})
+              </Button>
+            ) : null}
           </div>
           <div className="overflow-auto rounded-xl border border-[#30363d]">
             <table className="app-table app-table--compact min-w-[560px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                 <tr>
+                  <th className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="accent-blue-500"
+                      title="Selecionar todos"
+                    />
+                  </th>
                   <th className="px-3 py-2">Container</th>
                   <th className="px-3 py-2">B/L</th>
                   <th className="px-3 py-2">Campo</th>
                   <th className="px-3 py-2">Baplie</th>
                   <th className="px-3 py-2">Manifesto</th>
-                  <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
-                {divergent.flatMap((item) =>
-                  item.divergences.map((div) => {
-                    const key = `${item.bl_container_id}-${div.field}`
-                    return (
-                      <tr key={key}>
-                        <td className="px-3 py-2 font-semibold text-white">{item.container_number}</td>
-                        <td className="px-3 py-2">{item.bl_number ?? '-'}</td>
-                        <td className="px-3 py-2">{fieldLabel(div.field)}</td>
-                        <td className="px-3 py-2 text-amber-300">{formatDivergenceValue(div.baplie_value)}</td>
-                        <td className="px-3 py-2">{formatDivergenceValue(div.manifest_value)}</td>
-                        <td className="px-3 py-2">
-                          <Button
-                            variant="ghost"
-                            loading={applying === key}
-                            onClick={() => handleAccept(item.bl_container_id, div.field, div.baplie_value)}
-                          >
-                            Aceitar Baplie
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  }),
-                )}
+                {allRows.map((row) => (
+                  <tr
+                    key={row.key}
+                    className={`cursor-pointer hover:bg-[#21262d]/60 ${selected.has(row.key) ? 'bg-blue-500/5' : ''}`}
+                    onClick={() => toggleRow(row.key)}
+                  >
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(row.key)}
+                        onChange={() => toggleRow(row.key)}
+                        className="accent-blue-500"
+                      />
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-white">{row.containerNumber}</td>
+                    <td className="px-3 py-2">{row.blNumber ?? '-'}</td>
+                    <td className="px-3 py-2">{fieldLabel(row.field)}</td>
+                    <td className="px-3 py-2 text-amber-300">{formatDivergenceValue(row.baplieValue)}</td>
+                    <td className="px-3 py-2">{formatDivergenceValue(row.manifestValue)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
+          {!someSelected ? (
+            <p className="mt-2 text-xs text-slate-500">Selecione as linhas para habilitar a aplicacao em lote.</p>
+          ) : null}
         </div>
       ) : null}
     </Card>
