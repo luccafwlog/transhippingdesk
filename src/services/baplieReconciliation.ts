@@ -53,7 +53,6 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
   if (!staged.length) return { items: [] }
 
   const blIds = (blRows ?? []).map((b) => b.id)
-  const blById = new Map((blRows ?? []).map((b) => [b.id, b]))
 
   const blContainers: Pick<BLContainer, 'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'>[] = []
   if (blIds.length) {
@@ -82,6 +81,8 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
   const items: BaplieReconciliationItem[] = []
 
   for (const baplieC of staged) {
+    if (baplieC.status === 'empty') continue
+
     const key = baplieC.container_number.toUpperCase()
     const matches = manifestByNumber.get(key)
 
@@ -114,18 +115,13 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
         divergences.push({ field: 'un_number', baplie_value: baplieC.un_number, manifest_value: mc.un_number })
       }
 
-      const bl = blById.get(mc.bl_id as string)
-      const blRef = baplieC.bl_ref
-      const blNumber: string | null = bl ? bl.id : null
-      const blRefDiverges = blRef && blNumber && normalizeVal(blRef) !== normalizeVal(blNumber)
-
-      if (divergences.length > 0 || blRefDiverges) {
+      if (divergences.length > 0) {
         items.push({
           kind: 'attribute_divergence',
           container_number: baplieC.container_number,
           bl_container_id: mc.id,
-          bl_number: blNumber,
-          baplie_bl_ref: blRef,
+          bl_number: mc.bl_id as string,
+          baplie_bl_ref: baplieC.bl_ref,
           divergences,
         })
       }
