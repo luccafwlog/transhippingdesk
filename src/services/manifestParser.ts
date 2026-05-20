@@ -1,5 +1,5 @@
 import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
-import { normalizeText, onlyDigits, toNumber } from '../lib/utils'
+import { asString, normalizeText, onlyDigits, toNumber } from '../lib/utils'
 import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyageForm'
 
 const headerMap = {
@@ -78,7 +78,7 @@ export function countDistinctManifestContainers(manifest: ParsedManifest | null 
   return countDistinctParsedContainers(manifest?.bls ?? [])
 }
 
-export function countDistinctParsedContainers(bls: ParsedBL[]) {
+function countDistinctParsedContainers(bls: ParsedBL[]) {
   return countDistinctContainersAcrossGroups(bls, (bl) => bl.containers)
 }
 
@@ -499,10 +499,6 @@ function joinCells(row: RawSheetRow) {
 
 function cell(row: RawSheetRow, index: number) {
   return asString(row[index])
-}
-
-function asString(value: unknown) {
-  return String(value ?? '').trim()
 }
 
 function parseNumberValue(value: unknown) {

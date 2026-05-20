@@ -134,35 +134,6 @@ export async function deleteCustomerContact(contactId: number) {
   if (error) throw error
 }
 
-export async function linkBlToCustomer({
-  blId,
-  customerId,
-  previousCustomerId,
-  changedBy,
-  justification,
-}: {
-  blId: string
-  customerId: number | null
-  previousCustomerId: number | null
-  changedBy: string
-  justification: string
-}) {
-  const { error: updateError } = await supabase.from('bls').update({ customer_id: customerId }).eq('id', blId)
-  if (updateError) throw updateError
-
-  const { error: auditError } = await supabase.from('audit_logs').insert({
-    entity_type: 'bl',
-    entity_id: blId,
-    field_name: 'customer_id',
-    old_value: stringifyValue(previousCustomerId),
-    new_value: stringifyValue(customerId),
-    changed_by: changedBy,
-    justification,
-  })
-
-  if (auditError) throw auditError
-}
-
 export type CustomerPortalAccount = {
   id: number
   customer_id: number

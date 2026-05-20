@@ -10,9 +10,17 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PASSWORD_MIN_LENGTH = 8
+
+// CORS restrito ao domínio do app. A env var APP_URL deve ser configurada
+// no projeto Supabase (ex: https://transhipping.app).
+const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? Deno.env.get('SUPABASE_URL') ?? ''
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Vary': 'Origin',
 }
 
 Deno.serve(async (req: Request) => {
@@ -51,9 +59,21 @@ Deno.serve(async (req: Request) => {
       .eq('id', callerUser.id)
       .single()
 
-    if (!profile?.active || profile?.role !== 'administrativo') {
+    if (!profile?.active || (profile?.role !== 'administrativo' && profile?.role !== 'admin')) {
       return new Response(JSON.stringify({ error: 'Forbidden: only administrativo role can provision portal users' }), {
         status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Rate limit via DB — persistente entre instâncias (substitui o mapa em memória)
+    const adminClientForRateLimit = createClient(supabaseUrl, serviceRoleKey)
+    const { data: rateLimitOk, error: rateLimitError } = await adminClientForRateLimit
+      .rpc('check_provision_rate_limit', { p_user_id: callerUser.id })
+
+    if (rateLimitError || !rateLimitOk) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Tente novamente em 1 hora.' }), {
+        status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -66,6 +86,20 @@ Deno.serve(async (req: Request) => {
 
     if (!body.customer_portal_account_id || !body.portal_email || !body.password) {
       return new Response(JSON.stringify({ error: 'Missing required fields: customer_portal_account_id, portal_email, password' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!EMAIL_REGEX.test(body.portal_email)) {
+      return new Response(JSON.stringify({ error: 'Invalid email format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (body.password.length < PASSWORD_MIN_LENGTH) {
+      return new Response(JSON.stringify({ error: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

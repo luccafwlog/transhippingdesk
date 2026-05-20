@@ -1,4 +1,4 @@
-import { normalizeText } from '../lib/utils'
+import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -294,6 +294,3 @@ function normalizeValue(value: string | null | undefined) {
   return asString(value).toUpperCase()
 }
 
-function asString(value: unknown) {
-  return String(value ?? '').trim()
-}

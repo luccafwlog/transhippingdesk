@@ -15,8 +15,14 @@ export class ErrorBoundary extends Component<Props, State> {
     return { error }
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary] Erro não capturado:', error, info.componentStack)
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    // Em produção logamos apenas a mensagem; o componentStack fica fora
+    // para não vazar estrutura interna de componentes no console do browser.
+    if (import.meta.env.DEV) {
+      console.error('[ErrorBoundary] Erro não capturado:', error, _info.componentStack)
+    } else {
+      console.error('[ErrorBoundary]', error.message)
+    }
   }
 
   render() {

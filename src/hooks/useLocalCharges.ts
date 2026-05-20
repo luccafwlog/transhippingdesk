@@ -3,7 +3,6 @@ import {
   addManualBlCharge,
   approveCustomerReconciliation,
   calculateLocalChargesBatch,
-  calculateBlLocalCharges,
   getBillingRunDetails,
   listLocalChargeOperationalRows,
   listBillingRuns,
@@ -23,7 +22,6 @@ import {
   listCustomerRateOverrides,
   listOverrideChargeItems,
   listOverrideCustomers,
-  listLocalChargePendencies,
   listLocalChargeTables,
   saveCustomerRateOverride,
   rejectCustomerReconciliation,
@@ -43,23 +41,6 @@ export function useManualChargeItemsForBl(blId?: string) {
     queryKey: ['manual-charge-items', blId],
     enabled: Boolean(blId),
     queryFn: () => listManualChargeItemsForBl(blId!),
-  })
-}
-
-export function useCalculateBlLocalCharges(blId?: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (options?: { actorId?: string | null; recalculate?: boolean }) =>
-      calculateBlLocalCharges(blId!, { actorId: options?.actorId ?? null, recalculate: options?.recalculate ?? true }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-      ])
-    },
   })
 }
 
@@ -206,13 +187,6 @@ export function useDeleteChargeTableItem() {
       await queryClient.invalidateQueries({ queryKey: ['manual-charge-items'] })
       await queryClient.invalidateQueries({ queryKey: ['local-charge-override-items'] })
     },
-  })
-}
-
-export function useChargePendencies(limit = 100) {
-  return useQuery({
-    queryKey: ['local-charge-pendencies', limit],
-    queryFn: () => listLocalChargePendencies(limit),
   })
 }
 

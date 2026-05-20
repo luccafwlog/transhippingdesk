@@ -3,7 +3,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from '../services/supabase'
 import { portalGetSessionOverview, portalLogin, portalLogout, type PortalSessionOverview } from '../services/portalBilling'
 
-// Token legado (compatibilidade com contas sem auth_user_id provisionado)
+// Token legado (compatibilidade com contas sem auth_user_id provisionado).
+// Usa sessionStorage em vez de localStorage para limitar exposição: tokens não
+// persistem entre sessões do browser e ficam isolados por aba.
 const STORAGE_KEY = 'td.portal.session.token'
 
 type AuthMethod = 'supabase_auth' | 'legacy_token'
@@ -23,16 +25,16 @@ const PortalAuthContext = createContext<PortalAuthContextValue | null>(null)
 
 function readStoredToken() {
   if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(STORAGE_KEY)
+  return window.sessionStorage.getItem(STORAGE_KEY)
 }
 
 function persistToken(token: string | null) {
   if (typeof window === 'undefined') return
   if (token) {
-    window.localStorage.setItem(STORAGE_KEY, token)
+    window.sessionStorage.setItem(STORAGE_KEY, token)
     return
   }
-  window.localStorage.removeItem(STORAGE_KEY)
+  window.sessionStorage.removeItem(STORAGE_KEY)
 }
 
 function isPortalSessionError(error: unknown) {
@@ -41,7 +43,6 @@ function isPortalSessionError(error: unknown) {
   return code === '28000' || message.toLowerCase().includes('sessao do portal')
 }
 
-// Busca visão geral via Supabase Auth (RPC v2 sem token)
 function normalizePortalOverview(payload: Record<string, unknown>) {
   return {
     customer_id: Number(payload.customer_id ?? 0),
@@ -58,7 +59,6 @@ async function fetchOverviewViaSupabaseAuth(): Promise<PortalSessionOverview> {
   return normalizePortalOverview((data ?? {}) as Record<string, unknown>)
 }
 
-// Verifica qual método de auth está disponível para o cnpj_cpf
 async function checkAuthMethod(cnpjCpf: string): Promise<{ method: string; portal_email?: string }> {
   const { data, error } = await supabase.rpc('portal_check_auth_method', { p_cnpj_cpf: cnpjCpf })
   if (error) throw error
@@ -78,13 +78,11 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
     persistToken(null)
   }, [])
 
-  // Hidratação: detectar se há sessão Supabase Auth ativa primeiro
   useEffect(() => {
     let mounted = true
 
     async function hydrate() {
       try {
-        // Tentar sessão Supabase Auth primeiro
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
           try {
@@ -134,7 +132,6 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
       const methodInfo = await checkAuthMethod(cnpjCpf)
 
       if (methodInfo.method === 'supabase_auth' && methodInfo.portal_email) {
-        // Fluxo Supabase Auth
         const { error } = await supabase.auth.signInWithPassword({
           email: methodInfo.portal_email,
           password,
@@ -145,7 +142,6 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
         setAuthMethod('supabase_auth')
         persistToken(null) // garantir que token legado não fica ativo
       } else if (methodInfo.method === 'legacy_token') {
-        // Fluxo legado (token)
         const result = await portalLogin(cnpjCpf, password)
         persistToken(result.token)
         setSessionToken(result.token)
@@ -173,7 +169,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
       try {
         await portalLogout(token)
       } catch {
-        // local session already cleared
+        // portalLogout is best-effort; local session already cleared above
       }
     }
   }, [clearSession, sessionToken, authMethod])

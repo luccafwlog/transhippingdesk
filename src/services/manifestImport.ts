@@ -171,7 +171,59 @@ export async function importManifest({
     throw billingError
   }
 
+  await syncManifestContactEmails(blPayload)
+
   return batchId as number
+}
+
+/**
+ * Para cada BL com cliente matched e e-mail no manifesto, cria o contato no
+ * cadastro do cliente caso aquele e-mail ainda nao esteja registrado.
+ * Erros sao silenciados para nao bloquear o retorno da importacao.
+ */
+async function syncManifestContactEmails(
+  blPayload: Array<{ customer_id: number | null; manifest_customer_email?: string | null }>,
+) {
+  const toSync = new Map<number, Set<string>>()
+  for (const bl of blPayload) {
+    const email = bl.manifest_customer_email?.trim().toLowerCase()
+    if (bl.customer_id && email) {
+      const existing = toSync.get(bl.customer_id) ?? new Set<string>()
+      existing.add(email)
+      toSync.set(bl.customer_id, existing)
+    }
+  }
+
+  if (!toSync.size) return
+
+  const customerIds = Array.from(toSync.keys())
+
+  const { data: existing } = await supabase
+    .from('customer_contacts')
+    .select('customer_id, email')
+    .in('customer_id', customerIds)
+
+  const existingSet = new Set(
+    (existing ?? [])
+      .filter((c) => c.email)
+      .map((c) => `${c.customer_id}:${c.email!.trim().toLowerCase()}`),
+  )
+
+  const toInsert = Array.from(toSync.entries()).flatMap(([customerId, emails]) =>
+    Array.from(emails)
+      .filter((email) => !existingSet.has(`${customerId}:${email}`))
+      .map((email) => ({
+        customer_id: customerId,
+        name: 'Contato manifesto',
+        email,
+        purpose: 'financeiro' as const,
+        is_primary: false,
+      })),
+  )
+
+  if (!toInsert.length) return
+
+  await supabase.from('customer_contacts').insert(toInsert)
 }
 
 
