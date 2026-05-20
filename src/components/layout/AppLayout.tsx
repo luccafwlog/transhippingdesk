@@ -47,7 +47,7 @@ const importNavItems: NavItem[] = [
 
 const exportNavItems: NavItem[] = [
   { to: '/granito', label: 'Granito', icon: Mountain },
-  { to: '/embarquevazios', label: 'Vazios — Exportacao', icon: Package },
+  { to: '/embarquevazios', label: 'Vazios EXP', icon: Package },
 ]
 
 const primaryNavItems: NavItem[] = [
