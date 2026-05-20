@@ -41,8 +41,13 @@ export async function importBaplieStaging(
     imported_by: actorId ?? null,
   }))
 
-  const { error: insertError } = await supabase.from('baplie_containers' as never).insert(rows as never)
-  if (insertError) throw insertError
+  const BATCH = 500
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const { error: insertError } = await supabase
+      .from('baplie_containers' as never)
+      .insert(rows.slice(i, i + BATCH) as never)
+    if (insertError) throw insertError
+  }
 
   return { staged: rows.length }
 }

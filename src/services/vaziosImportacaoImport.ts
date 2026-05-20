@@ -152,15 +152,21 @@ export async function importVaziosFromBaplie({
   uploadedBy: string
   description?: string
 }): Promise<{ manifestId: string; total: number }> {
-  const { data: staged, error: stagedError } = await supabase
-    .from('baplie_containers' as never)
-    .select('container_number, size_type')
-    .eq('voyage_id', voyageId)
-    .eq('status', 'empty')
-
-  if (stagedError) throw stagedError
-
-  const containers = (staged ?? []) as { container_number: string; size_type: string | null }[]
+  const PAGE = 1000
+  let containers: { container_number: string; size_type: string | null }[] = []
+  let from = 0
+  while (true) {
+    const { data, error: stagedError } = await supabase
+      .from('baplie_containers' as never)
+      .select('container_number, size_type')
+      .eq('voyage_id', voyageId)
+      .eq('status', 'empty')
+      .range(from, from + PAGE - 1)
+    if (stagedError) throw stagedError
+    containers = containers.concat((data ?? []) as { container_number: string; size_type: string | null }[])
+    if (!data || data.length < PAGE) break
+    from += PAGE
+  }
   if (!containers.length) throw new Error('Nenhum container vazio encontrado no Baplie desta viagem.')
 
   const { data: manifestRow, error: manifestError } = await supabase
