@@ -18,9 +18,6 @@ import { formatCnpjCpf } from '../lib/utils'
 import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimitImportError } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
 import { logOperationalEvent } from '../services/operationalEvents'
-import { applyBaplieAttribute, reconcileBaplieWithManifest, type BaplieReconciliationItem, type AttributeDivergence } from '../services/baplieReconciliation'
-import { importBaplieStaging } from '../services/baplieImport'
-import { parseBaplieFile, type ParsedBaplie } from '../services/baplieParser'
 
 const pageSizes = [20, 50, 100]
 
@@ -42,7 +39,6 @@ export function Manifestos() {
   })
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
-  const [baplieOpen, setBaplieOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
@@ -97,10 +93,6 @@ export function Manifestos() {
             <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
               <Upload size={16} />
               Importar CE Mercante
-            </Button>
-            <Button variant="secondary" onClick={() => setBaplieOpen(true)}>
-              <Upload size={16} />
-              Importar Baplie EDI
             </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload size={16} />
@@ -315,7 +307,6 @@ export function Manifestos() {
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
-      <UploadBaplieModal open={baplieOpen} onClose={() => setBaplieOpen(false)} />
 
     </>
   )
@@ -411,157 +402,6 @@ function VoyageSelect({
   )
 }
 
-function UploadBaplieModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user } = useAuth()
-  const { showToast } = useToast()
-  const { data: voyages } = useVoyageOptions()
-  const [voyageId, setVoyageId] = useState('')
-  const [parsed, setParsed] = useState<ParsedBaplie | null>(null)
-  const [parsing, setParsing] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    if (!open || voyageId || !voyages?.length) return
-    if (voyages.length === 1) setVoyageId(String(voyages[0].id))
-  }, [open, voyageId, voyages])
-
-  function handleClose() {
-    setParsed(null)
-    setVoyageId('')
-    setExcludedPods(new Set())
-    onClose()
-  }
-
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const f = event.target.files?.[0] ?? null
-    setParsed(null)
-    setExcludedPods(new Set())
-    if (!f) return
-    setParsing(true)
-    try {
-      const result = await parseBaplieFile(f)
-      setParsed(result)
-    } catch {
-      showToast('Nao foi possivel ler o arquivo. Verifique o formato EDI.', 'error')
-    } finally {
-      setParsing(false)
-    }
-  }
-
-  function togglePod(pod: string) {
-    setExcludedPods((prev) => {
-      const next = new Set(prev)
-      if (next.has(pod)) next.delete(pod)
-      else next.add(pod)
-      return next
-    })
-  }
-
-  const filteredContainers = (parsed?.containers ?? []).filter(
-    (c) => !c.pod || !excludedPods.has(c.pod),
-  )
-
-  async function handleImport() {
-    if (!parsed || !voyageId || !user) return
-    setSubmitting(true)
-    try {
-      const { staged } = await importBaplieStaging(Number(voyageId), filteredContainers, user.id)
-      showToast(`Baplie importado: ${staged} container(s) em staging.`, 'success')
-      handleClose()
-    } catch {
-      showToast('Falha ao importar Baplie EDI.', 'error')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const pods = parsed?.pods ?? []
-
-  return (
-    <Modal open={open} onClose={handleClose} title="Importar Baplie EDI">
-      <div className="grid gap-5">
-        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-          Importe o Baplie EDI antes do manifesto. Os containers ficam em staging e serao conciliados automaticamente na importacao do manifesto CNTR.
-        </div>
-
-        <Field label="Viagem de destino">
-          <VoyageSelect value={voyageId} onChange={setVoyageId} emptyLabel="Selecione uma viagem" />
-        </Field>
-
-        <Field label="Arquivo .edi ou .txt">
-          <Input accept=".edi,.txt,.edi2" type="file" onChange={handleFile} />
-        </Field>
-
-        {parsing ? <div className="text-sm text-slate-400">Processando arquivo EDI...</div> : null}
-
-        {parsed ? (
-          <div className="grid gap-3">
-            {parsed.vessel_name || parsed.voyage_number ? (
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-                <div className="text-xs uppercase tracking-wider text-slate-500">Detectado no arquivo</div>
-                <div className="mt-1 font-semibold text-white">
-                  {parsed.vessel_name ?? '-'} / {parsed.voyage_number ?? '-'}
-                </div>
-              </div>
-            ) : null}
-
-            {pods.length > 0 ? (
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-                <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
-                  Portos de descarga — desmarque os que deseja ignorar
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {pods.map((pod) => (
-                    <label key={pod} className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
-                      <input
-                        type="checkbox"
-                        checked={!excludedPods.has(pod)}
-                        onChange={() => togglePod(pod)}
-                        className="accent-blue-500"
-                      />
-                      {pod}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-                <div className="text-xs uppercase text-slate-500">Containers</div>
-                <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.length}</div>
-                {excludedPods.size > 0 ? (
-                  <div className="mt-1 text-xs text-slate-500">de {parsed.containers.length} no arquivo</div>
-                ) : null}
-              </div>
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-                <div className="text-xs uppercase text-slate-500">IMO</div>
-                <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.filter((c) => c.is_imo).length}</div>
-              </div>
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-                <div className="text-xs uppercase text-slate-500">OOG</div>
-                <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.filter((c) => c.is_oog).length}</div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
-          <Button disabled={!parsed || !voyageId || filteredContainers.length === 0} loading={submitting} onClick={handleImport}>
-            Confirmar importacao
-            {excludedPods.size > 0 ? ` (${filteredContainers.length} containers)` : ''}
-          </Button>
-        </div>
-        {!voyageId ? (
-          <div className="text-sm text-amber-200">Selecione uma viagem de destino para habilitar a confirmacao.</div>
-        ) : null}
-      </div>
-    </Modal>
-  )
-}
-
 function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -578,8 +418,6 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const [previewIndex, setPreviewIndex] = useState(0)
   const [importStatusMessage, setImportStatusMessage] = useState<string | null>(null)
   const [waitMessage, setWaitMessage] = useState<string | null>(null)
-  const [reconciliationItems, setReconciliationItems] = useState<BaplieReconciliationItem[]>([])
-  const [reconciliationOpen, setReconciliationOpen] = useState(false)
 
   const primaryManifest = files.length ? manifestsByFile[files[previewIndex]?.name] ?? null : null
   const totals = useMemo(
@@ -712,16 +550,6 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           successCount === 1 ? 'Manifesto importado com sucesso.' : `${successCount} manifestos importados com sucesso.`,
           'success',
         )
-        try {
-          const reconciliation = await reconcileBaplieWithManifest(Number(voyageId))
-          if (reconciliation.items.length > 0) {
-            setReconciliationItems(reconciliation.items)
-            setReconciliationOpen(true)
-            return
-          }
-        } catch {
-          // reconciliation failure nao deve bloquear o fluxo
-        }
         onClose()
         return
       } else if (successCount > 0) {
@@ -906,15 +734,6 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         }}
       />
 
-      <BaplieReconciliationModal
-        open={reconciliationOpen}
-        items={reconciliationItems}
-        actorId={user?.id ?? null}
-        onClose={() => {
-          setReconciliationOpen(false)
-          onClose()
-        }}
-      />
     </Modal>
   )
 }
@@ -961,143 +780,6 @@ function ReviewBadge({ status }: { status: string }) {
   if (status === 'pending_review') return <Badge tone="yellow">Pendente</Badge>
   if (status === 'reviewed') return <Badge tone="green">Revisado</Badge>
   return <Badge tone="blue">OK</Badge>
-}
-
-function fieldLabel(field: AttributeDivergence['field']): string {
-  switch (field) {
-    case 'is_imo': return 'IMO'
-    case 'is_oog': return 'OOG'
-    case 'imo_class': return 'Classe IMO'
-    case 'un_number': return 'No. ONU'
-    case 'status': return 'Status'
-  }
-}
-
-function formatDivergenceValue(v: string | boolean | null): string {
-  if (v === null || v === undefined) return '-'
-  if (typeof v === 'boolean') return v ? 'Sim' : 'Nao'
-  return String(v)
-}
-
-function BaplieReconciliationModal({
-  open,
-  items,
-  actorId,
-  onClose,
-}: {
-  open: boolean
-  items: BaplieReconciliationItem[]
-  actorId: string | null
-  onClose: () => void
-}) {
-  const { showToast } = useToast()
-  const [applying, setApplying] = useState<string | null>(null)
-
-  const missing = items.filter((item): item is Extract<BaplieReconciliationItem, { kind: 'missing_in_manifest' }> => item.kind === 'missing_in_manifest')
-  const divergent = items.filter((item): item is Extract<BaplieReconciliationItem, { kind: 'attribute_divergence' }> => item.kind === 'attribute_divergence')
-
-  async function handleAccept(blContainerId: number, field: AttributeDivergence['field'], value: string | boolean | null) {
-    const key = `${blContainerId}-${field}`
-    setApplying(key)
-    try {
-      await applyBaplieAttribute(blContainerId, field, value, actorId)
-      showToast(`Campo "${fieldLabel(field)}" atualizado com valor do Baplie.`, 'success')
-    } catch {
-      showToast('Falha ao aplicar valor do Baplie.', 'error')
-    } finally {
-      setApplying(null)
-    }
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} title="Divergencias Baplie x Manifesto">
-      <div className="grid gap-5">
-        <div className="text-sm text-slate-400">
-          O Baplie EDI desta viagem apresenta as seguintes divergencias em relacao ao manifesto importado.
-        </div>
-
-        {missing.length > 0 ? (
-          <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
-              Containers no Baplie sem B/L no manifesto ({missing.length})
-            </div>
-            <div className="max-h-48 overflow-auto rounded-xl border border-[#30363d]">
-              <table className="app-table app-table--compact min-w-[400px] text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Container</th>
-                    <th className="px-3 py-2">B/L ref. (Baplie)</th>
-                    <th className="px-3 py-2">Slot</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#30363d]">
-                  {missing.map((item) => (
-                    <tr key={item.container_number}>
-                      <td className="px-3 py-2 font-semibold text-white">{item.container_number}</td>
-                      <td className="px-3 py-2">{item.baplie_bl_ref ?? '-'}</td>
-                      <td className="px-3 py-2">{item.slot ?? '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">Acao necessaria: acionar armador para verificar manifesto.</p>
-          </div>
-        ) : null}
-
-        {divergent.length > 0 ? (
-          <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-400">
-              Divergencias de atributos ({divergent.length})
-            </div>
-            <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
-              <table className="app-table app-table--compact min-w-[560px] text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Container</th>
-                    <th className="px-3 py-2">B/L</th>
-                    <th className="px-3 py-2">Campo</th>
-                    <th className="px-3 py-2">Baplie</th>
-                    <th className="px-3 py-2">Manifesto</th>
-                    <th className="px-3 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#30363d]">
-                  {divergent.flatMap((item) =>
-                    item.divergences.map((div) => {
-                      const key = `${item.bl_container_id}-${div.field}`
-                      return (
-                        <tr key={key}>
-                          <td className="px-3 py-2 font-semibold text-white">{item.container_number}</td>
-                          <td className="px-3 py-2">{item.bl_number ?? '-'}</td>
-                          <td className="px-3 py-2">{fieldLabel(div.field)}</td>
-                          <td className="px-3 py-2 text-amber-300">{formatDivergenceValue(div.baplie_value)}</td>
-                          <td className="px-3 py-2">{formatDivergenceValue(div.manifest_value)}</td>
-                          <td className="px-3 py-2">
-                            <Button
-                              variant="ghost"
-                              loading={applying === key}
-                              onClick={() => handleAccept(item.bl_container_id, div.field, div.baplie_value)}
-                            >
-                              Aceitar Baplie
-                            </Button>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex justify-end">
-          <Button onClick={onClose}>Fechar</Button>
-        </div>
-      </div>
-    </Modal>
-  )
 }
 
 function summarizeManifestRoutes(manifest: ParsedManifest | null) {

@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
+import { useVaziosImportacaoStats, type VoyageVaziosImportacaoStat } from '../hooks/useVaziosImportacaoStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import { deleteVoyage, fetchVoyagesWithUnpaidBls } from '../services/voyages'
@@ -112,6 +113,7 @@ export function Viagens() {
 
   const filteredVoyageIds = useMemo(() => filteredVoyages.map((voyage) => voyage.id), [filteredVoyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(filteredVoyageIds)
+  const { data: vaziosImpStatsData } = useVaziosImportacaoStats(filteredVoyageIds)
   const { data: voyagesWithUnpaidBls } = useQuery({
     queryKey: ['voyage-billing-status', filteredVoyageIds],
     enabled: filteredVoyageIds.length > 0,
@@ -119,6 +121,7 @@ export function Viagens() {
     queryFn: () => fetchVoyagesWithUnpaidBls(filteredVoyageIds),
   })
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
+  const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
   const moduleStatsByVoyage = useMemo(
     () =>
       Object.fromEntries(
@@ -232,6 +235,12 @@ export function Viagens() {
             containerNumbers: [],
             brandSummary: '-',
             vehicleByContainerTypeSummary: '-',
+          }
+          const vaziosImpStats: VoyageVaziosImportacaoStat = vaziosImpStatsByVoyage[voyage.id] ?? {
+            totalManifests: 0,
+            distinctContainers: 0,
+            containerTypes: '',
+            destinations: '',
           }
           const { containerBls, breakbulkBls } = splitVoyageBls(voyage.bls)
           const importBatches = voyage.import_batches ?? []
@@ -359,6 +368,13 @@ export function Viagens() {
                   <Info label="Weight total" value={`${formatMetric(totalBreakbulkWeightTon)} ton`} />
                   <Info label="CBM total" value={formatMetric(totalBreakbulkCbm)} />
                 </MetricPanel>
+
+                <MetricPanel title="Vazios Importacao">
+                  <Info label="Manifestos" value={String(vaziosImpStats.totalManifests)} />
+                  <Info label="Containers distintos" value={String(vaziosImpStats.distinctContainers)} />
+                  <Info label="Tipos" value={vaziosImpStats.containerTypes || '-'} />
+                  <Info label="Destinos" value={vaziosImpStats.destinations || '-'} />
+                </MetricPanel>
               </div>
 
               {user?.id ? (
@@ -370,7 +386,7 @@ export function Viagens() {
                     voyageId={voyage.id}
                     voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
                     userId={user.id}
-                    types={['cntr', 'bb', 'vaziosImp', 'vehicles', 'baplie']}
+                    types={['cntr', 'bb', 'vaziosImp', 'vehicles']}
                   />
                 </MetricSection>
               ) : null}
