@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import type { BLContainer } from '../types/database'
 
 export type AttributeDivergence = {
   field: 'status' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'
@@ -26,16 +27,37 @@ export type BaplieReconciliationResult = {
   items: BaplieReconciliationItem[]
 }
 
+type StagedContainer = {
+  id: number
+  voyage_id: number
+  container_number: string
+  size_type: string | null
+  status: string | null
+  weight_kg: number | null
+  pol: string | null
+  pod: string | null
+  final_dest: string | null
+  bl_ref: string | null
+  slot: string | null
+  is_imo: boolean
+  imo_class: string | null
+  un_number: string | null
+  is_oog: boolean
+  imported_at: string
+  imported_by: string | null
+}
+
 export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
-  const [{ data: staged, error: stagedError }, { data: blRows, error: blError }] = await Promise.all([
-    supabase.from('baplie_containers').select('*').eq('voyage_id', voyageId),
-    supabase.from('bls').select('id, bl_number').eq('voyage_id', voyageId),
+  const [{ data: stagedRaw, error: stagedError }, { data: blRows, error: blError }] = await Promise.all([
+    supabase.from('baplie_containers' as never).select('*').eq('voyage_id', voyageId),
+    supabase.from('bls').select('id').eq('voyage_id', voyageId),
   ])
 
   if (stagedError) throw stagedError
   if (blError) throw blError
 
-  if (!staged?.length) return { items: [] }
+  const staged = (stagedRaw ?? []) as StagedContainer[]
+  if (!staged.length) return { items: [] }
 
   const blIds = (blRows ?? []).map((b) => b.id)
   const blById = new Map((blRows ?? []).map((b) => [b.id, b]))
@@ -45,7 +67,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
         .from('bl_containers')
         .select('id, bl_id, container_number, is_imo, imo_class, un_number, is_oog')
         .in('bl_id', blIds)
-    : { data: [], error: null }
+    : { data: [] as Pick<BLContainer, 'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'>[], error: null }
 
   if (containerError) throw containerError
 
@@ -76,10 +98,6 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
     for (const mc of matches) {
       const divergences: AttributeDivergence[] = []
 
-      if (baplieC.status !== null && baplieC.status !== undefined) {
-        // bl_containers doesn't have a status field yet — skip for now
-      }
-
       if (Boolean(baplieC.is_imo) !== Boolean(mc.is_imo)) {
         divergences.push({ field: 'is_imo', baplie_value: baplieC.is_imo, manifest_value: Boolean(mc.is_imo) })
       }
@@ -96,9 +114,9 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
         divergences.push({ field: 'un_number', baplie_value: baplieC.un_number, manifest_value: mc.un_number })
       }
 
-      const bl = blById.get(mc.bl_id)
+      const bl = blById.get(mc.bl_id as string)
       const blRef = baplieC.bl_ref
-      const blNumber = bl?.bl_number ?? null
+      const blNumber: string | null = bl ? (bl.id as string) : null
       const blRefDiverges = blRef && blNumber && normalizeVal(blRef) !== normalizeVal(blNumber)
 
       if (divergences.length > 0 || blRefDiverges) {
@@ -123,12 +141,12 @@ export async function applyBaplieAttribute(
   value: string | boolean | null,
   actorId: string | null,
 ): Promise<void> {
-  const update: Record<string, unknown> = {}
+  const update: Partial<BLContainer> = {}
 
-  if (field === 'is_imo') update.is_imo = value
-  else if (field === 'is_oog') update.is_oog = value
-  else if (field === 'imo_class') update.imo_class = value
-  else if (field === 'un_number') update.un_number = value
+  if (field === 'is_imo') update.is_imo = value as boolean
+  else if (field === 'is_oog') update.is_oog = value as boolean
+  else if (field === 'imo_class') update.imo_class = value as string | null
+  else if (field === 'un_number') update.un_number = value as string | null
 
   const { error } = await supabase.from('bl_containers').update(update).eq('id', blContainerId)
   if (error) throw error
