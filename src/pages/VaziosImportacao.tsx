@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyageOptions } from '../hooks/useBls'
+import { formatDate } from '../lib/utils'
 import {
   parseVaziosImportacaoFile,
   importVaziosImportacaoManifest,
@@ -148,9 +149,7 @@ export function VaziosImportacao() {
               <option value="">Todos</option>
               {(manifests ?? []).map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.description
-                    ? m.description
-                    : new Date(m.imported_at).toLocaleDateString('pt-BR')}{' '}
+                  {m.description ? m.description : formatDate(m.imported_at)}{' '}
                   ({m.total_containers} ctrs)
                 </option>
               ))}
@@ -201,9 +200,7 @@ export function VaziosImportacao() {
               {(data?.rows ?? []).map((row) => {
                 const manifestLabel = row.manifest?.description
                   ? row.manifest.description
-                  : row.manifest?.imported_at
-                    ? new Date(row.manifest.imported_at).toLocaleDateString('pt-BR')
-                    : '-'
+                  : formatDate(row.manifest?.imported_at)
                 return (
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
                     <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.container_number}</td>
@@ -216,11 +213,7 @@ export function VaziosImportacao() {
                         : '-'}
                     </td>
                     <td className="px-4 py-3">{manifestLabel}</td>
-                    <td className="px-4 py-3">
-                      {row.manifest?.imported_at
-                        ? new Date(row.manifest.imported_at).toLocaleDateString('pt-BR')
-                        : '-'}
-                    </td>
+                    <td className="px-4 py-3">{formatDate(row.manifest?.imported_at)}</td>
                   </tr>
                 )
               })}
