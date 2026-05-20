@@ -143,6 +143,54 @@ export async function importVaziosImportacaoManifest({
   return { manifestId }
 }
 
+export async function importVaziosFromBaplie({
+  voyageId,
+  uploadedBy,
+  description,
+}: {
+  voyageId: number
+  uploadedBy: string
+  description?: string
+}): Promise<{ manifestId: string; total: number }> {
+  const { data: staged, error: stagedError } = await supabase
+    .from('baplie_containers' as never)
+    .select('container_number, size_type')
+    .eq('voyage_id', voyageId)
+    .eq('status', 'empty')
+
+  if (stagedError) throw stagedError
+
+  const containers = (staged ?? []) as { container_number: string; size_type: string | null }[]
+  if (!containers.length) throw new Error('Nenhum container vazio encontrado no Baplie desta viagem.')
+
+  const { data: manifestRow, error: manifestError } = await supabase
+    .from('vazios_importacao_manifests')
+    .insert({
+      voyage_id: voyageId,
+      description: description ?? 'Importado via Baplie EDI',
+      total_containers: containers.length,
+      imported_by: uploadedBy,
+    })
+    .select('id')
+    .single()
+
+  if (manifestError || !manifestRow) throw manifestError ?? new Error('Falha ao criar manifesto.')
+
+  const rows = containers.map((c) => ({
+    manifest_id: manifestRow.id,
+    container_number: c.container_number,
+    container_type: c.size_type,
+    tare_kg: null,
+  }))
+
+  const { error: insertError } = await supabase
+    .from('vazios_importacao_containers')
+    .upsert(rows, { onConflict: 'manifest_id,container_number' })
+  if (insertError) throw insertError
+
+  return { manifestId: manifestRow.id, total: containers.length }
+}
+
 export async function listVaziosImportacaoContainers(filters: {
   manifestId?: string
   voyageId?: string
