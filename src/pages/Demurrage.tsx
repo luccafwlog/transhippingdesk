@@ -401,7 +401,7 @@ export function Demurrage() {
           {containersError && <InlineError message="Erro ao carregar containers." />}
 
           {!containersLoading && !containersError && grouped.size === 0 && (
-            <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou nao ha descargas registradas." />
+            <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
           )}
 
           {Array.from(grouped.entries()).map(([blId, blContainers]) => {
@@ -497,7 +497,7 @@ export function Demurrage() {
               title="Nenhuma invoice"
               description={
                 tab === 'rascunhos'
-                  ? 'Nenhum rascunho. Faturas geradas por importacao sao emitidas automaticamente — rascunhos aparecem apenas quando a BCB esta offline.'
+                  ? 'Nenhum rascunho. Faturas geradas por importação são emitidas automaticamente — rascunhos aparecem apenas quando a BCB está offline.'
                   : `Nenhuma invoice com status "${tab}".`
               }
             />

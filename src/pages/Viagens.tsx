@@ -30,18 +30,18 @@ import {
 } from '../services/voyageRouteSchedules'
 import { VoyageImportActions } from '../components/shared/VoyageImportActions'
 
-type VoyageSectionKey = 'importacao' | 'exportacao' | 'origemTrechos'
+type VoyageSectionKey = 'importação' | 'exportação' | 'origemTrechos'
 
 const VOYAGE_SECTION_ITEMS: Array<{ key: VoyageSectionKey; label: string; description: string }> = [
   {
-    key: 'importacao',
-    label: 'Importacao',
-    description: 'Consolidado dos fluxos de CNTR, carga geral, carga solta e veiculos vinculados a viagem.',
+    key: 'importação',
+    label: 'Importação',
+    description: 'Consolidado dos fluxos de CNTR, carga geral, carga solta e veículos vinculados à viagem.',
   },
   {
-    key: 'exportacao',
-    label: 'Exportacao',
-    description: 'Resumo dos modulos de Granito e Vazios vinculados a mesma viagem.',
+    key: 'exportação',
+    label: 'Exportação',
+    description: 'Resumo dos módulos de Granito e Vazios vinculados à mesma viagem.',
   },
   {
     key: 'origemTrechos',
@@ -191,7 +191,7 @@ export function Viagens() {
     <>
       <PageHeader
         title="Viagens"
-        description="Cadastro de navio/viagem com planejamento de escalas e visao separada entre operacao de importacao e exportacao."
+        description="Cadastro de navio/viagem com planejamento de escalas e visão separada entre operação de importação e exportação."
         action={
           isAdmin ? (
             <Button onClick={() => setOpen(true)}>
@@ -379,7 +379,7 @@ export function Viagens() {
 
               {user?.id ? (
                 <MetricSection
-                  title="Importacao rapida"
+                  title="Importação rápida"
                   description="Importe manifestos e planilhas diretamente nesta viagem sem sair da tela."
                 >
                   <VoyageImportActions
@@ -417,8 +417,8 @@ export function Viagens() {
 
               {user?.id ? (
                 <MetricSection
-                  title="Exportacao rapida"
-                  description="Importe manifestos e planilhas de exportacao diretamente nesta viagem."
+                  title="Exportação rápida"
+                  description="Importe manifestos e planilhas de exportação diretamente nesta viagem."
                 >
                   <VoyageImportActions
                     voyageId={voyage.id}
@@ -688,7 +688,7 @@ export function Viagens() {
                                         row.eta || row.etb || row.ata || row.atd || row.rtw !== null,
                                       )
                                       if (routeBls.length > 0) {
-                                        showToast('Nao e possivel excluir este POD: existem B/Ls vinculados.', 'error')
+                                        showToast('Não é possível excluir este POD: existem B/Ls vinculados.', 'error')
                                         return
                                       }
                                       if (!hasScheduleData && row.linked !== true) {
@@ -828,16 +828,16 @@ export function Viagens() {
       <Modal open={deletingVoyageId !== null} onClose={() => setDeletingVoyageId(null)} title="Excluir Viagem">
         <div className="grid gap-4">
           <div className="rounded-xl border border-red-400/30 bg-red-950/30 p-3 text-sm text-red-100">
-            Esta exclusao e permanente. Ela so sera permitida se a viagem nao tiver importacoes nem B/Ls vinculados.
+            Esta exclusão é permanente. Ela só será permitida se a viagem não tiver importações nem B/Ls vinculados.
           </div>
 
           <div className="text-sm text-slate-300">
             {deletingVoyage ? (
               <>
-                Confirme a exclusao de <span className="font-semibold text-white">{deletingVoyage.vessel?.name ?? 'Navio'} / {deletingVoyage.voyage_number}</span>.
+                Confirme a exclusão de <span className="font-semibold text-white">{deletingVoyage.vessel?.name ?? 'Navio'} / {deletingVoyage.voyage_number}</span>.
               </>
             ) : (
-              'Confirme a exclusao da viagem selecionada.'
+              'Confirme a exclusão da viagem selecionada.'
             )}
           </div>
 
@@ -1281,7 +1281,7 @@ function getVaziosModuleStats(manifests: VoyageVaziosManifest[] | null | undefin
     totalManifests,
     totalBookings,
     distinctContainers: countDistinctContainerNumbers(bookings),
-    containerTypes: summarizeOccurrences(bookings, (booking) => booking.container_type, 'Nao informado'),
+    containerTypes: summarizeOccurrences(bookings, (booking) => booking.container_type, 'Não informado'),
     destinations: summarizeUniqueValues(bookings.map((booking) => booking.destination)),
     originTerminals: summarizeUniqueValues(bookings.map((booking) => booking.origin_terminal)),
   }
@@ -1505,7 +1505,7 @@ function summarizeContainerTypes(
   const groups = new Map<string, Array<{ container_number?: string | null }>>()
 
   for (const container of containers ?? []) {
-    const type = String(container.type ?? '').trim() || 'Nao informado'
+    const type = String(container.type ?? '').trim() || 'Não informado'
     const current = groups.get(type)
 
     if (current) {

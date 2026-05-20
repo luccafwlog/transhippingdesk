@@ -147,7 +147,7 @@ export function Revisao() {
     <>
       <PageHeader
         title="Revisao Manual"
-        description="Fila de B/Ls com pendencias de importacao que exigem validacao humana."
+        description="Fila de B/Ls com pendencias de importação que exigem validação humana."
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -285,7 +285,7 @@ export function Revisao() {
                     </div>
                   </td>
                   <td className="px-4 py-3">{item.consignee ?? item.shipper ?? '-'}</td>
-                  <td className="px-4 py-3">{item.customer?.name ?? 'Nao vinculado'}</td>
+                  <td className="px-4 py-3">{item.customer?.name ?? 'Não vinculado'}</td>
                   <td className="px-4 py-3">
                     {item.voyage?.vessel?.name ?? '-'} / {item.voyage?.voyage_number ?? '-'}
                   </td>
@@ -499,7 +499,7 @@ function ReviewModal({
           context: { source: 'review_modal' },
         })
         await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
-        showToast('Este B/L foi alterado por outro usuario. A fila foi recarregada.', 'error')
+        showToast('Este B/L foi alterado por outro usuário. A fila foi recarregada.', 'error')
         return
       }
       showToast('Falha ao salvar a revisao do B/L.', 'error')

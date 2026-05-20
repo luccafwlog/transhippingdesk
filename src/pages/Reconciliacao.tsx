@@ -47,7 +47,7 @@ export function Reconciliacao() {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['demurrage-kpis'] })
       setMatches(null)
-      showToast(`Conciliacao concluida: ${local} taxas locais, ${demurrage} demurrage.`, 'success')
+      showToast(`Conciliação concluída: ${local} taxas locais, ${demurrage} demurrage.`, 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -58,8 +58,8 @@ export function Reconciliacao() {
   return (
     <>
       <PageHeader
-        title="Conciliacao PIX"
-        description="Reconciliacao automatica de pagamentos PIX para taxas locais e demurrage"
+        title="Conciliação PIX"
+        description="Conciliação automática de pagamentos PIX para taxas locais e demurrage"
       />
 
       {/* Upload zone */}
@@ -145,7 +145,7 @@ export function Reconciliacao() {
           {ambiguous.length > 0 && (
             <Card className="mb-4 border-amber-400/30 bg-amber-400/5">
               <div className="border-b border-amber-400/20 p-4 text-sm font-semibold text-amber-200">
-                Ambiguas — ignoradas na confirmacao ({ambiguous.length})
+                Ambíguas — ignoradas na confirmação ({ambiguous.length})
               </div>
               <div className="divide-y divide-[#30363d]">
                 {ambiguous.map((m, i) => (

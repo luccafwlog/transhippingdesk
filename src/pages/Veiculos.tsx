@@ -143,7 +143,7 @@ export function Veiculos() {
     <>
       <PageHeader
         title="Veiculos"
-        description="Gestao e importacao de veiculos vinculados a viagem, containers e BLs."
+        description="Gestão e importação de veículos vinculados a viagem, containers e BLs."
         action={
           <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <Upload size={16} />
@@ -181,7 +181,7 @@ export function Veiculos() {
         </div>
         {!voyageId ? (
           <div className="mt-3 text-sm text-amber-200">
-            Selecione uma viagem apenas para visualizacao da lista. A importacao usa o seletor proprio dentro do modal.
+            Selecione uma viagem apenas para visualização da lista. A importação usa o seletor próprio dentro do modal.
           </div>
         ) : null}
       </Card>
@@ -313,7 +313,7 @@ export function Veiculos() {
             <div className="font-semibold text-white">Estrutura obrigatoria da planilha</div>
             <div className="mt-2">CHASSI, MARCA, MODELO, PESO, CUBAGEM, CONTAINER, TIPO_CONTAINER, LACRE, BL.</div>
             <div className="mt-2 text-slate-400">
-              Cada linha valida veiculo, container e BL antes da persistencia. Linhas invalidas sao rejeitadas individualmente.
+              Cada linha valida veiculo, container e BL antes da persistencia. Linhas inválidas são rejeitadas individualmente.
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
@@ -429,7 +429,7 @@ export function Veiculos() {
               Fechar
             </Button>
             <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length} loading={importing} onClick={handleImport}>
-              Confirmar importacao
+              Confirmar importação
             </Button>
           </div>
         </div>

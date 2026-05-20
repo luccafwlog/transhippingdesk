@@ -82,7 +82,7 @@ export function ClienteFicha() {
 
   const savePortalMutation = useMutation({
     mutationFn: async () => {
-      if (!data) throw new Error('Cliente nao carregado.')
+      if (!data) throw new Error('Cliente não carregado.')
       return upsertCustomerPortalAccount({
         customerId: data.id,
         password: portalPassword,
@@ -98,7 +98,7 @@ export function ClienteFicha() {
 
   const togglePortalActiveMutation = useMutation({
     mutationFn: async (active: boolean) => {
-      if (!data) throw new Error('Cliente nao carregado.')
+      if (!data) throw new Error('Cliente não carregado.')
       return setCustomerPortalAccountActive({
         customerId: data.id,
         active,
@@ -342,7 +342,7 @@ export function ClienteFicha() {
   }
 
   if (error || !data || !form) {
-    return <Card className="text-red-200">Cliente nao encontrado ou erro ao consultar o Supabase.</Card>
+    return <Card className="text-red-200">Cliente não encontrado ou erro ao consultar o Supabase.</Card>
   }
 
   return (
@@ -656,7 +656,7 @@ export function ClienteFicha() {
           <h2 className="mb-4 mt-8 text-lg font-semibold text-white">Invoices</h2>
           {data.invoices_access_denied ? (
             <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
-              Visualizacao financeira restrita ao perfil admin.
+              Visualização financeira restrita ao perfil admin.
             </div>
           ) : null}
           <div className="app-table-scroll">
@@ -675,7 +675,7 @@ export function ClienteFicha() {
                   <tr>
                     <td colSpan={5} className="py-4 text-slate-400">
                       {data.invoices_access_denied
-                        ? 'Sem permissao para visualizar invoices deste cliente.'
+                        ? 'Sem permissão para visualizar invoices deste cliente.'
                         : 'Nenhuma invoice encontrada para este cliente.'}
                     </td>
                   </tr>

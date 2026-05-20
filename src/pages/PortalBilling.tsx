@@ -171,7 +171,7 @@ export function PortalBilling() {
               <Field label="Vencimento">
                 <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
               </Field>
-              <Field label="Observacoes">
+              <Field label="Observações">
                 <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
               </Field>
               <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
@@ -398,7 +398,7 @@ export function PortalBilling() {
                         <th className="px-3 py-2">Data</th>
                         <th className="px-3 py-2">Metodo</th>
                         <th className="px-3 py-2">Valor</th>
-                        <th className="px-3 py-2">Observacoes</th>
+                        <th className="px-3 py-2">Observações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">

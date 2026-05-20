@@ -29,7 +29,7 @@ function customerCard(bl: PipelineBL): PipelineCard {
   const s = bl.customer_reconciliation_status
   if (s === 'reconciled') return { label: 'Cliente', detail: 'Reconciliado', state: 'green' }
   if (s === 'matched_document' || s === 'matched_name') return { label: 'Cliente', detail: 'Aguardando confirmar', state: 'yellow' }
-  if (s === 'missing_customer') return { label: 'Cliente', detail: 'Nao identificado', state: 'red', href: '/clientes' }
+  if (s === 'missing_customer') return { label: 'Cliente', detail: 'Não identificado', state: 'red', href: '/clientes' }
   if (s === 'rejected') return { label: 'Cliente', detail: 'Rejeitado', state: 'red', href: '/clientes' }
   return { label: 'Cliente', detail: 'Pendente', state: 'yellow' }
 }
@@ -39,7 +39,7 @@ function chargesCard(bl: PipelineBL): PipelineCard {
   if (s === 'ready_for_billing' || s === 'exempt') return { label: 'Taxas', detail: 'Pronto p/ faturar', state: 'green' }
   if (s === 'reviewed') return { label: 'Taxas', detail: 'Revisado', state: 'yellow' }
   if (s === 'calculated' || s === 'review_required') return { label: 'Taxas', detail: 'Calculado', state: 'yellow' }
-  return { label: 'Taxas', detail: 'Nao calculado', state: 'red', href: '/taxas-locais' }
+  return { label: 'Taxas', detail: 'Não calculado', state: 'red', href: '/taxas-locais' }
 }
 
 function financialCard(bl: PipelineBL): PipelineCard {

@@ -91,7 +91,7 @@ export function Containers() {
         parsed.rowErrors.length ? 'info' : 'success',
       )
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nao foi possivel ler a planilha.'
+      const message = error instanceof Error ? error.message : 'Não foi possível ler a planilha.'
       showToast(message, 'error')
     } finally {
       setParsingFlags(false)
@@ -216,7 +216,7 @@ export function Containers() {
           <Field label="Status taxas locais">
             <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
               <option value="">Todos</option>
-              <option value="not_calculated">Nao calculado</option>
+              <option value="not_calculated">Não calculado</option>
               <option value="calculated">Calculado</option>
               <option value="review_required">Revisao</option>
               <option value="reviewed">Revisado</option>
@@ -393,7 +393,7 @@ export function Containers() {
               As colunas obrigatorias sao <span className="font-semibold text-white">Container</span>, <span className="font-semibold text-white">BL</span>, <span className="font-semibold text-white">IMO</span> e <span className="font-semibold text-white">OOG</span>.
             </div>
             <div className="mt-2 text-slate-400">
-              Em <span className="font-semibold text-white">IMO</span>, informe a classe ou o texto completo do IMO. Se deixar em branco, o sistema entende que o container nao e IMO. Em <span className="font-semibold text-white">OOG</span>, use apenas Sim ou Nao.
+              Em <span className="font-semibold text-white">IMO</span>, informe a classe ou o texto completo do IMO. Se deixar em branco, o sistema entende que o container não é IMO. Em <span className="font-semibold text-white">OOG</span>, use apenas Sim ou Não.
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
@@ -427,7 +427,7 @@ export function Containers() {
               <div className="grid gap-3 md:grid-cols-3">
                 <PreviewBox label="Linhas validas" value={parsedFlags.rows.length} />
                 <PreviewBox label="Linhas ignoradas" value={parsedFlags.rowErrors.length} />
-                <PreviewBox label="Atualizacoes previstas" value={parsedFlags.rows.length} />
+                <PreviewBox label="Atualizações previstas" value={parsedFlags.rows.length} />
               </div>
 
               <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
@@ -526,7 +526,7 @@ function ChargeStatusBadge({ status }: { status: string | null }) {
     case 'exempt':
       return <Badge tone="slate">Isento</Badge>
     default:
-      return <Badge tone="slate">Nao calc.</Badge>
+      return <Badge tone="slate">Não calc.</Badge>
   }
 }
 

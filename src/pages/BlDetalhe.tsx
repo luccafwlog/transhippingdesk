@@ -82,7 +82,7 @@ const BL_TABS: { key: BlTab; label: string }[] = [
   { key: 'carga', label: 'Carga' },
   { key: 'cobrancas', label: 'Cobrancas' },
   { key: 'financeiro', label: 'Financeiro' },
-  { key: 'historico', label: 'Historico' },
+  { key: 'historico', label: 'Histórico' },
 ]
 
 function isBlTab(value: string | null): value is BlTab {
@@ -225,7 +225,7 @@ export function BlDetalhe() {
     }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      showToast('Quantidade invalida para a linha manual.', 'error')
+      showToast('Quantidade inválida para a linha manual.', 'error')
       return
     }
 
@@ -315,7 +315,7 @@ export function BlDetalhe() {
         showToast('Ainda existem linhas com pendencia de revisao.', 'error')
         return
       }
-      if (msg.includes('nao possui cliente vinculado') || msg.includes('P0003')) {
+      if (msg.includes('não possui cliente vinculado') || msg.includes('P0003')) {
         showToast('B/L sem cliente vinculado. Acesse Revisão para vincular um cliente antes de faturar.', 'error')
         return
       }
@@ -486,7 +486,7 @@ export function BlDetalhe() {
           })
           await queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] })
           showToast(
-            'Este B/L foi alterado por outro usuario. Os dados foram recarregados; revise e salve novamente.',
+            'Este B/L foi alterado por outro usuário. Os dados foram recarregados; revise e salve novamente.',
             'error',
           )
           return
@@ -504,7 +504,7 @@ export function BlDetalhe() {
       setJustification('')
       showToast('B/L salvo com auditoria campo a campo.', 'success')
     } catch {
-      showToast('Falha ao salvar alteracoes do B/L.', 'error')
+      showToast('Falha ao salvar alterações do B/L.', 'error')
     } finally {
       setSaving(false)
     }
@@ -691,7 +691,7 @@ export function BlDetalhe() {
                 value={form.payment_type ?? ''}
                 onChange={(event) => setField('payment_type', event.target.value as BL['payment_type'])}
               >
-                <option value="">Nao informado</option>
+                <option value="">Não informado</option>
                 <option value="PREPAID">PREPAID</option>
                 <option value="COLLECT">COLLECT</option>
               </Select>
@@ -733,7 +733,7 @@ export function BlDetalhe() {
           <div className="mt-5 flex justify-end">
             <Button loading={saving} type="submit">
               <Save size={16} />
-              Salvar alteracoes
+              Salvar alterações
             </Button>
           </div>
         </Card>
@@ -745,7 +745,7 @@ export function BlDetalhe() {
           <Card>
             <h2 className="mb-4 text-lg font-semibold text-white">Cliente</h2>
             <dl className="mb-4 grid gap-3 text-sm">
-              <InfoLine label="Cliente vinculado" value={bl.customer?.name ?? 'Nao vinculado'} />
+              <InfoLine label="Cliente vinculado" value={bl.customer?.name ?? 'Não vinculado'} />
               <InfoLine label="CNPJ/CPF" value={bl.customer?.cnpj_cpf ?? '-'} />
               <InfoLine label="Saldo pendente" value={formatBRL(bl.customer?.pending_balance ?? 0)} />
             </dl>
@@ -772,7 +772,7 @@ export function BlDetalhe() {
             ) : null}
 
             <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-slate-400">Reconciliacao:</span>
+              <span className="text-slate-400">Conciliação:</span>
               {bl.customer_reconciliation_status === 'reconciled' ? <Badge tone="green">Reconciliado</Badge>
                 : bl.customer_reconciliation_status === 'matched_document' ? <Badge tone="blue">Match CNPJ</Badge>
                 : bl.customer_reconciliation_status === 'matched_name' ? <Badge tone="yellow">Match nome</Badge>
@@ -834,7 +834,7 @@ export function BlDetalhe() {
           </Card>
 
           <Card>
-            <h2 className="mb-4 text-lg font-semibold text-white">Informacoes financeiras</h2>
+            <h2 className="mb-4 text-lg font-semibold text-white">Informações financeiras</h2>
             <dl className="grid gap-3 text-sm">
               <InfoLine label="Modo de carga" value={cargoModeLabel(cargoMode)} />
               <InfoLine label="CE Mercante" value={bl.ce_mercante ?? '-'} />
@@ -980,7 +980,7 @@ export function BlDetalhe() {
                   disabled={deleteManualChargeMutation.isPending}
                 >
                   {manualChargeForm.editingChargeCalculationId ? <Pencil size={16} /> : <Save size={16} />}
-                  {manualChargeForm.editingChargeCalculationId ? 'Salvar edicao' : 'Adicionar other charge'}
+                  {manualChargeForm.editingChargeCalculationId ? 'Salvar edição' : 'Adicionar other charge'}
                 </Button>
                 {manualChargeForm.editingChargeCalculationId ? (
                   <Button variant="ghost" type="button" onClick={handleCancelManualChargeEdit}>
@@ -1422,7 +1422,7 @@ function resolveChargeStatusLabel(status: BL['charge_status']) {
     case 'exempt':
       return 'Isento'
     default:
-      return 'Nao calculado'
+      return 'Não calculado'
   }
 }
 

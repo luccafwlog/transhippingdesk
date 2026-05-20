@@ -266,7 +266,7 @@ export function TaxasLocais() {
   async function handleExportOperations() {
     const rows = operationsRows ?? []
     if (!rows.length) {
-      showToast('Nao ha dados para exportar com os filtros atuais.', 'info')
+      showToast('Não há dados para exportar com os filtros atuais.', 'info')
       return
     }
 
@@ -276,7 +276,7 @@ export function TaxasLocais() {
       await exportLocalChargeOperationsWorkbook(rows)
       showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
     } catch {
-      showToast('Falha ao exportar operacao de taxas locais.', 'error')
+      showToast('Falha ao exportar operação de taxas locais.', 'error')
     } finally {
       setExportingOps(false)
     }
@@ -337,7 +337,7 @@ export function TaxasLocais() {
 
   async function handleApproveQueueItem(queueId: number, customerId?: number | null) {
     if (!customerId) {
-      showToast('Nao ha cliente vinculado para aprovacao automatica. Revise o cadastro antes.', 'error')
+      showToast('Não há cliente vinculado para aprovação automática. Revise o cadastro antes.', 'error')
       return
     }
 
@@ -347,9 +347,9 @@ export function TaxasLocais() {
         customerId,
         actorId: user?.id ?? null,
       })
-      showToast('Reconciliacao aprovada.', 'success')
+      showToast('Reconciliação aprovada.', 'success')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliacao.', 'error')
+      showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliação.', 'error')
     }
   }
 
@@ -359,9 +359,9 @@ export function TaxasLocais() {
         queueId,
         actorId: user?.id ?? null,
       })
-      showToast('Reconciliacao rejeitada.', 'success')
+      showToast('Reconciliação rejeitada.', 'success')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliacao.', 'error')
+      showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliação.', 'error')
     }
   }
 
@@ -383,7 +383,7 @@ export function TaxasLocais() {
       return
     }
     if (overrideForm.validFrom && overrideForm.validTo && overrideForm.validTo < overrideForm.validFrom) {
-      showToast('A vigencia final nao pode ser anterior a vigencia inicial.', 'error')
+      showToast('A vigência final não pode ser anterior à vigência inicial.', 'error')
       return
     }
 
@@ -449,11 +449,11 @@ export function TaxasLocais() {
       return
     }
     if (!tableForm.validFrom) {
-      showToast('Informe a vigencia inicial da tabela.', 'error')
+      showToast('Informe a vigência inicial da tabela.', 'error')
       return
     }
     if (tableForm.validTo && tableForm.validTo < tableForm.validFrom) {
-      showToast('Vigencia final nao pode ser anterior a inicial.', 'error')
+      showToast('Vigência final não pode ser anterior à inicial.', 'error')
       return
     }
 
@@ -647,7 +647,7 @@ export function TaxasLocais() {
                 {tableForm.id ? (
                   <Button variant="ghost" type="button" onClick={() => setTableForm(EMPTY_TABLE_FORM)}>
                     <X size={15} />
-                    Cancelar edicao
+                    Cancelar edição
                   </Button>
                 ) : null}
               </div>
@@ -724,7 +724,7 @@ export function TaxasLocais() {
                   />
                 </Field>
                 <div className="md:col-span-2">
-                  <Field label="Observacoes">
+                  <Field label="Observações">
                     <Textarea
                       value={tableForm.notes}
                       onChange={(event) =>
@@ -733,7 +733,7 @@ export function TaxasLocais() {
                           notes: event.target.value,
                         }))
                       }
-                      placeholder="Escopo da tabela, versao, premissas"
+                      placeholder="Escopo da tabela, versão, premissas"
                     />
                   </Field>
                 </div>
@@ -755,7 +755,7 @@ export function TaxasLocais() {
                 {tableItemForm.id ? (
                   <Button variant="ghost" type="button" onClick={() => setTableItemForm(EMPTY_TABLE_ITEM_FORM)}>
                     <X size={15} />
-                    Cancelar edicao
+                    Cancelar edição
                   </Button>
                 ) : null}
               </div>
@@ -915,7 +915,7 @@ export function TaxasLocais() {
           <Card className="overflow-hidden p-0">
             {tablesError ? (
               <div className="p-5 text-sm text-amber-200">
-                Nao foi possivel consultar tabelas de taxas locais. Se voce for operador, este acesso pode estar restrito por role.
+                Não foi possível consultar tabelas de taxas locais. Se você for operador, este acesso pode estar restrito por role.
               </div>
             ) : null}
             <div className="app-table-scroll">
@@ -1094,7 +1094,7 @@ export function TaxasLocais() {
             <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
               <div className="app-table__cell-stack">
                 <div className="text-base font-semibold text-white">Filtro operacional</div>
-                <div className="app-table__cell-meta">Trabalhe bloqueios, reconciliacao e prontidao de faturamento sobre a mesma base filtrada.</div>
+                <div className="app-table__cell-meta">Trabalhe bloqueios, conciliação e prontidão de faturamento sobre a mesma base filtrada.</div>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
@@ -1140,7 +1140,7 @@ export function TaxasLocais() {
                   }
                 >
                   <option value="">Todos</option>
-                  <option value="not_calculated">Nao calculado</option>
+                  <option value="not_calculated">Não calculado</option>
                   <option value="calculated">Calculado</option>
                   <option value="review_required">Revisao</option>
                   <option value="reviewed">Revisado</option>
@@ -1172,7 +1172,7 @@ export function TaxasLocais() {
             <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
               <PipelineStep
                 number={1}
-                label="Reconciliacao"
+                label="Conciliação"
                 count={operationsSummary.reconciliationPending}
                 isBottleneck={pipelineBottleneck === 'reconciliation'}
                 active={reconciliationFilter}
@@ -1180,7 +1180,7 @@ export function TaxasLocais() {
               />
               <PipelineStep
                 number={2}
-                label="Nao calculados"
+                label="Não calculados"
                 count={operationsSummary.notCalculated}
                 isBottleneck={pipelineBottleneck === 'not_calculated'}
                 active={opsFilters.chargeStatus === 'not_calculated' && !reconciliationFilter}
@@ -1259,7 +1259,7 @@ export function TaxasLocais() {
           </Card>
 
           <Card className="overflow-hidden p-0">
-            {operationsError ? <InlineError message="Falha ao carregar operacao de taxas locais." /> : null}
+            {operationsError ? <InlineError message="Falha ao carregar operação de taxas locais." /> : null}
             <div className="app-table-scroll">
               <table className="app-table app-table--compact min-w-[1100px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -1284,7 +1284,7 @@ export function TaxasLocais() {
                   {operationsLoading ? (
                     <tr>
                       <td className="px-4 py-8 text-center text-slate-400" colSpan={10}>
-                        Carregando operacao...
+                        Carregando operação...
                       </td>
                     </tr>
                   ) : null}
@@ -1387,7 +1387,7 @@ export function TaxasLocais() {
                                 </div>
                                 {reconciliationPending && queueItem ? (
                                   <div className="rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
-                                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-400">Reconciliacao pendente</div>
+                                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-400">Conciliação pendente</div>
                                     <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                       <div>
                                         <div className="text-slate-500">Cliente no manifesto</div>
@@ -1427,8 +1427,8 @@ export function TaxasLocais() {
                                   </div>
                                 ) : reconciliationPending ? (
                                   <div className="rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
-                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">Reconciliacao pendente</div>
-                                    <div className="text-sm text-slate-400">Nenhum item de reconciliacao encontrado na fila para este B/L.</div>
+                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">Conciliação pendente</div>
+                                    <div className="text-sm text-slate-400">Nenhum item de conciliação encontrado na fila para este B/L.</div>
                                   </div>
                                 ) : null}
                               </div>
@@ -1487,7 +1487,7 @@ export function TaxasLocais() {
                   onClick={() => setOverrideForm(EMPTY_OVERRIDE_FORM)}
                 >
                   <X size={15} />
-                  Cancelar edicao
+                  Cancelar edição
                 </Button>
               ) : null}
             </div>
@@ -1539,7 +1539,7 @@ export function TaxasLocais() {
                   onChange={(event) => setOverrideForm((prev) => ({ ...prev, validTo: event.target.value }))}
                 />
               </Field>
-              <Field label="Observacoes">
+              <Field label="Observações">
                 <Textarea
                   value={overrideForm.notes}
                   onChange={(event) => setOverrideForm((prev) => ({ ...prev, notes: event.target.value }))}

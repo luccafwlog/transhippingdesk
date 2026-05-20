@@ -116,7 +116,7 @@ export function VaziosImportacao() {
     <>
       <PageHeader
         title="Vazios — Importacao"
-        description="Containers vazios que descarregam (chegam) ao porto. Sao os futuros vazios de exportacao."
+        description="Containers vazios que descarregam (chegam) ao porto. São os futuros vazios de exportação."
         action={
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />
@@ -155,7 +155,7 @@ export function VaziosImportacao() {
               ))}
             </Select>
           </Field>
-          <Field label="Por pagina">
+          <Field label="Por página">
             <Select value={filters.pageSize} onChange={(e) => updateFilter('pageSize', Number(e.target.value))}>
               {pageSizes.map((s) => (
                 <option key={s} value={s}>{s}/pag.</option>
@@ -325,7 +325,7 @@ export function VaziosImportacao() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={resetUpload}>Cancelar</Button>
             <Button disabled={!manifest || !user || !voyageId} loading={submitting} onClick={handleImport}>
-              Confirmar importacao
+              Confirmar importação
             </Button>
           </div>
         </div>

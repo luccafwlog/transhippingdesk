@@ -7,7 +7,7 @@ import { MANAGED_PROFILES, PROFILE_LABELS, listAllUserProfiles, updateUserProfil
 import { supabase } from '../services/supabase'
 import type { UserProfileRole } from '../types/database'
 
-type AdminTab = 'usuarios' | 'logs' | 'metricas'
+type AdminTab = 'usuários' | 'logs' | 'métricas'
 
 const VERSION = '2.0.0'
 const COMMIT_SHA = String(import.meta.env.VITE_APP_COMMIT_SHA ?? 'unknown')
@@ -94,7 +94,7 @@ export function AdminUsuarios() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const [pendingId, setPendingId] = useState<string | null>(null)
-  const [tab, setTab] = useState<AdminTab>('usuarios')
+  const [tab, setTab] = useState<AdminTab>('usuários')
   const [logFilters, setLogFilters] = useState<LogFilters>({
     entityType: '', changedBy: '', dateFrom: '', dateTo: '', page: 0,
   })
@@ -117,7 +117,7 @@ export function AdminUsuarios() {
   const { data: metrics } = useQuery({
     queryKey: ['admin-metrics'],
     queryFn: fetchSystemMetrics,
-    enabled: tab === 'metricas',
+    enabled: tab === 'métricas',
     staleTime: 60_000,
   })
 
@@ -126,11 +126,11 @@ export function AdminUsuarios() {
       updateUserProfile(id, updates),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-users'] })
-      showToast('Usuario atualizado.', 'success')
+      showToast('Usuário atualizado.', 'success')
       setPendingId(null)
     },
     onError: () => {
-      showToast('Erro ao atualizar usuario.', 'error')
+      showToast('Erro ao atualizar usuário.', 'error')
       setPendingId(null)
     },
   })
@@ -150,20 +150,20 @@ export function AdminUsuarios() {
   return (
     <>
       <PageHeader
-        title="Administracao"
-        description="Painel administrativo: usuarios, logs de acoes e metricas operacionais."
+        title="Administração"
+        description="Painel administrativo: usuários, logs de ações e métricas operacionais."
       />
 
       <div className="mb-6 rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
-        <div className="text-xs uppercase tracking-wider text-slate-500">Informacoes do sistema</div>
+        <div className="text-xs uppercase tracking-wider text-slate-500">Informações do sistema</div>
         <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
           <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
-            <span className="text-slate-400">Versao</span>
+            <span className="text-slate-400">Versão</span>
             <span className="font-semibold text-white">{`${VERSION} (${COMMIT_SHA})`}</span>
           </div>
           <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
             <span className="text-slate-400">Ambiente</span>
-            <span className="font-semibold text-white">Producao</span>
+            <span className="font-semibold text-white">Produção</span>
           </div>
           <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
             <span className="text-slate-400">Status</span>
@@ -173,24 +173,24 @@ export function AdminUsuarios() {
       </div>
 
       <div className="mb-6 flex gap-2 border-b border-[#30363d] pb-0">
-        {(['usuarios', 'logs', 'metricas'] as AdminTab[]).map((t) => (
+        {(['usuários', 'logs', 'métricas'] as AdminTab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`rounded-t-lg px-4 py-2 text-sm font-medium capitalize transition ${tab === t ? 'bg-[#21262d] text-white' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            {t === 'usuarios' ? 'Usuarios' : t === 'logs' ? 'Log de Acoes' : 'Metricas'}
+            {t === 'usuários' ? 'Usuários' : t === 'logs' ? 'Log de Ações' : 'Métricas'}
           </button>
         ))}
       </div>
 
-      {tab === 'usuarios' ? (
+      {tab === 'usuários' ? (
         <>
-          {error ? <InlineError message="Erro ao carregar usuarios." /> : null}
+          {error ? <InlineError message="Erro ao carregar usuários." /> : null}
 
           {isLoading ? (
-            <div className="py-16 text-center text-slate-400">Carregando usuarios...</div>
+            <div className="py-16 text-center text-slate-400">Carregando usuários...</div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-[#30363d]">
               <table className="app-table w-full text-left text-sm">
@@ -200,14 +200,14 @@ export function AdminUsuarios() {
                     <th className="px-4 py-3">Perfil de acesso</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Criado em</th>
-                    <th className="px-4 py-3 text-right">Acoes</th>
+                    <th className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {users.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="p-0">
-                        <EmptyState title="Nenhum usuario encontrado." />
+                        <EmptyState title="Nenhum usuário encontrado." />
                       </td>
                     </tr>
                   ) : null}
@@ -260,12 +260,12 @@ export function AdminUsuarios() {
           )}
 
           <div className="mt-6 rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm">
-            <div className="mb-3 font-semibold text-white">Descricao dos perfis de acesso</div>
+            <div className="mb-3 font-semibold text-white">Descrição dos perfis de acesso</div>
             <div className="grid gap-2 text-slate-400">
-              <div><span className="font-semibold text-white">Administrativo:</span> Acesso global a todos os modulos e configuracoes.</div>
-              <div><span className="font-semibold text-white">Financeiro:</span> Visualizacao completa + edicao em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliacao.</div>
-              <div><span className="font-semibold text-white">Operacoes:</span> Cadastro de Viagens, upload de manifestos e planilha IMO.</div>
-              <div><span className="font-semibold text-white">Documentacao:</span> Acesso amplo ao sistema, exceto tela Admin e configuracoes administrativas.</div>
+              <div><span className="font-semibold text-white">Administrativo:</span> Acesso global a todos os módulos e configurações.</div>
+              <div><span className="font-semibold text-white">Financeiro:</span> Visualização completa + edição em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliação.</div>
+              <div><span className="font-semibold text-white">Operações:</span> Cadastro de Viagens, upload de manifestos e planilha IMO.</div>
+              <div><span className="font-semibold text-white">Documentação:</span> Acesso amplo ao sistema, exceto tela Admin e configurações administrativas.</div>
             </div>
           </div>
         </>
@@ -313,9 +313,9 @@ export function AdminUsuarios() {
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-4 py-3">Data/Hora</th>
-                    <th className="px-4 py-3">Usuario</th>
-                    <th className="px-4 py-3">Modulo</th>
-                    <th className="px-4 py-3">Acao</th>
+                    <th className="px-4 py-3">Usuário</th>
+                    <th className="px-4 py-3">Módulo</th>
+                    <th className="px-4 py-3">Ação</th>
                     <th className="px-4 py-3">Detalhes</th>
                   </tr>
                 </thead>
@@ -366,17 +366,17 @@ export function AdminUsuarios() {
                 onClick={() => setLogFilters((f) => ({ ...f, page: f.page + 1 }))}
                 className="rounded border border-[#30363d] px-3 py-1.5 text-slate-400 hover:text-slate-200 disabled:opacity-30"
               >
-                Proximo →
+                Próximo →
               </button>
             </div>
           )}
         </>
       ) : null}
 
-      {tab === 'metricas' ? (
+      {tab === 'métricas' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="Ultima alteracao em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
-          <MetricCard label="Ultima conciliacao Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
+          <MetricCard label="Última alteração em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
+          <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
           <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />
         </div>
       ) : null}

@@ -106,7 +106,7 @@ export function Painel() {
     <>
       <PageHeader
         title="Painel"
-        description="KPIs operacionais e quadro Line Up consolidados na pagina principal do sistema."
+        description="KPIs operacionais e quadro Line Up consolidados na página principal do sistema."
         action={
           <div className="flex flex-wrap items-center gap-3">
             <Link to="/line-up-tv/display" target="_blank" rel="noreferrer" className="app-btn app-btn--secondary">
@@ -160,7 +160,7 @@ export function Painel() {
 
       {dashboardError ? (
         <Card className="mb-5 mt-8 border-red-400/30 bg-red-950/30 text-sm text-red-100">
-          Nao foi possivel carregar os indicadores do painel. Verifique as variaveis do Supabase e as migrations.
+          Não foi possível carregar os indicadores do painel. Verifique as variáveis do Supabase e as migrations.
         </Card>
       ) : null}
 
@@ -215,7 +215,7 @@ export function Painel() {
         />
         <KpiCard
           icon={AlertTriangle}
-          label="Alertas nao fechados"
+          label="Alertas não fechados"
           value={isDashboardLoading ? '...' : (dashboard?.openAlerts ?? 0)}
           tone={dashboard?.openAlerts ? 'text-red-400' : undefined}
           linkTo="/alertas"

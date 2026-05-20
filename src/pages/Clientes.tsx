@@ -173,7 +173,7 @@ export function Clientes() {
         parsed.rowErrors.length ? 'info' : 'success',
       )
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nao foi possivel ler a base. Confira o layout do arquivo.'
+      const message = error instanceof Error ? error.message : 'Não foi possível ler a base. Confira o layout do arquivo.'
       showToast(message, 'error')
     } finally {
       setParsingBase(false)
@@ -635,7 +635,7 @@ export function Clientes() {
 
               {parsedBase.rowErrors.length ? (
                 <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
-                  {parsedBase.rowErrors.length} linha(s) nao puderam ser aproveitadas. As primeiras divergencias estao
+                  {parsedBase.rowErrors.length} linha(s) não puderam ser aproveitadas. As primeiras divergências estão
                   listadas abaixo.
                 </div>
               ) : null}

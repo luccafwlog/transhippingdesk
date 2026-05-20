@@ -540,7 +540,7 @@ function BaplieUploadModal({
       const result = await parseBaplieFile(f)
       setParsed(result)
     } catch {
-      showToast('Nao foi possivel ler o arquivo. Verifique o formato EDI.', 'error')
+      showToast('Não foi possível ler o arquivo. Verifique o formato EDI.', 'error')
     } finally {
       setParsing(false)
     }
@@ -653,12 +653,12 @@ function BaplieUploadModal({
             loading={submitting}
             onClick={handleImport}
           >
-            Confirmar importacao
+            Confirmar importação
             {excludedPods.size > 0 ? ` (${filteredContainers.length} containers)` : ''}
           </Button>
         </div>
         {!voyageId ? (
-          <div className="text-sm text-amber-200">Selecione uma viagem de destino para habilitar a confirmacao.</div>
+          <div className="text-sm text-amber-200">Selecione uma viagem de destino para habilitar a confirmação.</div>
         ) : null}
       </div>
     </Modal>

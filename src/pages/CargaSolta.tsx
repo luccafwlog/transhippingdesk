@@ -146,7 +146,7 @@ export function CargaSolta() {
       setManifest(await parseBreakbulkManifestFile(nextFile))
       showToast('Preview do manifesto BB carregado.', 'success')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Nao foi possivel ler o arquivo.'
+      const message = err instanceof Error ? err.message : 'Não foi possível ler o arquivo.'
       showToast(message, 'error')
     } finally {
       setParsing(false)
@@ -266,7 +266,7 @@ export function CargaSolta() {
           <Field label="Status taxas locais">
             <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
               <option value="">Todos</option>
-              <option value="not_calculated">Nao calculado</option>
+              <option value="not_calculated">Não calculado</option>
               <option value="calculated">Calculado</option>
               <option value="review_required">Revisao</option>
               <option value="reviewed">Revisado</option>
@@ -554,7 +554,7 @@ export function CargaSolta() {
               Cancelar
             </Button>
             <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
-              Confirmar importacao
+              Confirmar importação
             </Button>
           </div>
 
@@ -628,6 +628,6 @@ function ChargeStatusBadge({ status }: { status: string | null }) {
     case 'exempt':
       return <span className="app-badge app-badge--slate">Isento</span>
     default:
-      return <span className="app-badge app-badge--slate">Nao calc.</span>
+      return <span className="app-badge app-badge--slate">Não calc.</span>
   }
 }

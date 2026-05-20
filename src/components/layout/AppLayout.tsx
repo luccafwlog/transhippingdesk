@@ -40,9 +40,9 @@ const importNavItems: NavItem[] = [
   { to: '/manifestos', label: 'Manifestos CNTR', icon: FileSpreadsheet },
   { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
   { to: '/containers', label: 'Containers', icon: Boxes },
-  { to: '/veiculos', label: 'Veiculos', icon: Car },
+  { to: '/veiculos', label: 'Veículos', icon: Car },
   { to: '/vazios-importacao', label: 'Vazios IMP', icon: Package },
-  { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
+  { to: '/revisao', label: 'Revisão', icon: AlertTriangle },
 ]
 
 const exportNavItems: NavItem[] = [
@@ -58,15 +58,15 @@ const primaryNavItems: NavItem[] = [
 ]
 
 const adminNavItems: NavItem[] = [
-  { to: '/admin/usuarios', label: 'Usuarios', icon: ShieldCheck },
+  { to: '/admin/usuarios', label: 'Usuários', icon: ShieldCheck },
 ]
 
 const financialNavItems: NavItem[] = [
   { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
-  { to: '/relatorios', label: 'Relatorios', icon: BarChart3 },
+  { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
   { to: '/demurrage', label: 'Demurrage', icon: Clock },
-  { to: '/reconciliacao', label: 'Conciliacao PIX', icon: RefreshCw },
+  { to: '/reconciliacao', label: 'Conciliação PIX', icon: RefreshCw },
 ]
 
 export function AppLayout() {
@@ -180,7 +180,7 @@ export function AppLayout() {
             <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
             <div className="app-header__titles">
               <div className="app-header__eyebrow">Desk operacional</div>
-              <div className="app-header__subtitle">importacao, exportacao e faturamento</div>
+              <div className="app-header__subtitle">importação, exportação e faturamento</div>
             </div>
           </button>
 
@@ -189,7 +189,7 @@ export function AppLayout() {
               <span className="app-user-pill__icon" aria-hidden="true">
                 <User size={14} />
               </span>
-              <span className="app-user-pill__name">{profile?.full_name ?? 'Usuario'}</span>
+              <span className="app-user-pill__name">{profile?.full_name ?? 'Usuário'}</span>
             </div>
 
             <Button className="app-header__logout" variant="ghost" onClick={handleSignOut}>
@@ -220,7 +220,7 @@ export function AppLayout() {
           ))}
 
           <TopNavDropdownMenu
-            label="Importacao"
+            label="Importação"
             icon={FileSpreadsheet}
             items={importNavItemsWithBadges}
             isActive={isImportSectionActive}
@@ -234,7 +234,7 @@ export function AppLayout() {
           />
 
           <TopNavDropdownMenu
-            label="Exportacao"
+            label="Exportação"
             icon={Package}
             items={exportNavItemsWithBadges}
             isActive={isExportSectionActive}
