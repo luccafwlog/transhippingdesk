@@ -416,10 +416,10 @@ function UploadBaplieModal({ open, onClose }: { open: boolean; onClose: () => vo
   const { showToast } = useToast()
   const { data: voyages } = useVoyageOptions()
   const [voyageId, setVoyageId] = useState('')
-  const [_file, setFile] = useState<File | null>(null)
   const [parsed, setParsed] = useState<ParsedBaplie | null>(null)
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!open || voyageId || !voyages?.length) return
@@ -427,16 +427,16 @@ function UploadBaplieModal({ open, onClose }: { open: boolean; onClose: () => vo
   }, [open, voyageId, voyages])
 
   function handleClose() {
-    setFile(null)
     setParsed(null)
     setVoyageId('')
+    setExcludedPods(new Set())
     onClose()
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
-    setFile(f)
     setParsed(null)
+    setExcludedPods(new Set())
     if (!f) return
     setParsing(true)
     try {
@@ -449,11 +449,24 @@ function UploadBaplieModal({ open, onClose }: { open: boolean; onClose: () => vo
     }
   }
 
+  function togglePod(pod: string) {
+    setExcludedPods((prev) => {
+      const next = new Set(prev)
+      if (next.has(pod)) next.delete(pod)
+      else next.add(pod)
+      return next
+    })
+  }
+
+  const filteredContainers = (parsed?.containers ?? []).filter(
+    (c) => !c.pod || !excludedPods.has(c.pod),
+  )
+
   async function handleImport() {
     if (!parsed || !voyageId || !user) return
     setSubmitting(true)
     try {
-      const { staged } = await importBaplieStaging(Number(voyageId), parsed.containers, user.id)
+      const { staged } = await importBaplieStaging(Number(voyageId), filteredContainers, user.id)
       showToast(`Baplie importado: ${staged} container(s) em staging.`, 'success')
       handleClose()
     } catch {
@@ -493,34 +506,52 @@ function UploadBaplieModal({ open, onClose }: { open: boolean; onClose: () => vo
               </div>
             ) : null}
 
+            {pods.length > 0 ? (
+              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+                <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                  Portos de descarga — desmarque os que deseja ignorar
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {pods.map((pod) => (
+                    <label key={pod} className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={!excludedPods.has(pod)}
+                        onChange={() => togglePod(pod)}
+                        className="accent-blue-500"
+                      />
+                      {pod}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
                 <div className="text-xs uppercase text-slate-500">Containers</div>
-                <div className="mt-1 text-2xl font-bold text-white">{parsed.containers.length}</div>
+                <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.length}</div>
+                {excludedPods.size > 0 ? (
+                  <div className="mt-1 text-xs text-slate-500">de {parsed.containers.length} no arquivo</div>
+                ) : null}
               </div>
               <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
                 <div className="text-xs uppercase text-slate-500">IMO</div>
-                <div className="mt-1 text-2xl font-bold text-white">{parsed.containers.filter((c) => c.is_imo).length}</div>
+                <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.filter((c) => c.is_imo).length}</div>
               </div>
               <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
                 <div className="text-xs uppercase text-slate-500">OOG</div>
-                <div className="mt-1 text-2xl font-bold text-white">{parsed.containers.filter((c) => c.is_oog).length}</div>
+                <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.filter((c) => c.is_oog).length}</div>
               </div>
             </div>
-
-            {pods.length > 0 ? (
-              <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-                <span className="text-xs uppercase tracking-wider text-slate-500">PODs: </span>
-                {pods.join(', ')}
-              </div>
-            ) : null}
           </div>
         ) : null}
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
-          <Button disabled={!parsed || !voyageId} loading={submitting} onClick={handleImport}>
+          <Button disabled={!parsed || !voyageId || filteredContainers.length === 0} loading={submitting} onClick={handleImport}>
             Confirmar importacao
+            {excludedPods.size > 0 ? ` (${filteredContainers.length} containers)` : ''}
           </Button>
         </div>
         {!voyageId ? (
