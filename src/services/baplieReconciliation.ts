@@ -28,28 +28,48 @@ export type BaplieReconciliationResult = {
 }
 
 export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
-  const [{ data: stagedRaw, error: stagedError }, { data: blRows, error: blError }] = await Promise.all([
-    supabase.from('baplie_containers' as never).select('*').eq('voyage_id', voyageId),
-    supabase.from('bls').select('id').eq('voyage_id', voyageId),
-  ])
-
-  if (stagedError) throw stagedError
+  const { data: blRows, error: blError } = await supabase
+    .from('bls')
+    .select('id')
+    .eq('voyage_id', voyageId)
   if (blError) throw blError
 
-  const staged = (stagedRaw ?? []) as BaplieContainerRow[]
+  const PAGE = 1000
+
+  const staged: BaplieContainerRow[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('baplie_containers' as never)
+      .select('*')
+      .eq('voyage_id', voyageId)
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    staged.push(...((data ?? []) as BaplieContainerRow[]))
+    if (!data || data.length < PAGE) break
+    from += PAGE
+  }
+
   if (!staged.length) return { items: [] }
 
   const blIds = (blRows ?? []).map((b) => b.id)
   const blById = new Map((blRows ?? []).map((b) => [b.id, b]))
 
-  const { data: blContainers, error: containerError } = blIds.length
-    ? await supabase
+  const blContainers: Pick<BLContainer, 'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'>[] = []
+  if (blIds.length) {
+    let fromC = 0
+    while (true) {
+      const { data, error } = await supabase
         .from('bl_containers')
         .select('id, bl_id, container_number, is_imo, imo_class, un_number, is_oog')
         .in('bl_id', blIds)
-    : { data: [] as Pick<BLContainer, 'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'>[], error: null }
-
-  if (containerError) throw containerError
+        .range(fromC, fromC + PAGE - 1)
+      if (error) throw error
+      blContainers.push(...((data ?? []) as typeof blContainers))
+      if (!data || data.length < PAGE) break
+      fromC += PAGE
+    }
+  }
 
   const manifestByNumber = new Map<string, NonNullable<typeof blContainers>>()
   for (const c of blContainers ?? []) {
