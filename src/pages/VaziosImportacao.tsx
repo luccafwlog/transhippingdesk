@@ -176,6 +176,8 @@ export function VaziosImportacao() {
                 <th className="px-4 py-3">Container</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Tara (kg)</th>
+                <th className="px-4 py-3">POD</th>
+                <th className="px-4 py-3">Navio / Viagem</th>
                 <th className="px-4 py-3">Manifesto</th>
                 <th className="px-4 py-3">Importado em</th>
               </tr>
@@ -183,12 +185,12 @@ export function VaziosImportacao() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={5}>Carregando...</td>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>Carregando...</td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-0">
+                  <td colSpan={7} className="p-0">
                     <EmptyState
                       title="Nenhum container encontrado."
                       description="Importe uma planilha ou ajuste os filtros."
@@ -207,6 +209,12 @@ export function VaziosImportacao() {
                     <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.container_number}</td>
                     <td className="px-4 py-3">{row.container_type ?? '-'}</td>
                     <td className="px-4 py-3">{row.tare_kg != null ? String(row.tare_kg) : '-'}</td>
+                    <td className="px-4 py-3">{row.pod ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      {row.manifest?.voyage
+                        ? `${row.manifest.voyage.vessel?.name ?? '-'} / ${row.manifest.voyage.voyage_number}`
+                        : '-'}
+                    </td>
                     <td className="px-4 py-3">{manifestLabel}</td>
                     <td className="px-4 py-3">
                       {row.manifest?.imported_at
