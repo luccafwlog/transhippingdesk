@@ -790,9 +790,9 @@ export function Viagens() {
                     open={Boolean(voyageSectionState[section.key])}
                     onToggle={() => toggleVoyageSection(voyage.id, section.key)}
                   >
-                    {section.key === 'importacao'
+                    {section.key === 'importação'
                       ? importacaoContent
-                      : section.key === 'exportacao'
+                      : section.key === 'exportação'
                         ? exportacaoContent
                         : origemTrechosContent}
                   </AccordionSection>
