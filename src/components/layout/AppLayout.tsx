@@ -36,13 +36,13 @@ type NavItem = {
 }
 
 const importNavItems: NavItem[] = [
-  { to: '/manifestos', label: 'Manifestos CNTR', icon: FileSpreadsheet },
-  { to: '/containers', label: 'Containers', icon: Boxes },
-  { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
-  { to: '/veiculos', label: 'Veiculos', icon: Car },
-  { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
-  { to: '/vazios-importacao', label: 'Vazios — Importacao', icon: Package },
   { to: '/baplie', label: 'Baplie EDI', icon: FileSpreadsheet },
+  { to: '/manifestos', label: 'Manifestos CNTR', icon: FileSpreadsheet },
+  { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
+  { to: '/containers', label: 'Containers', icon: Boxes },
+  { to: '/veiculos', label: 'Veiculos', icon: Car },
+  { to: '/vazios-importacao', label: 'Vazios — Importacao', icon: Package },
+  { to: '/revisao', label: 'Revisao', icon: AlertTriangle },
 ]
 
 const exportNavItems: NavItem[] = [
