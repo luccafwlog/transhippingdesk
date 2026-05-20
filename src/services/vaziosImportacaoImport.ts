@@ -247,9 +247,13 @@ export async function listVaziosImportacaoContainers(filters: {
     .order('created_at', { ascending: false })
 
   if (filters.search) {
-    query = query.or(
-      `container_number.ilike.%${filters.search}%,container_type.ilike.%${filters.search}%`,
-    )
+    // Strip chars that could break PostgREST or() filter syntax (comma, parens)
+    const safe = filters.search.replace(/[(),]/g, '').trim()
+    if (safe) {
+      query = query.or(
+        `container_number.ilike.%${safe}%,container_type.ilike.%${safe}%`,
+      )
+    }
   }
 
   if (filters.manifestId) {
