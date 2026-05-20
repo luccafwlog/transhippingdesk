@@ -57,19 +57,9 @@ export function parseBaplieText(text: string): ParsedBaplie {
   let final_dest: string | null = null
   let bl_ref: string | null = null
   let oog_dims: boolean = false
-  let pendingDgs: { imo_class: string | null; un_number: string | null } | null = null
 
   for (const seg of segments) {
     if (seg.startsWith('LOC+147+')) {
-      // Start of new container block — flush any pending DGS to last container
-      if (pendingDgs && containers.length > 0) {
-        const last = containers[containers.length - 1]
-        last.is_imo = true
-        last.imo_class = pendingDgs.imo_class
-        last.un_number = pendingDgs.un_number
-        pendingDgs = null
-      }
-
       const locPart = seg.slice('LOC+147+'.length).replace(/'$/, '')
       slot = locPart.split(':')[0] ?? null
       weight_kg = null
@@ -78,7 +68,6 @@ export function parseBaplieText(text: string): ParsedBaplie {
       final_dest = null
       bl_ref = null
       oog_dims = false
-      pendingDgs = null
       continue
     }
 
@@ -142,9 +131,7 @@ export function parseBaplieText(text: string): ParsedBaplie {
         is_oog: oog_dims,
       })
 
-      // Reset DIM accumulator for next block; DGS may still follow
       oog_dims = false
-      pendingDgs = null
       continue
     }
 
