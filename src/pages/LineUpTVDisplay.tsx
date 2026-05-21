@@ -10,7 +10,14 @@ const DISPLAY_ROW_TRAVEL_MS = 3000
 const DISPLAY_GRID_TEMPLATE = '18fr 4fr 6fr 6fr 6fr 6fr 6fr 6fr 7fr 6fr 5fr 7fr 11fr 6fr'
 const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'CAR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
-const isTouchDevice = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+const isTouchDevice = () => {
+  if (typeof window === 'undefined') return false
+  return (
+    window.matchMedia('(pointer: coarse)').matches ||
+    navigator.maxTouchPoints > 0 ||
+    window.innerWidth <= 1024
+  )
+}
 
 export function LineUpTVDisplay() {
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -42,7 +49,7 @@ export function LineUpTVDisplay() {
 
   const rows = useMemo(() => [...(data?.rows ?? [])].sort(compareDisplayRows), [data?.rows])
   const firstRoute = rows[0] ?? null
-  const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS
+  const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS + 1
   const placeholderCount = hasAnimatedLoop ? 0 : Math.max(0, DISPLAY_VISIBLE_ROWS - rows.length)
   const displayRows = useMemo(() => {
     if (!hasAnimatedLoop) return rows
