@@ -26,7 +26,6 @@ import {
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
 import { useOperationalCounts } from '../../hooks/useOperationalCounts'
-import { useVisualTheme } from '../../hooks/useVisualTheme'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
@@ -75,7 +74,6 @@ export function AppLayout() {
   const navigate = useNavigate()
   const { profile, signOut, isAdmin } = useAuth()
   const counts = useOperationalCounts()
-  const { theme, setTheme } = useVisualTheme()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
@@ -187,14 +185,6 @@ export function AppLayout() {
           </button>
 
           <div className="app-header__actions">
-            <button
-              className="app-header__quick-link"
-              title={theme === 'editorial' ? 'Voltar ao tema padrão' : 'Testar novo visual'}
-              onClick={() => setTheme(theme === 'editorial' ? 'current' : 'editorial')}
-            >
-              {theme === 'editorial' ? '← Padrão' : '✦ Novo visual'}
-            </button>
-
             <div className="app-user-pill" title={profile?.role ?? 'operator'}>
               <span className="app-user-pill__icon" aria-hidden="true">
                 <User size={14} />

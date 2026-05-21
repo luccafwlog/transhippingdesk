@@ -1,6 +1,6 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react'
 
-export type VisualTheme = 'current' | 'dark' | 'light' | 'editorial'
+export type VisualTheme = 'current' | 'dark' | 'light'
 
 const storageKey = 'transhipping_visual_theme'
 
@@ -12,7 +12,7 @@ type VisualThemeContextValue = {
 const VisualThemeContext = createContext<VisualThemeContextValue | null>(null)
 
 function isVisualTheme(value: string | null): value is VisualTheme {
-  return value === 'current' || value === 'dark' || value === 'light' || value === 'editorial'
+  return value === 'current' || value === 'dark' || value === 'light'
 }
 
 export function VisualThemeProvider({ children }: { children: React.ReactNode }) {
