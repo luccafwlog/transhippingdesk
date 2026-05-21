@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import { Breadcrumb } from '../components/ui/Breadcrumb'
+import { SkeletonCard } from '../components/ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
@@ -338,7 +340,12 @@ export function ClienteFicha() {
   }
 
   if (isLoading) {
-    return <Card>Carregando ficha do cliente...</Card>
+    return (
+      <>
+        <Breadcrumb items={[{ label: 'Clientes', to: '/clientes' }, { label: 'Carregando...' }]} />
+        <SkeletonCard lines={5} />
+      </>
+    )
   }
 
   if (error || !data || !form) {
@@ -347,6 +354,12 @@ export function ClienteFicha() {
 
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: 'Clientes', to: '/clientes' },
+          { label: data.name },
+        ]}
+      />
       <PageHeader
         title={data.name}
         description={`Ficha do cliente ${formatCnpjCpf(data.cnpj_cpf)} com contatos, B/Ls e invoices vinculadas.`}

@@ -6,6 +6,8 @@ import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import { Breadcrumb } from '../components/ui/Breadcrumb'
+import { SkeletonCard } from '../components/ui/Skeleton'
 import { BLPipeline } from '../components/shared/BLPipeline'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
@@ -525,7 +527,12 @@ export function BlDetalhe() {
   }
 
   if (isLoading) {
-    return <Card>Carregando detalhe do B/L...</Card>
+    return (
+      <>
+        <Breadcrumb items={[{ label: 'Manifestos', to: '/manifestos' }, { label: 'Carregando...' }]} />
+        <SkeletonCard lines={5} />
+      </>
+    )
   }
 
   if (error || !bl || !form) {
@@ -534,6 +541,12 @@ export function BlDetalhe() {
 
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: 'Manifestos', to: '/manifestos' },
+          { label: `B/L ${bl.id}` },
+        ]}
+      />
       <PageHeader
         title={`B/L ${bl.id} - ${cargoModeLabel(cargoMode)}`}
         description={

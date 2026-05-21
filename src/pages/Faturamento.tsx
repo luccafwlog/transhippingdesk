@@ -6,6 +6,7 @@ import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { SkeletonTable } from '../components/ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -370,7 +371,7 @@ export function Faturamento() {
           <table className="app-table app-table--compact min-w-[980px] table-fixed text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="w-[26%] px-4 py-3">Invoice</th><th className="w-[16%] px-4 py-3">Datas</th><th className="w-[24%] px-4 py-3">Operacao</th><th className="w-[20%] px-4 py-3">Financeiro</th><th className="w-[8%] px-4 py-3">Status</th><th className="w-[12%] px-4 py-3">Acoes</th></tr></thead>
             <tbody className="divide-y divide-[#30363d]">
-              {isLoading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Carregando invoices...</td></tr> : null}
+              {isLoading ? <tr><td colSpan={6} className="p-0"><SkeletonTable rows={6} cols={6} /></td></tr> : null}
               {!isLoading && invoices.length === 0 ? <tr><td colSpan={6} className="p-0"><EmptyState title="Nenhuma invoice encontrada." description="Emita uma nova invoice ou ajuste os filtros." /></td></tr> : null}
               {invoices.map((invoice) => (
                 <tr key={invoice.id}>
@@ -454,7 +455,7 @@ export function Faturamento() {
               <table className="app-table app-table--compact min-w-[820px] table-fixed text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="w-[8%] px-3 py-2">Sel.</th><th className="w-[12%] px-3 py-2">Origem</th><th className="w-[20%] px-3 py-2">B/L</th><th className="w-[28%] px-3 py-2">Cliente</th><th className="w-[32%] px-3 py-2">Contexto</th></tr></thead>
                 <tbody className="divide-y divide-[#30363d]">
-                  {(loadingReadyBls || loadingReadyGraniteBls) ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Carregando B/Ls elegiveis...</td></tr> : null}
+                  {(loadingReadyBls || loadingReadyGraniteBls) ? <tr><td colSpan={5} className="p-0"><SkeletonTable rows={4} cols={5} /></td></tr> : null}
                   {!loadingReadyBls && !loadingReadyGraniteBls && unifiedReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
                   {unifiedReadyBls.map((row) => (
                     <tr key={row.id}>
@@ -505,7 +506,7 @@ export function Faturamento() {
 
       <Modal open={Boolean(selectedInvoiceId)} onClose={closeDetails} title={`Detalhe Invoice ${detailQuery.data?.invoice?.invoice_number ?? selectedInvoiceId ?? ''}`}>
         <div className="grid gap-5">
-          {detailQuery.isLoading ? <div className="text-sm text-slate-400">Carregando detalhe...</div> : null}
+          {detailQuery.isLoading ? <div className="p-4"><SkeletonTable rows={3} cols={3} /></div> : null}
           {detailQuery.error ? <div className="text-sm text-red-200">Falha ao carregar detalhe.</div> : null}
           {detailQuery.data?.invoice ? (
             <>

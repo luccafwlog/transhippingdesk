@@ -16,6 +16,7 @@ import {
 import { Link } from 'react-router-dom'
 import { Badge } from '../components/ui/Badge'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
+import { SkeletonTable } from '../components/ui/Skeleton'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 import { formatBRL } from '../lib/utils'
 import { fetchLineUpSnapshot } from '../services/lineup'
@@ -147,7 +148,9 @@ export function Painel() {
       {lineUpError ? <InlineError message="Erro ao carregar o Line Up TV." /> : null}
 
       {isLineUpLoading ? (
-        <div className="py-16 text-center text-slate-400">Carregando line up...</div>
+        <Card className="p-0 overflow-hidden">
+          <SkeletonTable rows={6} cols={8} />
+        </Card>
       ) : (
         <Card className="overflow-hidden p-0">
           <LineUpTable

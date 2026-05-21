@@ -5,6 +5,7 @@ import { Boxes, Download, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -209,8 +210,8 @@ export function Manifestos() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
-                    Carregando manifestos...
+                  <td colSpan={11} className="p-0">
+                    <SkeletonTable rows={8} cols={6} />
                   </td>
                 </tr>
               ) : null}
