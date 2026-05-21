@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&family=Cormorant+Garamond:wght@400;500&family=Inter:wght@400;500&display=swap');
 @import "tailwindcss";
 
 :root,
@@ -104,6 +104,249 @@
   --app-shadow-strong: 0 26px 68px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.08);
   --app-radius: 20px;
 }
+
+/* ─── Editorial theme (Claude.com design system) ─────────────────────────── */
+:root[data-visual-theme='editorial'] {
+  color-scheme: light;
+  --app-header-height: 64px;
+
+  /* Surfaces */
+  --app-bg:            #faf9f5;
+  --app-bg-elevated:   #f5f0e8;
+  --app-surface:       rgba(239, 233, 222, 0.70);
+  --app-surface-strong: #efe9de;
+  --app-surface-muted: #f5f0e8;
+  --app-panel:         #e8e0d2;
+  --app-panel-strong:  #e8e0d2;
+
+  /* Borders */
+  --app-border:        #e6dfd8;
+  --app-border-strong: #d4cdc6;
+  --app-border-focus:  rgba(204, 120, 92, 0.22);
+
+  /* Text */
+  --app-text:          #141413;
+  --app-text-strong:   #141413;
+  --app-muted:         #6c6a64;
+  --app-muted-soft:    #8e8b82;
+
+  /* Dark surfaces (reused as navy in components) */
+  --app-navy:          #181715;
+  --app-navy-2:        #252320;
+  --app-topbar:        #181715;
+
+  /* Primary → coral (replaces blue) */
+  --app-blue:          #cc785c;
+  --app-blue-btn:      #a9583e;
+  --app-blue-soft:     #f9ede8;
+
+  /* Accent amber (replaces gold) */
+  --app-gold:          #e8a55a;
+  --app-gold-soft:     #fdf4e7;
+
+  /* Semantic */
+  --app-green:         #5db872;
+  --app-green-soft:    #edf9ef;
+  --app-red:           #c64545;
+  --app-red-soft:      #fceaea;
+
+  /* Elevation — flat/color-block first */
+  --app-shadow:        0 1px 3px rgba(20, 20, 19, 0.08);
+  --app-shadow-strong: 0 4px 16px rgba(20, 20, 19, 0.12);
+
+  /* Shape */
+  --app-radius:        12px;
+
+  /* Typography */
+  --editorial-font-display: "Cormorant Garamond", "Tiempos Headline", Garamond, "Times New Roman", serif;
+  --editorial-font-body:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  font-family: var(--editorial-font-body);
+}
+
+/* Body background — flat cream, no gradient */
+:root[data-visual-theme='editorial'] body {
+  background: var(--app-bg);
+}
+
+/* App shell */
+:root[data-visual-theme='editorial'] .app-shell {
+  background: var(--app-bg);
+}
+
+/* ── Header & nav: dark navy with coral accent ───────────────────────────── */
+:root[data-visual-theme='editorial'] .app-market-strip {
+  background: var(--app-navy);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:root[data-visual-theme='editorial'] .app-header {
+  background: var(--app-navy);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 3px rgba(20, 20, 19, 0.18);
+}
+
+:root[data-visual-theme='editorial'] .app-nav-bar {
+  background: var(--app-navy-2);
+  border-bottom: 2px solid rgba(204, 120, 92, 0.80);
+  box-shadow: 0 2px 8px rgba(20, 20, 19, 0.12);
+}
+
+:root[data-visual-theme='editorial'] .app-nav-link.active {
+  box-shadow: inset 0 -2px 0 rgba(204, 120, 92, 0.90);
+}
+
+:root[data-visual-theme='editorial'] .app-nav-badge {
+  background: linear-gradient(180deg, #cc785c, #a9583e);
+  box-shadow: 0 4px 8px rgba(204, 120, 92, 0.28);
+}
+
+:root[data-visual-theme='editorial'] .app-nav-dropdown__menu {
+  background: linear-gradient(180deg, rgba(37, 35, 32, 0.98), rgba(24, 23, 21, 0.96));
+}
+
+:root[data-visual-theme='editorial'] .app-nav-dropdown__item.active {
+  box-shadow: inset 0 -2px 0 rgba(204, 120, 92, 0.90);
+}
+
+/* ── Surface cards — cream, hairline border, no gradient ─────────────────── */
+:root[data-visual-theme='editorial'] .app-surface {
+  background: var(--app-surface-strong);
+  box-shadow: var(--app-shadow);
+}
+
+:root[data-visual-theme='editorial'] .app-surface::before {
+  display: none;
+}
+
+/* ── Buttons — coral primary ─────────────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-btn--primary {
+  background: #cc785c;
+  border-color: #a9583e;
+  box-shadow: 0 1px 3px rgba(20, 20, 19, 0.10);
+}
+
+:root[data-visual-theme='editorial'] .app-btn--primary:hover:not(:disabled) {
+  background: #a9583e;
+  border-color: #8c4830;
+  transform: none;
+}
+
+:root[data-visual-theme='editorial'] .app-btn--secondary {
+  background: var(--app-bg);
+  border-color: var(--app-border);
+  color: var(--app-text);
+  box-shadow: var(--app-shadow);
+}
+
+:root[data-visual-theme='editorial'] .app-btn--secondary:hover:not(:disabled) {
+  border-color: #cc785c;
+  color: #a9583e;
+  background: var(--app-bg);
+  transform: none;
+}
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-input {
+  background: var(--app-bg);
+  border-color: var(--app-border);
+  box-shadow: none;
+}
+
+:root[data-visual-theme='editorial'] .app-input:focus {
+  border-color: #cc785c;
+  box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.15);
+  background: var(--app-bg);
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-tab--active {
+  background: var(--app-panel);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-badge--blue {
+  background: var(--app-blue-soft);
+  border-color: #e8c5b8;
+  color: #a9583e;
+}
+
+/* ── KPI card accent strips — coral + amber ──────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-kpi-card::before {
+  background: linear-gradient(90deg, #cc785c, rgba(204, 120, 92, 0.3));
+}
+
+:root[data-visual-theme='editorial'] .app-kpi-card--blue::before {
+  background: #cc785c;
+}
+
+:root[data-visual-theme='editorial'] .app-kpi-card__value--blue {
+  color: #a9583e;
+}
+
+/* ── Page titles — slab-serif display ────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .page-header__title {
+  font-family: var(--editorial-font-display);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  font-size: clamp(2rem, 2.2vw + 1rem, 2.8rem);
+}
+
+:root[data-visual-theme='editorial'] .page-header__copy::after {
+  background: linear-gradient(90deg, #cc785c, rgba(232, 165, 90, 0.60));
+}
+
+/* ── Modal header — dark navy ────────────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-modal {
+  background: var(--app-bg);
+  border-color: var(--app-border);
+}
+
+:root[data-visual-theme='editorial'] .app-modal__header {
+  background: linear-gradient(180deg, var(--app-navy) 0%, var(--app-navy-2) 100%);
+}
+
+/* ── Table header — dark navy ────────────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-shell table thead,
+:root[data-visual-theme='editorial'] .app-shell table tbody tr:hover {
+  background: rgba(204, 120, 92, 0.05);
+}
+
+:root[data-visual-theme='editorial'] .app-shell table thead {
+  background: linear-gradient(180deg, var(--app-navy) 0%, var(--app-navy-2) 100%);
+}
+
+:root[data-visual-theme='editorial'] .app-table__action {
+  background: var(--app-blue-soft);
+  border-color: #e8c5b8;
+  color: #a9583e;
+}
+
+:root[data-visual-theme='editorial'] .app-table__action:hover {
+  background: #f3ddd6;
+  border-color: #cc785c;
+}
+
+:root[data-visual-theme='editorial'] .app-table__icon-button:hover {
+  background: var(--app-blue-soft);
+  border-color: #e8c5b8;
+  color: #a9583e;
+}
+
+/* ── Auth page ────────────────────────────────────────────────────────────── */
+:root[data-visual-theme='editorial'] .app-auth {
+  background: var(--app-bg);
+}
+
+:root[data-visual-theme='editorial'] .app-auth__title {
+  font-family: var(--editorial-font-display);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+/* ─── End editorial theme ─────────────────────────────────────────────────── */
 
 *,
 *::before,
