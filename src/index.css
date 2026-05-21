@@ -1838,7 +1838,7 @@ textarea {
 }
 
 .app-lineup-display-board__row--sliding {
-  transition: transform 6000ms linear;
+  transition: transform 3000ms linear;
 }
 
 .app-lineup-display-board__row--placeholder {
