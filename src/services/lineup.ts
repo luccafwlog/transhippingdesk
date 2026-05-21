@@ -10,6 +10,7 @@ type LineUpVoyageRow = {
   voyage_number: string
   status: VoyageStatus
   vessel: { name: string | null } | null
+  pol: { name: string | null; locode: string | null } | null
 }
 
 type LineUpBlRow = {
@@ -199,7 +200,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       voyageNumber: voyage.voyage_number,
       voyageStatus: voyage.status,
       vesselName: voyage.vessel?.name ?? '-',
-      pod: 'EXP',
+      pod: voyage.pol?.locode ?? voyage.pol?.name ?? 'EXP',
       eta: exportSchedule.eta,
       etb: exportSchedule.etb,
       rowType: 'export',
@@ -266,7 +267,7 @@ function hasActivePodScheduleData(schedule: {
 async function fetchVoyages() {
   const { data, error } = await supabase
     .from('voyages')
-    .select('id, voyage_number, status, vessel:vessels(name)')
+    .select('id, voyage_number, status, vessel:vessels(name), pol:ports!pol_id(name, locode)')
     .in('status', ['active', 'completed'])
     .order('created_at', { ascending: false })
     .limit(60)
