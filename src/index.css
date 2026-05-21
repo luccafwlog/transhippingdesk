@@ -1250,10 +1250,11 @@ textarea {
 }
 
 .app-auth__logo {
-  height: 200px;
+  height: 260px;
   width: auto;
   object-fit: contain;
-  object-position: left center;
+  object-position: left top;
+  align-self: flex-start;
   filter: brightness(0) invert(1);
   position: relative;
   z-index: 1;
