@@ -102,21 +102,21 @@ export function LineUpTable({
                 </td>
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
-                  {isExport ? renderExportPodCell(row, isDisplay) : row.pod}
+                  {row.pod}
                 </td>
                 <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.eta)}</td>
                 <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.etb)}</td>
                 {isExport ? (
                   <>
-                    <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
-                      {row.exportMovementsQty !== null ? formatInteger(row.exportMovementsQty) : '—'}
+                    <td
+                      colSpan={6}
+                      className={isDisplay
+                        ? 'px-2 py-1 text-center font-black text-[#7c4a00]'
+                        : 'px-3 py-3 text-center font-semibold text-amber-400'}
+                    >
+                      {buildExportLabel(row)}
                     </td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>—</td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>—</td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center font-semibold text-[#58a6ff]' : 'px-3 py-3 text-center font-semibold text-[#58a6ff]'}>
-                      {row.exportContainersQty !== null ? formatInteger(row.exportContainersQty) : '—'}
-                    </td>
-                    <td colSpan={5} className={isDisplay ? 'px-1 py-1 text-center text-slate-400' : 'px-3 py-3 text-center text-slate-500'}>—</td>
+                    <td colSpan={3} />
                   </>
                 ) : (
                   <>
@@ -162,25 +162,14 @@ export function LineUpTable({
   )
 }
 
-function renderExportPodCell(row: LineUpRow, isDisplay: boolean) {
-  const badges: string[] = ['EXP']
-  if (row.exportHasGranite) badges.push('GRT')
-  if (isDisplay) {
-    return (
-      <span className="inline-flex flex-wrap justify-center gap-1">
-        {badges.map((b) => (
-          <span key={b} className="app-lineup-display-status app-lineup-display-status--amber">{b}</span>
-        ))}
-      </span>
-    )
+function buildExportLabel(row: LineUpRow) {
+  const parts: string[] = []
+  if (row.exportHasGranite) parts.push('GRANITE')
+  if (row.exportContainersQty !== null) {
+    const moves = row.exportMovementsQty !== null ? ` - ${formatInteger(row.exportMovementsQty)} MOVES` : ''
+    parts.push(`${formatInteger(row.exportContainersQty)} CNTRS${moves}`)
   }
-  return (
-    <span className="inline-flex flex-wrap justify-center gap-1">
-      {badges.map((b) => (
-        <Badge key={b} tone="yellow">{b}</Badge>
-      ))}
-    </span>
-  )
+  return parts.join(' | ')
 }
 
 function renderCeStatus(status: LineUpRow['ceStatus']) {

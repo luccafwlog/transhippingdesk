@@ -230,31 +230,20 @@ export function LineUpTVDisplay() {
                     >
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">
-                        {row.rowType === 'export' ? (
-                          <span className="inline-flex flex-wrap justify-center gap-1">
-                            <span className="app-lineup-display-status app-lineup-display-status--amber">EXP</span>
-                            {row.exportHasGranite ? <span className="app-lineup-display-status app-lineup-display-status--amber">GRT</span> : null}
-                          </span>
-                        ) : row.pod}
-                      </div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
                       <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
                       <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
                       {row.rowType === 'export' ? (
                         <>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">
-                            {row.exportMovementsQty !== null ? formatInteger(row.exportMovementsQty) : '—'}
+                          <div
+                            className="app-lineup-display-board__cell app-lineup-display-board__cell--export-label"
+                            style={{ gridColumn: 'span 6' }}
+                          >
+                            {buildExportLabel(row)}
                           </div>
-                          <div className="app-lineup-display-board__cell">—</div>
-                          <div className="app-lineup-display-board__cell">—</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">
-                            {row.exportContainersQty !== null ? formatInteger(row.exportContainersQty) : '—'}
-                          </div>
-                          <div className="app-lineup-display-board__cell">—</div>
-                          <div className="app-lineup-display-board__cell">—</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">—</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">—</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">—</div>
+                          <div className="app-lineup-display-board__cell" />
+                          <div className="app-lineup-display-board__cell" />
+                          <div className="app-lineup-display-board__cell" />
                         </>
                       ) : (
                         <>
@@ -382,6 +371,16 @@ function LineUpMobileCard({ row }: { row: LineUpRow }) {
   )
 }
 
+
+function buildExportLabel(row: LineUpRow) {
+  const parts: string[] = []
+  if (row.exportHasGranite) parts.push('GRANITE')
+  if (row.exportContainersQty !== null) {
+    const moves = row.exportMovementsQty !== null ? ` - ${formatInteger(row.exportMovementsQty)} MOVES` : ''
+    parts.push(`${formatInteger(row.exportContainersQty)} CNTRS${moves}`)
+  }
+  return parts.join(' | ')
+}
 
 function buildDisplayLeadLabel(row: LineUpRow) {
   const etaLabel = formatDisplayLeadDate('ETA', row.eta)

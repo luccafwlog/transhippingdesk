@@ -1849,6 +1849,14 @@ textarea {
   background-color: color-mix(in srgb, #b45309 10%, white);
 }
 
+.app-lineup-display-board__cell--export-label {
+  font-size: 22px;
+  font-weight: 900;
+  color: #7c4a00;
+  letter-spacing: 0.04em;
+  justify-content: center;
+}
+
 .app-lineup-display-board__cell {
   display: flex;
   min-width: 0;
