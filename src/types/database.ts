@@ -414,6 +414,7 @@ export type Database = {
       vazios_bookings: Row<VaziosBooking>
       vazios_importacao_manifests: Row<VaziosImportacaoManifest>
       vazios_importacao_containers: Row<VaziosImportacaoContainer>
+      voyage_export_schedules: Row<VoyageExportSchedule>
     }
     Views: Record<string, never>
     Functions: {
@@ -1093,4 +1094,17 @@ export type BaplieContainer = {
   is_oog: boolean
   imported_at: string
   imported_by: string | null
+}
+
+
+export type VoyageExportSchedule = {
+  id: string
+  voyage_id: number
+  has_granite: boolean
+  containers_qty: number | null
+  movements_qty: number | null
+  eta: string | null
+  etb: string | null
+  created_at: string | null
+  updated_at: string | null
 }
