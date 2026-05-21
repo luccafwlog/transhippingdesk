@@ -177,7 +177,7 @@ export function LineUpTable({
 }
 
 function buildExportLabel(row: LineUpRow) {
-  const parts: string[] = []
+  const parts: string[] = ['EXP']
   if (row.exportHasGranite) parts.push('GRANITE')
   if (row.exportContainersQty !== null) {
     const moves = row.exportMovementsQty !== null ? ` - ${formatInteger(row.exportMovementsQty)} MOVES` : ''
