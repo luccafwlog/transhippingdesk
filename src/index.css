@@ -6,6 +6,7 @@
   color-scheme: light;
   --app-header-height: 56px;
   --app-bg: #f4f1ea;
+  --app-dot-pattern: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
   --app-bg-elevated: #ece9e1;
   --app-surface: #ffffff;
   --app-surface-strong: #ffffff;
@@ -42,6 +43,7 @@
 :root[data-visual-theme='dark'] {
   color-scheme: dark;
   --app-bg: #091220;
+  --app-dot-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
   --app-bg-elevated: #0e1728;
   --app-surface: rgba(16, 26, 45, 0.92);
   --app-surface-strong: #101a2d;
@@ -77,6 +79,7 @@
   color-scheme: light;
   --app-header-height: 56px;
   --app-bg: #f4f1ea;
+  --app-dot-pattern: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
   --app-bg-elevated: #ece9e1;
   --app-surface: #ffffff;
   --app-surface-strong: #ffffff;
@@ -145,7 +148,7 @@ body {
   margin: 0;
   min-width: 320px;
   background-color: var(--app-bg);
-  background-image: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
+  background-image: var(--app-dot-pattern);
   background-size: 20px 20px;
   color: var(--app-text);
   line-height: 1.5;
@@ -171,7 +174,9 @@ textarea {
 
 .app-shell {
   min-height: 100vh;
-  background: var(--app-bg);
+  background-color: var(--app-bg);
+  background-image: var(--app-dot-pattern);
+  background-size: 20px 20px;
   color: var(--app-text);
 }
 
@@ -1200,7 +1205,7 @@ textarea {
   min-height: 100vh;
   padding: 24px 16px;
   background-color: var(--app-bg);
-  background-image: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
+  background-image: var(--app-dot-pattern);
   background-size: 20px 20px;
 }
 
@@ -1693,20 +1698,22 @@ textarea {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
-  background:
-    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
-  color: #16324e;
+  background-color: #0e1825;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 22px 22px;
+  color: #e8edf5;
 }
 
 .app-lineup-display-header {
   display: flex;
-  min-height: 100px;
+  min-height: 90px;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  border-bottom: 4px solid #16325f;
-  background: linear-gradient(180deg, #ffffff 0%, #f6f9fe 100%);
-  padding: 10px 22px 8px;
+  border-bottom: 3px solid #d4882e;
+  background: linear-gradient(180deg, #152238 0%, #0e1825 100%);
+  padding: 10px 24px 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .app-lineup-display-brand {
@@ -1715,62 +1722,79 @@ textarea {
 }
 
 .app-lineup-display-brand__logo {
-  height: 72px;
+  height: 64px;
   width: auto;
   object-fit: contain;
+  filter: brightness(1.1);
 }
 
 .app-lineup-display-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  max-width: min(52vw, 860px);
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  max-width: min(68vw, 1000px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .app-lineup-display-meta__group {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 3px;
+  padding: 8px 18px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-lineup-display-meta__group:last-child {
+  border-right: none;
 }
 
 .app-lineup-display-meta__label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #5e7696;
+  color: rgba(212, 136, 46, 0.85);
 }
 
 .app-lineup-display-meta__value {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 900;
   line-height: 1;
-  color: #16325f;
+  color: #f0f4ff;
+  font-family: var(--app-font-mono, "IBM Plex Mono", monospace);
 }
 
 .app-lineup-display-meta__value--route {
-  font-size: 16px;
-  line-height: 1.2;
+  font-size: 14px;
+  font-family: var(--app-font-display, "Syne", sans-serif);
+  line-height: 1.25;
   text-align: right;
+  color: #c8d4e8;
+  letter-spacing: 0.01em;
 }
 
 .app-lineup-display-body {
   flex: 1;
   min-height: 0;
   display: flex;
-  padding: 4px 10px 10px;
+  padding: 8px 12px 12px;
 }
 
 .app-lineup-display-table-frame {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  border: 2px solid #c2d0e5;
-  border-radius: 24px;
-  background: #ffffff;
-  box-shadow: 0 28px 60px rgba(21, 44, 82, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: #0a1520;
+  box-shadow:
+    0 0 0 1px rgba(212, 136, 46, 0.15),
+    0 24px 60px rgba(0, 0, 0, 0.5);
 }
 
 .app-lineup-display-board {
@@ -1789,8 +1813,8 @@ textarea {
 }
 
 .app-lineup-display-board__header {
-  background: #16325f;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, #1e3050 0%, #152238 100%);
+  border-bottom: 2px solid #d4882e;
 }
 
 .app-lineup-display-board__head {
@@ -1798,12 +1822,12 @@ textarea {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 9px 4px 8px;
-  color: #ffffff;
+  padding: 10px 4px 9px;
+  color: rgba(212, 136, 46, 0.9);
   text-align: center;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -1814,7 +1838,7 @@ textarea {
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  background: #ffffff;
+  background: #0a1520;
 }
 
 .app-lineup-display-board__track {
@@ -1826,10 +1850,15 @@ textarea {
   position: absolute;
   inset-inline: 0;
   height: var(--lineup-display-row-height);
-  border-bottom: 1px solid #d6dfeb;
-  background: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
   transform: translate3d(0, var(--lineup-display-row-shift, 0px), 0);
   will-change: transform;
+  transition-property: none;
+}
+
+.app-lineup-display-board__row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .app-lineup-display-board__row--sliding {
@@ -1846,31 +1875,34 @@ textarea {
   align-items: center;
   justify-content: center;
   padding: 1px 2px;
-  color: #18314f;
+  color: #c8d4e8;
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 0.96;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: var(--app-font-mono, "IBM Plex Mono", monospace);
 }
 
 .app-lineup-display-board__cell--vessel {
   justify-content: flex-start;
-  padding-left: 8px;
-  color: #214b2f;
-  font-size: 28px;
+  padding-left: 10px;
+  color: #f0f4ff;
+  font-size: 26px;
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
+  font-family: var(--app-font-display, "Syne", sans-serif);
 }
 
 .app-lineup-display-board__cell--accent {
-  color: #214b2f;
-  font-weight: 900;
+  color: #d4882e;
+  font-weight: 800;
 }
 
 .app-lineup-display-board__cell--total {
-  color: #58a6ff;
+  color: #60a5fa;
+  font-weight: 900;
 }
 
 .app-lineup-display-board__cell--bb,
@@ -1881,10 +1913,11 @@ textarea {
 .app-lineup-display-board__bb {
   display: grid;
   justify-items: center;
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 0.94;
-  color: #16324e;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #95a7c0;
+  font-family: var(--app-font-mono, "IBM Plex Mono", monospace);
 }
 
 .app-lineup-placeholder-row td {
@@ -1901,22 +1934,23 @@ textarea {
 
 .app-lineup-display-status {
   display: inline-block;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
+  letter-spacing: 0.04em;
 }
 
 .app-lineup-display-status--green {
-  color: #2f7b1f;
+  color: #4ade80;
 }
 
 .app-lineup-display-status--amber {
-  color: #9f5b00;
+  color: #f59e0b;
 }
 
 .app-lineup-display-status--red {
-  color: #d75b62;
+  color: #f87171;
 }
 
 .app-lineup-display-loading,
@@ -1926,10 +1960,11 @@ textarea {
   place-items: center;
   font-size: 24px;
   font-weight: 700;
+  color: #95a7c0;
 }
 
 .app-lineup-display-error {
-  color: #9f1239;
+  color: #f87171;
 }
 
 .app-voyage-table-frame {
