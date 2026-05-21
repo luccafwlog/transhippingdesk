@@ -201,110 +201,79 @@ export function LineUpTVDisplay() {
 
         {isLoading ? (
           <div className="app-lineup-display-loading">Carregando line up...</div>
+        ) : rows.length === 0 ? (
+          <div className="app-lineup-display-loading">Nenhuma escala disponivel.</div>
+        ) : isMobile ? (
+          <div className="app-lineup-mobile">
+            {rows.map((row) => (
+              <LineUpMobileCard key={row.id} row={row} />
+            ))}
+          </div>
         ) : (
           <div className="app-lineup-display-table-frame">
-            {rows.length === 0 ? (
-              <div className="app-lineup-display-loading">Nenhuma escala disponivel.</div>
-            ) : (
-              <section className="app-lineup-display-board" style={boardStyle}>
-                <header className="app-lineup-display-board__header">
-                  {DISPLAY_COLUMNS.map((label) => (
-                    <div key={label} className="app-lineup-display-board__head">
-                      {label}
-                    </div>
+            <section className="app-lineup-display-board" style={boardStyle}>
+              <header className="app-lineup-display-board__header">
+                {DISPLAY_COLUMNS.map((label) => (
+                  <div key={label} className="app-lineup-display-board__head">
+                    {label}
+                  </div>
+                ))}
+              </header>
+
+              <div ref={viewportRef} className="app-lineup-display-board__viewport">
+                <div className="app-lineup-display-board__track">
+                  {displayRows.map((row, slotIndex) => (
+                    <article
+                      key={row.id}
+                      className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''}`}
+                      style={{ top: `${slotIndex * rowHeight}px` }}
+                    >
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
+                      <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
+                      <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{formatInteger(row.vin)}</div>
+                      <div className="app-lineup-display-board__cell">{formatInteger(row.car)}</div>
+                      <div className="app-lineup-display-board__cell">{formatInteger(row.cg)}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">{formatInteger(row.total)}</div>
+                      <div className="app-lineup-display-board__cell">{formatInteger(row.mty)}</div>
+                      <div className="app-lineup-display-board__cell">{row.rtw === null ? '-' : formatInteger(row.rtw)}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">
+                        <div className="app-lineup-display-board__bb">
+                          <span>{formatInteger(row.bbMachines)} MAQ</span>
+                          <span>{formatInteger(row.bbPackages)} PACK</span>
+                          <span>{formatInteger(row.bbTotal)} TOTAL</span>
+                        </div>
+                      </div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                        {renderDisplayCeStatus(row.ceStatus)}
+                      </div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                        <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                          {row.linked ? 'YES' : 'NO'}
+                        </span>
+                      </div>
+                    </article>
                   ))}
-                </header>
 
-                {isMobile ? (
-                  <div className="app-lineup-display-board__viewport app-lineup-display-board__viewport--static">
-                    {rows.map((row) => (
-                      <article key={row.id} className="app-lineup-display-board__row app-lineup-display-board__row--static">
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
-                        <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
-                        <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{formatInteger(row.vin)}</div>
-                        <div className="app-lineup-display-board__cell">{formatInteger(row.car)}</div>
-                        <div className="app-lineup-display-board__cell">{formatInteger(row.cg)}</div>
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">{formatInteger(row.total)}</div>
-                        <div className="app-lineup-display-board__cell">{formatInteger(row.mty)}</div>
-                        <div className="app-lineup-display-board__cell">{row.rtw === null ? '-' : formatInteger(row.rtw)}</div>
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">
-                          <div className="app-lineup-display-board__bb">
-                            <span>{formatInteger(row.bbMachines)} MAQ</span>
-                            <span>{formatInteger(row.bbPackages)} PACK</span>
-                            <span>{formatInteger(row.bbTotal)} TOTAL</span>
-                          </div>
+                  {Array.from({ length: placeholderCount }).map((_, index) => (
+                    <article
+                      key={`lineup-display-placeholder-${index}`}
+                      className="app-lineup-display-board__row app-lineup-display-board__row--placeholder"
+                      style={{ top: `${(displayRows.length + index) * rowHeight}px` }}
+                      aria-hidden="true"
+                    >
+                      {Array.from({ length: DISPLAY_COLUMNS.length }).map((__, columnIndex) => (
+                        <div key={columnIndex} className="app-lineup-display-board__cell">
+                          &nbsp;
                         </div>
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
-                          {renderDisplayCeStatus(row.ceStatus)}
-                        </div>
-                        <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
-                          <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                            {row.linked ? 'YES' : 'NO'}
-                          </span>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div ref={viewportRef} className="app-lineup-display-board__viewport">
-                    <div className="app-lineup-display-board__track">
-                      {displayRows.map((row, slotIndex) => (
-                        <article
-                          key={row.id}
-                          className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''}`}
-                          style={{ top: `${slotIndex * rowHeight}px` }}
-                        >
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
-                          <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
-                          <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{formatInteger(row.vin)}</div>
-                          <div className="app-lineup-display-board__cell">{formatInteger(row.car)}</div>
-                          <div className="app-lineup-display-board__cell">{formatInteger(row.cg)}</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">{formatInteger(row.total)}</div>
-                          <div className="app-lineup-display-board__cell">{formatInteger(row.mty)}</div>
-                          <div className="app-lineup-display-board__cell">{row.rtw === null ? '-' : formatInteger(row.rtw)}</div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">
-                            <div className="app-lineup-display-board__bb">
-                              <span>{formatInteger(row.bbMachines)} MAQ</span>
-                              <span>{formatInteger(row.bbPackages)} PACK</span>
-                              <span>{formatInteger(row.bbTotal)} TOTAL</span>
-                            </div>
-                          </div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
-                            {renderDisplayCeStatus(row.ceStatus)}
-                          </div>
-                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
-                            <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                              {row.linked ? 'YES' : 'NO'}
-                            </span>
-                          </div>
-                        </article>
                       ))}
-
-                      {Array.from({ length: placeholderCount }).map((_, index) => (
-                        <article
-                          key={`lineup-display-placeholder-${index}`}
-                          className="app-lineup-display-board__row app-lineup-display-board__row--placeholder"
-                          style={{ top: `${(displayRows.length + index) * rowHeight}px` }}
-                          aria-hidden="true"
-                        >
-                          {Array.from({ length: DISPLAY_COLUMNS.length }).map((__, columnIndex) => (
-                            <div key={columnIndex} className="app-lineup-display-board__cell">
-                              &nbsp;
-                            </div>
-                          ))}
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </section>
-            )}
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </section>
           </div>
         )}
       </section>
@@ -316,6 +285,74 @@ function renderDisplayCeStatus(status: LineUpRow['ceStatus']) {
   if (status === 'approved') return <span className="app-lineup-display-status app-lineup-display-status--green">Approved</span>
   if (status === 'partial') return <span className="app-lineup-display-status app-lineup-display-status--amber">Partial</span>
   return <span className="app-lineup-display-status app-lineup-display-status--red">Missing</span>
+}
+
+function ceStatusLabel(status: LineUpRow['ceStatus']) {
+  if (status === 'approved') return 'Approved'
+  if (status === 'partial') return 'Partial'
+  return 'Missing'
+}
+
+function ceStatusColorClass(status: LineUpRow['ceStatus']) {
+  if (status === 'approved') return 'app-lineup-card__field-value--green'
+  if (status === 'partial') return 'app-lineup-card__field-value--amber'
+  return 'app-lineup-card__field-value--red'
+}
+
+function CardField({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="app-lineup-card__field">
+      <span className="app-lineup-card__field-label">{label}</span>
+      <span className={`app-lineup-card__field-value ${accent ? 'app-lineup-card__field-value--accent' : ''}`}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function LineUpMobileCard({ row }: { row: LineUpRow }) {
+  return (
+    <article className="app-lineup-card">
+      <div className="app-lineup-card__head">
+        <span className="app-lineup-card__vessel">{row.vesselName}</span>
+        <span className="app-lineup-card__voy">Voy {row.voyageNumber}</span>
+      </div>
+      <div className="app-lineup-card__pod">
+        <span className="app-lineup-card__pod-label">POD</span>
+        <span>{row.pod}</span>
+      </div>
+      <div className="app-lineup-card__grid">
+        <CardField label="ETA" value={formatShortDate(row.eta)} />
+        <CardField label="ETB" value={formatShortDate(row.etb)} />
+        <CardField label="VIN" value={formatInteger(row.vin)} />
+        <CardField label="CAR" value={formatInteger(row.car)} />
+        <CardField label="CG" value={formatInteger(row.cg)} />
+        <CardField label="Total" value={formatInteger(row.total)} accent />
+        <CardField label="MTY" value={formatInteger(row.mty)} />
+        <CardField label="RTW" value={row.rtw === null ? '-' : formatInteger(row.rtw)} />
+        <div className="app-lineup-card__field app-lineup-card__field--wide">
+          <span className="app-lineup-card__field-label">BB</span>
+          <span className="app-lineup-card__field-value">
+            {formatInteger(row.bbMachines)} MAQ · {formatInteger(row.bbPackages)} PACK · {formatInteger(row.bbTotal)} TOTAL
+          </span>
+        </div>
+        <div className="app-lineup-card__field">
+          <span className="app-lineup-card__field-label">CEs</span>
+          <span className={`app-lineup-card__field-value ${ceStatusColorClass(row.ceStatus)}`}>
+            {ceStatusLabel(row.ceStatus)}
+          </span>
+        </div>
+        <div className="app-lineup-card__field">
+          <span className="app-lineup-card__field-label">Linked</span>
+          <span
+            className={`app-lineup-card__field-value ${row.linked ? 'app-lineup-card__field-value--green' : 'app-lineup-card__field-value--amber'}`}
+          >
+            {row.linked ? 'YES' : 'NO'}
+          </span>
+        </div>
+      </div>
+    </article>
+  )
 }
 
 function compareDisplayRows(left: LineUpRow, right: LineUpRow) {
