@@ -158,6 +158,8 @@ export function AppLayout() {
 
   return (
     <div className="app-shell">
+      <a href="#app-main-content" className="app-skip-link">Ir para o conteúdo principal</a>
+
       <div className="app-market-strip">
         <div className="app-market-strip__content">
           <div className="app-market-strip__left">
@@ -283,7 +285,7 @@ export function AppLayout() {
         </nav>
       </div>
 
-      <main className="app-main">
+      <main id="app-main-content" className="app-main">
         <Outlet />
       </main>
     </div>
@@ -347,19 +349,10 @@ function TopNavDropdownMenu({
   return (
     <div
       className={cn('app-nav-dropdown', isActive && 'active', isOpen && 'open')}
-      onMouseEnter={() => {
-        if (!isMobile) onOpenDesktop()
-      }}
-      onMouseLeave={() => {
-        if (!isMobile) onCloseDesktop()
-      }}
-      onFocusCapture={() => {
-        if (!isMobile) onOpenDesktop()
-      }}
       onBlurCapture={(event) => {
-        if (isMobile) return
         const nextTarget = event.relatedTarget
         if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return
+        if (isMobile) return
         onCloseDesktop()
       }}
     >
@@ -372,7 +365,8 @@ function TopNavDropdownMenu({
           if (isMobile) {
             onToggleMobile()
           } else {
-            onCloseDesktop()
+            if (isOpen) onCloseDesktop()
+            else onOpenDesktop()
           }
         }}
       >
@@ -401,10 +395,14 @@ function TopNavDropdownMenu({
   )
 }
 
-function NavBadge({ count }: { count: number }) {
+function NavBadge({ count, label }: { count: number; label?: string }) {
+  const display = count > 99 ? '99+' : count
   return (
-    <span className="app-nav-badge">
-      {count > 99 ? '99+' : count}
+    <span
+      className="app-nav-badge"
+      aria-label={label ? `${display} ${label}` : String(display)}
+    >
+      {display}
     </span>
   )
 }

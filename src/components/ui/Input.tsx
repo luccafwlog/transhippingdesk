@@ -22,12 +22,25 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return <textarea className={cn(base, 'app-input--full', 'app-textarea', className)} {...props} />
 }
 
-export function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
+export function Field({
+  label,
+  children,
+  error,
+  required,
+}: {
+  label: string
+  children: React.ReactNode
+  error?: string
+  required?: boolean
+}) {
   return (
     <label className="app-field">
-      <span className="app-field__label">{label}</span>
+      <span className="app-field__label">
+        {label}
+        {required && <span className="app-field__required" aria-hidden="true"> *</span>}
+      </span>
       {children}
-      {error ? <span className="app-field__error">{error}</span> : null}
+      {error ? <span className="app-field__error" role="alert">{error}</span> : null}
     </label>
   )
 }
