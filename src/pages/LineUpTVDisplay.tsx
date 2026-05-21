@@ -19,7 +19,7 @@ export function LineUpTVDisplay() {
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
   const [startIndex, setStartIndex] = useState(0)
   const [isSliding, setIsSliding] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
+  const isMobile = isTouchDevice()
 
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [flashRefresh, setFlashRefresh] = useState(false)
@@ -71,10 +71,6 @@ export function LineUpTVDisplay() {
       }) as CSSProperties,
     [isSliding, rowHeight],
   )
-
-  useEffect(() => {
-    setIsMobile(isTouchDevice())
-  }, [])
 
   useEffect(() => {
     if (isMobile) return
