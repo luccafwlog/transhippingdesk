@@ -1953,7 +1953,7 @@ textarea {
   color: #9f1239;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .app-lineup-display-shell {
     min-height: 100svh;
     overflow-y: auto;
