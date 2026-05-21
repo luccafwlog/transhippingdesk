@@ -1640,6 +1640,7 @@ textarea {
   font-weight: 800;
   line-height: 1.05;
   text-transform: uppercase;
+  text-align: center;
 }
 
 .app-table--lineup-display {
