@@ -1,40 +1,42 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&display=swap');
 @import "tailwindcss";
 
 :root,
 :root[data-visual-theme='current'] {
   color-scheme: light;
-  --app-bg: #edf3f8;
-  --app-bg-elevated: #f7fafe;
-  --app-surface: rgba(255, 255, 255, 0.94);
+  --app-header-height: 56px;
+  --app-bg: #f4f1ea;
+  --app-bg-elevated: #ece9e1;
+  --app-surface: #ffffff;
   --app-surface-strong: #ffffff;
-  --app-surface-muted: #f4f7fb;
-  --app-panel: #ebf1f8;
-  --app-panel-strong: #e2ebf6;
-  --app-border: #d9e3ef;
-  --app-border-strong: #c3d0e0;
-  --app-border-focus: rgba(37, 99, 235, 0.22);
-  --app-text: #132033;
-  --app-text-strong: #0c1728;
-  --app-muted: #5c6e86;
-  --app-muted-soft: #8594a9;
-  --app-navy: #162440;
-  --app-navy-2: #223556;
-  --app-topbar: #0b1624;
-  --app-blue: #2d6ef5;
-  --app-blue-btn: #2459db;
-  --app-blue-soft: #edf4ff;
-  --app-gold: #f2a93b;
-  --app-gold-soft: #fff4de;
-  --app-green: #15b86a;
-  --app-green-soft: #ebfbf3;
-  --app-red: #df5a67;
-  --app-red-soft: #fff0f2;
+  --app-surface-muted: #f8f6f1;
+  --app-panel: #ede9df;
+  --app-panel-strong: #e2ddd2;
+  --app-border: #cdc8bc;
+  --app-border-strong: #b8b2a5;
+  --app-border-focus: rgba(37, 99, 168, 0.22);
+  --app-text: #1c1915;
+  --app-text-strong: #0e0c0a;
+  --app-muted: #5a5549;
+  --app-muted-soft: #8a8579;
+  --app-navy: #152238;
+  --app-navy-2: #1e3050;
+  --app-topbar: #0e1825;
+  --app-blue: #2563a8;
+  --app-blue-btn: #1d4d88;
+  --app-blue-soft: #e8f0fb;
+  --app-gold: #d4882e;
+  --app-gold-soft: #fdf0dc;
+  --app-green: #1a8c50;
+  --app-green-soft: #e6f7ee;
+  --app-red: #c0393f;
+  --app-red-soft: #fceaea;
   --app-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06);
   --app-shadow-strong: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 4px rgba(15, 23, 42, 0.08);
-  --app-radius: 12px;
-  --app-header-height: 56px;
-  font-family: "Manrope", "IBM Plex Sans", "Segoe UI", sans-serif;
+  --app-radius: 8px;
+  --app-font-display: "Syne", "DM Sans", sans-serif;
+  --app-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
 }
 
 :root[data-visual-theme='dark'] {
@@ -73,36 +75,39 @@
 
 :root[data-visual-theme='light'] {
   color-scheme: light;
-  --app-bg: #edf3f8;
-  --app-bg-elevated: #f7fafe;
-  --app-surface: rgba(255, 255, 255, 0.94);
+  --app-header-height: 56px;
+  --app-bg: #f4f1ea;
+  --app-bg-elevated: #ece9e1;
+  --app-surface: #ffffff;
   --app-surface-strong: #ffffff;
-  --app-surface-muted: #f4f7fb;
-  --app-panel: #ebf1f8;
-  --app-panel-strong: #e2ebf6;
-  --app-border: #d9e3ef;
-  --app-border-strong: #c3d0e0;
-  --app-border-focus: rgba(37, 99, 235, 0.22);
-  --app-text: #132033;
-  --app-text-strong: #0c1728;
-  --app-muted: #5c6e86;
-  --app-muted-soft: #8594a9;
-  --app-navy: #162440;
-  --app-navy-2: #223556;
-  --app-topbar: #0b1624;
-  --app-blue: #2d6ef5;
-  --app-blue-btn: #2459db;
-  --app-blue-soft: #edf4ff;
-  --app-gold: #f2a93b;
-  --app-gold-soft: #fff4de;
-  --app-green: #15b86a;
-  --app-green-soft: #ebfbf3;
-  --app-red: #df5a67;
-  --app-red-soft: #fff0f2;
+  --app-surface-muted: #f8f6f1;
+  --app-panel: #ede9df;
+  --app-panel-strong: #e2ddd2;
+  --app-border: #cdc8bc;
+  --app-border-strong: #b8b2a5;
+  --app-border-focus: rgba(37, 99, 168, 0.22);
+  --app-text: #1c1915;
+  --app-text-strong: #0e0c0a;
+  --app-muted: #5a5549;
+  --app-muted-soft: #8a8579;
+  --app-navy: #152238;
+  --app-navy-2: #1e3050;
+  --app-topbar: #0e1825;
+  --app-blue: #2563a8;
+  --app-blue-btn: #1d4d88;
+  --app-blue-soft: #e8f0fb;
+  --app-gold: #d4882e;
+  --app-gold-soft: #fdf0dc;
+  --app-green: #1a8c50;
+  --app-green-soft: #e6f7ee;
+  --app-red: #c0393f;
+  --app-red-soft: #fceaea;
   --app-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06);
   --app-shadow-strong: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 4px rgba(15, 23, 42, 0.08);
-  --app-radius: 12px;
-  --app-header-height: 56px;
+  --app-radius: 8px;
+  --app-font-display: "Syne", "DM Sans", sans-serif;
+  --app-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
 }
 
 .app-skip-link {
@@ -139,12 +144,11 @@ body,
 body {
   margin: 0;
   min-width: 320px;
-  background:
-    radial-gradient(circle at top left, rgba(36, 89, 219, 0.08), transparent 32rem),
-    radial-gradient(circle at top right, rgba(242, 169, 59, 0.12), transparent 28rem),
-    linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-elevated) 18rem, var(--app-bg) 100%);
+  background-color: var(--app-bg);
+  background-image: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
+  background-size: 20px 20px;
   color: var(--app-text);
-  line-height: 1.45;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -162,7 +166,7 @@ textarea {
 }
 
 .financial {
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--app-font-mono);
 }
 
 .app-shell {
@@ -291,10 +295,11 @@ textarea {
 }
 
 .app-header__eyebrow {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.95);
+  font-family: var(--app-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   line-height: 1;
 }
 
@@ -386,13 +391,12 @@ textarea {
 }
 
 .app-nav-bar {
-  background: linear-gradient(180deg, rgba(22, 36, 64, 0.98), rgba(21, 33, 58, 0.94));
-  border-bottom: 2px solid rgba(242, 169, 59, 0.95);
+  background: var(--app-navy-2);
+  border-bottom: 2px solid rgba(212, 136, 46, 0.85);
   position: sticky;
   top: var(--app-header-height);
   z-index: 190;
   box-shadow: 0 1px 3px rgba(10, 17, 29, 0.10);
-  backdrop-filter: blur(12px);
 }
 
 .app-nav-mobile-bar {
@@ -479,8 +483,8 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   padding: 0 6px;
-  background: linear-gradient(180deg, rgba(242, 169, 59, 0.98), rgba(223, 135, 18, 0.98));
-  box-shadow: 0 6px 12px rgba(242, 169, 59, 0.28);
+  background: var(--app-gold);
+  box-shadow: none;
   color: #ffffff;
   font-size: 10px;
   font-weight: 700;
@@ -598,19 +602,20 @@ textarea {
 .page-header__copy::after {
   content: '';
   display: block;
-  width: 84px;
-  height: 4px;
-  margin-top: 16px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--app-blue-btn), rgba(242, 169, 59, 0.84));
+  width: 48px;
+  height: 3px;
+  margin-top: 14px;
+  border-radius: 0;
+  background: var(--app-gold);
 }
 
 .page-header__title {
   margin: 0;
   color: var(--app-text-strong);
-  font-size: clamp(1.9rem, 2vw + 1rem, 2.45rem);
+  font-family: var(--app-font-display);
+  font-size: clamp(1.7rem, 2vw + 1rem, 2.2rem);
   font-weight: 700;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.04em;
   line-height: 1.05;
   text-wrap: balance;
 }
@@ -633,20 +638,15 @@ textarea {
 
 .app-surface {
   position: relative;
-  border: 1px solid var(--app-border);
+  border: 1.5px solid var(--app-border);
   border-radius: var(--app-radius);
-  background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-surface) 100%);
-  box-shadow: var(--app-shadow);
+  background: var(--app-surface);
+  box-shadow: none;
   overflow: hidden;
 }
 
 .app-surface::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0) 84px);
-  pointer-events: none;
+  display: none;
 }
 
 .app-surface > * {
@@ -673,14 +673,16 @@ textarea {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--app-navy), rgba(22, 36, 64, 0.4));
+  bottom: 0;
+  right: auto;
+  width: 3px;
+  height: auto;
+  border-radius: 0;
+  background: var(--app-navy);
 }
 
 .app-kpi-card--blue::before {
-  background: var(--app-blue-btn);
+  background: var(--app-blue);
 }
 
 .app-kpi-card--green::before {
@@ -706,9 +708,10 @@ textarea {
 .app-kpi-card__value {
   margin-top: 10px;
   color: var(--app-text-strong);
-  font-size: clamp(1.45rem, 0.95vw + 1rem, 2rem);
-  font-weight: 800;
-  letter-spacing: -0.06em;
+  font-family: var(--app-font-mono);
+  font-size: clamp(1.45rem, 0.95vw + 1rem, 1.9rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
@@ -805,21 +808,22 @@ textarea {
 }
 
 .app-btn--primary {
-  background: linear-gradient(180deg, var(--app-blue) 0%, var(--app-blue-btn) 100%);
-  border-color: color-mix(in srgb, var(--app-blue-btn) 76%, #00143f 24%);
+  background: var(--app-blue-btn);
+  border-color: var(--app-blue-btn);
   color: #ffffff;
-  box-shadow: 0 14px 26px rgba(36, 89, 219, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: none;
 }
 
 .app-btn--primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #3477ff 0%, #255be1 100%);
-  border-color: #255be1;
+  background: color-mix(in srgb, var(--app-blue-btn) 82%, #000000 18%);
+  border-color: color-mix(in srgb, var(--app-blue-btn) 82%, #000000 18%);
 }
 
 .app-btn--secondary {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 251, 0.96));
-  border-color: var(--app-border);
+  background: var(--app-surface);
+  border-color: var(--app-border-strong);
   color: var(--app-text-strong);
+  box-shadow: none;
 }
 
 .app-btn--secondary:hover:not(:disabled) {
@@ -1015,18 +1019,19 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px 16px 0 0;
-  background: linear-gradient(180deg, var(--app-navy) 0%, var(--app-navy-2) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px 8px 0 0;
+  background: var(--app-navy);
   color: #ffffff;
-  padding: 22px 24px;
+  padding: 18px 24px;
 }
 
 .app-modal__title {
   margin: 0;
-  font-size: 20px;
+  font-family: var(--app-font-display);
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .app-modal__close {
@@ -1167,11 +1172,11 @@ textarea {
 }
 
 .app-soft-panel {
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  background: linear-gradient(180deg, var(--app-surface-strong), var(--app-surface-muted));
+  border: 1.5px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
   padding: 18px 20px;
-  box-shadow: var(--app-shadow);
+  box-shadow: none;
 }
 
 .app-soft-panel__title {
@@ -1194,11 +1199,9 @@ textarea {
   place-items: center;
   min-height: 100vh;
   padding: 32px 16px;
-  background:
-    linear-gradient(180deg, rgba(22, 36, 64, 0.95) 0 112px, transparent 112px),
-    radial-gradient(circle at top left, rgba(36, 89, 219, 0.12), transparent 28rem),
-    radial-gradient(circle at top right, rgba(242, 169, 59, 0.14), transparent 24rem),
-    var(--app-bg);
+  background-color: var(--app-bg);
+  background-image: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 .app-auth__card {
@@ -1246,7 +1249,7 @@ textarea {
 }
 
 .app-shell table thead {
-  background: linear-gradient(180deg, var(--app-navy) 0%, var(--app-navy-2) 100%);
+  background: var(--app-navy);
 }
 
 .app-shell table thead th {
