@@ -40,7 +40,7 @@ export function Login() {
           <img alt="Transhipping" className="app-auth__logo" src="/branding/transhipping-logo.png" />
           <div className="app-auth__branding-copy">
             <p className="app-auth__branding-label">Sistema operacional</p>
-            <p className="app-auth__branding-desc">Gestão de viagens, manifestos, faturamento e containers de transhipment.</p>
+            <p className="app-auth__branding-desc">Gestão de viagens, EDIs, Manifestos, Faturamento, Taxas Locais e Demurrage.</p>
           </div>
         </div>
 
