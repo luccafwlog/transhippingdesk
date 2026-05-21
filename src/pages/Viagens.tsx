@@ -28,6 +28,12 @@ import {
   type EditableVoyagePodCeStatus,
   type VoyagePodCeStatus,
 } from '../services/voyageRouteSchedules'
+import {
+  fetchExportSchedulesByVoyageIds,
+  saveVoyageExportSchedule,
+  deleteVoyageExportSchedule,
+  type VoyageExportSchedule,
+} from '../services/voyageExportSchedules'
 import { VoyageImportActions } from '../components/shared/VoyageImportActions'
 
 type VoyageSectionKey = 'importação' | 'exportação' | 'origemTrechos'
@@ -83,6 +89,11 @@ export function Viagens() {
     etd: string | null
   } | null>(null)
   const [addingPodVoyage, setAddingPodVoyage] = useState<{ voyageId: number; voyageLabel: string } | null>(null)
+  const [editingExport, setEditingExport] = useState<{
+    voyageId: number
+    voyageLabel: string
+    existing: VoyageExportSchedule | null
+  } | null>(null)
 
   const filteredVoyages = useMemo(() => {
     const normalizedVesselFilter = vesselFilter.trim().toUpperCase()
@@ -148,6 +159,12 @@ export function Viagens() {
     queryFn: () => listVoyagePodSchedulesByVoyageIds(filteredVoyageIds),
   })
   const podSchedulesByVoyage = useMemo(() => groupPodSchedulesByVoyageId(podSchedules), [podSchedules])
+
+  const { data: exportSchedulesData } = useQuery({
+    queryKey: ['voyage-export-schedules', filteredVoyageIds],
+    enabled: filteredVoyageIds.length > 0,
+    queryFn: () => fetchExportSchedulesByVoyageIds(filteredVoyageIds),
+  })
   const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
 
   function toggleVoyageSection(voyageId: number, section: VoyageSectionKey) {
@@ -284,6 +301,7 @@ export function Viagens() {
           const totalBreakbulkCbm = breakbulkBls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)
           const graniteStats = moduleStatsByVoyage[voyage.id]?.granite ?? getGraniteModuleStats(voyage.granite_manifests)
           const vaziosStats = moduleStatsByVoyage[voyage.id]?.vazios ?? getVaziosModuleStats(voyage.vazios_manifests)
+          const exportSchedule = exportSchedulesData?.get(voyage.id) ?? null
           const scheduledPodRows = podSchedulesByVoyage.get(voyage.id) ?? []
           const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
           const destinationPorts = collectVoyagePorts(
@@ -414,6 +432,112 @@ export function Viagens() {
                   <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
                 </MetricPanel>
               </div>
+
+              <MetricSection
+                title="Planejamento de Exportação no Line-Up"
+                description="ETA/ETB e cargas de exportação que aparecem como linha dedicada no Painel e na TV."
+              >
+                {isAdmin ? (
+                  <div className="mb-3 flex justify-end">
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        setEditingExport({
+                          voyageId: voyage.id,
+                          voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                          existing: exportSchedule,
+                        })
+                      }
+                    >
+                      <Pencil size={15} />
+                      {exportSchedule ? 'Editar exportação' : 'Configurar exportação'}
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="app-voyage-table-frame">
+                  <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                    <colgroup>
+                      <col className="w-[14%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[30%]" />
+                      <col className="w-[14%]" />
+                    </colgroup>
+                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th scope="col" className="px-3 py-2">ETA</th>
+                        <th scope="col" className="px-3 py-2">ETB</th>
+                        <th scope="col" className="px-3 py-2">CNTR</th>
+                        <th scope="col" className="px-3 py-2">Movimentos</th>
+                        <th scope="col" className="px-3 py-2">Tipos</th>
+                        <th scope="col" className="px-3 py-2">Acoes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {exportSchedule ? (
+                        <tr>
+                          <td className="px-3 py-2">{formatDate(exportSchedule.eta)}</td>
+                          <td className="px-3 py-2">{formatDate(exportSchedule.etb)}</td>
+                          <td className="px-3 py-2">{exportSchedule.containersQty !== null ? formatMetric(exportSchedule.containersQty) : '—'}</td>
+                          <td className="px-3 py-2">{exportSchedule.movementsQty !== null ? formatMetric(exportSchedule.movementsQty) : '—'}</td>
+                          <td className="px-3 py-2 text-slate-300">
+                            {[exportSchedule.hasGranite ? 'Granito' : null, exportSchedule.containersQty !== null ? 'Vazios Exp.' : null]
+                              .filter(Boolean)
+                              .join(', ') || '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isAdmin ? (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="secondary"
+                                  className="app-voyage-icon-btn"
+                                  aria-label="Editar planejamento de exportação"
+                                  onClick={() =>
+                                    setEditingExport({
+                                      voyageId: voyage.id,
+                                      voyageLabel: `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`,
+                                      existing: exportSchedule,
+                                    })
+                                  }
+                                >
+                                  <Pencil size={15} />
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  className="app-voyage-icon-btn"
+                                  aria-label="Excluir planejamento de exportação"
+                                  onClick={async () => {
+                                    try {
+                                      await deleteVoyageExportSchedule(exportSchedule.id)
+                                      await Promise.all([
+                                        queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
+                                        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+                                        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+                                      ])
+                                      showToast('Planejamento de exportação removido.', 'success')
+                                    } catch {
+                                      showToast('Falha ao remover planejamento de exportação.', 'error')
+                                    }
+                                  }}
+                                >
+                                  <Trash2 size={15} />
+                                </Button>
+                              </div>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-3 text-slate-400">
+                            Nenhuma exportação planejada para esta viagem.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </MetricSection>
 
               {user?.id ? (
                 <MetricSection
@@ -851,6 +975,26 @@ export function Viagens() {
           </div>
         </div>
       </Modal>
+
+      <ExportScheduleModal
+        open={editingExport !== null}
+        exportData={editingExport}
+        onClose={() => setEditingExport(null)}
+        onSaved={async ({ voyageId, hasGranite, containersQty, movementsQty, eta, etb }) => {
+          try {
+            await saveVoyageExportSchedule({ voyageId, hasGranite, containersQty, movementsQty, eta, etb })
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+              queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+            ])
+            showToast('Planejamento de exportação salvo.', 'success')
+            setEditingExport(null)
+          } catch {
+            showToast('Falha ao salvar planejamento de exportação.', 'error')
+          }
+        }}
+      />
 
       <PodScheduleModal
         open={editingPod !== null}
@@ -1646,6 +1790,128 @@ function extractErrorText(error: unknown) {
     return [candidate.code, candidate.message, candidate.details, candidate.hint].filter(Boolean).join(' ').trim()
   }
   return ''
+}
+
+function ExportScheduleModal({
+  open,
+  exportData,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  exportData: {
+    voyageId: number
+    voyageLabel: string
+    existing: VoyageExportSchedule | null
+  } | null
+  onClose: () => void
+  onSaved: (payload: {
+    voyageId: number
+    hasGranite: boolean
+    containersQty: number | null
+    movementsQty: number | null
+    eta: string | null
+    etb: string | null
+  }) => Promise<void>
+}) {
+  const [eta, setEta] = useState('')
+  const [etb, setEtb] = useState('')
+  const [hasGranite, setHasGranite] = useState(false)
+  const [containersQty, setContainersQty] = useState('')
+  const [movementsQty, setMovementsQty] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const existing = exportData?.existing
+    setEta(existing?.eta ?? '')
+    setEtb(existing?.etb ?? '')
+    setHasGranite(existing?.hasGranite ?? false)
+    setContainersQty(existing?.containersQty !== null && existing?.containersQty !== undefined ? String(existing.containersQty) : '')
+    setMovementsQty(existing?.movementsQty !== null && existing?.movementsQty !== undefined ? String(existing.movementsQty) : '')
+  }, [open, exportData])
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!exportData) return
+    setSaving(true)
+    try {
+      await onSaved({
+        voyageId: exportData.voyageId,
+        hasGranite,
+        containersQty: containersQty.trim() ? Number(containersQty) : null,
+        movementsQty: movementsQty.trim() ? Number(movementsQty) : null,
+        eta: eta || null,
+        etb: etb || null,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Planejamento de Exportação">
+      {exportData ? (
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+            <div className="font-semibold text-white">{exportData.voyageLabel}</div>
+            <div className="mt-1 text-slate-400">Linha dedicada de exportação no Painel e TV</div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="ETA">
+              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
+            </Field>
+            <Field label="ETB">
+              <Input type="date" value={etb} onChange={(event) => setEtb(event.target.value)} />
+            </Field>
+          </div>
+
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#30363d] p-3">
+            <input
+              type="checkbox"
+              checked={hasGranite}
+              onChange={(event) => setHasGranite(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-500 accent-amber-500"
+            />
+            <span className="text-sm text-slate-200">Terá embarque de granito</span>
+          </label>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="CNTR (Vazios Exp.)">
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={containersQty}
+                onChange={(event) => setContainersQty(event.target.value)}
+                placeholder="Qtd. de containers"
+              />
+            </Field>
+            <Field label="Movimentos">
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={movementsQty}
+                onChange={(event) => setMovementsQty(event.target.value)}
+                placeholder="Qtd. de movimentos"
+              />
+            </Field>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" type="button" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button loading={saving} type="submit">
+              Salvar
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </Modal>
+  )
 }
 
 function PolScheduleModal({

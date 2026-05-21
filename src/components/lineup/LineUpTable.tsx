@@ -83,49 +83,73 @@ export function LineUpTable({
             </tr>
           ) : null}
 
-          {rows.map((row, index) => (
-            <tr key={getRowKey ? getRowKey(row, index) : row.id}>
-              <td className={isDisplay ? 'px-1 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>
-                {isDisplay ? row.vesselName : (
-                  <Link
-                    to={`/viagens?vessel=${encodeURIComponent(row.vesselName)}`}
-                    className="hover:underline hover:text-[#58a6ff]"
-                  >
-                    {row.vesselName}
-                  </Link>
-                )}
-              </td>
-              <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.pod}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.eta)}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.etb)}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{formatInteger(row.vin)}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.car)}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.cg)}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center font-semibold text-[#58a6ff]' : 'px-3 py-3 text-center font-semibold text-[#58a6ff]'}>{formatInteger(row.total)}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.mty)}</td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{row.rtw === null ? '-' : formatInteger(row.rtw)}</td>
-              <td className={isDisplay ? 'px-1 py-1' : 'px-3 py-3'}>
-                <div className="app-lineup-bb">
-                  <span>{formatInteger(row.bbMachines)} MAQ</span>
-                  <span>{formatInteger(row.bbPackages)} PACK</span>
-                  <span>{formatInteger(row.bbTotal)} TOTAL</span>
-                </div>
-              </td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
-                {isDisplay ? renderDisplayCeStatus(row.ceStatus) : renderCeStatus(row.ceStatus)}
-              </td>
-              <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
-                {isDisplay ? (
-                  <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                    {row.linked ? 'YES' : 'NO'}
-                  </span>
+          {rows.map((row, index) => {
+            const isExport = row.rowType === 'export'
+            return (
+              <tr
+                key={getRowKey ? getRowKey(row, index) : row.id}
+                className={isExport ? (isDisplay ? 'app-lineup-export-row--display' : 'app-lineup-export-row') : undefined}
+              >
+                <td className={isDisplay ? 'px-1 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>
+                  {isDisplay ? row.vesselName : (
+                    <Link
+                      to={`/viagens?vessel=${encodeURIComponent(row.vesselName)}`}
+                      className="hover:underline hover:text-[#58a6ff]"
+                    >
+                      {row.vesselName}
+                    </Link>
+                  )}
+                </td>
+                <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
+                <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
+                  {isExport ? renderExportPodCell(row, isDisplay) : row.pod}
+                </td>
+                <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.eta)}</td>
+                <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.etb)}</td>
+                {isExport ? (
+                  <>
+                    <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
+                      {row.exportMovementsQty !== null ? formatInteger(row.exportMovementsQty) : '—'}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>—</td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>—</td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center font-semibold text-[#58a6ff]' : 'px-3 py-3 text-center font-semibold text-[#58a6ff]'}>
+                      {row.exportContainersQty !== null ? formatInteger(row.exportContainersQty) : '—'}
+                    </td>
+                    <td colSpan={5} className={isDisplay ? 'px-1 py-1 text-center text-slate-400' : 'px-3 py-3 text-center text-slate-500'}>—</td>
+                  </>
                 ) : (
-                  <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'YES' : 'NO'}</Badge>
+                  <>
+                    <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{formatInteger(row.vin)}</td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.car)}</td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.cg)}</td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center font-semibold text-[#58a6ff]' : 'px-3 py-3 text-center font-semibold text-[#58a6ff]'}>{formatInteger(row.total)}</td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.mty)}</td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{row.rtw === null ? '-' : formatInteger(row.rtw)}</td>
+                    <td className={isDisplay ? 'px-1 py-1' : 'px-3 py-3'}>
+                      <div className="app-lineup-bb">
+                        <span>{formatInteger(row.bbMachines)} MAQ</span>
+                        <span>{formatInteger(row.bbPackages)} PACK</span>
+                        <span>{formatInteger(row.bbTotal)} TOTAL</span>
+                      </div>
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                      {isDisplay ? renderDisplayCeStatus(row.ceStatus) : renderCeStatus(row.ceStatus)}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                      {isDisplay ? (
+                        <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                          {row.linked ? 'YES' : 'NO'}
+                        </span>
+                      ) : (
+                        <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'YES' : 'NO'}</Badge>
+                      )}
+                    </td>
+                  </>
                 )}
-              </td>
-            </tr>
-          ))}
+              </tr>
+            )
+          })}
 
           {Array.from({ length: placeholderSlots }).map((_, index) => (
             <tr key={`lineup-placeholder-${index}`} className="app-lineup-placeholder-row" aria-hidden="true">
@@ -135,6 +159,27 @@ export function LineUpTable({
         </tbody>
       </table>
     </div>
+  )
+}
+
+function renderExportPodCell(row: LineUpRow, isDisplay: boolean) {
+  const badges: string[] = ['EXP']
+  if (row.exportHasGranite) badges.push('GRT')
+  if (isDisplay) {
+    return (
+      <span className="inline-flex flex-wrap justify-center gap-1">
+        {badges.map((b) => (
+          <span key={b} className="app-lineup-display-status app-lineup-display-status--amber">{b}</span>
+        ))}
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex flex-wrap justify-center gap-1">
+      {badges.map((b) => (
+        <Badge key={b} tone="yellow">{b}</Badge>
+      ))}
+    </span>
   )
 }
 

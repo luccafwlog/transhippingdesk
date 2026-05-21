@@ -225,35 +225,62 @@ export function LineUpTVDisplay() {
                   {displayRows.map((row, slotIndex) => (
                     <article
                       key={row.id}
-                      className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''}`}
+                      className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''} ${row.rowType === 'export' ? 'app-lineup-display-board__row--export' : ''}`}
                       style={{ top: `${slotIndex * rowHeight}px` }}
                     >
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">
+                        {row.rowType === 'export' ? (
+                          <span className="inline-flex flex-wrap justify-center gap-1">
+                            <span className="app-lineup-display-status app-lineup-display-status--amber">EXP</span>
+                            {row.exportHasGranite ? <span className="app-lineup-display-status app-lineup-display-status--amber">GRT</span> : null}
+                          </span>
+                        ) : row.pod}
+                      </div>
                       <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
                       <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{formatInteger(row.vin)}</div>
-                      <div className="app-lineup-display-board__cell">{formatInteger(row.car)}</div>
-                      <div className="app-lineup-display-board__cell">{formatInteger(row.cg)}</div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">{formatInteger(row.total)}</div>
-                      <div className="app-lineup-display-board__cell">{formatInteger(row.mty)}</div>
-                      <div className="app-lineup-display-board__cell">{row.rtw === null ? '-' : formatInteger(row.rtw)}</div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">
-                        <div className="app-lineup-display-board__bb">
-                          <span>{formatInteger(row.bbMachines)} MAQ</span>
-                          <span>{formatInteger(row.bbPackages)} PACK</span>
-                          <span>{formatInteger(row.bbTotal)} TOTAL</span>
-                        </div>
-                      </div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
-                        {renderDisplayCeStatus(row.ceStatus)}
-                      </div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
-                        <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                          {row.linked ? 'YES' : 'NO'}
-                        </span>
-                      </div>
+                      {row.rowType === 'export' ? (
+                        <>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">
+                            {row.exportMovementsQty !== null ? formatInteger(row.exportMovementsQty) : '—'}
+                          </div>
+                          <div className="app-lineup-display-board__cell">—</div>
+                          <div className="app-lineup-display-board__cell">—</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">
+                            {row.exportContainersQty !== null ? formatInteger(row.exportContainersQty) : '—'}
+                          </div>
+                          <div className="app-lineup-display-board__cell">—</div>
+                          <div className="app-lineup-display-board__cell">—</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">—</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">—</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">—</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{formatInteger(row.vin)}</div>
+                          <div className="app-lineup-display-board__cell">{formatInteger(row.car)}</div>
+                          <div className="app-lineup-display-board__cell">{formatInteger(row.cg)}</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">{formatInteger(row.total)}</div>
+                          <div className="app-lineup-display-board__cell">{formatInteger(row.mty)}</div>
+                          <div className="app-lineup-display-board__cell">{row.rtw === null ? '-' : formatInteger(row.rtw)}</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">
+                            <div className="app-lineup-display-board__bb">
+                              <span>{formatInteger(row.bbMachines)} MAQ</span>
+                              <span>{formatInteger(row.bbPackages)} PACK</span>
+                              <span>{formatInteger(row.bbTotal)} TOTAL</span>
+                            </div>
+                          </div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                            {renderDisplayCeStatus(row.ceStatus)}
+                          </div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                            <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                              {row.linked ? 'YES' : 'NO'}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </article>
                   ))}
 

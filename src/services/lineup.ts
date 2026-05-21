@@ -1,4 +1,5 @@
 import { buildVoyagePodEntityId, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
+import { fetchExportSchedulesByVoyageIds } from './voyageExportSchedules'
 import { supabase } from './supabase'
 import { isDateOnly } from '../lib/utils'
 
@@ -44,6 +45,7 @@ export type LineUpRow = {
   pod: string
   eta: string | null
   etb: string | null
+  rowType: 'import' | 'export'
   vin: number
   car: number
   cg: number
@@ -55,6 +57,9 @@ export type LineUpRow = {
   bbTotal: number
   ceStatus: VoyagePodCeStatus
   linked: boolean
+  exportHasGranite: boolean | null
+  exportContainersQty: number | null
+  exportMovementsQty: number | null
 }
 
 export type LineUpSnapshot = {
@@ -67,10 +72,11 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const voyageIds = voyages.map((voyage) => voyage.id)
   if (!voyageIds.length) return { rows: [], lastChangedAt: null }
 
-  const [bls, vehicles, vaziosImportacaoMtyByVoyage] = await Promise.all([
+  const [bls, vehicles, vaziosImportacaoMtyByVoyage, exportSchedules] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
     fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
+    fetchExportSchedulesByVoyageIds(voyageIds),
   ])
 
   const blIds = bls.map((bl) => bl.id)
@@ -165,6 +171,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         pod,
         eta: schedule?.eta ?? null,
         etb: schedule?.etb ?? null,
+        rowType: 'import',
         vin: routeVehicles.length,
         car: carContainers,
         cg: Math.max(totalContainers - carContainers, 0),
@@ -176,8 +183,41 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         bbTotal: bbMachines + bbPackages,
         ceStatus: schedule?.ceStatus ?? autoCeStatus,
         linked: schedule?.linked ?? Boolean(schedule?.eta || schedule?.etb || schedule?.ata || schedule?.atd),
+        exportHasGranite: null,
+        exportContainersQty: null,
+        exportMovementsQty: null,
       })
     }
+  }
+
+  for (const voyage of voyages) {
+    const exportSchedule = exportSchedules.get(voyage.id)
+    if (!exportSchedule) continue
+    rows.push({
+      id: `exp::${voyage.id}`,
+      voyageId: voyage.id,
+      voyageNumber: voyage.voyage_number,
+      voyageStatus: voyage.status,
+      vesselName: voyage.vessel?.name ?? '-',
+      pod: 'EXP',
+      eta: exportSchedule.eta,
+      etb: exportSchedule.etb,
+      rowType: 'export',
+      vin: 0,
+      car: 0,
+      cg: 0,
+      total: 0,
+      mty: 0,
+      rtw: null,
+      bbMachines: 0,
+      bbPackages: 0,
+      bbTotal: 0,
+      ceStatus: 'missing',
+      linked: false,
+      exportHasGranite: exportSchedule.hasGranite,
+      exportContainersQty: exportSchedule.containersQty,
+      exportMovementsQty: exportSchedule.movementsQty,
+    })
   }
 
   const sortedRows = rows.sort((left, right) => {
