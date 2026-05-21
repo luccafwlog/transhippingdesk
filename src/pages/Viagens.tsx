@@ -616,9 +616,8 @@ export function Viagens() {
               <MetricSection
                 title="Planejamento por POD/POL"
                 description="Datas ETA, ETB, ATA e ATD, RESTOW, BLs e CEs e ESCALA sao controlados por porto de descarga ou embarque."
-              >
-                {isAdmin ? (
-                  <div className="mb-3 flex justify-end gap-2">
+                actions={isAdmin ? (
+                  <>
                     <Button
                       variant="secondary"
                       onClick={() =>
@@ -642,10 +641,11 @@ export function Viagens() {
                       }
                     >
                       <Plus size={15} />
-                      {exportSchedule ? 'Editar POL' : 'Adicionar POL'}
+                      Adicionar POL
                     </Button>
-                  </div>
-                ) : null}
+                  </>
+                ) : undefined}
+              >
                 <div className="app-voyage-table-frame">
                   <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                     <colgroup>
@@ -1030,7 +1030,7 @@ export function Viagens() {
         open={addingPodVoyage !== null}
         voyage={addingPodVoyage}
         onClose={() => setAddingPodVoyage(null)}
-        onSaved={async ({ voyageId, pod, eta }) => {
+        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -1040,12 +1040,12 @@ export function Viagens() {
               voyageId,
               pod,
               eta,
-              etb: null,
-              ata: null,
-              atd: null,
-              rtw: null,
-              ceStatus: 'waiting',
-              linked: Boolean(eta),
+              etb,
+              ata,
+              atd,
+              rtw,
+              ceStatus,
+              linked,
               changedBy: user.id,
             })
             await Promise.all([
@@ -1075,16 +1075,38 @@ function AddPodToVoyageModal({
   open: boolean
   voyage: { voyageId: number; voyageLabel: string } | null
   onClose: () => void
-  onSaved: (payload: { voyageId: number; pod: string; eta: string | null }) => Promise<void>
+  onSaved: (payload: {
+    voyageId: number
+    pod: string
+    eta: string | null
+    etb: string | null
+    ata: string | null
+    atd: string | null
+    rtw: number | null
+    ceStatus: EditableVoyagePodCeStatus
+    linked: boolean
+  }) => Promise<void>
 }) {
   const [pod, setPod] = useState('')
   const [eta, setEta] = useState('')
+  const [etb, setEtb] = useState('')
+  const [ata, setAta] = useState('')
+  const [atd, setAtd] = useState('')
+  const [rtw, setRtw] = useState('')
+  const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
+  const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setPod('')
     setEta('')
+    setEtb('')
+    setAta('')
+    setAtd('')
+    setRtw('')
+    setCeStatus('waiting')
+    setLinked('false')
   }, [open])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1094,7 +1116,17 @@ function AddPodToVoyageModal({
     if (!normalizedPod) return
     setSaving(true)
     try {
-      await onSaved({ voyageId: voyage.voyageId, pod: normalizedPod, eta: eta || null })
+      await onSaved({
+        voyageId: voyage.voyageId,
+        pod: normalizedPod,
+        eta: eta || null,
+        etb: etb || null,
+        ata: ata || null,
+        atd: atd || null,
+        rtw: rtw.trim() ? Number(rtw) : null,
+        ceStatus,
+        linked: linked === 'true',
+      })
     } finally {
       setSaving(false)
     }
@@ -1106,9 +1138,7 @@ function AddPodToVoyageModal({
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
             <div className="font-semibold text-white">{voyage.voyageLabel}</div>
-            <div className="mt-1">
-              Sugestoes: {POD_SUGGESTIONS.join(', ')}
-            </div>
+            <div className="mt-1">Sugestoes: {POD_SUGGESTIONS.join(', ')}</div>
           </div>
           <Field label="POD">
             <Input list="pod-suggestions" value={pod} onChange={(event) => setPod(event.target.value.toUpperCase())} placeholder="Ex.: BRSSA" />
@@ -1118,9 +1148,45 @@ function AddPodToVoyageModal({
               ))}
             </datalist>
           </Field>
-          <Field label="ETA (opcional)">
-            <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
-          </Field>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="ETA">
+              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
+            </Field>
+            <Field label="ETB">
+              <Input type="date" value={etb} onChange={(event) => setEtb(event.target.value)} />
+            </Field>
+            <Field label="ATA">
+              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
+            </Field>
+            <Field label="ATD">
+              <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
+            </Field>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="RESTOW">
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={rtw}
+                onChange={(event) => setRtw(event.target.value)}
+                placeholder="Quantidade de restow"
+              />
+            </Field>
+            <Field label="BLs e CEs">
+              <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as EditableVoyagePodCeStatus)}>
+                {POD_CE_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="ESCALA">
+              <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
+                <option value="true">YES</option>
+                <option value="false">NO</option>
+              </select>
+            </Field>
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
             <Button loading={saving} type="submit" disabled={!pod.trim()}>Adicionar POD</Button>
@@ -1247,16 +1313,21 @@ function MetricSection({
   title,
   description,
   children,
+  actions,
 }: {
   title: string
   description: string
   children: ReactNode
+  actions?: ReactNode
 }) {
   return (
     <section className="grid gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-      <div>
-        <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
-        <div className="mt-1 text-sm text-slate-400">{description}</div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
+          <div className="mt-1 text-sm text-slate-400">{description}</div>
+        </div>
+        {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
       </div>
       {children}
     </section>
