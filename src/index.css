@@ -1705,13 +1705,13 @@ textarea {
 
 .app-lineup-display-header {
   display: flex;
-  min-height: 100px;
+  min-height: 64px;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   border-bottom: 4px solid #16325f;
   background: linear-gradient(180deg, #ffffff 0%, #f6f9fe 100%);
-  padding: 10px 22px 8px;
+  padding: 6px 22px 6px;
 }
 
 .app-lineup-display-brand {
@@ -1720,7 +1720,7 @@ textarea {
 }
 
 .app-lineup-display-brand__logo {
-  height: 72px;
+  height: 48px;
   width: auto;
   object-fit: contain;
 }
@@ -1729,34 +1729,34 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 4px;
   max-width: min(52vw, 860px);
 }
 
 .app-lineup-display-meta__group {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .app-lineup-display-meta__label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #5e7696;
 }
 
 .app-lineup-display-meta__value {
-  font-size: 30px;
+  font-size: 18px;
   font-weight: 900;
   line-height: 1;
   color: #16325f;
 }
 
 .app-lineup-display-meta__value--route {
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1.2;
   text-align: right;
 }
