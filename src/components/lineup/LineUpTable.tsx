@@ -90,7 +90,7 @@ export function LineUpTable({
                 key={getRowKey ? getRowKey(row, index) : row.id}
                 className={isExport ? (isDisplay ? 'app-lineup-export-row--display' : 'app-lineup-export-row') : undefined}
               >
-                <td className={isDisplay ? 'px-1 py-1 font-black text-[#214b2f]' : 'px-2 py-2 font-semibold text-white'}>
+                <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-2 py-2 text-center font-semibold text-white'}>
                   {isDisplay ? row.vesselName : (
                     <Link
                       to={`/viagens?vessel=${encodeURIComponent(row.vesselName)}`}
