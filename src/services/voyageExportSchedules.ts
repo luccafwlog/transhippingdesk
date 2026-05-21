@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import type { VoyageExportSchedule as VoyageExportScheduleRow } from '../types/database'
 
 export type VoyageExportSchedule = {
   id: string
@@ -10,31 +11,18 @@ export type VoyageExportSchedule = {
   etb: string | null
 }
 
-type ExportScheduleRow = {
-  id: string
-  voyage_id: number
-  has_granite: boolean
-  containers_qty: number | null
-  movements_qty: number | null
-  eta: string | null
-  etb: string | null
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any
-
 export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Promise<Map<number, VoyageExportSchedule>> {
   if (!voyageIds.length) return new Map()
 
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('voyage_export_schedules')
     .select('id, voyage_id, has_granite, containers_qty, movements_qty, eta, etb')
-    .in('voyage_id', voyageIds) as { data: ExportScheduleRow[] | null; error: unknown }
+    .in('voyage_id', voyageIds)
 
   if (error) throw error
 
   const result = new Map<number, VoyageExportSchedule>()
-  for (const row of data ?? []) {
+  for (const row of (data ?? []) as Pick<VoyageExportScheduleRow, 'id' | 'voyage_id' | 'has_granite' | 'containers_qty' | 'movements_qty' | 'eta' | 'etb'>[]) {
     result.set(row.voyage_id, {
       id: row.id,
       voyageId: row.voyage_id,
@@ -56,7 +44,7 @@ export async function saveVoyageExportSchedule(data: {
   eta: string | null
   etb: string | null
 }): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from('voyage_export_schedules')
     .upsert(
       {
@@ -67,18 +55,14 @@ export async function saveVoyageExportSchedule(data: {
         eta: data.eta,
         etb: data.etb,
         updated_at: new Date().toISOString(),
-      },
+      } satisfies Partial<VoyageExportScheduleRow>,
       { onConflict: 'voyage_id' },
-    ) as { error: unknown }
+    )
 
   if (error) throw error
 }
 
 export async function deleteVoyageExportSchedule(id: string): Promise<void> {
-  const { error } = await db
-    .from('voyage_export_schedules')
-    .delete()
-    .eq('id', id) as { error: unknown }
-
+  const { error } = await supabase.from('voyage_export_schedules').delete().eq('id', id)
   if (error) throw error
 }
