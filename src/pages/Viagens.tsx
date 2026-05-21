@@ -981,9 +981,9 @@ export function Viagens() {
         open={editingExport !== null}
         exportData={editingExport}
         onClose={() => setEditingExport(null)}
-        onSaved={async ({ voyageId, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked }) => {
+        onSaved={async ({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked }) => {
           try {
-            await saveVoyageExportSchedule({ voyageId, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked })
+            await saveVoyageExportSchedule({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
@@ -1808,6 +1808,7 @@ function ExportScheduleModal({
   onClose: () => void
   onSaved: (payload: {
     voyageId: number
+    pol: string | null
     hasGranite: boolean
     containersQty: number | null
     movementsQty: number | null
@@ -1817,6 +1818,7 @@ function ExportScheduleModal({
     linked: boolean
   }) => Promise<void>
 }) {
+  const [pol, setPol] = useState('')
   const [eta, setEta] = useState('')
   const [etb, setEtb] = useState('')
   const [hasGranite, setHasGranite] = useState(false)
@@ -1829,6 +1831,7 @@ function ExportScheduleModal({
   useEffect(() => {
     if (!open) return
     const existing = exportData?.existing
+    setPol(existing?.pol ?? '')
     setEta(existing?.eta ?? '')
     setEtb(existing?.etb ?? '')
     setHasGranite(existing?.hasGranite ?? false)
@@ -1845,6 +1848,7 @@ function ExportScheduleModal({
     try {
       await onSaved({
         voyageId: exportData.voyageId,
+        pol: pol.trim().toUpperCase() || null,
         hasGranite,
         containersQty: containersQty.trim() ? Number(containersQty) : null,
         movementsQty: movementsQty.trim() ? Number(movementsQty) : null,
@@ -1866,6 +1870,15 @@ function ExportScheduleModal({
             <div className="font-semibold text-white">{exportData.voyageLabel}</div>
             <div className="mt-1 text-slate-400">Linha dedicada de exportação no Painel e TV</div>
           </div>
+
+          <Field label="POL (Porto de Embarque)">
+            <Input
+              type="text"
+              value={pol}
+              onChange={(event) => setPol(event.target.value)}
+              placeholder="Ex: BRVIX"
+            />
+          </Field>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="ETA">
