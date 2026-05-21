@@ -242,8 +242,14 @@ export function LineUpTVDisplay() {
                             {buildExportLabel(row)}
                           </div>
                           <div className="app-lineup-display-board__cell" />
-                          <div className="app-lineup-display-board__cell" />
-                          <div className="app-lineup-display-board__cell" />
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                            {renderDisplayCeStatus(row.exportCeStatus ?? 'waiting')}
+                          </div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                            <span className={`app-lineup-display-status ${row.exportLinked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                              {row.exportLinked ? 'YES' : 'NO'}
+                            </span>
+                          </div>
                         </>
                       ) : (
                         <>

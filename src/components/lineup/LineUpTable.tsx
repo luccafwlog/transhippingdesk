@@ -116,7 +116,21 @@ export function LineUpTable({
                     >
                       {buildExportLabel(row)}
                     </td>
-                    <td colSpan={3} />
+                    <td className={isDisplay ? 'px-1 py-1' : 'px-3 py-3'} />
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                      {isDisplay
+                        ? renderDisplayCeStatus(row.exportCeStatus ?? 'waiting')
+                        : renderCeStatus(row.exportCeStatus ?? 'waiting')}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                      {isDisplay ? (
+                        <span className={`app-lineup-display-status ${row.exportLinked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                          {row.exportLinked ? 'YES' : 'NO'}
+                        </span>
+                      ) : (
+                        <Badge tone={row.exportLinked ? 'green' : 'yellow'}>{row.exportLinked ? 'YES' : 'NO'}</Badge>
+                      )}
+                    </td>
                   </>
                 ) : (
                   <>

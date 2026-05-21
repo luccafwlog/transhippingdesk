@@ -1105,6 +1105,8 @@ export type VoyageExportSchedule = {
   movements_qty: number | null
   eta: string | null
   etb: string | null
+  ce_status: 'waiting' | 'received' | 'launching' | 'approving' | 'approved' | null
+  linked: boolean
   created_at: string | null
   updated_at: string | null
 }

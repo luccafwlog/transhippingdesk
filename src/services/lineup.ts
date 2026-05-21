@@ -1,5 +1,5 @@
 import { buildVoyagePodEntityId, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
-import { fetchExportSchedulesByVoyageIds } from './voyageExportSchedules'
+import { fetchExportSchedulesByVoyageIds, type ExportCeStatus } from './voyageExportSchedules'
 import { supabase } from './supabase'
 import { isDateOnly } from '../lib/utils'
 
@@ -61,6 +61,8 @@ export type LineUpRow = {
   exportHasGranite: boolean | null
   exportContainersQty: number | null
   exportMovementsQty: number | null
+  exportCeStatus: ExportCeStatus | null
+  exportLinked: boolean | null
 }
 
 export type LineUpSnapshot = {
@@ -187,6 +189,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         exportHasGranite: null,
         exportContainersQty: null,
         exportMovementsQty: null,
+        exportCeStatus: null,
+        exportLinked: null,
       })
     }
   }
@@ -218,6 +222,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       exportHasGranite: exportSchedule.hasGranite,
       exportContainersQty: exportSchedule.containersQty,
       exportMovementsQty: exportSchedule.movementsQty,
+      exportCeStatus: exportSchedule.ceStatus,
+      exportLinked: exportSchedule.linked,
     })
   }
 
