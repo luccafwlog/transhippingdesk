@@ -108,6 +108,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async function hydrateSession(nextSession: Session | null) {
       if (!mounted) return
 
+      setLoading(true)
       setSession(nextSession)
 
       try {
