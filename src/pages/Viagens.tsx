@@ -33,6 +33,7 @@ import {
   saveVoyageExportSchedule,
   deleteVoyageExportSchedule,
   type VoyageExportSchedule,
+  type ExportCeStatus,
 } from '../services/voyageExportSchedules'
 import { VoyageImportActions } from '../components/shared/VoyageImportActions'
 
@@ -980,9 +981,9 @@ export function Viagens() {
         open={editingExport !== null}
         exportData={editingExport}
         onClose={() => setEditingExport(null)}
-        onSaved={async ({ voyageId, hasGranite, containersQty, movementsQty, eta, etb }) => {
+        onSaved={async ({ voyageId, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked }) => {
           try {
-            await saveVoyageExportSchedule({ voyageId, hasGranite, containersQty, movementsQty, eta, etb })
+            await saveVoyageExportSchedule({ voyageId, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
@@ -1812,6 +1813,8 @@ function ExportScheduleModal({
     movementsQty: number | null
     eta: string | null
     etb: string | null
+    ceStatus: ExportCeStatus | null
+    linked: boolean
   }) => Promise<void>
 }) {
   const [eta, setEta] = useState('')
@@ -1819,6 +1822,8 @@ function ExportScheduleModal({
   const [hasGranite, setHasGranite] = useState(false)
   const [containersQty, setContainersQty] = useState('')
   const [movementsQty, setMovementsQty] = useState('')
+  const [ceStatus, setCeStatus] = useState<ExportCeStatus>('waiting')
+  const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -1829,6 +1834,8 @@ function ExportScheduleModal({
     setHasGranite(existing?.hasGranite ?? false)
     setContainersQty(existing?.containersQty !== null && existing?.containersQty !== undefined ? String(existing.containersQty) : '')
     setMovementsQty(existing?.movementsQty !== null && existing?.movementsQty !== undefined ? String(existing.movementsQty) : '')
+    setCeStatus(existing?.ceStatus ?? 'waiting')
+    setLinked(existing?.linked ? 'true' : 'false')
   }, [open, exportData])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1843,6 +1850,8 @@ function ExportScheduleModal({
         movementsQty: movementsQty.trim() ? Number(movementsQty) : null,
         eta: eta || null,
         etb: etb || null,
+        ceStatus,
+        linked: linked === 'true',
       })
     } finally {
       setSaving(false)
@@ -1897,6 +1906,24 @@ function ExportScheduleModal({
                 onChange={(event) => setMovementsQty(event.target.value)}
                 placeholder="Qtd. de movimentos"
               />
+            </Field>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="BLs e CEs">
+              <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as ExportCeStatus)}>
+                {POD_CE_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="ESCALA">
+              <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
+                <option value="true">YES</option>
+                <option value="false">NO</option>
+              </select>
             </Field>
           </div>
 
