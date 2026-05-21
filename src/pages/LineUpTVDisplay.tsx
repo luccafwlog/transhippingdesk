@@ -6,7 +6,7 @@ import { formatDateOnlyToBRShort, isDateOnly, formatShortDateSafe } from '../lib
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
-const DISPLAY_ROW_TRAVEL_MS = 6000
+const DISPLAY_ROW_TRAVEL_MS = 3000
 const DISPLAY_GRID_TEMPLATE = '18fr 4fr 6fr 6fr 6fr 6fr 6fr 6fr 7fr 6fr 5fr 7fr 11fr 6fr'
 const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'CAR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
