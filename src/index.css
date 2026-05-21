@@ -1954,6 +1954,11 @@ textarea {
 }
 
 @media (max-width: 768px) {
+  .app-lineup-display-shell {
+    min-height: 100svh;
+    overflow-y: auto;
+  }
+
   .app-lineup-display-header {
     min-height: 52px;
     padding: 4px 12px;
@@ -1982,16 +1987,21 @@ textarea {
   }
 
   .app-lineup-display-body {
-    padding: 4px 6px 6px;
+    flex: none;
+    padding: 6px;
   }
 
   .app-lineup-display-table-frame {
+    flex: none;
+    min-height: 0;
+    height: auto;
     border-radius: 12px;
   }
 
   .app-lineup-display-board {
-    min-width: 900px;
-    --lineup-display-row-height: 56px;
+    height: auto;
+    min-width: 860px;
+    --lineup-display-row-height: 52px;
   }
 
   .app-lineup-display-board__head {
@@ -2000,19 +2010,19 @@ textarea {
   }
 
   .app-lineup-display-board__cell {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .app-lineup-display-board__cell--vessel {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .app-lineup-display-board__bb {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .app-lineup-display-status {
-    font-size: 16px;
+    font-size: 14px;
   }
 }
 
