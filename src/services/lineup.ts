@@ -1,5 +1,6 @@
 import { buildVoyagePodEntityId, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
 import { supabase } from './supabase'
+import { isDateOnly } from '../lib/utils'
 
 export type VoyageStatus = 'active' | 'completed' | 'cancelled' | null
 
@@ -180,6 +181,10 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   }
 
   const sortedRows = rows.sort((left, right) => {
+    const etaComparison = compareDateValues(left.eta, right.eta)
+    if (etaComparison !== 0) return etaComparison
+    const etbComparison = compareDateValues(left.etb, right.etb)
+    if (etbComparison !== 0) return etbComparison
     if (left.vesselName !== right.vesselName) return left.vesselName.localeCompare(right.vesselName, 'pt-BR')
     if (left.voyageNumber !== right.voyageNumber) return left.voyageNumber.localeCompare(right.voyageNumber, 'pt-BR')
     return left.pod.localeCompare(right.pod, 'pt-BR')
@@ -447,3 +452,18 @@ function normalizeContainerKey(containerNumber: string | null | undefined, conta
   return Number.isInteger(containerId) ? `ID-${containerId}` : ''
 }
 
+
+
+function toSortableDateValue(value: string | null) {
+  if (!value) return Number.POSITIVE_INFINITY
+  if (isDateOnly(value)) {
+    const timestamp = Date.parse(`${value}T00:00:00`)
+    return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
+  }
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
+}
+
+function compareDateValues(left: string | null, right: string | null) {
+  return toSortableDateValue(left) - toSortableDateValue(right)
+}

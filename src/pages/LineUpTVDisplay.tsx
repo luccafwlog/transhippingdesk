@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
-import { formatDateOnlyToBRShort, isDateOnly, formatShortDateSafe } from '../lib/utils'
+import { formatDateOnlyToBRShort, formatShortDateSafe } from '../lib/utils'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
@@ -47,7 +47,7 @@ export function LineUpTVDisplay() {
     }
   }, [data])
 
-  const rows = useMemo(() => [...(data?.rows ?? [])].sort(compareDisplayRows), [data?.rows])
+  const rows = useMemo(() => data?.rows ?? [], [data?.rows])
   const firstRoute = rows[0] ?? null
   const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS + 1
   const placeholderCount = hasAnimatedLoop ? 0 : Math.max(0, DISPLAY_VISIBLE_ROWS - rows.length)
@@ -355,31 +355,6 @@ function LineUpMobileCard({ row }: { row: LineUpRow }) {
   )
 }
 
-function compareDisplayRows(left: LineUpRow, right: LineUpRow) {
-  const etaComparison = compareDateValues(left.eta, right.eta)
-  if (etaComparison !== 0) return etaComparison
-
-  const etbComparison = compareDateValues(left.etb, right.etb)
-  if (etbComparison !== 0) return etbComparison
-
-  if (left.vesselName !== right.vesselName) return left.vesselName.localeCompare(right.vesselName, 'pt-BR')
-  if (left.voyageNumber !== right.voyageNumber) return left.voyageNumber.localeCompare(right.voyageNumber, 'pt-BR')
-  return left.pod.localeCompare(right.pod, 'pt-BR')
-}
-
-function compareDateValues(left: string | null, right: string | null) {
-  return toSortableDateValue(left) - toSortableDateValue(right)
-}
-
-function toSortableDateValue(value: string | null) {
-  if (!value) return Number.POSITIVE_INFINITY
-  if (isDateOnly(value)) {
-    const timestamp = Date.parse(`${value}T00:00:00`)
-    return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
-  }
-  const timestamp = new Date(value).getTime()
-  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
-}
 
 function buildDisplayLeadLabel(row: LineUpRow) {
   const etaLabel = formatDisplayLeadDate('ETA', row.eta)
