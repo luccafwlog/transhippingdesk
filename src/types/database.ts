@@ -1107,6 +1107,7 @@ export type VoyageExportSchedule = {
   etb: string | null
   ce_status: 'waiting' | 'received' | 'launching' | 'approving' | 'approved' | null
   linked: boolean
+  pol: string | null
   created_at: string | null
   updated_at: string | null
 }

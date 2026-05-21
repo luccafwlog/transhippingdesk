@@ -6,6 +6,7 @@ export type ExportCeStatus = 'waiting' | 'received' | 'launching' | 'approving' 
 export type VoyageExportSchedule = {
   id: string
   voyageId: number
+  pol: string | null
   hasGranite: boolean
   containersQty: number | null
   movementsQty: number | null
@@ -17,7 +18,7 @@ export type VoyageExportSchedule = {
 
 type ExportSchedulePickedRow = Pick<
   VoyageExportScheduleRow,
-  'id' | 'voyage_id' | 'has_granite' | 'containers_qty' | 'movements_qty' | 'eta' | 'etb' | 'ce_status' | 'linked'
+  'id' | 'voyage_id' | 'pol' | 'has_granite' | 'containers_qty' | 'movements_qty' | 'eta' | 'etb' | 'ce_status' | 'linked'
 >
 
 export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Promise<Map<number, VoyageExportSchedule>> {
@@ -25,7 +26,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
 
   const { data, error } = await supabase
     .from('voyage_export_schedules')
-    .select('id, voyage_id, has_granite, containers_qty, movements_qty, eta, etb, ce_status, linked')
+    .select('id, voyage_id, pol, has_granite, containers_qty, movements_qty, eta, etb, ce_status, linked')
     .in('voyage_id', voyageIds)
 
   if (error) throw error
@@ -35,6 +36,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
     result.set(row.voyage_id, {
       id: row.id,
       voyageId: row.voyage_id,
+      pol: row.pol,
       hasGranite: row.has_granite,
       containersQty: row.containers_qty,
       movementsQty: row.movements_qty,
@@ -49,6 +51,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
 
 export async function saveVoyageExportSchedule(data: {
   voyageId: number
+  pol: string | null
   hasGranite: boolean
   containersQty: number | null
   movementsQty: number | null
@@ -62,6 +65,7 @@ export async function saveVoyageExportSchedule(data: {
     .upsert(
       {
         voyage_id: data.voyageId,
+        pol: data.pol,
         has_granite: data.hasGranite,
         containers_qty: data.containersQty,
         movements_qty: data.movementsQty,

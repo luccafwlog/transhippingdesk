@@ -204,7 +204,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       voyageNumber: voyage.voyage_number,
       voyageStatus: voyage.status,
       vesselName: voyage.vessel?.name ?? '-',
-      pod: voyage.pol?.locode ?? voyage.pol?.name ?? 'EXP',
+      pod: exportSchedule.pol ?? voyage.pol?.locode ?? voyage.pol?.name ?? 'EXP',
       eta: exportSchedule.eta,
       etb: exportSchedule.etb,
       rowType: 'export',
