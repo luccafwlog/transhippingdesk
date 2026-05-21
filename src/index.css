@@ -1771,17 +1771,19 @@ textarea {
 .app-lineup-display-table-frame {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
   border: 2px solid #c2d0e5;
   border-radius: 24px;
   background: #ffffff;
   box-shadow: 0 28px 60px rgba(21, 44, 82, 0.12);
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-lineup-display-board {
   display: flex;
   height: 100%;
   min-height: 0;
+  min-width: 1100px;
   flex-direction: column;
   --lineup-display-columns: 18fr 4fr 6fr 6fr 6fr 6fr 6fr 6fr 7fr 6fr 5fr 7fr 11fr 6fr;
   --lineup-display-row-height: 78px;
@@ -1935,6 +1937,69 @@ textarea {
 
 .app-lineup-display-error {
   color: #9f1239;
+}
+
+@media (max-width: 768px) {
+  .app-lineup-display-header {
+    min-height: 52px;
+    padding: 4px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .app-lineup-display-brand__logo {
+    height: 36px;
+  }
+
+  .app-lineup-display-meta {
+    gap: 2px;
+  }
+
+  .app-lineup-display-meta__label {
+    font-size: 9px;
+  }
+
+  .app-lineup-display-meta__value {
+    font-size: 14px;
+  }
+
+  .app-lineup-display-meta__value--route {
+    font-size: 11px;
+  }
+
+  .app-lineup-display-body {
+    padding: 4px 6px 6px;
+  }
+
+  .app-lineup-display-table-frame {
+    border-radius: 12px;
+  }
+
+  .app-lineup-display-board {
+    min-width: 900px;
+    --lineup-display-row-height: 56px;
+  }
+
+  .app-lineup-display-board__head {
+    font-size: 12px;
+    padding: 7px 2px;
+  }
+
+  .app-lineup-display-board__cell {
+    font-size: 16px;
+  }
+
+  .app-lineup-display-board__cell--vessel {
+    font-size: 18px;
+  }
+
+  .app-lineup-display-board__bb {
+    font-size: 11px;
+  }
+
+  .app-lineup-display-status {
+    font-size: 16px;
+  }
 }
 
 .app-voyage-table-frame {

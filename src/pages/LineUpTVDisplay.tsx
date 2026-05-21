@@ -70,6 +70,7 @@ export function LineUpTVDisplay() {
   )
 
   useEffect(() => {
+    if (window.matchMedia('(pointer: coarse)').matches) return
     const root = document.documentElement
     const body = document.body
     const previousRootOverflow = root.style.overflow
