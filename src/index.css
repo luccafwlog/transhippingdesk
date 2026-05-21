@@ -1824,6 +1824,20 @@ textarea {
   background: #ffffff;
 }
 
+.app-lineup-display-board__viewport--static {
+  position: static;
+  height: auto;
+  overflow: visible;
+}
+
+.app-lineup-display-board__row--static {
+  position: static;
+  height: auto;
+  min-height: var(--lineup-display-row-height);
+  transform: none;
+  transition: none;
+}
+
 .app-lineup-display-board__track {
   position: relative;
   height: 100%;

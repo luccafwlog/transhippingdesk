@@ -10,6 +10,8 @@ const DISPLAY_ROW_TRAVEL_MS = 3000
 const DISPLAY_GRID_TEMPLATE = '18fr 4fr 6fr 6fr 6fr 6fr 6fr 6fr 7fr 6fr 5fr 7fr 11fr 6fr'
 const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'CAR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
+const isTouchDevice = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+
 export function LineUpTVDisplay() {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const slideTimeoutRef = useRef<number | null>(null)
@@ -17,6 +19,7 @@ export function LineUpTVDisplay() {
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
   const [startIndex, setStartIndex] = useState(0)
   const [isSliding, setIsSliding] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [flashRefresh, setFlashRefresh] = useState(false)
@@ -39,7 +42,7 @@ export function LineUpTVDisplay() {
 
   const rows = useMemo(() => [...(data?.rows ?? [])].sort(compareDisplayRows), [data?.rows])
   const firstRoute = rows[0] ?? null
-  const hasAnimatedLoop = rows.length > DISPLAY_VISIBLE_ROWS
+  const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS
   const placeholderCount = hasAnimatedLoop ? 0 : Math.max(0, DISPLAY_VISIBLE_ROWS - rows.length)
   const displayRows = useMemo(() => {
     if (!hasAnimatedLoop) return rows
@@ -70,7 +73,11 @@ export function LineUpTVDisplay() {
   )
 
   useEffect(() => {
-    if (window.matchMedia('(pointer: coarse)').matches) return
+    setIsMobile(isTouchDevice())
+  }, [])
+
+  useEffect(() => {
+    if (isMobile) return
     const root = document.documentElement
     const body = document.body
     const previousRootOverflow = root.style.overflow
@@ -105,7 +112,7 @@ export function LineUpTVDisplay() {
   }, [data?.lastChangedAt, rows.length])
 
   useEffect(() => {
-    if (!hasAnimatedLoop || rowHeight <= 0) return
+    if (isMobile || !hasAnimatedLoop || rowHeight <= 0) return
 
     const runCycle = () => {
       setIsSliding(true)
@@ -135,6 +142,7 @@ export function LineUpTVDisplay() {
   }, [hasAnimatedLoop, rowHeight, rows.length])
 
   useLayoutEffect(() => {
+    if (isMobile) return
     const viewport = viewportRef.current
     if (!viewport) return
 
@@ -204,14 +212,10 @@ export function LineUpTVDisplay() {
                   ))}
                 </header>
 
-                <div ref={viewportRef} className="app-lineup-display-board__viewport">
-                  <div className="app-lineup-display-board__track">
-                    {displayRows.map((row, slotIndex) => (
-                      <article
-                        key={row.id}
-                        className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''}`}
-                        style={{ top: `${slotIndex * rowHeight}px` }}
-                      >
+                {isMobile ? (
+                  <div className="app-lineup-display-board__viewport app-lineup-display-board__viewport--static">
+                    {rows.map((row) => (
+                      <article key={row.id} className="app-lineup-display-board__row app-lineup-display-board__row--static">
                         <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
                         <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
                         <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
@@ -240,23 +244,62 @@ export function LineUpTVDisplay() {
                         </div>
                       </article>
                     ))}
-
-                    {Array.from({ length: placeholderCount }).map((_, index) => (
-                      <article
-                        key={`lineup-display-placeholder-${index}`}
-                        className="app-lineup-display-board__row app-lineup-display-board__row--placeholder"
-                        style={{ top: `${(displayRows.length + index) * rowHeight}px` }}
-                        aria-hidden="true"
-                      >
-                        {Array.from({ length: DISPLAY_COLUMNS.length }).map((__, columnIndex) => (
-                          <div key={columnIndex} className="app-lineup-display-board__cell">
-                            &nbsp;
-                          </div>
-                        ))}
-                      </article>
-                    ))}
                   </div>
-                </div>
+                ) : (
+                  <div ref={viewportRef} className="app-lineup-display-board__viewport">
+                    <div className="app-lineup-display-board__track">
+                      {displayRows.map((row, slotIndex) => (
+                        <article
+                          key={row.id}
+                          className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''}`}
+                          style={{ top: `${slotIndex * rowHeight}px` }}
+                        >
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
+                          <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
+                          <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{formatInteger(row.vin)}</div>
+                          <div className="app-lineup-display-board__cell">{formatInteger(row.car)}</div>
+                          <div className="app-lineup-display-board__cell">{formatInteger(row.cg)}</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--total">{formatInteger(row.total)}</div>
+                          <div className="app-lineup-display-board__cell">{formatInteger(row.mty)}</div>
+                          <div className="app-lineup-display-board__cell">{row.rtw === null ? '-' : formatInteger(row.rtw)}</div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--bb">
+                            <div className="app-lineup-display-board__bb">
+                              <span>{formatInteger(row.bbMachines)} MAQ</span>
+                              <span>{formatInteger(row.bbPackages)} PACK</span>
+                              <span>{formatInteger(row.bbTotal)} TOTAL</span>
+                            </div>
+                          </div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                            {renderDisplayCeStatus(row.ceStatus)}
+                          </div>
+                          <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
+                            <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
+                              {row.linked ? 'YES' : 'NO'}
+                            </span>
+                          </div>
+                        </article>
+                      ))}
+
+                      {Array.from({ length: placeholderCount }).map((_, index) => (
+                        <article
+                          key={`lineup-display-placeholder-${index}`}
+                          className="app-lineup-display-board__row app-lineup-display-board__row--placeholder"
+                          style={{ top: `${(displayRows.length + index) * rowHeight}px` }}
+                          aria-hidden="true"
+                        >
+                          {Array.from({ length: DISPLAY_COLUMNS.length }).map((__, columnIndex) => (
+                            <div key={columnIndex} className="app-lineup-display-board__cell">
+                              &nbsp;
+                            </div>
+                          ))}
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
             )}
           </div>
