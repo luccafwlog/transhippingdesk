@@ -55,20 +55,20 @@ export function LineUpTable({
         </colgroup>
         <thead className={isDisplay ? 'bg-[#16325f] text-[13px] uppercase tracking-[0.18em] text-white' : 'bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500'}>
           <tr>
-            <th className="px-1 py-2 text-center">Vessel</th>
-            <th className="px-1 py-2 text-center">Voy</th>
-            <th className="px-1 py-2 text-center">POD</th>
-            <th className="px-1 py-2 text-center">ETA</th>
-            <th className="px-1 py-2 text-center">ETB</th>
-            <th className="px-1 py-2 text-center">VIN</th>
-            <th className="px-1 py-2 text-center">CAR</th>
-            <th className="px-1 py-2 text-center">CG</th>
-            <th className="px-1 py-2 text-center">Total</th>
-            <th className="px-1 py-2 text-center">MTY</th>
-            <th className="px-1 py-2 text-center">RTW</th>
-            <th className="px-1 py-2 text-center">BB</th>
-            <th className="px-1 py-2 text-center">CEs</th>
-            <th className="px-1 py-2 text-center">Linked</th>
+            <th scope="col" className="px-1 py-2 text-center">Vessel</th>
+            <th scope="col" className="px-1 py-2 text-center">Voy</th>
+            <th scope="col" className="px-1 py-2 text-center">POD</th>
+            <th scope="col" className="px-1 py-2 text-center">ETA</th>
+            <th scope="col" className="px-1 py-2 text-center">ETB</th>
+            <th scope="col" className="px-1 py-2 text-center">VIN</th>
+            <th scope="col" className="px-1 py-2 text-center">CAR</th>
+            <th scope="col" className="px-1 py-2 text-center">CG</th>
+            <th scope="col" className="px-1 py-2 text-center">Total</th>
+            <th scope="col" className="px-1 py-2 text-center">MTY</th>
+            <th scope="col" className="px-1 py-2 text-center">RTW</th>
+            <th scope="col" className="px-1 py-2 text-center">BB</th>
+            <th scope="col" className="px-1 py-2 text-center">CEs</th>
+            <th scope="col" className="px-1 py-2 text-center">Linked</th>
           </tr>
         </thead>
         <tbody

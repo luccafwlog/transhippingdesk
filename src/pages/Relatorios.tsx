@@ -168,16 +168,16 @@ function OperationalReportTab() {
           <table className="app-table app-table--compact min-w-[1100px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">B/L</th>
-                <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">POL</th>
-                <th className="px-4 py-3">POD</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Containers</th>
-                <th className="px-4 py-3 text-right">Peso (kg)</th>
-                <th className="px-4 py-3 text-right">CBM</th>
-                <th className="px-4 py-3">Revisão</th>
-                <th className="px-4 py-3">Financeiro</th>
+                <th scope="col" className="px-4 py-3">B/L</th>
+                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                <th scope="col" className="px-4 py-3">POL</th>
+                <th scope="col" className="px-4 py-3">POD</th>
+                <th scope="col" className="px-4 py-3">Cliente</th>
+                <th scope="col" className="px-4 py-3">Containers</th>
+                <th scope="col" className="px-4 py-3 text-right">Peso (kg)</th>
+                <th scope="col" className="px-4 py-3 text-right">CBM</th>
+                <th scope="col" className="px-4 py-3">Revisão</th>
+                <th scope="col" className="px-4 py-3">Financeiro</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -327,13 +327,13 @@ function FinancialReportTab() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Invoice</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Emissão</th>
-                <th className="px-4 py-3">Vencimento</th>
-                <th className="px-4 py-3 text-right">Total BRL</th>
-                <th className="px-4 py-3 text-right">Saldo BRL</th>
-                <th className="px-4 py-3">Status</th>
+                <th scope="col" className="px-4 py-3">Invoice</th>
+                <th scope="col" className="px-4 py-3">Cliente</th>
+                <th scope="col" className="px-4 py-3">Emissão</th>
+                <th scope="col" className="px-4 py-3">Vencimento</th>
+                <th scope="col" className="px-4 py-3 text-right">Total BRL</th>
+                <th scope="col" className="px-4 py-3 text-right">Saldo BRL</th>
+                <th scope="col" className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -474,14 +474,14 @@ function CustomerReportTab() {
           <table className="app-table app-table--compact min-w-[1020px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">CNPJ</th>
-                <th className="px-4 py-3 text-right">B/Ls</th>
-                <th className="px-4 py-3 text-right">Peso (kg)</th>
-                <th className="px-4 py-3 text-right">CBM</th>
-                <th className="px-4 py-3 text-right">Invoices</th>
-                <th className="px-4 py-3 text-right">Emitido</th>
-                <th className="px-4 py-3 text-right">Em aberto</th>
+                <th scope="col" className="px-4 py-3">Cliente</th>
+                <th scope="col" className="px-4 py-3">CNPJ</th>
+                <th scope="col" className="px-4 py-3 text-right">B/Ls</th>
+                <th scope="col" className="px-4 py-3 text-right">Peso (kg)</th>
+                <th scope="col" className="px-4 py-3 text-right">CBM</th>
+                <th scope="col" className="px-4 py-3 text-right">Invoices</th>
+                <th scope="col" className="px-4 py-3 text-right">Emitido</th>
+                <th scope="col" className="px-4 py-3 text-right">Em aberto</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -595,14 +595,14 @@ function DemurrageReportTab() {
           <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Doc</th>
-                <th className="px-4 py-3">BL</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Emissão</th>
-                <th className="px-4 py-3">Vencimento</th>
-                <th className="px-4 py-3 text-right">Total USD</th>
-                <th className="px-4 py-3 text-right">Total BRL</th>
-                <th className="px-4 py-3">Status</th>
+                <th scope="col" className="px-4 py-3">Doc</th>
+                <th scope="col" className="px-4 py-3">BL</th>
+                <th scope="col" className="px-4 py-3">Cliente</th>
+                <th scope="col" className="px-4 py-3">Emissão</th>
+                <th scope="col" className="px-4 py-3">Vencimento</th>
+                <th scope="col" className="px-4 py-3 text-right">Total USD</th>
+                <th scope="col" className="px-4 py-3 text-right">Total BRL</th>
+                <th scope="col" className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">

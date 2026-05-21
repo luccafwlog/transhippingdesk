@@ -194,17 +194,17 @@ export function Manifestos() {
           <table className="app-table app-table--compact min-w-[920px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">No. B/L</th>
-                <th className="px-4 py-3">CE Mercante</th>
-                <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="w-[168px] px-4 py-3">CNEE</th>
-                <th className="px-4 py-3">POL</th>
-                <th className="px-4 py-3">POD</th>
-                <th className="px-4 py-3">CNTRS</th>
-                <th className="px-4 py-3">Perfil</th>
-                <th className="px-4 py-3">Taxas locais</th>
-                <th className="px-4 py-3">Invoice</th>
-                <th className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">No. B/L</th>
+                <th scope="col" className="px-4 py-3">CE Mercante</th>
+                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                <th scope="col" className="w-[168px] px-4 py-3">CNEE</th>
+                <th scope="col" className="px-4 py-3">POL</th>
+                <th scope="col" className="px-4 py-3">POD</th>
+                <th scope="col" className="px-4 py-3">CNTRS</th>
+                <th scope="col" className="px-4 py-3">Perfil</th>
+                <th scope="col" className="px-4 py-3">Taxas locais</th>
+                <th scope="col" className="px-4 py-3">Invoice</th>
+                <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -624,11 +624,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
               <table className="app-table app-table--compact min-w-[720px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                   <tr>
-                    <th className="px-3 py-2">B/L</th>
-                    <th className="px-3 py-2">Consignatario</th>
-                    <th className="px-3 py-2">CNPJ</th>
-                    <th className="px-3 py-2">Containers distintos</th>
-                    <th className="px-3 py-2">Status</th>
+                    <th scope="col" className="px-3 py-2">B/L</th>
+                    <th scope="col" className="px-3 py-2">Consignatario</th>
+                    <th scope="col" className="px-3 py-2">CNPJ</th>
+                    <th scope="col" className="px-3 py-2">Containers distintos</th>
+                    <th scope="col" className="px-3 py-2">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">

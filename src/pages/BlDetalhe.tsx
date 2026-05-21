@@ -1009,15 +1009,15 @@ export function BlDetalhe() {
             <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="py-2">Taxa</th>
-                  <th className="py-2">Origem</th>
-                  <th className="py-2">Status</th>
-                  <th className="py-2">Qtd.</th>
-                  <th className="py-2">Moeda</th>
-                  <th className="py-2">Unitario</th>
-                  <th className="py-2">Total</th>
-                  <th className="py-2">Observacao</th>
-                  <th className="py-2">Acoes</th>
+                  <th scope="col" className="py-2">Taxa</th>
+                  <th scope="col" className="py-2">Origem</th>
+                  <th scope="col" className="py-2">Status</th>
+                  <th scope="col" className="py-2">Qtd.</th>
+                  <th scope="col" className="py-2">Moeda</th>
+                  <th scope="col" className="py-2">Unitario</th>
+                  <th scope="col" className="py-2">Total</th>
+                  <th scope="col" className="py-2">Observacao</th>
+                  <th scope="col" className="py-2">Acoes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
@@ -1118,16 +1118,16 @@ export function BlDetalhe() {
               <table className="app-table app-table--compact min-w-[800px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                   <tr>
-                    <th className="py-2">No. Container</th>
-                    <th className="py-2">Seal</th>
-                    <th className="py-2">Tipo</th>
-                    <th className="py-2">Peso bruto</th>
-                    <th className="py-2">CBM</th>
-                    <th className="py-2">OOG</th>
-                    <th className="py-2">IMO</th>
-                    <th className="py-2">Descarga</th>
-                    <th className="py-2">Devolucao</th>
-                    <th className="py-2">Demurrage</th>
+                    <th scope="col" className="py-2">No. Container</th>
+                    <th scope="col" className="py-2">Seal</th>
+                    <th scope="col" className="py-2">Tipo</th>
+                    <th scope="col" className="py-2">Peso bruto</th>
+                    <th scope="col" className="py-2">CBM</th>
+                    <th scope="col" className="py-2">OOG</th>
+                    <th scope="col" className="py-2">IMO</th>
+                    <th scope="col" className="py-2">Descarga</th>
+                    <th scope="col" className="py-2">Devolucao</th>
+                    <th scope="col" className="py-2">Demurrage</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
@@ -1195,12 +1195,12 @@ export function BlDetalhe() {
                 <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                     <tr>
-                      <th className="py-2">CE</th>
-                      <th className="py-2">Maquinas</th>
-                      <th className="py-2">Packages</th>
-                      <th className="py-2">Packages Total</th>
-                      <th className="py-2">Weight (Ton)</th>
-                      <th className="py-2">CBM (M3)</th>
+                      <th scope="col" className="py-2">CE</th>
+                      <th scope="col" className="py-2">Maquinas</th>
+                      <th scope="col" className="py-2">Packages</th>
+                      <th scope="col" className="py-2">Packages Total</th>
+                      <th scope="col" className="py-2">Weight (Ton)</th>
+                      <th scope="col" className="py-2">CBM (M3)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">
@@ -1218,11 +1218,11 @@ export function BlDetalhe() {
                 <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                     <tr>
-                      <th className="py-2">Shipper</th>
-                      <th className="py-2">Consignee</th>
-                      <th className="py-2">Notify</th>
-                      <th className="py-2">POL</th>
-                      <th className="py-2">POD</th>
+                      <th scope="col" className="py-2">Shipper</th>
+                      <th scope="col" className="py-2">Consignee</th>
+                      <th scope="col" className="py-2">Notify</th>
+                      <th scope="col" className="py-2">POL</th>
+                      <th scope="col" className="py-2">POD</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">
@@ -1242,12 +1242,12 @@ export function BlDetalhe() {
                     <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                       <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                         <tr>
-                          <th className="py-2">Descricao</th>
-                          <th className="py-2">Volumes</th>
-                          <th className="py-2">Unidade</th>
-                          <th className="py-2">Peso bruto</th>
-                          <th className="py-2">CBM</th>
-                          <th className="py-2">Marcas</th>
+                          <th scope="col" className="py-2">Descricao</th>
+                          <th scope="col" className="py-2">Volumes</th>
+                          <th scope="col" className="py-2">Unidade</th>
+                          <th scope="col" className="py-2">Peso bruto</th>
+                          <th scope="col" className="py-2">CBM</th>
+                          <th scope="col" className="py-2">Marcas</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#30363d]">
@@ -1289,11 +1289,11 @@ export function BlDetalhe() {
               <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="py-2">Chassi</th>
-                    <th className="py-2">Marca</th>
-                    <th className="py-2">Container</th>
-                    <th className="py-2">Peso</th>
-                    <th className="py-2">Cubagem</th>
+                    <th scope="col" className="py-2">Chassi</th>
+                    <th scope="col" className="py-2">Marca</th>
+                    <th scope="col" className="py-2">Container</th>
+                    <th scope="col" className="py-2">Peso</th>
+                    <th scope="col" className="py-2">Cubagem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">

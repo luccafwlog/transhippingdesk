@@ -83,10 +83,10 @@ export function InvoiceDocumentLocal({ detail }: Props) {
       <table style={{ width: '100%', borderCollapse: 'collapse', margin: '16px 0', fontSize: '12px' }}>
         <thead>
           <tr style={{ background: '#1A2744', color: 'white' }}>
-            <th style={{ padding: '9px 7px', textAlign: 'left' }}>Descrição</th>
-            <th style={{ padding: '9px 7px', textAlign: 'center' }}>Qtd.</th>
-            <th style={{ padding: '9px 7px', textAlign: 'right' }}>Unit. BRL</th>
-            <th style={{ padding: '9px 7px', textAlign: 'right' }}>Total BRL</th>
+            <th scope="col" style={{ padding: '9px 7px', textAlign: 'left' }}>Descrição</th>
+            <th scope="col" style={{ padding: '9px 7px', textAlign: 'center' }}>Qtd.</th>
+            <th scope="col" style={{ padding: '9px 7px', textAlign: 'right' }}>Unit. BRL</th>
+            <th scope="col" style={{ padding: '9px 7px', textAlign: 'right' }}>Total BRL</th>
           </tr>
         </thead>
         <tbody>
@@ -127,9 +127,9 @@ export function InvoiceDocumentLocal({ detail }: Props) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: 16 }}>
             <thead>
               <tr style={{ background: '#f3f4f6' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left' }}>Data</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left' }}>Método</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Valor BRL</th>
+                <th scope="col" style={{ padding: '6px 8px', textAlign: 'left' }}>Data</th>
+                <th scope="col" style={{ padding: '6px 8px', textAlign: 'left' }}>Método</th>
+                <th scope="col" style={{ padding: '6px 8px', textAlign: 'right' }}>Valor BRL</th>
               </tr>
             </thead>
             <tbody>

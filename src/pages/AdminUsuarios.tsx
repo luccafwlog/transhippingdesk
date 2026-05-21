@@ -196,11 +196,11 @@ export function AdminUsuarios() {
               <table className="app-table w-full text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Nome</th>
-                    <th className="px-4 py-3">Perfil de acesso</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Criado em</th>
-                    <th className="px-4 py-3 text-right">Ações</th>
+                    <th scope="col" className="px-4 py-3">Nome</th>
+                    <th scope="col" className="px-4 py-3">Perfil de acesso</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                    <th scope="col" className="px-4 py-3">Criado em</th>
+                    <th scope="col" className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
@@ -312,11 +312,11 @@ export function AdminUsuarios() {
               <table className="app-table w-full text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Data/Hora</th>
-                    <th className="px-4 py-3">Usuário</th>
-                    <th className="px-4 py-3">Módulo</th>
-                    <th className="px-4 py-3">Ação</th>
-                    <th className="px-4 py-3">Detalhes</th>
+                    <th scope="col" className="px-4 py-3">Data/Hora</th>
+                    <th scope="col" className="px-4 py-3">Usuário</th>
+                    <th scope="col" className="px-4 py-3">Módulo</th>
+                    <th scope="col" className="px-4 py-3">Ação</th>
+                    <th scope="col" className="px-4 py-3">Detalhes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">

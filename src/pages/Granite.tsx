@@ -210,17 +210,17 @@ export function Granite() {
           <table className="app-table app-table--compact min-w-[1200px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">B/L</th>
-                <th className="px-4 py-3">Booking</th>
-                <th className="px-4 py-3">Shipper</th>
-                <th className="px-4 py-3">CNPJ</th>
-                <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">Peso Real (kg)</th>
-                <th className="px-4 py-3">Peso Real (ton)</th>
-                <th className="px-4 py-3">CBM Final</th>
-                <th className="px-4 py-3">Fase</th>
-                <th className="px-4 py-3">Status Taxas</th>
-                <th className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">B/L</th>
+                <th scope="col" className="px-4 py-3">Booking</th>
+                <th scope="col" className="px-4 py-3">Shipper</th>
+                <th scope="col" className="px-4 py-3">CNPJ</th>
+                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                <th scope="col" className="px-4 py-3">Peso Real (kg)</th>
+                <th scope="col" className="px-4 py-3">Peso Real (ton)</th>
+                <th scope="col" className="px-4 py-3">CBM Final</th>
+                <th scope="col" className="px-4 py-3">Fase</th>
+                <th scope="col" className="px-4 py-3">Status Taxas</th>
+                <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -308,12 +308,12 @@ export function Granite() {
             <table className="app-table app-table--compact w-full text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-3 py-2">Taxa</th>
-                  <th className="px-3 py-2">Tipo</th>
-                  <th className="px-3 py-2">Quantidade</th>
-                  <th className="px-3 py-2">Valor Unit.</th>
-                  <th className="px-3 py-2">Subtotal</th>
-                  <th className="px-3 py-2">Moeda</th>
+                  <th scope="col" className="px-3 py-2">Taxa</th>
+                  <th scope="col" className="px-3 py-2">Tipo</th>
+                  <th scope="col" className="px-3 py-2">Quantidade</th>
+                  <th scope="col" className="px-3 py-2">Valor Unit.</th>
+                  <th scope="col" className="px-3 py-2">Subtotal</th>
+                  <th scope="col" className="px-3 py-2">Moeda</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
@@ -392,12 +392,12 @@ export function Granite() {
                 <table className="app-table app-table--compact min-w-[900px] text-left text-sm whitespace-nowrap">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">BL</th>
-                      <th className="px-3 py-2">Shipper</th>
-                      <th className="px-3 py-2">CNPJ</th>
-                      <th className="px-3 py-2">Peso Real (kg)</th>
-                      <th className="px-3 py-2">Fase</th>
+                      <th scope="col" className="px-3 py-2">Status</th>
+                      <th scope="col" className="px-3 py-2">BL</th>
+                      <th scope="col" className="px-3 py-2">Shipper</th>
+                      <th scope="col" className="px-3 py-2">CNPJ</th>
+                      <th scope="col" className="px-3 py-2">Peso Real (kg)</th>
+                      <th scope="col" className="px-3 py-2">Fase</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">

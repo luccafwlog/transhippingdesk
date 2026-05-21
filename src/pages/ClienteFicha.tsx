@@ -636,10 +636,10 @@ export function ClienteFicha() {
             <table className="app-table app-table--compact min-w-[520px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="py-2">B/L</th>
-                  <th className="py-2">Consignatario</th>
-                  <th className="py-2">Revisao</th>
-                  <th className="py-2">Financeiro</th>
+                  <th scope="col" className="py-2">B/L</th>
+                  <th scope="col" className="py-2">Consignatario</th>
+                  <th scope="col" className="py-2">Revisao</th>
+                  <th scope="col" className="py-2">Financeiro</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
@@ -676,11 +676,11 @@ export function ClienteFicha() {
             <table className="app-table app-table--compact min-w-[520px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="py-2">Invoice</th>
-                  <th className="py-2">Emissao</th>
-                  <th className="py-2">Vencimento</th>
-                  <th className="py-2">Total</th>
-                  <th className="py-2">Status</th>
+                  <th scope="col" className="py-2">Invoice</th>
+                  <th scope="col" className="py-2">Emissao</th>
+                  <th scope="col" className="py-2">Vencimento</th>
+                  <th scope="col" className="py-2">Total</th>
+                  <th scope="col" className="py-2">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">

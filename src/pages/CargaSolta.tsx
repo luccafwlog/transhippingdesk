@@ -295,20 +295,20 @@ export function CargaSolta() {
           <table className="app-table app-table--compact min-w-[1420px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">No. B/L</th>
-                <th className="px-4 py-3">CE</th>
-                <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">Maquinas</th>
-                <th className="px-4 py-3">Packages</th>
-                <th className="px-4 py-3">Packages Total</th>
-                <th className="px-4 py-3">Weight (Ton)</th>
-                <th className="px-4 py-3">CBM (M3)</th>
-                <th className="px-4 py-3">Shipper</th>
-                <th className="px-4 py-3">Consignee</th>
-                <th className="px-4 py-3">Notify</th>
-                <th className="px-4 py-3">Taxas locais</th>
-                <th className="px-4 py-3">Invoice</th>
-                <th className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">No. B/L</th>
+                <th scope="col" className="px-4 py-3">CE</th>
+                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                <th scope="col" className="px-4 py-3">Maquinas</th>
+                <th scope="col" className="px-4 py-3">Packages</th>
+                <th scope="col" className="px-4 py-3">Packages Total</th>
+                <th scope="col" className="px-4 py-3">Weight (Ton)</th>
+                <th scope="col" className="px-4 py-3">CBM (M3)</th>
+                <th scope="col" className="px-4 py-3">Shipper</th>
+                <th scope="col" className="px-4 py-3">Consignee</th>
+                <th scope="col" className="px-4 py-3">Notify</th>
+                <th scope="col" className="px-4 py-3">Taxas locais</th>
+                <th scope="col" className="px-4 py-3">Invoice</th>
+                <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -494,16 +494,16 @@ export function CargaSolta() {
                 <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">BL</th>
-                      <th className="px-3 py-2">CE</th>
-                      <th className="px-3 py-2">Maquinas</th>
-                      <th className="px-3 py-2">Packages</th>
-                      <th className="px-3 py-2">Packages Total</th>
-                      <th className="px-3 py-2">Weight (Ton)</th>
-                      <th className="px-3 py-2">CBM (M3)</th>
-                      <th className="px-3 py-2">Shipper</th>
-                      <th className="px-3 py-2">Consignee</th>
-                      <th className="px-3 py-2">Notify</th>
+                      <th scope="col" className="px-3 py-2">BL</th>
+                      <th scope="col" className="px-3 py-2">CE</th>
+                      <th scope="col" className="px-3 py-2">Maquinas</th>
+                      <th scope="col" className="px-3 py-2">Packages</th>
+                      <th scope="col" className="px-3 py-2">Packages Total</th>
+                      <th scope="col" className="px-3 py-2">Weight (Ton)</th>
+                      <th scope="col" className="px-3 py-2">CBM (M3)</th>
+                      <th scope="col" className="px-3 py-2">Shipper</th>
+                      <th scope="col" className="px-3 py-2">Consignee</th>
+                      <th scope="col" className="px-3 py-2">Notify</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">

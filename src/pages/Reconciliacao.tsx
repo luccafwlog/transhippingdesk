@@ -107,12 +107,12 @@ export function Reconciliacao() {
                 <table className="app-table app-table--compact min-w-[640px] text-sm">
                   <thead className="text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">Tipo</th>
-                      <th className="px-3 py-2">Documento</th>
-                      <th className="px-3 py-2">Cliente</th>
-                      <th className="px-3 py-2">Valor</th>
-                      <th className="px-3 py-2">Match</th>
-                      <th className="px-3 py-2">Txid PIX</th>
+                      <th scope="col" className="px-3 py-2">Tipo</th>
+                      <th scope="col" className="px-3 py-2">Documento</th>
+                      <th scope="col" className="px-3 py-2">Cliente</th>
+                      <th scope="col" className="px-3 py-2">Valor</th>
+                      <th scope="col" className="px-3 py-2">Match</th>
+                      <th scope="col" className="px-3 py-2">Txid PIX</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">

@@ -160,14 +160,14 @@ export function EmbarqueVazios() {
           <table className="app-table app-table--compact min-w-[900px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Booking</th>
-                <th className="px-4 py-3">Container</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">Data Movimentacao</th>
-                <th className="px-4 py-3">Terminal Origem</th>
-                <th className="px-4 py-3">Destino</th>
-                <th className="px-4 py-3">Observações</th>
+                <th scope="col" className="px-4 py-3">Booking</th>
+                <th scope="col" className="px-4 py-3">Container</th>
+                <th scope="col" className="px-4 py-3">Tipo</th>
+                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                <th scope="col" className="px-4 py-3">Data Movimentacao</th>
+                <th scope="col" className="px-4 py-3">Terminal Origem</th>
+                <th scope="col" className="px-4 py-3">Destino</th>
+                <th scope="col" className="px-4 py-3">Observações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -283,10 +283,10 @@ export function EmbarqueVazios() {
                 <table className="app-table app-table--compact min-w-[700px] text-left text-sm whitespace-nowrap">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">Booking</th>
-                      <th className="px-3 py-2">Container</th>
-                      <th className="px-3 py-2">Tipo</th>
-                      <th className="px-3 py-2">Data</th>
+                      <th scope="col" className="px-3 py-2">Booking</th>
+                      <th scope="col" className="px-3 py-2">Container</th>
+                      <th scope="col" className="px-3 py-2">Tipo</th>
+                      <th scope="col" className="px-3 py-2">Data</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">

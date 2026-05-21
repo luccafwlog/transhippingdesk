@@ -234,15 +234,15 @@ export function Veiculos() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Chassi</th>
-                <th className="px-4 py-3">Marca</th>
-                <th className="px-4 py-3">Modelo</th>
-                <th className="px-4 py-3">Peso</th>
-                <th className="px-4 py-3">Cubagem</th>
-                <th className="px-4 py-3">Container</th>
-                <th className="px-4 py-3">Tipo Container</th>
-                <th className="px-4 py-3">Lacre</th>
-                <th className="px-4 py-3">BL</th>
+                <th scope="col" className="px-4 py-3">Chassi</th>
+                <th scope="col" className="px-4 py-3">Marca</th>
+                <th scope="col" className="px-4 py-3">Modelo</th>
+                <th scope="col" className="px-4 py-3">Peso</th>
+                <th scope="col" className="px-4 py-3">Cubagem</th>
+                <th scope="col" className="px-4 py-3">Container</th>
+                <th scope="col" className="px-4 py-3">Tipo Container</th>
+                <th scope="col" className="px-4 py-3">Lacre</th>
+                <th scope="col" className="px-4 py-3">BL</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -365,13 +365,13 @@ export function Veiculos() {
                 <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">Chassi</th>
-                      <th className="px-3 py-2">Marca</th>
-                      <th className="px-3 py-2">Modelo</th>
-                      <th className="px-3 py-2">Container</th>
-                      <th className="px-3 py-2">Tipo</th>
-                      <th className="px-3 py-2">Lacre</th>
-                      <th className="px-3 py-2">BL</th>
+                      <th scope="col" className="px-3 py-2">Chassi</th>
+                      <th scope="col" className="px-3 py-2">Marca</th>
+                      <th scope="col" className="px-3 py-2">Modelo</th>
+                      <th scope="col" className="px-3 py-2">Container</th>
+                      <th scope="col" className="px-3 py-2">Tipo</th>
+                      <th scope="col" className="px-3 py-2">Lacre</th>
+                      <th scope="col" className="px-3 py-2">BL</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">
