@@ -1845,6 +1845,10 @@ textarea {
   color: transparent;
 }
 
+.app-lineup-display-board__row--export {
+  background-color: color-mix(in srgb, #b45309 10%, white);
+}
+
 .app-lineup-display-board__cell {
   display: flex;
   min-width: 0;
@@ -1894,6 +1898,14 @@ textarea {
 
 .app-lineup-placeholder-row td {
   padding: 0;
+}
+
+.app-lineup-export-row {
+  background-color: color-mix(in srgb, #b45309 8%, transparent);
+}
+
+.app-lineup-export-row--display {
+  background-color: color-mix(in srgb, #b45309 12%, white);
 }
 
 .app-table--lineup-display .app-badge {
