@@ -109,14 +109,13 @@ export function LineUpTable({
                 {isExport ? (
                   <>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className={isDisplay
                         ? 'px-2 py-1 text-center font-black text-[#7c4a00]'
                         : 'px-3 py-3 text-center font-semibold text-amber-400'}
                     >
                       {buildExportLabel(row)}
                     </td>
-                    <td className={isDisplay ? 'px-1 py-1' : 'px-3 py-3'} />
                     <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
                       {isDisplay
                         ? renderDisplayCeStatus(row.exportCeStatus ?? 'waiting')

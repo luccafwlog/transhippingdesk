@@ -237,11 +237,10 @@ export function LineUpTVDisplay() {
                         <>
                           <div
                             className="app-lineup-display-board__cell app-lineup-display-board__cell--export-label"
-                            style={{ gridColumn: 'span 6' }}
+                            style={{ gridColumn: 'span 7' }}
                           >
                             {buildExportLabel(row)}
                           </div>
-                          <div className="app-lineup-display-board__cell" />
                           <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
                             {renderDisplayCeStatus(row.exportCeStatus ?? 'waiting')}
                           </div>
