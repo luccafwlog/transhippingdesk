@@ -1874,8 +1874,7 @@ textarea {
 }
 
 .app-lineup-display-board__cell--vessel {
-  justify-content: flex-start;
-  padding-left: 8px;
+  justify-content: center;
   color: #214b2f;
   font-size: 28px;
   font-weight: 900;
