@@ -232,13 +232,13 @@ export function Revisao() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3 w-8"></th>
-                <th className="px-4 py-3">B/L</th>
-                <th className="px-4 py-3">Pendencias</th>
-                <th className="px-4 py-3">Consignatario</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3 w-8"></th>
+                <th scope="col" className="px-4 py-3">B/L</th>
+                <th scope="col" className="px-4 py-3">Pendencias</th>
+                <th scope="col" className="px-4 py-3">Consignatario</th>
+                <th scope="col" className="px-4 py-3">Cliente</th>
+                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">

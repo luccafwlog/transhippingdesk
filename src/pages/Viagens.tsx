@@ -451,10 +451,10 @@ export function Viagens() {
                     </colgroup>
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2">Manifesto</th>
-                        <th className="px-3 py-2">ETD</th>
-                        <th className="px-3 py-2">B/Ls</th>
-                        <th className="px-3 py-2">Acoes</th>
+                        <th scope="col" className="px-3 py-2">Manifesto</th>
+                        <th scope="col" className="px-3 py-2">ETD</th>
+                        <th scope="col" className="px-3 py-2">B/Ls</th>
+                        <th scope="col" className="px-3 py-2">Acoes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -629,15 +629,15 @@ export function Viagens() {
                     </colgroup>
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2">POD</th>
-                        <th className="px-3 py-2">ETA</th>
-                        <th className="px-3 py-2">ETB</th>
-                        <th className="px-3 py-2">ATA</th>
-                        <th className="px-3 py-2">ATD</th>
-                        <th className="px-3 py-2">RESTOW</th>
-                        <th className="px-3 py-2">BLs e CEs</th>
-                        <th className="px-3 py-2">ESCALA</th>
-                        <th className="px-3 py-2">Acoes</th>
+                        <th scope="col" className="px-3 py-2">POD</th>
+                        <th scope="col" className="px-3 py-2">ETA</th>
+                        <th scope="col" className="px-3 py-2">ETB</th>
+                        <th scope="col" className="px-3 py-2">ATA</th>
+                        <th scope="col" className="px-3 py-2">ATD</th>
+                        <th scope="col" className="px-3 py-2">RESTOW</th>
+                        <th scope="col" className="px-3 py-2">BLs e CEs</th>
+                        <th scope="col" className="px-3 py-2">ESCALA</th>
+                        <th scope="col" className="px-3 py-2">Acoes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -1072,16 +1072,23 @@ function AccordionSection({
   onToggle: () => void
   children: ReactNode
 }) {
+  const contentId = `accordion-${title.toLowerCase().replace(/\s+/g, '-')}`
   return (
     <section className="app-voyage-accordion">
-      <button type="button" className="app-voyage-accordion__trigger" onClick={onToggle} aria-expanded={open}>
+      <button
+        type="button"
+        className="app-voyage-accordion__trigger"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={contentId}
+      >
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
           <div className="mt-1 text-sm text-slate-400">{description}</div>
         </div>
         <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open ? <div className="app-voyage-accordion__content">{children}</div> : null}
+      {open ? <div id={contentId} className="app-voyage-accordion__content">{children}</div> : null}
     </section>
   )
 }

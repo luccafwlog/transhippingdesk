@@ -126,7 +126,7 @@ export function InvoiceDocument({ detail, type }: Props) {
         <thead>
           <tr style={{ background: '#1A2744', color: 'white' }}>
             {['CONTAINER', 'TIPO', 'DIAS 1º PER.', 'USD/Dia', 'DIAS 2º PER.', 'USD/Dia', 'DESCARGA', 'RETORNO', 'LÍQUIDO'].map((h) => (
-              <th key={h} style={{ padding: '9px 8px', textAlign: h === 'CONTAINER' ? 'left' : 'center', fontWeight: 600, fontSize: '11px' }}>{h}</th>
+              <th scope="col" key={h} style={{ padding: '9px 8px', textAlign: h === 'CONTAINER' ? 'left' : 'center', fontWeight: 600, fontSize: '11px' }}>{h}</th>
             ))}
           </tr>
         </thead>

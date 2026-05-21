@@ -369,7 +369,7 @@ export function Faturamento() {
         {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[980px] table-fixed text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="w-[26%] px-4 py-3">Invoice</th><th className="w-[16%] px-4 py-3">Datas</th><th className="w-[24%] px-4 py-3">Operacao</th><th className="w-[20%] px-4 py-3">Financeiro</th><th className="w-[8%] px-4 py-3">Status</th><th className="w-[12%] px-4 py-3">Acoes</th></tr></thead>
+            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="w-[26%] px-4 py-3">Invoice</th><th scope="col" className="w-[16%] px-4 py-3">Datas</th><th scope="col" className="w-[24%] px-4 py-3">Operacao</th><th scope="col" className="w-[20%] px-4 py-3">Financeiro</th><th scope="col" className="w-[8%] px-4 py-3">Status</th><th scope="col" className="w-[12%] px-4 py-3">Acoes</th></tr></thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? <tr><td colSpan={6} className="p-0"><SkeletonTable rows={6} cols={6} /></td></tr> : null}
               {!isLoading && invoices.length === 0 ? <tr><td colSpan={6} className="p-0"><EmptyState title="Nenhuma invoice encontrada." description="Emita uma nova invoice ou ajuste os filtros." /></td></tr> : null}
@@ -453,7 +453,7 @@ export function Faturamento() {
           <div className="grid gap-5 xl:grid-cols-[1.6fr,0.8fr]">
             <div className="app-table-scroll max-h-80 rounded-xl border border-[#30363d]">
               <table className="app-table app-table--compact min-w-[820px] table-fixed text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="w-[8%] px-3 py-2">Sel.</th><th className="w-[12%] px-3 py-2">Origem</th><th className="w-[20%] px-3 py-2">B/L</th><th className="w-[28%] px-3 py-2">Cliente</th><th className="w-[32%] px-3 py-2">Contexto</th></tr></thead>
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="w-[8%] px-3 py-2">Sel.</th><th scope="col" className="w-[12%] px-3 py-2">Origem</th><th scope="col" className="w-[20%] px-3 py-2">B/L</th><th scope="col" className="w-[28%] px-3 py-2">Cliente</th><th scope="col" className="w-[32%] px-3 py-2">Contexto</th></tr></thead>
                 <tbody className="divide-y divide-[#30363d]">
                   {(loadingReadyBls || loadingReadyGraniteBls) ? <tr><td colSpan={5} className="p-0"><SkeletonTable rows={4} cols={5} /></td></tr> : null}
                   {!loadingReadyBls && !loadingReadyGraniteBls && unifiedReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
@@ -486,7 +486,7 @@ export function Faturamento() {
               </table>
             </div>
             <Card>
-              <h3 className="text-base font-semibold text-white">Resumo da selecao</h3>
+              <h2 className="text-base font-semibold text-white">Resumo da selecao</h2>
               <div className="mt-4 grid gap-3">
                 <SelectionMetric label="Modo" value={createMode === 'single' ? 'B/L unico' : 'Consolidada'} />
                 <SelectionMetric label="B/Ls selecionados" value={String(createSelectionSummary.selectedCount)} />
@@ -524,7 +524,7 @@ export function Faturamento() {
               </div>
               <div className="grid gap-4 xl:grid-cols-[1.1fr,0.9fr]">
                 <Card className="border border-[#30363d] bg-[#0d1117]">
-                  <h3 className="text-base font-semibold text-white">Contexto da invoice</h3>
+                  <h2 className="text-base font-semibold text-white">Contexto da invoice</h2>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <SelectionMetric label="Cliente" value={detailQuery.data.invoice.customer_name ?? '-'} />
                     <SelectionMetric label="Documento" value={detailQuery.data.invoice.customer_cnpj_cpf ?? '-'} />
@@ -535,7 +535,7 @@ export function Faturamento() {
                   </div>
                 </Card>
                 <Card className="border border-[#30363d] bg-[#0d1117]">
-                  <h3 className="text-base font-semibold text-white">Snapshot financeiro</h3>
+                  <h2 className="text-base font-semibold text-white">Snapshot financeiro</h2>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <SelectionMetric label="Itens" value={String(detailQuery.data.items.length)} />
                     <SelectionMetric label="Pagamentos" value={String(detailQuery.data.payments.length)} />
@@ -546,23 +546,23 @@ export function Faturamento() {
               </div>
               <Card className="overflow-hidden p-0">
                 <div className="app-table-scroll">
-                  <table className="app-table app-table--compact min-w-[620px] text-left text-sm"><thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-3 py-2">B/L</th><th className="px-3 py-2">Trecho</th><th className="px-3 py-2">Subtotal BRL</th></tr></thead><tbody className="divide-y divide-[#30363d]">{detailQuery.data.bls.map((row) => <tr key={row.id}><td className="px-3 py-2 font-semibold text-[#58a6ff]"><Link className="hover:underline" to={`/manifestos/${row.bl_id}`}>{row.bl_id}</Link></td><td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td><td className="px-3 py-2">{formatBRL(row.subtotal_brl)}</td></tr>)}</tbody></table>
+                  <table className="app-table app-table--compact min-w-[620px] text-left text-sm"><thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-3 py-2">B/L</th><th scope="col" className="px-3 py-2">Trecho</th><th scope="col" className="px-3 py-2">Subtotal BRL</th></tr></thead><tbody className="divide-y divide-[#30363d]">{detailQuery.data.bls.map((row) => <tr key={row.id}><td className="px-3 py-2 font-semibold text-[#58a6ff]"><Link className="hover:underline" to={`/manifestos/${row.bl_id}`}>{row.bl_id}</Link></td><td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td><td className="px-3 py-2">{formatBRL(row.subtotal_brl)}</td></tr>)}</tbody></table>
                 </div>
               </Card>
               <Card className="overflow-hidden p-0">
                 <div className="border-b border-[#30363d] px-4 py-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Itens da invoice</h3>
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Itens da invoice</h2>
                 </div>
                 <div className="app-table-scroll">
                   <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2">Descricao</th>
-                        <th className="px-3 py-2">B/L</th>
-                        <th className="px-3 py-2">Qtd</th>
-                        <th className="px-3 py-2">Origem</th>
-                        <th className="px-3 py-2">Unitario</th>
-                        <th className="px-3 py-2">Total</th>
+                        <th scope="col" className="px-3 py-2">Descricao</th>
+                        <th scope="col" className="px-3 py-2">B/L</th>
+                        <th scope="col" className="px-3 py-2">Qtd</th>
+                        <th scope="col" className="px-3 py-2">Origem</th>
+                        <th scope="col" className="px-3 py-2">Unitario</th>
+                        <th scope="col" className="px-3 py-2">Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -590,16 +590,16 @@ export function Faturamento() {
               </Card>
               <Card className="overflow-hidden p-0">
                 <div className="border-b border-[#30363d] px-4 py-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Pagamentos registrados</h3>
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Pagamentos registrados</h2>
                 </div>
                 <div className="app-table-scroll">
                   <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2">Data</th>
-                        <th className="px-3 py-2">Metodo</th>
-                        <th className="px-3 py-2">Valor</th>
-                        <th className="px-3 py-2">Observações</th>
+                        <th scope="col" className="px-3 py-2">Data</th>
+                        <th scope="col" className="px-3 py-2">Metodo</th>
+                        <th scope="col" className="px-3 py-2">Valor</th>
+                        <th scope="col" className="px-3 py-2">Observações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -624,8 +624,8 @@ export function Faturamento() {
                 </div>
               </Card>
               <div className="grid gap-4 xl:grid-cols-2">
-                <Card><h3 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h3><div className="grid gap-4 md:grid-cols-2"><Field label="Valor BRL"><Input value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></Field><Field label="Metodo"><Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}><option value="pix">PIX</option><option value="ted">TED</option><option value="doc">DOC</option><option value="boleto">Boleto</option><option value="outros">Outros</option></Select></Field><Field label="Data"><Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></Field><Field label="Notas"><Input value={paymentNotes} onChange={(event) => setPaymentNotes(event.target.value)} /></Field></div><div className="mt-4 flex justify-end"><Button loading={registerPaymentMutation.isPending} onClick={handleRegisterPayment}><DollarSign size={16} />Registrar pagamento</Button></div></Card>
-                <Card><h3 className="mb-3 text-base font-semibold text-white">Cancelar invoice</h3><Field label="Motivo"><Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></Field><div className="mt-4 flex justify-end"><Button variant="danger" loading={cancelInvoiceMutation.isPending} disabled={detailQuery.data.payments.length > 0} onClick={handleCancelInvoice}><Ban size={16} />Cancelar invoice</Button></div></Card>
+                <Card><h2 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h2><div className="grid gap-4 md:grid-cols-2"><Field label="Valor BRL"><Input value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></Field><Field label="Metodo"><Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}><option value="pix">PIX</option><option value="ted">TED</option><option value="doc">DOC</option><option value="boleto">Boleto</option><option value="outros">Outros</option></Select></Field><Field label="Data"><Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></Field><Field label="Notas"><Input value={paymentNotes} onChange={(event) => setPaymentNotes(event.target.value)} /></Field></div><div className="mt-4 flex justify-end"><Button loading={registerPaymentMutation.isPending} onClick={handleRegisterPayment}><DollarSign size={16} />Registrar pagamento</Button></div></Card>
+                <Card><h2 className="mb-3 text-base font-semibold text-white">Cancelar invoice</h2><Field label="Motivo"><Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></Field><div className="mt-4 flex justify-end"><Button variant="danger" loading={cancelInvoiceMutation.isPending} disabled={detailQuery.data.payments.length > 0} onClick={handleCancelInvoice}><Ban size={16} />Cancelar invoice</Button></div></Card>
               </div>
             </>
           ) : null}

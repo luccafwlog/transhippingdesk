@@ -107,13 +107,13 @@ export function GraniteRates() {
           <table className="app-table app-table--compact min-w-[800px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Descricao</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Valor Unitario</th>
-                <th className="px-4 py-3">Moeda</th>
-                <th className="px-4 py-3">Vigencia</th>
-                <th className="px-4 py-3">Status</th>
-                {isAdmin ? <th className="px-4 py-3">Acoes</th> : null}
+                <th scope="col" className="px-4 py-3">Descricao</th>
+                <th scope="col" className="px-4 py-3">Tipo</th>
+                <th scope="col" className="px-4 py-3">Valor Unitario</th>
+                <th scope="col" className="px-4 py-3">Moeda</th>
+                <th scope="col" className="px-4 py-3">Vigencia</th>
+                <th scope="col" className="px-4 py-3">Status</th>
+                {isAdmin ? <th scope="col" className="px-4 py-3">Acoes</th> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">

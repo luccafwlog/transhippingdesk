@@ -84,7 +84,7 @@ export function BLPipeline({ bl }: { bl: PipelineBL }) {
         const inner = (
           <div className={`rounded-xl border ${styles.border} ${styles.bg} px-4 py-3 transition-colors`}>
             <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 flex-shrink-0 rounded-full ${styles.dot}`} />
+              <span className={`h-2 w-2 flex-shrink-0 rounded-full ${styles.dot}`} aria-hidden="true" />
               <span className={`text-xs font-medium uppercase tracking-wider ${styles.label}`}>{card.label}</span>
             </div>
             <div className={`mt-1 text-sm font-semibold ${styles.detail}`}>{card.detail}</div>

@@ -140,9 +140,9 @@ export function CeMercanteImportModal({
               <table className="app-table app-table--compact min-w-[520px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-3 py-2">Linha</th>
-                    <th className="px-3 py-2">BL</th>
-                    <th className="px-3 py-2">CE Mercante</th>
+                    <th scope="col" className="px-3 py-2">Linha</th>
+                    <th scope="col" className="px-3 py-2">BL</th>
+                    <th scope="col" className="px-3 py-2">CE Mercante</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">

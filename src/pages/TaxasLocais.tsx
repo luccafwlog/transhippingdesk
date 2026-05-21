@@ -641,7 +641,7 @@ export function TaxasLocais() {
             <Card>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="app-table__cell-stack">
-                  <h3 className="text-base font-semibold text-white">{tableForm.id ? 'Editar tabela' : 'Nova tabela'}</h3>
+                  <h2 className="text-base font-semibold text-white">{tableForm.id ? 'Editar tabela' : 'Nova tabela'}</h2>
                   <div className="app-table__cell-meta">Defina o escopo principal da tarifa antes de publicar itens.</div>
                 </div>
                 {tableForm.id ? (
@@ -749,7 +749,7 @@ export function TaxasLocais() {
             <Card>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="app-table__cell-stack">
-                  <h3 className="text-base font-semibold text-white">{tableItemForm.id ? 'Editar item de taxa' : 'Novo item de taxa'}</h3>
+                  <h2 className="text-base font-semibold text-white">{tableItemForm.id ? 'Editar item de taxa' : 'Novo item de taxa'}</h2>
                   <div className="app-table__cell-meta">Mantenha a granularidade da regra aqui, sem inflar a grade principal.</div>
                 </div>
                 {tableItemForm.id ? (
@@ -922,14 +922,14 @@ export function TaxasLocais() {
               <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Tabela</th>
-                    <th className="px-4 py-3">Modo</th>
-                    <th className="px-4 py-3">POD</th>
-                    <th className="px-4 py-3">Vigencia</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Itens</th>
-                    <th className="px-4 py-3">Acoes</th>
-                    <th className="px-4 py-3"></th>
+                    <th scope="col" className="px-4 py-3">Tabela</th>
+                    <th scope="col" className="px-4 py-3">Modo</th>
+                    <th scope="col" className="px-4 py-3">POD</th>
+                    <th scope="col" className="px-4 py-3">Vigencia</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                    <th scope="col" className="px-4 py-3">Itens</th>
+                    <th scope="col" className="px-4 py-3">Acoes</th>
+                    <th scope="col" className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
@@ -1024,13 +1024,13 @@ export function TaxasLocais() {
                                 <table className="w-full text-left text-sm">
                                   <thead className="text-xs uppercase tracking-wider text-slate-500">
                                     <tr>
-                                      <th className="py-2 pr-4">Item</th>
-                                      <th className="py-2 pr-4">Perfil</th>
-                                      <th className="py-2 pr-4">Base</th>
-                                      <th className="py-2 pr-4">Moeda</th>
-                                      <th className="py-2 pr-4 text-right">Valor</th>
-                                      <th className="py-2 pr-4">Tipo</th>
-                                      <th className="py-2"></th>
+                                      <th scope="col" className="py-2 pr-4">Item</th>
+                                      <th scope="col" className="py-2 pr-4">Perfil</th>
+                                      <th scope="col" className="py-2 pr-4">Base</th>
+                                      <th scope="col" className="py-2 pr-4">Moeda</th>
+                                      <th scope="col" className="py-2 pr-4 text-right">Valor</th>
+                                      <th scope="col" className="py-2 pr-4">Tipo</th>
+                                      <th scope="col" className="py-2"></th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-[#30363d]">
@@ -1264,20 +1264,20 @@ export function TaxasLocais() {
               <table className="app-table app-table--compact min-w-[1100px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">
+                    <th scope="col" className="px-4 py-3">
                       <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
                         {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
                       </button>
                     </th>
-                    <th className="px-4 py-3">B/L</th>
-                    <th className="px-4 py-3">Modo</th>
-                    <th className="px-4 py-3">Navio/Viagem</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Cliente</th>
-                    <th className="px-4 py-3">Reconcil.</th>
-                    <th className="px-4 py-3">Subtotal BRL</th>
-                    <th className="px-4 py-3">Bloqueio</th>
-                    <th className="px-4 py-3"></th>
+                    <th scope="col" className="px-4 py-3">B/L</th>
+                    <th scope="col" className="px-4 py-3">Modo</th>
+                    <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                    <th scope="col" className="px-4 py-3">Cliente</th>
+                    <th scope="col" className="px-4 py-3">Reconcil.</th>
+                    <th scope="col" className="px-4 py-3">Subtotal BRL</th>
+                    <th scope="col" className="px-4 py-3">Bloqueio</th>
+                    <th scope="col" className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
@@ -1479,7 +1479,7 @@ export function TaxasLocais() {
 
           <Card className="mb-5">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-base font-semibold text-white">{overrideForm.id ? 'Editar override' : 'Novo override'}</h3>
+              <h2 className="text-base font-semibold text-white">{overrideForm.id ? 'Editar override' : 'Novo override'}</h2>
               {overrideForm.id ? (
                 <Button
                   variant="ghost"
@@ -1560,14 +1560,14 @@ export function TaxasLocais() {
               <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Cliente</th>
-                    <th className="px-4 py-3">Taxa</th>
-                    <th className="px-4 py-3">Modo/POD</th>
-                    <th className="px-4 py-3">Vigencia</th>
-                    <th className="px-4 py-3">Valor base</th>
-                    <th className="px-4 py-3">Override</th>
-                    <th className="px-4 py-3">Obs</th>
-                    <th className="px-4 py-3">Acoes</th>
+                    <th scope="col" className="px-4 py-3">Cliente</th>
+                    <th scope="col" className="px-4 py-3">Taxa</th>
+                    <th scope="col" className="px-4 py-3">Modo/POD</th>
+                    <th scope="col" className="px-4 py-3">Vigencia</th>
+                    <th scope="col" className="px-4 py-3">Valor base</th>
+                    <th scope="col" className="px-4 py-3">Override</th>
+                    <th scope="col" className="px-4 py-3">Obs</th>
+                    <th scope="col" className="px-4 py-3">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">

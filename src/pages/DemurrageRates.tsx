@@ -143,15 +143,15 @@ export function DemurrageRates() {
           <table className="app-table text-left text-sm">
             <thead>
               <tr>
-                <th>Tipo Container</th>
-                <th>Free Days</th>
-                <th>P1 (dias)</th>
-                <th>P1 USD/dia</th>
-                <th>P2 (dias)</th>
-                <th>P2 USD/dia</th>
-                <th>Vigência</th>
-                <th>Status</th>
-                {isAdmin && <th className="w-20">Ações</th>}
+                <th scope="col">Tipo Container</th>
+                <th scope="col">Free Days</th>
+                <th scope="col">P1 (dias)</th>
+                <th scope="col">P1 USD/dia</th>
+                <th scope="col">P2 (dias)</th>
+                <th scope="col">P2 USD/dia</th>
+                <th scope="col">Vigência</th>
+                <th scope="col">Status</th>
+                {isAdmin && <th scope="col" className="w-20">Ações</th>}
               </tr>
             </thead>
             <tbody>

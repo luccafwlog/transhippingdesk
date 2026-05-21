@@ -272,16 +272,16 @@ export function Containers() {
           <table className="app-table app-table--compact min-w-[1060px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Container</th>
-                <th className="px-4 py-3">B/L</th>
-                <th className="w-[84px] px-4 py-3">CNEE</th>
-                <th className="px-4 py-3">Navio/Viagem</th>
-                <th className="px-4 py-3">POL</th>
-                <th className="px-4 py-3">POD</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Perfil</th>
-                <th className="px-4 py-3">Taxas locais</th>
-                <th className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Container</th>
+                <th scope="col" className="px-4 py-3">B/L</th>
+                <th scope="col" className="w-[84px] px-4 py-3">CNEE</th>
+                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
+                <th scope="col" className="px-4 py-3">POL</th>
+                <th scope="col" className="px-4 py-3">POD</th>
+                <th scope="col" className="px-4 py-3">Tipo</th>
+                <th scope="col" className="px-4 py-3">Perfil</th>
+                <th scope="col" className="px-4 py-3">Taxas locais</th>
+                <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -434,10 +434,10 @@ export function Containers() {
                 <table className="app-table app-table--compact min-w-[680px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">BL</th>
-                      <th className="px-3 py-2">Container</th>
-                      <th className="px-3 py-2">IMO</th>
-                      <th className="px-3 py-2">OOG</th>
+                      <th scope="col" className="px-3 py-2">BL</th>
+                      <th scope="col" className="px-3 py-2">Container</th>
+                      <th scope="col" className="px-3 py-2">IMO</th>
+                      <th scope="col" className="px-3 py-2">OOG</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">

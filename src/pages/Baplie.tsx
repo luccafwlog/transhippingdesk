@@ -367,9 +367,9 @@ function ReconciliacaoSection({
             <table className="app-table app-table--compact min-w-[400px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                 <tr>
-                  <th className="px-3 py-2">Container</th>
-                  <th className="px-3 py-2">B/L ref. (Baplie)</th>
-                  <th className="px-3 py-2">Slot</th>
+                  <th scope="col" className="px-3 py-2">Container</th>
+                  <th scope="col" className="px-3 py-2">B/L ref. (Baplie)</th>
+                  <th scope="col" className="px-3 py-2">Slot</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
@@ -396,12 +396,12 @@ function ReconciliacaoSection({
             <table className="app-table app-table--compact min-w-[560px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                 <tr>
-                  <th className="px-3 py-2">Container</th>
-                  <th className="px-3 py-2">B/L</th>
-                  <th className="px-3 py-2">Campo</th>
-                  <th className="px-3 py-2">Baplie</th>
-                  <th className="px-3 py-2">Manifesto</th>
-                  <th className="px-3 py-2"></th>
+                  <th scope="col" className="px-3 py-2">Container</th>
+                  <th scope="col" className="px-3 py-2">B/L</th>
+                  <th scope="col" className="px-3 py-2">Campo</th>
+                  <th scope="col" className="px-3 py-2">Baplie</th>
+                  <th scope="col" className="px-3 py-2">Manifesto</th>
+                  <th scope="col" className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
@@ -453,14 +453,14 @@ function ContainerList({ containers }: { containers: BaplieContainer[] }) {
         <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
           <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
             <tr>
-              <th className="px-4 py-3">Container</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">POL</th>
-              <th className="px-4 py-3">POD</th>
-              <th className="px-4 py-3">Slot</th>
-              <th className="px-4 py-3">B/L ref.</th>
-              <th className="px-4 py-3">Perfil</th>
+              <th scope="col" className="px-4 py-3">Container</th>
+              <th scope="col" className="px-4 py-3">Status</th>
+              <th scope="col" className="px-4 py-3">Tipo</th>
+              <th scope="col" className="px-4 py-3">POL</th>
+              <th scope="col" className="px-4 py-3">POD</th>
+              <th scope="col" className="px-4 py-3">Slot</th>
+              <th scope="col" className="px-4 py-3">B/L ref.</th>
+              <th scope="col" className="px-4 py-3">Perfil</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#30363d]">

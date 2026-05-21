@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { Button } from './Button'
 
@@ -12,13 +13,51 @@ export function Modal({
   children: React.ReactNode
   onClose: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`)
+
+  useEffect(() => {
+    if (!open) return
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+    )
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+
+    first?.focus()
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab') return
+      if (focusable.length === 0) { e.preventDefault(); return }
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus() }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus() }
+      }
+    }
+
+    dialog.addEventListener('keydown', onKeyDown)
+    return () => dialog.removeEventListener('keydown', onKeyDown)
+  }, [open, onClose])
+
   if (!open) return null
 
   return (
     <div className="app-modal-backdrop" onClick={onClose}>
-      <div className="app-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="app-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId.current}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="app-modal__header">
-          <h2 className="app-modal__title">{title}</h2>
+          <h2 id={titleId.current} className="app-modal__title">{title}</h2>
           <Button variant="ghost" className="app-modal__close" onClick={onClose} aria-label="Fechar modal">
             <X size={18} />
           </Button>

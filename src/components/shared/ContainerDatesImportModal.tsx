@@ -102,10 +102,10 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
               <table className="app-table app-table--compact min-w-[540px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-3 py-2">BL</th>
-                    <th className="px-3 py-2">Container</th>
-                    <th className="px-3 py-2">Descarga</th>
-                    <th className="px-3 py-2">Devolucao</th>
+                    <th scope="col" className="px-3 py-2">BL</th>
+                    <th scope="col" className="px-3 py-2">Container</th>
+                    <th scope="col" className="px-3 py-2">Descarga</th>
+                    <th scope="col" className="px-3 py-2">Devolucao</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">

@@ -441,14 +441,14 @@ export function Demurrage() {
                   <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                       <tr>
-                        <th className="py-2">Container</th>
-                        <th className="py-2">Tipo</th>
-                        <th className="py-2">Descarga</th>
-                        <th className="py-2">Devolucao</th>
-                        <th className="py-2">Dias totais</th>
-                        <th className="py-2">Status</th>
-                        <th className="py-2">USD</th>
-                        <th className="py-2"></th>
+                        <th scope="col" className="py-2">Container</th>
+                        <th scope="col" className="py-2">Tipo</th>
+                        <th scope="col" className="py-2">Descarga</th>
+                        <th scope="col" className="py-2">Devolucao</th>
+                        <th scope="col" className="py-2">Dias totais</th>
+                        <th scope="col" className="py-2">Status</th>
+                        <th scope="col" className="py-2">USD</th>
+                        <th scope="col" className="py-2"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -509,15 +509,15 @@ export function Demurrage() {
                 <table className="app-table min-w-[1000px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                     <tr>
-                      <th className="py-2">Nº Doc</th>
-                      <th className="py-2">BL</th>
-                      <th className="py-2">Cliente</th>
-                      <th className="py-2">Emissao</th>
-                      <th className="py-2">Vencimento</th>
-                      <th className="py-2">Total USD</th>
-                      <th className="py-2">Total BRL</th>
-                      <th className="py-2">Status</th>
-                      <th className="py-2">Acoes</th>
+                      <th scope="col" className="py-2">Nº Doc</th>
+                      <th scope="col" className="py-2">BL</th>
+                      <th scope="col" className="py-2">Cliente</th>
+                      <th scope="col" className="py-2">Emissao</th>
+                      <th scope="col" className="py-2">Vencimento</th>
+                      <th scope="col" className="py-2">Total USD</th>
+                      <th scope="col" className="py-2">Total BRL</th>
+                      <th scope="col" className="py-2">Status</th>
+                      <th scope="col" className="py-2">Acoes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">
@@ -650,15 +650,15 @@ export function Demurrage() {
               <table className="app-table app-table--compact min-w-[700px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                   <tr>
-                    <th className="py-2">Container</th>
-                    <th className="py-2">Tipo</th>
-                    <th className="py-2">Descarga</th>
-                    <th className="py-2">Devolucao</th>
-                    <th className="py-2">Dias</th>
-                    <th className="py-2">Free</th>
-                    <th className="py-2">P1</th>
-                    <th className="py-2">P2</th>
-                    <th className="py-2">Subtotal</th>
+                    <th scope="col" className="py-2">Container</th>
+                    <th scope="col" className="py-2">Tipo</th>
+                    <th scope="col" className="py-2">Descarga</th>
+                    <th scope="col" className="py-2">Devolucao</th>
+                    <th scope="col" className="py-2">Dias</th>
+                    <th scope="col" className="py-2">Free</th>
+                    <th scope="col" className="py-2">P1</th>
+                    <th scope="col" className="py-2">P2</th>
+                    <th scope="col" className="py-2">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">

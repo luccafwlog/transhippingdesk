@@ -86,12 +86,12 @@ export function Alertas() {
           <table className="app-table app-table--compact min-w-[780px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Mensagem</th>
-                <th className="px-4 py-3">Entidade</th>
-                <th className="px-4 py-3">Data</th>
-                <th className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Status</th>
+                <th scope="col" className="px-4 py-3">Tipo</th>
+                <th scope="col" className="px-4 py-3">Mensagem</th>
+                <th scope="col" className="px-4 py-3">Entidade</th>
+                <th scope="col" className="px-4 py-3">Data</th>
+                <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">

@@ -358,11 +358,11 @@ export function Clientes() {
           <table className="app-table app-table--compact min-w-[880px] table-fixed text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="w-[31%] px-4 py-3">Cliente</th>
-                <th className="w-[17%] px-4 py-3">Contatos</th>
-                <th className="w-[22%] px-4 py-3">Operacao</th>
-                <th className="w-[16%] px-4 py-3">Financeiro</th>
-                <th className="w-[14%] px-4 py-3">Acoes</th>
+                <th scope="col" className="w-[31%] px-4 py-3">Cliente</th>
+                <th scope="col" className="w-[17%] px-4 py-3">Contatos</th>
+                <th scope="col" className="w-[22%] px-4 py-3">Operacao</th>
+                <th scope="col" className="w-[16%] px-4 py-3">Financeiro</th>
+                <th scope="col" className="w-[14%] px-4 py-3">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -644,11 +644,11 @@ export function Clientes() {
                 <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">CNPJ/CPF</th>
-                      <th className="px-3 py-2">Nome</th>
-                      <th className="px-3 py-2">Emails</th>
-                      <th className="px-3 py-2">Cidade/UF</th>
-                      <th className="px-3 py-2">Endereco</th>
+                      <th scope="col" className="px-3 py-2">CNPJ/CPF</th>
+                      <th scope="col" className="px-3 py-2">Nome</th>
+                      <th scope="col" className="px-3 py-2">Emails</th>
+                      <th scope="col" className="px-3 py-2">Cidade/UF</th>
+                      <th scope="col" className="px-3 py-2">Endereco</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">

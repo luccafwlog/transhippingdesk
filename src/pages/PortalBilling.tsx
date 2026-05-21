@@ -118,12 +118,12 @@ export function PortalBilling() {
               <table className="app-table app-table--compact min-w-[720px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Sel.</th>
-                    <th className="px-4 py-3">B/L</th>
-                    <th className="px-4 py-3">Trecho</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Bloqueio</th>
-                    <th className="px-4 py-3">Subtotal BRL</th>
+                    <th scope="col" className="px-4 py-3">Sel.</th>
+                    <th scope="col" className="px-4 py-3">B/L</th>
+                    <th scope="col" className="px-4 py-3">Trecho</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                    <th scope="col" className="px-4 py-3">Bloqueio</th>
+                    <th scope="col" className="px-4 py-3">Subtotal BRL</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
@@ -208,14 +208,14 @@ export function PortalBilling() {
               <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Documento</th>
-                    <th className="px-4 py-3">BL / Trecho</th>
-                    <th className="px-4 py-3">Emissao</th>
-                    <th className="px-4 py-3">Vencimento</th>
-                    <th className="px-4 py-3">Total USD</th>
-                    <th className="px-4 py-3">Total BRL</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Acao</th>
+                    <th scope="col" className="px-4 py-3">Documento</th>
+                    <th scope="col" className="px-4 py-3">BL / Trecho</th>
+                    <th scope="col" className="px-4 py-3">Emissao</th>
+                    <th scope="col" className="px-4 py-3">Vencimento</th>
+                    <th scope="col" className="px-4 py-3">Total USD</th>
+                    <th scope="col" className="px-4 py-3">Total BRL</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                    <th scope="col" className="px-4 py-3">Acao</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#30363d]">
@@ -255,13 +255,13 @@ export function PortalBilling() {
             <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Invoice</th>
-                  <th className="px-4 py-3">Emissao</th>
-                  <th className="px-4 py-3">Vencimento</th>
-                  <th className="px-4 py-3">Total</th>
-                  <th className="px-4 py-3">Saldo</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Acao</th>
+                  <th scope="col" className="px-4 py-3">Invoice</th>
+                  <th scope="col" className="px-4 py-3">Emissao</th>
+                  <th scope="col" className="px-4 py-3">Vencimento</th>
+                  <th scope="col" className="px-4 py-3">Total</th>
+                  <th scope="col" className="px-4 py-3">Saldo</th>
+                  <th scope="col" className="px-4 py-3">Status</th>
+                  <th scope="col" className="px-4 py-3">Acao</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
@@ -329,9 +329,9 @@ export function PortalBilling() {
                   <table className="app-table app-table--compact min-w-[620px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2">B/L</th>
-                        <th className="px-3 py-2">Trecho</th>
-                        <th className="px-3 py-2">Subtotal BRL</th>
+                        <th scope="col" className="px-3 py-2">B/L</th>
+                        <th scope="col" className="px-3 py-2">Trecho</th>
+                        <th scope="col" className="px-3 py-2">Subtotal BRL</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -357,11 +357,11 @@ export function PortalBilling() {
                   <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2">Descricao</th>
-                        <th className="px-3 py-2">B/L</th>
-                        <th className="px-3 py-2">Qtd</th>
-                        <th className="px-3 py-2">Unitario</th>
-                        <th className="px-3 py-2">Total</th>
+                        <th scope="col" className="px-3 py-2">Descricao</th>
+                        <th scope="col" className="px-3 py-2">B/L</th>
+                        <th scope="col" className="px-3 py-2">Qtd</th>
+                        <th scope="col" className="px-3 py-2">Unitario</th>
+                        <th scope="col" className="px-3 py-2">Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -395,10 +395,10 @@ export function PortalBilling() {
                   <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2">Data</th>
-                        <th className="px-3 py-2">Metodo</th>
-                        <th className="px-3 py-2">Valor</th>
-                        <th className="px-3 py-2">Observações</th>
+                        <th scope="col" className="px-3 py-2">Data</th>
+                        <th scope="col" className="px-3 py-2">Metodo</th>
+                        <th scope="col" className="px-3 py-2">Valor</th>
+                        <th scope="col" className="px-3 py-2">Observações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -457,14 +457,14 @@ export function PortalBilling() {
                     <table className="app-table app-table--compact min-w-[720px] text-sm">
                       <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                         <tr>
-                          <th className="px-3 py-2">Container</th>
-                          <th className="px-3 py-2">Tipo</th>
-                          <th className="px-3 py-2">Descarga</th>
-                          <th className="px-3 py-2">Devolucao</th>
-                          <th className="px-3 py-2">Dias</th>
-                          <th className="px-3 py-2">P1</th>
-                          <th className="px-3 py-2">P2</th>
-                          <th className="px-3 py-2">USD</th>
+                          <th scope="col" className="px-3 py-2">Container</th>
+                          <th scope="col" className="px-3 py-2">Tipo</th>
+                          <th scope="col" className="px-3 py-2">Descarga</th>
+                          <th scope="col" className="px-3 py-2">Devolucao</th>
+                          <th scope="col" className="px-3 py-2">Dias</th>
+                          <th scope="col" className="px-3 py-2">P1</th>
+                          <th scope="col" className="px-3 py-2">P2</th>
+                          <th scope="col" className="px-3 py-2">USD</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#30363d]">
