@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
-import { Card, InlineError } from '../components/ui/Card'
+import { InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { isSupabaseConfigured } from '../services/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -35,44 +35,49 @@ export function Login() {
 
   return (
     <main className="app-auth">
-      <Card className="app-auth__card">
-        <div className="app-auth__brand">
+      <div className="app-auth__panel">
+        <div className="app-auth__branding">
           <img alt="Transhipping" className="app-auth__logo" src="/branding/transhipping-logo.png" />
-          <div>
-            <h1 className="app-auth__title">Acesso interno</h1>
-            <p className="app-auth__subtitle">Entre com email e senha provisionados pelo administrador.</p>
+          <div className="app-auth__branding-copy">
+            <p className="app-auth__branding-label">Sistema operacional</p>
+            <p className="app-auth__branding-desc">Gestão de viagens, manifestos, faturamento e containers de transhipment.</p>
           </div>
         </div>
 
-        {!isSupabaseConfigured ? (
-          <div className="app-callout app-callout--warning">
-            Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env antes de autenticar.
+        <div className="app-auth__form-wrap">
+          <div className="app-auth__form-header">
+            <h1 className="app-auth__title">Acesso interno</h1>
+            <p className="app-auth__subtitle">Entre com as credenciais provisionadas pelo administrador.</p>
           </div>
-        ) : null}
 
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <Field label="Email">
-            <Input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          </Field>
+          {!isSupabaseConfigured ? (
+            <div className="app-callout app-callout--warning">
+              Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env antes de autenticar.
+            </div>
+          ) : null}
 
-          <Field label="Senha">
-            <Input
-              required
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </Field>
+          <form className="grid gap-4" onSubmit={handleSubmit}>
+            <Field label="Email">
+              <Input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </Field>
 
-          {error ? <InlineError message={error} /> : null}
+            <Field label="Senha">
+              <Input
+                required
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </Field>
 
-          <Button loading={submitting} type="submit">
-            Entrar
-          </Button>
-        </form>
+            {error ? <InlineError message={error} /> : null}
 
-        <p className="app-auth__meta">Não há cadastro público. Usuários são provisionados pelo admin.</p>
-      </Card>
+            <Button loading={submitting} type="submit">
+              Entrar
+            </Button>
+          </form>
+        </div>
+      </div>
     </main>
   )
 }
