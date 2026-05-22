@@ -73,4 +73,34 @@ describe('breakbulkImport', () => {
     expect(bl?.total_cbm).toBeCloseTo(15)
     expect(bl?.items).toHaveLength(2)
   })
+
+  it('parseia layout carrier com cabecalho B/L NO.', async () => {
+    const buffer = jsonToBuffer([
+      { A: 'CARGO MANIFEST' },
+      { A: 'B/L NO.', B: 'POD', C: 'DECRIPTION', D: 'Pkg', E: 'G.W(KGS)', F: 'CBM', G: 'SHIPPER', H: 'CONSIGNEE', I: 'NOTIFY' },
+      {
+        A: 'JQV37ZJGPAR001',
+        B: 'VITORIA,BRAZIL',
+        C: '5 PACKAGES\n5 UNITS OF XCMG BULLDOZER',
+        D: 5,
+        E: 99700,
+        F: 393.35,
+        G: 'XCMG CONSTRUCTION MACHINERY GROUP HK LIMITED',
+        H: 'TIMBRO TRADING S.A\nCNPJ: 12.116.971/0010-71',
+        I: 'SAME AS CONSIGNEE',
+      },
+    ])
+
+    const manifest = await parseBreakbulkManifestBuffer(buffer)
+    const bl = manifest.bls[0]
+
+    expect(manifest.layout).toBe('carrier')
+    expect(manifest.rowErrors).toHaveLength(0)
+    expect(bl?.bl_id).toBe('JQV37ZJGPAR001')
+    expect(bl?.pod).toBe('BRVIX')
+    expect(bl?.bb_packages_qty).toBe(5)
+    expect(bl?.total_weight_kg).toBe(99700)
+    expect(bl?.total_cbm).toBeCloseTo(393.35)
+    expect(bl?.cnpj_cpf).toBe('12116971001071')
+  })
 })
