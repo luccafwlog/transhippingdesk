@@ -235,4 +235,52 @@ describe('breakbulkImport', () => {
     expect(manifest.rowErrors).toHaveLength(0)
     expect(manifest.bls[0]?.bb_machine_qty).toBe(4)
   })
+
+  it('usa identificadores tecnicos para quantificar maquinas em descricoes variaveis', async () => {
+    const buffer = aoaToBuffer([
+      ['CARGO MANIFEST'],
+      ['M.V. EQUIPMENT TEST', '', 'FROM: ZHANGJIAGANG'],
+      ['B/L NO.', 'POD', 'DECRIPTION', 'Pkg', 'G.W(KGS)', 'CBM', 'SHIPPER', 'CONSIGNEE', 'NOTIFY'],
+      [
+        'ZJGCRUSHER01',
+        'VITORIA,BRAZIL',
+        '1 UNIT MOBILE JAW CRUSHER\nCHASSIS NUMBER/VIN NUMBER/ENGINE NUMBER:\nXUGCRUSHER001/ENG001',
+        1,
+        52000,
+        120,
+        'SHIPPER TEST LTDA',
+        'CONSIGNEE TEST LTDA\nCNPJ: 12.345.678/0001-95',
+        'SAME AS CONSIGNEE',
+      ],
+      [
+        'ZJGTRUCK01',
+        'VITORIA,BRAZIL',
+        '3 UNITS OFF-ROAD TRUCK\nFRAME NO./ENGINE NO.:\nTRUCK001/ENG001',
+        3,
+        150000,
+        450,
+        'SHIPPER TEST LTDA',
+        'CONSIGNEE TEST LTDA\nCNPJ: 12.345.678/0001-95',
+        'SAME AS CONSIGNEE',
+      ],
+      [
+        'ZJGUNITONLY01',
+        'VITORIA,BRAZIL',
+        '2 UNITS\nCHASSIS NUMBER/VIN NUMBER/ENGINE NUMBER:\nUNIT001/ENG001\nUNIT002/ENG002',
+        2,
+        80000,
+        250,
+        'SHIPPER TEST LTDA',
+        'CONSIGNEE TEST LTDA\nCNPJ: 12.345.678/0001-95',
+        'SAME AS CONSIGNEE',
+      ],
+    ])
+
+    const manifest = await parseBreakbulkManifestBuffer(buffer)
+
+    expect(manifest.rowErrors).toHaveLength(0)
+    expect(manifest.bls.find((bl) => bl.bl_id === 'ZJGCRUSHER01')?.bb_machine_qty).toBe(1)
+    expect(manifest.bls.find((bl) => bl.bl_id === 'ZJGTRUCK01')?.bb_machine_qty).toBe(3)
+    expect(manifest.bls.find((bl) => bl.bl_id === 'ZJGUNITONLY01')?.bb_machine_qty).toBe(2)
+  })
 })

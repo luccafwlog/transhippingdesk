@@ -877,28 +877,35 @@ function normalizeCarrierBreakbulkDescription(value: string) {
 }
 
 function extractCarrierMachineQty(value: string) {
+  const hasMachineIdentifier = carrierMachineIdentifierPattern.test(value.toUpperCase())
   const total = value
     .split(/\r?\n/g)
     .map((line) => line.trim())
     .filter(Boolean)
-    .reduce((sum, line) => sum + extractCarrierMachineQtyFromLine(line), 0)
+    .reduce((sum, line) => sum + extractCarrierMachineQtyFromLine(line, hasMachineIdentifier), 0)
 
   return total > 0 ? total : null
 }
 
-function extractCarrierMachineQtyFromLine(value: string) {
+function extractCarrierMachineQtyFromLine(value: string, hasMachineIdentifier: boolean) {
   const line = value.toUpperCase().replace(/\s+/g, ' ')
-  if (!carrierMachineKeywordPattern.test(line)) return 0
+  const hasMachineKeyword = carrierMachineKeywordPattern.test(line)
+  if (!hasMachineKeyword && !hasMachineIdentifier) return 0
 
   const unitMatch = line.match(/(?:^|\D)(\d+(?:[.,]\d+)?)\s+(?:UNITS?|MACHINES?)\b/)
   if (unitMatch) return parseNumber(unitMatch[1]) ?? 0
+
+  if (!hasMachineKeyword) return 0
 
   const directEquipmentMatch = line.match(new RegExp(`(?:^|\\D)(\\d+(?:[.,]\\d+)?)\\s+(?:${carrierMachineKeywordPattern.source})\\b`))
   return directEquipmentMatch ? parseNumber(directEquipmentMatch[1]) ?? 0 : 0
 }
 
 const carrierMachineKeywordPattern =
-  /\b(?:EXCAVATORS?|BUS(?:ES)?|MOBILE CRANES?|CRANES?|BULLDOZERS?|WHEEL LOADERS?|LOADERS?|FORKLIFTS?|DUMP TRUCKS?|TRUCKS?|CONVEYORS?|GRADERS?|ROLLERS?|TRACTORS?|DRILLING RIGS?)\b/
+  /\b(?:EXCAVATORS?|BUS(?:ES)?|MOBILE CRANES?|CRANES?|MOBILE JAW CRUSHERS?|JAW CRUSHERS?|CRUSHERS?|BULLDOZERS?|WHEEL LOADERS?|LOADERS?|FORKLIFTS?|DUMP TRUCKS?|TRUCKS?|CONVEYORS?|GRADERS?|ROLLERS?|TRACTORS?|DRILLING RIGS?)\b/
+
+const carrierMachineIdentifierPattern =
+  /\b(?:CHASSIS|VIN|ENGINE|FRAME|SERIAL|PRODUCT\s*ID|MACHINE\s*NO|EQUIPMENT\s*NO)\b/
 
 function isLikelyCompanyLine(value: string) {
   const line = value.trim()
