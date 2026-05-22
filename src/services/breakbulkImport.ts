@@ -324,7 +324,7 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
     const groupRows = collectCarrierBlRows(rawRows, index, colBl)
     index += groupRows.length - 1
 
-    const descriptionBlock = firstStringFromColumn(groupRows, colDescription >= 0 ? colDescription : 3)
+    const descriptionBlock = joinedStringsFromColumn(groupRows, colDescription >= 0 ? colDescription : 3)
     const grossWeightKg =
       firstNumberFromColumn(groupRows, colWeight) ?? findNumberBeforeUnit(groupRows, /^KGS?$/i) ?? 0
     const cbm = firstNumberFromColumn(groupRows, colCbm) ?? findNumberBeforeUnit(groupRows, /^CBMS?$/i) ?? 0
@@ -668,8 +668,9 @@ function firstValueFromColumn(rows: (string | number | null)[][], columnIndex: n
   return null
 }
 
-function firstStringFromColumn(rows: (string | number | null)[][], columnIndex: number) {
-  return asString(firstValueFromColumn(rows, columnIndex))
+function joinedStringsFromColumn(rows: (string | number | null)[][], columnIndex: number) {
+  if (columnIndex < 0) return ''
+  return rows.map((row) => asString(row[columnIndex])).filter(Boolean).join('\n')
 }
 
 function firstNumberFromColumn(rows: (string | number | null)[][], columnIndex: number) {
@@ -876,9 +877,28 @@ function normalizeCarrierBreakbulkDescription(value: string) {
 }
 
 function extractCarrierMachineQty(value: string) {
-  const match = value.match(/(\d+)\s+MACHINES?/i)
-  return match ? Number(match[1]) : null
+  const total = value
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reduce((sum, line) => sum + extractCarrierMachineQtyFromLine(line), 0)
+
+  return total > 0 ? total : null
 }
+
+function extractCarrierMachineQtyFromLine(value: string) {
+  const line = value.toUpperCase().replace(/\s+/g, ' ')
+  if (!carrierMachineKeywordPattern.test(line)) return 0
+
+  const unitMatch = line.match(/(?:^|\D)(\d+(?:[.,]\d+)?)\s+(?:UNITS?|MACHINES?)\b/)
+  if (unitMatch) return parseNumber(unitMatch[1]) ?? 0
+
+  const directEquipmentMatch = line.match(new RegExp(`(?:^|\\D)(\\d+(?:[.,]\\d+)?)\\s+(?:${carrierMachineKeywordPattern.source})\\b`))
+  return directEquipmentMatch ? parseNumber(directEquipmentMatch[1]) ?? 0 : 0
+}
+
+const carrierMachineKeywordPattern =
+  /\b(?:EXCAVATORS?|BUS(?:ES)?|MOBILE CRANES?|CRANES?|BULLDOZERS?|WHEEL LOADERS?|LOADERS?|FORKLIFTS?|DUMP TRUCKS?|TRUCKS?|CONVEYORS?|GRADERS?|ROLLERS?|TRACTORS?|DRILLING RIGS?)\b/
 
 function isLikelyCompanyLine(value: string) {
   const line = value.trim()

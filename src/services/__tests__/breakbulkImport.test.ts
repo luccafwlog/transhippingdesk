@@ -98,6 +98,7 @@ describe('breakbulkImport', () => {
     expect(manifest.rowErrors).toHaveLength(0)
     expect(bl?.bl_id).toBe('JQV37ZJGPAR001')
     expect(bl?.pod).toBe('BRVIX')
+    expect(bl?.bb_machine_qty).toBe(5)
     expect(bl?.bb_packages_qty).toBe(5)
     expect(bl?.total_weight_kg).toBe(99700)
     expect(bl?.total_cbm).toBeCloseTo(393.35)
@@ -139,6 +140,7 @@ describe('breakbulkImport', () => {
     expect(bl?.cnpj_cpf).toBe('01135153000613')
     expect(bl?.pol).toBe('CNTAC')
     expect(bl?.pod).toBe('BRVIX')
+    expect(bl?.bb_machine_qty).toBe(8)
     expect(bl?.total_weight_kg).toBe(175440)
     expect(bl?.total_cbm).toBeCloseTo(794.761)
   })
@@ -168,6 +170,7 @@ describe('breakbulkImport', () => {
     expect(bl?.shipper).toBe('SANY SOUTH EAST ASIA PTE LTD')
     expect(bl?.consignee).toBe('TIMBRO TRADING S.A')
     expect(bl?.cnpj_cpf).toBe('12116971001071')
+    expect(bl?.bb_machine_qty).toBe(10)
     expect(bl?.bb_packages_qty).toBe(30)
     expect(bl?.total_weight_kg).toBe(136873)
     expect(bl?.total_cbm).toBeCloseTo(614.313)
@@ -203,8 +206,33 @@ describe('breakbulkImport', () => {
     expect(manifest.rowErrors).toHaveLength(0)
     expect(bl?.bl_id).toBe('4514V20ZJGRIO01')
     expect(bl?.consignee).toBe('ALICAM SERVICOS ADUARNEIROS')
+    expect(bl?.bb_machine_qty).toBeNull()
     expect(bl?.bb_packages_qty).toBe(75)
     expect(bl?.total_weight_kg).toBe(3156820)
     expect(bl?.total_cbm).toBeCloseTo(1063.89)
+  })
+
+  it('quantifica maquinas por nomenclatura de equipamento na descricao', async () => {
+    const buffer = aoaToBuffer([
+      ['CARGO MANIFEST'],
+      ['M.V. EQUIPMENT TEST', '', 'FROM: ZHANGJIAGANG'],
+      ['B/L NO.', 'POD', 'DECRIPTION', 'Pkg', 'G.W(KGS)', 'CBM', 'SHIPPER', 'CONSIGNEE', 'NOTIFY'],
+      [
+        'ZJGBUSCRANE01',
+        'VITORIA,BRAZIL',
+        '3 UNITS ELECTRIC BUS\n1 UNIT XCMG MOBILE CRANE',
+        4,
+        100000,
+        300,
+        'SHIPPER TEST LTDA',
+        'CONSIGNEE TEST LTDA\nCNPJ: 12.345.678/0001-95',
+        'SAME AS CONSIGNEE',
+      ],
+    ])
+
+    const manifest = await parseBreakbulkManifestBuffer(buffer)
+
+    expect(manifest.rowErrors).toHaveLength(0)
+    expect(manifest.bls[0]?.bb_machine_qty).toBe(4)
   })
 })
