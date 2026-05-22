@@ -877,14 +877,19 @@ function normalizeCarrierBreakbulkDescription(value: string) {
 }
 
 function extractCarrierMachineQty(value: string) {
-  const hasMachineIdentifier = carrierMachineIdentifierPattern.test(value.toUpperCase())
+  const normalized = value.toUpperCase()
+  const hasMachineIdentifier = carrierMachineIdentifierPattern.test(normalized)
+  const hasMachineNcm = extractMachineNcmCodes(value).length > 0
   const total = value
     .split(/\r?\n/g)
     .map((line) => line.trim())
     .filter(Boolean)
-    .reduce((sum, line) => sum + extractCarrierMachineQtyFromLine(line, hasMachineIdentifier), 0)
+    .reduce((sum, line) => sum + extractCarrierMachineQtyFromLine(line, hasMachineIdentifier || hasMachineNcm), 0)
 
-  return total > 0 ? total : null
+  if (total > 0) return total
+
+  const identifierCount = hasMachineNcm ? countMachineModelIdentifiers(value) : 0
+  return identifierCount > 0 ? identifierCount : null
 }
 
 function extractCarrierMachineQtyFromLine(value: string, hasMachineIdentifier: boolean) {
@@ -906,6 +911,39 @@ const carrierMachineKeywordPattern =
 
 const carrierMachineIdentifierPattern =
   /\b(?:CHASSIS|VIN|ENGINE|FRAME|SERIAL|PRODUCT\s*ID|MACHINE\s*NO|EQUIPMENT\s*NO)\b/
+
+const machineNcmPrefixes = [
+  '8426', // guindastes, pontes rolantes e equipamentos de elevacao.
+  '8427', // empilhadeiras, plataformas e veiculos de movimentacao.
+  '8428', // outros equipamentos de elevacao, carga, descarga e movimentacao.
+  '8429', // tratores de esteira, escavadeiras, pa carregadeiras e similares.
+  '8430', // maquinas de terraplenagem, perfuracao e compactacao.
+  '8474', // britadores, peneiras e maquinas para minerais.
+  '8479', // maquinas e aparelhos mecanicos com funcao propria.
+  '8702', // onibus e veiculos para transporte de passageiros.
+  '8704', // caminhoes e veiculos para transporte de carga.
+  '8705', // veiculos automoveis para usos especiais.
+]
+
+function extractMachineNcmCodes(value: string) {
+  return extractNcmCodes(value).filter((code) => machineNcmPrefixes.some((prefix) => code.startsWith(prefix)))
+}
+
+function extractNcmCodes(value: string) {
+  return Array.from(value.matchAll(/\bNCM(?:\s*(?:NO\.|NUMBER|CODE))?\s*[:.]?\s*([0-9][0-9.,\s/-]{2,30})/gi))
+    .flatMap((match) => Array.from(match[1].matchAll(/\d{4}(?:[.,]?\d{2})?(?:[.,]?\d{2})?/g)))
+    .map((match) => match[0].replace(/\D/g, ''))
+    .filter((code) => code.length >= 4)
+}
+
+function countMachineModelIdentifiers(value: string) {
+  const ignoredCodes = new Set(extractNcmCodes(value))
+  const matches = Array.from(value.toUpperCase().matchAll(/\b[A-Z]{2,}\d{2,}[A-Z]*-\d{2,}\b/g))
+    .map((match) => match[0])
+    .filter((code) => !ignoredCodes.has(code.replace(/\D/g, '')))
+
+  return new Set(matches).size
+}
 
 function isLikelyCompanyLine(value: string) {
   const line = value.trim()
