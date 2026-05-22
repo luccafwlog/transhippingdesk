@@ -285,8 +285,9 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
   const colPod = findCarrierColumnIndex(headerRow, ['pod', 'port of discharge', 'disch port'])
   const colDescription = findCarrierColumnIndex(headerRow, ['description of goods', 'description', 'decription'])
   const colQty = findCarrierColumnIndex(headerRow, ['number of pieces', 'quantity', 'pkg', 'packages'])
-  const colWeight = findCarrierColumnIndex(headerRow, ['gross weight', 'g.w(kgs)', 'gross weight(kgs)'])
-  const colCbm = findCarrierColumnIndex(headerRow, ['measurement', 'cbm'])
+  const colWeight = findCarrierColumnIndex(headerRow, ['gross weight', 'g.w(kgs)', 'gross weight(kgs)', 'weight (kgs)'])
+  const colCbm = findCarrierColumnIndex(headerRow, ['measurement', 'cbm', 'cube (cbm)'])
+  const colMarks = findCarrierColumnIndex(headerRow, ['marks', 'marks and numbers'])
   const colShipper = findCarrierColumnIndex(headerRow, ['shipper'])
   const colConsignee = findCarrierColumnIndex(headerRow, ['consignee'])
   const colNotify = findCarrierColumnIndex(headerRow, ['notify', 'notify party'])
@@ -295,7 +296,8 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
   let currentPol = inferPortFromText(previewText, 'pol') ?? ''
   let currentPod = inferPortFromText(previewText, 'pod') ?? ''
 
-  rawRows.forEach((row, index) => {
+  for (let index = 0; index < rawRows.length; index += 1) {
+    const row = rawRows[index] ?? []
     const col0 = asString(row[0])
     const col2 = asString(row[2])
     const col4 = asString(row[4])
@@ -315,21 +317,38 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
       if (normalized.includes('vitoria')) currentPod = 'BRVIX'
       if (normalized.includes('salvador')) currentPod = 'BRSSA'
     }
-    if (index <= headerRowIndex) return
+    if (index <= headerRowIndex) continue
 
-    if (!looksLikeCarrierBreakbulkBl(candidateBl)) return
+    if (!looksLikeCarrierBreakbulkBl(candidateBl)) continue
 
-    const descriptionBlock = asString(colDescription >= 0 ? row[colDescription] : row[3])
-    const partiesBlock = asString(row[6])
-    const grossWeightKg = parseNumber(colWeight >= 0 ? row[colWeight] : row[11]) ?? 0
-    const cbm = parseNumber(colCbm >= 0 ? row[colCbm] : row[13]) ?? 0
-    const packageInfo = parseCarrierPackageInfo(descriptionBlock, colQty >= 0 ? row[colQty] : null)
+    const groupRows = collectCarrierBlRows(rawRows, index, colBl)
+    index += groupRows.length - 1
+
+    const descriptionBlock = firstStringFromColumn(groupRows, colDescription >= 0 ? colDescription : 3)
+    const grossWeightKg =
+      firstNumberFromColumn(groupRows, colWeight) ?? findNumberBeforeUnit(groupRows, /^KGS?$/i) ?? 0
+    const cbm = firstNumberFromColumn(groupRows, colCbm) ?? findNumberBeforeUnit(groupRows, /^CBMS?$/i) ?? 0
+    const packageInfo = parseCarrierPackageInfo(descriptionBlock, firstValueFromColumn(groupRows, colQty))
     const itemDescription = normalizeCarrierBreakbulkDescription(descriptionBlock)
-    const partiesFromBlock = parseCarrierBreakbulkParties(partiesBlock)
-    const shipper = asString(colShipper >= 0 ? row[colShipper] : '') || partiesFromBlock.shipper
-    const consignee = asString(colConsignee >= 0 ? row[colConsignee] : '') || partiesFromBlock.consignee
-    const notifyParty = asString(colNotify >= 0 ? row[colNotify] : '') || partiesFromBlock.notifyParty
-    const cnpj = extractTaxId(consignee) || partiesFromBlock.cnpj
+    const splitParties = parseCarrierSplitPartyRows(groupRows)
+    const combinedParties = parseCarrierCombinedParties(asString(row[0]))
+    const partiesFromBlock = parseCarrierBreakbulkParties([asString(row[0]), asString(row[6])].join('\n'))
+    const shipper =
+      asString(colShipper >= 0 ? row[colShipper] : '') ||
+      splitParties.shipper ||
+      combinedParties.shipper ||
+      partiesFromBlock.shipper
+    const consignee =
+      asString(colConsignee >= 0 ? row[colConsignee] : '') ||
+      splitParties.consignee ||
+      combinedParties.consignee ||
+      partiesFromBlock.consignee
+    const notifyParty =
+      asString(colNotify >= 0 ? row[colNotify] : '') ||
+      splitParties.notifyParty ||
+      combinedParties.notifyParty ||
+      partiesFromBlock.notifyParty
+    const cnpj = extractTaxId(consignee) || splitParties.cnpj || combinedParties.cnpj || partiesFromBlock.cnpj
 
     if (!consignee) {
       rowErrors.push({
@@ -362,11 +381,11 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
           package_unit: packageInfo.unit,
           gross_weight_kg: grossWeightKg,
           cbm,
-          marks: asNullableString(row[1]),
+          marks: asNullableString(colMarks >= 0 ? row[colMarks] : row[1]),
         },
       ],
     })
-  })
+  }
 
   return {
     layout: 'carrier',
@@ -579,10 +598,16 @@ function detectLayout(rawHeaders: string[]): BreakbulkLayout {
 
 function looksLikeCarrierBreakbulk(rows: (string | number | null)[][]) {
   const joined = rows.slice(0, 40).map((row) => row.map((cell) => asString(cell)).join(' '))
-  return (
-    joined.some((row) => /(EXPORT|CARGO)\s+MANIFEST/i.test(row)) &&
-    rows.slice(0, 50).some((row) => isCarrierHeaderRow(row))
-  )
+  const headerRow = rows.slice(0, 50).find((row) => isCarrierHeaderRow(row))
+  if (!headerRow) return false
+
+  const normalizedHeader = headerRow.map((cell) => normalizeHeader(asString(cell)))
+  const hasCarrierColumns =
+    normalizedHeader.some((cell) => ['pod', 'port of discharge', 'disch port'].includes(cell)) ||
+    normalizedHeader.some((cell) => ['description of goods', 'description', 'decription'].includes(cell)) ||
+    normalizedHeader.some((cell) => ['g.w(kgs)', 'gross weight', 'gross weight(kgs)'].includes(cell))
+
+  return hasCarrierColumns || joined.some((row) => /\b((EXPORT|CARGO)\s+)?MANIFEST\b/i.test(row))
 }
 
 function normalizePortCode(value: string) {
@@ -617,6 +642,54 @@ function isCarrierHeaderRow(row: (string | number | null)[]) {
 function findCarrierColumnIndex(row: (string | number | null)[], candidates: string[]) {
   const normalizedCandidates = candidates.map((candidate) => normalizeHeader(candidate))
   return row.findIndex((cell) => normalizedCandidates.includes(normalizeHeader(asString(cell))))
+}
+
+function collectCarrierBlRows(rawRows: (string | number | null)[][], startIndex: number, colBl: number) {
+  const rows = [rawRows[startIndex] ?? []]
+
+  for (let index = startIndex + 1; index < rawRows.length; index += 1) {
+    const row = rawRows[index] ?? []
+    const candidateBl = asString(colBl >= 0 ? row[colBl] : row[0])
+    const joined = row.map((cell) => asString(cell)).join(' ')
+
+    if (looksLikeCarrierBreakbulkBl(candidateBl) || /^\s*(TOTAL|MASTER OF MV)\b/i.test(joined)) break
+    rows.push(row)
+  }
+
+  return rows
+}
+
+function firstValueFromColumn(rows: (string | number | null)[][], columnIndex: number) {
+  if (columnIndex < 0) return null
+  for (const row of rows) {
+    const value = row[columnIndex]
+    if (asString(value)) return value
+  }
+  return null
+}
+
+function firstStringFromColumn(rows: (string | number | null)[][], columnIndex: number) {
+  return asString(firstValueFromColumn(rows, columnIndex))
+}
+
+function firstNumberFromColumn(rows: (string | number | null)[][], columnIndex: number) {
+  if (columnIndex < 0) return null
+  for (const row of rows) {
+    const number = parseNumber(row[columnIndex]) ?? parseLeadingNumber(row[columnIndex])
+    if (number !== null) return number
+  }
+  return null
+}
+
+function findNumberBeforeUnit(rows: (string | number | null)[][], unitPattern: RegExp) {
+  for (const row of rows) {
+    for (let index = 1; index < row.length; index += 1) {
+      if (!unitPattern.test(asString(row[index]))) continue
+      const number = parseNumber(row[index - 1])
+      if (number !== null) return number
+    }
+  }
+  return null
 }
 
 function validateRequiredHeaders(rawHeaders: string[], layout: BreakbulkLayout) {
@@ -663,11 +736,67 @@ function normalizeHeader(value: string) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
+    .replace(/\s+/g, ' ')
     .toLowerCase()
 }
 
 function looksLikeCarrierBreakbulkBl(value: string) {
-  return /^[A-Z]{3,5}[A-Z0-9]{7,}$/.test(asString(value))
+  const text = asString(value).toUpperCase()
+  return /^(?=.*[A-Z])[A-Z0-9]{8,30}$/.test(text)
+}
+
+function parseCarrierSplitPartyRows(rows: (string | number | null)[][]) {
+  const parties = {
+    shipper: '',
+    consignee: '',
+    notifyParty: '',
+    cnpj: '',
+  }
+
+  for (const row of rows) {
+    const marker = normalizeHeader(asString(row[1])).replace(/:$/, '')
+    const value = asString(row[2])
+    if (!value) continue
+
+    if (marker === 'sh') parties.shipper = value
+    if (marker === 'cn' || marker === 'co') parties.consignee = value
+    if (marker === 'np' || marker === 'nf') parties.notifyParty = value
+  }
+
+  parties.cnpj = extractTaxId(parties.consignee)
+  return parties
+}
+
+function parseCarrierCombinedParties(value: string) {
+  const sections = {
+    shipper: extractCarrierPartySection(value, /Shipper\s*\(SH\)/i, /Consignee\s*\(CO\)/i),
+    consignee: extractCarrierPartySection(value, /Consignee\s*\(CO\)/i, /Notify Address\s*\(NF\)/i),
+    notifyParty: extractCarrierPartySection(value, /Notify Address\s*\(NF\)/i),
+  }
+
+  return {
+    ...sections,
+    cnpj: extractTaxId(sections.consignee),
+  }
+}
+
+function extractCarrierPartySection(value: string, startPattern: RegExp, endPattern?: RegExp) {
+  const startMatch = startPattern.exec(value)
+  if (!startMatch) return ''
+
+  const startIndex = startMatch.index + startMatch[0].length
+  const rest = value.slice(startIndex)
+  const endMatch = endPattern?.exec(rest)
+  const section = (endMatch ? rest.slice(0, endMatch.index) : rest).trim()
+  return firstMeaningfulPartyLine(section) || section
+}
+
+function firstMeaningfulPartyLine(value: string) {
+  return value
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .find((line) => !/^(SAME AS CONSIGNEE|CNPJ[:\s]|TAX ID[:\s]|TEL[:\s]|PHONE[:\s]|FAX[:\s]|EMAIL[:\s]|E-MAIL[:\s])/i.test(line)) ?? ''
 }
 
 function parseCarrierBreakbulkParties(value: string) {
@@ -704,7 +833,7 @@ function parseCarrierBreakbulkParties(value: string) {
 }
 
 function parseCarrierPackageInfo(value: string, explicitQty: unknown) {
-  const explicit = parseNumber(explicitQty)
+  const explicit = parseNumber(explicitQty) ?? parseLeadingNumber(explicitQty)
   if (explicit !== null && explicit >= 0) {
     return {
       quantity: explicit,
@@ -722,6 +851,13 @@ function parseCarrierPackageInfo(value: string, explicitQty: unknown) {
     quantity: match ? Number(match[1]) : null,
     unit: match ? match[2].trim().toUpperCase() : null,
   }
+}
+
+function parseLeadingNumber(value: unknown) {
+  const text = asString(value)
+  const match = text.match(/^(\d+(?:[.,]\d+)?)/)
+  if (!match) return null
+  return parseNumber(match[1])
 }
 
 function normalizeCarrierBreakbulkDescription(value: string) {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { parseBreakbulkManifestBuffer } from '../breakbulkImport'
-import { jsonToBuffer } from './testWorkbook'
+import { aoaToBuffer, jsonToBuffer } from './testWorkbook'
 
 // breakbulkImport importa customerReconciliation que importa supabase — mock necessário para
 // testes de parser que não usam o banco.
@@ -102,5 +102,109 @@ describe('breakbulkImport', () => {
     expect(bl?.total_weight_kg).toBe(99700)
     expect(bl?.total_cbm).toBeCloseTo(393.35)
     expect(bl?.cnpj_cpf).toBe('12116971001071')
+  })
+
+  it('parseia carrier TAICANG com partes em linhas SH/CN/NP', async () => {
+    const buffer = aoaToBuffer([
+      ['EXPORT CARGO MANIFEST'],
+      ['LOADING PORT:', 'TAICANG, CHINA', '', 'DISCH PORT:', 'VITORIA, BRAZIL'],
+      ['B/L NO.', 'SHIPPER/CONSIGNEE/NOTIFY PARTY', '', '', 'MARKS', 'DESCRIPTION OF GOODS', '', '', 'NUMBER OF PIECES', '', 'GROSS WEIGHT'],
+      [
+        'GRI011TCVIT101',
+        'SH:',
+        'SANY SOUTH EAST ASIA PTE LTD\nHUP HIN BUILDING',
+        '',
+        'SANY DO BRASIL',
+        '16 PACKAGES\n8 UNITS SANY HYDRAULIC EXCAVATOR SY215H',
+        '',
+        '',
+        16,
+        'PACKAGES',
+        175440,
+        'KGS',
+      ],
+      ['', 'CN:', 'COMEXPORT TRADING COMERCIO EXTERIOR LTDA - CNPJ: 01.135.153/0006-13', '', '', '', '', '', '', '', 794.761, 'CBMS'],
+      ['', 'NP:', 'SANY IMPORTACAO E EXPORTACAO DA AMERICA DO SUL LTDA - CNPJ: 09.066.194/0002-83'],
+    ])
+
+    const manifest = await parseBreakbulkManifestBuffer(buffer)
+    const bl = manifest.bls[0]
+
+    expect(manifest.layout).toBe('carrier')
+    expect(manifest.rowErrors).toHaveLength(0)
+    expect(bl?.bl_id).toBe('GRI011TCVIT101')
+    expect(bl?.shipper).toContain('SANY SOUTH EAST ASIA')
+    expect(bl?.consignee).toContain('COMEXPORT TRADING')
+    expect(bl?.notify_party).toContain('SANY IMPORTACAO')
+    expect(bl?.cnpj_cpf).toBe('01135153000613')
+    expect(bl?.pol).toBe('CNTAC')
+    expect(bl?.pod).toBe('BRVIX')
+    expect(bl?.total_weight_kg).toBe(175440)
+    expect(bl?.total_cbm).toBeCloseTo(794.761)
+  })
+
+  it('parseia carrier SYSTEM MANIFEST com partes em celula combinada', async () => {
+    const buffer = aoaToBuffer([
+      ['MANIFEST'],
+      ['PORT OF LOADING:ZHANGJIAGANG, CN', 'PORT OF DISCHARGE:VITORIA, BR'],
+      ['Shippers (SH); Consignee (CO); Notify Address (NF)', 'B/L Nr.', 'Marks and Numbers', 'Quantity', 'Description', 'Gross Weight', 'Measurement'],
+      [
+        'Shipper (SH)\nSANY SOUTH EAST ASIA PTE LTD\nConsignee (CO)\nTIMBRO TRADING S.A\nCNPJ: 12.116.971/0010-71\nNotify Address (NF)\nSANY IMPORTACAO E EXPORTACAO DA AMERICA DO SUL LTDA',
+        'GSAL08ZJGVIT02C',
+        'SANY DO BRASIL',
+        '30PKGS',
+        '30 packages\n10 UNIT SANY HYDRAULIC EXCAVATOR SY135C',
+        '136873KGS',
+        '614.313CBM',
+      ],
+    ])
+
+    const manifest = await parseBreakbulkManifestBuffer(buffer)
+    const bl = manifest.bls[0]
+
+    expect(manifest.layout).toBe('carrier')
+    expect(manifest.rowErrors).toHaveLength(0)
+    expect(bl?.bl_id).toBe('GSAL08ZJGVIT02C')
+    expect(bl?.shipper).toBe('SANY SOUTH EAST ASIA PTE LTD')
+    expect(bl?.consignee).toBe('TIMBRO TRADING S.A')
+    expect(bl?.cnpj_cpf).toBe('12116971001071')
+    expect(bl?.bb_packages_qty).toBe(30)
+    expect(bl?.total_weight_kg).toBe(136873)
+    expect(bl?.total_cbm).toBeCloseTo(614.313)
+  })
+
+  it('parseia carrier ZJG com BL numerico e colunas deslocadas', async () => {
+    const buffer = aoaToBuffer([
+      ['CARGO MANIFEST'],
+      ['M.V. COSCO SHIPPING WISDOM', '', 'FROM: ZHANGJIAGANG'],
+      ['B/L NO.', 'POD', 'DECRIPTION', '', '', '', 'Pkg', 'G.W(KGS)', 'CBM', 'SHIPPER', '', 'CONSIGNEE', '', 'NOTIFY'],
+      [
+        '4514V20ZJGRIO01',
+        'RIO DE JANEIRO ,BRAZIL',
+        'STUDLESS ANCHOR CHAIN CABLE',
+        '',
+        '',
+        '',
+        '75BE',
+        '3156820.0',
+        '1063.89',
+        'BESTLINK TRANSPORT LOGISTIC CO.,LTD.',
+        '',
+        'ALICAM SERVICOS ADUARNEIROS',
+        '',
+        'SAME AS CONSIGNEE',
+      ],
+    ])
+
+    const manifest = await parseBreakbulkManifestBuffer(buffer)
+    const bl = manifest.bls[0]
+
+    expect(manifest.layout).toBe('carrier')
+    expect(manifest.rowErrors).toHaveLength(0)
+    expect(bl?.bl_id).toBe('4514V20ZJGRIO01')
+    expect(bl?.consignee).toBe('ALICAM SERVICOS ADUARNEIROS')
+    expect(bl?.bb_packages_qty).toBe(75)
+    expect(bl?.total_weight_kg).toBe(3156820)
+    expect(bl?.total_cbm).toBeCloseTo(1063.89)
   })
 })
