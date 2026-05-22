@@ -10,22 +10,20 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
+import { calculateDemurrage } from '../services/demurrage/demurrageRates'
+import { listDemurrageContainers, updateContainerDates } from '../services/demurrage/demurrageContainers'
 import {
-  calculateDemurrage,
   cancelDemurrageInvoice,
   createInvoiceForBL,
-  fetchDemurrageKPIs,
-  fetchROE,
   getInvoiceDetail,
   issueInvoice,
-  listDemurrageContainers,
   listDemurrageInvoices,
   markInvoicePaid,
   unissueInvoice,
   unmarkInvoicePaid,
-  updateContainerDates,
   updateDemurrageInvoice,
-} from '../services/demurrage'
+} from '../services/demurrage/demurrageInvoices'
+import { fetchDemurrageKPIs, fetchROE } from '../services/demurrage/demurrageKpis'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { formatDate } from '../lib/utils'
 

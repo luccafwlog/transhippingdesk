@@ -5,9 +5,9 @@ import {
   listBlLocalChargeLines,
   listManualChargeItemsForBl,
   listLocalChargePendencies,
-  listLocalChargeTables,
   markBlReadyForBilling,
-} from '../localCharges'
+} from '../charges/chargeOperationsService'
+import { listLocalChargeTables } from '../charges/chargeTableService'
 
 const { mockRpc, mockFrom } = vi.hoisted(() => ({
   mockRpc: vi.fn(),

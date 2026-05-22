@@ -1,0 +1,288 @@
+import { supabase } from '../supabase'
+import { ensureDemurrageRatesLoaded, calculateDemurrage } from './demurrageRates'
+import { buildTransshippingPixPayload } from '../../lib/pix'
+import type { DemurrageInvoice, DemurrageInvoiceItem } from '../../types/database'
+
+export type DemurrageInvoiceFilters = {
+  status?: DemurrageInvoice['status'] | null
+  customerId?: number | null
+  blId?: string | null
+  dateFrom?: string | null
+  dateTo?: string | null
+}
+
+export type DemurrageInvoiceListItem = DemurrageInvoice & {
+  customer?: { id: number; name: string; cnpj_cpf: string } | null
+  bl?: { id: string; pol: string | null; pod: string | null; voyage?: { id: number; voyage_number: string; vessel?: { id: number; name: string } | null } | null } | null
+}
+
+export type RoeSource = 'bcb_live' | 'cached' | 'manual'
+
+function nextBusinessDay(fromDate?: string): string {
+  const d = fromDate ? new Date(`${fromDate}T12:00:00`) : new Date()
+  d.setDate(d.getDate() + 1)
+  if (d.getDay() === 6) d.setDate(d.getDate() + 2)
+  else if (d.getDay() === 0) d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+function genDemurrageDocnum(blId: string): string {
+  const year = new Date().getFullYear()
+  const ts = Date.now().toString(36).slice(-4).toUpperCase()
+  const s = String(blId || '').toUpperCase()
+  let hash = 0
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash) + s.charCodeAt(i)
+    hash |= 0
+  }
+  const suffix = (Math.abs(hash) % 1000).toString().padStart(3, '0')
+  return `DEM-${year}-${ts}${suffix}`
+}
+
+export async function createInvoiceForBL(blId: string): Promise<number> {
+  await ensureDemurrageRatesLoaded()
+
+  const { data: bl, error: blErr } = await supabase
+    .from('bls')
+    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd, demurrage_roe_manual, demurrage_roe')
+    .eq('id', blId)
+    .single()
+  if (blErr) throw blErr
+  if (!bl.customer_id) throw new Error('BL não possui cliente vinculado')
+
+  const { data: containers, error: cErr } = await supabase
+    .from('bl_containers')
+    .select('id, container_number, type, discharge_date, return_date, demurrage_status')
+    .eq('bl_id', blId)
+    .eq('demurrage_status', 'overdue')
+  if (cErr) throw cErr
+  if (!containers?.length) throw new Error('Nenhum container em atraso para este BL')
+
+  const items = containers.map((c) => {
+    const calc = calculateDemurrage(c.type, c.discharge_date!, c.return_date!, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+    return { container: c, calc }
+  })
+
+  const total_usd = items.reduce((sum, i) => sum + i.calc.total_usd, 0)
+  const doc_number = genDemurrageDocnum(blId)
+  const due_date = nextBusinessDay()
+  const ready_at = containers.every((c) => c.return_date) ? containers.reduce((max, c) => (c.return_date! > max ? c.return_date! : max), containers[0].return_date!) : null
+
+  const { data: inv, error: invErr } = await supabase
+    .from('demurrage_invoices')
+    .insert({ doc_number, bl_id: blId, customer_id: bl.customer_id, total_usd, due_date, ready_at, roe_manual: bl.demurrage_roe_manual ?? false, roe: bl.demurrage_roe ?? null })
+    .select('id')
+    .single()
+  if (invErr) throw invErr
+
+  const itemRows = items.map(({ container: c, calc }) => ({
+    invoice_id: inv.id,
+    container_id: c.id,
+    container_number: c.container_number,
+    container_type: c.type ?? '',
+    discharge_date: c.discharge_date!,
+    return_date: c.return_date!,
+    total_days: calc.total_days,
+    free_days: calc.free_days,
+    days_p1: calc.days_p1,
+    rate_p1_usd: calc.rate_p1_usd,
+    days_p2: calc.days_p2,
+    rate_p2_usd: calc.rate_p2_usd,
+    subtotal_usd: calc.total_usd,
+  }))
+
+  const { error: itemErr } = await supabase.from('demurrage_invoice_items').insert(itemRows)
+  if (itemErr) throw itemErr
+
+  return inv.id
+}
+
+export async function createInvoiceForReturnedBL(blId: string): Promise<number | null> {
+  await ensureDemurrageRatesLoaded()
+
+  const { data: bl, error: blErr } = await supabase
+    .from('bls')
+    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd, demurrage_roe_manual, demurrage_roe')
+    .eq('id', blId)
+    .single()
+  if (blErr) throw blErr
+  if (!bl.customer_id) return null
+
+  const { data: containers, error: cErr } = await supabase
+    .from('bl_containers')
+    .select('id, container_number, type, discharge_date, return_date, demurrage_status')
+    .eq('bl_id', blId)
+    .eq('demurrage_status', 'returned')
+    .not('discharge_date', 'is', null)
+    .not('return_date', 'is', null)
+  if (cErr) throw cErr
+  if (!containers?.length) return null
+
+  const items = containers
+    .map((c) => {
+      const calc = calculateDemurrage(c.type, c.discharge_date!, c.return_date!, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+      return { container: c, calc }
+    })
+    .filter((i) => i.calc.total_usd > 0)
+
+  if (!items.length) return null
+
+  const total_usd = items.reduce((sum, i) => sum + i.calc.total_usd, 0)
+  const doc_number = genDemurrageDocnum(blId)
+  const due_date = nextBusinessDay()
+  const ready_at = containers.reduce((max, c) => (c.return_date! > max ? c.return_date! : max), containers[0].return_date!)
+
+  const { data: inv, error: invErr } = await supabase
+    .from('demurrage_invoices')
+    .insert({ doc_number, bl_id: blId, customer_id: bl.customer_id, total_usd, due_date, ready_at, roe_manual: bl.demurrage_roe_manual ?? false, roe: bl.demurrage_roe ?? null })
+    .select('id')
+    .single()
+  if (invErr) throw invErr
+
+  const itemRows = items.map(({ container: c, calc }) => ({
+    invoice_id: inv.id,
+    container_id: c.id,
+    container_number: c.container_number,
+    container_type: c.type ?? '',
+    discharge_date: c.discharge_date!,
+    return_date: c.return_date!,
+    total_days: calc.total_days,
+    free_days: calc.free_days,
+    days_p1: calc.days_p1,
+    rate_p1_usd: calc.rate_p1_usd,
+    days_p2: calc.days_p2,
+    rate_p2_usd: calc.rate_p2_usd,
+    subtotal_usd: calc.total_usd,
+  }))
+
+  const { error: itemErr } = await supabase.from('demurrage_invoice_items').insert(itemRows)
+  if (itemErr) throw itemErr
+
+  return inv.id
+}
+
+export async function issueInvoice(invoiceId: number, roe: number, roeSource: RoeSource = 'bcb_live'): Promise<void> {
+  const { data: inv, error: fetchErr } = await supabase
+    .from('demurrage_invoices')
+    .select('total_usd, discount_mode, discount_value, first_billed_at, doc_number')
+    .eq('id', invoiceId)
+    .single()
+  if (fetchErr) throw fetchErr
+
+  let totalBRL = inv.total_usd * roe
+  if (inv.discount_value && inv.discount_value > 0) {
+    if (inv.discount_mode === 'percent') totalBRL = totalBRL * (1 - inv.discount_value / 100)
+    else totalBRL = Math.max(0, totalBRL - inv.discount_value)
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const pix_payload = buildTransshippingPixPayload(parseFloat(totalBRL.toFixed(2)), inv.doc_number)
+
+  const { error } = await supabase.from('demurrage_invoices').update({
+    status: 'issued',
+    billed_at: today,
+    first_billed_at: inv.first_billed_at ?? today,
+    frozen_roe: roe,
+    frozen_total_brl: parseFloat(totalBRL.toFixed(2)),
+    roe_source: roeSource,
+    pix_payload,
+  }).eq('id', invoiceId)
+  if (error) throw error
+}
+
+export async function unissueInvoice(invoiceId: number): Promise<void> {
+  const { error } = await supabase.from('demurrage_invoices').update({
+    status: 'draft',
+    billed_at: null,
+    frozen_roe: null,
+    frozen_total_brl: null,
+    pix_payload: null,
+    due_date: nextBusinessDay(),
+  }).eq('id', invoiceId)
+  if (error) throw error
+}
+
+export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: number | null): Promise<void> {
+  const { data: inv, error: fetchErr } = await supabase
+    .from('demurrage_invoices')
+    .select('status, frozen_roe, frozen_total_brl, total_usd, discount_mode, discount_value, doc_number')
+    .eq('id', invoiceId)
+    .single()
+  if (fetchErr) throw fetchErr
+
+  if (inv.status !== 'issued' && inv.status !== 'overdue') {
+    throw new Error(`Fatura não pode ser marcada como paga no status atual: ${inv.status}`)
+  }
+
+  let frozenRoe = inv.frozen_roe
+  let frozenTotalBrl = inv.frozen_total_brl
+
+  if (frozenRoe == null && roe != null) {
+    frozenRoe = roe
+    let totalBRL = (inv.total_usd ?? 0) * roe
+    if (inv.discount_value && inv.discount_value > 0) {
+      if (inv.discount_mode === 'percent') totalBRL = totalBRL * (1 - Math.min(100, inv.discount_value) / 100)
+      else totalBRL = Math.max(0, totalBRL - inv.discount_value)
+    }
+    frozenTotalBrl = parseFloat(totalBRL.toFixed(2))
+  }
+
+  const pix_payload = frozenTotalBrl && inv.doc_number ? buildTransshippingPixPayload(frozenTotalBrl, inv.doc_number) : undefined
+
+  const { error } = await supabase.from('demurrage_invoices').update({
+    status: 'paid',
+    paid_at: paidAt,
+    frozen_roe: frozenRoe,
+    frozen_total_brl: frozenTotalBrl,
+    ...(pix_payload ? { pix_payload } : {}),
+  }).eq('id', invoiceId)
+  if (error) throw error
+}
+
+export async function unmarkInvoicePaid(invoiceId: number): Promise<void> {
+  const { error } = await supabase.from('demurrage_invoices').update({
+    status: 'issued',
+    paid_at: null,
+  }).eq('id', invoiceId)
+  if (error) throw error
+}
+
+export async function cancelDemurrageInvoice(invoiceId: number): Promise<void> {
+  const { error } = await supabase.from('demurrage_invoices').update({ status: 'cancelled' }).eq('id', invoiceId)
+  if (error) throw error
+}
+
+export async function listDemurrageInvoices(filters?: DemurrageInvoiceFilters): Promise<DemurrageInvoiceListItem[]> {
+  let query = supabase
+    .from('demurrage_invoices')
+    .select(`*, customer:customers(id,name,cnpj_cpf), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`)
+    .order('created_at', { ascending: false })
+
+  if (filters?.status) query = query.eq('status', filters.status)
+  if (filters?.customerId) query = query.eq('customer_id', filters.customerId)
+  if (filters?.blId) query = query.eq('bl_id', filters.blId)
+  if (filters?.dateFrom) query = query.gte('doc_date', filters.dateFrom)
+  if (filters?.dateTo) query = query.lte('doc_date', filters.dateTo)
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as unknown as DemurrageInvoiceListItem[]
+}
+
+export async function getInvoiceDetail(invoiceId: number) {
+  const [invRes, itemsRes] = await Promise.all([
+    supabase.from('demurrage_invoices').select(`*, customer:customers(id,name,cnpj_cpf), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`).eq('id', invoiceId).single(),
+    supabase.from('demurrage_invoice_items').select('*').eq('invoice_id', invoiceId).order('container_number'),
+  ])
+  if (invRes.error) throw invRes.error
+  if (itemsRes.error) throw itemsRes.error
+  return {
+    invoice: invRes.data as unknown as DemurrageInvoiceListItem,
+    items: (itemsRes.data ?? []) as unknown as DemurrageInvoiceItem[],
+  }
+}
+
+export async function updateDemurrageInvoice(invoiceId: number, patch: Partial<Pick<DemurrageInvoice, 'discount_type' | 'discount_value' | 'discount_mode' | 'discount_justification' | 'discount_approver' | 'dispute_open' | 'dispute_subject' | 'dispute_reason' | 'dispute_status' | 'dispute_notes' | 'notes' | 'due_date' | 'roe' | 'roe_manual'>>): Promise<void> {
+  const { error } = await supabase.from('demurrage_invoices').update(patch).eq('id', invoiceId)
+  if (error) throw error
+}

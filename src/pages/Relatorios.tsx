@@ -17,7 +17,7 @@ import {
   type OperationalReportFilters,
   type ReportFilters,
 } from '../services/reports'
-import { listDemurrageInvoices } from '../services/demurrage'
+import { listDemurrageInvoices } from '../services/demurrage/demurrageInvoices'
 
 type ReportTab = 'operacional' | 'financeiro' | 'clientes' | 'demurrage'
 

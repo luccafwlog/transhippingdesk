@@ -9,7 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import type { DemurrageRate } from '../types/database'
-import { invalidateDemurrageRatesCache } from '../services/demurrage'
+import { invalidateDemurrageRatesCache } from '../services/demurrage/demurrageRates'
 import { supabase } from '../services/supabase'
 
 type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at'>

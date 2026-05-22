@@ -1,36 +1,43 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../services/queryKeys'
 import {
   addManualBlCharge,
-  approveCustomerReconciliation,
   calculateLocalChargesBatch,
   getBillingRunDetails,
   listLocalChargeOperationalRows,
   listBillingRuns,
-  listCustomerReconciliationQueue,
-  deleteChargeTableItem,
   deleteManualBlCharge,
   markLocalChargesReadyBatch,
   markLocalChargesReviewedBatch,
   listManualChargeItemsForBl,
   markBlChargesReviewed,
   markBlReadyForBilling,
+  listBlLocalChargeLines,
+  updateManualBlCharge,
+} from '../services/charges/chargeOperationsService'
+import {
+  deleteChargeTableItem,
+  listLocalChargeTables,
   saveChargeTable,
   saveChargeTableItem,
   setChargeTableActive,
+} from '../services/charges/chargeTableService'
+import {
   deleteCustomerRateOverride,
-  listBlLocalChargeLines,
   listCustomerRateOverrides,
   listOverrideChargeItems,
   listOverrideCustomers,
-  listLocalChargeTables,
   saveCustomerRateOverride,
+} from '../services/charges/chargeRateService'
+import {
+  approveCustomerReconciliation,
+  listCustomerReconciliationQueue,
   rejectCustomerReconciliation,
-  updateManualBlCharge,
-} from '../services/localCharges'
+} from '../services/charges/chargeReconciliationService'
 
 export function useBlLocalChargeLines(blId?: string) {
   return useQuery({
-    queryKey: ['bl-local-charge-lines', blId],
+    queryKey: queryKeys.bls.localChargeLines(blId ?? ''),
     enabled: Boolean(blId),
     queryFn: () => listBlLocalChargeLines(blId!),
   })
@@ -38,7 +45,7 @@ export function useBlLocalChargeLines(blId?: string) {
 
 export function useManualChargeItemsForBl(blId?: string) {
   return useQuery({
-    queryKey: ['manual-charge-items', blId],
+    queryKey: queryKeys.bls.manualChargeItems(blId ?? ''),
     enabled: Boolean(blId),
     queryFn: () => listManualChargeItemsForBl(blId!),
   })
@@ -52,11 +59,11 @@ export function useAddManualBlCharge(blId?: string) {
       addManualBlCharge(blId!, payload),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
       ])
     },
   })
@@ -74,10 +81,10 @@ export function useUpdateManualBlCharge(blId?: string) {
       }),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
       ])
     },
   })
@@ -91,10 +98,10 @@ export function useDeleteManualBlCharge(blId?: string) {
       deleteManualBlCharge(payload.chargeCalculationId, payload.actorId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
       ])
     },
   })
@@ -107,11 +114,11 @@ export function useMarkBlChargesReviewed(blId?: string) {
     mutationFn: async (payload?: { actorId?: string | null }) => markBlChargesReviewed(blId!, payload?.actorId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
       ])
     },
   })
@@ -124,12 +131,12 @@ export function useMarkBlReadyForBilling(blId?: string) {
     mutationFn: async (payload?: { actorId?: string | null }) => markBlReadyForBilling(blId!, payload?.actorId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
       ])
     },
   })
@@ -137,7 +144,7 @@ export function useMarkBlReadyForBilling(blId?: string) {
 
 export function useLocalChargeTables(filters?: { cargoMode?: '' | 'container' | 'carga_solta'; pod?: string }) {
   return useQuery({
-    queryKey: ['local-charge-tables', filters],
+    queryKey: queryKeys.charges.tables(filters),
     queryFn: () => listLocalChargeTables(filters),
   })
 }
@@ -148,7 +155,7 @@ export function useSaveChargeTable() {
   return useMutation({
     mutationFn: saveChargeTable,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.charges.tables() })
     },
   })
 }
@@ -159,7 +166,7 @@ export function useSetChargeTableActive() {
   return useMutation({
     mutationFn: ({ id, active }: { id: number; active: boolean }) => setChargeTableActive(id, active),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.charges.tables() })
     },
   })
 }
@@ -170,9 +177,11 @@ export function useSaveChargeTableItem() {
   return useMutation({
     mutationFn: saveChargeTableItem,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
-      await queryClient.invalidateQueries({ queryKey: ['manual-charge-items'] })
-      await queryClient.invalidateQueries({ queryKey: ['local-charge-override-items'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.tables() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.manualChargeItems('') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.overrideItems() }),
+      ])
     },
   })
 }
@@ -183,9 +192,11 @@ export function useDeleteChargeTableItem() {
   return useMutation({
     mutationFn: deleteChargeTableItem,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['local-charge-tables'] })
-      await queryClient.invalidateQueries({ queryKey: ['manual-charge-items'] })
-      await queryClient.invalidateQueries({ queryKey: ['local-charge-override-items'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.tables() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.manualChargeItems('') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.overrideItems() }),
+      ])
     },
   })
 }
@@ -199,21 +210,21 @@ export function useLocalChargeOperations(filters?: {
   limit?: number
 }) {
   return useQuery({
-    queryKey: ['local-charge-operations', filters],
+    queryKey: queryKeys.charges.operations(filters),
     queryFn: () => listLocalChargeOperationalRows(filters),
   })
 }
 
 export function useBillingRuns(limit = 50) {
   return useQuery({
-    queryKey: ['billing-runs', limit],
+    queryKey: queryKeys.billingRuns.list(limit),
     queryFn: () => listBillingRuns(limit),
   })
 }
 
 export function useBillingRunDetails(billingRunId?: number | null) {
   return useQuery({
-    queryKey: ['billing-run-detail', billingRunId],
+    queryKey: queryKeys.billingRuns.detail(billingRunId),
     enabled: Boolean(billingRunId),
     queryFn: () => getBillingRunDetails(Number(billingRunId)),
   })
@@ -221,7 +232,7 @@ export function useBillingRunDetails(billingRunId?: number | null) {
 
 export function useCustomerReconciliationQueue(status?: '' | 'pending' | 'approved' | 'rejected', limit = 200) {
   return useQuery({
-    queryKey: ['customer-reconciliation-queue', status, limit],
+    queryKey: queryKeys.reconciliation.queue(status, limit),
     queryFn: () => listCustomerReconciliationQueue(status, limit),
   })
 }
@@ -233,21 +244,21 @@ export function useCustomerRateOverrides(filters?: {
   limit?: number
 }) {
   return useQuery({
-    queryKey: ['local-charge-overrides', filters],
+    queryKey: queryKeys.charges.overrides(filters),
     queryFn: () => listCustomerRateOverrides(filters),
   })
 }
 
 export function useOverrideChargeItems() {
   return useQuery({
-    queryKey: ['local-charge-override-items'],
+    queryKey: queryKeys.charges.overrideItems(),
     queryFn: () => listOverrideChargeItems(),
   })
 }
 
 export function useOverrideCustomers(search: string) {
   return useQuery({
-    queryKey: ['local-charge-override-customers', search],
+    queryKey: queryKeys.charges.overrideCustomers(search),
     queryFn: () => listOverrideCustomers(search),
   })
 }
@@ -259,8 +270,8 @@ export function useSaveCustomerRateOverride() {
     mutationFn: saveCustomerRateOverride,
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['local-charge-overrides'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.overrides() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines('') }),
       ])
     },
   })
@@ -273,8 +284,8 @@ export function useDeleteCustomerRateOverride() {
     mutationFn: deleteCustomerRateOverride,
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['local-charge-overrides'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-local-charge-lines'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.overrides() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines('') }),
       ])
     },
   })
@@ -291,11 +302,11 @@ export function useBatchCalculateLocalCharges() {
       }),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail('') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
       ])
     },
   })
@@ -309,10 +320,10 @@ export function useBatchMarkLocalChargesReviewed() {
       markLocalChargesReviewedBatch(payload.blIds, payload.actorId ?? null),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail('') }),
       ])
     },
   })
@@ -326,11 +337,11 @@ export function useBatchMarkLocalChargesReady() {
       markLocalChargesReadyBatch(payload.blIds, payload.actorId ?? null),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail('') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
       ])
     },
   })
@@ -348,11 +359,11 @@ export function useApproveCustomerReconciliation() {
       }),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['customer-reconciliation-queue'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
-        queryClient.invalidateQueries({ queryKey: ['billing-runs'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.reconciliation.queue() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.billingRuns.list(50) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail('') }),
       ])
     },
   })
@@ -369,11 +380,11 @@ export function useRejectCustomerReconciliation() {
       }),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['customer-reconciliation-queue'] }),
-        queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] }),
-        queryClient.invalidateQueries({ queryKey: ['billing-runs'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.reconciliation.queue() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.billingRuns.list(50) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail('') }),
       ])
     },
   })
