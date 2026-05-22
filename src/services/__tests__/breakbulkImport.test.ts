@@ -283,4 +283,26 @@ describe('breakbulkImport', () => {
     expect(manifest.bls.find((bl) => bl.bl_id === 'ZJGTRUCK01')?.bb_machine_qty).toBe(3)
     expect(manifest.bls.find((bl) => bl.bl_id === 'ZJGUNITONLY01')?.bb_machine_qty).toBe(2)
   })
+
+  it('usa NCM de maquinas para contar identificadores de modelo', async () => {
+    const buffer = aoaToBuffer([
+      ['MANIFEST'],
+      ['PORT OF LOADING:ZHANGJIAGANG, CN', 'PORT OF DISCHARGE:VITORIA, BR'],
+      ['Shippers (SH); Consignee (CO); Notify Address (NF)', 'B/L Nr.', 'Marks and Numbers', 'Quantity', 'Description', 'Gross Weight', 'Measurement'],
+      [
+        'Shipper (SH)\nGOODRICH INTERNATIONAL FREIGHT FORWARDER\nConsignee (CO)\nAIR SEA -UNIVERSAL LOGISTICS SERVICES LTDA\nCNPJ 19.235.691/0001-30\nNotify Address (NF)\nSAME AS CONSIGNEE',
+        'GSAL08ZJGVIT01',
+        'N/M',
+        '9PKGS',
+        'TELESCOPIC BOOMS SX-135XC\nSX135D-346\nSX135D-342\nSX135D-347\nSX135D-345\nSX135D-344\nSX135D-343\nSX135D-348\nTELESCOPIC BOOMS SX-125XC\nSX125D-3021\nSX125D-3020\nNCM 8427',
+        '191091KGS',
+        '891.11CBM',
+      ],
+    ])
+
+    const manifest = await parseBreakbulkManifestBuffer(buffer)
+
+    expect(manifest.rowErrors).toHaveLength(0)
+    expect(manifest.bls[0]?.bb_machine_qty).toBe(9)
+  })
 })
