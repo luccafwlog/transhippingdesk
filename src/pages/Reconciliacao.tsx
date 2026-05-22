@@ -6,7 +6,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
-import { parsePixExtract } from '../services/demurrage'
+import { parsePixExtract } from '../services/demurrage/demurrageKpis'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../services/reconciliacao'
 import type { UnifiedPixMatch } from '../services/reconciliacao'
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Boxes, ChevronDown, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Field, Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -12,16 +12,15 @@ import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { useVaziosImportacaoStats, type VoyageVaziosImportacaoStat } from '../hooks/useVaziosImportacaoStats'
+import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
-import { deleteVoyage, fetchVoyagesWithUnpaidBls } from '../services/voyages'
+import { deleteVoyage } from '../services/voyages'
 import {
   buildVoyagePodEntityId,
   buildVoyagePolEntityId,
   getEditableVoyagePodCeStatus,
   getVoyagePodCeStatusLabel,
-  listVoyagePodSchedulesByVoyageIds,
-  listVoyagePolSchedules,
   POD_CE_STATUS_OPTIONS,
   saveVoyagePolSchedule,
   saveVoyagePodSchedule,
@@ -29,7 +28,6 @@ import {
   type VoyagePodCeStatus,
 } from '../services/voyageRouteSchedules'
 import {
-  fetchExportSchedulesByVoyageIds,
   saveVoyageExportSchedule,
   deleteVoyageExportSchedule,
   type VoyageExportSchedule,
@@ -126,12 +124,8 @@ export function Viagens() {
   const filteredVoyageIds = useMemo(() => filteredVoyages.map((voyage) => voyage.id), [filteredVoyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(filteredVoyageIds)
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(filteredVoyageIds)
-  const { data: voyagesWithUnpaidBls } = useQuery({
-    queryKey: ['voyage-billing-status', filteredVoyageIds],
-    enabled: filteredVoyageIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-    queryFn: () => fetchVoyagesWithUnpaidBls(filteredVoyageIds),
-  })
+  const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, exportSchedulesData } =
+    useViagemSchedulesAndStats(filteredVoyageIds, polEntityIds)
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
   const moduleStatsByVoyage = useMemo(
@@ -147,25 +141,6 @@ export function Viagens() {
       ),
     [filteredVoyages],
   )
-
-  const { data: polSchedules } = useQuery({
-    queryKey: ['voyage-pol-schedules', polEntityIds],
-    enabled: polEntityIds.length > 0,
-    queryFn: () => listVoyagePolSchedules(polEntityIds),
-  })
-
-  const { data: podSchedules } = useQuery({
-    queryKey: ['voyage-pod-schedules', filteredVoyageIds],
-    enabled: filteredVoyageIds.length > 0,
-    queryFn: () => listVoyagePodSchedulesByVoyageIds(filteredVoyageIds),
-  })
-  const podSchedulesByVoyage = useMemo(() => groupPodSchedulesByVoyageId(podSchedules), [podSchedules])
-
-  const { data: exportSchedulesData } = useQuery({
-    queryKey: ['voyage-export-schedules', filteredVoyageIds],
-    enabled: filteredVoyageIds.length > 0,
-    queryFn: () => fetchExportSchedulesByVoyageIds(filteredVoyageIds),
-  })
   const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
 
   function toggleVoyageSection(voyageId: number, section: VoyageSectionKey) {
@@ -1744,47 +1719,6 @@ function summarizeOccurrences<T>(
     .join(' | ')
 }
 
-function groupPodSchedulesByVoyageId(
-  schedules:
-    | Map<
-        string,
-        {
-          voyageId: number
-          pod: string
-          eta: string | null
-          etb: string | null
-          ata: string | null
-          atd: string | null
-          rtw: number | null
-          ceStatus: VoyagePodCeStatus | null
-          linked: boolean | null
-        }
-      >
-    | undefined,
-) {
-  const grouped = new Map<
-    number,
-    Array<{
-      voyageId: number
-      pod: string
-      eta: string | null
-      etb: string | null
-      ata: string | null
-      atd: string | null
-      rtw: number | null
-      ceStatus: VoyagePodCeStatus | null
-      linked: boolean | null
-    }>
-  >()
-
-  for (const schedule of schedules?.values() ?? []) {
-    const current = grouped.get(schedule.voyageId) ?? []
-    current.push(schedule)
-    grouped.set(schedule.voyageId, current)
-  }
-
-  return grouped
-}
 
 function makeVoyageInitialValues(
   voyage:

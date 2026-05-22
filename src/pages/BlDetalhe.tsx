@@ -29,7 +29,8 @@ import { createInvoiceFromBls } from '../services/billing'
 import { createCustomer } from '../services/customers'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { supabase } from '../services/supabase'
-import { calculateDemurrage, updateContainerReturnDate } from '../services/demurrage'
+import { calculateDemurrage } from '../services/demurrage/demurrageRates'
+import { updateContainerReturnDate } from '../services/demurrage/demurrageContainers'
 import type { BL, BLDetail } from '../types/database'
 
 const editableFields: (keyof Pick<
