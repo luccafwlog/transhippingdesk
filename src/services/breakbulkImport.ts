@@ -279,44 +279,76 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
   const rowErrors: ParsedBreakbulkManifest['rowErrors'] = []
   const bls: BreakbulkImportRow[] = []
 
-  let currentPol = ''
-  let currentPod = ''
+  const headerRowIndex = rawRows.findIndex((row) => isCarrierHeaderRow(row))
+  const headerRow = headerRowIndex >= 0 ? rawRows[headerRowIndex] : []
+  const colBl = findCarrierColumnIndex(headerRow, ['bl no.', 'b/l no.', 'b/l nr.', 'b/l nr'])
+  const colPod = findCarrierColumnIndex(headerRow, ['pod', 'port of discharge', 'disch port'])
+  const colDescription = findCarrierColumnIndex(headerRow, ['description of goods', 'description', 'decription'])
+  const colQty = findCarrierColumnIndex(headerRow, ['number of pieces', 'quantity', 'pkg', 'packages'])
+  const colWeight = findCarrierColumnIndex(headerRow, ['gross weight', 'g.w(kgs)', 'gross weight(kgs)'])
+  const colCbm = findCarrierColumnIndex(headerRow, ['measurement', 'cbm'])
+  const colShipper = findCarrierColumnIndex(headerRow, ['shipper'])
+  const colConsignee = findCarrierColumnIndex(headerRow, ['consignee'])
+  const colNotify = findCarrierColumnIndex(headerRow, ['notify', 'notify party'])
+
+  const previewText = rawRows.slice(0, 20).map((row) => row.map((cell) => asString(cell)).join(' ')).join(' ')
+  let currentPol = inferPortFromText(previewText, 'pol') ?? ''
+  let currentPod = inferPortFromText(previewText, 'pod') ?? ''
 
   rawRows.forEach((row, index) => {
     const col0 = asString(row[0])
     const col2 = asString(row[2])
     const col4 = asString(row[4])
+    const candidateBl = asString(colBl >= 0 ? row[colBl] : row[0])
 
-    if (/^POL\b/i.test(col2)) currentPol = col2.replace(/^POL\s+/i, '').trim()
-    if (/^POD\b/i.test(col4)) currentPod = col4.replace(/^POD\s+/i, '').trim()
+    if (/^POL\b/i.test(col2)) currentPol = normalizePortCode(col2.replace(/^POL\s+/i, '').trim()) || currentPol
+    if (/^POD\b/i.test(col4)) currentPod = normalizePortCode(col4.replace(/^POD\s+/i, '').trim()) || currentPod
+    if (/^LOADING PORT[:\s]/i.test(col0)) currentPol = normalizePortCode(col0.split(':').slice(1).join(':').trim()) || currentPol
+    if (/^PORT OF LOADING[:\s]/i.test(col0)) currentPol = normalizePortCode(col0.split(':').slice(1).join(':').trim()) || currentPol
+    if (/^DISCH PORT[:\s]/i.test(col0)) currentPod = normalizePortCode(col0.split(':').slice(1).join(':').trim()) || currentPod
+    if (/^PORT OF DISCHARGE[:\s]/i.test(col0)) currentPod = normalizePortCode(col0.split(':').slice(1).join(':').trim()) || currentPod
+    const joinedRow = row.map((cell) => asString(cell)).join(' ')
+    if (/LOADG\/DISCHARG PORT/i.test(joinedRow)) {
+      const normalized = normalizeHeader(joinedRow)
+      if (normalized.includes('taicang')) currentPol = 'CNTAC'
+      if (normalized.includes('zhangjiagang')) currentPol = 'CNZJG'
+      if (normalized.includes('vitoria')) currentPod = 'BRVIX'
+      if (normalized.includes('salvador')) currentPod = 'BRSSA'
+    }
+    if (index <= headerRowIndex) return
 
-    if (!looksLikeCarrierBreakbulkBl(col0)) return
+    if (!looksLikeCarrierBreakbulkBl(candidateBl)) return
 
-    const descriptionBlock = asString(row[3])
-    const parties = parseCarrierBreakbulkParties(asString(row[6]))
-    const grossWeightKg = parseNumber(row[11]) ?? 0
-    const cbm = parseNumber(row[13]) ?? 0
-    const packageInfo = parseCarrierPackageInfo(descriptionBlock)
+    const descriptionBlock = asString(colDescription >= 0 ? row[colDescription] : row[3])
+    const partiesBlock = asString(row[6])
+    const grossWeightKg = parseNumber(colWeight >= 0 ? row[colWeight] : row[11]) ?? 0
+    const cbm = parseNumber(colCbm >= 0 ? row[colCbm] : row[13]) ?? 0
+    const packageInfo = parseCarrierPackageInfo(descriptionBlock, colQty >= 0 ? row[colQty] : null)
     const itemDescription = normalizeCarrierBreakbulkDescription(descriptionBlock)
+    const partiesFromBlock = parseCarrierBreakbulkParties(partiesBlock)
+    const shipper = asString(colShipper >= 0 ? row[colShipper] : '') || partiesFromBlock.shipper
+    const consignee = asString(colConsignee >= 0 ? row[colConsignee] : '') || partiesFromBlock.consignee
+    const notifyParty = asString(colNotify >= 0 ? row[colNotify] : '') || partiesFromBlock.notifyParty
+    const cnpj = extractTaxId(consignee) || partiesFromBlock.cnpj
 
-    if (!parties.consignee) {
+    if (!consignee) {
       rowErrors.push({
         row: index + 1,
-        message: `Consignatario nao identificado para o BL ${col0}.`,
+        message: `Consignatario nao identificado para o BL ${candidateBl}.`,
         raw: row,
       })
     }
 
     bls.push({
       rowNumber: index + 1,
-      bl_id: col0,
+      bl_id: candidateBl,
       ce_mercante: null,
-      shipper: parties.shipper || null,
-      consignee: parties.consignee || 'CONSIGNATARIO NAO IDENTIFICADO',
-      notify_party: parties.notifyParty || null,
-      cnpj_cpf: parties.cnpj || null,
+      shipper: shipper || null,
+      consignee: consignee || 'CONSIGNATARIO NAO IDENTIFICADO',
+      notify_party: notifyParty || null,
+      cnpj_cpf: cnpj || null,
       pol: currentPol || null,
-      pod: currentPod || null,
+      pod: normalizePortCode(asString(colPod >= 0 ? row[colPod] : '')) || currentPod || null,
       bb_machine_qty: extractCarrierMachineQty(descriptionBlock),
       bb_packages_qty: packageInfo.quantity,
       bb_packages_total: packageInfo.quantity,
@@ -546,11 +578,45 @@ function detectLayout(rawHeaders: string[]): BreakbulkLayout {
 }
 
 function looksLikeCarrierBreakbulk(rows: (string | number | null)[][]) {
-  const joined = rows.slice(0, 20).map((row) => row.map((cell) => asString(cell)).join(' '))
+  const joined = rows.slice(0, 40).map((row) => row.map((cell) => asString(cell)).join(' '))
   return (
-    joined.some((row) => row.includes('EXPORT MANIFEST')) &&
-    rows.slice(0, 20).some((row) => asString(row[0]) === 'BL NO.')
+    joined.some((row) => /(EXPORT|CARGO)\s+MANIFEST/i.test(row)) &&
+    rows.slice(0, 50).some((row) => isCarrierHeaderRow(row))
   )
+}
+
+function normalizePortCode(value: string) {
+  const text = normalizeHeader(value)
+  if (!text) return null
+  if (/^[A-Z]{5}$/.test(value.trim().toUpperCase())) return value.trim().toUpperCase()
+  if (text.includes('taicang')) return 'CNTAC'
+  if (text.includes('zhangjiagang')) return 'CNZJG'
+  if (text.includes('vitoria')) return 'BRVIX'
+  if (text.includes('salvador')) return 'BRSSA'
+  return value.trim().toUpperCase() || null
+}
+
+function inferPortFromText(value: string, kind: 'pol' | 'pod') {
+  const text = normalizeHeader(value)
+  if (kind === 'pol') {
+    if (text.includes('taicang')) return 'CNTAC'
+    if (text.includes('zhangjiagang')) return 'CNZJG'
+  }
+  if (kind === 'pod') {
+    if (text.includes('vitoria')) return 'BRVIX'
+    if (text.includes('salvador')) return 'BRSSA'
+  }
+  return null
+}
+
+function isCarrierHeaderRow(row: (string | number | null)[]) {
+  const normalized = row.map((cell) => normalizeHeader(asString(cell)))
+  return normalized.some((cell) => ['bl no.', 'b/l no.', 'b/l nr.', 'b/l nr'].includes(cell))
+}
+
+function findCarrierColumnIndex(row: (string | number | null)[], candidates: string[]) {
+  const normalizedCandidates = candidates.map((candidate) => normalizeHeader(candidate))
+  return row.findIndex((cell) => normalizedCandidates.includes(normalizeHeader(asString(cell))))
 }
 
 function validateRequiredHeaders(rawHeaders: string[], layout: BreakbulkLayout) {
@@ -637,7 +703,15 @@ function parseCarrierBreakbulkParties(value: string) {
   }
 }
 
-function parseCarrierPackageInfo(value: string) {
+function parseCarrierPackageInfo(value: string, explicitQty: unknown) {
+  const explicit = parseNumber(explicitQty)
+  if (explicit !== null && explicit >= 0) {
+    return {
+      quantity: explicit,
+      unit: 'PACKAGES',
+    }
+  }
+
   const firstLine = value
     .split(/\r?\n/g)
     .map((line) => line.trim())
