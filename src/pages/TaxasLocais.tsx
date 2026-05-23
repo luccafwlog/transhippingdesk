@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Calculator, CheckCircle, CheckSquare, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Save, Square, Trash2, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -29,6 +30,9 @@ import {
 import { formatBRL, formatDate } from '../lib/utils'
 import { useVoyageOptions } from '../hooks/useBls'
 import { createInvoiceFromBls } from '../services/billing'
+import { calculateGraniteBlCharges } from '../services/graniteCharges'
+import { markGraniteBlReady } from '../services/charges/chargeOperationsService'
+import { queryKeys } from '../services/queryKeys'
 
 type LocalChargeTab = 'tabelas' | 'overrides' | 'pendencias'
 
@@ -45,7 +49,7 @@ type OverrideForm = {
 type ChargeTableForm = {
   id: number | null
   name: string
-  cargoMode: 'container' | 'carga_solta'
+  cargoMode: 'container' | 'carga_solta' | 'granito'
   pod: string
   validFrom: string
   validTo: string
@@ -69,7 +73,7 @@ type ChargeTableItemForm = {
 
 type LocalChargeOpsFilters = {
   search: string
-  cargoMode: '' | 'container' | 'carga_solta'
+  cargoMode: '' | 'container' | 'carga_solta' | 'granito'
   pod: string
   voyageId: string
   chargeStatus: '' | 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
@@ -113,13 +117,14 @@ const EMPTY_TABLE_ITEM_FORM: ChargeTableItemForm = {
 export function TaxasLocais() {
   const { user, can } = useAuth()
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const canManageTables = can('charge_tables')
   const canManageOverrides = can('charge_overrides')
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
   const [expandedTableId, setExpandedTableId] = useState<number | null>(null)
   const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
   const [reconciliationFilter, setReconciliationFilter] = useState(false)
-  const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta'>('')
+  const [cargoModeFilter, setCargoModeFilter] = useState<'' | 'container' | 'carga_solta' | 'granito'>('')
   const [podFilter, setPodFilter] = useState('')
   const [tableForm, setTableForm] = useState<ChargeTableForm>(EMPTY_TABLE_FORM)
   const [tableItemForm, setTableItemForm] = useState<ChargeTableItemForm>(EMPTY_TABLE_ITEM_FORM)
@@ -283,37 +288,60 @@ export function TaxasLocais() {
   }
 
   async function runBatchOperation(action: 'calculate' | 'recalculate' | 'review' | 'ready') {
-    const ids = selectedOpsRows
-    if (ids.length === 0) {
+    const allIds = selectedOpsRows
+    if (allIds.length === 0) {
       showToast('Selecione ao menos um B/L para executar acao em lote.', 'error')
       return
     }
 
+    // Roteia por cargo_mode: Granito usa motor proprio (graniteCharges); demais usam RPCs unificadas.
+    const cargoModeById = new Map((operationsRows ?? []).map((row) => [row.id, row.cargo_mode] as const))
+    const localIds = allIds.filter((id) => cargoModeById.get(id) !== 'granito')
+    const graniteIds = allIds.filter((id) => cargoModeById.get(id) === 'granito')
+
     try {
       const actorId = user?.id ?? null
-      const result =
-        action === 'calculate'
-          ? await batchCalculateMutation.mutateAsync({ blIds: ids, actorId, recalculate: false })
-          : action === 'recalculate'
-            ? await batchCalculateMutation.mutateAsync({ blIds: ids, actorId, recalculate: true })
-            : action === 'review'
-              ? await batchReviewedMutation.mutateAsync({ blIds: ids, actorId })
-              : await batchReadyMutation.mutateAsync({ blIds: ids, actorId })
+      const emptyResult = { total: 0, successCount: 0, errorCount: 0, errors: [] as Array<{ blId: string; message: string }> }
 
-      if (result.errorCount > 0) {
-        const firstError = result.errors[0]
-        showToast(
-          `Processamento parcial: ${result.successCount}/${result.total}. Primeiro erro em ${firstError.blId}: ${firstError.message}`,
-          'info',
-        )
-      } else {
-        showToast(`Processamento concluido para ${result.successCount} B/L(s).`, 'success')
+      let localResult = emptyResult
+      if (localIds.length > 0) {
+        localResult =
+          action === 'calculate'
+            ? await batchCalculateMutation.mutateAsync({ blIds: localIds, actorId, recalculate: false })
+            : action === 'recalculate'
+              ? await batchCalculateMutation.mutateAsync({ blIds: localIds, actorId, recalculate: true })
+              : action === 'review'
+                ? await batchReviewedMutation.mutateAsync({ blIds: localIds, actorId })
+                : await batchReadyMutation.mutateAsync({ blIds: localIds, actorId })
       }
 
-      // Auto-generate invoices for single-BL cases when marking ready for billing
-      if (action === 'ready' && result.successCount > 0) {
-        const failedIds = new Set(result.errors.map((e) => e.blId))
-        const readyBls = (operationsRows ?? []).filter((row) => ids.includes(row.id) && !failedIds.has(row.id))
+      const graniteResult = graniteIds.length > 0 ? await runGraniteBatch(graniteIds, action) : emptyResult
+
+      const total = localResult.total + graniteResult.total
+      const successCount = localResult.successCount + graniteResult.successCount
+      const errorCount = localResult.errorCount + graniteResult.errorCount
+      const firstError = [...localResult.errors, ...graniteResult.errors][0]
+
+      if (errorCount > 0 && firstError) {
+        showToast(
+          `Processamento parcial: ${successCount}/${total}. Primeiro erro em ${firstError.blId}: ${firstError.message}`,
+          'info',
+        )
+      } else if (total > 0) {
+        showToast(`Processamento concluido para ${successCount} B/L(s).`, 'success')
+      }
+
+      if (graniteResult.successCount > 0) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() })
+      }
+
+      // Geração automática de faturas só para B/Ls não-granito.
+      // Granito é faturado via /faturamento (já tem integração com create_invoice_from_granite_bls).
+      if (action === 'ready' && localResult.successCount > 0) {
+        const failedIds = new Set(localResult.errors.map((e) => e.blId))
+        const readyBls = (operationsRows ?? []).filter(
+          (row) => localIds.includes(row.id) && !failedIds.has(row.id) && row.cargo_mode !== 'granito',
+        )
         let invoiced = 0
         for (const bl of readyBls) {
           if (!bl.customer?.id) continue
@@ -333,6 +361,28 @@ export function TaxasLocais() {
     } catch {
       showToast('Falha ao executar processamento em lote.', 'error')
     }
+  }
+
+  async function runGraniteBatch(
+    ids: string[],
+    action: 'calculate' | 'recalculate' | 'review' | 'ready',
+  ): Promise<{ total: number; successCount: number; errorCount: number; errors: Array<{ blId: string; message: string }> }> {
+    // granite_bls não tem estado intermediário "review_required" — marcar revisados vira no-op (já considerado pronto pra prosseguir).
+    if (action === 'review') {
+      return { total: ids.length, successCount: ids.length, errorCount: 0, errors: [] }
+    }
+    const worker = action === 'ready' ? markGraniteBlReady : calculateGraniteBlCharges
+    const errors: Array<{ blId: string; message: string }> = []
+    let ok = 0
+    for (const id of ids) {
+      try {
+        await worker(id)
+        ok++
+      } catch (e) {
+        errors.push({ blId: id, message: e instanceof Error ? e.message : 'Erro inesperado no processamento Granito.' })
+      }
+    }
+    return { total: ids.length, successCount: ok, errorCount: errors.length, errors }
   }
 
   async function handleApproveQueueItem(queueId: number, customerId?: number | null) {
@@ -485,7 +535,7 @@ export function TaxasLocais() {
     setTableForm({
       id: table.id,
       name: table.name ?? '',
-      cargoMode: (table.cargo_mode ?? 'container') as 'container' | 'carga_solta',
+      cargoMode: (table.cargo_mode ?? 'container') as 'container' | 'carga_solta' | 'granito',
       pod: table.pod ?? '',
       validFrom: table.valid_from,
       validTo: table.valid_to ?? '',
@@ -623,10 +673,11 @@ export function TaxasLocais() {
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Modo de carga">
-                <Select value={cargoModeFilter} onChange={(event) => setCargoModeFilter(event.target.value as '' | 'container' | 'carga_solta')}>
+                <Select value={cargoModeFilter} onChange={(event) => setCargoModeFilter(event.target.value as '' | 'container' | 'carga_solta' | 'granito')}>
                   <option value="">Todos</option>
                   <option value="container">Container</option>
                   <option value="carga_solta">Carga Solta</option>
+                  <option value="granito">Granito</option>
                 </Select>
               </Field>
               <Field label="POD">
@@ -665,12 +716,13 @@ export function TaxasLocais() {
                     onChange={(event) =>
                       setTableForm((current) => ({
                         ...current,
-                        cargoMode: event.target.value as 'container' | 'carga_solta',
+                        cargoMode: event.target.value as 'container' | 'carga_solta' | 'granito',
                       }))
                     }
                   >
                     <option value="container">Container</option>
                     <option value="carga_solta">Carga Solta</option>
+                    <option value="granito">Granito</option>
                   </Select>
                 </Field>
                 <Field label="POD">
@@ -773,7 +825,7 @@ export function TaxasLocais() {
                     <option value="">Selecione</option>
                     {(tables ?? []).map((table) => (
                       <option key={table.id} value={table.id}>
-                        {table.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} | {table.pod ?? '-'} | {table.name}
+                        {table.cargo_mode === 'carga_solta' ? 'BB' : table.cargo_mode === 'granito' ? 'GRA' : 'CNTR'} | {table.pod ?? '-'} | {table.name}
                       </option>
                     ))}
                   </Select>
@@ -958,7 +1010,7 @@ export function TaxasLocais() {
                             <div className="font-semibold text-white">{table.name}</div>
                             {table.notes ? <div className="mt-0.5 text-xs text-slate-400">{table.notes}</div> : null}
                           </td>
-                          <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
+                          <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : table.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                           <td className="px-4 py-3">{table.pod ?? '-'}</td>
                           <td className="px-4 py-3">
                             {table.valid_from}{table.valid_to ? ` até ${table.valid_to}` : ' (aberta)'}
@@ -1113,6 +1165,7 @@ export function TaxasLocais() {
                   <option value="">Todos</option>
                   <option value="container">Container</option>
                   <option value="carga_solta">Carga Solta</option>
+                  <option value="granito">Granito</option>
                 </Select>
               </Field>
               <Field label="Viagem">
@@ -1313,7 +1366,7 @@ export function TaxasLocais() {
                             </button>
                           </td>
                           <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.id}</td>
-                          <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container'}</td>
+                          <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                           <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
                           <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
                           <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
@@ -1380,7 +1433,10 @@ export function TaxasLocais() {
                                     </div>
                                   </div>
                                   <div className="mt-1">
-                                    <Link className="app-table__action" to={`/manifestos/${row.id}`}>
+                                    <Link
+                                      className="app-table__action"
+                                      to={row.cargo_mode === 'granito' ? '/granito' : `/manifestos/${row.id}`}
+                                    >
                                       Abrir B/L →
                                     </Link>
                                   </div>
@@ -1464,10 +1520,11 @@ export function TaxasLocais() {
                 />
               </Field>
               <Field label="Modo de carga">
-                <Select value={cargoModeFilter} onChange={(event) => setCargoModeFilter(event.target.value as '' | 'container' | 'carga_solta')}>
+                <Select value={cargoModeFilter} onChange={(event) => setCargoModeFilter(event.target.value as '' | 'container' | 'carga_solta' | 'granito')}>
                   <option value="">Todos</option>
                   <option value="container">Container</option>
                   <option value="carga_solta">Carga Solta</option>
+                  <option value="granito">Granito</option>
                 </Select>
               </Field>
               <Field label="POD">
