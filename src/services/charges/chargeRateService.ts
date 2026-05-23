@@ -59,7 +59,7 @@ export type OverrideCustomerOption = {
 
 export async function listCustomerRateOverrides(filters?: {
   customerSearch?: string
-  cargoMode?: '' | 'container' | 'carga_solta'
+  cargoMode?: '' | 'container' | 'carga_solta' | 'granito'
   pod?: string
   limit?: number
 }) {

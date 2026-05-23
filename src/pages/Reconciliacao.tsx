@@ -47,7 +47,7 @@ export function Reconciliacao() {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['demurrage-kpis'] })
       setMatches(null)
-      showToast(`Conciliação concluída: ${local} taxas locais, ${demurrage} demurrage.`, 'success')
+      showToast(`Conciliação concluída: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -59,7 +59,7 @@ export function Reconciliacao() {
     <>
       <PageHeader
         title="Conciliação PIX"
-        description="Conciliação automática de pagamentos PIX para taxas locais e demurrage"
+        description="Conciliação automática de pagamentos PIX de todas as faturas (Container, Break Bulk, Granito e Demurrage)."
       />
 
       {/* Upload zone */}
@@ -122,7 +122,7 @@ export function Reconciliacao() {
                           {m.source === 'demurrage' ? (
                             <Badge tone="blue">Demurrage</Badge>
                           ) : (
-                            <Badge tone="green">Taxas Locais</Badge>
+                            <Badge tone="green">Fatura</Badge>
                           )}
                         </td>
                         <td className="px-3 py-2 font-semibold text-white">{m.docNumber}</td>

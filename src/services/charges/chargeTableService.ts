@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 export type LocalChargeTableWithItems = {
   id: number
   name: string
-  cargo_mode: 'container' | 'carga_solta' | null
+  cargo_mode: 'container' | 'carga_solta' | 'granito' | null
   pod: string | null
   valid_from: string
   valid_to: string | null
@@ -27,7 +27,7 @@ export type LocalChargeTableWithItems = {
 export type ChargeTableInput = {
   id?: number | null
   name: string
-  cargoMode: 'container' | 'carga_solta'
+  cargoMode: 'container' | 'carga_solta' | 'granito'
   pod: string
   validFrom: string
   validTo?: string | null
@@ -50,7 +50,7 @@ export type ChargeTableItemInput = {
 }
 
 export async function listLocalChargeTables(filters?: {
-  cargoMode?: '' | 'container' | 'carga_solta'
+  cargoMode?: '' | 'container' | 'carga_solta' | 'granito'
   pod?: string
 }) {
   let query = supabase
@@ -84,7 +84,9 @@ export async function listLocalChargeTables(filters?: {
     .order('id', { ascending: false })
 
   if (filters?.cargoMode) {
-    query = query.eq('cargo_mode', filters.cargoMode)
+    // cast: types do Supabase em database.ts ainda nao incluem 'granito';
+    // o CHECK constraint passou a aceita-lo na migration 051.
+    query = query.eq('cargo_mode', filters.cargoMode as 'container' | 'carga_solta')
   }
 
   if (filters?.pod) {
@@ -109,7 +111,8 @@ export async function listLocalChargeTables(filters?: {
 export async function saveChargeTable(input: ChargeTableInput) {
   const payload = {
     name: input.name.trim(),
-    cargo_mode: input.cargoMode,
+    // cast: tipos do Supabase ainda nao incluem 'granito'; CHECK constraint aceita via migration 051.
+    cargo_mode: input.cargoMode as 'container' | 'carga_solta',
     pod: input.pod.trim().toUpperCase(),
     valid_from: input.validFrom,
     valid_to: input.validTo?.trim() ? input.validTo : null,

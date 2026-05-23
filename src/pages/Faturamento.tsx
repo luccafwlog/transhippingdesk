@@ -3,6 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Ban, DollarSign, FilePlus2, Printer } from 'lucide-react'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
+import { InvoiceDocument as DemurrageInvoiceDoc } from '../components/demurrage/InvoiceDocument'
+import { listDemurrageInvoices, getInvoiceDetail as getDemurrageInvoiceDetail } from '../services/demurrage/demurrageInvoices'
+import type { DemurrageInvoiceDetail } from '../types/database'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -76,6 +79,8 @@ export function Faturamento() {
     pageSize: 20,
   })
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(Number(searchParams.get('invoice') ?? '') || null)
+  const [activeTab, setActiveTab] = useState<'invoices' | 'demurrage'>(searchParams.get('tab') === 'demurrage' ? 'demurrage' : 'invoices')
+  const [demurrageInvoiceId, setDemurrageInvoiceId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [createMode, setCreateMode] = useState<'single' | 'consolidated'>('consolidated')
   const [createCustomerId, setCreateCustomerId] = useState('')
@@ -94,6 +99,19 @@ export function Faturamento() {
   const [cancelReason, setCancelReason] = useState('')
 
   const { data, isLoading, error } = useInvoices(filters)
+
+  const demurrageInvoicesQuery = useQuery({
+    queryKey: ['demurrage-invoices', 'faturamento'],
+    queryFn: () => listDemurrageInvoices(),
+    staleTime: 30_000,
+    enabled: activeTab === 'demurrage',
+  })
+
+  const demurrageDetailQuery = useQuery({
+    queryKey: ['demurrage-invoice-detail', 'faturamento', demurrageInvoiceId],
+    queryFn: () => getDemurrageInvoiceDetail(demurrageInvoiceId!),
+    enabled: demurrageInvoiceId != null,
+  })
 
   const financialAlertsQuery = useQuery({
     queryKey: ['financial-alerts'],
@@ -345,6 +363,32 @@ export function Faturamento() {
         }}
       />
 
+      <div className="mb-5 flex gap-2 border-b border-[#30363d]">
+        <button
+          type="button"
+          onClick={() => setActiveTab('invoices')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'invoices' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          Invoices (Taxas Locais + Granito)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('demurrage')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'demurrage' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          Demurrage
+        </button>
+      </div>
+
+      {activeTab === 'demurrage' ? (
+        <DemurrageInvoicesPanel
+          query={demurrageInvoicesQuery}
+          onOpenDetail={(id) => setDemurrageInvoiceId(id)}
+        />
+      ) : null}
+
+      {activeTab === 'invoices' ? (
+        <>
       <Card className="mb-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Invoice"><Input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} /></Field>
@@ -418,6 +462,8 @@ export function Faturamento() {
         </div>
         <div className="app-table__footer"><span>Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros</span><div className="app-table__footer-controls"><Button variant="secondary" disabled={filters.page <= 1} onClick={() => updateFilter('page', Math.max(1, filters.page - 1))}>Anterior</Button><Button variant="secondary" disabled={filters.page >= totalPages} onClick={() => updateFilter('page', Math.min(totalPages, filters.page + 1))}>Proxima</Button></div></div>
       </Card>
+        </>
+      ) : null}
 
       <Modal open={createOpen} onClose={() => { setCreateOpen(false); resetCreateState() }} title="Nova Invoice">
         <div className="grid gap-5">
@@ -645,8 +691,123 @@ export function Faturamento() {
           </div>
         </Modal>
       )}
+
+      <Modal
+        open={demurrageInvoiceId != null}
+        onClose={() => setDemurrageInvoiceId(null)}
+        title={`Fatura Demurrage ${demurrageDetailQuery.data?.invoice?.doc_number ?? ''}`}
+      >
+        <div className="p-2">
+          {demurrageDetailQuery.isLoading ? (
+            <div className="p-4 text-sm text-slate-400">Carregando...</div>
+          ) : demurrageDetailQuery.data ? (
+            <>
+              <div className="mb-3 flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => window.print()}>
+                  <Printer size={16} />Imprimir
+                </Button>
+              </div>
+              <div className="invoice-print-content">
+                <DemurrageInvoiceDoc
+                  detail={demurrageDetailQuery.data as unknown as DemurrageInvoiceDetail}
+                  type={demurrageDetailQuery.data.invoice?.status === 'paid' ? 'receipt' : 'invoice'}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="p-4 text-sm text-slate-400">Falha ao carregar.</div>
+          )}
+        </div>
+      </Modal>
     </>
   )
+}
+
+type DemurrageInvoicesPanelProps = {
+  query: { data?: Awaited<ReturnType<typeof listDemurrageInvoices>>; isLoading: boolean; error: unknown }
+  onOpenDetail: (id: number) => void
+}
+
+function DemurrageInvoicesPanel({ query, onOpenDetail }: DemurrageInvoicesPanelProps) {
+  const invoices = useMemo(() => query.data ?? [], [query.data])
+  const summary = useMemo(() => {
+    const open = invoices.filter((row) => row.status === 'issued' || row.status === 'overdue')
+    const openBalance = open.reduce((sum, row) => sum + Number(row.frozen_total_brl ?? 0), 0)
+    const totalUsd = invoices.reduce((sum, row) => sum + Number(row.total_usd ?? 0), 0)
+    return {
+      total: invoices.length,
+      openCount: open.length,
+      openBalance,
+      totalUsd,
+    }
+  }, [invoices])
+
+  return (
+    <>
+      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Faturas demurrage" value={String(summary.total)} />
+        <MetricCard label="Em aberto" value={String(summary.openCount)} />
+        <MetricCard label="Saldo aberto (BRL)" value={formatBRL(summary.openBalance)} />
+        <MetricCard label="Total USD" value={formatUSD(summary.totalUsd)} />
+      </div>
+
+      <Card className="mb-3 border border-blue-900/40 bg-blue-950/20 p-4 text-sm text-slate-300">
+        Faturas de demurrage sao geradas e gerenciadas em <a className="text-blue-400 underline" href="/demurrage">/demurrage</a>.
+        Esta visao agrega para acompanhamento financeiro unificado.
+      </Card>
+
+      <Card className="overflow-hidden p-0">
+        {query.error ? <InlineError message="Erro ao carregar invoices de demurrage." /> : null}
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[980px] table-fixed text-left text-sm">
+            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+              <tr>
+                <th scope="col" className="w-[18%] px-4 py-3">Nº Doc</th>
+                <th scope="col" className="w-[12%] px-4 py-3">B/L</th>
+                <th scope="col" className="w-[22%] px-4 py-3">Cliente</th>
+                <th scope="col" className="w-[12%] px-4 py-3">Emissao</th>
+                <th scope="col" className="w-[12%] px-4 py-3">Vencimento</th>
+                <th scope="col" className="w-[10%] px-4 py-3">Total USD</th>
+                <th scope="col" className="w-[10%] px-4 py-3">Total BRL</th>
+                <th scope="col" className="w-[8%] px-4 py-3">Status</th>
+                <th scope="col" className="w-[8%] px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#30363d]">
+              {query.isLoading ? <tr><td colSpan={9} className="p-0"><SkeletonTable rows={6} cols={9} /></td></tr> : null}
+              {!query.isLoading && invoices.length === 0 ? (
+                <tr><td colSpan={9} className="p-0"><EmptyState title="Nenhuma fatura de demurrage." description="Gere em /demurrage quando containers ficarem em atraso." /></td></tr>
+              ) : null}
+              {invoices.map((inv) => {
+                const customerName = (inv as { customer?: { name?: string | null } }).customer?.name ?? '-'
+                return (
+                  <tr key={inv.id}>
+                    <td className="px-4 py-3 font-mono text-xs text-white">{inv.doc_number}</td>
+                    <td className="px-4 py-3 font-semibold text-[#58a6ff]">{inv.bl_id}</td>
+                    <td className="px-4 py-3">{customerName}</td>
+                    <td className="px-4 py-3">{inv.billed_at ? formatDate(inv.billed_at) : '-'}</td>
+                    <td className="px-4 py-3">{inv.due_date ? formatDate(inv.due_date) : '-'}</td>
+                    <td className="px-4 py-3 text-amber-400">{formatUSD(Number(inv.total_usd ?? 0))}</td>
+                    <td className="px-4 py-3 text-green-400">{formatBRL(Number(inv.frozen_total_brl ?? 0))}</td>
+                    <td className="px-4 py-3">{renderDemurrageStatus(inv.status)}</td>
+                    <td className="px-4 py-3"><Button variant="secondary" onClick={() => onOpenDetail(inv.id)}>Detalhes</Button></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
+  )
+}
+
+function renderDemurrageStatus(status: string | null | undefined) {
+  if (status === 'paid') return <Badge tone="green">Pago</Badge>
+  if (status === 'issued') return <Badge tone="blue">Emitida</Badge>
+  if (status === 'overdue') return <Badge tone="yellow">Vencida</Badge>
+  if (status === 'cancelled') return <Badge tone="slate">Cancelada</Badge>
+  return <Badge tone="yellow">Draft</Badge>
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {

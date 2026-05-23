@@ -74,7 +74,7 @@ export type LocalChargeTableWithItems = {
 export type ChargeTableInput = {
   id?: number | null
   name: string
-  cargoMode: 'container' | 'carga_solta'
+  cargoMode: 'container' | 'carga_solta' | 'granito'
   pod: string
   validFrom: string
   validTo?: string | null
@@ -98,7 +98,7 @@ export type ChargeTableItemInput = {
 
 export type LocalChargePendencyItem = {
   id: string
-  cargo_mode: 'container' | 'carga_solta' | null
+  cargo_mode: 'container' | 'carga_solta' | 'granito' | null
   pol: string | null
   pod: string | null
   charge_status: string | null
@@ -116,7 +116,7 @@ export type LocalChargePendencyItem = {
 
 export type LocalChargeOperationalFilters = {
   search?: string
-  cargoMode?: '' | 'container' | 'carga_solta'
+  cargoMode?: '' | 'container' | 'carga_solta' | 'granito'
   pod?: string
   voyageId?: number | null
   chargeStatus?: '' | 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
@@ -125,7 +125,7 @@ export type LocalChargeOperationalFilters = {
 
 export type LocalChargeOperationalRow = {
   id: string
-  cargo_mode: 'container' | 'carga_solta' | null
+  cargo_mode: 'container' | 'carga_solta' | 'granito' | null
   pol: string | null
   pod: string | null
   charge_status: string | null
@@ -344,7 +344,7 @@ export async function listLocalChargeTables(filters?: {
     .order('id', { ascending: false })
 
   if (filters?.cargoMode) {
-    query = query.eq('cargo_mode', filters.cargoMode)
+    query = query.eq('cargo_mode', filters.cargoMode as 'container' | 'carga_solta')
   }
 
   if (filters?.pod) {
@@ -369,7 +369,7 @@ export async function listLocalChargeTables(filters?: {
 export async function saveChargeTable(input: ChargeTableInput) {
   const payload = {
     name: input.name.trim(),
-    cargo_mode: input.cargoMode,
+    cargo_mode: input.cargoMode as 'container' | 'carga_solta',
     pod: input.pod.trim().toUpperCase(),
     valid_from: input.validFrom,
     valid_to: input.validTo?.trim() ? input.validTo : null,
@@ -487,7 +487,7 @@ export async function listLocalChargeOperationalRows(filters?: LocalChargeOperat
     .limit(limit)
 
   if (filters?.cargoMode) {
-    query = query.eq('cargo_mode', filters.cargoMode)
+    query = query.eq('cargo_mode', filters.cargoMode as 'container' | 'carga_solta')
   }
   if (filters?.pod) {
     query = query.ilike('pod', `%${filters.pod}%`)
