@@ -1209,3 +1209,5 @@ Scope notice: This checklist is for App UI (iOS/Android/React Native/Flutter).
 - [ ] Accessibility traits/roles/states (selected, disabled, expanded) are announced correctly
 SKILLEOF
 )"
+
+install_skill 'import-parser' "$(cat /home/user/transhipping-desk2/.claude/skills/import-parser.skill)"
