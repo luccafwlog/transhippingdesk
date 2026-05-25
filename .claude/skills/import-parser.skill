@@ -1,0 +1,164 @@
+---
+name: import-parser
+description: >
+  Step-by-step playbook for adding a new file import parser to Transhipping Desk.
+  Use when a new carrier file format, EDI format, or spreadsheet needs to be
+  imported into the system (manifests, baplies, containers, vehicles, vazios, etc.).
+---
+
+# Import Parser Playbook
+
+You are adding a new file import parser to the Transhipping Desk system. Follow these steps in order. Declare your plan before starting, then verify each step before moving to the next.
+
+## Before You Start
+
+State explicitly:
+- **Format**: what file type (CSV, XLSX, TXT, EDI/EDIFACT, fixed-width)?
+- **Domain entity**: what data is being imported (B/Ls, containers, vehicles, vazios, granito, etc.)?
+- **Target table(s)**: which Supabase table(s) will receive the data?
+- **Closest existing parser**: which file in `src/services/` is the most similar template?
+
+Look at `src/services/` for templates:
+- CSV/XLSX with header detection → `manifestParser.ts` + `manifestImport.ts`
+- EDIFACT/EDI format → `baplieParser.ts` + `baplieImport.ts`
+- Simple upsert (no staging) → `vehicleImport.ts`, `ceMercanteImport.ts`
+- Staging table pattern → `baplieImport.ts`, `containerDatesImport.ts`
+
+---
+
+## Step 1 — Analyze the File Format
+
+Inspect a real sample file. Identify:
+- Delimiters, encoding (UTF-8? BOM? Latin-1?), line endings
+- Header row? Fixed columns? Segment-based (EDI)?
+- Key fields and their column names/positions (may have aliases across carriers)
+- Fields that need normalization (dates, weights, container type codes)
+- Optional vs required fields
+
+**Verify:** You can describe the exact structure of 1 sample row/segment from the file.
+
+---
+
+## Step 2 — Write the Parser (`src/services/*Parser.ts`)
+
+Rules:
+- **Pure function** — no Supabase calls, no side effects, no React imports
+- Accepts `File` or `string` as input; returns a typed domain object
+- Export named types for the parsed output (e.g. `ParsedManifest`, `BaplieContainer`)
+- Handle header aliasing if column names vary by carrier (see `manifestParser.ts` `headerMap` pattern)
+- Normalize: trim strings, lowercase keys before matching, handle null/empty gracefully
+- Do **not** throw on missing optional fields — return `null`
+
+Structure:
+```ts
+// src/services/xyzParser.ts
+export type ParsedXyzItem = { ... }
+export type ParsedXyz = { items: ParsedXyzItem[]; /* metadata */ }
+
+export async function parseXyzFile(file: File): Promise<ParsedXyz> { ... }
+export function parseXyzText(text: string): ParsedXyz { ... }  // testable unit
+```
+
+**Verify:** Call `parseXyzText` with a sample string in a unit test or REPL — output matches expected shape.
+
+---
+
+## Step 3 — Write the Importer (`src/services/*Import.ts`)
+
+Rules:
+- Imports `supabase` from `'./supabase'`
+- Accepts `voyageId` (or equivalent FK), the parsed object, and `uploadedBy` (actor ID)
+- Returns a summary object: `{ imported: number, errors?: string[] }`
+- Use `upsert` (not `insert`) when the data has a natural unique key
+- Use `delete` + `insert` in a batch loop (500 rows) when replacing staging data
+- If the operation must be atomic, use a Supabase RPC/PL-pgSQL function (see `manifestImport.ts`)
+- Include `file_hash` dedup parameter if duplicate uploads are a risk
+
+```ts
+// src/services/xyzImport.ts
+import { supabase } from './supabase'
+import type { ParsedXyz } from './xyzParser'
+
+export async function importXyz(args: {
+  voyageId: number
+  data: ParsedXyz
+  uploadedBy: string
+  fileHash?: string | null
+}): Promise<{ imported: number }> { ... }
+```
+
+**Verify:** Call in the browser console or integration test — row count in Supabase matches expected.
+
+---
+
+## Step 4 — Wire React Query Hook
+
+Add or extend a hook in `src/hooks/`:
+- Use `useMutation` from TanStack Query v5
+- Call `importXyz(...)` inside `mutationFn`
+- `onSuccess`: invalidate relevant query keys (see `src/services/queryKeys.ts`)
+- `onError`: surface error to UI via Toast or error state
+
+```ts
+// src/hooks/useXyzImport.ts
+export function useXyzImport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (args: ImportXyzArgs) => importXyz(args),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.xyz }),
+  })
+}
+```
+
+**Verify:** Hook is callable from the target page component without TypeScript errors.
+
+---
+
+## Step 5 — Add UI Trigger
+
+On the relevant page:
+- Add a `<input type="file" accept=".csv,.xlsx,..." />` or reuse an existing `FileImportButton` component
+- Parse file on change: `const parsed = await parseXyzFile(file)`
+- Show parse preview or confirmation before importing
+- Call the mutation: `importXyz.mutate({ voyageId, data: parsed, uploadedBy })`
+- Show progress/loading state and success/error feedback (Toast)
+
+**Verify:** Full flow in browser — select file → preview → import → data visible in table.
+
+---
+
+## Step 6 — Migration (if new table or columns needed)
+
+If the import targets a new table or needs new columns:
+- Create migration in `supabase/migrations/`
+- **Filename format**: `YYYYMMDDHHMMSS_description.sql` (timestamp prefix, not sequential number)
+  - Why: sequential numbers (#051, #052) conflict when branches diverge. Timestamps don't.
+- Add RLS policy if the table contains customer-facing data
+- Run migration via Supabase MCP tool or `supabase db push`
+
+**Verify:** `list_tables` via Supabase MCP shows new table; `list_migrations` shows migration applied.
+
+---
+
+## Step 7 — Test with Real File
+
+End-to-end validation:
+1. Import a real carrier file (not a synthetic test fixture)
+2. Check imported row count matches expected
+3. Verify field mapping: spot-check 3–5 rows in Supabase against the source file
+4. Test malformed input: empty file, wrong format, missing required columns — confirm graceful error
+5. Test duplicate upload: same file twice — confirm no duplicates or expected dedup behavior
+
+**Verify:** All 5 checks pass. No console errors. No orphaned rows in staging.
+
+---
+
+## Common Pitfalls
+
+- **BOM in UTF-8 files**: strip `﻿` at start of text before parsing
+- **CRLF line endings**: normalize with `.replace(/\r\n/g, '\n')`
+- **XLSX**: use `xlsx` library (already a dependency); read with `XLSX.read(buffer, { type: 'array' })`
+- **Header aliasing**: always lowercase + trim before matching against a `headerMap`
+- **Migration conflicts**: always use timestamp prefix, never sequential numbers
+- **Atomic operations**: if parser + importer takes >2s or touches multiple tables, use a PL/pgSQL RPC
+- **Customer reconciliation**: if B/Ls are involved, call `findMatchedCustomer` from `customerReconciliation.ts`
