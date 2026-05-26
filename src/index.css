@@ -2641,6 +2641,7 @@ textarea {
   .app-market-strip,
   .app-nav-bar,
   .app-nav-mobile-bar,
+  .app-toast-stack,
   .app-main > *:not(.app-modal-backdrop) {
     display: none !important;
   }
@@ -2681,7 +2682,9 @@ textarea {
   }
 
   .invoice-print-content {
-    padding: 10mm 8mm !important;
+    max-width: 188mm !important;
+    margin: 0 auto !important;
+    padding: 12mm 10mm !important;
     background: white !important;
     box-sizing: border-box !important;
     print-color-adjust: exact !important;
