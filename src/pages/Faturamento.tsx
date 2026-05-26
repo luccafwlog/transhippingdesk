@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Ban, DollarSign, FilePlus2, Printer } from 'lucide-react'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
+import { ValidacaoTab } from '../components/billing/ValidacaoTab'
 import { InvoiceDocument as DemurrageInvoiceDoc } from '../components/demurrage/InvoiceDocument'
 import { listDemurrageInvoices, getInvoiceDetail as getDemurrageInvoiceDetail } from '../services/demurrage/demurrageInvoices'
 import type { DemurrageInvoiceDetail } from '../types/database'
@@ -79,7 +80,13 @@ export function Faturamento() {
     pageSize: 20,
   })
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(Number(searchParams.get('invoice') ?? '') || null)
-  const [activeTab, setActiveTab] = useState<'invoices' | 'demurrage'>(searchParams.get('tab') === 'demurrage' ? 'demurrage' : 'invoices')
+  const [activeTab, setActiveTab] = useState<'validacao' | 'invoices' | 'demurrage'>(
+    searchParams.get('tab') === 'demurrage'
+      ? 'demurrage'
+      : searchParams.get('tab') === 'invoices'
+        ? 'invoices'
+        : 'validacao'
+  )
   const [demurrageInvoiceId, setDemurrageInvoiceId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [createMode, setCreateMode] = useState<'single' | 'consolidated'>('consolidated')
@@ -366,6 +373,13 @@ export function Faturamento() {
       <div className="mb-5 flex gap-2 border-b border-[#30363d]">
         <button
           type="button"
+          onClick={() => setActiveTab('validacao')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'validacao' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          Validação
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('invoices')}
           className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'invoices' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
         >
@@ -379,6 +393,10 @@ export function Faturamento() {
           Demurrage
         </button>
       </div>
+
+      {activeTab === 'validacao' ? (
+        <ValidacaoTab userId={user?.id ?? null} />
+      ) : null}
 
       {activeTab === 'demurrage' ? (
         <DemurrageInvoicesPanel
