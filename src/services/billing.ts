@@ -68,18 +68,18 @@ export type BillingCustomerOption = {
 }
 
 async function persistPixPayload(invoiceId: number): Promise<void> {
-  const { data: inv } = await supabase
+  const { data: inv, error: fetchError } = await supabase
     .from('invoices')
     .select('invoice_number, total_brl')
     .eq('id', invoiceId)
     .single()
-  if (inv?.invoice_number && inv.total_brl && Number(inv.total_brl) > 0) {
-    const pix_payload = buildTransshippingPixPayload(
-      parseFloat(Number(inv.total_brl).toFixed(2)),
-      inv.invoice_number,
-    )
-    await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
-  }
+  if (fetchError || !inv?.invoice_number || !inv.total_brl || Number(inv.total_brl) <= 0) return
+  const pix_payload = buildTransshippingPixPayload(
+    parseFloat(Number(inv.total_brl).toFixed(2)),
+    inv.invoice_number,
+  )
+  const { error: updateError } = await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
+  if (updateError) console.error('[billing] persistPixPayload update failed', updateError)
 }
 
 export async function listInvoices(filters: InvoiceFilters) {
@@ -184,8 +184,10 @@ export async function listInvoiceDetails(invoiceId: number) {
       parseFloat(Number(inv.total_brl).toFixed(2)),
       inv.invoice_number,
     )
-    await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
-    result.invoice = { ...inv, pix_payload } as typeof inv
+    const { error: backfillError } = await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
+    if (!backfillError) {
+      result.invoice = { ...inv, pix_payload } as typeof inv
+    }
   }
 
   return result
