@@ -47,7 +47,14 @@ export function InvoiceDocumentLocal({ detail }: Props) {
     ),
   ).join(', ') || '—'
 
-  let zebraIndex = 0
+  // Pre-compute flat item index for zebra striping (avoids mutation during render)
+  const itemFlatIndex = new Map<number | string, number>()
+  let flatIdx = 0
+  for (const bl of bls) {
+    for (const item of items.filter((i) => i.bl_id === bl.bl_id)) {
+      itemFlatIndex.set(item.id, flatIdx++)
+    }
+  }
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#111', background: 'white' }}>
@@ -120,7 +127,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                       </td>
                     </tr>
                     {blItems.map((item) => {
-                      const bg = zebraIndex++ % 2 === 0 ? '#f9fafb' : 'white'
+                      const bg = (itemFlatIndex.get(item.id) ?? 0) % 2 === 0 ? '#f9fafb' : 'white'
                       return (
                         <tr key={item.id} style={{ background: bg, borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '8px 8px 8px 16px' }}>{item.description}</td>
