@@ -7,12 +7,6 @@ function fmtBRL(v: number | null | undefined) {
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function fmtDate(s: string | null | undefined) {
-  if (!s) return '—'
-  const d = new Date(`${s}T12:00:00`)
-  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR')
-}
-
 function fmtCNPJ(s: string | null | undefined) {
   if (!s) return ''
   const d = s.replace(/\D/g, '')
