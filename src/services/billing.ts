@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { BLListItem, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
+import { buildTransshippingPixPayload } from '../lib/pix'
 
 export type InvoiceStatusFilter = '' | 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled'
 
@@ -64,6 +65,21 @@ export type BillingCustomerOption = {
   id: number
   name: string
   cnpj_cpf: string
+}
+
+async function persistPixPayload(invoiceId: number): Promise<void> {
+  const { data: inv } = await supabase
+    .from('invoices')
+    .select('invoice_number, total_brl')
+    .eq('id', invoiceId)
+    .single()
+  if (inv?.invoice_number && inv.total_brl && Number(inv.total_brl) > 0) {
+    const pix_payload = buildTransshippingPixPayload(
+      parseFloat(Number(inv.total_brl).toFixed(2)),
+      inv.invoice_number,
+    )
+    await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
+  }
 }
 
 export async function listInvoices(filters: InvoiceFilters) {
@@ -146,12 +162,33 @@ export async function listInvoiceDetails(invoiceId: number) {
     payments?: InvoiceDetail['payments']
   }
 
-  return {
+  const result: InvoiceDetail = {
     invoice: payload.invoice ?? null,
     bls: payload.bls ?? [],
     items: payload.items ?? [],
     payments: payload.payments ?? [],
-  } as InvoiceDetail
+  }
+
+  // Lazy backfill: generate pix_payload for existing invoices that don't have one
+  const inv = result.invoice
+  const activeStatuses = ['issued', 'partially_paid', 'overdue', 'paid']
+  if (
+    inv &&
+    !inv.pix_payload &&
+    inv.invoice_number &&
+    inv.total_brl &&
+    Number(inv.total_brl) > 0 &&
+    activeStatuses.includes(inv.status ?? '')
+  ) {
+    const pix_payload = buildTransshippingPixPayload(
+      parseFloat(Number(inv.total_brl).toFixed(2)),
+      inv.invoice_number,
+    )
+    await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
+    result.invoice = { ...inv, pix_payload } as typeof inv
+  }
+
+  return result
 }
 
 export async function listBillingReadyBls(filters?: BillingReadyBlFilters) {
@@ -235,7 +272,14 @@ export async function createInvoiceFromGraniteBls(input: {
   })
 
   if (error) throw error
-  return (data ?? {}) as Json
+
+  const result = (data ?? {}) as Json
+  const invoiceId = (result as { invoice_id?: number }).invoice_id
+  if (invoiceId) {
+    await persistPixPayload(invoiceId)
+  }
+
+  return result
 }
 
 export async function createInvoiceFromBls(input: {
@@ -256,7 +300,14 @@ export async function createInvoiceFromBls(input: {
   })
 
   if (error) throw error
-  return (data ?? {}) as Json
+
+  const result = (data ?? {}) as Json
+  const invoiceId = (result as { invoice_id?: number }).invoice_id
+  if (invoiceId) {
+    await persistPixPayload(invoiceId)
+  }
+
+  return result
 }
 
 export async function registerInvoicePayment(input: {
