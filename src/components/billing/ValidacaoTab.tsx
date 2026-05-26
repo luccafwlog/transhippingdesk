@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, CheckSquare, ChevronDown, ChevronUp, Download, RefreshCw, Square } from 'lucide-react'
@@ -73,6 +73,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       reviewRequired: rows.filter((row) => row.charge_status === 'review_required').length,
       ready: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
       reconciliationPending: rows.filter((row) => !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')).length,
+      blocked: rows.filter((row) => Boolean(row.billing_hold_reason)).length,
       totalBrl: rows.reduce((sum, row) => sum + Number(row.totals.total_brl ?? 0), 0),
       totalUsd: rows.reduce((sum, row) => sum + Number(row.totals.total_usd ?? 0), 0),
     }
@@ -463,8 +464,8 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                 const reconciliationPending = !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')
                 const queueItem = reconciliationPending ? (reconciliationQueue?.find((q) => q.bl_id === row.id) ?? null) : null
                 return (
-                  <>
-                    <tr key={row.id} className={isExpanded ? 'bg-[#161b22]' : undefined}>
+                  <Fragment key={row.id}>
+                    <tr className={isExpanded ? 'bg-[#161b22]' : undefined}>
                       <td className="px-4 py-3">
                         <button
                           className="app-table__icon-button"
@@ -601,7 +602,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                         </td>
                       </tr>
                     ) : null}
-                  </>
+                  </Fragment>
                 )
               })}
             </tbody>
