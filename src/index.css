@@ -2631,23 +2631,30 @@ textarea {
 }
 
 @media print {
-  .app-market-strip,
-  .app-header,
-  .app-nav-bar,
-  .app-modal > .app-modal__header,
-  .app-modal > .app-modal__body > *:not(.invoice-print-content),
-  button {
-    display: none !important;
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .invoice-print-content,
+  .invoice-print-content * {
+    visibility: visible !important;
   }
 
   .invoice-print-content {
-    display: block !important;
-    position: fixed;
-    inset: 0;
-    background: white;
-    z-index: 9999;
-    padding: 24px;
-    overflow: visible;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 18mm 15mm !important;
+    background: white !important;
+    box-sizing: border-box !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
   }
 }
 
