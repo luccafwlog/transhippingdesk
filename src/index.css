@@ -2638,6 +2638,7 @@ textarea {
 
   /* Hide header, nav and all page content except the print modal */
   .app-header,
+  .app-market-strip,
   .app-nav-bar,
   .app-nav-mobile-bar,
   .app-main > *:not(.app-modal-backdrop) {
@@ -2680,7 +2681,7 @@ textarea {
   }
 
   .invoice-print-content {
-    padding: 18mm 15mm !important;
+    padding: 10mm 8mm !important;
     background: white !important;
     box-sizing: border-box !important;
     print-color-adjust: exact !important;

@@ -102,10 +102,6 @@ export function InvoiceDocumentLocal({ detail }: Props) {
             <td style={labelCell}>Navio/Voy.:</td>
             <td style={cell}>{vesselVoyages}</td>
           </tr>
-          <tr>
-            <td style={labelCell}>Emissão:</td>
-            <td style={cell}>{fmtDate(invoice.issued_at)}</td>
-          </tr>
         </tbody>
       </table>
 
