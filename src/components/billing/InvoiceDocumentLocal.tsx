@@ -21,6 +21,13 @@ function fmtCNPJ(s: string | null | undefined) {
   return s
 }
 
+function stripBlPrefix(description: string | null | undefined, blId: string | null | undefined): string {
+  if (!description) return ''
+  if (!blId) return description
+  const prefix = `BL ${blId} - `
+  return description.startsWith(prefix) ? description.slice(prefix.length) : description
+}
+
 function longDate() {
   return new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
@@ -130,7 +137,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                       const bg = (itemFlatIndex.get(item.id) ?? 0) % 2 === 0 ? '#f9fafb' : 'white'
                       return (
                         <tr key={item.id} style={{ background: bg, borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '8px 8px 8px 16px' }}>{item.description}</td>
+                          <td style={{ padding: '8px 8px 8px 16px' }}>{stripBlPrefix(item.description, item.bl_id)}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.total_value_brl)}</td>
@@ -150,7 +157,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
               })
             : items.map((item, idx) => (
                 <tr key={item.id} style={{ background: idx % 2 === 0 ? '#f9fafb' : 'white', borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '8px 7px' }}>{item.description}</td>
+                  <td style={{ padding: '8px 7px' }}>{stripBlPrefix(item.description, item.bl_id)}</td>
                   <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
                   <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
                   <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.total_value_brl)}</td>

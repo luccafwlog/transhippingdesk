@@ -698,7 +698,12 @@ export function Faturamento() {
         <Modal open onClose={() => setPrintOpen(false)} title={`Imprimir ${detailQuery.data.invoice?.invoice_number ?? ''}`}>
           <div className="mb-3 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setPrintOpen(false)}>Fechar</Button>
-            <Button onClick={() => window.print()}><Printer size={16} />Imprimir</Button>
+            <Button onClick={() => {
+              const prev = document.title
+              document.title = detailQuery.data?.invoice?.invoice_number ?? 'Fatura'
+              window.print()
+              document.title = prev
+            }}><Printer size={16} />Imprimir</Button>
           </div>
           <div className="invoice-print-content">
             <InvoiceDocumentLocal detail={detailQuery.data} />
