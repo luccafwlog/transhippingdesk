@@ -622,7 +622,6 @@ export function Faturamento() {
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
                         <th scope="col" className="px-3 py-2">Descricao</th>
-                        <th scope="col" className="px-3 py-2">B/L</th>
                         <th scope="col" className="px-3 py-2">Qtd</th>
                         <th scope="col" className="px-3 py-2">Origem</th>
                         <th scope="col" className="px-3 py-2">Unitario</th>
@@ -632,7 +631,7 @@ export function Faturamento() {
                     <tbody className="divide-y divide-[#30363d]">
                       {detailQuery.data.items.length === 0 ? (
                         <tr>
-                          <td className="px-3 py-6 text-center text-slate-400" colSpan={6}>
+                          <td className="px-3 py-6 text-center text-slate-400" colSpan={5}>
                             Nenhum item encontrado nesta invoice.
                           </td>
                         </tr>
@@ -640,7 +639,6 @@ export function Faturamento() {
                         detailQuery.data.items.map((item) => (
                           <tr key={item.id}>
                             <td className="px-3 py-2">{item.description ?? '-'}</td>
-                            <td className="px-3 py-2 font-semibold text-[#58a6ff]">{item.bl_id ?? '-'}</td>
                             <td className="px-3 py-2">{item.quantity ?? 1}</td>
                             <td className="px-3 py-2">{item.source === 'manual' ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}</td>
                             <td className="px-3 py-2">{item.currency === 'USD' ? formatUSD(item.unit_value_usd) : formatBRL(item.unit_value_brl)}</td>
@@ -698,14 +696,12 @@ export function Faturamento() {
 
       {printOpen && detailQuery.data && (
         <Modal open onClose={() => setPrintOpen(false)} title={`Imprimir ${detailQuery.data.invoice?.invoice_number ?? ''}`}>
-          <div className="p-2">
-            <div className="mb-3 flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setPrintOpen(false)}>Fechar</Button>
-              <Button onClick={() => window.print()}><Printer size={16} />Imprimir</Button>
-            </div>
-            <div className="invoice-print-content">
-              <InvoiceDocumentLocal detail={detailQuery.data} />
-            </div>
+          <div className="mb-3 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPrintOpen(false)}>Fechar</Button>
+            <Button onClick={() => window.print()}><Printer size={16} />Imprimir</Button>
+          </div>
+          <div className="invoice-print-content">
+            <InvoiceDocumentLocal detail={detailQuery.data} />
           </div>
         </Modal>
       )}

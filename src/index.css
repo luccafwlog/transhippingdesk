@@ -2634,9 +2634,9 @@ textarea {
   .app-market-strip,
   .app-header,
   .app-nav-bar,
-  .app-modal__overlay > *:not(.invoice-print-content),
-  button,
-  [role="dialog"] > *:not(.invoice-print-content) {
+  .app-modal > .app-modal__header,
+  .app-modal > .app-modal__body > *:not(.invoice-print-content),
+  button {
     display: none !important;
   }
 
@@ -2648,19 +2648,6 @@ textarea {
     z-index: 9999;
     padding: 24px;
     overflow: visible;
-  }
-
-  .inv-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-
-  .inv-logo-area {
-    display: flex;
-    align-items: center;
-    gap: 12px;
   }
 }
 

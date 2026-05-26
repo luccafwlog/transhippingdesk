@@ -480,7 +480,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                       <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                       <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
                       <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
-                      <td className="px-4 py-3">{row.customer?.name ?? '-'}</td>
+                      <td className="px-4 py-3"><span className="app-table__truncate app-table__truncate--lg" title={row.customer?.name ?? '-'}>{row.customer?.name ?? '-'}</span></td>
                       <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
                       <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
                       <td className="px-4 py-3">
