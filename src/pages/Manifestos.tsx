@@ -81,7 +81,7 @@ export function Manifestos() {
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Link
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+              className="app-btn app-btn--secondary"
               to={filters.voyageId ? `/containers?voyage=${filters.voyageId}` : '/containers'}
             >
               <Boxes size={16} />
@@ -192,7 +192,7 @@ export function Manifestos() {
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[920px] text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">No. B/L</th>
                 <th scope="col" className="px-4 py-3">CE Mercante</th>
@@ -207,7 +207,7 @@ export function Manifestos() {
                 <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
                   <td colSpan={11} className="p-0">
@@ -344,7 +344,7 @@ function InvoiceLink({
   links: Array<{ id: number; invoice_number: string | null; status: string | null }>
 }) {
   if (!links.length) {
-    return <span className="text-xs text-slate-500">-</span>
+    return <span className="text-xs text-[var(--app-muted-soft)]">-</span>
   }
 
   const latest = links[0]
@@ -584,25 +584,25 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           <Input accept=".xlsx,.xls,.csv" type="file" multiple onChange={handleFile} />
         </Field>
 
-        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-          Clientes sao vinculados por CNPJ/CPF ja existente em <span className="font-semibold text-white">Clientes &gt; Importar base</span>.
+        <div className="app-panel app-panel--padded text-sm">
+          Clientes sao vinculados por CNPJ/CPF ja existente em <span className="font-semibold text-[var(--app-text-strong)]">Clientes &gt; Importar base</span>.
           Manifestos não criam novos cadastros automaticamente.
         </div>
 
-        {parsing ? <div className="text-sm text-slate-400">Processando arquivo com SheetJS sob demanda...</div> : null}
+        {parsing ? <div className="app-panel__meta">Processando arquivo com SheetJS sob demanda...</div> : null}
 
         {files.length > 0 ? (
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+          <div className="app-panel app-panel--padded text-sm">
             {files.length} arquivo(s) selecionado(s). O preview detalhado abaixo mostra o arquivo {Math.min(previewIndex + 1, files.length)}.
           </div>
         ) : null}
 
         {primaryManifest ? (
           <div className="grid gap-4">
-            <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-              <div className="text-xs uppercase tracking-wider text-slate-500">Trecho detectado no manifesto</div>
-              <div className="mt-1 font-semibold text-white">{routeSummary.label}</div>
-              <div className="mt-1 text-slate-400">
+            <div className="app-panel app-panel--padded text-sm">
+              <div className="app-metric-tile__label">Trecho detectado no manifesto</div>
+              <div className="mt-1 font-semibold text-[var(--app-text-strong)]">{routeSummary.label}</div>
+              <div className="app-panel__meta mt-1">
                 A viagem agrupa navio e numero da viagem. O POL/POD permanece registrado nos B/Ls deste manifesto.
               </div>
             </div>
@@ -615,14 +615,14 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             </div>
 
             {routeSummary.multipleRoutes ? (
-              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                 O arquivo trouxe mais de uma combinacao POL/POD. Revise o parsing antes de importar.
               </div>
             ) : null}
 
-            <div className="max-h-72 overflow-auto rounded-xl border border-[#30363d]">
+            <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
               <table className="app-table app-table--compact min-w-[720px] text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                <thead>
                   <tr>
                     <th scope="col" className="px-3 py-2">B/L</th>
                     <th scope="col" className="px-3 py-2">Consignatario</th>
@@ -631,10 +631,10 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                     <th scope="col" className="px-3 py-2">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]">
+                <tbody>
                   {primaryManifest.bls.slice(0, 25).map((bl) => (
                     <tr key={bl.id}>
-                      <td className="px-3 py-2 font-semibold text-white">{bl.id}</td>
+                      <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{bl.id}</td>
                       <td className="px-3 py-2">{bl.consignee ?? '-'}</td>
                       <td className="px-3 py-2">{formatCnpjCpf(bl.cnpj_cpf)}</td>
                       <td className="px-3 py-2">{countDistinctContainerNumbers(bl.containers)}</td>
@@ -648,7 +648,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             </div>
 
             {primaryManifest.rowErrors.length ? (
-              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                 {primaryManifest.rowErrors.length} linha(s) com erro serao registradas em import_errors.
               </div>
             ) : null}
@@ -668,11 +668,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         ) : null}
 
         {importSummary.length ? (
-            <div className="max-h-44 overflow-auto rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm">
-            <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">Resumo da importação</div>
+            <div className="app-panel app-panel--padded max-h-44 overflow-auto text-sm">
+            <div className="app-metric-tile__label mb-2">Resumo da importação</div>
             <div className="grid gap-1">
               {importSummary.map((item) => (
-                <div key={`${item.file}-${item.message}`} className={item.status === 'success' ? 'text-green-300' : 'text-red-300'}>
+                <div key={`${item.file}-${item.message}`} className={item.status === 'success' ? 'text-green-700' : 'text-red-700'}>
                   {item.status === 'success' ? 'OK' : 'ERRO'} | {item.file} | {item.message}
                 </div>
               ))}
@@ -681,15 +681,15 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         ) : null}
 
         {importStatusMessage ? (
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-slate-200">
+          <div className="app-panel px-3 py-2 text-sm">
             {importStatusMessage}
           </div>
         ) : null}
 
         {files.length > 1 ? (
-          <div className="flex items-center justify-between rounded-xl border border-[#30363d] bg-[#0d1117] px-3 py-2 text-xs text-slate-400">
+          <div className="app-panel flex items-center justify-between gap-3 px-3 py-2 text-xs text-[var(--app-muted)]">
             <span>
-              Arquivo em preview: <span className="font-semibold text-white">{files[previewIndex]?.name ?? '-'}</span>
+              Arquivo em preview: <span className="font-semibold text-[var(--app-text-strong)]">{files[previewIndex]?.name ?? '-'}</span>
             </span>
             <div className="flex gap-2">
               <Button variant="ghost" disabled={previewIndex <= 0} onClick={() => setPreviewIndex((current) => Math.max(0, current - 1))}>
@@ -706,7 +706,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           </div>
         ) : null}
 
-        <div className="flex justify-end gap-2">
+        <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
@@ -715,7 +715,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           </Button>
         </div>
         {!voyageId ? (
-          <div className="text-sm text-amber-200">Selecione ou crie uma viagem de destino para habilitar a confirmação.</div>
+          <div className="text-sm text-amber-700">Selecione ou crie uma viagem de destino para habilitar a confirmação.</div>
         ) : null}
       </div>
 
@@ -770,9 +770,9 @@ function sleep(ms: number) {
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-      <div className="text-xs uppercase text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
+    <div className="app-metric-tile">
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">{value}</div>
     </div>
   )
 }

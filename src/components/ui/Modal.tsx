@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 import { Button } from './Button'
 
@@ -14,7 +14,7 @@ export function Modal({
   onClose: () => void
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
-  const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`)
+  const titleId = useId()
 
   useEffect(() => {
     if (!open) return
@@ -53,11 +53,11 @@ export function Modal({
         className="app-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId.current}
+        aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="app-modal__header">
-          <h2 id={titleId.current} className="app-modal__title">{title}</h2>
+          <h2 id={titleId} className="app-modal__title">{title}</h2>
           <Button variant="ghost" className="app-modal__close" onClick={onClose} aria-label="Fechar modal">
             <X size={18} />
           </Button>

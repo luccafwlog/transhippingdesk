@@ -284,7 +284,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       <Card className="mb-5">
         <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
           <div className="app-table__cell-stack">
-            <div className="text-base font-semibold text-white">Filtro operacional</div>
+            <div className="app-panel__title">Filtro operacional</div>
             <div className="app-table__cell-meta">Trabalhe bloqueios, conciliação e prontidão de faturamento sobre a mesma base filtrada.</div>
           </div>
         </div>
@@ -337,10 +337,10 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
               <option value="exempt">Isento</option>
             </Select>
           </Field>
-          <div className="grid gap-1 rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-            <div className="text-xs uppercase tracking-wider text-slate-500">Selecionados</div>
-            <div className="text-2xl font-bold text-white">{selectedOpsRows.length}</div>
-            <div className="text-xs text-slate-400">Acoes em lote por selecao manual</div>
+          <div className="app-metric-tile">
+            <div className="app-metric-tile__label">Selecionados</div>
+            <div className="app-metric-tile__value">{selectedOpsRows.length}</div>
+            <div className="app-panel__meta">Acoes em lote por selecao manual</div>
           </div>
         </div>
       </Card>
@@ -348,13 +348,13 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       <Card className="mb-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <div className="text-base font-semibold text-white">Fila de prioridades</div>
-            <div className="text-sm text-slate-400">Clique em um passo para filtrar a grade abaixo.</div>
+            <div className="app-panel__title">Fila de prioridades</div>
+            <div className="app-panel__meta">Clique em um passo para filtrar a grade abaixo.</div>
           </div>
           {pipelineBottleneck === null && !operationsLoading ? (
-            <div className="flex items-center gap-2 rounded-xl border border-green-800 bg-green-950/40 px-4 py-2">
-              <CheckCircle size={16} className="text-green-400" />
-              <span className="text-sm font-medium text-green-300">Tudo em dia</span>
+            <div className="flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2">
+              <CheckCircle size={16} className="text-green-700" />
+              <span className="text-sm font-medium text-green-800">Tudo em dia</span>
             </div>
           ) : null}
         </div>
@@ -418,7 +418,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
             <Download size={15} />
             Exportar visao
           </Button>
-          <span className="text-xs text-slate-500">{selectedOpsRows.length} B/L(s) selecionado(s)</span>
+          <span className="text-xs text-[var(--app-muted)]">{selectedOpsRows.length} B/L(s) selecionado(s)</span>
         </div>
       </Card>
 
@@ -426,7 +426,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         {operationsError ? <InlineError message="Falha ao carregar operação de taxas locais." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1100px] text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">
                   <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
@@ -444,10 +444,10 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                 <th scope="col" className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {operationsLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={10}>
+                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={10}>
                     Carregando operação...
                   </td>
                 </tr>
@@ -465,7 +465,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                 const queueItem = reconciliationPending ? (reconciliationQueue?.find((q) => q.bl_id === row.id) ?? null) : null
                 return (
                   <Fragment key={row.id}>
-                    <tr className={isExpanded ? 'bg-[#161b22]' : undefined}>
+                    <tr className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>
                       <td className="px-4 py-3">
                         <button
                           className="app-table__icon-button"
@@ -476,7 +476,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                           {selectedOpsRows.includes(row.id) ? <CheckSquare size={14} /> : <Square size={14} />}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.id}</td>
+                      <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.id}</td>
                       <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                       <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
                       <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
@@ -503,19 +503,19 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                       </td>
                     </tr>
                     {isExpanded ? (
-                      <tr key={`${row.id}-detail`} className="bg-[#0d1117]">
+                      <tr key={`${row.id}-detail`} className="bg-[var(--app-surface-muted)]">
                         <td colSpan={10} className="px-6 py-4">
                           <div className="grid gap-4 xl:grid-cols-2">
                             <div className="grid gap-3">
-                              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Detalhes</div>
+                              <div className="app-metric-tile__label">Detalhes</div>
                               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                                 <div>
-                                  <div className="text-slate-500">Trecho</div>
-                                  <div className="text-white">{row.pol ?? '-'} → {row.pod ?? '-'}</div>
+                                  <div className="text-[var(--app-muted)]">Trecho</div>
+                                  <div className="text-[var(--app-text-strong)]">{row.pol ?? '-'} → {row.pod ?? '-'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-slate-500">Linhas</div>
-                                  <div className="text-white">
+                                  <div className="text-[var(--app-muted)]">Linhas</div>
+                                  <div className="text-[var(--app-text-strong)]">
                                     {Number(row.totals.line_count).toLocaleString('pt-BR')}
                                     {row.totals.review_required_count > 0 ? (
                                       <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
@@ -523,24 +523,24 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-slate-500">Subtotal USD</div>
-                                  <div className="text-white">{formatUSD(row.totals.total_usd)}</div>
+                                  <div className="text-[var(--app-muted)]">Subtotal USD</div>
+                                  <div className="text-[var(--app-text-strong)]">{formatUSD(row.totals.total_usd)}</div>
                                 </div>
                                 <div>
-                                  <div className="text-slate-500">Billing run</div>
-                                  <div className="text-white">{row.last_billing_run_id ?? '-'}</div>
+                                  <div className="text-[var(--app-muted)]">Billing run</div>
+                                  <div className="text-[var(--app-text-strong)]">{row.last_billing_run_id ?? '-'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-slate-500">Ult. calculo</div>
-                                  <div className="text-white">{formatDate(row.charges_calculated_at)}</div>
+                                  <div className="text-[var(--app-muted)]">Ult. calculo</div>
+                                  <div className="text-[var(--app-text-strong)]">{formatDate(row.charges_calculated_at)}</div>
                                 </div>
                                 <div>
-                                  <div className="text-slate-500">Ult. revisao</div>
-                                  <div className="text-white">{formatDate(row.charges_reviewed_at)}</div>
+                                  <div className="text-[var(--app-muted)]">Ult. revisao</div>
+                                  <div className="text-[var(--app-text-strong)]">{formatDate(row.charges_reviewed_at)}</div>
                                 </div>
                                 <div className="col-span-2">
-                                  <div className="text-slate-500">Ult. evento</div>
-                                  <div className="text-white">{row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}</div>
+                                  <div className="text-[var(--app-muted)]">Ult. evento</div>
+                                  <div className="text-[var(--app-text-strong)]">{row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}</div>
                                 </div>
                               </div>
                               <div className="mt-1">
@@ -553,23 +553,23 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                               </div>
                             </div>
                             {reconciliationPending && queueItem ? (
-                              <div className="rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
-                                <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-400">Conciliação pendente</div>
+                              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+                                <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-700">Conciliação pendente</div>
                                 <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                   <div>
-                                    <div className="text-slate-500">Cliente no manifesto</div>
-                                    <div className="text-white">{queueItem.manifest_customer_name ?? '-'}</div>
+                                    <div className="text-[var(--app-muted)]">Cliente no manifesto</div>
+                                    <div className="text-[var(--app-text-strong)]">{queueItem.manifest_customer_name ?? '-'}</div>
                                   </div>
                                   <div>
-                                    <div className="text-slate-500">CNPJ/CPF</div>
-                                    <div className="text-white">{queueItem.cnpj_cpf ?? '-'}</div>
+                                    <div className="text-[var(--app-muted)]">CNPJ/CPF</div>
+                                    <div className="text-[var(--app-text-strong)]">{queueItem.cnpj_cpf ?? '-'}</div>
                                   </div>
                                   <div>
-                                    <div className="text-slate-500">Cliente sugerido</div>
-                                    <div className="text-white">{queueItem.current_customer_name ?? '-'}</div>
+                                    <div className="text-[var(--app-muted)]">Cliente sugerido</div>
+                                    <div className="text-[var(--app-text-strong)]">{queueItem.current_customer_name ?? '-'}</div>
                                   </div>
                                   <div>
-                                    <div className="text-slate-500">Deteccao</div>
+                                    <div className="text-[var(--app-muted)]">Deteccao</div>
                                     <div>{renderDetectionType(queueItem.detection_type)}</div>
                                   </div>
                                 </div>
@@ -593,9 +593,9 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                                 </div>
                               </div>
                             ) : reconciliationPending ? (
-                              <div className="rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
-                                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">Conciliação pendente</div>
-                                <div className="text-sm text-slate-400">Nenhum item de conciliação encontrado na fila para este B/L.</div>
+                              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700">Conciliação pendente</div>
+                                <div className="text-sm text-[var(--app-muted)]">Nenhum item de conciliação encontrado na fila para este B/L.</div>
                               </div>
                             ) : null}
                           </div>
@@ -657,31 +657,31 @@ function PipelineStep({
       disabled={count === 0}
       className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors ${
         active
-          ? 'border-[#58a6ff] bg-[#0d1117]'
+          ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-soft)]'
           : isBottleneck && count > 0
-            ? 'border-amber-600 bg-amber-950/20 hover:border-amber-500'
+            ? 'border-amber-500 bg-amber-50 hover:border-amber-600'
             : count === 0
-              ? 'cursor-default border-[#30363d] bg-[#0d1117] opacity-40'
-              : 'border-[#30363d] bg-[#0d1117] hover:border-[#58a6ff]'
+              ? 'cursor-default border-[var(--app-border)] bg-[var(--app-surface-muted)] opacity-50'
+              : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-blue-btn)]'
       }`}
     >
       <div className="flex items-center gap-2">
         <span
           className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
             active
-              ? 'bg-[#58a6ff] text-[#0d1117]'
+              ? 'bg-[var(--app-blue-btn)] text-white'
               : isBottleneck && count > 0
-                ? 'bg-amber-500 text-[#0d1117]'
-                : 'bg-[#30363d] text-slate-400'
+                ? 'bg-amber-500 text-white'
+                : 'bg-[var(--app-panel-strong)] text-[var(--app-muted)]'
           }`}
         >
           {number}
         </span>
-        <span className="text-xs font-medium text-slate-400">{label}</span>
+        <span className="text-xs font-medium text-[var(--app-muted)]">{label}</span>
       </div>
       <div
         className={`text-2xl font-bold ${
-          active ? 'text-[#58a6ff]' : isBottleneck && count > 0 ? 'text-amber-400' : count === 0 ? 'text-slate-600' : 'text-white'
+          active ? 'text-[var(--app-blue-btn)]' : isBottleneck && count > 0 ? 'text-amber-700' : count === 0 ? 'text-[var(--app-muted-soft)]' : 'text-[var(--app-text-strong)]'
         }`}
       >
         {count}

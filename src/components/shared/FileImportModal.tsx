@@ -62,15 +62,15 @@ export function FileImportModal<T>({
   return (
     <Modal open onClose={onClose} title={title}>
       <div className="grid gap-4">
-        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-          Viagem: <span className="font-semibold text-white">{voyageLabel}</span>
+        <div className="app-panel app-panel--padded text-sm">
+          Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
         </div>
         <Field label={`Arquivo ${accept}`}>
           <Input accept={accept} type="file" onChange={handleFile} />
         </Field>
-        {parsing ? <div className="text-sm text-slate-400">Processando...</div> : null}
+        {parsing ? <div className="app-panel__meta">Processando...</div> : null}
         {preview && file ? renderPreview(preview, file) : null}
-        <div className="flex justify-end gap-2">
+        <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button
             disabled={!preview || !canImport(preview)}

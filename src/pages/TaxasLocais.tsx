@@ -383,7 +383,7 @@ export function TaxasLocais() {
           <Card className="mb-5">
             <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
               <div className="app-table__cell-stack">
-                <div className="text-base font-semibold text-white">Filtro e cobertura das tabelas</div>
+                <div className="app-panel__title">Filtro e cobertura das tabelas</div>
                 <div className="app-table__cell-meta">
                   Refine por modo e POD antes de editar estrutura tarifaria ou publicar novos itens.
                 </div>
@@ -415,7 +415,7 @@ export function TaxasLocais() {
             <Card>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="app-table__cell-stack">
-                  <h2 className="text-base font-semibold text-white">{tableForm.id ? 'Editar tabela' : 'Nova tabela'}</h2>
+                  <h2 className="app-panel__title">{tableForm.id ? 'Editar tabela' : 'Nova tabela'}</h2>
                   <div className="app-table__cell-meta">Defina o escopo principal da tarifa antes de publicar itens.</div>
                 </div>
                 {tableForm.id ? (
@@ -524,7 +524,7 @@ export function TaxasLocais() {
             <Card>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="app-table__cell-stack">
-                  <h2 className="text-base font-semibold text-white">{tableItemForm.id ? 'Editar item de taxa' : 'Novo item de taxa'}</h2>
+                  <h2 className="app-panel__title">{tableItemForm.id ? 'Editar item de taxa' : 'Novo item de taxa'}</h2>
                   <div className="app-table__cell-meta">Mantenha a granularidade da regra aqui, sem inflar a grade principal.</div>
                 </div>
                 {tableItemForm.id ? (
@@ -695,7 +695,7 @@ export function TaxasLocais() {
             ) : null}
             <div className="app-table-scroll">
               <table className="app-table app-table--compact min-w-[860px] text-left text-sm whitespace-nowrap">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                <thead>
                   <tr>
                     <th scope="col" className="px-4 py-3">Tabela</th>
                     <th scope="col" className="px-4 py-3">Modo</th>
@@ -707,10 +707,10 @@ export function TaxasLocais() {
                     <th scope="col" className="px-4 py-3"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]">
+                <tbody>
                   {tablesLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                      <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>
                         Carregando tabelas...
                       </td>
                     </tr>
@@ -728,10 +728,10 @@ export function TaxasLocais() {
                     const manualCount = table.charge_table_items?.filter((i) => i.manual_only).length ?? 0
                     return (
                       <>
-                        <tr key={table.id} className={isExpanded ? 'bg-[#161b22]' : undefined}>
+                        <tr key={table.id} className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-white">{table.name}</div>
-                            {table.notes ? <div className="mt-0.5 text-xs text-slate-400">{table.notes}</div> : null}
+                            <div className="font-semibold text-[var(--app-text-strong)]">{table.name}</div>
+                            {table.notes ? <div className="mt-0.5 text-xs text-[var(--app-muted)]">{table.notes}</div> : null}
                           </td>
                           <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : table.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                           <td className="px-4 py-3">{table.pod ?? '-'}</td>
@@ -791,13 +791,13 @@ export function TaxasLocais() {
                           </td>
                         </tr>
                         {isExpanded ? (
-                          <tr key={`${table.id}-items`} className="bg-[#0d1117]">
+                          <tr key={`${table.id}-items`} className="bg-[var(--app-surface-muted)]">
                             <td colSpan={8} className="px-6 py-3">
                               {(table.charge_table_items?.length ?? 0) === 0 ? (
-                                <div className="py-4 text-center text-sm text-slate-400">Nenhum item cadastrado nesta tabela.</div>
+                                <div className="py-4 text-center text-sm text-[var(--app-muted)]">Nenhum item cadastrado nesta tabela.</div>
                               ) : (
                                 <table className="w-full text-left text-sm">
-                                  <thead className="text-xs uppercase tracking-wider text-slate-500">
+                                  <thead className="text-xs uppercase tracking-wider text-[var(--app-muted)]">
                                     <tr>
                                       <th scope="col" className="py-2 pr-4">Item</th>
                                       <th scope="col" className="py-2 pr-4">Perfil</th>
@@ -808,17 +808,17 @@ export function TaxasLocais() {
                                       <th scope="col" className="py-2"></th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-[#30363d]">
+                                  <tbody>
                                     {table.charge_table_items?.map((item) => (
                                       <tr key={item.id}>
-                                        <td className="py-2 pr-4 font-medium text-white">
+                                        <td className="py-2 pr-4 font-medium text-[var(--app-text-strong)]">
                                           {item.name}
-                                          {!item.active ? <span className="ml-2 text-xs text-slate-500">(inativo)</span> : null}
+                                          {!item.active ? <span className="ml-2 text-xs text-[var(--app-muted)]">(inativo)</span> : null}
                                         </td>
-                                        <td className="py-2 pr-4 text-slate-400">{item.cargo_profile ?? '-'}</td>
-                                        <td className="py-2 pr-4 text-slate-400">{item.application_basis ?? '-'}</td>
-                                        <td className="py-2 pr-4 text-slate-400">{item.currency ?? '-'}</td>
-                                        <td className="py-2 pr-4 text-right font-semibold text-white">
+                                        <td className="py-2 pr-4 text-[var(--app-muted)]">{item.cargo_profile ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-[var(--app-muted)]">{item.application_basis ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-[var(--app-muted)]">{item.currency ?? '-'}</td>
+                                        <td className="py-2 pr-4 text-right font-semibold text-[var(--app-text-strong)]">
                                           {item.currency === 'USD' ? formatUSD(item.unit_value_usd ?? 0) : formatBRL(item.unit_value_brl ?? 0)}
                                         </td>
                                         <td className="py-2 pr-4">
@@ -869,7 +869,7 @@ export function TaxasLocais() {
           <Card className="mb-5">
             <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
               <div className="app-table__cell-stack">
-                <div className="text-base font-semibold text-white">Overrides por cliente</div>
+                <div className="app-panel__title">Overrides por cliente</div>
                 <div className="app-table__cell-meta">Sobrescreva valores pontuais sem contaminar a tabela base.</div>
               </div>
               <Badge tone="blue">{overrideRows?.length ?? 0} override(s) na visao</Badge>
@@ -899,7 +899,7 @@ export function TaxasLocais() {
 
           <Card className="mb-5">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-white">{overrideForm.id ? 'Editar override' : 'Novo override'}</h2>
+              <h2 className="app-panel__title">{overrideForm.id ? 'Editar override' : 'Novo override'}</h2>
               {overrideForm.id ? (
                 <Button
                   variant="ghost"
@@ -978,7 +978,7 @@ export function TaxasLocais() {
             {overridesError ? <InlineError message="Falha ao consultar overrides." /> : null}
             <div className="app-table-scroll">
               <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                <thead>
                   <tr>
                     <th scope="col" className="px-4 py-3">Cliente</th>
                     <th scope="col" className="px-4 py-3">Taxa</th>
@@ -990,10 +990,10 @@ export function TaxasLocais() {
                     <th scope="col" className="px-4 py-3">Acoes</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]">
+                <tbody>
                   {overridesLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
+                      <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>
                         Carregando overrides...
                       </td>
                     </tr>
@@ -1026,15 +1026,15 @@ export function TaxasLocais() {
                       ativa: 'text-emerald-400',
                       aberta: 'text-emerald-400',
                       futura: 'text-blue-400',
-                      vencida: 'text-slate-500 line-through',
+                      vencida: 'text-[var(--app-muted)] line-through',
                     }[overrideStatus]
                     return (
                       <tr key={row.id} className={overrideStatus === 'vencida' ? 'opacity-60' : undefined}>
                         <td className="px-4 py-3">
-                          <div className="font-semibold text-white">{row.customer?.name ?? '-'}</div>
-                          <div className="text-xs text-slate-400">{row.customer?.cnpj_cpf ?? '-'}</div>
+                          <div className="font-semibold text-[var(--app-text-strong)]">{row.customer?.name ?? '-'}</div>
+                          <div className="text-xs text-[var(--app-muted)]">{row.customer?.cnpj_cpf ?? '-'}</div>
                         </td>
-                        <td className="px-4 py-3 font-semibold text-white">{row.charge_item?.name ?? '-'}</td>
+                        <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.charge_item?.name ?? '-'}</td>
                         <td className="px-4 py-3">
                           {(row.charge_item?.charge_table?.cargo_mode ?? '').toUpperCase()} / {row.charge_item?.charge_table?.pod ?? '-'}
                         </td>
@@ -1042,12 +1042,12 @@ export function TaxasLocais() {
                           <div className={`text-xs font-medium uppercase tracking-wide ${statusStyle}`}>
                             {overrideStatus}
                           </div>
-                          <div className="text-xs text-slate-400">
+                          <div className="text-xs text-[var(--app-muted)]">
                             {validFrom ?? '-'}{validTo ? ` ate ${validTo}` : validFrom ? ' (aberta)' : ''}
                           </div>
                         </td>
                         <td className="px-4 py-3">{currency === 'USD' ? formatUSD(baseValue) : formatBRL(baseValue)}</td>
-                        <td className="px-4 py-3 font-semibold text-green-300">
+                        <td className="px-4 py-3 font-semibold text-green-700">
                           {currency === 'USD' ? formatUSD(Number(row.override_value ?? 0)) : formatBRL(Number(row.override_value ?? 0))}
                         </td>
                         <td className="px-4 py-3">{row.notes ?? '-'}</td>
@@ -1098,10 +1098,10 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
-    </Card>
+    <div className="app-metric-tile">
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">{value}</div>
+    </div>
   )
 }
 

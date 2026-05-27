@@ -62,17 +62,13 @@ export function Alertas() {
         description="Eventos criticos e pendencias registradas automaticamente pelo sistema."
       />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.value}
             type="button"
             onClick={() => setStatusFilter(tab.value)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              statusFilter === tab.value
-                ? 'bg-[#30363d] text-white'
-                : 'text-slate-400 hover:bg-[#21262d] hover:text-slate-200'
-            }`}
+            className={`app-tab ${statusFilter === tab.value ? 'app-tab--active' : ''}`}
           >
             {tab.label}
           </button>
@@ -84,7 +80,7 @@ export function Alertas() {
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[780px] text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">Status</th>
                 <th scope="col" className="px-4 py-3">Tipo</th>
@@ -94,10 +90,10 @@ export function Alertas() {
                 <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--app-muted)]">
                     Carregando alertas...
                   </td>
                 </tr>
@@ -105,7 +101,7 @@ export function Alertas() {
               {!isLoading && !data?.length ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center">
-                    <div className="flex flex-col items-center gap-2 text-slate-400">
+                    <div className="flex flex-col items-center gap-2 text-[var(--app-muted)]">
                       <CheckCheck size={28} className="text-emerald-500" />
                       <span>Nenhum alerta aberto no momento.</span>
                     </div>
@@ -115,18 +111,18 @@ export function Alertas() {
               {data?.map((alert) => {
                 const statusMeta = STATUS_LABELS[alert.status] ?? STATUS_LABELS.open
                 return (
-                  <tr key={alert.id} className="hover:bg-[#21262d]/60">
+                  <tr key={alert.id}>
                     <td className="px-4 py-3">
                       <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-                        <span className="font-mono text-xs text-slate-300">{alert.type}</span>
+                        <span className="font-mono text-xs text-[var(--app-text)]">{alert.type}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 max-w-sm text-slate-200">{alert.message}</td>
-                    <td className="px-4 py-3 text-slate-400">
+                    <td className="px-4 py-3 max-w-sm text-[var(--app-text)]">{alert.message}</td>
+                    <td className="px-4 py-3 text-[var(--app-muted)]">
                       {alert.entity_type ? (
                         <span className="font-mono text-xs">
                           {alert.entity_type}
@@ -136,7 +132,7 @@ export function Alertas() {
                         '-'
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
+                    <td className="px-4 py-3 text-[var(--app-muted)] whitespace-nowrap">
                       {formatDate(alert.created_at)}
                     </td>
                     <td className="px-4 py-3">
@@ -144,7 +140,7 @@ export function Alertas() {
                         {alert.type === 'portal_invoice_created' && alert.entity_id ? (
                           <Link
                             to={`/faturamento?invoice_id=${alert.entity_id}`}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-[#30363d] px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+                            className="app-table__action"
                           >
                             <ExternalLink size={13} />
                             Ver Fatura

@@ -208,7 +208,7 @@ export function Granite() {
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1200px] text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">B/L</th>
                 <th scope="col" className="px-4 py-3">Booking</th>
@@ -223,10 +223,10 @@ export function Granite() {
                 <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={11}>
+                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={11}>
                     Carregando...
                   </td>
                 </tr>
@@ -302,11 +302,11 @@ export function Granite() {
       {/* Modal de taxas calculadas */}
       <Modal open={chargeBlId !== null} onClose={() => { setChargeBlId(null); setChargeLines([]) }} title="Taxas do B/L">
         {chargeLines.length === 0 ? (
-          <p className="text-sm text-slate-400">Nenhuma taxa ativa cadastrada. Acesse Granito &gt; Taxas para cadastrar.</p>
+          <p className="app-panel__meta">Nenhuma taxa ativa cadastrada. Acesse Granito &gt; Taxas para cadastrar.</p>
         ) : (
           <div className="app-table-scroll">
             <table className="app-table app-table--compact w-full text-sm">
-              <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+              <thead>
                 <tr>
                   <th scope="col" className="px-3 py-2">Taxa</th>
                   <th scope="col" className="px-3 py-2">Tipo</th>
@@ -316,19 +316,19 @@ export function Granite() {
                   <th scope="col" className="px-3 py-2">Moeda</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#30363d]">
+              <tbody>
                 {chargeLines.map((line, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2">{line.description ?? '-'}</td>
                     <td className="px-3 py-2">{line.charge_type ?? '-'}</td>
                     <td className="px-3 py-2">{line.quantity != null ? Number(line.quantity).toLocaleString('pt-BR') : '-'}</td>
                     <td className="px-3 py-2">{line.unit_value != null ? Number(line.unit_value).toLocaleString('pt-BR', { minimumFractionDigits: 4 }) : '-'}</td>
-                    <td className="px-3 py-2 font-semibold text-white">{line.subtotal != null ? Number(line.subtotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</td>
+                    <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{line.subtotal != null ? Number(line.subtotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</td>
                     <td className="px-3 py-2">{line.currency ?? 'BRL'}</td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-[#58a6ff]/30">
-                  <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase text-slate-400">Total</td>
+                  <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase text-[var(--app-muted)]">Total</td>
                   <td className="px-3 py-2 font-bold text-[#58a6ff]">
                     {chargeLines.reduce((sum, l) => sum + Number(l.subtotal ?? 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
@@ -338,8 +338,8 @@ export function Granite() {
             </table>
           </div>
         )}
-        <div className="mt-4 flex justify-end gap-2 border-t border-[#30363d] pt-4">
-          <p className="mr-auto text-sm text-slate-400">Para faturar, vincule o cliente na Revisão e recalcule as taxas.</p>
+        <div className="app-modal__actions">
+          <p className="mr-auto text-sm text-[var(--app-muted)]">Para faturar, vincule o cliente na Revisão e recalcule as taxas.</p>
           <Button variant="ghost" onClick={() => { setChargeBlId(null); setChargeLines([]) }}>
             Fechar
           </Button>
@@ -349,9 +349,9 @@ export function Granite() {
       {/* Modal de importação */}
       <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="Importar Planilha COSCO — Granito">
         <div className="grid gap-5">
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
-            <div className="font-semibold text-white">Formato esperado</div>
-            <div className="mt-2 text-slate-400">
+          <div className="app-panel app-panel--padded text-sm">
+            <div className="app-panel__title">Formato esperado</div>
+            <div className="app-panel__meta mt-2">
               Planilha "Relatorio de Cargas/Booking" exportada pela COSCO. Colunas obrigatorias: <strong>BL</strong> e <strong>Real Weight</strong>.
               CNPJ pode vir vazio — resolva antes de confirmar.
             </div>
@@ -372,7 +372,7 @@ export function Granite() {
             <Input accept=".xlsx,.xls" type="file" onChange={handleFile} />
           </Field>
 
-          {parsing ? <div className="text-sm text-slate-400">Processando arquivo...</div> : null}
+          {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
 
           {manifest ? (
             <div className="grid gap-4">
@@ -383,14 +383,14 @@ export function Granite() {
               </div>
 
               {pendingInManifest > 0 ? (
-                <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                   {pendingInManifest} B/L(s) sem cliente resolvido. Preencha os CNPJs abaixo ou confirme importar com pendencias (faturamento bloqueado nesses B/Ls).
                 </div>
               ) : null}
 
-              <div className="app-table-scroll max-h-80 rounded-xl border border-[#30363d]">
+              <div className="app-table-scroll max-h-80 rounded-xl border border-[var(--app-border)]">
                 <table className="app-table app-table--compact min-w-[900px] text-left text-sm whitespace-nowrap">
-                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <thead>
                     <tr>
                       <th scope="col" className="px-3 py-2">Status</th>
                       <th scope="col" className="px-3 py-2">BL</th>
@@ -400,13 +400,13 @@ export function Granite() {
                       <th scope="col" className="px-3 py-2">Fase</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#30363d]">
+                  <tbody>
                     {manifest.bls.slice(0, 50).map((bl, idx) => (
                       <tr key={bl.bl_number}>
                         <td className="px-3 py-2">
                           <ReconciliationBadge status={bl.reconciliationStatus} />
                         </td>
-                        <td className="px-3 py-2 font-semibold text-white">{bl.bl_number}</td>
+                        <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{bl.bl_number}</td>
                         <td className="px-3 py-2">
                           <span className="app-table__truncate app-table__truncate--lg">{bl.shipper_name ?? '-'}</span>
                         </td>
@@ -431,7 +431,7 @@ export function Granite() {
               </div>
 
               {manifest.rowErrors.length ? (
-                <div className="max-h-32 overflow-auto rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+                <div className="max-h-32 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                   {manifest.rowErrors.slice(0, 10).map((e, i) => (
                     <div key={i}>Linha {e.row}: {e.message}</div>
                   ))}
@@ -440,7 +440,7 @@ export function Granite() {
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" onClick={() => setUploadOpen(false)}>Cancelar</Button>
             <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
               Confirmar importação
@@ -471,9 +471,9 @@ function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
 
 function PreviewBox({ label, value, decimals = 0 }: { label: string; value: number; decimals?: number }) {
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-white">
+    <div className="app-metric-tile">
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">
         {Number(value).toLocaleString('pt-BR', decimals ? { minimumFractionDigits: decimals, maximumFractionDigits: decimals } : {})}
       </div>
     </div>

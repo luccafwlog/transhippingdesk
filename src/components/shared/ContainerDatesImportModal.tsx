@@ -75,10 +75,10 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
   return (
     <Modal open={open} onClose={resetAndClose} title="Importar Datas de Container">
       <div className="grid gap-5">
-        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
-          <div className="font-semibold text-white">Estrutura obrigatoria da planilha</div>
+        <div className="app-panel app-panel--padded text-sm">
+          <div className="app-panel__title">Estrutura obrigatoria da planilha</div>
           <div className="mt-2">BL, Container, Discharge (data descarga), Return (data devolucao — opcional).</div>
-          <div className="mt-2 text-slate-400">
+          <div className="app-panel__meta mt-2">
             Formatos de data aceitos: DD/MM/AAAA ou AAAA-MM-DD. A coluna Return pode ser omitida ou deixada em branco.
           </div>
         </div>
@@ -87,8 +87,8 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
         </Field>
 
-        {file ? <div className="text-sm text-slate-400">Arquivo: {file.name}</div> : null}
-        {parsing ? <div className="text-sm text-slate-400">Processando...</div> : null}
+        {file ? <div className="app-panel__meta">Arquivo: {file.name}</div> : null}
+        {parsing ? <div className="app-panel__meta">Processando...</div> : null}
 
         {preview ? (
           <div className="grid gap-4">
@@ -98,9 +98,9 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
               {report ? <PreviewBox label="Não encontrados" value={report.missing} /> : null}
             </div>
 
-            <div className="app-table-scroll max-h-64 rounded-xl border border-[#30363d]">
+            <div className="app-table-scroll max-h-64 rounded-xl border border-[var(--app-border)]">
               <table className="app-table app-table--compact min-w-[540px] text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                <thead>
                   <tr>
                     <th scope="col" className="px-3 py-2">BL</th>
                     <th scope="col" className="px-3 py-2">Container</th>
@@ -108,13 +108,13 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
                     <th scope="col" className="px-3 py-2">Devolucao</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]">
+                <tbody>
                   {sampleRows.map((row: ContainerDatesImportRow) => (
                     <tr key={`${row.bl_id}-${row.container_number}`}>
-                      <td className="px-3 py-2 font-semibold text-white">{row.bl_id}</td>
+                      <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{row.bl_id}</td>
                       <td className="px-3 py-2">{row.container_number}</td>
                       <td className="px-3 py-2">{row.discharge_date}</td>
-                      <td className="px-3 py-2 text-slate-400">{row.return_date ?? '—'}</td>
+                      <td className="px-3 py-2 text-[var(--app-muted)]">{row.return_date ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -122,7 +122,7 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
             </div>
 
             {preview.rowErrors.length ? (
-              <div className="max-h-40 overflow-auto rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+              <div className="max-h-40 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                 {preview.rowErrors.map((item, i) => (
                   <div key={`${item.row}-${i}`}>Linha {item.row}: {item.message}</div>
                 ))}
@@ -131,7 +131,7 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
           </div>
         ) : null}
 
-        <div className="flex justify-end gap-2">
+        <div className="app-modal__actions">
           <Button variant="secondary" onClick={resetAndClose}>Cancelar</Button>
           <Button disabled={!preview?.rows.length} loading={submitting} onClick={() => void handleImport()}>
             Importar
@@ -144,9 +144,9 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-3 text-center">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 text-xl font-bold text-white">{value}</div>
+    <div className="app-metric-tile text-center">
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">{value}</div>
     </div>
   )
 }

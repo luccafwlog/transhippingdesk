@@ -426,10 +426,10 @@ export function Viagens() {
           )
 
           const origemTrechosContent = (
-            <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+            <div className="app-panel app-panel--padded">
               <div className="mb-3">
-                <div className="font-semibold text-white">Manifestos vinculados</div>
-                <div className="text-sm text-slate-400">
+                <div className="app-panel__title">Manifestos vinculados</div>
+                <div className="app-panel__meta">
                   Um manifesto por linha, com ETD editavel e quantidade de B/Ls vinculados.
                 </div>
               </div>
@@ -443,7 +443,7 @@ export function Viagens() {
                       <col className="w-[14%]" />
                       <col className="w-[16%]" />
                     </colgroup>
-                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                    <thead>
                       <tr>
                         <th scope="col" className="px-3 py-2">Manifesto</th>
                         <th scope="col" className="px-3 py-2">ETD</th>
@@ -451,13 +451,13 @@ export function Viagens() {
                         <th scope="col" className="px-3 py-2">Acoes</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#30363d]">
+                    <tbody>
                       {manifestRows.length ? (
                         manifestRows.map((row) => (
                           <tr key={`${voyage.id}-manifest-${row.batchId}`}>
                             <td className="px-3 py-2">
-                              <div className="font-semibold text-white">{row.routeLabel}</div>
-                              <div className="text-xs text-slate-400">{row.filenameLabel}</div>
+                              <div className="font-semibold text-[var(--app-text-strong)]">{row.routeLabel}</div>
+                              <div className="text-xs text-[var(--app-muted)]">{row.filenameLabel}</div>
                             </td>
                             <td className="px-3 py-2">{formatDate(row.etd)}</td>
                             <td className="px-3 py-2">{row.blCount}</td>
@@ -483,7 +483,7 @@ export function Viagens() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={4} className="px-3 py-3 text-slate-400">
+                          <td colSpan={4} className="px-3 py-3 text-[var(--app-muted)]">
                             Nenhum manifesto identificado nesta viagem.
                           </td>
                         </tr>
@@ -501,11 +501,11 @@ export function Viagens() {
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="grid gap-4">
                     <div>
-                      <div className="text-xs uppercase tracking-wider text-slate-500">
+                      <div className="text-xs uppercase tracking-wider text-[var(--app-muted-soft)]">
                         {voyage.vessel?.carrier?.name ?? 'Armador nao informado'}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-3">
-                        <h2 className="text-2xl font-bold text-white">
+                        <h2 className="text-2xl font-bold text-[var(--app-text-strong)]">
                           {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
                         </h2>
                         <span className="rounded-full border border-[#1f6feb]/30 bg-[#1f6feb]/10 px-3 py-1 text-xs font-semibold text-[#8cc8ff]">
@@ -542,7 +542,7 @@ export function Viagens() {
                       ))}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--app-muted)]">
                       <div className="flex flex-wrap items-center gap-2">
                         {originPorts.length ? (
                           originPorts.map((port) => (
@@ -554,7 +554,7 @@ export function Viagens() {
                           <span className="app-voyage-token">Origem a definir</span>
                         )}
                       </div>
-                      <ArrowRight size={16} className="text-slate-400" />
+                      <ArrowRight size={16} className="text-[var(--app-muted)]" />
                       <div className="flex flex-wrap items-center gap-2">
                         {destinationPorts.length ? (
                           destinationPorts.map((port) => (
@@ -634,7 +634,7 @@ export function Viagens() {
                       <col className="w-[9%]" />
                       <col className="w-[9%]" />
                     </colgroup>
-                    <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                    <thead>
                       <tr>
                         <th scope="col" className="px-3 py-2">POD/POL</th>
                         <th scope="col" className="px-3 py-2">ETA</th>
@@ -647,11 +647,11 @@ export function Viagens() {
                         <th scope="col" className="px-3 py-2">Acoes</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#30363d]">
+                    <tbody>
                       {podRows.length ? (
                         podRows.map((row) => (
                           <tr key={`${voyage.id}-lineup-${row.pod}`}>
-                            <td className="px-3 py-2 font-semibold text-white">{row.pod}</td>
+                            <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{row.pod}</td>
                             <td className="px-3 py-2">{formatDate(row.eta)}</td>
                             <td className="px-3 py-2">{formatDate(row.etb)}</td>
                             <td className="px-3 py-2">{formatDate(row.ata)}</td>
@@ -747,7 +747,7 @@ export function Viagens() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={9} className="px-3 py-3 text-slate-400">
+                          <td colSpan={9} className="px-3 py-3 text-[var(--app-muted)]">
                             Nenhum POD planejado para esta viagem.
                           </td>
                         </tr>
@@ -900,17 +900,17 @@ export function Viagens() {
             Esta exclusão é permanente. Ela só será permitida se a viagem não tiver importações nem B/Ls vinculados.
           </div>
 
-          <div className="text-sm text-slate-300">
+          <div className="text-sm text-[var(--app-text)]">
             {deletingVoyage ? (
               <>
-                Confirme a exclusão de <span className="font-semibold text-white">{deletingVoyage.vessel?.name ?? 'Navio'} / {deletingVoyage.voyage_number}</span>.
+                Confirme a exclusão de <span className="font-semibold text-[var(--app-text-strong)]">{deletingVoyage.vessel?.name ?? 'Navio'} / {deletingVoyage.voyage_number}</span>.
               </>
             ) : (
               'Confirme a exclusão da viagem selecionada.'
             )}
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" onClick={() => setDeletingVoyageId(null)}>
               Cancelar
             </Button>
@@ -1111,8 +1111,8 @@ function AddPodToVoyageModal({
     <Modal open={open} onClose={onClose} title="Adicionar POD ao planejamento">
       {voyage ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-            <div className="font-semibold text-white">{voyage.voyageLabel}</div>
+          <div className="app-panel app-panel--padded text-sm">
+            <div className="font-semibold text-[var(--app-text-strong)]">{voyage.voyageLabel}</div>
             <div className="mt-1">Sugestoes: {POD_SUGGESTIONS.join(', ')}</div>
           </div>
           <Field label="POD">
@@ -1162,7 +1162,7 @@ function AddPodToVoyageModal({
               </select>
             </Field>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
             <Button loading={saving} type="submit" disabled={!pod.trim()}>Adicionar POD</Button>
           </div>
@@ -1200,7 +1200,7 @@ function NavigationCard({
       </div>
       <div className="grid gap-2 text-left">
         <div className="text-base font-semibold text-[var(--app-text)]">{title}</div>
-        <div className="grid gap-1 text-sm text-slate-400">
+        <div className="grid gap-1 text-sm text-[var(--app-muted)]">
           {metrics.slice(0, 3).map((metric) => (
             <span key={`${title}-${metric}`}>{metric}</span>
           ))}
@@ -1239,7 +1239,7 @@ function AccordionSection({
       >
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
-          <div className="mt-1 text-sm text-slate-400">{description}</div>
+          <div className="mt-1 text-sm text-[var(--app-muted)]">{description}</div>
         </div>
         <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -1279,7 +1279,7 @@ function MetricPanel({
   return (
     <div className="app-voyage-metric-panel">
       <div className="app-voyage-metric-panel__title">{title}</div>
-      <dl className="grid gap-3 text-sm text-slate-300">{children}</dl>
+      <dl className="grid gap-3 text-sm text-[var(--app-text)]">{children}</dl>
     </div>
   )
 }
@@ -1300,7 +1300,7 @@ function MetricSection({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
-          <div className="mt-1 text-sm text-slate-400">{description}</div>
+          <div className="mt-1 text-sm text-[var(--app-muted)]">{description}</div>
         </div>
         {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
       </div>
@@ -1840,9 +1840,9 @@ function ExportScheduleModal({
     <Modal open={open} onClose={onClose} title="Planejamento de Exportação">
       {exportData ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-            <div className="font-semibold text-white">{exportData.voyageLabel}</div>
-            <div className="mt-1 text-slate-400">Linha dedicada de exportação no Painel e TV</div>
+          <div className="app-panel app-panel--padded text-sm">
+            <div className="font-semibold text-[var(--app-text-strong)]">{exportData.voyageLabel}</div>
+            <div className="app-panel__meta mt-1">Linha dedicada de exportação no Painel e TV</div>
           </div>
 
           <Field label="POL (Porto de Embarque)">
@@ -1863,14 +1863,14 @@ function ExportScheduleModal({
             </Field>
           </div>
 
-          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#30363d] p-3">
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--app-border)] p-3">
             <input
               type="checkbox"
               checked={hasGranite}
               onChange={(event) => setHasGranite(event.target.checked)}
               className="h-4 w-4 rounded border-slate-500 accent-amber-500"
             />
-            <span className="text-sm text-slate-200">Terá embarque de granito</span>
+            <span className="text-sm text-[var(--app-text)]">Terá embarque de granito</span>
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -1914,7 +1914,7 @@ function ExportScheduleModal({
             </Field>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>
@@ -1972,8 +1972,8 @@ function PolScheduleModal({
     <Modal open={open} onClose={onClose} title="Editar ETD do POL">
       {polSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-            <div className="font-semibold text-white">{polSchedule.voyageLabel}</div>
+          <div className="app-panel app-panel--padded text-sm">
+            <div className="font-semibold text-[var(--app-text-strong)]">{polSchedule.voyageLabel}</div>
             <div className="mt-1">POL: {polSchedule.pol}</div>
           </div>
 
@@ -1981,7 +1981,7 @@ function PolScheduleModal({
             <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
           </Field>
 
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>
@@ -2073,8 +2073,8 @@ function PodScheduleModal({
     <Modal open={open} onClose={onClose} title="Editar planejamento do POD">
       {podSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-            <div className="font-semibold text-white">{podSchedule.voyageLabel}</div>
+          <div className="app-panel app-panel--padded text-sm">
+            <div className="font-semibold text-[var(--app-text-strong)]">{podSchedule.voyageLabel}</div>
             <div className="mt-1">POD: {podSchedule.pod}</div>
           </div>
 
@@ -2121,7 +2121,7 @@ function PodScheduleModal({
             </Field>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>

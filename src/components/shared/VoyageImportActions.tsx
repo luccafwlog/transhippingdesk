@@ -251,7 +251,7 @@ function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId
           {updatedBls > 0 && (
             <span className="ml-3 text-amber-400 font-semibold">{updatedBls} será(ão) atualizado(s)</span>
           )}
-          <span className="ml-2 text-slate-400 text-xs">— revisão de impacto antes de confirmar</span>
+          <span className="ml-2 text-[var(--app-muted)] text-xs">— revisão de impacto antes de confirmar</span>
         </div>
       ) : null}
     </>
@@ -311,20 +311,20 @@ function VehiclesImportModal({
   return (
     <Modal open onClose={onClose} title="Importar Planilha de Veiculos">
       <div className="grid gap-4">
-        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-          Viagem: <span className="font-semibold text-white">{voyageLabel}</span>
+        <div className="app-panel app-panel--padded text-sm">
+          Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
         </div>
         <Field label="Arquivo .xlsx / .xls / .csv">
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
         </Field>
-        {parsing ? <div className="text-sm text-slate-400">Processando...</div> : null}
+        {parsing ? <div className="app-panel__meta">Processando...</div> : null}
         {preview ? (
           <div className="grid grid-cols-2 gap-3">
             <Stat label="Veiculos" value={preview.rows.length} />
             <Stat label="Erros" value={preview.rowErrors.length} />
           </div>
         ) : null}
-        <div className="flex justify-end gap-2">
+        <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button disabled={!preview?.rows.length} loading={importing} onClick={() => void handleImport()}>Confirmar</Button>
         </div>
@@ -335,9 +335,9 @@ function VehiclesImportModal({
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-[#30363d] bg-[#0d1117] p-3 text-center">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 text-xl font-bold text-white">{value}</div>
+    <div className="app-metric-tile text-center">
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">{value}</div>
     </div>
   )
 }

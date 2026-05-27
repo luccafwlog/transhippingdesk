@@ -69,6 +69,8 @@ const financialNavItems: NavItem[] = [
   { to: '/reconciliacao', label: 'Conciliação PIX', icon: RefreshCw },
 ]
 
+const NAV_COLLAPSE_WIDTH = 1100
+
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -84,7 +86,7 @@ export function AppLayout() {
   const [mobileAdminOpen, setMobileAdminOpen] = useState(false)
   const [desktopAdminOpen, setDesktopAdminOpen] = useState(false)
   const [isMobileNav, setIsMobileNav] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
+    typeof window !== 'undefined' ? window.innerWidth <= NAV_COLLAPSE_WIDTH : false,
   )
   const currentDate = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
@@ -114,7 +116,7 @@ export function AppLayout() {
   const isAdminSectionActive = adminNavItems.some((item) => isPathActive(location.pathname, item.to))
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 768px)')
+    const mediaQuery = window.matchMedia(`(max-width: ${NAV_COLLAPSE_WIDTH}px)`)
     const syncMobileState = (matches: boolean) => {
       setIsMobileNav(matches)
       if (!matches) {
@@ -410,4 +412,3 @@ function NavBadge({ count, label }: { count: number; label?: string }) {
 function isPathActive(pathname: string, to: string) {
   return pathname === to || pathname.startsWith(`${to}/`)
 }
-

@@ -293,7 +293,7 @@ export function CargaSolta() {
 
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1420px] text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">No. B/L</th>
                 <th scope="col" className="px-4 py-3">CE</th>
@@ -311,10 +311,10 @@ export function CargaSolta() {
                 <th scope="col" className="px-4 py-3">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={14}>
+                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={14}>
                     Carregando carga solta...
                   </td>
                 </tr>
@@ -414,18 +414,18 @@ export function CargaSolta() {
 
       <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="Importar Manifesto BB">
         <div className="grid gap-5">
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
-            <div className="font-semibold text-white">Estrutura obrigatoria da planilha</div>
+          <div className="app-panel app-panel--padded text-sm">
+            <div className="app-panel__title">Estrutura obrigatoria da planilha</div>
             <div className="mt-2">
               BL, CE, MAQUINAS, PACKAGES, PACKAGES TOTAL, WEIGHT (TON), CBM (M3), SHIPPER, CONSIGNEE, NOTIFY.
             </div>
-            <div className="mt-2 text-slate-400">
+            <div className="app-panel__meta mt-2">
               Colunas opcionais: CNPJ, POL, POD. O layout antigo por itens ainda e aceito para compatibilidade, mas
               o padrao operacional agora e resumido por BL.
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                className="app-btn app-btn--secondary"
                 href="/templates/carga-solta-modelo.xlsx"
                 download="carga-solta-modelo.xlsx"
               >
@@ -433,7 +433,7 @@ export function CargaSolta() {
                 Baixar modelo .xlsx
               </a>
               <a
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                className="app-btn app-btn--secondary"
                 href="/templates/carga-solta-modelo.csv"
                 download="carga-solta-modelo.csv"
               >
@@ -458,8 +458,8 @@ export function CargaSolta() {
             <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
           </Field>
 
-          {file ? <div className="text-sm text-slate-400">Arquivo selecionado: {file.name}</div> : null}
-          {parsing ? <div className="text-sm text-slate-400">Processando arquivo...</div> : null}
+          {file ? <div className="app-panel__meta">Arquivo selecionado: {file.name}</div> : null}
+          {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
 
           {manifest ? (
             <div className="grid gap-4">
@@ -490,9 +490,9 @@ export function CargaSolta() {
                 <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} />
               </div>
 
-              <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
+              <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
                 <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
-                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <thead>
                     <tr>
                       <th scope="col" className="px-3 py-2">BL</th>
                       <th scope="col" className="px-3 py-2">CE</th>
@@ -506,10 +506,10 @@ export function CargaSolta() {
                       <th scope="col" className="px-3 py-2">Notify</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#30363d]">
+                  <tbody>
                     {manifest.bls.slice(0, 25).map((bl) => (
                       <tr key={bl.bl_id}>
-                        <td className="px-3 py-2 font-semibold text-white">{bl.bl_id}</td>
+                        <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{bl.bl_id}</td>
                         <td className="px-3 py-2">{bl.ce_mercante ?? '-'}</td>
                         <td className="px-3 py-2">{formatBBNumber(bl.bb_machine_qty)}</td>
                         <td className="px-3 py-2">{formatBBNumber(bl.bb_packages_qty)}</td>
@@ -540,7 +540,7 @@ export function CargaSolta() {
               </div>
 
               {manifest.rowErrors.length ? (
-                <div className="max-h-44 overflow-auto rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+                <div className="max-h-44 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                   {manifest.rowErrors.slice(0, 12).map((item, index) => (
                     <div key={`${item.row}-${index}`}>Linha {item.row}: {item.message}</div>
                   ))}
@@ -549,7 +549,7 @@ export function CargaSolta() {
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" onClick={() => setUploadOpen(false)}>
               Cancelar
             </Button>
@@ -558,7 +558,7 @@ export function CargaSolta() {
             </Button>
           </div>
 
-          <div className="text-xs text-slate-500">Atualizado em {formatDate(new Date().toISOString())}</div>
+          <div className="app-panel__meta">Atualizado em {formatDate(new Date().toISOString())}</div>
         </div>
       </Modal>
     </>
@@ -571,7 +571,7 @@ function InvoiceLink({
   links: Array<{ id: number; invoice_number: string | null; status: string | null }>
 }) {
   if (!links.length) {
-    return <span className="text-xs text-slate-500">-</span>
+    return <span className="text-xs text-[var(--app-muted-soft)]">-</span>
   }
 
   const latest = links[0]
@@ -603,9 +603,9 @@ function SummaryCard({ label, value }: { label: string; value: number | string }
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-white">{formatBBNumber(value)}</div>
+    <div className="app-metric-tile">
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">{formatBBNumber(value)}</div>
     </div>
   )
 }

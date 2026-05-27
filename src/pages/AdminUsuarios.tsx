@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
 import { MANAGED_PROFILES, PROFILE_LABELS, listAllUserProfiles, updateUserProfile } from '../services/adminUsers'
@@ -154,31 +154,31 @@ export function AdminUsuarios() {
         description="Painel administrativo: usuários, logs de ações e métricas operacionais."
       />
 
-      <div className="mb-6 rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
-        <div className="text-xs uppercase tracking-wider text-slate-500">Informações do sistema</div>
+      <div className="mb-6 app-panel app-panel--padded">
+        <div className="app-metric-tile__label">Informações do sistema</div>
         <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
-          <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
-            <span className="text-slate-400">Versão</span>
-            <span className="font-semibold text-white">{`${VERSION} (${COMMIT_SHA})`}</span>
+          <div className="app-metric-tile grid-cols-[auto_1fr]">
+            <span className="text-[var(--app-muted)]">Versão</span>
+            <span className="text-right font-semibold text-[var(--app-text-strong)]">{`${VERSION} (${COMMIT_SHA})`}</span>
           </div>
-          <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
-            <span className="text-slate-400">Ambiente</span>
-            <span className="font-semibold text-white">Produção</span>
+          <div className="app-metric-tile grid-cols-[auto_1fr]">
+            <span className="text-[var(--app-muted)]">Ambiente</span>
+            <span className="text-right font-semibold text-[var(--app-text-strong)]">Produção</span>
           </div>
-          <div className="flex justify-between rounded-lg border border-[#21262d] bg-[#161b22] px-3 py-2">
-            <span className="text-slate-400">Status</span>
+          <div className="app-metric-tile grid-cols-[auto_1fr]">
+            <span className="text-[var(--app-muted)]">Status</span>
             <Badge tone="green">Operacional</Badge>
           </div>
         </div>
       </div>
 
-      <div className="mb-6 flex gap-2 border-b border-[#30363d] pb-0">
+      <div className="mb-6 flex flex-wrap gap-2">
         {(['usuários', 'logs', 'métricas'] as AdminTab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium capitalize transition ${tab === t ? 'bg-[#21262d] text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`app-tab capitalize ${tab === t ? 'app-tab--active' : ''}`}
           >
             {t === 'usuários' ? 'Usuários' : t === 'logs' ? 'Log de Ações' : 'Métricas'}
           </button>
@@ -190,11 +190,12 @@ export function AdminUsuarios() {
           {error ? <InlineError message="Erro ao carregar usuários." /> : null}
 
           {isLoading ? (
-            <div className="py-16 text-center text-slate-400">Carregando usuários...</div>
+            <div className="py-16 text-center text-[var(--app-muted)]">Carregando usuários...</div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-[#30363d]">
-              <table className="app-table w-full text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <Card className="overflow-hidden p-0">
+              <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+                <thead>
                   <tr>
                     <th scope="col" className="px-4 py-3">Nome</th>
                     <th scope="col" className="px-4 py-3">Perfil de acesso</th>
@@ -203,7 +204,7 @@ export function AdminUsuarios() {
                     <th scope="col" className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]">
+                <tbody>
                   {users.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="p-0">
@@ -214,8 +215,8 @@ export function AdminUsuarios() {
                   {users.map((u) => {
                     const isBusy = pendingId === u.id && mutation.isPending
                     return (
-                      <tr key={u.id} className={`hover:bg-[#21262d]/60 ${!u.active ? 'opacity-60' : ''}`}>
-                        <td className="px-4 py-3 font-medium text-white">{u.full_name}</td>
+                      <tr key={u.id} className={!u.active ? 'opacity-60' : undefined}>
+                        <td className="px-4 py-3 font-medium text-[var(--app-text-strong)]">{u.full_name}</td>
                         <td className="px-4 py-3">
                           <Badge tone={roleBadgeTone(u.role)}>
                             {PROFILE_LABELS[u.role] ?? u.role}
@@ -224,7 +225,7 @@ export function AdminUsuarios() {
                         <td className="px-4 py-3">
                           <Badge tone={u.active ? 'green' : 'red'}>{u.active ? 'Ativo' : 'Inativo'}</Badge>
                         </td>
-                        <td className="px-4 py-3 tabular-nums text-slate-400">
+                        <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">
                           {u.created_at
                             ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(u.created_at))
                             : '-'}
@@ -235,7 +236,7 @@ export function AdminUsuarios() {
                               disabled={isBusy}
                               value={u.role}
                               onChange={(e) => handleSetProfile(u.id, e.target.value as UserProfileRole)}
-                              className="rounded border border-[#30363d] bg-[#0d1117] px-2 py-1 text-xs text-slate-300 disabled:opacity-40"
+                              className="app-input app-select w-44 text-xs disabled:opacity-40"
                             >
                               {MANAGED_PROFILES.map((p) => (
                                 <option key={p} value={p}>{PROFILE_LABELS[p]}</option>
@@ -245,7 +246,7 @@ export function AdminUsuarios() {
                               type="button"
                               disabled={isBusy}
                               onClick={() => handleToggleActive(u.id, u.active)}
-                              className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-[#21262d] hover:text-slate-200 disabled:opacity-40 transition-colors"
+                              className="app-table__action text-xs disabled:opacity-40"
                             >
                               {u.active ? 'Desativar' : 'Ativar'}
                             </button>
@@ -256,16 +257,17 @@ export function AdminUsuarios() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </Card>
           )}
 
-          <div className="mt-6 rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm">
-            <div className="mb-3 font-semibold text-white">Descrição dos perfis de acesso</div>
-            <div className="grid gap-2 text-slate-400">
-              <div><span className="font-semibold text-white">Administrativo:</span> Acesso global a todos os módulos e configurações.</div>
-              <div><span className="font-semibold text-white">Financeiro:</span> Visualização completa + edição em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliação.</div>
-              <div><span className="font-semibold text-white">Operações:</span> Cadastro de Viagens, upload de manifestos e planilha IMO.</div>
-              <div><span className="font-semibold text-white">Documentação:</span> Acesso amplo ao sistema, exceto tela Admin e configurações administrativas.</div>
+          <div className="mt-6 app-panel app-panel--padded text-sm">
+            <div className="mb-3 app-panel__title">Descrição dos perfis de acesso</div>
+            <div className="grid gap-2 text-[var(--app-muted)]">
+              <div><span className="font-semibold text-[var(--app-text-strong)]">Administrativo:</span> Acesso global a todos os módulos e configurações.</div>
+              <div><span className="font-semibold text-[var(--app-text-strong)]">Financeiro:</span> Visualização completa + edição em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliação.</div>
+              <div><span className="font-semibold text-[var(--app-text-strong)]">Operações:</span> Cadastro de Viagens, upload de manifestos e planilha IMO.</div>
+              <div><span className="font-semibold text-[var(--app-text-strong)]">Documentação:</span> Acesso amplo ao sistema, exceto tela Admin e configurações administrativas.</div>
             </div>
           </div>
         </>
@@ -275,42 +277,43 @@ export function AdminUsuarios() {
         <>
           <div className="mb-3 flex flex-wrap items-end gap-2">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Modulo</label>
+              <label className="mb-1 block app-field__label">Modulo</label>
               <input
-                className="rounded border border-[#30363d] bg-[#161b22] px-2 py-1.5 text-sm text-white w-44"
+                className="app-input w-44"
                 placeholder="ex: bl, invoice..."
                 value={logFilters.entityType}
                 onChange={(e) => setLogFilters((f) => ({ ...f, entityType: e.target.value, page: 0 }))}
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">De</label>
-              <input type="date" className="rounded border border-[#30363d] bg-[#161b22] px-2 py-1.5 text-sm text-white" value={logFilters.dateFrom} onChange={(e) => setLogFilters((f) => ({ ...f, dateFrom: e.target.value, page: 0 }))} />
+              <label className="mb-1 block app-field__label">De</label>
+              <input type="date" className="app-input" value={logFilters.dateFrom} onChange={(e) => setLogFilters((f) => ({ ...f, dateFrom: e.target.value, page: 0 }))} />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Ate</label>
-              <input type="date" className="rounded border border-[#30363d] bg-[#161b22] px-2 py-1.5 text-sm text-white" value={logFilters.dateTo} onChange={(e) => setLogFilters((f) => ({ ...f, dateTo: e.target.value, page: 0 }))} />
+              <label className="mb-1 block app-field__label">Ate</label>
+              <input type="date" className="app-input" value={logFilters.dateTo} onChange={(e) => setLogFilters((f) => ({ ...f, dateTo: e.target.value, page: 0 }))} />
             </div>
             {(logFilters.entityType || logFilters.dateFrom || logFilters.dateTo) && (
               <button
                 type="button"
-                className="rounded px-3 py-1.5 text-xs text-slate-400 border border-[#30363d] hover:text-slate-200"
+                className="app-btn app-btn--secondary"
                 onClick={() => setLogFilters({ entityType: '', changedBy: '', dateFrom: '', dateTo: '', page: 0 })}
               >
                 Limpar filtros
               </button>
             )}
             {auditLogsTotal > 0 && (
-              <span className="ml-auto text-xs text-slate-500">{auditLogsTotal} registros</span>
+              <span className="ml-auto text-xs text-[var(--app-muted)]">{auditLogsTotal} registros</span>
             )}
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-[#30363d]">
+          <Card className="overflow-hidden p-0">
             {logsLoading ? (
-              <div className="py-12 text-center text-slate-400">Carregando logs...</div>
+              <div className="py-12 text-center text-[var(--app-muted)]">Carregando logs...</div>
             ) : (
-              <table className="app-table w-full text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+              <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[920px] text-left text-sm">
+                <thead>
                   <tr>
                     <th scope="col" className="px-4 py-3">Data/Hora</th>
                     <th scope="col" className="px-4 py-3">Usuário</th>
@@ -319,7 +322,7 @@ export function AdminUsuarios() {
                     <th scope="col" className="px-4 py-3">Detalhes</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]">
+                <tbody>
                   {!auditLogs.length ? (
                     <tr>
                       <td colSpan={5} className="p-0">
@@ -328,15 +331,15 @@ export function AdminUsuarios() {
                     </tr>
                   ) : null}
                   {auditLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[#21262d]/60">
-                      <td className="px-4 py-2 tabular-nums text-slate-400 whitespace-nowrap">
+                    <tr key={log.id}>
+                      <td className="px-4 py-2 tabular-nums text-[var(--app-muted)] whitespace-nowrap">
                         {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(log.changed_at))}
                       </td>
-                      <td className="px-4 py-2 font-medium text-white">{log.changer_name ?? log.changed_by ?? '-'}</td>
-                      <td className="px-4 py-2 text-slate-400">{log.entity_type}</td>
+                      <td className="px-4 py-2 font-medium text-[var(--app-text-strong)]">{log.changer_name ?? log.changed_by ?? '-'}</td>
+                      <td className="px-4 py-2 text-[var(--app-muted)]">{log.entity_type}</td>
                       <td className="px-4 py-2">{log.field_name ?? '-'}</td>
                       <td className="px-4 py-2">
-                        <span className="app-table__truncate app-table__truncate--xl text-slate-400" title={log.new_value ?? undefined}>
+                        <span className="app-table__truncate app-table__truncate--xl text-[var(--app-muted)]" title={log.new_value ?? undefined}>
                           {log.new_value ?? log.justification ?? '-'}
                         </span>
                       </td>
@@ -344,8 +347,9 @@ export function AdminUsuarios() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
-          </div>
+          </Card>
 
           {auditLogsTotalPages > 1 && (
             <div className="mt-3 flex items-center justify-between text-sm">
@@ -353,18 +357,18 @@ export function AdminUsuarios() {
                 type="button"
                 disabled={logFilters.page === 0}
                 onClick={() => setLogFilters((f) => ({ ...f, page: f.page - 1 }))}
-                className="rounded border border-[#30363d] px-3 py-1.5 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+                className="app-btn app-btn--secondary disabled:opacity-30"
               >
                 ← Anterior
               </button>
-              <span className="text-slate-500">
+              <span className="text-[var(--app-muted)]">
                 Pag. {logFilters.page + 1} de {auditLogsTotalPages}
               </span>
               <button
                 type="button"
                 disabled={logFilters.page >= auditLogsTotalPages - 1}
                 onClick={() => setLogFilters((f) => ({ ...f, page: f.page + 1 }))}
-                className="rounded border border-[#30363d] px-3 py-1.5 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+                className="app-btn app-btn--secondary disabled:opacity-30"
               >
                 Próximo →
               </button>
@@ -386,9 +390,9 @@ export function AdminUsuarios() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
-      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-white">{value}</div>
+    <div className="app-metric-tile">
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">{value}</div>
     </div>
   )
 }

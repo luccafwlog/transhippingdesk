@@ -123,7 +123,7 @@ export function VoyageCreateModal({
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <form className="grid gap-4" onSubmit={handleSubmit}>
-        <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+        <div className="app-panel app-panel--padded text-sm">
           {note ??
             'Cadastre a viagem e, se desejar antecipar a exibicao no Line-Up, informe os portos de descarga com seus ETAs antes da chegada dos manifestos.'}
         </div>
@@ -173,11 +173,11 @@ export function VoyageCreateModal({
           </Field>
         </div>
 
-        <div className="grid gap-3 rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+        <div className="app-panel app-panel--padded grid gap-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="font-semibold text-white">Portos de descarga para o Line-Up</div>
-              <div className="text-sm text-slate-400">
+              <div className="app-panel__title">Portos de descarga para o Line-Up</div>
+              <div className="app-panel__meta">
                 Informe um ETA para cada POD que precisa aparecer no quadro antes da importação dos manifestos.
               </div>
             </div>
@@ -188,13 +188,13 @@ export function VoyageCreateModal({
           </div>
 
           {errors.dischargePortEtas ? (
-            <div className="rounded-lg border border-red-400/30 bg-red-950/20 px-3 py-2 text-sm text-red-100">
+            <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
               {errors.dischargePortEtas}
             </div>
           ) : null}
 
           {form.dischargePortEtas.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[#30363d] px-3 py-4 text-sm text-slate-400">
+            <div className="rounded-lg border border-dashed border-[var(--app-border-strong)] px-3 py-4 text-sm text-[var(--app-muted)]">
               Nenhum porto de descarga planejado. Adicione linhas se a viagem precisar entrar no Line-Up antes dos manifestos.
             </div>
           ) : null}
@@ -227,7 +227,7 @@ export function VoyageCreateModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="app-modal__actions">
           <Button variant="secondary" type="button" onClick={onClose}>
             Cancelar
           </Button>

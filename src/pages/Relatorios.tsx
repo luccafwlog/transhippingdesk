@@ -51,9 +51,7 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-        active ? 'bg-[#30363d] text-white' : 'text-slate-400 hover:bg-[#21262d] hover:text-slate-200'
-      }`}
+      className={`app-tab ${active ? 'app-tab--active' : ''}`}
     >
       {label}
     </button>
@@ -62,10 +60,10 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
 
 function KpiCard({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
-    <Card>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className={`mt-2 text-xl font-bold ${muted ? 'text-slate-300' : 'text-white'}`}>{value}</div>
-    </Card>
+    <div className={`app-metric-tile ${muted ? 'opacity-75' : ''}`}>
+      <div className="app-metric-tile__label">{label}</div>
+      <div className="app-metric-tile__value">{value}</div>
+    </div>
   )
 }
 
@@ -157,7 +155,7 @@ function OperationalReportTab() {
       </div>
 
       {data?.kpis.truncated ? (
-        <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
           Limite de 2.000 linhas atingido. Ajuste o período para ver resultados mais recentes.
         </div>
       ) : null}
@@ -166,7 +164,7 @@ function OperationalReportTab() {
         {error ? <InlineError message="Erro ao carregar relatório operacional." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1100px] text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">B/L</th>
                 <th scope="col" className="px-4 py-3">Navio/Viagem</th>
@@ -180,10 +178,10 @@ function OperationalReportTab() {
                 <th scope="col" className="px-4 py-3">Financeiro</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-[var(--app-muted)]">
                     Carregando relatório...
                   </td>
                 </tr>
@@ -196,14 +194,14 @@ function OperationalReportTab() {
                 </tr>
               ) : null}
               {data?.rows.map((row) => (
-                <tr key={row.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3 font-semibold text-white">{row.id}</td>
-                  <td className="px-4 py-3 text-slate-300">
+                <tr key={row.id}>
+                  <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.id}</td>
+                  <td className="px-4 py-3 text-[var(--app-text)]">
                     {row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}
                   </td>
                   <td className="px-4 py-3">{row.pol ?? '-'}</td>
                   <td className="px-4 py-3">{row.pod ?? '-'}</td>
-                  <td className="px-4 py-3 text-slate-300">{row.customer?.name ?? '-'}</td>
+                  <td className="px-4 py-3 text-[var(--app-text)]">{row.customer?.name ?? '-'}</td>
                   <td className="px-4 py-3">{(row.bl_containers ?? []).length}</td>
                   <td className="px-4 py-3 text-right font-mono">
                     {Number(row.total_weight_kg ?? 0).toLocaleString('pt-BR')}
@@ -216,7 +214,7 @@ function OperationalReportTab() {
                       {row.review_status ?? '-'}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-slate-400">{row.financial_status ?? '-'}</td>
+                  <td className="px-4 py-3 text-[var(--app-muted)]">{row.financial_status ?? '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -302,7 +300,7 @@ function FinancialReportTab() {
       </Card>
 
       {data?.accessDenied ? (
-        <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
           Visualização financeira restrita ao perfil admin.
         </div>
       ) : null}
@@ -316,7 +314,7 @@ function FinancialReportTab() {
       </div>
 
       {data?.kpis.truncated ? (
-        <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
           Limite de 2.000 linhas atingido. Ajuste o período para ver resultados mais recentes.
         </div>
       ) : null}
@@ -325,7 +323,7 @@ function FinancialReportTab() {
         {error ? <InlineError message="Erro ao carregar relatório financeiro." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">Invoice</th>
                 <th scope="col" className="px-4 py-3">Cliente</th>
@@ -336,10 +334,10 @@ function FinancialReportTab() {
                 <th scope="col" className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--app-muted)]">
                     Carregando relatório...
                   </td>
                 </tr>
@@ -352,13 +350,13 @@ function FinancialReportTab() {
                 </tr>
               ) : null}
               {data?.rows.map((row) => (
-                <tr key={row.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3 font-semibold text-white">{row.invoice_number ?? `INV-${row.id}`}</td>
-                  <td className="px-4 py-3 text-slate-300">{row.customer?.name ?? '-'}</td>
-                  <td className="px-4 py-3 text-slate-400">{formatDate(row.issued_at)}</td>
-                  <td className="px-4 py-3 text-slate-400">{formatDate(row.due_date)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-200">{formatBRL(row.total_brl ?? 0)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-amber-200">{formatBRL(row.balance_brl ?? 0)}</td>
+                <tr key={row.id}>
+                  <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.invoice_number ?? `INV-${row.id}`}</td>
+                  <td className="px-4 py-3 text-[var(--app-text)]">{row.customer?.name ?? '-'}</td>
+                  <td className="px-4 py-3 text-[var(--app-muted)]">{formatDate(row.issued_at)}</td>
+                  <td className="px-4 py-3 text-[var(--app-muted)]">{formatDate(row.due_date)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-[var(--app-text-strong)]">{formatBRL(row.total_brl ?? 0)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-amber-700">{formatBRL(row.balance_brl ?? 0)}</td>
                   <td className="px-4 py-3">
                     <Badge tone={invoiceStatusTone(row.status)}>{row.status ?? '-'}</Badge>
                   </td>
@@ -450,7 +448,7 @@ function CustomerReportTab() {
       </Card>
 
       {data?.invoicesAccessDenied ? (
-        <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
           Totais financeiros por cliente indisponíveis para este perfil. Exibindo apenas métricas operacionais.
         </div>
       ) : null}
@@ -463,7 +461,7 @@ function CustomerReportTab() {
       </div>
 
       {data?.kpis.truncated ? (
-        <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
           Limite de linhas atingido. Ajuste o período para resultados mais precisos.
         </div>
       ) : null}
@@ -472,7 +470,7 @@ function CustomerReportTab() {
         {error ? <InlineError message="Erro ao carregar relatório por cliente." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1020px] text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">Cliente</th>
                 <th scope="col" className="px-4 py-3">CNPJ</th>
@@ -484,10 +482,10 @@ function CustomerReportTab() {
                 <th scope="col" className="px-4 py-3 text-right">Em aberto</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-[var(--app-muted)]">
                     Carregando relatório...
                   </td>
                 </tr>
@@ -500,9 +498,9 @@ function CustomerReportTab() {
                 </tr>
               ) : null}
               {data?.rows.map((row) => (
-                <tr key={row.customer_id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3 font-semibold text-white">{row.name}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-400">{formatCnpjCpf(row.cnpj_cpf)}</td>
+                <tr key={row.customer_id}>
+                  <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-[var(--app-muted)]">{formatCnpjCpf(row.cnpj_cpf)}</td>
                   <td className="px-4 py-3 text-right">{row.blCount}</td>
                   <td className="px-4 py-3 text-right font-mono">
                     {row.totalWeightKg.toLocaleString('pt-BR')}
@@ -511,8 +509,8 @@ function CustomerReportTab() {
                     {row.totalCbm.toLocaleString('pt-BR')}
                   </td>
                   <td className="px-4 py-3 text-right">{row.invoiceCount}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-200">{formatBRL(row.totalIssued)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-amber-200">{formatBRL(row.totalBalance)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-[var(--app-text-strong)]">{formatBRL(row.totalIssued)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-amber-700">{formatBRL(row.totalBalance)}</td>
                 </tr>
               ))}
             </tbody>
@@ -573,17 +571,17 @@ function DemurrageReportTab() {
 
       {invoices.length > 0 && (
         <div className="mb-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3">
-            <div className="text-xs text-slate-500">Total USD</div>
-            <div className="mt-1 text-lg font-semibold text-amber-300">{fmtUSD(totalUSD)}</div>
+          <div className="app-metric-tile">
+            <div className="app-metric-tile__label">Total USD</div>
+            <div className="app-metric-tile__value text-amber-700">{fmtUSD(totalUSD)}</div>
           </div>
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3">
-            <div className="text-xs text-slate-500">Total BRL (emitido)</div>
-            <div className="mt-1 text-lg font-semibold text-green-300">{formatBRL(totalBRL)}</div>
+          <div className="app-metric-tile">
+            <div className="app-metric-tile__label">Total BRL (emitido)</div>
+            <div className="app-metric-tile__value text-green-700">{formatBRL(totalBRL)}</div>
           </div>
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3">
-            <div className="text-xs text-slate-500">Total Recebido (pago)</div>
-            <div className="mt-1 text-lg font-semibold text-emerald-400">{formatBRL(paidBRL)}</div>
+          <div className="app-metric-tile">
+            <div className="app-metric-tile__label">Total Recebido (pago)</div>
+            <div className="app-metric-tile__value text-emerald-700">{formatBRL(paidBRL)}</div>
           </div>
         </div>
       )}
@@ -593,7 +591,7 @@ function DemurrageReportTab() {
       <Card className="overflow-hidden p-0">
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">Doc</th>
                 <th scope="col" className="px-4 py-3">BL</th>
@@ -605,9 +603,9 @@ function DemurrageReportTab() {
                 <th scope="col" className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Carregando...</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-[var(--app-muted)]">Carregando...</td></tr>
               ) : null}
               {!isLoading && !invoices.length ? (
                 <tr><td colSpan={8} className="p-0"><EmptyState title="Nenhuma invoice no período." /></td></tr>
@@ -615,14 +613,14 @@ function DemurrageReportTab() {
               {invoices.map((inv) => {
                 const customer = (inv as { customer?: { name?: string } }).customer
                 return (
-                  <tr key={inv.id} className="hover:bg-[#21262d]/60">
-                    <td className="px-4 py-2 font-mono text-xs text-white">{inv.doc_number}</td>
-                    <td className="px-4 py-2 text-blue-400">{inv.bl_id}</td>
+                  <tr key={inv.id}>
+                    <td className="px-4 py-2 font-mono text-xs text-[var(--app-text-strong)]">{inv.doc_number}</td>
+                    <td className="px-4 py-2 text-[var(--app-blue-btn)]">{inv.bl_id}</td>
                     <td className="px-4 py-2">{customer?.name ?? '—'}</td>
-                    <td className="px-4 py-2 text-slate-400">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
-                    <td className="px-4 py-2 text-slate-400">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-amber-400">{fmtUSD(inv.total_usd ?? 0)}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-green-400">{formatBRL(inv.frozen_total_brl ?? 0)}</td>
+                    <td className="px-4 py-2 text-[var(--app-muted)]">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
+                    <td className="px-4 py-2 text-[var(--app-muted)]">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-amber-700">{fmtUSD(inv.total_usd ?? 0)}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-green-700">{formatBRL(inv.frozen_total_brl ?? 0)}</td>
                     <td className="px-4 py-2">
                       <Badge tone={inv.status === 'paid' ? 'green' : inv.status === 'issued' ? 'blue' : inv.status === 'cancelled' ? 'slate' : 'yellow'}>
                         {inv.status === 'paid' ? 'Pago' : inv.status === 'issued' ? 'Faturado' : inv.status === 'cancelled' ? 'Cancelado' : 'Rascunho'}

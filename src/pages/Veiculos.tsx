@@ -232,7 +232,7 @@ export function Veiculos() {
         {error ? <InlineError message="Erro ao carregar veiculos." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">Chassi</th>
                 <th scope="col" className="px-4 py-3">Marca</th>
@@ -245,10 +245,10 @@ export function Veiculos() {
                 <th scope="col" className="px-4 py-3">BL</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={9}>
+                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={9}>
                     Carregando veiculos...
                   </td>
                 </tr>
@@ -262,7 +262,7 @@ export function Veiculos() {
               ) : null}
               {data?.rows.map((row) => (
                 <tr key={row.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3 font-semibold text-white">{row.chassis}</td>
+                  <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.chassis}</td>
                   <td className="px-4 py-3">{row.brand}</td>
                   <td className="px-4 py-3">{row.model}</td>
                   <td className="px-4 py-3">{Number(row.weight_kg).toLocaleString('pt-BR')} kg</td>
@@ -309,15 +309,15 @@ export function Veiculos() {
 
       <Modal open={importOpen} onClose={resetImportState} title="Importar Veiculos">
         <div className="grid gap-5">
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
-            <div className="font-semibold text-white">Estrutura obrigatoria da planilha</div>
+          <div className="app-panel app-panel--padded text-sm">
+            <div className="app-panel__title">Estrutura obrigatoria da planilha</div>
             <div className="mt-2">CHASSI, MARCA, MODELO, PESO, CUBAGEM, CONTAINER, TIPO_CONTAINER, LACRE, BL.</div>
-            <div className="mt-2 text-slate-400">
+            <div className="app-panel__meta mt-2">
               Cada linha valida veiculo, container e BL antes da persistencia. Linhas inválidas são rejeitadas individualmente.
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                className="app-btn app-btn--secondary"
                 href="/templates/veiculos-modelo.xlsx"
                 download="veiculos-modelo.xlsx"
               >
@@ -325,7 +325,7 @@ export function Veiculos() {
                 Baixar modelo .xlsx
               </a>
               <a
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+                className="app-btn app-btn--secondary"
                 href="/templates/veiculos-modelo.csv"
                 download="veiculos-modelo.csv"
               >
@@ -350,8 +350,8 @@ export function Veiculos() {
             <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFileChange} />
           </Field>
 
-          {fileName ? <div className="text-sm text-slate-400">Arquivo selecionado: {fileName}</div> : null}
-          {parsing ? <div className="text-sm text-slate-400">Lendo arquivo com SheetJS...</div> : null}
+          {fileName ? <div className="app-panel__meta">Arquivo selecionado: {fileName}</div> : null}
+          {parsing ? <div className="app-panel__meta">Lendo arquivo com SheetJS...</div> : null}
 
           {parsedImport ? (
             <div className="grid gap-4">
@@ -361,9 +361,9 @@ export function Veiculos() {
                 <PreviewBox label="Viagem selecionada" value={importVoyageId ? 1 : 0} />
               </div>
 
-              <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
+              <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
                 <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
-                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <thead>
                     <tr>
                       <th scope="col" className="px-3 py-2">Chassi</th>
                       <th scope="col" className="px-3 py-2">Marca</th>
@@ -374,10 +374,10 @@ export function Veiculos() {
                       <th scope="col" className="px-3 py-2">BL</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#30363d]">
+                  <tbody>
                     {parsedImport.rows.slice(0, 20).map((row) => (
                       <tr key={`${row.rowNumber}-${row.chassis}`}>
-                        <td className="px-3 py-2 font-semibold text-white">{row.chassis}</td>
+                        <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{row.chassis}</td>
                         <td className="px-3 py-2">{row.brand}</td>
                         <td className="px-3 py-2">{row.model}</td>
                         <td className="px-3 py-2">{row.container_number}</td>
@@ -391,7 +391,7 @@ export function Veiculos() {
               </div>
 
               {parsedImport.rowErrors.length ? (
-                <div className="grid gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+                <div className="grid gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
                   {parsedImport.rowErrors.slice(0, 8).map((rowError) => (
                     <div key={`${rowError.row}-${rowError.message}`}>
                       Linha {rowError.row}: {rowError.message}
@@ -403,28 +403,28 @@ export function Veiculos() {
           ) : null}
 
           {importReport ? (
-            <div className="grid gap-4 rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+            <div className="app-panel app-panel--padded grid gap-4">
               <div className="grid gap-3 md:grid-cols-3">
                 <PreviewBox label="Processados" value={importReport.processed} />
                 <PreviewBox label="Sucesso" value={importReport.successCount} />
                 <PreviewBox label="Erros" value={importReport.errorCount} />
               </div>
               {importReport.errors.length ? (
-                <div className="max-h-48 overflow-auto rounded-xl border border-[#30363d] p-3 text-sm text-slate-300">
+                <div className="max-h-48 overflow-auto rounded-xl border border-[var(--app-border)] p-3 text-sm text-[var(--app-text)]">
                   {importReport.errors.map((item) => (
-                    <div key={`${item.row}-${item.message}`} className="border-b border-[#30363d] py-1 last:border-b-0">
+                    <div key={`${item.row}-${item.message}`} className="border-b border-[var(--app-border)] py-1 last:border-b-0">
                       Linha {item.row}: {item.message}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-emerald-200">Nenhum erro de integracao no lote importado.</div>
+                <div className="text-sm text-green-700">Nenhum erro de integracao no lote importado.</div>
               )}
-              <div className="text-xs text-slate-500">Atualizado em {formatDate(new Date().toISOString())}</div>
+              <div className="app-panel__meta">Atualizado em {formatDate(new Date().toISOString())}</div>
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2">
+          <div className="app-modal__actions">
             <Button variant="secondary" onClick={resetImportState}>
               Fechar
             </Button>
@@ -481,15 +481,15 @@ function BreakdownCard({
 }) {
   return (
     <Card>
-      <div className="text-sm font-semibold text-white">{title}</div>
+      <div className="app-panel__title">{title}</div>
       <div className="mt-3 grid gap-2">
-        {loading ? <div className="text-sm text-slate-400">Carregando...</div> : null}
-        {!loading && !items.length ? <div className="text-sm text-slate-400">{emptyLabel}</div> : null}
+        {loading ? <div className="app-panel__meta">Carregando...</div> : null}
+        {!loading && !items.length ? <div className="app-panel__meta">{emptyLabel}</div> : null}
         {!loading
           ? items.slice(0, 8).map((item) => (
-              <div key={item.label} className="flex items-center justify-between rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm">
-                <span className="truncate pr-2 text-slate-300">{item.label}</span>
-                <span className="font-semibold text-white">{item.count}</span>
+              <div key={item.label} className="flex items-center justify-between rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm">
+                <span className="truncate pr-2 text-[var(--app-text)]">{item.label}</span>
+                <span className="font-semibold text-[var(--app-text-strong)]">{item.count}</span>
               </div>
             ))
           : null}
