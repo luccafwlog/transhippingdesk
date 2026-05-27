@@ -16,6 +16,7 @@ dist-ssr
 !.env.example
 .firebase
 supabase/.temp
+.superpowers/
 
 # Editor directories and files
 .vscode/*
