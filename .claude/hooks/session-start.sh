@@ -1211,3 +1211,9 @@ SKILLEOF
 )"
 
 install_skill 'import-parser' "$(cat /home/user/transhipping-desk2/.claude/skills/import-parser.skill)"
+
+install_skill 'supabase-migration' "$(cat /home/user/transhipping-desk2/.claude/skills/supabase-migration.skill)"
+
+install_skill 'invoice-pdf' "$(cat /home/user/transhipping-desk2/.claude/skills/invoice-pdf.skill)"
+
+install_skill 'react-query-pattern' "$(cat /home/user/transhipping-desk2/.claude/skills/react-query-pattern.skill)"
