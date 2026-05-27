@@ -1,4 +1,5 @@
 import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
+import { assertUploadSize } from '../lib/fileGuard'
 import { asString, normalizeText, onlyDigits, toNumber } from '../lib/utils'
 import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyageForm'
 
@@ -116,14 +117,8 @@ type ManifestLine = {
   unNumber: string | null
 }
 
-const MAX_MANIFEST_BYTES = 10 * 1024 * 1024 // 10 MB
-
 export async function parseManifestFile(file: File): Promise<ParsedManifest> {
-  if (file.size > MAX_MANIFEST_BYTES) {
-    throw new Error(
-      `Arquivo muito grande (${(file.size / 1_048_576).toFixed(1)} MB). O limite é 10 MB.`
-    )
-  }
+  assertUploadSize(file)
   const buffer = await file.arrayBuffer()
   return parseManifestBuffer(buffer)
 }

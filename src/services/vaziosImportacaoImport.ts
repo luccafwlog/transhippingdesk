@@ -1,3 +1,4 @@
+import { assertUploadSize } from '../lib/fileGuard'
 import { supabase } from './supabase'
 import { toNumber } from '../lib/utils'
 import type { VaziosImportacaoContainerListItem, VaziosImportacaoManifest } from '../types/database'
@@ -33,6 +34,7 @@ export type ParsedVaziosImportacaoManifest = {
 }
 
 export async function parseVaziosImportacaoFile(file: File): Promise<ParsedVaziosImportacaoManifest> {
+  assertUploadSize(file)
   const buffer = await file.arrayBuffer()
   return parseVaziosImportacaoBuffer(buffer)
 }

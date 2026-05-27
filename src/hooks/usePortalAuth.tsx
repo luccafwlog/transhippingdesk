@@ -59,6 +59,17 @@ async function fetchOverviewViaSupabaseAuth(): Promise<PortalSessionOverview> {
   return normalizePortalOverview((data ?? {}) as Record<string, unknown>)
 }
 
+// Aceita apenas CPF (11 dígitos) ou CNPJ (14 dígitos). Remove qualquer
+// formatação enviada pelo usuário antes de mandar para a RPC, evitando
+// que strings arbitrárias atravessem o cliente para o Postgres.
+function sanitizeCnpjCpf(input: string): string {
+  const digits = (input ?? '').replace(/\D/g, '')
+  if (digits.length !== 11 && digits.length !== 14) {
+    throw new Error('CNPJ/CPF inválido.')
+  }
+  return digits
+}
+
 async function checkAuthMethod(cnpjCpf: string): Promise<{ method: string; portal_email?: string }> {
   const { data, error } = await supabase.rpc('portal_check_auth_method', { p_cnpj_cpf: cnpjCpf })
   if (error) throw error
@@ -129,7 +140,8 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
   const signIn = useCallback(async (cnpjCpf: string, password: string) => {
     setLoading(true)
     try {
-      const methodInfo = await checkAuthMethod(cnpjCpf)
+      const sanitized = sanitizeCnpjCpf(cnpjCpf)
+      const methodInfo = await checkAuthMethod(sanitized)
 
       if (methodInfo.method === 'supabase_auth' && methodInfo.portal_email) {
         const { error } = await supabase.auth.signInWithPassword({
@@ -142,7 +154,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
         setAuthMethod('supabase_auth')
         persistToken(null) // garantir que token legado não fica ativo
       } else if (methodInfo.method === 'legacy_token') {
-        const result = await portalLogin(cnpjCpf, password)
+        const result = await portalLogin(sanitized, password)
         persistToken(result.token)
         setSessionToken(result.token)
         const ov = await portalGetSessionOverview(result.token)

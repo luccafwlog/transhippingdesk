@@ -408,17 +408,33 @@ export function useVoyages() {
   })
 }
 
+// Remove caracteres que podem alterar o parser de filtros do PostgREST
+// (vírgula, parênteses, ponto, dois-pontos, aspas) ou os curingas do LIKE
+// (% e _). Isso evita injeção via .or()/.ilike() com input do usuário.
+function escapeFilterTerm(value: string) {
+  return value.replace(/[%_,.():*"\\]/g, ' ').trim()
+}
+
 function applyBlFilters(query: ReturnType<typeof supabase.from>, filters: BlFilters) {
   let nextQuery = query
 
   if (filters.search) {
-    nextQuery = nextQuery.or(`id.ilike.%${filters.search}%,consignee.ilike.%${filters.search}%`)
+    const term = escapeFilterTerm(filters.search)
+    if (term) {
+      nextQuery = nextQuery.or(`id.ilike.%${term}%,consignee.ilike.%${term}%`)
+    }
   }
 
   if (filters.voyageId) nextQuery = nextQuery.eq('voyage_id', Number(filters.voyageId))
   if (filters.cargoMode) nextQuery = nextQuery.eq('cargo_mode', filters.cargoMode)
-  if (filters.pol) nextQuery = nextQuery.ilike('pol', `%${filters.pol}%`)
-  if (filters.pod) nextQuery = nextQuery.ilike('pod', `%${filters.pod}%`)
+  if (filters.pol) {
+    const pol = escapeFilterTerm(filters.pol)
+    if (pol) nextQuery = nextQuery.ilike('pol', `%${pol}%`)
+  }
+  if (filters.pod) {
+    const pod = escapeFilterTerm(filters.pod)
+    if (pod) nextQuery = nextQuery.ilike('pod', `%${pod}%`)
+  }
   if (filters.reviewStatus) nextQuery = nextQuery.eq('review_status', filters.reviewStatus as NonNullable<BL['review_status']>)
   if (filters.financialStatus) {
     nextQuery = nextQuery.eq('financial_status', filters.financialStatus as NonNullable<BL['financial_status']>)

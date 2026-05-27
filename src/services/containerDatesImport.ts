@@ -1,3 +1,4 @@
+import { assertUploadSize } from '../lib/fileGuard'
 import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 import { calculateDemurrage, createInvoiceForReturnedBL, fetchROE, issueInvoice } from './demurrage'
@@ -24,6 +25,7 @@ export type ParsedContainerDatesImport = {
 }
 
 export async function parseContainerDatesFile(file: File): Promise<ParsedContainerDatesImport> {
+  assertUploadSize(file)
   const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })

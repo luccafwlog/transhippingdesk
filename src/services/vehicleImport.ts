@@ -1,3 +1,4 @@
+import { assertUploadSize } from '../lib/fileGuard'
 import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
@@ -53,6 +54,7 @@ export type VehicleImportResult = {
 }
 
 export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleImport> {
+  assertUploadSize(file)
   const buffer = await file.arrayBuffer()
   return parseVehicleImportBuffer(buffer)
 }
