@@ -68,10 +68,14 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
 
   const operationsSummary = useMemo(() => {
     const rows = operationsRows ?? []
+    const readyRows = rows.filter((row) => row.charge_status === 'ready_for_billing')
+    const readyInvoiced = readyRows.filter((row) => row.financial_status === 'invoiced').length
     return {
       total: rows.length,
       reviewRequired: rows.filter((row) => row.charge_status === 'review_required').length,
-      ready: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
+      ready: readyRows.length,
+      readyInvoiced,
+      readyPendingInvoice: Math.max(readyRows.length - readyInvoiced, 0),
       reconciliationPending: rows.filter((row) => !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')).length,
       blocked: rows.filter((row) => Boolean(row.billing_hold_reason)).length,
       totalBrl: rows.reduce((sum, row) => sum + Number(row.totals.total_brl ?? 0), 0),
@@ -220,8 +224,18 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         if (invoiced > 0) {
           showToast(`${invoiced} fatura(s) gerada(s) automaticamente.`, 'success')
         }
+        const missing = Math.max(readyBls.length - invoiced, 0)
+        if (missing > 0) {
+          showToast(`${missing} B/L(s) ficaram em pronto faturar sem invoice automatica.`, 'info')
+        }
       }
 
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
+      ])
       setSelectedOpsRows([])
     } catch {
       showToast('Falha ao executar processamento em lote.', 'error')
@@ -384,6 +398,9 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
             onClick={() => handlePipelineStep('ready_for_billing')}
           />
         </div>
+        <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Pronto faturar: {operationsSummary.ready} | Faturado automatico: {operationsSummary.readyInvoiced} | Diferenca: {operationsSummary.readyPendingInvoice}
+        </div>
       </Card>
 
       <Card className="mb-5">
@@ -479,7 +496,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                       <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.id}</td>
                       <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                       <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
-                      <td className="px-4 py-3">{renderChargeStatus(row.charge_status)}</td>
+                      <td className="px-4 py-3">{renderChargeStatus(row.charge_status, row.financial_status)}</td>
                       <td className="px-4 py-3"><span className="app-table__truncate app-table__truncate--lg" title={row.customer?.name ?? '-'}>{row.customer?.name ?? '-'}</span></td>
                       <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
                       <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
@@ -613,7 +630,8 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
   )
 }
 
-function renderChargeStatus(status: string | null) {
+function renderChargeStatus(status: string | null, financialStatus?: string | null) {
+  if (financialStatus === 'invoiced') return <Badge tone="blue">Faturado</Badge>
   if (status === 'review_required') return <Badge tone="yellow">Revisao</Badge>
   if (status === 'ready_for_billing') return <Badge tone="green">Pronto</Badge>
   if (status === 'exempt') return <Badge tone="slate">Isento</Badge>

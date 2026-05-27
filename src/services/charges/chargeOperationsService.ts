@@ -80,6 +80,7 @@ export type LocalChargeOperationalRow = {
   pol: string | null
   pod: string | null
   charge_status: string | null
+  financial_status: string | null
   customer_reconciliation_status: string | null
   customer_reconciliation_notes: string | null
   billing_hold_reason: string | null
@@ -192,6 +193,7 @@ export async function listLocalChargePendencies(limit = 100) {
       pol,
       pod,
       charge_status,
+      financial_status,
       charge_exemption_reason,
       charges_calculated_at,
       created_at,
@@ -446,6 +448,7 @@ async function loadGraniteOperationalRows(
     pol: row.loading_port,
     pod: row.discharge_port,
     charge_status: row.charge_status,
+    financial_status: row.charge_status === 'invoiced' ? 'invoiced' : null,
     // granite_bls não tem workflow de conciliação de cliente — se há client_id,
     // tratamos como conciliado pra não bloquear o pipeline; caso contrário, sinaliza pendência.
     customer_reconciliation_status: row.client_id ? 'reconciled' : 'pending',
