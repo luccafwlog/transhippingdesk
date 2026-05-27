@@ -2,6 +2,7 @@ import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, normalizeText, onlyDigits, toNumber } from '../lib/utils'
 import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyageForm'
+import { normalizePortCode } from './portCode'
 
 const headerMap = {
   bl_number: ['b/l', 'bl number', 'bill of lading', 'conhecimento'],
@@ -202,8 +203,8 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
       customer_email: asString(mapped.email).toLowerCase() || null,
       cargo_description: normalizeCargoDescription(asString(mapped.cargo_description)) || null,
       cnpj_cpf: cnpjCpf || null,
-      pol: asString(mapped.pol) || null,
-      pod: asString(mapped.pod) || null,
+      pol: normalizePortCode(asString(mapped.pol)),
+      pod: normalizePortCode(asString(mapped.pod)),
       total_weight_kg: grossWeight,
       total_cbm: cbm,
       review_status: reviewReasons.length > 0 ? 'pending_review' : 'ok',
@@ -261,8 +262,8 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
         cargoDescription: normalizeCargoDescription(cell(row, 3)),
         cnpj: partyData.cnpj,
         email: partyData.email,
-        pol: currentPol,
-        pod: currentPod,
+        pol: normalizePortCode(currentPol) ?? '',
+        pod: normalizePortCode(currentPod) ?? '',
         dest: currentDest,
         imoClass: extractImoClass(joinCells(row)),
         unNumber: extractUnNumber(joinCells(row)),
@@ -280,8 +281,8 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
           customer_email: currentBL.email || null,
           cargo_description: currentBL.cargoDescription || null,
           cnpj_cpf: onlyDigits(currentBL.cnpj) || null,
-          pol: currentBL.pol || null,
-          pod: currentBL.pod || null,
+          pol: normalizePortCode(currentBL.pol),
+          pod: normalizePortCode(currentBL.pod),
           total_weight_kg: 0,
           total_cbm: 0,
           review_status: reasons.size > 0 ? 'pending_review' : 'ok',

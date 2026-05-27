@@ -32,7 +32,7 @@ describe('manifestParser with real fixtures', () => {
     expect(topBl?.consignee).toBe('COMEXPORT TRADING COMÉRCIO EXTERIOR LTDA.')
     expect(topBl?.cnpj_cpf).toBe('01135153000613')
     expect(topBl?.pol).toBe('CNTAC')
-    expect(topBl?.pod).toBe('BRVIT')
+    expect(topBl?.pod).toBe('BRVIX')
     expect(topBl?.containers).toHaveLength(106)
   }, fixtureParseTimeoutMs)
 
@@ -49,7 +49,7 @@ describe('manifestParser with real fixtures', () => {
     expect(sampleBl?.consignee).toBe('SINCERELY LOGISTIC LTDA')
     expect(sampleBl?.cnpj_cpf).toBe('60114713000108')
     expect(sampleBl?.pol).toBe('CNNBO')
-    expect(sampleBl?.pod).toBe('BRVIT')
+    expect(sampleBl?.pod).toBe('BRVIX')
     expect(sampleBl?.containers).toHaveLength(1)
   }, fixtureParseTimeoutMs)
 

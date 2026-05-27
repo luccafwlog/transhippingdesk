@@ -1,4 +1,5 @@
 import type { ParsedManifest } from './manifestParser'
+import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
 const POL_ENTITY_TYPE = 'voyage_pol_schedule'
@@ -413,7 +414,7 @@ function makeAuditRow(
 }
 
 function normalizePortValue(value: string | null | undefined) {
-  return (value ?? '').trim().toUpperCase() || '-'
+  return normalizePortCode(value) ?? '-'
 }
 
 function normalizeDateValue(value: string | null | undefined) {

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(ls \"C:/Users/Lucca/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/scripts/\")",
+      "Bash(git add *)",
+      "Bash(git commit -m 'docs: add design spec for Financeiro Validação tab *)",
+      "Bash(git commit -m 'docs: add implementation plan for Validacao tab *)",
+      "Bash(npx tsc *)",
+      "Bash(git commit *)",
+      "Bash(node -e ' *)",
+      "Bash(npm run *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'feat: aba Validação em Faturamento + simplificação do pipeline de taxas locais' --body ' *)",
+      "Bash(C:\\\\Users\\\\Lucca\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\scripts\\\\start-server.sh --project-dir \"C:\\\\Users\\\\Lucca\\\\Downloads\\\\transhipping-desk2\")",
+      "Bash(ls \"C:\\\\Users\\\\Lucca\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\scripts\\\\\")",
+      "Bash(base64 -w 0 \"/c/Users/Lucca/Downloads/transhipping-desk2/public/branding/transhipping-logo-cropped.png\" > /tmp/logo_b64.txt && echo \"ok\")",
+      "Bash(npm test *)",
+      "Bash(gh pr create --title 'feat: redesign taxas locais invoice and add PIX generation' --body ' *)",
+      "Bash(gh pr *)"
+    ]
+  }
+}

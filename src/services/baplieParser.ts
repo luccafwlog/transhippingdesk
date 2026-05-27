@@ -1,4 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
+import { normalizePortCode } from './portCode'
 
 export type BaplieContainer = {
   container_number: string
@@ -91,17 +92,17 @@ export function parseBaplieText(text: string): ParsedBaplie {
     }
 
     if (seg.startsWith('LOC+6+')) {
-      pol = extractLocCode(seg)
+      pol = normalizePortCode(extractLocCode(seg))
       continue
     }
 
     if (seg.startsWith('LOC+12+')) {
-      pod = extractLocCode(seg)
+      pod = normalizePortCode(extractLocCode(seg))
       continue
     }
 
     if (seg.startsWith('LOC+83+')) {
-      final_dest = extractLocCode(seg)
+      final_dest = normalizePortCode(extractLocCode(seg))
       continue
     }
 
