@@ -1,3 +1,5 @@
+import { assertUploadSize } from '../lib/fileGuard'
+
 export type BaplieContainer = {
   container_number: string
   size_type: string | null
@@ -22,6 +24,7 @@ export type ParsedBaplie = {
 }
 
 export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
+  assertUploadSize(file)
   const text = await file.text()
   return parseBaplieText(text)
 }

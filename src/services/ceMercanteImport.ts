@@ -1,3 +1,4 @@
+import { assertUploadSize } from '../lib/fileGuard'
 import { asString, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 
@@ -44,6 +45,7 @@ export type CeMercanteImportResult = {
 const CE_MERCANTE_LENGTH = 15
 
 export async function parseCeMercanteFile(file: File): Promise<ParsedCeMercanteFile> {
+  assertUploadSize(file)
   const buffer = await file.arrayBuffer()
   return parseCeMercanteBuffer(buffer)
 }

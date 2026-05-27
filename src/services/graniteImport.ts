@@ -1,3 +1,4 @@
+import { assertUploadSize } from '../lib/fileGuard'
 import { onlyDigits, toNumber } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { supabase } from './supabase'
@@ -74,6 +75,7 @@ export type ParsedGraniteManifest = {
 }
 
 export async function parseGraniteManifestFile(file: File): Promise<ParsedGraniteManifest> {
+  assertUploadSize(file)
   const buffer = await file.arrayBuffer()
   return parseGraniteManifestBuffer(buffer)
 }

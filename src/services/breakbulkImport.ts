@@ -1,3 +1,4 @@
+import { assertUploadSize } from '../lib/fileGuard'
 import { asString, onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { calculateBlLocalCharges } from './localCharges'
@@ -63,6 +64,7 @@ export type ParsedBreakbulkManifest = {
 }
 
 export async function parseBreakbulkManifestFile(file: File): Promise<ParsedBreakbulkManifest> {
+  assertUploadSize(file)
   const buffer = await file.arrayBuffer()
   return parseBreakbulkManifestBuffer(buffer)
 }

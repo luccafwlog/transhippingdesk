@@ -1,3 +1,4 @@
+import { assertUploadSize } from '../lib/fileGuard'
 import { supabase } from './supabase'
 
 const HEADER_MAP: Record<string, string> = {
@@ -37,6 +38,7 @@ export type ParsedVaziosManifest = {
 }
 
 export async function parseVaziosManifestFile(file: File): Promise<ParsedVaziosManifest> {
+  assertUploadSize(file)
   const buffer = await file.arrayBuffer()
   return parseVaziosManifestBuffer(buffer)
 }
