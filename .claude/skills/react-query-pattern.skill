@@ -1,0 +1,105 @@
+---
+name: react-query-pattern
+description: >
+  React Query v5 + Supabase conventions in Transhipping Desk. Use when adding
+  or editing any file under src/hooks/ or src/services/, when wiring a new
+  page to data, or when reviewing cache keys / invalidation. Codifies the
+  service-function + use*-hook split so it doesn't have to be re-explained
+  per feature.
+---
+
+# React Query Pattern Playbook
+
+This codebase splits data access into two layers. Keep them separate.
+
+## The split
+
+- **`src/services/<entidade>.ts`** — pure async functions. Take args, hit Supabase, return data or throw. **No React, no hooks, no caching.** Easy to unit-test.
+- **`src/hooks/use<Entidade>*.ts`** — wraps services with `useQuery` / `useMutation`. Owns cache keys, invalidation, and optimistic updates. This is what pages consume.
+
+Pages **never** import from `services/` directly. If you find yourself wanting to, write the hook.
+
+## Service functions
+
+```ts
+// src/services/faturas.ts
+import { supabase } from '../lib/supabase';
+
+export async function listFaturas(viagemId: string) {
+  const { data, error } = await supabase
+    .from('faturas')
+    .select('*')
+    .eq('viagem_id', viagemId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+```
+
+- Always check `error` and throw it. React Query handles the rejection.
+- Return the raw row shape from `database.ts` types — let the hook decide what to expose.
+- No `try/catch` swallowing — let it propagate.
+
+## Hooks
+
+```ts
+// src/hooks/useFaturas.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { listFaturas, createFatura } from '../services/faturas';
+
+export function useFaturas(viagemId: string) {
+  const qc = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['faturas', viagemId],
+    queryFn: () => listFaturas(viagemId),
+    enabled: !!viagemId,
+  });
+
+  const create = useMutation({
+    mutationFn: createFatura,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['faturas', viagemId] }),
+  });
+
+  return { ...query, create };
+}
+```
+
+Return shape: spread the query (`data`, `isLoading`, `error`, `refetch`) and attach named mutations. Pages destructure: `const { data, isLoading, create } = useFaturas(id)`.
+
+## Cache keys
+
+- **Always an array.** First element is the entity name (singular or plural — be consistent within the entity). Subsequent elements scope it.
+- Examples:
+  - `['faturas']` — list of all
+  - `['faturas', viagemId]` — scoped by parent
+  - `['fatura', faturaId]` — single record
+  - `['faturas', viagemId, { status: 'paid' }]` — filtered list
+- Filter objects last. Don't put primitives where an object would be more legible.
+
+## Invalidation
+
+- After a mutation, invalidate the **narrowest** key that covers stale data. `invalidateQueries({ queryKey: ['faturas'] })` invalidates all faturas queries; usually too broad.
+- For optimistic updates, follow React Query v5 patterns: `onMutate` snapshots + `onError` rollback + `onSettled` invalidate. Only adopt this for hot paths — it's extra surface area to test.
+
+## Enabled / guards
+
+- Use `enabled: !!param` for queries that depend on a route param or selected entity. Don't gate inside `queryFn` with early returns — React Query won't know to refetch.
+
+## Errors
+
+- Pages render errors using the project's toast (`src/components/ui/Toast`). Don't re-throw in components; let React Query expose `error` and surface it.
+- For mutations, prefer `onError: (e) => toast.error(...)` inside the hook so every caller gets consistent UX.
+
+## What not to do
+
+- ❌ `useEffect(() => { fetch... })` — there is no place for raw effects fetching data. Use React Query.
+- ❌ Reading `supabase` directly inside a component. Always go through service → hook.
+- ❌ Stuffing form state into React Query. Use `useState` / form libs for UI state; React Query is for **server state**.
+- ❌ `staleTime: Infinity` as a fix for "too many refetches." Diagnose the dependency churn first.
+- ❌ Hand-rolled refetch loops (`setInterval`). Use `refetchInterval` on the query.
+
+## Verification
+
+- New hook? Mount the page, open DevTools → React Query, confirm the key and that mutations invalidate the right entries.
+- `npm run lint && npm run build` clean before declaring done.

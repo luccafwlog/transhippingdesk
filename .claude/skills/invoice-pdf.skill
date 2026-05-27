@@ -1,0 +1,73 @@
+---
+name: invoice-pdf
+description: >
+  Conventions for generating invoice PDFs (jsPDF) in Transhipping Desk. Use
+  when editing or adding any document under src/components/billing/ or
+  src/components/demurrage/, or when introducing a new printable document.
+  Keeps layout, fonts, fiscal data, PIX block, and totals consistent across
+  all invoice types.
+---
+
+# Invoice PDF Playbook
+
+The system emits PDFs for taxas locais (`components/billing/`) and demurrage (`components/demurrage/`). They share visual language. Any new document must reuse the existing primitives — do not branch the style.
+
+## Before You Start
+
+- Read both `src/components/billing/` and `src/components/demurrage/` to identify the shared structure: header, fiscal data block, line items table, totals, PIX block, footer.
+- Read `src/config/` for company data (CNPJ, endereço, etc.) — never inline these in the document.
+- Read `src/lib/pix.ts` — **do not modify**; only call it.
+
+State which existing document is your template before writing code.
+
+## Library
+
+`jspdf` is the only PDF library. Do not introduce `pdfmake`, `react-pdf`, or HTML-to-PDF.
+
+- Page size: `a4`, `pt` units, portrait — match existing.
+- Margins: match existing (check the template you copied).
+- Fonts: stick to the jsPDF built-ins already in use (`helvetica`). Adding a font requires explicit user sign-off — base64-embedded fonts inflate bundle size.
+
+## Required blocks (in order)
+
+1. **Header** — logo + company legal name + CNPJ + endereço, pulled from `src/config/`.
+2. **Document title + number** — e.g. "Fatura de Taxas Locais Nº ####" — uses the counter from `src/lib/` (check existing).
+3. **Cliente** — razão social, CNPJ, endereço.
+4. **Referência operacional** — viagem, navio, escala, B/L(s). This is what makes our invoices auditable; don't omit.
+5. **Line items table** — descrição, quantidade, unitário, total. Right-align numeric columns. Use the same column widths as the template.
+6. **Totais** — subtotal, descontos, total. Bold the final line.
+7. **PIX block** — QR + copia-e-cola string, generated via `src/lib/pix.ts`. Render with `qrcode.react` → toDataURL → `doc.addImage`.
+8. **Footer** — vencimento, observações, página X de Y.
+
+Skipping any of these breaks audit/fiscal expectations. If the new document genuinely doesn't need one (e.g. internal report), get explicit user confirmation.
+
+## Formatting rules
+
+- Currency: `R$ 1.234,56` — pt-BR locale, two decimals, always show `R$`. Use the formatter in `src/lib/` (do not reinvent).
+- Dates: `dd/MM/yyyy`. Use the project formatter.
+- CNPJ / CPF: masked (`00.000.000/0000-00`). Use the project formatter.
+- Weights / volumes: SI units with thousand separators in pt-BR style.
+
+## Page break behavior
+
+- Line items table must repeat its header on each page.
+- Totals block stays on the **last** page — do not let it split.
+- PIX block stays on the last page, after totals.
+- Footer with page number on every page.
+
+If the table is long enough that totals would orphan, force a break before totals.
+
+## Don'ts
+
+- Don't compute PIX payloads inline — only `src/lib/pix.ts`.
+- Don't hardcode company data — only `src/config/`.
+- Don't add new colors, gradients, or icon fonts. These are fiscal documents, not marketing.
+- Don't add a "Powered by" / watermark / debug overlay, even temporarily.
+- Don't `doc.output('dataurlnewwindow')` in production paths — use `doc.save(filename)` or return the blob to the caller.
+
+## Verification
+
+- Generate the PDF locally with `npm run dev` and the actual data shape.
+- Open in a real PDF viewer (not browser preview) — fonts and PIX QR render differently.
+- Test with a 1-item invoice **and** a multi-page invoice (force ≥40 items).
+- Verify PIX QR is scannable with a real bank app before declaring done.
