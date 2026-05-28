@@ -5,6 +5,7 @@ import {
   listBlLocalChargeLines,
   listManualChargeItemsForBl,
   listLocalChargePendencies,
+  listLocalChargeOperationalRows,
   markBlReadyForBilling,
 } from '../charges/chargeOperationsService'
 import { listLocalChargeTables } from '../charges/chargeTableService'
@@ -193,6 +194,91 @@ describe('localCharges service', () => {
     const rows = await listLocalChargePendencies(50)
     expect(rows).toHaveLength(1)
     expect(rows[0]?.id).toBe('BL1')
+  })
+
+  it('pagina a fila operacional para nao ocultar B/Ls acima de 1000 registros', async () => {
+    const rangeCalls: Array<[number, number]> = []
+    const operationalRows = Array.from({ length: 1005 }, (_, index) => ({
+      id: `BL${String(index + 1).padStart(4, '0')}`,
+      cargo_mode: 'container',
+      charge_status: 'ready_for_billing',
+      created_at: `2026-01-${String((index % 28) + 1).padStart(2, '0')}`,
+      customer_reconciliation_status: 'reconciled',
+      customer_reconciliation_notes: null,
+      billing_hold_reason: null,
+      last_billing_run_id: null,
+      charge_exemption_reason: null,
+      charges_calculated_at: null,
+      charges_reviewed_at: null,
+      pol: 'CNTAC',
+      pod: 'BRVIX',
+      voyage: null,
+      customer: null,
+    }))
+
+    function pagedBuilder(rows: unknown[]) {
+      let selectedRange: [number, number] = [0, rows.length - 1]
+      const builder = {
+        order: vi.fn(() => builder),
+        eq: vi.fn(() => builder),
+        ilike: vi.fn(() => builder),
+        or: vi.fn(() => builder),
+        range: vi.fn((from: number, to: number) => {
+          rangeCalls.push([from, to])
+          selectedRange = [from, to]
+          return builder
+        }),
+        then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+          Promise.resolve({ data: rows.slice(selectedRange[0], selectedRange[1] + 1), error: null }).then(resolve, reject),
+      }
+      return builder
+    }
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'bls') {
+        return { select: vi.fn(() => pagedBuilder(operationalRows)) }
+      }
+      if (table === 'charge_calculations') {
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+        }
+      }
+      if (table === 'audit_logs') {
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn(() => ({
+              in: vi.fn(() => ({
+                order: vi.fn(() => ({
+                  limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                })),
+              })),
+            })),
+          })),
+        }
+      }
+      if (table === 'granite_bls') {
+        return {
+          select: vi.fn(() => ({
+            neq: vi.fn(() => ({
+              order: vi.fn(() => ({
+                range: vi.fn(() => Promise.resolve({ data: [], error: null })),
+              })),
+            })),
+          })),
+        }
+      }
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    const rows = await listLocalChargeOperationalRows({ cargoMode: 'container', limit: 1005 })
+
+    expect(rows).toHaveLength(1005)
+    expect(rangeCalls).toEqual([
+      [0, 999],
+      [1000, 1004],
+    ])
   })
 
   it('marca B/L como ready_for_billing via RPC dedicada', async () => {

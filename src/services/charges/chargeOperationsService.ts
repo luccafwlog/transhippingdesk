@@ -1,5 +1,7 @@
 import { supabase } from '../supabase'
 
+const OPERATIONAL_PAGE_SIZE = 1000
+
 export type LocalChargeLine = {
   id: number
   bl_id: string
@@ -227,53 +229,61 @@ export async function listLocalChargeOperationalRows(
 async function loadBlOperationalRows(
   filters?: LocalChargeOperationalFilters,
 ): Promise<LocalChargeOperationalRow[]> {
-  const limit = Math.max(50, Math.min(2000, Number(filters?.limit ?? 400)))
+  const limit = Math.max(50, Math.min(5000, Number(filters?.limit ?? 400)))
+  const rows: LocalChargeOperationalRow[] = []
 
-  let query = supabase
-    .from('bls')
-    .select(
-      `
-      id,
-      cargo_mode,
-      pol,
-      pod,
-      charge_status,
-      customer_reconciliation_status,
-      customer_reconciliation_notes,
-      billing_hold_reason,
-      last_billing_run_id,
-      charge_exemption_reason,
-      charges_calculated_at,
-      charges_reviewed_at,
-      created_at,
-      voyage:voyages(id,voyage_number,vessel:vessels(name)),
-      customer:customers(id,name,cnpj_cpf)
-    `,
-    )
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  // FIX: pagina internamente a fila operacional para nao ocultar B/Ls em volumes maiores.
+  for (let offset = 0; offset < limit; offset += OPERATIONAL_PAGE_SIZE) {
+    const pageSize = Math.min(OPERATIONAL_PAGE_SIZE, limit - offset)
+    let query = supabase
+      .from('bls')
+      .select(
+        `
+        id,
+        cargo_mode,
+        pol,
+        pod,
+        charge_status,
+        customer_reconciliation_status,
+        customer_reconciliation_notes,
+        billing_hold_reason,
+        last_billing_run_id,
+        charge_exemption_reason,
+        charges_calculated_at,
+        charges_reviewed_at,
+        created_at,
+        voyage:voyages(id,voyage_number,vessel:vessels(name)),
+        customer:customers(id,name,cnpj_cpf)
+      `,
+      )
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1)
 
-  if (filters?.cargoMode === 'container' || filters?.cargoMode === 'carga_solta') {
-    query = query.eq('cargo_mode', filters.cargoMode)
-  }
-  if (filters?.pod) {
-    query = query.ilike('pod', `%${filters.pod}%`)
-  }
-  if (filters?.voyageId) {
-    query = query.eq('voyage_id', filters.voyageId)
-  }
-  if (filters?.chargeStatus) {
-    query = query.eq('charge_status', filters.chargeStatus)
-  }
-  if (filters?.search) {
-    const search = filters.search.trim()
-    query = query.or(`id.ilike.%${search}%,consignee.ilike.%${search}%`)
+    if (filters?.cargoMode === 'container' || filters?.cargoMode === 'carga_solta') {
+      query = query.eq('cargo_mode', filters.cargoMode)
+    }
+    if (filters?.pod) {
+      query = query.ilike('pod', `%${filters.pod}%`)
+    }
+    if (filters?.voyageId) {
+      query = query.eq('voyage_id', filters.voyageId)
+    }
+    if (filters?.chargeStatus) {
+      query = query.eq('charge_status', filters.chargeStatus)
+    }
+    if (filters?.search) {
+      const search = filters.search.trim()
+      query = query.or(`id.ilike.%${search}%,consignee.ilike.%${search}%`)
+    }
+
+    const { data: blRows, error: blError } = await query
+    if (blError) throw blError
+
+    const pageRows = (blRows ?? []) as unknown as LocalChargeOperationalRow[]
+    rows.push(...pageRows)
+    if (pageRows.length < pageSize) break
   }
 
-  const { data: blRows, error: blError } = await query
-  if (blError) throw blError
-
-  const rows = (blRows ?? []) as unknown as LocalChargeOperationalRow[]
   if (rows.length === 0) return []
 
   const blIds = rows.map((row) => row.id)
@@ -369,7 +379,7 @@ type GraniteOperationalRaw = {
 async function loadGraniteOperationalRows(
   filters?: LocalChargeOperationalFilters,
 ): Promise<LocalChargeOperationalRow[]> {
-  const limit = Math.max(50, Math.min(2000, Number(filters?.limit ?? 400)))
+  const limit = Math.max(50, Math.min(5000, Number(filters?.limit ?? 400)))
 
   // Mapeia o filtro de chargeStatus do mundo bls para o domínio enxuto de granite_bls.
   // granite_bls aceita: not_calculated | calculated | ready_for_billing | invoiced.
@@ -379,39 +389,47 @@ async function loadGraniteOperationalRows(
     return []
   }
 
-  let query = supabase
-    .from('granite_bls')
-    .select(
-      `
-      id,
-      charge_status,
-      loading_port,
-      discharge_port,
-      client_id,
-      created_at,
-      manifest:granite_manifests(voyage:voyages(id,voyage_number,vessel:vessels(name))),
-      customer:customers!granite_bls_client_id_fkey(id,name,cnpj_cpf)
-    `,
-    )
-    .neq('charge_status', 'invoiced')
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  let granRows: GraniteOperationalRaw[] = []
 
-  if (requested === 'not_calculated' || requested === 'calculated' || requested === 'ready_for_billing') {
-    query = query.eq('charge_status', requested)
-  }
-  if (filters?.pod) {
-    query = query.ilike('discharge_port', `%${filters.pod}%`)
-  }
-  if (filters?.search) {
-    const search = filters.search.trim()
-    query = query.or(`bl_number.ilike.%${search}%,shipper_name.ilike.%${search}%`)
-  }
+  // FIX: pagina internamente a fila de Granito para manter cobertura em listas grandes.
+  for (let offset = 0; offset < limit; offset += OPERATIONAL_PAGE_SIZE) {
+    const pageSize = Math.min(OPERATIONAL_PAGE_SIZE, limit - offset)
+    let query = supabase
+      .from('granite_bls')
+      .select(
+        `
+        id,
+        charge_status,
+        loading_port,
+        discharge_port,
+        client_id,
+        created_at,
+        manifest:granite_manifests(voyage:voyages(id,voyage_number,vessel:vessels(name))),
+        customer:customers!granite_bls_client_id_fkey(id,name,cnpj_cpf)
+      `,
+      )
+      .neq('charge_status', 'invoiced')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1)
 
-  const { data, error } = await query
-  if (error) throw error
+    if (requested === 'not_calculated' || requested === 'calculated' || requested === 'ready_for_billing') {
+      query = query.eq('charge_status', requested)
+    }
+    if (filters?.pod) {
+      query = query.ilike('discharge_port', `%${filters.pod}%`)
+    }
+    if (filters?.search) {
+      const search = filters.search.trim()
+      query = query.or(`bl_number.ilike.%${search}%,shipper_name.ilike.%${search}%`)
+    }
 
-  let granRows = (data ?? []) as unknown as GraniteOperationalRaw[]
+    const { data, error } = await query
+    if (error) throw error
+
+    const pageRows = (data ?? []) as unknown as GraniteOperationalRaw[]
+    granRows = [...granRows, ...pageRows]
+    if (pageRows.length < pageSize) break
+  }
 
   // Filtro por viagem em granite_bls passa pelo manifest.voyage (lookup client-side).
   if (filters?.voyageId) {
