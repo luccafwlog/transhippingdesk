@@ -56,13 +56,12 @@ vi.mock('../../hooks/useLocalCharges', () => ({
 }))
 
 describe('TaxasLocais', () => {
-  it('mostra as pendencias de calculo que alimentam o badge do menu', () => {
+  it('mantem somente cadastro de tabelas e overrides, sem fila operacional de pendencias', () => {
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
-    expect(html).toContain('Pendencias de calculo')
-    expect(html).toContain('1 B/L em revisao')
-    expect(html).toContain('BL-BB-001')
-    expect(html).toContain('Nao existe tabela ativa para POD/mode na data de referencia')
-    expect(html).toContain('Recalcular pendencias')
+    expect(html).toContain('Tabelas')
+    expect(html).toContain('Overrides')
+    expect(html).not.toContain('Pendencias de calculo')
+    expect(html).not.toContain('Recalcular pendencias')
   })
 })

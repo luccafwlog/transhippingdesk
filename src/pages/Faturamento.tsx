@@ -17,6 +17,11 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyageOptions } from '../hooks/useBls'
 import {
+  useBatchCalculateLocalCharges,
+  useLocalChargeOperations,
+} from '../hooks/useLocalCharges'
+import type { LocalChargeOperationalRow } from '../services/charges/chargeOperationsService'
+import {
   useBillingCustomers,
   useBillingReadyBls,
   useBillingReadyGraniteBls,
@@ -80,11 +85,13 @@ export function Faturamento() {
     pageSize: 20,
   })
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(Number(searchParams.get('invoice') ?? '') || null)
-  const [activeTab, setActiveTab] = useState<'validacao' | 'invoices' | 'demurrage'>(
+  const [activeTab, setActiveTab] = useState<'validacao' | 'pendencias' | 'invoices' | 'demurrage'>(
     searchParams.get('tab') === 'demurrage'
       ? 'demurrage'
       : searchParams.get('tab') === 'invoices'
         ? 'invoices'
+        : searchParams.get('tab') === 'pendencias'
+          ? 'pendencias'
         : 'validacao'
   )
   const [demurrageInvoiceId, setDemurrageInvoiceId] = useState<number | null>(null)
@@ -370,32 +377,19 @@ export function Faturamento() {
         }}
       />
 
-      <div className="mb-5 flex gap-2 border-b border-[#30363d]">
-        <button
-          type="button"
-          onClick={() => setActiveTab('validacao')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'validacao' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          Validação
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('invoices')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'invoices' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          Invoices (Taxas Locais + Granito)
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('demurrage')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'demurrage' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          Demurrage
-        </button>
+      <div className="mb-5 flex flex-wrap gap-2">
+        <TabButton active={activeTab === 'validacao'} label="Validação" onClick={() => setActiveTab('validacao')} />
+        <TabButton active={activeTab === 'pendencias'} label="Pendências" onClick={() => setActiveTab('pendencias')} />
+        <TabButton active={activeTab === 'invoices'} label="Invoices (Taxas Locais + Granito)" onClick={() => setActiveTab('invoices')} />
+        <TabButton active={activeTab === 'demurrage'} label="Demurrage" onClick={() => setActiveTab('demurrage')} />
       </div>
 
       {activeTab === 'validacao' ? (
         <ValidacaoTab userId={user?.id ?? null} />
+      ) : null}
+
+      {activeTab === 'pendencias' ? (
+        <PendenciasFaturamentoTab userId={user?.id ?? null} />
       ) : null}
 
       {activeTab === 'demurrage' ? (
@@ -745,6 +739,134 @@ export function Faturamento() {
 type DemurrageInvoicesPanelProps = {
   query: { data?: Awaited<ReturnType<typeof listDemurrageInvoices>>; isLoading: boolean; error: unknown }
   onOpenDetail: (id: number) => void
+}
+
+function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button className={`app-tab ${active ? 'app-tab--active' : ''}`} onClick={onClick} type="button">
+      {label}
+    </button>
+  )
+}
+
+function PendenciasFaturamentoTab({ userId }: { userId: string | null }) {
+  const { showToast } = useToast()
+  const {
+    data: pendingRows,
+    isLoading,
+    error,
+  } = useLocalChargeOperations({
+    chargeStatus: 'review_required',
+    limit: 1200,
+  })
+  const recalculateMutation = useBatchCalculateLocalCharges()
+  const rows = pendingRows ?? []
+
+  async function handleRecalculatePending() {
+    const pendingIds = rows.map((row) => row.id)
+    if (pendingIds.length === 0) {
+      showToast('Nao ha pendencias para recalcular.', 'info')
+      return
+    }
+
+    try {
+      const result = await recalculateMutation.mutateAsync({
+        blIds: pendingIds,
+        actorId: userId,
+        recalculate: true,
+      })
+      if (result.errorCount > 0) {
+        const firstError = result.errors[0]
+        showToast(
+          `Recalculo parcial: ${result.successCount}/${result.total}. Primeiro erro em ${firstError?.blId ?? '-'}: ${firstError?.message ?? 'erro inesperado'}`,
+          'info',
+        )
+      } else {
+        showToast(`Recalculo concluido para ${result.successCount} B/L(s).`, 'success')
+      }
+    } catch {
+      showToast('Falha ao recalcular pendencias.', 'error')
+    }
+  }
+
+  return (
+    <Card className="mb-5">
+      <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
+        <div className="app-table__cell-stack">
+          <div className="app-panel__title">Pendencias de calculo</div>
+          <div className="app-table__cell-meta">
+            Estes B/Ls estao em revisao nas taxas locais e precisam ser recalculados ou tratados antes de seguir para invoice.
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={rows.length > 0 ? 'yellow' : 'green'}>
+            {isLoading ? 'Carregando...' : `${rows.length} B/L em revisao`}
+          </Badge>
+          {rows.length > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void handleRecalculatePending()}
+              loading={recalculateMutation.isPending}
+            >
+              Recalcular pendencias
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {error ? <InlineError message="Falha ao consultar pendencias de calculo." /> : null}
+      {!isLoading && !error && rows.length === 0 ? (
+        <EmptyState title="Nenhuma pendencia de calculo encontrada." />
+      ) : null}
+      {rows.length > 0 ? <PendenciasTable rows={rows} /> : null}
+    </Card>
+  )
+}
+
+function PendenciasTable({ rows }: { rows: LocalChargeOperationalRow[] }) {
+  return (
+    <div className="app-table-scroll">
+      <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
+        <thead>
+          <tr>
+            <th scope="col" className="px-4 py-3">B/L</th>
+            <th scope="col" className="px-4 py-3">Cliente</th>
+            <th scope="col" className="px-4 py-3">Modo/POD</th>
+            <th scope="col" className="px-4 py-3">Viagem</th>
+            <th scope="col" className="px-4 py-3">Motivo</th>
+            <th scope="col" className="px-4 py-3">Acesso</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.id}</td>
+              <td className="px-4 py-3">
+                <div className="font-medium text-[var(--app-text-strong)]">{row.customer?.name ?? '-'}</div>
+                <div className="text-xs text-[var(--app-muted)]">{row.customer?.cnpj_cpf ?? '-'}</div>
+              </td>
+              <td className="px-4 py-3">
+                {(row.cargo_mode ?? '-').replace('_', ' ').toUpperCase()} / {row.pod ?? '-'}
+              </td>
+              <td className="px-4 py-3">
+                {row.voyage?.vessel?.name ?? 'Navio'} / {row.voyage?.voyage_number ?? '-'}
+              </td>
+              <td className="px-4 py-3">
+                <div className="max-w-[360px] truncate" title={row.trail.last_event_message ?? row.billing_hold_reason ?? undefined}>
+                  {row.trail.last_event_message ?? row.billing_hold_reason ?? 'Revisao requerida'}
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                <Link className="app-link" to={`/manifestos/${row.id}`}>
+                  Ver B/L
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 function DemurrageInvoicesPanel({ query, onOpenDetail }: DemurrageInvoicesPanelProps) {
