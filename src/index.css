@@ -1284,6 +1284,110 @@ textarea {
   padding: 16px 24px;
 }
 
+.invoice-create-dialog {
+  width: min(1120px, calc(100vw - 40px));
+  min-width: min(800px, calc(100vw - 40px));
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.invoice-create-dialog__body {
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.invoice-create-modal {
+  display: flex;
+  min-height: 0;
+  max-height: calc(90vh - 84px);
+  flex-direction: column;
+  gap: 16px;
+}
+
+.invoice-create-modal__filters,
+.invoice-create-modal__table-section {
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-surface);
+  padding: 18px;
+}
+
+.invoice-create-modal__table-section {
+  display: flex;
+  min-height: 280px;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.invoice-create-modal__table-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.invoice-create-modal__table-header h3 {
+  margin: 0;
+  color: var(--app-text-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.invoice-create-modal__table-header p {
+  margin: 4px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.invoice-create-modal__table-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: 42vh;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+}
+
+.invoice-create-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--app-surface-strong), var(--app-surface));
+  padding: 14px 18px;
+}
+
+.invoice-create-modal__footer-label {
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.invoice-create-modal__footer-total {
+  margin-top: 3px;
+  color: var(--app-text-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.invoice-create-modal__footer-preview {
+  margin-top: 2px;
+  max-width: 520px;
+  overflow: hidden;
+  color: var(--app-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-toast-stack {
   position: fixed;
   right: 16px;

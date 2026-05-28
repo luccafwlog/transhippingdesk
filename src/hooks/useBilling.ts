@@ -67,7 +67,7 @@ export function useCreateInvoice() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.billingReady.bls() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.billingReady.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.all() }),
@@ -118,7 +118,7 @@ export function useCancelInvoice() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(variables.invoiceId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.billingReady.bls() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.billingReady.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.detail() }),

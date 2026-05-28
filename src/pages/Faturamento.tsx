@@ -24,9 +24,7 @@ import type { LocalChargeOperationalRow } from '../services/charges/chargeOperat
 import {
   useBillingCustomers,
   useBillingReadyBls,
-  useBillingReadyGraniteBls,
   useCancelInvoice,
-  useCreateGraniteInvoice,
   useCreateInvoice,
   useInvoiceDetail,
   useInvoices,
@@ -105,6 +103,7 @@ export function Faturamento() {
   const [createSearch, setCreateSearch] = useState('')
   const [createCustomerSearch, setCreateCustomerSearch] = useState('')
   const [createCustomerPickerOpen, setCreateCustomerPickerOpen] = useState(false)
+  const [createError, setCreateError] = useState('')
   const [selectedBls, setSelectedBls] = useState<string[]>([])
   const [customerSearch, setCustomerSearch] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
@@ -152,23 +151,19 @@ export function Faturamento() {
     voyageId: createVoyageId ? Number(createVoyageId) : null,
     cargoMode: createCargoMode || null,
   })
-  const { data: readyGraniteBls, isLoading: loadingReadyGraniteBls } = useBillingReadyGraniteBls({
-    customerId: createCustomerId ? Number(createCustomerId) : null,
-  })
   const { data: voyageOptions } = useVoyageOptions()
   const detailQuery = useInvoiceDetail(selectedInvoiceId)
   const createInvoiceMutation = useCreateInvoice()
-  const createGraniteInvoiceMutation = useCreateGraniteInvoice()
   const registerPaymentMutation = useRegisterInvoicePayment()
   const cancelInvoiceMutation = useCancelInvoice()
 
   type UnifiedBl = {
     id: string
-    origin: 'local' | 'granite'
     label: string
-    customerName: string | null
-    customerDoc: string | null
-    context: string
+    carrierName: string
+    vesselVoyage: string
+    containerCount: number
+    billingTotalBrl: number
   }
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
@@ -178,47 +173,34 @@ export function Faturamento() {
     const term = createSearch.trim().toUpperCase()
     const local: UnifiedBl[] = (readyBls ?? []).map((row) => ({
       id: row.id,
-      origin: 'local',
       label: row.id,
-      customerName: row.customer?.name ?? null,
-      customerDoc: row.customer?.cnpj_cpf ?? null,
-      context: `${row.voyage?.vessel?.name ?? '-'} / ${row.voyage?.voyage_number ?? '-'} · ${row.pol ?? '-'} → ${row.pod ?? '-'} · ${row.cargo_mode === 'carga_solta' ? 'Carga solta' : 'Container'}`,
+      carrierName: row.voyage?.vessel?.carrier?.name ?? '-',
+      vesselVoyage: `${row.voyage?.vessel?.name ?? 'Navio'} / ${row.voyage?.voyage_number ?? '-'}`,
+      containerCount: row.container_count ?? 0,
+      billingTotalBrl: Number(row.billing_total_brl ?? 0),
     }))
-    const granite: UnifiedBl[] = (readyGraniteBls ?? []).map((row) => ({
-      id: row.id,
-      origin: 'granite',
-      label: row.bl_number,
-      customerName: (row.client as { name?: string } | null)?.name ?? null,
-      customerDoc: (row.client as { cnpj_cpf?: string } | null)?.cnpj_cpf ?? null,
-      context: `${(row.manifest as { vessel_voyage?: string } | null)?.vessel_voyage ?? '-'} · ${row.loading_port ?? '-'} → ${row.discharge_port ?? '-'} · Granito`,
-    }))
-    const all = [...local, ...granite]
-    if (!term) return all
-    return all.filter((row) => row.label.toUpperCase().includes(term) || (row.customerName ?? '').toUpperCase().includes(term))
-  }, [createSearch, readyBls, readyGraniteBls])
+    if (!term) return local
+    return local.filter((row) => row.label.toUpperCase().includes(term) || row.vesselVoyage.toUpperCase().includes(term))
+  }, [createSearch, readyBls])
 
   const selectedReadyRows = useMemo(
     () => unifiedReadyBls.filter((row) => selectedBls.includes(row.id)),
     [unifiedReadyBls, selectedBls],
   )
 
-  const createSelectionSummary = useMemo(() => {
-    const customerNames = Array.from(new Set(selectedReadyRows.map((row) => row.customerName).filter(Boolean)))
-    const origins = Array.from(new Set(selectedReadyRows.map((row) => row.origin)))
+  const createSelectionSummary = useMemo(() => ({
+    selectedCount: selectedReadyRows.length,
+    selectedTotalBrl: selectedReadyRows.reduce((sum, row) => sum + row.billingTotalBrl, 0),
+    routePreview:
+      selectedReadyRows.length > 0
+        ? selectedReadyRows
+            .slice(0, 3)
+            .map((row) => row.label)
+            .join(', ')
+        : 'Nenhum B/L selecionado',
+  }), [selectedReadyRows])
 
-    return {
-      selectedCount: selectedReadyRows.length,
-      customerLabel: customerNames.length === 1 ? customerNames[0] ?? 'Detectar pelos B/Ls' : customerNames.length > 1 ? 'Clientes mistos' : 'Detectar pelos B/Ls',
-      voyageLabel: origins.includes('granite') && origins.includes('local') ? 'Misto (erro)' : origins[0] === 'granite' ? 'Modulo Granito' : 'Taxas locais',
-      routePreview:
-        selectedReadyRows.length > 0
-          ? selectedReadyRows
-              .slice(0, 3)
-              .map((row) => row.label)
-              .join(', ')
-          : 'Nenhum B/L selecionado',
-    }
-  }, [selectedReadyRows])
+  const allVisibleSelected = unifiedReadyBls.length > 0 && unifiedReadyBls.every((row) => selectedBls.includes(row.id))
 
   const summary = useMemo(() => {
     const open = invoices.filter((row) => row.status === 'issued' || row.status === 'partially_paid' || row.status === 'overdue')
@@ -244,59 +226,59 @@ export function Faturamento() {
     setCreateDueDate('')
     setCreateNotes('')
     setCreateSearch('')
+    setCreateError('')
     setSelectedBls([])
   }
 
   function toggleBl(blId: string) {
+    setCreateError('')
     setSelectedBls((current) => {
       if (createMode === 'single') return current.includes(blId) ? [] : [blId]
       return current.includes(blId) ? current.filter((id) => id !== blId) : [...current, blId]
     })
   }
 
+  function toggleAllVisibleBls() {
+    setCreateError('')
+    setSelectedBls((current) => {
+      if (allVisibleSelected) {
+        return current.filter((id) => !unifiedReadyBls.some((row) => row.id === id))
+      }
+      const visibleIds = unifiedReadyBls.map((row) => row.id)
+      return Array.from(new Set([...current, ...visibleIds]))
+    })
+  }
+
   async function handleCreateInvoice() {
+    setCreateError('')
+    if (!createCustomerId) {
+      setCreateError('Selecione um cliente para listar e faturar B/Ls em aberto.')
+      return
+    }
     if (!selectedBls.length) {
-      showToast('Selecione ao menos um B/L para emitir.', 'error')
+      setCreateError('Selecione ao menos um B/L para gerar a invoice.')
       return
     }
     if (createMode === 'single' && selectedBls.length !== 1) {
-      showToast('Modo B/L unico permite somente 1 B/L.', 'error')
-      return
-    }
-    const selectedRows = unifiedReadyBls.filter((row) => selectedBls.includes(row.id))
-    const hasLocal = selectedRows.some((row) => row.origin === 'local')
-    const hasGranite = selectedRows.some((row) => row.origin === 'granite')
-    if (hasLocal && hasGranite) {
-      showToast('Não é possível misturar B/Ls locais e Granito na mesma invoice.', 'error')
+      setCreateError('Modo B/L unico permite somente 1 B/L.')
       return
     }
     try {
-      let payload: { invoice_id?: number }
-      if (hasGranite) {
-        payload = await createGraniteInvoiceMutation.mutateAsync({
-          graniteBlIds: selectedBls,
-          customerId: createCustomerId ? Number(createCustomerId) : null,
-          dueDate: createDueDate || null,
-          notes: createNotes.trim() || null,
-          actorId: user?.id ?? null,
-        }) as { invoice_id?: number }
-      } else {
-        payload = await createInvoiceMutation.mutateAsync({
-          blIds: selectedBls,
-          customerId: createCustomerId ? Number(createCustomerId) : null,
-          dueDate: createDueDate || null,
-          notes: createNotes.trim() || null,
-          issueNow: true,
-          actorId: user?.id ?? null,
-        }) as { invoice_id?: number }
-      }
+      const payload = await createInvoiceMutation.mutateAsync({
+        blIds: selectedBls,
+        customerId: Number(createCustomerId),
+        dueDate: createDueDate || null,
+        notes: createNotes.trim() || null,
+        issueNow: true,
+        actorId: user?.id ?? null,
+      }) as { invoice_id?: number }
       setSelectedInvoiceId(Number(payload.invoice_id ?? 0))
       setCreateOpen(false)
       resetCreateState()
-      showToast('Invoice emitida com sucesso.', 'success')
+      showToast('Invoice gerada com sucesso', 'success')
     } catch (error) {
-      const msg = extractMessage(error, 'Falha ao emitir invoice.')
-      showToast(msg, 'error')
+      const msg = extractMessage(error, 'Falha ao gerar invoice.')
+      setCreateError(msg)
       void createAlert({ type: 'invoice_create_conflict', entityType: 'invoice', entityId: '', message: msg })
       void logOperationalEvent({ code: 'invoice_create_conflict', message: msg, changedBy: user?.id ?? null })
       void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
@@ -482,11 +464,16 @@ export function Faturamento() {
         </>
       ) : null}
 
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); resetCreateState() }} title="Nova Invoice">
-        <div className="grid gap-5">
-          <Card>
+      <Modal
+        open={createOpen}
+        onClose={() => { setCreateOpen(false); resetCreateState() }}
+        title="Nova Invoice"
+        className="invoice-create-dialog"
+        bodyClassName="invoice-create-dialog__body"
+      >
+        <div className="invoice-create-modal">
+          <section className="invoice-create-modal__filters">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <Field label="Modo"><Select value={createMode} onChange={(event) => setCreateMode(event.target.value as 'single' | 'consolidated')}><option value="consolidated">Consolidada</option><option value="single">B/L unico</option></Select></Field>
               <CustomerSearchField
                 value={createCustomerSearch}
                 selectedCustomerId={createCustomerId}
@@ -494,94 +481,94 @@ export function Faturamento() {
                 open={createCustomerPickerOpen}
                 onOpenChange={setCreateCustomerPickerOpen}
                 onChange={(value) => {
+                  setCreateError('')
                   setCreateCustomerSearch(value)
                   setCreateCustomerId('')
                   setCreateCustomerPickerOpen(true)
                   setSelectedBls([])
                 }}
                 onSelect={(customer) => {
+                  setCreateError('')
                   setCreateCustomerId(customer ? String(customer.id) : '')
                   setCreateCustomerSearch(customer?.name ?? '')
                   setCreateCustomerPickerOpen(false)
                   setSelectedBls([])
                 }}
               />
-              <Field label="Viagem"><Select value={createVoyageId} onChange={(event) => setCreateVoyageId(event.target.value)}><option value="">Todas</option>{voyageOptions?.map((voyage) => <option key={voyage.id} value={voyage.id}>{voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}</option>)}</Select></Field>
-              <Field label="Carga"><Select value={createCargoMode} onChange={(event) => setCreateCargoMode(event.target.value as '' | 'container' | 'carga_solta')}><option value="">Todos</option><option value="container">Container</option><option value="carga_solta">Carga Solta</option></Select></Field>
+              <Field label="Viagem"><Select value={createVoyageId} onChange={(event) => { setCreateVoyageId(event.target.value); setSelectedBls([]) }}><option value="">Todas</option>{voyageOptions?.map((voyage) => <option key={voyage.id} value={voyage.id}>{voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}</option>)}</Select></Field>
+              <Field label="Carga"><Select value={createCargoMode} onChange={(event) => { setCreateCargoMode(event.target.value as '' | 'container' | 'carga_solta'); setSelectedBls([]) }}><option value="">Todos</option><option value="container">Container</option><option value="carga_solta">Carga Solta</option></Select></Field>
               <Field label="Vencimento"><Input type="date" value={createDueDate} onChange={(event) => setCreateDueDate(event.target.value)} /></Field>
-              <Field label="Buscar B/L"><Input value={createSearch} onChange={(event) => setCreateSearch(event.target.value)} /></Field>
-              <div className="md:col-span-2 xl:col-span-2">
-                <Field label="Observações"><Textarea value={createNotes} onChange={(event) => setCreateNotes(event.target.value)} /></Field>
+              <Field label="Buscar B/L"><Input value={createSearch} onChange={(event) => setCreateSearch(event.target.value)} placeholder="Digite o numero do B/L" /></Field>
+              <div className="md:col-span-2 xl:col-span-3">
+                <Field label="Observacoes"><Textarea value={createNotes} onChange={(event) => setCreateNotes(event.target.value)} /></Field>
               </div>
             </div>
-          </Card>
-          <Card>
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="app-table__cell-stack">
-                <div className="text-base font-semibold text-white">Selecao de B/Ls elegiveis</div>
-                <div className="app-table__cell-meta">
-                  {createMode === 'single'
-                    ? 'Selecione exatamente 1 B/L pronto para faturar.'
-                    : 'Selecione um ou mais B/Ls do mesmo cliente para consolidar a invoice.'}
-                </div>
+            {createError ? <InlineError message={createError} /> : null}
+          </section>
+
+          <section className="invoice-create-modal__table-section">
+            <div className="invoice-create-modal__table-header">
+              <div>
+                <h3>Selecao de B/Ls elegiveis</h3>
+                <p>Selecione um ou mais B/Ls em aberto do cliente escolhido para consolidar a invoice.</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="blue">{createSelectionSummary.selectedCount} selecionado(s)</Badge>
-                <Badge tone="yellow">Bloqueia USD e conflito financeiro</Badge>
-              </div>
+              <Badge tone="blue">{createSelectionSummary.selectedCount} selecionado(s)</Badge>
             </div>
-          </Card>
-          <div className="grid gap-5 xl:grid-cols-[1.6fr,0.8fr]">
-            <div className="app-table-scroll max-h-80 rounded-xl border border-[#30363d]">
-              <table className="app-table app-table--compact min-w-[820px] table-fixed text-left text-sm">
-                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="w-[8%] px-3 py-2">Sel.</th><th scope="col" className="w-[12%] px-3 py-2">Origem</th><th scope="col" className="w-[20%] px-3 py-2">B/L</th><th scope="col" className="w-[28%] px-3 py-2">Cliente</th><th scope="col" className="w-[32%] px-3 py-2">Contexto</th></tr></thead>
+            <div className="invoice-create-modal__table-scroll app-table-scroll">
+              <table className="app-table app-table--compact min-w-[900px] table-fixed text-left text-sm">
+                <thead>
+                  <tr>
+                    <th scope="col" className="w-[7%] px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        disabled={unifiedReadyBls.length === 0}
+                        onChange={toggleAllVisibleBls}
+                        aria-label="Selecionar todos os B/Ls visiveis"
+                      />
+                    </th>
+                    <th scope="col" className="w-[19%] px-3 py-2">No BL</th>
+                    <th scope="col" className="w-[22%] px-3 py-2">Armador</th>
+                    <th scope="col" className="w-[24%] px-3 py-2">Navio/Viagem</th>
+                    <th scope="col" className="w-[12%] px-3 py-2">Containers</th>
+                    <th scope="col" className="w-[16%] px-3 py-2">Total Charges (R$)</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-[#30363d]">
-                  {(loadingReadyBls || loadingReadyGraniteBls) ? <tr><td colSpan={5} className="p-0"><SkeletonTable rows={4} cols={5} /></td></tr> : null}
-                  {!loadingReadyBls && !loadingReadyGraniteBls && unifiedReadyBls.length === 0 ? <tr><td colSpan={5} className="p-0"><EmptyState title="Nenhum B/L pronto para faturar." /></td></tr> : null}
+                  {loadingReadyBls ? <tr><td colSpan={6} className="p-0"><SkeletonTable rows={4} cols={6} /></td></tr> : null}
+                  {!loadingReadyBls && unifiedReadyBls.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        <EmptyState title={createCustomerId ? 'Nenhum BL em aberto para este cliente' : 'Selecione um cliente para listar B/Ls em aberto.'} />
+                      </td>
+                    </tr>
+                  ) : null}
                   {unifiedReadyBls.map((row) => (
                     <tr key={row.id}>
                       <td className="px-3 py-2"><input type="checkbox" checked={selectedBls.includes(row.id)} onChange={() => toggleBl(row.id)} /></td>
-                      <td className="px-3 py-2">
-                        {row.origin === 'granite'
-                          ? <span className="inline-flex items-center rounded-md bg-amber-400/10 px-2 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-amber-400/30">Granito</span>
-                          : <span className="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-0.5 text-xs font-medium text-blue-300 ring-1 ring-blue-400/30">Local</span>
-                        }
-                      </td>
                       <td className="px-3 py-2 font-semibold text-[#58a6ff]">{row.label}</td>
-                      <td className="px-3 py-2">
-                        <div className="app-table__cell-stack">
-                          <div className="app-table__cell-value">
-                            <span className="app-table__truncate app-table__truncate--lg" title={row.customerName ?? '-'}>
-                              {row.customerName ?? '-'}
-                            </span>
-                          </div>
-                          <div className="app-table__cell-meta">{row.customerDoc ?? 'Sem documento'}</div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="app-table__cell-value text-xs text-slate-400">{row.context}</div>
-                      </td>
+                      <td className="px-3 py-2"><span className="app-table__truncate app-table__truncate--lg" title={row.carrierName}>{row.carrierName}</span></td>
+                      <td className="px-3 py-2"><span className="app-table__truncate app-table__truncate--lg" title={row.vesselVoyage}>{row.vesselVoyage}</span></td>
+                      <td className="px-3 py-2">{row.containerCount}</td>
+                      <td className="px-3 py-2 font-semibold text-[var(--app-green)]">{formatBRL(row.billingTotalBrl)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <Card>
-              <h2 className="text-base font-semibold text-white">Resumo da selecao</h2>
-              <div className="mt-4 grid gap-3">
-                <SelectionMetric label="Modo" value={createMode === 'single' ? 'B/L unico' : 'Consolidada'} />
-                <SelectionMetric label="B/Ls selecionados" value={String(createSelectionSummary.selectedCount)} />
-                <SelectionMetric label="Cliente" value={createSelectionSummary.customerLabel} />
-                <SelectionMetric label="Viagem" value={createSelectionSummary.voyageLabel} />
-                <SelectionMetric label="Trechos" value={createSelectionSummary.routePreview} />
-                <SelectionMetric label="Vencimento" value={createDueDate ? formatDate(createDueDate) : 'Não definido'} />
-              </div>
-              <div className="mt-4 rounded-xl border border-dashed border-[#30363d] bg-[#111827] px-3 py-3 text-xs text-slate-400">
-                A emissão bloqueia B/Ls com conflito financeiro, cliente não reconciliado ou valores em USD.
-              </div>
-            </Card>
+          </section>
+
+          <div className="invoice-create-modal__footer">
+            <div>
+              <div className="invoice-create-modal__footer-label">Total selecionado</div>
+              <div className="invoice-create-modal__footer-total">{createSelectionSummary.selectedCount} B/L(s) - {formatBRL(createSelectionSummary.selectedTotalBrl)}</div>
+              <div className="invoice-create-modal__footer-preview">{createSelectionSummary.routePreview}</div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => { setCreateOpen(false); resetCreateState() }}>Cancelar</Button>
+              <Button disabled={!selectedBls.length} loading={createInvoiceMutation.isPending} onClick={handleCreateInvoice}><DollarSign size={16} />Gerar Invoice</Button>
+            </div>
           </div>
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setCreateOpen(false); resetCreateState() }}>Cancelar</Button><Button loading={createInvoiceMutation.isPending || createGraniteInvoiceMutation.isPending} onClick={handleCreateInvoice}><DollarSign size={16} />Emitir invoice</Button></div>
         </div>
       </Modal>
 
@@ -1023,23 +1010,13 @@ function CustomerSearchField({
           className="mt-1 text-xs font-medium text-[var(--app-blue-btn)] hover:underline"
           onClick={() => onSelect(null)}
         >
-          Detectar pelos B/Ls
+          Limpar cliente
         </button>
       ) : (
-        <div className="mt-1 text-xs text-[var(--app-muted)]">Detectar pelos B/Ls</div>
+        <div className="mt-1 text-xs text-[var(--app-muted)]">Busque por nome ou CNPJ para carregar os B/Ls.</div>
       )}
       {open ? (
         <div className="absolute left-0 right-0 top-[76px] z-50 max-h-72 overflow-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] shadow-xl">
-          <button
-            type="button"
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
-            onMouseDown={(event) => {
-              event.preventDefault()
-              onSelect(null)
-            }}
-          >
-            Detectar pelos B/Ls
-          </button>
           {hasOptions ? (
             options.map((option) => (
               <button

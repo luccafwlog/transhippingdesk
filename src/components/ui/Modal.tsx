@@ -7,11 +7,15 @@ export function Modal({
   title,
   children,
   onClose,
+  className,
+  bodyClassName,
 }: {
   open: boolean
   title: string
   children: React.ReactNode
   onClose: () => void
+  className?: string
+  bodyClassName?: string
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -50,7 +54,7 @@ export function Modal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <div
         ref={dialogRef}
-        className="app-modal"
+        className={['app-modal', className].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -62,7 +66,7 @@ export function Modal({
             <X size={18} />
           </Button>
         </div>
-        <div className="app-modal__body">{children}</div>
+        <div className={['app-modal__body', bodyClassName].filter(Boolean).join(' ')}>{children}</div>
       </div>
     </div>
   )

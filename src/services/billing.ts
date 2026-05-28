@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { BLListItem, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
+import type { InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
 import { buildTransshippingPixPayload } from '../lib/pix'
 
 export type InvoiceStatusFilter = '' | 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled'
@@ -19,6 +19,30 @@ export type BillingReadyBlFilters = {
   customerId?: number | null
   voyageId?: number | null
   cargoMode?: 'container' | 'carga_solta' | null
+}
+
+export type BillingReadyBl = {
+  id: string
+  cargo_mode: 'container' | 'carga_solta' | null
+  customer_id: number | null
+  pol: string | null
+  pod: string | null
+  charge_status: string | null
+  financial_status: string | null
+  created_at: string | null
+  customer?: { id: number; name: string; cnpj_cpf: string } | null
+  voyage?: {
+    id: number
+    voyage_number: string
+    vessel?: {
+      id: number
+      name: string
+      carrier?: { id: number; name: string; scac: string | null } | null
+    } | null
+  } | null
+  bl_containers?: Array<{ container_number: string | null }> | null
+  billing_total_brl: number
+  container_count: number
 }
 
 export type GraniteBillingReadyBl = {
@@ -194,6 +218,10 @@ export async function listInvoiceDetails(invoiceId: number) {
 }
 
 export async function listBillingReadyBls(filters?: BillingReadyBlFilters) {
+  if (!filters?.customerId) {
+    return [] as BillingReadyBl[]
+  }
+
   let query = supabase
     .from('bls')
     .select(
@@ -207,17 +235,16 @@ export async function listBillingReadyBls(filters?: BillingReadyBlFilters) {
       financial_status,
       created_at,
       customer:customers(id,name,cnpj_cpf),
-      voyage:voyages(id,voyage_number,vessel:vessels(id,name))
+      voyage:voyages(id,voyage_number,vessel:vessels(id,name,carrier:carriers(id,name,scac))),
+      bl_containers(container_number)
     `,
     )
     .eq('charge_status', 'ready_for_billing')
-    .eq('financial_status', 'pending')
+    .or('financial_status.is.null,financial_status.eq.pending')
+    .eq('customer_id', filters.customerId)
     .order('created_at', { ascending: false })
     .limit(1200)
 
-  if (filters?.customerId) {
-    query = query.eq('customer_id', filters.customerId)
-  }
   if (filters?.voyageId) {
     query = query.eq('voyage_id', filters.voyageId)
   }
@@ -227,7 +254,55 @@ export async function listBillingReadyBls(filters?: BillingReadyBlFilters) {
 
   const { data, error } = await query
   if (error) throw error
-  return (data ?? []) as unknown as BLListItem[]
+
+  const rows = (data ?? []) as unknown as BillingReadyBl[]
+  const blIds = rows.map((row) => row.id)
+  if (blIds.length === 0) return []
+
+  const [{ data: invoiceLinks, error: invoiceLinkError }, { data: charges, error: chargeError }] = await Promise.all([
+    supabase
+      .from('invoice_bls')
+      .select('bl_id, invoice:invoices(status)')
+      .in('bl_id', blIds),
+    supabase
+      .from('charge_calculations')
+      .select('bl_id,total_value_brl,status')
+      .in('bl_id', blIds)
+      .in('status', ['calculated', 'reviewed', 'ready_for_billing']),
+  ])
+
+  if (invoiceLinkError) throw invoiceLinkError
+  if (chargeError) throw chargeError
+
+  const linkedBlIds = new Set<string>()
+  for (const row of invoiceLinks ?? []) {
+    const invoice = row.invoice as { status?: string | null } | null
+    if (invoice && invoice.status !== 'cancelled') {
+      linkedBlIds.add(String(row.bl_id))
+    }
+  }
+
+  const totalsByBl = new Map<string, number>()
+  for (const row of charges ?? []) {
+    const blId = String(row.bl_id ?? '')
+    if (!blId) continue
+    totalsByBl.set(blId, (totalsByBl.get(blId) ?? 0) + Number(row.total_value_brl ?? 0))
+  }
+
+  return rows
+    .filter((row) => !linkedBlIds.has(row.id))
+    .map((row) => {
+      const containerNumbers = new Set(
+        (row.bl_containers ?? [])
+          .map((container) => container.container_number?.trim())
+          .filter(Boolean),
+      )
+      return {
+        ...row,
+        billing_total_brl: totalsByBl.get(row.id) ?? 0,
+        container_count: containerNumbers.size,
+      }
+    })
 }
 
 export async function listBillingReadyGraniteBls(filters?: { customerId?: number | null }) {
