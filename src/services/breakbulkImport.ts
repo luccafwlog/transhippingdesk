@@ -164,6 +164,12 @@ export async function importBreakbulkManifest({
     )
     const matchedCustomer = customerMatch?.customer ?? null
     const customerId = matchedCustomer?.id ?? null
+    const reconciliationStatus =
+      customerId && customerMatch?.matchType === 'document'
+        ? 'matched_document'
+        : customerId && customerMatch?.matchType === 'name'
+          ? 'matched_name'
+          : 'missing_customer'
     const reviewReasons = new Set<string>()
 
     if (!customerId) {
@@ -189,6 +195,18 @@ export async function importBreakbulkManifest({
         consignee: matchedCustomer?.name ?? bl.consignee,
         notify_party: bl.notify_party,
         customer_id: customerId,
+        manifest_customer_cnpj_cpf: bl.cnpj_cpf,
+        manifest_customer_name: bl.consignee,
+        manifest_customer_email: null,
+        customer_reconciliation_status: reconciliationStatus,
+        customer_reconciliation_notes:
+          reconciliationStatus === 'matched_document'
+            ? 'Cliente reconciliado automaticamente por CNPJ/CPF.'
+            : reconciliationStatus === 'matched_name'
+              ? 'Cliente sugerido por nome; validar documento.'
+              : 'Cliente nao encontrado na base cadastral.',
+        billing_hold_reason:
+          reconciliationStatus === 'matched_document' ? null : 'Aguardando reconciliacao de cliente antes do faturamento.',
         pol: bl.pol,
         pod: bl.pod,
         cargo_description:

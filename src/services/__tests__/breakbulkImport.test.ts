@@ -1,14 +1,24 @@
-import { describe, expect, it, vi } from 'vitest'
-import { parseBreakbulkManifestBuffer } from '../breakbulkImport'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { importBreakbulkManifest, parseBreakbulkManifestBuffer, type ParsedBreakbulkManifest } from '../breakbulkImport'
 import { aoaToBuffer, jsonToBuffer } from './testWorkbook'
 
 // breakbulkImport importa customerReconciliation que importa supabase — mock necessário para
 // testes de parser que não usam o banco.
+const { mockFrom, mockRpc } = vi.hoisted(() => ({
+  mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
+}))
+
 vi.mock('../supabase', () => ({
-  supabase: { from: vi.fn(), rpc: vi.fn() },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }))
 
 describe('breakbulkImport', () => {
+  beforeEach(() => {
+    mockFrom.mockReset()
+    mockRpc.mockReset()
+  })
+
   it('parseia o layout BB resumido', async () => {
     const buffer = jsonToBuffer([
       {
@@ -34,6 +44,91 @@ describe('breakbulkImport', () => {
     expect(manifest.bls[0]?.bb_packages_total).toBe(32)
     expect(manifest.bls[0]?.bb_weight_ton).toBeCloseTo(259.312)
     expect(manifest.bls[0]?.total_weight_kg).toBeCloseTo(259312)
+  })
+
+  it('persiste reconciliacao financeira quando BB casa cliente por documento', async () => {
+    const upsertBls = vi.fn(() => Promise.resolve({ error: null }))
+    mockRpc.mockResolvedValue({ data: { status: 'calculated' }, error: null })
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'voyages') {
+        return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { id: 10 }, error: null })) })) })) }
+      }
+      if (table === 'customers') {
+        return {
+          select: vi.fn(() => ({
+            order: vi.fn(() => ({
+              range: vi.fn(() =>
+                Promise.resolve({
+                  data: [{ id: 123, name: 'TIMBRO TRADING S.A.', cnpj_cpf: '12.116.971/0010-71' }],
+                  error: null,
+                }),
+              ),
+            })),
+          })),
+        }
+      }
+      if (table === 'import_batches') {
+        return {
+          insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { id: 77 }, error: null })) })) })),
+          update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) })),
+        }
+      }
+      if (table === 'bls') {
+        return {
+          select: vi.fn(() => ({ in: vi.fn(() => Promise.resolve({ data: [], error: null })) })),
+          upsert: upsertBls,
+        }
+      }
+      if (table === 'bl_breakbulk_items') {
+        return {
+          delete: vi.fn(() => ({ in: vi.fn(() => Promise.resolve({ error: null })) })),
+        }
+      }
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    const manifest: ParsedBreakbulkManifest = {
+      layout: 'summary',
+      rowErrors: [],
+      bls: [
+        {
+          rowNumber: 2,
+          bl_id: 'BB001',
+          ce_mercante: null,
+          shipper: 'SANY INTERNATIONAL',
+          consignee: 'TIMBRO TRADING S.A.',
+          notify_party: 'SAME AS CONSIGNEE',
+          cnpj_cpf: '12.116.971/0010-71',
+          pol: 'CNTAC',
+          pod: 'BRVIX',
+          bb_machine_qty: 2,
+          bb_packages_qty: 2,
+          bb_packages_total: 2,
+          bb_weight_ton: 10,
+          total_weight_kg: 10000,
+          total_cbm: 30,
+          items: [],
+        },
+      ],
+    }
+
+    await importBreakbulkManifest({
+      filename: 'bb.xlsx',
+      voyageId: 10,
+      manifest,
+      uploadedBy: '00000000-0000-0000-0000-000000000001',
+    })
+
+    expect(upsertBls).toHaveBeenCalled()
+    const upsertCalls = upsertBls.mock.calls as unknown as Array<[Array<Record<string, unknown>>]>
+    const rows = upsertCalls[0]?.[0] ?? []
+    expect(rows[0]).toMatchObject({
+      customer_id: 123,
+      manifest_customer_cnpj_cpf: '12.116.971/0010-71',
+      manifest_customer_name: 'TIMBRO TRADING S.A.',
+      customer_reconciliation_status: 'matched_document',
+      billing_hold_reason: null,
+    })
   })
 
   it('agrega linhas do layout BB legado por BL', async () => {
