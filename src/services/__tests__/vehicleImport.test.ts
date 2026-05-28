@@ -74,6 +74,9 @@ describe('vehicleImport', () => {
               }),
             }),
           }),
+          update: () => ({
+            in: async () => ({ error: null }),
+          }),
         }
       }
 
@@ -197,6 +200,9 @@ describe('vehicleImport', () => {
                 error: null,
               }),
             }),
+          }),
+          update: () => ({
+            in: async () => ({ error: null }),
           }),
         }
       }
