@@ -3,6 +3,7 @@ import {
   cancelInvoice,
   createInvoiceFromBls,
   createInvoiceFromGraniteBls,
+  getBillingReadyBlDiagnostics,
   listBillingCustomers,
   listBillingReadyBls,
   listBillingReadyGraniteBls,
@@ -37,6 +38,13 @@ export function useBillingReadyBls(filters?: BillingReadyBlFilters) {
   })
 }
 
+export function useBillingReadyBlDiagnostics(filters?: BillingReadyBlFilters) {
+  return useQuery({
+    queryKey: queryKeys.billingReady.diagnostics(filters),
+    queryFn: () => getBillingReadyBlDiagnostics(filters),
+  })
+}
+
 export function useBillingReadyGraniteBls(filters?: { customerId?: number | null }) {
   return useQuery({
     queryKey: queryKeys.billingReady.graniteBls(filters),
@@ -68,6 +76,7 @@ export function useCreateInvoice() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.billingReady.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.billingReady.diagnostics() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.all() }),

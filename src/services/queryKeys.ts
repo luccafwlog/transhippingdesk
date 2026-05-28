@@ -15,6 +15,7 @@ export const queryKeys = {
   billingReady: {
     all: () => ['billing-ready-bls'] as const,
     bls: (filters?: unknown) => ['billing-ready-bls', filters] as const,
+    diagnostics: (filters?: unknown) => ['billing-ready-bl-diagnostics', filters] as const,
     graniteBls: (filters?: unknown) => ['billing-ready-granite-bls', filters] as const,
     customers: (search: string) => ['billing-customers', search] as const,
   },

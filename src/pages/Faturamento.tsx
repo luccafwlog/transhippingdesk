@@ -23,6 +23,7 @@ import {
 import type { LocalChargeOperationalRow } from '../services/charges/chargeOperationsService'
 import {
   useBillingCustomers,
+  useBillingReadyBlDiagnostics,
   useBillingReadyBls,
   useCancelInvoice,
   useCreateInvoice,
@@ -153,6 +154,11 @@ export function Faturamento() {
     voyageId: createVoyageId ? Number(createVoyageId) : null,
     cargoMode: createCargoMode || null,
   })
+  const { data: readyBlDiagnostics, isLoading: loadingReadyBlDiagnostics } = useBillingReadyBlDiagnostics({
+    customerId: createCustomerId ? Number(createCustomerId) : null,
+    voyageId: createVoyageId ? Number(createVoyageId) : null,
+    cargoMode: createCargoMode || null,
+  })
   const { data: voyageOptions } = useVoyageOptions()
   const detailQuery = useInvoiceDetail(selectedInvoiceId)
   const createInvoiceMutation = useCreateInvoice()
@@ -210,6 +216,19 @@ export function Faturamento() {
   }), [selectedReadyRows])
 
   const allVisibleSelected = unifiedReadyBls.length > 0 && unifiedReadyBls.every((row) => selectedBls.includes(row.id))
+
+  const createEmptyDescription = useMemo(() => {
+    if (!createCustomerId) return undefined
+    if (loadingReadyBlDiagnostics) return 'Verificando BLs deste filtro...'
+    if (!readyBlDiagnostics || readyBlDiagnostics.totalBls === 0) return undefined
+    if (readyBlDiagnostics.alreadyInvoicedBls > 0 && readyBlDiagnostics.eligibleBls === 0) {
+      return `${readyBlDiagnostics.totalBls} B/L(s) encontrados para este filtro; ${readyBlDiagnostics.alreadyInvoicedBls} ja possuem invoice ativa ou status faturado.`
+    }
+    if (readyBlDiagnostics.notReadyBls > 0 && readyBlDiagnostics.eligibleBls === 0) {
+      return `${readyBlDiagnostics.totalBls} B/L(s) encontrados para este filtro, mas ainda nao estao prontos para faturamento.`
+    }
+    return undefined
+  }, [createCustomerId, loadingReadyBlDiagnostics, readyBlDiagnostics])
 
   const summary = useMemo(() => {
     const open = invoices.filter((row) => row.status === 'issued' || row.status === 'partially_paid' || row.status === 'overdue')
@@ -578,7 +597,10 @@ export function Faturamento() {
                   {!loadingReadyBls && unifiedReadyBls.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="p-0">
-                        <EmptyState title={createCustomerId ? 'Nenhum BL em aberto para este cliente' : 'Selecione um cliente para listar B/Ls em aberto.'} />
+                        <EmptyState
+                          title={createCustomerId ? 'Nenhum BL em aberto para este cliente' : 'Selecione um cliente para listar B/Ls em aberto.'}
+                          description={createEmptyDescription}
+                        />
                       </td>
                     </tr>
                   ) : null}

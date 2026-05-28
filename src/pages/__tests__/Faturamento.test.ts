@@ -27,6 +27,7 @@ vi.mock('../../hooks/useBls', () => ({
 
 vi.mock('../../hooks/useBilling', () => ({
   useBillingCustomers: () => ({ data: [] }),
+  useBillingReadyBlDiagnostics: () => ({ data: null, isLoading: false }),
   useBillingReadyBls: () => ({ data: [], isLoading: false }),
   useBillingReadyGraniteBls: () => ({ data: [], isLoading: false }),
   useCancelInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),

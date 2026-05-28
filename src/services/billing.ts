@@ -45,6 +45,13 @@ export type BillingReadyBl = {
   container_count: number
 }
 
+export type BillingReadyBlDiagnostics = {
+  totalBls: number
+  eligibleBls: number
+  alreadyInvoicedBls: number
+  notReadyBls: number
+}
+
 export type GraniteBillingReadyBl = {
   id: string
   bl_number: string
@@ -303,6 +310,73 @@ export async function listBillingReadyBls(filters?: BillingReadyBlFilters) {
         container_count: containerNumbers.size,
       }
     })
+}
+
+export async function getBillingReadyBlDiagnostics(filters?: BillingReadyBlFilters) {
+  if (!filters?.customerId) {
+    return null as BillingReadyBlDiagnostics | null
+  }
+
+  let query = supabase
+    .from('bls')
+    .select('id,charge_status,financial_status')
+    .eq('customer_id', filters.customerId)
+    .limit(2000)
+
+  if (filters?.voyageId) {
+    query = query.eq('voyage_id', filters.voyageId)
+  }
+  if (filters?.cargoMode) {
+    query = query.eq('cargo_mode', filters.cargoMode)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+
+  const rows = (data ?? []) as Array<{ id: string; charge_status: string | null; financial_status: string | null }>
+  const blIds = rows.map((row) => row.id)
+  if (blIds.length === 0) {
+    return { totalBls: 0, eligibleBls: 0, alreadyInvoicedBls: 0, notReadyBls: 0 }
+  }
+
+  const { data: invoiceLinks, error: invoiceLinkError } = await supabase
+    .from('invoice_bls')
+    .select('bl_id, invoice:invoices(status)')
+    .in('bl_id', blIds)
+
+  if (invoiceLinkError) throw invoiceLinkError
+
+  const linkedBlIds = new Set<string>()
+  for (const row of invoiceLinks ?? []) {
+    const invoice = row.invoice as { status?: string | null } | null
+    if (invoice && invoice.status !== 'cancelled') {
+      linkedBlIds.add(String(row.bl_id))
+    }
+  }
+
+  let eligibleBls = 0
+  let alreadyInvoicedBls = 0
+  let notReadyBls = 0
+
+  for (const row of rows) {
+    const financialStatus = row.financial_status ?? 'pending'
+    const hasInvoice = linkedBlIds.has(row.id)
+
+    if (row.charge_status === 'ready_for_billing' && financialStatus === 'pending' && !hasInvoice) {
+      eligibleBls += 1
+    } else if (hasInvoice || financialStatus !== 'pending') {
+      alreadyInvoicedBls += 1
+    } else {
+      notReadyBls += 1
+    }
+  }
+
+  return {
+    totalBls: rows.length,
+    eligibleBls,
+    alreadyInvoicedBls,
+    notReadyBls,
+  }
 }
 
 export async function listBillingReadyGraniteBls(filters?: { customerId?: number | null }) {
