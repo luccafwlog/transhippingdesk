@@ -26,6 +26,7 @@ import {
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
 import { useOperationalCounts } from '../../hooks/useOperationalCounts'
+import { HeaderInfoBar } from './HeaderInfoBar'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
@@ -88,15 +89,6 @@ export function AppLayout() {
   const [isMobileNav, setIsMobileNav] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= NAV_COLLAPSE_WIDTH : false,
   )
-  const currentDate = new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date())
-  const currentTime = new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date())
   const primaryNavItemsWithBadges: NavItem[] = primaryNavItems.map((item) =>
     item.to === '/alertas' ? { ...item, badge: counts.openAlerts || undefined } : item,
   )
@@ -162,21 +154,7 @@ export function AppLayout() {
     <div className="app-shell">
       <a href="#app-main-content" className="app-skip-link">Ir para o conteúdo principal</a>
 
-      <div className="app-market-strip">
-        <div className="app-market-strip__content">
-          <div className="app-market-strip__left">
-            <span className="app-market-chip">Operacao interna</span>
-            <strong className="app-market-value">Transhipping Desk</strong>
-            <span className="app-market-separator">|</span>
-            <span className="app-market-meta">{currentDate}</span>
-          </div>
-          <div className="app-market-strip__right">
-            <span className="app-market-meta">Ultimo acesso: {currentTime}</span>
-            <span className="app-market-divider" />
-            <span className="app-market-meta">Fonte: base operacional</span>
-          </div>
-        </div>
-      </div>
+      <HeaderInfoBar />
 
       <header className="app-header">
         <div className="app-header__content">
