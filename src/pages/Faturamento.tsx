@@ -97,6 +97,8 @@ export function Faturamento() {
   const [createMode, setCreateMode] = useState<'single' | 'consolidated'>('consolidated')
   const [createCustomerId, setCreateCustomerId] = useState('')
   const [createVoyageId, setCreateVoyageId] = useState('')
+  const [createVoyageSearch, setCreateVoyageSearch] = useState('')
+  const [createVoyagePickerOpen, setCreateVoyagePickerOpen] = useState(false)
   const [createCargoMode, setCreateCargoMode] = useState<'' | 'container' | 'carga_solta'>('')
   const [createDueDate, setCreateDueDate] = useState('')
   const [createNotes, setCreateNotes] = useState('')
@@ -169,6 +171,13 @@ export function Faturamento() {
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
   const invoices = useMemo(() => data?.rows ?? [], [data?.rows])
 
+  const filteredCreateVoyageOptions = useMemo(() => {
+    const term = createVoyageSearch.trim().toUpperCase()
+    const options = voyageOptions ?? []
+    if (!term) return options
+    return options.filter((voyage) => formatVoyageSearchLabel(voyage).toUpperCase().includes(term))
+  }, [createVoyageSearch, voyageOptions])
+
   const unifiedReadyBls = useMemo((): UnifiedBl[] => {
     const term = createSearch.trim().toUpperCase()
     const local: UnifiedBl[] = (readyBls ?? []).map((row) => ({
@@ -222,6 +231,8 @@ export function Faturamento() {
     setCreateCustomerSearch('')
     setCreateCustomerPickerOpen(false)
     setCreateVoyageId('')
+    setCreateVoyageSearch('')
+    setCreateVoyagePickerOpen(false)
     setCreateCargoMode('')
     setCreateDueDate('')
     setCreateNotes('')
@@ -473,33 +484,61 @@ export function Faturamento() {
       >
         <div className="invoice-create-modal">
           <section className="invoice-create-modal__filters">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <CustomerSearchField
-                value={createCustomerSearch}
-                selectedCustomerId={createCustomerId}
-                options={createCustomerOptions ?? []}
-                open={createCustomerPickerOpen}
-                onOpenChange={setCreateCustomerPickerOpen}
-                onChange={(value) => {
-                  setCreateError('')
-                  setCreateCustomerSearch(value)
-                  setCreateCustomerId('')
-                  setCreateCustomerPickerOpen(true)
-                  setSelectedBls([])
-                }}
-                onSelect={(customer) => {
-                  setCreateError('')
-                  setCreateCustomerId(customer ? String(customer.id) : '')
-                  setCreateCustomerSearch(customer?.name ?? '')
-                  setCreateCustomerPickerOpen(false)
-                  setSelectedBls([])
-                }}
-              />
-              <Field label="Viagem"><Select value={createVoyageId} onChange={(event) => { setCreateVoyageId(event.target.value); setSelectedBls([]) }}><option value="">Todas</option>{voyageOptions?.map((voyage) => <option key={voyage.id} value={voyage.id}>{voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}</option>)}</Select></Field>
-              <Field label="Carga"><Select value={createCargoMode} onChange={(event) => { setCreateCargoMode(event.target.value as '' | 'container' | 'carga_solta'); setSelectedBls([]) }}><option value="">Todos</option><option value="container">Container</option><option value="carga_solta">Carga Solta</option></Select></Field>
-              <Field label="Vencimento"><Input type="date" value={createDueDate} onChange={(event) => setCreateDueDate(event.target.value)} /></Field>
-              <Field label="Buscar B/L"><Input value={createSearch} onChange={(event) => setCreateSearch(event.target.value)} placeholder="Digite o numero do B/L" /></Field>
-              <div className="md:col-span-2 xl:col-span-3">
+            <div className="invoice-create-modal__filters-grid">
+              <div className="invoice-create-modal__field invoice-create-modal__field--customer">
+                <CustomerSearchField
+                  value={createCustomerSearch}
+                  selectedCustomerId={createCustomerId}
+                  options={createCustomerOptions ?? []}
+                  open={createCustomerPickerOpen}
+                  onOpenChange={setCreateCustomerPickerOpen}
+                  onChange={(value) => {
+                    setCreateError('')
+                    setCreateCustomerSearch(value)
+                    setCreateCustomerId('')
+                    setCreateCustomerPickerOpen(true)
+                    setSelectedBls([])
+                  }}
+                  onSelect={(customer) => {
+                    setCreateError('')
+                    setCreateCustomerId(customer ? String(customer.id) : '')
+                    setCreateCustomerSearch(customer?.name ?? '')
+                    setCreateCustomerPickerOpen(false)
+                    setSelectedBls([])
+                  }}
+                />
+              </div>
+              <div className="invoice-create-modal__field invoice-create-modal__field--voyage">
+                <VoyageSearchField
+                  value={createVoyageSearch}
+                  selectedVoyageId={createVoyageId}
+                  options={filteredCreateVoyageOptions}
+                  open={createVoyagePickerOpen}
+                  onOpenChange={setCreateVoyagePickerOpen}
+                  onChange={(value) => {
+                    setCreateVoyageSearch(value)
+                    setCreateVoyageId('')
+                    setCreateVoyagePickerOpen(true)
+                    setSelectedBls([])
+                  }}
+                  onSelect={(voyage) => {
+                    setCreateVoyageId(voyage ? String(voyage.id) : '')
+                    setCreateVoyageSearch(voyage ? formatVoyageSearchLabel(voyage) : '')
+                    setCreateVoyagePickerOpen(false)
+                    setSelectedBls([])
+                  }}
+                />
+              </div>
+              <div className="invoice-create-modal__field invoice-create-modal__field--cargo">
+                <Field label="Carga"><Select value={createCargoMode} onChange={(event) => { setCreateCargoMode(event.target.value as '' | 'container' | 'carga_solta'); setSelectedBls([]) }}><option value="">Todos</option><option value="container">Container</option><option value="carga_solta">Carga Solta</option></Select></Field>
+              </div>
+              <div className="invoice-create-modal__field invoice-create-modal__field--due">
+                <Field label="Vencimento"><Input type="date" value={createDueDate} onChange={(event) => setCreateDueDate(event.target.value)} /></Field>
+              </div>
+              <div className="invoice-create-modal__field invoice-create-modal__field--bl">
+                <Field label="Buscar B/L"><Input value={createSearch} onChange={(event) => setCreateSearch(event.target.value)} placeholder="Digite o numero do B/L" /></Field>
+              </div>
+              <div className="invoice-create-modal__field invoice-create-modal__field--notes">
                 <Field label="Observacoes"><Textarea value={createNotes} onChange={(event) => setCreateNotes(event.target.value)} /></Field>
               </div>
             </div>
@@ -974,6 +1013,16 @@ function SelectionMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
+type VoyageSearchOption = {
+  id: number
+  voyage_number: string
+  vessel?: { name?: string | null } | null
+}
+
+function formatVoyageSearchLabel(voyage: VoyageSearchOption) {
+  return `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`
+}
+
 function CustomerSearchField({
   value,
   selectedCustomerId,
@@ -994,12 +1043,18 @@ function CustomerSearchField({
   const hasOptions = options.length > 0
 
   return (
-    <div className="relative">
+    <div
+      className="invoice-search-field"
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget as Node | null
+        if (nextTarget && event.currentTarget.contains(nextTarget)) return
+        onOpenChange(false)
+      }}
+    >
       <Field label="Cliente">
         <Input
           value={value}
           onFocus={() => onOpenChange(true)}
-          onBlur={() => window.setTimeout(() => onOpenChange(false), 120)}
           onChange={(event) => onChange(event.target.value)}
           placeholder="Digite nome ou CNPJ"
         />
@@ -1016,7 +1071,7 @@ function CustomerSearchField({
         <div className="mt-1 text-xs text-[var(--app-muted)]">Busque por nome ou CNPJ para carregar os B/Ls.</div>
       )}
       {open ? (
-        <div className="absolute left-0 right-0 top-[76px] z-50 max-h-72 overflow-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] shadow-xl">
+        <div className="invoice-search-field__menu">
           {hasOptions ? (
             options.map((option) => (
               <button
@@ -1027,6 +1082,7 @@ function CustomerSearchField({
                   event.preventDefault()
                   onSelect(option)
                 }}
+                onClick={() => onSelect(option)}
               >
                 <span className="block truncate font-medium text-[var(--app-text-strong)]">{option.name}</span>
                 <span className="block truncate text-xs text-[var(--app-muted)]">{formatCnpjCpf(option.cnpj_cpf)}</span>
@@ -1034,6 +1090,88 @@ function CustomerSearchField({
             ))
           ) : (
             <div className="px-3 py-3 text-sm text-[var(--app-muted)]">Nenhum cliente encontrado.</div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function VoyageSearchField({
+  value,
+  selectedVoyageId,
+  options,
+  open,
+  onOpenChange,
+  onChange,
+  onSelect,
+}: {
+  value: string
+  selectedVoyageId: string
+  options: VoyageSearchOption[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onChange: (value: string) => void
+  onSelect: (voyage: VoyageSearchOption | null) => void
+}) {
+  return (
+    <div
+      className="invoice-search-field"
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget as Node | null
+        if (nextTarget && event.currentTarget.contains(nextTarget)) return
+        onOpenChange(false)
+      }}
+    >
+      <Field label="Viagem">
+        <Input
+          value={value}
+          onFocus={() => onOpenChange(true)}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Digite navio ou viagem"
+        />
+      </Field>
+      {selectedVoyageId ? (
+        <button
+          type="button"
+          className="mt-1 text-xs font-medium text-[var(--app-blue-btn)] hover:underline"
+          onClick={() => onSelect(null)}
+        >
+          Limpar viagem
+        </button>
+      ) : (
+        <div className="mt-1 text-xs text-[var(--app-muted)]">Opcional: filtre por navio ou numero da viagem.</div>
+      )}
+      {open ? (
+        <div className="invoice-search-field__menu">
+          <button
+            type="button"
+            className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
+            onMouseDown={(event) => {
+              event.preventDefault()
+              onSelect(null)
+            }}
+            onClick={() => onSelect(null)}
+          >
+            Todas as viagens
+          </button>
+          {options.length ? (
+            options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onSelect(option)
+                }}
+                onClick={() => onSelect(option)}
+              >
+                <span className="block truncate font-medium text-[var(--app-text-strong)]">{formatVoyageSearchLabel(option)}</span>
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-3 text-sm text-[var(--app-muted)]">Nenhuma viagem encontrada.</div>
           )}
         </div>
       ) : null}

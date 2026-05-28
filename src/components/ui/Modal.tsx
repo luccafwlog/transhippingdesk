@@ -18,7 +18,12 @@ export function Modal({
   bodyClassName?: string
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
   const titleId = useId()
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!open) return
@@ -34,7 +39,7 @@ export function Modal({
     first?.focus()
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') { onClose(); return }
+      if (e.key === 'Escape') { onCloseRef.current(); return }
       if (e.key !== 'Tab') return
       if (focusable.length === 0) { e.preventDefault(); return }
       if (e.shiftKey) {
@@ -46,7 +51,7 @@ export function Modal({
 
     dialog.addEventListener('keydown', onKeyDown)
     return () => dialog.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

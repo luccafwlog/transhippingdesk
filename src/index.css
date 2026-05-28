@@ -1315,6 +1315,58 @@ textarea {
   padding: 18px;
 }
 
+.invoice-create-modal__filters {
+  overflow: visible;
+}
+
+.invoice-create-modal__filters-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px 16px;
+  align-items: start;
+}
+
+.invoice-create-modal__field--customer,
+.invoice-create-modal__field--voyage {
+  grid-column: span 4;
+}
+
+.invoice-create-modal__field--cargo,
+.invoice-create-modal__field--due {
+  grid-column: span 2;
+}
+
+.invoice-create-modal__field--bl {
+  grid-column: span 3;
+}
+
+.invoice-create-modal__field--notes {
+  grid-column: span 9;
+}
+
+.invoice-create-modal__field--notes textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.invoice-search-field {
+  position: relative;
+}
+
+.invoice-search-field__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-strong);
+}
+
 .invoice-create-modal__table-section {
   display: flex;
   min-height: 280px;
@@ -1386,6 +1438,32 @@ textarea {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .invoice-create-modal__field--customer,
+  .invoice-create-modal__field--voyage,
+  .invoice-create-modal__field--cargo,
+  .invoice-create-modal__field--due,
+  .invoice-create-modal__field--bl,
+  .invoice-create-modal__field--notes {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 720px) {
+  .invoice-create-modal__filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-create-modal__field--customer,
+  .invoice-create-modal__field--voyage,
+  .invoice-create-modal__field--cargo,
+  .invoice-create-modal__field--due,
+  .invoice-create-modal__field--bl,
+  .invoice-create-modal__field--notes {
+    grid-column: 1;
+  }
 }
 
 .app-toast-stack {
