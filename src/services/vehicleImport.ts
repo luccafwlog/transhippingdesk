@@ -270,6 +270,16 @@ export async function importVehicleRows({
       const { error: insertError } = await supabase.from('vehicles').insert(chunk)
       if (insertError) throw insertError
     }
+
+    const impactedBlIds = Array.from(new Set(rowsToInsert.map((row) => row.bl_id)))
+    const { error: exemptError } = await supabase
+      .from('bls')
+      .update({
+        charge_status: 'exempt',
+        charge_exemption_reason: 'Carga de veiculos (isento de taxas locais)',
+      })
+      .in('id', impactedBlIds)
+    if (exemptError) throw exemptError
   }
 
   return {

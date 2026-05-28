@@ -50,7 +50,13 @@ export function useBls(filters: BlFilters) {
   return useQuery({
     queryKey: ['bls', filters],
     queryFn: async () => {
-      if (filters.cargoProfile && filters.cargoProfile !== 'standard') {
+      // Some legacy rows may carry charge_status with formatting drift (e.g. casing/spacing),
+      // which makes PostgREST eq() return false negatives. For status/profile filters,
+      // fetch-and-filter in app to keep UI behavior consistent.
+      if (
+        (filters.cargoProfile && filters.cargoProfile !== 'standard')
+        || Boolean(filters.chargeStatus)
+      ) {
         const allRows = await fetchAllBls(filters)
         const from = (filters.page - 1) * filters.pageSize
         const to = from + filters.pageSize
@@ -137,11 +143,13 @@ export function useBlSummary(filters: BlFilters) {
 export async function fetchAllBls(filters: BlFilters) {
   const rows: BLListItem[] = []
   let from = 0
+  const chargeStatusFilter = normalizeChargeStatus(filters.chargeStatus)
+  const dbFilters = chargeStatusFilter ? { ...filters, chargeStatus: '' } : filters
 
   while (true) {
     const to = from + exportBatchSize - 1
     let query = supabase.from('bls').select(blSelect).order('created_at', { ascending: false }).range(from, to)
-    query = applyBlFilters(query, filters)
+    query = applyBlFilters(query, dbFilters)
 
     const { data, error } = await query
     if (error) throw error
@@ -156,7 +164,9 @@ export async function fetchAllBls(filters: BlFilters) {
     from += exportBatchSize
   }
 
-  return applyCargoProfile(rows, filters.cargoProfile)
+  const profileFiltered = applyCargoProfile(rows, filters.cargoProfile)
+  if (!chargeStatusFilter) return profileFiltered
+  return profileFiltered.filter((row) => normalizeChargeStatus(row.charge_status) === chargeStatusFilter)
 }
 
 export async function fetchAllContainers(filters: ContainerFilters) {
@@ -454,6 +464,12 @@ function applyCargoProfile(rows: BLListItem[], cargoProfile: string) {
   return rows.filter((row) =>
     row.bl_containers?.some((container) => (cargoProfile === 'oog' ? container.is_oog : container.is_imo)),
   )
+}
+
+function normalizeChargeStatus(value: string | null | undefined) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
 }
 
 function applyContainerFilters(rows: ContainerListItem[], filters: ContainerFilters) {

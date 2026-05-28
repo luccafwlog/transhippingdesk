@@ -72,10 +72,11 @@ export function Baplie() {
     },
   })
 
-  const { data: existingVaziosManifest } = useQuery({
+  const { data: existingVaziosManifest, isLoading: existingVaziosManifestLoading } = useQuery({
     queryKey: ['baplie-vazios-manifest', voyageId],
     enabled: !!voyageId,
     queryFn: () => getBaplieManifestForVoyage(Number(voyageId)),
+    placeholderData: null,
   })
 
   const { data: reconciliationData } = useQuery({
@@ -168,7 +169,7 @@ export function Baplie() {
           {stateB ? (
             <VaziosSection
               emptyCount={emptyContainers.length}
-              existingManifest={existingVaziosManifest ?? null}
+              existingManifest={existingVaziosManifestLoading ? null : (existingVaziosManifest ?? null)}
               onConfirmar={handleConfirmarVazios}
               onSubstituir={handleSubstituirVazios}
             />
