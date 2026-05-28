@@ -209,24 +209,51 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       if (action === 'ready' && localResult.successCount > 0) {
         const failedIds = new Set(localResult.errors.map((e) => e.blId))
         const readyBls = (operationsRows ?? []).filter(
-          (row) => localIds.includes(row.id) && !failedIds.has(row.id) && row.cargo_mode !== 'granito',
+          (row) =>
+            localIds.includes(row.id) &&
+            !failedIds.has(row.id) &&
+            row.cargo_mode !== 'granito' &&
+            row.financial_status !== 'invoiced',
         )
-        let invoiced = 0
+        const readyByCustomer = new Map<number, typeof readyBls>()
+        const missingCustomer = readyBls.filter((bl) => !bl.customer?.id).length
         for (const bl of readyBls) {
           if (!bl.customer?.id) continue
+          const current = readyByCustomer.get(bl.customer.id) ?? []
+          current.push(bl)
+          readyByCustomer.set(bl.customer.id, current)
+        }
+
+        let invoiced = 0
+        const invoiceErrors: Array<{ blId: string; message: string }> = []
+        for (const [customerId, bls] of readyByCustomer.entries()) {
           try {
-            await createInvoiceFromBls({ blIds: [bl.id], customerId: bl.customer.id, issueNow: true, actorId: userId })
-            invoiced++
-          } catch {
-            // Non-fatal: BL is marked ready but invoice will need to be created manually
+            const result = await createInvoiceFromBls({
+              blIds: bls.map((bl) => bl.id),
+              customerId,
+              issueNow: true,
+              actorId: userId,
+            })
+            invoiced += Number((result as { bl_count?: number }).bl_count ?? bls.length)
+          } catch (error) {
+            invoiceErrors.push({
+              blId: bls[0]?.id ?? '-',
+              message: error instanceof Error ? error.message : 'Falha ao gerar invoice automatica.',
+            })
           }
         }
         if (invoiced > 0) {
-          showToast(`${invoiced} fatura(s) gerada(s) automaticamente.`, 'success')
+          showToast(`${invoiced} B/L(s) faturado(s) automaticamente.`, 'success')
         }
         const missing = Math.max(readyBls.length - invoiced, 0)
         if (missing > 0) {
-          showToast(`${missing} B/L(s) ficaram em pronto faturar sem invoice automatica.`, 'info')
+          const firstInvoiceError = invoiceErrors[0]
+          const reason = firstInvoiceError
+            ? ` Primeiro erro em ${firstInvoiceError.blId}: ${firstInvoiceError.message}`
+            : missingCustomer > 0
+              ? ` ${missingCustomer} B/L(s) sem cliente vinculado.`
+              : ''
+          showToast(`${missing} B/L(s) ficaram em pronto faturar sem invoice automatica.${reason}`, 'info')
         }
       }
 

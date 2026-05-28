@@ -244,6 +244,7 @@ async function loadBlOperationalRows(
         pol,
         pod,
         charge_status,
+        financial_status,
         customer_reconciliation_status,
         customer_reconciliation_notes,
         billing_hold_reason,
@@ -262,6 +263,7 @@ async function loadBlOperationalRows(
     if (filters?.cargoMode === 'container' || filters?.cargoMode === 'carga_solta') {
       query = query.eq('cargo_mode', filters.cargoMode)
     }
+    query = query.or('financial_status.is.null,financial_status.neq.invoiced')
     if (filters?.pod) {
       query = query.ilike('pod', `%${filters.pod}%`)
     }
