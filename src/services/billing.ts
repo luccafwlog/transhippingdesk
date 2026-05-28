@@ -402,15 +402,19 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
 
 export async function listBillingCustomers(search = '') {
   const normalizedSearch = String(search ?? '').trim()
+  const safeSearch = normalizedSearch.replace(/[(),]/g, ' ')
+  const digitSearch = normalizedSearch.replace(/\D/g, '')
 
   let query = supabase
     .from('customers')
     .select('id,name,cnpj_cpf')
     .order('name', { ascending: true })
-    .limit(50)
+    .limit(normalizedSearch.length >= 2 ? 100 : 200)
 
   if (normalizedSearch.length >= 2) {
-    query = query.or(`name.ilike.%${normalizedSearch}%,cnpj_cpf.ilike.%${normalizedSearch}%`)
+    const terms = [`name.ilike.%${safeSearch}%,cnpj_cpf.ilike.%${safeSearch}%`]
+    if (digitSearch.length >= 2) terms.push(`cnpj_cpf.ilike.%${digitSearch}%`)
+    query = query.or(terms.join(','))
   }
 
   const { data, error } = await query

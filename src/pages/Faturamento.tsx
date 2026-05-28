@@ -42,7 +42,7 @@ import {
   type Alert,
 } from '../services/alerts'
 import { logOperationalEvent } from '../services/operationalEvents'
-import { formatBRL, formatDate } from '../lib/utils'
+import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -103,6 +103,8 @@ export function Faturamento() {
   const [createDueDate, setCreateDueDate] = useState('')
   const [createNotes, setCreateNotes] = useState('')
   const [createSearch, setCreateSearch] = useState('')
+  const [createCustomerSearch, setCreateCustomerSearch] = useState('')
+  const [createCustomerPickerOpen, setCreateCustomerPickerOpen] = useState(false)
   const [selectedBls, setSelectedBls] = useState<string[]>([])
   const [customerSearch, setCustomerSearch] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
@@ -144,6 +146,7 @@ export function Faturamento() {
   }, [])
 
   const { data: customerOptions } = useBillingCustomers(customerSearch)
+  const { data: createCustomerOptions } = useBillingCustomers(createCustomerSearch)
   const { data: readyBls, isLoading: loadingReadyBls } = useBillingReadyBls({
     customerId: createCustomerId ? Number(createCustomerId) : null,
     voyageId: createVoyageId ? Number(createVoyageId) : null,
@@ -234,6 +237,8 @@ export function Faturamento() {
   function resetCreateState() {
     setCreateMode('consolidated')
     setCreateCustomerId('')
+    setCreateCustomerSearch('')
+    setCreateCustomerPickerOpen(false)
     setCreateVoyageId('')
     setCreateCargoMode('')
     setCreateDueDate('')
@@ -482,7 +487,25 @@ export function Faturamento() {
           <Card>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Modo"><Select value={createMode} onChange={(event) => setCreateMode(event.target.value as 'single' | 'consolidated')}><option value="consolidated">Consolidada</option><option value="single">B/L unico</option></Select></Field>
-              <Field label="Cliente"><Select value={createCustomerId} onChange={(event) => setCreateCustomerId(event.target.value)}><option value="">Detectar pelos B/Ls</option>{customerOptions?.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
+              <CustomerSearchField
+                value={createCustomerSearch}
+                selectedCustomerId={createCustomerId}
+                options={createCustomerOptions ?? []}
+                open={createCustomerPickerOpen}
+                onOpenChange={setCreateCustomerPickerOpen}
+                onChange={(value) => {
+                  setCreateCustomerSearch(value)
+                  setCreateCustomerId('')
+                  setCreateCustomerPickerOpen(true)
+                  setSelectedBls([])
+                }}
+                onSelect={(customer) => {
+                  setCreateCustomerId(customer ? String(customer.id) : '')
+                  setCreateCustomerSearch(customer?.name ?? '')
+                  setCreateCustomerPickerOpen(false)
+                  setSelectedBls([])
+                }}
+              />
               <Field label="Viagem"><Select value={createVoyageId} onChange={(event) => setCreateVoyageId(event.target.value)}><option value="">Todas</option>{voyageOptions?.map((voyage) => <option key={voyage.id} value={voyage.id}>{voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}</option>)}</Select></Field>
               <Field label="Carga"><Select value={createCargoMode} onChange={(event) => setCreateCargoMode(event.target.value as '' | 'container' | 'carga_solta')}><option value="">Todos</option><option value="container">Container</option><option value="carga_solta">Carga Solta</option></Select></Field>
               <Field label="Vencimento"><Input type="date" value={createDueDate} onChange={(event) => setCreateDueDate(event.target.value)} /></Field>
@@ -960,6 +983,83 @@ function SelectionMetric({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-[#30363d] bg-[#111827] px-3 py-3">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-1 text-sm font-medium text-slate-100">{value}</div>
+    </div>
+  )
+}
+
+function CustomerSearchField({
+  value,
+  selectedCustomerId,
+  options,
+  open,
+  onOpenChange,
+  onChange,
+  onSelect,
+}: {
+  value: string
+  selectedCustomerId: string
+  options: Array<{ id: number; name: string; cnpj_cpf: string }>
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onChange: (value: string) => void
+  onSelect: (customer: { id: number; name: string; cnpj_cpf: string } | null) => void
+}) {
+  const hasOptions = options.length > 0
+
+  return (
+    <div className="relative">
+      <Field label="Cliente">
+        <Input
+          value={value}
+          onFocus={() => onOpenChange(true)}
+          onBlur={() => window.setTimeout(() => onOpenChange(false), 120)}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Digite nome ou CNPJ"
+        />
+      </Field>
+      {selectedCustomerId ? (
+        <button
+          type="button"
+          className="mt-1 text-xs font-medium text-[var(--app-blue-btn)] hover:underline"
+          onClick={() => onSelect(null)}
+        >
+          Detectar pelos B/Ls
+        </button>
+      ) : (
+        <div className="mt-1 text-xs text-[var(--app-muted)]">Detectar pelos B/Ls</div>
+      )}
+      {open ? (
+        <div className="absolute left-0 right-0 top-[76px] z-50 max-h-72 overflow-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] shadow-xl">
+          <button
+            type="button"
+            className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
+            onMouseDown={(event) => {
+              event.preventDefault()
+              onSelect(null)
+            }}
+          >
+            Detectar pelos B/Ls
+          </button>
+          {hasOptions ? (
+            options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onSelect(option)
+                }}
+              >
+                <span className="block truncate font-medium text-[var(--app-text-strong)]">{option.name}</span>
+                <span className="block truncate text-xs text-[var(--app-muted)]">{formatCnpjCpf(option.cnpj_cpf)}</span>
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-3 text-sm text-[var(--app-muted)]">Nenhum cliente encontrado.</div>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }
