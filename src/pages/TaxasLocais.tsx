@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -13,6 +14,7 @@ import {
   useSetChargeTableActive,
   useCustomerRateOverrides,
   useDeleteCustomerRateOverride,
+  useLocalChargeOperations,
   useLocalChargeTables,
   useOverrideChargeItems,
   useOverrideCustomers,
@@ -110,6 +112,14 @@ export function TaxasLocais() {
   const { data: tables, isLoading: tablesLoading, error: tablesError } = useLocalChargeTables({
     cargoMode: cargoModeFilter,
     pod: podFilter,
+  })
+  const {
+    data: pendingRows,
+    isLoading: pendingLoading,
+    error: pendingError,
+  } = useLocalChargeOperations({
+    chargeStatus: 'review_required',
+    limit: 50,
   })
   const { data: overrideRows, isLoading: overridesLoading, error: overridesError } = useCustomerRateOverrides({
     customerSearch: overrideCustomerSearch,
@@ -377,6 +387,67 @@ export function TaxasLocais() {
         {canManageTables ? <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} /> : null}
         {canManageOverrides ? <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} /> : null}
       </div>
+
+      <Card className="mb-5">
+        <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
+          <div className="app-table__cell-stack">
+            <div className="app-panel__title">Pendencias de calculo</div>
+            <div className="app-table__cell-meta">
+              Estes B/Ls alimentam o badge de Taxas Locais no menu e precisam de revisao antes de seguir para faturamento.
+            </div>
+          </div>
+          <Badge tone={(pendingRows?.length ?? 0) > 0 ? 'yellow' : 'green'}>
+            {pendingLoading ? 'Carregando...' : `${pendingRows?.length ?? 0} B/L em revisao`}
+          </Badge>
+        </div>
+        {pendingError ? <InlineError message="Falha ao consultar pendencias de calculo." /> : null}
+        {!pendingLoading && !pendingError && (pendingRows?.length ?? 0) === 0 ? (
+          <EmptyState title="Nenhuma pendencia de calculo encontrada." />
+        ) : null}
+        {(pendingRows?.length ?? 0) > 0 ? (
+          <div className="app-table-scroll">
+            <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
+              <thead>
+                <tr>
+                  <th scope="col" className="px-4 py-3">B/L</th>
+                  <th scope="col" className="px-4 py-3">Cliente</th>
+                  <th scope="col" className="px-4 py-3">Modo/POD</th>
+                  <th scope="col" className="px-4 py-3">Viagem</th>
+                  <th scope="col" className="px-4 py-3">Motivo</th>
+                  <th scope="col" className="px-4 py-3">Acesso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingRows?.map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.id}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-[var(--app-text-strong)]">{row.customer?.name ?? '-'}</div>
+                      <div className="text-xs text-[var(--app-muted)]">{row.customer?.cnpj_cpf ?? '-'}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(row.cargo_mode ?? '-').replace('_', ' ').toUpperCase()} / {row.pod ?? '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {row.voyage?.vessel?.name ?? 'Navio'} / {row.voyage?.voyage_number ?? '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="max-w-[360px] truncate" title={row.trail.last_event_message ?? row.billing_hold_reason ?? undefined}>
+                        {row.trail.last_event_message ?? row.billing_hold_reason ?? 'Revisao requerida'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link className="app-link" to={`/manifestos/${row.id}`}>
+                        Ver B/L
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </Card>
 
       {tab === 'tabelas' && canManageTables ? (
         <>
