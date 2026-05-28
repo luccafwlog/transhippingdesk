@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { TaxasLocais } from '../TaxasLocais'
 
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({ can: () => true }),
+  useAuth: () => ({ can: () => true, user: { id: 'user-1' } }),
 }))
 
 vi.mock('../../components/ui/Toast', async () => {
@@ -52,6 +52,7 @@ vi.mock('../../hooks/useLocalCharges', () => ({
   useSetChargeTableActive: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSaveChargeTableItem: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteChargeTableItem: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useBatchCalculateLocalCharges: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
 describe('TaxasLocais', () => {
@@ -62,5 +63,6 @@ describe('TaxasLocais', () => {
     expect(html).toContain('1 B/L em revisao')
     expect(html).toContain('BL-BB-001')
     expect(html).toContain('Nao existe tabela ativa para POD/mode na data de referencia')
+    expect(html).toContain('Recalcular pendencias')
   })
 })

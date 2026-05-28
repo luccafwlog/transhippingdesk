@@ -12,6 +12,7 @@ import {
   useSaveChargeTable,
   useSaveChargeTableItem,
   useSetChargeTableActive,
+  useBatchCalculateLocalCharges,
   useCustomerRateOverrides,
   useDeleteCustomerRateOverride,
   useLocalChargeOperations,
@@ -95,7 +96,7 @@ const EMPTY_TABLE_ITEM_FORM: ChargeTableItemForm = {
 }
 
 export function TaxasLocais() {
-  const { can } = useAuth()
+  const { can, user } = useAuth()
   const { showToast } = useToast()
   const canManageTables = can('charge_tables')
   const canManageOverrides = can('charge_overrides')
@@ -135,6 +136,7 @@ export function TaxasLocais() {
   const setChargeTableActiveMutation = useSetChargeTableActive()
   const saveChargeTableItemMutation = useSaveChargeTableItem()
   const deleteChargeTableItemMutation = useDeleteChargeTableItem()
+  const recalculatePendingMutation = useBatchCalculateLocalCharges()
 
   const tableSummary = useMemo(() => {
     const currentTables = tables ?? []
@@ -376,6 +378,33 @@ export function TaxasLocais() {
     })
   }
 
+  async function handleRecalculatePending() {
+    const pendingIds = (pendingRows ?? []).map((row) => row.id)
+    if (pendingIds.length === 0) {
+      showToast('Nao ha pendencias para recalcular.', 'info')
+      return
+    }
+
+    try {
+      const result = await recalculatePendingMutation.mutateAsync({
+        blIds: pendingIds,
+        actorId: user?.id ?? null,
+        recalculate: true,
+      })
+      if (result.errorCount > 0) {
+        const firstError = result.errors[0]
+        showToast(
+          `Recalculo parcial: ${result.successCount}/${result.total}. Primeiro erro em ${firstError?.blId ?? '-'}: ${firstError?.message ?? 'erro inesperado'}`,
+          'info',
+        )
+      } else {
+        showToast(`Recalculo concluido para ${result.successCount} B/L(s).`, 'success')
+      }
+    } catch {
+      showToast('Falha ao recalcular pendencias.', 'error')
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -396,9 +425,21 @@ export function TaxasLocais() {
               Estes B/Ls alimentam o badge de Taxas Locais no menu e precisam de revisao antes de seguir para faturamento.
             </div>
           </div>
-          <Badge tone={(pendingRows?.length ?? 0) > 0 ? 'yellow' : 'green'}>
-            {pendingLoading ? 'Carregando...' : `${pendingRows?.length ?? 0} B/L em revisao`}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={(pendingRows?.length ?? 0) > 0 ? 'yellow' : 'green'}>
+              {pendingLoading ? 'Carregando...' : `${pendingRows?.length ?? 0} B/L em revisao`}
+            </Badge>
+            {(pendingRows?.length ?? 0) > 0 ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleRecalculatePending}
+                loading={recalculatePendingMutation.isPending}
+              >
+                Recalcular pendencias
+              </Button>
+            ) : null}
+          </div>
         </div>
         {pendingError ? <InlineError message="Falha ao consultar pendencias de calculo." /> : null}
         {!pendingLoading && !pendingError && (pendingRows?.length ?? 0) === 0 ? (
