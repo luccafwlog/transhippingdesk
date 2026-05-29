@@ -31,7 +31,9 @@ Out of scope (Phase 4 / explicit):
 - Modify `src/services/billing.ts` — enrich `listInvoiceDetails` for consolidated invoices.
 - Create `src/components/billing/ConsolidatedInvoiceModal.tsx` — the new modal.
 - Modify `src/pages/Faturamento.tsx` — add the button + mount the modal.
-- Create `src/components/billing/__tests__/ConsolidatedInvoiceModal.test.tsx` — unit test.
+- Create `src/components/billing/consolidatedInvoiceSelection.ts` — pure eligibility/total helpers used by the modal.
+- Create `src/components/billing/__tests__/ConsolidatedInvoiceSelection.test.ts` — unit test for the helpers.
+- Modify `src/pages/__tests__/Faturamento.test.ts` — mock the newly imported `useBillingLedger` hooks so the page smoke test keeps passing.
 
 ---
 
@@ -399,13 +401,17 @@ git commit -m "Add consolidated invoice modal"
 ### Task 3: Unit Test and Verification
 
 **Files:**
-- Create: `src/components/billing/__tests__/ConsolidatedInvoiceModal.test.tsx`
+- Create: `src/components/billing/consolidatedInvoiceSelection.ts`
+- Create: `src/components/billing/__tests__/ConsolidatedInvoiceSelection.test.ts`
+- Modify: `src/pages/__tests__/Faturamento.test.ts`
 
-- [ ] **Step 1: Add a unit test for eligibility gating and total**
+> **Note:** the Vitest setup is `environment: node` with `include: ['src/**/*.test.ts']` — no jsdom/testing-library and `.tsx` tests are not collected. So instead of an interactive RTL test, the selectable/total logic was extracted into a pure module (`consolidatedInvoiceSelection.ts`) used by the modal and unit-tested directly. The page smoke test (`Faturamento.test.ts`) also needs the new `useBillingLedger` hooks mocked, because the page now imports the modal (which imports the ledger hooks → supabase client).
 
-Mock the ledger/customer hooks and assert: non-eligible rows show their reason and a disabled checkbox; selecting eligible rows updates the summed balance; submit calls `createConsolidatedInvoice` with the selected receivable ids. Follow the mocking style of `src/pages/__tests__/Faturamento.test.ts`.
+- [x] **Step 1: Add a unit test for eligibility gating and total**
 
-- [ ] **Step 2: Run the test suite**
+Extracted `isReceivableSelectable` and `summarizeConsolidation` into `consolidatedInvoiceSelection.ts`, wired them into the modal, and tested: only `eligibility_status === 'eligible'` rows are selectable; the summary sums only selected balances and counts eligible rows; unknown selected ids are ignored; empty selection yields zeros. Added the `useBillingLedger` mock to `Faturamento.test.ts`.
+
+- [x] **Step 2: Run the test suite**
 
 ```bash
 npm test
@@ -413,7 +419,7 @@ npm test
 
 Expected: all tests pass; integration tests remain skipped.
 
-- [ ] **Step 3: Confirm the existing individual modal is untouched**
+- [x] **Step 3: Confirm the existing individual modal is untouched**
 
 ```bash
 git diff --stat HEAD~3 -- src/pages/Faturamento.tsx
@@ -421,7 +427,7 @@ git diff --stat HEAD~3 -- src/pages/Faturamento.tsx
 
 Expected: only additive changes (button, state, modal mount, import) — no edits to the existing create-invoice modal logic.
 
-- [ ] **Step 4: Final build**
+- [x] **Step 4: Final build**
 
 ```bash
 npm run build
@@ -429,7 +435,7 @@ npm run build
 
 Expected: passes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/billing/__tests__/ConsolidatedInvoiceModal.test.tsx

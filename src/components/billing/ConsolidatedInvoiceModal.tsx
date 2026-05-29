@@ -7,6 +7,7 @@ import { Field, Input, Textarea } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useBillingCustomers } from '../../hooks/useBilling'
 import { useConsolidatableReceivables, useCreateConsolidatedInvoice } from '../../hooks/useBillingLedger'
+import { isReceivableSelectable, summarizeConsolidation } from './consolidatedInvoiceSelection'
 
 function fmtBRL(v: number | null | undefined) {
   return 'R$ ' + Number(v ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -33,9 +34,9 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   const createMutation = useCreateConsolidatedInvoice()
 
   const rows = receivables ?? []
-  const selectedRows = rows.filter((r) => selected.includes(r.receivable_id))
-  const selectedTotal = selectedRows.reduce((s, r) => s + Number(r.balance_brl ?? 0), 0)
-  const eligibleCount = rows.filter((r) => r.eligibility_status === 'eligible').length
+  const summary = summarizeConsolidation(rows, selected)
+  const selectedTotal = summary.total
+  const eligibleCount = summary.eligibleCount
 
   const selectedCustomer = customerOptions?.find((c) => c.id === customerId)
 
@@ -179,7 +180,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  const eligible = r.eligibility_status === 'eligible'
+                  const eligible = isReceivableSelectable(r)
                   return (
                     <tr
                       key={r.receivable_id}
