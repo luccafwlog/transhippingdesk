@@ -39,7 +39,7 @@ This plan covers Phase 1 only. It deliberately does not rewrite `create_invoice_
 **Files:**
 - Create: `supabase/migrations/20260529100000_local_billing_ledger_phase1.sql`
 
-- [ ] **Step 1: Create the migration file with table and invoice lifecycle changes**
+- [x] **Step 1: Create the migration file with table and invoice lifecycle changes**
 
 Use this SQL as the initial migration content:
 
@@ -159,7 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_invoice_lifecycle_events_invoice
   ON public.invoice_lifecycle_events(invoice_id, created_at DESC);
 ```
 
-- [ ] **Step 2: Add RLS and grants to the same migration**
+- [x] **Step 2: Add RLS and grants to the same migration**
 
 Append:
 
@@ -224,7 +224,7 @@ GRANT USAGE, SELECT ON SEQUENCE public.ledger_settlements_id_seq TO authenticate
 GRANT USAGE, SELECT ON SEQUENCE public.invoice_lifecycle_events_id_seq TO authenticated;
 ```
 
-- [ ] **Step 3: Verify migration SQL parses locally**
+- [x] **Step 3: Verify migration SQL parses locally**
 
 Run:
 
@@ -234,7 +234,7 @@ npm run build
 
 Expected: TypeScript/Vite build still passes because no TypeScript files changed yet.
 
-- [ ] **Step 4: Commit schema-only migration**
+- [x] **Step 4: Commit schema-only migration**
 
 ```bash
 git add supabase/migrations/20260529100000_local_billing_ledger_phase1.sql
