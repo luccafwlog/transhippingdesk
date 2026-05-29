@@ -388,6 +388,26 @@ describeIntegration('supabase integration - hardening gate', () => {
     expect((empty.data as { matched: boolean; reason?: string })?.matched).toBe(false)
     expect((empty.data as { reason?: string })?.reason).toBe('empty_txid')
   })
+
+  billingFlowTest('ledger phase 4a links an invoice into the ledger', async () => {
+    const invoices = await client
+      .from('invoices')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+    expect(invoices.error).toBeNull()
+    const invoiceId = Number(invoices.data?.[0]?.id ?? 0)
+    if (!invoiceId) return
+
+    const link = await client.rpc('link_invoice_to_ledger', { p_invoice_id: invoiceId })
+    expect(link.error).toBeNull()
+
+    const links = await client
+      .from('invoice_receivable_links')
+      .select('invoice_id, status')
+      .eq('invoice_id', invoiceId)
+    expect(links.error).toBeNull()
+  })
 })
 
 function hasOperatorCredentials() {

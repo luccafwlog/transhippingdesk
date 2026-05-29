@@ -694,6 +694,12 @@ export type Database = {
         }
         Returns: number
       }
+      link_invoice_to_ledger: {
+        Args: {
+          p_invoice_id: number
+        }
+        Returns: undefined
+      }
       backfill_local_charge_receivables: {
         Args: {
           p_limit: number | null
