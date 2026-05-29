@@ -110,6 +110,38 @@ describe('reports receivable-backed balances', () => {
     expect(result.accessDenied).toBe(false)
   })
 
+  it('zera saldo exibido de invoice local coberta quando seus links ledger nao estao ativos', async () => {
+    installReportMocks({
+      invoices: [
+        {
+          id: 1,
+          invoice_number: 'INV-1',
+          invoice_type: 'individual',
+          status: 'covered',
+          total_brl: 100,
+          balance_brl: 100,
+          issued_at: '2026-05-20',
+          due_date: '2026-05-30',
+          created_at: '2026-05-20',
+          customer: { id: 10, name: 'Cliente Alfa', cnpj_cpf: '12345678000195' },
+        },
+      ],
+      links: [
+        {
+          invoice_id: 1,
+          receivable_id: 99,
+          status: 'settled_elsewhere',
+          receivable: { id: 99, original_amount_brl: 100, balance_brl: 0, status: 'settled' },
+        },
+      ],
+    })
+
+    const result = await fetchFinancialReport({ dateFrom: '', dateTo: '', status: '' })
+
+    expect(result.rows.find((row) => row.id === 1)?.balance_brl).toBe(0)
+    expect(result.kpis.totalOpen).toBe(0)
+  })
+
   it('calcula saldo por cliente a partir de receivables unicos e preserva granite como legado', async () => {
     installReportMocks({
       bls: [
