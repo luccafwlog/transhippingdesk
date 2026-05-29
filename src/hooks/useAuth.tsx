@@ -108,7 +108,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async function hydrateSession(nextSession: Session | null) {
       if (!mounted) return
 
-      setLoading(true)
+      // Não reativar o estado de carregamento aqui. `loading` só deve cobrir a
+      // resolução inicial da sessão (já inicia como `true`). Eventos posteriores
+      // de `onAuthStateChange` — disparados pelo Supabase ao reganhar foco da
+      // janela ou ao renovar o token — devem atualizar sessão/perfil de forma
+      // silenciosa. Reativar `loading` faz o ProtectedRoute desmontar a árvore
+      // de páginas, perdendo aba ativa, modais abertos e formulários em edição.
       setSession(nextSession)
 
       try {
