@@ -5,7 +5,7 @@ import { Clock, FileText, Pencil, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
-import { Field, Input } from '../components/ui/Input'
+import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
@@ -598,26 +598,14 @@ export function Demurrage() {
       <Modal open={editingContainer != null} onClose={() => setEditingContainer(null)} title="Editar datas do container">
         {editingContainer && (
           <div className="space-y-4 p-4">
-            <div className="text-sm font-semibold text-white">{editingContainer.container_number}</div>
-            <div className="grid grid-cols-2 gap-4">
-              <label className="block text-sm text-slate-300">
-                Data de descarga
-                <input
-                  type="date"
-                  className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
-                  value={editDischarge}
-                  onChange={(e) => setEditDischarge(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm text-slate-300">
-                Data de devolução
-                <input
-                  type="date"
-                  className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
-                  value={editReturn}
-                  onChange={(e) => setEditReturn(e.target.value)}
-                />
-              </label>
+            <div className="text-sm font-semibold text-[var(--app-text-strong)]">{editingContainer.container_number}</div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Data de descarga" required>
+                <Input type="date" value={editDischarge} onChange={(e) => setEditDischarge(e.target.value)} />
+              </Field>
+              <Field label="Data de devolução">
+                <Input type="date" value={editReturn} onChange={(e) => setEditReturn(e.target.value)} />
+              </Field>
             </div>
             <div className="flex gap-2">
               <Button
@@ -696,11 +684,9 @@ export function Demurrage() {
       {/* ── Modal: Desconto ── */}
       <Modal open={discountInvoiceId != null} onClose={() => setDiscountInvoiceId(null)} title="Desconto">
         <div className="space-y-4 p-4">
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block text-sm text-slate-300">
-              Tipo de desconto
-              <select
-                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Tipo de desconto">
+              <Select
                 value={discountForm.discount_type ?? ''}
                 onChange={(e) => setDiscountForm((f) => ({ ...f, discount_type: (e.target.value || null) as DemurrageInvoice['discount_type'] }))}
               >
@@ -708,49 +694,41 @@ export function Demurrage() {
                 {(Object.entries(DISCOUNT_TYPE_LABELS) as [NonNullable<DemurrageInvoice['discount_type']>, string][]).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
-              </select>
-            </label>
-            <label className="block text-sm text-slate-300">
-              Modo
-              <select
-                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+              </Select>
+            </Field>
+            <Field label="Modo">
+              <Select
                 value={discountForm.discount_mode}
                 onChange={(e) => setDiscountForm((f) => ({ ...f, discount_mode: e.target.value as 'percent' | 'fixed' }))}
               >
                 <option value="percent">Percentual (%)</option>
                 <option value="fixed">Valor fixo (BRL)</option>
-              </select>
-            </label>
+              </Select>
+            </Field>
           </div>
-          <label className="block text-sm text-slate-300">
-            Valor do desconto
-            <input
+          <Field label="Valor do desconto">
+            <Input
               type="number"
               min="0"
               step="0.01"
-              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
               value={discountForm.discount_value}
               onChange={(e) => setDiscountForm((f) => ({ ...f, discount_value: e.target.value }))}
             />
-          </label>
-          <label className="block text-sm text-slate-300">
-            Justificativa
-            <textarea
+          </Field>
+          <Field label="Justificativa">
+            <Textarea
               rows={2}
-              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
               value={discountForm.discount_justification}
               onChange={(e) => setDiscountForm((f) => ({ ...f, discount_justification: e.target.value }))}
             />
-          </label>
-          <label className="block text-sm text-slate-300">
-            Aprovador
-            <input
+          </Field>
+          <Field label="Aprovador">
+            <Input
               type="text"
-              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
               value={discountForm.discount_approver}
               onChange={(e) => setDiscountForm((f) => ({ ...f, discount_approver: e.target.value }))}
             />
-          </label>
+          </Field>
           <div className="flex gap-2">
             <Button
               loading={discountMutation.isPending}
@@ -766,7 +744,7 @@ export function Demurrage() {
       {/* ── Modal: Disputa ── */}
       <Modal open={disputeInvoiceId != null} onClose={() => setDisputeInvoiceId(null)} title="Disputa">
         <div className="space-y-4 p-4">
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--app-text)]">
             <input
               type="checkbox"
               className="rounded"
@@ -775,20 +753,16 @@ export function Demurrage() {
             />
             Disputa em aberto
           </label>
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block text-sm text-slate-300">
-              Assunto
-              <input
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Assunto">
+              <Input
                 type="text"
-                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
                 value={disputeForm.dispute_subject}
                 onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_subject: e.target.value }))}
               />
-            </label>
-            <label className="block text-sm text-slate-300">
-              Status
-              <select
-                className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
+            </Field>
+            <Field label="Status">
+              <Select
                 value={disputeForm.dispute_status ?? ''}
                 onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_status: (e.target.value || null) as DemurrageInvoice['dispute_status'] }))}
               >
@@ -796,27 +770,23 @@ export function Demurrage() {
                 {(Object.entries(DISPUTE_STATUS_LABELS) as [NonNullable<DemurrageInvoice['dispute_status']>, string][]).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
           </div>
-          <label className="block text-sm text-slate-300">
-            Motivo
-            <textarea
+          <Field label="Motivo">
+            <Textarea
               rows={2}
-              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
               value={disputeForm.dispute_reason}
               onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_reason: e.target.value }))}
             />
-          </label>
-          <label className="block text-sm text-slate-300">
-            Notas
-            <textarea
+          </Field>
+          <Field label="Notas">
+            <Textarea
               rows={2}
-              className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white"
               value={disputeForm.dispute_notes}
               onChange={(e) => setDisputeForm((f) => ({ ...f, dispute_notes: e.target.value }))}
             />
-          </label>
+          </Field>
           <div className="flex gap-2">
             <Button
               loading={disputeMutation.isPending}
@@ -832,10 +802,9 @@ export function Demurrage() {
       {/* Payment modal */}
       <Modal open={payingId != null} onClose={() => setPayingId(null)} title="Registrar Pagamento">
         <div className="space-y-4 p-4">
-          <label className="block text-sm text-slate-300">
-            Data do pagamento
-            <input type="date" className="mt-1 w-full rounded border border-[#30363d] bg-[#161b22] p-2 text-white" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
-          </label>
+          <Field label="Data do pagamento">
+            <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+          </Field>
           <div className="flex gap-2">
             <Button onClick={() => payingId && payMutation.mutate({ id: payingId, date: payDate })}>Confirmar</Button>
             <Button variant="ghost" onClick={() => setPayingId(null)}>Cancelar</Button>

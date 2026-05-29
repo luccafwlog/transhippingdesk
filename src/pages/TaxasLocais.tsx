@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Pencil, Plus, Save, Trash2, X } from 'lucide-re
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
@@ -382,21 +383,28 @@ export function TaxasLocais() {
 
       {tab === 'tabelas' && canManageTables ? (
         <>
-          <Card className="mb-5">
-            <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
-              <div className="app-table__cell-stack">
-                <div className="app-panel__title">Filtro e cobertura das tabelas</div>
-                <div className="app-table__cell-meta">
-                  Refine por modo e POD antes de editar estrutura tarifaria ou publicar novos itens.
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="green">{tableSummary.active} ativa(s)</Badge>
-                <Badge tone="blue">{tableSummary.items} item(ns)</Badge>
-                <Badge tone="slate">{tableSummary.manualOnly} manual(is)</Badge>
+          <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <div className="app-table__cell-stack">
+              <div className="app-panel__title">Cobertura das tabelas</div>
+              <div className="app-table__cell-meta">
+                Refine por modo e POD antes de editar estrutura tarifaria ou publicar novos itens.
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="green">{tableSummary.active} ativa(s)</Badge>
+              <Badge tone="blue">{tableSummary.items} item(ns)</Badge>
+              <Badge tone="slate">{tableSummary.manualOnly} manual(is)</Badge>
+            </div>
+          </div>
+          <div className="mb-5 grid gap-4 md:grid-cols-2">
+            <MetricCard label="Tabelas" value={String(tableSummary.tables)} />
+            <MetricCard label="Itens ativos" value={String(tableSummary.items - tableSummary.manualOnly)} />
+          </div>
+          <FilterBar
+            activeCount={(cargoModeFilter ? 1 : 0) + (podFilter.trim() ? 1 : 0)}
+            onClear={() => { setCargoModeFilter(''); setPodFilter('') }}
+          >
+            <div className="app-filter-grid">
               <Field label="Modo de carga">
                 <Select value={cargoModeFilter} onChange={(event) => setCargoModeFilter(event.target.value as '' | 'container' | 'carga_solta' | 'granito')}>
                   <option value="">Todos</option>
@@ -408,10 +416,8 @@ export function TaxasLocais() {
               <Field label="POD">
                 <Input value={podFilter} onChange={(event) => setPodFilter(event.target.value.toUpperCase())} placeholder="BRVIT / BRSSA" />
               </Field>
-              <MetricCard label="Tabelas" value={String(tableSummary.tables)} />
-              <MetricCard label="Itens ativos" value={String(tableSummary.items - tableSummary.manualOnly)} />
             </div>
-          </Card>
+          </FilterBar>
 
           <div className="mb-5 grid gap-5 xl:grid-cols-2">
             <Card>
@@ -868,15 +874,18 @@ export function TaxasLocais() {
 
       {tab === 'overrides' && canManageOverrides ? (
         <>
-          <Card className="mb-5">
-            <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
-              <div className="app-table__cell-stack">
-                <div className="app-panel__title">Overrides por cliente</div>
-                <div className="app-table__cell-meta">Sobrescreva valores pontuais sem contaminar a tabela base.</div>
-              </div>
-              <Badge tone="blue">{overrideRows?.length ?? 0} override(s) na visao</Badge>
+          <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <div className="app-table__cell-stack">
+              <div className="app-panel__title">Overrides por cliente</div>
+              <div className="app-table__cell-meta">Sobrescreva valores pontuais sem contaminar a tabela base.</div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Badge tone="blue">{overrideRows?.length ?? 0} override(s) na visao</Badge>
+          </div>
+          <FilterBar
+            activeCount={(overrideCustomerSearch.trim() ? 1 : 0) + (cargoModeFilter ? 1 : 0) + (podFilter.trim() ? 1 : 0)}
+            onClear={() => { setOverrideCustomerSearch(''); setCargoModeFilter(''); setPodFilter('') }}
+          >
+            <div className="app-filter-grid">
               <Field label="Buscar cliente">
                 <Input
                   value={overrideCustomerSearch}
@@ -895,9 +904,8 @@ export function TaxasLocais() {
               <Field label="POD">
                 <Input value={podFilter} onChange={(event) => setPodFilter(event.target.value.toUpperCase())} placeholder="BRVIT / BRSSA" />
               </Field>
-              <MetricCard label="Overrides encontrados" value={String(overrideRows?.length ?? 0)} />
             </div>
-          </Card>
+          </FilterBar>
 
           <Card className="mb-5">
             <div className="mb-4 flex items-center justify-between gap-3">

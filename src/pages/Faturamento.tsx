@@ -11,6 +11,7 @@ import type { DemurrageInvoiceDetail } from '../types/database'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -86,6 +87,20 @@ type Filters = {
   pageSize: number
 }
 
+const FILTER_KEYS: (keyof Filters)[] = [
+  'search',
+  'customerId',
+  'status',
+  'invoiceType',
+  'blSearch',
+  'voyageSearch',
+  'pod',
+  'dateFrom',
+  'dateTo',
+  'paidFrom',
+  'paidTo',
+]
+
 export function Faturamento() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
@@ -107,6 +122,7 @@ export function Faturamento() {
     page: 1,
     pageSize: 20,
   })
+  const [filterResetKey, setFilterResetKey] = useState(0)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(Number(searchParams.get('invoice') ?? '') || null)
   const [activeTab, setActiveTab] = useState<'validacao' | 'pendencias' | 'invoices' | 'demurrage'>(
     searchParams.get('tab') === 'demurrage'
@@ -192,6 +208,27 @@ export function Faturamento() {
 
   function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+  const activeFilterCount = FILTER_KEYS.filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  function clearFilters() {
+    setFilters((current) => ({
+      ...current,
+      search: '',
+      customerId: '',
+      status: '',
+      invoiceType: '',
+      blSearch: '',
+      voyageSearch: '',
+      pod: '',
+      dateFrom: '',
+      dateTo: '',
+      paidFrom: '',
+      paidTo: '',
+      page: 1,
+    }))
+    setFilterResetKey((key) => key + 1)
   }
 
   async function handleRegisterPayment() {
@@ -328,15 +365,16 @@ export function Faturamento() {
 
       {activeTab === 'invoices' ? (
         <>
-      <Card className="mb-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="app-panel__title">Faturas</h2>
-          <Button variant="secondary" loading={exporting} onClick={() => void handleExport()}>
-            <Download size={16} />Exportar Relatório
-          </Button>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="app-panel__title">Faturas</h2>
+        <Button variant="secondary" loading={exporting} onClick={() => void handleExport()}>
+          <Download size={16} />Exportar Relatório
+        </Button>
+      </div>
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
           <Combobox
+            key={`bl-${filterResetKey}`}
             label="Número do BL"
             placeholder="Filtro principal"
             initialValue={filters.blSearch}
@@ -345,6 +383,7 @@ export function Faturamento() {
             onSelectOption={(option) => updateFilter('blSearch', option.value)}
           />
           <Combobox
+            key={`inv-${filterResetKey}`}
             label="Número da Fatura"
             initialValue={filters.search}
             onValueChange={(value) => updateFilter('search', value)}
@@ -352,6 +391,7 @@ export function Faturamento() {
             onSelectOption={(option) => updateFilter('search', option.value)}
           />
           <Combobox
+            key={`cli-${filterResetKey}`}
             label="Cliente"
             placeholder="Nome ou CNPJ"
             onValueChange={(value) => { if (!value.trim()) updateFilter('customerId', '') }}
@@ -361,6 +401,7 @@ export function Faturamento() {
             onSelectOption={(option) => updateFilter('customerId', option.value)}
           />
           <Combobox
+            key={`voy-${filterResetKey}`}
             label="Navio / Viagem"
             initialValue={filters.voyageSearch}
             onValueChange={(value) => updateFilter('voyageSearch', value)}
@@ -368,6 +409,7 @@ export function Faturamento() {
             onSelectOption={(option) => updateFilter('voyageSearch', option.value)}
           />
           <Combobox
+            key={`pod-${filterResetKey}`}
             label="POD"
             initialValue={filters.pod}
             onValueChange={(value) => updateFilter('pod', value)}
@@ -382,7 +424,7 @@ export function Faturamento() {
           <Field label="Pagamento de"><Input type="date" value={filters.paidFrom} onChange={(event) => updateFilter('paidFrom', event.target.value)} /></Field>
           <Field label="Pagamento até"><Input type="date" value={filters.paidTo} onChange={(event) => updateFilter('paidTo', event.target.value)} /></Field>
         </div>
-      </Card>
+      </FilterBar>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Faturas filtradas" value={String(summary.count)} />
