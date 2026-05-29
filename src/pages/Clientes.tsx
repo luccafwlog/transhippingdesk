@@ -6,6 +6,7 @@ import { Download, Plus, Trash2, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -85,6 +86,11 @@ export function Clientes() {
     value: typeof filters[K],
   ) {
     setFilters((current) => ({ ...current, [field]: value, page: 0 }))
+  }
+  const activeFilterCount = (['search', 'emailStatus', 'blStatus', 'pendingStatus'] as const)
+    .filter((key) => String(filters[key] ?? '').trim() !== '').length
+  function clearFilters() {
+    setFilters((current) => ({ ...current, search: '', emailStatus: '', blStatus: '', pendingStatus: '', page: 0 }))
   }
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -308,16 +314,15 @@ export function Clientes() {
         <MetricCard label="Saldo pendente" value={formatBRL(summary?.pendingBalance ?? 0)} />
       </div>
 
-      <div className="mb-5">
-        <Card>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Field label="Buscar por nome ou CNPJ">
-              <Input
-                value={filters.search}
-                onChange={(event) => setFilterField('search', event.target.value)}
-                placeholder="Razao social, fantasia ou documento"
-              />
-            </Field>
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
+          <Field label="Buscar por nome ou CNPJ">
+            <Input
+              value={filters.search}
+              onChange={(event) => setFilterField('search', event.target.value)}
+              placeholder="Razao social, fantasia ou documento"
+            />
+          </Field>
             <Field label="E-mails vinculados">
               <Select
                 value={filters.emailStatus}
@@ -348,9 +353,8 @@ export function Clientes() {
                 <option value="without">Sem saldo pendente</option>
               </Select>
             </Field>
-          </div>
-        </Card>
-      </div>
+        </div>
+      </FilterBar>
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar clientes." /> : null}
