@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -62,6 +63,13 @@ export function VaziosImportacao() {
 
   function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
     setFilters((f) => ({ ...f, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+  const activeFilterCount = (['search', 'manifestId', 'voyageId'] as (keyof Filters)[])
+    .filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  function clearFilters() {
+    setFilters((f) => ({ ...f, search: '', manifestId: '', voyageId: '', page: 1 }))
   }
 
   function resetUpload() {
@@ -125,8 +133,8 @@ export function VaziosImportacao() {
         }
       />
 
-      <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
           <Field label="Texto livre">
             <Input
               placeholder="Container ou tipo"
@@ -163,7 +171,7 @@ export function VaziosImportacao() {
             </Select>
           </Field>
         </div>
-      </Card>
+      </FilterBar>
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar containers." /> : null}
