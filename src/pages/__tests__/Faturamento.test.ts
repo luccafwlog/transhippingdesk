@@ -11,6 +11,14 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
+// A pagina agora carrega services/billing e services/exports em runtime (sugestoes,
+// helpers de derivacao e export). Eles nao sao chamados no render estatico, mas
+// importam o cliente supabase — que mockamos para nao exigir credenciais.
+vi.mock('../../services/supabase', () => ({
+  supabase: {},
+  isSupabaseConfigured: false,
+}))
+
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'user-1' } }),
 }))
@@ -84,7 +92,7 @@ describe('Faturamento', () => {
     expect(html).toContain('class="app-tab app-tab--active"')
     expect(html).toContain('Pendências')
     expect(html).toContain('Valida')
-    expect(html).toContain('Invoices (Taxas Locais + Granito)')
+    expect(html).toContain('Faturas')
     expect(html).toContain('Demurrage')
   })
 
@@ -96,15 +104,22 @@ describe('Faturamento', () => {
     expect(html).not.toContain('B/L único')
   })
 
-  it('expoe os status documentais covered e obsolete do ledger', () => {
+  it('reduz os status documentais a 3 estados operacionais e oculta os estados internos', () => {
     const html = renderToStaticMarkup(
       React.createElement(MemoryRouter, { initialEntries: ['/?tab=invoices'] }, React.createElement(Faturamento)),
     )
 
-    expect(html).toContain('Coberta')
-    expect(html).toContain('Obsoleta')
-    expect(invoiceStatusLabel('covered')).toBe('Coberta')
-    expect(invoiceStatusLabel('obsolete')).toBe('Obsoleta')
+    // O filtro de status nao expoe mais os estados internos do ledger.
+    expect(html).not.toContain('Coberta')
+    expect(html).not.toContain('Obsoleta')
+    // covered/obsolete sao absorvidos por Paga/Cancelada; issued vira Emitida.
+    expect(invoiceStatusLabel('issued')).toBe('Emitida')
+    expect(invoiceStatusLabel('partially_paid')).toBe('Emitida')
+    expect(invoiceStatusLabel('overdue')).toBe('Emitida')
+    expect(invoiceStatusLabel('covered')).toBe('Paga')
+    expect(invoiceStatusLabel('paid')).toBe('Paga')
+    expect(invoiceStatusLabel('obsolete')).toBe('Cancelada')
+    expect(invoiceStatusLabel('cancelled')).toBe('Cancelada')
   })
 
   it('mantem invoices locais parcialmente pagas no fluxo de baixa por ledger', () => {
