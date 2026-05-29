@@ -166,3 +166,65 @@ git commit -m "Reconcile local PIX payments by TXID"
 - [x] **Step 4: Route report balances through receivable-backed service queries/RPCs**
 - [x] **Step 5: Verify build, lint, tests**
 - [x] **Step 6: Commit**
+
+---
+
+## Production Certification (2026-05-29)
+
+End-to-end verification of the whole spec against the live Supabase project
+`Transhipping Desk` (`fgmkhbzhaeebrsizwccx`).
+
+**Schema/logic deployed (all 11 ledger migrations applied):**
+- Tables `bl_receivables`, `invoice_receivable_links`, `ledger_settlements`,
+  `invoice_lifecycle_events` exist with RLS and the spec's columns.
+- RPCs present: `create_local_individual_invoice_from_receivable`,
+  `create_local_consolidated_invoice`, `register_ledger_invoice_payment`,
+  `reconcile_invoice_payment_by_txid`, `obsolete_consolidated_invoice`,
+  `list_consolidatable_receivables`.
+- Triggers present: auto-emit on BL ready, obsolete-consolidated propagation,
+  reissue tracking (`replaced_by_invoice_id`), PIX payload, single-TXID settlement.
+
+**Rollout step 2 (backfill) executed** under the admin identity (the guard
+correctly requires `is_admin()` + `is_active_user()`):
+- `backfill_local_charge_receivables`: 148 synced, 0 skipped, 0 mismatches.
+- `backfill_invoice_receivable_links`: 148 upserted, 0 missing, 0 mismatches.
+
+**Reconciliation (spec success criterion):**
+- 148 receivables (all `open`), balance R$ 2.685.338,01.
+- 148 active links, subtotal R$ 2.685.338,01 == invoices balance R$ 2.685.338,01.
+- One receivable per B/L (148 distinct), no double-counting; 0 BLs mismatched
+  against `charge_calculations`.
+
+Local checks on this branch: `npm run build`, `npm run lint` (0 errors,
+3 pre-existing `LineUpTVDisplay.tsx` warnings), `npm test` (95 passed, 9 skipped).
+
+---
+
+## Production Certification (2026-05-29)
+
+End-to-end verification of the whole spec against the live Supabase project
+`Transhipping Desk` (`fgmkhbzhaeebrsizwccx`).
+
+**Schema/logic deployed (all 11 ledger migrations applied):**
+- Tables `bl_receivables`, `invoice_receivable_links`, `ledger_settlements`,
+  `invoice_lifecycle_events` exist with RLS and the spec's columns.
+- RPCs present: `create_local_individual_invoice_from_receivable`,
+  `create_local_consolidated_invoice`, `register_ledger_invoice_payment`,
+  `reconcile_invoice_payment_by_txid`, `obsolete_consolidated_invoice`,
+  `list_consolidatable_receivables`.
+- Triggers present: auto-emit on BL ready, obsolete-consolidated propagation,
+  reissue tracking (`replaced_by_invoice_id`), PIX payload, single-TXID settlement.
+
+**Rollout step 2 (backfill) executed** under the admin identity (the guard
+correctly requires `is_admin()` + `is_active_user()`):
+- `backfill_local_charge_receivables`: 148 synced, 0 skipped, 0 mismatches.
+- `backfill_invoice_receivable_links`: 148 upserted, 0 missing, 0 mismatches.
+
+**Reconciliation (spec success criterion):**
+- 148 receivables (all `open`), balance R$ 2.685.338,01.
+- 148 active links, subtotal R$ 2.685.338,01 == invoices balance R$ 2.685.338,01.
+- One receivable per B/L (148 distinct), no double-counting; 0 BLs mismatched
+  against `charge_calculations`.
+
+Local checks on this branch: `npm run build`, `npm run lint` (0 errors,
+3 pre-existing `LineUpTVDisplay.tsx` warnings), `npm test` (95 passed, 9 skipped).
