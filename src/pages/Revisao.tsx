@@ -287,19 +287,20 @@ export function Revisao() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative">
+        <div className="relative w-full sm:w-72">
           <Input
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
             placeholder="Buscar B/L, consignatario ou shipper..."
-            className="w-72 pl-8"
+            className="pl-9 pr-9"
           />
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 text-slate-500" size={15} />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted-soft)]" size={15} />
           {searchText ? (
             <button
               type="button"
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)] transition-colors hover:text-[var(--app-text)]"
               onClick={() => setSearchText('')}
+              aria-label="Limpar busca"
             >
               <X size={14} />
             </button>
@@ -313,10 +314,10 @@ export function Revisao() {
                 key={reason}
                 type="button"
                 onClick={() => setReasonFilter(reasonFilter === reason ? null : reason)}
-                className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                   reasonFilter === reason
-                    ? 'border-amber-500 bg-amber-500/20 text-amber-300'
-                    : 'border-[#30363d] text-slate-400 hover:border-[#484f58] hover:text-slate-200'
+                    ? 'border-[var(--app-gold)] bg-[var(--app-gold-soft)] text-[var(--app-gold)]'
+                    : 'border-[var(--app-border)] text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]'
                 }`}
               >
                 {reason}
