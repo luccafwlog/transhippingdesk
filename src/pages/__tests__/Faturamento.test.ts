@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { Faturamento } from '../Faturamento'
+import { isLedgerInvoicePayable } from '../faturamentoLedgerPayment'
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: [], isLoading: false, error: null }),
@@ -92,5 +93,28 @@ describe('Faturamento', () => {
     expect(html).toContain('Nova Consolidada')
     expect(html).not.toContain('Nova Invoice')
     expect(html).not.toContain('B/L único')
+  })
+
+  it('mantem invoices locais parcialmente pagas no fluxo de baixa por ledger', () => {
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'individual',
+      status: 'partially_paid',
+      balance_brl: 25,
+    })).toBe(true)
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'consolidated',
+      status: 'overdue',
+      balance_brl: 100,
+    })).toBe(true)
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'individual',
+      status: 'covered',
+      balance_brl: 100,
+    })).toBe(false)
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'granite',
+      status: 'issued',
+      balance_brl: 100,
+    })).toBe(false)
   })
 })

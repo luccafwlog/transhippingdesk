@@ -40,6 +40,7 @@ import {
 } from '../services/alerts'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { formatBRL, formatDate } from '../lib/utils'
+import { isLedgerInvoicePayable } from './faturamentoLedgerPayment'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -135,11 +136,8 @@ export function Faturamento() {
   const { data: customerOptions } = useBillingCustomers(customerSearch)
   const detailQuery = useInvoiceDetail(selectedInvoiceId)
   const detailInvoice = detailQuery.data?.invoice ?? null
-  // Ledger-payable: local-charge document with no prior legacy payment. Paid in full via the ledger RPC.
-  const isLedgerPayable =
-    !!detailInvoice &&
-    (detailInvoice.invoice_type === 'individual' || detailInvoice.invoice_type === 'consolidated') &&
-    Number(detailInvoice.total_paid_brl ?? 0) === 0
+  // Ledger-payable local documents are settled through the transactional ledger RPC.
+  const isLedgerPayable = isLedgerInvoicePayable(detailInvoice)
   const registerPaymentMutation = useRegisterInvoicePayment()
   const registerLedgerPaymentMutation = useRegisterLedgerInvoicePayment()
   const cancelInvoiceMutation = useCancelInvoice()
