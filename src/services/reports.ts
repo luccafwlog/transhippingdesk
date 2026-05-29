@@ -104,6 +104,7 @@ export async function fetchOperationalReport(filters: OperationalReportFilters):
 export type FinancialReportRow = {
   id: number
   invoice_number: string | null
+  invoice_type: string | null
   status: string | null
   total_brl: number | null
   balance_brl: number | null
@@ -131,7 +132,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
     .from('invoices')
     .select(
       `
-      id, invoice_number, status, total_brl, balance_brl, issued_at, due_date, created_at,
+      id, invoice_number, invoice_type, status, total_brl, balance_brl, issued_at, due_date, created_at,
       customer:customers(id, name, cnpj_cpf)
     `,
     )
@@ -155,26 +156,38 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
   }
 
   const rows = ((data ?? []) as unknown as FinancialReportRow[])
+  const receivables = await fetchReceivableLinksByInvoiceIds(rows.filter(isLedgerLocalInvoice).map((row) => row.id))
+  if (receivables.accessDenied) {
+    return {
+      rows: [],
+      kpis: { totalInvoices: 0, totalIssued: 0, totalPaid: 0, totalOpen: 0, totalCanceled: 0, truncated: false },
+      accessDenied: true,
+    }
+  }
+  const ledgerBalances = summarizeReceivableBalances(receivables.links)
+  const rowsWithLedgerBalances = applyReceivableBalances(rows, ledgerBalances)
 
   const isOpen = (status: string | null) =>
     status === 'issued' || status === 'partially_paid' || status === 'overdue'
 
+  const fallbackOpen = rowsWithLedgerBalances
+    .filter((row) => isOpen(row.status) && !ledgerBalances.invoiceBalanceById.has(row.id))
+    .reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
+
   const kpis = {
-    totalInvoices: rows.length,
-    totalIssued: rows
+    totalInvoices: rowsWithLedgerBalances.length,
+    totalIssued: rowsWithLedgerBalances
       .filter((row) => row.status !== 'cancelled' && row.status !== 'draft')
       .reduce((sum, row) => sum + Number(row.total_brl ?? 0), 0),
-    totalPaid: rows
+    totalPaid: rowsWithLedgerBalances
       .filter((row) => row.status === 'paid')
       .reduce((sum, row) => sum + Number(row.total_brl ?? 0), 0),
-    totalOpen: rows
-      .filter((row) => isOpen(row.status))
-      .reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0),
-    totalCanceled: rows.filter((row) => row.status === 'cancelled').length,
-    truncated: rows.length === REPORT_ROW_LIMIT,
+    totalOpen: ledgerBalances.uniqueOpenBalance + fallbackOpen,
+    totalCanceled: rowsWithLedgerBalances.filter((row) => row.status === 'cancelled').length,
+    truncated: rowsWithLedgerBalances.length === REPORT_ROW_LIMIT,
   }
 
-  return { rows, kpis, accessDenied: false }
+  return { rows: rowsWithLedgerBalances, kpis, accessDenied: false }
 }
 
 export type CustomerReportRow = {
@@ -252,7 +265,7 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
   let invoicesAccessDenied = false
   let invoicesQuery = supabase
     .from('invoices')
-    .select('customer_id, total_brl, balance_brl, status, issued_at')
+    .select('id, customer_id, invoice_type, total_brl, balance_brl, status, issued_at')
     .not('customer_id', 'is', null)
     .limit(REPORT_ROW_LIMIT * 2)
 
@@ -269,21 +282,45 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
   }
 
   type InvoiceRow = {
+    id: number
     customer_id: number
+    invoice_type: string | null
     total_brl: number | null
     balance_brl: number | null
     status: string | null
   }
 
   const invoices = (invoicesData ?? []) as unknown as InvoiceRow[]
-  for (const invoice of invoices) {
-    if (invoice.customer_id == null) continue
-    const entry = perCustomer.get(invoice.customer_id)
-    if (!entry) continue
-    if (invoice.status === 'cancelled') continue
-    entry.invoiceCount++
-    entry.totalIssued += Number(invoice.total_brl ?? 0)
-    entry.totalBalance += Number(invoice.balance_brl ?? 0)
+  const receivables = invoicesAccessDenied
+    ? { links: [] as ReceivableLinkRow[], accessDenied: false }
+    : await fetchReceivableLinksByInvoiceIds(invoices.filter(isLedgerLocalInvoice).map((invoice) => invoice.id))
+  if (receivables.accessDenied) invoicesAccessDenied = true
+  const ledgerBalances = summarizeReceivableBalances(receivables.links)
+  const countedReceivablesByCustomer = new Set<string>()
+
+  if (!invoicesAccessDenied) {
+    for (const invoice of invoices) {
+      if (invoice.customer_id == null) continue
+      const entry = perCustomer.get(invoice.customer_id)
+      if (!entry) continue
+      if (invoice.status === 'cancelled') continue
+      entry.invoiceCount++
+      const links = ledgerBalances.linksByInvoiceId.get(invoice.id) ?? []
+      if (isLedgerLocalInvoice(invoice) && links.length > 0) {
+        for (const link of links) {
+          const receivable = normalizeReceivable(link.receivable)
+          if (!receivable) continue
+          const key = `${invoice.customer_id}:${link.receivable_id}`
+          if (countedReceivablesByCustomer.has(key)) continue
+          countedReceivablesByCustomer.add(key)
+          entry.totalIssued += Number(receivable.original_amount_brl ?? 0)
+          entry.totalBalance += Number(receivable.balance_brl ?? 0)
+        }
+        continue
+      }
+      entry.totalIssued += Number(invoice.total_brl ?? 0)
+      entry.totalBalance += Number(invoice.balance_brl ?? 0)
+    }
   }
 
   const rows = [...perCustomer.values()].sort((a, b) => {
@@ -336,7 +373,7 @@ export async function fetchFinancialReportForExport(filters: FinancialReportFilt
     .from('invoices')
     .select(
       `
-      id, invoice_number, status, total_brl, balance_brl, issued_at, due_date, created_at,
+      id, invoice_number, invoice_type, status, total_brl, balance_brl, issued_at, due_date, created_at,
       customer:customers(id, name, cnpj_cpf)
     `,
     )
@@ -348,5 +385,99 @@ export async function fetchFinancialReportForExport(filters: FinancialReportFilt
 
   const { data, error } = await query
   if (error) throw error
-  return (data ?? []) as unknown as FinancialReportRow[]
+  const rows = (data ?? []) as unknown as FinancialReportRow[]
+  const receivables = await fetchReceivableLinksByInvoiceIds(rows.filter(isLedgerLocalInvoice).map((row) => row.id))
+  if (receivables.accessDenied) throw new Error('Visualização financeira restrita ao perfil admin.')
+  return applyReceivableBalances(rows, summarizeReceivableBalances(receivables.links))
+}
+
+type LedgerInvoiceLike = {
+  id: number
+  invoice_type?: string | null
+}
+
+type ReceivableLinkRow = {
+  invoice_id: number
+  receivable_id: number
+  status: string | null
+  receivable:
+    | {
+        id?: number | null
+        original_amount_brl?: number | string | null
+        balance_brl?: number | string | null
+        status?: string | null
+      }
+    | {
+        id?: number | null
+        original_amount_brl?: number | string | null
+        balance_brl?: number | string | null
+        status?: string | null
+      }[]
+    | null
+}
+
+function isLedgerLocalInvoice(invoice: LedgerInvoiceLike) {
+  return invoice.invoice_type === 'individual' || invoice.invoice_type === 'consolidated'
+}
+
+function isAccessDenied(error: { code?: string } | null | undefined) {
+  return error?.code === '42501' || error?.code === 'PGRST301'
+}
+
+async function fetchReceivableLinksByInvoiceIds(invoiceIds: number[]) {
+  const uniqueIds = [...new Set(invoiceIds)].filter((id) => Number.isFinite(id))
+  if (!uniqueIds.length) return { links: [] as ReceivableLinkRow[], accessDenied: false }
+
+  const { data, error } = await supabase
+    .from('invoice_receivable_links')
+    .select('invoice_id, receivable_id, status, receivable:bl_receivables(id, original_amount_brl, balance_brl, status)')
+    .in('invoice_id', uniqueIds)
+
+  if (error) {
+    if (isAccessDenied(error)) return { links: [] as ReceivableLinkRow[], accessDenied: true }
+    throw error
+  }
+
+  return { links: (data ?? []) as unknown as ReceivableLinkRow[], accessDenied: false }
+}
+
+function normalizeReceivable(receivable: ReceivableLinkRow['receivable']) {
+  if (Array.isArray(receivable)) return receivable[0] ?? null
+  return receivable
+}
+
+function summarizeReceivableBalances(links: ReceivableLinkRow[]) {
+  const invoiceBalanceById = new Map<number, number>()
+  const linksByInvoiceId = new Map<number, ReceivableLinkRow[]>()
+  const openReceivables = new Map<number, number>()
+
+  for (const link of links) {
+    const receivable = normalizeReceivable(link.receivable)
+    if (!receivable) continue
+
+    const invoiceLinks = linksByInvoiceId.get(link.invoice_id) ?? []
+    invoiceLinks.push(link)
+    linksByInvoiceId.set(link.invoice_id, invoiceLinks)
+
+    if (link.status !== 'active') continue
+    const balance = Number(receivable.balance_brl ?? 0)
+    invoiceBalanceById.set(link.invoice_id, (invoiceBalanceById.get(link.invoice_id) ?? 0) + balance)
+
+    if (balance > 0 && receivable.status !== 'settled' && receivable.status !== 'void') {
+      openReceivables.set(link.receivable_id, balance)
+    }
+  }
+
+  return {
+    invoiceBalanceById,
+    linksByInvoiceId,
+    uniqueOpenBalance: [...openReceivables.values()].reduce((sum, balance) => sum + balance, 0),
+  }
+}
+
+function applyReceivableBalances<T extends FinancialReportRow>(rows: T[], summary: ReturnType<typeof summarizeReceivableBalances>) {
+  return rows.map((row) => {
+    if (!isLedgerLocalInvoice(row) || !summary.invoiceBalanceById.has(row.id)) return row
+    return { ...row, balance_brl: summary.invoiceBalanceById.get(row.id) ?? 0 }
+  })
 }

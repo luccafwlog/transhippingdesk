@@ -160,9 +160,9 @@ git commit -m "Reconcile local PIX payments by TXID"
 
 **Scope Boundary:** Do not implement until Phase 4c is verified and a new execution pass starts.
 
-- [ ] **Step 1: Identify portal/report balance queries currently reading invoice balances**
-- [ ] **Step 2: Add tests for balances derived from `bl_receivables`**
-- [ ] **Step 3: Route portal balances through receivable-backed service queries/RPCs**
-- [ ] **Step 4: Route report balances through receivable-backed service queries/RPCs**
-- [ ] **Step 5: Verify build, lint, tests**
-- [ ] **Step 6: Commit**
+- [x] **Step 1: Identify portal/report balance queries currently reading invoice balances**
+- [x] **Step 2: Add tests for balances derived from `bl_receivables`**
+- [x] **Step 3: Route portal balances through receivable-backed service queries/RPCs**
+- [x] **Step 4: Route report balances through receivable-backed service queries/RPCs**
+- [x] **Step 5: Verify build, lint, tests**
+- [x] **Step 6: Commit**
