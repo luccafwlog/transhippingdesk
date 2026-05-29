@@ -5,6 +5,7 @@ import { Boxes, CalendarDays, Download } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -52,6 +53,25 @@ export function Containers() {
 
   function updateFilter<K extends keyof ContainerFilters>(key: K, value: ContainerFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+  const activeFilterCount = (
+    ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile'] as (keyof ContainerFilters)[]
+  ).filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  function clearFilters() {
+    setFilters((current) => ({
+      ...current,
+      search: '',
+      voyageId: '',
+      pol: '',
+      pod: '',
+      reviewStatus: '',
+      financialStatus: '',
+      chargeStatus: '',
+      cargoProfile: '',
+      page: 1,
+    }))
   }
 
   async function handleExport() {
@@ -161,8 +181,8 @@ export function Containers() {
         }
       />
 
-      <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-8">
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
           <Field label="Texto livre">
             <Input
               placeholder="Container, B/L, cliente ou navio"
@@ -232,7 +252,7 @@ export function Containers() {
             </Select>
           </Field>
         </div>
-      </Card>
+      </FilterBar>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard label="Registros filtrados" value={isLoading ? '...' : data?.count ?? 0} />

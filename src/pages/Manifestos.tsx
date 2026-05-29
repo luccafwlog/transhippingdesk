@@ -5,6 +5,7 @@ import { Boxes, Download, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
@@ -52,6 +53,25 @@ export function Manifestos() {
 
   function updateFilter<K extends keyof BlFilters>(key: K, value: BlFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+  const activeFilterCount = (
+    ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile'] as (keyof BlFilters)[]
+  ).filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  function clearFilters() {
+    setFilters((current) => ({
+      ...current,
+      search: '',
+      voyageId: '',
+      pol: '',
+      pod: '',
+      reviewStatus: '',
+      financialStatus: '',
+      chargeStatus: '',
+      cargoProfile: '',
+      page: 1,
+    }))
   }
 
   async function handleExport() {
@@ -103,8 +123,8 @@ export function Manifestos() {
         }
       />
 
-      <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-8">
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
           <Field label="Texto livre">
             <Input
               placeholder="B/L ou cliente"
@@ -175,7 +195,7 @@ export function Manifestos() {
             </Select>
           </Field>
         </div>
-      </Card>
+      </FilterBar>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
         <SummaryCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />

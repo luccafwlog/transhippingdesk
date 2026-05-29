@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -73,6 +74,13 @@ export function Veiculos() {
 
   function updateFilter<K extends keyof VehiclePageFilters>(key: K, value: VehiclePageFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+  const activeFilterCount = (['search', 'container', 'bl'] as (keyof VehiclePageFilters)[])
+    .filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  function clearFilters() {
+    setFilters((current) => ({ ...current, search: '', container: '', bl: '', page: 1 }))
   }
 
   function resetImportState() {
@@ -214,8 +222,8 @@ export function Veiculos() {
         />
       </div>
 
-      <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-3">
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
           <Field label="Buscar por chassi">
             <Input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} />
           </Field>
@@ -226,7 +234,7 @@ export function Veiculos() {
             <Input value={filters.bl} onChange={(event) => updateFilter('bl', event.target.value)} />
           </Field>
         </div>
-      </Card>
+      </FilterBar>
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar veiculos." /> : null}

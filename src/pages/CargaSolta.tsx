@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -115,6 +116,24 @@ export function CargaSolta() {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
   }
 
+  const activeFilterCount = (
+    ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus'] as (keyof BlFilters)[]
+  ).filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  function clearFilters() {
+    setFilters((current) => ({
+      ...current,
+      search: '',
+      voyageId: '',
+      pol: '',
+      pod: '',
+      reviewStatus: '',
+      financialStatus: '',
+      chargeStatus: '',
+      page: 1,
+    }))
+  }
+
   async function handleExport() {
     setExporting(true)
     try {
@@ -207,8 +226,8 @@ export function CargaSolta() {
         }
       />
 
-      <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
           <Field label="Texto livre">
             <Input
               placeholder="B/L ou consignatario"
@@ -275,7 +294,7 @@ export function CargaSolta() {
             </Select>
           </Field>
         </div>
-      </Card>
+      </FilterBar>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-8">
         <SummaryCard label="B/Ls filtrados" value={summary.totalBls} />

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -57,6 +58,13 @@ export function EmbarqueVazios() {
 
   function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
     setFilters((f) => ({ ...f, [key]: value, page: key === 'page' ? Number(value) : 1 }))
+  }
+
+  const activeFilterCount = (['search', 'voyageId'] as (keyof Filters)[])
+    .filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  function clearFilters() {
+    setFilters((f) => ({ ...f, search: '', voyageId: '', page: 1 }))
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
@@ -124,8 +132,8 @@ export function EmbarqueVazios() {
         }
       />
 
-      <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+        <div className="app-filter-grid">
           <Field label="Texto livre">
             <Input
               placeholder="Booking ou container"
@@ -151,7 +159,7 @@ export function EmbarqueVazios() {
             </Select>
           </Field>
         </div>
-      </Card>
+      </FilterBar>
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar bookings." /> : null}
