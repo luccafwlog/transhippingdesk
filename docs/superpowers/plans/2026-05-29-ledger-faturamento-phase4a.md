@@ -213,7 +213,7 @@ git commit -m "Auto-emit individual invoice on ready_for_billing"
 - Modify: `src/services/billing.ts`
 - Modify: `src/integration/supabase.integration.test.ts`
 
-- [ ] **Step 1: Add `link_invoice_to_ledger` signature to `src/types/database.ts`**
+- [x] **Step 1: Add `link_invoice_to_ledger` signature to `src/types/database.ts`**
 
 Under `Database['public']['Functions']`:
 
@@ -224,7 +224,7 @@ Under `Database['public']['Functions']`:
       }
 ```
 
-- [ ] **Step 2: Call `link_invoice_to_ledger` after manual creation in `src/services/billing.ts`**
+- [x] **Step 2: Call `link_invoice_to_ledger` after manual creation in `src/services/billing.ts`**
 
 In `createInvoiceFromBls`, after `persistPixPayload(invoiceId)`:
 
@@ -235,7 +235,7 @@ In `createInvoiceFromBls`, after `persistPixPayload(invoiceId)`:
   }
 ```
 
-- [ ] **Step 3: Add opt-in integration test**
+- [x] **Step 3: Add opt-in integration test**
 
 In `src/integration/supabase.integration.test.ts`, inside `describeIntegration`, after the phase 2 test:
 
@@ -261,7 +261,7 @@ In `src/integration/supabase.integration.test.ts`, inside `describeIntegration`,
   })
 ```
 
-- [ ] **Step 4: Verify build, lint, tests**
+- [x] **Step 4: Verify build, lint, tests**
 
 ```bash
 npm run build
@@ -271,7 +271,7 @@ npm test
 
 Expected: build passes; lint has no new errors; tests pass (integration skipped).
 
-- [ ] **Step 5: Self-review — migration touches neither Demurrage nor CNPJ/valor reconciliation**
+- [x] **Step 5: Self-review — migration touches neither Demurrage nor CNPJ/valor reconciliation**
 
 ```bash
 rg -n "demurrage|cnpj|cpf" supabase/migrations/20260529120000_ledger_auto_emit_phase4a.sql
@@ -279,7 +279,7 @@ rg -n "demurrage|cnpj|cpf" supabase/migrations/20260529120000_ledger_auto_emit_p
 
 Expected: no matches.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/types/database.ts src/services/billing.ts src/integration/supabase.integration.test.ts
