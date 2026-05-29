@@ -114,5 +114,55 @@ git commit -m "Route local invoice payments through the ledger"
 
 ## Follow-Up Plans
 
-- Phase 4c: PIX reconciliation via `reconcile_invoice_payment_by_txid`, dropping the CNPJ+valor fallback.
-- Phase 4d: portal + reports balances from `bl_receivables`.
+### Phase 4c: PIX Reconciliation by TXID Only
+
+**Goal:** Route local-charge PIX reconciliation through `reconcile_invoice_payment_by_txid` and remove automatic CNPJ+valor fallback matching.
+
+**Scope Boundary:** Only the PIX reconciliation service/page behavior for local-charge ledger invoices. Demurrage remains outside the ledger rollout and is not migrated to `bl_receivables` in this phase.
+
+- [x] **Step 1: Add service tests for TXID-only matching and ledger confirmation**
+
+Add tests around `matchUnifiedPixTransactions` and `confirmUnifiedPixReconciliation` proving that:
+
+- a local invoice is not matched by CNPJ+valor when the transaction TXID does not match the invoice number;
+- a local TXID match is confirmed through `reconcile_invoice_payment_by_txid`, not the legacy `register_invoice_payment`.
+
+- [x] **Step 2: Remove local CNPJ+valor fallback from `src/services/reconciliacao.ts`**
+
+Keep TXID matching by normalized invoice/document number. Do not build or consume a CNPJ+valor candidate map for automatic reconciliation.
+
+- [x] **Step 3: Confirm local PIX matches via `reconcile_invoice_payment_by_txid`**
+
+For local invoice matches, call the ledger reconciliation service with transaction TXID, amount and paid date. Do not manually update `invoices.pix_txid` after the RPC, because the RPC owns that state transition.
+
+- [x] **Step 4: Simplify the reconciliation page badge/copy for TXID-only matches**
+
+Remove the CNPJ match badge path from the reconciliation table so the UI no longer suggests automatic CNPJ matching.
+
+- [x] **Step 5: Verify build, lint, tests**
+
+```bash
+npm run build
+npm run lint
+npm test
+```
+
+- [x] **Step 6: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-05-29-ledger-faturamento-phase4b.md src/services/reconciliacao.ts src/pages/Reconciliacao.tsx src/services/__tests__/reconciliacao.test.ts
+git commit -m "Reconcile local PIX payments by TXID"
+```
+
+### Phase 4d: Portal and Reports from Receivables
+
+**Goal:** Read local-charge open balances for portal and reporting surfaces from `bl_receivables`, so invoices are documents and B/L receivables remain the financial source of truth.
+
+**Scope Boundary:** Do not implement until Phase 4c is verified and a new execution pass starts.
+
+- [ ] **Step 1: Identify portal/report balance queries currently reading invoice balances**
+- [ ] **Step 2: Add tests for balances derived from `bl_receivables`**
+- [ ] **Step 3: Route portal balances through receivable-backed service queries/RPCs**
+- [ ] **Step 4: Route report balances through receivable-backed service queries/RPCs**
+- [ ] **Step 5: Verify build, lint, tests**
+- [ ] **Step 6: Commit**

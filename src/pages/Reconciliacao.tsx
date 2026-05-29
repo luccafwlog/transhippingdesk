@@ -129,9 +129,7 @@ export function Reconciliacao() {
                         <td className="px-3 py-2 text-slate-300">{m.customerName}</td>
                         <td className="px-3 py-2 text-emerald-400">{fmtBRL(m.transaction.amount)}</td>
                         <td className="px-3 py-2">
-                          <Badge tone={m.matchType === 'txid' ? 'green' : 'yellow'}>
-                            {m.matchType === 'txid' ? 'TXID' : 'CNPJ'}
-                          </Badge>
+                          <Badge tone="green">TXID</Badge>
                         </td>
                         <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400">{m.transaction.txid}</td>
                       </tr>
@@ -150,7 +148,7 @@ export function Reconciliacao() {
               <div className="divide-y divide-[#30363d]">
                 {ambiguous.map((m, i) => (
                   <div key={`${m.invoiceId}-ambig-${i}`} className="px-4 py-2 text-sm text-amber-100">
-                    {m.transaction.txid} — CNPJ {m.customerCnpj} — {fmtBRL(m.transaction.amount)} — multiplas faturas possiveis
+                    {m.transaction.txid} — {fmtBRL(m.transaction.amount)} — multiplos documentos possiveis
                   </div>
                 ))}
               </div>

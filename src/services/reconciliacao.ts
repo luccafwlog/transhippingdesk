@@ -1,5 +1,5 @@
 import { onlyDigits } from '../lib/utils'
-import { registerInvoicePayment } from './billing'
+import { reconcileInvoicePaymentByTxid } from './billingLedger'
 import { supabase } from './supabase'
 import type { PixTransaction } from '../types/database'
 
@@ -12,7 +12,7 @@ export type UnifiedPixMatch = {
   customerCnpj: string
   amount: number
   ambiguous: boolean
-  matchType: 'txid' | 'cnpj'
+  matchType: 'txid'
 }
 
 function normTxid(str: string) {
@@ -23,8 +23,9 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   const [localRes, demurrageRes] = await Promise.all([
     supabase
       .from('invoices')
-      .select('id, invoice_number, total_brl, status, pix_txid, customer:customers(id, name, cnpj_cpf)')
-      .in('status', ['issued', 'overdue']),
+      .select('id, invoice_number, total_brl, balance_brl, status, pix_txid, customer:customers(id, name, cnpj_cpf)')
+      .in('status', ['issued', 'partially_paid', 'overdue'])
+      .in('invoice_type', ['individual', 'consolidated']),
     supabase
       .from('demurrage_invoices')
       .select('id, doc_number, frozen_total_brl, status, pix_txid, customer:customers(id, name, cnpj_cpf)')
@@ -34,7 +35,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   if (localRes.error) throw localRes.error
   if (demurrageRes.error) throw demurrageRes.error
 
-  type LocalInv = { id: number; invoice_number: string | null; total_brl: number | null; pix_txid: string | null; customer: { name: string; cnpj_cpf: string } | null }
+  type LocalInv = { id: number; invoice_number: string | null; total_brl: number | null; balance_brl: number | null; pix_txid: string | null; customer: { name: string; cnpj_cpf: string } | null }
   type DemurrageInv = { id: number; doc_number: string; frozen_total_brl: number | null; pix_txid: string | null; customer: { name: string; cnpj_cpf: string } | null }
 
   const localInvoices = (localRes.data ?? []) as unknown as LocalInv[]
@@ -43,47 +44,33 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   const usedTxids = new Set<string>([
     ...localInvoices.map((i) => i.pix_txid ?? '').filter(Boolean),
     ...demurrageInvoices.map((i) => i.pix_txid ?? '').filter(Boolean),
-  ])
+  ].map(normTxid).filter(Boolean))
 
   type InvEntry = { source: 'local' | 'demurrage'; id: number; docNumber: string; customerName: string; customerCnpj: string; amount: number }
 
   const txidMap: Record<string, InvEntry> = {}
-  const cnpjMap: Record<string, InvEntry[]> = {}
 
   for (const inv of localInvoices) {
     const docNum = inv.invoice_number ?? String(inv.id)
-    const entry: InvEntry = { source: 'local', id: inv.id, docNumber: docNum, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.total_brl ?? 0 }
+    const entry: InvEntry = { source: 'local', id: inv.id, docNumber: docNum, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.balance_brl ?? inv.total_brl ?? 0 }
     const key = normTxid(docNum)
     if (key) txidMap[key] = entry
-    const cnpj = entry.customerCnpj
-    if (cnpj.length === 14) { if (!cnpjMap[cnpj]) cnpjMap[cnpj] = []; cnpjMap[cnpj].push(entry) }
   }
 
   for (const inv of demurrageInvoices) {
     const entry: InvEntry = { source: 'demurrage', id: inv.id, docNumber: inv.doc_number, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.frozen_total_brl ?? 0 }
     const key = normTxid(inv.doc_number)
     if (key) txidMap[key] = entry
-    const cnpj = entry.customerCnpj
-    if (cnpj.length === 14) { if (!cnpjMap[cnpj]) cnpjMap[cnpj] = []; cnpjMap[cnpj].push(entry) }
   }
 
   const matches: UnifiedPixMatch[] = []
   for (const tx of transactions) {
-    if (usedTxids.has(tx.txid)) continue
-
     const key = normTxid(tx.txid)
+    if (key && usedTxids.has(key)) continue
     if (key && txidMap[key]) {
       const e = txidMap[key]
       matches.push({ transaction: tx, source: e.source, invoiceId: e.id, docNumber: e.docNumber, customerName: e.customerName, customerCnpj: e.customerCnpj, amount: e.amount, ambiguous: false, matchType: 'txid' })
-      continue
     }
-
-    const cnpj = onlyDigits(tx.cnpj)
-    if (!cnpj || cnpj.length !== 14) continue
-    const candidates = (cnpjMap[cnpj] ?? []).filter((e) => Math.abs(e.amount - tx.amount) < 0.02)
-    if (!candidates.length) continue
-    const e = candidates[0]
-    matches.push({ transaction: tx, source: e.source, invoiceId: e.id, docNumber: e.docNumber, customerName: e.customerName, customerCnpj: e.customerCnpj, amount: e.amount, ambiguous: candidates.length > 1, matchType: 'cnpj' })
   }
 
   return matches
@@ -99,8 +86,14 @@ export async function confirmUnifiedPixReconciliation(matches: UnifiedPixMatch[]
     const paidAt = m.transaction.date || today
 
     if (m.source === 'local') {
-      await registerInvoicePayment({ invoiceId: m.invoiceId, amountBrl: m.transaction.amount, paymentMethod: 'pix', paidAt: paidAt })
-      await supabase.from('invoices').update({ pix_txid: m.transaction.txid, conciliated_by_extract: true }).eq('id', m.invoiceId)
+      const result = await reconcileInvoicePaymentByTxid({
+        txid: m.transaction.txid,
+        amountBrl: m.transaction.amount,
+        paidAt,
+      })
+      if (!result.matched || !result.settled) {
+        throw new Error(result.reason ?? 'Falha ao conciliar fatura local por TXID.')
+      }
       local += 1
     } else {
       await supabase.from('demurrage_invoices').update({ status: 'paid', paid_at: paidAt, pix_txid: m.transaction.txid, conciliated_by_extract: true }).eq('id', m.invoiceId)
