@@ -43,7 +43,7 @@ Out of scope (later phases / explicit spec exclusions):
 **Files:**
 - Create: `supabase/migrations/20260529110000_local_billing_ledger_phase2.sql`
 
-- [ ] **Step 1: Create the migration file with `register_ledger_invoice_payment`**
+- [x] **Step 1: Create the migration file with `register_ledger_invoice_payment`**
 
 Use this as the initial migration content:
 
@@ -294,7 +294,7 @@ REVOKE ALL ON FUNCTION public.register_ledger_invoice_payment(BIGINT, NUMERIC, T
 GRANT EXECUTE ON FUNCTION public.register_ledger_invoice_payment(BIGINT, NUMERIC, TEXT, TIMESTAMPTZ, TEXT, TEXT, TEXT, UUID) TO authenticated;
 ```
 
-- [ ] **Step 2: Verify build (no TS changes yet)**
+- [x] **Step 2: Verify build (no TS changes yet)**
 
 ```bash
 npm run build
