@@ -817,7 +817,7 @@ git commit -m "Add ledger write services and hooks"
 **Files:**
 - Modify: `src/integration/supabase.integration.test.ts`
 
-- [ ] **Step 1: Add opt-in integration test for the consolidated + payment + reconciliation flow**
+- [x] **Step 1: Add opt-in integration test for the consolidated + payment + reconciliation flow**
 
 In `src/integration/supabase.integration.test.ts`, add inside the existing `describeIntegration` block after the Phase 1 ledger test:
 
@@ -844,7 +844,7 @@ In `src/integration/supabase.integration.test.ts`, add inside the existing `desc
   })
 ```
 
-- [ ] **Step 2: Self-review — no Demurrage changes in the migration**
+- [x] **Step 2: Self-review — no Demurrage changes in the migration**
 
 ```bash
 rg -n "demurrage|demurrage_invoices" supabase/migrations/20260529110000_local_billing_ledger_phase2.sql
@@ -852,7 +852,7 @@ rg -n "demurrage|demurrage_invoices" supabase/migrations/20260529110000_local_bi
 
 Expected: no matches.
 
-- [ ] **Step 3: Self-review — reconciliation path has no CNPJ/valor fallback**
+- [x] **Step 3: Self-review — reconciliation path has no CNPJ/valor fallback**
 
 ```bash
 rg -n "cnpj|cpf|customer.*amount|amount.*customer" supabase/migrations/20260529110000_local_billing_ledger_phase2.sql
@@ -860,7 +860,7 @@ rg -n "cnpj|cpf|customer.*amount|amount.*customer" supabase/migrations/202605291
 
 Expected: no matches (TXID-only).
 
-- [ ] **Step 4: Confirm existing reconciliation screen untouched**
+- [x] **Step 4: Confirm existing reconciliation screen untouched**
 
 ```bash
 git status --short src/services/reconciliacao.ts src/pages
@@ -868,7 +868,7 @@ git status --short src/services/reconciliacao.ts src/pages
 
 Expected: no changes to `reconciliacao.ts` or pages (UI cutover is a later phase).
 
-- [ ] **Step 5: Run all checks**
+- [x] **Step 5: Run all checks**
 
 ```bash
 npm test
@@ -877,7 +877,7 @@ npm run build
 
 Expected: tests and build pass; integration tests remain skipped unless `SUPABASE_RUN_INTEGRATION=1`.
 
-- [ ] **Step 6: Commit integration tests**
+- [x] **Step 6: Commit integration tests**
 
 ```bash
 git add src/integration/supabase.integration.test.ts

@@ -367,6 +367,27 @@ describeIntegration('supabase integration - hardening gate', () => {
     expect((list.data ?? []).some((row) => row.bl_id === firstBlId)).toBe(true)
     expect((list.data ?? []).every((row) => typeof row.eligibility_status === 'string')).toBe(true)
   })
+
+  billingFlowTest('ledger phase 2 reconciliation is TXID-only and idempotent', async () => {
+    // No TXID -> nothing settled.
+    const none = await client.rpc('reconcile_invoice_payment_by_txid', {
+      p_txid: 'TXID-DOES-NOT-EXIST-' + Date.now(),
+      p_amount_brl: 1,
+      p_paid_at: null,
+    })
+    expect(none.error).toBeNull()
+    expect((none.data as { matched: boolean })?.matched).toBe(false)
+
+    // Empty TXID is rejected cleanly, never auto-settled.
+    const empty = await client.rpc('reconcile_invoice_payment_by_txid', {
+      p_txid: '   ',
+      p_amount_brl: 1,
+      p_paid_at: null,
+    })
+    expect(empty.error).toBeNull()
+    expect((empty.data as { matched: boolean; reason?: string })?.matched).toBe(false)
+    expect((empty.data as { reason?: string })?.reason).toBe('empty_txid')
+  })
 })
 
 function hasOperatorCredentials() {
