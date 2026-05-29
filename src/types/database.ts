@@ -476,6 +476,19 @@ export type ConsolidatedInvoiceResult = {
   total_brl: number
 }
 
+export type IndividualInvoiceResult = {
+  invoice_id: number
+  invoice_number: string
+  status: string
+  invoice_type: 'individual'
+  receivable_id: number
+  customer_id: number
+  bl_count: number
+  total_brl: number
+  balance_brl: number
+  existing: boolean
+}
+
 export type ReconcileByTxidResult = {
   matched: boolean
   reason?: string

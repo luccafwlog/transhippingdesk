@@ -3,6 +3,7 @@ import { buildTransshippingPixPayload } from '../lib/pix'
 import type {
   ConsolidatableReceivable,
   ConsolidatedInvoiceResult,
+  IndividualInvoiceResult,
   LedgerPaymentResult,
   ReconcileByTxidResult,
 } from '../types/database'
@@ -57,6 +58,22 @@ export async function createConsolidatedInvoice(input: {
     await supabase.from('invoices').update({ pix_payload: payload }).eq('id', result.invoice_id)
   }
   return result
+}
+
+export async function createIndividualInvoiceFromReceivable(input: {
+  receivableId: number
+  dueDate?: string | null
+  notes?: string | null
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('create_local_individual_invoice_from_receivable', {
+    p_receivable_id: input.receivableId,
+    p_due_date: input.dueDate ?? null,
+    p_notes: input.notes?.trim() || null,
+    p_actor: input.actorId ?? null,
+  })
+  if (error) throw error
+  return data as unknown as IndividualInvoiceResult
 }
 
 export async function registerLedgerInvoicePayment(input: {
