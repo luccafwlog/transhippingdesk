@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Field, Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { FilterBar } from '../components/ui/FilterBar'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -195,8 +196,11 @@ export function Viagens() {
         }
       />
 
-      <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2">
+      <FilterBar
+        activeCount={(vesselFilter.trim() ? 1 : 0) + (voyageFilter.trim() ? 1 : 0)}
+        onClear={() => { setVesselFilter(''); setVoyageFilter('') }}
+      >
+        <div className="app-filter-grid">
           <Field label="Navio">
             <Input
               placeholder="Filtrar por navio"
@@ -212,7 +216,7 @@ export function Viagens() {
             />
           </Field>
         </div>
-      </Card>
+      </FilterBar>
 
       {error ? <InlineError message="Erro ao carregar viagens." /> : null}
 

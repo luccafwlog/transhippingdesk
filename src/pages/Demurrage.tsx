@@ -540,45 +540,46 @@ export function Demurrage() {
                           </td>
                           <td className="py-2"><InvoiceStatusBadge status={inv.status} /></td>
                           <td className="py-2">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap items-center gap-1">
                               <Button
                                 variant="ghost"
+                                className="app-btn--sm"
                                 onClick={() => setDetailInvoiceId(inv.id)}
                               >
                                 Detalhes
                               </Button>
                               <Button
                                 variant="ghost"
-                                className={hasDiscount ? 'text-green-400' : ''}
+                                className={`app-btn--sm ${hasDiscount ? 'text-[var(--app-green)]' : ''}`}
                                 onClick={() => openDiscount(inv)}
                               >
                                 Desconto
                               </Button>
                               <Button
                                 variant="ghost"
-                                className={disputeActive ? 'text-amber-400' : disputePast ? 'text-slate-400' : ''}
+                                className={`app-btn--sm ${disputeActive ? 'text-[var(--app-gold)]' : disputePast ? 'text-[var(--app-muted)]' : ''}`}
                                 onClick={() => openDispute(inv)}
                               >
                                 Disputa
                               </Button>
                               {inv.status === 'draft' && (
                                 <>
-                                  <Button variant="secondary" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
-                                  <Button variant="ghost" onClick={() => cancelMutation.mutate(inv.id)}>Cancelar</Button>
+                                  <Button variant="secondary" className="app-btn--sm" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => cancelMutation.mutate(inv.id)}>Cancelar</Button>
                                 </>
                               )}
                               {inv.status === 'issued' && (
                                 <>
-                                  <Button variant="secondary" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
-                                  <Button variant="ghost" onClick={() => unissueMutation.mutate(inv.id)}>Desemitir</Button>
-                                  <Button variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
+                                  <Button variant="secondary" className="app-btn--sm" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => unissueMutation.mutate(inv.id)}>Desemitir</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
                                 </>
                               )}
                               {inv.status === 'paid' && (
                                 <>
-                                  <Button variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('receipt') }}>Recibo</Button>
-                                  <Button variant="ghost" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
-                                  <Button variant="ghost" onClick={() => unpayMutation.mutate(inv.id)}>Desmarcar</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('receipt') }}>Recibo</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => unpayMutation.mutate(inv.id)}>Desmarcar</Button>
                                 </>
                               )}
                             </div>
