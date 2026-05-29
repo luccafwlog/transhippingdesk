@@ -95,174 +95,175 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={close} title="Nova Consolidada" className="invoice-create-dialog">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* Customer picker (not wrapped in Field: dropdown buttons must not live inside a <label>) */}
-        <div className="app-field">
-          <span className="app-field__label">
-            Cliente<span className="app-field__required" aria-hidden="true"> *</span>
-          </span>
-          <div style={{ position: 'relative' }}>
-            <Input
-              placeholder="Buscar cliente..."
-              value={selectedCustomer ? selectedCustomer.name : customerSearch}
-              onChange={(e) => {
-                setCustomerId(null)
-                setVoyageId(null)
-                setSelected([])
-                setCustomerSearch(e.target.value)
-                setPickerOpen(true)
-              }}
-              onFocus={() => setPickerOpen(true)}
-            />
-            {pickerOpen && !customerId && (customerOptions?.length ?? 0) > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  zIndex: 20,
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  background: 'var(--app-surface)',
-                  border: '1px solid var(--app-border)',
-                  borderRadius: 8,
-                  marginTop: 4,
-                  maxHeight: 220,
-                  overflowY: 'auto',
+    <Modal
+      open={open}
+      onClose={close}
+      title="Nova Consolidada"
+      className="invoice-create-dialog"
+      bodyClassName="invoice-create-dialog__body"
+    >
+      <div className="invoice-create-modal" data-testid="consolidated-invoice-main">
+        <section className="invoice-create-modal__filters" data-testid="consolidated-invoice-filters">
+          {/* Customer picker (not wrapped in Field: dropdown buttons must not live inside a <label>) */}
+          <div className="app-field">
+            <span className="app-field__label">
+              Cliente<span className="app-field__required" aria-hidden="true"> *</span>
+            </span>
+            <div style={{ position: 'relative' }}>
+              <Input
+                placeholder="Buscar cliente..."
+                value={selectedCustomer ? selectedCustomer.name : customerSearch}
+                onChange={(e) => {
+                  setCustomerId(null)
+                  setVoyageId(null)
+                  setSelected([])
+                  setCustomerSearch(e.target.value)
+                  setPickerOpen(true)
                 }}
-              >
-                {customerOptions!.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => {
-                      setCustomerId(c.id)
-                      setVoyageId(null)
-                      setCustomerSearch('')
-                      setPickerOpen(false)
-                      setSelected([])
-                    }}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '8px 12px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600 }}>{c.name}</div>
-                    <div style={{ fontSize: 12, opacity: 0.7 }}>{c.cnpj_cpf}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <Field label="Viagem">
-          <Select
-            value={voyageId == null ? '' : String(voyageId)}
-            onChange={(e) => {
-              setVoyageId(e.target.value ? Number(e.target.value) : null)
-              setSelected([])
-            }}
-            disabled={!customerId || voyageOptions.length === 0}
-          >
-            <option value="">Todas as viagens</option>
-            {voyageOptions.map((option) => (
-              <option key={option.id} value={option.id}>{option.label}</option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field label="Buscar B/L">
-          <Input
-            placeholder="Filtrar por B/L..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={!customerId}
-          />
-        </Field>
-
-        <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--app-border)', borderRadius: 8 }}>
-          {!customerId ? (
-            <EmptyState title="Selecione um cliente" description="Selecione um cliente para ver B/Ls com saldo aberto." />
-          ) : isLoading ? (
-            <EmptyState title="Carregando..." description="Buscando B/Ls com saldo aberto." />
-          ) : rows.length === 0 ? (
-            <EmptyState title="Sem B/Ls" description="Cliente não possui B/Ls abertos para consolidar." />
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--app-border)' }}>
-                  <th style={{ padding: '8px' }}></th>
-                  <th style={{ padding: '8px' }}>B/L</th>
-                  <th style={{ padding: '8px' }}>Navio/Viagem</th>
-                  <th style={{ padding: '8px' }}>Individual</th>
-                  <th style={{ padding: '8px', textAlign: 'right' }}>Saldo</th>
-                  <th style={{ padding: '8px' }}>Elegibilidade</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const eligible = isReceivableSelectable(r)
-                  return (
-                    <tr
-                      key={r.receivable_id}
-                      style={{ borderBottom: '1px solid var(--app-border)', opacity: eligible ? 1 : 0.6 }}
+                onFocus={() => setPickerOpen(true)}
+              />
+              {pickerOpen && !customerId && (customerOptions?.length ?? 0) > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    zIndex: 20,
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--app-surface)',
+                    border: '1px solid var(--app-border)',
+                    borderRadius: 8,
+                    marginTop: 4,
+                    maxHeight: 220,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {customerOptions!.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setCustomerId(c.id)
+                        setVoyageId(null)
+                        setCustomerSearch('')
+                        setPickerOpen(false)
+                        setSelected([])
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '8px 12px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
                     >
-                      <td style={{ padding: '8px' }}>
-                        <input
-                          type="checkbox"
-                          aria-label={`Selecionar B/L ${r.bl_id}`}
-                          checked={selected.includes(r.receivable_id)}
-                          disabled={!eligible}
-                          onChange={() => toggle(r.receivable_id)}
-                        />
-                      </td>
-                      <td style={{ padding: '8px', fontWeight: 600 }}>{r.bl_id}</td>
-                      <td style={{ padding: '8px' }}>
-                        {[r.vessel_name, r.voyage_number].filter(Boolean).join(' ') || '—'}
-                      </td>
-                      <td style={{ padding: '8px' }}>{r.individual_invoice_number ?? '—'}</td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{fmtBRL(r.balance_brl)}</td>
-                      <td style={{ padding: '8px' }}>
-                        {eligible ? (
-                          <Badge tone="green">Elegível</Badge>
-                        ) : (
-                          <span style={{ fontSize: 12, opacity: 0.8 }}>{r.eligibility_reason}</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+                      <div style={{ fontWeight: 600 }}>{c.name}</div>
+                      <div style={{ fontSize: 12, opacity: 0.7 }}>{c.cnpj_cpf}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
-        <div style={{ display: 'flex', gap: 12 }}>
+          <Field label="Viagem">
+            <Select
+              value={voyageId == null ? '' : String(voyageId)}
+              onChange={(e) => {
+                setVoyageId(e.target.value ? Number(e.target.value) : null)
+                setSelected([])
+              }}
+              disabled={!customerId || voyageOptions.length === 0}
+            >
+              <option value="">Todas as viagens</option>
+              {voyageOptions.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Buscar B/L">
+            <Input
+              placeholder="Filtrar por B/L..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={!customerId}
+            />
+          </Field>
+
           <Field label="Vencimento">
             <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </Field>
-        </div>
-        <Field label="Observações">
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-        </Field>
 
-        {error && <div style={{ color: 'var(--app-danger, #dc2626)', fontSize: 13 }}>{error}</div>}
+          <Field label="Observações">
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />
+          </Field>
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderTop: '1px solid var(--app-border)',
-            paddingTop: 12,
-          }}
-        >
+          {error && <div style={{ color: 'var(--app-danger, #dc2626)', fontSize: 13 }}>{error}</div>}
+        </section>
+
+        <section className="invoice-create-modal__table-section" data-testid="consolidated-invoice-table">
+          <div className="invoice-create-modal__table-scroll">
+            {!customerId ? (
+              <EmptyState title="Selecione um cliente" description="Selecione um cliente para ver B/Ls com saldo aberto." />
+            ) : isLoading ? (
+              <EmptyState title="Carregando..." description="Buscando B/Ls com saldo aberto." />
+            ) : rows.length === 0 ? (
+              <EmptyState title="Sem B/Ls" description="Cliente não possui B/Ls abertos para consolidar." />
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--app-border)' }}>
+                    <th style={{ padding: '8px' }}></th>
+                    <th style={{ padding: '8px' }}>B/L</th>
+                    <th style={{ padding: '8px' }}>Navio/Viagem</th>
+                    <th style={{ padding: '8px' }}>Individual</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>Saldo</th>
+                    <th style={{ padding: '8px' }}>Elegibilidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const eligible = isReceivableSelectable(r)
+                    return (
+                      <tr
+                        key={r.receivable_id}
+                        style={{ borderBottom: '1px solid var(--app-border)', opacity: eligible ? 1 : 0.6 }}
+                      >
+                        <td style={{ padding: '8px' }}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecionar B/L ${r.bl_id}`}
+                            checked={selected.includes(r.receivable_id)}
+                            disabled={!eligible}
+                            onChange={() => toggle(r.receivable_id)}
+                          />
+                        </td>
+                        <td style={{ padding: '8px', fontWeight: 600 }}>{r.bl_id}</td>
+                        <td style={{ padding: '8px' }}>
+                          {[r.vessel_name, r.voyage_number].filter(Boolean).join(' ') || '—'}
+                        </td>
+                        <td style={{ padding: '8px' }}>{r.individual_invoice_number ?? '—'}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>{fmtBRL(r.balance_brl)}</td>
+                        <td style={{ padding: '8px' }}>
+                          {eligible ? (
+                            <Badge tone="green">Elegível</Badge>
+                          ) : (
+                            <span style={{ fontSize: 12, opacity: 0.8 }}>{r.eligibility_reason}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+
+        <div className="invoice-create-modal__footer" data-testid="consolidated-invoice-footer">
           <div style={{ fontSize: 13 }}>
             {selected.length} de {eligibleCount} elegíveis · <strong>{fmtBRL(selectedTotal)}</strong>
           </div>

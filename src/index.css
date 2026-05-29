@@ -1300,10 +1300,14 @@ textarea {
 }
 
 .invoice-create-modal {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "filters table"
+    "footer footer";
   min-height: 0;
   max-height: calc(90vh - 84px);
-  flex-direction: column;
   gap: 16px;
 }
 
@@ -1316,6 +1320,10 @@ textarea {
 }
 
 .invoice-create-modal__filters {
+  grid-area: filters;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   overflow: visible;
 }
 
@@ -1368,9 +1376,9 @@ textarea {
 }
 
 .invoice-create-modal__table-section {
+  grid-area: table;
   display: flex;
   min-height: 280px;
-  flex: 1;
   flex-direction: column;
   gap: 12px;
   overflow: hidden;
@@ -1397,14 +1405,19 @@ textarea {
 }
 
 .invoice-create-modal__table-scroll {
-  flex: 1;
   min-height: 0;
   max-height: 42vh;
+  flex: 1;
+  overflow: auto;
   border: 1px solid var(--app-border);
   border-radius: 12px;
 }
 
 .invoice-create-modal__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  grid-area: footer;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1452,6 +1465,15 @@ textarea {
 }
 
 @media (max-width: 720px) {
+  .invoice-create-modal {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(260px, 1fr) auto;
+    grid-template-areas:
+      "filters"
+      "table"
+      "footer";
+  }
+
   .invoice-create-modal__filters-grid {
     grid-template-columns: 1fr;
   }
