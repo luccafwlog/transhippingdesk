@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Ban, DollarSign, FilePlus2, Printer } from 'lucide-react'
+import { AlertTriangle, Ban, DollarSign, Download, FilePlus2, Printer } from 'lucide-react'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
 import { ConsolidatedInvoiceModal } from '../components/billing/ConsolidatedInvoiceModal'
 import { ValidacaoTab } from '../components/billing/ValidacaoTab'
@@ -22,14 +22,28 @@ import {
 } from '../hooks/useLocalCharges'
 import type { LocalChargeOperationalRow } from '../services/charges/chargeOperationsService'
 import {
-  useBillingCustomers,
   useCancelInvoice,
   useInvoiceDetail,
   useInvoices,
   useRegisterInvoicePayment,
 } from '../hooks/useBilling'
 import { useRegisterLedgerInvoicePayment } from '../hooks/useBillingLedger'
-import type { InvoiceStatusFilter } from '../services/billing'
+import {
+  getInvoiceBls,
+  getInvoicePaymentDate,
+  isConsolidatedInvoice,
+  type InvoiceListBl,
+  listBillingCustomers,
+  listBlSuggestions,
+  listInvoiceNumberSuggestions,
+  listInvoicesForExport,
+  listPodSuggestions,
+  listVoyageSuggestions,
+  type InvoiceStatusFilter,
+  type InvoiceTypeFilter,
+} from '../services/billing'
+import { exportInvoicesWorkbook } from '../services/exports'
+import { Combobox, type ComboOption } from '../components/ui/Combobox'
 import {
   acknowledgeAlert,
   closeAlert,
@@ -41,7 +55,7 @@ import {
 import { logOperationalEvent } from '../services/operationalEvents'
 import { formatBRL, formatDate } from '../lib/utils'
 import { isLedgerInvoicePayable } from './faturamentoLedgerPayment'
-import { invoiceStatusLabel, invoiceStatusTone } from './faturamentoInvoiceStatus'
+import { INVOICE_STATUS_FILTER_OPTIONS, invoiceStatusLabel, invoiceStatusTone } from './faturamentoInvoiceStatus'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -60,9 +74,14 @@ type Filters = {
   search: string
   customerId: string
   status: InvoiceStatusFilter
+  invoiceType: InvoiceTypeFilter
+  blSearch: string
+  voyageSearch: string
+  pod: string
   dateFrom: string
   dateTo: string
-  blSearch: string
+  paidFrom: string
+  paidTo: string
   page: number
   pageSize: number
 }
@@ -77,9 +96,14 @@ export function Faturamento() {
     search: '',
     customerId: searchParams.get('customer') ?? '',
     status: '',
+    invoiceType: '',
+    blSearch: searchParams.get('bl') ?? '',
+    voyageSearch: '',
+    pod: '',
     dateFrom: '',
     dateTo: '',
-    blSearch: searchParams.get('bl') ?? '',
+    paidFrom: '',
+    paidTo: '',
     page: 1,
     pageSize: 20,
   })
@@ -87,15 +111,15 @@ export function Faturamento() {
   const [activeTab, setActiveTab] = useState<'validacao' | 'pendencias' | 'invoices' | 'demurrage'>(
     searchParams.get('tab') === 'demurrage'
       ? 'demurrage'
-      : searchParams.get('tab') === 'invoices'
-        ? 'invoices'
+      : searchParams.get('tab') === 'validacao'
+        ? 'validacao'
         : searchParams.get('tab') === 'pendencias'
           ? 'pendencias'
-        : 'validacao'
+          : 'invoices'
   )
+  const [exporting, setExporting] = useState(false)
   const [demurrageInvoiceId, setDemurrageInvoiceId] = useState<number | null>(null)
   const [consolidatedOpen, setConsolidatedOpen] = useState(false)
-  const [customerSearch, setCustomerSearch] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix')
@@ -134,7 +158,6 @@ export function Faturamento() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const { data: customerOptions } = useBillingCustomers(customerSearch)
   const detailQuery = useInvoiceDetail(selectedInvoiceId)
   const detailInvoice = detailQuery.data?.invoice ?? null
   // Ledger-payable local documents are settled through the transactional ledger RPC.
@@ -156,12 +179,14 @@ export function Faturamento() {
   const invoices = useMemo(() => data?.rows ?? [], [data?.rows])
 
   const summary = useMemo(() => {
-    const open = invoices.filter((row) => row.status === 'issued' || row.status === 'partially_paid' || row.status === 'overdue')
+    const paidStatuses = new Set(['paid', 'covered'])
+    const cancelledStatuses = new Set(['cancelled', 'obsolete'])
+    const open = invoices.filter((row) => !paidStatuses.has(row.status ?? '') && !cancelledStatuses.has(row.status ?? ''))
     return {
       count: data?.count ?? 0,
       openBalance: open.reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0),
-      paidCount: invoices.filter((row) => row.status === 'paid').length,
-      overdueCount: invoices.filter((row) => row.status === 'overdue').length,
+      paidCount: invoices.filter((row) => paidStatuses.has(row.status ?? '')).length,
+      consolidatedCount: invoices.filter((row) => isConsolidatedInvoice(row)).length,
     }
   }, [data?.count, invoices])
 
@@ -242,6 +267,23 @@ export function Faturamento() {
     setSearchParams(next)
   }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const rows = await listInvoicesForExport(filters)
+      if (rows.length === 0) {
+        showToast('Nenhuma fatura para exportar com os filtros atuais.', 'info')
+        return
+      }
+      await exportInvoicesWorkbook(rows)
+      showToast(`Relatório exportado (${rows.length} fatura(s)).`, 'success')
+    } catch (error) {
+      showToast(extractMessage(error, 'Falha ao exportar relatório.'), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -263,9 +305,9 @@ export function Faturamento() {
       />
 
       <div className="mb-5 flex flex-wrap gap-2">
+        <TabButton active={activeTab === 'invoices'} label="Faturas" onClick={() => setActiveTab('invoices')} />
         <TabButton active={activeTab === 'validacao'} label="Validação" onClick={() => setActiveTab('validacao')} />
         <TabButton active={activeTab === 'pendencias'} label="Pendências" onClick={() => setActiveTab('pendencias')} />
-        <TabButton active={activeTab === 'invoices'} label="Invoices (Taxas Locais + Granito)" onClick={() => setActiveTab('invoices')} />
         <TabButton active={activeTab === 'demurrage'} label="Demurrage" onClick={() => setActiveTab('demurrage')} />
       </div>
 
@@ -287,38 +329,94 @@ export function Faturamento() {
       {activeTab === 'invoices' ? (
         <>
       <Card className="mb-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="app-panel__title">Faturas</h2>
+          <Button variant="secondary" loading={exporting} onClick={() => void handleExport()}>
+            <Download size={16} />Exportar Relatório
+          </Button>
+        </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Invoice"><Input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} /></Field>
-          <Field label="Cliente"><Select value={filters.customerId} onChange={(event) => updateFilter('customerId', event.target.value)}><option value="">Todos</option>{customerOptions?.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
-          <Field label="Status"><Select value={filters.status} onChange={(event) => updateFilter('status', event.target.value as InvoiceStatusFilter)}><option value="">Todos</option><option value="draft">Draft</option><option value="issued">Emitida</option><option value="partially_paid">Parcial</option><option value="paid">Paga</option><option value="covered">Coberta</option><option value="obsolete">Obsoleta</option><option value="overdue">Vencida</option><option value="cancelled">Cancelada</option></Select></Field>
-          <Field label="B/L vinculado"><Input value={filters.blSearch} onChange={(event) => updateFilter('blSearch', event.target.value)} /></Field>
-          <Field label="Emissao de"><Input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} /></Field>
-          <Field label="Emissao ate"><Input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} /></Field>
+          <Combobox
+            label="Número do BL"
+            placeholder="Filtro principal"
+            initialValue={filters.blSearch}
+            onValueChange={(value) => updateFilter('blSearch', value)}
+            fetchOptions={async (q) => (await listBlSuggestions(q)).map((id): ComboOption => ({ value: id, label: id }))}
+            onSelectOption={(option) => updateFilter('blSearch', option.value)}
+          />
+          <Combobox
+            label="Número da Fatura"
+            initialValue={filters.search}
+            onValueChange={(value) => updateFilter('search', value)}
+            fetchOptions={async (q) => (await listInvoiceNumberSuggestions(q)).map((n): ComboOption => ({ value: n, label: n }))}
+            onSelectOption={(option) => updateFilter('search', option.value)}
+          />
+          <Combobox
+            label="Cliente"
+            placeholder="Nome ou CNPJ"
+            onValueChange={(value) => { if (!value.trim()) updateFilter('customerId', '') }}
+            fetchOptions={async (q) =>
+              (await listBillingCustomers(q)).map((c): ComboOption => ({ value: String(c.id), label: c.name, meta: c.cnpj_cpf }))
+            }
+            onSelectOption={(option) => updateFilter('customerId', option.value)}
+          />
+          <Combobox
+            label="Navio / Viagem"
+            initialValue={filters.voyageSearch}
+            onValueChange={(value) => updateFilter('voyageSearch', value)}
+            fetchOptions={async (q) => (await listVoyageSuggestions(q)).map((v): ComboOption => ({ value: v.voyageNumber, label: v.label }))}
+            onSelectOption={(option) => updateFilter('voyageSearch', option.value)}
+          />
+          <Combobox
+            label="POD"
+            initialValue={filters.pod}
+            onValueChange={(value) => updateFilter('pod', value)}
+            fetchOptions={async (q) => (await listPodSuggestions(q)).map((p): ComboOption => ({ value: p, label: p }))}
+            onSelectOption={(option) => updateFilter('pod', option.value)}
+          />
+          <Field label="Tipo de Fatura"><Select value={filters.invoiceType} onChange={(event) => updateFilter('invoiceType', event.target.value as InvoiceTypeFilter)}><option value="">Todos</option><option value="single">Único BL</option><option value="consolidated">Consolidada</option></Select></Field>
+          <Field label="Status"><Select value={filters.status} onChange={(event) => updateFilter('status', event.target.value as InvoiceStatusFilter)}><option value="">Todos</option>{INVOICE_STATUS_FILTER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
           <Field label="Itens por página"><Select value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>{pageSizes.map((size) => <option key={size} value={size}>{size}/pág.</option>)}</Select></Field>
-          <Field label="Busca rápida de cliente"><Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Refina listas e emissão" /></Field>
+          <Field label="Emissão de"><Input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} /></Field>
+          <Field label="Emissão até"><Input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} /></Field>
+          <Field label="Pagamento de"><Input type="date" value={filters.paidFrom} onChange={(event) => updateFilter('paidFrom', event.target.value)} /></Field>
+          <Field label="Pagamento até"><Input type="date" value={filters.paidTo} onChange={(event) => updateFilter('paidTo', event.target.value)} /></Field>
         </div>
       </Card>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Invoices filtradas" value={String(summary.count)} />
+        <MetricCard label="Faturas filtradas" value={String(summary.count)} />
         <MetricCard label="Saldo aberto" value={formatBRL(summary.openBalance)} />
         <MetricCard label="Pagas (página)" value={String(summary.paidCount)} />
-        <MetricCard label="Vencidas (página)" value={String(summary.overdueCount)} />
+        <MetricCard label="Consolidadas (página)" value={String(summary.consolidatedCount)} />
       </div>
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
         <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[980px] table-fixed text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="w-[26%] px-4 py-3">Invoice</th><th scope="col" className="w-[16%] px-4 py-3">Datas</th><th scope="col" className="w-[24%] px-4 py-3">Operacao</th><th scope="col" className="w-[20%] px-4 py-3">Financeiro</th><th scope="col" className="w-[8%] px-4 py-3">Status</th><th scope="col" className="w-[12%] px-4 py-3">Acoes</th></tr></thead>
+          <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
+            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-4 py-3">Número do BL</th><th scope="col" className="px-4 py-3">Fatura</th><th scope="col" className="px-4 py-3">Tipo</th><th scope="col" className="px-4 py-3">Navio / Viagem · POD</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Pagamento</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Ações</th></tr></thead>
             <tbody className="divide-y divide-[#30363d]">
-              {isLoading ? <tr><td colSpan={6} className="p-0"><SkeletonTable rows={6} cols={6} /></td></tr> : null}
-              {!isLoading && invoices.length === 0 ? <tr><td colSpan={6} className="p-0"><EmptyState title="Nenhuma invoice encontrada." description="Emita uma nova invoice ou ajuste os filtros." /></td></tr> : null}
-              {invoices.map((invoice) => (
+              {isLoading ? <tr><td colSpan={9} className="p-0"><SkeletonTable rows={6} cols={9} /></td></tr> : null}
+              {!isLoading && invoices.length === 0 ? <tr><td colSpan={9} className="p-0"><EmptyState title="Nenhuma fatura encontrada." description="Emita uma nova fatura ou ajuste os filtros." /></td></tr> : null}
+              {invoices.map((invoice) => {
+                const bls = getInvoiceBls(invoice)
+                const consolidated = isConsolidatedInvoice(invoice)
+                const paymentDate = getInvoicePaymentDate(invoice)
+                return (
                 <tr key={invoice.id}>
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
-                      <div className="font-semibold text-[#58a6ff]">{invoice.invoice_number ?? `INV-${invoice.id}`}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#58a6ff]">{formatBlIds(bls)}</span>
+                        <Badge tone={consolidated ? 'blue' : 'slate'}>{bls.length} B/L{bls.length === 1 ? '' : 's'}</Badge>
+                      </div>
+                      {consolidated ? <div className="app-table__cell-meta">Consolidada · {bls.length} BLs agrupados</div> : null}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="app-table__cell-stack">
+                      <div className="font-semibold text-white">{invoice.invoice_number ?? `INV-${invoice.id}`}</div>
                       <div className="app-table__cell-value">
                         <span className="app-table__truncate app-table__truncate--xl" title={invoice.customer?.name ?? '-'}>
                           {invoice.customer?.name ?? '-'}
@@ -327,22 +425,17 @@ export function Faturamento() {
                       <div className="app-table__cell-meta">{invoice.customer?.cnpj_cpf ?? 'Cliente não identificado'}</div>
                     </div>
                   </td>
+                  <td className="px-4 py-3"><Badge tone={consolidated ? 'blue' : 'slate'}>{consolidated ? 'Consolidada' : 'Único BL'}</Badge></td>
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
-                      <div className="app-table__cell-value">Emissao {formatDate(invoice.issued_at)}</div>
-                      <div className="app-table__cell-meta">Vencimento {formatDate(invoice.due_date)}</div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="app-table__cell-stack">
-                      <div className="app-table__cell-value">{invoice.invoice_bls?.length ?? 0} B/L(s)</div>
-                      <div className="app-table__cell-meta">
-                        <span className="app-table__truncate app-table__truncate--xl" title={formatInvoiceBlPreview(invoice.invoice_bls ?? [])}>
-                          {formatInvoiceBlPreview(invoice.invoice_bls ?? [])}
-                        </span>
+                      <div className="app-table__cell-value">
+                        <span className="app-table__truncate app-table__truncate--xl" title={formatVesselVoyage(bls)}>{formatVesselVoyage(bls)}</span>
                       </div>
+                      <div className="app-table__cell-meta">POD {formatPodList(bls)}</div>
                     </div>
                   </td>
+                  <td className="px-4 py-3">{formatDate(invoice.issued_at)}</td>
+                  <td className="px-4 py-3">{paymentDate ? formatDate(paymentDate) : <span className="text-slate-500">—</span>}</td>
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
                       <div className="app-table__cell-value app-table__cell-value--financial">Total {formatBRL(invoice.total_brl)}</div>
@@ -353,7 +446,8 @@ export function Faturamento() {
                   <td className="px-4 py-3">{renderInvoiceStatus(invoice.status)}</td>
                   <td className="px-4 py-3"><Button variant="secondary" onClick={() => setSelectedInvoiceId(invoice.id)}>Detalhes</Button></td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -853,13 +947,31 @@ function renderPaymentMethod(method: PaymentMethod | string | null) {
   return 'Outros'
 }
 
-function formatInvoiceBlPreview(
-  rows: Array<{ bl_id?: string | null }> | null | undefined,
-) {
-  const ids = (rows ?? []).map((row) => String(row.bl_id ?? '').trim()).filter(Boolean)
-  if (ids.length === 0) return 'Nenhum B/L vinculado'
-  if (ids.length <= 3) return ids.join(' • ')
-  return `${ids.slice(0, 3).join(' • ')} +${ids.length - 3}`
+function formatBlIds(bls: InvoiceListBl[]) {
+  const ids = bls.map((bl) => bl.bl_id)
+  if (ids.length === 0) return 'Sem B/L'
+  if (ids.length <= 2) return ids.join(' • ')
+  return `${ids.slice(0, 2).join(' • ')} +${ids.length - 2}`
+}
+
+function formatVesselVoyage(bls: InvoiceListBl[]) {
+  const labels = Array.from(
+    new Set(
+      bls
+        .map((bl) => [bl.vessel_name, bl.voyage_number].filter(Boolean).join(' · '))
+        .filter((label) => label.length > 0),
+    ),
+  )
+  if (labels.length === 0) return '—'
+  if (labels.length === 1) return labels[0]
+  return `${labels[0]} +${labels.length - 1}`
+}
+
+function formatPodList(bls: InvoiceListBl[]) {
+  const pods = Array.from(new Set(bls.map((bl) => bl.pod).filter((pod): pod is string => Boolean(pod))))
+  if (pods.length === 0) return '—'
+  if (pods.length === 1) return pods[0]
+  return `${pods[0]} +${pods.length - 1}`
 }
 
 function formatUSD(value: number | null | undefined) {

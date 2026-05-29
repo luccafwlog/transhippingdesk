@@ -7,6 +7,9 @@ import type {
   FinancialReportRow,
   OperationalReportRow,
 } from './reports'
+import { getInvoiceBls, getInvoicePaymentDate, isConsolidatedInvoice, type InvoiceListRow } from './billing'
+import { invoiceStatusLabel } from '../pages/faturamentoInvoiceStatus'
+import { formatDate } from '../lib/utils'
 
 export async function exportManifestWorkbook(rows: BLListItem[]) {
   const XLSX = await import('xlsx')
@@ -108,6 +111,53 @@ export async function exportContainerWorkbook(rows: ContainerListItem[]) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Containers')
   XLSX.writeFile(workbook, `containers-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportInvoicesWorkbook(rows: InvoiceListRow[]) {
+  const XLSX = await import('xlsx')
+
+  const invoiceRows = rows.map((row) => {
+    const bls = getInvoiceBls(row)
+    const navios = Array.from(new Set(bls.map((bl) => bl.vessel_name).filter(Boolean))).join(' / ')
+    const viagens = Array.from(new Set(bls.map((bl) => bl.voyage_number).filter(Boolean))).join(' / ')
+    const pods = Array.from(new Set(bls.map((bl) => bl.pod).filter(Boolean))).join(' / ')
+    return {
+      Fatura: row.invoice_number ?? `INV-${row.id}`,
+      Cliente: row.customer?.name ?? '',
+      CNPJ: row.customer?.cnpj_cpf ?? '',
+      Tipo: isConsolidatedInvoice(row) ? 'Consolidada' : 'Único BL',
+      Status: invoiceStatusLabel(row.status),
+      Emissao: row.issued_at ? formatDate(row.issued_at) : '',
+      DataPagamento: getInvoicePaymentDate(row) ? formatDate(getInvoicePaymentDate(row)) : '',
+      QtdBLs: bls.length,
+      BLs: bls.map((bl) => bl.bl_id).join(' • '),
+      Navio: navios,
+      Viagem: viagens,
+      POD: pods,
+      TotalBRL: Number(row.total_brl ?? 0),
+      PagoBRL: Number(row.total_paid_brl ?? 0),
+      SaldoBRL: Number(row.balance_brl ?? 0),
+    }
+  })
+
+  const blRows = rows.flatMap((row) =>
+    getInvoiceBls(row).map((bl) => ({
+      Fatura: row.invoice_number ?? `INV-${row.id}`,
+      Cliente: row.customer?.name ?? '',
+      Tipo: isConsolidatedInvoice(row) ? 'Consolidada' : 'Único BL',
+      BL: bl.bl_id,
+      Navio: bl.vessel_name ?? '',
+      Viagem: bl.voyage_number ?? '',
+      POD: bl.pod ?? '',
+      Emissao: row.issued_at ? formatDate(row.issued_at) : '',
+      Status: invoiceStatusLabel(row.status),
+    })),
+  )
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(invoiceRows), 'Faturas')
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(blRows), 'BLs')
+  XLSX.writeFile(workbook, `faturas-${makeTimestamp()}.xlsx`)
 }
 
 export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOperationalRow[]) {
