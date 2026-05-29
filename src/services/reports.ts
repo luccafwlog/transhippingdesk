@@ -171,7 +171,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
     status === 'issued' || status === 'partially_paid' || status === 'overdue'
 
   const fallbackOpen = rowsWithLedgerBalances
-    .filter((row) => isOpen(row.status) && !ledgerBalances.invoiceBalanceById.has(row.id))
+    .filter((row) => isOpen(row.status) && !ledgerBalances.linksByInvoiceId.has(row.id))
     .reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
 
   const kpis = {
@@ -477,7 +477,7 @@ function summarizeReceivableBalances(links: ReceivableLinkRow[]) {
 
 function applyReceivableBalances<T extends FinancialReportRow>(rows: T[], summary: ReturnType<typeof summarizeReceivableBalances>) {
   return rows.map((row) => {
-    if (!isLedgerLocalInvoice(row) || !summary.invoiceBalanceById.has(row.id)) return row
+    if (!isLedgerLocalInvoice(row) || !summary.linksByInvoiceId.has(row.id)) return row
     return { ...row, balance_brl: summary.invoiceBalanceById.get(row.id) ?? 0 }
   })
 }

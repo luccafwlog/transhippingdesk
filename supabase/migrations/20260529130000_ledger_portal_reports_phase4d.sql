@@ -184,7 +184,7 @@ AS $$
     i.total_paid_brl,
     CASE
       WHEN i.invoice_type IN ('individual', 'consolidated') AND ledger.link_count > 0
-        THEN ledger.balance_brl
+        THEN ledger.active_balance_brl
       ELSE i.balance_brl
     END AS balance_brl,
     i.status
@@ -193,11 +193,17 @@ AS $$
   LEFT JOIN LATERAL (
     SELECT
       COUNT(*) AS link_count,
-      COALESCE(SUM(COALESCE(br.balance_brl, 0)), 0) AS balance_brl
+      COALESCE(SUM(
+        CASE
+          WHEN irl.status = 'active'
+           AND COALESCE(i.status, 'issued') IN ('issued', 'partially_paid', 'overdue')
+            THEN COALESCE(br.balance_brl, 0)
+          ELSE 0
+        END
+      ), 0) AS active_balance_brl
     FROM public.invoice_receivable_links AS irl
     JOIN public.bl_receivables AS br ON br.id = irl.receivable_id
     WHERE irl.invoice_id = i.id
-      AND irl.status = 'active'
   ) AS ledger ON true
   ORDER BY i.created_at DESC;
 $$;
