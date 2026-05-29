@@ -694,6 +694,15 @@ export type Database = {
         }
         Returns: number
       }
+      create_local_individual_invoice_from_receivable: {
+        Args: {
+          p_receivable_id: number
+          p_due_date: string | null
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
       link_invoice_to_ledger: {
         Args: {
           p_invoice_id: number
