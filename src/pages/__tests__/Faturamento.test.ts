@@ -85,4 +85,12 @@ describe('Faturamento', () => {
     expect(html).toContain('Invoices (Taxas Locais + Granito)')
     expect(html).toContain('Demurrage')
   })
+
+  it('expoe somente a acao de consolidada no faturamento local', () => {
+    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(Faturamento)))
+
+    expect(html).toContain('Nova Consolidada')
+    expect(html).not.toContain('Nova Invoice')
+    expect(html).not.toContain('B/L único')
+  })
 })

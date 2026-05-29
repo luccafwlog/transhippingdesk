@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isReceivableSelectable,
+  listReceivableVoyageOptions,
   summarizeConsolidation,
 } from '../consolidatedInvoiceSelection'
 import type { ConsolidatableReceivable } from '../../../types/database'
@@ -58,5 +59,44 @@ describe('consolidatedInvoiceSelection', () => {
     const rows = [makeRow({ receivable_id: 1 })]
     const summary = summarizeConsolidation(rows, [])
     expect(summary).toEqual({ selectedCount: 0, eligibleCount: 1, total: 0 })
+  })
+
+  it('lists unique voyages with open receivable balances', () => {
+    const rows = [
+      makeRow({
+        receivable_id: 1,
+        voyage_id: 10,
+        vessel_name: 'Atlas',
+        voyage_number: '001',
+        receivable_status: 'open',
+        balance_brl: 100,
+      }),
+      makeRow({
+        receivable_id: 2,
+        voyage_id: 10,
+        vessel_name: 'Atlas',
+        voyage_number: '001',
+        receivable_status: 'partially_settled',
+        balance_brl: 40,
+      }),
+      makeRow({
+        receivable_id: 3,
+        voyage_id: 20,
+        vessel_name: 'Bravo',
+        voyage_number: '002',
+        receivable_status: 'settled',
+        balance_brl: 0,
+      }),
+      makeRow({
+        receivable_id: 4,
+        voyage_id: null,
+        receivable_status: 'open',
+        balance_brl: 75,
+      }),
+    ]
+
+    expect(listReceivableVoyageOptions(rows)).toEqual([
+      { id: 10, label: 'Atlas / 001' },
+    ])
   })
 })

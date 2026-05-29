@@ -3,11 +3,11 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
-import { Field, Input, Textarea } from '../ui/Input'
+import { Field, Input, Select, Textarea } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useBillingCustomers } from '../../hooks/useBilling'
 import { useConsolidatableReceivables, useCreateConsolidatedInvoice } from '../../hooks/useBillingLedger'
-import { isReceivableSelectable, summarizeConsolidation } from './consolidatedInvoiceSelection'
+import { isReceivableSelectable, listReceivableVoyageOptions, summarizeConsolidation } from './consolidatedInvoiceSelection'
 
 function fmtBRL(v: number | null | undefined) {
   return 'R$ ' + Number(v ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -20,6 +20,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   const [customerId, setCustomerId] = useState<number | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [voyageId, setVoyageId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [notes, setNotes] = useState('')
@@ -27,13 +28,20 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   const [error, setError] = useState('')
 
   const { data: customerOptions } = useBillingCustomers(customerSearch)
+  const { data: voyageReceivables } = useConsolidatableReceivables({
+    customerId,
+    voyageId: null,
+    search: null,
+  })
   const { data: receivables, isLoading } = useConsolidatableReceivables({
     customerId,
+    voyageId,
     search: search.trim() || null,
   })
   const createMutation = useCreateConsolidatedInvoice()
 
   const rows = receivables ?? []
+  const voyageOptions = listReceivableVoyageOptions(voyageReceivables ?? [])
   const summary = summarizeConsolidation(rows, selected)
   const selectedTotal = summary.total
   const eligibleCount = summary.eligibleCount
@@ -43,6 +51,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   function reset() {
     setCustomerId(null)
     setCustomerSearch('')
+    setVoyageId(null)
     setSearch('')
     setDueDate('')
     setNotes('')
@@ -99,6 +108,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
               value={selectedCustomer ? selectedCustomer.name : customerSearch}
               onChange={(e) => {
                 setCustomerId(null)
+                setVoyageId(null)
                 setSelected([])
                 setCustomerSearch(e.target.value)
                 setPickerOpen(true)
@@ -127,6 +137,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
                     type="button"
                     onClick={() => {
                       setCustomerId(c.id)
+                      setVoyageId(null)
                       setCustomerSearch('')
                       setPickerOpen(false)
                       setSelected([])
@@ -149,6 +160,22 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
             )}
           </div>
         </div>
+
+        <Field label="Viagem">
+          <Select
+            value={voyageId == null ? '' : String(voyageId)}
+            onChange={(e) => {
+              setVoyageId(e.target.value ? Number(e.target.value) : null)
+              setSelected([])
+            }}
+            disabled={!customerId || voyageOptions.length === 0}
+          >
+            <option value="">Todas as viagens</option>
+            {voyageOptions.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </Select>
+        </Field>
 
         <Field label="Buscar B/L">
           <Input

@@ -476,6 +476,19 @@ export type ConsolidatedInvoiceResult = {
   total_brl: number
 }
 
+export type IndividualInvoiceResult = {
+  invoice_id: number
+  invoice_number: string
+  status: string
+  invoice_type: 'individual'
+  receivable_id: number
+  customer_id: number
+  bl_count: number
+  total_brl: number
+  balance_brl: number
+  existing: boolean
+}
+
 export type ReconcileByTxidResult = {
   matched: boolean
   reason?: string
@@ -693,6 +706,15 @@ export type Database = {
           p_bl_id: string
         }
         Returns: number
+      }
+      create_local_individual_invoice_from_receivable: {
+        Args: {
+          p_receivable_id: number
+          p_due_date: string | null
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
       }
       link_invoice_to_ledger: {
         Args: {

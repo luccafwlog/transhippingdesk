@@ -16,7 +16,6 @@ import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
-import { useVoyageOptions } from '../hooks/useBls'
 import {
   useBatchCalculateLocalCharges,
   useLocalChargeOperations,
@@ -24,10 +23,7 @@ import {
 import type { LocalChargeOperationalRow } from '../services/charges/chargeOperationsService'
 import {
   useBillingCustomers,
-  useBillingReadyBlDiagnostics,
-  useBillingReadyBls,
   useCancelInvoice,
-  useCreateInvoice,
   useInvoiceDetail,
   useInvoices,
   useRegisterInvoicePayment,
@@ -43,7 +39,7 @@ import {
   type Alert,
 } from '../services/alerts'
 import { logOperationalEvent } from '../services/operationalEvents'
-import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
+import { formatBRL, formatDate } from '../lib/utils'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -96,21 +92,7 @@ export function Faturamento() {
         : 'validacao'
   )
   const [demurrageInvoiceId, setDemurrageInvoiceId] = useState<number | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
   const [consolidatedOpen, setConsolidatedOpen] = useState(false)
-  const [createMode, setCreateMode] = useState<'single' | 'consolidated'>('consolidated')
-  const [createCustomerId, setCreateCustomerId] = useState('')
-  const [createVoyageId, setCreateVoyageId] = useState('')
-  const [createVoyageSearch, setCreateVoyageSearch] = useState('')
-  const [createVoyagePickerOpen, setCreateVoyagePickerOpen] = useState(false)
-  const [createCargoMode, setCreateCargoMode] = useState<'' | 'container' | 'carga_solta'>('')
-  const [createDueDate, setCreateDueDate] = useState('')
-  const [createNotes, setCreateNotes] = useState('')
-  const [createSearch, setCreateSearch] = useState('')
-  const [createCustomerSearch, setCreateCustomerSearch] = useState('')
-  const [createCustomerPickerOpen, setCreateCustomerPickerOpen] = useState(false)
-  const [createError, setCreateError] = useState('')
-  const [selectedBls, setSelectedBls] = useState<string[]>([])
   const [customerSearch, setCustomerSearch] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
@@ -151,18 +133,6 @@ export function Faturamento() {
   }, [])
 
   const { data: customerOptions } = useBillingCustomers(customerSearch)
-  const { data: createCustomerOptions } = useBillingCustomers(createCustomerSearch)
-  const { data: readyBls, isLoading: loadingReadyBls } = useBillingReadyBls({
-    customerId: createCustomerId ? Number(createCustomerId) : null,
-    voyageId: createVoyageId ? Number(createVoyageId) : null,
-    cargoMode: createCargoMode || null,
-  })
-  const { data: readyBlDiagnostics, isLoading: loadingReadyBlDiagnostics } = useBillingReadyBlDiagnostics({
-    customerId: createCustomerId ? Number(createCustomerId) : null,
-    voyageId: createVoyageId ? Number(createVoyageId) : null,
-    cargoMode: createCargoMode || null,
-  })
-  const { data: voyageOptions } = useVoyageOptions()
   const detailQuery = useInvoiceDetail(selectedInvoiceId)
   const detailInvoice = detailQuery.data?.invoice ?? null
   // Ledger-payable: local-charge document with no prior legacy payment. Paid in full via the ledger RPC.
@@ -170,7 +140,6 @@ export function Faturamento() {
     !!detailInvoice &&
     (detailInvoice.invoice_type === 'individual' || detailInvoice.invoice_type === 'consolidated') &&
     Number(detailInvoice.total_paid_brl ?? 0) === 0
-  const createInvoiceMutation = useCreateInvoice()
   const registerPaymentMutation = useRegisterInvoicePayment()
   const registerLedgerPaymentMutation = useRegisterLedgerInvoicePayment()
   const cancelInvoiceMutation = useCancelInvoice()
@@ -184,70 +153,8 @@ export function Faturamento() {
      
   }, [selectedInvoiceId, isLedgerPayable, ledgerBalance])
 
-  type UnifiedBl = {
-    id: string
-    label: string
-    carrierName: string
-    vesselVoyage: string
-    containerCount: number
-    billingTotalBrl: number
-  }
-
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
   const invoices = useMemo(() => data?.rows ?? [], [data?.rows])
-
-  const filteredCreateVoyageOptions = useMemo(() => {
-    const term = createVoyageSearch.trim().toUpperCase()
-    const options = voyageOptions ?? []
-    if (!term) return options
-    return options.filter((voyage) => formatVoyageSearchLabel(voyage).toUpperCase().includes(term))
-  }, [createVoyageSearch, voyageOptions])
-
-  const unifiedReadyBls = useMemo((): UnifiedBl[] => {
-    const term = createSearch.trim().toUpperCase()
-    const local: UnifiedBl[] = (readyBls ?? []).map((row) => ({
-      id: row.id,
-      label: row.id,
-      carrierName: row.voyage?.vessel?.carrier?.name ?? '-',
-      vesselVoyage: `${row.voyage?.vessel?.name ?? 'Navio'} / ${row.voyage?.voyage_number ?? '-'}`,
-      containerCount: row.container_count ?? 0,
-      billingTotalBrl: Number(row.billing_total_brl ?? 0),
-    }))
-    if (!term) return local
-    return local.filter((row) => row.label.toUpperCase().includes(term) || row.vesselVoyage.toUpperCase().includes(term))
-  }, [createSearch, readyBls])
-
-  const selectedReadyRows = useMemo(
-    () => unifiedReadyBls.filter((row) => selectedBls.includes(row.id)),
-    [unifiedReadyBls, selectedBls],
-  )
-
-  const createSelectionSummary = useMemo(() => ({
-    selectedCount: selectedReadyRows.length,
-    selectedTotalBrl: selectedReadyRows.reduce((sum, row) => sum + row.billingTotalBrl, 0),
-    routePreview:
-      selectedReadyRows.length > 0
-        ? selectedReadyRows
-            .slice(0, 3)
-            .map((row) => row.label)
-            .join(', ')
-        : 'Nenhum B/L selecionado',
-  }), [selectedReadyRows])
-
-  const allVisibleSelected = unifiedReadyBls.length > 0 && unifiedReadyBls.every((row) => selectedBls.includes(row.id))
-
-  const createEmptyDescription = useMemo(() => {
-    if (!createCustomerId) return undefined
-    if (loadingReadyBlDiagnostics) return 'Verificando BLs deste filtro...'
-    if (!readyBlDiagnostics || readyBlDiagnostics.totalBls === 0) return undefined
-    if (readyBlDiagnostics.alreadyInvoicedBls > 0 && readyBlDiagnostics.eligibleBls === 0) {
-      return `${readyBlDiagnostics.totalBls} B/L(s) encontrados para este filtro; ${readyBlDiagnostics.alreadyInvoicedBls} ja possuem invoice ativa ou status faturado.`
-    }
-    if (readyBlDiagnostics.notReadyBls > 0 && readyBlDiagnostics.eligibleBls === 0) {
-      return `${readyBlDiagnostics.totalBls} B/L(s) encontrados para este filtro, mas ainda nao estao prontos para faturamento.`
-    }
-    return undefined
-  }, [createCustomerId, loadingReadyBlDiagnostics, readyBlDiagnostics])
 
   const summary = useMemo(() => {
     const open = invoices.filter((row) => row.status === 'issued' || row.status === 'partially_paid' || row.status === 'overdue')
@@ -261,78 +168,6 @@ export function Faturamento() {
 
   function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
-  }
-
-  function resetCreateState() {
-    setCreateMode('consolidated')
-    setCreateCustomerId('')
-    setCreateCustomerSearch('')
-    setCreateCustomerPickerOpen(false)
-    setCreateVoyageId('')
-    setCreateVoyageSearch('')
-    setCreateVoyagePickerOpen(false)
-    setCreateCargoMode('')
-    setCreateDueDate('')
-    setCreateNotes('')
-    setCreateSearch('')
-    setCreateError('')
-    setSelectedBls([])
-  }
-
-  function toggleBl(blId: string) {
-    setCreateError('')
-    setSelectedBls((current) => {
-      if (createMode === 'single') return current.includes(blId) ? [] : [blId]
-      return current.includes(blId) ? current.filter((id) => id !== blId) : [...current, blId]
-    })
-  }
-
-  function toggleAllVisibleBls() {
-    setCreateError('')
-    setSelectedBls((current) => {
-      if (allVisibleSelected) {
-        return current.filter((id) => !unifiedReadyBls.some((row) => row.id === id))
-      }
-      const visibleIds = unifiedReadyBls.map((row) => row.id)
-      return Array.from(new Set([...current, ...visibleIds]))
-    })
-  }
-
-  async function handleCreateInvoice() {
-    setCreateError('')
-    if (!createCustomerId) {
-      setCreateError('Selecione um cliente para listar e faturar B/Ls em aberto.')
-      return
-    }
-    if (!selectedBls.length) {
-      setCreateError('Selecione ao menos um B/L para gerar a invoice.')
-      return
-    }
-    if (createMode === 'single' && selectedBls.length !== 1) {
-      setCreateError('Modo B/L unico permite somente 1 B/L.')
-      return
-    }
-    try {
-      const payload = await createInvoiceMutation.mutateAsync({
-        blIds: selectedBls,
-        customerId: Number(createCustomerId),
-        dueDate: createDueDate || null,
-        notes: createNotes.trim() || null,
-        issueNow: true,
-        actorId: user?.id ?? null,
-      }) as { invoice_id?: number }
-      setSelectedInvoiceId(Number(payload.invoice_id ?? 0))
-      setCreateOpen(false)
-      resetCreateState()
-      showToast('Invoice gerada com sucesso', 'success')
-    } catch (error) {
-      const msg = extractMessage(error, 'Falha ao gerar invoice.')
-      setCreateError(msg)
-      void createAlert({ type: 'invoice_create_conflict', entityType: 'invoice', entityId: '', message: msg })
-      void logOperationalEvent({ code: 'invoice_create_conflict', message: msg, changedBy: user?.id ?? null })
-      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
-      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
-    }
   }
 
   async function handleRegisterPayment() {
@@ -412,12 +247,9 @@ export function Faturamento() {
     <>
       <PageHeader
         title="Faturamento"
-        description="Emissão de invoice por B/L único ou consolidada por cliente, com baixa parcial/total e cancelamento."
+        description="Emissão de consolidadas por cliente, com baixa integral via ledger e cancelamento."
         action={
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setConsolidatedOpen(true)}><FilePlus2 size={16} />Nova Consolidada</Button>
-            <Button onClick={() => setCreateOpen(true)}><FilePlus2 size={16} />Nova Invoice</Button>
-          </div>
+          <Button onClick={() => setConsolidatedOpen(true)}><FilePlus2 size={16} />Nova Consolidada</Button>
         }
       />
 
@@ -530,145 +362,6 @@ export function Faturamento() {
       </Card>
         </>
       ) : null}
-
-      <Modal
-        open={createOpen}
-        onClose={() => { setCreateOpen(false); resetCreateState() }}
-        title="Nova Invoice"
-        className="invoice-create-dialog"
-        bodyClassName="invoice-create-dialog__body"
-      >
-        <div className="invoice-create-modal">
-          <section className="invoice-create-modal__filters">
-            <div className="invoice-create-modal__filters-grid">
-              <div className="invoice-create-modal__field invoice-create-modal__field--customer">
-                <CustomerSearchField
-                  value={createCustomerSearch}
-                  selectedCustomerId={createCustomerId}
-                  options={createCustomerOptions ?? []}
-                  open={createCustomerPickerOpen}
-                  onOpenChange={setCreateCustomerPickerOpen}
-                  onChange={(value) => {
-                    setCreateError('')
-                    setCreateCustomerSearch(value)
-                    setCreateCustomerId('')
-                    setCreateCustomerPickerOpen(true)
-                    setSelectedBls([])
-                  }}
-                  onSelect={(customer) => {
-                    setCreateError('')
-                    setCreateCustomerId(customer ? String(customer.id) : '')
-                    setCreateCustomerSearch(customer?.name ?? '')
-                    setCreateCustomerPickerOpen(false)
-                    setSelectedBls([])
-                  }}
-                />
-              </div>
-              <div className="invoice-create-modal__field invoice-create-modal__field--voyage">
-                <VoyageSearchField
-                  value={createVoyageSearch}
-                  selectedVoyageId={createVoyageId}
-                  options={filteredCreateVoyageOptions}
-                  open={createVoyagePickerOpen}
-                  onOpenChange={setCreateVoyagePickerOpen}
-                  onChange={(value) => {
-                    setCreateVoyageSearch(value)
-                    setCreateVoyageId('')
-                    setCreateVoyagePickerOpen(true)
-                    setSelectedBls([])
-                  }}
-                  onSelect={(voyage) => {
-                    setCreateVoyageId(voyage ? String(voyage.id) : '')
-                    setCreateVoyageSearch(voyage ? formatVoyageSearchLabel(voyage) : '')
-                    setCreateVoyagePickerOpen(false)
-                    setSelectedBls([])
-                  }}
-                />
-              </div>
-              <div className="invoice-create-modal__field invoice-create-modal__field--cargo">
-                <Field label="Carga"><Select value={createCargoMode} onChange={(event) => { setCreateCargoMode(event.target.value as '' | 'container' | 'carga_solta'); setSelectedBls([]) }}><option value="">Todos</option><option value="container">Container</option><option value="carga_solta">Carga Solta</option></Select></Field>
-              </div>
-              <div className="invoice-create-modal__field invoice-create-modal__field--due">
-                <Field label="Vencimento"><Input type="date" value={createDueDate} onChange={(event) => setCreateDueDate(event.target.value)} /></Field>
-              </div>
-              <div className="invoice-create-modal__field invoice-create-modal__field--bl">
-                <Field label="Buscar B/L"><Input value={createSearch} onChange={(event) => setCreateSearch(event.target.value)} placeholder="Digite o numero do B/L" /></Field>
-              </div>
-              <div className="invoice-create-modal__field invoice-create-modal__field--notes">
-                <Field label="Observacoes"><Textarea value={createNotes} onChange={(event) => setCreateNotes(event.target.value)} /></Field>
-              </div>
-            </div>
-            {createError ? <InlineError message={createError} /> : null}
-          </section>
-
-          <section className="invoice-create-modal__table-section">
-            <div className="invoice-create-modal__table-header">
-              <div>
-                <h3>Selecao de B/Ls elegiveis</h3>
-                <p>Selecione um ou mais B/Ls em aberto do cliente escolhido para consolidar a invoice.</p>
-              </div>
-              <Badge tone="blue">{createSelectionSummary.selectedCount} selecionado(s)</Badge>
-            </div>
-            <div className="invoice-create-modal__table-scroll app-table-scroll">
-              <table className="app-table app-table--compact min-w-[900px] table-fixed text-left text-sm">
-                <thead>
-                  <tr>
-                    <th scope="col" className="w-[7%] px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={allVisibleSelected}
-                        disabled={unifiedReadyBls.length === 0}
-                        onChange={toggleAllVisibleBls}
-                        aria-label="Selecionar todos os B/Ls visiveis"
-                      />
-                    </th>
-                    <th scope="col" className="w-[19%] px-3 py-2">No BL</th>
-                    <th scope="col" className="w-[22%] px-3 py-2">Armador</th>
-                    <th scope="col" className="w-[24%] px-3 py-2">Navio/Viagem</th>
-                    <th scope="col" className="w-[12%] px-3 py-2">Containers</th>
-                    <th scope="col" className="w-[16%] px-3 py-2">Total Charges (R$)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#30363d]">
-                  {loadingReadyBls ? <tr><td colSpan={6} className="p-0"><SkeletonTable rows={4} cols={6} /></td></tr> : null}
-                  {!loadingReadyBls && unifiedReadyBls.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-0">
-                        <EmptyState
-                          title={createCustomerId ? 'Nenhum BL em aberto para este cliente' : 'Selecione um cliente para listar B/Ls em aberto.'}
-                          description={createEmptyDescription}
-                        />
-                      </td>
-                    </tr>
-                  ) : null}
-                  {unifiedReadyBls.map((row) => (
-                    <tr key={row.id}>
-                      <td className="px-3 py-2"><input type="checkbox" checked={selectedBls.includes(row.id)} onChange={() => toggleBl(row.id)} /></td>
-                      <td className="px-3 py-2 font-semibold text-[#58a6ff]">{row.label}</td>
-                      <td className="px-3 py-2"><span className="app-table__truncate app-table__truncate--lg" title={row.carrierName}>{row.carrierName}</span></td>
-                      <td className="px-3 py-2"><span className="app-table__truncate app-table__truncate--lg" title={row.vesselVoyage}>{row.vesselVoyage}</span></td>
-                      <td className="px-3 py-2">{row.containerCount}</td>
-                      <td className="px-3 py-2 font-semibold text-[var(--app-green)]">{formatBRL(row.billingTotalBrl)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <div className="invoice-create-modal__footer">
-            <div>
-              <div className="invoice-create-modal__footer-label">Total selecionado</div>
-              <div className="invoice-create-modal__footer-total">{createSelectionSummary.selectedCount} B/L(s) - {formatBRL(createSelectionSummary.selectedTotalBrl)}</div>
-              <div className="invoice-create-modal__footer-preview">{createSelectionSummary.routePreview}</div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => { setCreateOpen(false); resetCreateState() }}>Cancelar</Button>
-              <Button disabled={!selectedBls.length} loading={createInvoiceMutation.isPending} onClick={handleCreateInvoice}><DollarSign size={16} />Gerar Invoice</Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
 
       <Modal open={Boolean(selectedInvoiceId)} onClose={closeDetails} title={`Detalhe Invoice ${detailQuery.data?.invoice?.invoice_number ?? selectedInvoiceId ?? ''}`}>
         <div className="grid gap-5">
@@ -1068,172 +761,6 @@ function SelectionMetric({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-[#30363d] bg-[#111827] px-3 py-3">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-1 text-sm font-medium text-slate-100">{value}</div>
-    </div>
-  )
-}
-
-type VoyageSearchOption = {
-  id: number
-  voyage_number: string
-  vessel?: { name?: string | null } | null
-}
-
-function formatVoyageSearchLabel(voyage: VoyageSearchOption) {
-  return `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`
-}
-
-function CustomerSearchField({
-  value,
-  selectedCustomerId,
-  options,
-  open,
-  onOpenChange,
-  onChange,
-  onSelect,
-}: {
-  value: string
-  selectedCustomerId: string
-  options: Array<{ id: number; name: string; cnpj_cpf: string }>
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onChange: (value: string) => void
-  onSelect: (customer: { id: number; name: string; cnpj_cpf: string } | null) => void
-}) {
-  const hasOptions = options.length > 0
-
-  return (
-    <div
-      className="invoice-search-field"
-      onBlur={(event) => {
-        const nextTarget = event.relatedTarget as Node | null
-        if (nextTarget && event.currentTarget.contains(nextTarget)) return
-        onOpenChange(false)
-      }}
-    >
-      <Field label="Cliente">
-        <Input
-          value={value}
-          onFocus={() => onOpenChange(true)}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Digite nome ou CNPJ"
-        />
-      </Field>
-      {selectedCustomerId ? (
-        <button
-          type="button"
-          className="mt-1 text-xs font-medium text-[var(--app-blue-btn)] hover:underline"
-          onClick={() => onSelect(null)}
-        >
-          Limpar cliente
-        </button>
-      ) : (
-        <div className="mt-1 text-xs text-[var(--app-muted)]">Busque por nome ou CNPJ para carregar os B/Ls.</div>
-      )}
-      {open ? (
-        <div className="invoice-search-field__menu">
-          {hasOptions ? (
-            options.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  onSelect(option)
-                }}
-                onClick={() => onSelect(option)}
-              >
-                <span className="block truncate font-medium text-[var(--app-text-strong)]">{option.name}</span>
-                <span className="block truncate text-xs text-[var(--app-muted)]">{formatCnpjCpf(option.cnpj_cpf)}</span>
-              </button>
-            ))
-          ) : (
-            <div className="px-3 py-3 text-sm text-[var(--app-muted)]">Nenhum cliente encontrado.</div>
-          )}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function VoyageSearchField({
-  value,
-  selectedVoyageId,
-  options,
-  open,
-  onOpenChange,
-  onChange,
-  onSelect,
-}: {
-  value: string
-  selectedVoyageId: string
-  options: VoyageSearchOption[]
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onChange: (value: string) => void
-  onSelect: (voyage: VoyageSearchOption | null) => void
-}) {
-  return (
-    <div
-      className="invoice-search-field"
-      onBlur={(event) => {
-        const nextTarget = event.relatedTarget as Node | null
-        if (nextTarget && event.currentTarget.contains(nextTarget)) return
-        onOpenChange(false)
-      }}
-    >
-      <Field label="Viagem">
-        <Input
-          value={value}
-          onFocus={() => onOpenChange(true)}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Digite navio ou viagem"
-        />
-      </Field>
-      {selectedVoyageId ? (
-        <button
-          type="button"
-          className="mt-1 text-xs font-medium text-[var(--app-blue-btn)] hover:underline"
-          onClick={() => onSelect(null)}
-        >
-          Limpar viagem
-        </button>
-      ) : (
-        <div className="mt-1 text-xs text-[var(--app-muted)]">Opcional: filtre por navio ou numero da viagem.</div>
-      )}
-      {open ? (
-        <div className="invoice-search-field__menu">
-          <button
-            type="button"
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
-            onMouseDown={(event) => {
-              event.preventDefault()
-              onSelect(null)
-            }}
-            onClick={() => onSelect(null)}
-          >
-            Todas as viagens
-          </button>
-          {options.length ? (
-            options.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-muted)]"
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  onSelect(option)
-                }}
-                onClick={() => onSelect(option)}
-              >
-                <span className="block truncate font-medium text-[var(--app-text-strong)]">{formatVoyageSearchLabel(option)}</span>
-              </button>
-            ))
-          ) : (
-            <div className="px-3 py-3 text-sm text-[var(--app-muted)]">Nenhuma viagem encontrada.</div>
-          )}
-        </div>
-      ) : null}
     </div>
   )
 }
