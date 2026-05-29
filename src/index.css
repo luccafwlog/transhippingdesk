@@ -36,6 +36,8 @@
   --app-shadow-strong: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 4px rgba(15, 23, 42, 0.08);
   --app-radius: 8px;
   --app-control-h: 44px;
+  --app-thead-bg: #e6e1d5;
+  --app-thead-text: #5a5549;
   --app-font-display: "Syne", "DM Sans", sans-serif;
   --app-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
   font-family: "DM Sans", "Segoe UI", sans-serif;
@@ -74,6 +76,8 @@
   --app-shadow-strong: 0 4px 12px rgba(2, 6, 23, 0.28), 0 2px 6px rgba(2, 6, 23, 0.20);
   --app-radius: 12px;
   --app-header-height: 56px;
+  --app-thead-bg: #0d1117;
+  --app-thead-text: #95a7c0;
 }
 
 :root[data-visual-theme='light'] {
@@ -110,6 +114,8 @@
   --app-shadow-strong: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 4px rgba(15, 23, 42, 0.08);
   --app-radius: 8px;
   --app-control-h: 44px;
+  --app-thead-bg: #e6e1d5;
+  --app-thead-text: #5a5549;
   --app-font-display: "Syne", "DM Sans", sans-serif;
   --app-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
   font-family: "DM Sans", "Segoe UI", sans-serif;
@@ -1981,6 +1987,14 @@ textarea {
 .app-table th,
 .app-table td {
   min-width: 0;
+}
+
+/* Theme-aware table header band (overrides legacy hardcoded bg-[#0d1117] /
+   text-slate-500 utilities so headers adapt to the active theme). The TV
+   line-up display keeps its own dedicated styling. */
+.app-table:not(.app-table--lineup-display) thead th {
+  background: var(--app-thead-bg);
+  color: var(--app-thead-text);
 }
 
 .app-shell table tbody tr + tr td,
