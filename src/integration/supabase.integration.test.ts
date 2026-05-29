@@ -331,6 +331,42 @@ describeIntegration('supabase integration - hardening gate', () => {
       }
     }
   })
+
+  billingFlowTest('ledger phase 1 backfills and lists consolidatable receivables', async () => {
+    const blIds = env.billingBlIds ?? []
+    expect(blIds.length).toBeGreaterThan(0)
+
+    const firstBlId = blIds[0]
+    const snapshot = await client
+      .from('bls')
+      .select('id,customer_id')
+      .eq('id', firstBlId)
+      .single()
+    expect(snapshot.error).toBeNull()
+    const customerId = Number(snapshot.data?.customer_id ?? 0)
+    expect(customerId).toBeGreaterThan(0)
+
+    const sync = await client.rpc('sync_local_charge_receivable', {
+      p_bl_id: firstBlId,
+    })
+    expect(sync.error).toBeNull()
+    expect(Number(sync.data ?? 0)).toBeGreaterThan(0)
+
+    const backfillLinks = await client.rpc('backfill_invoice_receivable_links', {
+      p_limit: 50,
+    })
+    expect(backfillLinks.error).toBeNull()
+
+    const list = await client.rpc('list_consolidatable_receivables', {
+      p_customer_id: customerId,
+      p_voyage_id: null,
+      p_search: firstBlId,
+    })
+    expect(list.error).toBeNull()
+    expect(Array.isArray(list.data)).toBe(true)
+    expect((list.data ?? []).some((row) => row.bl_id === firstBlId)).toBe(true)
+    expect((list.data ?? []).every((row) => typeof row.eligibility_status === 'string')).toBe(true)
+  })
 })
 
 function hasOperatorCredentials() {

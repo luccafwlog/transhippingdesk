@@ -622,7 +622,7 @@ git commit -m "Add ledger receivable backfill RPCs"
 - Create: `src/hooks/useBillingLedger.ts`
 - Modify: `src/integration/supabase.integration.test.ts`
 
-- [ ] **Step 1: Add ledger types to `src/types/database.ts`**
+- [x] **Step 1: Add ledger types to `src/types/database.ts`**
 
 Add these types near the existing billing types:
 
@@ -700,7 +700,7 @@ Add function signatures under `Database['public']['Functions']`:
       }
 ```
 
-- [ ] **Step 2: Add integration test for Phase 1 RPCs**
+- [x] **Step 2: Add integration test for Phase 1 RPCs**
 
 In `src/integration/supabase.integration.test.ts`, add this test inside the existing `describeIntegration` block after the billing flow test:
 
@@ -742,7 +742,7 @@ In `src/integration/supabase.integration.test.ts`, add this test inside the exis
   })
 ```
 
-- [ ] **Step 3: Add query keys**
+- [x] **Step 3: Add query keys**
 
 In `src/services/queryKeys.ts`, add:
 
@@ -753,7 +753,7 @@ In `src/services/queryKeys.ts`, add:
   },
 ```
 
-- [ ] **Step 4: Create `src/services/billingLedger.ts`**
+- [x] **Step 4: Create `src/services/billingLedger.ts`**
 
 ```ts
 import { supabase } from './supabase'
@@ -788,7 +788,7 @@ export async function listConsolidatableReceivables(filters: ConsolidatableRecei
 }
 ```
 
-- [ ] **Step 5: Create `src/hooks/useBillingLedger.ts`**
+- [x] **Step 5: Create `src/hooks/useBillingLedger.ts`**
 
 ```ts
 import { useQuery } from '@tanstack/react-query'
@@ -807,7 +807,7 @@ export function useConsolidatableReceivables(filters: ConsolidatableReceivableFi
 }
 ```
 
-- [ ] **Step 6: Run typecheck/build**
+- [x] **Step 6: Run typecheck/build**
 
 Run:
 
@@ -817,7 +817,7 @@ npm run build
 
 Expected: build passes with new types and service files.
 
-- [ ] **Step 7: Commit TypeScript read wrapper and integration test**
+- [x] **Step 7: Commit TypeScript read wrapper and integration test**
 
 ```bash
 git add src/types/database.ts src/services/queryKeys.ts src/services/billingLedger.ts src/hooks/useBillingLedger.ts src/integration/supabase.integration.test.ts
