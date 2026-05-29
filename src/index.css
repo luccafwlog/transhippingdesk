@@ -2013,6 +2013,55 @@ textarea {
   color: var(--app-thead-text);
 }
 
+/* Theme-aware table CELL colors. Legacy markup hardcodes dark-tuned color
+   utilities on table cells (text-white, text-slate-*, text-[#58a6ff], …)
+   which become unreadable on the light/beige theme. Re-map them to semantic
+   tokens, scoped to table bodies only so badges/headers/modals elsewhere are
+   untouched. In the dark theme the tokens are visually equivalent, so this is
+   corrective for light mode and a no-op for dark mode. The line-up display is
+   excluded. */
+.app-table:not(.app-table--lineup-display) tbody {
+  color: var(--app-text);
+}
+
+.app-table:not(.app-table--lineup-display) tbody .text-white {
+  color: var(--app-text-strong);
+}
+
+.app-table:not(.app-table--lineup-display) tbody .text-slate-200,
+.app-table:not(.app-table--lineup-display) tbody .text-slate-300,
+.app-table:not(.app-table--lineup-display) tbody .text-slate-400,
+.app-table:not(.app-table--lineup-display) tbody .text-slate-500 {
+  color: var(--app-muted);
+}
+
+.app-table:not(.app-table--lineup-display) tbody .text-\[\#58a6ff\],
+.app-table:not(.app-table--lineup-display) tbody .text-\[\#8cc8ff\] {
+  color: var(--app-blue);
+}
+
+.app-table:not(.app-table--lineup-display) tbody .text-green-400,
+.app-table:not(.app-table--lineup-display) tbody .text-emerald-400,
+.app-table:not(.app-table--lineup-display) tbody .text-emerald-300 {
+  color: var(--app-green);
+}
+
+.app-table:not(.app-table--lineup-display) tbody .text-red-200,
+.app-table:not(.app-table--lineup-display) tbody .text-red-300,
+.app-table:not(.app-table--lineup-display) tbody .text-red-400 {
+  color: var(--app-red);
+}
+
+.app-table:not(.app-table--lineup-display) tbody .text-amber-300,
+.app-table:not(.app-table--lineup-display) tbody .text-amber-400 {
+  color: var(--app-gold);
+}
+
+/* Row dividers / cell borders hardcoded to the dark palette. */
+.app-table:not(.app-table--lineup-display) tbody > tr + tr {
+  border-top-color: var(--app-border);
+}
+
 .app-shell table tbody tr + tr td,
 .app-table tbody tr + tr td {
   border-top: 1px solid var(--app-border) !important;
