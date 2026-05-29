@@ -457,6 +457,33 @@ export type ConsolidatableReceivable = {
   eligibility_reason: string
 }
 
+export type LedgerPaymentResult = {
+  invoice_id: number
+  payment_id: number
+  status: 'paid'
+  amount_brl: number
+  receivables_settled: number
+  individuals_covered: number
+  consolidated_obsoleted: number
+}
+
+export type ConsolidatedInvoiceResult = {
+  invoice_id: number
+  invoice_number: string
+  status: 'issued'
+  invoice_type: 'consolidated'
+  receivable_count: number
+  total_brl: number
+}
+
+export type ReconcileByTxidResult = {
+  matched: boolean
+  reason?: string
+  invoice_id?: number
+  settled?: boolean
+  payment?: LedgerPaymentResult
+}
+
 export type InvoiceGraniteBlLink = {
   id: number
   invoice_id: number
@@ -686,6 +713,45 @@ export type Database = {
           p_search: string | null
         }
         Returns: ConsolidatableReceivable[]
+      }
+      register_ledger_invoice_payment: {
+        Args: {
+          p_invoice_id: number
+          p_amount_brl: number
+          p_method: string
+          p_paid_at: string | null
+          p_pix_txid: string | null
+          p_source: string
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      create_local_consolidated_invoice: {
+        Args: {
+          p_customer_id: number
+          p_receivable_ids: number[]
+          p_due_date: string | null
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      obsolete_consolidated_invoice: {
+        Args: {
+          p_invoice_id: number
+          p_reason: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      reconcile_invoice_payment_by_txid: {
+        Args: {
+          p_txid: string
+          p_amount_brl: number
+          p_paid_at: string | null
+        }
+        Returns: Json
       }
       run_billing_for_import_batch: {
         Args: {

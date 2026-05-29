@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  createConsolidatedInvoice,
   listConsolidatableReceivables,
+  obsoleteConsolidatedInvoice,
+  registerLedgerInvoicePayment,
   type ConsolidatableReceivableFilters,
 } from '../services/billingLedger'
 import { queryKeys } from '../services/queryKeys'
@@ -10,5 +13,38 @@ export function useConsolidatableReceivables(filters: ConsolidatableReceivableFi
     queryKey: queryKeys.billingLedger.consolidatableReceivables(filters),
     queryFn: () => listConsolidatableReceivables(filters),
     enabled: Boolean(filters.customerId),
+  })
+}
+
+function useLedgerInvalidation() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: queryKeys.billingLedger.all() })
+    qc.invalidateQueries({ queryKey: queryKeys.invoices.all() })
+    qc.invalidateQueries({ queryKey: queryKeys.bls.all() })
+  }
+}
+
+export function useCreateConsolidatedInvoice() {
+  const invalidate = useLedgerInvalidation()
+  return useMutation({
+    mutationFn: createConsolidatedInvoice,
+    onSuccess: invalidate,
+  })
+}
+
+export function useRegisterLedgerInvoicePayment() {
+  const invalidate = useLedgerInvalidation()
+  return useMutation({
+    mutationFn: registerLedgerInvoicePayment,
+    onSuccess: invalidate,
+  })
+}
+
+export function useObsoleteConsolidatedInvoice() {
+  const invalidate = useLedgerInvalidation()
+  return useMutation({
+    mutationFn: obsoleteConsolidatedInvoice,
+    onSuccess: invalidate,
   })
 }

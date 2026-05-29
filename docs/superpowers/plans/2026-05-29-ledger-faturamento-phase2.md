@@ -588,7 +588,7 @@ git commit -m "Add ledger consolidated, obsolete and TXID reconciliation RPCs"
 - Modify: `src/services/billingLedger.ts`
 - Modify: `src/hooks/useBillingLedger.ts`
 
-- [ ] **Step 1: Add RPC signatures and result types to `src/types/database.ts`**
+- [x] **Step 1: Add RPC signatures and result types to `src/types/database.ts`**
 
 Add these result types next to `ConsolidatableReceivable`:
 
@@ -665,7 +665,7 @@ Add these signatures under `Database['public']['Functions']` (after `list_consol
       }
 ```
 
-- [ ] **Step 2: Add service wrappers to `src/services/billingLedger.ts`**
+- [x] **Step 2: Add service wrappers to `src/services/billingLedger.ts`**
 
 Append:
 
@@ -749,7 +749,7 @@ export async function reconcileInvoicePaymentByTxid(input: {
 }
 ```
 
-- [ ] **Step 3: Add mutation hooks to `src/hooks/useBillingLedger.ts`**
+- [x] **Step 3: Add mutation hooks to `src/hooks/useBillingLedger.ts`**
 
 Append:
 
@@ -795,7 +795,7 @@ export function useObsoleteConsolidatedInvoice() {
 }
 ```
 
-- [ ] **Step 4: Verify typecheck/build**
+- [x] **Step 4: Verify typecheck/build**
 
 ```bash
 npm run build
@@ -803,7 +803,7 @@ npm run build
 
 Expected: passes with new types/services/hooks.
 
-- [ ] **Step 5: Commit TypeScript ledger write layer**
+- [x] **Step 5: Commit TypeScript ledger write layer**
 
 ```bash
 git add src/types/database.ts src/services/billingLedger.ts src/hooks/useBillingLedger.ts
