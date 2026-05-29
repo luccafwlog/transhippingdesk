@@ -1969,6 +1969,22 @@ textarea {
   height: 10px;
 }
 
+/* Opt-in sticky header: turns the wrapper into a bounded scroll region so
+   the header stays visible while scrolling long lists. Short tables stay
+   below the max-height and behave normally. The header band is opaque
+   (see --app-thead-bg) so rows don't bleed through. */
+.app-table-scroll--sticky {
+  max-height: calc(100dvh - var(--app-header-height) - 200px);
+  overflow: auto;
+  overflow-y: auto;
+}
+
+.app-table-scroll--sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
 .app-table-scroll::-webkit-scrollbar-track {
   background: transparent;
 }

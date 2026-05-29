@@ -238,7 +238,7 @@ export function Veiculos() {
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar veiculos." /> : null}
-        <div className="app-table-scroll">
+        <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead>
               <tr>

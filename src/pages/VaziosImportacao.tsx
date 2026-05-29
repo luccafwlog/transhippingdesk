@@ -176,7 +176,7 @@ export function VaziosImportacao() {
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar containers." /> : null}
 
-        <div className="app-table-scroll">
+        <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[600px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
