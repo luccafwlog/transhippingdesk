@@ -143,7 +143,7 @@ git commit -m "Render consolidated invoices from receivable links"
 - Create: `src/components/billing/ConsolidatedInvoiceModal.tsx`
 - Modify: `src/pages/Faturamento.tsx`
 
-- [ ] **Step 1: Create the `ConsolidatedInvoiceModal` component**
+- [x] **Step 1: Create the `ConsolidatedInvoiceModal` component**
 
 Self-contained modal using existing UI primitives, `useBillingCustomers`, `useConsolidatableReceivables`, and `useCreateConsolidatedInvoice`. Only `eligibility_status === 'eligible'` rows are selectable; non-eligible rows show their `eligibility_reason` and a disabled checkbox. Footer shows selected count + summed balance. Empty states per spec.
 
@@ -357,7 +357,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
 }
 ```
 
-- [ ] **Step 2: Wire the button and modal into `Faturamento.tsx`**
+- [x] **Step 2: Wire the button and modal into `Faturamento.tsx`**
 
 Add a state flag and import, render a "Nova Consolidada" button next to the existing "Nova Invoice" action, and mount the modal. Keep all existing modal code untouched.
 
@@ -378,7 +378,7 @@ const [consolidatedOpen, setConsolidatedOpen] = useState(false)
 <ConsolidatedInvoiceModal open={consolidatedOpen} onClose={() => setConsolidatedOpen(false)} />
 ```
 
-- [ ] **Step 3: Verify build and lint**
+- [x] **Step 3: Verify build and lint**
 
 ```bash
 npm run build
@@ -387,7 +387,7 @@ npm run lint
 
 Expected: pass (lint may emit only pre-existing warnings unrelated to new files).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/billing/ConsolidatedInvoiceModal.tsx src/pages/Faturamento.tsx
