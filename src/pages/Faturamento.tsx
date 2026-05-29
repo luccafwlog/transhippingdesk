@@ -32,6 +32,7 @@ import {
   useInvoices,
   useRegisterInvoicePayment,
 } from '../hooks/useBilling'
+import { useRegisterLedgerInvoicePayment } from '../hooks/useBillingLedger'
 import type { InvoiceStatusFilter } from '../services/billing'
 import {
   acknowledgeAlert,
@@ -163,9 +164,25 @@ export function Faturamento() {
   })
   const { data: voyageOptions } = useVoyageOptions()
   const detailQuery = useInvoiceDetail(selectedInvoiceId)
+  const detailInvoice = detailQuery.data?.invoice ?? null
+  // Ledger-payable: local-charge document with no prior legacy payment. Paid in full via the ledger RPC.
+  const isLedgerPayable =
+    !!detailInvoice &&
+    (detailInvoice.invoice_type === 'individual' || detailInvoice.invoice_type === 'consolidated') &&
+    Number(detailInvoice.total_paid_brl ?? 0) === 0
   const createInvoiceMutation = useCreateInvoice()
   const registerPaymentMutation = useRegisterInvoicePayment()
+  const registerLedgerPaymentMutation = useRegisterLedgerInvoicePayment()
   const cancelInvoiceMutation = useCancelInvoice()
+
+  const ledgerBalance = Number(detailInvoice?.balance_brl ?? detailInvoice?.total_brl ?? 0)
+  useEffect(() => {
+    // Ledger invoices are settled in full; prefill and lock the amount field.
+    if (isLedgerPayable) {
+      setPaymentAmount(ledgerBalance ? String(ledgerBalance) : '')
+    }
+     
+  }, [selectedInvoiceId, isLedgerPayable, ledgerBalance])
 
   type UnifiedBl = {
     id: string
@@ -321,19 +338,30 @@ export function Faturamento() {
   async function handleRegisterPayment() {
     if (!selectedInvoiceId) return
     const parsedAmount = Number(paymentAmount.replace(',', '.'))
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    if (!isLedgerPayable && (!Number.isFinite(parsedAmount) || parsedAmount <= 0)) {
       showToast('Valor de pagamento invalido.', 'error')
       return
     }
     try {
-      await registerPaymentMutation.mutateAsync({
-        invoiceId: selectedInvoiceId,
-        amountBrl: parsedAmount,
-        paymentMethod,
-        paidAt: paymentDate ? new Date(`${paymentDate}T12:00:00`).toISOString() : null,
-        notes: paymentNotes.trim() || null,
-        actorId: user?.id ?? null,
-      })
+      if (isLedgerPayable) {
+        await registerLedgerPaymentMutation.mutateAsync({
+          invoiceId: selectedInvoiceId,
+          amountBrl: ledgerBalance,
+          method: paymentMethod,
+          paidAt: paymentDate ? new Date(`${paymentDate}T12:00:00`).toISOString() : null,
+          source: 'manual',
+          notes: paymentNotes.trim() || null,
+        })
+      } else {
+        await registerPaymentMutation.mutateAsync({
+          invoiceId: selectedInvoiceId,
+          amountBrl: parsedAmount,
+          paymentMethod,
+          paidAt: paymentDate ? new Date(`${paymentDate}T12:00:00`).toISOString() : null,
+          notes: paymentNotes.trim() || null,
+          actorId: user?.id ?? null,
+        })
+      }
       setPaymentAmount('')
       setPaymentDate('')
       setPaymentNotes('')
@@ -760,7 +788,7 @@ export function Faturamento() {
                 </div>
               </Card>
               <div className="grid gap-4 xl:grid-cols-2">
-                <Card><h2 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h2><div className="grid gap-4 md:grid-cols-2"><Field label="Valor BRL"><Input value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></Field><Field label="Metodo"><Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}><option value="pix">PIX</option><option value="ted">TED</option><option value="doc">DOC</option><option value="boleto">Boleto</option><option value="outros">Outros</option></Select></Field><Field label="Data"><Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></Field><Field label="Notas"><Input value={paymentNotes} onChange={(event) => setPaymentNotes(event.target.value)} /></Field></div><div className="mt-4 flex justify-end"><Button loading={registerPaymentMutation.isPending} onClick={handleRegisterPayment}><DollarSign size={16} />Registrar pagamento</Button></div></Card>
+                <Card><h2 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h2><div className="grid gap-4 md:grid-cols-2"><Field label={isLedgerPayable ? 'Valor BRL (baixa integral via ledger)' : 'Valor BRL'}><Input value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} readOnly={isLedgerPayable} /></Field><Field label="Metodo"><Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}><option value="pix">PIX</option><option value="ted">TED</option><option value="doc">DOC</option><option value="boleto">Boleto</option><option value="outros">Outros</option></Select></Field><Field label="Data"><Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></Field><Field label="Notas"><Input value={paymentNotes} onChange={(event) => setPaymentNotes(event.target.value)} /></Field></div><div className="mt-4 flex justify-end"><Button loading={registerPaymentMutation.isPending || registerLedgerPaymentMutation.isPending} onClick={handleRegisterPayment}><DollarSign size={16} />Registrar pagamento</Button></div></Card>
                 <Card><h2 className="mb-3 text-base font-semibold text-white">Cancelar invoice</h2><Field label="Motivo"><Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></Field><div className="mt-4 flex justify-end"><Button variant="danger" loading={cancelInvoiceMutation.isPending} disabled={detailQuery.data.payments.length > 0} onClick={handleCancelInvoice}><Ban size={16} />Cancelar invoice</Button></div></Card>
               </div>
             </>

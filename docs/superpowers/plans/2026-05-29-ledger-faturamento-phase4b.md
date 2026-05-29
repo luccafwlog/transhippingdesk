@@ -34,7 +34,7 @@ Out of scope: PIX reconciliation cutover (4c), portal/report balances (4d), part
 - Modify: `src/hooks/useBillingLedger.ts`
 - Modify: `src/pages/Faturamento.tsx`
 
-- [ ] **Step 1: Extend ledger invalidation to refresh the invoice detail**
+- [x] **Step 1: Extend ledger invalidation to refresh the invoice detail**
 
 In `useBillingLedger.ts`, in `useLedgerInvalidation`, also invalidate the invoice detail and financial alerts so the open detail panel updates after a ledger payment:
 
@@ -43,7 +43,7 @@ In `useBillingLedger.ts`, in `useLedgerInvalidation`, also invalidate the invoic
     qc.invalidateQueries({ queryKey: ['financial-alerts'] })
 ```
 
-- [ ] **Step 2: Import and instantiate the ledger payment mutation in `Faturamento.tsx`**
+- [x] **Step 2: Import and instantiate the ledger payment mutation in `Faturamento.tsx`**
 
 Add `useRegisterLedgerInvoicePayment` to the `../hooks/useBillingLedger` import and instantiate:
 
@@ -51,7 +51,7 @@ Add `useRegisterLedgerInvoicePayment` to the `../hooks/useBillingLedger` import 
 const registerLedgerPaymentMutation = useRegisterLedgerInvoicePayment()
 ```
 
-- [ ] **Step 3: Add a helper + branch in `handleRegisterPayment`**
+- [x] **Step 3: Add a helper + branch in `handleRegisterPayment`**
 
 Compute whether the selected invoice is ledger-payable from `detailQuery.data.invoice`, and branch:
 
@@ -89,11 +89,11 @@ In `handleRegisterPayment`, when `isLedgerPayable`, call the ledger mutation wit
 
 Note: keep the `parsedAmount` validation for the legacy branch; for the ledger branch the amount comes from the balance. Guard so an empty amount doesn't block the ledger path.
 
-- [ ] **Step 4: Lock + prefill the amount for ledger invoices in the payment modal**
+- [x] **Step 4: Lock + prefill the amount for ledger invoices in the payment modal**
 
 When the open invoice is ledger-payable, prefill `paymentAmount` with the balance and render the amount input read-only with a hint ("Baixa integral via ledger"). Use an effect keyed on `selectedInvoiceId`/`detailInvoice` to set the amount, and pass `readOnly` + a hint to the amount `Field` when `isLedgerPayable`. Also disable the legacy "valor inválido" error path for the ledger branch.
 
-- [ ] **Step 5: Verify build, lint, tests**
+- [x] **Step 5: Verify build, lint, tests**
 
 ```bash
 npm run build
@@ -103,7 +103,7 @@ npm test
 
 Expected: build passes; no new lint errors; tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/hooks/useBillingLedger.ts src/pages/Faturamento.tsx
