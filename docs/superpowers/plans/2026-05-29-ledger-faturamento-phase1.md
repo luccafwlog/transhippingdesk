@@ -831,7 +831,7 @@ git commit -m "Add billing ledger read model"
 **Files:**
 - Review all files changed in Tasks 1-3.
 
-- [ ] **Step 1: Inspect migration for accidental Demurrage changes**
+- [x] **Step 1: Inspect migration for accidental Demurrage changes**
 
 Run:
 
@@ -841,7 +841,7 @@ rg -n "demurrage|demurrage_invoices" supabase/migrations/20260529100000_local_bi
 
 Expected: no matches.
 
-- [ ] **Step 2: Inspect migration for forbidden CNPJ+valor reconciliation fallback**
+- [x] **Step 2: Inspect migration for forbidden CNPJ+valor reconciliation fallback**
 
 Run:
 
@@ -851,7 +851,7 @@ rg -n "cnpj|cpf|valor|amount.*customer" supabase/migrations/20260529100000_local
 
 Expected: no reconciliation matching logic. `customer_cnpj_cpf` may appear only as display data in `list_consolidatable_receivables`.
 
-- [ ] **Step 3: Run all checks**
+- [x] **Step 3: Run all checks**
 
 Run:
 
@@ -862,7 +862,7 @@ npm run build
 
 Expected: tests and build pass.
 
-- [ ] **Step 4: Confirm clean git status**
+- [x] **Step 4: Confirm clean git status**
 
 Run:
 
