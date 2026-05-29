@@ -40,7 +40,7 @@ Out of scope (Phase 4 / explicit):
 **Files:**
 - Modify: `src/services/billing.ts`
 
-- [ ] **Step 1: Enrich `listInvoiceDetails` from `invoice_receivable_links` when there are no items**
+- [x] **Step 1: Enrich `listInvoiceDetails` from `invoice_receivable_links` when there are no items**
 
 In `listInvoiceDetails`, after building `result` and before the "Lazy backfill" pix block, insert an enrichment branch. When the invoice has no `invoice_items` but has `invoice_receivable_links`, build `bls` and one synthesized `items` row per linked B/L from the links (and a voyage/vessel lookup for display):
 
@@ -120,7 +120,7 @@ In `listInvoiceDetails`, after building `result` and before the "Lazy backfill" 
   }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 npm run build
@@ -128,7 +128,7 @@ npm run build
 
 Expected: passes.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/services/billing.ts
