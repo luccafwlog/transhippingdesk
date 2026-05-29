@@ -167,6 +167,7 @@ export function GraniteRates() {
                         className="text-red-400 hover:text-red-300 text-xs disabled:opacity-40"
                         onClick={() => handleDelete(rate.id)}
                         disabled={deletingId === rate.id}
+                        aria-label="Excluir taxa"
                       >
                         <Trash2 size={14} />
                       </button>

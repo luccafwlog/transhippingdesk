@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
@@ -198,14 +198,16 @@ export function DemurrageRates() {
                           onClick={() => openEdit(rate)}
                           className="text-slate-400 hover:text-white"
                           title="Editar"
+                          aria-label="Editar tarifa"
                         >
-                          ✏️
+                          <Pencil size={15} />
                         </button>
                         <button
                           onClick={() => handleDelete(rate.id)}
                           disabled={deletingId === rate.id}
                           className="text-red-400 hover:text-red-300 disabled:opacity-40"
                           title="Excluir"
+                          aria-label="Excluir tarifa"
                         >
                           <Trash2 size={15} />
                         </button>
