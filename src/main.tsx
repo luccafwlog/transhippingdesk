@@ -9,6 +9,7 @@ import { AuthProvider } from './hooks/useAuth'
 import { PortalAuthProvider } from './hooks/usePortalAuth'
 import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
+import { ConfirmDialogProvider } from './components/ui/ConfirmDialog'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,13 +26,15 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <ToastProvider>
-            <VisualThemeProvider>
-              <PortalAuthProvider>
-                <AuthProvider>
-                  <App />
-                </AuthProvider>
-              </PortalAuthProvider>
-            </VisualThemeProvider>
+            <ConfirmDialogProvider>
+              <VisualThemeProvider>
+                <PortalAuthProvider>
+                  <AuthProvider>
+                    <App />
+                  </AuthProvider>
+                </PortalAuthProvider>
+              </VisualThemeProvider>
+            </ConfirmDialogProvider>
           </ToastProvider>
         </BrowserRouter>
       </QueryClientProvider>

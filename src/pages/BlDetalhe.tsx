@@ -10,6 +10,7 @@ import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { BLPipeline } from '../components/shared/BLPipeline'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useAuditLogs, useBlDetail } from '../hooks/useBls'
@@ -114,6 +115,7 @@ export function BlDetalhe() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const { data: bl, isLoading, error } = useBlDetail(blId)
   const { data: invoiceLinksByBl } = useInvoiceLinks(bl?.id ? [bl.id] : [])
   const { data: auditLogs } = useAuditLogs('bl', blId)
@@ -275,7 +277,7 @@ export function BlDetalhe() {
 
   async function handleDeleteManualCharge(lineId: number) {
     if (!user) return
-    if (!window.confirm('Excluir esta linha manual?')) return
+    if (!(await confirm({ message: 'Excluir esta linha manual?', tone: 'danger', confirmLabel: 'Excluir' }))) return
 
     try {
       await deleteManualChargeMutation.mutateAsync({
