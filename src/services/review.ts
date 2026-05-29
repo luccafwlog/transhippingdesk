@@ -103,6 +103,70 @@ export async function saveBlReview({
   return (data as string) ?? null
 }
 
+/**
+ * Aplica uma correcao pontual (inline) na fila de revisao reaproveitando a RPC
+ * `save_bl_review`: atualiza um unico campo, marca `review_status = reviewed` e
+ * grava o audit_log na mesma transacao com optimistic lock. Usada pelas acoes
+ * inline de /revisao (vincular cliente, CE Mercante, peso BB) sem abrir o modal.
+ */
+export async function applyInlineBlReviewFix({
+  blId,
+  field,
+  value,
+  previousValue,
+  changedBy,
+  expectedUpdatedAt,
+}: {
+  blId: string
+  field: 'customer_id' | 'ce_mercante' | 'bb_weight_ton'
+  value: string | number | null
+  previousValue: string | number | null
+  changedBy: string
+  expectedUpdatedAt: string | null
+}) {
+  const justification = 'Correcao inline na fila de revisao'
+  const updatePayload: Record<string, unknown> = {
+    review_status: 'reviewed',
+    [field]: value,
+  }
+
+  const auditRows = [
+    {
+      entity_type: 'bl',
+      entity_id: blId,
+      field_name: field,
+      old_value: stringifyValue(previousValue),
+      new_value: stringifyValue(value),
+      justification,
+    },
+    {
+      entity_type: 'bl',
+      entity_id: blId,
+      field_name: 'review_status',
+      old_value: 'pending_review',
+      new_value: 'reviewed',
+      justification,
+    },
+  ]
+
+  const { data, error } = await supabase.rpc('save_bl_review', {
+    p_bl_id: blId,
+    p_expected_updated_at: expectedUpdatedAt,
+    p_update_payload: updatePayload,
+    p_audit_rows: auditRows,
+    p_changed_by: changedBy,
+  })
+
+  if (error) {
+    if (error.code === 'PT409' || error.code === '40001') {
+      throw new ConcurrentEditError(error.message)
+    }
+    throw error
+  }
+
+  return (data as string) ?? null
+}
+
 export async function saveGraniteBlReview({
   graniteBlId,
   clientId,

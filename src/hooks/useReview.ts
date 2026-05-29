@@ -26,6 +26,7 @@ export type ReviewQueueItem = (BL & {
   customer_id?: number | null
   customer?: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
   voyage?: { vessel?: { name?: string | null } | null; voyage_number?: string | null } | null
+  charge_status?: string | null
   review_reasons?: string[]
   source: 'granite'
 }
@@ -50,7 +51,7 @@ export function useReviewQueue() {
         supabase
           .from('granite_bls')
           .select(
-            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, updated_at, client_id,
+            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, updated_at, client_id, charge_status,
             customer:customers(id, cnpj_cpf, name),
             manifest:granite_manifests(voyage:voyages(id, voyage_number, vessel:vessels(id, name)))`,
           )
@@ -73,7 +74,7 @@ export function useReviewQueue() {
         // ainda retornamos a fila de granito sem metadados de viagem.
         const fallback = await supabase
           .from('granite_bls')
-          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, updated_at, client_id, customer:customers(id, cnpj_cpf, name)')
+          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, updated_at, client_id, charge_status, customer:customers(id, cnpj_cpf, name)')
           .is('client_id', null)
           .order('created_at', { ascending: false })
           .range(0, 499)
@@ -98,6 +99,7 @@ export function useReviewQueue() {
         vessel_voyage: string | null
         updated_at: string | null
         client_id: number | null
+        charge_status: string | null
         customer: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
         manifest?: { voyage: { id: number; voyage_number: string; vessel: { id: number; name: string } | null } | null } | null
       }>
@@ -114,6 +116,7 @@ export function useReviewQueue() {
         notes: null,
         updated_at: row.updated_at,
         customer_id: row.client_id,
+        charge_status: row.charge_status,
         customer: row.customer,
         voyage: row.manifest?.voyage
           ? { vessel: row.manifest.voyage.vessel, voyage_number: row.manifest.voyage.voyage_number }
