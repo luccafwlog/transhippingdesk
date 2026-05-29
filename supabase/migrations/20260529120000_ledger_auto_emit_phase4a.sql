@@ -66,3 +66,52 @@ $$;
 
 REVOKE ALL ON FUNCTION public.link_invoice_to_ledger(BIGINT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.link_invoice_to_ledger(BIGINT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.emit_invoice_on_bl_ready()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_result JSONB;
+  v_invoice_id BIGINT;
+BEGIN
+  IF NEW.charge_status = 'ready_for_billing'
+     AND (TG_OP = 'INSERT' OR OLD.charge_status IS DISTINCT FROM 'ready_for_billing')
+     AND NEW.customer_id IS NOT NULL
+     AND COALESCE(NEW.financial_status, 'pending') = 'pending'
+     AND NOT EXISTS (
+       SELECT 1
+       FROM public.invoice_bls ib
+       JOIN public.invoices i ON i.id = ib.invoice_id
+       WHERE ib.bl_id = NEW.id
+         AND COALESCE(i.status, 'issued') IN ('draft', 'issued', 'partially_paid', 'overdue', 'paid')
+     )
+  THEN
+    BEGIN
+      v_result := public.create_invoice_from_bls_core(
+        ARRAY[NEW.id], NEW.customer_id, NULL,
+        'Emissao automatica ao ficar pronto para faturamento',
+        true, NULL, 'system_auto', NULL
+      );
+      v_invoice_id := (v_result->>'invoice_id')::BIGINT;
+      IF v_invoice_id IS NOT NULL THEN
+        PERFORM public.link_invoice_to_ledger(v_invoice_id);
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      -- Never block the B/L transition; record the failure for follow-up.
+      INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at, justification)
+      VALUES ('bl', NEW.id, 'auto_invoice_failed', NULL, SQLERRM, NULL, now(), 'Falha na emissao automatica de invoice individual');
+    END;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_emit_invoice_on_bl_ready ON public.bls;
+CREATE TRIGGER trg_emit_invoice_on_bl_ready
+AFTER INSERT OR UPDATE OF charge_status ON public.bls
+FOR EACH ROW
+EXECUTE FUNCTION public.emit_invoice_on_bl_ready();

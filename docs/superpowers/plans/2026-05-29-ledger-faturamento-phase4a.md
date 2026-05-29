@@ -136,7 +136,7 @@ git commit -m "Add link_invoice_to_ledger RPC"
 **Files:**
 - Modify: `supabase/migrations/20260529120000_ledger_auto_emit_phase4a.sql`
 
-- [ ] **Step 1: Append the trigger function and trigger**
+- [x] **Step 1: Append the trigger function and trigger**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.emit_invoice_on_bl_ready()
@@ -189,7 +189,7 @@ FOR EACH ROW
 EXECUTE FUNCTION public.emit_invoice_on_bl_ready();
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 npm run build
@@ -197,7 +197,7 @@ npm run build
 
 Expected: passes.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260529120000_ledger_auto_emit_phase4a.sql
