@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Ban, DollarSign, FilePlus2, Printer } from 'lucide-react'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
+import { ConsolidatedInvoiceModal } from '../components/billing/ConsolidatedInvoiceModal'
 import { ValidacaoTab } from '../components/billing/ValidacaoTab'
 import { InvoiceDocument as DemurrageInvoiceDoc } from '../components/demurrage/InvoiceDocument'
 import { listDemurrageInvoices, getInvoiceDetail as getDemurrageInvoiceDetail } from '../services/demurrage/demurrageInvoices'
@@ -95,6 +96,7 @@ export function Faturamento() {
   )
   const [demurrageInvoiceId, setDemurrageInvoiceId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [consolidatedOpen, setConsolidatedOpen] = useState(false)
   const [createMode, setCreateMode] = useState<'single' | 'consolidated'>('consolidated')
   const [createCustomerId, setCreateCustomerId] = useState('')
   const [createVoyageId, setCreateVoyageId] = useState('')
@@ -383,8 +385,15 @@ export function Faturamento() {
       <PageHeader
         title="Faturamento"
         description="Emissão de invoice por B/L único ou consolidada por cliente, com baixa parcial/total e cancelamento."
-        action={<Button onClick={() => setCreateOpen(true)}><FilePlus2 size={16} />Nova Invoice</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setConsolidatedOpen(true)}><FilePlus2 size={16} />Nova Consolidada</Button>
+            <Button onClick={() => setCreateOpen(true)}><FilePlus2 size={16} />Nova Invoice</Button>
+          </div>
+        }
       />
+
+      <ConsolidatedInvoiceModal open={consolidatedOpen} onClose={() => setConsolidatedOpen(false)} />
 
       <FinancialAlertsPanel
         alerts={financialAlertsQuery.data ?? []}
