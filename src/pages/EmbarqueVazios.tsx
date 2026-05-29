@@ -164,7 +164,7 @@ export function EmbarqueVazios() {
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar bookings." /> : null}
 
-        <div className="app-table-scroll">
+        <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[900px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>

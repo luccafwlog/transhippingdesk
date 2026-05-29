@@ -435,7 +435,7 @@ export function Faturamento() {
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
-        <div className="app-table-scroll">
+        <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-4 py-3">Número do BL</th><th scope="col" className="px-4 py-3">Fatura</th><th scope="col" className="px-4 py-3">Tipo</th><th scope="col" className="px-4 py-3">Navio / Viagem · POD</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Pagamento</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Ações</th></tr></thead>
             <tbody className="divide-y divide-[#30363d]">
