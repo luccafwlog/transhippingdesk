@@ -41,7 +41,7 @@ Out of scope: routing payments through the ledger (4b), PIX reconciliation cutov
 **Files:**
 - Create: `supabase/migrations/20260529120000_ledger_auto_emit_phase4a.sql`
 
-- [ ] **Step 1: Create the migration with `link_invoice_to_ledger`**
+- [x] **Step 1: Create the migration with `link_invoice_to_ledger`**
 
 ```sql
 -- Phase 4a: auto-emit individual invoices on ready_for_billing and wire the ledger.
@@ -114,7 +114,7 @@ REVOKE ALL ON FUNCTION public.link_invoice_to_ledger(BIGINT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.link_invoice_to_ledger(BIGINT) TO authenticated;
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 npm run build
@@ -122,7 +122,7 @@ npm run build
 
 Expected: passes (no TS change yet).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260529120000_ledger_auto_emit_phase4a.sql
