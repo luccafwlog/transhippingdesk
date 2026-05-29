@@ -1,49 +1,3 @@
-# Ledger Faturamento Phase 1 Implementation Plan
-
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
-**Goal:** Add the local-charge billing ledger foundation: database tables, backfill/sync RPCs, a TXID-only receivable read model, and TypeScript service types, without replacing the existing invoice UI yet.
-
-**Architecture:** This phase introduces `bl_receivables`, `invoice_receivable_links`, `settlements`, and `invoice_lifecycle_events` while keeping existing `invoices`, `invoice_bls`, and payment flows intact. Existing invoices are mirrored into the ledger by backfill so the next phase can move creation/payment logic onto transactional ledger RPCs. The modal and reconciliation UI will not depend on this phase until the read model is verified.
-
-**Tech Stack:** Supabase/Postgres migrations and RPCs, React/TypeScript services, Vitest integration tests.
-
----
-
-## Scope Boundary
-
-This plan covers Phase 1 only. It deliberately does not rewrite `create_invoice_from_bls`, `register_invoice_payment`, `Faturamento.tsx`, or PIX reconciliation yet. Those are separate implementation plans after the ledger foundation is migrated and verified.
-
-## File Structure
-
-- Create `supabase/migrations/20260529100000_local_billing_ledger_phase1.sql`
-  - Adds ledger tables.
-  - Extends `invoices` with document lifecycle fields.
-  - Adds sync/backfill/list RPCs.
-  - Adds RLS policies and grants.
-- Modify `src/types/database.ts`
-  - Adds ledger row types and function signatures.
-- Create `src/services/billingLedger.ts`
-  - Thin TypeScript wrapper around `list_consolidatable_receivables`.
-- Create `src/hooks/useBillingLedger.ts`
-  - React Query hook for consolidatable receivables.
-- Modify `src/services/queryKeys.ts`
-  - Adds billing ledger query keys.
-- Modify `src/integration/supabase.integration.test.ts`
-  - Adds opt-in integration tests for sync/backfill/list read model.
-
----
-
-### Task 1: Add Ledger Schema Migration
-
-**Files:**
-- Create: `supabase/migrations/20260529100000_local_billing_ledger_phase1.sql`
-
-- [x] **Step 1: Create the migration file with table and invoice lifecycle changes**
-
-Use this SQL as the initial migration content:
-
-```sql
 -- Phase 1: Local-charge billing ledger foundation.
 -- Keeps existing invoice flows intact while adding receivable-level truth.
 
@@ -157,61 +111,95 @@ CREATE TABLE IF NOT EXISTS public.invoice_lifecycle_events (
 
 CREATE INDEX IF NOT EXISTS idx_invoice_lifecycle_events_invoice
   ON public.invoice_lifecycle_events(invoice_id, created_at DESC);
-```
 
-- [x] **Step 2: Add RLS and grants to the same migration**
-
-Append:
-
-```sql
 ALTER TABLE public.bl_receivables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoice_receivable_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ledger_settlements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoice_lifecycle_events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS bl_receivables_select_admin ON public.bl_receivables;
+DROP POLICY IF EXISTS bl_receivables_insert_admin ON public.bl_receivables;
+DROP POLICY IF EXISTS bl_receivables_update_admin ON public.bl_receivables;
+DROP POLICY IF EXISTS bl_receivables_delete_admin ON public.bl_receivables;
+
 CREATE POLICY bl_receivables_select_admin
   ON public.bl_receivables FOR SELECT
-  USING (public.is_active_user() AND public.is_admin());
+  TO authenticated USING (public.is_admin());
 
-DROP POLICY IF EXISTS bl_receivables_write_admin ON public.bl_receivables;
-CREATE POLICY bl_receivables_write_admin
-  ON public.bl_receivables FOR ALL
-  USING (public.is_active_user() AND public.is_admin())
-  WITH CHECK (public.is_active_user() AND public.is_admin());
+CREATE POLICY bl_receivables_insert_admin
+  ON public.bl_receivables FOR INSERT
+  TO authenticated WITH CHECK (public.is_admin());
+
+CREATE POLICY bl_receivables_update_admin
+  ON public.bl_receivables FOR UPDATE
+  TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY bl_receivables_delete_admin
+  ON public.bl_receivables FOR DELETE
+  TO authenticated USING (public.is_admin());
 
 DROP POLICY IF EXISTS invoice_receivable_links_select_admin ON public.invoice_receivable_links;
+DROP POLICY IF EXISTS invoice_receivable_links_insert_admin ON public.invoice_receivable_links;
+DROP POLICY IF EXISTS invoice_receivable_links_update_admin ON public.invoice_receivable_links;
+DROP POLICY IF EXISTS invoice_receivable_links_delete_admin ON public.invoice_receivable_links;
+
 CREATE POLICY invoice_receivable_links_select_admin
   ON public.invoice_receivable_links FOR SELECT
-  USING (public.is_active_user() AND public.is_admin());
+  TO authenticated USING (public.is_admin());
 
-DROP POLICY IF EXISTS invoice_receivable_links_write_admin ON public.invoice_receivable_links;
-CREATE POLICY invoice_receivable_links_write_admin
-  ON public.invoice_receivable_links FOR ALL
-  USING (public.is_active_user() AND public.is_admin())
-  WITH CHECK (public.is_active_user() AND public.is_admin());
+CREATE POLICY invoice_receivable_links_insert_admin
+  ON public.invoice_receivable_links FOR INSERT
+  TO authenticated WITH CHECK (public.is_admin());
+
+CREATE POLICY invoice_receivable_links_update_admin
+  ON public.invoice_receivable_links FOR UPDATE
+  TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY invoice_receivable_links_delete_admin
+  ON public.invoice_receivable_links FOR DELETE
+  TO authenticated USING (public.is_admin());
 
 DROP POLICY IF EXISTS ledger_settlements_select_admin ON public.ledger_settlements;
+DROP POLICY IF EXISTS ledger_settlements_insert_admin ON public.ledger_settlements;
+DROP POLICY IF EXISTS ledger_settlements_update_admin ON public.ledger_settlements;
+DROP POLICY IF EXISTS ledger_settlements_delete_admin ON public.ledger_settlements;
+
 CREATE POLICY ledger_settlements_select_admin
   ON public.ledger_settlements FOR SELECT
-  USING (public.is_active_user() AND public.is_admin());
+  TO authenticated USING (public.is_admin());
 
-DROP POLICY IF EXISTS ledger_settlements_write_admin ON public.ledger_settlements;
-CREATE POLICY ledger_settlements_write_admin
-  ON public.ledger_settlements FOR ALL
-  USING (public.is_active_user() AND public.is_admin())
-  WITH CHECK (public.is_active_user() AND public.is_admin());
+CREATE POLICY ledger_settlements_insert_admin
+  ON public.ledger_settlements FOR INSERT
+  TO authenticated WITH CHECK (public.is_admin());
+
+CREATE POLICY ledger_settlements_update_admin
+  ON public.ledger_settlements FOR UPDATE
+  TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY ledger_settlements_delete_admin
+  ON public.ledger_settlements FOR DELETE
+  TO authenticated USING (public.is_admin());
 
 DROP POLICY IF EXISTS invoice_lifecycle_events_select_admin ON public.invoice_lifecycle_events;
+DROP POLICY IF EXISTS invoice_lifecycle_events_insert_admin ON public.invoice_lifecycle_events;
+DROP POLICY IF EXISTS invoice_lifecycle_events_update_admin ON public.invoice_lifecycle_events;
+DROP POLICY IF EXISTS invoice_lifecycle_events_delete_admin ON public.invoice_lifecycle_events;
+
 CREATE POLICY invoice_lifecycle_events_select_admin
   ON public.invoice_lifecycle_events FOR SELECT
-  USING (public.is_active_user() AND public.is_admin());
+  TO authenticated USING (public.is_admin());
 
-DROP POLICY IF EXISTS invoice_lifecycle_events_write_admin ON public.invoice_lifecycle_events;
-CREATE POLICY invoice_lifecycle_events_write_admin
-  ON public.invoice_lifecycle_events FOR ALL
-  USING (public.is_active_user() AND public.is_admin())
-  WITH CHECK (public.is_active_user() AND public.is_admin());
+CREATE POLICY invoice_lifecycle_events_insert_admin
+  ON public.invoice_lifecycle_events FOR INSERT
+  TO authenticated WITH CHECK (public.is_admin());
+
+CREATE POLICY invoice_lifecycle_events_update_admin
+  ON public.invoice_lifecycle_events FOR UPDATE
+  TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY invoice_lifecycle_events_delete_admin
+  ON public.invoice_lifecycle_events FOR DELETE
+  TO authenticated USING (public.is_admin());
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.bl_receivables TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.invoice_receivable_links TO authenticated;
@@ -222,37 +210,7 @@ GRANT USAGE, SELECT ON SEQUENCE public.bl_receivables_id_seq TO authenticated;
 GRANT USAGE, SELECT ON SEQUENCE public.invoice_receivable_links_id_seq TO authenticated;
 GRANT USAGE, SELECT ON SEQUENCE public.ledger_settlements_id_seq TO authenticated;
 GRANT USAGE, SELECT ON SEQUENCE public.invoice_lifecycle_events_id_seq TO authenticated;
-```
 
-- [x] **Step 3: Verify migration SQL parses locally**
-
-Run:
-
-```bash
-npm run build
-```
-
-Expected: TypeScript/Vite build still passes because no TypeScript files changed yet.
-
-- [x] **Step 4: Commit schema-only migration**
-
-```bash
-git add supabase/migrations/20260529100000_local_billing_ledger_phase1.sql
-git commit -m "Add local billing ledger schema"
-```
-
----
-
-### Task 2: Add Sync, Backfill, and Listing RPCs
-
-**Files:**
-- Modify: `supabase/migrations/20260529100000_local_billing_ledger_phase1.sql`
-
-- [x] **Step 1: Add `sync_local_charge_receivable` RPC**
-
-Append to the migration:
-
-```sql
 CREATE OR REPLACE FUNCTION public.sync_local_charge_receivable(p_bl_id TEXT)
 RETURNS BIGINT
 LANGUAGE plpgsql
@@ -266,6 +224,10 @@ DECLARE
   v_receivable_id BIGINT;
   v_status TEXT;
 BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Credenciais invalidas ou sem permissao de faturamento.' USING ERRCODE = '42501';
+  END IF;
+
   SELECT id, customer_id, voyage_id, cargo_mode, pol, pod
   INTO v_bl
   FROM public.bls
@@ -349,13 +311,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.sync_local_charge_receivable(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.sync_local_charge_receivable(TEXT) TO authenticated;
-```
 
-- [x] **Step 2: Add `backfill_local_charge_receivables` RPC**
-
-Append:
-
-```sql
 CREATE OR REPLACE FUNCTION public.backfill_local_charge_receivables(p_limit INTEGER DEFAULT 5000)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -367,6 +323,10 @@ DECLARE
   v_synced INTEGER := 0;
   v_skipped INTEGER := 0;
 BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Credenciais invalidas ou sem permissao de faturamento.' USING ERRCODE = '42501';
+  END IF;
+
   FOR v_row IN
     SELECT b.id
     FROM public.bls b
@@ -395,13 +355,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.backfill_local_charge_receivables(INTEGER) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.backfill_local_charge_receivables(INTEGER) TO authenticated;
-```
 
-- [x] **Step 3: Add `backfill_invoice_receivable_links` RPC**
-
-Append:
-
-```sql
 CREATE OR REPLACE FUNCTION public.backfill_invoice_receivable_links(p_limit INTEGER DEFAULT 5000)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -411,20 +365,22 @@ AS $$
 DECLARE
   v_inserted INTEGER := 0;
 BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Credenciais invalidas ou sem permissao de faturamento.' USING ERRCODE = '42501';
+  END IF;
+
   WITH invoice_bl_counts AS (
     SELECT invoice_id, COUNT(*) AS bl_count
     FROM public.invoice_bls
     GROUP BY invoice_id
-  ),
-  patched_invoices AS (
-    UPDATE public.invoices i
-    SET invoice_type = CASE WHEN COALESCE(c.bl_count, 1) > 1 THEN 'consolidated' ELSE 'individual' END
-    FROM invoice_bl_counts c
-    WHERE c.invoice_id = i.id
-      AND i.invoice_type = 'individual'
-    RETURNING i.id
-  ),
-  inserted AS (
+  )
+  UPDATE public.invoices i
+  SET invoice_type = CASE WHEN COALESCE(c.bl_count, 1) > 1 THEN 'consolidated' ELSE 'individual' END
+  FROM invoice_bl_counts c
+  WHERE c.invoice_id = i.id
+    AND i.invoice_type = 'individual';
+
+  WITH inserted AS (
     INSERT INTO public.invoice_receivable_links (
       invoice_id,
       receivable_id,
@@ -471,13 +427,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.backfill_invoice_receivable_links(INTEGER) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.backfill_invoice_receivable_links(INTEGER) TO authenticated;
-```
 
-- [x] **Step 4: Add `list_consolidatable_receivables` RPC**
-
-Append:
-
-```sql
 CREATE OR REPLACE FUNCTION public.list_consolidatable_receivables(
   p_customer_id BIGINT,
   p_voyage_id BIGINT DEFAULT NULL,
@@ -500,10 +450,16 @@ RETURNS TABLE (
   eligibility_status TEXT,
   eligibility_reason TEXT
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
+    RAISE EXCEPTION 'Usuario sem permissao ativa.' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
   WITH base AS (
     SELECT
       br.id AS receivable_id,
@@ -578,306 +534,8 @@ AS $$
     END AS eligibility_reason
   FROM base
   ORDER BY base.voyage_id DESC NULLS LAST, base.bl_id ASC;
+END;
 $$;
 
 REVOKE ALL ON FUNCTION public.list_consolidatable_receivables(BIGINT, BIGINT, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.list_consolidatable_receivables(BIGINT, BIGINT, TEXT) TO authenticated;
-```
-
-- [x] **Step 5: Run integration test in skipped mode**
-
-Run:
-
-```bash
-npm run test:integration
-```
-
-Expected: skipped unless `SUPABASE_RUN_INTEGRATION=1` is configured. Do not add the new ledger integration test until Task 3 has added the Supabase function signatures to `src/types/database.ts`.
-
-- [x] **Step 6: Run unit test suite**
-
-Run:
-
-```bash
-npm test
-```
-
-Expected: existing tests pass or known skipped integration tests remain skipped.
-
-- [x] **Step 7: Commit RPC plan**
-
-```bash
-git add supabase/migrations/20260529100000_local_billing_ledger_phase1.sql
-git commit -m "Add ledger receivable backfill RPCs"
-```
-
----
-
-### Task 3: Add TypeScript Types and Service Wrapper
-
-**Files:**
-- Modify: `src/types/database.ts`
-- Modify: `src/services/queryKeys.ts`
-- Create: `src/services/billingLedger.ts`
-- Create: `src/hooks/useBillingLedger.ts`
-- Modify: `src/integration/supabase.integration.test.ts`
-
-- [x] **Step 1: Add ledger types to `src/types/database.ts`**
-
-Add these types near the existing billing types:
-
-```ts
-export type BlReceivableStatus = 'open' | 'partially_settled' | 'settled' | 'void'
-export type InvoiceDocumentType = 'individual' | 'consolidated' | 'granite'
-export type InvoiceDocumentStatus =
-  | 'draft'
-  | 'issued'
-  | 'partially_paid'
-  | 'paid'
-  | 'covered'
-  | 'obsolete'
-  | 'overdue'
-  | 'cancelled'
-
-export type BlReceivable = {
-  id: number
-  bl_id: string
-  customer_id: number
-  source: 'local_charges'
-  original_amount_brl: number
-  settled_amount_brl: number
-  balance_brl: number
-  status: BlReceivableStatus
-  voyage_id: number | null
-  cargo_mode: 'container' | 'carga_solta' | string | null
-  pol: string | null
-  pod: string | null
-  created_at: string | null
-  updated_at: string | null
-}
-
-export type ConsolidatableReceivable = {
-  receivable_id: number
-  bl_id: string
-  customer_id: number
-  customer_name: string
-  customer_cnpj_cpf: string
-  voyage_id: number | null
-  vessel_name: string | null
-  voyage_number: string | null
-  individual_invoice_id: number | null
-  individual_invoice_number: string | null
-  balance_brl: number
-  original_amount_brl: number
-  receivable_status: BlReceivableStatus
-  eligibility_status: 'eligible' | 'paid' | 'no_balance' | 'open_consolidated'
-  eligibility_reason: string
-}
-```
-
-Add function signatures under `Database['public']['Functions']`:
-
-```ts
-      sync_local_charge_receivable: {
-        Args: { p_bl_id: string }
-        Returns: number
-      }
-      backfill_local_charge_receivables: {
-        Args: { p_limit: number | null }
-        Returns: Json
-      }
-      backfill_invoice_receivable_links: {
-        Args: { p_limit: number | null }
-        Returns: Json
-      }
-      list_consolidatable_receivables: {
-        Args: {
-          p_customer_id: number
-          p_voyage_id: number | null
-          p_search: string | null
-        }
-        Returns: Json
-      }
-```
-
-- [x] **Step 2: Add integration test for Phase 1 RPCs**
-
-In `src/integration/supabase.integration.test.ts`, add this test inside the existing `describeIntegration` block after the billing flow test:
-
-```ts
-  billingFlowTest('ledger phase 1 backfills and lists consolidatable receivables', async () => {
-    const blIds = env.billingBlIds ?? []
-    expect(blIds.length).toBeGreaterThan(0)
-
-    const firstBlId = blIds[0]
-    const snapshot = await client
-      .from('bls')
-      .select('id,customer_id')
-      .eq('id', firstBlId)
-      .single()
-    expect(snapshot.error).toBeNull()
-    const customerId = Number(snapshot.data?.customer_id ?? 0)
-    expect(customerId).toBeGreaterThan(0)
-
-    const sync = await client.rpc('sync_local_charge_receivable', {
-      p_bl_id: firstBlId,
-    })
-    expect(sync.error).toBeNull()
-    expect(Number(sync.data ?? 0)).toBeGreaterThan(0)
-
-    const backfillLinks = await client.rpc('backfill_invoice_receivable_links', {
-      p_limit: 50,
-    })
-    expect(backfillLinks.error).toBeNull()
-
-    const list = await client.rpc('list_consolidatable_receivables', {
-      p_customer_id: customerId,
-      p_voyage_id: null,
-      p_search: firstBlId,
-    })
-    expect(list.error).toBeNull()
-    expect(Array.isArray(list.data)).toBe(true)
-    expect((list.data ?? []).some((row) => row.bl_id === firstBlId)).toBe(true)
-    expect((list.data ?? []).every((row) => typeof row.eligibility_status === 'string')).toBe(true)
-  })
-```
-
-- [x] **Step 3: Add query keys**
-
-In `src/services/queryKeys.ts`, add:
-
-```ts
-  billingLedger: {
-    all: () => ['billing-ledger'] as const,
-    consolidatableReceivables: (filters?: unknown) => ['billing-ledger', 'consolidatable-receivables', filters] as const,
-  },
-```
-
-- [x] **Step 4: Create `src/services/billingLedger.ts`**
-
-```ts
-import { supabase } from './supabase'
-import type { ConsolidatableReceivable } from '../types/database'
-
-export type ConsolidatableReceivableFilters = {
-  customerId?: number | null
-  voyageId?: number | null
-  search?: string | null
-}
-
-export async function listConsolidatableReceivables(filters: ConsolidatableReceivableFilters) {
-  if (!filters.customerId) return [] as ConsolidatableReceivable[]
-
-  const { data, error } = await supabase.rpc('list_consolidatable_receivables', {
-    p_customer_id: filters.customerId,
-    p_voyage_id: filters.voyageId ?? null,
-    p_search: filters.search?.trim() || null,
-  })
-
-  if (error) throw error
-
-  return ((data ?? []) as ConsolidatableReceivable[]).map((row) => ({
-    ...row,
-    receivable_id: Number(row.receivable_id),
-    customer_id: Number(row.customer_id),
-    voyage_id: row.voyage_id == null ? null : Number(row.voyage_id),
-    individual_invoice_id: row.individual_invoice_id == null ? null : Number(row.individual_invoice_id),
-    balance_brl: Number(row.balance_brl ?? 0),
-    original_amount_brl: Number(row.original_amount_brl ?? 0),
-  }))
-}
-```
-
-- [x] **Step 5: Create `src/hooks/useBillingLedger.ts`**
-
-```ts
-import { useQuery } from '@tanstack/react-query'
-import {
-  listConsolidatableReceivables,
-  type ConsolidatableReceivableFilters,
-} from '../services/billingLedger'
-import { queryKeys } from '../services/queryKeys'
-
-export function useConsolidatableReceivables(filters: ConsolidatableReceivableFilters) {
-  return useQuery({
-    queryKey: queryKeys.billingLedger.consolidatableReceivables(filters),
-    queryFn: () => listConsolidatableReceivables(filters),
-    enabled: Boolean(filters.customerId),
-  })
-}
-```
-
-- [x] **Step 6: Run typecheck/build**
-
-Run:
-
-```bash
-npm run build
-```
-
-Expected: build passes with new types and service files.
-
-- [x] **Step 7: Commit TypeScript read wrapper and integration test**
-
-```bash
-git add src/types/database.ts src/services/queryKeys.ts src/services/billingLedger.ts src/hooks/useBillingLedger.ts src/integration/supabase.integration.test.ts
-git commit -m "Add billing ledger read model"
-```
-
----
-
-### Task 4: Self-Review and Phase 1 Verification
-
-**Files:**
-- Review all files changed in Tasks 1-3.
-
-- [x] **Step 1: Inspect migration for accidental Demurrage changes**
-
-Run:
-
-```bash
-rg -n "demurrage|demurrage_invoices" supabase/migrations/20260529100000_local_billing_ledger_phase1.sql
-```
-
-Expected: no matches.
-
-- [x] **Step 2: Inspect migration for forbidden CNPJ+valor reconciliation fallback**
-
-Run:
-
-```bash
-rg -n "cnpj|cpf|valor|amount.*customer" supabase/migrations/20260529100000_local_billing_ledger_phase1.sql src/services/billingLedger.ts src/hooks/useBillingLedger.ts
-```
-
-Expected: no reconciliation matching logic. `customer_cnpj_cpf` may appear only as display data in `list_consolidatable_receivables`.
-
-- [x] **Step 3: Run all checks**
-
-Run:
-
-```bash
-npm test
-npm run build
-```
-
-Expected: tests and build pass.
-
-- [x] **Step 4: Confirm clean git status**
-
-Run:
-
-```bash
-git status --short
-```
-
-Expected: no unstaged files after commits, or only intentional uncommitted notes.
-
----
-
-## Follow-Up Plans
-
-After Phase 1 is merged and verified:
-
-1. Phase 2: implement ledger creation/payment RPCs and TXID-only reconciliation.
-2. Phase 3: rebuild the consolidated invoice modal using `listConsolidatableReceivables`.
-3. Phase 4: migrate reports/portal read surfaces from invoice balance to receivable balance.

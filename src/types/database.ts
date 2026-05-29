@@ -304,7 +304,11 @@ export type Invoice = {
   issued_at: string | null
   due_date: string | null
   total_brl: number
-  status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled' | null
+  status: InvoiceDocumentStatus | null
+  invoice_type: InvoiceDocumentType
+  obsolete_reason: string | null
+  covered_by_invoice_id: number | null
+  replaced_by_invoice_id: number | null
   pix_payload: string | null
   pix_txid: string | null
   conciliated_by_extract: boolean | null
@@ -363,6 +367,96 @@ export type InvoiceBlLink = {
   created_at: string | null
 }
 
+export type BlReceivableStatus = 'open' | 'partially_settled' | 'settled' | 'void'
+export type InvoiceDocumentType = 'individual' | 'consolidated' | 'granite'
+export type InvoiceDocumentStatus =
+  | 'draft'
+  | 'issued'
+  | 'partially_paid'
+  | 'paid'
+  | 'covered'
+  | 'obsolete'
+  | 'overdue'
+  | 'cancelled'
+
+export type BlReceivable = {
+  id: number
+  bl_id: string
+  customer_id: number
+  source: 'local_charges'
+  original_amount_brl: number
+  settled_amount_brl: number
+  balance_brl: number
+  status: BlReceivableStatus
+  voyage_id: number | null
+  cargo_mode: 'container' | 'carga_solta' | string | null
+  pol: string | null
+  pod: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type InvoiceReceivableLink = {
+  id: number
+  invoice_id: number
+  receivable_id: number
+  bl_id: string
+  subtotal_brl: number
+  status: 'active' | 'settled_by_this_invoice' | 'settled_elsewhere' | 'obsolete'
+  bl_snapshot: Json
+  created_at: string | null
+}
+
+export type LedgerSettlement = {
+  id: number
+  payment_id: number | null
+  receivable_id: number
+  invoice_id: number | null
+  amount_brl: number
+  settled_at: string | null
+  method: string | null
+  pix_txid: string | null
+  source: 'manual' | 'pix_extract' | 'backfill'
+  created_at: string | null
+}
+
+export type InvoiceLifecycleEvent = {
+  id: number
+  invoice_id: number
+  event_type:
+    | 'issued'
+    | 'paid'
+    | 'partially_paid'
+    | 'covered'
+    | 'obsolete'
+    | 'cancelled'
+    | 'reconciled_by_txid'
+    | 'backfilled'
+  related_invoice_id: number | null
+  receivable_id: number | null
+  payload: Json
+  actor: string | null
+  created_at: string | null
+}
+
+export type ConsolidatableReceivable = {
+  receivable_id: number
+  bl_id: string
+  customer_id: number
+  customer_name: string
+  customer_cnpj_cpf: string
+  voyage_id: number | null
+  vessel_name: string | null
+  voyage_number: string | null
+  individual_invoice_id: number | null
+  individual_invoice_number: string | null
+  balance_brl: number
+  original_amount_brl: number
+  receivable_status: BlReceivableStatus
+  eligibility_status: 'eligible' | 'paid' | 'no_balance' | 'open_consolidated'
+  eligibility_reason: string
+}
+
 export type InvoiceGraniteBlLink = {
   id: number
   invoice_id: number
@@ -402,6 +496,10 @@ export type Database = {
       invoice_items: Row<InvoiceItem>
       payments: Row<InvoicePayment>
       invoice_bls: Row<InvoiceBlLink>
+      bl_receivables: Row<BlReceivable>
+      invoice_receivable_links: Row<InvoiceReceivableLink>
+      ledger_settlements: Row<LedgerSettlement>
+      invoice_lifecycle_events: Row<InvoiceLifecycleEvent>
       invoice_granite_bls: Row<InvoiceGraniteBlLink>
       demurrage_invoices: Row<DemurrageInvoice>
       demurrage_invoice_items: Row<DemurrageInvoiceItem>
@@ -562,6 +660,32 @@ export type Database = {
           p_actor: string | null
         }
         Returns: Json
+      }
+      sync_local_charge_receivable: {
+        Args: {
+          p_bl_id: string
+        }
+        Returns: number
+      }
+      backfill_local_charge_receivables: {
+        Args: {
+          p_limit: number | null
+        }
+        Returns: Json
+      }
+      backfill_invoice_receivable_links: {
+        Args: {
+          p_limit: number | null
+        }
+        Returns: Json
+      }
+      list_consolidatable_receivables: {
+        Args: {
+          p_customer_id: number
+          p_voyage_id: number | null
+          p_search: string | null
+        }
+        Returns: ConsolidatableReceivable[]
       }
       run_billing_for_import_batch: {
         Args: {

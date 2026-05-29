@@ -19,6 +19,10 @@ export const queryKeys = {
     graniteBls: (filters?: unknown) => ['billing-ready-granite-bls', filters] as const,
     customers: (search: string) => ['billing-customers', search] as const,
   },
+  billingLedger: {
+    all: () => ['billing-ledger'] as const,
+    consolidatableReceivables: (filters?: unknown) => ['billing-ledger', 'consolidatable-receivables', filters] as const,
+  },
   charges: {
     tables: (filters?: unknown) => ['local-charge-tables', filters] as const,
     operations: (filters?: unknown) => ['local-charge-operations', filters] as const,
