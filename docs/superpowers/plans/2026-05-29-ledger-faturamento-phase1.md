@@ -248,7 +248,7 @@ git commit -m "Add local billing ledger schema"
 **Files:**
 - Modify: `supabase/migrations/20260529100000_local_billing_ledger_phase1.sql`
 
-- [ ] **Step 1: Add `sync_local_charge_receivable` RPC**
+- [x] **Step 1: Add `sync_local_charge_receivable` RPC**
 
 Append to the migration:
 
@@ -351,7 +351,7 @@ REVOKE ALL ON FUNCTION public.sync_local_charge_receivable(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.sync_local_charge_receivable(TEXT) TO authenticated;
 ```
 
-- [ ] **Step 2: Add `backfill_local_charge_receivables` RPC**
+- [x] **Step 2: Add `backfill_local_charge_receivables` RPC**
 
 Append:
 
@@ -397,7 +397,7 @@ REVOKE ALL ON FUNCTION public.backfill_local_charge_receivables(INTEGER) FROM PU
 GRANT EXECUTE ON FUNCTION public.backfill_local_charge_receivables(INTEGER) TO authenticated;
 ```
 
-- [ ] **Step 3: Add `backfill_invoice_receivable_links` RPC**
+- [x] **Step 3: Add `backfill_invoice_receivable_links` RPC**
 
 Append:
 
@@ -473,7 +473,7 @@ REVOKE ALL ON FUNCTION public.backfill_invoice_receivable_links(INTEGER) FROM PU
 GRANT EXECUTE ON FUNCTION public.backfill_invoice_receivable_links(INTEGER) TO authenticated;
 ```
 
-- [ ] **Step 4: Add `list_consolidatable_receivables` RPC**
+- [x] **Step 4: Add `list_consolidatable_receivables` RPC**
 
 Append:
 
@@ -584,7 +584,7 @@ REVOKE ALL ON FUNCTION public.list_consolidatable_receivables(BIGINT, BIGINT, TE
 GRANT EXECUTE ON FUNCTION public.list_consolidatable_receivables(BIGINT, BIGINT, TEXT) TO authenticated;
 ```
 
-- [ ] **Step 5: Run integration test in skipped mode**
+- [x] **Step 5: Run integration test in skipped mode**
 
 Run:
 
@@ -594,7 +594,7 @@ npm run test:integration
 
 Expected: skipped unless `SUPABASE_RUN_INTEGRATION=1` is configured. Do not add the new ledger integration test until Task 3 has added the Supabase function signatures to `src/types/database.ts`.
 
-- [ ] **Step 6: Run unit test suite**
+- [x] **Step 6: Run unit test suite**
 
 Run:
 
@@ -604,7 +604,7 @@ npm test
 
 Expected: existing tests pass or known skipped integration tests remain skipped.
 
-- [ ] **Step 7: Commit RPC plan**
+- [x] **Step 7: Commit RPC plan**
 
 ```bash
 git add supabase/migrations/20260529100000_local_billing_ledger_phase1.sql
