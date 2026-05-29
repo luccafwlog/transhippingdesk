@@ -2,7 +2,16 @@ import { supabase } from './supabase'
 import type { InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
 import { buildTransshippingPixPayload } from '../lib/pix'
 
-export type InvoiceStatusFilter = '' | 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled'
+export type InvoiceStatusFilter =
+  | ''
+  | 'draft'
+  | 'issued'
+  | 'partially_paid'
+  | 'paid'
+  | 'covered'
+  | 'obsolete'
+  | 'overdue'
+  | 'cancelled'
 
 export type InvoiceFilters = {
   search: string

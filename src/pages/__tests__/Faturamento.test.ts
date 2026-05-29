@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { Faturamento } from '../Faturamento'
 import { isLedgerInvoicePayable } from '../faturamentoLedgerPayment'
+import { invoiceStatusLabel } from '../faturamentoInvoiceStatus'
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: [], isLoading: false, error: null }),
@@ -93,6 +94,17 @@ describe('Faturamento', () => {
     expect(html).toContain('Nova Consolidada')
     expect(html).not.toContain('Nova Invoice')
     expect(html).not.toContain('B/L único')
+  })
+
+  it('expoe os status documentais covered e obsolete do ledger', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(MemoryRouter, { initialEntries: ['/?tab=invoices'] }, React.createElement(Faturamento)),
+    )
+
+    expect(html).toContain('Coberta')
+    expect(html).toContain('Obsoleta')
+    expect(invoiceStatusLabel('covered')).toBe('Coberta')
+    expect(invoiceStatusLabel('obsolete')).toBe('Obsoleta')
   })
 
   it('mantem invoices locais parcialmente pagas no fluxo de baixa por ledger', () => {

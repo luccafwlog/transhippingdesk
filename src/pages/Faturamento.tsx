@@ -41,6 +41,7 @@ import {
 import { logOperationalEvent } from '../services/operationalEvents'
 import { formatBRL, formatDate } from '../lib/utils'
 import { isLedgerInvoicePayable } from './faturamentoLedgerPayment'
+import { invoiceStatusLabel, invoiceStatusTone } from './faturamentoInvoiceStatus'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -289,7 +290,7 @@ export function Faturamento() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Invoice"><Input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} /></Field>
           <Field label="Cliente"><Select value={filters.customerId} onChange={(event) => updateFilter('customerId', event.target.value)}><option value="">Todos</option>{customerOptions?.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
-          <Field label="Status"><Select value={filters.status} onChange={(event) => updateFilter('status', event.target.value as InvoiceStatusFilter)}><option value="">Todos</option><option value="draft">Draft</option><option value="issued">Emitida</option><option value="partially_paid">Parcial</option><option value="paid">Paga</option><option value="overdue">Vencida</option><option value="cancelled">Cancelada</option></Select></Field>
+          <Field label="Status"><Select value={filters.status} onChange={(event) => updateFilter('status', event.target.value as InvoiceStatusFilter)}><option value="">Todos</option><option value="draft">Draft</option><option value="issued">Emitida</option><option value="partially_paid">Parcial</option><option value="paid">Paga</option><option value="covered">Coberta</option><option value="obsolete">Obsoleta</option><option value="overdue">Vencida</option><option value="cancelled">Cancelada</option></Select></Field>
           <Field label="B/L vinculado"><Input value={filters.blSearch} onChange={(event) => updateFilter('blSearch', event.target.value)} /></Field>
           <Field label="Emissao de"><Input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} /></Field>
           <Field label="Emissao ate"><Input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} /></Field>
@@ -837,21 +838,11 @@ function FinancialAlertsPanel({ alerts, onUpdate }: { alerts: Alert[]; onUpdate:
 }
 
 function renderInvoiceStatus(status: string | null) {
-  if (status === 'paid') return <Badge tone="green">Pago</Badge>
-  if (status === 'partially_paid') return <Badge tone="blue">Parcial</Badge>
-  if (status === 'overdue') return <Badge tone="yellow">Vencida</Badge>
-  if (status === 'cancelled') return <Badge tone="slate">Cancelada</Badge>
-  if (status === 'draft') return <Badge tone="yellow">Draft</Badge>
-  return <Badge tone="blue">Emitida</Badge>
+  return <Badge tone={invoiceStatusTone(status)}>{invoiceStatusLabel(status)}</Badge>
 }
 
 function statusLabel(status: string | null) {
-  if (status === 'partially_paid') return 'Parcial'
-  if (status === 'overdue') return 'Vencida'
-  if (status === 'cancelled') return 'Cancelada'
-  if (status === 'paid') return 'Paga'
-  if (status === 'draft') return 'Draft'
-  return 'Emitida'
+  return invoiceStatusLabel(status)
 }
 
 function renderPaymentMethod(method: PaymentMethod | string | null) {
