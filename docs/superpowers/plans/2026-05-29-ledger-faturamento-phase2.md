@@ -302,7 +302,7 @@ npm run build
 
 Expected: passes (no TS files changed).
 
-- [ ] **Step 3: Commit core payment RPC**
+- [x] **Step 3: Commit core payment RPC**
 
 ```bash
 git add supabase/migrations/20260529110000_local_billing_ledger_phase2.sql
@@ -316,7 +316,7 @@ git commit -m "Add ledger core payment RPC"
 **Files:**
 - Modify: `supabase/migrations/20260529110000_local_billing_ledger_phase2.sql`
 
-- [ ] **Step 1: Append `create_local_consolidated_invoice`**
+- [x] **Step 1: Append `create_local_consolidated_invoice`**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.create_local_consolidated_invoice(
@@ -430,7 +430,7 @@ REVOKE ALL ON FUNCTION public.create_local_consolidated_invoice(BIGINT, BIGINT[]
 GRANT EXECUTE ON FUNCTION public.create_local_consolidated_invoice(BIGINT, BIGINT[], DATE, TEXT, UUID) TO authenticated;
 ```
 
-- [ ] **Step 2: Append `obsolete_consolidated_invoice`**
+- [x] **Step 2: Append `obsolete_consolidated_invoice`**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.obsolete_consolidated_invoice(
@@ -488,7 +488,7 @@ REVOKE ALL ON FUNCTION public.obsolete_consolidated_invoice(BIGINT, TEXT, UUID) 
 GRANT EXECUTE ON FUNCTION public.obsolete_consolidated_invoice(BIGINT, TEXT, UUID) TO authenticated;
 ```
 
-- [ ] **Step 3: Append `reconcile_invoice_payment_by_txid`**
+- [x] **Step 3: Append `reconcile_invoice_payment_by_txid`**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.reconcile_invoice_payment_by_txid(
@@ -564,7 +564,7 @@ REVOKE ALL ON FUNCTION public.reconcile_invoice_payment_by_txid(TEXT, NUMERIC, T
 GRANT EXECUTE ON FUNCTION public.reconcile_invoice_payment_by_txid(TEXT, NUMERIC, TIMESTAMPTZ) TO authenticated;
 ```
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 npm run build
@@ -572,7 +572,7 @@ npm run build
 
 Expected: passes.
 
-- [ ] **Step 5: Commit creation/obsolete/reconciliation RPCs**
+- [x] **Step 5: Commit creation/obsolete/reconciliation RPCs**
 
 ```bash
 git add supabase/migrations/20260529110000_local_billing_ledger_phase2.sql
