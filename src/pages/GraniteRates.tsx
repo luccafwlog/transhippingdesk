@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { listGraniteRates, upsertGraniteRate, deleteGraniteRate } from '../services/graniteCharges'
@@ -24,9 +25,11 @@ export function GraniteRates() {
   const queryClient = useQueryClient()
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Omit<GraniteRate, 'id' | 'created_at'> & { id?: string }>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const { data: rates, isLoading, error } = useQuery({
     queryKey: ['granite-rates'],
@@ -59,13 +62,16 @@ export function GraniteRates() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir esta taxa?')) return
+    if (!(await confirm({ message: 'Excluir esta taxa?', tone: 'danger', confirmLabel: 'Excluir' }))) return
+    setDeletingId(id)
     try {
       await deleteGraniteRate(id)
       await queryClient.invalidateQueries({ queryKey: ['granite-rates'] })
       showToast('Taxa excluida.', 'success')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao excluir.', 'error')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -158,8 +164,9 @@ export function GraniteRates() {
                     <td className="px-4 py-3">
                       <button className="app-table__action mr-2" onClick={() => openEdit(rate)}>Editar</button>
                       <button
-                        className="text-red-400 hover:text-red-300 text-xs"
+                        className="text-red-400 hover:text-red-300 text-xs disabled:opacity-40"
                         onClick={() => handleDelete(rate.id)}
+                        disabled={deletingId === rate.id}
                       >
                         <Trash2 size={14} />
                       </button>

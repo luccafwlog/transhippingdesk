@@ -4,6 +4,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import {
@@ -95,6 +96,7 @@ const EMPTY_TABLE_ITEM_FORM: ChargeTableItemForm = {
 export function TaxasLocais() {
   const { can } = useAuth()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const canManageTables = can('charge_tables')
   const canManageOverrides = can('charge_overrides')
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
@@ -198,7 +200,7 @@ export function TaxasLocais() {
   }
 
   async function handleDeleteOverride(id: number) {
-    if (!window.confirm('Excluir este override de cliente?')) return
+    if (!(await confirm({ message: 'Excluir este override de cliente?', tone: 'danger', confirmLabel: 'Excluir' }))) return
     setOverrideDeletingId(id)
     try {
       await deleteOverrideMutation.mutateAsync(id)
@@ -347,7 +349,7 @@ export function TaxasLocais() {
   }
 
   async function handleDeleteTableItem(itemId: number) {
-    if (!window.confirm('Excluir este item de taxa?')) return
+    if (!(await confirm({ message: 'Excluir este item de taxa?', tone: 'danger', confirmLabel: 'Excluir' }))) return
     try {
       await deleteChargeTableItemMutation.mutateAsync(itemId)
       showToast('Item de taxa removido.', 'success')

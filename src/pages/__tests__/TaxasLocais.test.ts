@@ -16,6 +16,14 @@ vi.mock('../../components/ui/Toast', async () => {
   }
 })
 
+vi.mock('../../components/ui/ConfirmDialog', async () => {
+  const actual = await vi.importActual<typeof import('../../components/ui/ConfirmDialog')>('../../components/ui/ConfirmDialog')
+  return {
+    ...actual,
+    useConfirm: () => vi.fn(async () => true),
+  }
+})
+
 vi.mock('../../hooks/useLocalCharges', () => ({
   useLocalChargeOperations: () => ({
     data: [
