@@ -11,6 +11,7 @@ import {
   useBatchCalculateLocalCharges,
   useBatchMarkLocalChargesReady,
   useBatchMarkLocalChargesReviewed,
+  useBlLocalChargeLines,
   useCustomerReconciliationQueue,
   useApproveCustomerReconciliation,
   useRejectCustomerReconciliation,
@@ -587,6 +588,9 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                                   <div className="text-[var(--app-text-strong)]">{row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}</div>
                                 </div>
                               </div>
+                              {row.charge_status === 'review_required' ? (
+                                <ReviewRequiredReasons blId={row.id} holdReason={row.billing_hold_reason} />
+                              ) : null}
                               <div className="mt-1">
                                 <Link
                                   className="app-table__action"
@@ -654,6 +658,39 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         </div>
       </Card>
     </>
+  )
+}
+
+function ReviewRequiredReasons({ blId, holdReason }: { blId: string; holdReason: string | null }) {
+  const { data, isLoading } = useBlLocalChargeLines(blId)
+  const pendingLines = (data ?? []).filter(
+    (line) => line.status === 'review_required' && (line.review_reason ?? '').trim().length > 0,
+  )
+
+  return (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
+        Pendências de revisão das taxas
+      </div>
+      {holdReason ? (
+        <div className="mb-2 text-sm text-amber-900">
+          <span className="font-medium">Bloqueio:</span> {holdReason}
+        </div>
+      ) : null}
+      {isLoading ? (
+        <div className="text-sm text-amber-800">Carregando motivos...</div>
+      ) : pendingLines.length > 0 ? (
+        <ul className="list-disc space-y-1 pl-5 text-sm text-amber-900">
+          {pendingLines.map((line) => (
+            <li key={line.id}>
+              <span className="font-medium">{line.charge_name}:</span> {line.review_reason}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="text-sm text-amber-800">Nenhum motivo detalhado encontrado nas linhas de cálculo.</div>
+      )}
+    </div>
   )
 }
 

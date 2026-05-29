@@ -13,9 +13,13 @@ import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import { formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { createCustomer } from '../services/customers'
+import { calculateBlLocalCharges } from '../services/charges/chargeOperationsService'
 import { logOperationalEvent } from '../services/operationalEvents'
-import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
+import { queryKeys } from '../services/queryKeys'
+import { applyInlineBlReviewFix, ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
 import { supabase } from '../services/supabase'
+
+type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
 
 export function Revisao() {
   const { data, isLoading, error } = useReviewQueue()
@@ -28,6 +32,137 @@ export function Revisao() {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [batchJustification, setBatchJustification] = useState('')
   const [batchSaving, setBatchSaving] = useState(false)
+  const [savingInlineId, setSavingInlineId] = useState<string | null>(null)
+  const [recalcQueue, setRecalcQueue] = useState<RecalcNotice[]>([])
+  const [recalcingId, setRecalcingId] = useState<string | null>(null)
+
+  async function invalidateReviewCaches(blId: string) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
+      queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
+      queryClient.invalidateQueries({ queryKey: ['customers'] }),
+      queryClient.invalidateQueries({ queryKey: ['op-count'] }),
+    ])
+  }
+
+  // Problema C: apos resolver a revisao, se as taxas locais continuam pendentes
+  // de recalculo (ou o granito ainda nao foi faturado), avisa no mesmo contexto.
+  function evaluateRecalcNotice(item: ReviewQueueItem) {
+    if (item.source === 'bl') {
+      if (item.charge_status === 'review_required') {
+        addRecalcNotice({ id: item.id, label: item.id, source: 'bl' })
+      }
+      return
+    }
+    const blocking = !['ready_for_billing', 'invoiced'].includes(item.charge_status ?? '')
+    if (blocking) {
+      addRecalcNotice({ id: item.id, label: item.bl_number, source: 'granite' })
+    }
+  }
+
+  function addRecalcNotice(notice: RecalcNotice) {
+    setRecalcQueue((current) => (current.some((n) => n.id === notice.id) ? current : [...current, notice]))
+  }
+
+  function dismissRecalcNotice(id: string) {
+    setRecalcQueue((current) => current.filter((n) => n.id !== id))
+  }
+
+  async function handleInlineError(error: unknown) {
+    if (error instanceof ConcurrentEditError) {
+      await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
+      showToast('Este B/L foi alterado por outro usuário. A fila foi recarregada.', 'error')
+      return
+    }
+    showToast('Falha ao salvar a correção inline.', 'error')
+  }
+
+  async function handleInlineCustomer(item: ReviewQueueItem, customerId: number) {
+    if (!user) return
+    setSavingInlineId(item.id)
+    try {
+      if (item.source === 'granite') {
+        await saveGraniteBlReview({ graniteBlId: item.id, clientId: customerId, changedBy: user.id })
+      } else {
+        await applyInlineBlReviewFix({
+          blId: item.id,
+          field: 'customer_id',
+          value: customerId,
+          previousValue: item.customer_id ?? null,
+          changedBy: user.id,
+          expectedUpdatedAt: item.updated_at ?? null,
+        })
+      }
+      await invalidateReviewCaches(item.id)
+      evaluateRecalcNotice(item)
+      showToast('Cliente vinculado.', 'success')
+    } catch (err) {
+      await handleInlineError(err)
+    } finally {
+      setSavingInlineId(null)
+    }
+  }
+
+  async function handleInlineField(item: ReviewQueueItem, field: 'ce_mercante' | 'bb_weight_ton', rawValue: string) {
+    if (!user || item.source !== 'bl') return
+    let value: string | number
+    if (field === 'bb_weight_ton') {
+      const parsed = Number(rawValue)
+      if (!rawValue.trim() || !Number.isFinite(parsed) || parsed <= 0) {
+        showToast('Informe um peso válido em toneladas.', 'error')
+        return
+      }
+      value = parsed
+    } else {
+      if (!rawValue.trim()) {
+        showToast('Informe o CE Mercante.', 'error')
+        return
+      }
+      value = rawValue.trim()
+    }
+
+    setSavingInlineId(item.id)
+    try {
+      await applyInlineBlReviewFix({
+        blId: item.id,
+        field,
+        value,
+        previousValue: (item[field] as string | number | null) ?? null,
+        changedBy: user.id,
+        expectedUpdatedAt: item.updated_at ?? null,
+      })
+      await invalidateReviewCaches(item.id)
+      evaluateRecalcNotice(item)
+      showToast('Pendência atualizada.', 'success')
+    } catch (err) {
+      await handleInlineError(err)
+    } finally {
+      setSavingInlineId(null)
+    }
+  }
+
+  async function handleRecalc(notice: RecalcNotice) {
+    setRecalcingId(notice.id)
+    try {
+      const result = await calculateBlLocalCharges(notice.id, { actorId: user?.id ?? null, recalculate: true })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      ])
+      if (result.status === 'review_required') {
+        showToast('Recálculo concluído, mas ainda há pendências de revisão nas taxas locais.', 'info')
+      } else {
+        dismissRecalcNotice(notice.id)
+        showToast('Taxas locais recalculadas.', 'success')
+      }
+    } catch {
+      showToast('Falha ao recalcular as taxas locais.', 'error')
+    } finally {
+      setRecalcingId(null)
+    }
+  }
 
   const filteredData = useMemo(() => {
     if (!data) return []
@@ -138,6 +273,7 @@ export function Revisao() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
       queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
       queryClient.invalidateQueries({ queryKey: ['op-count'] }),
     ])
     showToast(`${successCount} de ${checkedItems.length} B/Ls revisados em lote.`, 'success')
@@ -225,6 +361,50 @@ export function Revisao() {
         </div>
       )}
 
+      {recalcQueue.length > 0 ? (
+        <div className="mb-3 space-y-2">
+          {recalcQueue.map((notice) => (
+            <div
+              key={notice.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-100"
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={15} />
+                <span>
+                  {notice.source === 'granite'
+                    ? `Granito ${notice.label}: o cálculo de taxas precisa ser refeito em /granito.`
+                    : `${notice.label}: taxas locais ainda pendentes de recálculo.`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {notice.source === 'bl' ? (
+                  <Button
+                    variant="secondary"
+                    className="px-3 py-1 text-xs"
+                    loading={recalcingId === notice.id}
+                    onClick={() => handleRecalc(notice)}
+                  >
+                    Recalcular
+                  </Button>
+                ) : (
+                  <Link className="app-table__action" to="/granito">
+                    Abrir Granito
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  className="text-amber-300 hover:text-amber-100"
+                  onClick={() => dismissRecalcNotice(notice.id)}
+                  aria-label="Dispensar aviso"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar a fila de revisao." /> : null}
 
@@ -276,16 +456,45 @@ export function Revisao() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {(item.review_reasons?.length ? item.review_reasons : ['Pendente de revisao']).map((reason) => (
-                        <Badge key={reason} tone="yellow">
-                          {reason}
-                        </Badge>
-                      ))}
+                    <div className="app-table__cell-stack">
+                      <div className="flex flex-wrap gap-2">
+                        {(item.review_reasons?.length ? item.review_reasons : ['Pendente de revisao']).map((reason) => (
+                          <Badge key={reason} tone="yellow">
+                            {reason}
+                          </Badge>
+                        ))}
+                      </div>
+                      {item.source === 'bl' && needsCeMercante(item) ? (
+                        <InlineFieldEditor
+                          type="text"
+                          placeholder="CE Mercante"
+                          initial={item.ce_mercante ?? ''}
+                          saving={savingInlineId === item.id}
+                          onSave={(value) => handleInlineField(item, 'ce_mercante', value)}
+                        />
+                      ) : null}
+                      {item.source === 'bl' && needsWeightFix(item) ? (
+                        <InlineFieldEditor
+                          type="number"
+                          placeholder="Peso BB (ton)"
+                          initial={item.bb_weight_ton != null ? String(item.bb_weight_ton) : ''}
+                          saving={savingInlineId === item.id}
+                          onSave={(value) => handleInlineField(item, 'bb_weight_ton', value)}
+                        />
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-3">{item.consignee ?? item.shipper ?? '-'}</td>
-                  <td className="px-4 py-3">{item.customer?.name ?? 'Não vinculado'}</td>
+                  <td className="px-4 py-3">
+                    {needsCustomerLink(item) ? (
+                      <InlineCustomerPicker
+                        saving={savingInlineId === item.id}
+                        onSelect={(customerId) => handleInlineCustomer(item, customerId)}
+                      />
+                    ) : (
+                      (item.customer?.name ?? 'Não vinculado')
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {item.voyage?.vessel?.name ?? '-'} / {item.voyage?.voyage_number ?? '-'}
                   </td>
@@ -318,6 +527,7 @@ export function Revisao() {
         totalItems={filteredData.length}
         onClose={handleClose}
         onSaveSuccess={handleSaveSuccess}
+        onReviewSaved={evaluateRecalcNotice}
         onNavigate={(index) => setSelectedIndex(index)}
       />
     </>
@@ -330,6 +540,7 @@ function ReviewModal({
   totalItems,
   onClose,
   onSaveSuccess,
+  onReviewSaved,
   onNavigate,
 }: {
   item: ReviewQueueItem | null
@@ -337,6 +548,7 @@ function ReviewModal({
   totalItems: number
   onClose: () => void
   onSaveSuccess: () => void
+  onReviewSaved: (item: ReviewQueueItem) => void
   onNavigate: (index: number) => void
 }) {
   const queryClient = useQueryClient()
@@ -488,6 +700,7 @@ function ReviewModal({
           : `B/L revisado. Proximo: ${remaining - 1} restante${remaining - 1 !== 1 ? 's' : ''}.`,
         'success',
       )
+      onReviewSaved(item)
       onSaveSuccess()
     } catch (error) {
       if (error instanceof ConcurrentEditError) {
@@ -656,6 +869,87 @@ function ReviewModal({
         </div>
       ) : null}
     </Modal>
+  )
+}
+
+function needsCustomerLink(item: ReviewQueueItem) {
+  return item.customer_id == null
+}
+
+function needsCeMercante(item: ReviewQueueItem) {
+  if (item.source !== 'bl') return false
+  return (item.review_reasons ?? []).some((reason) => /ce\s*mercante/i.test(reason))
+}
+
+function needsWeightFix(item: ReviewQueueItem) {
+  if (item.source !== 'bl') return false
+  if ((item.review_reasons ?? []).some((reason) => /weight ton|peso bb/i.test(reason))) return true
+  // Carga solta (BB) sem peso em toneladas: o calculo de taxas exige bb_weight_ton.
+  return item.cargo_mode === 'carga_solta' && (item.bb_weight_ton == null || Number(item.bb_weight_ton) <= 0)
+}
+
+function InlineCustomerPicker({ saving, onSelect }: { saving: boolean; onSelect: (customerId: number) => void }) {
+  const [search, setSearch] = useState('')
+  const lookup = useCustomerLookup(search)
+
+  return (
+    <div className="relative w-56">
+      <Input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Vincular cliente..."
+        className="py-1 text-xs"
+        disabled={saving}
+      />
+      {lookup.data?.length ? (
+        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-[#30363d] bg-[#161b22] shadow-xl">
+          {lookup.data.map((customer) => (
+            <button
+              key={customer.id}
+              type="button"
+              disabled={saving}
+              className="block w-full px-3 py-1.5 text-left text-xs text-slate-300 hover:bg-[#21262d] disabled:opacity-50"
+              onClick={() => onSelect(customer.id)}
+            >
+              <div className="font-medium text-white">{customer.name}</div>
+              <div className="text-[11px] text-slate-500">{formatCnpjCpf(customer.cnpj_cpf)}</div>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function InlineFieldEditor({
+  type,
+  placeholder,
+  initial,
+  saving,
+  onSave,
+}: {
+  type: 'text' | 'number'
+  placeholder: string
+  initial: string
+  saving: boolean
+  onSave: (value: string) => void
+}) {
+  const [value, setValue] = useState(initial)
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        type={type}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        className="w-36 py-1 text-xs"
+        disabled={saving}
+      />
+      <Button variant="secondary" className="px-2.5 py-1 text-xs" loading={saving} onClick={() => onSave(value)}>
+        Salvar
+      </Button>
+    </div>
   )
 }
 
