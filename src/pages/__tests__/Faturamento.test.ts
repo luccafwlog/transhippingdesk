@@ -37,12 +37,7 @@ vi.mock('../../hooks/useBls', () => ({
 
 vi.mock('../../hooks/useBilling', () => ({
   useBillingCustomers: () => ({ data: [] }),
-  useBillingReadyBlDiagnostics: () => ({ data: null, isLoading: false }),
-  useBillingReadyBls: () => ({ data: [], isLoading: false }),
-  useBillingReadyGraniteBls: () => ({ data: [], isLoading: false }),
   useCancelInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useCreateGraniteInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useCreateInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
   useInvoices: () => ({ data: { rows: [], count: 0 }, isLoading: false, error: null }),
   useRegisterInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -52,7 +47,6 @@ vi.mock('../../hooks/useBillingLedger', () => ({
   useConsolidatableReceivables: () => ({ data: [], isLoading: false }),
   useCreateConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRegisterLedgerInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useObsoleteConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
 vi.mock('../../hooks/useLocalCharges', () => ({

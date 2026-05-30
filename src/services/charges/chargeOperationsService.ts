@@ -116,40 +116,6 @@ export type LocalChargeOperationalRow = {
     last_event_message: string | null
   }
 }
-
-export type BillingRunSummary = {
-  id: number
-  manifest_id: number
-  filename: string
-  trigger_source: string
-  status: 'running' | 'completed' | 'completed_with_blocks' | 'failed'
-  started_at: string
-  completed_at: string | null
-  total_bls: number
-  eligible_bls: number
-  blocked_bls: number
-  calculated_bls: number
-  total_brl: number
-  total_usd: number
-}
-
-export type BillingRunDetail = {
-  run: BillingRunSummary & {
-    summary?: Record<string, unknown>
-  }
-  logs: Array<{
-    id: number
-    billing_run_id: number
-    manifest_id: number
-    bl_id: string | null
-    level: 'info' | 'warning' | 'error'
-    code: string
-    message: string
-    details: Record<string, unknown> | null
-    created_at: string
-  }>
-}
-
 export async function calculateBlLocalCharges(
   blId: string,
   options?: {
@@ -592,29 +558,6 @@ export async function markLocalChargesReviewedBatch(blIds: string[], actorId?: s
 export async function markLocalChargesReadyBatch(blIds: string[], actorId?: string | null) {
   return runBatch(blIds, (blId) => markBlReadyForBilling(blId, actorId))
 }
-
-export async function listBillingRuns(limit = 50) {
-  const { data, error } = await supabase.rpc('list_billing_runs', {
-    p_limit: limit,
-  })
-
-  if (error) throw error
-  return (data ?? []) as BillingRunSummary[]
-}
-
-export async function getBillingRunDetails(billingRunId: number) {
-  const { data, error } = await supabase.rpc('get_billing_run_details', {
-    p_billing_run_id: billingRunId,
-  })
-
-  if (error) throw error
-  const payload = (data ?? {}) as BillingRunDetail
-  return {
-    run: payload.run ?? null,
-    logs: payload.logs ?? [],
-  } as BillingRunDetail
-}
-
 function normalizeCalculationResult(data: unknown): LocalChargeCalculationResult {
   const payload = (data ?? {}) as Record<string, unknown>
   return {

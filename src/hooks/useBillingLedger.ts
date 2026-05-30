@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createConsolidatedInvoice,
-  createIndividualInvoiceFromReceivable,
   listConsolidatableReceivables,
-  obsoleteConsolidatedInvoice,
   registerLedgerInvoicePayment,
   type ConsolidatableReceivableFilters,
 } from '../services/billingLedger'
@@ -35,27 +33,10 @@ export function useCreateConsolidatedInvoice() {
     onSuccess: invalidate,
   })
 }
-
-export function useCreateIndividualInvoiceFromReceivable() {
-  const invalidate = useLedgerInvalidation()
-  return useMutation({
-    mutationFn: createIndividualInvoiceFromReceivable,
-    onSuccess: invalidate,
-  })
-}
-
 export function useRegisterLedgerInvoicePayment() {
   const invalidate = useLedgerInvalidation()
   return useMutation({
     mutationFn: registerLedgerInvoicePayment,
-    onSuccess: invalidate,
-  })
-}
-
-export function useObsoleteConsolidatedInvoice() {
-  const invalidate = useLedgerInvalidation()
-  return useMutation({
-    mutationFn: obsoleteConsolidatedInvoice,
     onSuccess: invalidate,
   })
 }
