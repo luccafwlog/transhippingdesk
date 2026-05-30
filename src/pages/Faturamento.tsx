@@ -16,12 +16,12 @@ import { SkeletonTable } from '../components/ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { PendenciasTable } from '../components/billing/PendenciasTable'
 import { useAuth } from '../hooks/useAuth'
 import {
   useBatchCalculateLocalCharges,
   useLocalChargeOperations,
 } from '../hooks/useLocalCharges'
-import type { LocalChargeOperationalRow } from '../services/charges/chargeOperationsService'
 import {
   useCancelInvoice,
   useInvoiceDetail,
@@ -756,52 +756,6 @@ function PendenciasFaturamentoTab({ userId }: { userId: string | null }) {
       ) : null}
       {rows.length > 0 ? <PendenciasTable rows={rows} /> : null}
     </Card>
-  )
-}
-
-function PendenciasTable({ rows }: { rows: LocalChargeOperationalRow[] }) {
-  return (
-    <div className="app-table-scroll">
-      <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
-        <thead>
-          <tr>
-            <th scope="col" className="px-4 py-3">B/L</th>
-            <th scope="col" className="px-4 py-3">Cliente</th>
-            <th scope="col" className="px-4 py-3">Modo/POD</th>
-            <th scope="col" className="px-4 py-3">Viagem</th>
-            <th scope="col" className="px-4 py-3">Motivo</th>
-            <th scope="col" className="px-4 py-3">Acesso</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.id}</td>
-              <td className="px-4 py-3">
-                <div className="font-medium text-[var(--app-text-strong)]">{row.customer?.name ?? '-'}</div>
-                <div className="text-xs text-[var(--app-muted)]">{row.customer?.cnpj_cpf ?? '-'}</div>
-              </td>
-              <td className="px-4 py-3">
-                {(row.cargo_mode ?? '-').replace('_', ' ').toUpperCase()} / {row.pod ?? '-'}
-              </td>
-              <td className="px-4 py-3">
-                {row.voyage?.vessel?.name ?? 'Navio'} / {row.voyage?.voyage_number ?? '-'}
-              </td>
-              <td className="px-4 py-3">
-                <div className="max-w-[360px] truncate" title={row.trail.last_event_message ?? row.billing_hold_reason ?? undefined}>
-                  {row.trail.last_event_message ?? row.billing_hold_reason ?? 'Revisao requerida'}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <Link className="app-link" to={`/manifestos/${row.id}`}>
-                  Ver B/L
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   )
 }
 

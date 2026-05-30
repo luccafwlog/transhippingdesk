@@ -81,3 +81,40 @@ Cada item abaixo tem disposição explícita: **Implementado** (com verificaçã
 - **Adiados, com plano**, os refactors estruturais de maior risco (A1/A2/A4/P1),
   que devem ser feitos em PRs dedicados precedidos de testes — exatamente para
   não violar as diretrizes do projeto de mudanças cirúrgicas e seguras.
+
+---
+
+## Terceira rodada — A1 + P1 em `Faturamento` (com testes de componente)
+
+Seguindo o plano de "testes primeiro, depois extrair", esta rodada inicia a
+decomposição dos monólitos pela `Faturamento.tsx` e resolve o gargalo de
+renderização (P1) na mesma mudança.
+
+**Infra de teste de componente**
+- Adicionadas devDependencies: `@testing-library/react`, `@testing-library/dom`,
+  `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`.
+- `vite.config.ts`: `include` passa a cobrir `*.test.tsx`. Testes de componente
+  optam por jsdom via `// @vitest-environment jsdom` (mantém os testes de
+  serviço/lib rodando em `node`, rápidos).
+
+**A1 — extração**
+- `PendenciasTable` movida de dentro de `Faturamento.tsx` para
+  `src/components/billing/PendenciasTable.tsx` (componente apresentacional,
+  comportamento preservado). `Faturamento.tsx`: 1018 → 972 linhas.
+
+**P1 — gargalo de renderização (sem dependência nova)**
+- A fila de pendências (até ~1200 linhas) agora renderiza em lotes: 100 iniciais
+  + "Mostrar mais (N restantes)" sob demanda. Limita nós de DOM sem `react-window`
+  e sem perder dados (o "Recalcular pendências" continua agindo sobre todas as
+  linhas, não só as visíveis).
+
+**Testes**
+- `src/components/billing/__tests__/PendenciasTable.test.tsx` (RTL, 4 casos):
+  cabeçalhos + conteúdo, ausência do botão com ≤100 linhas, renderização
+  incremental (100 → 200 → 250) e fallbacks de campos ausentes.
+
+Verificado: `build` ✅ · `npm test` ✅ 125 passam · `lint` sem novos warnings ·
+`npm audit` sem novas vulnerabilidades (test deps são dev-only).
+
+> Próximos passos do mesmo plano: estender a cobertura RTL às demais seções de
+> `Faturamento` e repetir o padrão (testar → extrair) em `BlDetalhe` e `Viagens`.
