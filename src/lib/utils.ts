@@ -5,6 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Remove caracteres que podem alterar o parser de filtros do PostgREST
+// (vírgula, parênteses, ponto, dois-pontos, aspas, asterisco, barra) ou os
+// curingas do LIKE (% e _). Evita injeção de filtro e enumeração/DoS via
+// curingas em chamadas .or()/.ilike() que interpolam input do usuário.
+export function escapeFilterTerm(value: string) {
+  return value.replace(/[%_,.():*"\\]/g, ' ').trim()
+}
+
 export function formatBRL(value?: number | string | null) {
   const amount = Number(value ?? 0)
   return new Intl.NumberFormat('pt-BR', {

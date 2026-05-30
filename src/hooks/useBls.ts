@@ -4,7 +4,7 @@ import {
   countDistinctContainersAcrossGroups,
 } from '../lib/containerCounts'
 import { useQuery } from '@tanstack/react-query'
-import { normalizeText } from '../lib/utils'
+import { escapeFilterTerm, normalizeText } from '../lib/utils'
 import { supabase } from '../services/supabase'
 import type { AuditLog, BL, BLDetail, BLListItem, ContainerListItem } from '../types/database'
 
@@ -416,13 +416,6 @@ export function useVoyages() {
       }>
     },
   })
-}
-
-// Remove caracteres que podem alterar o parser de filtros do PostgREST
-// (vírgula, parênteses, ponto, dois-pontos, aspas) ou os curingas do LIKE
-// (% e _). Isso evita injeção via .or()/.ilike() com input do usuário.
-function escapeFilterTerm(value: string) {
-  return value.replace(/[%_,.():*"\\]/g, ' ').trim()
 }
 
 function applyBlFilters(query: ReturnType<typeof supabase.from>, filters: BlFilters) {

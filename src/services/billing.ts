@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import type { InvoiceDocumentStatus, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
 import { buildTransshippingPixPayload } from '../lib/pix'
+import { escapeFilterTerm } from '../lib/utils'
 
 // Filtro de status exposto na UI: 3 estados operacionais. Cada um cobre os
 // status documentais reais persistidos na coluna invoices.status.
@@ -219,7 +220,10 @@ export async function listInvoices(filters: InvoiceFilters): Promise<{ rows: Inv
     .order('created_at', { ascending: false })
 
   if (filters.search) {
-    query = query.or(`invoice_number.ilike.%${filters.search}%`)
+    const term = escapeFilterTerm(filters.search)
+    if (term) {
+      query = query.or(`invoice_number.ilike.%${term}%`)
+    }
   }
 
   if (filters.customerId) {

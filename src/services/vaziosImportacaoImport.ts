@@ -1,6 +1,6 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { supabase } from './supabase'
-import { toNumber } from '../lib/utils'
+import { escapeFilterTerm, toNumber } from '../lib/utils'
 import type { VaziosImportacaoContainerListItem, VaziosImportacaoManifest } from '../types/database'
 
 const HEADER_MAP: Record<string, string> = {
@@ -249,8 +249,8 @@ export async function listVaziosImportacaoContainers(filters: {
     .order('created_at', { ascending: false })
 
   if (filters.search) {
-    // Strip chars that could break PostgREST or() filter syntax (comma, parens)
-    const safe = filters.search.replace(/[(),]/g, '').trim()
+    // Neutraliza sintaxe do parser PostgREST e curingas do LIKE (% e _)
+    const safe = escapeFilterTerm(filters.search)
     if (safe) {
       query = query.or(
         `container_number.ilike.%${safe}%,container_type.ilike.%${safe}%`,
