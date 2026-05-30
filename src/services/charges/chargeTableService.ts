@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { sanitizeLikeTerm } from '../../lib/utils'
 
 export type LocalChargeTableWithItems = {
   id: number
@@ -90,7 +91,8 @@ export async function listLocalChargeTables(filters?: {
   }
 
   if (filters?.pod) {
-    query = query.ilike('pod', `%${filters.pod}%`)
+    const pod = sanitizeLikeTerm(filters.pod)
+    if (pod) query = query.ilike('pod', `%${pod}%`)
   }
 
   const { data, error } = await query

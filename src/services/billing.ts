@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type { InvoiceDocumentStatus, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
 import { buildTransshippingPixPayload } from '../lib/pix'
-import { escapeFilterTerm } from '../lib/utils'
+import { escapeFilterTerm, sanitizeLikeTerm } from '../lib/utils'
 
 // Filtro de status exposto na UI: 3 estados operacionais. Cada um cobre os
 // status documentais reais persistidos na coluna invoices.status.
@@ -144,7 +144,7 @@ export async function listInvoices(filters: InvoiceFilters): Promise<{ rows: Inv
   // Filtros que dependem dos BLs vinculados resolvem invoice_ids e sao intersectados.
   let idFilter: Set<number> | null = null
 
-  const normalizedBlSearch = normalizeText(filters.blSearch).toUpperCase()
+  const normalizedBlSearch = sanitizeLikeTerm(normalizeText(filters.blSearch).toUpperCase())
   if (normalizedBlSearch) {
     const [direct, consolidated] = await Promise.all([
       supabase.from('invoice_bls').select('invoice_id').ilike('bl_id', `%${normalizedBlSearch}%`).limit(5000),
@@ -159,7 +159,7 @@ export async function listInvoices(filters: InvoiceFilters): Promise<{ rows: Inv
     idFilter = intersectIds(idFilter, Array.from(ids))
   }
 
-  const pod = filters.pod.trim()
+  const pod = sanitizeLikeTerm(filters.pod)
   if (pod) {
     const { data: blRows, error: blError } = await supabase
       .from('bls')
@@ -171,7 +171,7 @@ export async function listInvoices(filters: InvoiceFilters): Promise<{ rows: Inv
     idFilter = intersectIds(idFilter, await invoiceIdsForBlIds(blIds))
   }
 
-  const voyageSearch = filters.voyageSearch.trim()
+  const voyageSearch = sanitizeLikeTerm(filters.voyageSearch)
   if (voyageSearch) {
     const term = `%${voyageSearch}%`
     const [byNumber, byVessel] = await Promise.all([
@@ -302,7 +302,7 @@ export async function listInvoicesForExport(filters: InvoiceFilters): Promise<In
 // ---- Sugestoes para os campos de busca preditiva (combobox) ----
 
 export async function listInvoiceNumberSuggestions(search: string): Promise<string[]> {
-  const term = search.trim()
+  const term = sanitizeLikeTerm(search)
   if (!term) return []
   const { data, error } = await supabase
     .from('invoices')
@@ -316,7 +316,7 @@ export async function listInvoiceNumberSuggestions(search: string): Promise<stri
 }
 
 export async function listBlSuggestions(search: string): Promise<string[]> {
-  const term = normalizeText(search).toUpperCase()
+  const term = sanitizeLikeTerm(normalizeText(search).toUpperCase())
   if (!term) return []
   const { data, error } = await supabase
     .from('bls')
@@ -328,7 +328,7 @@ export async function listBlSuggestions(search: string): Promise<string[]> {
 }
 
 export async function listPodSuggestions(search: string): Promise<string[]> {
-  const term = search.trim()
+  const term = sanitizeLikeTerm(search)
   if (!term) return []
   const { data, error } = await supabase
     .from('bls')
@@ -341,7 +341,7 @@ export async function listPodSuggestions(search: string): Promise<string[]> {
 }
 
 export async function listVoyageSuggestions(search: string): Promise<Array<{ label: string; voyageNumber: string }>> {
-  const term = search.trim()
+  const term = sanitizeLikeTerm(search)
   if (!term) return []
   const like = `%${term}%`
   type VoyageRow = { voyage_number: string | null; vessels?: { name: string | null } | null }

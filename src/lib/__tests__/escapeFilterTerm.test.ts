@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { escapeFilterTerm } from '../utils'
+import { escapeFilterTerm, sanitizeLikeTerm } from '../utils'
 
 describe('escapeFilterTerm', () => {
   it('mantém termos alfanuméricos normais intactos', () => {
@@ -22,5 +22,20 @@ describe('escapeFilterTerm', () => {
 
   it('input puramente malicioso colapsa para string vazia', () => {
     expect(escapeFilterTerm('%(),.:"*\\_')).toBe('')
+  })
+})
+
+describe('sanitizeLikeTerm', () => {
+  it('remove apenas curingas LIKE e barra, preservando o resto da pontuação', () => {
+    expect(sanitizeLikeTerm('SANTOS')).toBe('SANTOS')
+    expect(sanitizeLikeTerm('BR-SSZ.01')).toBe('BR-SSZ.01') // ponto/hífen preservados
+    expect(sanitizeLikeTerm('a%b')).toBe('ab')
+    expect(sanitizeLikeTerm('a_b')).toBe('ab')
+    expect(sanitizeLikeTerm('a\\b')).toBe('ab')
+  })
+
+  it('faz trim e colapsa curingas puros', () => {
+    expect(sanitizeLikeTerm('  CSC1  ')).toBe('CSC1')
+    expect(sanitizeLikeTerm('%_%')).toBe('')
   })
 })

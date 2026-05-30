@@ -101,6 +101,10 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
             if (mounted) {
               setOverview(ov)
               setAuthMethod('supabase_auth')
+              // Com sessão Supabase Auth ativa, nunca manter token legado
+              // pendurado no sessionStorage (reduz superfície a XSS).
+              setSessionToken(null)
+              persistToken(null)
             }
           } catch (error) {
             // Sessão interna pode existir sem perfil de portal; não encerrar auth global.

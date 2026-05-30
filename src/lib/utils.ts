@@ -13,11 +13,29 @@ export function escapeFilterTerm(value: string) {
   return value.replace(/[%_,.():*"\\]/g, ' ').trim()
 }
 
+// Para uso em .ilike(coluna, valor): o valor é parametrizado pelo PostgREST,
+// então só os curingas do LIKE (% _) e a barra de escape representam risco
+// (enumeração via `_`, varredura completa via `%`). Mantém o restante da
+// pontuação do termo, ao contrário de escapeFilterTerm (usado em .or()).
+export function sanitizeLikeTerm(value: string) {
+  return value.replace(/[%_\\]/g, '').trim()
+}
+
 export function formatBRL(value?: number | string | null) {
   const amount = Number(value ?? 0)
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+  }).format(Number.isFinite(amount) ? amount : 0)
+}
+
+export function formatUSD(value?: number | string | null) {
+  const amount = Number(value ?? 0)
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(Number.isFinite(amount) ? amount : 0)
 }
 

@@ -25,6 +25,27 @@ export default defineConfig({
     'process.env': {},
     'import.meta.env.VITE_APP_COMMIT_SHA': JSON.stringify(appCommitSha),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Isola vendors estáveis em chunks próprios para melhorar o cache do
+        // browser entre deploys (mudam com pouca frequência). xlsx/jspdf já são
+        // code-split via import dinâmico, então ficam de fora daqui.
+        manualChunks: (id: string) => {
+          if (
+            id.includes('node_modules/react-router') ||
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/react/')
+          ) {
+            return 'vendor-react'
+          }
+          if (id.includes('node_modules/@tanstack') || id.includes('node_modules/@supabase')) {
+            return 'vendor-data'
+          }
+        },
+      },
+    },
+  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],

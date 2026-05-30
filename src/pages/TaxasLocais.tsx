@@ -20,7 +20,7 @@ import {
   useOverrideCustomers,
   useSaveCustomerRateOverride,
 } from '../hooks/useLocalCharges'
-import { formatBRL } from '../lib/utils'
+import { formatBRL, formatUSD } from '../lib/utils'
 
 type LocalChargeTab = 'tabelas' | 'overrides'
 
@@ -1115,11 +1115,3 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   )
 }
 
-function formatUSD(value: number) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value ?? 0))
-}
