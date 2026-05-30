@@ -33,6 +33,15 @@ import { supabase } from '../services/supabase'
 import { calculateDemurrage } from '../services/demurrage/demurrageRates'
 import { updateContainerReturnDate } from '../services/demurrage/demurrageContainers'
 import type { BL, BLDetail } from '../types/database'
+import {
+  cargoModeLabel,
+  formatNumber,
+  resolveCargoMode,
+  resolveChargeLineStatusLabel,
+  resolveChargeLineStatusTone,
+  resolveChargeStatusLabel,
+  resolveChargeStatusTone,
+} from './blDetalheHelpers'
 
 const editableFields: (keyof Pick<
   BL,
@@ -78,7 +87,6 @@ const editableFields: (keyof Pick<
 ]
 
 type BlForm = Pick<BL, (typeof editableFields)[number]>
-type CargoMode = 'container' | 'carga_solta'
 type BlTab = 'operacional' | 'carga' | 'cobrancas' | 'financeiro' | 'historico'
 
 const BL_TABS: { key: BlTab; label: string }[] = [
@@ -1375,17 +1383,6 @@ function makeForm(bl: BLDetail): BlForm {
   }
 }
 
-function resolveCargoMode(bl?: BLDetail | null): CargoMode {
-  if (bl?.cargo_mode === 'carga_solta') return 'carga_solta'
-  if (bl?.cargo_mode === 'container') return 'container'
-  if ((bl?.bl_breakbulk_items?.length ?? 0) > 0) return 'carga_solta'
-  return 'container'
-}
-
-function cargoModeLabel(mode: CargoMode) {
-  return mode === 'carga_solta' ? 'Carga Solta' : 'Container'
-}
-
 function stringifyValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
 }
@@ -1402,60 +1399,6 @@ function normalizeFormValue(field: keyof BlForm, value: unknown) {
   }
 
   return value === '' ? null : value
-}
-
-function formatNumber(value: number | string | null | undefined) {
-  const amount = Number(value ?? 0)
-  return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
-}
-
-
-function resolveChargeStatusTone(status: BL['charge_status']) {
-  if (status === 'review_required') return 'yellow'
-  if (status === 'ready_for_billing' || status === 'reviewed' || status === 'calculated') return 'green'
-  if (status === 'exempt') return 'slate'
-  return 'blue'
-}
-
-function resolveChargeStatusLabel(status: BL['charge_status']) {
-  switch (status) {
-    case 'calculated':
-      return 'Calculado'
-    case 'review_required':
-      return 'Revisao obrigatoria'
-    case 'reviewed':
-      return 'Revisado'
-    case 'ready_for_billing':
-      return 'Pronto para faturar'
-    case 'exempt':
-      return 'Isento'
-    default:
-      return 'Não calculado'
-  }
-}
-
-function resolveChargeLineStatusTone(status: string | null) {
-  if (status === 'review_required') return 'yellow'
-  if (status === 'exempt') return 'slate'
-  if (status === 'reviewed' || status === 'ready_for_billing' || status === 'calculated') return 'green'
-  return 'blue'
-}
-
-function resolveChargeLineStatusLabel(status: string | null) {
-  switch (status) {
-    case 'calculated':
-      return 'Calculado'
-    case 'review_required':
-      return 'Revisao'
-    case 'reviewed':
-      return 'Revisado'
-    case 'ready_for_billing':
-      return 'Pronto'
-    case 'exempt':
-      return 'Isento'
-    default:
-      return 'Pendente'
-  }
 }
 
 function StatusBadge({
