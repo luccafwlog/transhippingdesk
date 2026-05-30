@@ -24,7 +24,7 @@ export function Reconciliacao() {
   const matchMutation = useMutation({
     mutationFn: async (file: File) => {
       const buf = await file.arrayBuffer()
-      const transactions = parsePixExtract(buf)
+      const transactions = await parsePixExtract(buf)
       if (!transactions.length) throw new Error('Nenhuma transacao PIX encontrada.')
       return matchUnifiedPixTransactions(transactions)
     },

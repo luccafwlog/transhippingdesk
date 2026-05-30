@@ -8,7 +8,7 @@ export type InvoiceDisplayStatus = 'issued' | 'paid' | 'cancelled'
 const PAID_STATUSES = new Set(['paid', 'covered'])
 const CANCELLED_STATUSES = new Set(['cancelled', 'obsolete'])
 
-export function invoiceDisplayStatus(status: string | null): InvoiceDisplayStatus {
+function invoiceDisplayStatus(status: string | null): InvoiceDisplayStatus {
   if (status && PAID_STATUSES.has(status)) return 'paid'
   if (status && CANCELLED_STATUSES.has(status)) return 'cancelled'
   return 'issued'

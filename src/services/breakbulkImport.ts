@@ -1,7 +1,7 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
-import { calculateBlLocalCharges } from './localCharges'
+import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { supabase } from './supabase'
 
 const headerMap = {

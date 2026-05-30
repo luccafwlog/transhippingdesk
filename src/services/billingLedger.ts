@@ -3,7 +3,6 @@ import { buildTransshippingPixPayload } from '../lib/pix'
 import type {
   ConsolidatableReceivable,
   ConsolidatedInvoiceResult,
-  IndividualInvoiceResult,
   LedgerPaymentResult,
   ReconcileByTxidResult,
 } from '../types/database'
@@ -59,23 +58,6 @@ export async function createConsolidatedInvoice(input: {
   }
   return result
 }
-
-export async function createIndividualInvoiceFromReceivable(input: {
-  receivableId: number
-  dueDate?: string | null
-  notes?: string | null
-  actorId?: string | null
-}) {
-  const { data, error } = await supabase.rpc('create_local_individual_invoice_from_receivable', {
-    p_receivable_id: input.receivableId,
-    p_due_date: input.dueDate ?? null,
-    p_notes: input.notes?.trim() || null,
-    p_actor: input.actorId ?? null,
-  })
-  if (error) throw error
-  return data as unknown as IndividualInvoiceResult
-}
-
 export async function registerLedgerInvoicePayment(input: {
   invoiceId: number
   amountBrl: number
@@ -98,17 +80,6 @@ export async function registerLedgerInvoicePayment(input: {
   if (error) throw error
   return data as unknown as LedgerPaymentResult
 }
-
-export async function obsoleteConsolidatedInvoice(input: { invoiceId: number; reason?: string | null }) {
-  const { data, error } = await supabase.rpc('obsolete_consolidated_invoice', {
-    p_invoice_id: input.invoiceId,
-    p_reason: input.reason?.trim() || null,
-    p_actor: null,
-  })
-  if (error) throw error
-  return data as unknown as { invoice_id: number; status: 'obsolete'; reason: string }
-}
-
 export async function reconcileInvoicePaymentByTxid(input: {
   txid: string
   amountBrl: number

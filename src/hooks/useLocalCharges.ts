@@ -3,9 +3,7 @@ import { queryKeys } from '../services/queryKeys'
 import {
   addManualBlCharge,
   calculateLocalChargesBatch,
-  getBillingRunDetails,
   listLocalChargeOperationalRows,
-  listBillingRuns,
   deleteManualBlCharge,
   markLocalChargesReadyBatch,
   markLocalChargesReviewedBatch,
@@ -214,22 +212,6 @@ export function useLocalChargeOperations(filters?: {
     queryFn: () => listLocalChargeOperationalRows(filters),
   })
 }
-
-export function useBillingRuns(limit = 50) {
-  return useQuery({
-    queryKey: queryKeys.billingRuns.list(limit),
-    queryFn: () => listBillingRuns(limit),
-  })
-}
-
-export function useBillingRunDetails(billingRunId?: number | null) {
-  return useQuery({
-    queryKey: queryKeys.billingRuns.detail(billingRunId),
-    enabled: Boolean(billingRunId),
-    queryFn: () => getBillingRunDetails(Number(billingRunId)),
-  })
-}
-
 export function useCustomerReconciliationQueue(status?: '' | 'pending' | 'approved' | 'rejected', limit = 200) {
   return useQuery({
     queryKey: queryKeys.reconciliation.queue(status, limit),

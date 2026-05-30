@@ -16,7 +16,7 @@ import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase 
 import { createCustomer } from '../services/customers'
 import { exportCustomerBaseWorkbook } from '../services/exports'
 import { supabase } from '../services/supabase'
-import type { CustomerListItem } from '../types/database'
+import type { CustomerContact, CustomerListItem } from '../types/database'
 
 const customerCreateSchema = z.object({
   cnpjCpf: z
@@ -36,7 +36,7 @@ type ContactForm = {
   name: string
   email: string
   phone: string
-  purpose: 'faturamento' | 'operacional' | 'financeiro' | 'geral'
+  purpose: NonNullable<CustomerContact['purpose']>
   is_primary: boolean
 }
 

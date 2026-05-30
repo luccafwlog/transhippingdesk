@@ -30,7 +30,7 @@ export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
   return parseBaplieText(text)
 }
 
-export function parseBaplieText(text: string): ParsedBaplie {
+function parseBaplieText(text: string): ParsedBaplie {
   const segments = text
     .split("'")
     .map((s) => s.trim())

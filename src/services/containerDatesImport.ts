@@ -1,7 +1,9 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
-import { calculateDemurrage, createInvoiceForReturnedBL, fetchROE, issueInvoice } from './demurrage'
+import { calculateDemurrage } from './demurrage/demurrageRates'
+import { createInvoiceForReturnedBL, issueInvoice } from './demurrage/demurrageInvoices'
+import { fetchROE } from './demurrage/demurrageKpis'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],

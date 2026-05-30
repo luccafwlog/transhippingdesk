@@ -1,7 +1,7 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import type { BLListItem, ContainerListItem } from '../types/database'
 import type { CustomerListItem } from '../types/database'
-import type { LocalChargeOperationalRow } from './localCharges'
+import type { LocalChargeOperationalRow } from './charges/chargeOperationsService'
 import type {
   CustomerReportRow,
   FinancialReportRow,
