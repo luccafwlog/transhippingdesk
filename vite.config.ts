@@ -47,7 +47,9 @@ export default defineConfig({
     },
   },
   test: {
+    // Padrão node (rápido) para os testes de serviço/lib. Testes de componente
+    // (.test.tsx) optam por jsdom via comentário `// @vitest-environment jsdom`.
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 })
