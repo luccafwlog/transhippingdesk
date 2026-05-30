@@ -11,6 +11,33 @@ import { getInvoiceBls, getInvoicePaymentDate, isConsolidatedInvoice, type Invoi
 import { invoiceStatusLabel } from '../pages/faturamentoInvoiceStatus'
 import { formatDate } from '../lib/utils'
 
+// Neutraliza injeção de fórmula (CSV/Excel injection). Dados de células vêm de
+// arquivos de armador importados (não confiáveis): um valor iniciado por
+// = + - @ ou tab/CR é interpretado como fórmula ao abrir no Excel/Sheets.
+// Prefixar com aspa simples força o tratamento como texto literal.
+const FORMULA_INJECTION_PREFIX = /^[=+\-@\t\r]/
+
+function sanitizeCellValue<T>(value: T): T | string {
+  if (typeof value === 'string' && FORMULA_INJECTION_PREFIX.test(value)) {
+    return `'${value}`
+  }
+  return value
+}
+
+function toSheet<T extends Record<string, unknown>>(
+  XLSX: typeof import('xlsx'),
+  rows: T[],
+) {
+  const safeRows = rows.map((row) => {
+    const out: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(row)) {
+      out[key] = sanitizeCellValue(value)
+    }
+    return out
+  })
+  return XLSX.utils.json_to_sheet(safeRows)
+}
+
 export async function exportManifestWorkbook(rows: BLListItem[]) {
   const XLSX = await import('xlsx')
   const manifestRows = rows.map((row) => ({
@@ -78,9 +105,9 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
     }))
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(manifestRows), 'Manifestos')
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(containerRows), 'Containers')
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(breakbulkRows), 'CargaSolta')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, manifestRows), 'Manifestos')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, containerRows), 'Containers')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, breakbulkRows), 'CargaSolta')
   XLSX.writeFile(workbook, `manifestos-${makeTimestamp()}.xlsx`)
 }
 
@@ -109,7 +136,7 @@ export async function exportContainerWorkbook(rows: ContainerListItem[]) {
   }))
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Containers')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Containers')
   XLSX.writeFile(workbook, `containers-${makeTimestamp()}.xlsx`)
 }
 
@@ -155,8 +182,8 @@ export async function exportInvoicesWorkbook(rows: InvoiceListRow[]) {
   )
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(invoiceRows), 'Faturas')
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(blRows), 'BLs')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, invoiceRows), 'Faturas')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, blRows), 'BLs')
   XLSX.writeFile(workbook, `faturas-${makeTimestamp()}.xlsx`)
 }
 
@@ -186,7 +213,7 @@ export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOpera
   }))
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'TaxasLocais')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'TaxasLocais')
   XLSX.writeFile(workbook, `taxas-locais-${makeTimestamp()}.xlsx`)
 }
 
@@ -211,7 +238,7 @@ export async function exportOperationalReportWorkbook(rows: OperationalReportRow
   }))
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Operacional')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Operacional')
   XLSX.writeFile(workbook, `relatorio-operacional-${makeTimestamp()}.xlsx`)
 }
 
@@ -229,7 +256,7 @@ export async function exportFinancialReportWorkbook(rows: FinancialReportRow[]) 
   }))
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Financeiro')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Financeiro')
   XLSX.writeFile(workbook, `relatorio-financeiro-${makeTimestamp()}.xlsx`)
 }
 
@@ -247,7 +274,7 @@ export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
   }))
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'Clientes')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Clientes')
   XLSX.writeFile(workbook, `relatorio-clientes-${makeTimestamp()}.xlsx`)
 }
 
@@ -265,7 +292,7 @@ export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {
   }))
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'BaseClientes')
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'BaseClientes')
   XLSX.writeFile(workbook, `base-clientes-${makeTimestamp()}.xlsx`)
 }
 

@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { escapeFilterTerm } from '../../lib/utils'
 
 export type LocalChargeOverrideItem = {
   id: number
@@ -169,7 +170,7 @@ export async function listOverrideCustomers(search?: string) {
     .order('name', { ascending: true })
     .range(0, 199)
 
-  const normalizedSearch = String(search ?? '').trim()
+  const normalizedSearch = escapeFilterTerm(String(search ?? ''))
   if (normalizedSearch.length >= 2) {
     query = query.or(`name.ilike.%${normalizedSearch}%,cnpj_cpf.ilike.%${normalizedSearch}%`)
   }

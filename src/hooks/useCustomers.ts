@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
-import { onlyDigits } from '../lib/utils'
+import { escapeFilterTerm, onlyDigits } from '../lib/utils'
 import type { Customer, CustomerDetail, CustomerListItem } from '../types/database'
 
 export type CustomerFilters = {
@@ -202,10 +202,11 @@ export function useCustomerLookup(search: string) {
     queryKey: ['customer-lookup', search],
     enabled: search.trim().length >= 2,
     queryFn: async () => {
+      const term = escapeFilterTerm(search)
       const { data, error } = await supabase
         .from('customers')
         .select('id, cnpj_cpf, name, city, state')
-        .or(`name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`)
+        .or(`name.ilike.%${term}%,cnpj_cpf.ilike.%${term}%`)
         .order('name', { ascending: true })
         .range(0, 24)
 

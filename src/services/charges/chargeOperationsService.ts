@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { escapeFilterTerm } from '../../lib/utils'
 
 const OPERATIONAL_PAGE_SIZE = 1000
 
@@ -240,8 +241,10 @@ async function loadBlOperationalRows(
       query = query.eq('charge_status', filters.chargeStatus)
     }
     if (filters?.search) {
-      const search = filters.search.trim()
-      query = query.or(`id.ilike.%${search}%,consignee.ilike.%${search}%`)
+      const search = escapeFilterTerm(filters.search)
+      if (search) {
+        query = query.or(`id.ilike.%${search}%,consignee.ilike.%${search}%`)
+      }
     }
 
     const { data: blRows, error: blError } = await query
@@ -387,8 +390,10 @@ async function loadGraniteOperationalRows(
       query = query.ilike('discharge_port', `%${filters.pod}%`)
     }
     if (filters?.search) {
-      const search = filters.search.trim()
-      query = query.or(`bl_number.ilike.%${search}%,shipper_name.ilike.%${search}%`)
+      const search = escapeFilterTerm(filters.search)
+      if (search) {
+        query = query.or(`bl_number.ilike.%${search}%,shipper_name.ilike.%${search}%`)
+      }
     }
 
     const { data, error } = await query
