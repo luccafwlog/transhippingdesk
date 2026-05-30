@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { escapeFilterTerm } from '../../lib/utils'
+import { escapeFilterTerm, sanitizeLikeTerm } from '../../lib/utils'
 
 const OPERATIONAL_PAGE_SIZE = 1000
 
@@ -232,7 +232,8 @@ async function loadBlOperationalRows(
     }
     query = query.or('financial_status.is.null,financial_status.neq.invoiced')
     if (filters?.pod) {
-      query = query.ilike('pod', `%${filters.pod}%`)
+      const pod = sanitizeLikeTerm(filters.pod)
+      if (pod) query = query.ilike('pod', `%${pod}%`)
     }
     if (filters?.voyageId) {
       query = query.eq('voyage_id', filters.voyageId)
@@ -387,7 +388,8 @@ async function loadGraniteOperationalRows(
       query = query.eq('charge_status', requested)
     }
     if (filters?.pod) {
-      query = query.ilike('discharge_port', `%${filters.pod}%`)
+      const pod = sanitizeLikeTerm(filters.pod)
+      if (pod) query = query.ilike('discharge_port', `%${pod}%`)
     }
     if (filters?.search) {
       const search = escapeFilterTerm(filters.search)

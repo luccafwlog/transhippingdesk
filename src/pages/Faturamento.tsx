@@ -54,7 +54,7 @@ import {
   type Alert,
 } from '../services/alerts'
 import { logOperationalEvent } from '../services/operationalEvents'
-import { formatBRL, formatDate } from '../lib/utils'
+import { formatBRL, formatDate, formatUSD } from '../lib/utils'
 import { isLedgerInvoicePayable } from './faturamentoLedgerPayment'
 import { INVOICE_STATUS_FILTER_OPTIONS, invoiceStatusLabel, invoiceStatusTone } from './faturamentoInvoiceStatus'
 
@@ -1016,9 +1016,3 @@ function formatPodList(bls: InvoiceListBl[]) {
   return `${pods[0]} +${pods.length - 1}`
 }
 
-function formatUSD(value: number | null | undefined) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(Number(value ?? 0))
-}

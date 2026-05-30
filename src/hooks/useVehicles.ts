@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
+import { sanitizeLikeTerm } from '../lib/utils'
 import type { VehicleListItem } from '../types/database'
 
 export type VehiclePageFilters = {
@@ -74,7 +75,10 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
         .order('created_at', { ascending: false })
         .range(rangeFrom, rangeTo)
 
-      if (filters.search) q = q.ilike('chassis', `%${filters.search}%`)
+      if (filters.search) {
+        const term = sanitizeLikeTerm(filters.search)
+        if (term) q = q.ilike('chassis', `%${term}%`)
+      }
 
       // container and bl filters need join — apply post-fetch for now since Supabase
       // doesn't support ilike on nested select columns in .filter()

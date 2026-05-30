@@ -234,8 +234,10 @@ export async function listVaziosImportacaoContainers(filters: {
   page?: number
   pageSize?: number
 }) {
-  const page = filters.page ?? 1
-  const pageSize = filters.pageSize ?? 20
+  // Limita os parâmetros de paginação para evitar DoS por alocação excessiva
+  // (ex.: pageSize=999999) ou offsets negativos vindos do cliente.
+  const pageSize = Math.min(Math.max(Math.trunc(filters.pageSize ?? 20), 1), 200)
+  const page = Math.max(Math.trunc(filters.page ?? 1), 1)
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 

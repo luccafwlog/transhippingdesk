@@ -10,7 +10,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Subset prático de RFC 5322: rejeita formatos inválidos como `a@b.c` (TLD < 2),
+// `user@.com` ou domínios sem ponto.
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/
 const PASSWORD_MIN_LENGTH = 8
 
 // CORS restrito ao domínio do app. A env var APP_URL deve ser configurada
@@ -26,6 +28,18 @@ const corsHeaders = {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // Defesa em profundidade contra CSRF de outras origens: requisições de browser
+  // (com header Origin) só são aceitas se baterem com ALLOWED_ORIGIN. Chamadas
+  // server-to-server (sem Origin) continuam permitidas. Se ALLOWED_ORIGIN não
+  // estiver configurada, qualquer Origin de browser é rejeitada (fail-closed).
+  const requestOrigin = req.headers.get('Origin')
+  if (requestOrigin && requestOrigin !== ALLOWED_ORIGIN) {
+    return new Response(JSON.stringify({ error: 'Forbidden origin' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {

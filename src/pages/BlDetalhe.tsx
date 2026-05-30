@@ -25,7 +25,7 @@ import {
   useOverrideCustomers,
   useUpdateManualBlCharge,
 } from '../hooks/useLocalCharges'
-import { formatBRL, formatDate, normalizeText } from '../lib/utils'
+import { formatBRL, formatDate, formatUSD, normalizeText } from '../lib/utils'
 import { createInvoiceFromBls } from '../services/billing'
 import { createCustomer } from '../services/customers'
 import { logOperationalEvent } from '../services/operationalEvents'
@@ -1409,14 +1409,6 @@ function formatNumber(value: number | string | null | undefined) {
   return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
 }
 
-function formatUSD(value: number | null | undefined) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value ?? 0))
-}
 
 function resolveChargeStatusTone(status: BL['charge_status']) {
   if (status === 'review_required') return 'yellow'

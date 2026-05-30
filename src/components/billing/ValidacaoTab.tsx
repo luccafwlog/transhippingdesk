@@ -21,7 +21,7 @@ import { useVoyageOptions } from '../../hooks/useBls'
 import { calculateGraniteBlCharges } from '../../services/graniteCharges'
 import { markGraniteBlReady } from '../../services/charges/chargeOperationsService'
 import { queryKeys } from '../../services/queryKeys'
-import { formatBRL, formatDate } from '../../lib/utils'
+import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
 import { createInvoiceFromBls } from '../../services/billing'
 
 type OpsFilters = {
@@ -772,11 +772,3 @@ function PipelineStep({
   )
 }
 
-function formatUSD(value: number) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value ?? 0))
-}
