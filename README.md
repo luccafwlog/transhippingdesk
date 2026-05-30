@@ -156,14 +156,29 @@ Disponíveis em `public/templates/` e servidos diretamente pelo app:
 
 ## Deploy
 
-Deploy automático via **GitHub Actions** em todo push para `main`.
+O fluxo de deploy é totalmente automatizado via **GitHub Actions** — nenhum push direto para `main` é necessário.
 
-Pipeline (`.github/workflows/firebase-deploy.yml`):
+### Fluxo dinâmico (padrão)
+
+Todo PR aberto ou reaberto dispara `.github/workflows/auto-merge-prs.yml`:
+
+1. **Merge automático** (squash) via API do GitHub → gera SHA do commit final
+2. Checkout do SHA resultante + setup Node 20
+3. `npm ci --legacy-peer-deps` + `npm run build`
+   - Injeta `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_APP_COMMIT_SHA` dos secrets
+4. Deploy para **Firebase Hosting** (projeto `importmanager-bda3e`, target `transhippingdesk`)
+
+> `VITE_APP_COMMIT_SHA` expõe o SHA do deploy na aplicação (ex: rodapé ou painel de debug).
+
+### Deploy por push direto para `main`
+
+`.github/workflows/firebase-deploy.yml` cobre pushes diretos a `main` (hotfixes):
+
 1. Checkout + setup Node 20
-2. `npm ci` + `npm run build` (injeta `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` dos secrets)
-3. Deploy para **Firebase Hosting** (projeto `importmanager-bda3e`, target `transhippingdesk`)
+2. `npm ci --legacy-peer-deps` + `npm run build`
+3. Deploy para Firebase Hosting
 
-Para deploy manual:
+### Deploy manual
 
 ```bash
 npm run build
