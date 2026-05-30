@@ -47,8 +47,8 @@ export function Revisao() {
     ])
   }
 
-  // Problema C: apos resolver a revisao, se as taxas locais continuam pendentes
-  // de recalculo (ou o granito ainda nao foi faturado), avisa no mesmo contexto.
+  // Apos resolver a revisao, se as taxas locais continuam pendentes de recalculo
+  // (ou o granito ainda nao foi faturado), avisa no mesmo contexto.
   function evaluateRecalcNotice(item: ReviewQueueItem) {
     if (item.source === 'bl') {
       if (item.charge_status === 'review_required') {

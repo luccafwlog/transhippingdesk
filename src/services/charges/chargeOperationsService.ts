@@ -198,7 +198,7 @@ async function loadBlOperationalRows(
   const limit = Math.max(50, Math.min(5000, Number(filters?.limit ?? 400)))
   const rows: LocalChargeOperationalRow[] = []
 
-  // FIX: pagina internamente a fila operacional para nao ocultar B/Ls em volumes maiores.
+  // Pagina internamente a fila operacional para nao ocultar B/Ls em volumes maiores.
   for (let offset = 0; offset < limit; offset += OPERATIONAL_PAGE_SIZE) {
     const pageSize = Math.min(OPERATIONAL_PAGE_SIZE, limit - offset)
     let query = supabase
@@ -359,7 +359,7 @@ async function loadGraniteOperationalRows(
 
   let granRows: GraniteOperationalRaw[] = []
 
-  // FIX: pagina internamente a fila de Granito para manter cobertura em listas grandes.
+  // Pagina internamente a fila de Granito para manter cobertura em listas grandes.
   for (let offset = 0; offset < limit; offset += OPERATIONAL_PAGE_SIZE) {
     const pageSize = Math.min(OPERATIONAL_PAGE_SIZE, limit - offset)
     let query = supabase
