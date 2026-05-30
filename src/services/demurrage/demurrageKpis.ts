@@ -13,6 +13,9 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
     supabase.from('demurrage_invoices').select('total_usd').eq('status', 'draft'),
     supabase.from('demurrage_invoices').select('frozen_total_brl').eq('status', 'issued'),
   ])
+  for (const res of [contRes, draftRes, issuedRes]) {
+    if (res.error) throw res.error
+  }
   return {
     overdueContainers: contRes.count ?? 0,
     draftInvoicesTotalUsd: (draftRes.data ?? []).reduce((s, r) => s + (r.total_usd ?? 0), 0),
@@ -20,13 +23,12 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
   }
 }
 
-export function parsePixExtract(arrayBuffer: ArrayBuffer): PixTransaction[] {
-  const XLSX = (window as unknown as { XLSX?: unknown }).XLSX as { read: (data: Uint8Array, opts: { type: string; raw: boolean }) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown, opts: { header: number; defval: string }) => unknown[][] } } | undefined
-  if (!XLSX) throw new Error('XLSX não disponível. Adicione a lib ao projeto.')
+export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTransaction[]> {
+  const XLSX = await import('xlsx')
 
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', raw: false })
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as string[][]
+  const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' })
 
   let headerRowIdx = -1
   for (let i = 0; i < rows.length; i++) {
