@@ -56,12 +56,37 @@ type WebhookPayload = {
   } | null
 }
 
+// Comparação em tempo constante para evitar timing attacks no bearer secret.
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const ba = enc.encode(a)
+  const bb = enc.encode(b)
+  if (ba.length !== bb.length) return false
+  let diff = 0
+  for (let i = 0; i < ba.length; i++) diff |= ba[i] ^ bb[i]
+  return diff === 0
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get('origin')
   const headers = corsHeaders(origin)
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers })
+  }
+
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+  // Autenticação do webhook: o Database Webhook envia
+  // `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` como secret header.
+  // Sem essa verificação, qualquer um que conheça a URL podia disparar emails
+  // forjados para clientes reais (spoofing / email bombing).
+  const authHeader = req.headers.get('Authorization') ?? ''
+  if (!timingSafeEqual(authHeader, `Bearer ${serviceRoleKey}`)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+    })
   }
 
   try {
@@ -80,10 +105,25 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      serviceRoleKey,
     )
 
-    const invoice = payload.record
+    // Re-buscar a fatura do banco em vez de confiar no payload do request:
+    // o conteúdo do email (valor, número, observações) passa a vir de fonte
+    // confiável, não de um corpo POST potencialmente forjado.
+    const { data: dbInvoice } = await supabase
+      .from('invoices')
+      .select('id, invoice_number, status, total_brl, due_date, notes, customer_id')
+      .eq('id', payload.record.id)
+      .single()
+
+    if (!dbInvoice || dbInvoice.status !== 'issued') {
+      return new Response(JSON.stringify({ skipped: true, reason: 'invoice not issued in db' }), {
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const invoice = dbInvoice
 
     if (!invoice.customer_id) {
       return new Response(JSON.stringify({ skipped: true, reason: 'no customer_id' }), {
