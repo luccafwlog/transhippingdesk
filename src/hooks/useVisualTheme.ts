@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, createElement, useEffect, useMemo, useState } from 'react'
 
 export type VisualTheme = 'current' | 'dark' | 'light'
 
@@ -36,12 +36,4 @@ export function VisualThemeProvider({ children }: { children: React.ReactNode })
   )
 
   return createElement(VisualThemeContext.Provider, { value }, children)
-}
-
-export function useVisualTheme() {
-  const context = useContext(VisualThemeContext)
-  if (!context) {
-    throw new Error('useVisualTheme must be used within VisualThemeProvider')
-  }
-  return context
 }

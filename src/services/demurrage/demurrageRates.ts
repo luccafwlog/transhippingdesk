@@ -8,13 +8,13 @@ export type RateGroup = {
   p2: { range: [number, number]; usd: number }
 }
 
-export type ResolvedRate = {
+type ResolvedRate = {
   freeUntil: number
   p1: { range: [number, number]; usd: number }
   p2: { range: [number, number]; usd: number }
 }
 
-export const STATIC_RATE_GROUPS: RateGroup[] = [
+const STATIC_RATE_GROUPS: RateGroup[] = [
   { aliases: ['20GP', '20G0', '20HC', '20HQ', '22G1', '20G1'], freeUntil: 21, p1: { range: [22, 30], usd: 30 }, p2: { range: [31, Infinity], usd: 50 } },
   { aliases: ['40GP', '40G0', '40HC', '40HQ', '40G1', '42G1', '45G1'], freeUntil: 21, p1: { range: [22, 30], usd: 60 }, p2: { range: [31, Infinity], usd: 80 } },
   { aliases: ['20FR', '20OT', '20FT'], freeUntil: 21, p1: { range: [22, 30], usd: 50 }, p2: { range: [31, Infinity], usd: 80 } },
@@ -28,7 +28,7 @@ const RATE_CACHE_TTL_MS = 5 * 60 * 1000
 let dynamicRateGroups: RateGroup[] | null = null
 let dynamicRateGroupsLoadedAt = 0
 
-export function resolveActiveRateGroups(): RateGroup[] {
+function resolveActiveRateGroups(): RateGroup[] {
   if (dynamicRateGroups && dynamicRateGroups.length > 0) {
     if (Date.now() - dynamicRateGroupsLoadedAt < RATE_CACHE_TTL_MS) {
       return dynamicRateGroups
@@ -40,7 +40,7 @@ export function resolveActiveRateGroups(): RateGroup[] {
   return STATIC_RATE_GROUPS
 }
 
-export function toRateGroups(rows: DemurrageRate[]): RateGroup[] {
+function toRateGroups(rows: DemurrageRate[]): RateGroup[] {
   const grouped = new Map<string, DemurrageRate>()
   for (const row of rows) {
     const key = String(row.container_type ?? '').trim().toUpperCase()
