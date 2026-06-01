@@ -21,6 +21,12 @@ export function Login() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError('')
+
+    if (!isSupabaseConfigured) {
+      setError('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env antes de autenticar.')
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -72,7 +78,7 @@ export function Login() {
 
             {error ? <InlineError message={error} /> : null}
 
-            <Button loading={submitting} type="submit">
+            <Button disabled={!isSupabaseConfigured} loading={submitting} type="submit">
               Entrar
             </Button>
           </form>

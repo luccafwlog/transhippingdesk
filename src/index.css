@@ -36,8 +36,8 @@
   --app-shadow-strong: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 4px rgba(15, 23, 42, 0.08);
   --app-radius: 8px;
   --app-control-h: 44px;
-  --app-thead-bg: #e6e1d5;
-  --app-thead-text: #5a5549;
+  --app-thead-bg: var(--app-navy);
+  --app-thead-text: #ffffff;
   --app-font-display: "Syne", "DM Sans", sans-serif;
   --app-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
   font-family: "DM Sans", "Segoe UI", sans-serif;
@@ -76,8 +76,8 @@
   --app-shadow-strong: 0 4px 12px rgba(2, 6, 23, 0.28), 0 2px 6px rgba(2, 6, 23, 0.20);
   --app-radius: 12px;
   --app-header-height: 56px;
-  --app-thead-bg: #0d1117;
-  --app-thead-text: #95a7c0;
+  --app-thead-bg: var(--app-navy);
+  --app-thead-text: #ffffff;
 }
 
 :root[data-visual-theme='light'] {
@@ -114,8 +114,8 @@
   --app-shadow-strong: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 4px rgba(15, 23, 42, 0.08);
   --app-radius: 8px;
   --app-control-h: 44px;
-  --app-thead-bg: #e6e1d5;
-  --app-thead-text: #5a5549;
+  --app-thead-bg: var(--app-navy);
+  --app-thead-text: #ffffff;
   --app-font-display: "Syne", "DM Sans", sans-serif;
   --app-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
   font-family: "DM Sans", "Segoe UI", sans-serif;
