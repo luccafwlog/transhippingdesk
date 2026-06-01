@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { reportBestEffortFailure } from '../lib/telemetry'
 
 type OperationalEventCode =
   | 'manifest_import_rate_limited'
@@ -35,10 +36,7 @@ export async function logOperationalEvent(input: LogOperationalEventInput) {
 
   const { error } = await supabase.from('audit_logs').insert(payload)
   if (error) {
-    console.warn('Falha ao registrar evento operacional', {
-      code: input.code,
-      error,
-    })
+    reportBestEffortFailure('registrar evento operacional', error, { code: input.code })
   }
 }
 
