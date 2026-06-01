@@ -21,6 +21,7 @@ import {
   useSaveCustomerRateOverride,
 } from '../hooks/useLocalCharges'
 import { formatBRL, formatUSD } from '../lib/utils'
+import { validateOverrideInput, validateTableInput, validateTableItemInput } from './taxasLocaisHelpers'
 
 type LocalChargeTab = 'tabelas' | 'overrides'
 
@@ -143,24 +144,9 @@ export function TaxasLocais() {
   }, [tables])
 
   async function handleSaveOverride() {
-    const customerId = Number(overrideForm.customerId)
-    const chargeItemId = Number(overrideForm.chargeItemId)
-    const overrideValue = Number(String(overrideForm.overrideValue).replace(',', '.'))
-
-    if (!Number.isInteger(customerId) || customerId <= 0) {
-      showToast('Selecione um cliente para salvar o override.', 'error')
-      return
-    }
-    if (!Number.isInteger(chargeItemId) || chargeItemId <= 0) {
-      showToast('Selecione um item de taxa para salvar o override.', 'error')
-      return
-    }
-    if (!Number.isFinite(overrideValue) || overrideValue <= 0) {
-      showToast('Informe um valor de override valido (maior que zero).', 'error')
-      return
-    }
-    if (overrideForm.validFrom && overrideForm.validTo && overrideForm.validTo < overrideForm.validFrom) {
-      showToast('A vigência final não pode ser anterior à vigência inicial.', 'error')
+    const result = validateOverrideInput(overrideForm)
+    if (!result.ok) {
+      showToast(result.error, 'error')
       return
     }
 
@@ -168,12 +154,7 @@ export function TaxasLocais() {
     try {
       await saveOverrideMutation.mutateAsync({
         id: overrideForm.id,
-        customerId,
-        chargeItemId,
-        overrideValue,
-        validFrom: overrideForm.validFrom || null,
-        validTo: overrideForm.validTo || null,
-        notes: overrideForm.notes || null,
+        ...result.value,
       })
 
       showToast(overrideForm.id ? 'Override atualizado com sucesso.' : 'Override criado com sucesso.', 'success')
@@ -217,20 +198,9 @@ export function TaxasLocais() {
   }
 
   async function handleSaveTable() {
-    if (!tableForm.name.trim()) {
-      showToast('Informe o nome da tabela.', 'error')
-      return
-    }
-    if (!tableForm.pod.trim()) {
-      showToast('Informe o POD da tabela.', 'error')
-      return
-    }
-    if (!tableForm.validFrom) {
-      showToast('Informe a vigência inicial da tabela.', 'error')
-      return
-    }
-    if (tableForm.validTo && tableForm.validTo < tableForm.validFrom) {
-      showToast('Vigência final não pode ser anterior à inicial.', 'error')
+    const result = validateTableInput(tableForm)
+    if (!result.ok) {
+      showToast(result.error, 'error')
       return
     }
 
@@ -241,7 +211,7 @@ export function TaxasLocais() {
         cargoMode: tableForm.cargoMode,
         pod: tableForm.pod,
         validFrom: tableForm.validFrom,
-        validTo: tableForm.validTo || null,
+        validTo: result.value.validTo,
         active: tableForm.active,
         notes: tableForm.notes || null,
       })
@@ -286,26 +256,12 @@ export function TaxasLocais() {
   }
 
   async function handleSaveTableItem() {
-    const chargeTableId = Number(tableItemForm.chargeTableId)
-    const unitValue = Number(String(tableItemForm.unitValue).replace(',', '.'))
-    const sortOrder = Number(tableItemForm.sortOrder)
-
-    if (!Number.isInteger(chargeTableId) || chargeTableId <= 0) {
-      showToast('Selecione a tabela do item.', 'error')
+    const result = validateTableItemInput(tableItemForm)
+    if (!result.ok) {
+      showToast(result.error, 'error')
       return
     }
-    if (!tableItemForm.name.trim()) {
-      showToast('Informe o nome do item de taxa.', 'error')
-      return
-    }
-    if (!Number.isFinite(unitValue) || unitValue < 0) {
-      showToast('Valor unitario invalido.', 'error')
-      return
-    }
-    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
-      showToast('Sort order invalido.', 'error')
-      return
-    }
+    const { chargeTableId, unitValue, sortOrder } = result.value
 
     try {
       await saveChargeTableItemMutation.mutateAsync({
