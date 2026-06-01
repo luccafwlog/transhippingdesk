@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FileDown } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
+import { TabButton } from '../components/ui/TabButton'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
@@ -43,18 +44,6 @@ export function Relatorios() {
       {tab === 'clientes' ? <CustomerReportTab /> : null}
       {tab === 'demurrage' ? <DemurrageReportTab /> : null}
     </>
-  )
-}
-
-function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`app-tab ${active ? 'app-tab--active' : ''}`}
-    >
-      {label}
-    </button>
   )
 }
 

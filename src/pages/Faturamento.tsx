@@ -10,6 +10,7 @@ import { listDemurrageInvoices, getInvoiceDetail as getDemurrageInvoiceDetail } 
 import type { DemurrageInvoiceDetail } from '../types/database'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
+import { TabButton } from '../components/ui/TabButton'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
@@ -675,14 +676,6 @@ export function Faturamento() {
 type DemurrageInvoicesPanelProps = {
   query: { data?: Awaited<ReturnType<typeof listDemurrageInvoices>>; isLoading: boolean; error: unknown }
   onOpenDetail: (id: number) => void
-}
-
-function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button className={`app-tab ${active ? 'app-tab--active' : ''}`} onClick={onClick} type="button">
-      {label}
-    </button>
-  )
 }
 
 function PendenciasFaturamentoTab({ userId }: { userId: string | null }) {
