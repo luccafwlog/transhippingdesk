@@ -1,5 +1,6 @@
 import type { Alert } from '../types/database'
 import { supabase } from './supabase'
+import { reportBestEffortFailure } from '../lib/telemetry'
 
 export type { Alert }
 
@@ -56,7 +57,7 @@ export async function createAlert(input: {
     status: 'open',
   })
   if (error) {
-    console.warn('Falha ao criar alerta financeiro', { type: input.type, error })
+    reportBestEffortFailure('criar alerta financeiro', error, { type: input.type })
   }
 }
 

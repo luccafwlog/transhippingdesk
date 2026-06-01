@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type { InvoiceDocumentStatus, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
 import { buildTransshippingPixPayload } from '../lib/pix'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../lib/utils'
+import { reportBestEffortFailure } from '../lib/telemetry'
 
 // Filtro de status exposto na UI: 3 estados operacionais. Cada um cobre os
 // status documentais reais persistidos na coluna invoices.status.
@@ -96,7 +97,7 @@ async function persistPixPayload(invoiceId: number): Promise<void> {
     inv.invoice_number,
   )
   const { error: updateError } = await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
-  if (updateError) console.error('[billing] persistPixPayload update failed', updateError)
+  if (updateError) reportBestEffortFailure('persistPixPayload update', updateError, { invoiceId })
 }
 
 const INVOICE_LIST_SELECT = `
