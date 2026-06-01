@@ -7,7 +7,12 @@ import userEvent from '@testing-library/user-event'
 // só usam helpers puros dele (POD_CE_STATUS_OPTIONS, getEditableVoyagePodCeStatus).
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))
 
-import { PodScheduleModal, PolScheduleModal } from '../VoyageScheduleModals'
+import {
+  AddPodToVoyageModal,
+  ExportScheduleModal,
+  PodScheduleModal,
+  PolScheduleModal,
+} from '../VoyageScheduleModals'
 
 afterEach(cleanup)
 
@@ -98,5 +103,79 @@ describe('PodScheduleModal', () => {
 
     await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ rtw: null, linked: false }))
+  })
+})
+
+describe('AddPodToVoyageModal', () => {
+  const voyage = { voyageId: 5, voyageLabel: 'NAVIO X 10N' }
+
+  it('mantém o botão desabilitado enquanto o POD está vazio', () => {
+    render(<AddPodToVoyageModal open voyage={voyage} onClose={() => {}} onSaved={async () => {}} />)
+    expect((screen.getByRole('button', { name: 'Adicionar POD' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('normaliza o POD para maiúsculas e envia o payload de criação', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    render(<AddPodToVoyageModal open voyage={voyage} onClose={() => {}} onSaved={onSaved} />)
+
+    await user.type(screen.getByLabelText('POD'), 'brssa')
+    await user.click(screen.getByRole('button', { name: 'Adicionar POD' }))
+
+    expect(onSaved).toHaveBeenCalledWith({
+      voyageId: 5,
+      pod: 'BRSSA',
+      eta: null,
+      etb: null,
+      ata: null,
+      atd: null,
+      rtw: null,
+      ceStatus: 'waiting',
+      linked: false,
+    })
+  })
+})
+
+describe('ExportScheduleModal', () => {
+  const exportData = {
+    voyageId: 8,
+    voyageLabel: 'NAVIO Y 20S',
+    existing: {
+      pol: 'brvix',
+      eta: '2026-04-01',
+      etb: null,
+      hasGranite: true,
+      containersQty: 10,
+      movementsQty: null,
+      ceStatus: 'waiting' as const,
+      linked: true,
+    },
+  }
+
+  it('pré-preenche a partir do registro existente', () => {
+    render(<ExportScheduleModal open exportData={exportData as never} onClose={() => {}} onSaved={async () => {}} />)
+    expect((screen.getByLabelText('POL (Porto de Embarque)') as HTMLInputElement).value).toBe('brvix')
+    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('10')
+    expect((screen.getByLabelText('Movimentos') as HTMLInputElement).value).toBe('')
+  })
+
+  it('envia POL em maiúsculas e converte quantidades vazias para null', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    render(<ExportScheduleModal open exportData={exportData as never} onClose={() => {}} onSaved={onSaved} />)
+
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(onSaved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voyageId: 8,
+        pol: 'BRVIX',
+        hasGranite: true,
+        containersQty: 10,
+        movementsQty: null,
+        eta: '2026-04-01',
+        linked: true,
+      }),
+    )
   })
 })
