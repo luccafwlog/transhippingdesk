@@ -13,6 +13,7 @@ import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import { extractErrorText, needsCeMercante, needsCustomerLink, needsWeightFix } from './revisaoHelpers'
 import { InlineCustomerPicker, InlineFieldEditor } from '../components/shared/ReviewInlineEditors'
+import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { createCustomer } from '../services/customers'
 import { calculateBlLocalCharges } from '../services/charges/chargeOperationsService'
@@ -194,6 +195,18 @@ export function Revisao() {
   }, [data])
 
   const selected = selectedIndex !== null ? (filteredData[selectedIndex] ?? null) : null
+  const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0)
+  const filterDescription = describeActiveFilters([
+    { label: 'Busca', value: searchText },
+    { label: 'Motivo', value: reasonFilter },
+  ])
+  const emptyState = describeEmptyState({
+    entitySingular: 'B/L pendente',
+    entityPlural: 'B/Ls pendentes',
+    hasActiveFilters: activeFilterCount > 0,
+    emptyWithoutFilters: 'Nenhum B/L pendente de revisao.',
+    emptyWithFilters: 'Nenhum B/L corresponde ao filtro.',
+  })
 
   function openItem(index: number) {
     setSelectedIndex(index)
@@ -330,7 +343,7 @@ export function Revisao() {
 
         {data && data.length > 0 ? (
           <span className="ml-auto text-xs text-slate-500">
-            {filteredData.length} de {data.length} B/L{data.length !== 1 ? 's' : ''}
+            {formatResultCount(filteredData.length, 'B/L visivel', 'B/Ls visiveis')} de {data.length}
           </span>
         ) : null}
       </div>
@@ -409,6 +422,10 @@ export function Revisao() {
       ) : null}
 
       <Card className="overflow-hidden p-0">
+        <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-semibold text-white">{formatResultCount(filteredData.length, 'pendencia retornada', 'pendencias retornadas')}</span>
+          <span className="text-xs text-slate-400">{filterDescription}</span>
+        </div>
         {error ? <InlineError message="Erro ao carregar a fila de revisao." /> : null}
 
         <div className="app-table-scroll app-table-scroll--sticky">
@@ -436,8 +453,8 @@ export function Revisao() {
                 <tr>
                   <td colSpan={7} className="p-0">
                     <EmptyState
-                      title={data?.length ? 'Nenhum B/L corresponde ao filtro.' : 'Nenhum B/L pendente de revisao.'}
-                      description={data?.length ? 'Limpe os filtros para ver todos os pendentes.' : undefined}
+                      title={emptyState.title}
+                      description={emptyState.description}
                     />
                   </td>
                 </tr>

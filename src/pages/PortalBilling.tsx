@@ -8,6 +8,7 @@ import { Field, Input, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { usePortalAuth } from '../hooks/usePortalAuth'
+import { formatResultCount } from '../lib/operationalState'
 import {
   usePortalCreateConsolidation,
   usePortalDemurrageInvoiceDetail,
@@ -111,7 +112,9 @@ export function PortalBilling() {
           <Card className="overflow-hidden p-0">
             <div className="border-b border-[#30363d] px-5 py-4">
               <h2 className="text-lg font-semibold text-white">B/Ls prontos para faturamento</h2>
-              <p className="mt-1 text-sm text-slate-400">Selecione os B/Ls pendentes para gerar uma invoice consolidada.</p>
+              <p className="mt-1 text-sm text-slate-400">
+                {formatResultCount(pendingBls?.length ?? 0, 'B/L elegivel', 'B/Ls elegiveis')} para gerar uma invoice consolidada.
+              </p>
             </div>
             {pendingError ? <div className="px-5 py-4 text-sm text-red-200">Falha ao consultar B/Ls pendentes.</div> : null}
             <div className="app-table-scroll">
@@ -203,6 +206,7 @@ export function PortalBilling() {
           <Card className="mt-5 overflow-hidden p-0">
             <div className="border-b border-[#30363d] px-5 py-4">
               <h2 className="text-lg font-semibold text-white">Sobreestadia de containers (D&D)</h2>
+              <p className="mt-1 text-sm text-slate-400">{formatResultCount(demurrageInvoices?.length ?? 0, 'invoice visivel', 'invoices visiveis')}</p>
             </div>
             <div className="app-table-scroll">
               <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
@@ -249,6 +253,7 @@ export function PortalBilling() {
         <Card className="mt-5 overflow-hidden p-0">
           <div className="border-b border-[#30363d] px-5 py-4">
             <h2 className="text-lg font-semibold text-white">Invoices emitidas</h2>
+            <p className="mt-1 text-sm text-slate-400">{formatResultCount(invoices?.length ?? 0, 'invoice visivel', 'invoices visiveis')}</p>
           </div>
           {invoicesError ? <div className="px-5 py-4 text-sm text-red-200">Falha ao consultar invoices.</div> : null}
           <div className="app-table-scroll">

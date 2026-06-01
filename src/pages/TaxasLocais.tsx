@@ -21,6 +21,7 @@ import {
   useOverrideCustomers,
   useSaveCustomerRateOverride,
 } from '../hooks/useLocalCharges'
+import { describeActiveFilters, describeEmptyState } from '../lib/operationalState'
 import { formatBRL, formatUSD } from '../lib/utils'
 import { validateOverrideInput, validateTableInput, validateTableItemInput } from './taxasLocaisHelpers'
 
@@ -143,6 +144,16 @@ export function TaxasLocais() {
       ),
     }
   }, [tables])
+  const tableFilterDescription = describeActiveFilters([
+    { label: 'Modo', value: cargoModeFilter },
+    { label: 'POD', value: podFilter },
+  ])
+  const tableEmptyState = describeEmptyState({
+    entitySingular: 'tabela',
+    entityPlural: 'tabelas',
+    hasActiveFilters: Boolean(cargoModeFilter || podFilter.trim()),
+    emptyWithoutFilters: 'Nenhuma tabela cadastrada ainda.',
+  })
 
   async function handleSaveOverride() {
     const result = validateOverrideInput(overrideForm)
@@ -653,6 +664,10 @@ export function TaxasLocais() {
           </div>
 
           <Card className="overflow-hidden p-0">
+            <div className="flex flex-col gap-1 border-b border-[var(--app-border)] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-semibold text-[var(--app-text-strong)]">{tableSummary.tables} tabela(s) retornada(s)</span>
+              <span className="text-xs text-[var(--app-muted)]">{tableFilterDescription}</span>
+            </div>
             {tablesError ? (
               <div className="p-5 text-sm text-amber-200">
                 Não foi possível consultar tabelas de taxas locais. Se você for operador, este acesso pode estar restrito por role.
@@ -683,7 +698,7 @@ export function TaxasLocais() {
                   {!tablesLoading && (tables?.length ?? 0) === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-0">
-                        <EmptyState title="Nenhuma tabela encontrada." />
+                        <EmptyState title={tableEmptyState.title} description={tableEmptyState.description} />
                       </td>
                     </tr>
                   ) : null}

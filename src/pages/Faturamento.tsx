@@ -55,6 +55,7 @@ import {
   type Alert,
 } from '../services/alerts'
 import { logOperationalEvent } from '../services/operationalEvents'
+import { describeActiveFilters, describeEmptyState } from '../lib/operationalState'
 import { formatBRL, formatDate, formatUSD } from '../lib/utils'
 import { isLedgerInvoicePayable } from './faturamentoLedgerPayment'
 import { INVOICE_STATUS_FILTER_OPTIONS, invoiceStatusLabel, invoiceStatusTone } from './faturamentoInvoiceStatus'
@@ -212,6 +213,25 @@ export function Faturamento() {
   }
 
   const activeFilterCount = FILTER_KEYS.filter((key) => String(filters[key] ?? '').trim() !== '').length
+  const filterDescription = describeActiveFilters([
+    { label: 'B/L', value: filters.blSearch },
+    { label: 'Fatura', value: filters.search },
+    { label: 'Cliente', value: filters.customerId },
+    { label: 'Navio/Viagem', value: filters.voyageSearch },
+    { label: 'POD', value: filters.pod },
+    { label: 'Tipo', value: filters.invoiceType },
+    { label: 'Status', value: filters.status },
+    { label: 'Emissao de', value: filters.dateFrom },
+    { label: 'Emissao ate', value: filters.dateTo },
+    { label: 'Pagamento de', value: filters.paidFrom },
+    { label: 'Pagamento ate', value: filters.paidTo },
+  ])
+  const emptyState = describeEmptyState({
+    entitySingular: 'fatura',
+    entityPlural: 'faturas',
+    hasActiveFilters: activeFilterCount > 0,
+    emptyWithoutFilters: 'Nenhuma fatura emitida ainda.',
+  })
 
   function clearFilters() {
     setFilters((current) => ({
@@ -435,13 +455,17 @@ export function Faturamento() {
       </div>
 
       <Card className="overflow-hidden p-0">
+        <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-semibold text-white">{summary.count} fatura(s) retornada(s)</span>
+          <span className="text-xs text-slate-400">{filterDescription}</span>
+        </div>
         {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-4 py-3">Número do BL</th><th scope="col" className="px-4 py-3">Fatura</th><th scope="col" className="px-4 py-3">Tipo</th><th scope="col" className="px-4 py-3">Navio / Viagem · POD</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Pagamento</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Ações</th></tr></thead>
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? <tr><td colSpan={9} className="p-0"><SkeletonTable rows={6} cols={9} /></td></tr> : null}
-              {!isLoading && invoices.length === 0 ? <tr><td colSpan={9} className="p-0"><EmptyState title="Nenhuma fatura encontrada." description="Emita uma nova fatura ou ajuste os filtros." /></td></tr> : null}
+              {!isLoading && invoices.length === 0 ? <tr><td colSpan={9} className="p-0"><EmptyState title={emptyState.title} description={emptyState.description} /></td></tr> : null}
               {invoices.map((invoice) => {
                 const bls = getInvoiceBls(invoice)
                 const consolidated = isConsolidatedInvoice(invoice)

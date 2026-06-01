@@ -4,8 +4,9 @@ import { RefreshCw, Upload } from 'lucide-react'
 import type { DragEvent } from 'react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
+import { formatResultCount, summarizeReconciliation } from '../lib/operationalState'
 import { parsePixExtract } from '../services/demurrage/demurrageKpis'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../services/reconciliacao'
 import type { UnifiedPixMatch } from '../services/reconciliacao'
@@ -47,22 +48,26 @@ export function Reconciliacao() {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['demurrage-kpis'] })
       setMatches(null)
-      showToast(`Conciliação concluída: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
+      showToast(`Conciliacao concluida: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
 
   const unambiguous = (matches ?? []).filter((m) => !m.ambiguous)
   const ambiguous = (matches ?? []).filter((m) => m.ambiguous)
+  const reconciliationSummary = summarizeReconciliation({
+    safe: unambiguous.length,
+    ambiguous: ambiguous.length,
+    total: matches?.length ?? 0,
+  })
 
   return (
     <>
       <PageHeader
-        title="Conciliação PIX"
-        description="Conciliação automática de pagamentos PIX de todas as faturas (Container, Break Bulk, Granito e Demurrage)."
+        title="Conciliacao PIX"
+        description="Conciliacao automatica de pagamentos PIX de todas as faturas (Container, Break Bulk, Granito e Demurrage)."
       />
 
-      {/* Upload zone */}
       <div
         role="button"
         tabIndex={0}
@@ -79,10 +84,22 @@ export function Reconciliacao() {
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void processFile(f) }} />
       </div>
 
-      {matchMutation.isPending && <Card className="text-center text-sm text-slate-400">Processando...</Card>}
+      {matchMutation.isPending ? <Card className="text-center text-sm text-slate-400">Processando extrato...</Card> : null}
 
-      {matches !== null && (
+      {matches !== null ? (
         <>
+          <Card className="mb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-white">{reconciliationSummary.status}</div>
+                <div className="mt-1 text-xs text-slate-400">{reconciliationSummary.risk}</div>
+              </div>
+              <Badge tone={ambiguous.length ? 'yellow' : unambiguous.length ? 'green' : 'slate'}>
+                {formatResultCount(matches.length, 'item analisado', 'itens analisados')}
+              </Badge>
+            </div>
+          </Card>
+
           <div className="mb-4 grid grid-cols-3 gap-4">
             <Card className="p-4 text-center">
               <div className="text-xs text-slate-500">Correspondencias</div>
@@ -98,10 +115,22 @@ export function Reconciliacao() {
             </Card>
           </div>
 
-          {unambiguous.length > 0 && (
+          {matches.length === 0 ? (
             <Card className="mb-4">
-              <div className="border-b border-[#30363d] p-4 text-sm font-semibold text-white">
-                Correspondencias confirmadas ({unambiguous.length})
+              <EmptyState
+                title="Nenhuma correspondencia encontrada."
+                description="O extrato foi lido, mas nenhum TXID bateu com invoices abertas. Confira arquivo, periodo e status das invoices."
+              />
+            </Card>
+          ) : null}
+
+          {unambiguous.length > 0 ? (
+            <Card className="mb-4">
+              <div className="border-b border-[#30363d] p-4">
+                <div className="text-sm font-semibold text-white">Correspondencias confirmadas ({unambiguous.length})</div>
+                <div className="mt-1 text-xs text-slate-400">
+                  Origem: extrato PIX. Campo conferido: TXID unico vinculado a invoice aberta.
+                </div>
               </div>
               <div className="app-table-scroll">
                 <table className="app-table app-table--compact min-w-[640px] text-sm">
@@ -119,17 +148,14 @@ export function Reconciliacao() {
                     {unambiguous.map((m, i) => (
                       <tr key={`${m.invoiceId}-${m.source}-${i}`}>
                         <td className="px-3 py-2">
-                          {m.source === 'demurrage' ? (
-                            <Badge tone="blue">Demurrage</Badge>
-                          ) : (
-                            <Badge tone="green">Fatura</Badge>
-                          )}
+                          {m.source === 'demurrage' ? <Badge tone="blue">Demurrage</Badge> : <Badge tone="green">Fatura</Badge>}
                         </td>
                         <td className="px-3 py-2 font-semibold text-white">{m.docNumber}</td>
                         <td className="px-3 py-2 text-slate-300">{m.customerName}</td>
                         <td className="px-3 py-2 text-emerald-400">{fmtBRL(m.transaction.amount)}</td>
                         <td className="px-3 py-2">
                           <Badge tone="green">TXID</Badge>
+                          <div className="mt-1 text-[11px] text-slate-500">Valor e documento sem conflito</div>
                         </td>
                         <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400">{m.transaction.txid}</td>
                       </tr>
@@ -138,22 +164,36 @@ export function Reconciliacao() {
                 </table>
               </div>
             </Card>
-          )}
+          ) : null}
 
-          {ambiguous.length > 0 && (
+          {ambiguous.length > 0 ? (
             <Card className="mb-4 border-amber-400/30 bg-amber-400/5">
-              <div className="border-b border-amber-400/20 p-4 text-sm font-semibold text-amber-200">
-                Ambíguas — ignoradas na confirmação ({ambiguous.length})
+              <div className="border-b border-amber-400/20 p-4">
+                <div className="text-sm font-semibold text-amber-200">Ambiguas - ignoradas na confirmacao ({ambiguous.length})</div>
+                <div className="mt-1 text-xs text-amber-100/80">
+                  Origem: extrato PIX. Campo de ambiguidade: TXID/valor aponta para mais de um documento possivel. Risco residual: baixa indevida se confirmado sem revisao humana.
+                </div>
               </div>
               <div className="divide-y divide-[#30363d]">
                 {ambiguous.map((m, i) => (
-                  <div key={`${m.invoiceId}-ambig-${i}`} className="px-4 py-2 text-sm text-amber-100">
-                    {m.transaction.txid} — {fmtBRL(m.transaction.amount)} — multiplos documentos possiveis
+                  <div key={`${m.invoiceId}-ambig-${i}`} className="grid gap-2 px-4 py-3 text-sm text-amber-100 md:grid-cols-[1.4fr,1fr,1fr]">
+                    <div>
+                      <div className="font-mono text-xs">{m.transaction.txid}</div>
+                      <div className="text-xs text-amber-100/75">Documento candidato: {m.docNumber}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-amber-100/70">Confere</div>
+                      <div>{fmtBRL(m.transaction.amount)} no extrato</div>
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-amber-100/70">Diverge ou falta</div>
+                      <div>Multiplo documento possivel para o mesmo pagamento</div>
+                    </div>
                   </div>
                 ))}
               </div>
             </Card>
-          )}
+          ) : null}
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setMatches(null)}>Limpar</Button>
@@ -167,7 +207,7 @@ export function Reconciliacao() {
             </Button>
           </div>
         </>
-      )}
+      ) : null}
     </>
   )
 }

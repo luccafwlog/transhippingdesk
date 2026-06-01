@@ -17,6 +17,7 @@ import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { useVaziosImportacaoStats, type VoyageVaziosImportacaoStat } from '../hooks/useVaziosImportacaoStats'
 import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
+import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
 import {
   collectVoyagePorts,
@@ -122,6 +123,17 @@ export function Viagens() {
       return matchesVessel && matchesVoyage
     })
   }, [data, vesselFilter, voyageFilter])
+  const activeFilterCount = (vesselFilter.trim() ? 1 : 0) + (voyageFilter.trim() ? 1 : 0)
+  const filterDescription = describeActiveFilters([
+    { label: 'Navio', value: vesselFilter },
+    { label: 'Viagem', value: voyageFilter },
+  ])
+  const emptyState = describeEmptyState({
+    entitySingular: 'viagem',
+    entityPlural: 'viagens',
+    hasActiveFilters: activeFilterCount > 0,
+    emptyWithoutFilters: 'Nenhuma viagem cadastrada ainda.',
+  })
 
   const polEntityIds = useMemo(
     () =>
@@ -210,7 +222,7 @@ export function Viagens() {
       />
 
       <FilterBar
-        activeCount={(vesselFilter.trim() ? 1 : 0) + (voyageFilter.trim() ? 1 : 0)}
+        activeCount={activeFilterCount}
         onClear={() => { setVesselFilter(''); setVoyageFilter('') }}
       >
         <div className="app-filter-grid">
@@ -233,10 +245,15 @@ export function Viagens() {
 
       {error ? <InlineError message="Erro ao carregar viagens." /> : null}
 
+      <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <span className="font-semibold text-white">{formatResultCount(filteredVoyages.length, 'viagem visivel', 'viagens visiveis')}</span>
+        <span className="text-xs text-slate-400">{filterDescription}</span>
+      </div>
+
       <div className="grid gap-4">
         {isLoading ? <Card>Carregando viagens...</Card> : null}
         {!isLoading && filteredVoyages.length === 0 ? (
-          <EmptyState title="Nenhuma viagem encontrada." description="Ajuste os filtros ou crie uma nova viagem." />
+          <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : null}
         {filteredVoyages.map((voyage) => {
           const vehicleStats = vehicleStatsByVoyage[voyage.id] ?? {

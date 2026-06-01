@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyageOptions } from '../hooks/useBls'
+import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
 import {
   parseVaziosImportacaoFile,
@@ -67,6 +68,18 @@ export function VaziosImportacao() {
 
   const activeFilterCount = (['search', 'manifestId', 'voyageId'] as (keyof Filters)[])
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
+  const filterDescription = describeActiveFilters([
+    { label: 'Texto', value: filters.search },
+    { label: 'Manifesto', value: filters.manifestId },
+    { label: 'Viagem', value: filters.voyageId },
+  ])
+  const emptyState = describeEmptyState({
+    entitySingular: 'container',
+    entityPlural: 'containers',
+    hasActiveFilters: activeFilterCount > 0,
+    emptyWithoutFilters: 'Nenhum container vazio importado ainda.',
+    emptyWithFilters: 'Nenhum container encontrado.',
+  })
 
   function clearFilters() {
     setFilters((f) => ({ ...f, search: '', manifestId: '', voyageId: '', page: 1 }))
@@ -174,6 +187,10 @@ export function VaziosImportacao() {
       </FilterBar>
 
       <Card className="overflow-hidden p-0">
+        <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-semibold text-white">{formatResultCount(data?.count ?? 0, 'container retornado', 'containers retornados')}</span>
+          <span className="text-xs text-slate-400">{filterDescription}</span>
+        </div>
         {error ? <InlineError message="Erro ao carregar containers." /> : null}
 
         <div className="app-table-scroll app-table-scroll--sticky">
@@ -199,8 +216,8 @@ export function VaziosImportacao() {
                 <tr>
                   <td colSpan={7} className="p-0">
                     <EmptyState
-                      title="Nenhum container encontrado."
-                      description="Importe uma planilha ou ajuste os filtros."
+                      title={emptyState.title}
+                      description={emptyState.description}
                     />
                   </td>
                 </tr>

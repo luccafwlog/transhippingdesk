@@ -17,6 +17,7 @@ import {
 } from '../services/graniteImport'
 import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCharges'
 import { createInvoiceFromGraniteBls } from '../services/billing'
+import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { onlyDigits } from '../lib/utils'
 import { loadCustomerMaps, findMatchedCustomer } from '../services/customerReconciliation'
 
@@ -153,6 +154,20 @@ export function Granite() {
   }
 
   const pendingInManifest = manifest?.bls.filter((bl) => bl.reconciliationStatus !== 'matched').length ?? 0
+  const activeFilterCount = [filters.search, filters.voyageId, filters.dischargePort]
+    .filter((value) => String(value ?? '').trim() !== '').length
+  const filterDescription = describeActiveFilters([
+    { label: 'Texto', value: filters.search },
+    { label: 'Viagem', value: filters.voyageId },
+    { label: 'Porto', value: filters.dischargePort },
+  ])
+  const emptyState = describeEmptyState({
+    entitySingular: 'B/L de granito',
+    entityPlural: 'B/Ls de granito',
+    hasActiveFilters: activeFilterCount > 0,
+    emptyWithoutFilters: 'Nenhum B/L de granito importado ainda.',
+    emptyWithFilters: 'Nenhum B/L de granito encontrado.',
+  })
 
   return (
     <>
@@ -204,6 +219,10 @@ export function Granite() {
       </Card>
 
       <Card className="overflow-hidden p-0">
+        <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-semibold text-white">{formatResultCount(data?.count ?? 0, 'B/L retornado', 'B/Ls retornados')}</span>
+          <span className="text-xs text-slate-400">{filterDescription}</span>
+        </div>
         {error ? <InlineError message="Erro ao carregar B/Ls de granito." /> : null}
 
         <div className="app-table-scroll">
@@ -234,7 +253,7 @@ export function Granite() {
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="p-0">
-                    <EmptyState title="Nenhum B/L de granito encontrado." description="Importe uma planilha COSCO ou ajuste os filtros." />
+                    <EmptyState title={emptyState.title} description={emptyState.description} />
                   </td>
                 </tr>
               ) : null}

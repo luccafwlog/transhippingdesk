@@ -91,7 +91,7 @@ export function LineUpTVDisplay() {
       root.style.overflow = previousRootOverflow
       body.style.overflow = previousBodyOverflow
     }
-  }, [])
+  }, [isMobile])
 
   useEffect(() => {
     const element = document.documentElement
@@ -142,7 +142,7 @@ export function LineUpTVDisplay() {
         restartFrameRef.current = null
       }
     }
-  }, [hasAnimatedLoop, rowHeight, rows.length])
+  }, [hasAnimatedLoop, isMobile, rowHeight, rows.length])
 
   useLayoutEffect(() => {
     if (isMobile) return
@@ -159,7 +159,7 @@ export function LineUpTVDisplay() {
     requestAnimationFrame(recalculate)
 
     return () => observer.disconnect()
-  }, [rows.length])
+  }, [isMobile, rows.length])
 
   return (
     <main className="app-lineup-display-shell">

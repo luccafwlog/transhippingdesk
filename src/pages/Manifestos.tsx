@@ -16,6 +16,7 @@ import { useAuth } from '../hooks/useAuth'
 import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useVoyageOptions } from '../hooks/useBls'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
+import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatCnpjCpf } from '../lib/utils'
 import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimitImportError } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
@@ -58,6 +59,23 @@ export function Manifestos() {
   const activeFilterCount = (
     ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile'] as (keyof BlFilters)[]
   ).filter((key) => String(filters[key] ?? '').trim() !== '').length
+  const filterDescription = describeActiveFilters([
+    { label: 'Texto', value: filters.search },
+    { label: 'Viagem', value: filters.voyageId },
+    { label: 'POL', value: filters.pol },
+    { label: 'POD', value: filters.pod },
+    { label: 'Revisao', value: filters.reviewStatus },
+    { label: 'Financeiro', value: filters.financialStatus },
+    { label: 'Taxas', value: filters.chargeStatus },
+    { label: 'Perfil', value: filters.cargoProfile },
+  ])
+  const emptyState = describeEmptyState({
+    entitySingular: 'B/L',
+    entityPlural: 'B/Ls',
+    hasActiveFilters: activeFilterCount > 0,
+    emptyWithoutFilters: 'Nenhum B/L importado ainda.',
+    emptyWithFilters: 'Nenhum B/L encontrado.',
+  })
 
   function clearFilters() {
     setFilters((current) => ({
@@ -208,6 +226,10 @@ export function Manifestos() {
       </div>
 
       <Card className="overflow-hidden p-0">
+        <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-semibold text-white">{formatResultCount(data?.count ?? 0, 'B/L retornado', 'B/Ls retornados')}</span>
+          <span className="text-xs text-slate-400">{filterDescription}</span>
+        </div>
         {error ? <InlineError message="Erro ao carregar manifestos." /> : null}
 
         <div className="app-table-scroll app-table-scroll--sticky">
@@ -238,7 +260,7 @@ export function Manifestos() {
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="p-0">
-                    <EmptyState title="Nenhum B/L encontrado." description="Importe um manifesto ou ajuste os filtros." />
+                    <EmptyState title={emptyState.title} description={emptyState.description} />
                   </td>
                 </tr>
               ) : null}

@@ -25,6 +25,7 @@ import {
 } from '../services/demurrage/demurrageInvoices'
 import { fetchDemurrageKPIs, fetchROE } from '../services/demurrage/demurrageKpis'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
+import { describeActiveFilters, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
 
 type DemurrageTab = 'containers' | 'rascunhos' | 'emitidas' | 'pagas'
@@ -321,6 +322,7 @@ export function Demurrage() {
   })
 
   const grouped = groupByBl(filtered)
+  const containerFilterDescription = describeActiveFilters([{ label: 'Busca', value: search }])
 
   const totalOverdueUSD = filtered.reduce((sum, c) => {
     if (!c.discharge_date || !c.return_date) return sum
@@ -397,6 +399,11 @@ export function Demurrage() {
 
           {containersLoading && <Card>Carregando...</Card>}
           {containersError && <InlineError message="Erro ao carregar containers." />}
+
+          <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold text-white">{formatResultCount(filtered.length, 'container visivel', 'containers visiveis')}</span>
+            <span className="text-xs text-slate-400">{containerFilterDescription}</span>
+          </div>
 
           {!containersLoading && !containersError && grouped.size === 0 && (
             <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
@@ -489,6 +496,10 @@ export function Demurrage() {
         <>
           {invoicesLoading && <Card>Carregando...</Card>}
           {invoicesError && <InlineError message="Erro ao carregar invoices." />}
+          <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold text-white">{formatResultCount(invoices?.length ?? 0, 'invoice visivel', 'invoices visiveis')}</span>
+            <span className="text-xs text-slate-400">Filtros ativos: Status {TAB_LABELS.find((item) => item.key === tab)?.label ?? tab}</span>
+          </div>
           {!invoicesLoading && !invoicesError && !invoices?.length && (
             <EmptyState
               icon={FileText}
