@@ -19,14 +19,19 @@ import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import {
+  countDistinctBatchIds,
   formatMetric,
   formatPortDisplayName,
+  getGraniteModuleStats,
+  getVaziosModuleStats,
   normalizePortName,
   normalizeVoyageStatus,
+  splitVoyageBls,
   stripFileExtension,
   summarizeContainerTypes,
-  summarizeOccurrences,
+  summarizeModuleAvailability,
   summarizeUniqueValues,
+  type VoyageBl,
 } from './viagensHelpers'
 import { deleteVoyage } from '../services/voyages'
 import {
@@ -1059,36 +1064,6 @@ function renderLinkedLabel(linked: boolean | null) {
   return linked ? 'YES' : 'NO'
 }
 
-type VoyageBl = {
-  id: string
-  batch_id?: number | null
-  cargo_mode: 'container' | 'carga_solta' | null
-  ce_mercante: string | null
-  bb_machine_qty: number | null
-  bb_packages_qty: number | null
-  bb_packages_total: number | null
-  bb_weight_ton: number | null
-  shipper: string | null
-  consignee: string | null
-  notify_party: string | null
-  pol: string | null
-  pod: string | null
-  total_weight_kg: number | null
-  total_cbm: number | null
-  bl_containers?: Array<{
-    id: number
-    container_number: string
-    type?: string | null
-    is_oog?: boolean | null
-    is_imo?: boolean | null
-  }> | null
-  bl_breakbulk_items?: Array<{
-    id: number
-    gross_weight_kg?: number | null
-    cbm?: number | null
-  }> | null
-}
-
 type VoyageImportBatch = {
   id: number
   voyage_id: number | null
@@ -1097,115 +1072,6 @@ type VoyageImportBatch = {
   uploaded_at: string | null
   status: 'processing' | 'completed' | 'partial' | 'failed' | null
   total_bls: number | null
-}
-
-type VoyageGraniteManifest = {
-  id: string
-  voyage_id: number | null
-  loading_port: string | null
-  discharge_port: string | null
-  total_bls: number | null
-  total_weight_kg: number | null
-  granite_bls?: Array<{
-    id: string
-    charge_status: 'not_calculated' | 'calculated' | 'ready_for_billing' | 'invoiced' | null
-  }> | null
-}
-
-type VoyageVaziosManifest = {
-  id: string
-  voyage_id: number | null
-  description: string | null
-  total_bookings: number | null
-  vazios_bookings?: Array<{
-    id: string
-    container_number: string | null
-    container_type: string | null
-    origin_terminal: string | null
-    destination: string | null
-  }> | null
-}
-
-function splitVoyageBls(bls: VoyageBl[] | null | undefined) {
-  const containerBls: VoyageBl[] = []
-  const breakbulkBls: VoyageBl[] = []
-
-  for (const bl of bls ?? []) {
-    if (bl.cargo_mode === 'carga_solta') {
-      breakbulkBls.push(bl)
-    } else {
-      containerBls.push(bl)
-    }
-  }
-
-  return { containerBls, breakbulkBls }
-}
-
-function countDistinctBatchIds(bls: VoyageBl[] | null | undefined) {
-  return new Set((bls ?? []).map((bl) => bl.batch_id).filter((batchId): batchId is number => Number.isInteger(batchId))).size
-}
-
-function getGraniteModuleStats(manifests: VoyageGraniteManifest[] | null | undefined) {
-  const totalManifests = manifests?.length ?? 0
-  const totalBls = (manifests ?? []).reduce(
-    (sum, manifest) => sum + Number(manifest.total_bls ?? manifest.granite_bls?.length ?? 0),
-    0,
-  )
-  const totalWeightTon = (manifests ?? []).reduce(
-    (sum, manifest) => sum + Number(manifest.total_weight_kg ?? 0) / 1000,
-    0,
-  )
-  const graniteBls = (manifests ?? []).flatMap((manifest) => manifest.granite_bls ?? [])
-
-  return {
-    totalManifests,
-    totalBls,
-    totalWeightTon,
-    readyForBillingCount: graniteBls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
-    invoicedCount: graniteBls.filter((bl) => bl.charge_status === 'invoiced').length,
-    dischargePorts: summarizeUniqueValues((manifests ?? []).map((manifest) => manifest.discharge_port)),
-  }
-}
-
-function getVaziosModuleStats(manifests: VoyageVaziosManifest[] | null | undefined) {
-  const totalManifests = manifests?.length ?? 0
-  const totalBookings = (manifests ?? []).reduce(
-    (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
-    0,
-  )
-  const bookings = (manifests ?? []).flatMap((manifest) => manifest.vazios_bookings ?? [])
-
-  return {
-    totalManifests,
-    totalBookings,
-    distinctContainers: countDistinctContainerNumbers(bookings),
-    containerTypes: summarizeOccurrences(bookings, (booking) => booking.container_type, 'Não informado'),
-    destinations: summarizeUniqueValues(bookings.map((booking) => booking.destination)),
-    originTerminals: summarizeUniqueValues(bookings.map((booking) => booking.origin_terminal)),
-  }
-}
-
-
-function summarizeModuleAvailability({
-  hasCntrs,
-  hasBreakbulk,
-  hasVehicles,
-  hasGranite,
-  hasVazios,
-}: {
-  hasCntrs: boolean
-  hasBreakbulk: boolean
-  hasVehicles: boolean
-  hasGranite: boolean
-  hasVazios: boolean
-}) {
-  const modules = []
-  if (hasCntrs) modules.push('CNTRS')
-  if (hasBreakbulk) modules.push('BB')
-  if (hasVehicles) modules.push('VEICULOS')
-  if (hasGranite) modules.push('GRANITO')
-  if (hasVazios) modules.push('VAZIOS')
-  return modules.join('/') || '-'
 }
 
 function collectVoyagePorts(

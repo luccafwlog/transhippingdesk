@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  countDistinctBatchIds,
+  getGraniteModuleStats,
+  getVaziosModuleStats,
+  splitVoyageBls,
+  summarizeModuleAvailability,
   formatMetric,
   formatPortDisplayName,
   normalizePortName,
@@ -92,5 +97,90 @@ describe('stripFileExtension', () => {
     expect(stripFileExtension('manifesto.xlsx')).toBe('manifesto')
     expect(stripFileExtension('base.clientes.csv')).toBe('base.clientes')
     expect(stripFileExtension('semext')).toBe('semext')
+  })
+})
+
+describe('splitVoyageBls', () => {
+  it('separa B/Ls de container e carga solta', () => {
+    const bls = [
+      { id: 'A', cargo_mode: 'container' },
+      { id: 'B', cargo_mode: 'carga_solta' },
+      { id: 'C', cargo_mode: null }, // default → container
+    ] as never
+    const { containerBls, breakbulkBls } = splitVoyageBls(bls)
+    expect(containerBls.map((b) => b.id)).toEqual(['A', 'C'])
+    expect(breakbulkBls.map((b) => b.id)).toEqual(['B'])
+  })
+
+  it('lida com null/undefined', () => {
+    expect(splitVoyageBls(null)).toEqual({ containerBls: [], breakbulkBls: [] })
+  })
+})
+
+describe('countDistinctBatchIds', () => {
+  it('conta lotes distintos ignorando nulos/duplicados', () => {
+    const bls = [{ batch_id: 1 }, { batch_id: 1 }, { batch_id: 2 }, { batch_id: null }] as never
+    expect(countDistinctBatchIds(bls)).toBe(2)
+  })
+})
+
+describe('getGraniteModuleStats', () => {
+  it('agrega manifestos, peso (ton) e contagens por status', () => {
+    const manifests = [
+      {
+        total_bls: 2,
+        total_weight_kg: 2000,
+        discharge_port: 'SSZ',
+        granite_bls: [
+          { id: '1', charge_status: 'ready_for_billing' },
+          { id: '2', charge_status: 'invoiced' },
+        ],
+      },
+    ] as never
+    const s = getGraniteModuleStats(manifests)
+    expect(s.totalManifests).toBe(1)
+    expect(s.totalBls).toBe(2)
+    expect(s.totalWeightTon).toBe(2)
+    expect(s.readyForBillingCount).toBe(1)
+    expect(s.invoicedCount).toBe(1)
+    expect(s.dischargePorts).toBe('SSZ')
+  })
+
+  it('usa o tamanho de granite_bls quando total_bls é nulo', () => {
+    const manifests = [{ total_bls: null, granite_bls: [{ id: '1', charge_status: null }] }] as never
+    expect(getGraniteModuleStats(manifests).totalBls).toBe(1)
+  })
+})
+
+describe('getVaziosModuleStats', () => {
+  it('agrega bookings, containers distintos, tipos e destinos', () => {
+    const manifests = [
+      {
+        total_bookings: 3,
+        vazios_bookings: [
+          { id: '1', container_number: 'AAA1', container_type: '40HC', destination: 'RIO', origin_terminal: 'T1' },
+          { id: '2', container_number: 'AAA1', container_type: '40HC', destination: 'RIO', origin_terminal: 'T1' },
+          { id: '3', container_number: 'BBB2', container_type: '20GP', destination: 'SSA', origin_terminal: 'T2' },
+        ],
+      },
+    ] as never
+    const s = getVaziosModuleStats(manifests)
+    expect(s.totalBookings).toBe(3)
+    expect(s.distinctContainers).toBe(2)
+    expect(s.containerTypes).toBe('40HC: 2 | 20GP: 1')
+    expect(s.destinations).toBe('RIO | SSA')
+  })
+})
+
+describe('summarizeModuleAvailability', () => {
+  it('lista apenas os módulos presentes', () => {
+    expect(
+      summarizeModuleAvailability({ hasCntrs: true, hasBreakbulk: false, hasVehicles: true, hasGranite: false, hasVazios: true }),
+    ).toBe('CNTRS/VEICULOS/VAZIOS')
+  })
+  it('retorna "-" quando nenhum módulo está presente', () => {
+    expect(
+      summarizeModuleAvailability({ hasCntrs: false, hasBreakbulk: false, hasVehicles: false, hasGranite: false, hasVazios: false }),
+    ).toBe('-')
   })
 })
