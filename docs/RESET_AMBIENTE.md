@@ -1,6 +1,6 @@
 # Reset do Ambiente de Testes
 
-Atualizado em 2026-05-13.
+Atualizado em 2026-06-01.
 
 Use este procedimento quando precisar zerar dados operacionais entre rodadas de teste.
 
@@ -17,6 +17,14 @@ Arquivo de reset:
 3. Abra o arquivo `supabase/scripts/reset_operational_data.sql`.
 4. Cole o conteudo no editor.
 5. Execute.
+
+## Dados preservados
+
+O script preserva cadastros estruturais e comerciais, incluindo usuarios, roles, armadores, navios, portos, viagens, clientes, contatos, tabelas de taxas e overrides.
+
+## Dados removidos
+
+O script remove dados operacionais de teste: import batches, B/Ls, containers, veiculos, calculos, invoices, pagamentos, alertas, auditoria e contador de invoice.
 
 ## Conferencia minima
 
@@ -41,5 +49,4 @@ Resultado esperado:
 
 ## Nota
 
-Referencias antigas com caminho absoluto local foram descontinuadas.
-Sempre use caminho relativo ao repositorio.
+Sempre use caminho relativo ao repositorio. Referencias antigas com caminho absoluto local foram descontinuadas.

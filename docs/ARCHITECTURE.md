@@ -1,12 +1,8 @@
-# Arquitetura do Sistema — Espinha Dorsal
+# Arquitetura do Sistema - Espinha Dorsal
 
-Atualizado em 2026-05-23.
+Atualizado em 2026-06-01.
 
-> Diagrama validado contra o comportamento real do código (rotas, services, schema)
-> e contra a definição operacional do dono do produto. Substitui versões anteriores
-> que continham imprecisões de fluxo.
-
----
+Este documento descreve a fonte de verdade operacional do codigo atual: rotas, servicos, schema Supabase e fluxo financeiro.
 
 ## Fluxo principal
 
@@ -14,134 +10,96 @@ Atualizado em 2026-05-23.
 flowchart LR
     Viagem(["Viagem"])
 
-    %% Alimentação de dados
     Viagem --> BaplieEDI["Baplie EDI<br/>(staging)"]
-    BaplieEDI --> ConcilBaplie["Conciliação<br/>Baplie × Manifesto"]
-    BaplieEDI --> VaziosIMP["Vazios<br/>Importação"]
+    BaplieEDI --> ConcilBaplie["Conciliacao<br/>Baplie x Manifesto"]
+    BaplieEDI --> VaziosIMP["Vazios<br/>Importacao"]
 
     Viagem --> ManifCNTR["Manifestos CNTR"]
     Viagem --> ManifBB["Manifestos BB<br/>(Carga Solta)"]
     Viagem --> ManifGranito["Manifestos Granito<br/>(COSCO)"]
+    Viagem --> Veiculos["Veiculos<br/>(planilha propria)"]
+    Viagem --> VaziosEXP["Vazios<br/>Exportacao"]
 
-    %% Veículos: planilha própria, ligados ao B/L
-    Viagem --> Veiculos["Veículos<br/>(planilha própria)"]
-
-    %% Tudo converge em B/Ls (3 tipos)
-    ConcilBaplie --> BL[/"B/L<br/>Container · Break Bulk · Granito"/]
+    ConcilBaplie --> BL[/"B/L<br/>Container - Break Bulk - Granito"/]
     ManifCNTR --> BL
     ManifBB --> BL
     ManifGranito --> BL
     Veiculos --> BL
-
-    %% Containers extraídos do manifesto CNTR
     ManifCNTR --> Containers["Containers"]
 
-    %% Fluxo operacional unificado sobre B/Ls
-    BL --> Revisao["Revisão manual<br/>(Container · BB · Granito)"]
-    BL --> TaxasLocais["Taxas Locais<br/>(Container · BB · Granito)"]
+    BL --> Revisao["Revisao manual"]
+    BL --> TaxasLocais["Taxas Locais"]
     Revisao -- aprovado --> TaxasLocais
-
-    %% Demurrage: só containers e seus B/Ls
     Containers --> Demurrage["Demurrage<br/>(somente containers)"]
 
-    %% Vazios Exportação (planilha própria por Viagem)
-    Viagem --> VaziosEXP["Vazios<br/>Exportação"]
-
-    %% Financeiro unificado
-    TaxasLocais --> Faturamento["Faturamento<br/>(Taxas Locais + Demurrage)"]
+    TaxasLocais --> Ledger["Ledger local<br/>(receivables por B/L)"]
+    Ledger --> Faturamento["Faturamento<br/>(individuais + consolidadas)"]
     Demurrage --> Faturamento
-
-    %% PIX reconcilia tudo
-    Faturamento --> ConcilPIX["Conciliação PIX<br/>(todos os pagamentos)"]
-
-    %% Destino final
+    Faturamento --> ConcilPIX["Conciliacao PIX"]
     Faturamento --> Portal["Portal do Cliente"]
 
-    %% Módulo de clientes (gestão, relacionamento)
     Clientes[("Clientes")]
     BL -.-> Clientes
     Faturamento -.-> Clientes
 ```
 
----
+## Notas de implementacao
 
-## Notas de implementação
+- **B/L e o conceito operacional unificado**, mas vive em duas origens: `bls` (`cargo_mode='container'|'carga_solta'`) e `granite_bls` para o parser COSCO.
+- **Vazios Importacao** aceita Baplie EDI (`importVaziosFromBaplie`) e planilha avulsa por viagem (`importVaziosImportacaoManifest`). As duas fontes escrevem em `vazios_importacao_manifests` / `vazios_importacao_containers`.
+- **Vazios Exportacao** usa planilha propria e grava `vazios_manifests` / `vazios_bookings`.
+- **Veiculos** sao criados por planilha propria (`vehicleImport.ts`) e vinculados ao B/L e ao container fisico quando aplicavel. Nao sao derivados do manifesto CNTR.
+- **Taxas Locais** suporta `container`, `carga_solta` e `granito`. A pagina `/taxas-locais` administra tabelas e overrides; a operacao de validacao/faturamento fica em `/faturamento`.
+- **Revisao Manual** combina `bls` e `granite_bls` numa fila operacional para pendencias de cliente, CE Mercante, peso e inconsistencias de calculo.
+- **Ledger local** usa `bl_receivables`, `invoice_receivable_links`, `ledger_settlements` e `invoice_lifecycle_events` como fonte de saldo para taxas locais. Invoices individuais e consolidadas sao documentos ligados a receivables.
+- **Faturamento** agrega invoices locais (`invoices`), invoices de Granito e invoices de Demurrage. Pagamentos locais elegiveis passam pela RPC transacional de ledger; Demurrage permanece em fluxo proprio.
+- **Conciliacao PIX** usa fluxo unificado para invoices locais/Granito/Demurrage e, no ledger local, conciliacao por TXID.
+- **Portal do Cliente** consome saldos locais a partir do ledger e tambem expoe documentos financeiros emitidos.
 
-- **B/L é o conceito unificado**, mas vive em duas tabelas: `bls` (`cargo_mode='container'|'carga_solta'`) e `granite_bls` (separada por origem do parser COSCO). Revisão, Taxas Locais, Faturamento e Conciliação PIX tratam ambas as tabelas no mesmo fluxo.
-- **Vazios Importação** aceita duas fontes: o importador Baplie EDI (`importVaziosFromBaplie`) — caminho principal — e uma planilha avulsa por Viagem (`importVaziosImportacaoManifest`). Ambas escrevem em `vazios_importacao_manifests` / `vazios_importacao_containers`.
-- **Veículos** são criados pela planilha própria (`vehicleImport.ts`, colunas CHASSI/MARCA/MODELO/CONTAINER/BL/...) e vinculados via FK ao `bl_id` e ao `bl_containers.id`. Não há derivação a partir do manifesto CNTR; a relação com `bl_containers` existe apenas para localizar o container físico onde o veículo foi embarcado.
-- **Demurrage** trabalha exclusivamente sobre containers (`bl_containers`) e os B/Ls de container correspondentes; gera invoices em `demurrage_invoices` / `demurrage_invoice_items`. O **Faturamento** agrega tanto invoices regulares (Taxas Locais e Granito, ambos na tabela `invoices`) quanto invoices de demurrage; o **Portal do Cliente** consome ambos via RPCs próprias.
-- **Conciliação PIX** processa pagamentos contra `invoices` (cobre Container, Break Bulk e Granito) e contra `demurrage_invoices` numa única passada (`matchUnifiedPixTransactions`). Não é restrita à Demurrage.
-- **Taxas Locais** suporta `cargo_mode` `'container'`, `'carga_solta'` e `'granito'`. Para Granito, a página exibe os B/Ls de granito junto com os demais, e a geração de cobranças continua usando o motor próprio (`graniteCharges`) — a unificação é no ponto de entrada operacional e no schema (`charge_tables.cargo_mode`).
-- **Revisão Manual** consulta `bls` (Container + BB, filtro `review_status='pending_review'`) e `granite_bls` (entrada quando o cliente não está vinculado). As três modalidades aparecem na mesma fila.
-- A página antiga **`/granito/taxas`** (gestão de tarifas weight-based) permanece para administração da tabela `granite_rates`. A operação do dia-a-dia (calcular, marcar pronto, faturar) é feita pelos módulos unificados.
+## Modulos de suporte
 
----
-
-## Módulos de suporte (sem dependência de Viagem)
-
-```mermaid
-flowchart LR
-    Painel["Painel<br/>(Dashboard)"]
-    Alertas["Alertas"]
-    Relatorios["Relatórios"]
-    LineUpTV["Line Up TV"]
-    AdminUsuarios["Admin<br/>Usuários"]
-```
-
-| Módulo | Rota | Descrição |
+| Modulo | Rota | Descricao |
 |---|---|---|
-| Painel | `/painel` | Dashboard operacional com visão geral |
-| Alertas | `/alertas` | Notificações e alertas do sistema |
-| Relatórios | `/relatorios` | Exportação e consulta de relatórios |
-| Line Up TV | `/line-up-tv` · `/line-up-tv/display` | Painel de TV para o terminal portuário |
-| Admin Usuários | `/admin/usuarios` | Gestão de usuários (acesso admin) |
+| Painel | `/painel` | Dashboard operacional com visao geral |
+| Alertas | `/alertas` | Notificacoes e alertas do sistema |
+| Relatorios | `/relatorios` | Exportacao e consulta de relatorios |
+| Line Up TV | `/line-up-tv`, `/line-up-tv/display` | Painel de TV para o terminal portuario |
+| Admin Usuarios | `/admin/usuarios` | Gestao de usuarios (acesso admin) |
 
----
+## Mapa de rotas
 
-## Mapa de rotas completo
-
-| Rota | Módulo | Seção |
+| Rota | Modulo | Secao |
 |---|---|---|
 | `/painel` | Painel | Principal |
 | `/viagens` | Viagens | Principal |
-| `/baplie` | Baplie EDI | Importação |
-| `/manifestos` | Manifestos CNTR | Importação |
-| `/manifestos/:blId` | Detalhe B/L | Importação |
-| `/carga-solta` | Manifestos BB | Importação |
-| `/containers` | Containers | Importação |
-| `/veiculos` | Veículos | Importação |
-| `/vazios-importacao` | Vazios Importação | Importação |
-| `/revisao` | Revisão manual | Importação |
-| `/granito` | Granito | Exportação |
-| `/granito/taxas` | Taxas Granito | Exportação |
-| `/embarquevazios` | Vazios Exportação | Exportação |
+| `/baplie` | Baplie EDI | Importacao |
+| `/manifestos` | Manifestos CNTR | Importacao |
+| `/manifestos/:blId` | Detalhe B/L | Importacao |
+| `/carga-solta` | Manifestos BB | Importacao |
+| `/containers` | Containers | Importacao |
+| `/veiculos` | Veiculos | Importacao |
+| `/vazios-importacao` | Vazios Importacao | Importacao |
+| `/revisao` | Revisao manual | Importacao |
+| `/granito` | Granito | Exportacao |
+| `/granito/taxas` | Taxas Granito | Exportacao |
+| `/embarquevazios` | Vazios Exportacao | Exportacao |
 | `/clientes` | Clientes | Principal |
 | `/clientes/:cnpj` | Ficha do Cliente | Principal |
 | `/taxas-locais` | Taxas Locais | Financeiro |
-| `/faturamento` | Faturamento (Invoices + Demurrage) | Financeiro |
+| `/faturamento` | Faturamento | Financeiro |
 | `/demurrage` | Demurrage | Financeiro |
 | `/demurrage/taxas` | Taxas Demurrage | Financeiro |
-| `/reconciliacao` | Conciliação PIX | Financeiro |
+| `/reconciliacao` | Conciliacao PIX | Financeiro |
 | `/alertas` | Alertas | Principal |
-| `/relatorios` | Relatórios | Principal |
+| `/relatorios` | Relatorios | Principal |
 | `/line-up-tv` | Line Up TV | Principal |
 | `/line-up-tv/display` | Display TV | Principal |
-| `/admin/usuarios` | Admin Usuários | Admin |
+| `/admin/usuarios` | Admin Usuarios | Admin |
 | `/portal/login` | Login Portal | Portal |
 | `/portal/billing` | Faturamento Portal | Portal |
 
----
+## Documentacao viva
 
-## Correções aplicadas vs versão anterior do diagrama
-
-| # | Problema na versão anterior | Correção |
-|---|---|---|
-| 1 | `Viagem → Vazios Importação` direto | `Baplie EDI → Vazios Importação` (caminho principal; planilha avulsa permanece como fallback) |
-| 2 | `Manifestos CNTR → Veículos` | `Viagem → Veículos → B/L` (planilha própria; FK direto para `bls` e `bl_containers`) |
-| 3 | Demurrage isolado, sem ligação com Faturamento | `Demurrage → Faturamento → Portal` (Faturamento agora agrega invoices de demurrage também) |
-| 4 | `Demurrage → Conciliação PIX` (escopo restrito) | `Faturamento → Conciliação PIX` (cobre Container, BB, Granito e Demurrage) |
-| 5 | Granito como fluxo paralelo desligado de Revisão e Taxas Locais | Granito participa de Revisão e Taxas Locais; `granite_bls` aparece na mesma fila operacional |
-| 6 | `Manifestos BB` embutido em CNTR | `Carga Solta` separado, com rota e página próprias (`/carga-solta`) |
-| 7 | Containers/Veículos ausentes | Containers como saída do manifesto CNTR; Veículos como fluxo independente alimentado por planilha |
-| 8 | `Cliente` como nó terminal | `Clientes` é um módulo de gestão com relacionamento (tracejado) ao B/L e ao Faturamento |
+- `docs/ROADMAP.md`: estado atual, evolucao e backlog priorizado.
+- `docs/VALIDACAO.md`: roteiro de validacao tecnica e funcional.
+- `docs/RESET_AMBIENTE.md`: reset de dados operacionais de teste.

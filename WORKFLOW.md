@@ -120,7 +120,7 @@ public/
   templates/           # Modelos de importação (csv/xlsx) servidos ao usuário
   branding/            # Logos
 
-docs/                  # ARCHITECTURE, ROADMAP, VALIDACAO, RESET_AMBIENTE, audits
+docs/                  # ARCHITECTURE, ROADMAP, VALIDACAO, RESET_AMBIENTE
 .github/workflows/     # firebase-deploy.yml, auto-merge-prs.yml
 ```
 
@@ -428,23 +428,19 @@ fiscais/bloco PIX consistentes. `jspdf` deve ser importado dinamicamente.
 
 ## 14. Riscos conhecidos e melhorias futuras
 
-Detalhes e severidades no relatório de auditoria `docs/audits/2026-05-30-auditoria-completa.md`.
+Estado operacional e backlog em `docs/ROADMAP.md`; fluxo canônico em `docs/ARCHITECTURE.md`.
 
 **Riscos conhecidos**
 - Parser de manifesto sensível a novos layouts de armador (mitigado por fixtures
   de regressão).
-- Cobertura de testes parcial nos fluxos financeiros (billing/demurrage) e nas
-  páginas-monólito (`Viagens`, `BlDetalhe`, `Revisao`).
+- Cobertura de testes ainda parcial em fluxos end-to-end de faturamento, portal e autenticação.
 - Dependência `xlsx` (SheetJS) com vulnerabilidade conhecida sem correção no
   registro npm — usar entrada não confiável apenas em parsing controlado.
 - Algumas escritas best-effort (alertas, eventos operacionais, PIX payload)
   logam e seguem em vez de falhar — por design, mas pode mascarar falhas.
 
 **Melhorias futuras**
-- Decompor as páginas-monólito em componentes menores e testáveis.
-- Unificar formatação de moeda (4 implementações hoje) em `formatBRL`.
-- Adicionar testes para billing, demurrage e fluxos de portal.
-- Virtualização na tabela de pendências do Faturamento (~1200 linhas).
-- `manualChunks` no Vite para isolar vendors estáveis e melhorar cache.
+- Continuar a decomposição das páginas grandes em componentes menores e testáveis.
+- Adicionar testes end-to-end para billing, demurrage, autenticação e portal.
 - Camadas adicionais de autenticação forte no portal (ver ROADMAP).
 ```

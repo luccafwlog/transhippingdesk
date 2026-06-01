@@ -207,10 +207,10 @@ npx firebase-tools deploy --only hosting
 
 | Arquivo | Conteúdo |
 |---------|----------|
+| `docs/ARCHITECTURE.md` | Fluxo operacional e mapa de rotas canônico |
 | `docs/ROADMAP.md` | Estado atual e backlog priorizado |
 | `docs/VALIDACAO.md` | Roteiro de validação por módulo |
 | `docs/RESET_AMBIENTE.md` | Procedimento de reset de dados de teste |
-| `docs/PLANEJAMENTO_GRANITO_VAZIOS.md` | Planejamento técnico dos módulos Granito e Vazios |
 | `CLAUDE.md` / `AGENTS.md` | Diretrizes de desenvolvimento assistido por IA |
 
 ---
