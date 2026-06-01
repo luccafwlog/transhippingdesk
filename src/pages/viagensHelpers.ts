@@ -244,3 +244,26 @@ export function summarizeModuleAvailability({
   if (hasVazios) modules.push('VAZIOS')
   return modules.join('/') || '-'
 }
+
+export function collectVoyagePorts(
+  bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
+  field: 'pol' | 'pod',
+  fallback: string | null,
+  extraPorts: Array<string | null | undefined> = [],
+) {
+  const ports = Array.from(
+    new Set(
+      [
+        ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
+        ...extraPorts.map((value) => String(value ?? '').trim()),
+      ]
+        .filter(Boolean),
+    ),
+  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
+
+  if (!ports.length && fallback) {
+    return [fallback]
+  }
+
+  return ports
+}

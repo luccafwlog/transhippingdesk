@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  collectVoyagePorts,
   countDistinctBatchIds,
   getGraniteModuleStats,
   getVaziosModuleStats,
@@ -182,5 +183,32 @@ describe('summarizeModuleAvailability', () => {
     expect(
       summarizeModuleAvailability({ hasCntrs: false, hasBreakbulk: false, hasVehicles: false, hasGranite: false, hasVazios: false }),
     ).toBe('-')
+  })
+})
+
+describe('collectVoyagePorts', () => {
+  const bls = [
+    { pol: 'BRVIX', pod: 'CNNBO' },
+    { pol: 'BRVIX', pod: 'CNSHG' }, // pol duplicado
+    { pol: ' brssa ', pod: null },
+  ]
+
+  it('coleta o campo pedido, faz dedup, trim e ordena', () => {
+    expect(collectVoyagePorts(bls, 'pol', null)).toEqual(['brssa', 'BRVIX'])
+    expect(collectVoyagePorts(bls, 'pod', null)).toEqual(['CNNBO', 'CNSHG'])
+  })
+
+  it('usa o fallback apenas quando não há portos', () => {
+    expect(collectVoyagePorts([], 'pol', 'BRVIX')).toEqual(['BRVIX'])
+    expect(collectVoyagePorts(null, 'pol', null)).toEqual([])
+    // com portos, o fallback é ignorado
+    expect(collectVoyagePorts(bls, 'pol', 'XPTO')).toEqual(['brssa', 'BRVIX'])
+  })
+
+  it('inclui extraPorts (com trim e dedup)', () => {
+    expect(collectVoyagePorts([{ pol: 'BRVIX', pod: null }], 'pol', null, [' BRSSA ', 'BRVIX', null])).toEqual([
+      'BRSSA',
+      'BRVIX',
+    ])
   })
 })
