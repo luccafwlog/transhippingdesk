@@ -19,6 +19,7 @@ import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import {
+  collectVoyagePorts,
   countDistinctBatchIds,
   formatMetric,
   formatPortDisplayName,
@@ -30,7 +31,6 @@ import {
   stripFileExtension,
   summarizeContainerTypes,
   summarizeModuleAvailability,
-  summarizeUniqueValues,
   type VoyageBl,
 } from './viagensHelpers'
 import { deleteVoyage } from '../services/voyages'
@@ -1073,84 +1073,6 @@ type VoyageImportBatch = {
   status: 'processing' | 'completed' | 'partial' | 'failed' | null
   total_bls: number | null
 }
-
-function collectVoyagePorts(
-  bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
-  field: 'pol' | 'pod',
-  fallback: string | null,
-  extraPorts: Array<string | null | undefined> = [],
-) {
-  const ports = Array.from(
-    new Set(
-      [
-        ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
-        ...extraPorts.map((value) => String(value ?? '').trim()),
-      ]
-        .filter(Boolean),
-    ),
-  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
-
-  if (!ports.length && fallback) {
-    return [fallback]
-  }
-
-  return ports
-}
-
-function collectVoyageManifestRows({
-  voyageId,
-  batches,
-  bls,
-  polSchedules,
-}: {
-  voyageId: number
-  batches: VoyageImportBatch[] | null | undefined
-  bls: VoyageBl[] | null | undefined
-  polSchedules?: Map<string, { etd: string | null }> | undefined
-}) {
-  const blsByBatch = new Map<number, VoyageBl[]>()
-
-  for (const bl of bls ?? []) {
-    if (!bl.batch_id) continue
-    const current = blsByBatch.get(bl.batch_id) ?? []
-    current.push(bl)
-    blsByBatch.set(bl.batch_id, current)
-  }
-
-  return [...(batches ?? [])]
-    .sort((left, right) => {
-      const leftDate = Date.parse(left.uploaded_at ?? '')
-      const rightDate = Date.parse(right.uploaded_at ?? '')
-      if (Number.isFinite(leftDate) && Number.isFinite(rightDate) && leftDate !== rightDate) return leftDate - rightDate
-      return left.id - right.id
-    })
-    .map((batch) => {
-      const batchBls = blsByBatch.get(batch.id) ?? []
-      const pols = summarizeUniqueValues(batchBls.map((bl) => bl.pol))
-      const pods = summarizeUniqueValues(batchBls.map((bl) => bl.pod))
-      const pol = batchBls[0]?.pol?.trim() || '-'
-      const routeLabel = [pols || 'Origem a definir', pods ? `→ ${pods}` : '']
-        .filter(Boolean)
-        .join(' ')
-
-      return {
-        batchId: batch.id,
-        pol,
-        etd: polSchedules?.get(buildVoyagePolEntityId(voyageId, pol))?.etd ?? null,
-        blCount: Number(batch.total_bls ?? batchBls.length),
-        routeLabel,
-        filenameLabel: buildManifestLabel(batch),
-      }
-    })
-}
-
-function buildManifestLabel(batch: VoyageImportBatch) {
-  const modeLabel = batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'
-  const filename = stripFileExtension(batch.filename || `manifesto-${batch.id}`)
-  return `${modeLabel} | ${filename}`
-}
-
-void collectVoyageManifestRows
 
 function collectVoyageManifestRowsGroupedByRoute({
   voyageId,
