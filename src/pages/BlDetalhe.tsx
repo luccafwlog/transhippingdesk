@@ -10,6 +10,7 @@ import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { BLPipeline } from '../components/shared/BLPipeline'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
+import { ManualChargeFormFields } from '../components/billing/ManualChargeFormFields'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
@@ -948,73 +949,16 @@ export function BlDetalhe() {
             {bl.charge_exemption_reason ? <Badge tone="slate">{bl.charge_exemption_reason}</Badge> : null}
           </div>
 
-          <div className="mb-4 rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
-            <div className="mb-3 text-sm font-semibold text-white">Other Charges manuais</div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <Field label="Item">
-                <Select
-                  value={manualChargeForm.chargeItemId}
-                  onChange={(event) =>
-                    setManualChargeForm((current) => ({
-                      ...current,
-                      chargeItemId: event.target.value,
-                    }))
-                  }
-                  disabled={isManualChargeItemsLoading || Boolean(manualChargeForm.editingChargeCalculationId)}
-                >
-                  <option value="">Selecione</option>
-                  {(manualChargeItems ?? []).map((item) => (
-                    <option key={item.charge_item_id} value={item.charge_item_id}>
-                      {item.charge_item_name} ({item.currency}){' '}
-                      {item.currency === 'USD'
-                        ? formatUSD(item.effective_unit_value_usd ?? 0)
-                        : formatBRL(item.effective_unit_value_brl ?? 0)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Quantidade">
-                <Input
-                  value={manualChargeForm.quantity}
-                  onChange={(event) =>
-                    setManualChargeForm((current) => ({
-                      ...current,
-                      quantity: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-              <Field label="Observacao">
-                <Input
-                  value={manualChargeForm.notes}
-                  onChange={(event) =>
-                    setManualChargeForm((current) => ({
-                      ...current,
-                      notes: event.target.value,
-                    }))
-                  }
-                  placeholder="Justificativa operacional"
-                />
-              </Field>
-              <div className="flex items-end gap-2 xl:col-span-2">
-                <Button
-                  type="button"
-                  onClick={handleSaveManualCharge}
-                  loading={addManualChargeMutation.isPending || updateManualChargeMutation.isPending}
-                  disabled={deleteManualChargeMutation.isPending}
-                >
-                  {manualChargeForm.editingChargeCalculationId ? <Pencil size={16} /> : <Save size={16} />}
-                  {manualChargeForm.editingChargeCalculationId ? 'Salvar edição' : 'Adicionar other charge'}
-                </Button>
-                {manualChargeForm.editingChargeCalculationId ? (
-                  <Button variant="ghost" type="button" onClick={handleCancelManualChargeEdit}>
-                    <X size={15} />
-                    Cancelar
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </div>
+          <ManualChargeFormFields
+            form={manualChargeForm}
+            items={manualChargeItems ?? []}
+            itemsLoading={isManualChargeItemsLoading}
+            saving={addManualChargeMutation.isPending || updateManualChargeMutation.isPending}
+            deleting={deleteManualChargeMutation.isPending}
+            onPatch={(patch) => setManualChargeForm((current) => ({ ...current, ...patch }))}
+            onSave={handleSaveManualCharge}
+            onCancel={handleCancelManualChargeEdit}
+          />
 
           <div className="app-table-scroll">
             <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
