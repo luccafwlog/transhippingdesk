@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import { MetricCard } from '../components/ui/MetricCard'
 import { Field, Input, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -511,14 +512,6 @@ export function PortalBilling() {
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="app-kpi-card app-kpi-card--navy">
-      <div className="app-kpi-card__label">{label}</div>
-      <div className="app-kpi-card__value app-kpi-card__value--navy">{value}</div>
-    </Card>
-  )
-}
 
 function renderDemurrageBadge(status: string | null) {
   if (status === 'paid') return <Badge tone="green">Pago</Badge>

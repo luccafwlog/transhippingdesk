@@ -6,6 +6,7 @@ import { Download, Plus, Trash2, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { MetricCard } from '../components/ui/MetricCard'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -703,14 +704,6 @@ export function Clientes() {
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-white">{value}</div>
-    </Card>
-  )
-}
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
   return (

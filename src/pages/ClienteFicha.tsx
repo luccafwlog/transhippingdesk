@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
+import { MetricCard } from '../components/ui/MetricCard'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
@@ -582,11 +583,4 @@ export function ClienteFicha() {
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-2xl font-bold text-white">{value}</div>
-    </Card>
-  )
-}
+
