@@ -13,7 +13,7 @@ import { useToast } from '../components/ui/Toast'
 import { useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
-import { createCustomer } from '../services/customers'
+import { createCustomer, fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
 import { exportCustomerBaseWorkbook } from '../services/exports'
 import { supabase } from '../services/supabase'
 import type { CustomerContact, CustomerListItem } from '../types/database'
@@ -223,7 +223,9 @@ export function Clientes() {
       const { data, error } = await query
       if (error) throw error
 
-      const rows = ((data ?? []) as unknown as CustomerListItem[]).filter((row) => {
+      const rowsWithBalances = (data ?? []) as unknown as CustomerListItem[]
+      const balances = await fetchIssuedInvoiceBalanceByCustomer(rowsWithBalances.map((row) => row.id))
+      const rows = rowsWithBalances.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 })).filter((row) => {
         const hasEmails = (row.customer_contacts?.length ?? 0) > 0
         const hasBls = (row.bls?.length ?? 0) > 0
         const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
@@ -387,6 +389,10 @@ export function Clientes() {
               {data?.rows.map((row) => {
                 const summary = summarizeCustomerCharges(row.bls ?? [])
                 const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
+                const customerComplement = [
+                  row.trade_name,
+                  row.city && row.state ? `${row.city}/${row.state}` : row.city || row.state,
+                ].filter(Boolean).join(' • ')
                 return (
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
                     <td className="px-4 py-3">
@@ -395,11 +401,7 @@ export function Clientes() {
                           {truncateCustomerName(row.name, 64)}
                         </div>
                         <div className="app-table__cell-meta">{formatCnpjCpf(row.cnpj_cpf)}</div>
-                        <div className="app-table__cell-meta">
-                          {[row.trade_name, row.city && row.state ? `${row.city}/${row.state}` : row.city || row.state]
-                            .filter(Boolean)
-                            .join(' • ') || 'Sem complemento cadastral'}
-                        </div>
+                        {customerComplement ? <div className="app-table__cell-meta">{customerComplement}</div> : null}
                       </div>
                     </td>
                     <td className="px-4 py-3">

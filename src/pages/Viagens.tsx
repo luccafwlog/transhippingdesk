@@ -22,6 +22,7 @@ import { formatDate } from '../lib/utils'
 import {
   collectVoyagePorts,
   countDistinctBatchIds,
+  countPlannedPodRows,
   formatMetric,
   formatPortDisplayName,
   getGraniteModuleStats,
@@ -318,15 +319,7 @@ export function Viagens() {
             voyage.bls,
             'pod',
             voyage.pod?.name ?? null,
-            scheduledPodRows
-              .filter(
-                (schedule) =>
-                  Boolean(schedule.eta || schedule.etb || schedule.ata || schedule.atd) ||
-                  schedule.rtw !== null ||
-                  schedule.linked === true ||
-                  (schedule.ceStatus !== null && schedule.ceStatus !== 'missing' && schedule.ceStatus !== 'waiting'),
-              )
-              .map((schedule) => schedule.pod),
+            scheduledPodRows.map((schedule) => schedule.pod),
           )
           const containerTypes = summarizeContainerTypes(flatContainers)
           const generalCargoContainerTypes = summarizeContainerTypes(generalCargoContainers)
@@ -353,7 +346,7 @@ export function Viagens() {
               linked: schedule?.linked ?? Boolean(schedule?.eta || schedule?.etb || schedule?.ata || schedule?.atd),
             }
           })
-          const plannedPodCount = podRows.filter((row) => row.eta || row.etb || row.ata || row.atd).length
+          const plannedPodCount = countPlannedPodRows(podRows)
           const manifestRows = collectVoyageManifestRowsGroupedByRoute({
             voyageId: voyage.id,
             batches: importBatches,

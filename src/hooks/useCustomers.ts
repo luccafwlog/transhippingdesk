@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
+import { fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
 import { escapeFilterTerm, onlyDigits } from '../lib/utils'
 import type { Customer, CustomerDetail, CustomerListItem } from '../types/database'
 
@@ -55,22 +56,15 @@ async function fetchAllLinkedBls(): Promise<Array<{ charge_status: string | null
 }
 
 async function fetchAllCustomersPendingBalance(): Promise<{ count: number; pendingBalance: number }> {
-  const pageSize = 1000
-  let count = 0
-  let pendingBalance = 0
-  let from = 0
-  while (true) {
-    const { data, count: total, error } = await supabase
-      .from('customers')
-      .select('pending_balance', { count: 'exact' })
-      .range(from, from + pageSize - 1)
-    if (error) throw error
-    if (from === 0) count = total ?? 0
-    for (const row of data ?? []) pendingBalance += Number(row.pending_balance ?? 0)
-    if ((data ?? []).length < pageSize) break
-    from += pageSize
+  const [{ count, error }, balances] = await Promise.all([
+    supabase.from('customers').select('id', { count: 'exact', head: true }),
+    fetchIssuedInvoiceBalanceByCustomer(),
+  ])
+  if (error) throw error
+  return {
+    count: count ?? 0,
+    pendingBalance: Array.from(balances.values()).reduce((sum, value) => sum + value, 0),
   }
-  return { count, pendingBalance }
 }
 
 export function useCustomers(filters: CustomerFilters) {
@@ -81,7 +75,8 @@ export function useCustomers(filters: CustomerFilters) {
       const to = from + filters.pageSize - 1
 
       // For "without related records", PostgREST !inner can't help — fetch all and paginate manually
-      const hasClientSideFilter = filters.emailStatus === 'without' || filters.blStatus === 'without'
+      const hasClientSideFilter =
+        filters.emailStatus === 'without' || filters.blStatus === 'without' || Boolean(filters.pendingStatus)
 
       // Use !inner join to filter server-side when "with" is selected
       const contactsJoin =
@@ -106,16 +101,12 @@ export function useCustomers(filters: CustomerFilters) {
         )
       }
 
-      if (filters.pendingStatus === 'with') {
-        query = query.gt('pending_balance', 0)
-      } else if (filters.pendingStatus === 'without') {
-        query = query.or('pending_balance.eq.0,pending_balance.is.null')
-      }
-
       const { data, error, count } = await query
       if (error) throw error
 
       let rows = (data ?? []) as unknown as CustomerListItem[]
+      const balances = await fetchIssuedInvoiceBalanceByCustomer(rows.map((row) => row.id))
+      rows = rows.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 }))
 
       // Client-side filter only for "without" cases (absence of related records)
       if (filters.emailStatus === 'without') {
@@ -123,6 +114,11 @@ export function useCustomers(filters: CustomerFilters) {
       }
       if (filters.blStatus === 'without') {
         rows = rows.filter((row) => (row.bls?.length ?? 0) === 0)
+      }
+      if (filters.pendingStatus === 'with') {
+        rows = rows.filter((row) => Number(row.pending_balance ?? 0) > 0)
+      } else if (filters.pendingStatus === 'without') {
+        rows = rows.filter((row) => Number(row.pending_balance ?? 0) <= 0)
       }
 
       // When client-side filter is active all records are fetched; paginate manually
@@ -168,7 +164,7 @@ export function useCustomerDetail(cnpj?: string) {
 
       const { data: invoices, error: invoiceError } = await supabase
         .from('invoices')
-        .select('id, invoice_number, issued_at, due_date, total_brl, status')
+        .select('id, invoice_number, issued_at, due_date, total_brl, balance_brl, status')
         .eq('customer_id', customer.id)
         .order('issued_at', { ascending: false })
         .range(0, 199)
@@ -177,6 +173,7 @@ export function useCustomerDetail(cnpj?: string) {
         if (isPermissionError(invoiceError)) {
           return {
             ...customer,
+            pending_balance: 0,
             invoices: [],
             invoices_access_denied: true,
           } as CustomerDetail
@@ -184,8 +181,13 @@ export function useCustomerDetail(cnpj?: string) {
         throw invoiceError
       }
 
+      const pendingBalance = (invoices ?? [])
+        .filter((invoice) => invoice.status === 'issued')
+        .reduce((sum, invoice) => sum + Number(invoice.balance_brl ?? 0), 0)
+
       return {
         ...customer,
+        pending_balance: pendingBalance,
         invoices: (invoices ?? []) as CustomerDetail['invoices'],
         invoices_access_denied: false,
       } as CustomerDetail

@@ -651,6 +651,16 @@ textarea {
   line-height: 1;
 }
 
+.app-nav-alert-dot {
+  width: 10px;
+  height: 10px;
+  margin-left: auto;
+  border: 2px solid rgba(255, 255, 255, 0.62);
+  border-radius: 999px;
+  background: var(--app-gold);
+  box-shadow: 0 0 0 2px rgba(212, 136, 46, 0.2);
+}
+
 .app-nav-link--admin {
   color: rgba(255, 255, 255, 0.68);
 }
@@ -1215,6 +1225,11 @@ textarea {
   border-color: var(--app-blue-btn);
   box-shadow: 0 0 0 4px var(--app-border-focus);
   background: #ffffff;
+}
+
+.app-input.app-review-search__input {
+  padding-left: 38px;
+  padding-right: 38px;
 }
 
 .app-select {

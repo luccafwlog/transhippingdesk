@@ -4,14 +4,21 @@ import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 
+export type FilePreviewEntry<T> = {
+  file: File
+  preview: T
+}
+
 type Props<T> = {
   title: string
   voyageLabel: string
   accept: string
+  multiple?: boolean
   parser: (file: File) => Promise<T>
   importer: (preview: T, file: File) => Promise<void>
   canImport: (preview: T) => boolean
   renderPreview: (preview: T, file: File) => ReactNode
+  renderBatchSummary?: (entries: FilePreviewEntry<T>[]) => ReactNode
   onClose: () => void
 }
 
@@ -19,26 +26,36 @@ export function FileImportModal<T>({
   title,
   voyageLabel,
   accept,
+  multiple = false,
   parser,
   importer,
   canImport,
   renderPreview,
+  renderBatchSummary,
   onClose,
 }: Props<T>) {
   const { showToast } = useToast()
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<T | null>(null)
+  const [entries, setEntries] = useState<FilePreviewEntry<T>[]>([])
+  const [activeIndex, setActiveIndex] = useState(0)
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const f = event.target.files?.[0] ?? null
-    setFile(f)
-    setPreview(null)
-    if (!f) return
+    const files = Array.from(event.target.files ?? [])
+    setEntries([])
+    setActiveIndex(0)
+    if (!files.length) return
     setParsing(true)
     try {
-      setPreview(await parser(f))
+      const parsedEntries: FilePreviewEntry<T>[] = []
+      for (const file of files) {
+        try {
+          parsedEntries.push({ file, preview: await parser(file) })
+        } catch (err) {
+          showToast(`${file.name}: ${err instanceof Error ? err.message : 'Falha ao ler arquivo.'}`, 'error')
+        }
+      }
+      setEntries(parsedEntries)
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao ler arquivo.', 'error')
     } finally {
@@ -47,10 +64,13 @@ export function FileImportModal<T>({
   }
 
   async function handleImport() {
-    if (!preview || !file) return
+    const importableEntries = entries.filter((entry) => canImport(entry.preview))
+    if (!importableEntries.length) return
     setImporting(true)
     try {
-      await importer(preview, file)
+      for (const entry of importableEntries) {
+        await importer(entry.preview, entry.file)
+      }
       onClose()
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao importar.', 'error')
@@ -59,6 +79,8 @@ export function FileImportModal<T>({
     }
   }
 
+  const activeEntry = entries[activeIndex] ?? null
+
   return (
     <Modal open onClose={onClose} title={title}>
       <div className="grid gap-4">
@@ -66,14 +88,30 @@ export function FileImportModal<T>({
           Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
         </div>
         <Field label={`Arquivo ${accept}`}>
-          <Input accept={accept} type="file" onChange={handleFile} />
+          <Input accept={accept} multiple={multiple} type="file" onChange={handleFile} />
         </Field>
         {parsing ? <div className="app-panel__meta">Processando...</div> : null}
-        {preview && file ? renderPreview(preview, file) : null}
+        {entries.length > 0 && renderBatchSummary ? renderBatchSummary(entries) : null}
+        {activeEntry && entries.length > 1 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm">
+            <span className="text-slate-300">
+              Prévia {activeIndex + 1} de {entries.length}: <span className="font-semibold text-white">{activeEntry.file.name}</span>
+            </span>
+            <div className="flex gap-2">
+              <Button variant="secondary" disabled={activeIndex <= 0} onClick={() => setActiveIndex((index) => index - 1)}>
+                Anterior
+              </Button>
+              <Button variant="secondary" disabled={activeIndex >= entries.length - 1} onClick={() => setActiveIndex((index) => index + 1)}>
+                Próxima
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {activeEntry ? renderPreview(activeEntry.preview, activeEntry.file) : null}
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button
-            disabled={!preview || !canImport(preview)}
+            disabled={!entries.some((entry) => canImport(entry.preview))}
             loading={importing}
             onClick={() => void handleImport()}
           >

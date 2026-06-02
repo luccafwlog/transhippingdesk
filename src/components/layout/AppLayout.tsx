@@ -34,6 +34,7 @@ type NavItem = {
   label: string
   icon: React.ComponentType<{ size?: number }>
   badge?: number
+  alert?: boolean
 }
 
 const importNavItems: NavItem[] = [
@@ -63,12 +64,26 @@ const adminNavItems: NavItem[] = [
 ]
 
 const financialNavItems: NavItem[] = [
-  { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
   { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
+  { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
   { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
   { to: '/demurrage', label: 'Demurrage', icon: Clock },
   { to: '/reconciliacao', label: 'Conciliação PIX', icon: RefreshCw },
 ]
+
+export function buildFinancialNavItemsForCounts(counts: ReturnType<typeof useOperationalCounts>): NavItem[] {
+  return financialNavItems.map((item) => {
+    if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
+    if (item.to === '/faturamento') return { ...item, alert: counts.chargeReviewRequired > 0 }
+    return item
+  })
+}
+
+export function getNavIndicator(items: NavItem[]): { type: 'none' } | { type: 'alert' } | { type: 'badge'; count: number } {
+  if (items.some((item) => item.alert)) return { type: 'alert' }
+  const totalBadge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0)
+  return totalBadge > 0 ? { type: 'badge', count: totalBadge } : { type: 'none' }
+}
 
 const NAV_COLLAPSE_WIDTH = 1100
 
@@ -96,11 +111,7 @@ export function AppLayout() {
     item.to === '/revisao' ? { ...item, badge: counts.pendingReview || undefined } : item,
   )
   const exportNavItemsWithBadges: NavItem[] = exportNavItems
-  const financialNavItemsWithBadges: NavItem[] = financialNavItems.map((item) => {
-    if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
-    if (item.to === '/faturamento') return { ...item, badge: counts.readyForBilling || undefined }
-    return item
-  })
+  const financialNavItemsWithBadges = buildFinancialNavItemsForCounts(counts)
 
   const isImportSectionActive = importNavItems.some((item) => isPathActive(location.pathname, item.to))
   const isExportSectionActive = exportNavItems.some((item) => isPathActive(location.pathname, item.to))
@@ -277,12 +288,14 @@ function TopNavLink({
   label,
   icon: Icon,
   badge,
+  alert,
   onNavigate,
 }: {
   to: string
   label: string
   icon: React.ComponentType<{ size?: number }>
   badge?: number
+  alert?: boolean
   onNavigate?: () => void
 }) {
   return (
@@ -293,7 +306,7 @@ function TopNavLink({
     >
       <Icon size={18} />
       {label}
-      {badge ? <NavBadge count={badge} /> : null}
+      {alert ? <NavAlertDot /> : badge ? <NavBadge count={badge} /> : null}
     </NavLink>
   )
 }
@@ -324,7 +337,7 @@ function TopNavDropdownMenu({
   onNavigate?: () => void
 }) {
   const isOpen = isMobile ? mobileOpen : desktopOpen
-  const totalBadge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0)
+  const indicator = getNavIndicator(items)
 
   return (
     <div
@@ -352,7 +365,8 @@ function TopNavDropdownMenu({
       >
         <Icon size={18} />
         {label}
-        {totalBadge > 0 && <NavBadge count={totalBadge} />}
+        {indicator.type === 'alert' ? <NavAlertDot label={`${label}: alerta pendente`} /> : null}
+        {indicator.type === 'badge' ? <NavBadge count={indicator.count} /> : null}
         <ChevronDown size={16} className="app-nav-dropdown__chevron" />
       </button>
 
@@ -367,12 +381,16 @@ function TopNavDropdownMenu({
           >
             <item.icon size={16} />
             {item.label}
-            {item.badge ? <NavBadge count={item.badge} /> : null}
+            {item.alert ? <NavAlertDot /> : item.badge ? <NavBadge count={item.badge} /> : null}
           </NavLink>
         ))}
       </div>
     </div>
   )
+}
+
+function NavAlertDot({ label = 'Alerta pendente' }: { label?: string }) {
+  return <span className="app-nav-alert-dot" aria-label={label} />
 }
 
 function NavBadge({ count, label }: { count: number; label?: string }) {

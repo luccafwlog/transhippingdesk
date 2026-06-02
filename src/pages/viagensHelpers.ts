@@ -267,3 +267,11 @@ export function collectVoyagePorts(
 
   return ports
 }
+
+export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined }> | null | undefined) {
+  return new Set(
+    (rows ?? [])
+      .map((row) => String(row.pod ?? '').trim())
+      .filter(Boolean),
+  ).size
+}

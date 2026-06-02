@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   collectVoyagePorts,
+  countPlannedPodRows,
   countDistinctBatchIds,
   getGraniteModuleStats,
   getVaziosModuleStats,
@@ -210,5 +211,18 @@ describe('collectVoyagePorts', () => {
       'BRSSA',
       'BRVIX',
     ])
+  })
+})
+
+describe('countPlannedPodRows', () => {
+  it('conta toda linha POD planejada mesmo sem datas ou vinculo ESCALA', () => {
+    const rows = [
+      { pod: 'CNNBO', eta: null, etb: null, ata: null, atd: null, linked: false },
+      { pod: 'CNSHG', eta: '2026-06-01', etb: null, ata: null, atd: null, linked: false },
+      { pod: 'CNNBO', eta: null, etb: null, ata: null, atd: null, linked: true },
+      { pod: '', eta: null, etb: null, ata: null, atd: null, linked: false },
+    ]
+
+    expect(countPlannedPodRows(rows)).toBe(2)
   })
 })

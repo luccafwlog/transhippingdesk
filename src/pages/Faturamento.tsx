@@ -145,6 +145,20 @@ export function Faturamento() {
   const [paymentNotes, setPaymentNotes] = useState('')
   const [cancelReason, setCancelReason] = useState('')
 
+  useEffect(() => {
+    const invoiceId = Number(searchParams.get('invoice') ?? '') || null
+    const customerId = searchParams.get('customer') ?? ''
+    const blSearch = searchParams.get('bl') ?? ''
+
+    setSelectedInvoiceId(invoiceId)
+    if (invoiceId) setActiveTab('invoices')
+    setFilters((current) =>
+      current.customerId === customerId && current.blSearch === blSearch
+        ? current
+        : { ...current, customerId, blSearch, page: 1 },
+    )
+  }, [searchParams])
+
   const { data, isLoading, error } = useInvoices(filters)
 
   const demurrageInvoicesQuery = useQuery({
@@ -986,4 +1000,3 @@ function formatPodList(bls: InvoiceListBl[]) {
   if (pods.length === 1) return pods[0]
   return `${pods[0]} +${pods.length - 1}`
 }
-

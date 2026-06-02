@@ -134,6 +134,52 @@ export async function deleteCustomerContact(contactId: number) {
   if (error) throw error
 }
 
+type CustomerInvoiceBalanceRow = {
+  customer_id: number | null
+  status: string | null
+  balance_brl: number | string | null
+}
+
+export function sumIssuedInvoiceBalancesByCustomer(rows: CustomerInvoiceBalanceRow[]) {
+  const balances = new Map<number, number>()
+
+  for (const row of rows) {
+    if (row.status !== 'issued' || row.customer_id == null) continue
+    balances.set(row.customer_id, (balances.get(row.customer_id) ?? 0) + Number(row.balance_brl ?? 0))
+  }
+
+  return balances
+}
+
+export async function fetchIssuedInvoiceBalanceByCustomer(customerIds?: number[]) {
+  if (customerIds && customerIds.length === 0) return new Map<number, number>()
+
+  const pageSize = 1000
+  const rows: CustomerInvoiceBalanceRow[] = []
+  let from = 0
+
+  while (true) {
+    let query = supabase
+      .from('invoices')
+      .select('customer_id, status, balance_brl')
+      .eq('status', 'issued')
+      .range(from, from + pageSize - 1)
+
+    if (customerIds) {
+      query = query.in('customer_id', Array.from(new Set(customerIds)))
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+
+    rows.push(...((data ?? []) as CustomerInvoiceBalanceRow[]))
+    if ((data ?? []).length < pageSize) break
+    from += pageSize
+  }
+
+  return sumIssuedInvoiceBalancesByCustomer(rows)
+}
+
 export type CustomerPortalAccount = {
   id: number
   customer_id: number

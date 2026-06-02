@@ -131,6 +131,12 @@ Para cada fluxo, registrar:
 - Falhas comuns: B/L sem taxa calculada, cliente sem reconciliacao, permissao financeira ausente, ROE/dados fiscais ausentes.
 - Testes automatizados relacionados: `src/pages/__tests__/Faturamento.test.ts`, `src/pages/__tests__/TaxasLocais.test.ts`, `src/services/__tests__/localCharges.test.ts`.
 
+### Distincao atual em Faturamento
+
+- `Validação`: esteira operacional antes do faturamento. Reune filtros de B/L, reconciliacao de cliente, gargalos de calculo/revisao/pronto para faturar e acoes em lote para calcular, revisar, marcar pronto e gerar invoices.
+- `Pendências`: subconjunto de bloqueios de calculo/revisao. Usa `charge_status = 'review_required'` e serve para recalcular ou tratar linhas que impedem a invoice.
+- Proposta de unificacao para revisao com dados reais: criar uma aba `Operacional` com faixas de prioridade da `Validação` e uma subsecao/tabela para as pendencias de revisao de cobranca. Manter `Faturas` e `Demurrage` separados. Nao remover `Validação` ou `Pendências` ate validar a tela unificada com dados reais.
+
 ## 5. Demurrage
 
 - Objetivo do fluxo: validar calculo, edicao controlada, emissao e pagamento de demurrage.
@@ -171,7 +177,7 @@ Para cada fluxo, registrar:
 - Evidencia a coletar: TXID, invoice, valor, contagem de ambiguos e status pago.
 - Falhas comuns: extrato sem transacoes, TXID repetido, valor divergente, invoice ja paga, cliente/documento divergente.
 - Testes automatizados relacionados: `src/services/__tests__/reconciliacao.test.ts`.
-- Dependencia de auditoria: a decisao automatica usa persistencia existente de invoices/RPCs. Quando houver decisao manual fora desse fluxo, validar tabela ou RPC especifica antes de alterar schema.
+- Dependencia de auditoria: invoices locais sao conciliadas por TXID via `reconcile_invoice_payment_by_txid`, que registra ledger/payment/settlements e marca a invoice com `pix_txid` e `conciliated_by_extract`. Demurrage e marcado diretamente em `demurrage_invoices` com `status = paid`, `paid_at`, `pix_txid` e `conciliated_by_extract`. Quando houver decisao manual fora desse fluxo, validar tabela ou RPC especifica antes de alterar schema.
 
 ## 7. Portal do cliente
 
