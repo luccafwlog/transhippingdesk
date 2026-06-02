@@ -167,7 +167,18 @@ export function InvoiceDocumentLocal({ detail }: Props) {
             <div style={{ marginTop: 4 }}>Valor da fatura:</div>
             <div style={{ fontWeight: 700, marginBottom: 6 }}>{fmtBRL(invoice.total_brl)}</div>
             <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, letterSpacing: '0.05em', marginBottom: 3 }}>PIX COPIA E COLA</div>
-            <span style={{ display: 'block', fontFamily: 'monospace', fontSize: '8px', background: '#f3f4f6', padding: '5px 8px', borderRadius: 3, wordBreak: 'break-all', color: '#374151' }}>
+            <span
+              onClick={(event) => {
+                const selection = window.getSelection()
+                if (!selection) return
+                const range = document.createRange()
+                range.selectNodeContents(event.currentTarget)
+                selection.removeAllRanges()
+                selection.addRange(range)
+              }}
+              title="Clique para selecionar o código inteiro"
+              style={{ display: 'block', fontFamily: 'monospace', fontSize: '8px', background: '#f3f4f6', padding: '5px 8px', borderRadius: 3, wordBreak: 'break-all', color: '#374151', cursor: 'pointer', userSelect: 'all', WebkitUserSelect: 'all' }}
+            >
               {invoice.pix_payload}
             </span>
           </div>
