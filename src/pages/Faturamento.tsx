@@ -34,6 +34,7 @@ import {
 } from '../hooks/useBilling'
 import { useRegisterLedgerInvoicePayment } from '../hooks/useBillingLedger'
 import {
+  buildInvoiceFileBaseName,
   getInvoiceBls,
   getInvoicePaymentDate,
   isConsolidatedInvoice,
@@ -769,7 +770,7 @@ export function Faturamento() {
             <Button variant="secondary" onClick={() => setPrintOpen(false)}>Fechar</Button>
             <Button onClick={() => {
               const prev = document.title
-              document.title = detailQuery.data?.invoice?.invoice_number ?? 'Fatura'
+              document.title = buildInvoiceFileBaseName(detailQuery.data!)
               window.print()
               document.title = prev
             }}><Printer size={16} />Imprimir</Button>

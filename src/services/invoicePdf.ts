@@ -1,5 +1,5 @@
 import { COMPANY } from '../config/company'
-import type { InvoiceDetail } from './billing'
+import { buildInvoiceFileBaseName, type InvoiceDetail } from './billing'
 
 type PdfDocument = import('jspdf').jsPDF
 
@@ -185,5 +185,5 @@ export async function downloadInvoicePdf(detail: InvoiceDetail) {
     doc.text(pixLines, MARGIN, cursor.y)
   }
 
-  doc.save(`${invoiceNumber}.pdf`)
+  doc.save(`${buildInvoiceFileBaseName(detail)}.pdf`)
 }
