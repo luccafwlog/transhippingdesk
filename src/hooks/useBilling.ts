@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  addManualInvoiceCharge,
   cancelInvoice,
+  deleteManualInvoiceCharge,
   listBillingCustomers,
   listInvoiceDetails,
   listInvoiceLinksByBls,
@@ -50,6 +52,34 @@ export function useRegisterInvoicePayment() {
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.detail() }),
+      ])
+    },
+  })
+}
+
+export function useAddManualInvoiceCharge() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: addManualInvoiceCharge,
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(variables.invoiceId) }),
+      ])
+    },
+  })
+}
+
+export function useDeleteManualInvoiceCharge(invoiceId?: number | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: deleteManualInvoiceCharge,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(invoiceId) }),
       ])
     },
   })

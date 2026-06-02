@@ -925,6 +925,24 @@ export type Database = {
         }
         Returns: Json
       }
+      add_manual_invoice_charge: {
+        Args: {
+          p_invoice_id: number
+          p_description: string
+          p_quantity: number
+          p_unit_value_brl: number
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      delete_manual_invoice_charge: {
+        Args: {
+          p_item_id: number
+          p_actor: string | null
+        }
+        Returns: Json
+      }
       list_invoice_details: {
         Args: {
           p_invoice_id: number
