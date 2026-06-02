@@ -11,7 +11,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
-import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions } from '../hooks/useBls'
+import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions, useContainerTypeOptions } from '../hooks/useBls'
 import {
   importContainerFlagsRows,
   parseContainerFlagsImportFile,
@@ -36,6 +36,7 @@ export function Containers() {
     financialStatus: '',
     chargeStatus: '',
     cargoProfile: '',
+    containerType: '',
     page: 1,
     pageSize: 20,
   })
@@ -48,6 +49,7 @@ export function Containers() {
   const [importingFlags, setImportingFlags] = useState(false)
   const { data, isLoading, error } = useContainers(filters)
   const { data: portOptions } = usePortOptions()
+  const { data: typeOptions } = useContainerTypeOptions()
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
 
@@ -56,7 +58,7 @@ export function Containers() {
   }
 
   const activeFilterCount = (
-    ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile'] as (keyof ContainerFilters)[]
+    ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile', 'containerType'] as (keyof ContainerFilters)[]
   ).filter((key) => String(filters[key] ?? '').trim() !== '').length
 
   function clearFilters() {
@@ -70,6 +72,7 @@ export function Containers() {
       financialStatus: '',
       chargeStatus: '',
       cargoProfile: '',
+      containerType: '',
       page: 1,
     }))
   }
@@ -249,6 +252,16 @@ export function Containers() {
               <option value="">Todos</option>
               <option value="oog">OOG</option>
               <option value="imo">IMO</option>
+            </Select>
+          </Field>
+          <Field label="Tipo de container">
+            <Select value={filters.containerType ?? ''} onChange={(event) => updateFilter('containerType', event.target.value)}>
+              <option value="">Todos</option>
+              {typeOptions?.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </Select>
           </Field>
         </div>

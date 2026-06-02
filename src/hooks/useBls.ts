@@ -42,6 +42,7 @@ export type ContainerFilters = {
   financialStatus: string
   chargeStatus: string
   cargoProfile: string
+  containerType?: string
   page: number
   pageSize: number
 }
@@ -291,6 +292,29 @@ export function usePortOptions() {
   })
 }
 
+export function useContainerTypeOptions() {
+  return useQuery({
+    queryKey: ['container-type-options'],
+    staleTime: 1000 * 60 * 10,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bl_containers')
+        .select('type')
+        .limit(1000)
+
+      if (error) throw error
+
+      const types = new Set<string>()
+      for (const row of data ?? []) {
+        const t = String(row.type ?? '').trim().toUpperCase()
+        if (t) types.add(t)
+      }
+
+      return Array.from(types).sort((left, right) => left.localeCompare(right, 'pt-BR'))
+    },
+  })
+}
+
 export function useVoyages() {
   return useQuery({
     queryKey: ['voyages'],
@@ -471,6 +495,7 @@ function applyContainerFilters(rows: ContainerListItem[], filters: ContainerFilt
   return rows.filter((row) => {
     if (filters.cargoProfile === 'oog' && !row.is_oog) return false
     if (filters.cargoProfile === 'imo' && !row.is_imo) return false
+    if (filters.containerType && String(row.type ?? '').trim().toUpperCase() !== filters.containerType.trim().toUpperCase()) return false
 
     if (!searchTerm) return true
 
