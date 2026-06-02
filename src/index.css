@@ -3378,9 +3378,9 @@ textarea {
   }
 
   .invoice-print-content {
-    max-width: 188mm !important;
+    max-width: 198mm !important;
     margin: 0 auto !important;
-    padding: 12mm 10mm !important;
+    padding: 8mm 8mm !important;
     background: white !important;
     box-sizing: border-box !important;
     print-color-adjust: exact !important;
