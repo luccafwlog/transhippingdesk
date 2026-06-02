@@ -1,6 +1,5 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
-import type { BLListItem, ContainerListItem } from '../types/database'
-import type { CustomerListItem } from '../types/database'
+import type { BLListItem, ContainerListItem, CustomerListItem, VaziosImportacaoContainerListItem } from '../types/database'
 import type { LocalChargeOperationalRow } from './charges/chargeOperationsService'
 import type {
   CustomerReportRow,
@@ -294,6 +293,32 @@ export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'BaseClientes')
   XLSX.writeFile(workbook, `base-clientes-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportVaziosImportacaoWorkbook(rows: VaziosImportacaoContainerListItem[]) {
+  const XLSX = await import('xlsx')
+  const exportRows = rows.map((row) => {
+    const manifestLabel = row.manifest?.description
+      ? row.manifest.description
+      : row.manifest?.imported_at
+        ? formatDate(row.manifest.imported_at)
+        : ''
+
+    return {
+      Container: row.container_number,
+      Tipo: row.container_type ?? '',
+      'Tara (kg)': row.tare_kg ?? '',
+      POD: row.pod ?? '',
+      Navio: row.manifest?.voyage?.vessel?.name ?? '',
+      Viagem: row.manifest?.voyage?.voyage_number ?? '',
+      Manifesto: manifestLabel,
+      'Importado em': row.manifest?.imported_at ? formatDate(row.manifest.imported_at) : '',
+    }
+  })
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'VaziosImportacao')
+  XLSX.writeFile(workbook, `vazios-importacao-${makeTimestamp()}.xlsx`)
 }
 
 function makeTimestamp() {

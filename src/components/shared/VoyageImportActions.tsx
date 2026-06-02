@@ -5,7 +5,7 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
-import { FileImportModal } from './FileImportModal'
+import { FileImportModal, type FilePreviewEntry } from './FileImportModal'
 import { computeFileHash, importManifest } from '../../services/manifestImport'
 import { supabase } from '../../services/supabase'
 import { countDistinctManifestContainers, parseManifestFile } from '../../services/manifestParser'
@@ -198,6 +198,7 @@ function CntrImportModal({
       title="Importar Manifesto CNTR"
       voyageLabel={voyageLabel}
       accept=".xlsx,.xls"
+      multiple
       parser={parseManifestFile}
       canImport={(p) => p.bls.length > 0}
       importer={async (preview, file) => {
@@ -206,6 +207,7 @@ function CntrImportModal({
         await onImported()
         showToast(`Manifesto CNTR importado: ${preview.bls.length} B/L(s), ${countDistinctManifestContainers(preview)} container(s).`, 'success')
       }}
+      renderBatchSummary={(entries) => <CntrConsolidatedSummary entries={entries} />}
       renderPreview={(preview) => <CntrPreview preview={preview} voyageId={voyageId} />}
       onClose={onClose}
     />
@@ -213,6 +215,74 @@ function CntrImportModal({
 }
 
 type ManifestPreview = Awaited<ReturnType<typeof parseManifestFile>>
+
+export function buildCntrManifestImportSummary(
+  entries: Array<{ filename: string; preview: ManifestPreview }>,
+) {
+  const distinctContainers = new Set<string>()
+  const rows = entries.map(({ filename, preview }) => {
+    for (const bl of preview.bls) {
+      for (const container of bl.containers) {
+        const normalized = container.container_number.trim().toUpperCase()
+        if (normalized) distinctContainers.add(normalized)
+      }
+    }
+
+    return {
+      filename,
+      pol: summarizeManifestPorts(preview.bls.map((bl) => bl.pol)),
+      pod: summarizeManifestPorts(preview.bls.map((bl) => bl.pod)),
+      blCount: preview.bls.length,
+      containerCount: countDistinctManifestContainers(preview),
+    }
+  })
+
+  return { rows, totalDistinctContainers: distinctContainers.size }
+}
+
+function CntrConsolidatedSummary({ entries }: { entries: FilePreviewEntry<ManifestPreview>[] }) {
+  const summary = buildCntrManifestImportSummary(entries.map((entry) => ({ filename: entry.file.name, preview: entry.preview })))
+
+  return (
+    <div className="rounded-xl border border-[#30363d] bg-[#0d1117]">
+      <div className="border-b border-[#30363d] px-3 py-2 text-sm font-semibold text-white">
+        Manifestos selecionados
+      </div>
+      <div className="app-table-scroll">
+        <table className="app-table app-table--compact min-w-[620px] text-left text-sm">
+          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th scope="col" className="px-3 py-2">Arquivo</th>
+              <th scope="col" className="px-3 py-2">POL</th>
+              <th scope="col" className="px-3 py-2">POD</th>
+              <th scope="col" className="px-3 py-2">B/Ls</th>
+              <th scope="col" className="px-3 py-2">Containers distintos</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#30363d]">
+            {summary.rows.map((row) => (
+              <tr key={row.filename}>
+                <td className="px-3 py-2 font-semibold text-white">{row.filename}</td>
+                <td className="px-3 py-2">{row.pol}</td>
+                <td className="px-3 py-2">{row.pod}</td>
+                <td className="px-3 py-2">{row.blCount}</td>
+                <td className="px-3 py-2">{row.containerCount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="border-t border-[#30363d] px-3 py-2 text-sm text-slate-300">
+        Total consolidado de containers distintos: <span className="font-semibold text-white">{summary.totalDistinctContainers}</span>
+      </div>
+    </div>
+  )
+}
+
+function summarizeManifestPorts(values: Array<string | null>) {
+  const ports = Array.from(new Set(values.map((value) => String(value ?? '').trim()).filter(Boolean)))
+  return ports.join(' / ') || '-'
+}
 
 function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId: number }) {
   const [existingBlIds, setExistingBlIds] = useState<Set<string>>(new Set())

@@ -307,7 +307,7 @@ export function Revisao() {
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
             placeholder="Buscar B/L, consignatario ou shipper..."
-            className="pl-9 pr-9"
+            className="app-review-search__input"
           />
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted-soft)]" size={15} />
           {searchText ? (
@@ -891,4 +891,3 @@ function ReviewModal({
     </Modal>
   )
 }
-

@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
@@ -18,8 +18,10 @@ import {
   listVaziosImportacaoManifests,
   type ParsedVaziosImportacaoManifest,
 } from '../services/vaziosImportacaoImport'
+import { exportVaziosImportacaoWorkbook } from '../services/exports'
 
 const pageSizes = [20, 50, 100]
+const exportPageSize = 200
 
 type Filters = {
   search: string
@@ -49,6 +51,7 @@ export function VaziosImportacao() {
   const [manifest, setManifest] = useState<ParsedVaziosImportacaoManifest | null>(null)
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vazios-importacao-containers', filters],
@@ -133,16 +136,44 @@ export function VaziosImportacao() {
     }
   }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const rows = []
+      let page = 1
+      let total = 0
+      while (true) {
+        const result = await listVaziosImportacaoContainers({ ...filters, page, pageSize: exportPageSize })
+        if (page === 1) total = result.count
+        rows.push(...result.rows)
+        if (rows.length >= total || result.rows.length === 0) break
+        page += 1
+      }
+      await exportVaziosImportacaoWorkbook(rows)
+      showToast(`${rows.length} container(s) exportado(s).`, 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao exportar vazios.', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Vazios — Importacao"
         description="Containers vazios que descarregam (chegam) ao porto. São os futuros vazios de exportação."
         action={
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload size={16} />
-            Importar Planilha
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" loading={exporting} onClick={handleExport}>
+              <Download size={16} />
+              Exportar
+            </Button>
+            <Button onClick={() => setUploadOpen(true)}>
+              <Upload size={16} />
+              Importar Planilha
+            </Button>
+          </div>
         }
       />
 
