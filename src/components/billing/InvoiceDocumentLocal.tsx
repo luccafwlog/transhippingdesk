@@ -157,31 +157,35 @@ export function InvoiceDocumentLocal({ detail }: Props) {
 
       {/* PIX */}
       {invoice.pix_payload && (
-        <div style={{ display: 'flex', gap: 18, marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb', alignItems: 'flex-start' }}>
-          <div style={{ flexShrink: 0 }}>
-            <QRCodeSVG value={invoice.pix_payload} size={90} level="M" />
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
+            <div style={{ flexShrink: 0 }}>
+              <QRCodeSVG value={invoice.pix_payload} size={90} level="M" />
+            </div>
+            <div style={{ flex: 1, fontSize: '12px', color: '#333', lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: 4 }}>PAGAMENTO VIA PIX</div>
+              <div>Escaneie o QR Code ao lado ou utilize o código Pix Copia e Cola abaixo para realizar o pagamento.</div>
+              <div style={{ marginTop: 4 }}>Valor da fatura:</div>
+              <div style={{ fontWeight: 700 }}>{fmtBRL(invoice.total_brl)}</div>
+            </div>
           </div>
-          <div style={{ flex: 1, fontSize: '12px', color: '#333', lineHeight: 1.6 }}>
-            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: 4 }}>PAGAMENTO VIA PIX</div>
-            <div>Escaneie o QR Code ao lado ou utilize o código Pix Copia e Cola abaixo para realizar o pagamento.</div>
-            <div style={{ marginTop: 4 }}>Valor da fatura:</div>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{fmtBRL(invoice.total_brl)}</div>
-            <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, letterSpacing: '0.05em', marginBottom: 3 }}>PIX COPIA E COLA</div>
-            <span
-              onClick={(event) => {
-                const selection = window.getSelection()
-                if (!selection) return
-                const range = document.createRange()
-                range.selectNodeContents(event.currentTarget)
-                selection.removeAllRanges()
-                selection.addRange(range)
-              }}
-              title="Clique para selecionar o código inteiro"
-              style={{ display: 'block', fontFamily: 'monospace', fontSize: '8px', background: '#f3f4f6', padding: '5px 8px', borderRadius: 3, wordBreak: 'break-all', color: '#374151', cursor: 'pointer', userSelect: 'all', WebkitUserSelect: 'all' }}
-            >
-              {invoice.pix_payload}
-            </span>
-          </div>
+          {/* Código em linha única e em largura total: a seleção (manual no PDF ou por
+              clique na tela) copia a string exata, sem quebras que corrompam o payload. */}
+          <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, letterSpacing: '0.05em', margin: '10px 0 3px' }}>PIX COPIA E COLA</div>
+          <span
+            onClick={(event) => {
+              const selection = window.getSelection()
+              if (!selection) return
+              const range = document.createRange()
+              range.selectNodeContents(event.currentTarget)
+              selection.removeAllRanges()
+              selection.addRange(range)
+            }}
+            title="Clique para selecionar o código inteiro"
+            style={{ display: 'block', fontFamily: 'monospace', fontSize: '6.5px', background: '#f3f4f6', padding: '5px 8px', borderRadius: 3, whiteSpace: 'nowrap', color: '#374151', cursor: 'pointer', userSelect: 'all', WebkitUserSelect: 'all' }}
+          >
+            {invoice.pix_payload}
+          </span>
         </div>
       )}
 
