@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Ban, DollarSign, Download, FilePlus2, Printer } from 'lucide-react'
+import { AlertTriangle, Ban, DollarSign, Download, FilePlus2, Plus, Printer, Trash2 } from 'lucide-react'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
 import { ConsolidatedInvoiceModal } from '../components/billing/ConsolidatedInvoiceModal'
 import { ValidacaoTab } from '../components/billing/ValidacaoTab'
@@ -25,7 +25,9 @@ import {
   useLocalChargeOperations,
 } from '../hooks/useLocalCharges'
 import {
+  useAddManualInvoiceCharge,
   useCancelInvoice,
+  useDeleteManualInvoiceCharge,
   useInvoiceDetail,
   useInvoices,
   useRegisterInvoicePayment,
@@ -57,7 +59,7 @@ import {
 } from '../services/alerts'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { describeActiveFilters, describeEmptyState } from '../lib/operationalState'
-import { formatBRL, formatDate, formatUSD } from '../lib/utils'
+import { formatBRL, formatDate, formatUSD, stripBlPrefix } from '../lib/utils'
 import { isLedgerInvoicePayable } from './faturamentoLedgerPayment'
 import { INVOICE_STATUS_FILTER_OPTIONS, invoiceStatusLabel, invoiceStatusTone } from './faturamentoInvoiceStatus'
 
@@ -145,6 +147,10 @@ export function Faturamento() {
   const [paymentDate, setPaymentDate] = useState('')
   const [paymentNotes, setPaymentNotes] = useState('')
   const [cancelReason, setCancelReason] = useState('')
+  const [chargeDescription, setChargeDescription] = useState('')
+  const [chargeQuantity, setChargeQuantity] = useState('1')
+  const [chargeUnitValue, setChargeUnitValue] = useState('')
+  const [chargeNotes, setChargeNotes] = useState('')
 
   useEffect(() => {
     const invoiceId = Number(searchParams.get('invoice') ?? '') || null
@@ -198,6 +204,16 @@ export function Faturamento() {
   const registerPaymentMutation = useRegisterInvoicePayment()
   const registerLedgerPaymentMutation = useRegisterLedgerInvoicePayment()
   const cancelInvoiceMutation = useCancelInvoice()
+  const addChargeMutation = useAddManualInvoiceCharge()
+  const deleteChargeMutation = useDeleteManualInvoiceCharge(selectedInvoiceId)
+
+  // Other Charges so podem ser editados em faturas individuais, abertas e sem pagamentos.
+  const canEditCharges = Boolean(
+    detailInvoice &&
+      !isConsolidatedInvoice(detailInvoice) &&
+      (detailInvoice.status ?? 'issued') !== 'cancelled' &&
+      (detailQuery.data?.payments.length ?? 0) === 0,
+  )
 
   const ledgerBalance = Number(detailInvoice?.balance_brl ?? detailInvoice?.total_brl ?? 0)
   useEffect(() => {
@@ -305,6 +321,51 @@ export function Faturamento() {
       void logOperationalEvent({ code: 'invoice_payment_invalid', message: msg, changedBy: user?.id ?? null, entityId: String(selectedInvoiceId ?? '') })
       void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
       void queryClient.invalidateQueries({ queryKey: ['op-count'] })
+    }
+  }
+
+  async function handleAddCharge() {
+    if (!selectedInvoiceId) return
+    const description = chargeDescription.trim()
+    const quantity = Number(chargeQuantity.replace(',', '.'))
+    const unitValue = Number(chargeUnitValue.replace(',', '.'))
+    if (!description) {
+      showToast('Informe a descricao do item.', 'error')
+      return
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      showToast('Quantidade invalida.', 'error')
+      return
+    }
+    if (!Number.isFinite(unitValue) || unitValue <= 0) {
+      showToast('Valor unitario invalido.', 'error')
+      return
+    }
+    try {
+      await addChargeMutation.mutateAsync({
+        invoiceId: selectedInvoiceId,
+        description,
+        quantity,
+        unitValueBrl: unitValue,
+        notes: chargeNotes.trim() || null,
+        actorId: user?.id ?? null,
+      })
+      setChargeDescription('')
+      setChargeQuantity('1')
+      setChargeUnitValue('')
+      setChargeNotes('')
+      showToast('Item adicionado a fatura.', 'success')
+    } catch (error) {
+      showToast(extractMessage(error, 'Falha ao adicionar item.'), 'error')
+    }
+  }
+
+  async function handleDeleteCharge(itemId: number) {
+    try {
+      await deleteChargeMutation.mutateAsync({ itemId, actorId: user?.id ?? null })
+      showToast('Item removido da fatura.', 'success')
+    } catch (error) {
+      showToast(extractMessage(error, 'Falha ao remover item.'), 'error')
     }
   }
 
@@ -556,28 +617,19 @@ export function Faturamento() {
                 <MetricCard label="Saldo" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
                 <MetricCard label="B/Ls" value={String(detailQuery.data.bls.length)} />
               </div>
-              <div className="grid gap-4 xl:grid-cols-[1.1fr,0.9fr]">
-                <Card className="border border-[#30363d] bg-[#0d1117]">
-                  <h2 className="text-base font-semibold text-white">Contexto da invoice</h2>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <SelectionMetric label="Cliente" value={detailQuery.data.invoice.customer_name ?? '-'} />
-                    <SelectionMetric label="Documento" value={detailQuery.data.invoice.customer_cnpj_cpf ?? '-'} />
-                    <SelectionMetric label="Emissao" value={formatDate(detailQuery.data.invoice.issued_at)} />
-                    <SelectionMetric label="Vencimento" value={formatDate(detailQuery.data.invoice.due_date)} />
-                    <SelectionMetric label="Status" value={statusLabel(detailQuery.data.invoice.status)} />
-                    <SelectionMetric label="Notas" value={detailQuery.data.invoice.notes ?? '-'} />
-                  </div>
-                </Card>
-                <Card className="border border-[#30363d] bg-[#0d1117]">
-                  <h2 className="text-base font-semibold text-white">Snapshot financeiro</h2>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <SelectionMetric label="Itens" value={String(detailQuery.data.items.length)} />
-                    <SelectionMetric label="Pagamentos" value={String(detailQuery.data.payments.length)} />
-                    <SelectionMetric label="Total BRL" value={formatBRL(detailQuery.data.invoice.total_brl)} />
-                    <SelectionMetric label="Saldo BRL" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
-                  </div>
-                </Card>
-              </div>
+              <Card>
+                <h2 className="text-base font-semibold text-white">Informações da Fatura</h2>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <SelectionMetric label="Cliente" value={detailQuery.data.invoice.customer_name ?? '-'} />
+                  <SelectionMetric label="CNPJ" value={detailQuery.data.invoice.customer_cnpj_cpf ?? '-'} />
+                  <SelectionMetric label="Emissao" value={formatDate(detailQuery.data.invoice.issued_at)} />
+                  <SelectionMetric label="Status" value={statusLabel(detailQuery.data.invoice.status)} />
+                  <SelectionMetric label="Itens" value={String(detailQuery.data.items.length)} />
+                  <SelectionMetric label="Pagamentos" value={String(detailQuery.data.payments.length)} />
+                  <SelectionMetric label="Total BRL" value={formatBRL(detailQuery.data.invoice.total_brl)} />
+                  <SelectionMetric label="Saldo BRL" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
+                </div>
+              </Card>
               <Card className="overflow-hidden p-0">
                 <div className="app-table-scroll">
                   <table className="app-table app-table--compact min-w-[620px] text-left text-sm"><thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-3 py-2">B/L</th><th scope="col" className="px-3 py-2">Trecho</th><th scope="col" className="px-3 py-2">Subtotal BRL</th></tr></thead><tbody className="divide-y divide-[#30363d]">{detailQuery.data.bls.map((row) => <tr key={row.id}><td className="px-3 py-2 font-semibold text-[#58a6ff]"><Link className="hover:underline" to={`/manifestos/${row.bl_id}`}>{row.bl_id}</Link></td><td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td><td className="px-3 py-2">{formatBRL(row.subtotal_brl)}</td></tr>)}</tbody></table>
@@ -587,6 +639,38 @@ export function Faturamento() {
                 <div className="border-b border-[#30363d] px-4 py-3">
                   <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Itens da invoice</h2>
                 </div>
+                {canEditCharges ? (
+                  <div className="border-b border-[#30363d] px-4 py-4">
+                    <div className="mb-3 text-sm font-semibold text-white">Other Charges manuais</div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                      <Field label="Descricao">
+                        <Input
+                          value={chargeDescription}
+                          onChange={(event) => setChargeDescription(event.target.value)}
+                          placeholder="Ex: Ajuste manual"
+                        />
+                      </Field>
+                      <Field label="Quantidade">
+                        <Input value={chargeQuantity} onChange={(event) => setChargeQuantity(event.target.value)} />
+                      </Field>
+                      <Field label="Valor unitario (BRL)">
+                        <Input value={chargeUnitValue} onChange={(event) => setChargeUnitValue(event.target.value)} placeholder="0,00" />
+                      </Field>
+                      <Field label="Observacao">
+                        <Input
+                          value={chargeNotes}
+                          onChange={(event) => setChargeNotes(event.target.value)}
+                          placeholder="Justificativa operacional"
+                        />
+                      </Field>
+                      <div className="flex items-end">
+                        <Button type="button" onClick={handleAddCharge} loading={addChargeMutation.isPending}>
+                          <Plus size={16} />Adicionar other charge
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="app-table-scroll">
                   <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
@@ -596,23 +680,38 @@ export function Faturamento() {
                         <th scope="col" className="px-3 py-2">Origem</th>
                         <th scope="col" className="px-3 py-2">Unitario</th>
                         <th scope="col" className="px-3 py-2">Total</th>
+                        <th scope="col" className="px-3 py-2">Acoes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
                       {detailQuery.data.items.length === 0 ? (
                         <tr>
-                          <td className="px-3 py-6 text-center text-slate-400" colSpan={5}>
+                          <td className="px-3 py-6 text-center text-slate-400" colSpan={6}>
                             Nenhum item encontrado nesta invoice.
                           </td>
                         </tr>
                       ) : (
                         detailQuery.data.items.map((item) => (
                           <tr key={item.id}>
-                            <td className="px-3 py-2">{item.description ?? '-'}</td>
+                            <td className="px-3 py-2">{stripBlPrefix(item.description, item.bl_id)}</td>
                             <td className="px-3 py-2">{item.quantity ?? 1}</td>
                             <td className="px-3 py-2">{item.source === 'manual' ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}</td>
                             <td className="px-3 py-2">{item.currency === 'USD' ? formatUSD(item.unit_value_usd) : formatBRL(item.unit_value_brl)}</td>
                             <td className="px-3 py-2">{item.currency === 'USD' ? formatUSD(item.total_value_usd) : formatBRL(item.total_value_brl)}</td>
+                            <td className="px-3 py-2">
+                              {canEditCharges && item.source === 'manual' ? (
+                                <Button
+                                  variant="ghost"
+                                  type="button"
+                                  onClick={() => handleDeleteCharge(item.id)}
+                                  loading={deleteChargeMutation.isPending && deleteChargeMutation.variables?.itemId === item.id}
+                                >
+                                  <Trash2 size={15} />Remover
+                                </Button>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </td>
                           </tr>
                         ))
                       )}
@@ -876,7 +975,7 @@ function renderDemurrageStatus(status: string | null | undefined) {
 
 function SelectionMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#111827] px-3 py-3">
+    <div className="rounded-xl border border-[#30363d] bg-[var(--app-surface-muted)] px-3 py-3">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-1 text-sm font-medium text-slate-100">{value}</div>
     </div>

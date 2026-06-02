@@ -1,6 +1,7 @@
 import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { InvoiceDetail } from '../../services/billing'
+import { stripBlPrefix } from '../../lib/utils'
 
 function fmtBRL(v: number | null | undefined) {
   const n = Number(v ?? 0)
@@ -15,12 +16,6 @@ function fmtCNPJ(s: string | null | undefined) {
   return s
 }
 
-function stripBlPrefix(description: string | null | undefined, blId: string | null | undefined): string {
-  if (!description) return ''
-  if (!blId) return description
-  const prefix = `BL ${blId} - `
-  return description.startsWith(prefix) ? description.slice(prefix.length) : description
-}
 
 function longDate() {
   return new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })

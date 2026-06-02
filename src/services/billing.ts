@@ -575,6 +575,40 @@ export async function cancelInvoice(input: {
   return (data ?? {}) as Json
 }
 
+export async function addManualInvoiceCharge(input: {
+  invoiceId: number
+  description: string
+  quantity: number
+  unitValueBrl: number
+  notes?: string | null
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('add_manual_invoice_charge', {
+    p_invoice_id: input.invoiceId,
+    p_description: input.description,
+    p_quantity: input.quantity,
+    p_unit_value_brl: input.unitValueBrl,
+    p_notes: input.notes ?? null,
+    p_actor: input.actorId ?? null,
+  })
+
+  if (error) throw error
+  return (data ?? {}) as Json
+}
+
+export async function deleteManualInvoiceCharge(input: {
+  itemId: number
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('delete_manual_invoice_charge', {
+    p_item_id: input.itemId,
+    p_actor: input.actorId ?? null,
+  })
+
+  if (error) throw error
+  return (data ?? {}) as Json
+}
+
 export async function listInvoiceLinksByBls(blIds: string[]) {
   const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
   if (normalizedIds.length === 0) return {} as InvoiceLinksByBl
