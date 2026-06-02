@@ -32,7 +32,7 @@ describe('ConsolidatedInvoiceModal', () => {
     expect(html).toContain('Todas as viagens')
   })
 
-  it('uses the specified left-filter/right-table layout with a fixed summary footer', () => {
+  it('usa layout empilhado (filtros em grade no topo, tabela, rodape fixo)', () => {
     const html = renderToStaticMarkup(
       React.createElement(ConsolidatedInvoiceModal, { open: true, onClose: vi.fn() }),
     )
@@ -42,8 +42,11 @@ describe('ConsolidatedInvoiceModal', () => {
     expect(html).toContain('data-testid="consolidated-invoice-filters"')
     expect(html).toContain('data-testid="consolidated-invoice-table"')
     expect(html).toContain('data-testid="consolidated-invoice-footer"')
+    // Filtros em barra horizontal (grade de 12 colunas) no topo.
+    expect(html).toContain('invoice-create-modal__filters-grid')
     expect(css).toMatch(/\.invoice-create-modal\s*\{[^}]*display:\s*grid/)
-    expect(css).toContain('grid-template-columns: minmax(220px, 280px) minmax(0, 1fr)')
+    expect(css).toMatch(/\.invoice-create-modal\s*\{[^}]*grid-template-areas:\s*"filters"\s*"table"\s*"footer"/)
+    expect(css).toContain('grid-template-columns: repeat(12, minmax(0, 1fr))')
     expect(css).toMatch(/\.invoice-create-modal__footer\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0/)
   })
 })

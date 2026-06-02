@@ -130,126 +130,113 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
     >
       <div className="invoice-create-modal" data-testid="consolidated-invoice-main">
         <section className="invoice-create-modal__filters" data-testid="consolidated-invoice-filters">
-          {/* Customer picker (not wrapped in Field: dropdown buttons must not live inside a <label>) */}
-          <div className="app-field">
-            <span className="app-field__label">
-              Cliente<span className="app-field__required" aria-hidden="true"> *</span>
-            </span>
-            <div ref={pickerRef} style={{ position: 'relative' }}>
-              <Input
-                placeholder="Buscar cliente..."
-                value={customerSearch}
-                onChange={(e) => {
-                  setCustomerId(null)
-                  setVoyageId(null)
-                  setSelected([])
-                  setCustomerSearch(e.target.value)
-                  setPickerOpen(true)
-                }}
-                onFocus={() => setPickerOpen(true)}
-                onClick={() => setPickerOpen(true)}
-                style={customerId ? { paddingRight: 32 } : undefined}
-              />
-              {customerId && (
-                <button
-                  type="button"
-                  aria-label="Limpar cliente"
-                  onClick={clearCustomer}
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    right: 8,
-                    transform: 'translateY(-50%)',
-                    border: 'none',
-                    background: 'none',
-                    cursor: 'pointer',
-                    fontSize: 18,
-                    lineHeight: 1,
-                    color: 'var(--app-muted)',
-                    padding: 0,
+          <div className="invoice-create-modal__filters-grid">
+            {/* Customer picker (not wrapped in Field: dropdown buttons must not live inside a <label>) */}
+            <div className="app-field invoice-create-modal__field--customer">
+              <span className="app-field__label">
+                Cliente<span className="app-field__required" aria-hidden="true"> *</span>
+              </span>
+              <div ref={pickerRef} className="invoice-search-field">
+                <Input
+                  placeholder="Buscar cliente..."
+                  role="combobox"
+                  aria-expanded={pickerOpen}
+                  autoComplete="off"
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerId(null)
+                    setVoyageId(null)
+                    setSelected([])
+                    setCustomerSearch(e.target.value)
+                    setPickerOpen(true)
                   }}
-                >
-                  ×
-                </button>
-              )}
-              {pickerOpen && (customerOptions?.length ?? 0) > 0 && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    zIndex: 20,
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    background: 'var(--app-surface)',
-                    border: '1px solid var(--app-border)',
-                    borderRadius: 8,
-                    marginTop: 4,
-                    maxHeight: 220,
-                    overflowY: 'auto',
+                  onClick={() => setPickerOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && pickerOpen) {
+                      e.stopPropagation()
+                      setPickerOpen(false)
+                    }
                   }}
+                  style={customerId ? { paddingRight: 34 } : undefined}
+                />
+                {customerId && (
+                  <button
+                    type="button"
+                    className="invoice-search-field__clear"
+                    aria-label="Limpar cliente"
+                    onClick={clearCustomer}
+                  >
+                    ×
+                  </button>
+                )}
+                {pickerOpen && (customerOptions?.length ?? 0) > 0 && (
+                  <div className="invoice-search-field__menu" role="listbox">
+                    {customerOptions!.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="option"
+                        aria-selected={c.id === customerId}
+                        className={`invoice-search-field__option${c.id === customerId ? ' invoice-search-field__option--active' : ''}`}
+                        onClick={() => {
+                          setCustomerId(c.id)
+                          setVoyageId(null)
+                          setSearch('')
+                          setCustomerSearch(c.name)
+                          setPickerOpen(false)
+                          setSelected([])
+                        }}
+                      >
+                        <div className="invoice-search-field__option-name">{c.name}</div>
+                        <div className="invoice-search-field__option-meta">{c.cnpj_cpf}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="invoice-create-modal__field--voyage">
+              <Field label="Viagem">
+                <Select
+                  value={voyageId == null ? '' : String(voyageId)}
+                  onChange={(e) => {
+                    setVoyageId(e.target.value ? Number(e.target.value) : null)
+                    setSelected([])
+                  }}
+                  disabled={!customerId || voyageOptions.length === 0}
                 >
-                  {customerOptions!.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setCustomerId(c.id)
-                        setVoyageId(null)
-                        setCustomerSearch(c.name)
-                        setPickerOpen(false)
-                        setSelected([])
-                      }}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '8px 12px',
-                        background: c.id === customerId ? 'var(--app-surface-muted)' : 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ fontWeight: 600 }}>{c.name}</div>
-                      <div style={{ fontSize: 12, opacity: 0.7 }}>{c.cnpj_cpf}</div>
-                    </button>
+                  <option value="">Todas as viagens</option>
+                  {voyageOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
                   ))}
-                </div>
-              )}
+                </Select>
+              </Field>
+            </div>
+
+            <div className="invoice-create-modal__field--bl">
+              <Field label="Buscar B/L">
+                <Input
+                  placeholder="Filtrar por B/L..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  disabled={!customerId}
+                />
+              </Field>
+            </div>
+
+            <div className="invoice-create-modal__field--due">
+              <Field label="Vencimento">
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </Field>
+            </div>
+
+            <div className="invoice-create-modal__field--notes">
+              <Field label="Observações">
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+              </Field>
             </div>
           </div>
-
-          <Field label="Viagem">
-            <Select
-              value={voyageId == null ? '' : String(voyageId)}
-              onChange={(e) => {
-                setVoyageId(e.target.value ? Number(e.target.value) : null)
-                setSelected([])
-              }}
-              disabled={!customerId || voyageOptions.length === 0}
-            >
-              <option value="">Todas as viagens</option>
-              {voyageOptions.map((option) => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Buscar B/L">
-            <Input
-              placeholder="Filtrar por B/L..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              disabled={!customerId}
-            />
-          </Field>
-
-          <Field label="Vencimento">
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </Field>
-
-          <Field label="Observações">
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />
-          </Field>
 
           {error && <div style={{ color: 'var(--app-danger, #dc2626)', fontSize: 13 }}>{error}</div>}
         </section>
