@@ -79,6 +79,22 @@ export type InvoiceLinkInfo = {
 
 export type InvoiceLinksByBl = Record<string, InvoiceLinkInfo[]>
 
+// Nome padronizado do arquivo de fatura de taxas locais (sem extensao):
+// "NumeroFatura - FATURA TAXAS LOCAIS - PrimeiroNomeCliente - BL(s)".
+// Ex.: "INV-2026-0127 - FATURA TAXAS LOCAIS - GOLDEN - CSC45630201C00".
+export function buildInvoiceFileBaseName(detail: InvoiceDetail): string {
+  const invoice = detail.invoice
+  const invoiceNumber = invoice?.invoice_number ?? (invoice ? `INV-${invoice.id}` : 'Fatura')
+  const firstName = (invoice?.customer_name ?? '').trim().split(/\s+/)[0] ?? ''
+  const blPart = detail.bls.map((b) => b.bl_id).filter(Boolean).join(', ')
+  const base = [invoiceNumber, 'FATURA TAXAS LOCAIS', firstName, blPart]
+    .filter((part) => part && part.trim().length > 0)
+    .join(' - ')
+  // Remove caracteres invalidos em nomes de arquivo e normaliza espacos.
+  return base.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+
 export type BillingCustomerOption = {
   id: number
   name: string
