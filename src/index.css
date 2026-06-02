@@ -1467,11 +1467,11 @@ textarea {
 
 .invoice-create-modal {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "filters table"
-    "footer footer";
+    "filters"
+    "table"
+    "footer";
   min-height: 0;
   max-height: calc(90vh - 84px);
   gap: 16px;
@@ -1500,9 +1500,13 @@ textarea {
   align-items: start;
 }
 
-.invoice-create-modal__field--customer,
-.invoice-create-modal__field--voyage {
+.invoice-create-modal__field--customer {
   grid-column: span 4;
+}
+
+.invoice-create-modal__field--voyage,
+.invoice-create-modal__field--bl {
+  grid-column: span 3;
 }
 
 .invoice-create-modal__field--cargo,
@@ -1510,12 +1514,8 @@ textarea {
   grid-column: span 2;
 }
 
-.invoice-create-modal__field--bl {
-  grid-column: span 3;
-}
-
 .invoice-create-modal__field--notes {
-  grid-column: span 9;
+  grid-column: span 12;
 }
 
 .invoice-create-modal__field--notes textarea {
@@ -1539,6 +1539,55 @@ textarea {
   border-radius: 12px;
   background: var(--app-surface);
   box-shadow: var(--app-shadow-strong);
+}
+
+.invoice-search-field__clear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--app-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.invoice-search-field__clear:hover {
+  background: var(--app-surface-muted);
+  color: var(--app-text);
+}
+
+.invoice-search-field__option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--app-text);
+}
+
+.invoice-search-field__option:hover,
+.invoice-search-field__option--active {
+  background: var(--app-surface-muted);
+}
+
+.invoice-search-field__option-name {
+  font-weight: 600;
+}
+
+.invoice-search-field__option-meta {
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 .invoice-create-modal__table-section {
