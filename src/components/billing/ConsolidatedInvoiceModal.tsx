@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
@@ -46,7 +46,33 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   const selectedTotal = summary.total
   const eligibleCount = summary.eligibleCount
 
-  const selectedCustomer = customerOptions?.find((c) => c.id === customerId)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  // Fecha o dropdown de cliente ao clicar fora ou apertar Escape.
+  useEffect(() => {
+    if (!pickerOpen) return
+    function onPointerDown(event: PointerEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false)
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPickerOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [pickerOpen])
+
+  function clearCustomer() {
+    setCustomerId(null)
+    setCustomerSearch('')
+    setVoyageId(null)
+    setSearch('')
+    setSelected([])
+    setPickerOpen(false)
+  }
 
   function reset() {
     setCustomerId(null)
@@ -109,10 +135,10 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
             <span className="app-field__label">
               Cliente<span className="app-field__required" aria-hidden="true"> *</span>
             </span>
-            <div style={{ position: 'relative' }}>
+            <div ref={pickerRef} style={{ position: 'relative' }}>
               <Input
                 placeholder="Buscar cliente..."
-                value={selectedCustomer ? selectedCustomer.name : customerSearch}
+                value={customerSearch}
                 onChange={(e) => {
                   setCustomerId(null)
                   setVoyageId(null)
@@ -121,8 +147,32 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
                   setPickerOpen(true)
                 }}
                 onFocus={() => setPickerOpen(true)}
+                onClick={() => setPickerOpen(true)}
+                style={customerId ? { paddingRight: 32 } : undefined}
               />
-              {pickerOpen && !customerId && (customerOptions?.length ?? 0) > 0 && (
+              {customerId && (
+                <button
+                  type="button"
+                  aria-label="Limpar cliente"
+                  onClick={clearCustomer}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: 8,
+                    transform: 'translateY(-50%)',
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    fontSize: 18,
+                    lineHeight: 1,
+                    color: 'var(--app-muted)',
+                    padding: 0,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+              {pickerOpen && (customerOptions?.length ?? 0) > 0 && (
                 <div
                   style={{
                     position: 'absolute',
@@ -145,7 +195,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
                       onClick={() => {
                         setCustomerId(c.id)
                         setVoyageId(null)
-                        setCustomerSearch('')
+                        setCustomerSearch(c.name)
                         setPickerOpen(false)
                         setSelected([])
                       }}
@@ -154,7 +204,7 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
                         width: '100%',
                         textAlign: 'left',
                         padding: '8px 12px',
-                        background: 'none',
+                        background: c.id === customerId ? 'var(--app-surface-muted)' : 'none',
                         border: 'none',
                         cursor: 'pointer',
                       }}
