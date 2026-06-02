@@ -170,13 +170,18 @@ export async function exportInvoicesWorkbook(rows: InvoiceListRow[]) {
     getInvoiceBls(row).map((bl) => ({
       Fatura: row.invoice_number ?? `INV-${row.id}`,
       Cliente: row.customer?.name ?? '',
+      CNPJ: row.customer?.cnpj_cpf ?? '',
       Tipo: isConsolidatedInvoice(row) ? 'Consolidada' : 'Único BL',
       BL: bl.bl_id,
       Navio: bl.vessel_name ?? '',
       Viagem: bl.voyage_number ?? '',
       POD: bl.pod ?? '',
       Emissao: row.issued_at ? formatDate(row.issued_at) : '',
+      DataPagamento: getInvoicePaymentDate(row) ? formatDate(getInvoicePaymentDate(row)) : '',
       Status: invoiceStatusLabel(row.status),
+      TotalBRL: Number(row.total_brl ?? 0),
+      PagoBRL: Number(row.total_paid_brl ?? 0),
+      SaldoBRL: Number(row.balance_brl ?? 0),
     })),
   )
 
