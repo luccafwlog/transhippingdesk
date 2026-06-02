@@ -86,7 +86,6 @@ export function getNavIndicator(items: NavItem[]): { type: 'none' } | { type: 'a
 }
 
 const NAV_COLLAPSE_WIDTH = 1100
-const VERSION = '2.0.0'
 
 export function AppLayout() {
   const location = useLocation()
@@ -173,22 +172,7 @@ export function AppLayout() {
           <button className="app-header__brand" onClick={() => navigate('/painel')} type="button">
             <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
             <div className="app-header__titles">
-              <div className="app-header__eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                Desk operacional
-                <span style={{
-                  fontSize: '10px',
-                  fontFamily: 'var(--app-font-mono)',
-                  fontWeight: 500,
-                  padding: '2px 5px',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  lineHeight: 1
-                }}>
-                  v{VERSION}
-                </span>
-              </div>
+              <div className="app-header__eyebrow">Desk operacional</div>
               <div className="app-header__subtitle">importação, exportação e faturamento</div>
             </div>
           </button>

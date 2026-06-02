@@ -60,6 +60,9 @@ export function HeaderInfoBar() {
   }
 
   const label = roleLabel(profile?.role)
+  const commitSha = import.meta.env.VITE_APP_COMMIT_SHA
+    ? String(import.meta.env.VITE_APP_COMMIT_SHA).substring(0, 7)
+    : 'unknown'
 
   return (
     <div className="app-market-strip">
@@ -101,7 +104,23 @@ export function HeaderInfoBar() {
         </div>
 
         {/* Zona direita — usuário logado */}
-        <div className="app-market-strip__right" ref={userZoneRef}>
+        <div className="app-market-strip__right" ref={userZoneRef} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {commitSha !== 'unknown' && (
+            <>
+              <span 
+                style={{
+                  fontSize: '11px',
+                  fontFamily: 'var(--app-font-mono)',
+                  color: 'rgba(255, 255, 255, 0.38)',
+                  fontWeight: 500
+                }} 
+                title={`Commit: ${String(import.meta.env.VITE_APP_COMMIT_SHA)}`}
+              >
+                {commitSha}
+              </span>
+              <span className="hib-sep" aria-hidden="true">·</span>
+            </>
+          )}
           <button
             type="button"
             className="hib-user-btn"
