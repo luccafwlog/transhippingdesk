@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { MetricCard } from '../components/ui/MetricCard'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -446,23 +447,6 @@ export function Veiculos() {
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: string | number }) {
-  const tone =
-    label.includes('Peso')
-      ? 'gold'
-      : label.includes('Containers')
-        ? 'green'
-        : label.includes('B/L')
-          ? 'navy'
-          : 'blue'
-
-  return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-    </Card>
-  )
-}
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
   const tone =

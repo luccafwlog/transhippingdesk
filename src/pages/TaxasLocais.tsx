@@ -4,6 +4,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { TabButton } from '../components/ui/TabButton'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { MetricCard } from '../components/ui/MetricCard'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -1070,12 +1071,4 @@ export function TaxasLocais() {
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="app-metric-tile">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
-    </div>
-  )
-}
 

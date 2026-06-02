@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { MetricCard } from '../components/ui/MetricCard'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
 import { MANAGED_PROFILES, PROFILE_LABELS, listAllUserProfiles, updateUserProfile } from '../services/adminUsers'
@@ -388,14 +389,6 @@ export function AdminUsuarios() {
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="app-metric-tile">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
-    </div>
-  )
-}
 
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('pt-BR', {

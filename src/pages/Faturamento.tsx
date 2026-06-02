@@ -12,6 +12,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { TabButton } from '../components/ui/TabButton'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { MetricCard } from '../components/ui/MetricCard'
 import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
@@ -872,9 +873,6 @@ function renderDemurrageStatus(status: string | null | undefined) {
   return <Badge tone="yellow">Draft</Badge>
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return <Card className="app-kpi-card app-kpi-card--navy"><div className="app-kpi-card__label">{label}</div><div className="app-kpi-card__value app-kpi-card__value--navy">{value}</div></Card>
-}
 
 function SelectionMetric({ label, value }: { label: string; value: string }) {
   return (
