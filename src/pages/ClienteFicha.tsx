@@ -19,6 +19,7 @@ import {
   updateCustomerWithAudit,
   upsertCustomerContact,
   upsertCustomerPortalAccount,
+  provisionPortalAuthUser,
 } from '../services/customers'
 import type { CustomerContact } from '../types/database'
 
@@ -77,13 +78,23 @@ export function ClienteFicha() {
   const savePortalMutation = useMutation({
     mutationFn: async () => {
       if (!data) throw new Error('Cliente não carregado.')
-      return upsertCustomerPortalAccount({
+      const trimmedEmail = portalEmail.trim()
+      if (!trimmedEmail) throw new Error('Informe o email de login do portal.')
+      // 1) garante a linha da conta de portal (id + email de contato)
+      const account = await upsertCustomerPortalAccount({
         customerId: data.id,
         password: portalPassword,
-        contactEmail: portalEmail || null,
+        contactEmail: trimmedEmail,
         active: portalActive,
         actorId: user?.id ?? null,
       })
+      // 2) cria/atualiza o usuário Supabase Auth (login email + senha)
+      await provisionPortalAuthUser({
+        accountId: account.id,
+        portalEmail: trimmedEmail,
+        password: portalPassword,
+      })
+      return account
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['customer-portal-account', data?.id] })
@@ -338,7 +349,7 @@ export function ClienteFicha() {
           <div>
             <h2 className="text-lg font-semibold text-white">Portal do cliente</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Provisiona login externo por CNPJ + senha para consulta e consolidacao de invoices.
+              Provisiona login externo por email + senha para consulta e consolidacao de invoices.
             </p>
           </div>
           <div className="text-sm text-slate-400">
@@ -359,8 +370,8 @@ export function ClienteFicha() {
         ) : null}
 
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Email de contato">
-            <Input value={portalEmail} onChange={(event) => setPortalEmail(event.target.value)} placeholder="financeiro@cliente.com" />
+          <Field label="Email de login">
+            <Input type="email" value={portalEmail} onChange={(event) => setPortalEmail(event.target.value)} placeholder="financeiro@cliente.com" />
           </Field>
           <Field label="Senha do portal">
             <Input

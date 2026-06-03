@@ -7,71 +7,79 @@ import {
   portalListConsolidatableReceivables,
   portalListDemurrageInvoices,
   portalListInvoices,
+  portalObsoleteConsolidation,
 } from '../services/portalBilling'
 
 export function usePortalConsolidatableReceivables() {
-  const { sessionToken } = usePortalAuth()
+  const { isAuthenticated } = usePortalAuth()
 
   return useQuery({
-    queryKey: ['portal-consolidatable-receivables', sessionToken],
-    enabled: Boolean(sessionToken),
-    queryFn: () => portalListConsolidatableReceivables(sessionToken!),
+    queryKey: ['portal-consolidatable-receivables'],
+    enabled: isAuthenticated,
+    queryFn: () => portalListConsolidatableReceivables(),
   })
 }
 
 export function usePortalInvoices() {
-  const { sessionToken } = usePortalAuth()
+  const { isAuthenticated } = usePortalAuth()
 
   return useQuery({
-    queryKey: ['portal-invoices', sessionToken],
-    enabled: Boolean(sessionToken),
-    queryFn: () => portalListInvoices(sessionToken!),
+    queryKey: ['portal-invoices'],
+    enabled: isAuthenticated,
+    queryFn: () => portalListInvoices(),
   })
 }
 
 export function usePortalInvoiceDetail(invoiceId?: number | null) {
-  const { sessionToken } = usePortalAuth()
+  const { isAuthenticated } = usePortalAuth()
 
   return useQuery({
-    queryKey: ['portal-invoice-detail', sessionToken, invoiceId],
-    enabled: Boolean(sessionToken && invoiceId),
-    queryFn: () => portalInvoiceDetails(sessionToken!, Number(invoiceId)),
+    queryKey: ['portal-invoice-detail', invoiceId],
+    enabled: Boolean(isAuthenticated && invoiceId),
+    queryFn: () => portalInvoiceDetails(Number(invoiceId)),
   })
 }
 
 export function usePortalDemurrageInvoices() {
-  const { sessionToken } = usePortalAuth()
+  const { isAuthenticated } = usePortalAuth()
   return useQuery({
-    queryKey: ['portal-demurrage-invoices', sessionToken],
-    enabled: Boolean(sessionToken),
-    queryFn: () => portalListDemurrageInvoices(sessionToken!),
+    queryKey: ['portal-demurrage-invoices'],
+    enabled: isAuthenticated,
+    queryFn: () => portalListDemurrageInvoices(),
   })
 }
 
 export function usePortalDemurrageInvoiceDetail(invoiceId?: number | null) {
-  const { sessionToken } = usePortalAuth()
+  const { isAuthenticated } = usePortalAuth()
   return useQuery({
-    queryKey: ['portal-demurrage-invoice-detail', sessionToken, invoiceId],
-    enabled: Boolean(sessionToken && invoiceId),
-    queryFn: () => portalGetDemurrageInvoiceDetail(sessionToken!, Number(invoiceId)),
+    queryKey: ['portal-demurrage-invoice-detail', invoiceId],
+    enabled: Boolean(isAuthenticated && invoiceId),
+    queryFn: () => portalGetDemurrageInvoiceDetail(Number(invoiceId)),
   })
 }
 
 export function usePortalCreateConsolidation() {
   const queryClient = useQueryClient()
-  const { sessionToken, refreshOverview } = usePortalAuth()
+  const { refreshOverview } = usePortalAuth()
 
   return useMutation({
-    mutationFn: async (payload: { receivableIds: number[] }) => {
-      if (!sessionToken) {
-        throw new Error('Sessao do portal indisponivel.')
-      }
-
-      return portalCreateConsolidation({
-        sessionToken,
-        receivableIds: payload.receivableIds,
-      })
+    mutationFn: (payload: { receivableIds: number[] }) => portalCreateConsolidation(payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['portal-consolidatable-receivables'] }),
+        queryClient.invalidateQueries({ queryKey: ['portal-invoices'] }),
+      ])
+      await refreshOverview()
     },
+  })
+}
+
+export function usePortalObsoleteConsolidation() {
+  const queryClient = useQueryClient()
+  const { refreshOverview } = usePortalAuth()
+
+  return useMutation({
+    mutationFn: (invoiceId: number) => portalObsoleteConsolidation(invoiceId),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['portal-consolidatable-receivables'] }),
