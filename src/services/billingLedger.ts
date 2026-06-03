@@ -38,14 +38,10 @@ export async function listConsolidatableReceivables(filters: ConsolidatableRecei
 export async function createConsolidatedInvoice(input: {
   customerId: number
   receivableIds: number[]
-  dueDate?: string | null
-  notes?: string | null
 }) {
   const { data, error } = await supabase.rpc('create_local_consolidated_invoice', {
     p_customer_id: input.customerId,
     p_receivable_ids: input.receivableIds,
-    p_due_date: input.dueDate ?? null,
-    p_notes: input.notes?.trim() || null,
     p_actor: null,
   })
   if (error) throw error

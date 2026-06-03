@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type { InvoiceDetail } from './billing'
-import type { DemurrageInvoiceItem } from '../types/database'
+import type { ConsolidatableReceivable, DemurrageInvoiceItem } from '../types/database'
 
 export type PortalLoginResult = {
   token: string
@@ -17,16 +17,6 @@ export type PortalSessionOverview = {
   customer_cnpj_cpf: string
   pending_balance: number | null
   contact_email: string | null
-}
-
-export type PortalPendingBl = {
-  bl_id: string
-  pol: string | null
-  pod: string | null
-  charge_status: string | null
-  financial_status: string | null
-  billing_hold_reason: string | null
-  subtotal_brl: number | null
 }
 
 export type PortalInvoiceSummary = {
@@ -67,16 +57,17 @@ export async function portalGetSessionOverview(sessionToken: string) {
   return (data ?? {}) as PortalSessionOverview
 }
 
-export async function portalListPendingBls(sessionToken: string) {
-  const { data, error } = await supabase.rpc('portal_list_pending_bls', {
+export async function portalListConsolidatableReceivables(sessionToken: string) {
+  const { data, error } = await supabase.rpc('portal_list_consolidatable_receivables', {
     p_session_token: sessionToken,
   })
 
   if (error) throw error
 
-  return ((data ?? []) as PortalPendingBl[]).map((row) => ({
+  return ((data ?? []) as ConsolidatableReceivable[]).map((row) => ({
     ...row,
-    subtotal_brl: Number(row.subtotal_brl ?? 0),
+    balance_brl: Number(row.balance_brl ?? 0),
+    original_amount_brl: Number(row.original_amount_brl ?? 0),
   }))
 }
 
@@ -165,15 +156,11 @@ export async function portalGetDemurrageInvoiceDetail(sessionToken: string, invo
 
 export async function portalCreateConsolidation(input: {
   sessionToken: string
-  blIds: string[]
-  dueDate?: string | null
-  notes?: string | null
+  receivableIds: number[]
 }) {
   const { data, error } = await supabase.rpc('portal_create_consolidation', {
     p_session_token: input.sessionToken,
-    p_bl_ids: input.blIds,
-    p_due_date: input.dueDate ?? null,
-    p_notes: input.notes ?? null,
+    p_receivable_ids: input.receivableIds,
   })
 
   if (error) throw error

@@ -4,18 +4,18 @@ import {
   portalCreateConsolidation,
   portalGetDemurrageInvoiceDetail,
   portalInvoiceDetails,
+  portalListConsolidatableReceivables,
   portalListDemurrageInvoices,
   portalListInvoices,
-  portalListPendingBls,
 } from '../services/portalBilling'
 
-export function usePortalPendingBls() {
+export function usePortalConsolidatableReceivables() {
   const { sessionToken } = usePortalAuth()
 
   return useQuery({
-    queryKey: ['portal-pending-bls', sessionToken],
+    queryKey: ['portal-consolidatable-receivables', sessionToken],
     enabled: Boolean(sessionToken),
-    queryFn: () => portalListPendingBls(sessionToken!),
+    queryFn: () => portalListConsolidatableReceivables(sessionToken!),
   })
 }
 
@@ -62,21 +62,19 @@ export function usePortalCreateConsolidation() {
   const { sessionToken, refreshOverview } = usePortalAuth()
 
   return useMutation({
-    mutationFn: async (payload: { blIds: string[]; dueDate?: string | null; notes?: string | null }) => {
+    mutationFn: async (payload: { receivableIds: number[] }) => {
       if (!sessionToken) {
         throw new Error('Sessao do portal indisponivel.')
       }
 
       return portalCreateConsolidation({
         sessionToken,
-        blIds: payload.blIds,
-        dueDate: payload.dueDate ?? null,
-        notes: payload.notes ?? null,
+        receivableIds: payload.receivableIds,
       })
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['portal-pending-bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['portal-consolidatable-receivables'] }),
         queryClient.invalidateQueries({ queryKey: ['portal-invoices'] }),
       ])
       await refreshOverview()
