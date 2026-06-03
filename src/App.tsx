@@ -2,6 +2,7 @@ import { Suspense, lazy, type ComponentType, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
+import { PortalLayout } from './components/layout/PortalLayout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 
 function lazyPage<T extends Record<string, unknown>, K extends keyof T & string>(
@@ -73,7 +74,9 @@ export default function App() {
       <Route path="/login" element={withSuspense(<Login />)} />
       <Route path="/portal/login" element={withSuspense(<PortalLogin />)} />
       <Route element={<PortalProtectedRoute />}>
-        <Route path="/portal/billing" element={withSuspense(<PortalBilling />)} />
+        <Route element={<PortalLayout />}>
+          <Route path="/portal/billing" element={withSuspense(<PortalBilling />)} />
+        </Route>
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route path="/line-up-tv/display" element={withSuspense(<LineUpTVDisplay />)} />

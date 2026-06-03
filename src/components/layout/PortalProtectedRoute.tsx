@@ -5,7 +5,7 @@ export function PortalProtectedRoute() {
   const { isAuthenticated, loading } = usePortalAuth()
 
   if (loading) {
-    return <div className="grid min-h-screen place-items-center bg-[#0d1117] text-slate-300">Carregando portal...</div>
+    return <div className="app-shell grid min-h-screen place-items-center text-[var(--app-text-muted)]">Carregando portal...</div>
   }
 
   if (!isAuthenticated) {
