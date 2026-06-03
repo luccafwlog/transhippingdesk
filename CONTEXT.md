@@ -41,3 +41,13 @@ Carga perigosa classificada pela International Maritime Organization. Flag `is_i
 
 **OOG (Out of Gauge)**
 Container com dimensões fora do padrão ISO. Flag `is_oog`.
+
+**Portal do Cliente**
+Interface externa, separada do sistema interno, onde um Cliente consulta suas faturas (taxas locais e demurrage), efetua pagamento (PIX) e pode consolidar B/Ls em aberto numa fatura única. Autenticação própria, isolada do acesso operacional interno.
+
+**Conta de Portal**
+Vínculo entre um Cliente e uma credencial de acesso ao Portal do Cliente. A credencial canônica é **email + senha**. Um Cliente tem no máximo uma Conta de Portal. Provisionada internamente por um administrador — não há cadastro público.
+
+**Email de contato**
+Endereço para comunicação financeira de um Cliente. É um dado informativo da Conta de Portal e não deve ser confundido com a credencial de login (embora possam coincidir).
+
