@@ -4,13 +4,12 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { usePortalAuth } from '../hooks/usePortalAuth'
-import { formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { isSupabaseConfigured } from '../services/supabase'
 
 export function PortalLogin() {
   const navigate = useNavigate()
   const { isAuthenticated, loading, signIn } = usePortalAuth()
-  const [cnpjCpf, setCnpjCpf] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -25,7 +24,7 @@ export function PortalLogin() {
     setSubmitting(true)
 
     try {
-      await signIn(onlyDigits(cnpjCpf), password)
+      await signIn(email, password)
       navigate('/portal/billing', { replace: true })
     } catch (err: unknown) {
       const code = typeof err === 'object' && err !== null ? String((err as { code?: string }).code ?? '') : ''
@@ -57,11 +56,13 @@ export function PortalLogin() {
         ) : null}
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <Field label="CNPJ/CPF">
+          <Field label="Email">
             <Input
               required
-              value={cnpjCpf ? formatCnpjCpf(cnpjCpf) : ''}
-              onChange={(event) => setCnpjCpf(onlyDigits(event.target.value))}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
             />
           </Field>
 

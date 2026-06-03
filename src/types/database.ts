@@ -879,27 +879,31 @@ export type Database = {
         Returns: Json
       }
       portal_list_consolidatable_receivables: {
-        Args: {
-          p_session_token: string
-        }
+        Args: Record<string, never>
         Returns: ConsolidatableReceivable[]
       }
-      portal_list_invoices: {
+      portal_obsolete_consolidation: {
         Args: {
-          p_session_token: string
+          p_invoice_id: number
         }
+        Returns: Json
+      }
+      current_portal_customer_id: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      portal_list_invoices: {
+        Args: Record<string, never>
         Returns: Json
       }
       portal_invoice_details: {
         Args: {
-          p_session_token: string
           p_invoice_id: number
         }
         Returns: Json
       }
       portal_create_consolidation: {
         Args: {
-          p_session_token: string
           p_receivable_ids: number[]
         }
         Returns: Json
@@ -952,11 +956,11 @@ export type Database = {
         Returns: number
       }
       portal_list_demurrage_invoices: {
-        Args: { p_session_token: string }
+        Args: Record<string, never>
         Returns: Json
       }
       portal_get_demurrage_invoice_detail: {
-        Args: { p_session_token: string; p_invoice_id: number }
+        Args: { p_invoice_id: number }
         Returns: Json
       }
       count_distinct_containers: {
