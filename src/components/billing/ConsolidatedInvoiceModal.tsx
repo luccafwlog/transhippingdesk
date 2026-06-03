@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
-import { Field, Input, Select, Textarea } from '../ui/Input'
+import { Field, Input, Select } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useBillingCustomers } from '../../hooks/useBilling'
 import { useConsolidatableReceivables, useCreateConsolidatedInvoice } from '../../hooks/useBillingLedger'
@@ -22,8 +22,6 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [voyageId, setVoyageId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const [notes, setNotes] = useState('')
   const [selected, setSelected] = useState<number[]>([])
   const [error, setError] = useState('')
 
@@ -79,8 +77,6 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
     setCustomerSearch('')
     setVoyageId(null)
     setSearch('')
-    setDueDate('')
-    setNotes('')
     setSelected([])
     setError('')
   }
@@ -108,8 +104,6 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
       const result = await createMutation.mutateAsync({
         customerId,
         receivableIds: selected,
-        dueDate: dueDate || null,
-        notes: notes || null,
       })
       showToast(`Consolidada ${result.invoice_number} emitida (${fmtBRL(result.total_brl)}).`, 'success')
       close()
@@ -222,18 +216,6 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
                   onChange={(e) => setSearch(e.target.value)}
                   disabled={!customerId}
                 />
-              </Field>
-            </div>
-
-            <div className="invoice-create-modal__field--due">
-              <Field label="Vencimento">
-                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-              </Field>
-            </div>
-
-            <div className="invoice-create-modal__field--notes">
-              <Field label="Observações">
-                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
               </Field>
             </div>
           </div>

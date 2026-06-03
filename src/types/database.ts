@@ -759,9 +759,9 @@ export type Database = {
         Args: {
           p_customer_id: number
           p_receivable_ids: number[]
-          p_due_date: string | null
-          p_notes: string | null
-          p_actor: string | null
+          p_due_date?: string | null
+          p_notes?: string | null
+          p_actor?: string | null
         }
         Returns: Json
       }
@@ -878,11 +878,11 @@ export type Database = {
         }
         Returns: Json
       }
-      portal_list_pending_bls: {
+      portal_list_consolidatable_receivables: {
         Args: {
           p_session_token: string
         }
-        Returns: Json
+        Returns: ConsolidatableReceivable[]
       }
       portal_list_invoices: {
         Args: {
@@ -900,9 +900,7 @@ export type Database = {
       portal_create_consolidation: {
         Args: {
           p_session_token: string
-          p_bl_ids: string[]
-          p_due_date: string | null
-          p_notes: string | null
+          p_receivable_ids: number[]
         }
         Returns: Json
       }

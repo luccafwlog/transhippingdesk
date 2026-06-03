@@ -89,8 +89,8 @@ describe('ConsolidatedInvoiceModal — seletor de cliente', () => {
     await user.click(input)
     expect(screen.getByRole('listbox')).toBeTruthy()
 
-    // Clicar num campo fora do picker (Observacoes) fecha o dropdown.
-    await user.click(screen.getByLabelText('Observações'))
+    // Clicar num campo fora do picker (label "Buscar B/L") fecha o dropdown.
+    await user.click(screen.getByText('Buscar B/L'))
     expect(screen.queryByRole('listbox')).toBeNull()
   })
 })
