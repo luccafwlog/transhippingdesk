@@ -170,7 +170,18 @@ Deno.serve(async (req: Request) => {
           customer_id: portalAccount.customer_id,
         },
       })
-      if (createError) throw createError
+      if (createError) {
+        // Email já pertence a outro usuário (ex.: um login interno). No Supabase
+        // Auth o email é único global, então não pode ser reaproveitado.
+        const msg = (createError.message ?? '').toLowerCase()
+        if ((createError as { status?: number }).status === 422 || msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+          return new Response(
+            JSON.stringify({ error: 'Este email já está em uso por outro usuário do sistema. Use um email exclusivo para o acesso do cliente ao portal.' }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          )
+        }
+        throw createError
+      }
       authUserId = newUser.user.id
     }
 

@@ -286,8 +286,19 @@ export async function provisionPortalAuthUser(input: {
   })
 
   if (error) {
-    const fromBody = (data as { error?: string } | null)?.error
-    throw new Error(fromBody || error.message || 'Falha ao provisionar login do portal.')
+    // Em falhas não-2xx o supabase-js retorna FunctionsHttpError com o corpo em
+    // error.context (um Response). Extrai a mensagem real para exibir ao usuário.
+    let message = ''
+    const context = (error as { context?: Response }).context
+    if (context && typeof context.json === 'function') {
+      try {
+        const body = await context.json()
+        message = (body as { error?: string })?.error ?? ''
+      } catch {
+        // corpo não-JSON; ignora e usa o fallback
+      }
+    }
+    throw new Error(message || error.message || 'Falha ao provisionar login do portal.')
   }
   return (data ?? {}) as { success?: boolean; auth_user_id?: string }
 }
