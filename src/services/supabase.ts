@@ -22,3 +22,16 @@ export const supabase = createClient<Database>(supabaseUrl ?? fallbackSupabaseUr
     detectSessionInUrl: true,
   },
 })
+
+// Cliente dedicado ao Portal do Cliente. O portal e o app interno rodam no mesmo
+// projeto Supabase e no mesmo domínio; sem um storageKey próprio eles
+// compartilhariam a mesma sessão no navegador e um login derrubaria o outro.
+// storageKey distinto isola as sessões (interno x portal) por completo.
+export const supabasePortal = createClient<Database>(supabaseUrl ?? fallbackSupabaseUrl, supabaseAnonKey ?? fallbackSupabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storageKey: 'td-portal-auth',
+  },
+})
