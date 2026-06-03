@@ -18,7 +18,8 @@
       "Bash(base64 -w 0 \"/c/Users/Lucca/Downloads/transhipping-desk2/public/branding/transhipping-logo-cropped.png\" > /tmp/logo_b64.txt && echo \"ok\")",
       "Bash(npm test *)",
       "Bash(gh pr create --title 'feat: redesign taxas locais invoice and add PIX generation' --body ' *)",
-      "Bash(gh pr *)"
+      "Bash(gh pr *)",
+      "mcp__0644792d-6b09-4f2e-9724-d56001a37210__netlify-project-services-reader"
     ]
   }
 }

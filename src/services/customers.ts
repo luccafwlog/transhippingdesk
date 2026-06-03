@@ -269,6 +269,29 @@ export async function upsertCustomerPortalAccount(input: {
   return (data ?? {}) as CustomerPortalAccount
 }
 
+// Cria/atualiza o usuário Supabase Auth (email + senha) vinculado à conta de
+// portal. Login canônico do portal — ver docs/adr/0001. Invoca a Edge Function
+// provision-portal-user (service role) após a conta existir.
+export async function provisionPortalAuthUser(input: {
+  accountId: number
+  portalEmail: string
+  password: string
+}) {
+  const { data, error } = await supabase.functions.invoke('provision-portal-user', {
+    body: {
+      customer_portal_account_id: input.accountId,
+      portal_email: input.portalEmail,
+      password: input.password,
+    },
+  })
+
+  if (error) {
+    const fromBody = (data as { error?: string } | null)?.error
+    throw new Error(fromBody || error.message || 'Falha ao provisionar login do portal.')
+  }
+  return (data ?? {}) as { success?: boolean; auth_user_id?: string }
+}
+
 export async function setCustomerPortalAccountActive(input: {
   customerId: number
   active: boolean

@@ -7,6 +7,8 @@
 // Env vars necessárias:
 //   SUPABASE_URL          — project URL
 //   SUPABASE_SERVICE_ROLE_KEY — service role key (acesso admin)
+//   SUPABASE_ANON_KEY     — anon key (validação do chamador)
+//   APP_URL               — origem do app interno (CORS fail-closed)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
