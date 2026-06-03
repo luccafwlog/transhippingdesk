@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
-import { supabase } from '../services/supabase'
+import { supabasePortal } from '../services/supabase'
 import type { PortalSessionOverview } from '../services/portalBilling'
 
 type PortalAuthContextValue = {
@@ -31,7 +31,7 @@ function normalizePortalOverview(payload: Record<string, unknown>) {
 }
 
 async function fetchOverview(): Promise<PortalSessionOverview> {
-  const { data, error } = await supabase.rpc('portal_get_session_overview_v2')
+  const { data, error } = await supabasePortal.rpc('portal_get_session_overview_v2')
   if (error) throw error
   return normalizePortalOverview((data ?? {}) as Record<string, unknown>)
 }
@@ -49,7 +49,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
 
     async function hydrate() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await supabasePortal.auth.getSession()
         if (!session) return
 
         const ov = await fetchOverview()
@@ -70,7 +70,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
   const signIn = useCallback(async (email: string, password: string) => {
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabasePortal.auth.signInWithPassword({
         email: email.trim(),
         password,
       })
@@ -84,7 +84,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
 
   const signOut = useCallback(async () => {
     clearSession()
-    await supabase.auth.signOut()
+    await supabasePortal.auth.signOut()
   }, [clearSession])
 
   const refreshOverview = useCallback(async () => {
