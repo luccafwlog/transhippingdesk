@@ -17,27 +17,39 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/
 const PASSWORD_MIN_LENGTH = 8
 
-// CORS restrito ao domínio do app. A env var APP_URL deve ser configurada
-// no projeto Supabase (ex: https://transhipping.app).
-const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? Deno.env.get('SUPABASE_URL') ?? ''
+// CORS restrito às origens do app interno. O sistema é servido pelo Firebase
+// Hosting, que responde em web.app e firebaseapp.com. APP_URL é um override
+// opcional (env var no projeto Supabase) para outros ambientes.
+const ALLOWED_ORIGINS = new Set(
+  [
+    Deno.env.get('APP_URL'),
+    'https://transhippingdesk.web.app',
+    'https://transhippingdesk.firebaseapp.com',
+  ].filter((value): value is string => Boolean(value)),
+)
+const DEFAULT_ORIGIN = 'https://transhippingdesk.web.app'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Vary': 'Origin',
+function corsHeadersFor(origin: string | null) {
+  const allowOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : DEFAULT_ORIGIN
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  }
 }
 
 Deno.serve(async (req: Request) => {
+  const requestOrigin = req.headers.get('Origin')
+  const corsHeaders = corsHeadersFor(requestOrigin)
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // Defesa em profundidade contra CSRF de outras origens: requisições de browser
-  // (com header Origin) só são aceitas se baterem com ALLOWED_ORIGIN. Chamadas
-  // server-to-server (sem Origin) continuam permitidas. Se ALLOWED_ORIGIN não
-  // estiver configurada, qualquer Origin de browser é rejeitada (fail-closed).
-  const requestOrigin = req.headers.get('Origin')
-  if (requestOrigin && requestOrigin !== ALLOWED_ORIGIN) {
+  // Defesa em profundidade contra CSRF: requisições de browser (com header
+  // Origin) só são aceitas se a origem estiver na allowlist. Chamadas
+  // server-to-server (sem Origin) continuam permitidas.
+  if (requestOrigin && !ALLOWED_ORIGINS.has(requestOrigin)) {
     return new Response(JSON.stringify({ error: 'Forbidden origin' }), {
       status: 403,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
