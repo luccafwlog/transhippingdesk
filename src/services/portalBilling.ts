@@ -22,8 +22,21 @@ export type PortalInvoiceSummary = {
   invoice_type: string | null
   vessels: string[]
   voyages: string[]
+  vessel_voyages: string[]
+  bls: string[]
   pods: string[]
 }
+
+export type PortalInvoiceContainer = {
+  id: number
+  bl_id: string | null
+  container_number: string
+  type: string | null
+  seal_number: string | null
+  gross_weight_kg: number | null
+}
+
+export type PortalInvoiceDetail = InvoiceDetail & { containers: PortalInvoiceContainer[] }
 
 export async function portalListConsolidatableReceivables() {
   const { data, error } = await supabasePortal.rpc('portal_list_consolidatable_receivables')
@@ -49,6 +62,8 @@ export async function portalListInvoices(): Promise<PortalInvoiceSummary[]> {
     balance_brl: Number(row.balance_brl ?? 0),
     vessels: row.vessels ?? [],
     voyages: row.voyages ?? [],
+    vessel_voyages: row.vessel_voyages ?? [],
+    bls: row.bls ?? [],
     pods: row.pods ?? [],
   }))
 }
@@ -64,6 +79,7 @@ export async function portalInvoiceDetails(invoiceId: number) {
     invoice?: InvoiceDetail['invoice']
     bls?: InvoiceDetail['bls']
     items?: InvoiceDetail['items']
+    containers?: PortalInvoiceContainer[]
     payments?: InvoiceDetail['payments']
   }
 
@@ -71,8 +87,9 @@ export async function portalInvoiceDetails(invoiceId: number) {
     invoice: payload.invoice ?? null,
     bls: payload.bls ?? [],
     items: payload.items ?? [],
+    containers: payload.containers ?? [],
     payments: payload.payments ?? [],
-  } as InvoiceDetail
+  } as PortalInvoiceDetail
 }
 
 export type PortalDemurrageInvoice = {
