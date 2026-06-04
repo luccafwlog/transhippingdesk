@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState, type ReactNode } from 'react'
 import { FilePlus2, Printer, RotateCcw } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '../components/ui/Badge'
@@ -28,9 +28,9 @@ import { formatBRL, formatDate } from '../lib/utils'
 
 type PortalTab = 'local' | 'demurrage'
 type StatusFilter = '' | 'issued' | 'paid' | 'cancelled'
-type Filters = { status: StatusFilter; vessel: string; pod: string; dateFrom: string; dateTo: string }
+type Filters = { status: StatusFilter; vessel: string; bl: string; pod: string; dateFrom: string; dateTo: string }
 
-const EMPTY_FILTERS: Filters = { status: '', vessel: '', pod: '', dateFrom: '', dateTo: '' }
+const EMPTY_FILTERS: Filters = { status: '', vessel: '', bl: '', pod: '', dateFrom: '', dateTo: '' }
 
 const STATUS_GROUPS: Record<Exclude<StatusFilter, ''>, string[]> = {
   issued: ['issued', 'partially_paid', 'overdue', 'draft'],
@@ -52,7 +52,14 @@ function inDateRange(value: string | null, from: string, to: string) {
 }
 
 function countActive(f: Filters) {
-  return [f.status, f.vessel, f.pod, f.dateFrom || f.dateTo].filter(Boolean).length
+  return [f.status, f.vessel, f.bl, f.pod, f.dateFrom || f.dateTo].filter(Boolean).length
+}
+
+// Match por substring case-insensitive contra uma lista de valores (navio/viagem, BLs).
+function matchesText(values: string[], term: string) {
+  if (!term.trim()) return true
+  const needle = term.trim().toLowerCase()
+  return values.some((v) => v.toLowerCase().includes(needle))
 }
 
 export function PortalBilling() {
@@ -77,16 +84,24 @@ export function PortalBilling() {
   const eligibleCount = (receivables ?? []).filter((r) => r.eligibility_status === 'eligible').length
 
   // Opções de dropdown derivadas das próprias faturas do cliente.
-  const localVessels = useMemo(
-    () => Array.from(new Set((invoices ?? []).flatMap((i) => i.vessels ?? []))).sort(),
+  // Navio/Viagem usa o par "NAVIO / VIAGEM" para o autocomplete do filtro.
+  const localVesselOptions = useMemo(
+    () => Array.from(new Set((invoices ?? []).flatMap((i) => i.vessel_voyages ?? []))).sort(),
     [invoices],
   )
   const localPods = useMemo(
     () => Array.from(new Set((invoices ?? []).flatMap((i) => i.pods ?? []))).sort(),
     [invoices],
   )
-  const demVessels = useMemo(
-    () => Array.from(new Set((demurrageInvoices ?? []).map((i) => i.vessel_name).filter(Boolean) as string[])).sort(),
+  const demVesselOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (demurrageInvoices ?? [])
+            .map((i) => (i.vessel_name ? [i.vessel_name, i.voyage_number].filter(Boolean).join(' / ') : null))
+            .filter(Boolean) as string[],
+        ),
+      ).sort(),
     [demurrageInvoices],
   )
   const demPods = useMemo(
@@ -99,7 +114,8 @@ export function PortalBilling() {
       (invoices ?? []).filter(
         (i) =>
           matchesStatus(i.status, localFilters.status) &&
-          (!localFilters.vessel || (i.vessels ?? []).includes(localFilters.vessel)) &&
+          matchesText(i.vessel_voyages ?? [], localFilters.vessel) &&
+          matchesText(i.bls ?? [], localFilters.bl) &&
           (!localFilters.pod || (i.pods ?? []).includes(localFilters.pod)) &&
           inDateRange(i.issued_at, localFilters.dateFrom, localFilters.dateTo),
       ),
@@ -111,7 +127,8 @@ export function PortalBilling() {
       (demurrageInvoices ?? []).filter(
         (i) =>
           matchesStatus(i.status, demFilters.status) &&
-          (!demFilters.vessel || i.vessel_name === demFilters.vessel) &&
+          matchesText([i.vessel_name, i.voyage_number].filter(Boolean) as string[], demFilters.vessel) &&
+          matchesText([i.bl_id], demFilters.bl) &&
           (!demFilters.pod || i.pod === demFilters.pod) &&
           inDateRange(i.doc_date, demFilters.dateFrom, demFilters.dateTo),
       ),
@@ -169,7 +186,7 @@ export function PortalBilling() {
           error={Boolean(invoicesError)}
           filters={localFilters}
           onFilters={setLocalFilters}
-          vessels={localVessels}
+          vesselOptions={localVesselOptions}
           pods={localPods}
           onOpenDetail={setSelectedInvoiceId}
         />
@@ -179,7 +196,7 @@ export function PortalBilling() {
           loading={demurrageLoading}
           filters={demFilters}
           onFilters={setDemFilters}
-          vessels={demVessels}
+          vesselOptions={demVesselOptions}
           pods={demPods}
           onOpenDetail={setSelectedDemurrageId}
         />
@@ -221,28 +238,82 @@ export function PortalBilling() {
                 <MetricCard label="Saldo" value={formatBRL(detailInvoice.balance_brl)} />
                 <MetricCard label="B/Ls" value={String(detailQuery.data?.bls.length ?? 0)} />
               </div>
-              <Card className="overflow-hidden p-0">
-                <div className="app-table-scroll">
-                  <table className="app-table app-table--compact min-w-[620px] text-left text-sm">
+              <DetailSection title="B/Ls" subtitle="Conhecimentos de embarque desta fatura">
+                <table className="app-table app-table--compact min-w-[620px] text-left text-sm">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="px-3 py-2">B/L</th>
+                      <th scope="col" className="px-3 py-2">Navio/Viagem</th>
+                      <th scope="col" className="px-3 py-2">Trecho</th>
+                      <th scope="col" className="px-3 py-2">Subtotal BRL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(detailQuery.data?.bls ?? []).map((row) => (
+                      <tr key={row.id}>
+                        <td className="px-3 py-2 font-semibold">{row.bl_id}</td>
+                        <td className="px-3 py-2">{[row.vessel_name, row.voyage_number].filter(Boolean).join(' / ') || '—'}</td>
+                        <td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
+                        <td className="px-3 py-2">{formatBRL(row.subtotal_brl)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </DetailSection>
+
+              {(detailQuery.data?.items?.length ?? 0) > 0 ? (
+                <DetailSection title="Itens cobrados" subtitle="Taxas, quantidades e valores">
+                  <table className="app-table app-table--compact min-w-[680px] text-left text-sm">
                     <thead>
                       <tr>
+                        <th scope="col" className="px-3 py-2">Descricao</th>
                         <th scope="col" className="px-3 py-2">B/L</th>
-                        <th scope="col" className="px-3 py-2">Trecho</th>
-                        <th scope="col" className="px-3 py-2">Subtotal BRL</th>
+                        <th scope="col" className="px-3 py-2 text-right">Qtd</th>
+                        <th scope="col" className="px-3 py-2 text-right">Valor unit.</th>
+                        <th scope="col" className="px-3 py-2 text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(detailQuery.data?.bls ?? []).map((row) => (
-                        <tr key={row.id}>
-                          <td className="px-3 py-2 font-semibold">{row.bl_id}</td>
-                          <td className="px-3 py-2">{row.pol ?? '-'} - {row.pod ?? '-'}</td>
-                          <td className="px-3 py-2">{formatBRL(row.subtotal_brl)}</td>
+                      {(detailQuery.data?.items ?? []).map((item) => (
+                        <tr key={item.id}>
+                          <td className="px-3 py-2">{item.description}</td>
+                          <td className="px-3 py-2">{item.bl_id ?? '—'}</td>
+                          <td className="px-3 py-2 text-right">{item.quantity ?? '—'}</td>
+                          <td className="px-3 py-2 text-right">{item.unit_value_brl != null ? formatBRL(item.unit_value_brl) : '—'}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{formatBRL(item.total_value_brl)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
-              </Card>
+                </DetailSection>
+              ) : null}
+
+              {(detailQuery.data?.containers?.length ?? 0) > 0 ? (
+                <DetailSection title="Containers" subtitle="Equipamentos vinculados aos B/Ls">
+                  <table className="app-table app-table--compact min-w-[620px] text-left text-sm">
+                    <thead>
+                      <tr>
+                        <th scope="col" className="px-3 py-2">Container</th>
+                        <th scope="col" className="px-3 py-2">Tipo</th>
+                        <th scope="col" className="px-3 py-2">B/L</th>
+                        <th scope="col" className="px-3 py-2">Lacre</th>
+                        <th scope="col" className="px-3 py-2 text-right">Peso bruto (kg)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(detailQuery.data?.containers ?? []).map((cont) => (
+                        <tr key={cont.id}>
+                          <td className="px-3 py-2 font-semibold">{cont.container_number}</td>
+                          <td className="px-3 py-2">{cont.type ?? '—'}</td>
+                          <td className="px-3 py-2">{cont.bl_id ?? '—'}</td>
+                          <td className="px-3 py-2">{cont.seal_number ?? '—'}</td>
+                          <td className="px-3 py-2 text-right">{cont.gross_weight_kg != null ? cont.gross_weight_kg.toLocaleString('pt-BR') : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </DetailSection>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -347,12 +418,12 @@ type LocalTabProps = {
   error: boolean
   filters: Filters
   onFilters: (f: Filters) => void
-  vessels: string[]
+  vesselOptions: string[]
   pods: string[]
   onOpenDetail: (id: number) => void
 }
 
-function LocalFeesTab({ invoices, loading, error, filters, onFilters, vessels, pods, onOpenDetail }: LocalTabProps) {
+function LocalFeesTab({ invoices, loading, error, filters, onFilters, vesselOptions, pods, onOpenDetail }: LocalTabProps) {
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[var(--app-border)] px-5 py-4">
@@ -361,7 +432,7 @@ function LocalFeesTab({ invoices, loading, error, filters, onFilters, vessels, p
       </div>
 
       <div className="px-5 pt-4">
-        <FiltersControls filters={filters} onFilters={onFilters} vessels={vessels} pods={pods} />
+        <FiltersControls filters={filters} onFilters={onFilters} vesselOptions={vesselOptions} pods={pods} />
       </div>
 
       {error ? <div className="px-5 py-4 text-sm text-[var(--app-red)]">Falha ao consultar faturas.</div> : null}
@@ -372,10 +443,10 @@ function LocalFeesTab({ invoices, loading, error, filters, onFilters, vessels, p
           <thead>
             <tr>
               <th scope="col" className="px-4 py-3">Fatura</th>
+              <th scope="col" className="px-4 py-3">B/L</th>
               <th scope="col" className="px-4 py-3">Tipo</th>
               <th scope="col" className="px-4 py-3">Emissao</th>
               <th scope="col" className="px-4 py-3">Total</th>
-              <th scope="col" className="px-4 py-3">Saldo</th>
               <th scope="col" className="px-4 py-3">Status</th>
               <th scope="col" className="px-4 py-3">Acao</th>
             </tr>
@@ -390,10 +461,10 @@ function LocalFeesTab({ invoices, loading, error, filters, onFilters, vessels, p
             {invoices.map((invoice) => (
               <tr key={invoice.id}>
                 <td className="px-4 py-3 font-semibold">{invoice.invoice_number ?? `INV-${invoice.id}`}</td>
+                <td className="px-4 py-3">{formatBlList(invoice.bls)}</td>
                 <td className="px-4 py-3">{invoice.invoice_type === 'consolidated' ? 'Consolidada' : 'Individual'}</td>
                 <td className="px-4 py-3">{formatDate(invoice.issued_at)}</td>
                 <td className="px-4 py-3">{formatBRL(invoice.total_brl)}</td>
-                <td className="px-4 py-3">{formatBRL(invoice.balance_brl)}</td>
                 <td className="px-4 py-3">{renderInvoiceBadge(invoice.status)}</td>
                 <td className="px-4 py-3">
                   <Button variant="secondary" onClick={() => onOpenDetail(invoice.id)}>Detalhes</Button>
@@ -424,7 +495,7 @@ function LocalFeesTab({ invoices, loading, error, filters, onFilters, vessels, p
               <span>{invoice.invoice_type === 'consolidated' ? 'Consolidada' : 'Individual'} · {formatDate(invoice.issued_at)}</span>
               <span className="font-semibold text-[var(--app-text)]">{formatBRL(invoice.total_brl)}</span>
             </div>
-            <div className="mt-1 text-sm text-[var(--app-muted)]">Saldo: {formatBRL(invoice.balance_brl)}</div>
+            <div className="mt-1 text-sm text-[var(--app-muted)]">B/L: {formatBlList(invoice.bls)}</div>
           </button>
         ))}
       </div>
@@ -437,12 +508,12 @@ type DemTabProps = {
   loading: boolean
   filters: Filters
   onFilters: (f: Filters) => void
-  vessels: string[]
+  vesselOptions: string[]
   pods: string[]
   onOpenDetail: (id: number) => void
 }
 
-function DemurrageTab({ invoices, loading, filters, onFilters, vessels, pods, onOpenDetail }: DemTabProps) {
+function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, pods, onOpenDetail }: DemTabProps) {
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[var(--app-border)] px-5 py-4">
@@ -451,7 +522,7 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vessels, pods, on
       </div>
 
       <div className="px-5 pt-4">
-        <FiltersControls filters={filters} onFilters={onFilters} vessels={vessels} pods={pods} />
+        <FiltersControls filters={filters} onFilters={onFilters} vesselOptions={vesselOptions} pods={pods} />
       </div>
 
       <div className="hidden app-table-scroll md:block">
@@ -517,7 +588,8 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vessels, pods, on
   )
 }
 
-function FiltersControls({ filters, onFilters, vessels, pods }: { filters: Filters; onFilters: (f: Filters) => void; vessels: string[]; pods: string[] }) {
+function FiltersControls({ filters, onFilters, vesselOptions, pods }: { filters: Filters; onFilters: (f: Filters) => void; vesselOptions: string[]; pods: string[] }) {
+  const vesselListId = useId()
   return (
     <FilterBar activeCount={countActive(filters)} onClear={() => onFilters(EMPTY_FILTERS)}>
       <div className="app-filter-grid">
@@ -530,10 +602,23 @@ function FiltersControls({ filters, onFilters, vessels, pods }: { filters: Filte
           </Select>
         </Field>
         <Field label="Navio/Viagem">
-          <Select value={filters.vessel} onChange={(e) => onFilters({ ...filters, vessel: e.target.value })} disabled={vessels.length === 0}>
-            <option value="">Todos</option>
-            {vessels.map((v) => <option key={v} value={v}>{v}</option>)}
-          </Select>
+          <Input
+            list={vesselListId}
+            value={filters.vessel}
+            onChange={(e) => onFilters({ ...filters, vessel: e.target.value })}
+            placeholder="Digite o navio ou viagem"
+            disabled={vesselOptions.length === 0}
+          />
+          <datalist id={vesselListId}>
+            {vesselOptions.map((v) => <option key={v} value={v} />)}
+          </datalist>
+        </Field>
+        <Field label="B/L">
+          <Input
+            value={filters.bl}
+            onChange={(e) => onFilters({ ...filters, bl: e.target.value })}
+            placeholder="Numero do B/L"
+          />
         </Field>
         <Field label="POD">
           <Select value={filters.pod} onChange={(e) => onFilters({ ...filters, pod: e.target.value })} disabled={pods.length === 0}>
@@ -550,6 +635,24 @@ function FiltersControls({ filters, onFilters, vessels, pods }: { filters: Filte
       </div>
     </FilterBar>
   )
+}
+
+function DetailSection({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="border-b border-[var(--app-border)] px-4 py-3">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {subtitle ? <p className="mt-0.5 text-xs text-[var(--app-muted)]">{subtitle}</p> : null}
+      </div>
+      <div className="app-table-scroll">{children}</div>
+    </Card>
+  )
+}
+
+function formatBlList(bls: string[] | null | undefined) {
+  if (!bls || bls.length === 0) return '—'
+  if (bls.length <= 2) return bls.join(', ')
+  return `${bls.slice(0, 2).join(', ')} +${bls.length - 2}`
 }
 
 function renderDemurrageBadge(status: string | null) {
