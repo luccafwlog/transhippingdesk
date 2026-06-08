@@ -454,20 +454,18 @@ export async function listInvoiceDetails(invoiceId: number) {
       })
 
       // Detail each BL with its individual charges (THD, Drop-Off, etc.) reconstructed
-      // from charge_calculations at read-time. The ledger subtotal_brl remains the source
-      // of truth for the invoice total, so we only show the breakdown when it reconciles
-      // with the subtotal; otherwise (e.g. partial settlement) we fall back to a single
-      // aggregated line for that BL.
-      const blIds = Array.from(new Set(links.map((l) => l.bl_id)))
-      const allowedStatuses = new Set(['calculated', 'reviewed', 'ready_for_billing', 'exempt'])
+      // from charge_calculations at read-time. charge_calculations/charge_table_items are
+      // admin-only under RLS, so we go through a SECURITY DEFINER function scoped to this
+      // invoice. The ledger subtotal_brl remains the source of truth for the invoice total,
+      // so we only show the breakdown when it reconciles with the subtotal; otherwise
+      // (e.g. partial settlement) we fall back to a single aggregated line for that BL.
       const calcsByBl = new Map<string, Array<{
-        id: number
+        charge_calculation_id: number
         charge_table_id: number | null
         charge_item_id: number | null
         quantity: number | null
         unit_value_brl: number | null
         total_value_brl: number | null
-        source: string | null
         currency: string | null
         unit_value_usd: number | null
         total_value_usd: number | null
@@ -475,49 +473,40 @@ export async function listInvoiceDetails(invoiceId: number) {
         charge_name: string | null
       }>>()
 
-      if (blIds.length > 0) {
-        const { data: calcs } = await supabase
-          .from('charge_calculations')
-          .select(
-            'id, bl_id, charge_table_id, charge_item_id, quantity, unit_value_brl, total_value_brl, source, currency, unit_value_usd, total_value_usd, calculation_key, status, charge_table_items(name)',
-          )
-          .in('bl_id', blIds)
+      const { data: breakdown } = await supabase.rpc(
+        'get_consolidated_invoice_item_breakdown' as never,
+        { p_invoice_id: invoiceId } as never,
+      )
 
-        for (const c of (calcs ?? []) as unknown as Array<{
-          id: number
-          bl_id: string
-          charge_table_id: number | null
-          charge_item_id: number | null
-          quantity: number | null
-          unit_value_brl: number | null
-          total_value_brl: number | null
-          source: string | null
-          currency: string | null
-          unit_value_usd: number | null
-          total_value_usd: number | null
-          calculation_key: string | null
-          status: string | null
-          charge_table_items: { name: string | null } | null
-        }>) {
-          if (!allowedStatuses.has(c.status ?? 'calculated')) continue
-          if (Number(c.total_value_brl ?? 0) <= 0) continue
-          const arr = calcsByBl.get(c.bl_id) ?? []
-          arr.push({
-            id: Number(c.id),
-            charge_table_id: c.charge_table_id ?? null,
-            charge_item_id: c.charge_item_id ?? null,
-            quantity: c.quantity ?? null,
-            unit_value_brl: c.unit_value_brl ?? null,
-            total_value_brl: c.total_value_brl ?? null,
-            source: c.source ?? null,
-            currency: c.currency ?? null,
-            unit_value_usd: c.unit_value_usd ?? null,
-            total_value_usd: c.total_value_usd ?? null,
-            calculation_key: c.calculation_key ?? null,
-            charge_name: c.charge_table_items?.name ?? null,
-          })
-          calcsByBl.set(c.bl_id, arr)
-        }
+      for (const c of (breakdown ?? []) as unknown as Array<{
+        bl_id: string
+        charge_calculation_id: number
+        charge_table_id: number | null
+        charge_item_id: number | null
+        quantity: number | null
+        unit_value_brl: number | null
+        total_value_brl: number | null
+        currency: string | null
+        unit_value_usd: number | null
+        total_value_usd: number | null
+        calculation_key: string | null
+        charge_name: string | null
+      }>) {
+        const arr = calcsByBl.get(c.bl_id) ?? []
+        arr.push({
+          charge_calculation_id: Number(c.charge_calculation_id),
+          charge_table_id: c.charge_table_id ?? null,
+          charge_item_id: c.charge_item_id ?? null,
+          quantity: c.quantity ?? null,
+          unit_value_brl: c.unit_value_brl ?? null,
+          total_value_brl: c.total_value_brl ?? null,
+          currency: c.currency ?? null,
+          unit_value_usd: c.unit_value_usd ?? null,
+          total_value_usd: c.total_value_usd ?? null,
+          calculation_key: c.calculation_key ?? null,
+          charge_name: c.charge_name ?? null,
+        })
+        calcsByBl.set(c.bl_id, arr)
       }
 
       result.items = links.flatMap<InvoiceItem>((l) => {
@@ -551,9 +540,9 @@ export async function listInvoiceDetails(invoiceId: number) {
         }
 
         return calcs.map((c) => ({
-          id: c.id,
+          id: c.charge_calculation_id,
           invoice_id: invoiceId,
-          charge_calculation_id: c.id,
+          charge_calculation_id: c.charge_calculation_id,
           description: `BL ${l.bl_id} - ${c.charge_name ?? c.calculation_key ?? 'Linha de taxa'}`,
           quantity: c.quantity ?? 1,
           unit_value_brl: c.unit_value_brl == null ? null : Number(c.unit_value_brl),
