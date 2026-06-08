@@ -1,26 +1,14 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  AlertTriangle,
-  BarChart3,
-  Bell,
-  Boxes,
-  Car,
   ChevronDown,
-  Clock,
   DollarSign,
   FileSpreadsheet,
-  Home,
   LogOut,
   Menu,
-  Mountain,
   Package,
-  ReceiptText,
-  RefreshCw,
-  Ship,
   ShieldCheck,
   User,
-  Users,
   X,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -28,62 +16,16 @@ import { useAuth } from '../../hooks/useAuth'
 import { useOperationalCounts } from '../../hooks/useOperationalCounts'
 import { HeaderInfoBar } from './HeaderInfoBar'
 import { cn } from '../../lib/utils'
-
-type NavItem = {
-  to: string
-  label: string
-  icon: React.ComponentType<{ size?: number }>
-  badge?: number
-  alert?: boolean
-}
-
-const importNavItems: NavItem[] = [
-  { to: '/baplie', label: 'Baplie EDI', icon: FileSpreadsheet },
-  { to: '/manifestos', label: 'Manifestos CNTR', icon: FileSpreadsheet },
-  { to: '/carga-solta', label: 'Manifestos BB', icon: FileSpreadsheet },
-  { to: '/containers', label: 'Containers', icon: Boxes },
-  { to: '/veiculos', label: 'Veículos', icon: Car },
-  { to: '/vazios-importacao', label: 'Vazios IMP', icon: Package },
-  { to: '/revisao', label: 'Revisão', icon: AlertTriangle },
-]
-
-const exportNavItems: NavItem[] = [
-  { to: '/granito', label: 'Granito', icon: Mountain },
-  { to: '/embarquevazios', label: 'Vazios EXP', icon: Package },
-]
-
-const primaryNavItems: NavItem[] = [
-  { to: '/painel', label: 'Painel', icon: Home },
-  { to: '/viagens', label: 'Viagens', icon: Ship },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/alertas', label: 'Alertas', icon: Bell },
-]
-
-const adminNavItems: NavItem[] = [
-  { to: '/admin/usuarios', label: 'Usuários', icon: ShieldCheck },
-]
-
-const financialNavItems: NavItem[] = [
-  { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
-  { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
-  { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
-  { to: '/demurrage', label: 'Demurrage', icon: Clock },
-  { to: '/reconciliacao', label: 'Conciliação PIX', icon: RefreshCw },
-]
-
-export function buildFinancialNavItemsForCounts(counts: ReturnType<typeof useOperationalCounts>): NavItem[] {
-  return financialNavItems.map((item) => {
-    if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
-    if (item.to === '/faturamento') return { ...item, alert: counts.chargeReviewRequired > 0 }
-    return item
-  })
-}
-
-export function getNavIndicator(items: NavItem[]): { type: 'none' } | { type: 'alert' } | { type: 'badge'; count: number } {
-  if (items.some((item) => item.alert)) return { type: 'alert' }
-  const totalBadge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0)
-  return totalBadge > 0 ? { type: 'badge', count: totalBadge } : { type: 'none' }
-}
+import {
+  adminNavItems,
+  buildFinancialNavItemsForCounts,
+  exportNavItems,
+  financialNavItems,
+  getNavIndicator,
+  importNavItems,
+  primaryNavItems,
+  type NavItem,
+} from './appLayoutNav'
 
 const NAV_COLLAPSE_WIDTH = 1100
 

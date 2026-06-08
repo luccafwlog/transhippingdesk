@@ -1,5 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
-import { asString, onlyDigits } from '../lib/utils'
+import { asString, chunkArray, onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { supabase } from './supabase'
@@ -1045,13 +1045,4 @@ function parseNumber(value: unknown) {
 
 function formatNullableNumber(value: number | null) {
   return value === null ? '-' : Number(value).toLocaleString('pt-BR')
-}
-
-function chunkArray<T>(values: T[], chunkSize: number) {
-  if (!values.length) return []
-  const chunks: T[][] = []
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize))
-  }
-  return chunks
 }

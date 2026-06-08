@@ -113,6 +113,15 @@ export function toNumber(value: unknown) {
   return Number.isFinite(number) ? number : null
 }
 
+export function chunkArray<T>(values: T[], chunkSize: number) {
+  if (!values.length) return []
+  const chunks: T[][] = []
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize))
+  }
+  return chunks
+}
+
 // Remove o prefixo redundante "BL <id> - " da descricao de um item de fatura,
 // usado tanto no PDF quanto no detalhe da invoice (o B/L ja aparece em coluna propria).
 export function stripBlPrefix(description: string | null | undefined, blId: string | null | undefined): string {

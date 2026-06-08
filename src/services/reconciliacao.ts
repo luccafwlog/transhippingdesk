@@ -20,26 +20,28 @@ function normTxid(str: string) {
 }
 
 export async function matchUnifiedPixTransactions(transactions: PixTransaction[]): Promise<UnifiedPixMatch[]> {
+  type LocalInv = { id: number; invoice_number: string | null; total_brl: number | null; balance_brl: number | null; pix_txid: string | null; customer: { name: string; cnpj_cpf: string } | null }
+  type DemurrageInv = { id: number; doc_number: string; frozen_total_brl: number | null; pix_txid: string | null; customer: { name: string; cnpj_cpf: string } | null }
+
   const [localRes, demurrageRes] = await Promise.all([
     supabase
       .from('invoices')
       .select('id, invoice_number, total_brl, balance_brl, status, pix_txid, customer:customers(id, name, cnpj_cpf)')
       .in('status', ['issued', 'partially_paid', 'overdue'])
-      .in('invoice_type', ['individual', 'consolidated']),
+      .in('invoice_type', ['individual', 'consolidated'])
+      .overrideTypes<LocalInv[], { merge: false }>(),
     supabase
       .from('demurrage_invoices')
       .select('id, doc_number, frozen_total_brl, status, pix_txid, customer:customers(id, name, cnpj_cpf)')
-      .eq('status', 'issued'),
+      .eq('status', 'issued')
+      .overrideTypes<DemurrageInv[], { merge: false }>(),
   ])
 
   if (localRes.error) throw localRes.error
   if (demurrageRes.error) throw demurrageRes.error
 
-  type LocalInv = { id: number; invoice_number: string | null; total_brl: number | null; balance_brl: number | null; pix_txid: string | null; customer: { name: string; cnpj_cpf: string } | null }
-  type DemurrageInv = { id: number; doc_number: string; frozen_total_brl: number | null; pix_txid: string | null; customer: { name: string; cnpj_cpf: string } | null }
-
-  const localInvoices = (localRes.data ?? []) as unknown as LocalInv[]
-  const demurrageInvoices = (demurrageRes.data ?? []) as unknown as DemurrageInv[]
+  const localInvoices = localRes.data ?? []
+  const demurrageInvoices = demurrageRes.data ?? []
 
   const usedTxids = new Set<string>([
     ...localInvoices.map((i) => i.pix_txid ?? '').filter(Boolean),

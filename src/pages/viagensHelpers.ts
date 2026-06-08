@@ -1,5 +1,4 @@
-// Helpers puros (sem UI/hooks) extraídos de Viagens.tsx para reduzir o monólito
-// e permitir teste unitário direto. Comportamento idêntico ao original.
+// Helpers puros para rótulos, métricas e resumos da tela de Viagens.
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 
 export function normalizePortName(value: string | null | undefined) {
@@ -105,7 +104,7 @@ export function stripFileExtension(filename: string) {
   return filename.replace(/\.[^.]+$/, '')
 }
 
-// --- Estatísticas de módulos da viagem (extraídas de Viagens.tsx) ---
+// Estatísticas de módulos da viagem.
 
 export type VoyageBl = {
   id: string

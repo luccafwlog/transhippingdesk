@@ -1,6 +1,6 @@
 import { supabase } from '../supabase'
 
-export type CustomerReconciliationQueueRow = {
+type CustomerReconciliationQueueRow = {
   id: number
   manifest_id: number | null
   bl_id: string

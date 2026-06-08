@@ -1,5 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react'
 import type { DemurrageInvoiceDetail } from '../../types/database'
+import { COMPANY } from '../../config/company'
 
 type Props = {
   detail: DemurrageInvoiceDetail
@@ -188,11 +189,11 @@ export function InvoiceDocument({ detail, type }: Props) {
       <div style={{ marginTop: 20, fontSize: '12.5px', lineHeight: 1.7 }}>
         <strong>DETALHES BANCÁRIOS</strong>
         <div style={{ marginTop: 4 }}>
-          TRANSHIPPING AGENCIAMENTO MARITIMO Ltda.<br />
-          CNPJ 06.352.972/0001-21<br />
-          BANCO: ITAU<br />
-          AGÊNCIA: 0870 - PRAIA DO CANTO<br />
-          CONTA CORRENTE 37293-5
+          {COMPANY.name}<br />
+          CNPJ {COMPANY.cnpj}<br />
+          BANCO: {COMPANY.bank}<br />
+          AGÊNCIA: {COMPANY.agency}<br />
+          CONTA CORRENTE {COMPANY.account}
         </div>
         <div style={{ display: 'inline-block', background: '#F59E0B', fontWeight: 700, padding: '5px 14px', fontSize: '14px', borderRadius: 3, marginTop: 8 }}>
           {fmtBRL(totalBRL)}

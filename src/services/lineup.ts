@@ -3,7 +3,7 @@ import { fetchExportSchedulesByVoyageIds, type ExportCeStatus } from './voyageEx
 import { supabase } from './supabase'
 import { isDateOnly } from '../lib/utils'
 
-export type VoyageStatus = 'active' | 'completed' | 'cancelled' | null
+type VoyageStatus = 'active' | 'completed' | 'cancelled' | null
 
 type LineUpVoyageRow = {
   id: number
@@ -277,9 +277,10 @@ async function fetchVoyages() {
     .in('status', ['active', 'completed'])
     .order('created_at', { ascending: false })
     .limit(60)
+    .overrideTypes<LineUpVoyageRow[], { merge: false }>()
 
   if (error) throw error
-  return (data ?? []) as unknown as LineUpVoyageRow[]
+  return data ?? []
 }
 
 async function fetchBlsByVoyageIds(voyageIds: number[]) {
@@ -294,9 +295,10 @@ async function fetchBlsByVoyageIds(voyageIds: number[]) {
         .in('voyage_id', voyageChunk)
         .order('id', { ascending: true })
         .range(from, from + 999)
+        .overrideTypes<LineUpBlRow[], { merge: false }>()
 
       if (error) throw error
-      const batch = (data ?? []) as unknown as LineUpBlRow[]
+      const batch = data ?? []
       if (!batch.length) break
       rows.push(...batch)
       if (batch.length < 1000) break
@@ -319,9 +321,10 @@ async function fetchContainersByBlIds(blIds: string[]) {
         .in('bl_id', blChunk)
         .order('id', { ascending: true })
         .range(from, from + 999)
+        .overrideTypes<LineUpContainerRow[], { merge: false }>()
 
       if (error) throw error
-      const batch = (data ?? []) as unknown as LineUpContainerRow[]
+      const batch = data ?? []
       if (!batch.length) break
       rows.push(...batch)
       if (batch.length < 1000) break
@@ -344,9 +347,10 @@ async function fetchVehiclesByVoyageIds(voyageIds: number[]) {
         .in('voyage_id', voyageChunk)
         .order('id', { ascending: true })
         .range(from, from + 999)
+        .overrideTypes<LineUpVehicleRow[], { merge: false }>()
 
       if (error) throw error
-      const batch = (data ?? []) as unknown as LineUpVehicleRow[]
+      const batch = data ?? []
       if (!batch.length) break
       rows.push(...batch)
       if (batch.length < 1000) break
@@ -366,10 +370,11 @@ async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
       .from('vazios_importacao_manifests')
       .select('id, voyage_id')
       .in('voyage_id', voyageChunk)
+      .overrideTypes<Array<{ id: string; voyage_id: number | null }>, { merge: false }>()
     if (manifestError) throw manifestError
 
     const manifestToVoyage = new Map<string, number>()
-    for (const row of (manifestRows ?? []) as unknown as Array<{ id: string; voyage_id: number | null }>) {
+    for (const row of manifestRows ?? []) {
       if (row.voyage_id != null) manifestToVoyage.set(row.id, row.voyage_id)
     }
     if (!manifestToVoyage.size) continue
@@ -383,8 +388,9 @@ async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
           .select('manifest_id')
           .in('manifest_id', manifestChunk)
           .range(from, from + 999)
+          .overrideTypes<Array<{ manifest_id: string }>, { merge: false }>()
         if (containerError) throw containerError
-        const batch = (containerRows ?? []) as unknown as Array<{ manifest_id: string }>
+        const batch = containerRows ?? []
         if (!batch.length) break
         for (const container of batch) {
           const voyageId = manifestToVoyage.get(container.manifest_id)

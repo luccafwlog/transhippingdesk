@@ -1,5 +1,4 @@
-// Helpers puros (sem UI/hooks) extraídos de BlDetalhe.tsx para reduzir o
-// monólito e permitir teste unitário direto. Comportamento idêntico ao original.
+// Helpers puros para estado, rótulos e formatação do detalhe de B/L.
 import type { BL, BLDetail } from '../types/database'
 
 export type CargoMode = 'container' | 'carga_solta'

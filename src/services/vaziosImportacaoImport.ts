@@ -21,7 +21,7 @@ const HEADER_MAP: Record<string, string> = {
   'tare kg': 'tare_kg',
 }
 
-export type ParsedVaziosImportacaoContainer = {
+type ParsedVaziosImportacaoContainer = {
   rowNumber: number
   container_number: string
   container_type: string | null

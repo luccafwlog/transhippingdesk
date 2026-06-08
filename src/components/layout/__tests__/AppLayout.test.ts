@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildFinancialNavItemsForCounts, getNavIndicator } from '../AppLayout'
+import { buildFinancialNavItemsForCounts, getNavIndicator } from '../appLayoutNav'
 
 describe('financial navigation badges', () => {
   it('prioriza Faturamento e usa alerta booleano para pendencias de faturamento', () => {

@@ -46,21 +46,16 @@ export function FileImportModal<T>({
     setActiveIndex(0)
     if (!files.length) return
     setParsing(true)
-    try {
-      const parsedEntries: FilePreviewEntry<T>[] = []
-      for (const file of files) {
-        try {
-          parsedEntries.push({ file, preview: await parser(file) })
-        } catch (err) {
-          showToast(`${file.name}: ${err instanceof Error ? err.message : 'Falha ao ler arquivo.'}`, 'error')
-        }
+    const parsedEntries: FilePreviewEntry<T>[] = []
+    for (const file of files) {
+      try {
+        parsedEntries.push({ file, preview: await parser(file) })
+      } catch (err) {
+        showToast(`${file.name}: ${err instanceof Error ? err.message : 'Falha ao ler arquivo.'}`, 'error')
       }
-      setEntries(parsedEntries)
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Falha ao ler arquivo.', 'error')
-    } finally {
-      setParsing(false)
     }
+    setEntries(parsedEntries)
+    setParsing(false)
   }
 
   async function handleImport() {

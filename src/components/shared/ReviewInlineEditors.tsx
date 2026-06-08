@@ -4,9 +4,7 @@ import { Button } from '../ui/Button'
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { formatCnpjCpf } from '../../lib/utils'
 
-// Editores inline da fila de revisão, extraídos de Revisao.tsx.
-// InlineFieldEditor é apresentacional (estado local + callback onSave).
-// InlineCustomerPicker usa o lookup de clientes e devolve o id selecionado.
+// Editores inline da fila de revisão; salvamento e seleção ficam com o pai.
 
 export function InlineCustomerPicker({ saving, onSelect }: { saving: boolean; onSelect: (customerId: number) => void }) {
   const [search, setSearch] = useState('')

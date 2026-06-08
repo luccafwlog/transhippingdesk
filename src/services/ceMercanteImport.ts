@@ -1,5 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
-import { asString, onlyDigits } from '../lib/utils'
+import { asString, chunkArray, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -247,14 +247,4 @@ function normalizeBlId(value: unknown) {
 function normalizeCeMercante(value: unknown) {
   const digits = onlyDigits(asString(value))
   return digits || ''
-}
-
-function chunkArray<T>(values: T[], chunkSize: number) {
-  if (!values.length) return []
-
-  const chunks: T[][] = []
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize))
-  }
-  return chunks
 }

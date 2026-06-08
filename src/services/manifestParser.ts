@@ -40,7 +40,7 @@ const TARE_KG: Record<string, number> = {
   '40FL': 5500,
 }
 
-export type ParsedContainer = {
+type ParsedContainer = {
   container_number: string
   seal_number: string | null
   type: string | null

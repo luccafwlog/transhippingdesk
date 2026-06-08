@@ -180,7 +180,7 @@ export async function fetchIssuedInvoiceBalanceByCustomer(customerIds?: number[]
   return sumIssuedInvoiceBalancesByCustomer(rows)
 }
 
-export type CustomerPortalAccount = {
+type CustomerPortalAccount = {
   id: number
   customer_id: number
   contact_email: string | null

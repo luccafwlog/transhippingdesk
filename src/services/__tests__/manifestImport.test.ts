@@ -104,7 +104,7 @@ describe('manifestImport customer reconciliation', () => {
     expect(batchId).toBe(101)
 
     expect(mockRpc).toHaveBeenCalledTimes(2)
-    // A importacao agora faz o import transacional e em seguida dispara o billing por manifesto.
+    // Import transacional primeiro; billing do manifesto em seguida.
     const [rpcName, rpcArgs] = mockRpc.mock.calls[0] as [string, Record<string, unknown>]
     expect(rpcName).toBe('import_manifest_transactional')
 

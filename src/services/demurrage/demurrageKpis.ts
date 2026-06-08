@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import type { PixTransaction } from '../../types/database'
+import type { PixTransaction, RoeSource } from '../../types/database'
 
 export type DemurrageKPIs = {
   overdueContainers: number
@@ -106,7 +106,6 @@ function saveROECache(roe: number) {
   }
 }
 
-export type RoeSource = 'bcb_live' | 'cached' | 'manual'
 export type FetchROEResult = { roe: number; offline: boolean; cachedAt: string | null; source: RoeSource }
 
 export async function fetchROE(): Promise<FetchROEResult> {

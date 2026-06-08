@@ -72,10 +72,10 @@ export async function fetchOperationalReport(filters: OperationalReportFilters):
   if (filters.pod) query = query.eq('pod', filters.pod.toUpperCase())
   if (filters.cargoMode) query = query.eq('cargo_mode', filters.cargoMode)
 
-  const { data, error } = await query
+  const { data, error } = await query.overrideTypes<OperationalReportRow[], { merge: false }>()
   if (error) throw error
 
-  const rows = ((data ?? []) as unknown as OperationalReportRow[])
+  const rows = data ?? []
 
   const distinctContainers = new Set<string>()
   for (const row of rows) {
@@ -143,7 +143,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
   if (filters.dateTo) query = query.lte('issued_at', filters.dateTo)
   if (filters.status) query = query.eq('status', filters.status)
 
-  const { data, error } = await query
+  const { data, error } = await query.overrideTypes<FinancialReportRow[], { merge: false }>()
   if (error) {
     if (error.code === '42501' || error.code === 'PGRST301') {
       return {
@@ -155,7 +155,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
     throw error
   }
 
-  const rows = ((data ?? []) as unknown as FinancialReportRow[])
+  const rows = data ?? []
   const receivables = await fetchReceivableLinksByInvoiceIds(rows.filter(isLedgerLocalInvoice).map((row) => row.id))
   if (receivables.accessDenied) {
     return {
@@ -215,6 +215,13 @@ export type CustomerReportResult = {
 }
 
 export async function fetchCustomerReport(filters: ReportFilters): Promise<CustomerReportResult> {
+  type BlRow = {
+    customer_id: number
+    total_weight_kg: number | null
+    total_cbm: number | null
+    customer: { id: number; name: string; cnpj_cpf: string } | null
+  }
+
   let blsQuery = supabase
     .from('bls')
     .select(
@@ -227,17 +234,10 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
   if (filters.dateFrom) blsQuery = blsQuery.gte('created_at', filters.dateFrom)
   if (filters.dateTo) blsQuery = blsQuery.lte('created_at', `${filters.dateTo}T23:59:59`)
 
-  const { data: blsData, error: blsError } = await blsQuery
+  const { data: blsData, error: blsError } = await blsQuery.overrideTypes<BlRow[], { merge: false }>()
   if (blsError) throw blsError
 
-  type BlRow = {
-    customer_id: number
-    total_weight_kg: number | null
-    total_cbm: number | null
-    customer: { id: number; name: string; cnpj_cpf: string } | null
-  }
-
-  const bls = (blsData ?? []) as unknown as BlRow[]
+  const bls = blsData ?? []
 
   const perCustomer = new Map<number, CustomerReportRow>()
   for (const bl of bls) {
@@ -263,24 +263,6 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
   }
 
   let invoicesAccessDenied = false
-  let invoicesQuery = supabase
-    .from('invoices')
-    .select('id, customer_id, invoice_type, total_brl, balance_brl, status, issued_at')
-    .not('customer_id', 'is', null)
-    .limit(REPORT_ROW_LIMIT * 2)
-
-  if (filters.dateFrom) invoicesQuery = invoicesQuery.gte('issued_at', filters.dateFrom)
-  if (filters.dateTo) invoicesQuery = invoicesQuery.lte('issued_at', filters.dateTo)
-
-  const { data: invoicesData, error: invoicesError } = await invoicesQuery
-  if (invoicesError) {
-    if (invoicesError.code === '42501' || invoicesError.code === 'PGRST301') {
-      invoicesAccessDenied = true
-    } else {
-      throw invoicesError
-    }
-  }
-
   type InvoiceRow = {
     id: number
     customer_id: number
@@ -290,7 +272,25 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
     status: string | null
   }
 
-  const invoices = (invoicesData ?? []) as unknown as InvoiceRow[]
+  let invoicesQuery = supabase
+    .from('invoices')
+    .select('id, customer_id, invoice_type, total_brl, balance_brl, status, issued_at')
+    .not('customer_id', 'is', null)
+    .limit(REPORT_ROW_LIMIT * 2)
+
+  if (filters.dateFrom) invoicesQuery = invoicesQuery.gte('issued_at', filters.dateFrom)
+  if (filters.dateTo) invoicesQuery = invoicesQuery.lte('issued_at', filters.dateTo)
+
+  const { data: invoicesData, error: invoicesError } = await invoicesQuery.overrideTypes<InvoiceRow[], { merge: false }>()
+  if (invoicesError) {
+    if (invoicesError.code === '42501' || invoicesError.code === 'PGRST301') {
+      invoicesAccessDenied = true
+    } else {
+      throw invoicesError
+    }
+  }
+
+  const invoices = invoicesData ?? []
   const receivables = invoicesAccessDenied
     ? { links: [] as ReceivableLinkRow[], accessDenied: false }
     : await fetchReceivableLinksByInvoiceIds(invoices.filter(isLedgerLocalInvoice).map((invoice) => invoice.id))
@@ -363,9 +363,9 @@ export async function fetchOperationalReportForExport(filters: OperationalReport
   if (filters.pod) query = query.eq('pod', filters.pod.toUpperCase())
   if (filters.cargoMode) query = query.eq('cargo_mode', filters.cargoMode)
 
-  const { data, error } = await query
+  const { data, error } = await query.overrideTypes<OperationalReportRow[], { merge: false }>()
   if (error) throw error
-  return (data ?? []) as unknown as OperationalReportRow[]
+  return data ?? []
 }
 
 export async function fetchFinancialReportForExport(filters: FinancialReportFilters): Promise<FinancialReportRow[]> {
@@ -383,9 +383,9 @@ export async function fetchFinancialReportForExport(filters: FinancialReportFilt
   if (filters.dateTo) query = query.lte('issued_at', filters.dateTo)
   if (filters.status) query = query.eq('status', filters.status)
 
-  const { data, error } = await query
+  const { data, error } = await query.overrideTypes<FinancialReportRow[], { merge: false }>()
   if (error) throw error
-  const rows = (data ?? []) as unknown as FinancialReportRow[]
+  const rows = data ?? []
   const receivables = await fetchReceivableLinksByInvoiceIds(rows.filter(isLedgerLocalInvoice).map((row) => row.id))
   if (receivables.accessDenied) throw new Error('Visualização financeira restrita ao perfil admin.')
   return applyReceivableBalances(rows, summarizeReceivableBalances(receivables.links))
@@ -432,13 +432,14 @@ async function fetchReceivableLinksByInvoiceIds(invoiceIds: number[]) {
     .from('invoice_receivable_links')
     .select('invoice_id, receivable_id, status, receivable:bl_receivables(id, original_amount_brl, balance_brl, status)')
     .in('invoice_id', uniqueIds)
+    .overrideTypes<ReceivableLinkRow[], { merge: false }>()
 
   if (error) {
     if (isAccessDenied(error)) return { links: [] as ReceivableLinkRow[], accessDenied: true }
     throw error
   }
 
-  return { links: (data ?? []) as unknown as ReceivableLinkRow[], accessDenied: false }
+  return { links: data ?? [], accessDenied: false }
 }
 
 function normalizeReceivable(receivable: ReceivableLinkRow['receivable']) {

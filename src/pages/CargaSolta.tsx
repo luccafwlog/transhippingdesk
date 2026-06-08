@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
+import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -632,21 +633,4 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
 function formatBBNumber(value: number | null | undefined) {
   if (value === null || value === undefined) return '-'
   return Number(value).toLocaleString('pt-BR')
-}
-
-function ChargeStatusBadge({ status }: { status: string | null }) {
-  switch (status) {
-    case 'calculated':
-      return <span className="app-badge app-badge--blue">Calculado</span>
-    case 'review_required':
-      return <span className="app-badge app-badge--yellow">Revisao</span>
-    case 'reviewed':
-      return <span className="app-badge app-badge--green">Revisado</span>
-    case 'ready_for_billing':
-      return <span className="app-badge app-badge--green">Pronto</span>
-    case 'exempt':
-      return <span className="app-badge app-badge--slate">Isento</span>
-    default:
-      return <span className="app-badge app-badge--slate">Não calc.</span>
-  }
 }

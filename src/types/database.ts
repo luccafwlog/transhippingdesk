@@ -1020,6 +1020,8 @@ export type DemurrageInvoice = {
   updated_at: string
 }
 
+export type RoeSource = NonNullable<DemurrageInvoice['roe_source']>
+
 export type DemurrageInvoiceItem = {
   id: number
   invoice_id: number
@@ -1349,3 +1351,5 @@ export type VoyageExportSchedule = {
   created_at: string | null
   updated_at: string | null
 }
+
+export type VoyageExportCeStatus = NonNullable<VoyageExportSchedule['ce_status']>

@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
-import type { VoyageExportSchedule as VoyageExportScheduleRow } from '../types/database'
+import type { VoyageExportCeStatus, VoyageExportSchedule as VoyageExportScheduleRow } from '../types/database'
 
-export type ExportCeStatus = 'waiting' | 'received' | 'launching' | 'approving' | 'approved'
+export type ExportCeStatus = VoyageExportCeStatus
 
 export type VoyageExportSchedule = {
   id: string

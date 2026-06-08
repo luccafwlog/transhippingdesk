@@ -2,21 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../reconciliacao'
 import type { UnifiedPixMatch } from '../reconciliacao'
 
-const { mockFrom, mockInvoiceUpdate, mockReconcileByTxid, mockRegisterLegacy } = vi.hoisted(() => ({
+const { mockFrom, mockInvoiceUpdate, mockReconcileByTxid } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
   mockInvoiceUpdate: vi.fn(),
   mockReconcileByTxid: vi.fn(),
-  mockRegisterLegacy: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
   supabase: {
     from: mockFrom,
   },
-}))
-
-vi.mock('../billing', () => ({
-  registerInvoicePayment: mockRegisterLegacy,
 }))
 
 vi.mock('../billingLedger', () => ({
@@ -28,6 +23,7 @@ function createSelectBuilder(result: { data: unknown; error: unknown }) {
     select: vi.fn(() => builder),
     in: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    overrideTypes: vi.fn(() => builder),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   }
@@ -64,7 +60,6 @@ describe('reconciliacao PIX unificada', () => {
     mockFrom.mockReset()
     mockInvoiceUpdate.mockReset()
     mockReconcileByTxid.mockReset()
-    mockRegisterLegacy.mockReset()
   })
 
   it('nao casa fatura local por CNPJ e valor quando o TXID nao corresponde ao numero da invoice', async () => {
@@ -96,7 +91,6 @@ describe('reconciliacao PIX unificada', () => {
   it('confirma fatura local pelo RPC reconcile_invoice_payment_by_txid', async () => {
     installFromMock({})
     mockReconcileByTxid.mockResolvedValue({ matched: true, invoice_id: 10, settled: true })
-    mockRegisterLegacy.mockResolvedValue({ invoice_id: 10 })
     const matches: UnifiedPixMatch[] = [
       {
         transaction: {
@@ -123,7 +117,6 @@ describe('reconciliacao PIX unificada', () => {
       amountBrl: 100,
       paidAt: '2026-05-28',
     })
-    expect(mockRegisterLegacy).not.toHaveBeenCalled()
     expect(mockInvoiceUpdate).not.toHaveBeenCalled()
     expect(result).toEqual({ local: 1, demurrage: 0 })
   })

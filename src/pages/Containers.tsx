@@ -2,7 +2,6 @@ import { useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, CalendarDays, Download } from 'lucide-react'
-import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
@@ -11,6 +10,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
+import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions, useContainerTypeOptions } from '../hooks/useBls'
 import {
   importContainerFlagsRows,
@@ -360,7 +360,7 @@ export function Containers() {
                   <td className="px-4 py-3">{container.bl?.pod ?? '-'}</td>
                   <td className="px-4 py-3">{container.type ?? '-'}</td>
                   <td className="px-4 py-3">
-                    <ProfileBadge profile={getCargoProfile(Boolean(container.is_imo), Boolean(container.is_oog))} />
+                    <CargoProfileBadge isImo={Boolean(container.is_imo)} isOog={Boolean(container.is_oog)} />
                   </td>
                   <td className="px-4 py-3">
                     <ChargeStatusBadge status={container.bl?.charge_status ?? null} />
@@ -538,36 +538,6 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
       <div className="mt-1 text-2xl font-bold text-white">{value}</div>
     </div>
   )
-}
-
-function ProfileBadge({ profile }: { profile: ReturnType<typeof getCargoProfile> }) {
-  const tone =
-    profile === 'IMO/OOG' ? 'red' : profile === 'IMO' ? 'red' : profile === 'OOG' ? 'yellow' : 'blue'
-  return <Badge tone={tone}>{profile}</Badge>
-}
-
-function ChargeStatusBadge({ status }: { status: string | null }) {
-  switch (status) {
-    case 'calculated':
-      return <Badge tone="blue">Calculado</Badge>
-    case 'review_required':
-      return <Badge tone="yellow">Revisao</Badge>
-    case 'reviewed':
-      return <Badge tone="green">Revisado</Badge>
-    case 'ready_for_billing':
-      return <Badge tone="green">Pronto</Badge>
-    case 'exempt':
-      return <Badge tone="slate">Isento</Badge>
-    default:
-      return <Badge tone="slate">Não calc.</Badge>
-  }
-}
-
-function getCargoProfile(isImo: boolean, isOog: boolean) {
-  if (isImo && isOog) return 'IMO/OOG'
-  if (isImo) return 'IMO'
-  if (isOog) return 'OOG'
-  return 'Padrao'
 }
 
 function VoyageSelect({

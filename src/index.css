@@ -2069,21 +2069,13 @@ textarea {
   min-width: 0;
 }
 
-/* Theme-aware table header band (overrides legacy hardcoded bg-[#0d1117] /
-   text-slate-500 utilities so headers adapt to the active theme). The TV
-   line-up display keeps its own dedicated styling. */
+/* Table headers use theme tokens; the TV line-up display keeps dedicated styles. */
 .app-table:not(.app-table--lineup-display) thead th {
   background: var(--app-thead-bg);
   color: var(--app-thead-text);
 }
 
-/* Theme-aware table CELL colors. Legacy markup hardcodes dark-tuned color
-   utilities on table cells (text-white, text-slate-*, text-[#58a6ff], …)
-   which become unreadable on the light/beige theme. Re-map them to semantic
-   tokens, scoped to table bodies only so badges/headers/modals elsewhere are
-   untouched. In the dark theme the tokens are visually equivalent, so this is
-   corrective for light mode and a no-op for dark mode. The line-up display is
-   excluded. */
+/* Re-map table-body utility colors to theme tokens so light mode stays readable. */
 .app-table:not(.app-table--lineup-display) tbody {
   color: var(--app-text);
 }
@@ -2121,7 +2113,7 @@ textarea {
   color: var(--app-gold);
 }
 
-/* Row dividers / cell borders hardcoded to the dark palette. */
+/* Keep table-body dividers on theme tokens. */
 .app-table:not(.app-table--lineup-display) tbody > tr + tr {
   border-top-color: var(--app-border);
 }

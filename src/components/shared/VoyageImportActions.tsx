@@ -16,6 +16,7 @@ import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../..
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
+import { buildCntrManifestImportSummary } from './voyageImportSummary'
 
 type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie'
 
@@ -214,7 +215,6 @@ export function VoyageImportActions({
   )
 }
 
-// CntrImportModal kept separate: unique existingBlIds diff preview requires hooks in renderPreview
 function CntrImportModal({
   voyageId,
   voyageLabel,
@@ -251,30 +251,6 @@ function CntrImportModal({
 }
 
 type ManifestPreview = Awaited<ReturnType<typeof parseManifestFile>>
-
-export function buildCntrManifestImportSummary(
-  entries: Array<{ filename: string; preview: ManifestPreview }>,
-) {
-  const distinctContainers = new Set<string>()
-  const rows = entries.map(({ filename, preview }) => {
-    for (const bl of preview.bls) {
-      for (const container of bl.containers) {
-        const normalized = container.container_number.trim().toUpperCase()
-        if (normalized) distinctContainers.add(normalized)
-      }
-    }
-
-    return {
-      filename,
-      pol: summarizeManifestPorts(preview.bls.map((bl) => bl.pol)),
-      pod: summarizeManifestPorts(preview.bls.map((bl) => bl.pod)),
-      blCount: preview.bls.length,
-      containerCount: countDistinctManifestContainers(preview),
-    }
-  })
-
-  return { rows, totalDistinctContainers: distinctContainers.size }
-}
 
 function CntrConsolidatedSummary({ entries }: { entries: FilePreviewEntry<ManifestPreview>[] }) {
   const summary = buildCntrManifestImportSummary(entries.map((entry) => ({ filename: entry.file.name, preview: entry.preview })))
@@ -313,11 +289,6 @@ function CntrConsolidatedSummary({ entries }: { entries: FilePreviewEntry<Manife
       </div>
     </div>
   )
-}
-
-function summarizeManifestPorts(values: Array<string | null>) {
-  const ports = Array.from(new Set(values.map((value) => String(value ?? '').trim()).filter(Boolean)))
-  return ports.join(' / ') || '-'
 }
 
 function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId: number }) {
@@ -364,7 +335,6 @@ function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId
   )
 }
 
-// VehiclesImportModal kept separate: conditional close on partial errors
 function VehiclesImportModal({
   voyageId,
   voyageLabel,

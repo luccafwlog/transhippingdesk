@@ -69,7 +69,7 @@ export type InvoiceDetail = {
   payments: InvoicePayment[]
 }
 
-export type InvoiceLinkInfo = {
+type InvoiceLinkInfo = {
   id: number
   invoice_number: string | null
   status: string | null
@@ -77,7 +77,7 @@ export type InvoiceLinkInfo = {
   balance_brl: number | null
 }
 
-export type InvoiceLinksByBl = Record<string, InvoiceLinkInfo[]>
+type InvoiceLinksByBl = Record<string, InvoiceLinkInfo[]>
 
 // Nome padronizado do arquivo de fatura de taxas locais (sem extensao):
 // "NumeroFatura - FATURA TAXAS LOCAIS - PrimeiroNomeCliente - BL(s)".
@@ -95,7 +95,7 @@ export function buildInvoiceFileBaseName(detail: InvoiceDetail): string {
 }
 
 
-export type BillingCustomerOption = {
+type BillingCustomerOption = {
   id: number
   name: string
   cnpj_cpf: string
