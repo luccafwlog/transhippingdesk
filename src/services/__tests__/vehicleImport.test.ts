@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { importVehicleRows, parseVehicleImportBuffer, type VehicleImportRow } from '../vehicleImport'
-import { jsonToBuffer } from './testWorkbook'
+import { jsonToBuffer, sheetsToBuffer } from './testWorkbook'
 
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
@@ -39,6 +39,51 @@ describe('vehicleImport', () => {
     expect(parsed.rows[0]?.model).toBe('DOLPHIN')
     expect(parsed.rows[0]?.weight_kg).toBeCloseTo(1650.5)
     expect(parsed.rows[0]?.container_number).toBe('CAXU1234567')
+  })
+
+  it('mapeia o modelo do armador (COSCO Daily Report) escolhendo a aba de veiculos', async () => {
+    // 1a aba: resumo (pivot) sem colunas de veiculo. 2a aba: dados reais.
+    const buffer = sheetsToBuffer([
+      {
+        name: 'Planilha1',
+        rows: [{ Brand: 'BYD', 'QTY VIN': 2136 }],
+      },
+      {
+        name: 'Sheet1',
+        rows: [
+          {
+            'Item NO#': 1,
+            Vessel: 'COSCO SHIPPING XING WANG',
+            Voyage: 31,
+            Brand: 'BYD',
+            Model: 'SONG PLUS DM-i',
+            'VIN NO.': 'LGXC74C44V0007087',
+            'GW(kg)': 1970,
+            Volume: 15.047,
+            'BL NUMBER': 'CSC07870X00V00',
+            'Cntr Type': '48FR',
+            'Cntr No.': 'CAXU5746573',
+            Seal: '035744',
+          },
+        ],
+      },
+    ])
+
+    const parsed = await parseVehicleImportBuffer(buffer)
+
+    expect(parsed.rowErrors).toHaveLength(0)
+    expect(parsed.rows).toHaveLength(1)
+    expect(parsed.rows[0]).toMatchObject({
+      chassis: 'LGXC74C44V0007087',
+      brand: 'BYD',
+      model: 'SONG PLUS DM-i',
+      weight_kg: 1970,
+      cbm: 15.047,
+      container_number: 'CAXU5746573',
+      container_type: '48FR',
+      seal_number: '035744',
+      bl_id: 'CSC07870X00V00',
+    })
   })
 
   it('valida duplicidade de chassi e consistencia BL-container antes de inserir', async () => {

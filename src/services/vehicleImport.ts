@@ -2,16 +2,20 @@ import { assertUploadSize } from '../lib/fileGuard'
 import { asString, chunkArray, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
+// Aliases por campo. Cobrem dois formatos de origem:
+// 1) Planilha modelo do sistema (cabecalhos em portugues: CHASSI, MARCA, ...).
+// 2) "Daily Report" do armador COSCO (cabecalhos em ingles: VIN NO., GW(kg), ...),
+//    cujos dados de veiculo ficam na segunda aba do arquivo.
 const headerMap = {
-  chassis: ['chassi', 'chassis'],
+  chassis: ['chassi', 'chassis', 'vin', 'vin no', 'vin no.', 'vin number'],
   brand: ['marca', 'brand'],
   model: ['modelo', 'model'],
-  weight_kg: ['peso', 'weight'],
-  cbm: ['cubagem', 'cbm', 'm3'],
-  container_number: ['container', 'container number', 'numero do container'],
-  container_type: ['tipo_container', 'tipo do container', 'container type', 'tipo'],
+  weight_kg: ['peso', 'weight', 'gw', 'gw(kg)', 'gross weight'],
+  cbm: ['cubagem', 'cbm', 'm3', 'volume'],
+  container_number: ['container', 'container number', 'numero do container', 'cntr no', 'cntr no.', 'cntr number'],
+  container_type: ['tipo_container', 'tipo do container', 'container type', 'tipo', 'cntr type'],
   seal_number: ['lacre', 'seal', 'seal number'],
-  bl_id: ['bl', 'b/l', 'bill of lading'],
+  bl_id: ['bl', 'b/l', 'bill of lading', 'bl number', 'bl no', 'bl no.'],
 } as const
 
 const requiredHeaders = {
@@ -62,23 +66,42 @@ export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleI
 export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<ParsedVehicleImport> {
   const XLSX = await import('xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
 
-  if (!firstSheet) {
+  if (!workbook.SheetNames.length) {
     throw new Error('Arquivo sem abas validas.')
   }
 
-  const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(firstSheet, {
-    header: 1,
-    defval: '',
-    raw: false,
-    blankrows: false,
-  })
+  // O modelo do armador (COSCO Daily Report) mantem os veiculos na segunda aba;
+  // a primeira e um resumo. Selecionamos a primeira aba cujo cabecalho atende
+  // todas as colunas obrigatorias, mantendo compatibilidade com a planilha modelo.
+  let chosenSheet: ReturnType<typeof workbook.Sheets[string]> | undefined
+  let lastMissing: string[] = Object.values(requiredHeaders)
 
-  const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
-  validateRequiredHeaders(rawHeaders)
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName]
+    if (!sheet) continue
 
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
+    const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+      header: 1,
+      defval: '',
+      raw: false,
+      blankrows: false,
+    })
+
+    const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
+    const missing = missingRequiredHeaders(rawHeaders)
+    if (!missing.length) {
+      chosenSheet = sheet
+      break
+    }
+    lastMissing = missing
+  }
+
+  if (!chosenSheet) {
+    throw new Error(`Planilha invalida. Colunas obrigatorias: ${lastMissing.join(', ')}.`)
+  }
+
+  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(chosenSheet, { defval: '', raw: false })
   return parseVehicleImportRows(objectRows)
 }
 
@@ -345,15 +368,13 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
   return { rows: parsedRows, rowErrors }
 }
 
-function validateRequiredHeaders(rawHeaders: string[]) {
+// Retorna os rotulos das colunas obrigatorias ausentes considerando os aliases
+// de cada campo (planilha modelo e modelo do armador).
+function missingRequiredHeaders(rawHeaders: string[]) {
   const normalizedHeaders = rawHeaders.map((header) => normalizeText(header))
-  const missing = Object.entries(requiredHeaders)
-    .filter(([, label]) => !normalizedHeaders.includes(normalizeText(label)))
-    .map(([, label]) => label)
-
-  if (missing.length) {
-    throw new Error(`Planilha invalida. Colunas obrigatorias: ${missing.join(', ')}.`)
-  }
+  return (Object.keys(headerMap) as DestinationField[])
+    .filter((field) => !headerMap[field].some((alias) => normalizedHeaders.includes(normalizeText(alias))))
+    .map((field) => requiredHeaders[field])
 }
 
 function mapRow(row: Record<string, unknown>) {
