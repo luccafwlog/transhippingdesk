@@ -1,6 +1,7 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, chunkArray, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
+import type { CeMercanteEdiRow } from './ceMercanteEdiParser'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading', 'numero bl', 'n bl', 'no bl', 'no. bl'],
@@ -147,6 +148,63 @@ export async function importCeMercanteRows(
     unchanged,
     errorCount: errors.length,
     errors,
+  }
+}
+
+export type CeMercanteEdiImportResult =
+  | {
+      ok: true
+      batchId: number
+      processed: number
+      inserted: number
+      overwritten: number
+      unchanged: number
+    }
+  | {
+      ok: false
+      errors: Array<{ bl_id?: string; ce?: string; message: string }>
+    }
+
+// Importa o vinculo CE <-> BL a partir do arquivo EDI do manifesto. Toda a
+// validacao quantitativa (cobertura do batch) e qualitativa (CE/BL unicos,
+// existencia) e feita dentro da RPC transacional: ou grava tudo, ou nada.
+export async function importCeMercanteEdi(
+  rows: CeMercanteEdiRow[],
+  options: { changedBy: string | null } = { changedBy: null },
+): Promise<CeMercanteEdiImportResult> {
+  const payload = rows.map((row) => ({ bl_id: row.bl_id, ce: row.ce_mercante }))
+
+  const { data, error } = await supabase.rpc('apply_ce_mercante_manifest' as never, {
+    p_rows: payload,
+    p_changed_by: options.changedBy,
+  } as never)
+
+  if (error) throw error
+
+  const result = data as {
+    ok?: boolean
+    batch_id?: number
+    processed?: number
+    inserted?: number
+    overwritten?: number
+    unchanged?: number
+    errors?: Array<{ bl_id?: string; ce?: string; message: string }>
+  } | null
+
+  if (result?.ok) {
+    return {
+      ok: true,
+      batchId: Number(result.batch_id ?? 0),
+      processed: Number(result.processed ?? 0),
+      inserted: Number(result.inserted ?? 0),
+      overwritten: Number(result.overwritten ?? 0),
+      unchanged: Number(result.unchanged ?? 0),
+    }
+  }
+
+  return {
+    ok: false,
+    errors: result?.errors ?? [{ message: 'Falha ao validar o manifesto de CE Mercante.' }],
   }
 }
 
