@@ -343,7 +343,7 @@ export function Viagens() {
               atd: schedule?.atd ?? null,
               rtw: schedule?.rtw ?? null,
               ceStatus: schedule?.ceStatus ?? autoCeStatus,
-              linked: schedule?.linked ?? Boolean(schedule?.eta || schedule?.etb || schedule?.ata || schedule?.atd),
+              linked: schedule?.linked ?? false,
             }
           })
           const plannedPodCount = countPlannedPodRows(podRows)
@@ -407,7 +407,7 @@ export function Viagens() {
                     voyageId={voyage.id}
                     voyageLabel={`${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`}
                     userId={user.id}
-                    types={['cntr', 'bb', 'vaziosImp', 'vehicles']}
+                    types={['cntr', 'bb', 'vaziosImp', 'vehicles', 'baplie']}
                   />
                 </MetricSection>
               ) : null}

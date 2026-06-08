@@ -119,7 +119,7 @@ async function syncDischargePortEtas(voyageId: number, form: VoyageFormValues, c
         atd: currentSchedule?.atd ?? null,
         rtw: currentSchedule?.rtw ?? null,
         ceStatus: currentSchedule?.ceStatus ?? null,
-        linked: currentSchedule?.linked ?? null,
+        linked: currentSchedule?.linked ?? false,
         changedBy,
       })
     }),

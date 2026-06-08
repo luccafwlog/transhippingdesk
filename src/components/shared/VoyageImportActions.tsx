@@ -14,8 +14,10 @@ import { importGraniteManifest, parseGraniteManifestFile } from '../../services/
 import { importVaziosManifest, parseVaziosManifestFile } from '../../services/vaziosImport'
 import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../../services/vaziosImportacaoImport'
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
+import { parseBaplieFile } from '../../services/baplieParser'
+import { importBaplieStaging } from '../../services/baplieImport'
 
-type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles'
+type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
   cntr: 'Manifesto CNTR',
@@ -24,6 +26,7 @@ const IMPORT_LABELS: Record<ImportType, string> = {
   vaziosImp: 'Manifesto Vazios Imp.',
   vaziosExp: 'Vazios Exp',
   vehicles: 'Planilha Veiculos',
+  baplie: 'Baplie EDI',
 }
 
 export function VoyageImportActions({
@@ -165,6 +168,39 @@ export function VoyageImportActions({
               <Stat label="Bookings" value={preview.bookings.length} />
               <Stat label="Erros" value={preview.rowErrors.length} />
               <Stat label="Linhas" value={preview.bookings.length + preview.rowErrors.length} />
+            </div>
+          )}
+          onClose={() => setActiveType(null)}
+        />
+      ) : null}
+
+      {activeType === 'baplie' ? (
+        <FileImportModal
+          title="Importar Baplie EDI"
+          voyageLabel={voyageLabel}
+          accept=".edi,.txt,.bpl"
+          parser={parseBaplieFile}
+          canImport={(p) => p.containers.length > 0}
+          importer={async (preview) => {
+            const { staged } = await importBaplieStaging(voyageId, preview.containers, userId)
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] }),
+              queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] }),
+            ])
+            showToast(`Baplie importado: ${staged} container(s) em staging.`, 'success')
+          }}
+          renderPreview={(preview) => (
+            <div className="grid gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <Stat label="Containers" value={preview.containers.length} />
+                <Stat label="Cheios" value={preview.containers.filter((c) => c.status === 'full').length} />
+                <Stat label="PODs" value={preview.pods.length} />
+              </div>
+              {preview.vessel_name || preview.voyage_number ? (
+                <div className="app-panel__meta text-sm">
+                  Navio/Viagem detectado: <span className="font-semibold text-[var(--app-text-strong)]">{preview.vessel_name ?? '-'} / {preview.voyage_number ?? '-'}</span>
+                </div>
+              ) : null}
             </div>
           )}
           onClose={() => setActiveType(null)}

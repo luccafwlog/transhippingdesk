@@ -185,7 +185,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         bbPackages,
         bbTotal: bbMachines + bbPackages,
         ceStatus: schedule?.ceStatus ?? autoCeStatus,
-        linked: schedule?.linked ?? Boolean(schedule?.eta || schedule?.etb || schedule?.ata || schedule?.atd),
+        linked: schedule?.linked ?? false,
         exportHasGranite: null,
         exportContainersQty: null,
         exportMovementsQty: null,
