@@ -9,7 +9,7 @@ export type ImportManifestArgs = {
   voyageId: number
   manifest: ParsedManifest
   uploadedBy: string
-  /** F-02: hash opcional do arquivo original; habilita dedupe por (voyage, cargo_mode, hash). */
+  /** Hash opcional do arquivo original; habilita dedupe por (voyage, cargo_mode, hash). */
   fileHash?: string | null
 }
 
@@ -19,12 +19,12 @@ export type ImportManifestArgs = {
  * A operacao inteira (criacao do batch, upsert dos BLs, troca dos containers,
  * registro de erros e atualizacao de status) e delegada a funcao PL/pgSQL
  * `import_manifest_transactional`. Isso garante atomicidade: se qualquer etapa
- * falhar, nada fica persistido e impede o cenario de BLs com zero
- * containers por delete+insert parcial (F-01).
+ * falhar, nada fica persistido e evita BLs sem containers por delete+insert
+ * parcial.
  *
  * Dedup: se `fileHash` for informado, a unique index parcial
  * `uq_import_batches_voyage_hash` rejeita imports duplicados do mesmo
- * arquivo na mesma viagem/cargo_mode (F-02).
+ * arquivo na mesma viagem/cargo_mode.
  */
 export async function importManifest({
   filename,

@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const DEFAULT_CARRIER_NAME = 'Cosco Shipping Specialized Carriers'
 export const DEFAULT_CARRIER_SCAC = 'CSSC'
 
-export type VoyageDischargePortEta = {
+type VoyageDischargePortEta = {
   pod: string
   eta: string
 }

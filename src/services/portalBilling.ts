@@ -27,7 +27,7 @@ export type PortalInvoiceSummary = {
   pods: string[]
 }
 
-export type PortalInvoiceContainer = {
+type PortalInvoiceContainer = {
   id: number
   bl_id: string | null
   container_number: string
@@ -36,7 +36,7 @@ export type PortalInvoiceContainer = {
   gross_weight_kg: number | null
 }
 
-export type PortalInvoiceDetail = InvoiceDetail & { containers: PortalInvoiceContainer[] }
+type PortalInvoiceDetail = InvoiceDetail & { containers: PortalInvoiceContainer[] }
 
 export async function portalListConsolidatableReceivables() {
   const { data, error } = await supabasePortal.rpc('portal_list_consolidatable_receivables')

@@ -15,10 +15,6 @@ export function describeActiveFilters(filters: OperationalFilter[]) {
   return active.length ? `Filtros ativos: ${active.join(', ')}` : 'Sem filtros ativos'
 }
 
-export function hasActiveFilters(filters: OperationalFilter[]) {
-  return filters.some((filter) => filter.value !== null && filter.value !== undefined && String(filter.value).trim() !== '')
-}
-
 export function describeEmptyState({
   entitySingular,
   entityPlural,

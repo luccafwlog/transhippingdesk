@@ -85,8 +85,7 @@ export async function listLocalChargeTables(filters?: {
     .order('id', { ascending: false })
 
   if (filters?.cargoMode) {
-    // cast: types do Supabase em database.ts ainda nao incluem 'granito';
-    // o CHECK constraint passou a aceita-lo na migration 051.
+    // database.ts não lista 'granito'; a migration 051 permite esse valor no banco.
     query = query.eq('cargo_mode', filters.cargoMode as 'container' | 'carga_solta')
   }
 
@@ -95,10 +94,10 @@ export async function listLocalChargeTables(filters?: {
     if (pod) query = query.ilike('pod', `%${pod}%`)
   }
 
-  const { data, error } = await query
+  const { data, error } = await query.overrideTypes<LocalChargeTableWithItems[], { merge: false }>()
   if (error) throw error
 
-  const rows = (data ?? []) as unknown as LocalChargeTableWithItems[]
+  const rows = data ?? []
 
   return rows.map((table) => ({
     ...table,
@@ -113,7 +112,7 @@ export async function listLocalChargeTables(filters?: {
 export async function saveChargeTable(input: ChargeTableInput) {
   const payload = {
     name: input.name.trim(),
-    // cast: tipos do Supabase ainda nao incluem 'granito'; CHECK constraint aceita via migration 051.
+    // database.ts não lista 'granito'; a migration 051 permite esse valor no banco.
     cargo_mode: input.cargoMode as 'container' | 'carga_solta',
     pod: input.pod.trim().toUpperCase(),
     valid_from: input.validFrom,

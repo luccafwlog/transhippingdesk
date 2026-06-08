@@ -37,7 +37,7 @@ const HEADER_MAP: Record<string, string> = {
 
 export type ReconciliationStatus = 'matched' | 'missing_cnpj' | 'not_found'
 
-export type ParsedGraniteBl = {
+type ParsedGraniteBl = {
   rowNumber: number
   sequence: number | null
   booking_number: string | null

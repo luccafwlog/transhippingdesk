@@ -2,9 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowRight, ChevronDown, type LucideIcon } from 'lucide-react'
 import { tokenizeInfoValue } from '../../pages/viagensHelpers'
 
-// Componentes apresentacionais da tela de Viagens (cards de navegação, seções
-// acordeão e painéis de métricas). Sem estado/hooks — só props e children.
-// Extraídos de Viagens.tsx para reduzir o monólito e permitir teste isolado.
+// Componentes apresentacionais da tela de Viagens: navegação, acordeões e métricas.
 
 export function NavigationCard({
   icon: Icon,

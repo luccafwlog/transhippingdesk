@@ -1,7 +1,7 @@
 import { supabase } from '../supabase'
 import { ensureDemurrageRatesLoaded, calculateDemurrage } from './demurrageRates'
 import { buildTransshippingPixPayload } from '../../lib/pix'
-import type { DemurrageInvoice, DemurrageInvoiceItem } from '../../types/database'
+import type { DemurrageInvoice, DemurrageInvoiceItem, RoeSource } from '../../types/database'
 
 export type DemurrageInvoiceFilters = {
   status?: DemurrageInvoice['status'] | null
@@ -15,8 +15,6 @@ export type DemurrageInvoiceListItem = DemurrageInvoice & {
   customer?: { id: number; name: string; cnpj_cpf: string } | null
   bl?: { id: string; pol: string | null; pod: string | null; voyage?: { id: number; voyage_number: string; vessel?: { id: number; name: string } | null } | null } | null
 }
-
-export type RoeSource = 'bcb_live' | 'cached' | 'manual'
 
 function nextBusinessDay(fromDate?: string): string {
   const d = fromDate ? new Date(`${fromDate}T12:00:00`) : new Date()
@@ -264,21 +262,31 @@ export async function listDemurrageInvoices(filters?: DemurrageInvoiceFilters): 
   if (filters?.dateFrom) query = query.gte('doc_date', filters.dateFrom)
   if (filters?.dateTo) query = query.lte('doc_date', filters.dateTo)
 
-  const { data, error } = await query
+  const { data, error } = await query.overrideTypes<DemurrageInvoiceListItem[], { merge: false }>()
   if (error) throw error
-  return (data ?? []) as unknown as DemurrageInvoiceListItem[]
+  return data ?? []
 }
 
 export async function getInvoiceDetail(invoiceId: number) {
   const [invRes, itemsRes] = await Promise.all([
-    supabase.from('demurrage_invoices').select(`*, customer:customers(id,name,cnpj_cpf), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`).eq('id', invoiceId).single(),
-    supabase.from('demurrage_invoice_items').select('*').eq('invoice_id', invoiceId).order('container_number'),
+    supabase
+      .from('demurrage_invoices')
+      .select(`*, customer:customers(id,name,cnpj_cpf), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`)
+      .eq('id', invoiceId)
+      .single()
+      .overrideTypes<DemurrageInvoiceListItem, { merge: false }>(),
+    supabase
+      .from('demurrage_invoice_items')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .order('container_number')
+      .overrideTypes<DemurrageInvoiceItem[], { merge: false }>(),
   ])
   if (invRes.error) throw invRes.error
   if (itemsRes.error) throw itemsRes.error
   return {
-    invoice: invRes.data as unknown as DemurrageInvoiceListItem,
-    items: (itemsRes.data ?? []) as unknown as DemurrageInvoiceItem[],
+    invoice: invRes.data!,
+    items: itemsRes.data ?? [],
   }
 }
 

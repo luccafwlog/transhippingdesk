@@ -4,8 +4,7 @@ import { Field, Input, Select } from '../ui/Input'
 import { formatBRL, formatUSD } from '../../lib/utils'
 import type { ManualChargeItemForBl } from '../../services/charges/chargeOperationsService'
 
-// Formulário apresentacional de "Other Charges" manuais de um B/L. Extraído de
-// BlDetalhe.tsx: o pai mantém estado/mutations e passa valor + callbacks.
+// Campos apresentacionais de Other Charges; o pai mantém estado e mutations.
 export type ManualChargeFormValue = {
   chargeItemId: string
   quantity: string

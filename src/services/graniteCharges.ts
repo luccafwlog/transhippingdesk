@@ -127,7 +127,6 @@ export async function listGraniteBls(filters: {
   }
 
   if (filters.voyageId) {
-    // filter via granite_manifests.voyage_id
     const { data: manifestIds } = await supabase
       .from('granite_manifests')
       .select('id')

@@ -11,9 +11,8 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
-// A pagina agora carrega services/billing e services/exports em runtime (sugestoes,
-// helpers de derivacao e export). Eles nao sao chamados no render estatico, mas
-// importam o cliente supabase — que mockamos para nao exigir credenciais.
+// billing/export inicializam o cliente Supabase ao importar; o mock mantém este
+// teste de render isolado de credenciais.
 vi.mock('../../services/supabase', () => ({
   supabase: {},
   isSupabaseConfigured: false,

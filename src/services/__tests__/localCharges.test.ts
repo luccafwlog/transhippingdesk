@@ -29,6 +29,7 @@ function createBuilder(result: { data: unknown; error: unknown }) {
     ilike: vi.fn(() => builder),
     in: vi.fn(() => builder),
     limit: vi.fn(() => builder),
+    overrideTypes: vi.fn(() => builder),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   }
@@ -223,6 +224,7 @@ describe('localCharges service', () => {
         eq: vi.fn(() => builder),
         ilike: vi.fn(() => builder),
         or: vi.fn(() => builder),
+        overrideTypes: vi.fn(() => builder),
         range: vi.fn((from: number, to: number) => {
           rangeCalls.push([from, to])
           selectedRange = [from, to]

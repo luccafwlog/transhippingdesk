@@ -29,8 +29,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Isola vendors estáveis em chunks próprios para melhorar o cache do
-        // browser entre deploys (mudam com pouca frequência). xlsx/jspdf já são
-        // code-split via import dinâmico, então ficam de fora daqui.
+        // browser entre deploys (mudam com pouca frequência). xlsx já é
+        // code-split via import dinâmico, então fica de fora daqui.
         manualChunks: (id: string) => {
           if (
             id.includes('node_modules/react-router') ||

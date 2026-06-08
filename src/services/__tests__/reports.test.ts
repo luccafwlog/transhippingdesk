@@ -21,6 +21,7 @@ function createBuilder(result: { data: unknown; error: unknown }) {
     eq: vi.fn(() => builder),
     not: vi.fn(() => builder),
     in: vi.fn(() => builder),
+    overrideTypes: vi.fn(() => builder),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   }

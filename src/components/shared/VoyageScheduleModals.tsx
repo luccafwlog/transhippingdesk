@@ -13,9 +13,7 @@ import type { ExportCeStatus, VoyageExportSchedule } from '../../services/voyage
 // Sugestões de POD para o autocomplete ao adicionar um POD ao planejamento.
 const POD_SUGGESTIONS = ['BRSSA', 'BRVIX', 'BRSSZ', 'BRPEC', 'BRSUA', 'BRIGI'] as const
 
-// Modais de planejamento de agenda de viagem (POL/POD). São puramente
-// apresentacionais: recebem os dados via props e delegam a persistência ao
-// callback `onSaved` do pai (sem hooks de dados aqui). Extraídos de Viagens.tsx.
+// Modais apresentacionais de agenda POL/POD; a persistência fica no callback do pai.
 
 export function PolScheduleModal({
   open,

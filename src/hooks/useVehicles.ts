@@ -12,7 +12,7 @@ export type VehiclePageFilters = {
   pageSize: number
 }
 
-export type VoyageVehicleStat = {
+type VoyageVehicleStat = {
   totalVehicles: number
   distinctContainerCount: number
   containerNumbers: string[]
@@ -80,14 +80,13 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
         if (term) q = q.ilike('chassis', `%${term}%`)
       }
 
-      // container and bl filters need join — apply post-fetch for now since Supabase
-      // doesn't support ilike on nested select columns in .filter()
+      // PostgREST não aplica ilike em colunas de joins aninhados; esses filtros
+      // rodam na página carregada.
       const { data, error, count } = await q
       if (error) throw error
 
       let rows = (data ?? []) as unknown as VehicleListItem[]
 
-      // Apply container/bl filters client-side (these are short pages, not full datasets)
       if (filters.container) {
         const term = filters.container.toLowerCase()
         rows = rows.filter((r) => (r.container?.container_number ?? '').toLowerCase().includes(term))
@@ -101,7 +100,7 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
     },
   })
 
-  // Separate stats query — loads all vehicles for voyage (no filters, for breakdown cards)
+  // Estatísticas ignoram os filtros da lista para alimentar os cards de resumo.
   const statsQuery = useQuery({
     queryKey: ['vehicle-stats', voyageId],
     enabled: Boolean(voyageId),

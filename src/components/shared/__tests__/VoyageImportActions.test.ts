@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCntrManifestImportSummary } from '../VoyageImportActions'
+import { buildCntrManifestImportSummary } from '../voyageImportSummary'
 import type { ParsedManifest } from '../../../services/manifestParser'
 
 function manifest(bls: ParsedManifest['bls']): ParsedManifest {

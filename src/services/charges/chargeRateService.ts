@@ -52,7 +52,7 @@ export type OverrideChargeItemOption = {
   } | null
 }
 
-export type OverrideCustomerOption = {
+type OverrideCustomerOption = {
   id: number
   name: string
   cnpj_cpf: string
@@ -103,13 +103,14 @@ export async function listCustomerRateOverrides(filters?: {
     )
     .order('created_at', { ascending: false })
     .limit(limit)
+    .overrideTypes<LocalChargeOverrideItem[], { merge: false }>()
 
   if (error) throw error
 
   const search = String(filters?.customerSearch ?? '').trim().toLowerCase()
   const modeFilter = filters?.cargoMode ?? ''
   const podFilter = String(filters?.pod ?? '').trim().toUpperCase()
-  const rows = (data ?? []) as unknown as LocalChargeOverrideItem[]
+  const rows = data ?? []
 
   return rows.filter((row) => {
     const customerName = String(row.customer?.name ?? '').toLowerCase()
@@ -157,10 +158,11 @@ export async function listOverrideChargeItems() {
     .eq('active', true)
     .order('name', { ascending: true })
     .limit(600)
+    .overrideTypes<OverrideChargeItemOption[], { merge: false }>()
 
   if (error) throw error
 
-  return (data ?? []) as unknown as OverrideChargeItemOption[]
+  return data ?? []
 }
 
 export async function listOverrideCustomers(search?: string) {

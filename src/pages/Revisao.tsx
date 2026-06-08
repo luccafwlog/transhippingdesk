@@ -245,6 +245,7 @@ export function Revisao() {
     }
     setBatchSaving(true)
     let successCount = 0
+    let errorCount = 0
     for (const item of checkedItems) {
       try {
         if (item.source === 'granite') {
@@ -279,7 +280,7 @@ export function Revisao() {
         }
         successCount++
       } catch {
-        // continue with remaining items
+        errorCount++
       }
     }
     setBatchSaving(false)
@@ -291,7 +292,12 @@ export function Revisao() {
       queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
       queryClient.invalidateQueries({ queryKey: ['op-count'] }),
     ])
-    showToast(`${successCount} de ${checkedItems.length} B/Ls revisados em lote.`, 'success')
+    showToast(
+      errorCount
+        ? `${successCount} de ${checkedItems.length} B/Ls revisados em lote; ${errorCount} falharam.`
+        : `${successCount} de ${checkedItems.length} B/Ls revisados em lote.`,
+      errorCount ? 'info' : 'success',
+    )
   }
 
   return (

@@ -1,8 +1,5 @@
-// Validação/normalização pura dos formulários de Taxas Locais, extraída de
-// TaxasLocais.tsx. Cada função retorna um resultado discriminado: em caso de
-// erro, a mensagem exata exibida ao usuário; em caso de sucesso, o payload
-// numérico/normalizado pronto para a mutation. Mantém a ordem e as mensagens
-// originais para preservar o comportamento.
+// Validação/normalização pura dos formulários de Taxas Locais. As mensagens de
+// erro são exibidas ao usuário, então devem permanecer estáveis.
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string }
 
@@ -10,7 +7,7 @@ function toAmount(value: string) {
   return Number(String(value).replace(',', '.'))
 }
 
-// --- Override por cliente ---
+// Override por cliente.
 
 export type OverrideInput = {
   customerId: string
@@ -61,7 +58,7 @@ export function validateOverrideInput(form: OverrideInput): ValidationResult<Ove
   }
 }
 
-// --- Tabela de taxas ---
+// Tabela de taxas.
 
 export type TableInput = {
   name: string
@@ -86,7 +83,7 @@ export function validateTableInput(form: TableInput): ValidationResult<{ validTo
   return { ok: true, value: { validTo: form.validTo || null } }
 }
 
-// --- Item de tabela de taxas ---
+// Item de tabela de taxas.
 
 export type TableItemInput = {
   chargeTableId: string

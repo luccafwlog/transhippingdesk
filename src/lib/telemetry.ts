@@ -1,8 +1,5 @@
-// Logging consistente para falhas de operações "best-effort": escritas
-// auxiliares (alertas, trilha de auditoria, payload PIX) que NÃO devem abortar
-// o fluxo principal quando falham. Centralizar o formato dá observabilidade a
-// essas falhas hoje silenciosas/ad-hoc e cria um ponto único para, no futuro,
-// encaminhá-las a um coletor externo. NÃO altera o controle de fluxo.
+// Falhas best-effort devem ser observáveis sem interromper o fluxo principal
+// (alertas, trilha de auditoria, payload PIX e escritas auxiliares).
 
 function normalizeError(error: unknown) {
   if (error instanceof Error) {

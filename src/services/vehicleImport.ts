@@ -1,5 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
-import { asString, normalizeText } from '../lib/utils'
+import { asString, chunkArray, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -411,13 +411,4 @@ async function fetchInChunks<TInput extends string, TResult>(
     collected.push(...batch)
   }
   return collected
-}
-
-function chunkArray<T>(values: T[], chunkSize: number) {
-  if (!values.length) return []
-  const chunks: T[][] = []
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize))
-  }
-  return chunks
 }

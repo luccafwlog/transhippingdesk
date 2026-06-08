@@ -21,7 +21,7 @@ const HEADER_MAP: Record<string, string> = {
   'notes': 'notes',
 }
 
-export type ParsedVaziosBooking = {
+type ParsedVaziosBooking = {
   rowNumber: number
   booking_number: string
   container_number: string | null

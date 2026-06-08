@@ -1,7 +1,4 @@
-// Predicados puros que classificam o que falta em um item da fila de revisão,
-// e normalização de texto de erro. Extraídos de Revisao.tsx para teste isolado.
-// `ReviewQueueItem` é import de tipo (apagado em runtime) — sem dependência de
-// hooks/Supabase aqui.
+// Predicados puros e normalização de erros para a fila de revisão.
 import type { ReviewQueueItem } from '../hooks/useReview'
 
 export function needsCustomerLink(item: ReviewQueueItem) {

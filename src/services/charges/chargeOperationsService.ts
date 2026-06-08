@@ -3,7 +3,7 @@ import { escapeFilterTerm, sanitizeLikeTerm } from '../../lib/utils'
 
 const OPERATIONAL_PAGE_SIZE = 1000
 
-export type LocalChargeLine = {
+type LocalChargeLine = {
   id: number
   bl_id: string
   charge_table_id: number | null
@@ -173,9 +173,10 @@ export async function listLocalChargePendencies(limit = 100) {
     .in('charge_status', ['review_required', 'not_calculated'])
     .order('created_at', { ascending: false })
     .limit(limit)
+    .overrideTypes<LocalChargePendencyItem[], { merge: false }>()
 
   if (error) throw error
-  return (data ?? []) as unknown as LocalChargePendencyItem[]
+  return data ?? []
 }
 
 export async function listLocalChargeOperationalRows(
@@ -248,10 +249,10 @@ async function loadBlOperationalRows(
       }
     }
 
-    const { data: blRows, error: blError } = await query
+    const { data: blRows, error: blError } = await query.overrideTypes<LocalChargeOperationalRow[], { merge: false }>()
     if (blError) throw blError
 
-    const pageRows = (blRows ?? []) as unknown as LocalChargeOperationalRow[]
+    const pageRows = blRows ?? []
     rows.push(...pageRows)
     if (pageRows.length < pageSize) break
   }
@@ -398,10 +399,10 @@ async function loadGraniteOperationalRows(
       }
     }
 
-    const { data, error } = await query
+    const { data, error } = await query.overrideTypes<GraniteOperationalRaw[], { merge: false }>()
     if (error) throw error
 
-    const pageRows = (data ?? []) as unknown as GraniteOperationalRaw[]
+    const pageRows = data ?? []
     granRows = [...granRows, ...pageRows]
     if (pageRows.length < pageSize) break
   }
