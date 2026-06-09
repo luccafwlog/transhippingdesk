@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Download, Upload } from 'lucide-react'
+import { Download, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { MetricCard } from '../components/ui/MetricCard'
@@ -8,8 +8,13 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
+import { BulkActionsBar } from '../components/shared/BulkActionsBar'
+import { useAuth } from '../hooks/useAuth'
+import { useRowSelection } from '../hooks/useRowSelection'
 import { useVehicleOptions, useVehicles, type VehiclePageFilters } from '../hooks/useVehicles'
 import { formatDate } from '../lib/utils'
+import { deleteVehicles } from '../services/vehicles'
 import { importVehicleRows, parseVehicleImportFile, type ParsedVehicleImport } from '../services/vehicleImport'
 
 const pageSizes = [20, 50, 100]
@@ -17,6 +22,10 @@ const pageSizes = [20, 50, 100]
 export function Veiculos() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const confirm = useConfirm()
+  const { isAdmin } = useAuth()
+  const selection = useRowSelection<number>()
+  const [deleting, setDeleting] = useState(false)
   const { data: options } = useVehicleOptions()
   const [selectedVesselId, setSelectedVesselId] = useState('')
   const [selectedVoyageId, setSelectedVoyageId] = useState('')
@@ -152,6 +161,44 @@ export function Veiculos() {
     }
   }
 
+  async function invalidateAfterDelete() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+      queryClient.invalidateQueries({ queryKey: ['vehicle-stats'] }),
+      queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+    ])
+  }
+
+  async function runDelete(ids: number[], message: string) {
+    const ok = await confirm({ message, tone: 'danger', confirmLabel: 'Excluir' })
+    if (!ok) return
+
+    setDeleting(true)
+    try {
+      await deleteVehicles(ids)
+      selection.clear()
+      await invalidateAfterDelete()
+      showToast(ids.length === 1 ? 'Veiculo excluido.' : `${ids.length} veiculos excluidos.`, 'success')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'erro desconhecido'
+      showToast(`Falha ao excluir veiculo(s): ${detail}`, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function handleDeleteOne(id: number, chassis: string) {
+    return runDelete([id], `Excluir o veiculo ${chassis}? Esta acao e irreversivel.`)
+  }
+
+  function handleDeleteSelected() {
+    return runDelete([...selection.selected], `Excluir ${selection.count} veiculo(s) selecionado(s)? Esta acao e irreversivel.`)
+  }
+
+  const pageRowIds = (data?.rows ?? []).map((row) => row.id)
+  const allPageSelected = pageRowIds.length > 0 && pageRowIds.every((id) => selection.isSelected(id))
+  const columnCount = isAdmin ? 11 : 9
+
   return (
     <>
       <PageHeader
@@ -253,12 +300,32 @@ export function Veiculos() {
         </div>
       </FilterBar>
 
+      {isAdmin ? (
+        <BulkActionsBar
+          count={selection.count}
+          onClear={selection.clear}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+          noun={['veiculo', 'veiculos']}
+        />
+      ) : null}
+
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar veiculos." /> : null}
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead>
               <tr>
+                {isAdmin ? (
+                  <th scope="col" className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos os veiculos da pagina"
+                      checked={allPageSelected}
+                      onChange={() => selection.toggleMany(pageRowIds)}
+                    />
+                  </th>
+                ) : null}
                 <th scope="col" className="px-4 py-3">Chassi</th>
                 <th scope="col" className="px-4 py-3">Marca</th>
                 <th scope="col" className="px-4 py-3">Modelo</th>
@@ -268,25 +335,36 @@ export function Veiculos() {
                 <th scope="col" className="px-4 py-3">Tipo Container</th>
                 <th scope="col" className="px-4 py-3">Lacre</th>
                 <th scope="col" className="px-4 py-3">BL</th>
+                {isAdmin ? <th scope="col" className="px-4 py-3 w-16">Acoes</th> : null}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={9}>
+                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={columnCount}>
                     Carregando veiculos...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={9} className="p-0">
+                  <td colSpan={columnCount} className="p-0">
                     <EmptyState title="Nenhum veiculo encontrado." description="Importe uma planilha de veiculos ou ajuste os filtros." />
                   </td>
                 </tr>
               ) : null}
               {data?.rows.map((row) => (
                 <tr key={row.id} className="hover:bg-[#21262d]/60">
+                  {isAdmin ? (
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar veiculo ${row.chassis}`}
+                        checked={selection.isSelected(row.id)}
+                        onChange={() => selection.toggle(row.id)}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.chassis}</td>
                   <td className="px-4 py-3">{row.brand}</td>
                   <td className="px-4 py-3">{row.model}</td>
@@ -296,6 +374,19 @@ export function Veiculos() {
                   <td className="px-4 py-3">{row.container?.type ?? '-'}</td>
                   <td className="px-4 py-3">{row.container?.seal_number ?? '-'}</td>
                   <td className="px-4 py-3">{row.bl?.id ?? '-'}</td>
+                  {isAdmin ? (
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleDeleteOne(row.id, row.chassis)}
+                        disabled={deleting}
+                        className="text-red-400 hover:text-red-300 disabled:opacity-40"
+                        title="Excluir veiculo"
+                        aria-label={`Excluir veiculo ${row.chassis}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
