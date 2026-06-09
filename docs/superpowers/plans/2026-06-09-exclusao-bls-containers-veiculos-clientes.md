@@ -17,14 +17,16 @@
 
 ---
 
-## Mapa de dependencias (estado real das FKs confirmado nas migrations)
+## Mapa de dependencias (CONFIRMADO no banco vivo via Task 0 — projeto fgmkhbzhaeebrsizwccx)
 
-| Entidade | Filhos OPERACIONAIS (admin cascateia) | Bloqueadores FISCAIS (bloqueio duro) | Auto-cascata do banco |
+| Entidade | Filhos OPERACIONAIS (admin apaga antes) | Bloqueadores FISCAIS / pesados (bloqueio duro) | Auto-resolvidos pelo banco |
 |---|---|---|---|
 | **Veiculo** (`vehicles`) | — (folha) | — | — |
-| **Container** (`bl_containers`) | `vehicles` (`container_id` RESTRICT) | `charge_calculations.container_id` (RESTRICT), itens de demurrage por container | `baplie_reconciliation_resolutions` (CASCADE) |
-| **BL** (`bls`) | `vehicles` (`bl_id` CASCADE) | `invoices.bl_id`, `invoice_bls.bl_id`, `bl_receivables.bl_id`, `local_billing_ledger.bl_id` (todos RESTRICT) | `bl_containers`, `bl_breakbulk_items`, `charge_calculations.bl_id` (CASCADE) |
-| **Cliente** (`customers`) | `customer_contacts` (RESTRICT), `customer_rate_overrides` (RESTRICT) | `bls.customer_id`, `invoices.customer_id`, `bl_receivables.customer_id`, `local_billing_ledger.customer_id` (todos RESTRICT) | `granite_bls.client_id` (SET NULL) |
+| **Container** (`bl_containers`) | `vehicles` (`container_id` RESTRICT) | `charge_calculations.container_id`, `demurrage_invoice_items.container_id` | `baplie_reconciliation_resolutions` (CASCADE) |
+| **BL** (`bls`) | `vehicles` (`bl_id` CASCADE, mas apagamos antes p/ evitar RESTRICT de `container_id`) | `invoices`, `invoice_bls`, `invoice_receivable_links`, `bl_receivables`, `demurrage_invoices` | `bl_containers`, `bl_breakbulk_items`, `charge_calculations`, `billing_run_logs`, `customer_reconciliation_queue` (CASCADE) |
+| **Cliente** (`customers`) | `customer_contacts`, `customer_rate_overrides` | `bls`, `invoices`, `demurrage_invoices`, `bl_receivables`, `billing_batches` | `customer_portal_accounts`/`customer_portal_sessions` (CASCADE); `customer_reconciliation_queue`/`granite_bls`/`pricing_rule_versions` (SET NULL) |
+
+> Task 0 executada em 2026-06-09 contra o banco real. A lista acima substitui a arqueologia das migrations. Nota: varios desses sao `NO ACTION` (nao `RESTRICT`), mas o efeito de bloqueio e o mesmo quando ha linhas filhas; a checagem por contagem cobre ambos.
 
 **Observacao critica de ordem de delete:** mesmo quando o banco *teoricamente* cascatearia, a combinacao `vehicles.container_id RESTRICT` + `bl_containers.bl_id CASCADE` pode disparar RESTRICT no meio da cascata. Por isso **todo service deleta os filhos operacionais explicitamente, bottom-up, antes** de apagar a entidade alvo — nunca confiamos na ordem interna da cascata.
 
@@ -51,7 +53,7 @@
 
 **Files:** nenhum (so leitura via Supabase MCP / SQL).
 
-- [ ] **Step 1:** Listar FKs que referenciam `bls`, `bl_containers`, `customers`, `vehicles` com sua `delete_rule`:
+- [x] **Step 1:** Listar FKs que referenciam `bls`, `bl_containers`, `customers`, `vehicles` com sua `delete_rule`:
 
 ```sql
 select tc.table_name as child_table, kcu.column_name as child_col,
@@ -64,7 +66,9 @@ where ccu.table_name in ('bls','bl_containers','customers','vehicles')
 order by parent_table, child_table;
 ```
 
-- [ ] **Step 2:** Ajustar a tabela de dependencias deste plano se o banco divergir (registrar nota abaixo da task). Confirmar especialmente quais tabelas de demurrage referenciam `bl_containers`/`bls` e se devem entrar como bloqueador fiscal.
+- [x] **Step 2:** Ajustar a tabela de dependencias deste plano se o banco divergir (registrar nota abaixo da task). Confirmar especialmente quais tabelas de demurrage referenciam `bl_containers`/`bls` e se devem entrar como bloqueador fiscal.
+
+> Nota Task 0: banco divergiu da arqueologia. Bloqueadores adicionais confirmados — Container: `demurrage_invoice_items`; BL: `invoice_receivable_links`, `demurrage_invoices`; Cliente: `demurrage_invoices`, `billing_batches`. Nao existe tabela `local_billing_ledger` referenciando essas entidades diretamente no banco atual (o ledger aparece via `bl_receivables`/`invoice_receivable_links`). Tabela de dependencias acima atualizada.
 
 **Acceptance:** a classificacao operacional vs fiscal de cada entidade esta confirmada contra o banco real.
 
@@ -130,7 +134,7 @@ export type DeleteDependencyReport = {
 }
 ```
 
-- [ ] **Step 2:** `checkContainerDependencies(ids)`: contar `charge_calculations` (e tabelas de demurrage confirmadas na Task 0) por `container_id`. Containers com bloqueador fiscal entram em `blockedIds` com motivo (ex: `"3 calculo(s) de taxa vinculado(s)"`).
+- [ ] **Step 2:** `checkContainerDependencies(ids)`: contar `charge_calculations.container_id` e `demurrage_invoice_items.container_id`. Containers com bloqueador entram em `blockedIds` com motivo (ex: `"3 calculo(s) de taxa vinculado(s)"`, `"item de demurrage vinculado"`).
 - [ ] **Step 3:** `deleteContainers(ids)`: para os `deletableIds`, **primeiro** `vehicles.delete().in('container_id', ids)` (cascata operacional), **depois** `bl_containers.delete().in('id', ids)`. Cada passo checa `error`.
 - [ ] **Step 4:** Testes: (a) container com `charge_calculations` vai para `blockedIds`; (b) container so com veiculos apaga veiculos e depois o container; (c) erro do banco propaga.
 - [ ] **Step 5:** `npm test` no arquivo novo passa.
@@ -161,7 +165,7 @@ export type DeleteDependencyReport = {
 - Create: `src/services/bls.ts` (delete; sem mover o resto da logica de BL)
 - Create: `src/services/__tests__/bls.delete.test.ts`
 
-- [ ] **Step 1:** `checkBlDependencies(ids: string[])`: contar `invoices`, `invoice_bls`, `bl_receivables`, `local_billing_ledger` por `bl_id`. Qualquer ocorrencia -> `blockedIds` com motivo especifico (ex: `"BL faturado (2 fatura(s))"`, `"possui lancamento no ledger"`).
+- [ ] **Step 1:** `checkBlDependencies(ids: string[])`: contar `invoices`, `invoice_bls`, `invoice_receivable_links`, `bl_receivables`, `demurrage_invoices` por `bl_id`. Qualquer ocorrencia -> `blockedIds` com motivo especifico (ex: `"BL faturado (2 fatura(s))"`, `"possui demurrage emitida"`).
 - [ ] **Step 2:** `deleteBls(ids)`: para `deletableIds`, **primeiro** `vehicles.delete().in('bl_id', ids)`, **depois** `bls.delete().in('id', ids)` (o banco cascateia `bl_containers`, `bl_breakbulk_items`, `charge_calculations`). Checar `error` em cada passo.
 - [ ] **Step 3:** Testes: (a) BL com fatura -> bloqueado; (b) BL com ledger -> bloqueado; (c) BL limpo -> apaga veiculos e depois o BL; (d) erro propaga.
 - [ ] **Step 4:** `npm test` no arquivo novo passa.
@@ -191,8 +195,8 @@ export type DeleteDependencyReport = {
 - Modify: `src/pages/Clientes.tsx`
 - Create/Modify: `src/services/__tests__/customers.delete.test.ts`
 
-- [ ] **Step 1:** `checkCustomerDependencies(ids: number[])`: contar `bls`, `invoices`, `bl_receivables`, `local_billing_ledger` por `customer_id` -> bloqueador fiscal/operacional pesado. `customer_contacts` e `customer_rate_overrides` sao operacionais (cascata).
-- [ ] **Step 2:** `deleteCustomers(ids)`: para deletaveis, apagar `customer_contacts` e `customer_rate_overrides` por `customer_id`, depois `customers`. Lembrar que `granite_bls.client_id` e SET NULL (nao bloqueia).
+- [ ] **Step 1:** `checkCustomerDependencies(ids: number[])`: contar `bls`, `invoices`, `demurrage_invoices`, `bl_receivables`, `billing_batches` por `customer_id` -> bloqueador. `customer_contacts` e `customer_rate_overrides` sao operacionais (cascata).
+- [ ] **Step 2:** `deleteCustomers(ids)`: para deletaveis, apagar `customer_contacts` e `customer_rate_overrides` por `customer_id`, depois `customers`. O banco auto-resolve `customer_portal_accounts/sessions` (CASCADE) e `granite_bls`/`customer_reconciliation_queue`/`pricing_rule_versions` (SET NULL).
 - [ ] **Step 3:** Testes: cliente com BL/fatura/ledger -> bloqueado; cliente so com contatos -> apaga contatos e depois o cliente.
 - [ ] **Step 4:** UI em `Clientes.tsx`: checkbox + `Trash2` so admin; fluxo com `checkCustomerDependencies`; confirmacao avisa que contatos serao excluidos; bloqueados listados. Invalidar `['customers']` e summary.
 - [ ] **Step 5:** `npm test`, `npm run lint`, `npm run build`; smoke manual.
