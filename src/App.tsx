@@ -28,6 +28,7 @@ function lazyPage<T extends Record<string, unknown>, K extends keyof T & string>
 const Login = lazyPage(() => import('./pages/Login'), 'Login')
 const PortalLogin = lazyPage(() => import('./pages/PortalLogin'), 'PortalLogin')
 const PortalBilling = lazyPage(() => import('./pages/PortalBilling'), 'PortalBilling')
+const PortalOperacao = lazyPage(() => import('./pages/PortalOperacao'), 'PortalOperacao')
 const Painel = lazyPage(() => import('./pages/Painel'), 'Painel')
 const Viagens = lazyPage(() => import('./pages/Viagens'), 'Viagens')
 const Manifestos = lazyPage(() => import('./pages/Manifestos'), 'Manifestos')
@@ -76,6 +77,7 @@ export default function App() {
       <Route element={<PortalProtectedRoute />}>
         <Route element={<PortalLayout />}>
           <Route path="/portal/billing" element={withSuspense(<PortalBilling />)} />
+          <Route path="/portal/operacao" element={withSuspense(<PortalOperacao />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute />}>
