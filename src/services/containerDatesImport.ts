@@ -173,6 +173,9 @@ function parseRows(objectRows: Record<string, unknown>[]): ParsedContainerDatesI
     if (rawReturn != null && asString(rawReturn) && !returnDate) {
       rowErrors.push({ row: index + 2, message: 'Data de devolucao invalida.', raw: row }); return
     }
+    if (returnDate && returnDate < discharge) {
+      rowErrors.push({ row: index + 2, message: 'Data de devolucao anterior a descarga.', raw: row }); return
+    }
 
     rows.push({ bl_id: blId, container_number: containerNumber, discharge_date: discharge, return_date: returnDate })
   })

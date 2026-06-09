@@ -130,7 +130,7 @@ git commit -m "fix: validate demurrage pix reconciliation"
 - Modify: `src/services/demurrage/__tests__/calculateDemurrage.test.ts`
 - Create: `supabase/migrations/<timestamp>_demurrage_date_order_constraints.sql`
 
-- [ ] **Step 1: Escrever teste de calculo com datas invertidas**
+- [x] **Step 1: Escrever teste de calculo com datas invertidas**
 
 Em `src/services/demurrage/__tests__/calculateDemurrage.test.ts`, adicionar:
 
@@ -138,7 +138,7 @@ Em `src/services/demurrage/__tests__/calculateDemurrage.test.ts`, adicionar:
 expect(() => calculateDemurrage('20GP', '2026-01-10', '2026-01-09')).toThrow(/devolucao|descarga|return|discharge/i)
 ```
 
-- [ ] **Step 2: Rodar teste e confirmar falha atual**
+- [x] **Step 2: Rodar teste e confirmar falha atual**
 
 Run:
 
@@ -148,23 +148,23 @@ npm test -- src/services/demurrage/__tests__/calculateDemurrage.test.ts
 
 Expected: novo teste falha porque hoje retorna dias negativos/within_free_time.
 
-- [ ] **Step 3: Validar no calculo**
+- [x] **Step 3: Validar no calculo**
 
 Em `calculateDemurrage`, apos calcular `noonMs(dischargeDate)` e `noonMs(returnDate)`, lancar erro se retorno for anterior a descarga.
 
-- [ ] **Step 4: Validar nos services de update**
+- [x] **Step 4: Validar nos services de update**
 
 Em `updateContainerDates` e `updateContainerReturnDate`, bloquear `returnDate < dischargeDate` antes de persistir.
 
-- [ ] **Step 5: Validar importacao de datas**
+- [x] **Step 5: Validar importacao de datas**
 
 Em `parseRows` de `src/services/containerDatesImport.ts`, quando houver `returnDate`, rejeitar linha com devolucao anterior a descarga e incluir `rowErrors`.
 
-- [ ] **Step 6: Validar UI manual**
+- [x] **Step 6: Validar UI manual**
 
 Em `src/pages/Demurrage.tsx`, antes de `containerDatesMutation.mutate`, exibir toast de erro quando `editReturn` existir e for anterior a `editDischarge`.
 
-- [ ] **Step 7: Criar constraint no banco**
+- [x] **Step 7: Criar constraint no banco**
 
 Criar migration com checks para impedir persistencia inconsistente, por exemplo:
 
@@ -180,7 +180,7 @@ ALTER TABLE public.bl_containers
 
 Verificar se `demurrage_invoice_items.total_days` tambem deve receber `CHECK (total_days >= 0)` apos confirmar dados existentes.
 
-- [ ] **Step 8: Rodar testes**
+- [x] **Step 8: Rodar testes**
 
 Run:
 
@@ -191,7 +191,7 @@ npm test
 
 Expected: testes passam.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 Suggested commit:
 

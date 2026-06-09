@@ -624,6 +624,7 @@ export function Demurrage() {
                 loading={containerDatesMutation.isPending}
                 onClick={() => {
                   if (!editDischarge) return showToast('Data de descarga obrigatória.', 'error')
+                  if (editReturn && editReturn < editDischarge) return showToast('Data de devolucao nao pode ser anterior a descarga.', 'error')
                   containerDatesMutation.mutate({ id: editingContainer.id, discharge: editDischarge, ret: editReturn || null })
                 }}
               >
