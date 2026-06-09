@@ -21,5 +21,10 @@
       "Bash(gh pr *)",
       "mcp__0644792d-6b09-4f2e-9724-d56001a37210__netlify-project-services-reader"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "playwright",
+    "shadcn"
+  ]
 }
