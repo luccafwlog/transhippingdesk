@@ -1,16 +1,21 @@
 import { useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, CalendarDays, Download } from 'lucide-react'
+import { Boxes, CalendarDays, Download, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
+import { useRowSelection } from '../hooks/useRowSelection'
+import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
+import { checkContainerDependencies, deleteContainers } from '../services/containers'
+import { formatBlockedSummary } from '../services/deleteDependencies'
 import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions, useContainerTypeOptions } from '../hooks/useBls'
 import {
   importContainerFlagsRows,
@@ -25,7 +30,10 @@ export function Containers() {
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
   const { showToast } = useToast()
-  const { user } = useAuth()
+  const confirm = useConfirm()
+  const { user, isAdmin } = useAuth()
+  const selection = useRowSelection<number>()
+  const [deleting, setDeleting] = useState(false)
   const [filters, setFilters] = useState<ContainerFilters>({
     search: '',
     voyageId: initialVoyage,
@@ -154,6 +162,43 @@ export function Containers() {
     setParsingFlags(false)
     setImportingFlags(false)
   }
+
+  async function runContainerDelete(ids: number[]) {
+    setDeleting(true)
+    try {
+      const report = await checkContainerDependencies(ids)
+      if (report.deletableIds.length === 0) {
+        showToast(`Nenhum container pode ser excluido. ${formatBlockedSummary(report.blockedIds)}`, 'error')
+        return
+      }
+
+      const parts = [
+        `Excluir ${report.deletableIds.length} container(es)? Os veiculos vinculados serao excluidos junto. Esta acao e irreversivel.`,
+      ]
+      if (report.blockedIds.length) parts.push(formatBlockedSummary(report.blockedIds))
+      const ok = await confirm({ message: parts.join('\n\n'), tone: 'danger', confirmLabel: 'Excluir' })
+      if (!ok) return
+
+      await deleteContainers(report.deletableIds)
+      selection.clear()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['containers'] }),
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+      ])
+      showToast(`${report.deletableIds.length} container(es) excluido(s).`, 'success')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'erro desconhecido'
+      showToast(`Falha ao excluir container(es): ${detail}`, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const pageContainerIds = (data?.rows ?? []).map((row) => row.id)
+  const allPageSelected = pageContainerIds.length > 0 && pageContainerIds.every((id) => selection.isSelected(id))
+  const containerColumnCount = isAdmin ? 11 : 10
 
   return (
     <>
@@ -298,6 +343,16 @@ export function Containers() {
         </div>
       </Card>
 
+      {isAdmin ? (
+        <BulkActionsBar
+          count={selection.count}
+          onClear={selection.clear}
+          onDelete={() => runContainerDelete([...selection.selected])}
+          deleting={deleting}
+          noun={['container', 'containers']}
+        />
+      ) : null}
+
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar containers." /> : null}
 
@@ -305,6 +360,16 @@ export function Containers() {
           <table className="app-table app-table--compact min-w-[1060px] border-collapse text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
+                {isAdmin ? (
+                  <th scope="col" className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos os containers da pagina"
+                      checked={allPageSelected}
+                      onChange={() => selection.toggleMany(pageContainerIds)}
+                    />
+                  </th>
+                ) : null}
                 <th scope="col" className="px-4 py-3">Container</th>
                 <th scope="col" className="px-4 py-3">B/L</th>
                 <th scope="col" className="w-[84px] px-4 py-3">CNEE</th>
@@ -320,20 +385,30 @@ export function Containers() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={containerColumnCount} className="px-4 py-8 text-center text-slate-400">
                     Carregando containers...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-0">
+                  <td colSpan={containerColumnCount} className="p-0">
                     <EmptyState title="Nenhum container encontrado." description="Ajuste os filtros de viagem ou POD." />
                   </td>
                 </tr>
               ) : null}
               {data?.rows.map((container) => (
                 <tr key={container.id} className="hover:bg-[#21262d]/60">
+                  {isAdmin ? (
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar container ${container.container_number}`}
+                        checked={selection.isSelected(container.id)}
+                        onChange={() => selection.toggle(container.id)}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 font-semibold text-white">{container.container_number}</td>
                   <td className="px-4 py-3">
                     <Link className="text-[#58a6ff] hover:underline" to={`/manifestos/${container.bl?.id}`}>
@@ -366,12 +441,25 @@ export function Containers() {
                     <ChargeStatusBadge status={container.bl?.charge_status ?? null} />
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      className="app-table__action"
-                      to={`/manifestos/${container.bl?.id}`}
-                    >
-                      Abrir B/L
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        className="app-table__action"
+                        to={`/manifestos/${container.bl?.id}`}
+                      >
+                        Abrir B/L
+                      </Link>
+                      {isAdmin ? (
+                        <button
+                          onClick={() => runContainerDelete([container.id])}
+                          disabled={deleting}
+                          className="text-red-400 hover:text-red-300 disabled:opacity-40"
+                          title="Excluir container"
+                          aria-label={`Excluir container ${container.container_number}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
