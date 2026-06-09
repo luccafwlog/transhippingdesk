@@ -1,15 +1,48 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const supabaseMocks = vi.hoisted(() => ({
+  from: vi.fn(),
+  rpc: vi.fn(),
+  buildPix: vi.fn(() => 'pix-payload'),
+}))
 
 // billing.ts cria o cliente Supabase no import; as funções testadas aqui são
 // puras (não tocam o banco), então mockamos o módulo.
-vi.mock('../supabase', () => ({ supabase: {} }))
-vi.mock('../../lib/pix', () => ({ buildTransshippingPixPayload: () => '' }))
+vi.mock('../supabase', () => ({ supabase: { from: supabaseMocks.from, rpc: supabaseMocks.rpc } }))
+vi.mock('../../lib/pix', () => ({ buildTransshippingPixPayload: supabaseMocks.buildPix }))
 
 import {
+  createInvoiceFromBls,
   getInvoiceBls,
   getInvoicePaymentDate,
   isConsolidatedInvoice,
 } from '../billing'
+import { createConsolidatedInvoice } from '../billingLedger'
+
+beforeEach(() => {
+  supabaseMocks.from.mockReset()
+  supabaseMocks.rpc.mockReset()
+  supabaseMocks.buildPix.mockReset()
+  supabaseMocks.buildPix.mockReturnValue('pix-payload')
+})
+
+function invoiceFetchQuery(result: unknown) {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue(result),
+      })),
+    })),
+  }
+}
+
+function invoiceUpdateQuery(result: unknown) {
+  return {
+    update: vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue(result),
+    })),
+  }
+}
 
 describe('isConsolidatedInvoice', () => {
   it('reconhece faturas consolidadas pelo invoice_type', () => {
@@ -63,5 +96,36 @@ describe('getInvoicePaymentDate', () => {
   it('retorna null quando não há pagamentos válidos', () => {
     expect(getInvoicePaymentDate({ payments: [] } as never)).toBeNull()
     expect(getInvoicePaymentDate({ payments: [{ paid_at: null }] } as never)).toBeNull()
+  })
+})
+
+describe('createInvoiceFromBls', () => {
+  it('propaga falha ao vincular invoice ao ledger', async () => {
+    supabaseMocks.rpc.mockImplementation(async (name: string) => {
+      if (name === 'create_invoice_from_bls') {
+        return { data: { invoice_id: 123 }, error: null }
+      }
+      if (name === 'link_invoice_to_ledger') {
+        return { data: null, error: new Error('ledger failed') }
+      }
+      return { data: null, error: null }
+    })
+    supabaseMocks.from
+      .mockReturnValueOnce(invoiceFetchQuery({ data: { invoice_number: 'INV-123', total_brl: 100 }, error: null }))
+      .mockReturnValueOnce(invoiceUpdateQuery({ error: null }))
+
+    await expect(createInvoiceFromBls({ blIds: ['BL001'] })).rejects.toThrow('ledger failed')
+  })
+})
+
+describe('createConsolidatedInvoice', () => {
+  it('propaga falha ao persistir payload PIX consolidado', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({
+      data: { invoice_id: 456, invoice_number: 'INV-456', total_brl: 250 },
+      error: null,
+    })
+    supabaseMocks.from.mockReturnValueOnce(invoiceUpdateQuery({ error: new Error('pix failed') }))
+
+    await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1, 2] })).rejects.toThrow('pix failed')
   })
 })

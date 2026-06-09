@@ -213,15 +213,15 @@ git commit -m "fix: reject demurrage return before discharge"
 - Modify: `src/services/billingLedger.ts`
 - Modify or create: `src/services/__tests__/billingHelpers.test.ts` or `src/services/__tests__/billingLedger.test.ts`
 
-- [ ] **Step 1: Testar falha em `link_invoice_to_ledger`**
+- [x] **Step 1: Testar falha em `link_invoice_to_ledger`**
 
 Criar teste que mocka `supabase.rpc('link_invoice_to_ledger')` retornando `{ error: new Error('ledger failed') }` apos criacao de invoice, e espera rejeicao.
 
-- [ ] **Step 2: Testar falha ao persistir PIX consolidado**
+- [x] **Step 2: Testar falha ao persistir PIX consolidado**
 
 Criar teste para `createConsolidatedInvoice` em que o update em `invoices` retorna erro e o service rejeita.
 
-- [ ] **Step 3: Confirmar falha atual**
+- [x] **Step 3: Confirmar falha atual**
 
 Run:
 
@@ -231,13 +231,13 @@ npm test -- src/services/__tests__/billingHelpers.test.ts
 
 Expected: testes novos falham antes da correcao.
 
-- [ ] **Step 4: Implementar checagem de erro**
+- [x] **Step 4: Implementar checagem de erro**
 
 Em `src/services/billing.ts`, capturar retorno de `supabase.rpc('link_invoice_to_ledger', ...)` e lancar erro quando existir `error`.
 
 Em `src/services/billingLedger.ts`, capturar retorno do update `pix_payload` e lancar erro quando existir `error`.
 
-- [ ] **Step 5: Rodar testes focados e suite**
+- [x] **Step 5: Rodar testes focados e suite**
 
 Run:
 
@@ -248,7 +248,7 @@ npm test
 
 Expected: testes passam.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Suggested commit:
 

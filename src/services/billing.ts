@@ -636,7 +636,8 @@ export async function createInvoiceFromBls(input: {
   const invoiceId = (result as { invoice_id?: number }).invoice_id
   if (invoiceId) {
     await persistPixPayload(invoiceId)
-    await supabase.rpc('link_invoice_to_ledger', { p_invoice_id: invoiceId })
+    const { error: ledgerError } = await supabase.rpc('link_invoice_to_ledger', { p_invoice_id: invoiceId })
+    if (ledgerError) throw ledgerError
   }
 
   return result
