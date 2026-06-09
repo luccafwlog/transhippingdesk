@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, Download, Upload } from 'lucide-react'
+import { Boxes, Download, Trash2, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -9,11 +9,16 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
+import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
+import { useRowSelection } from '../hooks/useRowSelection'
+import { checkBlDependencies, deleteBls } from '../services/bls'
+import { formatBlockedSummary } from '../services/deleteDependencies'
 import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useVoyageOptions } from '../hooks/useBls'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
@@ -28,6 +33,11 @@ const pageSizes = [20, 50, 100]
 export function Manifestos() {
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
+  const queryClient = useQueryClient()
+  const confirm = useConfirm()
+  const { isAdmin } = useAuth()
+  const selection = useRowSelection<string>()
+  const [deleting, setDeleting] = useState(false)
   const [filters, setFilters] = useState<BlFilters>({
     search: '',
     voyageId: initialVoyage,
@@ -111,6 +121,45 @@ export function Manifestos() {
       setExporting(false)
     }
   }
+
+  async function runBlDelete(ids: string[]) {
+    setDeleting(true)
+    try {
+      const report = await checkBlDependencies(ids)
+      if (report.deletableIds.length === 0) {
+        showToast(`Nenhum B/L pode ser excluido. ${formatBlockedSummary(report.blockedIds)}`, 'error')
+        return
+      }
+
+      const parts = [
+        `Excluir ${report.deletableIds.length} B/L(s)? Containers, break-bulk e veiculos vinculados serao excluidos junto. Esta acao e irreversivel.`,
+      ]
+      if (report.blockedIds.length) parts.push(formatBlockedSummary(report.blockedIds))
+      const ok = await confirm({ message: parts.join('\n\n'), tone: 'danger', confirmLabel: 'Excluir' })
+      if (!ok) return
+
+      await deleteBls(report.deletableIds)
+      selection.clear()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['bl-summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['containers'] }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['invoice-links'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      ])
+      showToast(`${report.deletableIds.length} B/L(s) excluido(s).`, 'success')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'erro desconhecido'
+      showToast(`Falha ao excluir B/L(s): ${detail}`, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const pageBlIds = (data?.rows ?? []).map((row) => row.id)
+  const allPageSelected = pageBlIds.length > 0 && pageBlIds.every((id) => selection.isSelected(id))
+  const blColumnCount = isAdmin ? 12 : 11
 
   return (
     <>
@@ -226,6 +275,16 @@ export function Manifestos() {
         <SummaryCard label="Isentos" value={isSummaryLoading ? '...' : summary?.chargeExempt ?? 0} />
       </div>
 
+      {isAdmin ? (
+        <BulkActionsBar
+          count={selection.count}
+          onClear={selection.clear}
+          onDelete={() => runBlDelete([...selection.selected])}
+          deleting={deleting}
+          noun={['B/L', 'B/Ls']}
+        />
+      ) : null}
+
       <Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span className="font-semibold text-white">{formatResultCount(data?.count ?? 0, 'B/L retornado', 'B/Ls retornados')}</span>
@@ -237,6 +296,16 @@ export function Manifestos() {
           <table className="app-table app-table--compact min-w-[920px] text-left text-sm whitespace-nowrap">
             <thead>
               <tr>
+                {isAdmin ? (
+                  <th scope="col" className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos os B/Ls da pagina"
+                      checked={allPageSelected}
+                      onChange={() => selection.toggleMany(pageBlIds)}
+                    />
+                  </th>
+                ) : null}
                 <th scope="col" className="px-4 py-3">No. B/L</th>
                 <th scope="col" className="px-4 py-3">CE Mercante</th>
                 <th scope="col" className="px-4 py-3">Navio/Viagem</th>
@@ -253,20 +322,30 @@ export function Manifestos() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={11} className="p-0">
+                  <td colSpan={blColumnCount} className="p-0">
                     <SkeletonTable rows={8} cols={6} />
                   </td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-0">
+                  <td colSpan={blColumnCount} className="p-0">
                     <EmptyState title={emptyState.title} description={emptyState.description} />
                   </td>
                 </tr>
               ) : null}
               {data?.rows.map((bl) => (
                 <tr key={bl.id} className="hover:bg-[#21262d]/60">
+                  {isAdmin ? (
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar B/L ${bl.id}`}
+                        checked={selection.isSelected(bl.id)}
+                        onChange={() => selection.toggle(bl.id)}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 font-semibold">
                     <Link className="text-[#58a6ff] hover:underline" to={`/manifestos/${bl.id}`}>
                       {bl.id}
@@ -300,12 +379,25 @@ export function Manifestos() {
                     <InvoiceLink links={invoiceLinksByBl?.[bl.id] ?? []} />
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      className="app-table__action"
-                      to={`/manifestos/${bl.id}`}
-                    >
-                      Abrir B/L
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        className="app-table__action"
+                        to={`/manifestos/${bl.id}`}
+                      >
+                        Abrir B/L
+                      </Link>
+                      {isAdmin ? (
+                        <button
+                          onClick={() => runBlDelete([bl.id])}
+                          disabled={deleting}
+                          className="text-red-400 hover:text-red-300 disabled:opacity-40"
+                          title="Excluir B/L"
+                          aria-label={`Excluir B/L ${bl.id}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
