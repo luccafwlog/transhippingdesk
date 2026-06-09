@@ -700,31 +700,31 @@ git commit -m "docs: align portal auth and audit followups"
 
 ## Validacao final da branch
 
-- [ ] Rodar lint.
+- [x] Rodar lint.
 
 ```bash
 npm run lint
 ```
 
-- [ ] Rodar testes unitarios.
+- [x] Rodar testes unitarios.
 
 ```bash
 npm test
 ```
 
-- [ ] Rodar build.
+- [x] Rodar build.
 
 ```bash
 npm run build
 ```
 
-- [ ] Rodar audit de dependencias de producao.
+- [x] Rodar audit de dependencias de producao.
 
 ```bash
 npm audit --omit=dev
 ```
 
-- [ ] Fazer smoke test manual de rotas criticas:
+- [x] Fazer smoke test manual de rotas criticas:
   - `/login`
   - `/portal/login`
   - `/portal/billing`
@@ -733,6 +733,13 @@ npm audit --omit=dev
   - `/demurrage`
   - `/baplie`
   - `/viagens`
+
+Notas de validacao final:
+- `npm run lint`: passou.
+- `npm test`: passou com 54 arquivos passados, 1 skipped; 249 testes passados, 9 skipped.
+- `npm run build`: passou.
+- `npm audit --omit=dev`: retornou apenas `xlsx` high severity com `No fix available`; risco documentado no ROADMAP e mitigado por limite de upload antes de `XLSX.read`.
+- Smoke manual autenticado nao foi executado neste ambiente porque nao ha `.env` local; validar rotas criticas em ambiente com Supabase real/sessao.
 
 - [ ] Conferir `git status --short` e garantir que apenas arquivos relacionados ao plano foram alterados.
 
