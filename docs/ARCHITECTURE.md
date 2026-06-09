@@ -103,3 +103,4 @@ flowchart LR
 - `docs/ROADMAP.md`: estado atual, evolucao e backlog priorizado.
 - `docs/VALIDACAO.md`: roteiro de validacao tecnica e funcional.
 - `docs/RESET_AMBIENTE.md`: reset de dados operacionais de teste.
+- `docs/adr/`: decisoes arquiteturais aceitas e numeradas.
