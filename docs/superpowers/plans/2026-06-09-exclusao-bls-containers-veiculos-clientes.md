@@ -207,28 +207,27 @@ export type DeleteDependencyReport = {
 
 ## Task 9: Backstop de RLS — DELETE somente admin
 
-**Files:**
-- Create: `supabase/migrations/<timestamp>_delete_policies_admin_only.sql`
-- Create: `src/services/__tests__/deletePoliciesMigration.test.ts`
+**Por que:** a gating de UI nao e seguranca. O delete real precisa exigir `is_admin()` no banco (defense in depth).
 
-**Por que:** a gating de UI nao e seguranca. O delete real precisa exigir `is_admin()` no banco (defense in depth), seguindo o padrao das migrations de hardening (Task 5 do plano de auditoria).
+- [x] **Step 1:** Verificar as policies de DELETE atuais de `bls`, `bl_containers`, `vehicles`, `customers`, `customer_contacts`, `customer_rate_overrides`.
 
-- [ ] **Step 1 (Task 0 dependente):** Verificar as policies de DELETE atuais de `bls`, `bl_containers`, `vehicles`, `customers`, `customer_contacts`, `customer_rate_overrides`.
-- [ ] **Step 2:** Migration que faz `DROP POLICY IF EXISTS` das policies de DELETE permissivas e cria DELETE `USING (public.is_admin())` nessas tabelas (e nas filhas que o service apaga: `vehicles`, `customer_contacts`, `customer_rate_overrides`). Seguir naming/estrutura das migrations de RLS existentes; incluir nota de rollback.
-- [ ] **Step 3:** Teste de migration (le o SQL e verifica `is_admin()` + `DROP POLICY IF EXISTS` nas tabelas alvo), no mesmo estilo de `rlsHardeningMigration.test.ts`.
-- [ ] **Step 4:** `npm test` passa. Aplicar a migration em ambiente controlado (nao em prod sem janela).
+> RESULTADO (banco vivo, 2026-06-09): **nenhuma migration necessaria**. As 6 tabelas ja possuem exatamente uma policy de DELETE (`<tabela>_delete_admin`) com `USING (is_admin())`, PERMISSIVE para `authenticated`, e NAO ha policy permissiva concorrente de DELETE/ALL. O backstop ja esta plenamente em vigor (provavelmente do hardening de RLS anterior). SELECT/UPDATE usam `is_active_user()`; INSERT e aberto a usuario ativo — fora do escopo desta entrega.
 
-**Acceptance:** somente admin consegue DELETE nessas tabelas no nivel do banco, independente da UI.
+**Acceptance:** somente admin consegue DELETE nessas tabelas no nivel do banco — ja garantido.
 
 ---
 
 ## Validacao final da branch
 
-- [ ] `npm run lint`
-- [ ] `npm test`
-- [ ] `npm run build`
-- [ ] Smoke manual autenticado como admin e como nao-admin nas 4 paginas (anotar resultados; ambiente sem `.env` real exige validacao externa).
-- [ ] `git status --short` so com arquivos do plano.
+- [x] `npm run lint` — passou.
+- [x] `npm test` — passou (60 arquivos, 1 skipped; 267 testes, 9 skipped), incluindo os novos testes de selecao e de exclusao das 4 entidades.
+- [x] `npm run build` — passou.
+- [ ] Smoke manual autenticado como admin e como nao-admin nas 4 paginas (ambiente sem `.env` real exige validacao externa pelo dono).
+- [x] `git status --short` so com arquivos do plano/feature.
+
+## Conclusao
+
+Implementacao concluida em 2026-06-09 nas tasks 0-9. Entregue: hook `useRowSelection` + `BulkActionsBar` + `deleteDependencies` (helper compartilhado), services de exclusao com verificacao de dependencias para veiculos, containers, BLs e clientes, e UI de exclusao singular + em massa (somente admin) nas paginas Veiculos, Containers, Manifestos e Clientes. Bloqueio fiscal duro confirmado contra o banco vivo (Task 0) e backstop de RLS `is_admin()` ja em vigor (Task 9, sem migration). Falta apenas o smoke manual autenticado pelo dono em ambiente com Supabase real.
 
 ## Riscos e notas
 
