@@ -49,6 +49,7 @@ import {
   type InvoiceTypeFilter,
 } from '../services/billing'
 import { exportInvoicesWorkbook } from '../services/exports'
+import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../services/financialValidation'
 import { Combobox, type ComboOption } from '../components/ui/Combobox'
 import {
   acknowledgeAlert,
@@ -286,27 +287,32 @@ export function Faturamento() {
 
   async function handleRegisterPayment() {
     if (!selectedInvoiceId) return
-    const parsedAmount = Number(paymentAmount.replace(',', '.'))
-    if (!isLedgerPayable && (!Number.isFinite(parsedAmount) || parsedAmount <= 0)) {
-      showToast('Valor de pagamento invalido.', 'error')
+    const paymentValidation = paymentFormSchema.safeParse({
+      amountBrl: isLedgerPayable ? ledgerBalance : paymentAmount,
+      paymentMethod,
+      paidAt: paymentDate,
+    })
+    if (!paymentValidation.success) {
+      showToast(formatValidationError(paymentValidation.error, 'Valor de pagamento invalido.'), 'error')
       return
     }
+    const payment = paymentValidation.data
     try {
       if (isLedgerPayable) {
         await registerLedgerPaymentMutation.mutateAsync({
           invoiceId: selectedInvoiceId,
-          amountBrl: ledgerBalance,
-          method: paymentMethod,
-          paidAt: paymentDate ? new Date(`${paymentDate}T12:00:00`).toISOString() : null,
+          amountBrl: payment.amountBrl,
+          method: payment.paymentMethod,
+          paidAt: payment.paidAt ? new Date(`${payment.paidAt}T12:00:00`).toISOString() : null,
           source: 'manual',
           notes: paymentNotes.trim() || null,
         })
       } else {
         await registerPaymentMutation.mutateAsync({
           invoiceId: selectedInvoiceId,
-          amountBrl: parsedAmount,
-          paymentMethod,
-          paidAt: paymentDate ? new Date(`${paymentDate}T12:00:00`).toISOString() : null,
+          amountBrl: payment.amountBrl,
+          paymentMethod: payment.paymentMethod,
+          paidAt: payment.paidAt ? new Date(`${payment.paidAt}T12:00:00`).toISOString() : null,
           notes: paymentNotes.trim() || null,
           actorId: user?.id ?? null,
         })
@@ -327,27 +333,22 @@ export function Faturamento() {
 
   async function handleAddCharge() {
     if (!selectedInvoiceId) return
-    const description = chargeDescription.trim()
-    const quantity = Number(chargeQuantity.replace(',', '.'))
-    const unitValue = Number(chargeUnitValue.replace(',', '.'))
-    if (!description) {
-      showToast('Informe a descricao do item.', 'error')
+    const chargeValidation = manualInvoiceChargeSchema.safeParse({
+      description: chargeDescription,
+      quantity: chargeQuantity,
+      unitValueBrl: chargeUnitValue,
+    })
+    if (!chargeValidation.success) {
+      showToast(formatValidationError(chargeValidation.error, 'Item invalido.'), 'error')
       return
     }
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      showToast('Quantidade invalida.', 'error')
-      return
-    }
-    if (!Number.isFinite(unitValue) || unitValue <= 0) {
-      showToast('Valor unitario invalido.', 'error')
-      return
-    }
+    const charge = chargeValidation.data
     try {
       await addChargeMutation.mutateAsync({
         invoiceId: selectedInvoiceId,
-        description,
-        quantity,
-        unitValueBrl: unitValue,
+        description: charge.description,
+        quantity: charge.quantity,
+        unitValueBrl: charge.unitValueBrl,
         notes: chargeNotes.trim() || null,
         actorId: user?.id ?? null,
       })

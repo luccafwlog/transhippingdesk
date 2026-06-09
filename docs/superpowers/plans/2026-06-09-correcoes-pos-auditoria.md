@@ -561,7 +561,7 @@ git commit -m "perf: page billing exports and heavy bl queries"
 - Modify: `src/pages/Faturamento.tsx`
 - Modify: `src/pages/Demurrage.tsx`
 
-- [ ] **Step 1: Criar schemas**
+- [x] **Step 1: Criar schemas**
 
 Criar schemas para:
 - pagamento: valor positivo, metodo permitido, data opcional valida;
@@ -569,7 +569,7 @@ Criar schemas para:
 - desconto demurrage: tipo permitido, valor nao negativo, percentual entre 0 e 100 quando aplicavel;
 - datas demurrage: descarga obrigatoria, devolucao opcional e nao anterior a descarga.
 
-- [ ] **Step 2: Testar entradas comuns**
+- [x] **Step 2: Testar entradas comuns**
 
 Casos minimos:
 - `"10,50"` vira `10.5`;
@@ -579,11 +579,11 @@ Casos minimos:
 - percentual `101` rejeita;
 - devolucao anterior a descarga rejeita.
 
-- [ ] **Step 3: Substituir parsing manual**
+- [x] **Step 3: Substituir parsing manual**
 
 Trocar `Number(...)`/`parseFloat(...)` dispersos em fluxos financeiros pelos schemas.
 
-- [ ] **Step 4: Rodar testes**
+- [x] **Step 4: Rodar testes**
 
 Run:
 
@@ -594,7 +594,7 @@ npm test
 
 Expected: testes passam.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 

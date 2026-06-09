@@ -24,6 +24,7 @@ import {
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import { fetchDemurrageKPIs, fetchROE } from '../services/demurrage/demurrageKpis'
+import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
@@ -278,14 +279,20 @@ export function Demurrage() {
   })
 
   const discountMutation = useMutation({
-    mutationFn: ({ id, form }: { id: number; form: DiscountForm }) =>
-      updateDemurrageInvoice(id, {
-        discount_type: form.discount_type,
-        discount_value: form.discount_value !== '' ? parseFloat(form.discount_value) : null,
-        discount_mode: form.discount_mode,
-        discount_justification: form.discount_justification || null,
-        discount_approver: form.discount_approver || null,
-      }),
+    mutationFn: ({ id, form }: { id: number; form: DiscountForm }) => {
+      const validation = demurrageDiscountSchema.safeParse(form)
+      if (!validation.success) {
+        throw new Error(formatValidationError(validation.error, 'Desconto invalido.'))
+      }
+      const discount = validation.data
+      return updateDemurrageInvoice(id, {
+        discount_type: discount.discount_type,
+        discount_value: discount.discount_value,
+        discount_mode: discount.discount_mode,
+        discount_justification: discount.discount_justification,
+        discount_approver: discount.discount_approver,
+      })
+    },
     onSuccess: () => {
       invalidateInvoices()
       setDiscountInvoiceId(null)
@@ -624,8 +631,13 @@ export function Demurrage() {
                 loading={containerDatesMutation.isPending}
                 onClick={() => {
                   if (!editDischarge) return showToast('Data de descarga obrigatória.', 'error')
-                  if (editReturn && editReturn < editDischarge) return showToast('Data de devolucao nao pode ser anterior a descarga.', 'error')
-                  containerDatesMutation.mutate({ id: editingContainer.id, discharge: editDischarge, ret: editReturn || null })
+                  const validation = demurrageDatesSchema.safeParse({ discharge: editDischarge, ret: editReturn })
+                  if (!validation.success) return showToast(formatValidationError(validation.error), 'error')
+                  containerDatesMutation.mutate({
+                    id: editingContainer.id,
+                    discharge: validation.data.discharge,
+                    ret: validation.data.ret,
+                  })
                 }}
               >
                 Salvar
