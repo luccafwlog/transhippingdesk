@@ -86,6 +86,41 @@ describe('vehicleImport', () => {
     })
   })
 
+  it('mapeia a lista de VINs dos terminais chineses da COSCO (cabecalhos em chines)', async () => {
+    const buffer = jsonToBuffer([
+      {
+        序号: 1,
+        船名: 'GREEN ITAPOA',
+        航次: '6',
+        品牌: '比亚迪',
+        型号: 'DOLPHIN',
+        VIN: 'LC0CE4CC4V0018347',
+        毛重: '1405 ',
+        体积: '11.694 ',
+        提单号: 'CSC45350600100',
+        箱型: '40HC',
+        箱号: 'BEAU6464201',
+        封号: '156000',
+      },
+    ])
+
+    const parsed = await parseVehicleImportBuffer(buffer)
+
+    expect(parsed.rowErrors).toHaveLength(0)
+    expect(parsed.rows).toHaveLength(1)
+    expect(parsed.rows[0]).toMatchObject({
+      chassis: 'LC0CE4CC4V0018347',
+      brand: '比亚迪',
+      model: 'DOLPHIN',
+      weight_kg: 1405,
+      cbm: 11.694,
+      container_number: 'BEAU6464201',
+      container_type: '40HC',
+      seal_number: '156000',
+      bl_id: 'CSC45350600100',
+    })
+  })
+
   it('valida duplicidade de chassi e consistencia BL-container antes de inserir', async () => {
     const insertedRows: Array<Record<string, unknown>> = []
 
