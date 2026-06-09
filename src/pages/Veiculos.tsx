@@ -23,7 +23,11 @@ export function Veiculos() {
   const [importVoyageId, setImportVoyageId] = useState('')
   const [filters, setFilters] = useState<VehiclePageFilters>({
     search: '',
+    brand: '',
+    model: '',
     container: '',
+    containerType: '',
+    seal: '',
     bl: '',
     page: 1,
     pageSize: 20,
@@ -77,11 +81,11 @@ export function Veiculos() {
     setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
   }
 
-  const activeFilterCount = (['search', 'container', 'bl'] as (keyof VehiclePageFilters)[])
+  const activeFilterCount = (['search', 'brand', 'model', 'container', 'containerType', 'seal', 'bl'] as (keyof VehiclePageFilters)[])
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
 
   function clearFilters() {
-    setFilters((current) => ({ ...current, search: '', container: '', bl: '', page: 1 }))
+    setFilters((current) => ({ ...current, search: '', brand: '', model: '', container: '', containerType: '', seal: '', bl: '', page: 1 }))
   }
 
   function resetImportState() {
@@ -227,6 +231,18 @@ export function Veiculos() {
         <div className="app-filter-grid">
           <Field label="Buscar por chassi">
             <Input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} />
+          </Field>
+          <Field label="Filtro por marca">
+            <Input value={filters.brand} onChange={(event) => updateFilter('brand', event.target.value)} />
+          </Field>
+          <Field label="Filtro por modelo">
+            <Input value={filters.model} onChange={(event) => updateFilter('model', event.target.value)} />
+          </Field>
+          <Field label="Filtro por tipo de container">
+            <Input value={filters.containerType} onChange={(event) => updateFilter('containerType', event.target.value)} />
+          </Field>
+          <Field label="Filtro por lacre">
+            <Input value={filters.seal} onChange={(event) => updateFilter('seal', event.target.value)} />
           </Field>
           <Field label="Filtro por container">
             <Input value={filters.container} onChange={(event) => updateFilter('container', event.target.value)} />
