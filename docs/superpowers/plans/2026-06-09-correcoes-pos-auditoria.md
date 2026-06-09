@@ -22,19 +22,20 @@
 
 ## Baseline conhecido
 
-- Plano revalidado contra `origin/main` em 2026-06-09, commit `7008917` (`fix(veiculos): isentar taxas e cancelar fatura do BL ao importar veiculos (#179)`).
+- Plano revalidado contra `origin/main` em 2026-06-09, commit `10fb69b` (`Atualizar plano de correções pós-auditoria contra a main atual (#181)`).
 - `npm run lint`: passou em 2026-06-09 durante a auditoria inicial.
 - `npm test`: passou em 2026-06-09 durante a auditoria inicial com 48 arquivos passados, 1 skipped, 225 testes passados, 9 skipped.
+- `npm test`: passou em 2026-06-09 antes da execucao da Task 1 com 49 arquivos passados, 1 skipped, 233 testes passados, 9 skipped.
 - `npm audit --omit=dev`: reexecutado em 2026-06-09 contra `origin/main` atual; ainda encontra vulnerabilidades altas em `react-router`/`react-router-dom` e `xlsx`.
 - Esta branch limpa contem apenas este plano novo sobre `origin/main`. O arquivo antigo `docs/superpowers/plans/2026-06-01-ajustes-operacionais-financeiros.md` existe na `main` atual e nao deve ser removido por este plano.
 
 ## Checagem de defasagem contra a main atual
 
-- [ ] Antes de executar qualquer task, rodar `git fetch origin --prune` e confirmar que a branch de trabalho esta baseada na `origin/main` mais recente.
-- [ ] Se `origin/main` tiver avancado, revalidar as localizacoes citadas nas tasks antes de editar codigo.
+- [x] Antes de executar qualquer task, rodar `git fetch origin --prune` e confirmar que a branch de trabalho esta baseada na `origin/main` mais recente.
+- [x] Se `origin/main` tiver avancado, revalidar as localizacoes citadas nas tasks antes de editar codigo.
 - [ ] Se um achado ja tiver sido corrigido na `main`, marcar a task como substituida e registrar a evidencia abaixo da propria task.
 - [ ] Se um arquivo citado tiver sido renomeado, atualizar este plano antes de implementar.
-- [ ] Nao reaproveitar a branch antiga `codex/code-quality-cleanup` para executar este plano; ela nasceu de uma base antiga e carregava mudancas que conflitam com a `main` atual.
+- [x] Nao reaproveitar a branch antiga `codex/code-quality-cleanup` para executar este plano; ela nasceu de uma base antiga e carregava mudancas que conflitam com a `main` atual.
 
 ---
 
@@ -46,7 +47,7 @@
 - Modify: `src/services/reconciliacao.ts`
 - Modify: `src/services/__tests__/reconciliacao.test.ts`
 
-- [ ] **Step 1: Escrever teste para valor divergente em demurrage**
+- [x] **Step 1: Escrever teste para valor divergente em demurrage**
 
 Adicionar em `src/services/__tests__/reconciliacao.test.ts` um caso que chama `confirmUnifiedPixReconciliation` com `source: 'demurrage'`, `amount: 100`, `transaction.amount: 90`, e espera rejeicao sem update bem-sucedido.
 
@@ -56,7 +57,7 @@ Expected assertion shape:
 await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow(/valor|diverg/i)
 ```
 
-- [ ] **Step 2: Escrever teste para erro do update Supabase**
+- [x] **Step 2: Escrever teste para erro do update Supabase**
 
 Adicionar mock para `demurrage_invoices.update(...).eq(...)` retornar `{ error: new Error('db down') }` e esperar rejeicao.
 
@@ -66,7 +67,7 @@ Expected assertion shape:
 await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow('db down')
 ```
 
-- [ ] **Step 3: Rodar teste e confirmar falha atual**
+- [x] **Step 3: Rodar teste e confirmar falha atual**
 
 Run:
 
@@ -76,7 +77,7 @@ npm test -- src/services/__tests__/reconciliacao.test.ts
 
 Expected: os novos testes falham antes da implementacao.
 
-- [ ] **Step 4: Implementar validacao minima**
+- [x] **Step 4: Implementar validacao minima**
 
 Em `src/services/reconciliacao.ts`, antes do update de demurrage:
 - calcular diferenca absoluta entre `m.transaction.amount` e `m.amount`;
@@ -84,7 +85,7 @@ Em `src/services/reconciliacao.ts`, antes do update de demurrage:
 - capturar `{ error }` do update;
 - lancar erro se `error` existir.
 
-- [ ] **Step 5: Rodar teste focado**
+- [x] **Step 5: Rodar teste focado**
 
 Run:
 
@@ -94,7 +95,7 @@ npm test -- src/services/__tests__/reconciliacao.test.ts
 
 Expected: todos os testes desse arquivo passam.
 
-- [ ] **Step 6: Rodar suite completa**
+- [x] **Step 6: Rodar suite completa**
 
 Run:
 
@@ -104,7 +105,7 @@ npm test
 
 Expected: suite passa.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Suggested commit:
 

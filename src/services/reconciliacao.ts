@@ -98,7 +98,13 @@ export async function confirmUnifiedPixReconciliation(matches: UnifiedPixMatch[]
       }
       local += 1
     } else {
-      await supabase.from('demurrage_invoices').update({ status: 'paid', paid_at: paidAt, pix_txid: m.transaction.txid, conciliated_by_extract: true }).eq('id', m.invoiceId)
+      const diff = Math.abs(m.transaction.amount - m.amount)
+      if (!Number.isFinite(diff) || diff > 0.01) {
+        throw new Error(`Valor divergente para demurrage ${m.docNumber}.`)
+      }
+
+      const { error } = await supabase.from('demurrage_invoices').update({ status: 'paid', paid_at: paidAt, pix_txid: m.transaction.txid, conciliated_by_extract: true }).eq('id', m.invoiceId)
+      if (error) throw error
       demurrage += 1
     }
   }
