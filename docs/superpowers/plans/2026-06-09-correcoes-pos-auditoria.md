@@ -616,22 +616,22 @@ git commit -m "refactor: validate financial forms with zod"
 - Modify: `src/pages/Demurrage.tsx`
 - Possibly modify tests under `src/pages/__tests__`
 
-- [ ] **Step 1: Adicionar confirmacao para remover contato**
+- [x] **Step 1: Adicionar confirmacao para remover contato**
 
 Usar `useConfirm` antes de `deleteCustomerContact`.
 
-- [ ] **Step 2: Adicionar `aria-label` em botao icon-only**
+- [x] **Step 2: Adicionar `aria-label` em botao icon-only**
 
 No botao com `Trash2`, adicionar label como `aria-label="Remover contato"`.
 
-- [ ] **Step 3: Adicionar confirmacoes em demurrage**
+- [x] **Step 3: Adicionar confirmacoes em demurrage**
 
 Confirmar antes de:
 - cancelar invoice;
 - desemitir invoice;
 - desmarcar pagamento.
 
-- [ ] **Step 4: Rodar lint e testes**
+- [x] **Step 4: Rodar lint e testes**
 
 Run:
 
@@ -642,7 +642,7 @@ npm test
 
 Expected: passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 

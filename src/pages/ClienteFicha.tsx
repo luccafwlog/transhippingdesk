@@ -9,6 +9,7 @@ import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerDetail } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
@@ -55,6 +56,7 @@ export function ClienteFicha() {
   const queryClient = useQueryClient()
   const { user, isAdmin } = useAuth()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const { data, isLoading, error } = useCustomerDetail(cnpj)
   const [form, setForm] = useState<CustomerForm | null>(null)
   const [justification, setJustification] = useState('')
@@ -224,6 +226,14 @@ export function ClienteFicha() {
   }
 
   async function handleDeleteContact(contactId: number) {
+    const ok = await confirm({
+      title: 'Remover contato',
+      message: 'Remover este contato do cadastro do cliente?',
+      confirmLabel: 'Remover',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     try {
       await deleteCustomerContact(contactId)
       await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] })
@@ -450,7 +460,7 @@ export function ClienteFicha() {
                     >
                       Editar
                     </Button>
-                    <Button variant="ghost" onClick={() => handleDeleteContact(contact.id)}>
+                    <Button variant="ghost" aria-label="Remover contato" onClick={() => handleDeleteContact(contact.id)}>
                       <Trash2 size={16} />
                     </Button>
                   </div>

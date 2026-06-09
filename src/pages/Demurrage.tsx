@@ -8,6 +8,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
 import { calculateDemurrage } from '../services/demurrage/demurrageRates'
@@ -126,6 +127,7 @@ const EMPTY_DISPUTE: DisputeForm = {
 export function Demurrage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [tab, setTab] = useState<DemurrageTab>('containers')
   const [search, setSearch] = useState('')
   const [generatingBl, setGeneratingBl] = useState<string | null>(null)
@@ -277,6 +279,36 @@ export function Demurrage() {
     onSuccess: () => { invalidateInvoices(); showToast('Invoice cancelada.', 'success') },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
+
+  async function handleCancelInvoice(invoiceId: number) {
+    const ok = await confirm({
+      title: 'Cancelar invoice',
+      message: 'Cancelar esta invoice de demurrage?',
+      confirmLabel: 'Cancelar invoice',
+      tone: 'danger',
+    })
+    if (ok) cancelMutation.mutate(invoiceId)
+  }
+
+  async function handleUnissueInvoice(invoiceId: number) {
+    const ok = await confirm({
+      title: 'Desemitir invoice',
+      message: 'Reverter a emissao desta invoice de demurrage?',
+      confirmLabel: 'Desemitir',
+      tone: 'danger',
+    })
+    if (ok) unissueMutation.mutate(invoiceId)
+  }
+
+  async function handleUnmarkInvoicePaid(invoiceId: number) {
+    const ok = await confirm({
+      title: 'Desmarcar pagamento',
+      message: 'Remover a marcacao de pagamento desta invoice?',
+      confirmLabel: 'Desmarcar',
+      tone: 'danger',
+    })
+    if (ok) unpayMutation.mutate(invoiceId)
+  }
 
   const discountMutation = useMutation({
     mutationFn: ({ id, form }: { id: number; form: DiscountForm }) => {
@@ -583,13 +615,13 @@ export function Demurrage() {
                               {inv.status === 'draft' && (
                                 <>
                                   <Button variant="secondary" className="app-btn--sm" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => cancelMutation.mutate(inv.id)}>Cancelar</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleCancelInvoice(inv.id)}>Cancelar</Button>
                                 </>
                               )}
                               {inv.status === 'issued' && (
                                 <>
                                   <Button variant="secondary" className="app-btn--sm" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => unissueMutation.mutate(inv.id)}>Desemitir</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleUnissueInvoice(inv.id)}>Desemitir</Button>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
                                 </>
                               )}
@@ -597,7 +629,7 @@ export function Demurrage() {
                                 <>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('receipt') }}>Recibo</Button>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => unpayMutation.mutate(inv.id)}>Desmarcar</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleUnmarkInvoicePaid(inv.id)}>Desmarcar</Button>
                                 </>
                               )}
                             </div>
