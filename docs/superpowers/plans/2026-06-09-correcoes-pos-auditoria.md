@@ -397,7 +397,7 @@ git commit -m "fix: harden remaining permissive rls policies"
 - Possibly modify parser files that use `xlsx`
 - Possibly update docs in Task 11
 
-- [ ] **Step 1: Atualizar React Router**
+- [x] **Step 1: Atualizar React Router**
 
 Run:
 
@@ -408,14 +408,16 @@ npm audit --omit=dev
 
 Expected: alertas de `react-router`/`react-router-dom` desaparecem ou reduzem para risco aceitavel.
 
-- [ ] **Step 2: Decidir mitigacao para `xlsx`**
+- [x] **Step 2: Decidir mitigacao para `xlsx`**
 
 Escolher uma destas opcoes e registrar no PR:
 - substituir por biblioteca mantida;
 - manter temporariamente com limites de upload/linhas e aceite formal;
 - isolar parsing fora da thread principal.
 
-- [ ] **Step 3: Rodar validacoes**
+Decisao registrada: manter `xlsx` temporariamente porque `npm audit --omit=dev` informa `No fix available`; mitigar com limites de upload/linhas na Task 7 e documentar o aceite formal na Task 11.
+
+- [x] **Step 3: Rodar validacoes**
 
 Run:
 
@@ -428,7 +430,7 @@ npm audit --omit=dev
 
 Expected: lint, testes e build passam; audit nao tem vulnerabilidade corrigivel ignorada.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Suggested commit:
 
