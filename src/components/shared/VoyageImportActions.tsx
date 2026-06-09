@@ -176,34 +176,10 @@ export function VoyageImportActions({
       ) : null}
 
       {activeType === 'baplie' ? (
-        <FileImportModal
-          title="Importar Baplie EDI"
+        <BaplieImportModal
+          voyageId={voyageId}
           voyageLabel={voyageLabel}
-          accept=".edi,.txt,.bpl"
-          parser={parseBaplieFile}
-          canImport={(p) => p.containers.length > 0}
-          importer={async (preview) => {
-            const { staged } = await importBaplieStaging(voyageId, preview.containers, userId)
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] }),
-              queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] }),
-            ])
-            showToast(`Baplie importado: ${staged} container(s) em staging.`, 'success')
-          }}
-          renderPreview={(preview) => (
-            <div className="grid gap-3">
-              <div className="grid grid-cols-3 gap-3">
-                <Stat label="Containers" value={preview.containers.length} />
-                <Stat label="Cheios" value={preview.containers.filter((c) => c.status === 'full').length} />
-                <Stat label="PODs" value={preview.pods.length} />
-              </div>
-              {preview.vessel_name || preview.voyage_number ? (
-                <div className="app-panel__meta text-sm">
-                  Navio/Viagem detectado: <span className="font-semibold text-[var(--app-text-strong)]">{preview.vessel_name ?? '-'} / {preview.voyage_number ?? '-'}</span>
-                </div>
-              ) : null}
-            </div>
-          )}
+          userId={userId}
           onClose={() => setActiveType(null)}
         />
       ) : null}
@@ -332,6 +308,124 @@ function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId
         </div>
       ) : null}
     </>
+  )
+}
+
+function BaplieImportModal({
+  voyageId,
+  voyageLabel,
+  userId,
+  onClose,
+}: {
+  voyageId: number
+  voyageLabel: string
+  userId: string
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const [parsed, setParsed] = useState<Awaited<ReturnType<typeof parseBaplieFile>> | null>(null)
+  const [parsing, setParsing] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
+
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const f = event.target.files?.[0] ?? null
+    setParsed(null)
+    setExcludedPods(new Set())
+    if (!f) return
+    setParsing(true)
+    try {
+      setParsed(await parseBaplieFile(f))
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Não foi possível ler o arquivo. Verifique o formato EDI.', 'error')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  function togglePod(pod: string) {
+    setExcludedPods((prev) => {
+      const next = new Set(prev)
+      if (next.has(pod)) next.delete(pod)
+      else next.add(pod)
+      return next
+    })
+  }
+
+  const pods = parsed?.pods ?? []
+  const filteredContainers = (parsed?.containers ?? []).filter((c) => !c.pod || !excludedPods.has(c.pod))
+
+  async function handleImport() {
+    if (!filteredContainers.length) return
+    setImporting(true)
+    try {
+      const { staged } = await importBaplieStaging(voyageId, filteredContainers, userId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] }),
+        queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] }),
+      ])
+      showToast(`Baplie importado: ${staged} container(s) em staging.`, 'success')
+      onClose()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao importar Baplie EDI.', 'error')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Importar Baplie EDI">
+      <div className="grid gap-4">
+        <div className="app-panel app-panel--padded text-sm">
+          Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
+        </div>
+        <Field label="Arquivo .edi,.txt,.bpl">
+          <Input accept=".edi,.txt,.bpl" type="file" onChange={handleFile} />
+        </Field>
+        {parsing ? <div className="app-panel__meta">Processando...</div> : null}
+        {parsed ? (
+          <div className="grid gap-3">
+            {pods.length > 0 ? (
+              <div className="app-panel app-panel--padded">
+                <div className="mb-2 text-xs uppercase tracking-wider text-[var(--app-muted)]">
+                  Portos de descarga — desmarque os que deseja ignorar
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {pods.map((pod) => (
+                    <label key={pod} className="flex cursor-pointer items-center gap-2 text-sm text-[var(--app-text-strong)]">
+                      <input
+                        type="checkbox"
+                        checked={!excludedPods.has(pod)}
+                        onChange={() => togglePod(pod)}
+                        className="accent-blue-500"
+                      />
+                      {pod}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="Containers" value={filteredContainers.length} />
+              <Stat label="Cheios" value={filteredContainers.filter((c) => c.status === 'full').length} />
+              <Stat label="PODs" value={pods.length - excludedPods.size} />
+            </div>
+            {parsed.vessel_name || parsed.voyage_number ? (
+              <div className="app-panel__meta text-sm">
+                Navio/Viagem detectado: <span className="font-semibold text-[var(--app-text-strong)]">{parsed.vessel_name ?? '-'} / {parsed.voyage_number ?? '-'}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="app-modal__actions">
+          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button disabled={filteredContainers.length === 0} loading={importing} onClick={() => void handleImport()}>
+            Confirmar{excludedPods.size > 0 ? ` (${filteredContainers.length} containers)` : ''}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
