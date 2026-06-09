@@ -332,7 +332,7 @@ git commit -m "fix: restrict consolidated invoice breakdown rpc"
 - Create: `supabase/migrations/<timestamp>_harden_remaining_permissive_rls.sql`
 - Create or modify: `src/services/__tests__/rlsHardeningMigration.test.ts`
 
-- [ ] **Step 1: Escrever teste de migration**
+- [x] **Step 1: Escrever teste de migration**
 
 Teste deve verificar que a nova migration referencia:
 - `baplie_reconciliation_resolutions`;
@@ -342,7 +342,7 @@ Teste deve verificar que a nova migration referencia:
 - `public.is_active_user()`;
 - `public.is_admin()`.
 
-- [ ] **Step 2: Criar migration de hardening**
+- [x] **Step 2: Criar migration de hardening**
 
 Aplicar politica:
 - SELECT operacional: `public.is_active_user()`;
@@ -354,7 +354,7 @@ Escopo revalidado na `main` atual:
 - `supabase/migrations/20260520132021_create_baplie_containers_staging.sql` e `supabase/migrations/20260521000000_voyage_export_schedules.sql` ainda tem policies historicas sempre verdadeiras; `20260530102909_tighten_permissive_rls_policies.sql` endurece parte da escrita, mas mantem leitura ampla e DELETE por usuario ativo.
 - Ocorrencias em `028_demurrage_module.sql` sao historicas e foram cobertas por `042_rls_module_hardening.sql`; nao gastar esforco nelas sem confirmar policy efetiva no banco.
 
-- [ ] **Step 3: Rodar teste de migration**
+- [x] **Step 3: Rodar teste de migration**
 
 Run:
 
@@ -364,7 +364,7 @@ npm test -- src/services/__tests__/rlsHardeningMigration.test.ts
 
 Expected: passa.
 
-- [ ] **Step 4: Rodar busca anti-regressao**
+- [x] **Step 4: Rodar busca anti-regressao**
 
 Run:
 
@@ -374,7 +374,7 @@ rg -n "USING \\(true\\)|WITH CHECK \\(true\\)|using \\(true\\)|with check \\(tru
 
 Expected: ocorrencias antigas podem continuar no historico, mas a nova migration deve neutralizar as policies alvo. Registrar no PR quais ocorrencias sao historicas.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 
