@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { assertUploadSize } from '../../lib/fileGuard'
 import type { PixTransaction, RoeSource } from '../../types/database'
 
 export type DemurrageKPIs = {
@@ -71,6 +72,11 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
     transactions.push({ txid, cnpj, date, amount })
   }
   return transactions
+}
+
+export async function parsePixExtractFile(file: File): Promise<PixTransaction[]> {
+  assertUploadSize(file)
+  return parsePixExtract(await file.arrayBuffer())
 }
 
 const ROE_CACHE_KEY = 'demurrage_roe_cache'

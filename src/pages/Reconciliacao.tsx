@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatResultCount, summarizeReconciliation } from '../lib/operationalState'
-import { parsePixExtract } from '../services/demurrage/demurrageKpis'
+import { parsePixExtractFile } from '../services/demurrage/demurrageKpis'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../services/reconciliacao'
 import type { UnifiedPixMatch } from '../services/reconciliacao'
 
@@ -24,8 +24,7 @@ export function Reconciliacao() {
 
   const matchMutation = useMutation({
     mutationFn: async (file: File) => {
-      const buf = await file.arrayBuffer()
-      const transactions = await parsePixExtract(buf)
+      const transactions = await parsePixExtractFile(file)
       if (!transactions.length) throw new Error('Nenhuma transacao PIX encontrada.')
       return matchUnifiedPixTransactions(transactions)
     },

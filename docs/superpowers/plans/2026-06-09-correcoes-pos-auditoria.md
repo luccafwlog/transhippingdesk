@@ -457,21 +457,21 @@ Escopo revalidado na `main` atual:
 - `src/pages/Reconciliacao.tsx` ainda chama `file.arrayBuffer()` antes de `parsePixExtract`.
 - O novo parser `src/services/ceMercanteEdiParser.ts` ja usa `assertUploadSize(file)` e nao precisa entrar nesta task.
 
-- [ ] **Step 1: Testar base de clientes acima do limite**
+- [x] **Step 1: Testar base de clientes acima do limite**
 
 Criar teste com `File` mockado contendo `size > 10 * 1024 * 1024` e esperar erro de `assertUploadSize`.
 
-- [ ] **Step 2: Testar extrato PIX acima do limite**
+- [x] **Step 2: Testar extrato PIX acima do limite**
 
 Se a validacao ficar em `Reconciliacao.tsx`, testar o fluxo de pagina. Se ficar em service, ajustar `parsePixExtract` para receber tambem `File` ou criar wrapper testavel.
 
-- [ ] **Step 3: Aplicar `assertUploadSize`**
+- [x] **Step 3: Aplicar `assertUploadSize`**
 
 Adicionar `assertUploadSize(file)` antes de `file.arrayBuffer()` em `parseCustomerBaseFile`.
 
 Para extrato PIX, validar tamanho antes de `file.arrayBuffer()` no fluxo de upload.
 
-- [ ] **Step 4: Rodar testes**
+- [x] **Step 4: Rodar testes**
 
 Run:
 
@@ -481,7 +481,7 @@ npm test
 
 Expected: suite passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 

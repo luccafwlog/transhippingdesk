@@ -1,4 +1,5 @@
 import { asString, normalizeText, onlyDigits } from '../lib/utils'
+import { assertUploadSize } from '../lib/fileGuard'
 import type { Customer, CustomerContact } from '../types/database'
 import { supabase } from './supabase'
 
@@ -37,6 +38,7 @@ export type ParsedCustomerBase = {
 }
 
 export async function parseCustomerBaseFile(file: File): Promise<ParsedCustomerBase> {
+  assertUploadSize(file)
   const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })
