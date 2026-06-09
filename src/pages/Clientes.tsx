@@ -11,10 +11,15 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
+import { BulkActionsBar } from '../components/shared/BulkActionsBar'
+import { useAuth } from '../hooks/useAuth'
+import { useRowSelection } from '../hooks/useRowSelection'
 import { useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
-import { createCustomer, fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
+import { checkCustomerDependencies, createCustomer, deleteCustomers, fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
+import { formatBlockedSummary } from '../services/deleteDependencies'
 import { exportCustomerBaseWorkbook } from '../services/exports'
 import { supabase } from '../services/supabase'
 import type { CustomerContact, CustomerListItem } from '../types/database'
@@ -73,6 +78,10 @@ export function Clientes() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const confirm = useConfirm()
+  const { isAdmin } = useAuth()
+  const selection = useRowSelection<number>()
+  const [deleting, setDeleting] = useState(false)
   const [filters, setFilters] = useState({
     search: '',
     emailStatus: '' as '' | 'with' | 'without',
@@ -262,6 +271,41 @@ export function Clientes() {
     setSaving(false)
   }
 
+  async function runCustomerDelete(ids: number[]) {
+    setDeleting(true)
+    try {
+      const report = await checkCustomerDependencies(ids)
+      if (report.deletableIds.length === 0) {
+        showToast(`Nenhum cliente pode ser excluido. ${formatBlockedSummary(report.blockedIds)}`, 'error')
+        return
+      }
+
+      const parts = [
+        `Excluir ${report.deletableIds.length} cliente(s)? Os contatos e overrides de tarifa serao excluidos junto. Esta acao e irreversivel.`,
+      ]
+      if (report.blockedIds.length) parts.push(formatBlockedSummary(report.blockedIds))
+      const ok = await confirm({ message: parts.join('\n\n'), tone: 'danger', confirmLabel: 'Excluir' })
+      if (!ok) return
+
+      await deleteCustomers(report.deletableIds)
+      selection.clear()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['customers-summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
+      ])
+      showToast(`${report.deletableIds.length} cliente(s) excluido(s).`, 'success')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'erro desconhecido'
+      showToast(`Falha ao excluir cliente(s): ${detail}`, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const pageCustomerIds = (data?.rows ?? []).map((row) => row.id)
+  const allPageSelected = pageCustomerIds.length > 0 && pageCustomerIds.every((id) => selection.isSelected(id))
+
   function updateCreateField<K extends keyof Omit<CreateCustomerForm, 'contacts'>>(field: K, value: CreateCustomerForm[K]) {
     setCreateForm((current) => ({ ...current, [field]: value }))
   }
@@ -359,12 +403,32 @@ export function Clientes() {
         </div>
       </FilterBar>
 
+      {isAdmin ? (
+        <BulkActionsBar
+          count={selection.count}
+          onClear={selection.clear}
+          onDelete={() => runCustomerDelete([...selection.selected])}
+          deleting={deleting}
+          noun={['cliente', 'clientes']}
+        />
+      ) : null}
+
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar clientes." /> : null}
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[880px] table-fixed text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
+                {isAdmin ? (
+                  <th scope="col" className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos os clientes da pagina"
+                      checked={allPageSelected}
+                      onChange={() => selection.toggleMany(pageCustomerIds)}
+                    />
+                  </th>
+                ) : null}
                 <th scope="col" className="w-[31%] px-4 py-3">Cliente</th>
                 <th scope="col" className="w-[17%] px-4 py-3">Contatos</th>
                 <th scope="col" className="w-[22%] px-4 py-3">Operacao</th>
@@ -375,14 +439,14 @@ export function Clientes() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={isAdmin ? 6 : 5} className="px-4 py-8 text-center text-slate-400">
                     Carregando clientes...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={5} className="p-0">
+                  <td colSpan={isAdmin ? 6 : 5} className="p-0">
                     <EmptyState title="Nenhum cliente encontrado." description="Importe uma base de clientes ou cadastre manualmente." />
                   </td>
                 </tr>
@@ -396,6 +460,16 @@ export function Clientes() {
                 ].filter(Boolean).join(' • ')
                 return (
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
+                    {isAdmin ? (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Selecionar cliente ${row.name}`}
+                          checked={selection.isSelected(row.id)}
+                          onChange={() => selection.toggle(row.id)}
+                        />
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3">
                       <div className="app-table__cell-stack">
                         <div className="app-table__cell-value" title={row.name}>
@@ -434,13 +508,24 @@ export function Clientes() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
                           Abrir ficha
                         </Link>
                         <Link className="app-table__action" to={`/faturamento?customer=${row.id}`}>
                           Faturamento
                         </Link>
+                        {isAdmin ? (
+                          <button
+                            onClick={() => runCustomerDelete([row.id])}
+                            disabled={deleting}
+                            className="text-red-400 hover:text-red-300 disabled:opacity-40"
+                            title="Excluir cliente"
+                            aria-label={`Excluir cliente ${row.name}`}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
