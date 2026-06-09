@@ -45,7 +45,7 @@ Plataforma operacional interna para **Transhipping Agenciamento Marítimo Ltda.*
 ### Portal do Cliente
 | Rota | Descrição |
 |------|-----------|
-| `/portal/login` | Autenticação por CNPJ/CPF + senha |
+| `/portal/login` | Autenticacao por email + senha via Supabase Auth |
 | `/portal/billing` | Visualização de invoices e saldo em aberto |
 
 ### Administração
@@ -195,8 +195,8 @@ npx firebase-tools deploy --only hosting
 ## Segurança
 
 - **RLS** ativo em todas as tabelas; acesso segmentado por role via `is_admin()` / `is_active_user()`
-- **Portal do cliente:** autenticação via Supabase Auth (preferencial) com fallback legacy token
-- **Rate limiting:** `portal_login` (10 tentativas / 15 min por CNPJ) e `provision-portal-user` (20/hora por usuário, persistido em banco)
+- **Portal do cliente:** `/portal/login` usa email + senha via Supabase Auth; o fluxo legado por CNPJ/CPF + senha foi removido
+- **Rate limiting:** `provision-portal-user` (20/hora por usuario, persistido em banco) e controles do Supabase Auth para login do portal
 - **Timeout de sessão interna:** 8 horas de inatividade
 - **Headers HTTP:** `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `CSP` sem `unsafe-inline` em scripts
 - **Email:** campos de BD escapados antes de injeção em HTML

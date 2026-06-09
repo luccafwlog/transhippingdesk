@@ -664,18 +664,18 @@ git commit -m "fix: confirm destructive actions and label icon buttons"
 - Modify: `docs/ROADMAP.md` if project owner wants roadmap updated
 - Possibly create ADR if `xlsx` mitigation is accepted instead of fixed
 
-- [ ] **Step 1: Atualizar README do portal**
+- [x] **Step 1: Atualizar README do portal**
 
 Trocar descricao de `/portal/login` de CNPJ/CPF + senha para email + senha via Supabase Auth.
 
-- [ ] **Step 2: Registrar status de `xlsx`**
+- [x] **Step 2: Registrar status de `xlsx`**
 
 Se `xlsx` continuar no projeto, registrar:
 - motivo temporario;
 - mitigacoes aplicadas;
 - gatilho para substituicao.
 
-- [ ] **Step 3: Rodar checagem simples**
+- [x] **Step 3: Rodar checagem simples**
 
 Run:
 
@@ -685,7 +685,7 @@ rg -n "CNPJ/CPF \\+ senha|CNPJ \\+ senha|password_hash|xlsx" README.md docs
 
 Expected: referencias legadas sao intencionais ou atualizadas.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Suggested commit:
 

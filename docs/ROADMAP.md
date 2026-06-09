@@ -38,4 +38,4 @@ Atualizado em 2026-06-01.
 | Cobertura automatizada parcial em fluxos criticos | Medio | Suite de integracao com Supabase real + roteiro de validacao operacional |
 | Reconciliacao ambigua de cliente | Medio | Bloqueio de faturamento enquanto nao houver reconciliacao segura |
 | Dependencia de revisao humana para excecoes operacionais | Medio | Fila de revisao com auditoria e trilha de decisao |
-| `xlsx` vulneravel sem correcao no npm | Medio | Arquivos restritos a usuarios internos autenticados; migracao planejada em PR dedicado |
+| `xlsx` vulneravel sem correcao no npm | Medio | Mantido temporariamente porque `npm audit --omit=dev` informa `No fix available`; mitigado por limite de 10 MB antes de `XLSX.read` e acesso restrito a usuarios internos autenticados; substituir quando houver versao corrigida ou biblioteca alternativa validada para todos os parsers |
