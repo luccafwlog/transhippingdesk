@@ -109,8 +109,9 @@ export function normalizePortalOperationRows(data: unknown): PortalOperationBL[]
 }
 
 export async function portalListOperationBls(): Promise<PortalOperationBL[]> {
-  const rpc = supabasePortal.rpc as unknown as (fn: 'portal_list_operation_bls') => Promise<RpcResult>
-  const { data, error } = await rpc('portal_list_operation_bls')
+  const { data, error } = await (supabasePortal as unknown as {
+    rpc(fn: 'portal_list_operation_bls'): Promise<RpcResult>
+  }).rpc('portal_list_operation_bls')
 
   if (error) throw error
 

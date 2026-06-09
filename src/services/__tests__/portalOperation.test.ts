@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { rpc } = vi.hoisted(() => ({
-  rpc: vi.fn(),
-}))
+const { rpc, supabasePortal } = vi.hoisted(() => {
+  const rpc = vi.fn()
+  return { rpc, supabasePortal: { rpc } }
+})
 
 vi.mock('../supabase', () => ({
-  supabasePortal: { rpc },
+  supabasePortal,
 }))
 
 import { normalizePortalOperationRows, portalListOperationBls } from '../portalOperation'
@@ -101,7 +102,10 @@ describe('portalOperation', () => {
   })
 
   it('chama portal_list_operation_bls pelo cliente Supabase do portal', async () => {
-    rpc.mockResolvedValueOnce({ data: [{ bl_id: 'BL001', containers: [] }], error: null })
+    rpc.mockImplementationOnce(function (this: unknown) {
+      expect(this).toBe(supabasePortal)
+      return Promise.resolve({ data: [{ bl_id: 'BL001', containers: [] }], error: null })
+    })
 
     const rows = await portalListOperationBls()
 
