@@ -108,4 +108,10 @@ describe('portalOperation', () => {
     expect(rpc).toHaveBeenCalledWith('portal_list_operation_bls')
     expect(rows[0]?.bl_id).toBe('BL001')
   })
+
+  it('propaga erro retornado pelo RPC', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: new Error('RPC falhou') })
+
+    await expect(portalListOperationBls()).rejects.toThrow('RPC falhou')
+  })
 })
