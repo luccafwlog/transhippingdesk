@@ -12,13 +12,13 @@
 
 ## Diretriz obrigatoria de acompanhamento
 
-- [ ] Manter este arquivo atualizado durante a execucao.
-- [ ] Cada etapa concluida deve ser marcada imediatamente trocando `- [ ]` por `- [x]`.
-- [ ] Nao marcar uma etapa como feita sem ter executado a verificacao indicada na propria etapa.
-- [ ] Se uma etapa for substituida por outra solucao, registrar uma nota curta abaixo da etapa explicando a decisao.
-- [ ] Nao editar `src/types/database.ts`; ele e gerado.
-- [ ] Evitar refactors adjacentes. Cada mudanca deve rastrear diretamente para um achado da auditoria.
-- [ ] Preferir commits pequenos por tarefa concluida.
+- [x] Manter este arquivo atualizado durante a execucao.
+- [x] Cada etapa concluida deve ser marcada imediatamente trocando `- [ ]` por `- [x]`.
+- [x] Nao marcar uma etapa como feita sem ter executado a verificacao indicada na propria etapa.
+- [x] Se uma etapa for substituida por outra solucao, registrar uma nota curta abaixo da etapa explicando a decisao.
+- [x] Nao editar `src/types/database.ts`; ele e gerado.
+- [x] Evitar refactors adjacentes. Cada mudanca deve rastrear diretamente para um achado da auditoria.
+- [x] Preferir commits pequenos por tarefa concluida.
 
 ## Baseline conhecido
 
@@ -33,8 +33,8 @@
 
 - [x] Antes de executar qualquer task, rodar `git fetch origin --prune` e confirmar que a branch de trabalho esta baseada na `origin/main` mais recente.
 - [x] Se `origin/main` tiver avancado, revalidar as localizacoes citadas nas tasks antes de editar codigo.
-- [ ] Se um achado ja tiver sido corrigido na `main`, marcar a task como substituida e registrar a evidencia abaixo da propria task.
-- [ ] Se um arquivo citado tiver sido renomeado, atualizar este plano antes de implementar.
+- [x] Se um achado ja tiver sido corrigido na `main`, marcar a task como substituida e registrar a evidencia abaixo da propria task. (Nenhum achado estava pre-corrigido; todas as tasks foram implementadas.)
+- [x] Se um arquivo citado tiver sido renomeado, atualizar este plano antes de implementar. (Nenhum arquivo citado foi renomeado.)
 - [x] Nao reaproveitar a branch antiga `codex/code-quality-cleanup` para executar este plano; ela nasceu de uma base antiga e carregava mudancas que conflitam com a `main` atual.
 
 ---
@@ -741,7 +741,11 @@ Notas de validacao final:
 - `npm audit --omit=dev`: retornou apenas `xlsx` high severity com `No fix available`; risco documentado no ROADMAP e mitigado por limite de upload antes de `XLSX.read`.
 - Smoke manual autenticado nao foi executado neste ambiente porque nao ha `.env` local; validar rotas criticas em ambiente com Supabase real/sessao.
 
-- [ ] Conferir `git status --short` e garantir que apenas arquivos relacionados ao plano foram alterados.
+- [x] Conferir `git status --short` e garantir que apenas arquivos relacionados ao plano foram alterados. (Arvore de trabalho limpa; todas as tasks 1-11 entregues e mescladas na `main` via PR #182.)
 
-- [ ] Marcar esta secao como concluida somente depois que todas as validacoes acima passarem ou tiverem justificativa registrada.
+- [x] Marcar esta secao como concluida somente depois que todas as validacoes acima passarem ou tiverem justificativa registrada.
+
+## Conclusao
+
+Plano concluido em 2026-06-09. Todas as 11 tasks foram implementadas e mescladas na `main` (PR #182). Revalidacao final em ambiente limpo: `npm run lint` passou, `npm test` passou com 54 arquivos (1 skipped) e 249 testes (9 skipped), `npm run build` passou, e `npm audit --omit=dev` retornou apenas `xlsx` (high, `No fix available`) ja documentado e mitigado por limite de upload antes de `XLSX.read`.
 
