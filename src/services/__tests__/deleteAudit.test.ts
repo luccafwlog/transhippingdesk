@@ -12,15 +12,18 @@ beforeEach(() => {
 
 describe('logDeletions', () => {
   it('grava uma linha por id em audit_logs com o autor', async () => {
-    const insert = vi.fn(() => Promise.resolve({ error: null }))
+    let captured: Array<Record<string, unknown>> = []
+    const insert = vi.fn((rows: Array<Record<string, unknown>>) => {
+      captured = rows
+      return Promise.resolve({ error: null })
+    })
     mockFrom.mockReturnValue({ insert })
 
     await logDeletions('bl', ['BL1', 'BL2'], 'user-123')
 
     expect(mockFrom).toHaveBeenCalledWith('audit_logs')
-    const payload = insert.mock.calls[0][0]
-    expect(payload).toHaveLength(2)
-    expect(payload[0]).toMatchObject({
+    expect(captured).toHaveLength(2)
+    expect(captured[0]).toMatchObject({
       entity_type: 'bl',
       entity_id: 'BL1',
       field_name: 'deleted',

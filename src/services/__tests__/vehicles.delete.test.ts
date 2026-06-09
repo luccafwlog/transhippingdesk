@@ -27,7 +27,11 @@ describe('deleteVehicles', () => {
   })
 
   it('registra a exclusao em audit_logs quando ha autor', async () => {
-    const auditInsert = vi.fn(() => Promise.resolve({ error: null }))
+    let captured: unknown[] = []
+    const auditInsert = vi.fn((rows: unknown[]) => {
+      captured = rows
+      return Promise.resolve({ error: null })
+    })
     mockFrom.mockImplementation((table: string) => {
       if (table === 'vehicles') return { delete: () => ({ in: () => Promise.resolve({ error: null }) }) }
       if (table === 'audit_logs') return { insert: auditInsert }
@@ -37,7 +41,7 @@ describe('deleteVehicles', () => {
     await deleteVehicles([1, 2], 'user-9')
 
     expect(auditInsert).toHaveBeenCalledTimes(1)
-    expect(auditInsert.mock.calls[0][0]).toHaveLength(2)
+    expect(captured).toHaveLength(2)
   })
 
   it('propaga erro do banco', async () => {
