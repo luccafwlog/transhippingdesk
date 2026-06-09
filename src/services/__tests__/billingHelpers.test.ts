@@ -1,15 +1,59 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const supabaseMocks = vi.hoisted(() => ({
+  from: vi.fn(),
+  rpc: vi.fn(),
+  buildPix: vi.fn(() => 'pix-payload'),
+}))
 
 // billing.ts cria o cliente Supabase no import; as funções testadas aqui são
 // puras (não tocam o banco), então mockamos o módulo.
-vi.mock('../supabase', () => ({ supabase: {} }))
-vi.mock('../../lib/pix', () => ({ buildTransshippingPixPayload: () => '' }))
+vi.mock('../supabase', () => ({ supabase: { from: supabaseMocks.from, rpc: supabaseMocks.rpc } }))
+vi.mock('../../lib/pix', () => ({ buildTransshippingPixPayload: supabaseMocks.buildPix }))
 
 import {
+  createInvoiceFromBls,
   getInvoiceBls,
   getInvoicePaymentDate,
   isConsolidatedInvoice,
+  listInvoicesForExport,
 } from '../billing'
+import { createConsolidatedInvoice } from '../billingLedger'
+
+beforeEach(() => {
+  supabaseMocks.from.mockReset()
+  supabaseMocks.rpc.mockReset()
+  supabaseMocks.buildPix.mockReset()
+  supabaseMocks.buildPix.mockReturnValue('pix-payload')
+})
+
+function invoiceFetchQuery(result: unknown) {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue(result),
+      })),
+    })),
+  }
+}
+
+function invoiceUpdateQuery(result: unknown) {
+  return {
+    update: vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue(result),
+    })),
+  }
+}
+
+function invoiceListQuery(range: ReturnType<typeof vi.fn>) {
+  return {
+    select: vi.fn(() => ({
+      order: vi.fn(() => ({
+        range,
+      })),
+    })),
+  }
+}
 
 describe('isConsolidatedInvoice', () => {
   it('reconhece faturas consolidadas pelo invoice_type', () => {
@@ -63,5 +107,78 @@ describe('getInvoicePaymentDate', () => {
   it('retorna null quando não há pagamentos válidos', () => {
     expect(getInvoicePaymentDate({ payments: [] } as never)).toBeNull()
     expect(getInvoicePaymentDate({ payments: [{ paid_at: null }] } as never)).toBeNull()
+  })
+})
+
+describe('createInvoiceFromBls', () => {
+  it('propaga falha ao vincular invoice ao ledger', async () => {
+    supabaseMocks.rpc.mockImplementation(async (name: string) => {
+      if (name === 'create_invoice_from_bls') {
+        return { data: { invoice_id: 123 }, error: null }
+      }
+      if (name === 'link_invoice_to_ledger') {
+        return { data: null, error: new Error('ledger failed') }
+      }
+      return { data: null, error: null }
+    })
+    supabaseMocks.from
+      .mockReturnValueOnce(invoiceFetchQuery({ data: { invoice_number: 'INV-123', total_brl: 100 }, error: null }))
+      .mockReturnValueOnce(invoiceUpdateQuery({ error: null }))
+
+    await expect(createInvoiceFromBls({ blIds: ['BL001'] })).rejects.toThrow('ledger failed')
+  })
+})
+
+describe('createConsolidatedInvoice', () => {
+  it('propaga falha ao persistir payload PIX consolidado', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({
+      data: { invoice_id: 456, invoice_number: 'INV-456', total_brl: 250 },
+      error: null,
+    })
+    supabaseMocks.from.mockReturnValueOnce(invoiceUpdateQuery({ error: new Error('pix failed') }))
+
+    await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1, 2] })).rejects.toThrow('pix failed')
+  })
+})
+
+describe('listInvoicesForExport', () => {
+  it('busca paginas sucessivas para nao depender de um lote gigante', async () => {
+    const makeRows = (from: number, length: number) =>
+      Array.from({ length }, (_, index) => ({ id: from + index + 1, invoice_number: `INV-${from + index + 1}` }))
+    const range = vi.fn(async (from: number) => ({
+      data:
+        from === 0
+          ? makeRows(0, 1000)
+          : from === 1000
+            ? makeRows(1000, 1000)
+            : from === 2000
+              ? makeRows(2000, 1)
+              : [],
+      error: null,
+      count: 2001,
+    }))
+    supabaseMocks.from.mockReturnValue(invoiceListQuery(range))
+
+    const rows = await listInvoicesForExport({
+      search: '',
+      customerId: '',
+      status: '',
+      invoiceType: '',
+      blSearch: '',
+      voyageSearch: '',
+      pod: '',
+      dateFrom: '',
+      dateTo: '',
+      paidFrom: '',
+      paidTo: '',
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(rows).toHaveLength(2001)
+    expect(range).toHaveBeenCalledTimes(3)
+    expect(range).toHaveBeenNthCalledWith(1, 0, 999)
+    expect(range).toHaveBeenNthCalledWith(2, 1000, 1999)
+    expect(range).toHaveBeenNthCalledWith(3, 2000, 2999)
   })
 })

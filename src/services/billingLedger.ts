@@ -50,7 +50,8 @@ export async function createConsolidatedInvoice(input: {
   // Generate the PIX payload using the consolidated invoice number as TXID.
   if (result?.invoice_id && result.total_brl > 0 && result.invoice_number) {
     const payload = buildTransshippingPixPayload(result.total_brl, result.invoice_number)
-    await supabase.from('invoices').update({ pix_payload: payload }).eq('id', result.invoice_id)
+    const { error: pixError } = await supabase.from('invoices').update({ pix_payload: payload }).eq('id', result.invoice_id)
+    if (pixError) throw pixError
   }
   return result
 }

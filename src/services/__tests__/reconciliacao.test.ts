@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../reconciliacao'
 import type { UnifiedPixMatch } from '../reconciliacao'
 
-const { mockFrom, mockInvoiceUpdate, mockReconcileByTxid } = vi.hoisted(() => ({
+const { mockFrom, mockInvoiceUpdate, mockDemurrageUpdate, mockDemurrageUpdateEq, mockReconcileByTxid } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
   mockInvoiceUpdate: vi.fn(),
+  mockDemurrageUpdate: vi.fn(),
+  mockDemurrageUpdateEq: vi.fn(),
   mockReconcileByTxid: vi.fn(),
 }))
 
@@ -38,6 +40,8 @@ function installFromMock(input: { localInvoices?: unknown[]; demurrageInvoices?:
   }
 
   mockInvoiceUpdate.mockReturnValue(invoiceUpdateBuilder)
+  mockDemurrageUpdateEq.mockResolvedValue({ data: null, error: null })
+  mockDemurrageUpdate.mockReturnValue({ eq: mockDemurrageUpdateEq })
   mockFrom.mockImplementation((table: string) => {
     if (table === 'invoices') {
       return {
@@ -48,7 +52,7 @@ function installFromMock(input: { localInvoices?: unknown[]; demurrageInvoices?:
     if (table === 'demurrage_invoices') {
       return {
         select: vi.fn(() => createSelectBuilder({ data: demurrageInvoices, error: null })),
-        update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ data: null, error: null })) })),
+        update: mockDemurrageUpdate,
       }
     }
     throw new Error(`Tabela nao mockada: ${table}`)
@@ -59,6 +63,8 @@ describe('reconciliacao PIX unificada', () => {
   beforeEach(() => {
     mockFrom.mockReset()
     mockInvoiceUpdate.mockReset()
+    mockDemurrageUpdate.mockReset()
+    mockDemurrageUpdateEq.mockReset()
     mockReconcileByTxid.mockReset()
   })
 
@@ -119,5 +125,56 @@ describe('reconciliacao PIX unificada', () => {
     })
     expect(mockInvoiceUpdate).not.toHaveBeenCalled()
     expect(result).toEqual({ local: 1, demurrage: 0 })
+  })
+
+  it('rejeita conciliacao de demurrage quando valor do extrato diverge do valor da invoice', async () => {
+    installFromMock({})
+    const matches: UnifiedPixMatch[] = [
+      {
+        transaction: {
+          txid: 'DEM-001',
+          cnpj: '12.345.678/0001-95',
+          date: '2026-05-28',
+          amount: 90,
+        },
+        source: 'demurrage',
+        invoiceId: 20,
+        docNumber: 'DEM-001',
+        customerName: 'Cliente Alfa',
+        customerCnpj: '12345678000195',
+        amount: 100,
+        ambiguous: false,
+        matchType: 'txid',
+      },
+    ]
+
+    await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow(/valor|diverg/i)
+
+    expect(mockDemurrageUpdate).not.toHaveBeenCalled()
+  })
+
+  it('propaga erro do banco ao confirmar conciliacao de demurrage', async () => {
+    installFromMock({})
+    mockDemurrageUpdateEq.mockResolvedValue({ data: null, error: new Error('db down') })
+    const matches: UnifiedPixMatch[] = [
+      {
+        transaction: {
+          txid: 'DEM-001',
+          cnpj: '12.345.678/0001-95',
+          date: '2026-05-28',
+          amount: 100,
+        },
+        source: 'demurrage',
+        invoiceId: 20,
+        docNumber: 'DEM-001',
+        customerName: 'Cliente Alfa',
+        customerCnpj: '12345678000195',
+        amount: 100,
+        ambiguous: false,
+        matchType: 'txid',
+      },
+    ]
+
+    await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow('db down')
   })
 })

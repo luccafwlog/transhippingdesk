@@ -14,6 +14,8 @@ const INVOICE_STATUS_GROUPS: Record<Exclude<InvoiceStatusFilter, ''>, InvoiceDoc
   cancelled: ['cancelled', 'obsolete'],
 }
 
+const INVOICE_EXPORT_PAGE_SIZE = 1000
+
 // Tipo de fatura para filtro: "Unico BL" agrupa individuais e granito.
 export type InvoiceTypeFilter = '' | 'single' | 'consolidated'
 
@@ -117,7 +119,18 @@ async function persistPixPayload(invoiceId: number): Promise<void> {
 }
 
 const INVOICE_LIST_SELECT = `
-  *,
+  id,
+  invoice_number,
+  customer_id,
+  bl_id,
+  issued_at,
+  due_date,
+  total_brl,
+  status,
+  invoice_type,
+  total_paid_brl,
+  balance_brl,
+  created_at,
   customer:customers(id,name,cnpj_cpf),
   invoice_bls(id,bl_id,subtotal_brl,subtotal_usd,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
   invoice_receivable_links(id,bl_id,subtotal_brl,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
@@ -312,7 +325,18 @@ export function getInvoicePaymentDate(row: InvoiceListRow): string | null {
 
 // Busca todas as faturas que casam os filtros (sem paginacao) para exportacao.
 export async function listInvoicesForExport(filters: InvoiceFilters): Promise<InvoiceListRow[]> {
-  const { rows } = await listInvoices({ ...filters, page: 1, pageSize: 100000 })
+  const rows: InvoiceListRow[] = []
+  let page = 1
+
+  while (true) {
+    const result = await listInvoices({ ...filters, page, pageSize: INVOICE_EXPORT_PAGE_SIZE })
+    rows.push(...result.rows)
+
+    if (result.rows.length < INVOICE_EXPORT_PAGE_SIZE) break
+    if (result.count > 0 && rows.length >= result.count) break
+    page += 1
+  }
+
   return rows
 }
 
@@ -636,7 +660,8 @@ export async function createInvoiceFromBls(input: {
   const invoiceId = (result as { invoice_id?: number }).invoice_id
   if (invoiceId) {
     await persistPixPayload(invoiceId)
-    await supabase.rpc('link_invoice_to_ledger', { p_invoice_id: invoiceId })
+    const { error: ledgerError } = await supabase.rpc('link_invoice_to_ledger', { p_invoice_id: invoiceId })
+    if (ledgerError) throw ledgerError
   }
 
   return result

@@ -138,7 +138,12 @@ export function calculateDemurrage(
   ov2?: number | null,
 ): DemurrageCalcResult {
   const rate = getRate(containerType, freeTimeOverride, ov1, ov2)
-  const dc = Math.round((noonMs(returnDate) - noonMs(dischargeDate)) / 86400000)
+  const dischargeMs = noonMs(dischargeDate)
+  const returnMs = noonMs(returnDate)
+  if (returnMs < dischargeMs) {
+    throw new Error('Data de devolucao nao pode ser anterior a descarga.')
+  }
+  const dc = Math.round((returnMs - dischargeMs) / 86400000)
 
   if (dc <= rate.freeUntil) {
     return { total_days: dc, free_days: dc, days_p1: 0, rate_p1_usd: rate.p1.usd, days_p2: 0, rate_p2_usd: rate.p2.usd, total_usd: 0, status: 'within_free_time' }

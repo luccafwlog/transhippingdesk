@@ -83,4 +83,8 @@ describe('calculateDemurrage', () => {
     expect(() => calculateDemurrage('20GP', '', '2026-01-10')).toThrow()
     expect(() => calculateDemurrage('20GP', '2026-01-01', 'nao-e-data')).toThrow()
   })
+
+  it('rejeita devolucao anterior a descarga', () => {
+    expect(() => calculateDemurrage('20GP', '2026-01-10', '2026-01-09')).toThrow(/devolucao|descarga|return|discharge/i)
+  })
 })

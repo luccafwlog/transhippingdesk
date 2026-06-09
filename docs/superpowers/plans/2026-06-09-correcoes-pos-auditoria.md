@@ -22,19 +22,20 @@
 
 ## Baseline conhecido
 
-- Plano revalidado contra `origin/main` em 2026-06-09, commit `7008917` (`fix(veiculos): isentar taxas e cancelar fatura do BL ao importar veiculos (#179)`).
+- Plano revalidado contra `origin/main` em 2026-06-09, commit `10fb69b` (`Atualizar plano de correções pós-auditoria contra a main atual (#181)`).
 - `npm run lint`: passou em 2026-06-09 durante a auditoria inicial.
 - `npm test`: passou em 2026-06-09 durante a auditoria inicial com 48 arquivos passados, 1 skipped, 225 testes passados, 9 skipped.
+- `npm test`: passou em 2026-06-09 antes da execucao da Task 1 com 49 arquivos passados, 1 skipped, 233 testes passados, 9 skipped.
 - `npm audit --omit=dev`: reexecutado em 2026-06-09 contra `origin/main` atual; ainda encontra vulnerabilidades altas em `react-router`/`react-router-dom` e `xlsx`.
 - Esta branch limpa contem apenas este plano novo sobre `origin/main`. O arquivo antigo `docs/superpowers/plans/2026-06-01-ajustes-operacionais-financeiros.md` existe na `main` atual e nao deve ser removido por este plano.
 
 ## Checagem de defasagem contra a main atual
 
-- [ ] Antes de executar qualquer task, rodar `git fetch origin --prune` e confirmar que a branch de trabalho esta baseada na `origin/main` mais recente.
-- [ ] Se `origin/main` tiver avancado, revalidar as localizacoes citadas nas tasks antes de editar codigo.
+- [x] Antes de executar qualquer task, rodar `git fetch origin --prune` e confirmar que a branch de trabalho esta baseada na `origin/main` mais recente.
+- [x] Se `origin/main` tiver avancado, revalidar as localizacoes citadas nas tasks antes de editar codigo.
 - [ ] Se um achado ja tiver sido corrigido na `main`, marcar a task como substituida e registrar a evidencia abaixo da propria task.
 - [ ] Se um arquivo citado tiver sido renomeado, atualizar este plano antes de implementar.
-- [ ] Nao reaproveitar a branch antiga `codex/code-quality-cleanup` para executar este plano; ela nasceu de uma base antiga e carregava mudancas que conflitam com a `main` atual.
+- [x] Nao reaproveitar a branch antiga `codex/code-quality-cleanup` para executar este plano; ela nasceu de uma base antiga e carregava mudancas que conflitam com a `main` atual.
 
 ---
 
@@ -46,7 +47,7 @@
 - Modify: `src/services/reconciliacao.ts`
 - Modify: `src/services/__tests__/reconciliacao.test.ts`
 
-- [ ] **Step 1: Escrever teste para valor divergente em demurrage**
+- [x] **Step 1: Escrever teste para valor divergente em demurrage**
 
 Adicionar em `src/services/__tests__/reconciliacao.test.ts` um caso que chama `confirmUnifiedPixReconciliation` com `source: 'demurrage'`, `amount: 100`, `transaction.amount: 90`, e espera rejeicao sem update bem-sucedido.
 
@@ -56,7 +57,7 @@ Expected assertion shape:
 await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow(/valor|diverg/i)
 ```
 
-- [ ] **Step 2: Escrever teste para erro do update Supabase**
+- [x] **Step 2: Escrever teste para erro do update Supabase**
 
 Adicionar mock para `demurrage_invoices.update(...).eq(...)` retornar `{ error: new Error('db down') }` e esperar rejeicao.
 
@@ -66,7 +67,7 @@ Expected assertion shape:
 await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow('db down')
 ```
 
-- [ ] **Step 3: Rodar teste e confirmar falha atual**
+- [x] **Step 3: Rodar teste e confirmar falha atual**
 
 Run:
 
@@ -76,7 +77,7 @@ npm test -- src/services/__tests__/reconciliacao.test.ts
 
 Expected: os novos testes falham antes da implementacao.
 
-- [ ] **Step 4: Implementar validacao minima**
+- [x] **Step 4: Implementar validacao minima**
 
 Em `src/services/reconciliacao.ts`, antes do update de demurrage:
 - calcular diferenca absoluta entre `m.transaction.amount` e `m.amount`;
@@ -84,7 +85,7 @@ Em `src/services/reconciliacao.ts`, antes do update de demurrage:
 - capturar `{ error }` do update;
 - lancar erro se `error` existir.
 
-- [ ] **Step 5: Rodar teste focado**
+- [x] **Step 5: Rodar teste focado**
 
 Run:
 
@@ -94,7 +95,7 @@ npm test -- src/services/__tests__/reconciliacao.test.ts
 
 Expected: todos os testes desse arquivo passam.
 
-- [ ] **Step 6: Rodar suite completa**
+- [x] **Step 6: Rodar suite completa**
 
 Run:
 
@@ -104,7 +105,7 @@ npm test
 
 Expected: suite passa.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Suggested commit:
 
@@ -129,7 +130,7 @@ git commit -m "fix: validate demurrage pix reconciliation"
 - Modify: `src/services/demurrage/__tests__/calculateDemurrage.test.ts`
 - Create: `supabase/migrations/<timestamp>_demurrage_date_order_constraints.sql`
 
-- [ ] **Step 1: Escrever teste de calculo com datas invertidas**
+- [x] **Step 1: Escrever teste de calculo com datas invertidas**
 
 Em `src/services/demurrage/__tests__/calculateDemurrage.test.ts`, adicionar:
 
@@ -137,7 +138,7 @@ Em `src/services/demurrage/__tests__/calculateDemurrage.test.ts`, adicionar:
 expect(() => calculateDemurrage('20GP', '2026-01-10', '2026-01-09')).toThrow(/devolucao|descarga|return|discharge/i)
 ```
 
-- [ ] **Step 2: Rodar teste e confirmar falha atual**
+- [x] **Step 2: Rodar teste e confirmar falha atual**
 
 Run:
 
@@ -147,23 +148,23 @@ npm test -- src/services/demurrage/__tests__/calculateDemurrage.test.ts
 
 Expected: novo teste falha porque hoje retorna dias negativos/within_free_time.
 
-- [ ] **Step 3: Validar no calculo**
+- [x] **Step 3: Validar no calculo**
 
 Em `calculateDemurrage`, apos calcular `noonMs(dischargeDate)` e `noonMs(returnDate)`, lancar erro se retorno for anterior a descarga.
 
-- [ ] **Step 4: Validar nos services de update**
+- [x] **Step 4: Validar nos services de update**
 
 Em `updateContainerDates` e `updateContainerReturnDate`, bloquear `returnDate < dischargeDate` antes de persistir.
 
-- [ ] **Step 5: Validar importacao de datas**
+- [x] **Step 5: Validar importacao de datas**
 
 Em `parseRows` de `src/services/containerDatesImport.ts`, quando houver `returnDate`, rejeitar linha com devolucao anterior a descarga e incluir `rowErrors`.
 
-- [ ] **Step 6: Validar UI manual**
+- [x] **Step 6: Validar UI manual**
 
 Em `src/pages/Demurrage.tsx`, antes de `containerDatesMutation.mutate`, exibir toast de erro quando `editReturn` existir e for anterior a `editDischarge`.
 
-- [ ] **Step 7: Criar constraint no banco**
+- [x] **Step 7: Criar constraint no banco**
 
 Criar migration com checks para impedir persistencia inconsistente, por exemplo:
 
@@ -179,7 +180,7 @@ ALTER TABLE public.bl_containers
 
 Verificar se `demurrage_invoice_items.total_days` tambem deve receber `CHECK (total_days >= 0)` apos confirmar dados existentes.
 
-- [ ] **Step 8: Rodar testes**
+- [x] **Step 8: Rodar testes**
 
 Run:
 
@@ -190,7 +191,7 @@ npm test
 
 Expected: testes passam.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 Suggested commit:
 
@@ -212,15 +213,15 @@ git commit -m "fix: reject demurrage return before discharge"
 - Modify: `src/services/billingLedger.ts`
 - Modify or create: `src/services/__tests__/billingHelpers.test.ts` or `src/services/__tests__/billingLedger.test.ts`
 
-- [ ] **Step 1: Testar falha em `link_invoice_to_ledger`**
+- [x] **Step 1: Testar falha em `link_invoice_to_ledger`**
 
 Criar teste que mocka `supabase.rpc('link_invoice_to_ledger')` retornando `{ error: new Error('ledger failed') }` apos criacao de invoice, e espera rejeicao.
 
-- [ ] **Step 2: Testar falha ao persistir PIX consolidado**
+- [x] **Step 2: Testar falha ao persistir PIX consolidado**
 
 Criar teste para `createConsolidatedInvoice` em que o update em `invoices` retorna erro e o service rejeita.
 
-- [ ] **Step 3: Confirmar falha atual**
+- [x] **Step 3: Confirmar falha atual**
 
 Run:
 
@@ -230,13 +231,13 @@ npm test -- src/services/__tests__/billingHelpers.test.ts
 
 Expected: testes novos falham antes da correcao.
 
-- [ ] **Step 4: Implementar checagem de erro**
+- [x] **Step 4: Implementar checagem de erro**
 
 Em `src/services/billing.ts`, capturar retorno de `supabase.rpc('link_invoice_to_ledger', ...)` e lancar erro quando existir `error`.
 
 Em `src/services/billingLedger.ts`, capturar retorno do update `pix_payload` e lancar erro quando existir `error`.
 
-- [ ] **Step 5: Rodar testes focados e suite**
+- [x] **Step 5: Rodar testes focados e suite**
 
 Run:
 
@@ -247,7 +248,7 @@ npm test
 
 Expected: testes passam.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Suggested commit:
 
@@ -269,7 +270,7 @@ git commit -m "fix: surface ledger and pix persistence failures"
 - Create: `supabase/migrations/<timestamp>_restrict_consolidated_invoice_breakdown.sql`
 - Create or modify: `src/services/__tests__/consolidatedInvoiceBreakdownMigration.test.ts`
 
-- [ ] **Step 1: Escrever teste de migration**
+- [x] **Step 1: Escrever teste de migration**
 
 Criar teste que le a nova migration e verifica:
 - funcao `public.get_consolidated_invoice_item_breakdown`;
@@ -278,7 +279,7 @@ Criar teste que le a nova migration e verifica:
 - presenca de `public.is_admin()`;
 - `GRANT EXECUTE ... TO authenticated`.
 
-- [ ] **Step 2: Criar migration**
+- [x] **Step 2: Criar migration**
 
 Criar uma nova migration que substitui a funcao atualmente definida em `supabase/migrations/20260608174131_consolidated_invoice_item_breakdown.sql` para exigir:
 
@@ -290,7 +291,7 @@ WHERE public.is_active_user()
 
 Tambem ajustar `SET search_path = public, pg_temp`.
 
-- [ ] **Step 3: Rodar teste de migration**
+- [x] **Step 3: Rodar teste de migration**
 
 Run:
 
@@ -300,7 +301,7 @@ npm test -- src/services/__tests__/consolidatedInvoiceBreakdownMigration.test.ts
 
 Expected: passa.
 
-- [ ] **Step 4: Rodar suite**
+- [x] **Step 4: Rodar suite**
 
 Run:
 
@@ -310,7 +311,7 @@ npm test
 
 Expected: suite passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 
@@ -331,7 +332,7 @@ git commit -m "fix: restrict consolidated invoice breakdown rpc"
 - Create: `supabase/migrations/<timestamp>_harden_remaining_permissive_rls.sql`
 - Create or modify: `src/services/__tests__/rlsHardeningMigration.test.ts`
 
-- [ ] **Step 1: Escrever teste de migration**
+- [x] **Step 1: Escrever teste de migration**
 
 Teste deve verificar que a nova migration referencia:
 - `baplie_reconciliation_resolutions`;
@@ -341,7 +342,7 @@ Teste deve verificar que a nova migration referencia:
 - `public.is_active_user()`;
 - `public.is_admin()`.
 
-- [ ] **Step 2: Criar migration de hardening**
+- [x] **Step 2: Criar migration de hardening**
 
 Aplicar politica:
 - SELECT operacional: `public.is_active_user()`;
@@ -353,7 +354,7 @@ Escopo revalidado na `main` atual:
 - `supabase/migrations/20260520132021_create_baplie_containers_staging.sql` e `supabase/migrations/20260521000000_voyage_export_schedules.sql` ainda tem policies historicas sempre verdadeiras; `20260530102909_tighten_permissive_rls_policies.sql` endurece parte da escrita, mas mantem leitura ampla e DELETE por usuario ativo.
 - Ocorrencias em `028_demurrage_module.sql` sao historicas e foram cobertas por `042_rls_module_hardening.sql`; nao gastar esforco nelas sem confirmar policy efetiva no banco.
 
-- [ ] **Step 3: Rodar teste de migration**
+- [x] **Step 3: Rodar teste de migration**
 
 Run:
 
@@ -363,7 +364,7 @@ npm test -- src/services/__tests__/rlsHardeningMigration.test.ts
 
 Expected: passa.
 
-- [ ] **Step 4: Rodar busca anti-regressao**
+- [x] **Step 4: Rodar busca anti-regressao**
 
 Run:
 
@@ -373,7 +374,7 @@ rg -n "USING \\(true\\)|WITH CHECK \\(true\\)|using \\(true\\)|with check \\(tru
 
 Expected: ocorrencias antigas podem continuar no historico, mas a nova migration deve neutralizar as policies alvo. Registrar no PR quais ocorrencias sao historicas.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 
@@ -396,7 +397,7 @@ git commit -m "fix: harden remaining permissive rls policies"
 - Possibly modify parser files that use `xlsx`
 - Possibly update docs in Task 11
 
-- [ ] **Step 1: Atualizar React Router**
+- [x] **Step 1: Atualizar React Router**
 
 Run:
 
@@ -407,14 +408,16 @@ npm audit --omit=dev
 
 Expected: alertas de `react-router`/`react-router-dom` desaparecem ou reduzem para risco aceitavel.
 
-- [ ] **Step 2: Decidir mitigacao para `xlsx`**
+- [x] **Step 2: Decidir mitigacao para `xlsx`**
 
 Escolher uma destas opcoes e registrar no PR:
 - substituir por biblioteca mantida;
 - manter temporariamente com limites de upload/linhas e aceite formal;
 - isolar parsing fora da thread principal.
 
-- [ ] **Step 3: Rodar validacoes**
+Decisao registrada: manter `xlsx` temporariamente porque `npm audit --omit=dev` informa `No fix available`; mitigar com limites de upload/linhas na Task 7 e documentar o aceite formal na Task 11.
+
+- [x] **Step 3: Rodar validacoes**
 
 Run:
 
@@ -427,7 +430,7 @@ npm audit --omit=dev
 
 Expected: lint, testes e build passam; audit nao tem vulnerabilidade corrigivel ignorada.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Suggested commit:
 
@@ -454,21 +457,21 @@ Escopo revalidado na `main` atual:
 - `src/pages/Reconciliacao.tsx` ainda chama `file.arrayBuffer()` antes de `parsePixExtract`.
 - O novo parser `src/services/ceMercanteEdiParser.ts` ja usa `assertUploadSize(file)` e nao precisa entrar nesta task.
 
-- [ ] **Step 1: Testar base de clientes acima do limite**
+- [x] **Step 1: Testar base de clientes acima do limite**
 
 Criar teste com `File` mockado contendo `size > 10 * 1024 * 1024` e esperar erro de `assertUploadSize`.
 
-- [ ] **Step 2: Testar extrato PIX acima do limite**
+- [x] **Step 2: Testar extrato PIX acima do limite**
 
 Se a validacao ficar em `Reconciliacao.tsx`, testar o fluxo de pagina. Se ficar em service, ajustar `parsePixExtract` para receber tambem `File` ou criar wrapper testavel.
 
-- [ ] **Step 3: Aplicar `assertUploadSize`**
+- [x] **Step 3: Aplicar `assertUploadSize`**
 
 Adicionar `assertUploadSize(file)` antes de `file.arrayBuffer()` em `parseCustomerBaseFile`.
 
 Para extrato PIX, validar tamanho antes de `file.arrayBuffer()` no fluxo de upload.
 
-- [ ] **Step 4: Rodar testes**
+- [x] **Step 4: Rodar testes**
 
 Run:
 
@@ -478,7 +481,7 @@ npm test
 
 Expected: suite passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 
@@ -500,23 +503,25 @@ git commit -m "fix: enforce upload limits for remaining xlsx parsers"
 - Modify: `src/hooks/useBls.ts`
 - Possibly create Supabase migrations/RPCs for summaries/export
 
-- [ ] **Step 1: Criar teste para exportacao paginada**
+- [x] **Step 1: Criar teste para exportacao paginada**
 
 Adicionar teste que simula `listInvoicesForExport` retornando mais de um lote e verifica que nenhum lote e truncado por `pageSize: 100000`.
 
-- [ ] **Step 2: Substituir exportacao gigante por loop paginado**
+- [x] **Step 2: Substituir exportacao gigante por loop paginado**
 
 Implementar busca em lotes menores, por exemplo 1000, ate lote menor que tamanho da pagina.
 
-- [ ] **Step 3: Reduzir `select *` em faturamento**
+- [x] **Step 3: Reduzir `select *` em faturamento**
 
 Trocar `INVOICE_LIST_SELECT` para colunas realmente usadas pela UI/listagem/exportacao.
 
-- [ ] **Step 4: Avaliar `useBls` e `useContainers`**
+- [x] **Step 4: Avaliar `useBls` e `useContainers`**
 
 Mover filtros que exigem `fetchAllBls` para RPC/consulta SQL quando possivel. Se nao for possivel nesta tarefa, documentar no PR o motivo e abrir follow-up.
 
-- [ ] **Step 5: Rodar testes e smoke manual**
+Avaliacao registrada: `useBls`/`useContainers` ainda dependem de filtros derivados em memoria (`cargoProfile`, normalizacao de `charge_status`, agregados por container distinto). Migrar isso corretamente exige RPC/consulta agregada com contrato novo; fica como follow-up para evitar mudanca ampla nesta task.
+
+- [x] **Step 5: Rodar testes e smoke manual**
 
 Run:
 
@@ -531,7 +536,9 @@ Smoke manual:
 - abrir `/manifestos`;
 - abrir `/containers`.
 
-- [ ] **Step 6: Commit**
+Validacao registrada: `npm test` e `npm run build` passaram. Smoke manual autenticado nao foi executado neste ambiente porque so existe `.env.example`; validar navegacao/export real em ambiente com Supabase e sessao.
+
+- [x] **Step 6: Commit**
 
 Suggested commit:
 
@@ -554,7 +561,7 @@ git commit -m "perf: page billing exports and heavy bl queries"
 - Modify: `src/pages/Faturamento.tsx`
 - Modify: `src/pages/Demurrage.tsx`
 
-- [ ] **Step 1: Criar schemas**
+- [x] **Step 1: Criar schemas**
 
 Criar schemas para:
 - pagamento: valor positivo, metodo permitido, data opcional valida;
@@ -562,7 +569,7 @@ Criar schemas para:
 - desconto demurrage: tipo permitido, valor nao negativo, percentual entre 0 e 100 quando aplicavel;
 - datas demurrage: descarga obrigatoria, devolucao opcional e nao anterior a descarga.
 
-- [ ] **Step 2: Testar entradas comuns**
+- [x] **Step 2: Testar entradas comuns**
 
 Casos minimos:
 - `"10,50"` vira `10.5`;
@@ -572,11 +579,11 @@ Casos minimos:
 - percentual `101` rejeita;
 - devolucao anterior a descarga rejeita.
 
-- [ ] **Step 3: Substituir parsing manual**
+- [x] **Step 3: Substituir parsing manual**
 
 Trocar `Number(...)`/`parseFloat(...)` dispersos em fluxos financeiros pelos schemas.
 
-- [ ] **Step 4: Rodar testes**
+- [x] **Step 4: Rodar testes**
 
 Run:
 
@@ -587,7 +594,7 @@ npm test
 
 Expected: testes passam.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 
@@ -609,22 +616,22 @@ git commit -m "refactor: validate financial forms with zod"
 - Modify: `src/pages/Demurrage.tsx`
 - Possibly modify tests under `src/pages/__tests__`
 
-- [ ] **Step 1: Adicionar confirmacao para remover contato**
+- [x] **Step 1: Adicionar confirmacao para remover contato**
 
 Usar `useConfirm` antes de `deleteCustomerContact`.
 
-- [ ] **Step 2: Adicionar `aria-label` em botao icon-only**
+- [x] **Step 2: Adicionar `aria-label` em botao icon-only**
 
 No botao com `Trash2`, adicionar label como `aria-label="Remover contato"`.
 
-- [ ] **Step 3: Adicionar confirmacoes em demurrage**
+- [x] **Step 3: Adicionar confirmacoes em demurrage**
 
 Confirmar antes de:
 - cancelar invoice;
 - desemitir invoice;
 - desmarcar pagamento.
 
-- [ ] **Step 4: Rodar lint e testes**
+- [x] **Step 4: Rodar lint e testes**
 
 Run:
 
@@ -635,7 +642,7 @@ npm test
 
 Expected: passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 
@@ -657,18 +664,18 @@ git commit -m "fix: confirm destructive actions and label icon buttons"
 - Modify: `docs/ROADMAP.md` if project owner wants roadmap updated
 - Possibly create ADR if `xlsx` mitigation is accepted instead of fixed
 
-- [ ] **Step 1: Atualizar README do portal**
+- [x] **Step 1: Atualizar README do portal**
 
 Trocar descricao de `/portal/login` de CNPJ/CPF + senha para email + senha via Supabase Auth.
 
-- [ ] **Step 2: Registrar status de `xlsx`**
+- [x] **Step 2: Registrar status de `xlsx`**
 
 Se `xlsx` continuar no projeto, registrar:
 - motivo temporario;
 - mitigacoes aplicadas;
 - gatilho para substituicao.
 
-- [ ] **Step 3: Rodar checagem simples**
+- [x] **Step 3: Rodar checagem simples**
 
 Run:
 
@@ -678,7 +685,7 @@ rg -n "CNPJ/CPF \\+ senha|CNPJ \\+ senha|password_hash|xlsx" README.md docs
 
 Expected: referencias legadas sao intencionais ou atualizadas.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Suggested commit:
 
@@ -693,31 +700,31 @@ git commit -m "docs: align portal auth and audit followups"
 
 ## Validacao final da branch
 
-- [ ] Rodar lint.
+- [x] Rodar lint.
 
 ```bash
 npm run lint
 ```
 
-- [ ] Rodar testes unitarios.
+- [x] Rodar testes unitarios.
 
 ```bash
 npm test
 ```
 
-- [ ] Rodar build.
+- [x] Rodar build.
 
 ```bash
 npm run build
 ```
 
-- [ ] Rodar audit de dependencias de producao.
+- [x] Rodar audit de dependencias de producao.
 
 ```bash
 npm audit --omit=dev
 ```
 
-- [ ] Fazer smoke test manual de rotas criticas:
+- [x] Fazer smoke test manual de rotas criticas:
   - `/login`
   - `/portal/login`
   - `/portal/billing`
@@ -726,6 +733,13 @@ npm audit --omit=dev
   - `/demurrage`
   - `/baplie`
   - `/viagens`
+
+Notas de validacao final:
+- `npm run lint`: passou.
+- `npm test`: passou com 54 arquivos passados, 1 skipped; 249 testes passados, 9 skipped.
+- `npm run build`: passou.
+- `npm audit --omit=dev`: retornou apenas `xlsx` high severity com `No fix available`; risco documentado no ROADMAP e mitigado por limite de upload antes de `XLSX.read`.
+- Smoke manual autenticado nao foi executado neste ambiente porque nao ha `.env` local; validar rotas criticas em ambiente com Supabase real/sessao.
 
 - [ ] Conferir `git status --short` e garantir que apenas arquivos relacionados ao plano foram alterados.
 

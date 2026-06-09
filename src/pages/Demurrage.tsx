@@ -8,6 +8,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
 import { calculateDemurrage } from '../services/demurrage/demurrageRates'
@@ -24,6 +25,7 @@ import {
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import { fetchDemurrageKPIs, fetchROE } from '../services/demurrage/demurrageKpis'
+import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
@@ -125,6 +127,7 @@ const EMPTY_DISPUTE: DisputeForm = {
 export function Demurrage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [tab, setTab] = useState<DemurrageTab>('containers')
   const [search, setSearch] = useState('')
   const [generatingBl, setGeneratingBl] = useState<string | null>(null)
@@ -277,15 +280,51 @@ export function Demurrage() {
     onError: (e: Error) => showToast(e.message, 'error'),
   })
 
+  async function handleCancelInvoice(invoiceId: number) {
+    const ok = await confirm({
+      title: 'Cancelar invoice',
+      message: 'Cancelar esta invoice de demurrage?',
+      confirmLabel: 'Cancelar invoice',
+      tone: 'danger',
+    })
+    if (ok) cancelMutation.mutate(invoiceId)
+  }
+
+  async function handleUnissueInvoice(invoiceId: number) {
+    const ok = await confirm({
+      title: 'Desemitir invoice',
+      message: 'Reverter a emissao desta invoice de demurrage?',
+      confirmLabel: 'Desemitir',
+      tone: 'danger',
+    })
+    if (ok) unissueMutation.mutate(invoiceId)
+  }
+
+  async function handleUnmarkInvoicePaid(invoiceId: number) {
+    const ok = await confirm({
+      title: 'Desmarcar pagamento',
+      message: 'Remover a marcacao de pagamento desta invoice?',
+      confirmLabel: 'Desmarcar',
+      tone: 'danger',
+    })
+    if (ok) unpayMutation.mutate(invoiceId)
+  }
+
   const discountMutation = useMutation({
-    mutationFn: ({ id, form }: { id: number; form: DiscountForm }) =>
-      updateDemurrageInvoice(id, {
-        discount_type: form.discount_type,
-        discount_value: form.discount_value !== '' ? parseFloat(form.discount_value) : null,
-        discount_mode: form.discount_mode,
-        discount_justification: form.discount_justification || null,
-        discount_approver: form.discount_approver || null,
-      }),
+    mutationFn: ({ id, form }: { id: number; form: DiscountForm }) => {
+      const validation = demurrageDiscountSchema.safeParse(form)
+      if (!validation.success) {
+        throw new Error(formatValidationError(validation.error, 'Desconto invalido.'))
+      }
+      const discount = validation.data
+      return updateDemurrageInvoice(id, {
+        discount_type: discount.discount_type,
+        discount_value: discount.discount_value,
+        discount_mode: discount.discount_mode,
+        discount_justification: discount.discount_justification,
+        discount_approver: discount.discount_approver,
+      })
+    },
     onSuccess: () => {
       invalidateInvoices()
       setDiscountInvoiceId(null)
@@ -576,13 +615,13 @@ export function Demurrage() {
                               {inv.status === 'draft' && (
                                 <>
                                   <Button variant="secondary" className="app-btn--sm" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => cancelMutation.mutate(inv.id)}>Cancelar</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleCancelInvoice(inv.id)}>Cancelar</Button>
                                 </>
                               )}
                               {inv.status === 'issued' && (
                                 <>
                                   <Button variant="secondary" className="app-btn--sm" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => unissueMutation.mutate(inv.id)}>Desemitir</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleUnissueInvoice(inv.id)}>Desemitir</Button>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
                                 </>
                               )}
@@ -590,7 +629,7 @@ export function Demurrage() {
                                 <>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('receipt') }}>Recibo</Button>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => unpayMutation.mutate(inv.id)}>Desmarcar</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleUnmarkInvoicePaid(inv.id)}>Desmarcar</Button>
                                 </>
                               )}
                             </div>
@@ -624,7 +663,13 @@ export function Demurrage() {
                 loading={containerDatesMutation.isPending}
                 onClick={() => {
                   if (!editDischarge) return showToast('Data de descarga obrigatória.', 'error')
-                  containerDatesMutation.mutate({ id: editingContainer.id, discharge: editDischarge, ret: editReturn || null })
+                  const validation = demurrageDatesSchema.safeParse({ discharge: editDischarge, ret: editReturn })
+                  if (!validation.success) return showToast(formatValidationError(validation.error), 'error')
+                  containerDatesMutation.mutate({
+                    id: editingContainer.id,
+                    discharge: validation.data.discharge,
+                    ret: validation.data.ret,
+                  })
                 }}
               >
                 Salvar
