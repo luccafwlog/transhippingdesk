@@ -1,11 +1,19 @@
 name: Auto-merge PRs
 
+# Faz merge automático somente DEPOIS que o workflow CI (lint + build + testes)
+# concluir com sucesso. O deploy permanece neste workflow porque merges feitos
+# com GITHUB_TOKEN não disparam o workflow de push para main (limitação do
+# GitHub Actions).
 on:
-  pull_request:
-    types: [opened, reopened]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 jobs:
   merge:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -17,27 +25,49 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const result = await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-              merge_method: 'squash',
-            })
-            core.setOutput('sha', result.data.sha)
+            const headSha = context.payload.workflow_run.head_sha
+            const prs = context.payload.workflow_run.pull_requests || []
+            let mergedSha = ''
+            for (const prRef of prs) {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prRef.number,
+              })
+              if (pr.state !== 'open' || pr.head.sha !== headSha) {
+                core.info(`PR #${pr.number} ignorado (state=${pr.state}, head=${pr.head.sha})`)
+                continue
+              }
+              const result = await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'squash',
+              })
+              mergedSha = result.data.sha
+            }
+            if (!mergedSha) {
+              core.info('Nenhum PR elegível para merge neste run.')
+            }
+            core.setOutput('sha', mergedSha)
 
       - uses: actions/checkout@v4
+        if: steps.merge.outputs.sha != ''
         with:
           ref: ${{ steps.merge.outputs.sha }}
 
       - uses: actions/setup-node@v4
+        if: steps.merge.outputs.sha != ''
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.merge.outputs.sha != ''
         run: npm ci --legacy-peer-deps
 
       - name: Build
+        if: steps.merge.outputs.sha != ''
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -45,6 +75,7 @@ jobs:
           VITE_APP_COMMIT_SHA: ${{ steps.merge.outputs.sha }}
 
       - name: Deploy to Firebase Hosting
+        if: steps.merge.outputs.sha != ''
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E }}

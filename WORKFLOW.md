@@ -46,7 +46,7 @@ O domínio e a UI são em **português**; o código estrutural é em **inglês**
                                                                │ HTTPS / WSS
                                           ┌────────────────────▼─────────────────┐
                                           │            SUPABASE                   │
-                                          │  Postgres + RLS  (79 migrations)      │
+                                          │  Postgres + RLS  (90+ migrations)     │
                                           │  Auth (JWT)                           │
                                           │  RPCs (SECURITY DEFINER, ~70 funções) │
                                           │  Edge Functions (Deno):               │
@@ -110,7 +110,7 @@ src/
   integration/         # Testes de integração opt-in (Supabase real)
 
 supabase/
-  migrations/          # 79 migrations sequenciais (schema + RLS + RPCs)
+  migrations/          # 90+ migrations sequenciais (schema + RLS + RPCs)
   functions/           # Edge Functions (Deno)
   scripts/             # reset_operational_data.sql
   seeds/               # validation_seed.sql
