@@ -6,7 +6,11 @@ import type { VehicleListItem } from '../types/database'
 
 export type VehiclePageFilters = {
   search: string
+  brand: string
+  model: string
   container: string
+  containerType: string
+  seal: string
   bl: string
   page: number
   pageSize: number
@@ -66,7 +70,7 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
         .select(
           `
           *,
-          container:bl_containers(id, container_number, type, seal_number),
+          container:bl_containers!inner(id, container_number, type, seal_number),
           bl:bls(id, voyage_id, voyage:voyages(id, voyage_number, vessel:vessels(id, name)))
         `,
           { count: 'exact' },
@@ -78,6 +82,22 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
       if (filters.search) {
         const term = sanitizeLikeTerm(filters.search)
         if (term) q = q.ilike('chassis', `%${term}%`)
+      }
+      if (filters.brand) {
+        const term = sanitizeLikeTerm(filters.brand)
+        if (term) q = q.ilike('brand', `%${term}%`)
+      }
+      if (filters.model) {
+        const term = sanitizeLikeTerm(filters.model)
+        if (term) q = q.ilike('model', `%${term}%`)
+      }
+      if (filters.containerType) {
+        const term = sanitizeLikeTerm(filters.containerType)
+        if (term) q = q.ilike('container.type', `%${term}%`)
+      }
+      if (filters.seal) {
+        const term = sanitizeLikeTerm(filters.seal)
+        if (term) q = q.ilike('container.seal_number', `%${term}%`)
       }
 
       // PostgREST não aplica ilike em colunas de joins aninhados; esses filtros
