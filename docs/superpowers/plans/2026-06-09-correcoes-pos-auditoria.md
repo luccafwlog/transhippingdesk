@@ -503,23 +503,25 @@ git commit -m "fix: enforce upload limits for remaining xlsx parsers"
 - Modify: `src/hooks/useBls.ts`
 - Possibly create Supabase migrations/RPCs for summaries/export
 
-- [ ] **Step 1: Criar teste para exportacao paginada**
+- [x] **Step 1: Criar teste para exportacao paginada**
 
 Adicionar teste que simula `listInvoicesForExport` retornando mais de um lote e verifica que nenhum lote e truncado por `pageSize: 100000`.
 
-- [ ] **Step 2: Substituir exportacao gigante por loop paginado**
+- [x] **Step 2: Substituir exportacao gigante por loop paginado**
 
 Implementar busca em lotes menores, por exemplo 1000, ate lote menor que tamanho da pagina.
 
-- [ ] **Step 3: Reduzir `select *` em faturamento**
+- [x] **Step 3: Reduzir `select *` em faturamento**
 
 Trocar `INVOICE_LIST_SELECT` para colunas realmente usadas pela UI/listagem/exportacao.
 
-- [ ] **Step 4: Avaliar `useBls` e `useContainers`**
+- [x] **Step 4: Avaliar `useBls` e `useContainers`**
 
 Mover filtros que exigem `fetchAllBls` para RPC/consulta SQL quando possivel. Se nao for possivel nesta tarefa, documentar no PR o motivo e abrir follow-up.
 
-- [ ] **Step 5: Rodar testes e smoke manual**
+Avaliacao registrada: `useBls`/`useContainers` ainda dependem de filtros derivados em memoria (`cargoProfile`, normalizacao de `charge_status`, agregados por container distinto). Migrar isso corretamente exige RPC/consulta agregada com contrato novo; fica como follow-up para evitar mudanca ampla nesta task.
+
+- [x] **Step 5: Rodar testes e smoke manual**
 
 Run:
 
@@ -534,7 +536,9 @@ Smoke manual:
 - abrir `/manifestos`;
 - abrir `/containers`.
 
-- [ ] **Step 6: Commit**
+Validacao registrada: `npm test` e `npm run build` passaram. Smoke manual autenticado nao foi executado neste ambiente porque so existe `.env.example`; validar navegacao/export real em ambiente com Supabase e sessao.
+
+- [x] **Step 6: Commit**
 
 Suggested commit:
 

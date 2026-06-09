@@ -16,6 +16,7 @@ import {
   getInvoiceBls,
   getInvoicePaymentDate,
   isConsolidatedInvoice,
+  listInvoicesForExport,
 } from '../billing'
 import { createConsolidatedInvoice } from '../billingLedger'
 
@@ -40,6 +41,16 @@ function invoiceUpdateQuery(result: unknown) {
   return {
     update: vi.fn(() => ({
       eq: vi.fn().mockResolvedValue(result),
+    })),
+  }
+}
+
+function invoiceListQuery(range: ReturnType<typeof vi.fn>) {
+  return {
+    select: vi.fn(() => ({
+      order: vi.fn(() => ({
+        range,
+      })),
     })),
   }
 }
@@ -127,5 +138,47 @@ describe('createConsolidatedInvoice', () => {
     supabaseMocks.from.mockReturnValueOnce(invoiceUpdateQuery({ error: new Error('pix failed') }))
 
     await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1, 2] })).rejects.toThrow('pix failed')
+  })
+})
+
+describe('listInvoicesForExport', () => {
+  it('busca paginas sucessivas para nao depender de um lote gigante', async () => {
+    const makeRows = (from: number, length: number) =>
+      Array.from({ length }, (_, index) => ({ id: from + index + 1, invoice_number: `INV-${from + index + 1}` }))
+    const range = vi.fn(async (from: number) => ({
+      data:
+        from === 0
+          ? makeRows(0, 1000)
+          : from === 1000
+            ? makeRows(1000, 1000)
+            : from === 2000
+              ? makeRows(2000, 1)
+              : [],
+      error: null,
+      count: 2001,
+    }))
+    supabaseMocks.from.mockReturnValue(invoiceListQuery(range))
+
+    const rows = await listInvoicesForExport({
+      search: '',
+      customerId: '',
+      status: '',
+      invoiceType: '',
+      blSearch: '',
+      voyageSearch: '',
+      pod: '',
+      dateFrom: '',
+      dateTo: '',
+      paidFrom: '',
+      paidTo: '',
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(rows).toHaveLength(2001)
+    expect(range).toHaveBeenCalledTimes(3)
+    expect(range).toHaveBeenNthCalledWith(1, 0, 999)
+    expect(range).toHaveBeenNthCalledWith(2, 1000, 1999)
+    expect(range).toHaveBeenNthCalledWith(3, 2000, 2999)
   })
 })
