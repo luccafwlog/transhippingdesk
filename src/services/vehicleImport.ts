@@ -2,20 +2,22 @@ import { assertUploadSize } from '../lib/fileGuard'
 import { asString, chunkArray, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
-// Aliases por campo. Cobrem dois formatos de origem:
+// Aliases por campo. Cobrem tres formatos de origem:
 // 1) Planilha modelo do sistema (cabecalhos em portugues: CHASSI, MARCA, ...).
 // 2) "Daily Report" do armador COSCO (cabecalhos em ingles: VIN NO., GW(kg), ...),
 //    cujos dados de veiculo ficam na segunda aba do arquivo.
+// 3) Lista de VINs dos terminais chineses da COSCO (TAICANG/NANSHA), com
+//    cabecalhos em chines: 品牌 (marca), 型号 (modelo), 提单号 (BL), 箱号 (container)...
 const headerMap = {
   chassis: ['chassi', 'chassis', 'vin', 'vin no', 'vin no.', 'vin number'],
-  brand: ['marca', 'brand'],
-  model: ['modelo', 'model'],
-  weight_kg: ['peso', 'weight', 'gw', 'gw(kg)', 'gross weight'],
-  cbm: ['cubagem', 'cbm', 'm3', 'volume'],
-  container_number: ['container', 'container number', 'numero do container', 'cntr no', 'cntr no.', 'cntr number'],
-  container_type: ['tipo_container', 'tipo do container', 'container type', 'tipo', 'cntr type'],
-  seal_number: ['lacre', 'seal', 'seal number'],
-  bl_id: ['bl', 'b/l', 'bill of lading', 'bl number', 'bl no', 'bl no.'],
+  brand: ['marca', 'brand', '品牌'],
+  model: ['modelo', 'model', '型号'],
+  weight_kg: ['peso', 'weight', 'gw', 'gw(kg)', 'gross weight', '毛重'],
+  cbm: ['cubagem', 'cbm', 'm3', 'volume', '体积'],
+  container_number: ['container', 'container number', 'numero do container', 'cntr no', 'cntr no.', 'cntr number', '箱号'],
+  container_type: ['tipo_container', 'tipo do container', 'container type', 'tipo', 'cntr type', '箱型'],
+  seal_number: ['lacre', 'seal', 'seal number', '封号'],
+  bl_id: ['bl', 'b/l', 'bill of lading', 'bl number', 'bl no', 'bl no.', '提单号'],
 } as const
 
 const requiredHeaders = {
