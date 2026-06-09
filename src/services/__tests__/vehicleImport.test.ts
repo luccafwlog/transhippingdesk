@@ -110,7 +110,7 @@ describe('vehicleImport', () => {
     expect(parsed.rows).toHaveLength(1)
     expect(parsed.rows[0]).toMatchObject({
       chassis: 'LC0CE4CC4V0018347',
-      brand: '比亚迪',
+      brand: 'BYD',
       model: 'DOLPHIN',
       weight_kg: 1405,
       cbm: 11.694,

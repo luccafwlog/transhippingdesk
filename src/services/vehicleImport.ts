@@ -32,6 +32,36 @@ const requiredHeaders = {
   bl_id: 'BL',
 } as const
 
+// Marcas em chines → nome latino usado no sistema. Os arquivos dos terminais
+// da COSCO (TAICANG/NANSHA) trazem a marca em chines (ex: 比亚迪 = BYD), o que
+// duplica a marca nos relatorios. Quando nao houver correspondencia, mantemos
+// o valor original.
+const brandTranslations: Record<string, string> = {
+  比亚迪: 'BYD',
+  奇瑞: 'CHERY',
+  吉利: 'GEELY',
+  长城: 'GREAT WALL',
+  长安: 'CHANGAN',
+  广汽: 'GAC',
+  广汽埃安: 'AION',
+  埃安: 'AION',
+  上汽: 'SAIC',
+  上汽大通: 'MAXUS',
+  名爵: 'MG',
+  五菱: 'WULING',
+  江淮: 'JAC',
+  蔚来: 'NIO',
+  小鹏: 'XPENG',
+  理想: 'LI AUTO',
+  零跑: 'LEAPMOTOR',
+  哪吒: 'NETA',
+  红旗: 'HONGQI',
+}
+
+function translateBrand(brand: string): string {
+  return brandTranslations[brand.trim()] ?? brand
+}
+
 type DestinationField = keyof typeof headerMap
 
 export type VehicleImportRow = {
@@ -324,7 +354,7 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
     const rowNumber = index + 2
 
     const chassis = normalizeKey(mapped.chassis)
-    const brand = asString(mapped.brand)
+    const brand = translateBrand(asString(mapped.brand))
     const model = asString(mapped.model)
     const weight = parseSpreadsheetNumber(mapped.weight_kg)
     const cbm = parseSpreadsheetNumber(mapped.cbm)
