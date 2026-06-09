@@ -22,10 +22,19 @@
 
 ## Baseline conhecido
 
-- `npm run lint`: passou em 2026-06-09.
-- `npm test`: passou em 2026-06-09 com 48 arquivos passados, 1 skipped, 225 testes passados, 9 skipped.
-- `npm audit --omit=dev`: encontrou vulnerabilidades altas em `react-router`/`react-router-dom` e `xlsx`.
-- `git status` tinha delecao pre-existente em `docs/superpowers/plans/2026-06-01-ajustes-operacionais-financeiros.md`; nao tratar essa delecao neste plano sem decisao explicita.
+- Plano revalidado contra `origin/main` em 2026-06-09, commit `7008917` (`fix(veiculos): isentar taxas e cancelar fatura do BL ao importar veiculos (#179)`).
+- `npm run lint`: passou em 2026-06-09 durante a auditoria inicial.
+- `npm test`: passou em 2026-06-09 durante a auditoria inicial com 48 arquivos passados, 1 skipped, 225 testes passados, 9 skipped.
+- `npm audit --omit=dev`: reexecutado em 2026-06-09 contra `origin/main` atual; ainda encontra vulnerabilidades altas em `react-router`/`react-router-dom` e `xlsx`.
+- Esta branch limpa contem apenas este plano novo sobre `origin/main`. O arquivo antigo `docs/superpowers/plans/2026-06-01-ajustes-operacionais-financeiros.md` existe na `main` atual e nao deve ser removido por este plano.
+
+## Checagem de defasagem contra a main atual
+
+- [ ] Antes de executar qualquer task, rodar `git fetch origin --prune` e confirmar que a branch de trabalho esta baseada na `origin/main` mais recente.
+- [ ] Se `origin/main` tiver avancado, revalidar as localizacoes citadas nas tasks antes de editar codigo.
+- [ ] Se um achado ja tiver sido corrigido na `main`, marcar a task como substituida e registrar a evidencia abaixo da propria task.
+- [ ] Se um arquivo citado tiver sido renomeado, atualizar este plano antes de implementar.
+- [ ] Nao reaproveitar a branch antiga `codex/code-quality-cleanup` para executar este plano; ela nasceu de uma base antiga e carregava mudancas que conflitam com a `main` atual.
 
 ---
 
@@ -256,6 +265,7 @@ git commit -m "fix: surface ledger and pix persistence failures"
 **Achados cobertos:** #2.
 
 **Files:**
+- Current main reference: `supabase/migrations/20260608174131_consolidated_invoice_item_breakdown.sql`
 - Create: `supabase/migrations/<timestamp>_restrict_consolidated_invoice_breakdown.sql`
 - Create or modify: `src/services/__tests__/consolidatedInvoiceBreakdownMigration.test.ts`
 
@@ -270,7 +280,7 @@ Criar teste que le a nova migration e verifica:
 
 - [ ] **Step 2: Criar migration**
 
-Substituir a funcao para exigir:
+Criar uma nova migration que substitui a funcao atualmente definida em `supabase/migrations/20260608174131_consolidated_invoice_item_breakdown.sql` para exigir:
 
 ```sql
 WHERE public.is_active_user()
@@ -337,6 +347,11 @@ Aplicar politica:
 - SELECT operacional: `public.is_active_user()`;
 - INSERT/UPDATE: `public.is_active_user()` quando dado operacional for editavel por equipe ativa; usar `public.is_admin()` se for dado sensivel;
 - DELETE: `public.is_admin()`.
+
+Escopo revalidado na `main` atual:
+- `supabase/migrations/055_baplie_reconciliation_resolutions.sql` ainda define policies sempre verdadeiras.
+- `supabase/migrations/20260520132021_create_baplie_containers_staging.sql` e `supabase/migrations/20260521000000_voyage_export_schedules.sql` ainda tem policies historicas sempre verdadeiras; `20260530102909_tighten_permissive_rls_policies.sql` endurece parte da escrita, mas mantem leitura ampla e DELETE por usuario ativo.
+- Ocorrencias em `028_demurrage_module.sql` sao historicas e foram cobertas por `042_rls_module_hardening.sql`; nao gastar esforco nelas sem confirmar policy efetiva no banco.
 
 - [ ] **Step 3: Rodar teste de migration**
 
@@ -433,6 +448,11 @@ git commit -m "chore: address dependency audit findings"
 - Modify: `src/services/customerBase.ts`
 - Modify: `src/pages/Reconciliacao.tsx` or `src/services/demurrage/demurrageKpis.ts`
 - Modify or create tests for customer base and PIX extract parsing
+
+Escopo revalidado na `main` atual:
+- `src/services/customerBase.ts` ainda chama `file.arrayBuffer()` sem `assertUploadSize`.
+- `src/pages/Reconciliacao.tsx` ainda chama `file.arrayBuffer()` antes de `parsePixExtract`.
+- O novo parser `src/services/ceMercanteEdiParser.ts` ja usa `assertUploadSize(file)` e nao precisa entrar nesta task.
 
 - [ ] **Step 1: Testar base de clientes acima do limite**
 
