@@ -74,7 +74,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
   // O modelo do armador (COSCO Daily Report) mantem os veiculos na segunda aba;
   // a primeira e um resumo. Selecionamos a primeira aba cujo cabecalho atende
   // todas as colunas obrigatorias, mantendo compatibilidade com a planilha modelo.
-  let chosenSheet: ReturnType<typeof workbook.Sheets[string]> | undefined
+  let chosenSheet: (typeof workbook.Sheets)[string] | undefined
   let lastMissing: string[] = Object.values(requiredHeaders)
 
   for (const sheetName of workbook.SheetNames) {
