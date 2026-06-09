@@ -631,7 +631,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
               </div>
             ) : null}
 
-            <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
+            <div className="app-table-scroll app-table-scroll--sticky rounded-xl border border-[var(--app-border)]">
               <table className="app-table app-table--compact min-w-[720px] text-left text-sm">
                 <thead>
                   <tr>
