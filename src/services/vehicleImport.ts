@@ -1,6 +1,7 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, chunkArray, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
+import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 
 // Aliases por campo. Cobrem tres formatos de origem:
 // 1) Planilha modelo do sistema (cabecalhos em portugues: CHASSI, MARCA, ...).
@@ -326,15 +327,39 @@ export async function importVehicleRows({
       if (insertError) throw insertError
     }
 
+    // Veiculos sao cadastrados depois dos containers/BLs: no momento do manifesto
+    // as taxas locais ja foram calculadas e a fatura individual pode ja ter sido
+    // emitida (gatilho emit_invoice_on_bl_ready). Ao vincular veiculos, o BL passa
+    // a ser isento, entao para cada BL impactado: (1) cancelamos qualquer fatura
+    // ativa do BL e (2) recalculamos as taxas via RPC, que remove as linhas "auto"
+    // e marca o BL como isento. Apenas setar charge_status='exempt' (como era feito
+    // antes) deixava as taxas calculadas e a fatura emitida ativas.
     const impactedBlIds = Array.from(new Set(rowsToInsert.map((row) => row.bl_id)))
-    const { error: exemptError } = await supabase
-      .from('bls')
-      .update({
-        charge_status: 'exempt',
-        charge_exemption_reason: 'Carga de veiculos (isento de taxas locais)',
-      })
-      .in('id', impactedBlIds)
-    if (exemptError) throw exemptError
+    const blRowNumber = new Map<string, number>()
+    for (const row of validRows) {
+      if (!blRowNumber.has(row.bl_id)) blRowNumber.set(row.bl_id, row.rowNumber)
+    }
+
+    const activeInvoicesByBl = await loadActiveInvoicesByBl(impactedBlIds)
+
+    for (const blId of impactedBlIds) {
+      try {
+        for (const invoiceId of activeInvoicesByBl.get(blId) ?? []) {
+          const { error: cancelError } = await supabase.rpc('cancel_invoice', {
+            p_invoice_id: invoiceId,
+            p_reason: 'Carga de veiculos: BL isento de taxas locais.',
+            p_actor: null,
+          })
+          if (cancelError) throw cancelError
+        }
+        await calculateBlLocalCharges(blId, { recalculate: true })
+      } catch (err) {
+        errors.push({
+          row: blRowNumber.get(blId) ?? 0,
+          message: `BL ${blId}: veiculos cadastrados, mas falha ao isentar/cancelar fatura (${err instanceof Error ? err.message : 'erro desconhecido'}). Ajuste manual no Faturamento.`,
+        })
+      }
+    }
   }
 
   return {
@@ -343,6 +368,46 @@ export async function importVehicleRows({
     errorCount: errors.length,
     errors: errors.sort((left, right) => left.row - right.row),
   }
+}
+
+// Faturas ativas (nao canceladas) vinculadas a cada BL impactado, para serem
+// canceladas antes de marcar o BL como isento de taxas.
+const ACTIVE_INVOICE_STATUSES = new Set(['draft', 'issued', 'partially_paid', 'overdue', 'paid'])
+
+async function loadActiveInvoicesByBl(blIds: string[]): Promise<Map<string, Set<number>>> {
+  const byBl = new Map<string, Set<number>>()
+  if (!blIds.length) return byBl
+
+  const { data: links, error: linkError } = await supabase
+    .from('invoice_bls')
+    .select('bl_id, invoice_id')
+    .in('bl_id', blIds)
+  if (linkError) throw linkError
+
+  const linkRows = (links ?? []) as Array<{ bl_id: string; invoice_id: number }>
+  const invoiceIds = Array.from(new Set(linkRows.map((link) => link.invoice_id)))
+  if (!invoiceIds.length) return byBl
+
+  const { data: invoices, error: invoiceError } = await supabase
+    .from('invoices')
+    .select('id, status')
+    .in('id', invoiceIds)
+  if (invoiceError) throw invoiceError
+
+  const activeIds = new Set(
+    ((invoices ?? []) as Array<{ id: number; status: string | null }>)
+      .filter((invoice) => ACTIVE_INVOICE_STATUSES.has(invoice.status ?? 'issued'))
+      .map((invoice) => invoice.id),
+  )
+
+  for (const link of linkRows) {
+    if (!activeIds.has(link.invoice_id)) continue
+    const set = byBl.get(link.bl_id) ?? new Set<number>()
+    set.add(link.invoice_id)
+    byBl.set(link.bl_id, set)
+  }
+
+  return byBl
 }
 
 function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleImport {
