@@ -231,8 +231,9 @@ Implementacao concluida em 2026-06-09 nas tasks 0-9. Entregue: hook `useRowSelec
 
 ## Riscos e notas
 
-- **Irreversibilidade:** hard delete sem backup logico. Recomenda-se confirmar que existe backup/point-in-time no Supabase antes de uso em massa em producao (fora do escopo de codigo, mas registrar no PR).
-- **Auditoria:** hoje nao ha log de delete. Opcional/follow-up: gravar em `audit_logs` quem excluiu o que (ha padrao de audit em `customers`). Nao incluido nesta entrega para manter escopo minimo — abrir follow-up se desejado.
+- **Auditoria:** RESOLVIDO (follow-up 2026-06-09). Toda exclusao agora grava em `audit_logs` (entity_type `bl`/`container`/`vehicle`/`customer`, `field_name = 'deleted'`, `changed_by` = autor) via `src/services/deleteAudit.ts`, best-effort (nao interrompe a exclusao). Ha agora rastro de quem excluiu o que e quando.
+- **Irreversibilidade / backup:** hard delete continua irreversivel no nivel de dados. PITR/backup do Supabase e configuracao de dashboard/billing e NAO e exposta nem alteravel pelas ferramentas MCP disponiveis — fica como acao do dono no painel Supabase (Database > Backups). A trilha de auditoria acima mitiga a parte de rastreabilidade; restauracao de dados depende do PITR/backup do projeto.
+- **Smoke manual:** o smoke autenticado end-to-end em producao depende de credenciais reais (indisponiveis neste ambiente). Mitigado com cobertura automatizada do componente interativo novo (`BulkActionsBar`) e dos services de exclusao, alem do backstop de RLS `is_admin()` verificado no banco vivo.
 - **Bloqueio fiscal vs forcar:** decisao do dono e bloquear fatura/ledger mesmo para admin. Se no futuro for preciso "estornar e excluir", isso e um fluxo proprio (cancelar fatura -> reverter ledger -> excluir) e nao deve ser embutido no botao de delete.
 </content>
 </invoke>

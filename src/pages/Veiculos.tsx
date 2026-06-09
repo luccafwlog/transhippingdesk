@@ -23,7 +23,7 @@ export function Veiculos() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const { data: options } = useVehicleOptions()
@@ -175,7 +175,7 @@ export function Veiculos() {
 
     setDeleting(true)
     try {
-      await deleteVehicles(ids)
+      await deleteVehicles(ids, user?.id)
       selection.clear()
       await invalidateAfterDelete()
       showToast(ids.length === 1 ? 'Veiculo excluido.' : `${ids.length} veiculos excluidos.`, 'success')

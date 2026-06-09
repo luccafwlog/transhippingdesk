@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { buildDependencyReport, tallyReasons, type DeleteDependencyReport } from './deleteDependencies'
+import { logDeletions } from './deleteAudit'
 
 /**
  * Verifica bloqueadores de exclusao de containers (`bl_containers`). Containers
@@ -30,7 +31,7 @@ export async function checkContainerDependencies(ids: number[]): Promise<DeleteD
  * cascata do banco (ex: baplie_reconciliation_resolutions) somem junto.
  * Pressupoe que os ids ja passaram por `checkContainerDependencies`.
  */
-export async function deleteContainers(ids: number[]) {
+export async function deleteContainers(ids: number[], changedBy?: string | null) {
   if (ids.length === 0) return
 
   const vehicles = await supabase.from('vehicles').delete().in('container_id', ids)
@@ -38,4 +39,6 @@ export async function deleteContainers(ids: number[]) {
 
   const containers = await supabase.from('bl_containers').delete().in('id', ids)
   if (containers.error) throw containers.error
+
+  await logDeletions('container', ids, changedBy)
 }

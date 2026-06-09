@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { buildDependencyReport, tallyReasons, type DeleteDependencyReport } from './deleteDependencies'
+import { logDeletions } from './deleteAudit'
 
 /**
  * Verifica bloqueadores fiscais de exclusao de BLs. Um BL ligado a fatura
@@ -38,7 +39,7 @@ export async function checkBlDependencies(ids: string[]): Promise<DeleteDependen
  * `billing_run_logs` e `customer_reconciliation_queue`. Pressupoe que os ids ja
  * passaram por `checkBlDependencies`.
  */
-export async function deleteBls(ids: string[]) {
+export async function deleteBls(ids: string[], changedBy?: string | null) {
   if (ids.length === 0) return
 
   const vehicles = await supabase.from('vehicles').delete().in('bl_id', ids)
@@ -46,4 +47,6 @@ export async function deleteBls(ids: string[]) {
 
   const bls = await supabase.from('bls').delete().in('id', ids)
   if (bls.error) throw bls.error
+
+  await logDeletions('bl', ids, changedBy)
 }

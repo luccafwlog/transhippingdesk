@@ -179,7 +179,7 @@ export function Containers() {
       const ok = await confirm({ message: parts.join('\n\n'), tone: 'danger', confirmLabel: 'Excluir' })
       if (!ok) return
 
-      await deleteContainers(report.deletableIds)
+      await deleteContainers(report.deletableIds, user?.id)
       selection.clear()
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['containers'] }),

@@ -79,7 +79,7 @@ export function Clientes() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const [filters, setFilters] = useState({
@@ -287,7 +287,7 @@ export function Clientes() {
       const ok = await confirm({ message: parts.join('\n\n'), tone: 'danger', confirmLabel: 'Excluir' })
       if (!ok) return
 
-      await deleteCustomers(report.deletableIds)
+      await deleteCustomers(report.deletableIds, user?.id)
       selection.clear()
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['customers'] }),

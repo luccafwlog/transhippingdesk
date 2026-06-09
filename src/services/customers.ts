@@ -1,6 +1,7 @@
 import { onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import { buildDependencyReport, tallyReasons, type DeleteDependencyReport } from './deleteDependencies'
+import { logDeletions } from './deleteAudit'
 import type { Customer, CustomerContact } from '../types/database'
 
 type CustomerEditableFields = Pick<
@@ -172,7 +173,7 @@ export async function checkCustomerDependencies(ids: number[]): Promise<DeleteDe
  * e `pricing_rule_versions` (SET NULL). Pressupoe que os ids ja passaram por
  * `checkCustomerDependencies`.
  */
-export async function deleteCustomers(ids: number[]) {
+export async function deleteCustomers(ids: number[], changedBy?: string | null) {
   if (ids.length === 0) return
 
   const contacts = await supabase.from('customer_contacts').delete().in('customer_id', ids)
@@ -183,6 +184,8 @@ export async function deleteCustomers(ids: number[]) {
 
   const customers = await supabase.from('customers').delete().in('id', ids)
   if (customers.error) throw customers.error
+
+  await logDeletions('customer', ids, changedBy)
 }
 
 type CustomerInvoiceBalanceRow = {
