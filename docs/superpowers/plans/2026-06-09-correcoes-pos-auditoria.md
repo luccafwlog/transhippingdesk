@@ -270,7 +270,7 @@ git commit -m "fix: surface ledger and pix persistence failures"
 - Create: `supabase/migrations/<timestamp>_restrict_consolidated_invoice_breakdown.sql`
 - Create or modify: `src/services/__tests__/consolidatedInvoiceBreakdownMigration.test.ts`
 
-- [ ] **Step 1: Escrever teste de migration**
+- [x] **Step 1: Escrever teste de migration**
 
 Criar teste que le a nova migration e verifica:
 - funcao `public.get_consolidated_invoice_item_breakdown`;
@@ -279,7 +279,7 @@ Criar teste que le a nova migration e verifica:
 - presenca de `public.is_admin()`;
 - `GRANT EXECUTE ... TO authenticated`.
 
-- [ ] **Step 2: Criar migration**
+- [x] **Step 2: Criar migration**
 
 Criar uma nova migration que substitui a funcao atualmente definida em `supabase/migrations/20260608174131_consolidated_invoice_item_breakdown.sql` para exigir:
 
@@ -291,7 +291,7 @@ WHERE public.is_active_user()
 
 Tambem ajustar `SET search_path = public, pg_temp`.
 
-- [ ] **Step 3: Rodar teste de migration**
+- [x] **Step 3: Rodar teste de migration**
 
 Run:
 
@@ -301,7 +301,7 @@ npm test -- src/services/__tests__/consolidatedInvoiceBreakdownMigration.test.ts
 
 Expected: passa.
 
-- [ ] **Step 4: Rodar suite**
+- [x] **Step 4: Rodar suite**
 
 Run:
 
@@ -311,7 +311,7 @@ npm test
 
 Expected: suite passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Suggested commit:
 
