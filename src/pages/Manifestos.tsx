@@ -35,7 +35,7 @@ export function Manifestos() {
   const initialVoyage = searchParams.get('voyage') ?? ''
   const queryClient = useQueryClient()
   const confirm = useConfirm()
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const selection = useRowSelection<string>()
   const [deleting, setDeleting] = useState(false)
   const [filters, setFilters] = useState<BlFilters>({
@@ -138,7 +138,7 @@ export function Manifestos() {
       const ok = await confirm({ message: parts.join('\n\n'), tone: 'danger', confirmLabel: 'Excluir' })
       if (!ok) return
 
-      await deleteBls(report.deletableIds)
+      await deleteBls(report.deletableIds, user?.id)
       selection.clear()
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
