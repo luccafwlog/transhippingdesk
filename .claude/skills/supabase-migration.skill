@@ -40,6 +40,7 @@ Then inspect current state with the Supabase MCP:
 - IDs: prefer `uuid default gen_random_uuid() primary key` unless the table follows a different existing convention — check siblings first.
 - Indexes: add an index for every FK column and for any column used in `where`/`order by` of hot queries. Name them `idx_<table>_<col>[_<col>]`.
 - Enums: prefer `text` + `check (col in (...))` over `create type` unless the value set is truly closed and shared. Easier to evolve.
+- **Functions (default-deny, ADR 0011):** every `create function` — especially `SECURITY DEFINER` — must be followed in the same file by `revoke execute on function public.<fn>(<args>) from public, anon;`. Trigger functions (`returns trigger`) additionally revoke from `authenticated` (triggers run with owner privileges; no caller needs EXECUTE). Supabase default privileges grant EXECUTE to anon at creation — without the revoke, the security advisor flags it.
 
 ## RLS is not optional
 

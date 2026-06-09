@@ -23,7 +23,7 @@ O sistema está em produção. Mudanças mal feitas afetam operações reais.
 | Backend/DB | Supabase (Postgres + Auth + RLS) |
 | Validação | Zod v4 |
 | Testes | Vitest |
-| PDF | jsPDF |
+| PDF | `window.print()` sobre componentes React estilizados (QR via `qrcode.react`) |
 | Excel | xlsx |
 | PIX | `src/lib/pix.ts` (geração manual de payload) |
 
