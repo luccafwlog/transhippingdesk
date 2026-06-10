@@ -38,6 +38,7 @@ export function Baplie() {
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setConfirmedBaplieManifestId(null)
   }, [voyageId])
 
@@ -689,6 +690,7 @@ function BaplieUploadModal({
   const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     if (open) setVoyageId(initialVoyageId)
   }, [initialVoyageId, open])
 

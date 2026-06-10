@@ -159,6 +159,7 @@ export function Faturamento() {
     const customerId = searchParams.get('customer') ?? ''
     const blSearch = searchParams.get('bl') ?? ''
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setSelectedInvoiceId(invoiceId)
     if (invoiceId) setActiveTab('invoices')
     setFilters((current) =>
@@ -221,6 +222,7 @@ export function Faturamento() {
   useEffect(() => {
     // Ledger invoices are settled in full; prefill and lock the amount field.
     if (isLedgerPayable) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
       setPaymentAmount(ledgerBalance ? String(ledgerBalance) : '')
     }
      

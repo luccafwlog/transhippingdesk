@@ -105,6 +105,7 @@ export function useExchangeRates(): ExchangeRates & { loading: boolean } {
       if (cachedDay === new Date().toDateString()) return
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setLoading(true)
     fetchPtax()
       .then((result) => {

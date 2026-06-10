@@ -41,6 +41,7 @@ export function VoyageCreateModal({
 
   useEffect(() => {
     if (!open) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setForm({
       ...initialVoyageFormValues,
       ...initialValues,

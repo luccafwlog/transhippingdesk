@@ -539,6 +539,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
     if (!open || voyageId || !voyages?.length) return
 
     if (voyages.length === 1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
       setVoyageId(String(voyages[0].id))
     }
   }, [open, voyageId, voyages])
