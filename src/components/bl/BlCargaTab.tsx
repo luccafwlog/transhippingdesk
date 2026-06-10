@@ -1,0 +1,305 @@
+import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Save } from 'lucide-react'
+import { Badge } from '../ui/Badge'
+import { Card } from '../ui/Card'
+import { Field, Input } from '../ui/Input'
+import { useToast } from '../ui/Toast'
+import { formatDate, normalizeText } from '../../lib/utils'
+import { calculateDemurrage } from '../../services/demurrage/demurrageRates'
+import { updateContainerReturnDate } from '../../services/demurrage/demurrageContainers'
+import { formatNumber } from '../../pages/blDetalheHelpers'
+import type { BLDetail } from '../../types/database'
+
+export type ContainerSummary = {
+  distinct: number
+  imo: number
+  oog: number
+}
+
+export type BreakbulkSummary = {
+  machines: number
+  packages: number
+  packagesTotal: number
+  weightTon: number
+  cbm: number
+}
+
+// Aba Carga: containers (com data de devolução/demurrage), resumo BB e veículos vinculados.
+export function BlCargaTab({
+  active,
+  bl,
+  blId,
+  isContainerMode,
+  containerSummary,
+  breakbulkSummary,
+}: {
+  active: boolean
+  bl: BLDetail
+  blId?: string
+  isContainerMode: boolean
+  containerSummary: ContainerSummary
+  breakbulkSummary: BreakbulkSummary
+}) {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const [vehicleSearch, setVehicleSearch] = useState('')
+  const [returnDates, setReturnDates] = useState<Record<number, string>>({})
+  const [savingReturnDate, setSavingReturnDate] = useState<number | null>(null)
+
+  const filteredVehicles = useMemo(() => {
+    if (!isContainerMode) return []
+
+    const term = normalizeText(vehicleSearch)
+    if (!term) return bl.vehicles ?? []
+    return (bl.vehicles ?? []).filter((vehicle) => normalizeText(vehicle.chassis).includes(term))
+  }, [bl.vehicles, isContainerMode, vehicleSearch])
+
+  async function handleSaveReturnDate(containerId: number) {
+    const returnDate = returnDates[containerId] ?? null
+    setSavingReturnDate(containerId)
+    try {
+      await updateContainerReturnDate(containerId, returnDate || null)
+      await queryClient.invalidateQueries({ queryKey: ['bl', blId] })
+      showToast('Data de devolucao salva.', 'success')
+    } catch {
+      showToast('Erro ao salvar data de devolucao.', 'error')
+    } finally {
+      setSavingReturnDate(null)
+    }
+  }
+
+  if (!active) return null
+
+  return (
+    <div className="grid gap-5">
+      <Card>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">
+            {isContainerMode ? 'Containers vinculados' : 'Resumo da carga solta'}
+          </h2>
+          {isContainerMode ? (
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="blue">{containerSummary.distinct} CNTRS</Badge>
+              <Badge tone="red">{containerSummary.imo} IMO</Badge>
+              <Badge tone="yellow">{containerSummary.oog} OOG</Badge>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="green">{formatNumber(breakbulkSummary.machines)} maquinas</Badge>
+              <Badge tone="blue">{formatNumber(breakbulkSummary.packagesTotal)} packages total</Badge>
+              <Badge tone="yellow">{formatNumber(breakbulkSummary.weightTon)} ton</Badge>
+              <Badge tone="slate">{formatNumber(breakbulkSummary.cbm)} CBM</Badge>
+            </div>
+          )}
+        </div>
+
+        <div className="app-table-scroll">
+          {isContainerMode ? (
+            <table className="app-table app-table--compact min-w-[800px] text-left text-sm">
+              <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                <tr>
+                  <th scope="col" className="py-2">No. Container</th>
+                  <th scope="col" className="py-2">Seal</th>
+                  <th scope="col" className="py-2">Tipo</th>
+                  <th scope="col" className="py-2">Peso bruto</th>
+                  <th scope="col" className="py-2">CBM</th>
+                  <th scope="col" className="py-2">OOG</th>
+                  <th scope="col" className="py-2">IMO</th>
+                  <th scope="col" className="py-2">Descarga</th>
+                  <th scope="col" className="py-2">Devolucao</th>
+                  <th scope="col" className="py-2">Demurrage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#30363d]">
+                {bl.bl_containers?.length ? (
+                  bl.bl_containers.map((container) => {
+                    const returnDateVal = returnDates[container.id] ?? container.return_date ?? ''
+                    const demCalc = container.discharge_date && returnDateVal
+                      ? calculateDemurrage(container.type, container.discharge_date, returnDateVal, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+                      : null
+                    return (
+                      <tr key={container.id}>
+                        <td className="py-2 font-semibold text-white">{container.container_number}</td>
+                        <td className="py-2">{container.seal_number ?? '-'}</td>
+                        <td className="py-2">{container.type ?? '-'}</td>
+                        <td className="py-2">{formatNumber(container.gross_weight_kg)} kg</td>
+                        <td className="py-2">{formatNumber(container.cbm)}</td>
+                        <td className="py-2">{container.is_oog ? <Badge tone="yellow">OOG</Badge> : '-'}</td>
+                        <td className="py-2">{container.is_imo ? <Badge tone="red">IMO</Badge> : '-'}</td>
+                        <td className="py-2 text-slate-300">{container.discharge_date ? formatDate(container.discharge_date) : <span className="text-slate-500">—</span>}</td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="date"
+                              className="rounded border border-[#30363d] bg-[#161b22] px-1 py-0.5 text-xs text-white"
+                              value={returnDateVal}
+                              onChange={(e) => setReturnDates((prev) => ({ ...prev, [container.id]: e.target.value }))}
+                            />
+                            <button
+                              type="button"
+                              className="rounded bg-blue-700 px-1.5 py-0.5 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
+                              disabled={savingReturnDate === container.id}
+                              onClick={() => void handleSaveReturnDate(container.id)}
+                            >
+                              {savingReturnDate === container.id ? '...' : <Save size={12} />}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-2">
+                          {demCalc ? (
+                            demCalc.status === 'within_free_time' ? (
+                              <span className="rounded bg-green-900/50 px-1.5 py-0.5 text-xs text-green-400">Free time</span>
+                            ) : (
+                              <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-xs text-red-400" title={`P1: ${demCalc.days_p1}d × $${demCalc.rate_p1_usd} | P2: ${demCalc.days_p2}d × $${demCalc.rate_p2_usd}`}>
+                                {demCalc.total_days - demCalc.free_days}d — ${demCalc.total_usd.toFixed(2)}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                ) : (
+                  <tr>
+                    <td className="py-3 text-slate-400" colSpan={10}>
+                      Nenhum container vinculado a este B/L.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <div className="grid gap-4">
+              <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                  <tr>
+                    <th scope="col" className="py-2">CE</th>
+                    <th scope="col" className="py-2">Maquinas</th>
+                    <th scope="col" className="py-2">Packages</th>
+                    <th scope="col" className="py-2">Packages Total</th>
+                    <th scope="col" className="py-2">Weight (Ton)</th>
+                    <th scope="col" className="py-2">CBM (M3)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  <tr>
+                    <td className="py-2">{bl.ce_mercante ?? '-'}</td>
+                    <td className="py-2">{formatNumber(bl.bb_machine_qty)}</td>
+                    <td className="py-2">{formatNumber(bl.bb_packages_qty)}</td>
+                    <td className="py-2">{formatNumber(bl.bb_packages_total ?? bl.bb_packages_qty)}</td>
+                    <td className="py-2">{formatNumber(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : null))}</td>
+                    <td className="py-2">{formatNumber(bl.total_cbm)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                  <tr>
+                    <th scope="col" className="py-2">Shipper</th>
+                    <th scope="col" className="py-2">Consignee</th>
+                    <th scope="col" className="py-2">Notify</th>
+                    <th scope="col" className="py-2">POL</th>
+                    <th scope="col" className="py-2">POD</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  <tr>
+                    <td className="py-2">{bl.shipper ?? '-'}</td>
+                    <td className="py-2">{bl.customer?.name ?? bl.consignee ?? '-'}</td>
+                    <td className="py-2">{bl.notify_party ?? '-'}</td>
+                    <td className="py-2">{bl.pol ?? '-'}</td>
+                    <td className="py-2">{bl.pod ?? '-'}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {bl.bl_breakbulk_items?.length ? (
+                <div>
+                  <div className="mb-2 text-sm font-semibold text-slate-300">Itens legados vinculados</div>
+                  <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+                    <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                      <tr>
+                        <th scope="col" className="py-2">Descricao</th>
+                        <th scope="col" className="py-2">Volumes</th>
+                        <th scope="col" className="py-2">Unidade</th>
+                        <th scope="col" className="py-2">Peso bruto</th>
+                        <th scope="col" className="py-2">CBM</th>
+                        <th scope="col" className="py-2">Marcas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#30363d]">
+                      {bl.bl_breakbulk_items.map((item) => (
+                        <tr key={item.id}>
+                          <td className="py-2 font-semibold text-white">{item.item_description}</td>
+                          <td className="py-2">{formatNumber(item.package_qty)}</td>
+                          <td className="py-2">{item.package_unit ?? '-'}</td>
+                          <td className="py-2">{formatNumber(item.gross_weight_kg)} kg</td>
+                          <td className="py-2">{formatNumber(item.cbm)}</td>
+                          <td className="py-2">{item.marks ?? '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-400">
+                  Este manifesto BB esta no layout resumido por B/L e nao possui itens individuais detalhados.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {isContainerMode ? (
+        <Card>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">Veiculos vinculados</h2>
+            <div className="w-full max-w-xs">
+              <Field label="Buscar por chassi">
+                <Input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="app-table-scroll">
+            <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
+              <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th scope="col" className="py-2">Chassi</th>
+                  <th scope="col" className="py-2">Marca</th>
+                  <th scope="col" className="py-2">Container</th>
+                  <th scope="col" className="py-2">Peso</th>
+                  <th scope="col" className="py-2">Cubagem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#30363d]">
+                {filteredVehicles.length ? (
+                  filteredVehicles.map((vehicle) => (
+                    <tr key={vehicle.id}>
+                      <td className="py-2 font-semibold text-white">{vehicle.chassis}</td>
+                      <td className="py-2">{vehicle.brand}</td>
+                      <td className="py-2">{vehicle.container?.container_number ?? '-'}</td>
+                      <td className="py-2">{formatNumber(vehicle.weight_kg)} kg</td>
+                      <td className="py-2">{formatNumber(vehicle.cbm)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="py-3 text-slate-400" colSpan={5}>
+                      Nenhum veiculo vinculado para este B/L.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  )
+}
