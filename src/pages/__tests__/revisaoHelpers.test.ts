@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   extractErrorText,
+  getConsigneeFilterOptions,
+  getSelectionConsignee,
   needsCeMercante,
   needsCustomerLink,
   needsWeightFix,
@@ -58,5 +60,48 @@ describe('extractErrorText', () => {
     expect(extractErrorText(null)).toBe('')
     expect(extractErrorText(undefined)).toBe('')
     expect(extractErrorText(123)).toBe('')
+  })
+})
+
+describe('getConsigneeFilterOptions', () => {
+  it('lista consignatarios unicos ordenados, ignorando vazios', () => {
+    const rows = [
+      item({ id: 'BL1', consignee: 'Beta Trading' }),
+      item({ id: 'BL2', consignee: '  Alfa Import  ' }),
+      item({ id: 'BL3', consignee: 'Beta Trading' }),
+      item({ id: 'BL4', consignee: '' }),
+      item({ id: 'BL5', consignee: null }),
+    ]
+
+    expect(getConsigneeFilterOptions(rows)).toEqual(['Alfa Import', 'Beta Trading'])
+  })
+})
+
+describe('getSelectionConsignee', () => {
+  it('retorna o consignatario quando todos os selecionados pertencem ao mesmo', () => {
+    const rows = [
+      item({ id: 'BL1', consignee: 'AC Comercial' }),
+      item({ id: 'BL2', consignee: ' AC Comercial ' }),
+    ]
+
+    expect(getSelectionConsignee(rows)).toBe('AC Comercial')
+  })
+
+  it('retorna null quando a selecao mistura consignatarios', () => {
+    const rows = [
+      item({ id: 'BL1', consignee: 'AC Comercial' }),
+      item({ id: 'BL2', consignee: 'Alma Trading' }),
+    ]
+
+    expect(getSelectionConsignee(rows)).toBeNull()
+  })
+
+  it('retorna null quando algum selecionado nao tem consignatario', () => {
+    const rows = [
+      item({ id: 'BL1', consignee: 'AC Comercial' }),
+      item({ id: 'BL2', consignee: null }),
+    ]
+
+    expect(getSelectionConsignee(rows)).toBeNull()
   })
 })

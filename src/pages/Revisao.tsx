@@ -5,13 +5,21 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Search, X } from 'lucide-reac
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
-import { Field, Input, Textarea } from '../components/ui/Input'
+import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
-import { extractErrorText, needsCeMercante, needsCustomerLink, needsWeightFix } from './revisaoHelpers'
+import {
+  extractErrorText,
+  getConsigneeFilterOptions,
+  getSelectionConsignee,
+  needsCeMercante,
+  needsCustomerLink,
+  needsWeightFix,
+  normalizeConsignee,
+} from './revisaoHelpers'
 import { InlineCustomerPicker, InlineFieldEditor } from '../components/shared/ReviewInlineEditors'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatCnpjCpf, onlyDigits } from '../lib/utils'
@@ -20,6 +28,7 @@ import { calculateBlLocalCharges } from '../services/charges/chargeOperationsSer
 import { logOperationalEvent } from '../services/operationalEvents'
 import { queryKeys } from '../services/queryKeys'
 import { applyInlineBlReviewFix, ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
+import { tryIssueInvoiceAfterCustomerLink } from '../services/reviewBillingAutomation'
 import { supabase } from '../services/supabase'
 
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
@@ -32,12 +41,15 @@ export function Revisao() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
+  const [consigneeFilter, setConsigneeFilter] = useState('')
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
-  const [batchJustification, setBatchJustification] = useState('')
+  const [batchCustomerSearch, setBatchCustomerSearch] = useState('')
+  const [batchCustomerId, setBatchCustomerId] = useState<number | null>(null)
   const [batchSaving, setBatchSaving] = useState(false)
   const [savingInlineId, setSavingInlineId] = useState<string | null>(null)
   const [recalcQueue, setRecalcQueue] = useState<RecalcNotice[]>([])
   const [recalcingId, setRecalcingId] = useState<string | null>(null)
+  const batchCustomerLookup = useCustomerLookup(batchCustomerSearch)
 
   async function invalidateReviewCaches(blId: string) {
     await Promise.all([
@@ -85,6 +97,8 @@ export function Revisao() {
   async function handleInlineCustomer(item: ReviewQueueItem, customerId: number) {
     if (!user) return
     setSavingInlineId(item.id)
+    let autoInvoiceMessage: string | null = null
+    let autoInvoiceIssued = false
     try {
       if (item.source === 'granite') {
         await saveGraniteBlReview({ graniteBlId: item.id, clientId: customerId, changedBy: user.id })
@@ -97,10 +111,21 @@ export function Revisao() {
           changedBy: user.id,
           expectedUpdatedAt: item.updated_at ?? null,
         })
+        const autoInvoice = await tryIssueInvoiceAfterCustomerLink({ blId: item.id, customerId, actorId: user.id })
+        autoInvoiceIssued = autoInvoice.status === 'invoiced'
+        autoInvoiceMessage = autoInvoice.status === 'blocked' ? autoInvoice.message : null
       }
       await invalidateReviewCaches(item.id)
-      evaluateRecalcNotice(item)
-      showToast('Cliente vinculado.', 'success')
+      if (!autoInvoiceIssued) {
+        evaluateRecalcNotice(item)
+      }
+      if (autoInvoiceIssued) {
+        showToast('Cliente vinculado e fatura emitida automaticamente.', 'success')
+      } else if (autoInvoiceMessage) {
+        showToast(`Cliente vinculado, mas faturamento automatico nao concluido: ${autoInvoiceMessage}`, 'info')
+      } else {
+        showToast('Cliente vinculado.', 'success')
+      }
     } catch (err) {
       await handleInlineError(err)
     } finally {
@@ -182,8 +207,11 @@ export function Revisao() {
     if (reasonFilter) {
       result = result.filter((item) => item.review_reasons?.includes(reasonFilter))
     }
+    if (consigneeFilter) {
+      result = result.filter((item) => normalizeConsignee(item.consignee) === consigneeFilter)
+    }
     return result
-  }, [data, searchText, reasonFilter])
+  }, [data, searchText, reasonFilter, consigneeFilter])
 
   const allReasons = useMemo(() => {
     if (!data) return []
@@ -194,11 +222,14 @@ export function Revisao() {
     return [...reasons].sort()
   }, [data])
 
+  const consigneeOptions = useMemo(() => getConsigneeFilterOptions(data ?? []), [data])
+
   const selected = selectedIndex !== null ? (filteredData[selectedIndex] ?? null) : null
-  const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0)
+  const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0) + (consigneeFilter ? 1 : 0)
   const filterDescription = describeActiveFilters([
     { label: 'Busca', value: searchText },
     { label: 'Motivo', value: reasonFilter },
+    { label: 'Consignatario', value: consigneeFilter },
   ])
   const emptyState = describeEmptyState({
     entitySingular: 'B/L pendente',
@@ -234,49 +265,65 @@ export function Revisao() {
     })
   }
 
-  const checkedItems = filteredData.filter((item) => checkedIds.has(item.id))
-  const checkedWithCustomer = checkedItems.filter((item) => item.customer_id != null)
-  const canBatchReview = checkedItems.length > 1 && checkedItems.every((item) => item.customer_id != null)
+  function handleConsigneeFilterChange(value: string) {
+    setConsigneeFilter(value)
+    setCheckedIds(new Set())
+  }
 
-  async function handleBatchReview() {
-    if (!canBatchReview || !user || !batchJustification.trim()) {
-      if (!batchJustification.trim()) showToast('Informe a justificativa para a revisao em lote.', 'error')
+  const checkedItems = filteredData.filter((item) => checkedIds.has(item.id))
+  const selectedConsignee = getSelectionConsignee(checkedItems)
+  const selectedNeedCustomer = checkedItems.filter(needsCustomerLink)
+  const canBatchLinkCustomer =
+    checkedItems.length > 1 &&
+    selectedNeedCustomer.length === checkedItems.length &&
+    Boolean(selectedConsignee) &&
+    batchCustomerId != null
+
+  async function handleBatchCustomerLink() {
+    if (!user) return
+    if (!selectedConsignee) {
+      showToast('Selecione apenas B/Ls do mesmo consignatario.', 'error')
+      return
+    }
+    if (selectedNeedCustomer.length !== checkedItems.length) {
+      showToast('Selecione apenas B/Ls sem cliente vinculado.', 'error')
+      return
+    }
+    if (!batchCustomerId) {
+      showToast('Selecione o cliente para vincular aos B/Ls.', 'error')
       return
     }
     setBatchSaving(true)
     let successCount = 0
     let errorCount = 0
+    let invoiceCount = 0
+    const invoiceBlocks: Array<{ blId: string; message: string }> = []
     for (const item of checkedItems) {
       try {
         if (item.source === 'granite') {
-          await saveGraniteBlReview({ graniteBlId: item.id, clientId: item.customer_id!, changedBy: user.id })
+          await saveGraniteBlReview({ graniteBlId: item.id, clientId: batchCustomerId, changedBy: user.id })
         } else {
-          await saveBlReview({
+          await applyInlineBlReviewFix({
             blId: item.id,
-            original: {
-              shipper: item.shipper,
-              consignee: item.consignee,
-              pol: item.pol,
-              pod: item.pod,
-              total_weight_kg: item.total_weight_kg,
-              total_cbm: item.total_cbm,
-              notes: item.notes,
-            },
-            values: {
-              shipper: item.shipper,
-              consignee: item.consignee,
-              pol: item.pol,
-              pod: item.pod,
-              total_weight_kg: item.total_weight_kg ?? null,
-              total_cbm: item.total_cbm ?? null,
-              notes: item.notes,
-            },
-            customerId: item.customer_id ?? null,
-            previousCustomerId: item.customer_id ?? null,
+            field: 'customer_id',
+            value: batchCustomerId,
+            previousValue: item.customer_id ?? null,
             changedBy: user.id,
-            justification: batchJustification,
             expectedUpdatedAt: item.updated_at ?? null,
           })
+          const autoInvoice = await tryIssueInvoiceAfterCustomerLink({
+            blId: item.id,
+            customerId: batchCustomerId,
+            actorId: user.id,
+          })
+          if (autoInvoice.status === 'invoiced') {
+            invoiceCount++
+          } else {
+            invoiceBlocks.push({ blId: item.id, message: autoInvoice.message })
+          }
+        }
+        if (item.source !== 'bl' || invoiceBlocks.some((block) => block.blId === item.id)) {
+          evaluateRecalcNotice(item)
         }
         successCount++
       } catch {
@@ -285,18 +332,27 @@ export function Revisao() {
     }
     setBatchSaving(false)
     setCheckedIds(new Set())
-    setBatchJustification('')
+    setBatchCustomerId(null)
+    setBatchCustomerSearch('')
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
       queryClient.invalidateQueries({ queryKey: ['bls'] }),
       queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['customers'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
       queryClient.invalidateQueries({ queryKey: ['op-count'] }),
     ])
+    const firstInvoiceBlock = invoiceBlocks[0]
+    const invoiceSummary = invoiceCount > 0 ? ` ${invoiceCount} fatura(s) emitida(s).` : ''
+    const blockSummary = firstInvoiceBlock
+      ? ` ${invoiceBlocks.length} B/L(s) sem fatura automatica. Primeiro bloqueio em ${firstInvoiceBlock.blId}: ${firstInvoiceBlock.message}`
+      : ''
     showToast(
       errorCount
-        ? `${successCount} de ${checkedItems.length} B/Ls revisados em lote; ${errorCount} falharam.`
-        : `${successCount} de ${checkedItems.length} B/Ls revisados em lote.`,
-      errorCount ? 'info' : 'success',
+        ? `${successCount} de ${checkedItems.length} B/Ls vinculados; ${errorCount} falharam.${invoiceSummary}${blockSummary}`
+        : `${successCount} de ${checkedItems.length} B/Ls vinculados ao cliente.${invoiceSummary}${blockSummary}`,
+      errorCount || firstInvoiceBlock ? 'info' : 'success',
     )
   }
 
@@ -347,6 +403,22 @@ export function Revisao() {
           </div>
         ) : null}
 
+        {consigneeOptions.length > 0 ? (
+          <Select
+            className="w-full sm:w-80"
+            value={consigneeFilter}
+            onChange={(event) => handleConsigneeFilterChange(event.target.value)}
+            aria-label="Filtrar por consignatario"
+          >
+            <option value="">Todos os consignatarios</option>
+            {consigneeOptions.map((consignee) => (
+              <option key={consignee} value={consignee}>
+                {consignee}
+              </option>
+            ))}
+          </Select>
+        ) : null}
+
         {data && data.length > 0 ? (
           <span className="ml-auto text-xs text-slate-500">
             {formatResultCount(filteredData.length, 'B/L visivel', 'B/Ls visiveis')} de {data.length}
@@ -358,27 +430,65 @@ export function Revisao() {
         <div className="mb-3 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
           <div className="mb-2 text-sm font-medium text-blue-200">
             {checkedItems.length} B/Ls selecionados
-            {checkedItems.length !== checkedWithCustomer.length && (
+            {!selectedConsignee ? (
               <span className="ml-1 text-amber-300">
-                ({checkedItems.length - checkedWithCustomer.length} sem cliente — serão ignorados)
+                (selecione apenas o mesmo consignatario)
               </span>
-            )}
+            ) : null}
+            {selectedNeedCustomer.length !== checkedItems.length ? (
+              <span className="ml-1 text-amber-300">
+                ({checkedItems.length - selectedNeedCustomer.length} ja tem cliente)
+              </span>
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <input
-              className="flex-1 min-w-[260px] rounded border border-[#30363d] bg-[#161b22] px-3 py-1.5 text-sm text-white placeholder-slate-500"
-              placeholder="Justificativa da revisao em lote (obrigatório)"
-              value={batchJustification}
-              onChange={(e) => setBatchJustification(e.target.value)}
-            />
+          <div className="relative flex flex-wrap items-end gap-2">
+            <div className="relative min-w-[260px] flex-1">
+              <Input
+                value={batchCustomerSearch}
+                onChange={(event) => {
+                  setBatchCustomerSearch(event.target.value)
+                  setBatchCustomerId(null)
+                }}
+                placeholder="Buscar cliente para vincular..."
+                disabled={batchSaving}
+              />
+              {batchCustomerLookup.data?.length ? (
+                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-[#30363d] bg-[#161b22] shadow-xl">
+                  {batchCustomerLookup.data.map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      disabled={batchSaving}
+                      className="block w-full px-3 py-1.5 text-left text-xs text-slate-300 hover:bg-[#21262d] disabled:opacity-50"
+                      onClick={() => {
+                        setBatchCustomerId(customer.id)
+                        setBatchCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
+                      }}
+                    >
+                      <div className="font-medium text-white">{customer.name}</div>
+                      <div className="text-[11px] text-slate-500">{formatCnpjCpf(customer.cnpj_cpf)}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <Button
               loading={batchSaving}
-              disabled={!canBatchReview}
-              onClick={handleBatchReview}
+              disabled={!canBatchLinkCustomer}
+              onClick={handleBatchCustomerLink}
             >
-              Revisar selecionados ({checkedWithCustomer.length})
+              Vincular cliente ({checkedItems.length})
             </Button>
-            <Button variant="ghost" onClick={() => setCheckedIds(new Set())}>Limpar</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setCheckedIds(new Set())
+                setBatchCustomerId(null)
+                setBatchCustomerSearch('')
+              }}
+            >
+              Limpar
+            </Button>
           </div>
         </div>
       )}

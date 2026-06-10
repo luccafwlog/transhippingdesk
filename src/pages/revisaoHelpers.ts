@@ -1,6 +1,23 @@
 // Predicados puros e normalização de erros para a fila de revisão.
 import type { ReviewQueueItem } from '../hooks/useReview'
 
+export function normalizeConsignee(value?: string | null) {
+  return value?.trim() || ''
+}
+
+export function getConsigneeFilterOptions(items: ReviewQueueItem[]) {
+  return Array.from(new Set(items.map((item) => normalizeConsignee(item.consignee)).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  )
+}
+
+export function getSelectionConsignee(items: ReviewQueueItem[]) {
+  const normalized = items.map((item) => normalizeConsignee(item.consignee))
+  if (normalized.some((consignee) => !consignee)) return null
+  const consignees = new Set(normalized)
+  return consignees.size === 1 ? [...consignees][0] : null
+}
+
 export function needsCustomerLink(item: ReviewQueueItem) {
   return item.customer_id == null
 }
