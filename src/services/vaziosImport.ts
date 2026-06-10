@@ -1,4 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
+import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { supabase } from './supabase'
 
 const HEADER_MAP: Record<string, string> = {
@@ -34,7 +35,7 @@ type ParsedVaziosBooking = {
 
 export type ParsedVaziosManifest = {
   bookings: ParsedVaziosBooking[]
-  rowErrors: { row: number; message: string; raw: unknown }[]
+  rowErrors: RowError[]
 }
 
 export async function parseVaziosManifestFile(file: File): Promise<ParsedVaziosManifest> {
@@ -44,45 +45,25 @@ export async function parseVaziosManifestFile(file: File): Promise<ParsedVaziosM
 }
 
 async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosManifest> {
-  const XLSX = await import('xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-  if (!firstSheet) throw new Error('Arquivo sem abas validas.')
-
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
-  if (!rows.length) throw new Error('Planilha vazia.')
-
-  const sampleRow = rows[0]
-  const colMapping: Record<string, string> = {}
-  for (const originalKey of Object.keys(sampleRow)) {
-    const normalized = originalKey.trim().toLowerCase()
-    const mapped = HEADER_MAP[normalized]
-    if (mapped) colMapping[originalKey] = mapped
-  }
+  const rows = await readFirstSheetRows(buffer)
+  const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
 
   const bookings: ParsedVaziosBooking[] = []
-  const rowErrors: ParsedVaziosManifest['rowErrors'] = []
+  const rowErrors = createRowErrorCollector()
 
   rows.forEach((row, idx) => {
     const rowNumber = idx + 2
-    const mapped: Record<string, unknown> = {}
-    for (const [originalKey, fieldName] of Object.entries(colMapping)) {
-      mapped[fieldName] = row[originalKey]
-    }
+    const mapped = mapRow(row)
 
     const bookingNumber = String(mapped['booking_number'] ?? '').trim()
     if (!bookingNumber) {
-      rowErrors.push({ row: rowNumber, message: 'Booking ausente — linha ignorada.', raw: row })
+      rowErrors.add(rowNumber, 'Booking ausente — linha ignorada.', row)
       return
     }
 
     const containerNumber = String(mapped['container_number'] ?? '').trim() || null
     if (containerNumber && !/^[A-Z]{4}\d{7}$/.test(containerNumber)) {
-      rowErrors.push({
-        row: rowNumber,
-        message: `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`,
-        raw: row,
-      })
+      rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
     }
 
     bookings.push({
@@ -97,7 +78,7 @@ async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaz
     })
   })
 
-  return { bookings, rowErrors }
+  return { bookings, rowErrors: rowErrors.errors }
 }
 
 function parseDateBR(value: string): string | null {

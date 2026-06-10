@@ -2,27 +2,8 @@ import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { InvoiceDetail } from '../../services/billing'
 import { stripBlPrefix } from '../../lib/utils'
-
-function fmtBRL(v: number | null | undefined) {
-  const n = Number(v ?? 0)
-  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function fmtCNPJ(s: string | null | undefined) {
-  if (!s) return ''
-  const d = s.replace(/\D/g, '')
-  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  return s
-}
-
-
-function longDate() {
-  return new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-}
-
-const cell: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid #e5e7eb' }
-const labelCell: React.CSSProperties = { ...cell, fontWeight: 700, width: 130, whiteSpace: 'nowrap' }
+import { cell, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
+import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Props = { detail: InvoiceDetail }
 
@@ -53,25 +34,10 @@ export function InvoiceDocumentLocal({ detail }: Props) {
   }
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#111', background: 'white' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <img
-          src="/branding/transhipping-logo-cropped.png"
-          alt="Transhipping"
-          style={{ height: 52 }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-        />
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1A2744' }}>
-          Nº {invoice.invoice_number ?? `INV-${invoice.id}`}
-        </div>
-      </div>
+    <div style={documentRoot}>
+      <InvoiceDocHeader logoSrc="/branding/transhipping-logo-cropped.png" docNumber={invoice.invoice_number ?? `INV-${invoice.id}`} />
 
-      {/* Title */}
-      <div style={{ textAlign: 'center', fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', margin: '12px 0 6px' }}>
-        {title}
-      </div>
-      <hr style={{ border: 'none', borderTop: '2px solid #111', margin: '0 0 16px' }} />
+      <InvoiceDocTitle uppercase>{title}</InvoiceDocTitle>
 
       {/* Metadata */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
@@ -189,10 +155,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{ marginTop: 24, textAlign: 'right', fontSize: '12px', color: '#555' }}>
-        Vitória, {longDate()}
-      </div>
+      <InvoiceDocFooter marginTop={24} />
     </div>
   )
 }

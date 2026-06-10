@@ -1,14 +1,12 @@
 import { QRCodeSVG } from 'qrcode.react'
 import type { DemurrageInvoiceDetail } from '../../types/database'
 import { COMPANY } from '../../config/company'
+import { cell, documentRoot, fmtBRL, labelCell } from '../shared/invoiceFormat'
+import { InvoiceClientBlock, InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Props = {
   detail: DemurrageInvoiceDetail
   type: 'invoice' | 'receipt'
-}
-
-function fmtBRL(v: number) {
-  return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function fmtUSD(v: number) {
@@ -19,20 +17,6 @@ function fmtDate(s: string | null | undefined) {
   if (!s) return '—'
   return new Date(`${s}T12:00:00`).toLocaleDateString('pt-BR')
 }
-
-function fmtCNPJ(s: string | null | undefined) {
-  if (!s) return ''
-  const d = s.replace(/\D/g, '')
-  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-  return s
-}
-
-function longDate() {
-  return new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-}
-
-const cell: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid #e5e7eb' }
-const labelCell: React.CSSProperties = { ...cell, fontWeight: 700, width: 130, whiteSpace: 'nowrap' }
 
 export function InvoiceDocument({ detail, type }: Props) {
   const { items, customer, bl, ...invoice } = detail
@@ -66,32 +50,15 @@ export function InvoiceDocument({ detail, type }: Props) {
   const hasDiscount = (invoice.discount_value ?? 0) > 0
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#111', background: 'white' }}>
+    <div style={documentRoot}>
 
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <img src="/branding/tr-logo.png" alt="Transhipping" style={{ height: 52 }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1A2744' }}>Nº {invoice.doc_number}</div>
-      </div>
+      <InvoiceDocHeader logoSrc="/branding/tr-logo.png" docNumber={invoice.doc_number} />
 
-      {/* ── Title ── */}
-      <div style={{ textAlign: 'center', fontSize: '16px', fontWeight: 700, margin: '12px 0 6px' }}>
+      <InvoiceDocTitle>
         {isInvoice ? 'FATURA DE SOBREESTADIA DE CONTAINER' : 'RECIBO DE QUITAÇÃO DE SOBREESTADIA'}
-      </div>
-      <hr style={{ border: 'none', borderTop: '2px solid #111', margin: '0 0 16px' }} />
+      </InvoiceDocTitle>
 
-      {/* ── Client block ── */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
-        <tbody>
-          <tr>
-            <td style={labelCell}>Cliente:</td>
-            <td style={cell}>
-              {customer?.name ?? '—'}
-              {customer?.cnpj_cpf ? <><br />CNPJ: {fmtCNPJ(customer.cnpj_cpf)}</> : ''}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <InvoiceClientBlock name={customer?.name} cnpjCpf={customer?.cnpj_cpf} />
       <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '0 0 0' }} />
 
       {/* ── Shipment info ── */}
@@ -226,10 +193,7 @@ export function InvoiceDocument({ detail, type }: Props) {
         </div>
       )}
 
-      {/* ── Footer ── */}
-      <div style={{ marginTop: 28, textAlign: 'right', fontSize: '12px', color: '#555' }}>
-        Vitória, {longDate()}
-      </div>
+      <InvoiceDocFooter marginTop={28} />
     </div>
   )
 }
