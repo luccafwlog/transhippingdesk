@@ -36,6 +36,7 @@ export function PolScheduleModal({
 
   useEffect(() => {
     if (!polSchedule || !open) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setEtd(polSchedule.etd ?? '')
   }, [open, polSchedule])
 
@@ -125,6 +126,7 @@ export function PodScheduleModal({
 
   useEffect(() => {
     if (!podSchedule || !open) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setEta(podSchedule.eta ?? '')
     setEtb(podSchedule.etb ?? '')
     setAta(podSchedule.ata ?? '')
@@ -255,6 +257,7 @@ export function AddPodToVoyageModal({
 
   useEffect(() => {
     if (!open) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setPod('')
     setEta('')
     setEtb('')
@@ -391,6 +394,7 @@ export function ExportScheduleModal({
   useEffect(() => {
     if (!open) return
     const existing = exportData?.existing
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setPol(existing?.pol ?? '')
     setEta(existing?.eta ?? '')
     setEtb(existing?.etb ?? '')

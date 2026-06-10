@@ -119,6 +119,7 @@ export function ClienteFicha() {
 
   useEffect(() => {
     if (!data) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setForm({
       name: data.name,
       trade_name: data.trade_name ?? '',
@@ -138,6 +139,7 @@ export function ClienteFicha() {
       data.customer_contacts?.find((contact) => contact.is_primary && contact.email) ??
       data.customer_contacts?.find((contact) => contact.email)
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setPortalEmail(portalAccountQuery.data?.contact_email ?? primaryContact?.email ?? '')
     setPortalActive(portalAccountQuery.data?.active ?? true)
   }, [data, portalAccountQuery.data])

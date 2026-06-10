@@ -40,6 +40,7 @@ export function LineUpTVDisplay() {
 
   useEffect(() => {
     if (data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
       setRefreshedAt(new Date())
       setFlashRefresh(true)
       const t = setTimeout(() => setFlashRefresh(false), 1200)
@@ -110,6 +111,7 @@ export function LineUpTVDisplay() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setStartIndex(0)
     setIsSliding(false)
   }, [data?.lastChangedAt, rows.length])

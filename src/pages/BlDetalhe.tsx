@@ -152,6 +152,7 @@ export function BlDetalhe() {
 
   useEffect(() => {
     if (!bl) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setForm(makeForm(bl))
     setDemurrageOverrideForm({
       p1: bl.demurrage_rate_override_p1_usd != null ? String(Number(bl.demurrage_rate_override_p1_usd)) : '',
@@ -204,6 +205,7 @@ export function BlDetalhe() {
   )
 
   const breakbulkSummary = useMemo(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     () => ({
       machines: Number(bl?.bb_machine_qty ?? 0),
       packages: Number(bl?.bb_packages_qty ?? 0),

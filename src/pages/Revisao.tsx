@@ -598,6 +598,7 @@ function ReviewModal({
 
   useEffect(() => {
     if (!item) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setShipper(item.shipper ?? '')
     setConsignee(item.consignee ?? '')
     setPol(item.pol ?? '')

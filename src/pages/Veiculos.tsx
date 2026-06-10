@@ -64,6 +64,7 @@ export function Veiculos() {
     if (!selectedVoyageId) return
     const stillValid = voyageOptions.some((voyage) => String(voyage.id) === selectedVoyageId)
     if (!stillValid) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
       setSelectedVoyageId('')
     }
   }, [selectedVoyageId, voyageOptions])
@@ -72,6 +73,7 @@ export function Veiculos() {
     if (!importOpen) return
 
     if (selectedVoyageId && !importVoyageId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
       setImportVoyageId(selectedVoyageId)
       return
     }

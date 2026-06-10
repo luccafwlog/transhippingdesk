@@ -272,6 +272,7 @@ function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId
 
   useEffect(() => {
     if (!preview.bls.length || !voyageId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
       setExistingBlIds(new Set())
       return
     }
