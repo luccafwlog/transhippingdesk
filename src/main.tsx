@@ -12,6 +12,9 @@ import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmDialogProvider } from './components/ui/ConfirmDialog'
 import { isSupabaseConfigured } from './services/supabase'
+import { initTelemetry } from './lib/telemetry'
+
+initTelemetry()
 
 function ConfigurationError() {
   return (

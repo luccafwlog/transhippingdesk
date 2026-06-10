@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { reportCaughtException } from '../lib/telemetry'
 
 type Props = {
   children: ReactNode
@@ -16,6 +17,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, _info: ErrorInfo) {
+    reportCaughtException(error, 'ErrorBoundary')
     // Em produção logamos apenas a mensagem; o componentStack fica fora
     // para não vazar estrutura interna de componentes no console do browser.
     if (import.meta.env.DEV) {
