@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
-import type { InvoiceDocumentStatus, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
+import { z } from 'zod'
+import type { Customer, Invoice, InvoiceDocumentStatus, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
 import { buildTransshippingPixPayload } from '../lib/pix'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../lib/utils'
 import { reportBestEffortFailure } from '../lib/telemetry'
@@ -43,7 +44,25 @@ type InvoiceListBlSnapshot = {
   voyage?: { voyage_number: string | null; vessel?: { name: string | null } | null } | null
 }
 
-export type InvoiceListRow = InvoiceSummary & {
+// Apenas os campos de invoices efetivamente buscados em INVOICE_LIST_SELECT.
+// Estender InvoiceSummary (Invoice completo) prometia colunas que a query
+// não busca — o cast em listInvoices escondia isso do compilador.
+export type InvoiceListRow = Pick<
+  Invoice,
+  | 'id'
+  | 'invoice_number'
+  | 'customer_id'
+  | 'bl_id'
+  | 'issued_at'
+  | 'due_date'
+  | 'total_brl'
+  | 'status'
+  | 'invoice_type'
+  | 'total_paid_brl'
+  | 'balance_brl'
+  | 'created_at'
+> & {
+  customer?: Pick<Customer, 'id' | 'name' | 'cnpj_cpf'> | null
   invoice_bls?:
     | Array<{ id: number; bl_id: string | null; subtotal_brl: number; subtotal_usd: number; bl?: InvoiceListBlSnapshot | null }>
     | null
@@ -281,11 +300,11 @@ export async function listInvoices(filters: InvoiceFilters): Promise<{ rows: Inv
     query = query.in('id', Array.from(idFilter))
   }
 
-  const { data, error, count } = await query.range(from, to)
+  const { data, error, count } = await query.range(from, to).overrideTypes<InvoiceListRow[], { merge: false }>()
   if (error) throw error
 
   return {
-    rows: (data ?? []) as unknown as InvoiceListRow[],
+    rows: data ?? [],
     count: count ?? 0,
   }
 }
@@ -387,13 +406,23 @@ export async function listVoyageSuggestions(search: string): Promise<Array<{ lab
   const like = `%${term}%`
   type VoyageRow = { voyage_number: string | null; vessels?: { name: string | null } | null }
   const [byNumber, byVessel] = await Promise.all([
-    supabase.from('voyages').select('voyage_number,vessels(name)').ilike('voyage_number', like).limit(10),
-    supabase.from('voyages').select('voyage_number,vessels!inner(name)').ilike('vessels.name', like).limit(10),
+    supabase
+      .from('voyages')
+      .select('voyage_number,vessels(name)')
+      .ilike('voyage_number', like)
+      .limit(10)
+      .overrideTypes<VoyageRow[], { merge: false }>(),
+    supabase
+      .from('voyages')
+      .select('voyage_number,vessels!inner(name)')
+      .ilike('vessels.name', like)
+      .limit(10)
+      .overrideTypes<VoyageRow[], { merge: false }>(),
   ])
   if (byNumber.error) throw byNumber.error
   if (byVessel.error) throw byVessel.error
   const out: Array<{ label: string; voyageNumber: string }> = []
-  for (const row of [...(byNumber.data ?? []), ...(byVessel.data ?? [])] as unknown as VoyageRow[]) {
+  for (const row of [...(byNumber.data ?? []), ...(byVessel.data ?? [])]) {
     if (row.voyage_number) {
       out.push({ voyageNumber: String(row.voyage_number), label: `${row.vessels?.name ?? 'Navio'} · ${row.voyage_number}` })
     }
@@ -401,6 +430,24 @@ export async function listVoyageSuggestions(search: string): Promise<Array<{ lab
   const seen = new Set<string>()
   return out.filter((row) => (seen.has(row.label) ? false : (seen.add(row.label), true))).slice(0, 10)
 }
+
+// A RPC get_consolidated_invoice_item_breakdown não está nos tipos gerados;
+// valida-se o retorno em runtime. Falha de parse degrada para a linha
+// agregada por BL (mesmo fallback usado quando o detalhamento não reconcilia).
+const consolidatedBreakdownRowSchema = z.object({
+  bl_id: z.string(),
+  charge_calculation_id: z.number(),
+  charge_table_id: z.number().nullable(),
+  charge_item_id: z.number().nullable(),
+  quantity: z.number().nullable(),
+  unit_value_brl: z.number().nullable(),
+  total_value_brl: z.number().nullable(),
+  currency: z.string().nullable(),
+  unit_value_usd: z.number().nullable(),
+  total_value_usd: z.number().nullable(),
+  calculation_key: z.string().nullable(),
+  charge_name: z.string().nullable(),
+})
 
 export async function listInvoiceDetails(invoiceId: number) {
   const { data, error } = await supabase.rpc('list_invoice_details', {
@@ -449,11 +496,11 @@ export async function listInvoiceDetails(invoiceId: number) {
           .from('voyages')
           .select('id, voyage_number, vessel:vessels(name)')
           .in('id', voyageIds)
-        for (const v of (voyages ?? []) as unknown as Array<{
-          id: number
-          voyage_number: string | null
-          vessel: { name: string | null } | null
-        }>) {
+          .overrideTypes<
+            Array<{ id: number; voyage_number: string | null; vessel: { name: string | null } | null }>,
+            { merge: false }
+          >()
+        for (const v of voyages ?? []) {
           voyageMap.set(Number(v.id), { voyage_number: v.voyage_number ?? null, vessel_name: v.vessel?.name ?? null })
         }
       }
@@ -502,20 +549,12 @@ export async function listInvoiceDetails(invoiceId: number) {
         { p_invoice_id: invoiceId } as never,
       )
 
-      for (const c of (breakdown ?? []) as unknown as Array<{
-        bl_id: string
-        charge_calculation_id: number
-        charge_table_id: number | null
-        charge_item_id: number | null
-        quantity: number | null
-        unit_value_brl: number | null
-        total_value_brl: number | null
-        currency: string | null
-        unit_value_usd: number | null
-        total_value_usd: number | null
-        calculation_key: string | null
-        charge_name: string | null
-      }>) {
+      const parsedBreakdown = z.array(consolidatedBreakdownRowSchema).safeParse(breakdown ?? [])
+      if (!parsedBreakdown.success) {
+        reportBestEffortFailure('listInvoiceDetails breakdown parse', parsedBreakdown.error, { invoiceId })
+      }
+
+      for (const c of parsedBreakdown.success ? parsedBreakdown.data : []) {
         const arr = calcsByBl.get(c.bl_id) ?? []
         arr.push({
           charge_calculation_id: Number(c.charge_calculation_id),

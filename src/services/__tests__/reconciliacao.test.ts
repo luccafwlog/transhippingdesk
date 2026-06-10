@@ -2,17 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../reconciliacao'
 import type { UnifiedPixMatch } from '../reconciliacao'
 
-const { mockFrom, mockInvoiceUpdate, mockDemurrageUpdate, mockDemurrageUpdateEq, mockReconcileByTxid } = vi.hoisted(() => ({
+const { mockFrom, mockRpc, mockInvoiceUpdate, mockDemurrageUpdate, mockReconcileByTxid } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
   mockInvoiceUpdate: vi.fn(),
   mockDemurrageUpdate: vi.fn(),
-  mockDemurrageUpdateEq: vi.fn(),
   mockReconcileByTxid: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
   supabase: {
     from: mockFrom,
+    rpc: mockRpc,
   },
 }))
 
@@ -40,8 +41,7 @@ function installFromMock(input: { localInvoices?: unknown[]; demurrageInvoices?:
   }
 
   mockInvoiceUpdate.mockReturnValue(invoiceUpdateBuilder)
-  mockDemurrageUpdateEq.mockResolvedValue({ data: null, error: null })
-  mockDemurrageUpdate.mockReturnValue({ eq: mockDemurrageUpdateEq })
+  mockDemurrageUpdate.mockReturnValue({ eq: vi.fn() })
   mockFrom.mockImplementation((table: string) => {
     if (table === 'invoices') {
       return {
@@ -62,9 +62,9 @@ function installFromMock(input: { localInvoices?: unknown[]; demurrageInvoices?:
 describe('reconciliacao PIX unificada', () => {
   beforeEach(() => {
     mockFrom.mockReset()
+    mockRpc.mockReset()
     mockInvoiceUpdate.mockReset()
     mockDemurrageUpdate.mockReset()
-    mockDemurrageUpdateEq.mockReset()
     mockReconcileByTxid.mockReset()
   })
 
@@ -155,7 +155,7 @@ describe('reconciliacao PIX unificada', () => {
 
   it('propaga erro do banco ao confirmar conciliacao de demurrage', async () => {
     installFromMock({})
-    mockDemurrageUpdateEq.mockResolvedValue({ data: null, error: new Error('db down') })
+    mockRpc.mockResolvedValue({ data: null, error: new Error('db down') })
     const matches: UnifiedPixMatch[] = [
       {
         transaction: {
@@ -176,5 +176,76 @@ describe('reconciliacao PIX unificada', () => {
     ]
 
     await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow('db down')
+  })
+
+  it('concilia demurrage em lote com uma única chamada RPC', async () => {
+    installFromMock({})
+    mockRpc.mockResolvedValue({ data: 2, error: null })
+    const base = {
+      source: 'demurrage' as const,
+      customerName: 'Cliente Alfa',
+      customerCnpj: '12345678000195',
+      ambiguous: false,
+      matchType: 'txid' as const,
+    }
+    const matches: UnifiedPixMatch[] = [
+      {
+        ...base,
+        transaction: { txid: 'DEM-001', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 100 },
+        invoiceId: 20,
+        docNumber: 'DEM-001',
+        amount: 100,
+      },
+      {
+        ...base,
+        transaction: { txid: 'DEM-002', cnpj: '12.345.678/0001-95', date: '2026-05-29', amount: 50 },
+        invoiceId: 21,
+        docNumber: 'DEM-002',
+        amount: 50,
+      },
+    ]
+
+    const result = await confirmUnifiedPixReconciliation(matches)
+
+    expect(mockRpc).toHaveBeenCalledTimes(1)
+    expect(mockRpc).toHaveBeenCalledWith('confirm_demurrage_pix_matches', {
+      p_matches: [
+        { invoice_id: 20, paid_at: '2026-05-28', pix_txid: 'DEM-001' },
+        { invoice_id: 21, paid_at: '2026-05-29', pix_txid: 'DEM-002' },
+      ],
+    })
+    expect(mockDemurrageUpdate).not.toHaveBeenCalled()
+    expect(result).toEqual({ local: 0, demurrage: 2 })
+  })
+
+  it('acusa divergência quando a RPC atualiza menos linhas que o lote', async () => {
+    installFromMock({})
+    mockRpc.mockResolvedValue({ data: 1, error: null })
+    const matches: UnifiedPixMatch[] = [
+      {
+        transaction: { txid: 'DEM-001', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 100 },
+        source: 'demurrage',
+        invoiceId: 20,
+        docNumber: 'DEM-001',
+        customerName: 'Cliente Alfa',
+        customerCnpj: '12345678000195',
+        amount: 100,
+        ambiguous: false,
+        matchType: 'txid',
+      },
+      {
+        transaction: { txid: 'DEM-002', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 50 },
+        source: 'demurrage',
+        invoiceId: 21,
+        docNumber: 'DEM-002',
+        customerName: 'Cliente Alfa',
+        customerCnpj: '12345678000195',
+        amount: 50,
+        ambiguous: false,
+        matchType: 'txid',
+      },
+    ]
+
+    await expect(confirmUnifiedPixReconciliation(matches)).rejects.toThrow(/atualizou 1 de 2/)
   })
 })
