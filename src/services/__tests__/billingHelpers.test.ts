@@ -45,11 +45,13 @@ function invoiceUpdateQuery(result: unknown) {
   }
 }
 
-function invoiceListQuery(range: ReturnType<typeof vi.fn>) {
+function invoiceListQuery(range: (from: number, to: number) => unknown) {
   return {
     select: vi.fn(() => ({
       order: vi.fn(() => ({
-        range,
+        range: vi.fn((from: number, to: number) => ({
+          overrideTypes: () => range(from, to),
+        })),
       })),
     })),
   }

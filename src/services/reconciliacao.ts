@@ -80,8 +80,8 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
 
 export async function confirmUnifiedPixReconciliation(matches: UnifiedPixMatch[]): Promise<{ local: number; demurrage: number }> {
   let local = 0
-  let demurrage = 0
   const today = new Date().toISOString().slice(0, 10)
+  const demurrageUpdates: Array<{ invoice_id: number; paid_at: string; pix_txid: string }> = []
 
   for (const m of matches) {
     if (m.ambiguous) continue
@@ -102,10 +102,22 @@ export async function confirmUnifiedPixReconciliation(matches: UnifiedPixMatch[]
       if (!Number.isFinite(diff) || diff > 0.01) {
         throw new Error(`Valor divergente para demurrage ${m.docNumber}.`)
       }
+      demurrageUpdates.push({ invoice_id: m.invoiceId, paid_at: paidAt, pix_txid: m.transaction.txid })
+    }
+  }
 
-      const { error } = await supabase.from('demurrage_invoices').update({ status: 'paid', paid_at: paidAt, pix_txid: m.transaction.txid, conciliated_by_extract: true }).eq('id', m.invoiceId)
-      if (error) throw error
-      demurrage += 1
+  // Demurrage conciliada em lote: uma round-trip para o batch inteiro em vez
+  // de um UPDATE por fatura. A RPC retorna quantas linhas atualizou de fato.
+  let demurrage = 0
+  if (demurrageUpdates.length > 0) {
+    const { data, error } = await supabase.rpc(
+      'confirm_demurrage_pix_matches' as never,
+      { p_matches: demurrageUpdates } as never,
+    )
+    if (error) throw error
+    demurrage = Number(data ?? 0)
+    if (demurrage !== demurrageUpdates.length) {
+      throw new Error(`Conciliação de demurrage atualizou ${demurrage} de ${demurrageUpdates.length} faturas.`)
     }
   }
 

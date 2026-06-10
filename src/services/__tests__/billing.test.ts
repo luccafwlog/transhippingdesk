@@ -68,6 +68,7 @@ function chainQuery(result: QueryResult) {
     ilike: vi.fn(),
     limit: vi.fn(),
     range: vi.fn(),
+    overrideTypes: vi.fn(),
     then: (resolve: (value: QueryResult) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   }
@@ -83,6 +84,7 @@ function chainQuery(result: QueryResult) {
     builder.ilike,
     builder.limit,
     builder.range,
+    builder.overrideTypes,
   ]) {
     method.mockReturnValue(builder)
   }
