@@ -1,6 +1,7 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { onlyDigits, toNumber } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
+import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { supabase } from './supabase'
 
 // Mapeamento de cabeçalhos da planilha COSCO "Relatório de Cargas/Booking"
@@ -71,7 +72,7 @@ type ParsedGraniteBl = {
 export type ParsedGraniteManifest = {
   vesselVoyage: string
   bls: ParsedGraniteBl[]
-  rowErrors: { row: number; message: string; raw: unknown }[]
+  rowErrors: RowError[]
 }
 
 export async function parseGraniteManifestFile(file: File): Promise<ParsedGraniteManifest> {
@@ -81,49 +82,33 @@ export async function parseGraniteManifestFile(file: File): Promise<ParsedGranit
 }
 
 async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
-  const XLSX = await import('xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-  if (!firstSheet) throw new Error('Arquivo sem abas validas.')
-
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
-  if (!rows.length) throw new Error('Planilha vazia.')
-
-  const sampleRow = rows[0]
-  const colMapping: Record<string, string> = {}
-  for (const originalKey of Object.keys(sampleRow)) {
-    const normalized = originalKey.trim().toLowerCase()
-    const mapped = HEADER_MAP[normalized]
-    if (mapped) colMapping[originalKey] = mapped
-  }
+  const rows = await readFirstSheetRows(buffer)
+  const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
 
   const customerMaps = await loadCustomerMaps()
   const bls: ParsedGraniteBl[] = []
-  const rowErrors: ParsedGraniteManifest['rowErrors'] = []
+  const rowErrors = createRowErrorCollector()
   const seenBlNumbers = new Set<string>()
 
   rows.forEach((row, idx) => {
     const rowNumber = idx + 2 // linha 1 = cabeçalho, dados começam na 2
 
-    const mapped: Record<string, unknown> = {}
-    for (const [originalKey, fieldName] of Object.entries(colMapping)) {
-      mapped[fieldName] = row[originalKey]
-    }
+    const mapped = mapRow(row)
 
     const blNumber = String(mapped['bl_number'] ?? '').trim().toUpperCase()
     if (!blNumber) {
-      rowErrors.push({ row: rowNumber, message: 'BL ausente — linha ignorada.', raw: row })
+      rowErrors.add(rowNumber, 'BL ausente — linha ignorada.', row)
       return
     }
     if (seenBlNumbers.has(blNumber)) {
-      rowErrors.push({ row: rowNumber, message: `BL ${blNumber} duplicado na planilha.`, raw: row })
+      rowErrors.add(rowNumber, `BL ${blNumber} duplicado na planilha.`, row)
       return
     }
     seenBlNumbers.add(blNumber)
 
     const realWeightRaw = toNumber(String(mapped['real_weight_kg'] ?? ''))
     if (realWeightRaw === null || realWeightRaw <= 0) {
-      rowErrors.push({ row: rowNumber, message: `BL ${blNumber}: Real Weight ausente ou zero.`, raw: row })
+      rowErrors.add(rowNumber, `BL ${blNumber}: Real Weight ausente ou zero.`, row)
       return
     }
 
@@ -178,7 +163,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
 
   const vesselVoyage = bls.find((bl) => bl.vessel_voyage)?.vessel_voyage ?? ''
 
-  return { vesselVoyage, bls, rowErrors }
+  return { vesselVoyage, bls, rowErrors: rowErrors.errors }
 }
 
 function parseDateBR(value: string): string | null {
