@@ -271,6 +271,9 @@ export function Revisao() {
   }
 
   const checkedItems = filteredData.filter((item) => checkedIds.has(item.id))
+  const visibleIds = filteredData.map((item) => item.id)
+  const allVisibleChecked = visibleIds.length > 0 && visibleIds.every((id) => checkedIds.has(id))
+  const someVisibleChecked = visibleIds.some((id) => checkedIds.has(id))
   const selectedConsignee = getSelectionConsignee(checkedItems)
   const selectedNeedCustomer = checkedItems.filter(needsCustomerLink)
   const canBatchLinkCustomer =
@@ -354,6 +357,17 @@ export function Revisao() {
         : `${successCount} de ${checkedItems.length} B/Ls vinculados ao cliente.${invoiceSummary}${blockSummary}`,
       errorCount || firstInvoiceBlock ? 'info' : 'success',
     )
+  }
+
+  function toggleAllVisible(checked: boolean) {
+    setCheckedIds((current) => {
+      const next = new Set(current)
+      for (const id of visibleIds) {
+        if (checked) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
   }
 
   return (
@@ -548,7 +562,19 @@ export function Revisao() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th scope="col" className="px-4 py-3 w-8"></th>
+                <th scope="col" className="px-4 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[#30363d] accent-blue-500"
+                    checked={allVisibleChecked}
+                    ref={(element) => {
+                      if (element) element.indeterminate = someVisibleChecked && !allVisibleChecked
+                    }}
+                    onChange={(event) => toggleAllVisible(event.target.checked)}
+                    aria-label="Selecionar todos os B/Ls visiveis"
+                    disabled={filteredData.length === 0}
+                  />
+                </th>
                 <th scope="col" className="px-4 py-3">B/L</th>
                 <th scope="col" className="px-4 py-3">Pendencias</th>
                 <th scope="col" className="px-4 py-3">Consignatario</th>
@@ -583,6 +609,7 @@ export function Revisao() {
                       className="h-4 w-4 rounded border-[#30363d] accent-blue-500"
                       checked={checkedIds.has(item.id)}
                       onChange={() => toggleCheck(item.id)}
+                      aria-label={`Selecionar B/L ${item.source === 'granite' ? item.bl_number : item.id}`}
                     />
                   </td>
                   <td className="px-4 py-3 font-semibold text-white">

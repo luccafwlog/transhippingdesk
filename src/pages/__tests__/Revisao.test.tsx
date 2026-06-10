@@ -89,9 +89,8 @@ describe('Revisao', () => {
     expect(screen.getByText('BL2')).toBeTruthy()
     expect(screen.queryByText('BL3')).toBeNull()
 
-    const checkboxes = screen.getAllByRole('checkbox')
-    await user.click(checkboxes[0])
-    await user.click(checkboxes[1])
+    await user.click(screen.getByLabelText('Selecionar B/L BL1'))
+    await user.click(screen.getByLabelText('Selecionar B/L BL2'))
 
     await user.type(screen.getByPlaceholderText('Buscar cliente para vincular...'), 'Cliente')
     await user.click(screen.getByText('Cliente Modelo'))
@@ -114,5 +113,16 @@ describe('Revisao', () => {
     expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
     expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL2', customerId: 99, actorId: 'user-1' })
     expect(screen.queryByText(/taxas locais ainda pendentes/)).toBeNull()
+  })
+
+  it('seleciona todos os BLs visiveis pelo checkbox do cabecalho', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.selectOptions(screen.getByLabelText('Filtrar por consignatario'), 'AC Comercial')
+    await user.click(screen.getByLabelText('Selecionar todos os B/Ls visiveis'))
+
+    expect(screen.getByText('2 B/Ls selecionados')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Vincular cliente (2)' })).toBeTruthy()
   })
 })
