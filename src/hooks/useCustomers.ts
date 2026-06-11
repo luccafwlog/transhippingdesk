@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 import { fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
 import { escapeFilterTerm, onlyDigits } from '../lib/utils'
+import { sortCustomerRows, type CustomerSortKey, type SortDirection } from '../lib/customerTableViewModel'
 import type { Customer, CustomerDetail, CustomerListItem } from '../types/database'
 
 export type CustomerFilters = {
@@ -10,6 +11,8 @@ export type CustomerFilters = {
   emailStatus: '' | 'with' | 'without'
   blStatus: '' | 'with' | 'without'
   pendingStatus: '' | 'with' | 'without'
+  sortKey: CustomerSortKey
+  sortDirection: SortDirection
   page: number
   pageSize: number
 }
@@ -84,17 +87,22 @@ async function fetchCustomerRows(filters: CustomerFilters, paginate: boolean) {
   const from = filters.page * filters.pageSize
   const to = from + filters.pageSize - 1
 
+  // Ordenacao por B/Ls e saldo depende de dados agregados/calculados no cliente,
+  // entao qualquer ordenacao fora de "nome ascendente" exige varrer tudo antes de paginar.
+  const needsClientSideSort = filters.sortKey !== 'name' || filters.sortDirection !== 'asc'
+
   const hasClientSideFilter =
     Boolean(filters.contactEmail.trim()) ||
     Boolean(filters.emailStatus) ||
     filters.blStatus === 'without' ||
-    Boolean(filters.pendingStatus)
+    Boolean(filters.pendingStatus) ||
+    needsClientSideSort
 
   const blsJoin = filters.blStatus === 'with' ? 'bls!inner(id, charge_status)' : 'bls(id, charge_status)'
 
   let query = supabase
     .from('customers')
-    .select(`*, ${blsJoin}, customer_contacts(id, email)`, { count: 'exact' })
+    .select(`*, ${blsJoin}, customer_contacts(id, email, purpose, is_primary)`, { count: 'exact' })
     .order('name', { ascending: true })
 
   if (paginate && !hasClientSideFilter) {
@@ -116,6 +124,7 @@ async function fetchCustomerRows(filters: CustomerFilters, paginate: boolean) {
   const balances = await fetchIssuedInvoiceBalanceByCustomer(rows.map((row) => row.id))
   rows = rows.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 }))
   rows = filterCustomerRowsByClientSideFilters(rows, filters)
+  rows = sortCustomerRows(rows, filters.sortKey, filters.sortDirection)
 
   if (!paginate) {
     return {

@@ -1155,7 +1155,7 @@ export type ContainerListItem = Pick<
 
 export type CustomerListItem = Customer & {
   bls?: Pick<BL, 'id' | 'charge_status'>[] | null
-  customer_contacts?: Pick<CustomerContact, 'id' | 'email'>[] | null
+  customer_contacts?: Pick<CustomerContact, 'id' | 'email' | 'purpose' | 'is_primary'>[] | null
 }
 
 export type CustomerDetail = Customer & {
