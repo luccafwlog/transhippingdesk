@@ -474,7 +474,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
             <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">
-                  <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos">
+                  <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos" aria-label="Selecionar todos os B/Ls">
                     {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
                   </button>
                 </th>
@@ -517,6 +517,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                           type="button"
                           onClick={() => toggleOpsRow(row.id)}
                           title="Selecionar B/L"
+                          aria-label={`Selecionar B/L ${row.id}`}
                         >
                           {selectedOpsRows.includes(row.id) ? <CheckSquare size={14} /> : <Square size={14} />}
                         </button>
@@ -542,6 +543,8 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                           type="button"
                           onClick={() => setExpandedBlId(isExpanded ? null : row.id)}
                           title={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+                          aria-label={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+                          aria-expanded={isExpanded}
                         >
                           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>

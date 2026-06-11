@@ -11,7 +11,7 @@ describe('TabButton', () => {
     const user = userEvent.setup()
     const onClick = vi.fn()
     render(<TabButton active={false} label="Faturas" onClick={onClick} />)
-    const btn = screen.getByRole('button', { name: 'Faturas' })
+    const btn = screen.getByRole('tab', { name: 'Faturas' })
     expect(btn.className).not.toContain('app-tab--active')
     await user.click(btn)
     expect(onClick).toHaveBeenCalledTimes(1)
@@ -19,6 +19,6 @@ describe('TabButton', () => {
 
   it('aplica a classe ativa quando active=true', () => {
     render(<TabButton active label="Demurrage" onClick={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Demurrage' }).className).toContain('app-tab--active')
+    expect(screen.getByRole('tab', { name: 'Demurrage' }).className).toContain('app-tab--active')
   })
 })
