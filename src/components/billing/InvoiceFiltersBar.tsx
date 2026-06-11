@@ -18,12 +18,20 @@ const pageSizes = [20, 50, 100]
 type InvoiceFiltersBarProps = {
   filters: Filters
   filterResetKey: number
+  customerInitialValue?: string
   activeFilterCount: number
   onClear: () => void
   updateFilter: <K extends keyof Filters>(key: K, value: Filters[K]) => void
 }
 
-export function InvoiceFiltersBar({ filters, filterResetKey, activeFilterCount, onClear, updateFilter }: InvoiceFiltersBarProps) {
+export function InvoiceFiltersBar({
+  filters,
+  filterResetKey,
+  customerInitialValue = '',
+  activeFilterCount,
+  onClear,
+  updateFilter,
+}: InvoiceFiltersBarProps) {
   return (
     <FilterBar activeCount={activeFilterCount} onClear={onClear}>
       <div className="app-filter-grid">
@@ -45,9 +53,10 @@ export function InvoiceFiltersBar({ filters, filterResetKey, activeFilterCount, 
           onSelectOption={(option) => updateFilter('search', option.value)}
         />
         <Combobox
-          key={`cli-${filterResetKey}`}
+          key={`cli-${filterResetKey}-${customerInitialValue}`}
           label="Cliente"
           placeholder="Nome ou CNPJ"
+          initialValue={customerInitialValue}
           onValueChange={(value) => { if (!value.trim()) updateFilter('customerId', '') }}
           fetchOptions={async (q) =>
             (await listBillingCustomers(q)).map((c): ComboOption => ({ value: String(c.id), label: c.name, meta: c.cnpj_cpf }))

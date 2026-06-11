@@ -99,6 +99,18 @@ describe('Faturamento', () => {
     expect(html).not.toContain('B/L único')
   })
 
+  it('exibe o cliente informado pelo atalho de Clientes no filtro de faturas', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/faturamento?tab=invoices&customer=42&customerName=ACME%20EXPORTS'] },
+        React.createElement(Faturamento),
+      ),
+    )
+
+    expect(html).toContain('value="ACME EXPORTS"')
+  })
+
   it('reduz os status documentais a 3 estados operacionais e oculta os estados internos', () => {
     const html = renderToStaticMarkup(
       React.createElement(MemoryRouter, { initialEntries: ['/?tab=invoices'] }, React.createElement(Faturamento)),

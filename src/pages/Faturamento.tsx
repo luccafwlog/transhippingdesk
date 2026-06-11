@@ -55,6 +55,7 @@ export function Faturamento() {
     page: 1,
     pageSize: 20,
   })
+  const [customerFilterLabel, setCustomerFilterLabel] = useState(searchParams.get('customerName') ?? '')
   const [filterResetKey, setFilterResetKey] = useState(0)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(Number(searchParams.get('invoice') ?? '') || null)
   const [activeTab, setActiveTab] = useState<'validacao' | 'pendencias' | 'invoices' | 'demurrage'>(
@@ -77,10 +78,12 @@ export function Faturamento() {
     setPrevSearchParams(searchParams)
     const invoiceId = Number(searchParams.get('invoice') ?? '') || null
     const customerId = searchParams.get('customer') ?? ''
+    const customerName = searchParams.get('customerName') ?? ''
     const blSearch = searchParams.get('bl') ?? ''
 
     setSelectedInvoiceId(invoiceId)
     if (invoiceId) setActiveTab('invoices')
+    setCustomerFilterLabel(customerName)
     setFilters((current) =>
       current.customerId === customerId && current.blSearch === blSearch
         ? current
@@ -147,6 +150,7 @@ export function Faturamento() {
   })
 
   function clearFilters() {
+    setCustomerFilterLabel('')
     setFilters((current) => ({
       ...current,
       search: '',
@@ -237,6 +241,7 @@ export function Faturamento() {
           <InvoiceFiltersBar
             filters={filters}
             filterResetKey={filterResetKey}
+            customerInitialValue={customerFilterLabel}
             activeFilterCount={activeFilterCount}
             onClear={clearFilters}
             updateFilter={updateFilter}

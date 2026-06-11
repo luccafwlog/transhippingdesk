@@ -6,6 +6,7 @@ import type { Customer, CustomerDetail, CustomerListItem } from '../types/databa
 
 export type CustomerFilters = {
   search: string
+  contactEmail: string
   emailStatus: '' | 'with' | 'without'
   blStatus: '' | 'with' | 'without'
   pendingStatus: '' | 'with' | 'without'
@@ -13,132 +14,131 @@ export type CustomerFilters = {
   pageSize: number
 }
 
-export function useCustomerSummary() {
-  return useQuery({
-    queryKey: ['customers-summary'],
-    queryFn: async () => {
-      // Query bls directly to avoid max_rows truncation from the customers join
-      const [customersResult, blsResult] = await Promise.all([
-        fetchAllCustomersPendingBalance(),
-        fetchAllLinkedBls(),
-      ])
+type CustomerSummary = {
+  totalCustomers: number
+  pendingBalance: number
+  totalBls: number
+  chargePending: number
+  chargeReady: number
+}
 
-      return {
-        totalCustomers: customersResult.count,
-        pendingBalance: customersResult.pendingBalance,
-        totalBls: blsResult.length,
-        chargePending: blsResult.filter(
-          (bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated',
-        ).length,
-        chargeReady: blsResult.filter((bl) => bl.charge_status === 'ready_for_billing').length,
-      }
+export function summarizeCustomerRows(rows: CustomerListItem[]): CustomerSummary {
+  const bls = rows.flatMap((row) => row.bls ?? [])
+
+  return {
+    totalCustomers: rows.length,
+    pendingBalance: rows.reduce((sum, row) => sum + Number(row.pending_balance ?? 0), 0),
+    totalBls: bls.length,
+    chargePending: bls.filter((bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated').length,
+    chargeReady: bls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
+  }
+}
+
+function customerHasEmail(row: CustomerListItem) {
+  return (row.customer_contacts ?? []).some((contact) => String(contact.email ?? '').trim().length > 0)
+}
+
+export function filterCustomerRowsByClientSideFilters(rows: CustomerListItem[], filters: CustomerFilters) {
+  const contactEmail = filters.contactEmail.trim().toLowerCase()
+
+  return rows.filter((row) => {
+    const hasEmails = customerHasEmail(row)
+    const hasBls = (row.bls?.length ?? 0) > 0
+    const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
+
+    if (contactEmail) {
+      const matchesContactEmail = (row.customer_contacts ?? []).some((contact) =>
+        String(contact.email ?? '').toLowerCase().includes(contactEmail),
+      )
+      if (!matchesContactEmail) return false
+    }
+    if (filters.emailStatus === 'with' && !hasEmails) return false
+    if (filters.emailStatus === 'without' && hasEmails) return false
+    if (filters.blStatus === 'with' && !hasBls) return false
+    if (filters.blStatus === 'without' && hasBls) return false
+    if (filters.pendingStatus === 'with' && !hasPendingBalance) return false
+    if (filters.pendingStatus === 'without' && hasPendingBalance) return false
+    return true
+  })
+}
+
+export function useCustomerSummary(filters: CustomerFilters) {
+  return useQuery({
+    queryKey: ['customers-summary', filters],
+    queryFn: async () => {
+      const result = await fetchCustomerRows(filters, false)
+      return summarizeCustomerRows(result.rows)
     },
     staleTime: 60_000,
   })
 }
 
-async function fetchAllLinkedBls(): Promise<Array<{ charge_status: string | null }>> {
-  const pageSize = 1000
-  const result: Array<{ charge_status: string | null }> = []
-  let from = 0
-  while (true) {
-    const { data, error } = await supabase
-      .from('bls')
-      .select('charge_status')
-      .not('customer_id', 'is', null)
-      .range(from, from + pageSize - 1)
-    if (error) throw error
-    result.push(...(data ?? []))
-    if ((data ?? []).length < pageSize) break
-    from += pageSize
-  }
-  return result
-}
-
-async function fetchAllCustomersPendingBalance(): Promise<{ count: number; pendingBalance: number }> {
-  const [{ count, error }, balances] = await Promise.all([
-    supabase.from('customers').select('id', { count: 'exact', head: true }),
-    fetchIssuedInvoiceBalanceByCustomer(),
-  ])
-  if (error) throw error
-  return {
-    count: count ?? 0,
-    pendingBalance: Array.from(balances.values()).reduce((sum, value) => sum + value, 0),
-  }
-}
-
 export function useCustomers(filters: CustomerFilters) {
   return useQuery({
     queryKey: ['customers', filters],
-    queryFn: async () => {
-      const from = filters.page * filters.pageSize
-      const to = from + filters.pageSize - 1
-
-      // For "without related records", PostgREST !inner can't help — fetch all and paginate manually
-      const hasClientSideFilter =
-        filters.emailStatus === 'without' || filters.blStatus === 'without' || Boolean(filters.pendingStatus)
-
-      // Use !inner join to filter server-side when "with" is selected
-      const contactsJoin =
-        filters.emailStatus === 'with' ? 'customer_contacts!inner(id)' : 'customer_contacts(id)'
-      const blsJoin =
-        filters.blStatus === 'with' ? 'bls!inner(id, charge_status)' : 'bls(id, charge_status)'
-
-      let query = supabase
-        .from('customers')
-        .select(`*, ${blsJoin}, ${contactsJoin}`, { count: 'exact' })
-        .order('name', { ascending: true })
-
-      if (!hasClientSideFilter) {
-        query = query.range(from, to)
-      }
-
-      if (filters.search) {
-        const normalizedDocument = onlyDigits(filters.search)
-        const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
-        query = query.or(
-          `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%${documentClause}`,
-        )
-      }
-
-      const { data, error, count } = await query
-      if (error) throw error
-
-      let rows = (data ?? []) as unknown as CustomerListItem[]
-      const balances = await fetchIssuedInvoiceBalanceByCustomer(rows.map((row) => row.id))
-      rows = rows.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 }))
-
-      // Client-side filter only for "without" cases (absence of related records)
-      if (filters.emailStatus === 'without') {
-        rows = rows.filter((row) => (row.customer_contacts?.length ?? 0) === 0)
-      }
-      if (filters.blStatus === 'without') {
-        rows = rows.filter((row) => (row.bls?.length ?? 0) === 0)
-      }
-      if (filters.pendingStatus === 'with') {
-        rows = rows.filter((row) => Number(row.pending_balance ?? 0) > 0)
-      } else if (filters.pendingStatus === 'without') {
-        rows = rows.filter((row) => Number(row.pending_balance ?? 0) <= 0)
-      }
-
-      // When client-side filter is active all records are fetched; paginate manually
-      let paginatedRows: CustomerListItem[]
-      let totalCount: number
-      if (hasClientSideFilter) {
-        totalCount = rows.length
-        paginatedRows = rows.slice(from, from + filters.pageSize)
-      } else {
-        totalCount = count ?? 0
-        paginatedRows = rows
-      }
-
-      return {
-        rows: paginatedRows,
-        count: paginatedRows.length,
-        totalCount,
-      }
-    },
+    queryFn: () => fetchCustomerRows(filters, true),
   })
+}
+
+async function fetchCustomerRows(filters: CustomerFilters, paginate: boolean) {
+  const from = filters.page * filters.pageSize
+  const to = from + filters.pageSize - 1
+
+  const hasClientSideFilter =
+    Boolean(filters.contactEmail.trim()) ||
+    Boolean(filters.emailStatus) ||
+    filters.blStatus === 'without' ||
+    Boolean(filters.pendingStatus)
+
+  const blsJoin = filters.blStatus === 'with' ? 'bls!inner(id, charge_status)' : 'bls(id, charge_status)'
+
+  let query = supabase
+    .from('customers')
+    .select(`*, ${blsJoin}, customer_contacts(id, email)`, { count: 'exact' })
+    .order('name', { ascending: true })
+
+  if (paginate && !hasClientSideFilter) {
+    query = query.range(from, to)
+  }
+
+  if (filters.search) {
+    const normalizedDocument = onlyDigits(filters.search)
+    const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
+    query = query.or(
+      `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%${documentClause}`,
+    )
+  }
+
+  const { data, error, count } = await query
+  if (error) throw error
+
+  let rows = (data ?? []) as unknown as CustomerListItem[]
+  const balances = await fetchIssuedInvoiceBalanceByCustomer(rows.map((row) => row.id))
+  rows = rows.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 }))
+  rows = filterCustomerRowsByClientSideFilters(rows, filters)
+
+  if (!paginate) {
+    return {
+      rows,
+      count: rows.length,
+      totalCount: rows.length,
+    }
+  }
+
+  if (hasClientSideFilter) {
+    const paginatedRows = rows.slice(from, from + filters.pageSize)
+    return {
+      rows: paginatedRows,
+      count: paginatedRows.length,
+      totalCount: rows.length,
+    }
+  }
+
+  return {
+    rows,
+    count: rows.length,
+    totalCount: count ?? 0,
+  }
 }
 
 export function useCustomerDetail(cnpj?: string) {

@@ -15,7 +15,7 @@ import { useConfirm } from '../components/ui/ConfirmDialog'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { useCustomers, useCustomerSummary } from '../hooks/useCustomers'
+import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { checkCustomerDependencies, createCustomer, deleteCustomers, fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
@@ -84,6 +84,7 @@ export function Clientes() {
   const [deleting, setDeleting] = useState(false)
   const [filters, setFilters] = useState({
     search: '',
+    contactEmail: '',
     emailStatus: '' as '' | 'with' | 'without',
     blStatus: '' as '' | 'with' | 'without',
     pendingStatus: '' as '' | 'with' | 'without',
@@ -91,16 +92,16 @@ export function Clientes() {
     pageSize: 50,
   })
 
-  function setFilterField<K extends 'search' | 'emailStatus' | 'blStatus' | 'pendingStatus'>(
+  function setFilterField<K extends 'search' | 'contactEmail' | 'emailStatus' | 'blStatus' | 'pendingStatus'>(
     field: K,
     value: typeof filters[K],
   ) {
     setFilters((current) => ({ ...current, [field]: value, page: 0 }))
   }
-  const activeFilterCount = (['search', 'emailStatus', 'blStatus', 'pendingStatus'] as const)
+  const activeFilterCount = (['search', 'contactEmail', 'emailStatus', 'blStatus', 'pendingStatus'] as const)
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
   function clearFilters() {
-    setFilters((current) => ({ ...current, search: '', emailStatus: '', blStatus: '', pendingStatus: '', page: 0 }))
+    setFilters((current) => ({ ...current, search: '', contactEmail: '', emailStatus: '', blStatus: '', pendingStatus: '', page: 0 }))
   }
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -112,7 +113,7 @@ export function Clientes() {
   const [parsingBase, setParsingBase] = useState(false)
   const [importingBase, setImportingBase] = useState(false)
   const { data, isLoading, error } = useCustomers(filters)
-  const { data: summary } = useCustomerSummary()
+  const { data: summary } = useCustomerSummary(filters)
 
   const totalPages = Math.ceil((data?.totalCount ?? 0) / filters.pageSize)
 
@@ -222,7 +223,10 @@ export function Clientes() {
 
   async function handleExportBase() {
     try {
-      let query = supabase.from('customers').select('*, bls(id, charge_status), customer_contacts(id)').order('name', { ascending: true })
+      let query = supabase
+        .from('customers')
+        .select('*, bls(id, charge_status), customer_contacts(id, email)')
+        .order('name', { ascending: true })
 
       if (filters.search) {
         query = query.or(
@@ -235,19 +239,10 @@ export function Clientes() {
 
       const rowsWithBalances = (data ?? []) as unknown as CustomerListItem[]
       const balances = await fetchIssuedInvoiceBalanceByCustomer(rowsWithBalances.map((row) => row.id))
-      const rows = rowsWithBalances.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 })).filter((row) => {
-        const hasEmails = (row.customer_contacts?.length ?? 0) > 0
-        const hasBls = (row.bls?.length ?? 0) > 0
-        const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
-
-        if (filters.emailStatus === 'with' && !hasEmails) return false
-        if (filters.emailStatus === 'without' && hasEmails) return false
-        if (filters.blStatus === 'with' && !hasBls) return false
-        if (filters.blStatus === 'without' && hasBls) return false
-        if (filters.pendingStatus === 'with' && !hasPendingBalance) return false
-        if (filters.pendingStatus === 'without' && hasPendingBalance) return false
-        return true
-      })
+      const rows = filterCustomerRowsByClientSideFilters(
+        rowsWithBalances.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 })),
+        filters,
+      )
 
       await exportCustomerBaseWorkbook(rows)
       showToast(`Base exportada com ${rows.length} cliente(s).`, 'success')
@@ -368,6 +363,14 @@ export function Clientes() {
               value={filters.search}
               onChange={(event) => setFilterField('search', event.target.value)}
               placeholder="Razao social, fantasia ou documento"
+            />
+          </Field>
+          <Field label="Buscar por e-mail do contato">
+            <Input
+              type="email"
+              value={filters.contactEmail}
+              onChange={(event) => setFilterField('contactEmail', event.target.value)}
+              placeholder="email@cliente.com"
             />
           </Field>
             <Field label="E-mails vinculados">
@@ -512,7 +515,7 @@ export function Clientes() {
                         <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
                           Abrir ficha
                         </Link>
-                        <Link className="app-table__action" to={`/faturamento?customer=${row.id}`}>
+                        <Link className="app-table__action" to={`/faturamento?tab=invoices&customer=${row.id}&customerName=${encodeURIComponent(row.name)}`}>
                           Faturamento
                         </Link>
                         {isAdmin ? (
