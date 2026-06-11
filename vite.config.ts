@@ -21,6 +21,18 @@ function resolveCommitSha() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      // Proxy dev-only usado pela skill design-audit: aponte VITE_SUPABASE_URL
+      // para http://127.0.0.1:5173/sb-proxy e rode scripts/design-audit/sb-shim.cjs.
+      // Sem efeito quando o .env aponta direto para o Supabase real.
+      '/sb-proxy': {
+        target: 'http://127.0.0.1:54321',
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/sb-proxy/, ''),
+      },
+    },
+  },
   define: {
     'process.env': {},
     'import.meta.env.VITE_APP_COMMIT_SHA': JSON.stringify(appCommitSha),

@@ -15,6 +15,15 @@ const STATUS_LABELS: Record<string, { label: string; tone: 'yellow' | 'blue' | '
   closed: { label: 'Fechado', tone: 'slate' },
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  invoice_overdue: 'Fatura vencida',
+  portal_invoice_created: 'Fatura criada no portal',
+  portal_consolidation_obsoleted: 'Consolidada obsoleta (portal)',
+  demurrage: 'Demurrage',
+  billing: 'Faturamento',
+  review: 'Revisão',
+}
+
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
   { value: 'all', label: 'Todos os abertos' },
   { value: 'open', label: 'Novos' },
@@ -118,7 +127,7 @@ export function Alertas() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-                        <span className="font-mono text-xs text-[var(--app-text)]">{alert.type}</span>
+                        <span className="text-xs text-[var(--app-text)]">{TYPE_LABELS[alert.type] ?? alert.type}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 max-w-sm text-[var(--app-text)]">{alert.message}</td>

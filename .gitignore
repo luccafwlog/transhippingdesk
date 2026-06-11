@@ -29,3 +29,6 @@ supabase/.temp
 *.sln
 *.sw?
 .claude/worktrees/
+
+# Playwright MCP artifacts (design-audit skill)
+.playwright-mcp/

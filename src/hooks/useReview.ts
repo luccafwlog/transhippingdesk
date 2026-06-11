@@ -51,7 +51,7 @@ export function useReviewQueue() {
         supabase
           .from('granite_bls')
           .select(
-            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, updated_at, client_id, charge_status,
+            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status,
             customer:customers(id, cnpj_cpf, name),
             manifest:granite_manifests(voyage:voyages(id, voyage_number, vessel:vessels(id, name)))`,
           )
@@ -74,7 +74,7 @@ export function useReviewQueue() {
         // ainda retornamos a fila de granito sem metadados de viagem.
         const fallback = await supabase
           .from('granite_bls')
-          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, updated_at, client_id, charge_status, customer:customers(id, cnpj_cpf, name)')
+          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status, customer:customers(id, cnpj_cpf, name)')
           .is('client_id', null)
           .order('created_at', { ascending: false })
           .range(0, 499)
@@ -85,7 +85,8 @@ export function useReviewQueue() {
           })
           graniteData = []
         } else {
-          graniteData = fallback.data
+          // O fallback nao traz `manifest`; o mapeamento abaixo trata o campo como opcional.
+          graniteData = fallback.data as unknown as typeof graniteData
         }
       }
 
@@ -97,7 +98,7 @@ export function useReviewQueue() {
         discharge_port: string | null
         loading_port: string | null
         vessel_voyage: string | null
-        updated_at: string | null
+        created_at: string | null
         client_id: number | null
         charge_status: string | null
         customer: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
@@ -114,7 +115,7 @@ export function useReviewQueue() {
         total_weight_kg: null,
         total_cbm: null,
         notes: null,
-        updated_at: row.updated_at,
+        updated_at: row.created_at,
         customer_id: row.client_id,
         charge_status: row.charge_status,
         customer: row.customer,
