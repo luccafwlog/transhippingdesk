@@ -16,7 +16,7 @@ export type VehiclePageFilters = {
   pageSize: number
 }
 
-type VoyageVehicleStat = {
+export type VoyageVehicleStat = {
   totalVehicles: number
   distinctContainerCount: number
   containerNumbers: string[]
