@@ -293,7 +293,7 @@ export function Manifestos() {
         {error ? <InlineError message="Erro ao carregar manifestos." /> : null}
 
         <div className="app-table-scroll app-table-scroll--sticky">
-          <table className="app-table app-table--compact min-w-[920px] text-left text-sm whitespace-nowrap">
+          <table className="app-table app-table--compact app-table--sticky-actions min-w-[920px] text-left text-sm whitespace-nowrap">
             <thead>
               <tr>
                 {isAdmin ? (
@@ -457,11 +457,10 @@ function SummaryCard({ label, value }: { label: string; value: number | string }
           : 'navy'
 
   return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
+    <Card className={`app-kpi-card app-kpi-card--${tone}`} title="Considera os filtros ativos desta tela.">
       <div className="app-kpi-card__label">{label}</div>
       <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-      <div className="app-kpi-card__sub">Considera os filtros ativos desta tela.</div>
-    </Card>
+      </Card>
   )
 }
 

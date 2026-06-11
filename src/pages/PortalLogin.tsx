@@ -45,7 +45,7 @@ export function PortalLogin() {
           <img alt="Transhipping" className="app-auth__logo" src="/branding/transhipping-logo.png" />
           <div>
             <h1 className="app-auth__title">Portal do cliente</h1>
-            <p className="app-auth__subtitle">Consulte invoices emitidas e consolide B/Ls prontos para faturamento.</p>
+            <p className="app-auth__subtitle">Consulte faturas emitidas e consolide B/Ls prontos para faturamento.</p>
           </div>
         </div>
 
@@ -82,7 +82,11 @@ export function PortalLogin() {
           </Button>
         </form>
 
-        <p className="app-auth__meta">Acesso provisionado internamente por cliente. Não há cadastro público.</p>
+        <p className="app-auth__meta">
+          Acesso provisionado internamente por cliente. Não há cadastro público.
+          <br />
+          Problemas para acessar? Solicite um novo acesso ao seu contato comercial na Transhipping.
+        </p>
       </Card>
     </main>
   )

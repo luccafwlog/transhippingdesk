@@ -146,13 +146,10 @@ export function Alertas() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        {alert.type === 'portal_invoice_created' && alert.entity_id ? (
-                          <Link
-                            to={`/faturamento?invoice_id=${alert.entity_id}`}
-                            className="app-table__action"
-                          >
+                        {alertEntityLink(alert) ? (
+                          <Link to={alertEntityLink(alert) as string} className="app-table__action">
                             <ExternalLink size={13} />
-                            Ver Fatura
+                            {alertEntityLinkLabel(alert)}
                           </Link>
                         ) : null}
                         {alert.status === 'open' ? (
@@ -183,4 +180,26 @@ export function Alertas() {
       </Card>
     </>
   )
+}
+
+// Leva o usuário direto à entidade do alerta em vez de obrigar navegação manual.
+function alertEntityLink(alert: { type: string; entity_type: string | null; entity_id: string | null }): string | null {
+  if (!alert.entity_id) return null
+  if (alert.entity_type === 'invoice') {
+    // entity_id pode ser o id numérico (abre o detalhe via ?invoice=) ou o
+    // número da fatura (ex: FAT-2026-0016) — nesse caso só leva à página.
+    return /^\d+$/.test(alert.entity_id)
+      ? `/faturamento?invoice=${encodeURIComponent(alert.entity_id)}`
+      : '/faturamento'
+  }
+  if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
+  if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
+  return null
+}
+
+function alertEntityLinkLabel(alert: { entity_type: string | null }) {
+  if (alert.entity_type === 'invoice') return 'Ver Fatura'
+  if (alert.entity_type === 'container') return 'Ver Demurrage'
+  if (alert.entity_type === 'bl') return 'Abrir B/L'
+  return 'Abrir'
 }

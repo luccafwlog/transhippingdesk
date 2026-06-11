@@ -135,8 +135,8 @@ insert into public.invoice_items (invoice_id, description, quantity, unit_value_
   (204,'Taxas locais consolidadas',1,2555.00,2555.00,'XPDU5500987601','charge_table','BRL'),
   (205,'Taxas locais consolidadas',1,3010.00,3010.00,'XPDU5500987602','charge_table','BRL');
 
-insert into public.invoice_bls (invoice_id, bl_id) values
-  (201,'COSU6401234501'),(202,'COSU6401234508'),(203,'COSU6401234504'),(204,'XPDU5500987601'),(205,'XPDU5500987602');
+insert into public.invoice_bls (invoice_id, bl_id, subtotal_brl) values
+  (201,'COSU6401234501',3005.00),(202,'COSU6401234508',1755.00),(203,'COSU6401234504',1805.00),(204,'XPDU5500987601',2555.00),(205,'XPDU5500987602',3010.00);
 
 insert into public.bl_receivables (bl_id, customer_id, source, original_amount_brl, settled_amount_brl, balance_brl, status, voyage_id, cargo_mode, pol, pod) values
   ('COSU6401234501',101,'local_charges',3005.00,0,3005.00,'open',10,'container','CNSHA','BRSSZ'),

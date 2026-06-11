@@ -115,6 +115,38 @@ Cada issue indica qual eixo prejudica: **E**ntendimento · **C**onfiança · **V
 
 ---
 
+## Adendo — implementação das recomendações (11/06/2026, segunda rodada)
+
+A pedido, **todas as recomendações viáveis foram implementadas** (evidências: assets `60-…` a `64-…`):
+
+- **#1** Falha de granito na Revisão agora exibe banner visível ("a fila pode estar incompleta") em vez de lista parcial silenciosa (`useReviewQueue` expõe `graniteUnavailable`).
+- **#2** Error boundary por rota dentro do `AppLayout`: preserva header/navegação, mensagem genérica, detalhe técnico colapsado em `<details>`, botões "Voltar ao Painel"/"Recarregar". Reseta ao navegar.
+- **#3** Módulo central `src/lib/statusLabels.ts`; Line-Up (Aprovado/Lançando/Aguardando/Faltando, SIM/NÃO), Viagens (Ativa/Concluída), Relatórios (Pendente/Faturado/Emitida…), chips do B/L e selects YES/NO traduzidos.
+- **#4** "Excluir" da viagem virou ícone neutro (vermelho só no hover) com `aria-label`; deixa de competir com "Editar".
+- **#5** Tooltips em todas as colunas do Line-Up + legenda compacta sob o quadro ([`60-painel-v2.png`](./assets/60-painel-v2.png)).
+- **#6** Portal: copy "Problemas para acessar? Solicite um novo acesso ao seu contato comercial…" + "invoices"→"faturas".
+- **#7** Cotação PTAX: header sinaliza "INDISPONÍVEL" ou "de dd/mm" (desatualizada) com tooltip explicativo; cache local já existia e foi mantido.
+- **#8** Coluna de ações de Manifestos congelada no scroll horizontal (`.app-table--sticky-actions`).
+- **#10** KPI "PODs sem tabela de cobrança" agora é calculado de verdade (PODs de B/Ls sem tabela ativa cobrindo o trecho), vermelho quando > 0.
+- **#11** Labels EN renomeados: "Apenas manual", "Ordem de exibição", "Outras cobranças (manuais)", "Faturas rascunho (USD)", "Faturas em aberto".
+- **#12** Página renomeada para "Carga Solta (BB)".
+- **#13** Veículos: estado vazio dedicado "Selecione um navio e uma viagem" ([`64-veiculos-v2.png`](./assets/64-veiculos-v2.png)).
+- **#16** TV: nome do navio quebra linha em vez de cortar; coluna do navio alargada (21%).
+- **#17** Alertas linkam para a entidade (fatura → `/faturamento?invoice=`, container → `/demurrage?busca=`, B/L → `/manifestos/:id`); Demurrage aceita `?busca=`.
+- **#18** Texto repetido dos KPI chips virou tooltip único.
+- **#19** Viagens em modo compacto: cards recolhidos com "Detalhes"/"Recolher" (página caiu de ~3.400px para ~1.100px) ([`61-viagens-v2.png`](./assets/61-viagens-v2.png)).
+- **#20** Demurrage: tabela única com linha de grupo por B/L em vez de um card+header por B/L (de ~3.150px para ~1.500px) ([`62-demurrage-v2.png`](./assets/62-demurrage-v2.png)).
+- **#21** Formulários de Taxas Locais recolhidos atrás de "Nova tabela / Novo item"; abrem automaticamente ao editar ([`63-taxas-locais-v2.png`](./assets/63-taxas-locais-v2.png)).
+- **#22 (parte UI)** Select de perfil mostra o perfil efetivo para roles legados (já na 1ª rodada). A migração dos roles legados no banco fica de fora: é mudança de produção em RLS/permissões.
+- **#23** Commit hash saiu do topo de todas as telas; agora vive no menu do usuário ("versão …").
+- **#24** "Atualizado: HH:MM" do Painel fica âmbar com "(há X min)" quando o quadro está sem atualização ≥ 10 min, com relógio que atualiza por minuto.
+- **#14** Era artefato do seed da auditoria (produção tem todos os subtotais preenchidos) — seed corrigido.
+
+**Não implementados, com motivo:**
+- **#9** Inputs nativos de data seguem o locale do *browser* (o `<html lang="pt-BR">` já existe); exigiria componente de data com máscara própria.
+- **#15** Formatar peso/CBM pt-BR no B/L: os campos são editáveis — aplicar máscara sem um componente de input numérico dedicado arrisca corromper o valor salvo.
+- **#22 (parte banco)** Migrar `admin`/`operator` para os perfis novos altera RLS em produção — requer janela controlada.
+
 ## Como esta auditoria rodou (reproduzir)
 
 O ambiente remoto não alcança `*.supabase.co`, então o site rodou contra um stack local: Postgres 16 + as 97 migrations do repo + seed sintético + um shim Node que emula o subset de PostgREST/GoTrue que o app usa (`sb-shim.cjs`), atrás do proxy `/sb-proxy` do Vite. Nenhum dado de produção foi copiado. O fluxo completo está automatizado na skill **`design-audit`** (`.claude/skills/design-audit/`) — rode-a após cada release para regerar screenshots e re-checar esta lista.

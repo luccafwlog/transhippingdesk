@@ -32,7 +32,7 @@ export type ReviewQueueItem = (BL & {
 }
 
 export function useReviewQueue() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['review-queue'],
     queryFn: async () => {
       const [blResult, graniteResult] = await Promise.all([
@@ -69,6 +69,7 @@ export function useReviewQueue() {
       }))
 
       let graniteData = graniteResult.data
+      let graniteUnavailable = false
       if (graniteResult.error) {
         // Fallback defensivo: se o join de relacoes falhar por schema/permissao,
         // ainda retornamos a fila de granito sem metadados de viagem.
@@ -84,6 +85,7 @@ export function useReviewQueue() {
             fallback: fallback.error,
           })
           graniteData = []
+          graniteUnavailable = true
         } else {
           // O fallback nao traz `manifest`; o mapeamento abaixo trata o campo como opcional.
           graniteData = fallback.data as unknown as typeof graniteData
@@ -126,9 +128,14 @@ export function useReviewQueue() {
         source: 'granite' as const,
       }))
 
-      return [...blItems, ...graniteItems] as ReviewQueueItem[]
+      return { items: [...blItems, ...graniteItems] as ReviewQueueItem[], graniteUnavailable }
     },
   })
+
+  // Mantém o contrato histórico (data = lista) e expõe a falha parcial de
+  // granito separadamente para a página renderizar um aviso visível —
+  // nunca uma fila incompleta em silêncio.
+  return { ...query, data: query.data?.items, graniteUnavailable: query.data?.graniteUnavailable ?? false }
 }
 
 function extractReviewReasons(notes?: string | null) {

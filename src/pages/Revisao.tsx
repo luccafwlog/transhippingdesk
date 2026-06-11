@@ -34,7 +34,7 @@ import { supabase } from '../services/supabase'
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
 
 export function Revisao() {
-  const { data, isLoading, error } = useReviewQueue()
+  const { data, isLoading, error, graniteUnavailable } = useReviewQueue()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -557,6 +557,9 @@ export function Revisao() {
           <span className="text-xs text-slate-400">{filterDescription}</span>
         </div>
         {error ? <InlineError message="Erro ao carregar a fila de revisao." /> : null}
+        {graniteUnavailable ? (
+          <InlineError message="Não foi possível carregar os B/Ls de granito — a fila abaixo pode estar incompleta. Recarregue a página ou contate o suporte." />
+        ) : null}
 
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm">

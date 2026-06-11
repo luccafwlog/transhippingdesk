@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
@@ -25,7 +25,7 @@ import { supabase } from '../services/supabase'
 type FilterStatus = 'all' | 'active' | 'completed'
 
 async function fetchDashboard() {
-  const [totalContainers, bls, review, chargeReviewRequired, readyForBilling, pendingFinancial, invoices, alerts, blsWithoutCustomer] =
+  const [totalContainers, bls, review, chargeReviewRequired, readyForBilling, pendingFinancial, invoices, alerts, blsWithoutCustomer, blPods, chargeTablePods] =
     await Promise.all([
       fetchDistinctContainerCount(),
       supabase.from('bls').select('id', { count: 'exact', head: true }),
@@ -36,6 +36,8 @@ async function fetchDashboard() {
       supabase.from('invoices').select('total_brl,status').in('status', ['issued', 'overdue']).range(0, 499),
       supabase.from('alerts').select('id', { count: 'exact', head: true }).neq('status', 'closed'),
       supabase.from('bls').select('id', { count: 'exact', head: true }).is('customer_id', null),
+      supabase.from('bls').select('pod, cargo_mode').range(0, 1999),
+      supabase.from('charge_tables').select('pod, cargo_mode').eq('active', true).range(0, 499),
     ])
 
   const invoiceAccessDenied = isPermissionError(invoices.error)
@@ -57,7 +59,39 @@ async function fetchDashboard() {
     invoicesAccessDenied: invoiceAccessDenied,
     openAlerts: alerts.count ?? 0,
     blsWithoutCustomer: blsWithoutCustomer.count ?? 0,
+    podsWithoutChargeTable: countPodsWithoutChargeTable(blPods.data ?? [], chargeTablePods.data ?? []),
   }
+}
+
+// PODs com B/L de container/carga solta sem nenhuma tabela de taxas ativa
+// cobrindo o trecho (tabela com pod igual ou 'ANY' e mesmo cargo_mode).
+function countPodsWithoutChargeTable(
+  bls: { pod: string | null; cargo_mode: string | null }[],
+  tables: { pod: string | null; cargo_mode: string | null }[],
+) {
+  const covered = new Set<string>()
+  let anyContainer = false
+  let anyCargaSolta = false
+  for (const t of tables) {
+    const mode = t.cargo_mode ?? 'container'
+    const pod = (t.pod ?? '').trim().toUpperCase()
+    if (!pod || pod === 'ANY') {
+      if (mode === 'container') anyContainer = true
+      else if (mode === 'carga_solta') anyCargaSolta = true
+      continue
+    }
+    covered.add(`${mode}:${pod}`)
+  }
+  const missing = new Set<string>()
+  for (const bl of bls) {
+    const pod = (bl.pod ?? '').trim().toUpperCase()
+    if (!pod) continue
+    const mode = bl.cargo_mode ?? 'container'
+    if (mode === 'container' && anyContainer) continue
+    if (mode === 'carga_solta' && anyCargaSolta) continue
+    if (!covered.has(`${mode}:${pod}`)) missing.add(`${mode}:${pod}`)
+  }
+  return missing.size
 }
 
 function isPermissionError(error: { code?: string | null; message?: string | null } | null) {
@@ -73,6 +107,12 @@ async function fetchDistinctContainerCount() {
 
 export function Painel() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  // Relógio para destacar quando o quadro está sem atualização há muito tempo.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
   const {
     data: dashboard,
     isLoading: isDashboardLoading,
@@ -102,6 +142,10 @@ export function Painel() {
         new Date(lineup.lastChangedAt),
       )
     : '-'
+  const staleMinutes = lineup?.lastChangedAt
+    ? Math.floor((now - new Date(lineup.lastChangedAt).getTime()) / 60000)
+    : null
+  const isStale = staleMinutes !== null && staleMinutes >= 10
 
   return (
     <>
@@ -114,7 +158,10 @@ export function Painel() {
               <Monitor size={14} />
               Abrir tela TV
             </Link>
-            <span className="text-xs text-slate-500">Atualizado: {lastUpdate}</span>
+            <span className={isStale ? 'text-xs font-semibold text-amber-500' : 'text-xs text-slate-500'}>
+              Atualizado: {lastUpdate}
+              {isStale ? ` (há ${staleMinutes} min)` : ''}
+            </span>
             <button type="button" onClick={() => void refetch()} className="app-btn app-btn--secondary">
               <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
               Atualizar
@@ -158,6 +205,10 @@ export function Painel() {
             emptyTitle="Nenhuma escala encontrada."
             emptyDescription="Ajuste o filtro de status ou aguarde o proximo ciclo de atualizacao."
           />
+          <p className="border-t border-[var(--app-border)] px-4 py-2 text-[11px] text-[var(--app-muted)]">
+            VIN = veículos (ro-ro) · CAR = carros em container · CG = carga geral · MTY = vazios · RTW = restow ·
+            BB = break-bulk (máquinas/pacotes) · CEs = status dos CEs Mercante · Linked = manifesto vinculado
+          </p>
         </Card>
       )}
 
@@ -190,7 +241,7 @@ export function Painel() {
         />
         <KpiCard
           icon={Receipt}
-          label="Invoices em aberto"
+          label="Faturas em aberto"
           value={isDashboardLoading ? '...' : (dashboard?.openInvoices ?? 'Restrito')}
           detail={dashboard?.invoicesAccessDenied ? 'Admin only' : formatBRL(dashboard?.openInvoicesAmount ?? 0)}
           tone="text-emerald-300"
@@ -234,8 +285,8 @@ export function Painel() {
         <KpiCard
           icon={TableProperties}
           label="PODs sem tabela de cobranca"
-          value={isDashboardLoading ? '...' : '-'}
-          tone="text-slate-400"
+          value={isDashboardLoading ? '...' : (dashboard?.podsWithoutChargeTable ?? 0)}
+          tone={dashboard?.podsWithoutChargeTable ? 'text-red-400' : 'text-slate-400'}
           detail="Ver em Taxas Locais"
           linkTo="/taxas-locais"
         />
@@ -267,7 +318,7 @@ function KpiCard({
   linkTo?: string
 }) {
   const cardTone =
-    label === 'Invoices em aberto' || label === 'Prontos para faturar'
+    label === 'Faturas em aberto' || label === 'Prontos para faturar'
       ? 'green'
       : label === 'Aguardando revisao' || label === 'Taxas para revisar'
         ? 'gold'

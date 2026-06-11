@@ -64,6 +64,22 @@ export function HeaderInfoBar() {
     ? String(import.meta.env.VITE_APP_COMMIT_SHA).substring(0, 7)
     : 'unknown'
 
+  // Sinaliza cotação indisponível ou desatualizada em vez de falhar em silêncio:
+  // valores de demurrage dependem da PTAX e o operador precisa saber.
+  const ratesFromToday = rates.fetchedAt
+    ? new Date(rates.fetchedAt).toDateString() === new Date().toDateString()
+    : false
+  const ratesWarning = !rates.loading && rates.usd === null
+    ? 'indisponível'
+    : !rates.loading && !ratesFromToday && rates.fetchedAt
+      ? `de ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(rates.fetchedAt))}`
+      : null
+  const ratesHint = rates.usd === null
+    ? 'Cotação PTAX indisponível no momento — tente recarregar mais tarde.'
+    : ratesFromToday
+      ? 'Cotação PTAX do dia (Banco Central)'
+      : 'Cotação PTAX desatualizada — exibindo a última disponível.'
+
   return (
     <div className="app-market-strip">
       <div className="app-market-strip__content">
@@ -95,32 +111,19 @@ export function HeaderInfoBar() {
         </div>
 
         {/* Zona central — câmbio do dia (oculta em mobile) */}
-        <div className="app-market-strip__center">
+        <div className="app-market-strip__center" title={ratesHint}>
           <span className="hib-currency-label">USD</span>
           <span className="hib-currency-value">R$ {formatRate(rates.usd)}</span>
           <span className="hib-sep" aria-hidden="true">·</span>
           <span className="hib-currency-label">CNY</span>
           <span className="hib-currency-value">R$ {formatRate(rates.cny)}</span>
+          {ratesWarning ? (
+            <span className="hib-currency-label" style={{ color: '#f0b429' }}>{ratesWarning}</span>
+          ) : null}
         </div>
 
         {/* Zona direita — usuário logado */}
         <div className="app-market-strip__right" ref={userZoneRef} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {commitSha !== 'unknown' && (
-            <>
-              <span 
-                style={{
-                  fontSize: '11px',
-                  fontFamily: 'var(--app-font-mono)',
-                  color: 'rgba(255, 255, 255, 0.38)',
-                  fontWeight: 500
-                }} 
-                title={`Commit: ${String(import.meta.env.VITE_APP_COMMIT_SHA)}`}
-              >
-                {commitSha}
-              </span>
-              <span className="hib-sep" aria-hidden="true">·</span>
-            </>
-          )}
           <button
             type="button"
             className="hib-user-btn"
@@ -149,6 +152,20 @@ export function HeaderInfoBar() {
                 <LogOut size={13} aria-hidden="true" />
                 Sair
               </button>
+              {commitSha !== 'unknown' && (
+                <div
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    fontFamily: 'var(--app-font-mono)',
+                    color: 'rgba(255, 255, 255, 0.38)',
+                    borderTop: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                  title={`Commit: ${String(import.meta.env.VITE_APP_COMMIT_SHA)}`}
+                >
+                  versão {commitSha}
+                </div>
+              )}
             </div>
           )}
         </div>

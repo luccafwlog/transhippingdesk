@@ -8,6 +8,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { Field, Input, Select } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
+import { FINANCIAL_STATUS_LABELS, INVOICE_STATUS_LABELS, REVIEW_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
 import {
   fetchCustomerReport,
   fetchFinancialReport,
@@ -200,10 +201,10 @@ function OperationalReportTab() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge tone={row.review_status === 'reviewed' ? 'green' : 'yellow'}>
-                      {row.review_status ?? '-'}
+                      {statusLabel(REVIEW_STATUS_LABELS, row.review_status)}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-[var(--app-muted)]">{row.financial_status ?? '-'}</td>
+                  <td className="px-4 py-3 text-[var(--app-muted)]">{statusLabel(FINANCIAL_STATUS_LABELS, row.financial_status)}</td>
                 </tr>
               ))}
             </tbody>
@@ -347,7 +348,7 @@ function FinancialReportTab() {
                   <td className="px-4 py-3 text-right font-mono text-[var(--app-text-strong)]">{formatBRL(row.total_brl ?? 0)}</td>
                   <td className="px-4 py-3 text-right font-mono text-amber-700">{formatBRL(row.balance_brl ?? 0)}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={invoiceStatusTone(row.status)}>{row.status ?? '-'}</Badge>
+                    <Badge tone={invoiceStatusTone(row.status)}>{statusLabel(INVOICE_STATUS_LABELS, row.status)}</Badge>
                   </td>
                 </tr>
               ))}

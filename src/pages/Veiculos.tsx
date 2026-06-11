@@ -239,6 +239,16 @@ export function Veiculos() {
         ) : null}
       </Card>
 
+      {!voyageId ? (
+        <Card className="overflow-hidden p-0">
+          <EmptyState
+            title="Selecione um navio e uma viagem"
+            description="Os veículos, indicadores e filtros aparecem após escolher a viagem acima. Para importar, use o botão Importar Veículos."
+          />
+        </Card>
+      ) : (
+        <>
+
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Veiculos filtrados" value={isLoading ? '...' : data?.count ?? 0} />
         <MetricCard label="Containers distintos" value={isLoading ? '...' : data?.distinctContainerCount ?? 0} />
@@ -415,6 +425,9 @@ export function Veiculos() {
           </div>
         </div>
       </Card>
+
+        </>
+      )}
 
       <Modal open={importOpen} onClose={resetImportState} title="Importar Veiculos">
         <div className="grid gap-5">
