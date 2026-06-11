@@ -56,6 +56,15 @@ describe('manifestImport customer reconciliation', () => {
         }
       }
 
+      if (table === 'charge_calculations') {
+        // BL com taxas calculadas: a logica de "limbo" pos-billing nao dispara.
+        return {
+          select: () => ({
+            in: async () => ({ data: [{ bl_id: 'BL001' }], error: null }),
+          }),
+        }
+      }
+
       throw new Error(`Tabela nao mockada: ${table}`)
     })
 

@@ -1,9 +1,13 @@
 import { createInvoiceFromBls } from './billing'
-import { calculateBlLocalCharges, markBlReadyForBilling } from './charges/chargeOperationsService'
+import {
+  calculateBlLocalCharges,
+  markBlReadyForBilling,
+  type LocalChargeCalculationResult,
+} from './charges/chargeOperationsService'
 
 export type ReviewBillingAutomationResult =
   | { status: 'invoiced'; invoiceResult: unknown }
-  | { status: 'blocked'; message: string; calculation?: any }
+  | { status: 'blocked'; message: string; calculation?: LocalChargeCalculationResult }
 
 export async function tryAutoIssueInvoice({
   blId,
