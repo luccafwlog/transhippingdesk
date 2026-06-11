@@ -284,12 +284,9 @@ export function Containers() {
           <Field label="Status taxas locais">
             <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
               <option value="">Todos</option>
-              <option value="not_calculated">Não calculado</option>
-              <option value="calculated">Calculado</option>
-              <option value="review_required">Revisao</option>
-              <option value="reviewed">Revisado</option>
-              <option value="ready_for_billing">Pronto faturar</option>
+              <option value="review_required">Revisão</option>
               <option value="exempt">Isento</option>
+              <option value="ready_for_billing">Faturado</option>
             </Select>
           </Field>
           <Field label="Perfil de carga">

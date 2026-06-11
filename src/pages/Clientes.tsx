@@ -413,7 +413,7 @@ export function Clientes() {
         <MetricCard label="Clientes" value={String(summary?.totalCustomers ?? 0)} />
         <MetricCard label="B/Ls vinculados" value={String(summary?.totalBls ?? 0)} />
         <MetricCard label="Taxas pendentes" value={String(summary?.chargePending ?? 0)} />
-        <MetricCard label="Pronto faturar" value={String(summary?.chargeReady ?? 0)} />
+        <MetricCard label="Faturados" value={String(summary?.chargeReady ?? 0)} />
         <MetricCard label="Saldo pendente" value={formatBRL(summary?.pendingBalance ?? 0)} />
       </div>
 
