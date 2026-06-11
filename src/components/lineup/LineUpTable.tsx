@@ -38,7 +38,7 @@ export function LineUpTable({
         style={isDisplay && rowHeight ? ({ ['--lineup-display-row-height' as string]: `${rowHeight}px` } as CSSProperties) : undefined}
       >
         <colgroup>
-          <col className={isDisplay ? 'w-[18%]' : 'w-[22%]'} />
+          <col className={isDisplay ? 'w-[21%]' : 'w-[22%]'} />
           <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[7%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
@@ -50,25 +50,25 @@ export function LineUpTable({
           <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[5%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[7%]' : 'w-[10%]'} />
-          <col className={isDisplay ? 'w-[11%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[8%]' : 'w-[7%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
         </colgroup>
         <thead className={isDisplay ? 'bg-[#16325f] text-[13px] uppercase tracking-[0.18em] text-white' : 'bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500'}>
           <tr>
-            <th scope="col" className="px-1 py-2 text-center">Vessel</th>
-            <th scope="col" className="px-1 py-2 text-center">Voy</th>
-            <th scope="col" className="px-1 py-2 text-center">POD</th>
-            <th scope="col" className="px-1 py-2 text-center">ETA</th>
-            <th scope="col" className="px-1 py-2 text-center">ETB</th>
-            <th scope="col" className="px-1 py-2 text-center">VIN</th>
-            <th scope="col" className="px-1 py-2 text-center">CAR</th>
-            <th scope="col" className="px-1 py-2 text-center">CG</th>
-            <th scope="col" className="px-1 py-2 text-center">Total</th>
-            <th scope="col" className="px-1 py-2 text-center">MTY</th>
-            <th scope="col" className="px-1 py-2 text-center">RTW</th>
-            <th scope="col" className="px-1 py-2 text-center">BB</th>
-            <th scope="col" className="px-1 py-2 text-center">CEs</th>
-            <th scope="col" className="px-1 py-2 text-center">Linked</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Navio">Vessel</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Número da viagem">Voy</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Porto de descarga">POD</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Chegada estimada">ETA</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Atracação estimada">ETB</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Veículos (ro-ro)">VIN</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Carros em container">CAR</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Carga geral em container">CG</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Total de containers">Total</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Containers vazios">MTY</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Restow (remanejo a bordo)">RTW</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Break-bulk: máquinas / pacotes / total">BB</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Status dos CEs Mercante">CEs</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Manifesto vinculado à viagem">Linked</th>
           </tr>
         </thead>
         <tbody
@@ -124,10 +124,10 @@ export function LineUpTable({
                     <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
                       {isDisplay ? (
                         <span className={`app-lineup-display-status ${row.exportLinked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                          {row.exportLinked ? 'YES' : 'NO'}
+                          {row.exportLinked ? 'SIM' : 'NÃO'}
                         </span>
                       ) : (
-                        <Badge tone={row.exportLinked ? 'green' : 'yellow'}>{row.exportLinked ? 'YES' : 'NO'}</Badge>
+                        <Badge tone={row.exportLinked ? 'green' : 'yellow'}>{row.exportLinked ? 'SIM' : 'NÃO'}</Badge>
                       )}
                     </td>
                   </>
@@ -152,10 +152,10 @@ export function LineUpTable({
                     <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
                       {isDisplay ? (
                         <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                          {row.linked ? 'YES' : 'NO'}
+                          {row.linked ? 'SIM' : 'NÃO'}
                         </span>
                       ) : (
-                        <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'YES' : 'NO'}</Badge>
+                        <Badge tone={row.linked ? 'green' : 'yellow'}>{row.linked ? 'SIM' : 'NÃO'}</Badge>
                       )}
                     </td>
                   </>

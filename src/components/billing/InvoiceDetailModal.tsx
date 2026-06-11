@@ -246,7 +246,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
                 </div>
                 {canEditCharges ? (
                   <div className="border-b border-[#30363d] px-4 py-4">
-                    <div className="mb-3 text-sm font-semibold text-white">Other Charges manuais</div>
+                    <div className="mb-3 text-sm font-semibold text-white">Outras cobranças (manuais)</div>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <Field label="Descricao">
                         <Input

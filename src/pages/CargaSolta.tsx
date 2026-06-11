@@ -207,7 +207,7 @@ export function CargaSolta() {
   return (
     <>
       <PageHeader
-        title="Manifestos BB"
+        title="Carga Solta (BB)"
         description="Consulta paginada de B/Ls break bulk no layout operacional atual da planilha BB."
         action={
           <div className="flex flex-wrap gap-2">

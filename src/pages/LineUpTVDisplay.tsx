@@ -257,7 +257,7 @@ export function LineUpTVDisplay() {
                           </div>
                           <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
                             <span className={`app-lineup-display-status ${row.exportLinked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                              {row.exportLinked ? 'YES' : 'NO'}
+                              {row.exportLinked ? 'SIM' : 'NÃO'}
                             </span>
                           </div>
                         </>
@@ -281,7 +281,7 @@ export function LineUpTVDisplay() {
                           </div>
                           <div className="app-lineup-display-board__cell app-lineup-display-board__cell--status">
                             <span className={`app-lineup-display-status ${row.linked ? 'app-lineup-display-status--green' : 'app-lineup-display-status--amber'}`}>
-                              {row.linked ? 'YES' : 'NO'}
+                              {row.linked ? 'SIM' : 'NÃO'}
                             </span>
                           </div>
                         </>
@@ -314,15 +314,15 @@ export function LineUpTVDisplay() {
 }
 
 function renderDisplayCeStatus(status: LineUpRow['ceStatus']) {
-  if (status === 'approved') return <span className="app-lineup-display-status app-lineup-display-status--green">Approved</span>
-  if (status === 'partial') return <span className="app-lineup-display-status app-lineup-display-status--amber">Partial</span>
-  return <span className="app-lineup-display-status app-lineup-display-status--red">Missing</span>
+  if (status === 'approved') return <span className="app-lineup-display-status app-lineup-display-status--green">Aprovado</span>
+  if (status === 'partial') return <span className="app-lineup-display-status app-lineup-display-status--amber">Parcial</span>
+  return <span className="app-lineup-display-status app-lineup-display-status--red">Faltando</span>
 }
 
 function ceStatusLabel(status: LineUpRow['ceStatus']) {
-  if (status === 'approved') return 'Approved'
-  if (status === 'partial') return 'Partial'
-  return 'Missing'
+  if (status === 'approved') return 'Aprovado'
+  if (status === 'partial') return 'Parcial'
+  return 'Faltando'
 }
 
 function ceStatusColorClass(status: LineUpRow['ceStatus']) {
@@ -379,7 +379,7 @@ function LineUpMobileCard({ row }: { row: LineUpRow }) {
           <span
             className={`app-lineup-card__field-value ${row.linked ? 'app-lineup-card__field-value--green' : 'app-lineup-card__field-value--amber'}`}
           >
-            {row.linked ? 'YES' : 'NO'}
+            {row.linked ? 'SIM' : 'NÃO'}
           </span>
         </div>
       </div>

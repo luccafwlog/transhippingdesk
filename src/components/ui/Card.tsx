@@ -2,10 +2,14 @@ import type { LucideIcon } from 'lucide-react'
 import { AlertCircle, Inbox } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
-export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
+export function Card({ className, children, title }: { className?: string; children: React.ReactNode; title?: string }) {
   const hasPaddingOverride = /\bp(?:[trblxy])?-[^\s]+/.test(className ?? '')
 
-  return <section className={cn('app-surface', !hasPaddingOverride && 'app-surface--padded', className)}>{children}</section>
+  return (
+    <section className={cn('app-surface', !hasPaddingOverride && 'app-surface--padded', className)} title={title}>
+      {children}
+    </section>
+  )
 }
 
 export function EmptyState({

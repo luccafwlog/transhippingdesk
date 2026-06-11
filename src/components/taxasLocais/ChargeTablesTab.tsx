@@ -35,6 +35,9 @@ export function ChargeTablesTab({
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [expandedTableId, setExpandedTableId] = useState<number | null>(null)
+  // Formulários de criação ficam recolhidos para não empurrar a lista; abrem
+  // ao clicar em "Nova tabela / Novo item" ou ao editar um registro existente.
+  const [formsOpen, setFormsOpen] = useState(false)
   const [tableForm, setTableForm] = useState<ChargeTableForm>(EMPTY_TABLE_FORM)
   const [tableItemForm, setTableItemForm] = useState<ChargeTableItemForm>(EMPTY_TABLE_ITEM_FORM)
   const { data: tables, isLoading: tablesLoading, error: tablesError } = useLocalChargeTables({
@@ -101,6 +104,7 @@ export function ChargeTablesTab({
   function handleEditTable(id: number) {
     const table = (tables ?? []).find((row) => row.id === id)
     if (!table) return
+    setFormsOpen(true)
     setTableForm({
       id: table.id,
       name: table.name ?? '',
@@ -160,6 +164,7 @@ export function ChargeTablesTab({
     const table = (tables ?? []).find((row) => row.id === tableId)
     const item = table?.charge_table_items.find((row) => row.id === itemId)
     if (!table || !item) return
+    setFormsOpen(true)
 
     const unitValue = item.currency === 'USD' ? Number(item.unit_value_usd ?? 0) : Number(item.unit_value_brl ?? 0)
     setTableItemForm({
@@ -191,6 +196,7 @@ export function ChargeTablesTab({
   }
 
   function handlePrepareTableItem(tableId: number) {
+    setFormsOpen(true)
     setTableItemForm({
       ...EMPTY_TABLE_ITEM_FORM,
       chargeTableId: String(tableId),
@@ -235,6 +241,14 @@ export function ChargeTablesTab({
         </div>
       </FilterBar>
 
+      <div className="mb-5 flex justify-end">
+        <Button type="button" variant={formsOpen ? 'secondary' : 'primary'} onClick={() => setFormsOpen((open) => !open)}>
+          <Plus size={15} />
+          {formsOpen ? 'Ocultar formulários' : 'Nova tabela / Novo item'}
+        </Button>
+      </div>
+
+      {formsOpen ? (
       <div className="mb-5 grid gap-5 xl:grid-cols-2">
         <Card>
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -461,7 +475,7 @@ export function ChargeTablesTab({
                 placeholder="0.00"
               />
             </Field>
-            <Field label="Sort order">
+            <Field label="Ordem de exibição">
               <Input
                 value={tableItemForm.sortOrder}
                 onChange={(event) =>
@@ -473,7 +487,7 @@ export function ChargeTablesTab({
                 placeholder="100"
               />
             </Field>
-            <Field label="Manual only">
+            <Field label="Apenas manual">
               <Select
                 value={tableItemForm.manualOnly ? '1' : '0'}
                 onChange={(event) =>
@@ -510,6 +524,7 @@ export function ChargeTablesTab({
           </div>
         </Card>
       </div>
+      ) : null}
 
       <Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-1 border-b border-[var(--app-border)] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">

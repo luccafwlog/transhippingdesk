@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Boxes, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, Boxes, ChevronDown, ChevronUp, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -36,6 +37,7 @@ import {
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
 import { deleteVoyageExportSchedule, type VoyageExportSchedule } from '../../services/voyageExportSchedules'
+import { statusLabel, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
 import type { useVoyages } from '../../hooks/useBls'
 
 export type Voyage = NonNullable<ReturnType<typeof useVoyages>['data']>[number]
@@ -142,6 +144,8 @@ export function VoyageCard({
 }: VoyageCardProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // Modo compacto: o hero resume a viagem; o detalhe abre sob demanda.
+  const [expanded, setExpanded] = useState(false)
   const { showToast } = useToast()
   const { isAdmin, user } = useAuth()
 
@@ -412,7 +416,7 @@ export function VoyageCard({
                   {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
                 </h2>
                 <span className="rounded-full border border-[#1f6feb]/30 bg-[#1f6feb]/10 px-3 py-1 text-xs font-semibold text-[#8cc8ff]">
-                  {voyage.status ?? 'active'}
+                  {statusLabel(VOYAGE_STATUS_LABELS, voyage.status ?? 'active')}
                 </span>
                 {billingClosed ? (
                   <span
@@ -472,6 +476,15 @@ export function VoyageCard({
             </div>
           </div>
 
+          <div className="flex items-center gap-2 self-start">
+            <Button
+              variant="secondary"
+              onClick={() => setExpanded((open) => !open)}
+              aria-expanded={expanded}
+            >
+              {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              {expanded ? 'Recolher' : 'Detalhes'}
+            </Button>
           {isAdmin ? (
             <div className="flex items-center gap-2 self-start">
               <Button variant="ghost" className="app-voyage-action-icon" onClick={() => onEditVoyage(voyage.id)}>
@@ -482,15 +495,18 @@ export function VoyageCard({
                 variant="ghost"
                 className="app-voyage-action-icon app-voyage-action-icon--danger"
                 onClick={() => onDeleteVoyage(voyage.id)}
+                aria-label="Excluir viagem"
+                title="Excluir viagem"
               >
                 <Trash2 size={15} />
-                Excluir
               </Button>
             </div>
           ) : null}
+          </div>
         </div>
       </section>
 
+      {expanded ? (<>
       <MetricSection
         title="Planejamento por POD/POL"
         description="Datas ETA, ETB, ATA e ATD, RESTOW, BLs e CEs e ESCALA sao controlados por porto de descarga ou embarque."
@@ -755,6 +771,7 @@ export function VoyageCard({
           </AccordionSection>
         ))}
       </section>
+      </>) : null}
     </Card>
   )
 }
@@ -764,7 +781,7 @@ function renderCeStatusLabel(status: VoyagePodCeStatus | null) {
 }
 
 function renderLinkedLabel(linked: boolean | null) {
-  return linked ? 'YES' : 'NO'
+  return linked ? 'SIM' : 'NÃO'
 }
 
 type VoyageImportBatch = {

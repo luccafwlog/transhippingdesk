@@ -2075,6 +2075,28 @@ textarea {
   min-width: 1024px;
 }
 
+/* Na TV o nome do navio é o dado principal: quebra em duas linhas em vez de
+   ser cortado pelo table-fixed. */
+.app-table--lineup-display td:first-child {
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.15;
+}
+
+/* Congela a coluna de ações no scroll horizontal: o botão "Abrir B/L" é a
+   porta de entrada do fluxo e não pode ficar cortado em monitores comuns. */
+.app-table--sticky-actions th:last-child,
+.app-table--sticky-actions td:last-child {
+  position: sticky;
+  right: 0;
+  background: var(--app-surface);
+  box-shadow: -8px 0 8px -8px rgba(15, 23, 42, 0.25);
+}
+
+.app-table--sticky-actions thead th:last-child {
+  background: var(--app-thead-bg);
+}
+
 /* Table headers use theme tokens; the TV line-up display keeps dedicated styles. */
 .app-table:not(.app-table--lineup-display) thead th {
   background: var(--app-thead-bg);
@@ -2921,7 +2943,14 @@ textarea {
   color: var(--app-text);
 }
 
+/* Destrutiva rebaixada: neutra em repouso, vermelha apenas no hover/focus,
+   para não competir visualmente com a ação de edição. */
 .app-voyage-action-icon--danger {
+  color: var(--app-muted);
+}
+
+.app-voyage-action-icon--danger:hover,
+.app-voyage-action-icon--danger:focus-visible {
   color: #dc2626;
 }
 

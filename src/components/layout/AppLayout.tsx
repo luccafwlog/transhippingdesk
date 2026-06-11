@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { useAuth } from '../../hooks/useAuth'
 import { useOperationalCounts } from '../../hooks/useOperationalCounts'
 import { HeaderInfoBar } from './HeaderInfoBar'
@@ -219,7 +220,9 @@ export function AppLayout() {
       </div>
 
       <main id="app-main-content" className="app-main">
-        <Outlet />
+        <ErrorBoundary variant="route" resetKey={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   )

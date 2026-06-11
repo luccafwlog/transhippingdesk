@@ -6,11 +6,11 @@ const POL_ENTITY_TYPE = 'voyage_pol_schedule'
 const POD_ENTITY_TYPE = 'voyage_pod_schedule'
 
 export const POD_CE_STATUS_OPTIONS = [
-  { value: 'waiting', label: 'Waiting' },
-  { value: 'received', label: 'Received' },
-  { value: 'launching', label: 'Launching' },
-  { value: 'approving', label: 'Approving' },
-  { value: 'approved', label: 'Approved' },
+  { value: 'waiting', label: 'Aguardando' },
+  { value: 'received', label: 'Recebido' },
+  { value: 'launching', label: 'Lançando' },
+  { value: 'approving', label: 'Em aprovação' },
+  { value: 'approved', label: 'Aprovado' },
 ] as const
 
 export type EditableVoyagePodCeStatus = (typeof POD_CE_STATUS_OPTIONS)[number]['value']
@@ -43,12 +43,12 @@ export function getEditableVoyagePodCeStatus(status: VoyagePodCeStatus | null | 
 }
 
 export function getVoyagePodCeStatusLabel(status: VoyagePodCeStatus | null | undefined) {
-  if (status === 'approved') return 'Approved'
-  if (status === 'approving') return 'Approving'
-  if (status === 'launching' || status === 'partial') return 'Launching'
-  if (status === 'received') return 'Received'
-  if (status === 'missing') return 'Missing'
-  return 'Waiting'
+  if (status === 'approved') return 'Aprovado'
+  if (status === 'approving') return 'Em aprovação'
+  if (status === 'launching' || status === 'partial') return 'Lançando'
+  if (status === 'received') return 'Recebido'
+  if (status === 'missing') return 'Faltando'
+  return 'Aguardando'
 }
 
 export function buildVoyagePolEntityId(voyageId: number, pol: string | null | undefined) {

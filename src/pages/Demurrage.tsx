@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Clock, FileText, Pencil, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
@@ -129,7 +129,9 @@ export function Demurrage() {
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [tab, setTab] = useState<DemurrageTab>('containers')
-  const [search, setSearch] = useState('')
+  // ?busca= permite que alertas de demurrage abram a página já filtrada.
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get('busca') ?? '')
   const [generatingBl, setGeneratingBl] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
 
@@ -395,11 +397,11 @@ export function Demurrage() {
           <div className="text-2xl font-bold text-amber-400">{fmtUSD(totalOverdueUSD)}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-slate-400">Invoices draft (USD)</div>
+          <div className="text-xs text-slate-400">Faturas rascunho (USD)</div>
           <div className="text-2xl font-bold text-slate-300">{kpis ? fmtUSD(kpis.draftInvoicesTotalUsd) : '—'}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-slate-400">Aguard. pagamento (BRL)</div>
+          <div className="text-xs text-slate-400">Aguardando pagamento (BRL)</div>
           <div className="text-2xl font-bold text-blue-400">
             {kpis ? fmtBRL(kpis.issuedInvoicesTotalBrl) : '—'}
           </div>
@@ -448,85 +450,91 @@ export function Demurrage() {
             <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
           )}
 
-          {Array.from(grouped.entries()).map(([blId, blContainers]) => {
-            const firstBl = blContainers[0].bl as { customer?: { name?: string } | null; voyage?: { voyage_number?: string; vessel?: { name?: string } | null } | null } | null
-            const customerName = firstBl?.customer?.name ?? blId
-            const voyageInfo = firstBl?.voyage?.voyage_number ? `${firstBl.voyage.voyage_number} — ${firstBl.voyage.vessel?.name ?? ''}` : ''
-            const hasOverdue = blContainers.some((c) => c.demurrage_status === 'overdue')
-            const blTotalUSD = blContainers.reduce((sum, c) => {
-              if (!c.discharge_date || !c.return_date) return sum
-              const blData = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-              return sum + calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd).total_usd
-            }, 0)
-
-            return (
-              <Card key={blId} className="mb-4">
-                <div className="flex items-start justify-between gap-4 border-b border-[#30363d] p-4">
-                  <div>
-                    <Link to={`/manifestos/${blId}`} className="font-semibold text-blue-400 hover:underline">{blId}</Link>
-                    <div className="text-sm text-slate-400">{customerName}</div>
-                    {voyageInfo && <div className="text-xs text-slate-500">{voyageInfo}</div>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {blTotalUSD > 0 && <span className="text-sm font-semibold text-amber-400">{fmtUSD(blTotalUSD)}</span>}
-                    {hasOverdue && (
-                      <Button
-                        variant="secondary"
-                        disabled={generatingBl === blId}
-                        onClick={() => { setGeneratingBl(blId); generateMutation.mutate(blId) }}
-                      >
-                        <FileText size={14} />
-                        {generatingBl === blId ? 'Gerando...' : 'Gerar Invoice'}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
-                    <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
-                      <tr>
-                        <th scope="col" className="py-2">Container</th>
-                        <th scope="col" className="py-2">Tipo</th>
-                        <th scope="col" className="py-2">Descarga</th>
-                        <th scope="col" className="py-2">Devolucao</th>
-                        <th scope="col" className="py-2">Dias totais</th>
-                        <th scope="col" className="py-2">Status</th>
-                        <th scope="col" className="py-2">USD</th>
-                        <th scope="col" className="py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#30363d]">
-                      {blContainers.map((c) => {
+          {grouped.size > 0 ? (
+            <Card className="overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
+                  <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+                    <tr>
+                      <th scope="col" className="px-4 py-2">Container</th>
+                      <th scope="col" className="py-2">Tipo</th>
+                      <th scope="col" className="py-2">Descarga</th>
+                      <th scope="col" className="py-2">Devolucao</th>
+                      <th scope="col" className="py-2">Dias totais</th>
+                      <th scope="col" className="py-2">Status</th>
+                      <th scope="col" className="py-2">USD</th>
+                      <th scope="col" className="py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d]">
+                    {Array.from(grouped.entries()).map(([blId, blContainers]) => {
+                      const firstBl = blContainers[0].bl as { customer?: { name?: string } | null; voyage?: { voyage_number?: string; vessel?: { name?: string } | null } | null } | null
+                      const customerName = firstBl?.customer?.name ?? blId
+                      const voyageInfo = firstBl?.voyage?.voyage_number ? `${firstBl.voyage.voyage_number} — ${firstBl.voyage.vessel?.name ?? ''}` : ''
+                      const hasOverdue = blContainers.some((c) => c.demurrage_status === 'overdue')
+                      const blTotalUSD = blContainers.reduce((sum, c) => {
+                        if (!c.discharge_date || !c.return_date) return sum
                         const blData = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-                        const calc = c.discharge_date && c.return_date ? calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd) : null
-                        return (
-                          <tr key={c.id}>
-                            <td className="py-2 font-semibold text-white">{c.container_number}</td>
-                            <td className="py-2">{c.type ?? '-'}</td>
-                            <td className="py-2">{c.discharge_date ? formatDate(c.discharge_date) : '—'}</td>
-                            <td className="py-2">{c.return_date ? formatDate(c.return_date) : <span className="text-slate-500">Pendente</span>}</td>
-                            <td className="py-2">{calc ? calc.total_days : '—'}</td>
-                            <td className="py-2"><DemurrageStatusBadge status={c.demurrage_status} /></td>
-                            <td className="py-2 font-semibold text-amber-400">{calc && calc.total_usd > 0 ? fmtUSD(calc.total_usd) : '—'}</td>
-                            <td className="py-2">
-                              <button
-                                type="button"
-                                className="rounded p-1 text-slate-500 transition-colors hover:text-slate-200"
-                                title="Editar datas"
-                                onClick={() => openEditContainer(c)}
-                              >
-                                <Pencil size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            )
-          })}
+                        return sum + calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd).total_usd
+                      }, 0)
+
+                      return [
+                        <tr key={`${blId}-header`} className="bg-[var(--app-surface-muted)]">
+                          <td colSpan={8} className="px-4 py-2">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex flex-wrap items-baseline gap-2">
+                                <Link to={`/manifestos/${blId}`} className="font-semibold text-blue-400 hover:underline">{blId}</Link>
+                                <span className="text-sm text-slate-400">{customerName}</span>
+                                {voyageInfo && <span className="text-xs text-slate-500">{voyageInfo}</span>}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {blTotalUSD > 0 && <span className="text-sm font-semibold text-amber-400">{fmtUSD(blTotalUSD)}</span>}
+                                {hasOverdue && (
+                                  <Button
+                                    variant="secondary"
+                                    disabled={generatingBl === blId}
+                                    onClick={() => { setGeneratingBl(blId); generateMutation.mutate(blId) }}
+                                  >
+                                    <FileText size={14} />
+                                    {generatingBl === blId ? 'Gerando...' : 'Gerar Fatura'}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>,
+                        ...blContainers.map((c) => {
+                          const blData = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
+                          const calc = c.discharge_date && c.return_date ? calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd) : null
+                          return (
+                            <tr key={c.id}>
+                              <td className="px-4 py-2 font-semibold text-white">{c.container_number}</td>
+                              <td className="py-2">{c.type ?? '-'}</td>
+                              <td className="py-2">{c.discharge_date ? formatDate(c.discharge_date) : '—'}</td>
+                              <td className="py-2">{c.return_date ? formatDate(c.return_date) : <span className="text-slate-500">Pendente</span>}</td>
+                              <td className="py-2">{calc ? calc.total_days : '—'}</td>
+                              <td className="py-2"><DemurrageStatusBadge status={c.demurrage_status} /></td>
+                              <td className="py-2 font-semibold text-amber-400">{calc && calc.total_usd > 0 ? fmtUSD(calc.total_usd) : '—'}</td>
+                              <td className="py-2">
+                                <button
+                                  type="button"
+                                  className="rounded p-1 text-slate-500 transition-colors hover:text-slate-200"
+                                  title="Editar datas"
+                                  onClick={() => openEditContainer(c)}
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        }),
+                      ]
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : null}
         </>
       ) : null}
 
@@ -534,19 +542,19 @@ export function Demurrage() {
       {tab !== 'containers' ? (
         <>
           {invoicesLoading && <Card>Carregando...</Card>}
-          {invoicesError && <InlineError message="Erro ao carregar invoices." />}
+          {invoicesError && <InlineError message="Erro ao carregar faturas." />}
           <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-semibold text-white">{formatResultCount(invoices?.length ?? 0, 'invoice visivel', 'invoices visiveis')}</span>
+            <span className="font-semibold text-white">{formatResultCount(invoices?.length ?? 0, 'fatura visivel', 'faturas visiveis')}</span>
             <span className="text-xs text-slate-400">Filtros ativos: Status {TAB_LABELS.find((item) => item.key === tab)?.label ?? tab}</span>
           </div>
           {!invoicesLoading && !invoicesError && !invoices?.length && (
             <EmptyState
               icon={FileText}
-              title="Nenhuma invoice"
+              title="Nenhuma fatura"
               description={
                 tab === 'rascunhos'
                   ? 'Nenhum rascunho. Faturas geradas por importação são emitidas automaticamente — rascunhos aparecem apenas quando a BCB está offline.'
-                  : `Nenhuma invoice com status "${tab}".`
+                  : `Nenhuma fatura com status "${tab}".`
               }
             />
           )}

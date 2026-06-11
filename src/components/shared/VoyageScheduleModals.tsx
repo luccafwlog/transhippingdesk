@@ -208,8 +208,8 @@ export function PodScheduleModal({
             </Field>
             <Field label="ESCALA">
               <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
-                <option value="true">YES</option>
-                <option value="false">NO</option>
+                <option value="true">SIM</option>
+                <option value="false">NÃO</option>
               </select>
             </Field>
           </div>
@@ -349,8 +349,8 @@ export function AddPodToVoyageModal({
             </Field>
             <Field label="ESCALA">
               <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
-                <option value="true">YES</option>
-                <option value="false">NO</option>
+                <option value="true">SIM</option>
+                <option value="false">NÃO</option>
               </select>
             </Field>
           </div>
@@ -508,8 +508,8 @@ export function ExportScheduleModal({
             </Field>
             <Field label="ESCALA">
               <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
-                <option value="true">YES</option>
-                <option value="false">NO</option>
+                <option value="true">SIM</option>
+                <option value="false">NÃO</option>
               </select>
             </Field>
           </div>
