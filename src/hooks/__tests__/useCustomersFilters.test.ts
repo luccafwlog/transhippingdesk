@@ -12,6 +12,8 @@ const baseFilters: CustomerFilters = {
   emailStatus: '',
   blStatus: '',
   pendingStatus: '',
+  sortKey: 'name',
+  sortDirection: 'asc',
   page: 0,
   pageSize: 50,
 }
@@ -42,11 +44,11 @@ describe('customer client-side filters', () => {
     const rows = [
       customer({
         id: 1,
-        customer_contacts: [{ id: 10, email: 'financeiro@acme.com.br' }],
+        customer_contacts: [{ id: 10, email: 'financeiro@acme.com.br', purpose: 'financeiro', is_primary: true }],
       }),
       customer({
         id: 2,
-        customer_contacts: [{ id: 20, email: 'operacao@exemplo.com.br' }],
+        customer_contacts: [{ id: 20, email: 'operacao@exemplo.com.br', purpose: 'operacional', is_primary: false }],
       }),
     ]
 

@@ -2,7 +2,7 @@ import { useState, type ChangeEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
-import { Download, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Download, FileText, MoreHorizontal, Plus, ReceiptText, Trash2, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -17,6 +17,14 @@ import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
+import {
+  buildCustomerBillingUrl,
+  getCustomerFilterChips,
+  getCustomerNextAction,
+  summarizeContactsForDisplay,
+  type CustomerSortKey,
+  type SortDirection,
+} from '../lib/customerTableViewModel'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { checkCustomerDependencies, createCustomer, deleteCustomers, fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
 import { formatBlockedSummary } from '../services/deleteDependencies'
@@ -82,12 +90,15 @@ export function Clientes() {
   const { isAdmin, user } = useAuth()
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
+  const [openActionsFor, setOpenActionsFor] = useState<number | null>(null)
   const [filters, setFilters] = useState({
     search: '',
     contactEmail: '',
     emailStatus: '' as '' | 'with' | 'without',
     blStatus: '' as '' | 'with' | 'without',
     pendingStatus: '' as '' | 'with' | 'without',
+    sortKey: 'name' as CustomerSortKey,
+    sortDirection: 'asc' as SortDirection,
     page: 0,
     pageSize: 50,
   })
@@ -102,6 +113,19 @@ export function Clientes() {
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
   function clearFilters() {
     setFilters((current) => ({ ...current, search: '', contactEmail: '', emailStatus: '', blStatus: '', pendingStatus: '', page: 0 }))
+  }
+  function toggleSort(sortKey: CustomerSortKey) {
+    setFilters((current) => ({
+      ...current,
+      sortKey,
+      sortDirection: current.sortKey === sortKey && current.sortDirection === 'asc' ? 'desc' : 'asc',
+      page: 0,
+    }))
+  }
+  const filterChips = getCustomerFilterChips(filters)
+  async function copyText(value: string, label: string) {
+    await navigator.clipboard.writeText(value)
+    showToast(`${label} copiado.`, 'success')
   }
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -225,7 +249,7 @@ export function Clientes() {
     try {
       let query = supabase
         .from('customers')
-        .select('*, bls(id, charge_status), customer_contacts(id, email)')
+        .select('*, bls(id, charge_status), customer_contacts(id, email, purpose, is_primary)')
         .order('name', { ascending: true })
 
       if (filters.search) {
@@ -406,6 +430,22 @@ export function Clientes() {
         </div>
       </FilterBar>
 
+      {filterChips.length ? (
+        <div className="app-filter-chips">
+          {filterChips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              className="app-filter-chip"
+              onClick={() => setFilterField(chip.key, '' as never)}
+            >
+              {chip.label}
+              <span aria-hidden="true">×</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {isAdmin ? (
         <BulkActionsBar
           count={selection.count}
@@ -419,7 +459,7 @@ export function Clientes() {
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar clientes." /> : null}
         <div className="app-table-scroll app-table-scroll--sticky">
-          <table className="app-table app-table--compact min-w-[880px] table-fixed text-left text-sm">
+          <table className="app-table app-table--compact app-table--sticky-actions min-w-[1040px] table-fixed text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 {isAdmin ? (
@@ -432,11 +472,26 @@ export function Clientes() {
                     />
                   </th>
                 ) : null}
-                <th scope="col" className="w-[31%] px-4 py-3">Cliente</th>
-                <th scope="col" className="w-[17%] px-4 py-3">Contatos</th>
-                <th scope="col" className="w-[22%] px-4 py-3">Operacao</th>
-                <th scope="col" className="w-[16%] px-4 py-3">Financeiro</th>
-                <th scope="col" className="w-[14%] px-4 py-3">Acoes</th>
+                <th scope="col" className="w-[30%] px-4 py-3">
+                  <button type="button" className="app-table__sort" onClick={() => toggleSort('name')}>
+                    Cliente
+                    {renderSortIcon(filters, 'name')}
+                  </button>
+                </th>
+                <th scope="col" className="w-[18%] px-4 py-3">Contatos</th>
+                <th scope="col" className="w-[20%] px-4 py-3">
+                  <button type="button" className="app-table__sort" onClick={() => toggleSort('bls')}>
+                    Operacao
+                    {renderSortIcon(filters, 'bls')}
+                  </button>
+                </th>
+                <th scope="col" className="w-[16%] px-4 py-3">
+                  <button type="button" className="app-table__sort" onClick={() => toggleSort('pendingBalance')}>
+                    Financeiro
+                    {renderSortIcon(filters, 'pendingBalance')}
+                  </button>
+                </th>
+                <th scope="col" className="w-[172px] px-4 py-3 text-right">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -461,6 +516,13 @@ export function Clientes() {
                   row.trade_name,
                   row.city && row.state ? `${row.city}/${row.state}` : row.city || row.state,
                 ].filter(Boolean).join(' • ')
+                const contactSummary = summarizeContactsForDisplay(row.customer_contacts)
+                const nextAction = getCustomerNextAction({
+                  hasEmail: !contactSummary.empty,
+                  readyCount: summary.ready,
+                  pendingCount: summary.pending,
+                  pendingBalance: Number(row.pending_balance ?? 0),
+                })
                 return (
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
                     {isAdmin ? (
@@ -484,19 +546,27 @@ export function Clientes() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="app-table__cell-stack">
-                        <div className="app-table__cell-value">{row.customer_contacts?.length ?? 0} contato(s)</div>
-                        <div className="app-table__cell-meta">
-                          {(row.customer_contacts?.length ?? 0) > 0 ? 'Base pronta para notificacao' : 'Sem e-mails cadastrados'}
-                        </div>
+                        <div className="app-table__cell-value">{contactSummary.count} contato(s)</div>
+                        {contactSummary.primaryEmail ? (
+                          <span className="app-table__truncate app-table__truncate--md" title={contactSummary.primaryEmail}>
+                            {contactSummary.primaryEmail}
+                          </span>
+                        ) : (
+                          <Badge tone="red">Sem e-mail</Badge>
+                        )}
+                        {contactSummary.purposeLabel ? <Badge tone="slate">{contactSummary.purposeLabel}</Badge> : null}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="app-table__cell-stack">
                         <div className="app-table__cell-value">{row.bls?.length ?? 0} B/L(s) vinculados</div>
                         <div className="flex flex-wrap gap-2">
-                          <Badge tone="yellow">Pend {summary.pending}</Badge>
-                          <Badge tone="green">Pronto {summary.ready}</Badge>
-                          <Badge tone="slate">Isento {summary.exempt}</Badge>
+                          {summary.pending > 0 ? <Badge tone="yellow">Pend {summary.pending}</Badge> : null}
+                          {summary.ready > 0 ? <Badge tone="green">Pronto {summary.ready}</Badge> : null}
+                          {summary.exempt > 0 ? <Badge tone="slate">Isento {summary.exempt}</Badge> : null}
+                          {summary.pending === 0 && summary.ready === 0 && summary.exempt === 0 ? (
+                            <Badge tone="slate">Sem taxas</Badge>
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -505,24 +575,65 @@ export function Clientes() {
                         <div className="app-table__cell-value app-table__cell-value--financial">
                           {formatBRL(row.pending_balance)}
                         </div>
+                        <Badge tone={nextAction.tone}>{nextAction.label}</Badge>
                         <div className="app-table__cell-meta">
                           {hasPendingBalance ? 'Com saldo em aberto' : 'Sem pendencia financeira'}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link className="app-table__action" to={`/clientes/${row.cnpj_cpf}`}>
-                          Abrir ficha
+                    <td className="px-4 py-3 text-right">
+                      <div className="app-customer-row-actions">
+                        <Link
+                          className="app-table__action app-table__action--compact"
+                          to={`/clientes/${row.cnpj_cpf}`}
+                          title="Abrir ficha do cliente"
+                        >
+                          <FileText size={15} />
+                          Ficha
                         </Link>
-                        <Link className="app-table__action" to={`/faturamento?tab=invoices&customer=${row.id}&customerName=${encodeURIComponent(row.name)}`}>
-                          Faturamento
+                        <Link
+                          className="app-table__icon-button"
+                          to={buildCustomerBillingUrl(row)}
+                          title="Ver faturas do cliente"
+                          aria-label={`Ver faturas de ${row.name}`}
+                        >
+                          <ReceiptText size={15} />
                         </Link>
+                        <div className="app-row-actions-menu">
+                          <button
+                            type="button"
+                            className="app-table__icon-button"
+                            title="Mais acoes"
+                            aria-label={`Mais acoes para ${row.name}`}
+                            aria-expanded={openActionsFor === row.id}
+                            onClick={() => setOpenActionsFor((current) => (current === row.id ? null : row.id))}
+                          >
+                            <MoreHorizontal size={15} />
+                          </button>
+                          {openActionsFor === row.id ? (
+                            <div className="app-row-actions-menu__panel">
+                              <button type="button" onClick={() => void copyText(formatCnpjCpf(row.cnpj_cpf), 'CNPJ/CPF')}>
+                                <Copy size={14} />
+                                Copiar CNPJ/CPF
+                              </button>
+                              {contactSummary.primaryEmail ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void copyText(contactSummary.primaryEmail!, 'E-mail principal')}
+                                >
+                                  <Copy size={14} />
+                                  Copiar e-mail
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                         {isAdmin ? (
                           <button
+                            type="button"
                             onClick={() => runCustomerDelete([row.id])}
                             disabled={deleting}
-                            className="text-red-400 hover:text-red-300 disabled:opacity-40"
+                            className="app-table__icon-button app-table__icon-button--danger"
                             title="Excluir cliente"
                             aria-label={`Excluir cliente ${row.name}`}
                           >
@@ -805,6 +916,14 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
 function truncateCustomerName(value: string, maxLength: number) {
   if (value.length <= maxLength) return value
   return `${value.slice(0, maxLength).trimEnd()}...`
+}
+
+function renderSortIcon(
+  filters: { sortKey: CustomerSortKey; sortDirection: SortDirection },
+  key: CustomerSortKey,
+) {
+  if (filters.sortKey !== key) return <ArrowUpDown size={13} className="opacity-50" />
+  return filters.sortDirection === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
 }
 
 function summarizeCustomerCharges(bls: Array<{ charge_status?: string | null }>) {
