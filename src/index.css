@@ -2280,8 +2280,55 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+}
+
+/* Indicador discreto para estados neutros/informativos (Sem taxas, Isento,
+   Sem e-mail, finalidade do contato) — substitui badges para reduzir poluicao
+   visual na tabela de Clientes. Pills coloridos ficam so para o que e acionavel. */
+.app-cell-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--app-muted);
+}
+
+.app-cell-flag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+.app-cell-flag--warn {
+  color: #b45309;
+}
+
+/* Na coluna de acoes, os botoes de icone ficam "ghost" (sem caixa ate o hover)
+   para que apenas o botao primario "Ficha" tenha contorno — menos caixas
+   competindo por atencao. */
+.app-customer-row-actions .app-table__icon-button {
+  border-color: transparent;
+  background: transparent;
+  color: var(--app-muted);
+}
+
+.app-customer-row-actions .app-table__icon-button:hover {
+  border-color: var(--app-border);
+  background: var(--app-surface-muted);
+  color: var(--app-text-strong);
+}
+
+.app-customer-row-actions .app-table__icon-button--danger:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .app-table__action--compact {

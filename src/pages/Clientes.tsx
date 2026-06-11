@@ -589,22 +589,25 @@ export function Clientes() {
                             {contactSummary.primaryEmail}
                           </span>
                         ) : (
-                          <Badge tone="red">Sem e-mail</Badge>
+                          <span className="app-cell-flag app-cell-flag--warn">Sem e-mail</span>
                         )}
-                        {contactSummary.purposeLabel ? <Badge tone="slate">{contactSummary.purposeLabel}</Badge> : null}
+                        {contactSummary.purposeLabel ? (
+                          <span className="app-cell-flag">{contactSummary.purposeLabel}</span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="app-table__cell-stack">
                         <div className="app-table__cell-value">{row.bls?.length ?? 0} B/L(s) vinculados</div>
-                        <div className="flex flex-wrap gap-2">
-                          {summary.pending > 0 ? <Badge tone="yellow">Pend {summary.pending}</Badge> : null}
-                          {summary.ready > 0 ? <Badge tone="green">Pronto {summary.ready}</Badge> : null}
-                          {summary.exempt > 0 ? <Badge tone="slate">Isento {summary.exempt}</Badge> : null}
-                          {summary.pending === 0 && summary.ready === 0 && summary.exempt === 0 ? (
-                            <Badge tone="slate">Sem taxas</Badge>
-                          ) : null}
-                        </div>
+                        {summary.pending > 0 || summary.ready > 0 || summary.exempt > 0 ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {summary.pending > 0 ? <Badge tone="yellow">Pend {summary.pending}</Badge> : null}
+                            {summary.ready > 0 ? <Badge tone="green">Pronto {summary.ready}</Badge> : null}
+                            {summary.exempt > 0 ? <span className="app-cell-flag">Isento {summary.exempt}</span> : null}
+                          </div>
+                        ) : (
+                          <span className="app-cell-flag">Sem taxas</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -613,9 +616,7 @@ export function Clientes() {
                           {formatBRL(row.pending_balance)}
                         </div>
                         <Badge tone={nextAction.tone}>{nextAction.label}</Badge>
-                        <div className="app-table__cell-meta">
-                          {hasPendingBalance ? 'Com saldo em aberto' : 'Sem pendencia financeira'}
-                        </div>
+                        {hasPendingBalance ? <div className="app-table__cell-meta">Com saldo em aberto</div> : null}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-right">
