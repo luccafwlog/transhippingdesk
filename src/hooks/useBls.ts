@@ -54,10 +54,7 @@ export function useBls(filters: BlFilters) {
       // Some legacy rows may carry charge_status with formatting drift (e.g. casing/spacing),
       // which makes PostgREST eq() return false negatives. For status/profile filters,
       // fetch-and-filter in app to keep UI behavior consistent.
-      if (
-        (filters.cargoProfile && filters.cargoProfile !== 'standard')
-        || Boolean(filters.chargeStatus)
-      ) {
+      if (filters.cargoProfile || Boolean(filters.chargeStatus)) {
         const allRows = await fetchAllBls(filters)
         const from = (filters.page - 1) * filters.pageSize
         const to = from + filters.pageSize
@@ -474,8 +471,14 @@ function applyBlFilters(query: ReturnType<typeof supabase.from>, filters: BlFilt
 }
 
 function applyCargoProfile(rows: BLListItem[], cargoProfile: string) {
-  if (!cargoProfile || cargoProfile === 'standard') {
+  if (!cargoProfile) {
     return rows
+  }
+
+  if (cargoProfile === 'standard') {
+    return rows.filter((row) =>
+      !(row.bl_containers ?? []).some((container) => container.is_imo || container.is_oog),
+    )
   }
 
   return rows.filter((row) =>
