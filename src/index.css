@@ -2280,36 +2280,43 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 .app-table__action--compact {
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 12px;
   gap: 6px;
   white-space: nowrap;
 }
 
-.app-row-actions-menu {
-  position: relative;
+/* Versao reduzida do botao de icone para caber varias acoes na linha da tabela. */
+.app-table__icon-button--sm {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 9px;
 }
 
-.app-row-actions-menu__panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 80;
+/* Menu de acoes ancorado via position:fixed (coordenadas calculadas no clique)
+   para nao ser recortado pelo overflow do container de scroll da tabela.
+   O translateX(-100%) alinha a borda direita do painel a direita do botao. */
+.app-floating-menu {
+  position: fixed;
+  z-index: 90;
+  transform: translateX(-100%);
   display: grid;
-  min-width: 184px;
+  min-width: 188px;
   padding: 6px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
 }
 
-.app-row-actions-menu__panel button {
+.app-floating-menu button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2325,7 +2332,7 @@ textarea {
   cursor: pointer;
 }
 
-.app-row-actions-menu__panel button:hover {
+.app-floating-menu button:hover {
   background: rgba(37, 99, 235, 0.08);
 }
 
