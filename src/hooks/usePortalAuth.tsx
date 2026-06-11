@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import { supabasePortal } from '../services/supabase'
+import { signOutSupabaseClient } from '../services/supabaseAuth'
 import type { PortalSessionOverview } from '../services/portalBilling'
 
 type PortalAuthContextValue = {
@@ -84,7 +85,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
 
   const signOut = useCallback(async () => {
     clearSession()
-    await supabasePortal.auth.signOut()
+    await signOutSupabaseClient(supabasePortal)
   }, [clearSession])
 
   const refreshOverview = useCallback(async () => {

@@ -1,29 +1,10 @@
-import { Suspense, lazy, type ComponentType, type ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
 import { PortalLayout } from './components/layout/PortalLayout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
-
-function lazyPage<T extends Record<string, unknown>, K extends keyof T & string>(
-  loader: () => Promise<T>,
-  exportName: K,
-) {
-  return lazy(async () => {
-    try {
-      const module = await loader()
-      return { default: module[exportName] as ComponentType }
-    } catch (e) {
-      // Chunk hash changed after deploy — force a hard reload to pick up new assets
-      if (e instanceof TypeError && !sessionStorage.getItem('chunk-reload')) {
-        sessionStorage.setItem('chunk-reload', '1')
-        window.location.reload()
-        return new Promise<never>(() => {})
-      }
-      throw e
-    }
-  })
-}
+import { lazyPage } from './lib/lazyPage'
 
 const Login = lazyPage(() => import('./pages/Login'), 'Login')
 const PortalLogin = lazyPage(() => import('./pages/PortalLogin'), 'PortalLogin')

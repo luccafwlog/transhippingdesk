@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../services/supabase'
+import { signOutSupabaseClient } from '../services/supabaseAuth'
 import type { UserProfile, UserProfileRole } from '../types/database'
 
 export type Permission =
@@ -85,7 +86,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const idleInterval = window.setInterval(() => {
       if (Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
-        void supabase.auth.signOut()
+        void signOutSupabaseClient(supabase)
       }
     }, 60_000)
 
@@ -176,8 +177,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (error) throw error
       },
       async signOut() {
-        const { error } = await supabase.auth.signOut()
-        if (error) throw error
+        await signOutSupabaseClient(supabase)
       },
     }
   }, [loading, profile, session])
