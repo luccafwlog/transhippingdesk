@@ -16,7 +16,7 @@ import {
   useLocalChargeTables,
 } from '../../hooks/useLocalCharges'
 import { describeActiveFilters, describeEmptyState } from '../../lib/operationalState'
-import { formatBRL, formatUSD } from '../../lib/utils'
+import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
 import { validateTableInput, validateTableItemInput } from '../../pages/taxasLocaisHelpers'
 import {
   EMPTY_TABLE_FORM,
@@ -564,7 +564,7 @@ export function ChargeTablesTab({
                       <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : table.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                       <td className="px-4 py-3">{table.pod ?? '-'}</td>
                       <td className="px-4 py-3">
-                        {table.valid_from}{table.valid_to ? ` até ${table.valid_to}` : ' (aberta)'}
+                        {formatDate(table.valid_from)}{table.valid_to ? ` até ${formatDate(table.valid_to)}` : ' (aberta)'}
                       </td>
                       <td className="px-4 py-3">
                         <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>

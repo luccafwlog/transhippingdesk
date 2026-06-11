@@ -11,6 +11,19 @@ import type { BlForm } from '../../hooks/useBlEditForm'
 import { cargoModeLabel, type CargoMode } from '../../pages/blDetalheHelpers'
 import type { BL, BLDetail } from '../../types/database'
 
+const REVIEW_STATUS_LABELS: Record<string, string> = {
+  ok: 'OK',
+  pending_review: 'Pendente',
+  reviewed: 'Revisado',
+}
+
+const FINANCIAL_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendente',
+  invoiced: 'Faturado',
+  paid: 'Pago',
+  cancelled: 'Cancelado',
+}
+
 // Aba Operacional: formulário de edição manual do B/L. O pai (BlDetalhe) mantém o estado do form.
 export function BlOperacionalTab({
   active,
@@ -62,8 +75,8 @@ export function BlOperacionalTab({
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <StatusBadge label="Modo" value={cargoModeLabel(cargoMode)} tone={isContainerMode ? 'blue' : 'green'} />
-          <StatusBadge label="Revisao" value={bl.review_status ?? 'ok'} />
-          <StatusBadge label="Financeiro" value={bl.financial_status ?? 'pending'} />
+          <StatusBadge label="Revisao" value={REVIEW_STATUS_LABELS[bl.review_status ?? 'ok'] ?? bl.review_status ?? 'ok'} />
+          <StatusBadge label="Financeiro" value={FINANCIAL_STATUS_LABELS[bl.financial_status ?? 'pending'] ?? bl.financial_status ?? 'pending'} />
           {latestInvoice ? (
             <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latestInvoice.id}`}>
               Invoice ativa: {latestInvoice.invoice_number ?? `INV-${latestInvoice.id}`}

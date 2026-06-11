@@ -2069,6 +2069,12 @@ textarea {
   min-width: 0;
 }
 
+/* O quadro line-up tem 14 colunas; sem um min-width o table-fixed esmaga as
+   colunas em telas estreitas em vez de ativar o scroll horizontal do wrapper. */
+.app-table--lineup {
+  min-width: 1024px;
+}
+
 /* Table headers use theme tokens; the TV line-up display keeps dedicated styles. */
 .app-table:not(.app-table--lineup-display) thead th {
   background: var(--app-thead-bg);

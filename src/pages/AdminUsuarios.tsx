@@ -235,7 +235,7 @@ export function AdminUsuarios() {
                           <div className="flex items-center justify-end gap-2">
                             <select
                               disabled={isBusy}
-                              value={u.role}
+                              value={u.role === 'admin' ? 'administrativo' : u.role === 'operator' ? 'documentacao' : u.role}
                               onChange={(e) => handleSetProfile(u.id, e.target.value as UserProfileRole)}
                               className="app-input app-select w-44 text-xs disabled:opacity-40"
                             >
