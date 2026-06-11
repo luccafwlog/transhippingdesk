@@ -497,7 +497,7 @@ export function Clientes() {
         {error ? <InlineError message="Erro ao carregar clientes." /> : null}
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact app-table--sticky-actions min-w-[1140px] table-fixed text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead className="text-xs uppercase tracking-wider">
               <tr>
                 {isAdmin ? (
                   <th scope="col" className="w-10 px-4 py-3">
@@ -531,7 +531,7 @@ export function Clientes() {
                 <th scope="col" className="w-[236px] px-3 py-3 text-right">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {isLoading ? (
                 <tr>
                   <td colSpan={isAdmin ? 6 : 5} className="px-4 py-8 text-center text-slate-400">
@@ -561,7 +561,7 @@ export function Clientes() {
                   pendingBalance: Number(row.pending_balance ?? 0),
                 })
                 return (
-                  <tr key={row.id} className="hover:bg-[#21262d]/60">
+                  <tr key={row.id}>
                     {isAdmin ? (
                       <td className="px-4 py-3">
                         <input
@@ -671,7 +671,7 @@ export function Clientes() {
           </table>
         </div>
         {totalPages > 1 ? (
-          <div className="flex items-center justify-between border-t border-[#30363d] px-4 py-3 text-sm text-slate-400">
+          <div className="flex items-center justify-between border-t border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
             <span>
               Pagina {filters.page + 1} de {totalPages} ({data?.totalCount ?? 0} clientes)
             </span>
@@ -751,7 +751,7 @@ export function Clientes() {
             <Textarea value={createForm.notes} onChange={(event) => updateCreateField('notes', event.target.value)} />
           </Field>
 
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4">
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <div className="font-semibold text-white">Contatos do cliente</div>
@@ -765,7 +765,7 @@ export function Clientes() {
 
             <div className="grid gap-4">
               {createForm.contacts.map((contact, index) => (
-                <div key={contact._id} className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
+                <div key={contact._id} className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <div className="font-semibold text-white">Contato {index + 1}</div>
                     <Button variant="ghost" onClick={() => removeContact(index)} aria-label="Remover contato">
@@ -827,7 +827,7 @@ export function Clientes() {
 
       <Modal open={importOpen} onClose={resetImportModal} title="Importar Base de Clientes">
         <div className="grid gap-5">
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
             <div className="font-semibold text-white">Modelo padrao da base</div>
             <div className="mt-2">
               As colunas obrigatorias do arquivo sao <span className="font-semibold text-white">CNPJ/CPF</span> e{' '}
@@ -858,7 +858,7 @@ export function Clientes() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
             Quando um manifesto trouxer o mesmo CNPJ/CPF, o B/L passa a usar o cliente desta base como cadastro
             oficial.
           </div>
@@ -888,9 +888,9 @@ export function Clientes() {
                 </div>
               ) : null}
 
-              <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
+              <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
                 <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
-                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <thead className="text-xs uppercase tracking-wider">
                     <tr>
                       <th scope="col" className="px-3 py-2">CNPJ/CPF</th>
                       <th scope="col" className="px-3 py-2">Nome</th>
@@ -899,7 +899,7 @@ export function Clientes() {
                       <th scope="col" className="px-3 py-2">Endereco</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#30363d]">
+                  <tbody>
                     {parsedBase.rows.slice(0, 15).map((row) => (
                       <tr key={row.cnpj_cpf}>
                         <td className="px-3 py-2">{formatCnpjCpf(row.cnpj_cpf)}</td>
@@ -920,7 +920,7 @@ export function Clientes() {
               </div>
 
               {parsedBase.rowErrors.length ? (
-                <div className="grid gap-2 rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
+                <div className="grid gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
                   {parsedBase.rowErrors.slice(0, 8).map((rowError) => (
                     <div key={`${rowError.row}-${rowError.message}`}>
                       Linha {rowError.row}: {rowError.message}
@@ -948,7 +948,7 @@ export function Clientes() {
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
       <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-1 text-2xl font-bold text-white">{value}</div>
     </div>

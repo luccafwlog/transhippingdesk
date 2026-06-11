@@ -41,7 +41,7 @@ describe('customerTableViewModel', () => {
   it('prioriza ausencia de email como proxima acao', () => {
     expect(getCustomerNextAction({ hasEmail: false, readyCount: 2, pendingCount: 0, pendingBalance: 0 })).toEqual({
       label: 'Cadastrar e-mail',
-      tone: 'red',
+      tone: 'yellow',
     })
   })
 
