@@ -64,7 +64,21 @@ describe('tryAutoIssueInvoice', () => {
 
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
-    expect(result).toEqual({ status: 'blocked', message: 'Peso BB ausente.' })
+    expect(result).toEqual({
+      status: 'blocked',
+      message: 'Peso BB ausente.',
+      calculation: {
+        bl_id: 'BL1',
+        status: 'review_required',
+        table_id: 1,
+        line_count: 1,
+        total_brl: 0,
+        total_usd: 0,
+        review_required: true,
+        exempt: false,
+        reason: 'Peso BB ausente.',
+      },
+    })
     expect(mockedMarkReady).not.toHaveBeenCalled()
     expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
@@ -84,7 +98,21 @@ describe('tryAutoIssueInvoice', () => {
 
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
-    expect(result).toEqual({ status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.' })
+    expect(result).toEqual({
+      status: 'blocked',
+      message: 'B/L sem valor faturavel apos recalculo.',
+      calculation: {
+        bl_id: 'BL1',
+        status: 'calculated',
+        table_id: 1,
+        line_count: 1,
+        total_brl: 0,
+        total_usd: 0,
+        review_required: false,
+        exempt: false,
+        reason: '',
+      },
+    })
     expect(mockedMarkReady).not.toHaveBeenCalled()
     expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })

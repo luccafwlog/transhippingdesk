@@ -24,7 +24,7 @@ import { InlineCustomerPicker, InlineFieldEditor } from '../components/shared/Re
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { createCustomer } from '../services/customers'
-import { calculateBlLocalCharges } from '../services/charges/chargeOperationsService'
+import { calculateBlLocalCharges, type LocalChargeCalculationResult } from '../services/charges/chargeOperationsService'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { queryKeys } from '../services/queryKeys'
 import { applyInlineBlReviewFix, ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
@@ -162,7 +162,7 @@ export function Revisao() {
         expectedUpdatedAt: item.updated_at ?? null,
       })
 
-      let calculation: any = null
+      let calculation: LocalChargeCalculationResult | null = null
       let invoiced = false
 
       if (item.customer_id) {
@@ -170,7 +170,7 @@ export function Revisao() {
         if (autoInvoice.status === 'invoiced') {
           invoiced = true
         } else {
-          calculation = autoInvoice.calculation
+          calculation = autoInvoice.calculation ?? null
         }
       } else {
         calculation = await calculateBlLocalCharges(item.id, { actorId: user.id, recalculate: true })
