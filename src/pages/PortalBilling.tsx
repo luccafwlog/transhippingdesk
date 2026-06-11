@@ -174,7 +174,7 @@ export function PortalBilling() {
         <MetricCard label="B/Ls elegíveis" value={String(eligibleCount)} />
       </div>
 
-      <div className="mb-4 flex gap-2 border-b border-[var(--app-border)]">
+      <div className="mb-4 flex gap-2 border-b border-[var(--app-border)]" role="tablist">
         <TabButton active={tab === 'local'} label="Taxas Locais" onClick={() => setTab('local')} />
         <TabButton active={tab === 'demurrage'} label="Demurrage" onClick={() => setTab('demurrage')} />
       </div>
