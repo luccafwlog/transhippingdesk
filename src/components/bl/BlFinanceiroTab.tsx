@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Save, X } from 'lucide-react'
 import { Badge } from '../ui/Badge'
@@ -39,13 +39,16 @@ export function BlFinanceiroTab({
   const [savingDemurrageOverride, setSavingDemurrageOverride] = useState(false)
   const { data: customerOptions } = useOverrideCustomers(customerSearch)
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Re-baseia o formulário quando o B/L (re)carrega — ajuste durante o render
+  // em vez de useEffect (padrão "adjusting state when props change" do React).
+  const [prevBl, setPrevBl] = useState<BLDetail | null>(null)
+  if (bl !== prevBl) {
+    setPrevBl(bl)
     setDemurrageOverrideForm({
       p1: bl.demurrage_rate_override_p1_usd != null ? String(Number(bl.demurrage_rate_override_p1_usd)) : '',
       p2: bl.demurrage_rate_override_p2_usd != null ? String(Number(bl.demurrage_rate_override_p2_usd)) : '',
     })
-  }, [bl])
+  }
 
   async function handleLinkCustomer(customerId: number | null) {
     if (!bl || !user) return

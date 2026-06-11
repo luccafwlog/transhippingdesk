@@ -88,25 +88,27 @@ async function fetchPtax(): Promise<ExchangeRates> {
   return buildRates(json2.value[0].cotacaoVenda)
 }
 
+function cacheIsFromToday(): boolean {
+  const cached = loadCache()
+  if (!cached?.fetchedAt) return false
+  return new Date(cached.fetchedAt).toDateString() === new Date().toDateString()
+}
+
 export function useExchangeRates(): ExchangeRates & { loading: boolean } {
   const fetchStarted = useRef(false)
   const [rates, setRates] = useState<ExchangeRates>(
     () => loadCache() ?? { usd: null, cny: null, fetchedAt: null },
   )
-  const [loading, setLoading] = useState(false)
+  // Já nasce true quando o cache não cobre o dia (o effect abaixo vai buscar),
+  // evitando setState síncrono dentro do effect.
+  const [loading, setLoading] = useState(() => !cacheIsFromToday())
 
   useEffect(() => {
     if (fetchStarted.current) return
     fetchStarted.current = true
 
-    const cached = loadCache()
-    if (cached?.fetchedAt) {
-      const cachedDay = new Date(cached.fetchedAt).toDateString()
-      if (cachedDay === new Date().toDateString()) return
-    }
+    if (cacheIsFromToday()) return
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
-    setLoading(true)
     fetchPtax()
       .then((result) => {
         saveCache(result)

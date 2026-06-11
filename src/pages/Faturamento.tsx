@@ -69,12 +69,16 @@ export function Faturamento() {
   const [exporting, setExporting] = useState(false)
   const [consolidatedOpen, setConsolidatedOpen] = useState(false)
 
-  useEffect(() => {
+  // Sincroniza estado com a URL — ajuste durante o render (sem useEffect),
+  // disparado pela identidade de searchParams como o effect original
+  // (prev inicia null para reproduzir a execução de montagem).
+  const [prevSearchParams, setPrevSearchParams] = useState<typeof searchParams | null>(null)
+  if (searchParams !== prevSearchParams) {
+    setPrevSearchParams(searchParams)
     const invoiceId = Number(searchParams.get('invoice') ?? '') || null
     const customerId = searchParams.get('customer') ?? ''
     const blSearch = searchParams.get('bl') ?? ''
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     setSelectedInvoiceId(invoiceId)
     if (invoiceId) setActiveTab('invoices')
     setFilters((current) =>
@@ -82,7 +86,7 @@ export function Faturamento() {
         ? current
         : { ...current, customerId, blSearch, page: 1 },
     )
-  }, [searchParams])
+  }
 
   const { data, isLoading, error } = useInvoices(filters)
 

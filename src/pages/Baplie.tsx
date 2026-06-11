@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
@@ -37,10 +37,12 @@ export function Baplie() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Limpa a confirmação ao trocar de viagem — ajuste durante o render.
+  const [prevVoyageId, setPrevVoyageId] = useState(voyageId)
+  if (voyageId !== prevVoyageId) {
+    setPrevVoyageId(voyageId)
     setConfirmedBaplieManifestId(null)
-  }, [voyageId])
+  }
 
   const { data: stagingData, isLoading: stagingLoading } = useQuery({
     queryKey: ['baplie-staging', voyageId],
@@ -689,10 +691,13 @@ function BaplieUploadModal({
   const [submitting, setSubmitting] = useState(false)
   const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Re-baseia a viagem ao abrir o modal — ajuste durante o render,
+  // mantendo o gatilho original (open ou initialVoyageId mudou).
+  const [prevSync, setPrevSync] = useState({ open, initialVoyageId })
+  if (open !== prevSync.open || initialVoyageId !== prevSync.initialVoyageId) {
+    setPrevSync({ open, initialVoyageId })
     if (open) setVoyageId(initialVoyageId)
-  }, [initialVoyageId, open])
+  }
 
   function handleClose() {
     setParsed(null)

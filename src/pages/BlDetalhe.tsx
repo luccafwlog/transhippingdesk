@@ -53,8 +53,9 @@ export function BlDetalhe() {
     [bl?.bl_containers],
   )
 
+  // Dependa do objeto bl inteiro: identidade só muda em refetch e o cálculo é
+  // barato — satisfaz react-hooks/preserve-manual-memoization sem suppression.
   const breakbulkSummary = useMemo(
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
     () => ({
       machines: Number(bl?.bb_machine_qty ?? 0),
       packages: Number(bl?.bb_packages_qty ?? 0),
@@ -62,7 +63,7 @@ export function BlDetalhe() {
       weightTon: Number(bl?.bb_weight_ton ?? (bl?.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
       cbm: Number(bl?.total_cbm ?? 0),
     }),
-    [bl?.bb_machine_qty, bl?.bb_packages_qty, bl?.bb_packages_total, bl?.bb_weight_ton, bl?.total_cbm, bl?.total_weight_kg],
+    [bl],
   )
 
   if (isLoading) {

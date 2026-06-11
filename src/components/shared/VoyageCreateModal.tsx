@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -39,16 +39,20 @@ export function VoyageCreateModal({
   const [errors, setErrors] = useState<VoyageFormErrors>({})
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
-    setForm({
-      ...initialVoyageFormValues,
-      ...initialValues,
-      dischargePortEtas: initialValues?.dischargePortEtas ?? initialVoyageFormValues.dischargePortEtas,
-    })
-    setErrors({})
-  }, [initialValues, open])
+  // Re-baseia o formulário quando o modal abre ou os valores iniciais mudam —
+  // ajuste durante o render (sem useEffect), mantendo o gatilho original.
+  const [prevReset, setPrevReset] = useState<{ open: boolean; initialValues?: Partial<VoyageFormValues> }>({ open })
+  if (open !== prevReset.open || initialValues !== prevReset.initialValues) {
+    setPrevReset({ open, initialValues })
+    if (open) {
+      setForm({
+        ...initialVoyageFormValues,
+        ...initialValues,
+        dischargePortEtas: initialValues?.dischargePortEtas ?? initialVoyageFormValues.dischargePortEtas,
+      })
+      setErrors({})
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()

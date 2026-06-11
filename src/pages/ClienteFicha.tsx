@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
@@ -117,9 +117,11 @@ export function ClienteFicha() {
     },
   })
 
-  useEffect(() => {
-    if (!data) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Re-baseia formulário e campos do portal quando os dados (re)carregam —
+  // ajuste durante o render (padrão "adjusting state when props change").
+  const [prevFormData, setPrevFormData] = useState<typeof data | null>(null)
+  if (data && data !== prevFormData) {
+    setPrevFormData(data)
     setForm({
       name: data.name,
       trade_name: data.trade_name ?? '',
@@ -129,20 +131,21 @@ export function ClienteFicha() {
       zip: data.zip ?? '',
       notes: data.notes ?? '',
     })
-  }, [data])
+  }
 
-  useEffect(() => {
-    if (!data) return
+  const portalAccount = portalAccountQuery.data
+  const [prevPortalSync, setPrevPortalSync] = useState<{ data: typeof data; portalAccount: typeof portalAccount } | null>(null)
+  if (data && (data !== prevPortalSync?.data || portalAccount !== prevPortalSync?.portalAccount)) {
+    setPrevPortalSync({ data, portalAccount })
 
     const primaryContact =
       data.customer_contacts?.find((contact) => contact.purpose === 'faturamento' && contact.email) ??
       data.customer_contacts?.find((contact) => contact.is_primary && contact.email) ??
       data.customer_contacts?.find((contact) => contact.email)
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
-    setPortalEmail(portalAccountQuery.data?.contact_email ?? primaryContact?.email ?? '')
-    setPortalActive(portalAccountQuery.data?.active ?? true)
-  }, [data, portalAccountQuery.data])
+    setPortalEmail(portalAccount?.contact_email ?? primaryContact?.email ?? '')
+    setPortalActive(portalAccount?.active ?? true)
+  }
 
   async function handleSaveCustomer() {
     if (!data || !form || !user) return
