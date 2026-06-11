@@ -246,12 +246,9 @@ export function Manifestos() {
           <Field label="Status taxas locais">
             <Select value={filters.chargeStatus} onChange={(event) => updateFilter('chargeStatus', event.target.value)}>
               <option value="">Todos</option>
-              <option value="not_calculated">Não calculado</option>
-              <option value="calculated">Calculado</option>
-              <option value="review_required">Revisao</option>
-              <option value="reviewed">Revisado</option>
-              <option value="ready_for_billing">Pronto faturar</option>
+              <option value="review_required">Revisão</option>
               <option value="exempt">Isento</option>
+              <option value="ready_for_billing">Faturado</option>
             </Select>
           </Field>
           <Field label="Perfil de carga">
@@ -271,7 +268,7 @@ export function Manifestos() {
         <SummaryCard label="Pendentes revisao" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />
         <SummaryCard label="Sem faturamento" value={isSummaryLoading ? '...' : summary?.pendingFinancial ?? 0} />
         <SummaryCard label="Taxas pendentes" value={isSummaryLoading ? '...' : summary?.chargePending ?? 0} />
-        <SummaryCard label="Pronto faturar" value={isSummaryLoading ? '...' : summary?.chargeReady ?? 0} />
+        <SummaryCard label="Faturados" value={isSummaryLoading ? '...' : summary?.chargeReady ?? 0} />
         <SummaryCard label="Isentos" value={isSummaryLoading ? '...' : summary?.chargeExempt ?? 0} />
       </div>
 

@@ -28,7 +28,7 @@ import { calculateBlLocalCharges } from '../services/charges/chargeOperationsSer
 import { logOperationalEvent } from '../services/operationalEvents'
 import { queryKeys } from '../services/queryKeys'
 import { applyInlineBlReviewFix, ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
-import { tryIssueInvoiceAfterCustomerLink } from '../services/reviewBillingAutomation'
+import { tryAutoIssueInvoice } from '../services/reviewBillingAutomation'
 import { supabase } from '../services/supabase'
 
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
@@ -111,7 +111,7 @@ export function Revisao() {
           changedBy: user.id,
           expectedUpdatedAt: item.updated_at ?? null,
         })
-        const autoInvoice = await tryIssueInvoiceAfterCustomerLink({ blId: item.id, customerId, actorId: user.id })
+        const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId, actorId: user.id })
         autoInvoiceIssued = autoInvoice.status === 'invoiced'
         autoInvoiceMessage = autoInvoice.status === 'blocked' ? autoInvoice.message : null
       }
@@ -161,9 +161,37 @@ export function Revisao() {
         changedBy: user.id,
         expectedUpdatedAt: item.updated_at ?? null,
       })
+
+      let calculation: any = null
+      let invoiced = false
+
+      if (item.customer_id) {
+        const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId: item.customer_id, actorId: user.id })
+        if (autoInvoice.status === 'invoiced') {
+          invoiced = true
+        } else {
+          calculation = autoInvoice.calculation
+        }
+      } else {
+        calculation = await calculateBlLocalCharges(item.id, { actorId: user.id, recalculate: true })
+      }
+
       await invalidateReviewCaches(item.id)
-      evaluateRecalcNotice(item)
-      showToast('Pendência atualizada.', 'success')
+
+      if (invoiced) {
+        dismissRecalcNotice(item.id)
+        showToast('Pendência atualizada e fatura emitida automaticamente.', 'success')
+      } else if (calculation && !calculation.review_required && calculation.status !== 'review_required') {
+        dismissRecalcNotice(item.id)
+        if (calculation.exempt || calculation.status === 'exempt') {
+           showToast('Pendência atualizada e B/L isento de taxas locais.', 'success')
+        } else {
+           showToast('Pendência atualizada. Taxas prontas para faturamento, mas falta vinculação de cliente.', 'success')
+        }
+      } else {
+        addRecalcNotice({ id: item.id, label: item.id, source: 'bl' })
+        showToast('Pendência atualizada, mas as taxas locais ainda possuem pendências de revisão.', 'info')
+      }
     } catch (err) {
       await handleInlineError(err)
     } finally {
@@ -314,7 +342,7 @@ export function Revisao() {
             changedBy: user.id,
             expectedUpdatedAt: item.updated_at ?? null,
           })
-          const autoInvoice = await tryIssueInvoiceAfterCustomerLink({
+          const autoInvoice = await tryAutoIssueInvoice({
             blId: item.id,
             customerId: batchCustomerId,
             actorId: user.id,

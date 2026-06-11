@@ -1,4 +1,4 @@
-﻿import { onlyDigits } from '../lib/utils'
+import { onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
@@ -170,6 +170,56 @@ export async function importManifest({
   if (billingError) {
     throw billingError
   }
+
+  // --- NEW LOGIC: Identify BLs that failed billing (no charges calculated and not exempt) ---
+  const importedBlIds = blPayload.map((bl) => bl.id)
+  
+  const { data: chargeData } = await supabase
+    .from('charge_calculations')
+    .select('bl_id')
+    .in('bl_id', importedBlIds)
+    
+  const blsWithCharges = new Set((chargeData || []).map(c => String(c.bl_id)))
+  const limboBlIds = importedBlIds.filter(id => !blsWithCharges.has(id))
+
+  if (limboBlIds.length > 0) {
+    const { data: blsToUpdate } = await supabase
+      .from('bls')
+      .select('id, notes, charge_status')
+      .in('id', limboBlIds)
+      .neq('charge_status', 'exempt') // Do not flag exempt BLs
+
+    if (blsToUpdate && blsToUpdate.length > 0) {
+      const updates = blsToUpdate.map(bl => {
+        let newNotes = bl.notes || ''
+        const errorMsg = 'Falha crítica: Nenhuma tabela de preco ou tarifa encontrada.'
+        if (!newNotes) {
+          newNotes = `Pendencias de importacao: ${errorMsg}`
+        } else if (!newNotes.includes(errorMsg)) {
+          newNotes += `, ${errorMsg}`
+        }
+        
+        return {
+          id: bl.id,
+          review_status: 'pending_review',
+          charge_status: 'review_required',
+          billing_hold_reason: 'Falha crítica: Nenhuma tabela de preco ou tarifa encontrada. Adicione os precos e recalcule.',
+          notes: newNotes
+        }
+      })
+      
+      // Update one by one or upsert. Since it's a few, we can do promises.
+      await Promise.all(updates.map(updateData => 
+        supabase.from('bls').update({
+          review_status: updateData.review_status,
+          charge_status: updateData.charge_status,
+          billing_hold_reason: updateData.billing_hold_reason,
+          notes: updateData.notes
+        }).eq('id', updateData.id)
+      ))
+    }
+  }
+  // --- END NEW LOGIC ---
 
   await syncManifestContactEmails(blPayload)
 

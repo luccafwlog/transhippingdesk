@@ -3,9 +3,9 @@ import { calculateBlLocalCharges, markBlReadyForBilling } from './charges/charge
 
 export type ReviewBillingAutomationResult =
   | { status: 'invoiced'; invoiceResult: unknown }
-  | { status: 'blocked'; message: string }
+  | { status: 'blocked'; message: string; calculation?: any }
 
-export async function tryIssueInvoiceAfterCustomerLink({
+export async function tryAutoIssueInvoice({
   blId,
   customerId,
   actorId,
@@ -18,15 +18,15 @@ export async function tryIssueInvoiceAfterCustomerLink({
     const calculation = await calculateBlLocalCharges(blId, { actorId, recalculate: true })
 
     if (calculation.review_required || calculation.status === 'review_required') {
-      return { status: 'blocked', message: calculation.reason || 'Taxas locais ainda possuem pendencia de revisao.' }
+      return { status: 'blocked', message: calculation.reason || 'Taxas locais ainda possuem pendencia de revisao.', calculation }
     }
 
     if (calculation.exempt || calculation.status === 'exempt') {
-      return { status: 'blocked', message: 'B/L isento de taxas locais.' }
+      return { status: 'blocked', message: 'B/L isento de taxas locais.', calculation }
     }
 
     if (Number(calculation.total_brl ?? 0) <= 0 && Number(calculation.total_usd ?? 0) <= 0) {
-      return { status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.' }
+      return { status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.', calculation }
     }
 
     await markBlReadyForBilling(blId, actorId)
