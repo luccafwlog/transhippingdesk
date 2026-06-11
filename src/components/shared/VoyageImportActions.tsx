@@ -270,12 +270,18 @@ function CntrConsolidatedSummary({ entries }: { entries: FilePreviewEntry<Manife
 function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId: number }) {
   const [existingBlIds, setExistingBlIds] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
+  // Reset síncrono sai do effect e vira ajuste durante o render; o fetch
+  // assíncrono (abaixo) continua no useEffect, onde é permitido.
+  const [prevInput, setPrevInput] = useState<{ preview: ManifestPreview; voyageId: number } | null>(null)
+  if (preview !== prevInput?.preview || voyageId !== prevInput?.voyageId) {
+    setPrevInput({ preview, voyageId })
     if (!preview.bls.length || !voyageId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
       setExistingBlIds(new Set())
-      return
     }
+  }
+
+  useEffect(() => {
+    if (!preview.bls.length || !voyageId) return
     const blNumbers = preview.bls.map((bl) => bl.id).filter(Boolean)
     if (!blNumbers.length) return
 

@@ -38,14 +38,20 @@ export function LineUpTVDisplay() {
     refetchInterval: 30_000,
   })
 
+  // Marca o refresh quando um novo snapshot chega — os setStates síncronos
+  // saem do effect (ajuste durante o render); o timer que apaga o flash
+  // continua em useEffect, re-armado a cada snapshot como antes.
+  const [prevData, setPrevData] = useState<typeof data>(undefined)
+  if (data && data !== prevData) {
+    setPrevData(data)
+    setRefreshedAt(new Date())
+    setFlashRefresh(true)
+  }
+
   useEffect(() => {
-    if (data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
-      setRefreshedAt(new Date())
-      setFlashRefresh(true)
-      const t = setTimeout(() => setFlashRefresh(false), 1200)
-      return () => clearTimeout(t)
-    }
+    if (!data) return
+    const t = setTimeout(() => setFlashRefresh(false), 1200)
+    return () => clearTimeout(t)
   }, [data])
 
   const rows = useMemo(() => data?.rows ?? [], [data?.rows])
@@ -110,11 +116,14 @@ export function LineUpTVDisplay() {
     void requestFullScreen()
   }, [])
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Reinicia o carrossel quando o conteúdo muda — ajuste durante o render.
+  const carouselResetKey = `${data?.lastChangedAt ?? ''}:${rows.length}`
+  const [prevCarouselResetKey, setPrevCarouselResetKey] = useState(carouselResetKey)
+  if (carouselResetKey !== prevCarouselResetKey) {
+    setPrevCarouselResetKey(carouselResetKey)
     setStartIndex(0)
     setIsSliding(false)
-  }, [data?.lastChangedAt, rows.length])
+  }
 
   useEffect(() => {
     if (isMobile || !hasAnimatedLoop || rowHeight <= 0) return

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -60,28 +60,19 @@ export function Veiculos() {
     [options?.voyages, selectedVesselId],
   )
 
-  useEffect(() => {
-    if (!selectedVoyageId) return
-    const stillValid = voyageOptions.some((voyage) => String(voyage.id) === selectedVoyageId)
-    if (!stillValid) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
-      setSelectedVoyageId('')
-    }
-  }, [selectedVoyageId, voyageOptions])
+  // Ajustes de estado durante o render (sem useEffect): cada condição se
+  // auto-falsifica após o setState, convergindo em um re-render.
+  if (selectedVoyageId && !voyageOptions.some((voyage) => String(voyage.id) === selectedVoyageId)) {
+    setSelectedVoyageId('')
+  }
 
-  useEffect(() => {
-    if (!importOpen) return
-
-    if (selectedVoyageId && !importVoyageId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  if (importOpen && !importVoyageId) {
+    if (selectedVoyageId) {
       setImportVoyageId(selectedVoyageId)
-      return
-    }
-
-    if (!selectedVoyageId && !importVoyageId && allVoyageOptions.length === 1) {
+    } else if (allVoyageOptions.length === 1) {
       setImportVoyageId(String(allVoyageOptions[0].id))
     }
-  }, [importOpen, importVoyageId, selectedVoyageId, allVoyageOptions])
+  }
 
   const voyageId = selectedVoyageId ? Number(selectedVoyageId) : null
   const importTargetVoyageId = importVoyageId ? Number(importVoyageId) : null

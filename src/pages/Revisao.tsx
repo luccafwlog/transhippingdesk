@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
@@ -733,9 +733,11 @@ function ReviewModal({
   const [saving, setSaving] = useState(false)
   const customerLookup = useCustomerLookup(customerSearch)
 
-  useEffect(() => {
-    if (!item) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Re-baseia o formulário quando o item em revisão muda — ajuste durante
+  // o render (padrão "adjusting state when props change" do React).
+  const [prevItem, setPrevItem] = useState<typeof item | null>(null)
+  if (item && item !== prevItem) {
+    setPrevItem(item)
     setShipper(item.shipper ?? '')
     setConsignee(item.consignee ?? '')
     setPol(item.pol ?? '')
@@ -752,7 +754,7 @@ function ReviewModal({
     setNewCustomerCnpj(manifestCnpj ?? '')
     setNewCustomerEmail(manifestEmail ?? '')
     setJustification('')
-  }, [item])
+  }
 
   async function handleCreateCustomer() {
     if (!newCustomerName.trim() || !newCustomerCnpj.trim()) {

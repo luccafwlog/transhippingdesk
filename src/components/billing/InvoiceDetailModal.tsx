@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Ban, DollarSign, Plus, Printer, Trash2 } from 'lucide-react'
@@ -80,14 +80,16 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
   )
 
   const ledgerBalance = Number(detailInvoice?.balance_brl ?? detailInvoice?.total_brl ?? 0)
-  useEffect(() => {
-    // Ledger invoices are settled in full; prefill and lock the amount field.
-    if (isLedgerPayable) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Ledger invoices are settled in full; prefill and lock the amount field.
+  // Ajuste durante o render (em vez de useEffect) quando o alvo do prefill muda.
+  const ledgerPrefill = isLedgerPayable ? `${invoiceId}:${ledgerBalance}` : null
+  const [prevLedgerPrefill, setPrevLedgerPrefill] = useState<string | null>(null)
+  if (ledgerPrefill !== prevLedgerPrefill) {
+    setPrevLedgerPrefill(ledgerPrefill)
+    if (ledgerPrefill !== null) {
       setPaymentAmount(ledgerBalance ? String(ledgerBalance) : '')
     }
-
-  }, [invoiceId, isLedgerPayable, ledgerBalance])
+  }
 
   async function handleRegisterPayment() {
     if (!invoiceId) return

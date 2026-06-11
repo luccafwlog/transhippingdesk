@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useToast } from '../components/ui/Toast'
 import { logOperationalEvent } from '../services/operationalEvents'
@@ -62,11 +62,13 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (!bl) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // Re-baseia o formulário quando o B/L (re)carrega — ajuste durante o render
+  // (padrão "adjusting state when props change" do React) em vez de useEffect.
+  const [prevBl, setPrevBl] = useState<BLDetail | undefined>(undefined)
+  if (bl && bl !== prevBl) {
+    setPrevBl(bl)
     setForm(makeForm(bl))
-  }, [bl])
+  }
 
   const baselineForm = useMemo(() => (bl ? makeForm(bl) : null), [bl])
 

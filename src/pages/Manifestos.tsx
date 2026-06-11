@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, Trash2, Upload } from 'lucide-react'
@@ -535,14 +535,11 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   )
   const routeSummary = useMemo(() => summarizeManifestRoutes(primaryManifest), [primaryManifest])
 
-  useEffect(() => {
-    if (!open || voyageId || !voyages?.length) return
-
-    if (voyages.length === 1) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
-      setVoyageId(String(voyages[0].id))
-    }
-  }, [open, voyageId, voyages])
+  // Auto-seleciona a única viagem disponível — ajuste durante o render (a
+  // condição se auto-falsifica após o setState, convergindo em um re-render).
+  if (open && !voyageId && voyages?.length === 1) {
+    setVoyageId(String(voyages[0].id))
+  }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFiles = Array.from(event.target.files ?? [])

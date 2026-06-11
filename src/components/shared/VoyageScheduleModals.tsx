@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Modal } from '../ui/Modal'
 import { Field, Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -34,11 +34,13 @@ export function PolScheduleModal({
   const [etd, setEtd] = useState('')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (!polSchedule || !open) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // O pai cria um payload novo a cada abertura; re-baseia os campos por
+  // identidade do payload, durante o render (sem useEffect).
+  const [prevSchedule, setPrevSchedule] = useState<typeof polSchedule>(null)
+  if (open && polSchedule && polSchedule !== prevSchedule) {
+    setPrevSchedule(polSchedule)
     setEtd(polSchedule.etd ?? '')
-  }, [open, polSchedule])
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -124,9 +126,11 @@ export function PodScheduleModal({
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (!podSchedule || !open) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // O pai cria um payload novo a cada abertura; re-baseia os campos por
+  // identidade do payload, durante o render (sem useEffect).
+  const [prevSchedule, setPrevSchedule] = useState<typeof podSchedule>(null)
+  if (open && podSchedule && podSchedule !== prevSchedule) {
+    setPrevSchedule(podSchedule)
     setEta(podSchedule.eta ?? '')
     setEtb(podSchedule.etb ?? '')
     setAta(podSchedule.ata ?? '')
@@ -134,7 +138,7 @@ export function PodScheduleModal({
     setRtw(podSchedule.rtw === null ? '' : String(podSchedule.rtw))
     setCeStatus(getEditableVoyagePodCeStatus(podSchedule.ceStatus))
     setLinked(podSchedule.linked ? 'true' : 'false')
-  }, [open, podSchedule])
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -255,18 +259,22 @@ export function AddPodToVoyageModal({
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
-    setPod('')
-    setEta('')
-    setEtb('')
-    setAta('')
-    setAtd('')
-    setRtw('')
-    setCeStatus('waiting')
-    setLinked('false')
-  }, [open])
+  // Formulário sempre nasce vazio a cada abertura; re-baseia durante o
+  // render quando `open` transiciona (sem useEffect).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) {
+      setPod('')
+      setEta('')
+      setEtb('')
+      setAta('')
+      setAtd('')
+      setRtw('')
+      setCeStatus('waiting')
+      setLinked('false')
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -391,10 +399,12 @@ export function ExportScheduleModal({
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    const existing = exportData?.existing
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- TODO(T16): suprimido na reativação da regra; corrigir ao refatorar
+  // O pai cria um payload novo a cada abertura; re-baseia os campos por
+  // identidade do payload, durante o render (sem useEffect).
+  const [prevExportData, setPrevExportData] = useState<typeof exportData>(null)
+  if (open && exportData && exportData !== prevExportData) {
+    setPrevExportData(exportData)
+    const existing = exportData.existing
     setPol(existing?.pol ?? '')
     setEta(existing?.eta ?? '')
     setEtb(existing?.etb ?? '')
@@ -403,7 +413,7 @@ export function ExportScheduleModal({
     setMovementsQty(existing?.movementsQty !== null && existing?.movementsQty !== undefined ? String(existing.movementsQty) : '')
     setCeStatus(existing?.ceStatus ?? 'waiting')
     setLinked(existing?.linked ? 'true' : 'false')
-  }, [open, exportData])
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
