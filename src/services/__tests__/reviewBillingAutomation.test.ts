@@ -11,7 +11,7 @@ vi.mock('../billing', () => ({
 
 import { createInvoiceFromBls } from '../billing'
 import { calculateBlLocalCharges, markBlReadyForBilling } from '../charges/chargeOperationsService'
-import { tryIssueInvoiceAfterCustomerLink } from '../reviewBillingAutomation'
+import { tryAutoIssueInvoice } from '../reviewBillingAutomation'
 
 const mockedCalculate = vi.mocked(calculateBlLocalCharges)
 const mockedMarkReady = vi.mocked(markBlReadyForBilling)
@@ -34,9 +34,9 @@ beforeEach(() => {
   mockedCreateInvoice.mockResolvedValue({ invoice_id: 55 })
 })
 
-describe('tryIssueInvoiceAfterCustomerLink', () => {
+describe('tryAutoIssueInvoice', () => {
   it('recalcula, marca pronto e emite a fatura para BL com taxas validas', async () => {
-    const result = await tryIssueInvoiceAfterCustomerLink({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
     expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
@@ -62,7 +62,7 @@ describe('tryIssueInvoiceAfterCustomerLink', () => {
       reason: 'Peso BB ausente.',
     })
 
-    const result = await tryIssueInvoiceAfterCustomerLink({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
     expect(result).toEqual({ status: 'blocked', message: 'Peso BB ausente.' })
     expect(mockedMarkReady).not.toHaveBeenCalled()
@@ -82,7 +82,7 @@ describe('tryIssueInvoiceAfterCustomerLink', () => {
       reason: '',
     })
 
-    const result = await tryIssueInvoiceAfterCustomerLink({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
     expect(result).toEqual({ status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.' })
     expect(mockedMarkReady).not.toHaveBeenCalled()
@@ -92,7 +92,7 @@ describe('tryIssueInvoiceAfterCustomerLink', () => {
   it('retorna bloqueio com a mensagem da falha da invoice sem propagar excecao', async () => {
     mockedCreateInvoice.mockRejectedValueOnce(new Error('ledger failed'))
 
-    const result = await tryIssueInvoiceAfterCustomerLink({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
     expect(result).toEqual({ status: 'blocked', message: 'ledger failed' })
     expect(mockedMarkReady).toHaveBeenCalledWith('BL1', 'user-1')

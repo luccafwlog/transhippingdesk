@@ -23,19 +23,19 @@ vi.mock('../../services/review', async () => {
   }
 })
 vi.mock('../../services/reviewBillingAutomation', () => ({
-  tryIssueInvoiceAfterCustomerLink: vi.fn().mockResolvedValue({ status: 'invoiced', invoiceResult: { invoice_id: 55 } }),
+  tryAutoIssueInvoice: vi.fn().mockResolvedValue({ status: 'invoiced', invoiceResult: { invoice_id: 55 } }),
 }))
 
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
 import { applyInlineBlReviewFix } from '../../services/review'
-import { tryIssueInvoiceAfterCustomerLink } from '../../services/reviewBillingAutomation'
+import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
 
 const mockedUseReviewQueue = vi.mocked(useReviewQueue)
 const mockedUseCustomerLookup = vi.mocked(useCustomerLookup)
 const mockedApplyInlineBlReviewFix = vi.mocked(applyInlineBlReviewFix)
-const mockedTryIssueInvoice = vi.mocked(tryIssueInvoiceAfterCustomerLink)
+const mockedTryIssueInvoice = vi.mocked(tryAutoIssueInvoice)
 
 function makeBl(id: string, consignee: string): ReviewQueueItem {
   return {

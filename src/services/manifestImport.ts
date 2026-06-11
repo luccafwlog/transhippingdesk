@@ -201,8 +201,8 @@ export async function importManifest({
         
         return {
           id: bl.id,
-          review_status: 'pending_review',
-          charge_status: 'review_required',
+          review_status: 'pending_review' as const,
+          charge_status: 'review_required' as const,
           billing_hold_reason: 'Falha crítica: Nenhuma tabela de preco ou tarifa encontrada. Adicione os precos e recalcule.',
           notes: newNotes
         }
