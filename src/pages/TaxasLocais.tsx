@@ -21,7 +21,7 @@ export function TaxasLocais() {
         description="Motor de calculo por POD/cargo mode, overrides por cliente e pendencias de revisao."
       />
 
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-5 flex flex-wrap gap-2" role="tablist">
         {canManageTables ? <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} /> : null}
         {canManageOverrides ? <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} /> : null}
       </div>

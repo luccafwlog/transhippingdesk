@@ -32,7 +32,7 @@ export function Relatorios() {
         description="Visão consolidada de operação, faturamento e clientes por período. Limite de 2.000 linhas por consulta."
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist">
         <TabButton active={tab === 'operacional'} label="Operacional" onClick={() => setTab('operacional')} />
         <TabButton active={tab === 'financeiro'} label="Financeiro" onClick={() => setTab('financeiro')} />
         <TabButton active={tab === 'clientes'} label="Por Cliente" onClick={() => setTab('clientes')} />

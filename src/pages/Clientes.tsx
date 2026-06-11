@@ -612,7 +612,7 @@ export function Clientes() {
                 <div key={contact._id} className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <div className="font-semibold text-white">Contato {index + 1}</div>
-                    <Button variant="ghost" onClick={() => removeContact(index)}>
+                    <Button variant="ghost" onClick={() => removeContact(index)} aria-label="Remover contato">
                       <Trash2 size={16} />
                     </Button>
                   </div>
