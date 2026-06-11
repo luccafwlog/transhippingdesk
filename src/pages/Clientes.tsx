@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -90,7 +90,9 @@ export function Clientes() {
   const { isAdmin, user } = useAuth()
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
-  const [openActionsFor, setOpenActionsFor] = useState<number | null>(null)
+  const [actionsMenu, setActionsMenu] = useState<
+    { id: number; top: number; left: number; cnpj: string; email: string | null } | null
+  >(null)
   const [filters, setFilters] = useState({
     search: '',
     contactEmail: '',
@@ -126,7 +128,42 @@ export function Clientes() {
   async function copyText(value: string, label: string) {
     await navigator.clipboard.writeText(value)
     showToast(`${label} copiado.`, 'success')
+    setActionsMenu(null)
   }
+  function openActionsMenu(
+    event: ReactMouseEvent<HTMLButtonElement>,
+    row: { id: number; cnpj_cpf: string; email: string | null },
+  ) {
+    if (actionsMenu?.id === row.id) {
+      setActionsMenu(null)
+      return
+    }
+    const rect = event.currentTarget.getBoundingClientRect()
+    setActionsMenu({ id: row.id, top: rect.bottom + 6, left: rect.right, cnpj: row.cnpj_cpf, email: row.email })
+  }
+  // O menu flutua via position:fixed para escapar do recorte do container de scroll
+  // da tabela; por isso precisa fechar quando o usuario rola, redimensiona ou clica fora.
+  useEffect(() => {
+    if (!actionsMenu) return
+    const close = () => setActionsMenu(null)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('[data-actions-menu]')) close()
+    }
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('mousedown', onPointer)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('mousedown', onPointer)
+    }
+  }, [actionsMenu])
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [createForm, setCreateForm] = useState<CreateCustomerForm>(emptyCreateForm)
@@ -459,7 +496,7 @@ export function Clientes() {
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar clientes." /> : null}
         <div className="app-table-scroll app-table-scroll--sticky">
-          <table className="app-table app-table--compact app-table--sticky-actions min-w-[1040px] table-fixed text-left text-sm">
+          <table className="app-table app-table--compact app-table--sticky-actions min-w-[1140px] table-fixed text-left text-sm">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 {isAdmin ? (
@@ -491,7 +528,7 @@ export function Clientes() {
                     {renderSortIcon(filters, 'pendingBalance')}
                   </button>
                 </th>
-                <th scope="col" className="w-[172px] px-4 py-3 text-right">Acoes</th>
+                <th scope="col" className="w-[236px] px-3 py-3 text-right">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -581,59 +618,44 @@ export function Clientes() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-3 text-right">
                       <div className="app-customer-row-actions">
                         <Link
                           className="app-table__action app-table__action--compact"
                           to={`/clientes/${row.cnpj_cpf}`}
                           title="Abrir ficha do cliente"
                         >
-                          <FileText size={15} />
+                          <FileText size={14} />
                           Ficha
                         </Link>
                         <Link
-                          className="app-table__icon-button"
+                          className="app-table__icon-button app-table__icon-button--sm"
                           to={buildCustomerBillingUrl(row)}
                           title="Ver faturas do cliente"
                           aria-label={`Ver faturas de ${row.name}`}
                         >
                           <ReceiptText size={15} />
                         </Link>
-                        <div className="app-row-actions-menu">
-                          <button
-                            type="button"
-                            className="app-table__icon-button"
-                            title="Mais acoes"
-                            aria-label={`Mais acoes para ${row.name}`}
-                            aria-expanded={openActionsFor === row.id}
-                            onClick={() => setOpenActionsFor((current) => (current === row.id ? null : row.id))}
-                          >
-                            <MoreHorizontal size={15} />
-                          </button>
-                          {openActionsFor === row.id ? (
-                            <div className="app-row-actions-menu__panel">
-                              <button type="button" onClick={() => void copyText(formatCnpjCpf(row.cnpj_cpf), 'CNPJ/CPF')}>
-                                <Copy size={14} />
-                                Copiar CNPJ/CPF
-                              </button>
-                              {contactSummary.primaryEmail ? (
-                                <button
-                                  type="button"
-                                  onClick={() => void copyText(contactSummary.primaryEmail!, 'E-mail principal')}
-                                >
-                                  <Copy size={14} />
-                                  Copiar e-mail
-                                </button>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
+                        <button
+                          type="button"
+                          data-actions-menu
+                          className="app-table__icon-button app-table__icon-button--sm"
+                          title="Mais acoes"
+                          aria-label={`Mais acoes para ${row.name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={actionsMenu?.id === row.id}
+                          onClick={(event) =>
+                            openActionsMenu(event, { id: row.id, cnpj_cpf: row.cnpj_cpf, email: contactSummary.primaryEmail })
+                          }
+                        >
+                          <MoreHorizontal size={15} />
+                        </button>
                         {isAdmin ? (
                           <button
                             type="button"
                             onClick={() => runCustomerDelete([row.id])}
                             disabled={deleting}
-                            className="app-table__icon-button app-table__icon-button--danger"
+                            className="app-table__icon-button app-table__icon-button--sm app-table__icon-button--danger"
                             title="Excluir cliente"
                             aria-label={`Excluir cliente ${row.name}`}
                           >
@@ -672,6 +694,26 @@ export function Clientes() {
           </div>
         ) : null}
       </Card>
+
+      {actionsMenu ? (
+        <div
+          data-actions-menu
+          className="app-floating-menu"
+          role="menu"
+          style={{ top: actionsMenu.top, left: actionsMenu.left }}
+        >
+          <button type="button" role="menuitem" onClick={() => void copyText(formatCnpjCpf(actionsMenu.cnpj), 'CNPJ/CPF')}>
+            <Copy size={14} />
+            Copiar CNPJ/CPF
+          </button>
+          {actionsMenu.email ? (
+            <button type="button" role="menuitem" onClick={() => void copyText(actionsMenu.email!, 'E-mail principal')}>
+              <Copy size={14} />
+              Copiar e-mail
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <Modal open={createOpen} onClose={resetCreateModal} title="Novo Cliente">
         <div className="grid gap-5">
