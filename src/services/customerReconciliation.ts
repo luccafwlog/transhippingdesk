@@ -136,11 +136,17 @@ export function findMatchedCustomer(
     }
   }
 
-  // Nível 4: fuzzy match por similaridade Levenshtein ≥ 0.90
+  // Nível 4: fuzzy match por similaridade Levenshtein ≥ 0.90, exigindo que o
+  // token distintivo (primeira palavra) coincida. Sem essa guarda, nomes que só
+  // compartilham termos genéricos disparam falso-positivo — ex.: "QA COMERCIO
+  // EXTERIOR" vs "AJ COMERCIO EXTERIOR" tem distância 2/20 = 0.90 e casaria o
+  // cliente errado.
   if (canonicalConsignee && maps.canonicalList.length > 0) {
+    const consigneeHead = canonicalConsignee.split(' ', 1)[0]
     let bestScore = 0
     let bestRecord: CustomerMatchRecord | null = null
     for (const entry of maps.canonicalList) {
+      if (entry.canonical.split(' ', 1)[0] !== consigneeHead) continue
       const score = levenshteinSimilarity(canonicalConsignee, entry.canonical)
       if (score > bestScore) {
         bestScore = score

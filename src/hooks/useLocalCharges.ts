@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../services/queryKeys'
 import {
   addManualBlCharge,
+  calculateBlLocalCharges,
   calculateLocalChargesBatch,
   listLocalChargeOperationalRows,
   deleteManualBlCharge,
@@ -135,6 +136,28 @@ export function useMarkBlReadyForBilling(blId?: string) {
         queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+      ])
+    },
+  })
+}
+
+export function useCalculateBlLocalCharges(blId?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload?: { actorId?: string | null; recalculate?: boolean }) =>
+      calculateBlLocalCharges(blId!, {
+        actorId: payload?.actorId ?? null,
+        recalculate: payload?.recalculate ?? true,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.localChargeLines(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(blId ?? '') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
       ])
     },
   })

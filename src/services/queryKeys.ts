@@ -25,7 +25,11 @@ export const queryKeys = {
   },
   charges: {
     tables: (filters?: unknown) => ['local-charge-tables', filters] as const,
-    operations: (filters?: unknown) => ['local-charge-operations', filters] as const,
+    // Sem filtros => prefixo base, para que invalidateQueries({ operations() })
+    // case com qualquer query ativa keyed por filtros (React Query v5 nao faz
+    // prefix-match quando a chave passada tem `undefined` na posicao do filtro).
+    operations: (filters?: unknown) =>
+      (filters === undefined ? (['local-charge-operations'] as const) : (['local-charge-operations', filters] as const)),
     overrides: (filters?: unknown) => ['local-charge-overrides', filters] as const,
     overrideItems: () => ['local-charge-override-items'] as const,
     overrideCustomers: (search: string) => ['local-charge-override-customers', search] as const,
