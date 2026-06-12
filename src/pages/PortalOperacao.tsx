@@ -28,7 +28,7 @@ export function PortalOperacao() {
         description="Acompanhe CE Mercante, descarga, devolucao e dias de uso dos containers."
       />
 
-      <div className="mb-5 grid gap-4 md:grid-cols-3">
+      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <MetricCard label="B/Ls" value={String(totals.bls)} />
         <MetricCard label="Containers" value={String(totals.containers)} />
         <MetricCard label="Em demurrage" value={String(totals.demurrage)} />

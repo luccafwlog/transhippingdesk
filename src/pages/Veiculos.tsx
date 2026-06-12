@@ -249,7 +249,7 @@ export function Veiculos() {
       ) : (
         <>
 
-      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <MetricCard label="Veiculos filtrados" value={isLoading ? '...' : data?.count ?? 0} />
         <MetricCard label="Containers distintos" value={isLoading ? '...' : data?.distinctContainerCount ?? 0} />
         <MetricCard label="BLs distintos" value={isLoading ? '...' : data?.distinctBlCount ?? 0} />
@@ -477,7 +477,7 @@ export function Veiculos() {
 
           {parsedImport ? (
             <div className="grid gap-4">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox label="Linhas validas" value={parsedImport.rows.length} />
                 <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} />
                 <PreviewBox label="Viagem selecionada" value={importVoyageId ? 1 : 0} />
@@ -526,7 +526,7 @@ export function Veiculos() {
 
           {importReport ? (
             <div className="app-panel app-panel--padded grid gap-4">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox label="Processados" value={importReport.processed} />
                 <PreviewBox label="Sucesso" value={importReport.successCount} />
                 <PreviewBox label="Erros" value={importReport.errorCount} />

@@ -215,7 +215,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
                   <Printer size={16} />Imprimir PDF
                 </Button>
               </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <MetricCard label="Status" value={statusLabel(detailQuery.data.invoice.status)} />
                 <MetricCard label="Total" value={formatBRL(detailQuery.data.invoice.total_brl)} />
                 <MetricCard label="Pago" value={formatBRL(detailQuery.data.invoice.total_paid_brl)} />

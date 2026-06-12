@@ -317,7 +317,7 @@ export function ClienteFicha() {
         }
       />
 
-      <div className="mb-5 grid gap-4 md:grid-cols-3">
+      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <MetricCard label="CNPJ/CPF" value={formatCnpjCpf(data.cnpj_cpf)} />
         <MetricCard label="B/Ls vinculados" value={String(data.bls?.length ?? 0)} />
         <MetricCard label="Saldo pendente" value={data.invoices_access_denied ? 'Restrito' : formatBRL(data.pending_balance)} />

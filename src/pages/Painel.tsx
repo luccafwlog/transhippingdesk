@@ -218,7 +218,7 @@ export function Painel() {
         </Card>
       ) : null}
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-8 grid gap-4 grid-cols-[repeat(auto-fit,minmax(210px,1fr))]">
         <KpiCard
           icon={FileText}
           label="B/Ls ativos"

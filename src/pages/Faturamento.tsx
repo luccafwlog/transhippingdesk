@@ -247,7 +247,7 @@ export function Faturamento() {
             updateFilter={updateFilter}
           />
 
-          <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
             <MetricCard label="Faturas filtradas" value={String(summary.count)} />
             <MetricCard label="Saldo aberto" value={formatBRL(summary.openBalance)} />
             <MetricCard label="Pagas (página)" value={String(summary.paidCount)} />

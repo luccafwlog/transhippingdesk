@@ -294,7 +294,7 @@ export function CargaSolta() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-8">
+      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <SummaryCard label="B/Ls filtrados" value={summary.totalBls} />
         <SummaryCard label="Maquinas" value={Number(summary.totalMachines).toLocaleString('pt-BR')} />
         <SummaryCard label="Packages Total" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />
@@ -480,7 +480,7 @@ export function CargaSolta() {
 
           {manifest ? (
             <div className="grid gap-4">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox label="B/Ls validos" value={manifest.bls.length} />
                 <PreviewBox
                   label="Maquinas"
@@ -492,7 +492,7 @@ export function CargaSolta() {
                 />
               </div>
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox
                   label="Weight (Ton)"
                   value={manifest.bls.reduce(
