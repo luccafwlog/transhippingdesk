@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '../ui/Badge'
@@ -12,6 +11,7 @@ import { useAuth } from '../../hooks/useAuth'
 import {
   useAddManualBlCharge,
   useBlLocalChargeLines,
+  useCalculateBlLocalCharges,
   useDeleteManualBlCharge,
   useManualChargeItemsForBl,
   useMarkBlChargesReviewed,
@@ -56,6 +56,7 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
   const deleteManualChargeMutation = useDeleteManualBlCharge(bl.id)
   const markReviewedMutation = useMarkBlChargesReviewed(bl.id)
   const markReadyForBillingMutation = useMarkBlReadyForBilling(bl.id)
+  const calculateChargesMutation = useCalculateBlLocalCharges(bl.id)
   const [manualChargeForm, setManualChargeForm] = useState<ManualChargeForm>(EMPTY_MANUAL_CHARGE_FORM)
 
   const localChargeSummary = useMemo(() => {
@@ -146,6 +147,16 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
     }
   }
 
+  async function handleCalculateCharges() {
+    if (!user) return
+    try {
+      await calculateChargesMutation.mutateAsync({ actorId: user.id })
+      showToast('Taxas locais calculadas.', 'success')
+    } catch {
+      showToast('Falha ao calcular as taxas locais deste B/L.', 'error')
+    }
+  }
+
   async function handleMarkChargesReviewed() {
     if (!user) return
     try {
@@ -214,11 +225,16 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
       </div>
 
       {bl.charge_status === 'not_calculated' ? (
-        <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-          As taxas deste B/L ainda nao foram calculadas.{' '}
-          <Link to="/taxas-locais" className="font-semibold underline hover:text-amber-100">
-            Calcular em lote em Taxas Locais →
-          </Link>
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          <span>As taxas deste B/L ainda nao foram calculadas.</span>
+          <Button
+            variant="secondary"
+            onClick={handleCalculateCharges}
+            loading={calculateChargesMutation.isPending}
+            type="button"
+          >
+            Calcular taxas
+          </Button>
         </div>
       ) : null}
 

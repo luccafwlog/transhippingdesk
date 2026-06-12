@@ -6,6 +6,17 @@ import { Field, Input } from '../components/ui/Input'
 import { isSupabaseConfigured } from '../services/supabase'
 import { useAuth } from '../hooks/useAuth'
 
+// Distingue falha de transporte/rede (backend indisponível) de credencial inválida.
+// O signInWithPassword do Supabase lança AuthApiError (status HTTP) para credencial
+// errada e TypeError/AuthRetryableFetchError quando o fetch nem completa.
+function isTransportError(err: unknown): boolean {
+  if (err instanceof TypeError) return true
+  const candidate = err as { name?: string; status?: number } | null
+  if (candidate?.name === 'AuthRetryableFetchError') return true
+  if (typeof candidate?.status === 'number' && candidate.status === 0) return true
+  return false
+}
+
 export function Login() {
   const navigate = useNavigate()
   const { user, loading, signIn } = useAuth()
@@ -32,8 +43,12 @@ export function Login() {
     try {
       await signIn(email, password)
       navigate('/painel', { replace: true })
-    } catch {
-      setError('Credenciais inválidas ou usuário sem permissão ativa.')
+    } catch (err) {
+      setError(
+        isTransportError(err)
+          ? 'Serviço de autenticação indisponível no momento. Verifique a conexão e tente novamente.'
+          : 'Credenciais inválidas ou usuário sem permissão ativa.',
+      )
     } finally {
       setSubmitting(false)
     }

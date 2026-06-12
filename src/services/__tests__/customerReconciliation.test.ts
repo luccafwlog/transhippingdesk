@@ -135,3 +135,25 @@ describe('findMatchedCustomer — match por nome canonico', () => {
     expect(match?.customer.id).toBe(1)
   })
 })
+
+describe('findMatchedCustomer — guarda do fuzzy por token distintivo (R4)', () => {
+  function maps(): CustomerMaps {
+    const aj = { id: 10, name: 'AJ COMERCIO EXTERIOR LTDA' }
+    return {
+      customersByDocument: new Map(),
+      customersByName: new Map(),
+      customersByCanonicalName: new Map([['aj comercio exterior', aj]]),
+      canonicalList: [{ canonical: 'aj comercio exterior', record: aj }],
+    }
+  }
+
+  it('NAO casa nomes que so compartilham termos genericos (QA vs AJ)', () => {
+    const match = findMatchedCustomer({ cnpjCpf: null, consignee: 'QA COMERCIO EXTERIOR SA' }, maps())
+    expect(match).toBeNull()
+  })
+
+  it('ainda casa fuzzy quando o token distintivo coincide (typo no sufixo)', () => {
+    const match = findMatchedCustomer({ cnpjCpf: null, consignee: 'AJ COMERCIO EXTERIOAR' }, maps())
+    expect(match).toEqual({ customer: { id: 10, name: 'AJ COMERCIO EXTERIOR LTDA' }, matchType: 'name' })
+  })
+})
