@@ -27,7 +27,7 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
 export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTransaction[]> {
   const XLSX = await import('@e965/xlsx')
 
-  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', raw: false })
+  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', raw: false, cellDates: true })
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' })
 
@@ -57,8 +57,7 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
 
     let date = ''
     if (colDate >= 0) {
-      const raw = String(row[colDate] ?? '').trim()
-      date = parsePixPaidDate(raw)
+      date = parsePixPaidDate(row[colDate])
     }
 
     let amount = 0
@@ -73,8 +72,30 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
   return transactions
 }
 
-function parsePixPaidDate(raw: string): string {
-  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+.*)?$/)
+function parsePixPaidDate(raw: unknown): string {
+  if (raw instanceof Date) {
+    if (isNaN(raw.getTime())) return ''
+    const y = raw.getUTCFullYear()
+    const m = raw.getUTCMonth() + 1
+    const d = raw.getUTCDate()
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+
+  const str = String(raw ?? '').trim()
+  if (!str) return ''
+
+  const num = Number(str)
+  if (Number.isFinite(num) && num > 40000 && num < 200000) {
+    const epoch = new Date(Date.UTC(1899, 11, 30))
+    const date = new Date(epoch.getTime() + num * 86_400_000)
+    if (isNaN(date.getTime())) return ''
+    const y = date.getUTCFullYear()
+    const m = date.getUTCMonth() + 1
+    const d = date.getUTCDate()
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+
+  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+.*)?$/)
   if (!match) return ''
 
   const day = Number(match[1])
