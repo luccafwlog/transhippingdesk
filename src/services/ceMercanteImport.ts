@@ -52,7 +52,7 @@ export async function parseCeMercanteFile(file: File): Promise<ParsedCeMercanteF
 }
 
 export async function parseCeMercanteBuffer(buffer: ArrayBuffer): Promise<ParsedCeMercanteFile> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
 

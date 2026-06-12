@@ -39,7 +39,7 @@ export type ParsedCustomerBase = {
 
 export async function parseCustomerBaseFile(file: File): Promise<ParsedCustomerBase> {
   assertUploadSize(file)
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]

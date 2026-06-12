@@ -145,6 +145,50 @@ describe('reconciliacao PIX unificada', () => {
     expect(matches[0]).toMatchObject({ source: 'demurrage', ambiguous: true })
   })
 
+  it('permite conciliacao local parcial quando o PIX e menor que o saldo aberto', async () => {
+    installFromMock({
+      localInvoices: [
+        {
+          id: 10,
+          invoice_number: 'INV-001',
+          total_brl: 100,
+          balance_brl: 100,
+          pix_txid: null,
+          customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
+        },
+      ],
+    })
+
+    const matches = await matchUnifiedPixTransactions([
+      { txid: 'INV-001', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 40 },
+    ])
+
+    expect(matches).toHaveLength(1)
+    expect(matches[0]).toMatchObject({ source: 'local', ambiguous: false, amount: 100 })
+  })
+
+  it('marca fatura local com valor acima do saldo como ambiguo antes da confirmacao', async () => {
+    installFromMock({
+      localInvoices: [
+        {
+          id: 10,
+          invoice_number: 'INV-001',
+          total_brl: 100,
+          balance_brl: 100,
+          pix_txid: null,
+          customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
+        },
+      ],
+    })
+
+    const matches = await matchUnifiedPixTransactions([
+      { txid: 'INV-001', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 120 },
+    ])
+
+    expect(matches).toHaveLength(1)
+    expect(matches[0]).toMatchObject({ source: 'local', ambiguous: true })
+  })
+
   it('confirma fatura local pela RPC unificada', async () => {
     installFromMock({})
     mockRpc.mockResolvedValue({

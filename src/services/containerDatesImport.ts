@@ -28,7 +28,7 @@ export type ParsedContainerDatesImport = {
 
 export async function parseContainerDatesFile(file: File): Promise<ParsedContainerDatesImport> {
   assertUploadSize(file)
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]

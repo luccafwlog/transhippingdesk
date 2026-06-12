@@ -27,14 +27,6 @@ beforeEach(() => {
   supabaseMocks.buildPix.mockReturnValue('pix-payload')
 })
 
-function invoiceUpdateQuery(result: unknown) {
-  return {
-    update: vi.fn(() => ({
-      eq: vi.fn().mockResolvedValue(result),
-    })),
-  }
-}
-
 function invoiceListQuery(range: (from: number, to: number) => unknown) {
   return {
     select: vi.fn(() => ({
@@ -116,14 +108,18 @@ describe('createInvoiceFromBls', () => {
 })
 
 describe('createConsolidatedInvoice', () => {
-  it('propaga falha ao persistir payload PIX consolidado', async () => {
+  it('nao faz update client-side de PIX apos criar consolidada', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({
       data: { invoice_id: 456, invoice_number: 'INV-456', total_brl: 250 },
       error: null,
     })
-    supabaseMocks.from.mockReturnValueOnce(invoiceUpdateQuery({ error: new Error('pix failed') }))
 
-    await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1, 2] })).rejects.toThrow('pix failed')
+    await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1, 2] })).resolves.toEqual({
+      invoice_id: 456,
+      invoice_number: 'INV-456',
+      total_brl: 250,
+    })
+    expect(supabaseMocks.from).not.toHaveBeenCalled()
   })
 })
 

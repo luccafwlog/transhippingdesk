@@ -70,7 +70,7 @@ export async function parseBreakbulkManifestFile(file: File): Promise<ParsedBrea
 }
 
 export async function parseBreakbulkManifestBuffer(buffer: ArrayBuffer): Promise<ParsedBreakbulkManifest> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
 

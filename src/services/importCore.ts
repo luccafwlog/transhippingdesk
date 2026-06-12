@@ -47,7 +47,7 @@ export function createHeaderMapper(
  * `raw: false`). Lança com as mesmas mensagens dos parsers originais.
  */
 export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<Record<string, unknown>[]> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
   if (!firstSheet) throw new Error('Arquivo sem abas validas.')

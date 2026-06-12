@@ -11,6 +11,8 @@ export type UnifiedPixMatch = {
   customerCnpj: string
   amount: number
   ambiguous: boolean
+  ambiguityReason?: string
+  candidateCount?: number
   matchType: 'txid'
 }
 
@@ -115,10 +117,17 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
     if (!entries.length) continue
 
     const entry = entries[0]
-    const amountDiff = Math.abs(tx.amount - entry.amount)
-    const ambiguous =
-      entries.length > 1 ||
-      (entry.source === 'demurrage' && (!Number.isFinite(amountDiff) || amountDiff > 0.01))
+    const amountDiff = tx.amount - entry.amount
+    let ambiguityReason: string | undefined
+    if (entries.length > 1) {
+      ambiguityReason = `${entries.length} documentos usam o mesmo TXID.`
+    } else if (!Number.isFinite(amountDiff)) {
+      ambiguityReason = 'Valor do documento nao e numerico.'
+    } else if (entry.source === 'demurrage' && Math.abs(amountDiff) > 0.01) {
+      ambiguityReason = 'Valor do PIX diverge da demurrage emitida.'
+    } else if (entry.source === 'local' && amountDiff > 0.01) {
+      ambiguityReason = 'Valor do PIX supera o saldo aberto da fatura.'
+    }
 
     matches.push({
       transaction: tx,
@@ -128,7 +137,9 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       customerName: entry.customerName,
       customerCnpj: entry.customerCnpj,
       amount: entry.amount,
-      ambiguous,
+      ambiguous: Boolean(ambiguityReason),
+      ambiguityReason,
+      candidateCount: entries.length,
       matchType: 'txid',
     })
   }

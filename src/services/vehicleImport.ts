@@ -97,7 +97,7 @@ export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleI
 }
 
 export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<ParsedVehicleImport> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
 
   if (!workbook.SheetNames.length) {

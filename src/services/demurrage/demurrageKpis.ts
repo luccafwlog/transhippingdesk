@@ -25,7 +25,7 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
 }
 
 export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTransaction[]> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
 
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', raw: false })
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -58,8 +58,7 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
     let date = ''
     if (colDate >= 0) {
       const raw = String(row[colDate] ?? '').trim()
-      const parts = raw.split('/')
-      if (parts.length === 3) date = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+      date = parsePixPaidDate(raw)
     }
 
     let amount = 0
@@ -72,6 +71,26 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
     transactions.push({ txid, cnpj, date, amount })
   }
   return transactions
+}
+
+function parsePixPaidDate(raw: string): string {
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (!match) return ''
+
+  const day = Number(match[1])
+  const month = Number(match[2])
+  const year = Number(match[3])
+  const candidate = new Date(Date.UTC(year, month - 1, day))
+
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    return ''
+  }
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 export async function parsePixExtractFile(file: File): Promise<PixTransaction[]> {

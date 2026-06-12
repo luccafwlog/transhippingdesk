@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 
 export function aoaToBuffer(rows: Array<Array<string | number>>) {
   const workbook = XLSX.utils.book_new()

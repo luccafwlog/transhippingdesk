@@ -15,6 +15,17 @@ function fmtBRL(v: number) {
   return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function getAmountStatus(match: UnifiedPixMatch): { tone: 'green' | 'yellow' | 'red'; label: string; detail: string } {
+  const diff = match.transaction.amount - match.amount
+  if (Math.abs(diff) <= 0.01) {
+    return { tone: 'green', label: 'Integral', detail: 'Valor bate com o saldo/documento' }
+  }
+  if (diff < 0 && match.source === 'local') {
+    return { tone: 'yellow', label: 'Parcial', detail: `Saldo restante apos baixa: ${fmtBRL(Math.abs(diff))}` }
+  }
+  return { tone: 'red', label: 'Excesso', detail: `Diferenca: ${fmtBRL(Math.abs(diff))}` }
+}
+
 export function Reconciliacao() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -162,37 +173,42 @@ export function Reconciliacao() {
               <div className="border-b border-[#30363d] p-4">
                 <div className="text-sm font-semibold text-white">Correspondencias confirmadas ({unambiguous.length})</div>
                 <div className="mt-1 text-xs text-slate-400">
-                  Origem: extrato PIX. Campo conferido: TXID unico vinculado a invoice aberta.
+                  Origem: extrato PIX. Campo conferido: TXID unico, data parseada e valor compativel com o documento aberto.
                 </div>
               </div>
               <div className="app-table-scroll">
-                <table className="app-table app-table--compact min-w-[640px] text-sm">
+                <table className="app-table app-table--compact min-w-[760px] text-sm">
                   <thead className="text-xs uppercase tracking-wider text-slate-500">
                     <tr>
                       <th scope="col" className="px-3 py-2">Tipo</th>
                       <th scope="col" className="px-3 py-2">Documento</th>
                       <th scope="col" className="px-3 py-2">Cliente</th>
-                      <th scope="col" className="px-3 py-2">Valor</th>
+                      <th scope="col" className="px-3 py-2">PIX</th>
+                      <th scope="col" className="px-3 py-2">Saldo/Doc.</th>
                       <th scope="col" className="px-3 py-2">Match</th>
                       <th scope="col" className="px-3 py-2">Txid PIX</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">
-                    {unambiguous.map((m, i) => (
-                      <tr key={`${m.invoiceId}-${m.source}-${i}`}>
-                        <td className="px-3 py-2">
-                          {m.source === 'demurrage' ? <Badge tone="blue">Demurrage</Badge> : <Badge tone="green">Fatura</Badge>}
-                        </td>
-                        <td className="px-3 py-2 font-semibold text-white">{m.docNumber}</td>
-                        <td className="px-3 py-2 text-slate-300">{m.customerName}</td>
-                        <td className="px-3 py-2 text-emerald-400">{fmtBRL(m.transaction.amount)}</td>
-                        <td className="px-3 py-2">
-                          <Badge tone="green">TXID</Badge>
-                          <div className="mt-1 text-[11px] text-slate-500">Valor e documento sem conflito</div>
-                        </td>
-                        <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400" title={m.transaction.txid}>{m.transaction.txid}</td>
-                      </tr>
-                    ))}
+                    {unambiguous.map((m, i) => {
+                      const amountStatus = getAmountStatus(m)
+                      return (
+                        <tr key={`${m.invoiceId}-${m.source}-${i}`}>
+                          <td className="px-3 py-2">
+                            {m.source === 'demurrage' ? <Badge tone="blue">Demurrage</Badge> : <Badge tone="green">Fatura</Badge>}
+                          </td>
+                          <td className="px-3 py-2 font-semibold text-white">{m.docNumber}</td>
+                          <td className="px-3 py-2 text-slate-300">{m.customerName}</td>
+                          <td className="px-3 py-2 text-emerald-400">{fmtBRL(m.transaction.amount)}</td>
+                          <td className="px-3 py-2 text-slate-300">{fmtBRL(m.amount)}</td>
+                          <td className="px-3 py-2">
+                            <Badge tone={amountStatus.tone}>{amountStatus.label}</Badge>
+                            <div className="mt-1 text-[11px] text-slate-500">{amountStatus.detail}</div>
+                          </td>
+                          <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400" title={m.transaction.txid}>{m.transaction.txid}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -213,14 +229,16 @@ export function Reconciliacao() {
                     <div>
                       <div className="font-mono text-xs">{m.transaction.txid}</div>
                       <div className="text-xs text-amber-100/75">Documento candidato: {m.docNumber}</div>
+                      <div className="text-xs text-amber-100/75">Candidatos: {m.candidateCount ?? 1}</div>
                     </div>
                     <div>
                       <div className="text-xs uppercase tracking-wide text-amber-100/70">Confere</div>
                       <div>{fmtBRL(m.transaction.amount)} no extrato</div>
+                      <div className="text-xs text-amber-100/75">Documento: {fmtBRL(m.amount)}</div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-amber-100/70">Diverge ou falta</div>
-                      <div>{m.source === 'demurrage' ? 'Valor diferente ou documento duplicado' : 'Multiplo documento possivel para o mesmo pagamento'}</div>
+                      <div className="text-xs uppercase tracking-wide text-amber-100/70">Motivo</div>
+                      <div>{m.ambiguityReason ?? (m.source === 'demurrage' ? 'Valor diferente ou documento duplicado' : 'Valor acima do saldo ou documento duplicado')}</div>
                     </div>
                   </div>
                 ))}

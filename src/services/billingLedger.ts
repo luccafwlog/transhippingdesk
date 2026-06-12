@@ -1,5 +1,4 @@
 import { supabase } from './supabase'
-import { buildTransshippingPixPayload } from '../lib/pix'
 import type {
   ConsolidatableReceivable,
   ConsolidatedInvoiceResult,
@@ -45,15 +44,7 @@ export async function createConsolidatedInvoice(input: {
     p_actor: null,
   })
   if (error) throw error
-  const result = data as unknown as ConsolidatedInvoiceResult
-
-  // Generate the PIX payload using the consolidated invoice number as TXID.
-  if (result?.invoice_id && result.total_brl > 0 && result.invoice_number) {
-    const payload = buildTransshippingPixPayload(result.total_brl, result.invoice_number)
-    const { error: pixError } = await supabase.from('invoices').update({ pix_payload: payload }).eq('id', result.invoice_id)
-    if (pixError) throw pixError
-  }
-  return result
+  return data as unknown as ConsolidatedInvoiceResult
 }
 export async function registerLedgerInvoicePayment(input: {
   invoiceId: number

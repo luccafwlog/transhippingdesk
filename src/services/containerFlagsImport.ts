@@ -35,7 +35,7 @@ export type ParsedContainerFlagsImport = {
 
 export async function parseContainerFlagsImportFile(file: File): Promise<ParsedContainerFlagsImport> {
   assertUploadSize(file)
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]

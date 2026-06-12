@@ -3,13 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const supabaseMocks = vi.hoisted(() => ({
   from: vi.fn(),
   rpc: vi.fn(),
-  buildPix: vi.fn(() => 'pix-payload'),
 }))
 
-// Testes de caracterização: travam o comportamento ATUAL de billingLedger.ts na
-// fronteira do Supabase (mesmo padrão de mock de billingHelpers.test.ts).
 vi.mock('../supabase', () => ({ supabase: { from: supabaseMocks.from, rpc: supabaseMocks.rpc } }))
-vi.mock('../../lib/pix', () => ({ buildTransshippingPixPayload: supabaseMocks.buildPix }))
 
 import {
   createConsolidatedInvoice,
@@ -21,21 +17,12 @@ import {
 beforeEach(() => {
   supabaseMocks.from.mockReset()
   supabaseMocks.rpc.mockReset()
-  supabaseMocks.buildPix.mockReset()
-  supabaseMocks.buildPix.mockReturnValue('pix-payload')
 })
 
-function invoiceUpdateQuery(result: unknown) {
-  const eq = vi.fn().mockResolvedValue(result)
-  const update = vi.fn(() => ({ eq }))
-  return { builder: { update }, update, eq }
-}
-
 describe('listConsolidatableReceivables', () => {
-  it('retorna vazio sem chamar o RPC quando não há customerId (inclusive 0)', async () => {
+  it('retorna vazio sem chamar o RPC quando nao ha customerId (inclusive 0)', async () => {
     expect(await listConsolidatableReceivables({})).toEqual([])
     expect(await listConsolidatableReceivables({ customerId: null })).toEqual([])
-    // customerId 0 é falsy e também curto-circuita.
     expect(await listConsolidatableReceivables({ customerId: 0 })).toEqual([])
     expect(supabaseMocks.rpc).not.toHaveBeenCalled()
   })
@@ -64,7 +51,7 @@ describe('listConsolidatableReceivables', () => {
     })
   })
 
-  it('normaliza números nas linhas, preservando nulls e zerando valores ausentes', async () => {
+  it('normaliza numeros nas linhas, preservando nulls e zerando valores ausentes', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({
       data: [
         {
@@ -113,7 +100,7 @@ describe('listConsolidatableReceivables', () => {
     ])
   })
 
-  it('retorna vazio quando data é null e propaga erro do RPC', async () => {
+  it('retorna vazio quando data e null e propaga erro do RPC', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: null })
     expect(await listConsolidatableReceivables({ customerId: 9 })).toEqual([])
 
@@ -123,13 +110,11 @@ describe('listConsolidatableReceivables', () => {
 })
 
 describe('createConsolidatedInvoice', () => {
-  it('chama o RPC create_local_consolidated_invoice e persiste o payload PIX', async () => {
+  it('chama o RPC create_local_consolidated_invoice e confia o PIX ao trigger do banco', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({
       data: { invoice_id: 7, invoice_number: 'INV-7', total_brl: 100 },
       error: null,
     })
-    const update = invoiceUpdateQuery({ error: null })
-    supabaseMocks.from.mockReturnValueOnce(update.builder)
 
     const result = await createConsolidatedInvoice({ customerId: 10, receivableIds: [1, 2] })
 
@@ -138,14 +123,11 @@ describe('createConsolidatedInvoice', () => {
       p_receivable_ids: [1, 2],
       p_actor: null,
     })
-    expect(supabaseMocks.buildPix).toHaveBeenCalledWith(100, 'INV-7')
-    expect(supabaseMocks.from).toHaveBeenCalledWith('invoices')
-    expect(update.update).toHaveBeenCalledWith({ pix_payload: 'pix-payload' })
-    expect(update.eq).toHaveBeenCalledWith('id', 7)
+    expect(supabaseMocks.from).not.toHaveBeenCalled()
     expect(result).toEqual({ invoice_id: 7, invoice_number: 'INV-7', total_brl: 100 })
   })
 
-  it('não persiste PIX quando total_brl é zero ou falta invoice_number', async () => {
+  it('retorna o resultado sem tentar update client-side de PIX', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({
       data: { invoice_id: 8, invoice_number: 'INV-8', total_brl: 0 },
       error: null,
@@ -162,7 +144,6 @@ describe('createConsolidatedInvoice', () => {
     })
     await createConsolidatedInvoice({ customerId: 10, receivableIds: [1] })
 
-    expect(supabaseMocks.buildPix).not.toHaveBeenCalled()
     expect(supabaseMocks.from).not.toHaveBeenCalled()
   })
 
@@ -199,7 +180,7 @@ describe('registerLedgerInvoicePayment', () => {
     expect(result).toEqual({ payment_id: 1 })
   })
 
-  it('repassa todos os campos com notes aparado; notes só de espaços vira null', async () => {
+  it('repassa todos os campos com notes aparado; notes so de espacos vira null', async () => {
     supabaseMocks.rpc.mockResolvedValue({ data: null, error: null })
 
     await registerLedgerInvoicePayment({
@@ -262,7 +243,7 @@ describe('reconcileInvoicePaymentByTxid', () => {
   })
 
   it('propaga erro do RPC', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('reconciliação falhou') })
-    await expect(reconcileInvoicePaymentByTxid({ txid: 'TX1', amountBrl: 1 })).rejects.toThrow('reconciliação falhou')
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('reconciliacao falhou') })
+    await expect(reconcileInvoicePaymentByTxid({ txid: 'TX1', amountBrl: 1 })).rejects.toThrow('reconciliacao falhou')
   })
 })

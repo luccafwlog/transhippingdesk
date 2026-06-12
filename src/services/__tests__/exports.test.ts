@@ -8,7 +8,7 @@ const { jsonToSheet, bookAppendSheet, writeFile } = vi.hoisted(() => ({
   writeFile: vi.fn(),
 }))
 
-vi.mock('xlsx', () => ({
+vi.mock('@e965/xlsx', () => ({
   utils: {
     book_new: vi.fn(() => ({ Sheets: {} })),
     json_to_sheet: jsonToSheet,

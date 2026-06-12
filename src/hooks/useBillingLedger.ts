@@ -21,8 +21,11 @@ function useLedgerInvalidation() {
     qc.invalidateQueries({ queryKey: queryKeys.billingLedger.all() })
     qc.invalidateQueries({ queryKey: queryKeys.invoices.all() })
     qc.invalidateQueries({ queryKey: queryKeys.bls.all() })
+    qc.invalidateQueries({ queryKey: queryKeys.customers.all() })
+    qc.invalidateQueries({ queryKey: queryKeys.customers.detail() })
     qc.invalidateQueries({ queryKey: ['invoice-detail'] })
     qc.invalidateQueries({ queryKey: ['financial-alerts'] })
+    qc.invalidateQueries({ queryKey: ['op-count'] })
   }
 }
 

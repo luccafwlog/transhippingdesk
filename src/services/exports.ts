@@ -24,7 +24,7 @@ function sanitizeCellValue<T>(value: T): T | string {
 }
 
 function toSheet<T extends Record<string, unknown>>(
-  XLSX: typeof import('xlsx'),
+  XLSX: typeof import('@e965/xlsx'),
   rows: T[],
 ) {
   const safeRows = rows.map((row) => {
@@ -38,7 +38,7 @@ function toSheet<T extends Record<string, unknown>>(
 }
 
 export async function exportManifestWorkbook(rows: BLListItem[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const manifestRows = rows.map((row) => ({
     BL: row.id,
     CEMercante: row.ce_mercante ?? '',
@@ -111,7 +111,7 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
 }
 
 export async function exportContainerWorkbook(rows: ContainerListItem[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => ({
     Container: row.container_number,
     BL: row.bl?.id ?? '',
@@ -140,7 +140,7 @@ export async function exportContainerWorkbook(rows: ContainerListItem[]) {
 }
 
 export async function exportInvoicesWorkbook(rows: InvoiceListRow[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
 
   const invoiceRows = rows.map((row) => {
     const bls = getInvoiceBls(row)
@@ -192,7 +192,7 @@ export async function exportInvoicesWorkbook(rows: InvoiceListRow[]) {
 }
 
 export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOperationalRow[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => ({
     BL: row.id,
     Modalidade: row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container',
@@ -222,7 +222,7 @@ export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOpera
 }
 
 export async function exportOperationalReportWorkbook(rows: OperationalReportRow[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => ({
     BL: row.id,
     Modalidade: row.cargo_mode === 'carga_solta' ? 'Carga Solta' : 'Container',
@@ -247,7 +247,7 @@ export async function exportOperationalReportWorkbook(rows: OperationalReportRow
 }
 
 export async function exportFinancialReportWorkbook(rows: FinancialReportRow[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => ({
     Invoice: row.invoice_number ?? `INV-${row.id}`,
     Cliente: row.customer?.name ?? '',
@@ -265,7 +265,7 @@ export async function exportFinancialReportWorkbook(rows: FinancialReportRow[]) 
 }
 
 export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => ({
     Cliente: row.name,
     CNPJ: row.cnpj_cpf,
@@ -283,7 +283,7 @@ export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
 }
 
 export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => ({
     'CNPJ/CPF': row.cnpj_cpf ?? '',
     'Razao Social': row.name ?? '',
@@ -301,7 +301,7 @@ export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {
 }
 
 export async function exportVaziosImportacaoWorkbook(rows: VaziosImportacaoContainerListItem[]) {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => {
     const manifestLabel = row.manifest?.description
       ? row.manifest.description

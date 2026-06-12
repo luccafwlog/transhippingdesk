@@ -9,7 +9,7 @@ import type { PortalOperationBL, PortalOperationContainerStatus } from '../servi
 
 export function PortalOperacao() {
   const { data, isLoading, error } = usePortalOperationBls()
-  const rows = data ?? []
+  const rows = useMemo(() => data ?? [], [data])
   const [openBl, setOpenBl] = useState<string | null>(null)
 
   const totals = useMemo(

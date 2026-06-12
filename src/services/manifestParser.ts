@@ -125,7 +125,7 @@ export async function parseManifestFile(file: File): Promise<ParsedManifest> {
 }
 
 export async function parseManifestBuffer(buffer: ArrayBuffer): Promise<ParsedManifest> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const workbook = XLSX.read(buffer, { type: 'array' })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
   const rawRows = XLSX.utils.sheet_to_json<RawSheetRow>(firstSheet, { header: 1, defval: '' })
