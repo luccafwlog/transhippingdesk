@@ -35,7 +35,7 @@ export function Containers() {
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const [filters, setFilters] = useState<ContainerFilters>({
-    search: '',
+    search: searchParams.get('search') ?? '',
     voyageId: initialVoyage,
     cargoMode: 'container',
     pol: '',

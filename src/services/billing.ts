@@ -684,14 +684,14 @@ export async function createInvoiceFromBls(input: {
   issueNow?: boolean
   actorId?: string | null
 }) {
-  const { data, error } = await supabase.rpc('create_invoice_from_bls', {
+  const { data, error } = await supabase.rpc('create_invoice_from_bls_with_ledger' as never, {
     p_bl_ids: input.blIds,
     p_customer_id: input.customerId ?? null,
     p_due_date: input.dueDate ?? null,
     p_notes: input.notes ?? null,
     p_issue_now: input.issueNow ?? true,
     p_actor: input.actorId ?? null,
-  })
+  } as never)
 
   if (error) throw error
 
@@ -699,8 +699,32 @@ export async function createInvoiceFromBls(input: {
   const invoiceId = (result as { invoice_id?: number }).invoice_id
   if (invoiceId) {
     await persistPixPayload(invoiceId)
-    const { error: ledgerError } = await supabase.rpc('link_invoice_to_ledger', { p_invoice_id: invoiceId })
-    if (ledgerError) throw ledgerError
+  }
+
+  return result
+}
+
+export async function markBlReadyAndCreateInvoice(input: {
+  blId: string
+  customerId?: number | null
+  dueDate?: string | null
+  notes?: string | null
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('mark_bl_ready_and_create_invoice' as never, {
+    p_bl_id: input.blId,
+    p_customer_id: input.customerId ?? null,
+    p_due_date: input.dueDate ?? null,
+    p_notes: input.notes ?? null,
+    p_actor: input.actorId ?? null,
+  } as never)
+
+  if (error) throw error
+
+  const result = (data ?? {}) as Json
+  const invoiceId = (result as { invoice_id?: number }).invoice_id
+  if (invoiceId) {
+    await persistPixPayload(invoiceId)
   }
 
   return result

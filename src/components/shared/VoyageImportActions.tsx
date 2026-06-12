@@ -214,7 +214,8 @@ function CntrImportModal({
       parser={parseManifestFile}
       canImport={(p) => p.bls.length > 0}
       importer={async (preview, file) => {
-        const fileHash = await file.arrayBuffer().then((buf) => computeFileHash(buf)).catch(() => null)
+        const fileHash = await file.arrayBuffer().then((buf) => computeFileHash(buf))
+        if (!fileHash) throw new Error('Nao foi possivel calcular o hash do arquivo para deduplicacao.')
         await importManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, fileHash })
         await onImported()
         showToast(`Manifesto CNTR importado: ${preview.bls.length} B/L(s), ${countDistinctManifestContainers(preview)} container(s).`, 'success')
@@ -362,6 +363,7 @@ function BaplieImportModal({
 
   const pods = parsed?.pods ?? []
   const filteredContainers = (parsed?.containers ?? []).filter((c) => !c.pod || !excludedPods.has(c.pod))
+  const includedPods = pods.filter((pod) => !excludedPods.has(pod)).length
 
   async function handleImport() {
     if (!filteredContainers.length) return
@@ -416,7 +418,7 @@ function BaplieImportModal({
             <div className="grid grid-cols-3 gap-3">
               <Stat label="Containers" value={filteredContainers.length} />
               <Stat label="Cheios" value={filteredContainers.filter((c) => c.status === 'full').length} />
-              <Stat label="PODs" value={pods.length - excludedPods.size} />
+              <Stat label="PODs" value={includedPods} />
             </div>
             {parsed.vessel_name || parsed.voyage_number ? (
               <div className="app-panel__meta text-sm">
@@ -472,6 +474,8 @@ function VehiclesImportModal({
       const result = await importVehicleRows({ voyageId, rows: preview.rows })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['vehicle-stats'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-vehicle-stats'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),

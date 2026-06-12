@@ -105,7 +105,7 @@ export function Faturamento() {
       void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
       void queryClient.invalidateQueries({ queryKey: ['invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['op-count'] })
-    })
+    }).catch(() => undefined)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -207,6 +207,7 @@ export function Faturamento() {
 
       <FinancialAlertsPanel
         alerts={financialAlertsQuery.data ?? []}
+        loading={financialAlertsQuery.isLoading}
         onUpdate={() => {
           void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
           void queryClient.invalidateQueries({ queryKey: ['op-count'] })

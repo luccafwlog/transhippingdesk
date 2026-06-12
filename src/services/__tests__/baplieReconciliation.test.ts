@@ -124,6 +124,77 @@ describe('reconcileBaplieWithManifest', () => {
 
     expect(result.items).toEqual([])
   })
+
+  it('usa a mesma normalizacao de container do manifesto e do Baplie', async () => {
+    installReconcileMocks({
+      bls: [{ id: 'BL1' }],
+      baplie: [
+        {
+          container_number: 'ABCD 1234567',
+          status: 'full',
+          bl_ref: 'BL1',
+          slot: null,
+          is_imo: false,
+          imo_class: null,
+          un_number: null,
+          is_oog: false,
+        },
+      ],
+      containers: [
+        {
+          id: 10,
+          bl_id: 'BL1',
+          container_number: 'ABCD1234567',
+          is_imo: false,
+          imo_class: null,
+          un_number: null,
+          is_oog: false,
+        },
+      ],
+    })
+
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [] })
+  })
+
+  it('nao gera divergencia automatica para container Part Lot em mais de um B/L', async () => {
+    installReconcileMocks({
+      bls: [{ id: 'BL1' }, { id: 'BL2' }],
+      baplie: [
+        {
+          container_number: 'ABCD1234567',
+          status: 'full',
+          bl_ref: 'BL1',
+          slot: null,
+          is_imo: true,
+          imo_class: '3',
+          un_number: '1203',
+          is_oog: false,
+        },
+      ],
+      containers: [
+        {
+          id: 10,
+          bl_id: 'BL1',
+          container_number: 'ABCD1234567',
+          is_imo: false,
+          imo_class: null,
+          un_number: null,
+          is_oog: false,
+        },
+        {
+          id: 11,
+          bl_id: 'BL2',
+          container_number: 'ABCD1234567',
+          is_imo: false,
+          imo_class: null,
+          un_number: null,
+          is_oog: false,
+        },
+      ],
+    })
+
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [] })
+  })
 })
 
 describe('keepManifestAttribute', () => {

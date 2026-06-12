@@ -88,4 +88,48 @@ describe('manifestParser', () => {
     expect(duplicatedBl?.review_reasons).toContain('Container duplicado no mesmo B/L')
     expect(countDistinctManifestContainers(manifest)).toBe(2)
   })
+
+  it('detecta container duplicado no mesmo BL mesmo com outro BL intercalado', async () => {
+    const buffer = jsonToBuffer([
+      {
+        'B/L': 'BL001',
+        Consignatario: 'Cliente Um',
+        CNPJ: '12.345.678/0001-95',
+        POL: 'CNTAC',
+        POD: 'BRVIT',
+        Container: 'CAXU1234567',
+        Type: '40FM',
+        'Peso bruto': '1.000,50',
+        CBM: '10,5',
+      },
+      {
+        'B/L': 'BL002',
+        Consignatario: 'Cliente Dois',
+        CNPJ: '98.765.432/0001-10',
+        POL: 'CNTAC',
+        POD: 'BRSSA',
+        Container: 'TGHU7654321',
+        Type: '48FR',
+        'Peso bruto': '2.000,00',
+        CBM: '22,0',
+      },
+      {
+        'B/L': 'BL001',
+        Consignatario: 'Cliente Um',
+        CNPJ: '12.345.678/0001-95',
+        POL: 'CNTAC',
+        POD: 'BRVIT',
+        Container: 'CAXU1234567',
+        Type: '40FM',
+        'Peso bruto': '1.200,00',
+        CBM: '11,0',
+      },
+    ])
+
+    const manifest = await parseManifestBuffer(buffer)
+    const duplicatedBl = manifest.bls.find((bl) => bl.id === 'BL001')
+
+    expect(duplicatedBl?.review_status).toBe('pending_review')
+    expect(duplicatedBl?.review_reasons).toContain('Container duplicado no mesmo B/L')
+  })
 })

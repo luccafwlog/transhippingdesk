@@ -2,20 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../charges/chargeOperationsService', () => ({
   calculateBlLocalCharges: vi.fn(),
-  markBlReadyForBilling: vi.fn(),
 }))
 
 vi.mock('../billing', () => ({
-  createInvoiceFromBls: vi.fn(),
+  markBlReadyAndCreateInvoice: vi.fn(),
 }))
 
-import { createInvoiceFromBls } from '../billing'
-import { calculateBlLocalCharges, markBlReadyForBilling } from '../charges/chargeOperationsService'
+import { markBlReadyAndCreateInvoice } from '../billing'
+import { calculateBlLocalCharges } from '../charges/chargeOperationsService'
 import { tryAutoIssueInvoice } from '../reviewBillingAutomation'
 
 const mockedCalculate = vi.mocked(calculateBlLocalCharges)
-const mockedMarkReady = vi.mocked(markBlReadyForBilling)
-const mockedCreateInvoice = vi.mocked(createInvoiceFromBls)
+const mockedCreateInvoice = vi.mocked(markBlReadyAndCreateInvoice)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -30,7 +28,6 @@ beforeEach(() => {
     exempt: false,
     reason: '',
   })
-  mockedMarkReady.mockResolvedValue({ status: 'ready_for_billing' })
   mockedCreateInvoice.mockResolvedValue({ invoice_id: 55 })
 })
 
@@ -40,11 +37,9 @@ describe('tryAutoIssueInvoice', () => {
 
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
     expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
-    expect(mockedMarkReady).toHaveBeenCalledWith('BL1', 'user-1')
     expect(mockedCreateInvoice).toHaveBeenCalledWith({
-      blIds: ['BL1'],
+      blId: 'BL1',
       customerId: 99,
-      issueNow: true,
       actorId: 'user-1',
     })
   })
@@ -79,7 +74,6 @@ describe('tryAutoIssueInvoice', () => {
         reason: 'Peso BB ausente.',
       },
     })
-    expect(mockedMarkReady).not.toHaveBeenCalled()
     expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
 
@@ -113,7 +107,6 @@ describe('tryAutoIssueInvoice', () => {
         reason: '',
       },
     })
-    expect(mockedMarkReady).not.toHaveBeenCalled()
     expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
 
@@ -123,6 +116,5 @@ describe('tryAutoIssueInvoice', () => {
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
     expect(result).toEqual({ status: 'blocked', message: 'ledger failed' })
-    expect(mockedMarkReady).toHaveBeenCalledWith('BL1', 'user-1')
   })
 })

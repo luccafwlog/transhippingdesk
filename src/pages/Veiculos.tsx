@@ -46,6 +46,7 @@ export function Veiculos() {
   const [parsedImport, setParsedImport] = useState<ParsedVehicleImport | null>(null)
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [autoSelectedImportOpen, setAutoSelectedImportOpen] = useState(false)
   const [importReport, setImportReport] = useState<{
     processed: number
     successCount: number
@@ -66,11 +67,13 @@ export function Veiculos() {
     setSelectedVoyageId('')
   }
 
-  if (importOpen && !importVoyageId) {
+  if (importOpen && !autoSelectedImportOpen && !importVoyageId) {
     if (selectedVoyageId) {
       setImportVoyageId(selectedVoyageId)
+      setAutoSelectedImportOpen(true)
     } else if (allVoyageOptions.length === 1) {
       setImportVoyageId(String(allVoyageOptions[0].id))
+      setAutoSelectedImportOpen(true)
     }
   }
 
@@ -98,6 +101,7 @@ export function Veiculos() {
     setImportReport(null)
     setParsing(false)
     setImporting(false)
+    setAutoSelectedImportOpen(false)
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -136,6 +140,8 @@ export function Veiculos() {
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['vehicle-stats'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-vehicle-stats'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
       ])
 
@@ -158,6 +164,7 @@ export function Veiculos() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
       queryClient.invalidateQueries({ queryKey: ['vehicle-stats'] }),
+      queryClient.invalidateQueries({ queryKey: ['voyage-vehicle-stats'] }),
       queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
     ])
   }
@@ -480,7 +487,7 @@ export function Veiculos() {
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox label="Linhas validas" value={parsedImport.rows.length} />
                 <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} />
-                <PreviewBox label="Viagem selecionada" value={importVoyageId ? 1 : 0} />
+                <PreviewBox label="Viagem selecionada" value={formatImportVoyageLabel(allVoyageOptions, importVoyageId)} />
               </div>
 
               <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
@@ -550,7 +557,7 @@ export function Veiculos() {
             <Button variant="secondary" onClick={resetImportState}>
               Fechar
             </Button>
-            <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length} loading={importing} onClick={handleImport}>
+            <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length || Boolean(importReport)} loading={importing} onClick={handleImport}>
               Confirmar importação
             </Button>
           </div>
@@ -561,7 +568,7 @@ export function Veiculos() {
 }
 
 
-function PreviewBox({ label, value }: { label: string; value: number }) {
+function PreviewBox({ label, value }: { label: string; value: number | string }) {
   const tone =
     label === 'Erros' ? 'gold' : label === 'Sucesso' ? 'green' : label === 'Processados' ? 'blue' : 'navy'
 
@@ -571,6 +578,16 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
       <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
     </Card>
   )
+}
+
+function formatImportVoyageLabel(
+  voyages: Array<{ id: number; voyage_number: string | null; vessel?: { name?: string | null } | null }>,
+  voyageId: string,
+) {
+  if (!voyageId) return '-'
+  const voyage = voyages.find((item) => String(item.id) === voyageId)
+  if (!voyage) return 'Selecionada'
+  return `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number ?? '-'}`
 }
 
 function BreakdownCard({

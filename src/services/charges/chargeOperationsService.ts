@@ -431,7 +431,7 @@ async function loadGraniteOperationalRows(
     const subtotal = Number(row.subtotal ?? 0)
     const current = totalsMap.get(blId) ?? { total_brl: 0, total_usd: 0, line_count: 0, review_required_count: 0 }
     if (row.currency === 'USD') current.total_usd += subtotal
-    else current.total_brl += subtotal
+    else if (row.currency === 'BRL') current.total_brl += subtotal
     current.line_count += 1
     totalsMap.set(blId, current)
   }

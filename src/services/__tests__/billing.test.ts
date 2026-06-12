@@ -214,12 +214,12 @@ describe('getInvoicePaymentDate', () => {
 })
 
 describe('createInvoiceFromBls', () => {
-  it('chama o RPC create_invoice_from_bls com defaults (issue_now true, demais null)', async () => {
+  it('chama o RPC create_invoice_from_bls_with_ledger com defaults (issue_now true, demais null)', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: null })
 
     const result = await createInvoiceFromBls({ blIds: ['BL001', 'BL002'] })
 
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_bls', {
+    expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_bls_with_ledger', {
       p_bl_ids: ['BL001', 'BL002'],
       p_customer_id: null,
       p_due_date: null,
@@ -233,10 +233,9 @@ describe('createInvoiceFromBls', () => {
     expect(supabaseMocks.rpc).toHaveBeenCalledTimes(1)
   })
 
-  it('com invoice_id: persiste payload PIX e vincula ao ledger', async () => {
+  it('com invoice_id: persiste payload PIX apos emissao atomica com ledger', async () => {
     supabaseMocks.rpc.mockImplementation(async (name: string) => {
-      if (name === 'create_invoice_from_bls') return { data: { invoice_id: 55, ok: true }, error: null }
-      if (name === 'link_invoice_to_ledger') return { data: null, error: null }
+      if (name === 'create_invoice_from_bls_with_ledger') return { data: { invoice_id: 55, ok: true }, error: null }
       return { data: null, error: null }
     })
     const update = invoiceUpdateQuery({ error: null })
@@ -253,7 +252,7 @@ describe('createInvoiceFromBls', () => {
       actorId: 'user-1',
     })
 
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_bls', {
+    expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_bls_with_ledger', {
       p_bl_ids: ['BL001'],
       p_customer_id: 7,
       p_due_date: '2026-07-01',
@@ -264,7 +263,7 @@ describe('createInvoiceFromBls', () => {
     expect(supabaseMocks.buildPix).toHaveBeenCalledWith(100, 'INV-55')
     expect(update.update).toHaveBeenCalledWith({ pix_payload: 'pix-payload' })
     expect(update.eq).toHaveBeenCalledWith('id', 55)
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('link_invoice_to_ledger', { p_invoice_id: 55 })
+    expect(supabaseMocks.rpc).toHaveBeenCalledTimes(1)
     expect(result).toEqual({ invoice_id: 55, ok: true })
   })
 

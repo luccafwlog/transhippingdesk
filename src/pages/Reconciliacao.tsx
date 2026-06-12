@@ -9,7 +9,7 @@ import { useToast } from '../components/ui/Toast'
 import { formatResultCount, summarizeReconciliation } from '../lib/operationalState'
 import { parsePixExtractFile } from '../services/demurrage/demurrageKpis'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../services/reconciliacao'
-import type { UnifiedPixMatch } from '../services/reconciliacao'
+import type { UnifiedPixConfirmationResult, UnifiedPixMatch } from '../services/reconciliacao'
 
 function fmtBRL(v: number) {
   return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -20,6 +20,7 @@ export function Reconciliacao() {
   const { showToast } = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [matches, setMatches] = useState<UnifiedPixMatch[] | null>(null)
+  const [confirmationResult, setConfirmationResult] = useState<UnifiedPixConfirmationResult | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
   const matchMutation = useMutation({
@@ -37,15 +38,21 @@ export function Reconciliacao() {
 
   function processFile(file: File) {
     setMatches(null)
+    setConfirmationResult(null)
     matchMutation.mutate(file)
   }
 
   const confirmMutation = useMutation({
     mutationFn: () => confirmUnifiedPixReconciliation((matches ?? []).filter((m) => !m.ambiguous)),
-    onSuccess: ({ local, demurrage }) => {
+    onSuccess: (result) => {
+      const { local, demurrage } = result
       void queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['demurrage-kpis'] })
+      void queryClient.invalidateQueries({ queryKey: ['bls'] })
+      void queryClient.invalidateQueries({ queryKey: ['bl-detail'] })
+      void queryClient.invalidateQueries({ queryKey: ['customer-detail'] })
+      setConfirmationResult(result)
       setMatches(null)
       showToast(`Conciliacao concluida: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
     },
@@ -84,6 +91,33 @@ export function Reconciliacao() {
       </div>
 
       {matchMutation.isPending ? <Card className="text-center text-sm text-slate-400">Processando extrato...</Card> : null}
+
+      {confirmationResult ? (
+        <Card className="mb-4">
+          <div className="border-b border-[#30363d] p-4">
+            <div className="text-sm font-semibold text-white">Pagamentos confirmados</div>
+            <div className="mt-1 text-xs text-slate-400">
+              {confirmationResult.local} fatura(s) local(is) e {confirmationResult.demurrage} demurrage conciliada(s).
+            </div>
+          </div>
+          <div className="divide-y divide-[#30363d]">
+            {confirmationResult.items.map((item) => (
+              <div key={`${item.source}-${item.invoice_id}-${item.doc_number}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                <div>
+                  <div className="font-semibold text-white">{item.doc_number}</div>
+                  <div className="text-xs text-slate-500">ID {item.invoice_id}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge tone={item.source === 'demurrage' ? 'blue' : 'green'}>
+                    {item.source === 'demurrage' ? 'Demurrage' : 'Fatura'}
+                  </Badge>
+                  <Badge tone="green">{item.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       {matches !== null ? (
         <>
@@ -156,7 +190,7 @@ export function Reconciliacao() {
                           <Badge tone="green">TXID</Badge>
                           <div className="mt-1 text-[11px] text-slate-500">Valor e documento sem conflito</div>
                         </td>
-                        <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400">{m.transaction.txid}</td>
+                        <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400" title={m.transaction.txid}>{m.transaction.txid}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -186,7 +220,7 @@ export function Reconciliacao() {
                     </div>
                     <div>
                       <div className="text-xs uppercase tracking-wide text-amber-100/70">Diverge ou falta</div>
-                      <div>Multiplo documento possivel para o mesmo pagamento</div>
+                      <div>{m.source === 'demurrage' ? 'Valor diferente ou documento duplicado' : 'Multiplo documento possivel para o mesmo pagamento'}</div>
                     </div>
                   </div>
                 ))}

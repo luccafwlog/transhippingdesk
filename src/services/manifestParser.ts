@@ -141,7 +141,7 @@ export async function parseManifestBuffer(buffer: ArrayBuffer): Promise<ParsedMa
 function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManifest {
   const grouped = new Map<string, ParsedBL>()
   const rowErrors: ParsedManifest['rowErrors'] = []
-  const allContainers = new Map<string, string>()
+  const containersByBl = new Set<string>()
 
   rows.forEach((row, index) => {
     const mapped = mapRow(row)
@@ -162,12 +162,11 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
     if (!grossWeight || grossWeight <= 0) reasons.add('Peso zerado ou ausente')
 
     if (containerNumber) {
-      const previousBl = allContainers.get(containerNumber)
-      if (previousBl && previousBl === blNumber) {
+      const containerInBlKey = `${blNumber}|${containerNumber}`
+      if (containersByBl.has(containerInBlKey)) {
         reasons.add('Container duplicado no mesmo B/L')
       }
-      // Container in multiple BLs = Part Lot scenario, not a review error
-      allContainers.set(containerNumber, blNumber)
+      containersByBl.add(containerInBlKey)
     }
 
     const existing = grouped.get(blNumber)
@@ -220,7 +219,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
   const meta = parseManifestHeader(rawRows)
   const grouped = new Map<string, ParsedBL>()
   const rowErrors: ParsedManifest['rowErrors'] = []
-  const allContainers = new Map<string, string>()
+  const containersByBl = new Set<string>()
 
   let currentPol = meta.pol
   let currentPod = meta.pod
@@ -305,12 +304,11 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
     if (!line.container) reasons.add('Container ausente')
 
     if (line.container) {
-      const previousBl = allContainers.get(line.container)
-      if (previousBl && previousBl === currentBL.bl) {
+      const containerInBlKey = `${currentBL.bl}|${line.container}`
+      if (containersByBl.has(containerInBlKey)) {
         reasons.add('Container duplicado no mesmo B/L')
       }
-      // Container in multiple BLs = Part Lot scenario, not a review error
-      allContainers.set(line.container, currentBL.bl)
+      containersByBl.add(containerInBlKey)
     }
 
     const fallbackWeight = parseNumberValue(weightCell)

@@ -63,7 +63,6 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
 
   const detailQuery = useInvoiceDetail(invoiceId)
   const detailInvoice = detailQuery.data?.invoice ?? null
-  // Ledger-payable local documents are settled through the transactional ledger RPC.
   const isLedgerPayable = isLedgerInvoicePayable(detailInvoice)
   const registerPaymentMutation = useRegisterInvoicePayment()
   const registerLedgerPaymentMutation = useRegisterLedgerInvoicePayment()
@@ -80,7 +79,6 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
   )
 
   const ledgerBalance = Number(detailInvoice?.balance_brl ?? detailInvoice?.total_brl ?? 0)
-  // Ledger invoices are settled in full; prefill and lock the amount field.
   // Ajuste durante o render (em vez de useEffect) quando o alvo do prefill muda.
   const ledgerPrefill = isLedgerPayable ? `${invoiceId}:${ledgerBalance}` : null
   const [prevLedgerPrefill, setPrevLedgerPrefill] = useState<string | null>(null)
@@ -94,7 +92,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
   async function handleRegisterPayment() {
     if (!invoiceId) return
     const paymentValidation = paymentFormSchema.safeParse({
-      amountBrl: isLedgerPayable ? ledgerBalance : paymentAmount,
+      amountBrl: paymentAmount,
       paymentMethod,
       paidAt: paymentDate,
     })
@@ -360,7 +358,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
                 </div>
               </Card>
               <div className="grid gap-4 xl:grid-cols-2">
-                <Card><h2 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h2><div className="grid gap-4 md:grid-cols-2"><Field label={isLedgerPayable ? 'Valor BRL (baixa integral via ledger)' : 'Valor BRL'}><Input value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} readOnly={isLedgerPayable} /></Field><Field label="Metodo"><Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}><option value="pix">PIX</option><option value="ted">TED</option><option value="doc">DOC</option><option value="boleto">Boleto</option><option value="outros">Outros</option></Select></Field><Field label="Data"><Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></Field><Field label="Notas"><Input value={paymentNotes} onChange={(event) => setPaymentNotes(event.target.value)} /></Field></div><div className="mt-4 flex justify-end"><Button loading={registerPaymentMutation.isPending || registerLedgerPaymentMutation.isPending} onClick={handleRegisterPayment}><DollarSign size={16} />Registrar pagamento</Button></div></Card>
+                <Card><h2 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h2><div className="grid gap-4 md:grid-cols-2"><Field label={isLedgerPayable ? 'Valor BRL (saldo via ledger)' : 'Valor BRL'}><Input value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></Field><Field label="Metodo"><Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}><option value="pix">PIX</option><option value="ted">TED</option><option value="doc">DOC</option><option value="boleto">Boleto</option><option value="outros">Outros</option></Select></Field><Field label="Data"><Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></Field><Field label="Notas"><Input value={paymentNotes} onChange={(event) => setPaymentNotes(event.target.value)} /></Field></div><div className="mt-4 flex justify-end"><Button loading={registerPaymentMutation.isPending || registerLedgerPaymentMutation.isPending} onClick={handleRegisterPayment}><DollarSign size={16} />Registrar pagamento</Button></div></Card>
                 <Card><h2 className="mb-3 text-base font-semibold text-white">Cancelar invoice</h2><Field label="Motivo"><Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></Field><div className="mt-4 flex justify-end"><Button variant="danger" loading={cancelInvoiceMutation.isPending} disabled={detailQuery.data.payments.length > 0} onClick={handleCancelInvoice}><Ban size={16} />Cancelar invoice</Button></div></Card>
               </div>
             </>

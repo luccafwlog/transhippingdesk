@@ -139,10 +139,6 @@ describe('vehicleImport', () => {
               }),
             }),
           }),
-          insert: async (rows: Array<Record<string, unknown>>) => {
-            insertedRows.push(...rows)
-            return { error: null }
-          },
         }
       }
 
@@ -251,6 +247,13 @@ describe('vehicleImport', () => {
         bl_id: 'BL404',
       },
     ]
+
+    mockRpc.mockImplementation((name: string, args: Record<string, unknown>) => {
+      if (name === 'import_vehicle_rows_transactional') {
+        insertedRows.push(...(args.p_rows as Array<Record<string, unknown>>))
+      }
+      return Promise.resolve({ data: { status: 'exempt', exempt: true }, error: null })
+    })
 
     const result = await importVehicleRows({ voyageId: 7, rows })
 

@@ -27,16 +27,6 @@ beforeEach(() => {
   supabaseMocks.buildPix.mockReturnValue('pix-payload')
 })
 
-function invoiceFetchQuery(result: unknown) {
-  return {
-    select: vi.fn(() => ({
-      eq: vi.fn(() => ({
-        single: vi.fn().mockResolvedValue(result),
-      })),
-    })),
-  }
-}
-
 function invoiceUpdateQuery(result: unknown) {
   return {
     update: vi.fn(() => ({
@@ -113,19 +103,13 @@ describe('getInvoicePaymentDate', () => {
 })
 
 describe('createInvoiceFromBls', () => {
-  it('propaga falha ao vincular invoice ao ledger', async () => {
+  it('propaga falha da emissao atomica com ledger', async () => {
     supabaseMocks.rpc.mockImplementation(async (name: string) => {
-      if (name === 'create_invoice_from_bls') {
-        return { data: { invoice_id: 123 }, error: null }
-      }
-      if (name === 'link_invoice_to_ledger') {
+      if (name === 'create_invoice_from_bls_with_ledger') {
         return { data: null, error: new Error('ledger failed') }
       }
       return { data: null, error: null }
     })
-    supabaseMocks.from
-      .mockReturnValueOnce(invoiceFetchQuery({ data: { invoice_number: 'INV-123', total_brl: 100 }, error: null }))
-      .mockReturnValueOnce(invoiceUpdateQuery({ error: null }))
 
     await expect(createInvoiceFromBls({ blIds: ['BL001'] })).rejects.toThrow('ledger failed')
   })

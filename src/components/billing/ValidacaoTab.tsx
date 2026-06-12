@@ -77,7 +77,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       ready: readyRows.length,
       readyInvoiced,
       readyPendingInvoice: Math.max(readyRows.length - readyInvoiced, 0),
-      reconciliationPending: rows.filter((row) => !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')).length,
+      reconciliationPending: rows.filter((row) => !isCustomerReconciliationResolved(row.customer_reconciliation_status)).length,
       blocked: rows.filter((row) => Boolean(row.billing_hold_reason)).length,
       totalBrl: rows.reduce((sum, row) => sum + Number(row.totals.total_brl ?? 0), 0),
       totalUsd: rows.reduce((sum, row) => sum + Number(row.totals.total_usd ?? 0), 0),
@@ -87,7 +87,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
   const displayedRows = useMemo(() => {
     const rows = operationsRows ?? []
     if (reconciliationFilter) {
-      return rows.filter((row) => !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? ''))
+      return rows.filter((row) => !isCustomerReconciliationResolved(row.customer_reconciliation_status))
     }
     return rows
   }, [operationsRows, reconciliationFilter])
@@ -267,6 +267,31 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       setSelectedOpsRows([])
     } catch {
       showToast('Falha ao executar processamento em lote.', 'error')
+    }
+  }
+
+  async function handleIssueSingleInvoice(row: { id: string; customer?: { id: number | null } | null }) {
+    if (!row.customer?.id) {
+      showToast('Nao ha cliente vinculado para emitir esta fatura.', 'error')
+      return
+    }
+
+    try {
+      await createInvoiceFromBls({
+        blIds: [row.id],
+        customerId: row.customer.id,
+        issueNow: true,
+        actorId: userId,
+      })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
+      ])
+      showToast(`Fatura emitida para ${row.id}.`, 'success')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao emitir fatura individual.', 'error')
     }
   }
 
@@ -485,7 +510,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                 <th scope="col" className="px-4 py-3">Cliente</th>
                 <th scope="col" className="px-4 py-3">Reconcil.</th>
                 <th scope="col" className="px-4 py-3">Subtotal BRL</th>
-                <th scope="col" className="px-4 py-3">Bloqueio</th>
+                <th scope="col" className="px-4 py-3">Por que nao fatura?</th>
                 <th scope="col" className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -506,8 +531,10 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
               ) : null}
               {displayedRows.map((row) => {
                 const isExpanded = expandedBlId === row.id
-                const reconciliationPending = !['matched_document', 'reconciled'].includes(row.customer_reconciliation_status ?? '')
+                const reconciliationPending = !isCustomerReconciliationResolved(row.customer_reconciliation_status)
                 const queueItem = reconciliationPending ? (reconciliationQueue?.find((q) => q.bl_id === row.id) ?? null) : null
+                const blockReason = getBillingBlockReason(row)
+                const canIssueSingleInvoice = row.charge_status === 'ready_for_billing' && row.financial_status !== 'invoiced' && Boolean(row.customer?.id)
                 return (
                   <Fragment key={row.id}>
                     <tr className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>
@@ -532,22 +559,29 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                       <td className="px-4 py-3">
                         <span
                           className="app-table__truncate app-table__truncate--lg"
-                          title={row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
+                          title={blockReason}
                         >
-                          {row.billing_hold_reason ?? row.customer_reconciliation_notes ?? row.charge_exemption_reason ?? '-'}
+                          {blockReason}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          className="app-table__icon-button"
-                          type="button"
-                          onClick={() => setExpandedBlId(isExpanded ? null : row.id)}
-                          title={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
-                          aria-label={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
-                          aria-expanded={isExpanded}
-                        >
-                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {canIssueSingleInvoice ? (
+                            <Button variant="secondary" onClick={() => void handleIssueSingleInvoice(row)}>
+                              Emitir
+                            </Button>
+                          ) : null}
+                          <button
+                            className="app-table__icon-button"
+                            type="button"
+                            onClick={() => setExpandedBlId(isExpanded ? null : row.id)}
+                            title={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+                            aria-label={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+                            aria-expanded={isExpanded}
+                          >
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     {isExpanded ? (
@@ -711,6 +745,33 @@ function renderReconciliationStatus(status: string | null) {
   if (status === 'matched_name') return <Badge tone="yellow">Match nome</Badge>
   if (status === 'rejected') return <Badge tone="red">Rejeitado</Badge>
   return <Badge tone="yellow">Pendente</Badge>
+}
+
+function isCustomerReconciliationResolved(status: string | null | undefined) {
+  return ['matched_document', 'matched_name', 'reconciled'].includes(status ?? '')
+}
+
+function getBillingBlockReason(row: {
+  charge_status: string | null
+  financial_status: string | null
+  billing_hold_reason: string | null
+  customer_reconciliation_status: string | null
+  customer_reconciliation_notes: string | null
+  charge_exemption_reason: string | null
+  customer?: { id: number | null } | null
+  totals: { total_brl: number; line_count: number; review_required_count: number }
+}) {
+  if (row.financial_status === 'invoiced') return 'Fatura ja emitida.'
+  if (row.billing_hold_reason) return row.billing_hold_reason
+  if (!row.customer?.id) return 'Cliente nao vinculado.'
+  if (!isCustomerReconciliationResolved(row.customer_reconciliation_status)) {
+    return row.customer_reconciliation_notes ?? 'Conciliação de cliente pendente.'
+  }
+  if (row.charge_status === 'exempt') return row.charge_exemption_reason ?? 'B/L isento de taxas locais.'
+  if (row.totals.review_required_count > 0) return 'Ha linhas de taxa com revisao pendente.'
+  if (row.totals.line_count === 0 || Number(row.totals.total_brl ?? 0) <= 0) return 'Sem linhas de taxa calculadas.'
+  if (row.charge_status !== 'ready_for_billing') return 'Ainda nao marcado como pronto para faturar.'
+  return 'Pronto para emissao individual.'
 }
 
 function renderDetectionType(type: string | null) {

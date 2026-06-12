@@ -2,7 +2,7 @@ import { onlyDigits } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { countDistinctManifestContainers, type ParsedManifest } from './manifestParser'
 import { supabase } from './supabase'
-import { syncManifestPolEtdSchedules, syncManifestPodLinked } from './voyageRouteSchedules'
+import { buildVoyagePodEntityId, buildVoyagePolEntityId } from './voyageRouteSchedules'
 
 export type ImportManifestArgs = {
   filename: string
@@ -14,17 +14,8 @@ export type ImportManifestArgs = {
 }
 
 /**
- * Importa um manifesto CNTR de forma transacional.
- *
- * A operacao inteira (criacao do batch, upsert dos BLs, troca dos containers,
- * registro de erros e atualizacao de status) e delegada a funcao PL/pgSQL
- * `import_manifest_transactional`. Isso garante atomicidade: se qualquer etapa
- * falhar, nada fica persistido e evita BLs sem containers por delete+insert
- * parcial.
- *
- * Dedup: se `fileHash` for informado, a unique index parcial
- * `uq_import_batches_voyage_hash` rejeita imports duplicados do mesmo
- * arquivo na mesma viagem/cargo_mode.
+ * Importa um manifesto CNTR de forma transacional, incluindo schedules,
+ * billing inicial, flags de limbo e contatos financeiros vindos do manifesto.
  */
 export async function importManifest({
   filename,
@@ -122,7 +113,25 @@ export async function importManifest({
     raw_data: rowError.raw ?? null,
   }))
 
-  const { data: batchId, error: rpcError } = await supabase.rpc('import_manifest_transactional', {
+  const polEtdPayload = manifest.manifest_etd
+    ? Array.from(new Set(manifest.bls.map((bl) => buildVoyagePolEntityId(voyageId, bl.pol)))).map((entityId) => ({
+        entity_id: entityId,
+        etd: manifest.manifest_etd,
+      }))
+    : []
+
+  const podLinkedPayload = Array.from(new Set(manifest.bls.map((bl) => bl.pod).filter(Boolean))).map((pod) => ({
+    entity_id: buildVoyagePodEntityId(voyageId, pod),
+  }))
+
+  const contactPayload = blPayload
+    .filter((bl) => bl.customer_id && bl.manifest_customer_email?.trim())
+    .map((bl) => ({
+      customer_id: bl.customer_id,
+      email: bl.manifest_customer_email?.trim().toLowerCase(),
+    }))
+
+  const { data: batchId, error: rpcError } = await supabase.rpc('import_manifest_with_postprocess_transactional' as never, {
     p_filename: filename,
     p_voyage_id: voyageId,
     p_uploaded_by: uploadedBy,
@@ -133,7 +142,10 @@ export async function importManifest({
     p_bls: blPayload,
     p_containers: containerPayload,
     p_errors: errorPayload,
-  })
+    p_pol_etd: polEtdPayload,
+    p_pod_linked: podLinkedPayload,
+    p_contact_emails: contactPayload,
+  } as never)
 
   if (rpcError) {
     if (rpcError.code === '23505' && rpcError.message?.includes('uq_import_batches_voyage_hash')) {
@@ -149,133 +161,8 @@ export async function importManifest({
     throw rpcError
   }
 
-  await syncManifestPolEtdSchedules({
-    voyageId,
-    manifest,
-    changedBy: uploadedBy,
-  })
-
-  await syncManifestPodLinked({
-    voyageId,
-    manifest,
-    changedBy: uploadedBy,
-  })
-
-  const { error: billingError } = await supabase.rpc('run_billing_for_import_batch', {
-    p_batch_id: batchId,
-    p_actor: uploadedBy,
-    p_recalculate: true,
-  })
-
-  if (billingError) {
-    throw billingError
-  }
-
-  // --- NEW LOGIC: Identify BLs that failed billing (no charges calculated and not exempt) ---
-  const importedBlIds = blPayload.map((bl) => bl.id)
-  
-  const { data: chargeData } = await supabase
-    .from('charge_calculations')
-    .select('bl_id')
-    .in('bl_id', importedBlIds)
-    
-  const blsWithCharges = new Set((chargeData || []).map(c => String(c.bl_id)))
-  const limboBlIds = importedBlIds.filter(id => !blsWithCharges.has(id))
-
-  if (limboBlIds.length > 0) {
-    const { data: blsToUpdate } = await supabase
-      .from('bls')
-      .select('id, notes, charge_status')
-      .in('id', limboBlIds)
-      .neq('charge_status', 'exempt') // Do not flag exempt BLs
-
-    if (blsToUpdate && blsToUpdate.length > 0) {
-      const updates = blsToUpdate.map(bl => {
-        let newNotes = bl.notes || ''
-        const errorMsg = 'Falha crítica: Nenhuma tabela de preco ou tarifa encontrada.'
-        if (!newNotes) {
-          newNotes = `Pendencias de importacao: ${errorMsg}`
-        } else if (!newNotes.includes(errorMsg)) {
-          newNotes += `, ${errorMsg}`
-        }
-        
-        return {
-          id: bl.id,
-          review_status: 'pending_review' as const,
-          charge_status: 'review_required' as const,
-          billing_hold_reason: 'Falha crítica: Nenhuma tabela de preco ou tarifa encontrada. Adicione os precos e recalcule.',
-          notes: newNotes
-        }
-      })
-      
-      // Update one by one or upsert. Since it's a few, we can do promises.
-      await Promise.all(updates.map(updateData => 
-        supabase.from('bls').update({
-          review_status: updateData.review_status,
-          charge_status: updateData.charge_status,
-          billing_hold_reason: updateData.billing_hold_reason,
-          notes: updateData.notes
-        }).eq('id', updateData.id)
-      ))
-    }
-  }
-  // --- END NEW LOGIC ---
-
-  await syncManifestContactEmails(blPayload)
-
   return batchId as number
 }
-
-/**
- * Para cada BL com cliente matched e e-mail no manifesto, cria o contato no
- * cadastro do cliente caso aquele e-mail ainda nao esteja registrado.
- * Erros sao silenciados para nao bloquear o retorno da importacao.
- */
-async function syncManifestContactEmails(
-  blPayload: Array<{ customer_id: number | null; manifest_customer_email?: string | null }>,
-) {
-  const toSync = new Map<number, Set<string>>()
-  for (const bl of blPayload) {
-    const email = bl.manifest_customer_email?.trim().toLowerCase()
-    if (bl.customer_id && email) {
-      const existing = toSync.get(bl.customer_id) ?? new Set<string>()
-      existing.add(email)
-      toSync.set(bl.customer_id, existing)
-    }
-  }
-
-  if (!toSync.size) return
-
-  const customerIds = Array.from(toSync.keys())
-
-  const { data: existing } = await supabase
-    .from('customer_contacts')
-    .select('customer_id, email')
-    .in('customer_id', customerIds)
-
-  const existingSet = new Set(
-    (existing ?? [])
-      .filter((c) => c.email)
-      .map((c) => `${c.customer_id}:${c.email!.trim().toLowerCase()}`),
-  )
-
-  const toInsert = Array.from(toSync.entries()).flatMap(([customerId, emails]) =>
-    Array.from(emails)
-      .filter((email) => !existingSet.has(`${customerId}:${email}`))
-      .map((email) => ({
-        customer_id: customerId,
-        name: 'Contato manifesto',
-        email,
-        purpose: 'financeiro' as const,
-        is_primary: false,
-      })),
-  )
-
-  if (!toInsert.length) return
-
-  await supabase.from('customer_contacts').insert(toInsert)
-}
-
 
 export class DuplicateManifestImportError extends Error {
   constructor(message: string) {
@@ -303,4 +190,3 @@ export async function computeFileHash(buffer: ArrayBuffer): Promise<string> {
   }
   return hex
 }
-

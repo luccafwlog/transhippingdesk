@@ -518,6 +518,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const [previewIndex, setPreviewIndex] = useState(0)
   const [importStatusMessage, setImportStatusMessage] = useState<string | null>(null)
   const [waitMessage, setWaitMessage] = useState<string | null>(null)
+  const [autoSelectedOpen, setAutoSelectedOpen] = useState(false)
 
   const primaryManifest = files.length ? manifestsByFile[files[previewIndex]?.name] ?? null : null
   const totals = useMemo(
@@ -533,8 +534,27 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
 
   // Auto-seleciona a única viagem disponível — ajuste durante o render (a
   // condição se auto-falsifica após o setState, convergindo em um re-render).
-  if (open && !voyageId && voyages?.length === 1) {
+  if (open && !autoSelectedOpen && !voyageId && voyages?.length === 1) {
     setVoyageId(String(voyages[0].id))
+    setAutoSelectedOpen(true)
+  }
+
+  function resetModalState() {
+    setFiles([])
+    setManifestsByFile({})
+    setParsing(false)
+    setSubmitting(false)
+    setProgress({ current: 0, total: 0 })
+    setImportSummary([])
+    setPreviewIndex(0)
+    setImportStatusMessage(null)
+    setWaitMessage(null)
+    setAutoSelectedOpen(false)
+  }
+
+  function closeModal() {
+    resetModalState()
+    onClose()
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
@@ -588,12 +608,16 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         }
         try {
           const fileHash = await computeFileHash(await file.arrayBuffer())
+          if (!fileHash) {
+            results.push({ file: file.name, status: 'error', message: 'Nao foi possivel calcular o hash do arquivo para deduplicacao.' })
+            continue
+          }
           await importManifestWithRetry({
             filename: file.name,
             voyageId: Number(voyageId),
             manifest,
             uploadedBy: user.id,
-            fileHash: fileHash || null,
+            fileHash,
             onRateLimitWait: (seconds) => setWaitMessage(`Limite atingido. Aguardando ${seconds}s para retomar...`),
             onResume: () => setWaitMessage(null),
           })
@@ -648,7 +672,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
           successCount === 1 ? 'Manifesto importado com sucesso.' : `${successCount} manifestos importados com sucesso.`,
           'success',
         )
-        onClose()
+        closeModal()
         return
       } else if (successCount > 0) {
         setImportStatusMessage(`Importacao parcial: ${successCount} sucesso(s), ${errorCount} erro(s).`)
@@ -667,7 +691,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Importar Manifesto CNTR">
+    <Modal open={open} onClose={closeModal} title="Importar Manifesto CNTR">
       <div className="grid gap-5">
         <Field label="Viagem de destino">
           <VoyageSelect value={voyageId} onChange={setVoyageId} emptyLabel="Selecione uma viagem" />
@@ -804,7 +828,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
         ) : null}
 
         <div className="app-modal__actions">
-          <Button variant="secondary" onClick={onClose}>
+            <Button variant="secondary" onClick={closeModal}>
             Cancelar
           </Button>
           <Button disabled={!files.length || !voyageId} loading={submitting} onClick={handleImport}>

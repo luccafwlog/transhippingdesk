@@ -322,10 +322,10 @@ export async function importVehicleRows({
   }
 
   if (rowsToInsert.length) {
-    for (const chunk of chunkArray(rowsToInsert, 500)) {
-      const { error: insertError } = await supabase.from('vehicles').insert(chunk)
-      if (insertError) throw insertError
-    }
+    const { error: insertError } = await supabase.rpc('import_vehicle_rows_transactional' as never, {
+      p_rows: rowsToInsert,
+    } as never)
+    if (insertError) throw insertError
 
     // Veiculos sao cadastrados depois dos containers/BLs: no momento do manifesto
     // as taxas locais ja foram calculadas e a fatura individual pode ja ter sido

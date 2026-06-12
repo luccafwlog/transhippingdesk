@@ -19,7 +19,7 @@ import {
   useUpdateManualBlCharge,
 } from '../../hooks/useLocalCharges'
 import { formatBRL, formatUSD } from '../../lib/utils'
-import { createInvoiceFromBls } from '../../services/billing'
+import { markBlReadyAndCreateInvoice } from '../../services/billing'
 import {
   formatNumber,
   resolveChargeLineStatusLabel,
@@ -170,12 +170,16 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
   async function handleMarkReadyForBilling() {
     if (!user || !bl) return
     try {
-      await markReadyForBillingMutation.mutateAsync({ actorId: user.id })
       if (bl.customer_id) {
-        await createInvoiceFromBls({ blIds: [bl.id], customerId: bl.customer_id, issueNow: true, actorId: user.id })
+        await markBlReadyAndCreateInvoice({ blId: bl.id, customerId: bl.customer_id, actorId: user.id })
         await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+        await queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] })
+        await queryClient.invalidateQueries({ queryKey: ['bls'] })
+        await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
+        await queryClient.invalidateQueries({ queryKey: ['op-count'] })
         showToast('B/L pronto para faturar. Fatura emitida automaticamente.', 'success')
       } else {
+        await markReadyForBillingMutation.mutateAsync({ actorId: user.id })
         showToast('B/L marcado como pronto para faturar. Sem cliente vinculado — gere a fatura manualmente em Faturamento.', 'success')
       }
     } catch (error) {

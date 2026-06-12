@@ -7,15 +7,6 @@ export async function importBaplieStaging(
   containers: BaplieContainer[],
   actorId?: string | null,
 ): Promise<{ staged: number }> {
-  const { error: deleteError } = await supabase
-    .from('baplie_containers' as never)
-    .delete()
-    .eq('voyage_id', voyageId)
-
-  if (deleteError) throw deleteError
-
-  if (!containers.length) return { staged: 0 }
-
   const rows = containers.map((c) => ({
     voyage_id: voyageId,
     container_number: c.container_number,
@@ -34,13 +25,11 @@ export async function importBaplieStaging(
     imported_by: actorId ?? null,
   }))
 
-  const BATCH = 500
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const { error: insertError } = await supabase
-      .from('baplie_containers' as never)
-      .insert(rows.slice(i, i + BATCH) as never)
-    if (insertError) throw insertError
-  }
+  const { error } = await supabase.rpc('import_baplie_staging_transactional' as never, {
+    p_voyage_id: voyageId,
+    p_rows: rows,
+  } as never)
+  if (error) throw error
 
   return { staged: rows.length }
 }

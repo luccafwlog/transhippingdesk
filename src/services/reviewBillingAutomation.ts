@@ -1,7 +1,6 @@
-import { createInvoiceFromBls } from './billing'
+import { markBlReadyAndCreateInvoice } from './billing'
 import {
   calculateBlLocalCharges,
-  markBlReadyForBilling,
   type LocalChargeCalculationResult,
 } from './charges/chargeOperationsService'
 
@@ -33,11 +32,9 @@ export async function tryAutoIssueInvoice({
       return { status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.', calculation }
     }
 
-    await markBlReadyForBilling(blId, actorId)
-    const invoiceResult = await createInvoiceFromBls({
-      blIds: [blId],
+    const invoiceResult = await markBlReadyAndCreateInvoice({
+      blId,
       customerId,
-      issueNow: true,
       actorId,
     })
 

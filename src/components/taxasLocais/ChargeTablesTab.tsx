@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -570,8 +570,8 @@ export function ChargeTablesTab({
                 const autoCount = table.charge_table_items?.filter((i) => !i.manual_only).length ?? 0
                 const manualCount = table.charge_table_items?.filter((i) => i.manual_only).length ?? 0
                 return (
-                  <>
-                    <tr key={table.id} className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>
+                  <Fragment key={table.id}>
+                    <tr className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>
                       <td className="px-4 py-3">
                         <div className="font-semibold text-[var(--app-text-strong)]">{table.name}</div>
                         {table.notes ? <div className="mt-0.5 text-xs text-[var(--app-muted)]">{table.notes}</div> : null}
@@ -696,7 +696,7 @@ export function ChargeTablesTab({
                         </td>
                       </tr>
                     ) : null}
-                  </>
+                  </Fragment>
                 )
               })}
             </tbody>

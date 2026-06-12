@@ -120,6 +120,8 @@ export function Baplie() {
       const result = await importVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
       setConfirmedBaplieManifestId(result.manifestId)
       await queryClient.invalidateQueries({ queryKey: ['baplie-vazios-manifest', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao'] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] })
       showToast(`${emptyContainers.length} container(s) vazio(s) cadastrados em Vazios Importacao.`, 'success')
@@ -135,6 +137,8 @@ export function Baplie() {
       const result = await importVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
       setConfirmedBaplieManifestId(result.manifestId)
       await queryClient.invalidateQueries({ queryKey: ['baplie-vazios-manifest', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao'] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] })
       showToast(`Manifesto de vazios substituido. ${emptyContainers.length} container(s) recadastrado(s).`, 'success')
@@ -187,6 +191,7 @@ export function Baplie() {
             <VaziosSection
               emptyCount={emptyContainers.length}
               existingManifest={existingVaziosManifestLoading ? null : (existingVaziosManifest ?? null)}
+              loadingExistingManifest={existingVaziosManifestLoading}
               confirmedManifestId={confirmedBaplieManifestId}
               onConfirmar={handleConfirmarVazios}
               onSubstituir={handleSubstituirVazios}
@@ -277,6 +282,7 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
 function VaziosSection({
   emptyCount,
   existingManifest,
+  loadingExistingManifest,
   confirmedManifestId,
   onConfirmar,
   onSubstituir,
@@ -284,6 +290,7 @@ function VaziosSection({
 }: {
   emptyCount: number
   existingManifest: { id: string; total_containers: number; imported_at: string } | null
+  loadingExistingManifest: boolean
   confirmedManifestId: string | null
   onConfirmar: () => Promise<void>
   onSubstituir: () => Promise<void>
@@ -303,7 +310,11 @@ function VaziosSection({
   return (
     <Card className="mb-5">
       <div className="text-sm font-semibold text-white mb-3">Vazios de Importacao</div>
-      {createdInSession ? (
+      {loadingExistingManifest ? (
+        <div className="rounded-xl border border-slate-500/30 bg-slate-500/5 p-4 text-sm text-slate-300">
+          Verificando manifesto de vazios existente...
+        </div>
+      ) : createdInSession ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
           Manifesto de vazios Baplie confirmado para esta viagem.
         </div>
@@ -324,7 +335,7 @@ function VaziosSection({
       ) : (
         <div className="flex items-center justify-between">
           <div className="text-sm text-slate-400">{emptyCount} container(s) vazio(s) aguardando cadastro em Vazios Importacao.</div>
-          <Button loading={loading} onClick={() => run(onConfirmar)}>
+          <Button disabled={loadingExistingManifest} loading={loading} onClick={() => run(onConfirmar)}>
             Confirmar cadastro de {emptyCount} vazio(s)
           </Button>
         </div>
@@ -690,6 +701,7 @@ function BaplieUploadModal({
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
+  const [autoSelectedOpen, setAutoSelectedOpen] = useState(false)
 
   // Re-baseia a viagem ao abrir o modal — ajuste durante o render,
   // mantendo o gatilho original (open ou initialVoyageId mudou).
@@ -699,9 +711,15 @@ function BaplieUploadModal({
     if (open) setVoyageId(initialVoyageId)
   }
 
+  if (open && !autoSelectedOpen && !voyageId && voyages?.length === 1) {
+    setVoyageId(String(voyages[0].id))
+    setAutoSelectedOpen(true)
+  }
+
   function handleClose() {
     setParsed(null)
     setExcludedPods(new Set())
+    setAutoSelectedOpen(false)
     onClose()
   }
 

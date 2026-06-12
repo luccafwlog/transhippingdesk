@@ -77,7 +77,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
 
   const manifestByNumber = new Map<string, NonNullable<typeof blContainers>>()
   for (const c of blContainers ?? []) {
-    const key = c.container_number.replace(/\s+/g, '').toUpperCase()
+    const key = normalizeContainerNumber(c.container_number)
     const list = manifestByNumber.get(key) ?? []
     list.push(c)
     manifestByNumber.set(key, list)
@@ -88,7 +88,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
   for (const baplieC of staged) {
     if (baplieC.status === 'empty') continue
 
-    const key = baplieC.container_number.toUpperCase()
+    const key = normalizeContainerNumber(baplieC.container_number)
     const matches = manifestByNumber.get(key)
 
     if (!matches?.length) {
@@ -100,6 +100,8 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
       })
       continue
     }
+
+    if (matches.length > 1) continue
 
     for (const mc of matches) {
       const divergences: AttributeDivergence[] = []
@@ -212,6 +214,10 @@ export async function keepManifestAttribute({
 
 function normalizeVal(v: string | null | undefined) {
   return (v ?? '').toUpperCase()
+}
+
+function normalizeContainerNumber(v: string | null | undefined) {
+  return (v ?? '').replace(/\s+/g, '').toUpperCase()
 }
 
 async function fetchManifestResolutionKeys(voyageId: number, blContainerIds: number[]) {
