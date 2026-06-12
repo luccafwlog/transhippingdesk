@@ -309,7 +309,7 @@ export function Containers() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <SummaryCard label="Registros filtrados" value={isLoading ? '...' : data?.count ?? 0} />
         <SummaryCard label="Containers distintos" value={isLoading ? '...' : data?.distinctCount ?? 0} />
         <SummaryCard label="B/Ls envolvidos" value={isLoading ? '...' : data?.blCount ?? 0} />
@@ -542,7 +542,7 @@ export function Containers() {
 
           {parsedFlags ? (
             <div className="grid gap-4">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox label="Linhas validas" value={parsedFlags.rows.length} />
                 <PreviewBox label="Linhas ignoradas" value={parsedFlags.rowErrors.length} />
                 <PreviewBox label="Atualizações previstas" value={parsedFlags.rows.length} />

@@ -395,7 +395,7 @@ export function Granite() {
 
           {manifest ? (
             <div className="grid gap-4">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox label="B/Ls validos" value={manifest.bls.length} />
                 <PreviewBox label="Peso Real total (ton)" value={manifest.bls.reduce((s, b) => s + b.real_weight_kg / 1000, 0)} decimals={3} />
                 <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} />

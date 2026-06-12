@@ -168,7 +168,7 @@ export function PortalBilling() {
         }
       />
 
-      <div className="mb-5 grid gap-4 md:grid-cols-3">
+      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(210px,1fr))]">
         <MetricCard label="Saldo pendente" value={formatBRL(overview?.pending_balance)} />
         <MetricCard label="Faturas emitidas" value={String(invoices?.length ?? 0)} />
         <MetricCard label="B/Ls elegíveis" value={String(eligibleCount)} />
@@ -231,7 +231,7 @@ export function PortalBilling() {
                   Imprimir PDF
                 </Button>
               </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <MetricCard label="Status" value={statusLabel(detailInvoice.status)} />
                 <MetricCard label="Total" value={formatBRL(detailInvoice.total_brl)} />
                 <MetricCard label="Pago" value={formatBRL(detailInvoice.total_paid_brl)} />
@@ -353,7 +353,7 @@ export function PortalBilling() {
             const { invoice, items } = demurrageDetailQuery.data
             return (
               <>
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                   <MetricCard label="Status" value={invoice.status === 'paid' ? 'Pago' : invoice.status === 'overdue' ? 'Vencida' : 'Emitida'} />
                   <MetricCard label="Total USD" value={`$ ${Number(invoice.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
                   <MetricCard label="Total BRL" value={invoice.frozen_total_brl != null ? formatBRL(invoice.frozen_total_brl) : '—'} />
