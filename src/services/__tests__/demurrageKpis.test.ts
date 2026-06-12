@@ -41,6 +41,24 @@ describe('parsePixExtract', () => {
         cnpj: '12.345.678/0001-95',
         date: '',
         amount: 100,
+        },
+      ])
+    })
+
+  it('normaliza data PIX com componente de horario', async () => {
+    const rows = [
+      ['identificador', 'CPF/CNPJ', 'pago em', 'valor pago'],
+      ['INV-003', '12.345.678/0001-95', '05/06/2026 15:30:45', '100,00'],
+    ]
+
+    const parsed = await parsePixExtract(pixWorkbook(rows))
+
+    expect(parsed).toEqual([
+      {
+        txid: 'INV-003',
+        cnpj: '12.345.678/0001-95',
+        date: '2026-06-05',
+        amount: 100,
       },
     ])
   })

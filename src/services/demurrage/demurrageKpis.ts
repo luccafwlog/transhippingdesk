@@ -74,7 +74,7 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
 }
 
 function parsePixPaidDate(raw: string): string {
-  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+.*)?$/)
   if (!match) return ''
 
   const day = Number(match[1])
