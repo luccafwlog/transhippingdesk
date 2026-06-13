@@ -190,7 +190,6 @@ export function ReconciliationHistoryTable({
             <tr>
               <th scope="col" className="px-4 py-3">Tipo</th>
               {renderSortCell('docNumber', 'Nº Documento')}
-              <th scope="col" className="px-4 py-3">Tipo Doc.</th>
               {renderSortCell('customerName', 'Consignatário')}
               {renderSortCell('blId', 'B/L')}
               {renderSortCell('blAmount', 'Valor BL')}
@@ -203,10 +202,10 @@ export function ReconciliationHistoryTable({
           </thead>
           <tbody className="divide-y divide-[#30363d]">
             {isLoading ? (
-              <tr><td colSpan={11} className="p-0"><SkeletonTable rows={6} cols={11} /></td></tr>
+              <tr><td colSpan={10} className="p-0"><SkeletonTable rows={6} cols={10} /></td></tr>
             ) : null}
             {!isLoading && rows.length === 0 ? (
-              <tr><td colSpan={11} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
+              <tr><td colSpan={10} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
             ) : null}
             {rows.map((row) => {
               const voyageLabel = [row.vesselName, row.voyageNumber].filter(Boolean).join(' · ') || '—'
@@ -219,15 +218,15 @@ export function ReconciliationHistoryTable({
                       <Badge tone="green">Taxas Locais</Badge>
                     )}
                   </td>
-                  <td className="px-4 py-3 font-semibold text-white">{row.docNumber}</td>
                   <td className="px-4 py-3">
-                    {row.source === 'demurrage' ? (
-                      <span className="text-slate-500">—</span>
-                    ) : row.invoiceType === 'consolidated' ? (
-                      <Badge tone="blue">Consolidada</Badge>
-                    ) : (
-                      <Badge tone="green">Único BL</Badge>
-                    )}
+                    <div className="app-table__cell-stack">
+                      <div className="font-semibold text-white">{row.docNumber}</div>
+                      {row.source === 'demurrage' ? null : row.invoiceType === 'consolidated' ? (
+                        <Badge tone="blue">Consolidada</Badge>
+                      ) : (
+                        <Badge tone="green">Único BL</Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
