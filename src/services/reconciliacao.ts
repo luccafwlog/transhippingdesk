@@ -1,4 +1,4 @@
-import { onlyDigits } from '../lib/utils'
+import { formatDate, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { PixTransaction } from '../types/database'
 
@@ -304,6 +304,7 @@ export async function listReconciliationHistory(
     const paymentsArr = (inv.payments as Array<{ id: number; paid_at: string | null }> | null) ?? []
     const dates = paymentsArr.map((p) => p.paid_at).filter((d): d is string => Boolean(d))
     const paymentDate = dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : null
+    const invTotal = Number(inv.total_brl ?? 0)
     for (const bl of bls) {
       localRows.push({
         id: `local-${inv.id}-${bl.blId}`,
@@ -443,17 +444,19 @@ export async function exportReconciliationHistoryExcel(filters: Partial<Reconcil
 }
 
 export async function reverseLocalInvoicePayment(paymentId: number, reason?: string) {
-  const { error } = await supabase.rpc('reverse_invoice_payment', {
+  const { error } = await supabase.rpc('reverse_invoice_payment' as never, {
     p_payment_id: paymentId,
     p_reason: reason ?? null,
+    p_actor: null,
   } as never)
   if (error) throw error
 }
 
 export async function reverseDemurragePayment(invoiceId: number, reason?: string) {
-  const { error } = await supabase.rpc('reverse_demurrage_payment', {
+  const { error } = await supabase.rpc('reverse_demurrage_payment' as never, {
     p_invoice_id: invoiceId,
     p_reason: reason ?? null,
+    p_actor: null,
   } as never)
   if (error) throw error
 }
