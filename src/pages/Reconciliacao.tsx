@@ -276,7 +276,7 @@ export function Reconciliacao() {
       ) : null}
 
       <div className="mt-8">
-        <h2 className="app-panel__title mb-4">Hist\u00f3rico de pagamentos</h2>
+        <h2 className="app-panel__title mb-4">Histórico de pagamentos</h2>
         <ReconciliationHistoryTable
           onSelectLocalInvoice={(id) => setSelectedInvoiceId(id)}
           onSelectDemurrageInvoice={(id) => setSelectedDemurrageId(id)}

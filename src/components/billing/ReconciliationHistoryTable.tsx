@@ -118,12 +118,12 @@ export function ReconciliationHistoryTable({
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[#30363d] p-4">
-        <FilterBar activeCount={activeCount} onClear={clearFilters} title="Filtros do hist\u00f3rico">
+        <FilterBar activeCount={activeCount} onClear={clearFilters} title="Filtros do histórico">
           <div className="app-filter-grid">
-            <Field label="Per\u00edodo de">
+            <Field label="Período de">
               <Input type="date" value={paidFrom} onChange={(e) => { setPaidFrom(e.target.value); setPage(1) }} />
             </Field>
-            <Field label="Per\u00edodo at\u00e9">
+            <Field label="Período até">
               <Input type="date" value={paidTo} onChange={(e) => { setPaidTo(e.target.value); setPage(1) }} />
             </Field>
             <Field label="Tipo">
@@ -135,7 +135,7 @@ export function ReconciliationHistoryTable({
             </Field>
             <Combobox
               key={`cust-${page}`}
-              label="Consignat\u00e1rio"
+              label="Consignatário"
               placeholder="Nome ou CNPJ"
               initialValue=""
               onValueChange={(value) => { if (!value.trim()) { setCustomerId(''); setPage(1) } }}
@@ -147,7 +147,7 @@ export function ReconciliationHistoryTable({
             <Field label="B/L">
               <Input
                 type="text"
-                placeholder="N\u00famero do BL"
+                placeholder="Número do BL"
                 value={blSearch}
                 onChange={(e) => { setBlSearch(e.target.value); setPage(1) }}
               />
@@ -168,9 +168,9 @@ export function ReconciliationHistoryTable({
                 onChange={(e) => { setPod(e.target.value); setPage(1) }}
               />
             </Field>
-            <Field label="Itens por p\u00e1gina">
+            <Field label="Itens por página">
               <Select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}>
-                {PAGE_SIZES.map((s) => <option key={s} value={s}>{s}/p\u00e1g.</option>)}
+                {PAGE_SIZES.map((s) => <option key={s} value={s}>{s}/pág.</option>)}
               </Select>
             </Field>
           </div>
@@ -180,27 +180,27 @@ export function ReconciliationHistoryTable({
       <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span className="font-semibold text-white">{totalCount} registro(s) encontrado(s)</span>
         <span className="text-xs text-slate-400">
-          P\u00e1gina {page} de {totalPages}
+          Página {page} de {totalPages}
         </span>
       </div>
 
-      {error ? <InlineError message="Erro ao carregar hist\u00f3rico de concilia\u00e7\u00e3o." /> : null}
+      {error ? <InlineError message="Erro ao carregar histórico de conciliação." /> : null}
 
       <div className="app-table-scroll app-table-scroll--sticky">
         <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
           <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
             <tr>
               <th scope="col" className="px-4 py-3">Tipo</th>
-              {renderSortCell('docNumber', 'N\u00ba Documento')}
+              {renderSortCell('docNumber', 'Nº Documento')}
               <th scope="col" className="px-4 py-3">Tipo Doc.</th>
-              {renderSortCell('customerName', 'Consignat\u00e1rio')}
+              {renderSortCell('customerName', 'Consignatário')}
               {renderSortCell('blId', 'B/L')}
               <th scope="col" className="px-4 py-3">Navio / Viagem</th>
               <th scope="col" className="px-4 py-3">POD</th>
               {renderSortCell('totalAmount', 'Valor Total')}
               {renderSortCell('paidAt', 'Pagamento')}
               {renderSortCell('status', 'Status')}
-              <th scope="col" className="px-4 py-3">A\u00e7\u00f5es</th>
+              <th scope="col" className="px-4 py-3">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#30363d]">
@@ -208,10 +208,10 @@ export function ReconciliationHistoryTable({
               <tr><td colSpan={11} className="p-0"><SkeletonTable rows={6} cols={11} /></td></tr>
             ) : null}
             {!isLoading && rows.length === 0 ? (
-              <tr><td colSpan={11} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma concilia\u00e7\u00e3o registrada ainda.'} /></td></tr>
+              <tr><td colSpan={11} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
             ) : null}
             {rows.map((row) => {
-              const voyageLabel = [row.vesselName, row.voyageNumber].filter(Boolean).join(' \u00b7 ') || '\u2014'
+              const voyageLabel = [row.vesselName, row.voyageNumber].filter(Boolean).join(' · ') || '—'
               return (
                 <tr key={row.id}>
                   <td className="px-4 py-3">
@@ -224,26 +224,26 @@ export function ReconciliationHistoryTable({
                   <td className="px-4 py-3 font-semibold text-white">{row.docNumber}</td>
                   <td className="px-4 py-3">
                     {row.source === 'demurrage' ? (
-                      <span className="text-slate-500">\u2014</span>
+                      <span className="text-slate-500">—</span>
                     ) : row.invoiceType === 'consolidated' ? (
                       <Badge tone="blue">Consolidada</Badge>
                     ) : (
-                      <Badge tone="green">\u00danico BL</Badge>
+                      <Badge tone="green">Único BL</Badge>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
                       <div className="app-table__truncate app-table__truncate--xl" title={row.customerName}>
-                        {row.customerName || '\u2014'}
+                        {row.customerName || '—'}
                       </div>
                       <div className="app-table__cell-meta">{row.customerCnpj || ''}</div>
                     </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.blId}</td>
                   <td className="px-4 py-3 text-slate-300">{voyageLabel}</td>
-                  <td className="px-4 py-3 text-slate-300">{row.pod || '\u2014'}</td>
+                  <td className="px-4 py-3 text-slate-300">{row.pod || '—'}</td>
                   <td className="px-4 py-3 text-green-400">{formatBRL(row.totalAmount)}</td>
-                  <td className="px-4 py-3">{row.paidAt ? formatDate(row.paidAt) : <span className="text-slate-500">\u2014</span>}</td>
+                  <td className="px-4 py-3">{row.paidAt ? formatDate(row.paidAt) : <span className="text-slate-500">—</span>}</td>
                   <td className="px-4 py-3">{statusBadge(row.status)}</td>
                   <td className="px-4 py-3">
                     <Button
@@ -264,13 +264,13 @@ export function ReconciliationHistoryTable({
       </div>
 
       <div className="app-table__footer">
-        <span>P\u00e1gina {page} de {totalPages} \u00b7 {totalCount} registros</span>
+        <span>Página {page} de {totalPages} · {totalCount} registros</span>
         <div className="app-table__footer-controls">
           <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(Math.max(1, page - 1))}>
             Anterior
           </Button>
           <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage(Math.min(totalPages, page + 1))}>
-            Pr\u00f3xima
+            Próxima
           </Button>
         </div>
       </div>
