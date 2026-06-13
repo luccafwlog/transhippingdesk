@@ -20,13 +20,6 @@ const DEFAULT_SORT: SortConfig = { field: 'paidAt', dir: 'desc' }
 
 const PAGE_SIZES = [20, 50, 100]
 
-function statusBadge(status: string) {
-  if (status === 'paid') return <Badge tone="green">Paga</Badge>
-  if (status === 'covered') return <Badge tone="green">Coberta</Badge>
-  if (status === 'partially_paid') return <Badge tone="yellow">Parcial</Badge>
-  return <Badge tone="slate">{status}</Badge>
-}
-
 type ReconciliationHistoryTableProps = {
   onSelectLocalInvoice?: (invoiceId: number) => void
   onSelectDemurrageInvoice?: (demurrageId: number) => void
@@ -205,16 +198,15 @@ export function ReconciliationHistoryTable({
               <th scope="col" className="px-4 py-3">Navio / Viagem</th>
               <th scope="col" className="px-4 py-3">POD</th>
               {renderSortCell('paidAt', 'Pagamento')}
-              {renderSortCell('status', 'Status')}
               <th scope="col" className="w-12 px-2 py-3 text-center">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#30363d]">
             {isLoading ? (
-              <tr><td colSpan={12} className="p-0"><SkeletonTable rows={6} cols={12} /></td></tr>
+              <tr><td colSpan={11} className="p-0"><SkeletonTable rows={6} cols={11} /></td></tr>
             ) : null}
             {!isLoading && rows.length === 0 ? (
-              <tr><td colSpan={12} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
+              <tr><td colSpan={11} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
             ) : null}
             {rows.map((row) => {
               const voyageLabel = [row.vesselName, row.voyageNumber].filter(Boolean).join(' · ') || '—'
@@ -251,7 +243,6 @@ export function ReconciliationHistoryTable({
                   <td className="px-4 py-3 text-slate-300">{voyageLabel}</td>
                   <td className="px-4 py-3 text-slate-300">{row.pod || '—'}</td>
                   <td className="px-4 py-3">{row.paidAt ? formatDate(row.paidAt) : <span className="text-slate-500">—</span>}</td>
-                  <td className="px-4 py-3">{statusBadge(row.status)}</td>
                   <td className="w-12 px-2 py-3 text-center">
                     <button
                       className="app-btn app-btn--secondary p-1 leading-none"

@@ -382,7 +382,6 @@ export async function listReconciliationHistory(
     else if (sf === 'blAmount') cmp = a.blAmount - b.blAmount
     else if (sf === 'totalAmount') cmp = a.totalAmount - b.totalAmount
     else if (sf === 'blId') cmp = a.blId.localeCompare(b.blId)
-    else if (sf === 'status') cmp = a.status.localeCompare(b.status)
     return sd === 'desc' ? -cmp : cmp
   })
 
