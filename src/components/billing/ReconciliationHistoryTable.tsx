@@ -32,8 +32,10 @@ export function ReconciliationHistoryTable({
   const [paidFrom, setPaidFrom] = useState('')
   const [paidTo, setPaidTo] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'' | 'local' | 'demurrage'>('')
+  const [invoiceTypeFilter, setInvoiceTypeFilter] = useState<'' | 'consolidated' | 'single'>('')
   const [customerId, setCustomerId] = useState('')
   const [blSearch, setBlSearch] = useState('')
+  const [vesselSearch, setVesselSearch] = useState('')
   const [voyageSearch, setVoyageSearch] = useState('')
   const [pod, setPod] = useState('')
   const [page, setPage] = useState(1)
@@ -42,7 +44,7 @@ export function ReconciliationHistoryTable({
 
   const filters: ReconciliationFilters = {
     paidFrom, paidTo, source: sourceFilter, customerId,
-    blSearch, voyageSearch, pod,
+    blSearch, vesselSearch, voyageSearch, invoiceTypeFilter, pod,
     sort: sort.field, sortDir: sort.dir,
     page, pageSize,
   }
@@ -52,12 +54,14 @@ export function ReconciliationHistoryTable({
     if (paidFrom) n++
     if (paidTo) n++
     if (sourceFilter) n++
+    if (invoiceTypeFilter) n++
     if (customerId) n++
     if (blSearch) n++
+    if (vesselSearch) n++
     if (voyageSearch) n++
     if (pod) n++
     return n
-  }, [paidFrom, paidTo, sourceFilter, customerId, blSearch, voyageSearch, pod])
+  }, [paidFrom, paidTo, sourceFilter, invoiceTypeFilter, customerId, blSearch, vesselSearch, voyageSearch, pod])
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['reconciliation-history', filters],
@@ -81,8 +85,10 @@ export function ReconciliationHistoryTable({
     setPaidFrom('')
     setPaidTo('')
     setSourceFilter('')
+    setInvoiceTypeFilter('')
     setCustomerId('')
     setBlSearch('')
+    setVesselSearch('')
     setVoyageSearch('')
     setPod('')
     setPage(1)
@@ -126,6 +132,13 @@ export function ReconciliationHistoryTable({
                 <option value="demurrage">Demurrage</option>
               </Select>
             </Field>
+            <Field label="Tipo Doc.">
+              <Select value={invoiceTypeFilter} onChange={(e) => { setInvoiceTypeFilter(e.target.value as '' | 'consolidated' | 'single'); setPage(1) }}>
+                <option value="">Todos</option>
+                <option value="consolidated">Consolidada</option>
+                <option value="single">Único BL</option>
+              </Select>
+            </Field>
             <Combobox
               key={`cust-${page}`}
               label="Consignatário"
@@ -145,10 +158,18 @@ export function ReconciliationHistoryTable({
                 onChange={(e) => { setBlSearch(e.target.value); setPage(1) }}
               />
             </Field>
-            <Field label="Navio / Viagem">
+            <Field label="Navio">
               <Input
                 type="text"
-                placeholder="Navio ou viagem"
+                placeholder="Nome do navio"
+                value={vesselSearch}
+                onChange={(e) => { setVesselSearch(e.target.value); setPage(1) }}
+              />
+            </Field>
+            <Field label="Viagem">
+              <Input
+                type="text"
+                placeholder="Nº da viagem"
                 value={voyageSearch}
                 onChange={(e) => { setVoyageSearch(e.target.value); setPage(1) }}
               />
@@ -188,13 +209,14 @@ export function ReconciliationHistoryTable({
         <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
           <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
             <tr>
-              <th scope="col" className="px-4 py-3">Tipo</th>
-              {renderSortCell('docNumber', 'Nº Documento')}
-              {renderSortCell('customerName', 'Consignatário')}
               {renderSortCell('blId', 'B/L')}
+              {renderSortCell('docNumber', 'Nº Documento')}
+              <th scope="col" className="px-4 py-3">Tipo</th>
+              {renderSortCell('customerName', 'Consignatário')}
               {renderSortCell('blAmount', 'Valor BL')}
               {renderSortCell('totalAmount', 'Valor Total')}
-              <th scope="col" className="px-4 py-3">Navio / Viagem</th>
+              <th scope="col" className="px-4 py-3">Navio</th>
+              <th scope="col" className="px-4 py-3">Viagem</th>
               <th scope="col" className="px-4 py-3">POD</th>
               {renderSortCell('paidAt', 'Pagamento')}
               <th scope="col" className="w-12 px-2 py-3 text-center">Ações</th>
@@ -202,15 +224,25 @@ export function ReconciliationHistoryTable({
           </thead>
           <tbody className="divide-y divide-[#30363d]">
             {isLoading ? (
-              <tr><td colSpan={10} className="p-0"><SkeletonTable rows={6} cols={10} /></td></tr>
+              <tr><td colSpan={11} className="p-0"><SkeletonTable rows={6} cols={11} /></td></tr>
             ) : null}
             {!isLoading && rows.length === 0 ? (
-              <tr><td colSpan={10} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
+              <tr><td colSpan={11} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
             ) : null}
             {rows.map((row) => {
-              const voyageLabel = [row.vesselName, row.voyageNumber].filter(Boolean).join(' · ') || '—'
               return (
                 <tr key={row.id}>
+                  <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.blId}</td>
+                  <td className="px-4 py-3">
+                    <div className="app-table__cell-stack">
+                      <div className="font-semibold text-white">{row.docNumber}</div>
+                      {row.source !== 'demurrage' && (
+                        <span className={`inline-block rounded px-1 py-0 text-[10px] font-medium leading-4 ${row.invoiceType === 'consolidated' ? 'bg-blue-900/50 text-blue-300' : 'bg-green-900/50 text-green-300'}`}>
+                          {row.invoiceType === 'consolidated' ? 'Consolidada' : 'Único BL'}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     {row.source === 'demurrage' ? (
                       <Badge tone="blue">Demurrage</Badge>
@@ -220,26 +252,16 @@ export function ReconciliationHistoryTable({
                   </td>
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
-                      <div className="font-semibold text-white">{row.docNumber}</div>
-                      {row.source === 'demurrage' ? null : row.invoiceType === 'consolidated' ? (
-                        <Badge tone="blue">Consolidada</Badge>
-                      ) : (
-                        <Badge tone="green">Único BL</Badge>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="app-table__cell-stack">
                       <div className="app-table__truncate app-table__truncate--xl" title={row.customerName}>
                         {row.customerName || '—'}
                       </div>
                       <div className="app-table__cell-meta">{row.customerCnpj || ''}</div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.blId}</td>
                   <td className="px-4 py-3 text-[#d2a8ff]">{formatBRL(row.blAmount)}</td>
                   <td className="px-4 py-3 text-green-400">{formatBRL(row.totalAmount)}</td>
-                  <td className="px-4 py-3 text-slate-300">{voyageLabel}</td>
+                  <td className="px-4 py-3 text-slate-300">{row.vesselName || '—'}</td>
+                  <td className="px-4 py-3 text-slate-300">{row.voyageNumber || '—'}</td>
                   <td className="px-4 py-3 text-slate-300">{row.pod || '—'}</td>
                   <td className="px-4 py-3">{row.paidAt ? formatDate(row.paidAt) : <span className="text-slate-500">—</span>}</td>
                   <td className="w-12 px-2 py-3 text-center">

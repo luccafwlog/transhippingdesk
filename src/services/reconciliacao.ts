@@ -209,7 +209,9 @@ export type ReconciliationFilters = {
   source: '' | 'local' | 'demurrage'
   customerId: string
   blSearch: string
+  vesselSearch: string
   voyageSearch: string
+  invoiceTypeFilter: '' | 'consolidated' | 'single'
   pod: string
   sort: string
   sortDir: 'asc' | 'desc'
@@ -223,7 +225,9 @@ const DEFAULT_HISTORY_FILTERS: ReconciliationFilters = {
   source: '',
   customerId: '',
   blSearch: '',
+  vesselSearch: '',
   voyageSearch: '',
+  invoiceTypeFilter: '',
   pod: '',
   sort: 'paidAt',
   sortDir: 'desc',
@@ -367,9 +371,16 @@ export async function listReconciliationHistory(
     const term = filters.blSearch.toUpperCase()
     all = all.filter((r) => r.blId.toUpperCase().includes(term))
   }
+  if (filters.vesselSearch) {
+    const term = filters.vesselSearch.toUpperCase()
+    all = all.filter((r) => (r.vesselName?.toUpperCase() ?? '').includes(term))
+  }
   if (filters.voyageSearch) {
     const term = filters.voyageSearch.toUpperCase()
-    all = all.filter((r) => (r.vesselName?.toUpperCase() ?? '').includes(term) || (r.voyageNumber?.toUpperCase() ?? '').includes(term))
+    all = all.filter((r) => (r.voyageNumber?.toUpperCase() ?? '').includes(term))
+  }
+  if (filters.invoiceTypeFilter) {
+    all = all.filter((r) => r.invoiceType === filters.invoiceTypeFilter)
   }
   if (filters.pod) {
     const term = filters.pod.toUpperCase()
