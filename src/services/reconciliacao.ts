@@ -194,6 +194,7 @@ export type ReconciliationHistoryRow = {
   vesselName: string | null
   voyageNumber: string | null
   pod: string | null
+  blAmount: number
   totalAmount: number
   totalPaid: number | null
   balance: number | null
@@ -243,7 +244,7 @@ const HISTORY_DEMURRAGE_SELECT = `
   bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))
 `
 
-type FlatBl = { blId: string; pod: string | null; voyageNumber: string | null; vesselName: string | null }
+type FlatBl = { blId: string; pod: string | null; voyageNumber: string | null; vesselName: string | null; subtotalBrl: number | null }
 
 function flattenBls(inv: Record<string, unknown>): FlatBl[] {
   const invoiceBls = (inv.invoice_bls as Array<Record<string, unknown>> | null) ?? []
@@ -258,10 +259,11 @@ function flattenBls(inv: Record<string, unknown>): FlatBl[] {
         pod: (bl?.pod as string | null) ?? null,
         voyageNumber: (voyage?.voyage_number as string | null) ?? null,
         vesselName: ((voyage?.vessel as Record<string, unknown> | null)?.name as string | null) ?? null,
+        subtotalBrl: (link.subtotal_brl as number | null) ?? null,
       }
     })
     .filter((bl) => bl.blId.length > 0)
-  return out.length > 0 ? out : [{ blId: '-', pod: null, voyageNumber: null, vesselName: null }]
+  return out.length > 0 ? out : [{ blId: '-', pod: null, voyageNumber: null, vesselName: null, subtotalBrl: null }]
 }
 
 export async function listReconciliationHistory(
@@ -303,6 +305,7 @@ export async function listReconciliationHistory(
       .filter((d): d is string => Boolean(d))
     const paymentDate = dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : null
 
+    const invTotal = Number(inv.total_brl ?? 0)
     for (const bl of bls) {
       localRows.push({
         id: `local-${inv.id}-${bl.blId}`,
@@ -316,7 +319,8 @@ export async function listReconciliationHistory(
         vesselName: bl.vesselName,
         voyageNumber: bl.voyageNumber,
         pod: bl.pod,
-        totalAmount: Number(inv.total_brl ?? 0),
+        blAmount: bl.subtotalBrl ?? invTotal,
+        totalAmount: invTotal,
         totalPaid: inv.total_paid_brl != null ? Number(inv.total_paid_brl) : null,
         balance: inv.balance_brl != null ? Number(inv.balance_brl) : null,
         paidAt: paymentDate,
@@ -328,6 +332,7 @@ export async function listReconciliationHistory(
   const demurrageRows: ReconciliationHistoryRow[] = []
   for (const inv of demurragePromise.data ?? []) {
     const voyage = (inv.bl as Record<string, unknown> | null)?.voyage as Record<string, unknown> | null
+    const invTotal = Number(inv.frozen_total_brl ?? 0)
     demurrageRows.push({
       id: `demurrage-${inv.id}`,
       source: 'demurrage',
@@ -340,7 +345,8 @@ export async function listReconciliationHistory(
       vesselName: (voyage?.vessel as Record<string, unknown> | null)?.name as string | null ?? null,
       voyageNumber: voyage?.voyage_number as string | null ?? null,
       pod: ((inv.bl as Record<string, unknown> | null)?.pod as string | null) ?? null,
-      totalAmount: Number(inv.frozen_total_brl ?? 0),
+      blAmount: invTotal,
+      totalAmount: invTotal,
       totalPaid: null,
       balance: null,
       paidAt: (inv.paid_at as string | null) ?? null,
@@ -373,6 +379,7 @@ export async function listReconciliationHistory(
     if (sf === 'paidAt') cmp = (a.paidAt ?? '').localeCompare(b.paidAt ?? '')
     else if (sf === 'docNumber') cmp = a.docNumber.localeCompare(b.docNumber)
     else if (sf === 'customerName') cmp = a.customerName.localeCompare(b.customerName)
+    else if (sf === 'blAmount') cmp = a.blAmount - b.blAmount
     else if (sf === 'totalAmount') cmp = a.totalAmount - b.totalAmount
     else if (sf === 'blId') cmp = a.blId.localeCompare(b.blId)
     else if (sf === 'status') cmp = a.status.localeCompare(b.status)

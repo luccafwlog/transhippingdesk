@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, EmptyState, InlineError } from '../ui/Card'
@@ -195,20 +195,21 @@ export function ReconciliationHistoryTable({
               <th scope="col" className="px-4 py-3">Tipo Doc.</th>
               {renderSortCell('customerName', 'Consignatário')}
               {renderSortCell('blId', 'B/L')}
+              {renderSortCell('blAmount', 'Valor BL')}
+              {renderSortCell('totalAmount', 'Valor Total')}
               <th scope="col" className="px-4 py-3">Navio / Viagem</th>
               <th scope="col" className="px-4 py-3">POD</th>
-              {renderSortCell('totalAmount', 'Valor Total')}
               {renderSortCell('paidAt', 'Pagamento')}
               {renderSortCell('status', 'Status')}
-              <th scope="col" className="px-4 py-3">Ações</th>
+              <th scope="col" className="w-12 px-2 py-3 text-center">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#30363d]">
             {isLoading ? (
-              <tr><td colSpan={11} className="p-0"><SkeletonTable rows={6} cols={11} /></td></tr>
+              <tr><td colSpan={12} className="p-0"><SkeletonTable rows={6} cols={12} /></td></tr>
             ) : null}
             {!isLoading && rows.length === 0 ? (
-              <tr><td colSpan={11} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
+              <tr><td colSpan={12} className="p-0"><EmptyState title="Nenhum pagamento encontrado." description={activeCount > 0 ? 'Tente limpar os filtros.' : 'Nenhuma conciliação registrada ainda.'} /></td></tr>
             ) : null}
             {rows.map((row) => {
               const voyageLabel = [row.vesselName, row.voyageNumber].filter(Boolean).join(' · ') || '—'
@@ -240,21 +241,23 @@ export function ReconciliationHistoryTable({
                     </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.blId}</td>
+                  <td className="px-4 py-3 text-[#d2a8ff]">{formatBRL(row.blAmount)}</td>
+                  <td className="px-4 py-3 text-green-400">{formatBRL(row.totalAmount)}</td>
                   <td className="px-4 py-3 text-slate-300">{voyageLabel}</td>
                   <td className="px-4 py-3 text-slate-300">{row.pod || '—'}</td>
-                  <td className="px-4 py-3 text-green-400">{formatBRL(row.totalAmount)}</td>
                   <td className="px-4 py-3">{row.paidAt ? formatDate(row.paidAt) : <span className="text-slate-500">—</span>}</td>
                   <td className="px-4 py-3">{statusBadge(row.status)}</td>
-                  <td className="px-4 py-3">
-                    <Button
-                      variant="secondary"
+                  <td className="w-12 px-2 py-3 text-center">
+                    <button
+                      className="app-btn app-btn--secondary p-1 leading-none"
+                      title="Detalhes"
                       onClick={() => {
                         if (row.source === 'local') onSelectLocalInvoice?.(row.invoiceId)
                         else onSelectDemurrageInvoice?.(row.invoiceId)
                       }}
                     >
-                      Detalhes
-                    </Button>
+                      <Eye size={15} />
+                    </button>
                   </td>
                 </tr>
               )
