@@ -179,3 +179,209 @@ export async function confirmUnifiedPixReconciliation(matches: UnifiedPixMatch[]
     items: Array.isArray(result.items) ? result.items : [],
   }
 }
+
+// ========== Reconciliation History ==========
+
+export type ReconciliationHistoryRow = {
+  id: string
+  source: 'local' | 'demurrage'
+  invoiceId: number
+  docNumber: string
+  invoiceType: string | null
+  customerName: string
+  customerCnpj: string
+  blId: string
+  vesselName: string | null
+  voyageNumber: string | null
+  pod: string | null
+  totalAmount: number
+  totalPaid: number | null
+  balance: number | null
+  paidAt: string | null
+  status: string
+}
+
+export type ReconciliationFilters = {
+  paidFrom: string
+  paidTo: string
+  source: '' | 'local' | 'demurrage'
+  customerId: string
+  blSearch: string
+  voyageSearch: string
+  pod: string
+  sort: string
+  sortDir: 'asc' | 'desc'
+  page: number
+  pageSize: number
+}
+
+const DEFAULT_HISTORY_FILTERS: ReconciliationFilters = {
+  paidFrom: '',
+  paidTo: '',
+  source: '',
+  customerId: '',
+  blSearch: '',
+  voyageSearch: '',
+  pod: '',
+  sort: 'paidAt',
+  sortDir: 'desc',
+  page: 1,
+  pageSize: 50,
+}
+
+const HISTORY_LOCAL_SELECT = `
+  id, invoice_number, customer_id, bl_id, issued_at, due_date, total_brl, status, invoice_type,
+  total_paid_brl, balance_brl, created_at,
+  customer:customers(id,name,cnpj_cpf),
+  invoice_bls(id,bl_id,subtotal_brl,subtotal_usd,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
+  invoice_receivable_links(id,bl_id,subtotal_brl,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
+  payments(paid_at)
+`
+
+const HISTORY_DEMURRAGE_SELECT = `
+  *, customer:customers(id,name,cnpj_cpf),
+  bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))
+`
+
+type FlatBl = { blId: string; pod: string | null; voyageNumber: string | null; vesselName: string | null }
+
+function flattenBls(inv: Record<string, unknown>): FlatBl[] {
+  const invoiceBls = (inv.invoice_bls as Array<Record<string, unknown>> | null) ?? []
+  const receivableLinks = (inv.invoice_receivable_links as Array<Record<string, unknown>> | null) ?? []
+  const links = invoiceBls.length > 0 ? invoiceBls : receivableLinks
+  const out = links
+    .map((link: Record<string, unknown>) => {
+      const bl = link.bl as Record<string, unknown> | null
+      const voyage = bl?.voyage as Record<string, unknown> | null
+      return {
+        blId: String(link.bl_id ?? '').trim(),
+        pod: (bl?.pod as string | null) ?? null,
+        voyageNumber: (voyage?.voyage_number as string | null) ?? null,
+        vesselName: ((voyage?.vessel as Record<string, unknown> | null)?.name as string | null) ?? null,
+      }
+    })
+    .filter((bl) => bl.blId.length > 0)
+  return out.length > 0 ? out : [{ blId: '-', pod: null, voyageNumber: null, vesselName: null }]
+}
+
+export async function listReconciliationHistory(
+  userFilters: Partial<ReconciliationFilters>,
+): Promise<{ rows: ReconciliationHistoryRow[]; totalCount: number }> {
+  const filters: ReconciliationFilters = { ...DEFAULT_HISTORY_FILTERS, ...userFilters }
+
+  const [localPromise, demurragePromise] = await Promise.all([
+    (() => {
+      let q = supabase
+        .from('invoices')
+        .select(HISTORY_LOCAL_SELECT)
+        .in('status', ['paid', 'covered', 'partially_paid'])
+        .order('created_at', { ascending: false })
+        .limit(2000)
+      if (filters.customerId) q = q.eq('customer_id', Number(filters.customerId))
+      return q.overrideTypes<Record<string, unknown>[]>()
+    })(),
+    (() => {
+      let q = supabase
+        .from('demurrage_invoices')
+        .select(HISTORY_DEMURRAGE_SELECT)
+        .eq('status', 'paid')
+        .order('created_at', { ascending: false })
+        .limit(2000)
+      if (filters.customerId) q = q.eq('customer_id', Number(filters.customerId))
+      return q.overrideTypes<Record<string, unknown>[]>()
+    })(),
+  ])
+
+  if (localPromise.error) throw localPromise.error
+  if (demurragePromise.error) throw demurragePromise.error
+
+  const localRows: ReconciliationHistoryRow[] = []
+  for (const inv of localPromise.data ?? []) {
+    const bls = flattenBls(inv)
+    const dates = ((inv.payments as Array<{ paid_at: string | null }> | null) ?? [])
+      .map((p) => p.paid_at)
+      .filter((d): d is string => Boolean(d))
+    const paymentDate = dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : null
+
+    for (const bl of bls) {
+      localRows.push({
+        id: `local-${inv.id}-${bl.blId}`,
+        source: 'local',
+        invoiceId: Number(inv.id),
+        docNumber: (inv.invoice_number as string | null) ?? `INV-${inv.id}`,
+        invoiceType: (inv.invoice_type as string | null) ?? null,
+        customerName: ((inv.customer as Record<string, unknown> | null)?.name as string) ?? '',
+        customerCnpj: ((inv.customer as Record<string, unknown> | null)?.cnpj_cpf as string) ?? '',
+        blId: bl.blId,
+        vesselName: bl.vesselName,
+        voyageNumber: bl.voyageNumber,
+        pod: bl.pod,
+        totalAmount: Number(inv.total_brl ?? 0),
+        totalPaid: inv.total_paid_brl != null ? Number(inv.total_paid_brl) : null,
+        balance: inv.balance_brl != null ? Number(inv.balance_brl) : null,
+        paidAt: paymentDate,
+        status: (inv.status as string) ?? '',
+      })
+    }
+  }
+
+  const demurrageRows: ReconciliationHistoryRow[] = []
+  for (const inv of demurragePromise.data ?? []) {
+    const voyage = (inv.bl as Record<string, unknown> | null)?.voyage as Record<string, unknown> | null
+    demurrageRows.push({
+      id: `demurrage-${inv.id}`,
+      source: 'demurrage',
+      invoiceId: Number(inv.id),
+      docNumber: (inv.doc_number as string) ?? '',
+      invoiceType: null,
+      customerName: ((inv.customer as Record<string, unknown> | null)?.name as string) ?? '',
+      customerCnpj: ((inv.customer as Record<string, unknown> | null)?.cnpj_cpf as string) ?? '',
+      blId: (inv.bl_id as string) ?? '',
+      vesselName: (voyage?.vessel as Record<string, unknown> | null)?.name as string | null ?? null,
+      voyageNumber: voyage?.voyage_number as string | null ?? null,
+      pod: ((inv.bl as Record<string, unknown> | null)?.pod as string | null) ?? null,
+      totalAmount: Number(inv.frozen_total_brl ?? 0),
+      totalPaid: null,
+      balance: null,
+      paidAt: (inv.paid_at as string | null) ?? null,
+      status: (inv.status as string) ?? '',
+    })
+  }
+
+  let all = [...localRows, ...demurrageRows]
+
+  if (filters.paidFrom) all = all.filter((r) => r.paidAt !== null && r.paidAt! >= filters.paidFrom)
+  if (filters.paidTo) all = all.filter((r) => r.paidAt !== null && r.paidAt! <= `${filters.paidTo}T23:59:59`)
+  if (filters.source) all = all.filter((r) => r.source === filters.source)
+  if (filters.blSearch) {
+    const term = filters.blSearch.toUpperCase()
+    all = all.filter((r) => r.blId.toUpperCase().includes(term))
+  }
+  if (filters.voyageSearch) {
+    const term = filters.voyageSearch.toUpperCase()
+    all = all.filter((r) => (r.vesselName?.toUpperCase() ?? '').includes(term) || (r.voyageNumber?.toUpperCase() ?? '').includes(term))
+  }
+  if (filters.pod) {
+    const term = filters.pod.toUpperCase()
+    all = all.filter((r) => (r.pod?.toUpperCase() ?? '').includes(term))
+  }
+
+  const sf = filters.sort || 'paidAt'
+  const sd = filters.sortDir || 'desc'
+  all.sort((a, b) => {
+    let cmp = 0
+    if (sf === 'paidAt') cmp = (a.paidAt ?? '').localeCompare(b.paidAt ?? '')
+    else if (sf === 'docNumber') cmp = a.docNumber.localeCompare(b.docNumber)
+    else if (sf === 'customerName') cmp = a.customerName.localeCompare(b.customerName)
+    else if (sf === 'totalAmount') cmp = a.totalAmount - b.totalAmount
+    else if (sf === 'blId') cmp = a.blId.localeCompare(b.blId)
+    else if (sf === 'status') cmp = a.status.localeCompare(b.status)
+    return sd === 'desc' ? -cmp : cmp
+  })
+
+  const totalCount = all.length
+  const from = (filters.page - 1) * filters.pageSize
+  const rows = all.slice(from, from + filters.pageSize)
+
+  return { rows, totalCount }
+}

@@ -1,15 +1,21 @@
 import { useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Upload } from 'lucide-react'
 import type { DragEvent } from 'react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, PageHeader } from '../components/ui/Card'
+import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { formatResultCount, summarizeReconciliation } from '../lib/operationalState'
 import { parsePixExtractFile } from '../services/demurrage/demurrageKpis'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../services/reconciliacao'
+import { getInvoiceDetail as getDemurrageDetail } from '../services/demurrage/demurrageInvoices'
+import { InvoiceDetailModal } from '../components/billing/InvoiceDetailModal'
+import { ReconciliationHistoryTable } from '../components/billing/ReconciliationHistoryTable'
+import { InvoiceDocument as DemurrageInvoiceDoc } from '../components/demurrage/InvoiceDocument'
 import type { UnifiedPixConfirmationResult, UnifiedPixMatch } from '../services/reconciliacao'
+import type { DemurrageInvoiceDetail } from '../types/database'
 
 function fmtBRL(v: number) {
   return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -33,6 +39,14 @@ export function Reconciliacao() {
   const [matches, setMatches] = useState<UnifiedPixMatch[] | null>(null)
   const [confirmationResult, setConfirmationResult] = useState<UnifiedPixConfirmationResult | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
+  const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
+
+  const demurrageDetailQuery = useQuery({
+    queryKey: ['demurrage-invoice-detail', 'reconciliacao', selectedDemurrageId],
+    queryFn: () => getDemurrageDetail(selectedDemurrageId!),
+    enabled: selectedDemurrageId != null,
+  })
 
   const matchMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -63,6 +77,7 @@ export function Reconciliacao() {
       void queryClient.invalidateQueries({ queryKey: ['bls'] })
       void queryClient.invalidateQueries({ queryKey: ['bl-detail'] })
       void queryClient.invalidateQueries({ queryKey: ['customer-detail'] })
+      void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
       setConfirmationResult(result)
       setMatches(null)
       showToast(`Conciliacao concluida: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
@@ -259,6 +274,37 @@ export function Reconciliacao() {
           </div>
         </>
       ) : null}
+
+      <div className="mt-8">
+        <h2 className="app-panel__title mb-4">Hist\u00f3rico de pagamentos</h2>
+        <ReconciliationHistoryTable
+          onSelectLocalInvoice={(id) => setSelectedInvoiceId(id)}
+          onSelectDemurrageInvoice={(id) => setSelectedDemurrageId(id)}
+        />
+      </div>
+
+      <InvoiceDetailModal invoiceId={selectedInvoiceId} onClose={() => setSelectedInvoiceId(null)} />
+
+      <Modal
+        open={selectedDemurrageId != null}
+        onClose={() => setSelectedDemurrageId(null)}
+        title={`Fatura Demurrage ${demurrageDetailQuery.data?.invoice?.doc_number ?? ''}`}
+      >
+        <div className="p-2">
+          {demurrageDetailQuery.isLoading ? (
+            <div className="p-4 text-sm text-slate-400">Carregando...</div>
+          ) : demurrageDetailQuery.data ? (
+            <div className="invoice-print-content">
+              <DemurrageInvoiceDoc
+                detail={demurrageDetailQuery.data as unknown as DemurrageInvoiceDetail}
+                type="receipt"
+              />
+            </div>
+          ) : (
+            <div className="p-4 text-sm text-slate-400">Falha ao carregar.</div>
+          )}
+        </div>
+      </Modal>
     </>
   )
 }
