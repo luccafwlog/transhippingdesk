@@ -61,7 +61,7 @@ const nullableTextSchema = z.preprocess(
 export const paymentFormSchema = z.object({
   amountBrl: positiveNumberSchema,
   paymentMethod: z.enum(paymentMethods),
-  paidAt: optionalDateSchema,
+  paidAt: requiredDateSchema,
 })
 
 export const manualInvoiceChargeSchema = z.object({

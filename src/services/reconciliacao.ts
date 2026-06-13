@@ -196,6 +196,7 @@ export type ReconciliationHistoryRow = {
   pod: string | null
   blAmount: number
   totalAmount: number
+  paymentId: number | null
   totalPaid: number | null
   balance: number | null
   paidAt: string | null
@@ -236,7 +237,7 @@ const HISTORY_LOCAL_SELECT = `
   customer:customers(id,name,cnpj_cpf),
   invoice_bls(id,bl_id,subtotal_brl,subtotal_usd,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
   invoice_receivable_links(id,bl_id,subtotal_brl,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
-  payments(paid_at)
+  payments(id,paid_at)
 `
 
 const HISTORY_DEMURRAGE_SELECT = `
@@ -300,12 +301,9 @@ export async function listReconciliationHistory(
   const localRows: ReconciliationHistoryRow[] = []
   for (const inv of localPromise.data ?? []) {
     const bls = flattenBls(inv)
-    const dates = ((inv.payments as Array<{ paid_at: string | null }> | null) ?? [])
-      .map((p) => p.paid_at)
-      .filter((d): d is string => Boolean(d))
+    const paymentsArr = (inv.payments as Array<{ id: number; paid_at: string | null }> | null) ?? []
+    const dates = paymentsArr.map((p) => p.paid_at).filter((d): d is string => Boolean(d))
     const paymentDate = dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : null
-
-    const invTotal = Number(inv.total_brl ?? 0)
     for (const bl of bls) {
       localRows.push({
         id: `local-${inv.id}-${bl.blId}`,
@@ -325,6 +323,7 @@ export async function listReconciliationHistory(
         balance: inv.balance_brl != null ? Number(inv.balance_brl) : null,
         paidAt: paymentDate,
         status: (inv.status as string) ?? '',
+        paymentId: paymentsArr.length > 0 ? (paymentsArr[paymentsArr.length - 1] as { id: number }).id : null,
       })
     }
   }
@@ -351,13 +350,17 @@ export async function listReconciliationHistory(
       balance: null,
       paidAt: (inv.paid_at as string | null) ?? null,
       status: (inv.status as string) ?? '',
+      paymentId: null,
     })
   }
 
   let all = [...localRows, ...demurrageRows]
 
-  if (filters.paidFrom) all = all.filter((r) => r.paidAt !== null && r.paidAt! >= filters.paidFrom)
-  if (filters.paidTo) all = all.filter((r) => r.paidAt !== null && r.paidAt! <= `${filters.paidTo}T23:59:59`)
+  // Only show rows with a payment date — data de pagamento é obrigatória
+  all = all.filter((r) => r.paidAt !== null)
+
+  if (filters.paidFrom) all = all.filter((r) => r.paidAt! >= filters.paidFrom)
+  if (filters.paidTo) all = all.filter((r) => r.paidAt! <= `${filters.paidTo}T23:59:59`)
   if (filters.source) all = all.filter((r) => r.source === filters.source)
   if (filters.blSearch) {
     const term = filters.blSearch.toUpperCase()
@@ -437,4 +440,20 @@ export async function exportReconciliationHistoryExcel(filters: Partial<Reconcil
     String(now.getMinutes()).padStart(2, '0'),
   ].join('')
   XLSX.writeFile(workbook, `conciliacao-${ts}.xlsx`)
+}
+
+export async function reverseLocalInvoicePayment(paymentId: number, reason?: string) {
+  const { error } = await supabase.rpc('reverse_invoice_payment', {
+    p_payment_id: paymentId,
+    p_reason: reason ?? null,
+  } as never)
+  if (error) throw error
+}
+
+export async function reverseDemurragePayment(invoiceId: number, reason?: string) {
+  const { error } = await supabase.rpc('reverse_demurrage_payment', {
+    p_invoice_id: invoiceId,
+    p_reason: reason ?? null,
+  } as never)
+  if (error) throw error
 }

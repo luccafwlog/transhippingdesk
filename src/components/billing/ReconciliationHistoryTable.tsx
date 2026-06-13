@@ -21,7 +21,7 @@ const DEFAULT_SORT: SortConfig = { field: 'paidAt', dir: 'desc' }
 const PAGE_SIZES = [20, 50, 100]
 
 type ReconciliationHistoryTableProps = {
-  onSelectLocalInvoice?: (invoiceId: number) => void
+  onSelectLocalInvoice?: (invoiceId: number, paymentId: number | null) => void
   onSelectDemurrageInvoice?: (demurrageId: number) => void
 }
 
@@ -248,7 +248,7 @@ export function ReconciliationHistoryTable({
                       className="app-btn app-btn--secondary p-1 leading-none"
                       title="Detalhes"
                       onClick={() => {
-                        if (row.source === 'local') onSelectLocalInvoice?.(row.invoiceId)
+                        if (row.source === 'local') onSelectLocalInvoice?.(row.invoiceId, row.paymentId)
                         else onSelectDemurrageInvoice?.(row.invoiceId)
                       }}
                     >

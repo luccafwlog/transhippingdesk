@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Ban, DollarSign, Plus, Printer, Trash2 } from 'lucide-react'
+import { Ban, DollarSign, Plus, Printer, RotateCcw, Trash2 } from 'lucide-react'
 import { InvoiceDocumentLocal } from './InvoiceDocumentLocal'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -22,6 +22,7 @@ import {
 import { useRegisterLedgerInvoicePayment } from '../../hooks/useBillingLedger'
 import { buildInvoiceFileBaseName, isConsolidatedInvoice } from '../../services/billing'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
+import { reverseLocalInvoicePayment } from '../../services/reconciliacao'
 import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { formatBRL, formatDate, formatUSD, stripBlPrefix } from '../../lib/utils'
@@ -43,9 +44,11 @@ type PaymentMethod = 'pix' | 'ted' | 'doc' | 'boleto' | 'outros'
 type InvoiceDetailModalProps = {
   invoiceId: number | null
   onClose: () => void
+  enablePaymentReversal?: boolean
+  paymentId?: number | null
 }
 
-export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalProps) {
+export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, paymentId }: InvoiceDetailModalProps) {
   const { user } = useAuth()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
@@ -56,6 +59,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
   const [paymentDate, setPaymentDate] = useState('')
   const [paymentNotes, setPaymentNotes] = useState('')
   const [cancelReason, setCancelReason] = useState('')
+  const [reversalLoading, setReversalLoading] = useState(false)
   const [chargeDescription, setChargeDescription] = useState('')
   const [chargeQuantity, setChargeQuantity] = useState('1')
   const [chargeUnitValue, setChargeUnitValue] = useState('')
@@ -195,6 +199,20 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
     }
   }
 
+  async function handleReversePayment() {
+    if (!paymentId) return
+    setReversalLoading(true)
+    try {
+      await reverseLocalInvoicePayment(paymentId, 'Estornado da tela de conciliação')
+      showToast('Pagamento estornado.', 'success')
+      onClose()
+    } catch (error) {
+      showToast(extractMessage(error, 'Falha ao estornar pagamento.'), 'error')
+    } finally {
+      setReversalLoading(false)
+    }
+  }
+
   function handlePrintInvoice() {
     if (!detailQuery.data) return
     setPrintOpen(true)
@@ -208,7 +226,12 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
           {detailQuery.error ? <div className="text-sm text-red-200">Falha ao carregar detalhe.</div> : null}
           {detailQuery.data?.invoice ? (
             <>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                {enablePaymentReversal && paymentId ? (
+                  <Button variant="danger" onClick={handleReversePayment} loading={reversalLoading}>
+                    <RotateCcw size={16} />Cancelar baixa
+                  </Button>
+                ) : null}
                 <Button variant="secondary" onClick={handlePrintInvoice}>
                   <Printer size={16} />Imprimir PDF
                 </Button>

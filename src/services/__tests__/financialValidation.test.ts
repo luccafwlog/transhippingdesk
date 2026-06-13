@@ -8,17 +8,18 @@ import {
 
 describe('financialValidation', () => {
   it('converte numero com virgula para decimal', () => {
-    const parsed = paymentFormSchema.parse({ amountBrl: '10,50', paymentMethod: 'pix', paidAt: '' })
+    const parsed = paymentFormSchema.parse({ amountBrl: '10,50', paymentMethod: 'pix', paidAt: '2026-06-13' })
 
     expect(parsed.amountBrl).toBe(10.5)
-    expect(parsed.paidAt).toBeNull()
+    expect(parsed.paidAt).toBe('2026-06-13')
   })
 
   it('rejeita campos financeiros obrigatorios vazios ou invalidos', () => {
-    expect(paymentFormSchema.safeParse({ amountBrl: '', paymentMethod: 'pix', paidAt: '' }).success).toBe(false)
-    expect(paymentFormSchema.safeParse({ amountBrl: '-1', paymentMethod: 'pix', paidAt: '' }).success).toBe(false)
-    expect(paymentFormSchema.safeParse({ amountBrl: 'abc', paymentMethod: 'pix', paidAt: '' }).success).toBe(false)
-    expect(paymentFormSchema.safeParse({ amountBrl: '10', paymentMethod: 'cartao', paidAt: '' }).success).toBe(false)
+    expect(paymentFormSchema.safeParse({ amountBrl: '', paymentMethod: 'pix', paidAt: '2026-06-13' }).success).toBe(false)
+    expect(paymentFormSchema.safeParse({ amountBrl: '-1', paymentMethod: 'pix', paidAt: '2026-06-13' }).success).toBe(false)
+    expect(paymentFormSchema.safeParse({ amountBrl: 'abc', paymentMethod: 'pix', paidAt: '2026-06-13' }).success).toBe(false)
+    expect(paymentFormSchema.safeParse({ amountBrl: '10', paymentMethod: 'cartao', paidAt: '2026-06-13' }).success).toBe(false)
+    expect(paymentFormSchema.safeParse({ amountBrl: '10', paymentMethod: 'pix', paidAt: '' }).success).toBe(false)
     expect(paymentFormSchema.safeParse({ amountBrl: '10', paymentMethod: 'pix', paidAt: '2026-13-01' }).success).toBe(false)
   })
 

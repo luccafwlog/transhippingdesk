@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Upload } from 'lucide-react'
+import { RefreshCw, RotateCcw, Upload } from 'lucide-react'
 import type { DragEvent } from 'react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -9,7 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { formatResultCount, summarizeReconciliation } from '../lib/operationalState'
 import { parsePixExtractFile } from '../services/demurrage/demurrageKpis'
-import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../services/reconciliacao'
+import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions, reverseDemurragePayment } from '../services/reconciliacao'
 import { getInvoiceDetail as getDemurrageDetail } from '../services/demurrage/demurrageInvoices'
 import { InvoiceDetailModal } from '../components/billing/InvoiceDetailModal'
 import { ReconciliationHistoryTable } from '../components/billing/ReconciliationHistoryTable'
@@ -39,7 +39,7 @@ export function Reconciliacao() {
   const [matches, setMatches] = useState<UnifiedPixMatch[] | null>(null)
   const [confirmationResult, setConfirmationResult] = useState<UnifiedPixConfirmationResult | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<{ invoiceId: number; paymentId: number | null } | null>(null)
   const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
 
   const demurrageDetailQuery = useQuery({
@@ -81,6 +81,20 @@ export function Reconciliacao() {
       setConfirmationResult(result)
       setMatches(null)
       showToast(`Conciliacao concluida: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
+  const demurrageReversalMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedDemurrageId == null) throw new Error('Nenhuma demurrage selecionada.')
+      await reverseDemurragePayment(selectedDemurrageId, 'Estornado da tela de conciliação')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
+      setSelectedDemurrageId(null)
+      showToast('Pagamento de demurrage estornado.', 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -278,12 +292,17 @@ export function Reconciliacao() {
       <div className="mt-8">
         <h2 className="app-panel__title mb-4">Histórico de pagamentos</h2>
         <ReconciliationHistoryTable
-          onSelectLocalInvoice={(id) => setSelectedInvoiceId(id)}
+          onSelectLocalInvoice={(id, paymentId) => setSelectedInvoice({ invoiceId: id, paymentId })}
           onSelectDemurrageInvoice={(id) => setSelectedDemurrageId(id)}
         />
       </div>
 
-      <InvoiceDetailModal invoiceId={selectedInvoiceId} onClose={() => setSelectedInvoiceId(null)} />
+      <InvoiceDetailModal
+        invoiceId={selectedInvoice?.invoiceId ?? null}
+        onClose={() => setSelectedInvoice(null)}
+        enablePaymentReversal
+        paymentId={selectedInvoice?.paymentId ?? null}
+      />
 
       <Modal
         open={selectedDemurrageId != null}
@@ -291,6 +310,15 @@ export function Reconciliacao() {
         title={`Fatura Demurrage ${demurrageDetailQuery.data?.invoice?.doc_number ?? ''}`}
       >
         <div className="p-2">
+          <div className="mb-3 flex justify-end">
+            <Button
+              variant="danger"
+              onClick={() => demurrageReversalMutation.mutate()}
+              loading={demurrageReversalMutation.isPending}
+            >
+              <RotateCcw size={16} />Cancelar baixa
+            </Button>
+          </div>
           {demurrageDetailQuery.isLoading ? (
             <div className="p-4 text-sm text-slate-400">Carregando...</div>
           ) : demurrageDetailQuery.data ? (
