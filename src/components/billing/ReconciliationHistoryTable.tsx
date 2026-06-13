@@ -237,9 +237,9 @@ export function ReconciliationHistoryTable({
                     <div className="app-table__cell-stack">
                       <div className="font-semibold text-white">{row.docNumber}</div>
                       {row.source !== 'demurrage' && (
-                        <span className={`inline-block rounded px-1 py-0 text-[10px] font-medium leading-4 ${row.invoiceType === 'consolidated' ? 'bg-blue-900/50 text-blue-300' : 'bg-green-900/50 text-green-300'}`}>
+                        <Badge tone={row.invoiceType === 'consolidated' ? 'blue' : 'green'} className="text-[10px] px-1.5 py-0.5">
                           {row.invoiceType === 'consolidated' ? 'Consolidada' : 'Único BL'}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   </td>

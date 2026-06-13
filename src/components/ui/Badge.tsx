@@ -10,6 +10,6 @@ const tones: Record<BadgeTone, string> = {
   slate: 'app-badge--slate',
 }
 
-export function Badge({ children, tone = 'slate' }: { children: React.ReactNode; tone?: BadgeTone }) {
-  return <span className={cn('app-badge', tones[tone])}>{children}</span>
+export function Badge({ children, tone = 'slate', className }: { children: React.ReactNode; tone?: BadgeTone; className?: string }) {
+  return <span className={cn('app-badge', tones[tone], className)}>{children}</span>
 }
