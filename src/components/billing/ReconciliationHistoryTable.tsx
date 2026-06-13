@@ -10,7 +10,7 @@ import { Field, Input, Select } from '../ui/Input'
 import { Combobox, type ComboOption } from '../ui/Combobox'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { listBillingCustomers } from '../../services/billing'
-import { listReconciliationHistory, type ReconciliationFilters } from '../../services/reconciliacao'
+import { listReconciliationHistory, exportReconciliationHistoryExcel, type ReconciliationFilters } from '../../services/reconciliacao'
 
 type SortField = NonNullable<ReconciliationFilters['sort']>
 
@@ -179,9 +179,14 @@ export function ReconciliationHistoryTable({
 
       <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span className="font-semibold text-white">{totalCount} registro(s) encontrado(s)</span>
-        <span className="text-xs text-slate-400">
-          Página {page} de {totalPages}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-400">
+            Página {page} de {totalPages}
+          </span>
+          <Button variant="secondary" className="text-xs" onClick={() => exportReconciliationHistoryExcel(filters)}>
+            Exportar Excel
+          </Button>
+        </div>
       </div>
 
       {error ? <InlineError message="Erro ao carregar histórico de conciliação." /> : null}

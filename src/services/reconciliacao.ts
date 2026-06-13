@@ -392,3 +392,50 @@ export async function listReconciliationHistory(
 
   return { rows, totalCount }
 }
+
+export async function exportReconciliationHistoryExcel(filters: Partial<ReconciliationFilters>) {
+  const { rows } = await listReconciliationHistory({ ...filters, page: 1, pageSize: 999999 })
+
+  const XLSX = await import('@e965/xlsx')
+
+  const data = rows.map((r) => ({
+    Tipo: r.source === 'demurrage' ? 'Demurrage' : 'Taxas Locais',
+    'Nº Documento': r.docNumber,
+    'Tipo Doc.': r.source === 'demurrage' ? '—' : r.invoiceType === 'consolidated' ? 'Consolidada' : 'Único BL',
+    Consignatário: r.customerName,
+    CNPJ: r.customerCnpj,
+    'B/L': r.blId,
+    'Valor BL': r.blAmount,
+    'Valor Total': r.totalAmount,
+    Navio: r.vesselName ?? '',
+    Viagem: r.voyageNumber ?? '',
+    POD: r.pod ?? '',
+    'Data Pagamento': r.paidAt ? formatDate(r.paidAt) : '',
+    Status: r.status === 'paid' ? 'Paga' : r.status === 'covered' ? 'Coberta' : r.status === 'partially_paid' ? 'Parcial' : r.status,
+  }))
+
+  const safeRows = data.map((row) => {
+    const out: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(row)) {
+      if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+        out[key] = `'${value}`
+      } else {
+        out[key] = value
+      }
+    }
+    return out
+  })
+
+  const workbook = XLSX.utils.book_new()
+  const sheet = XLSX.utils.json_to_sheet(safeRows)
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Conciliação')
+  const now = new Date()
+  const ts = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+  ].join('')
+  XLSX.writeFile(workbook, `conciliacao-${ts}.xlsx`)
+}
