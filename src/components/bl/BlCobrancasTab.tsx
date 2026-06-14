@@ -72,6 +72,10 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
     }
   }, [localChargeLines])
 
+  // Apos o B/L ser faturado, as taxas viram fonte da fatura emitida — nao podem mais
+  // ser editadas aqui (o RPC tambem bloqueia; a UI apenas evita a tentativa).
+  const chargesLocked = ['invoiced', 'partially_paid', 'paid'].includes(String(bl.financial_status ?? ''))
+
   async function handleSaveManualCharge() {
     if (!bl || !user) return
 
@@ -250,16 +254,23 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
         {bl.charge_exemption_reason ? <Badge tone="slate">{bl.charge_exemption_reason}</Badge> : null}
       </div>
 
-      <ManualChargeFormFields
-        form={manualChargeForm}
-        items={manualChargeItems ?? []}
-        itemsLoading={isManualChargeItemsLoading}
-        saving={addManualChargeMutation.isPending || updateManualChargeMutation.isPending}
-        deleting={deleteManualChargeMutation.isPending}
-        onPatch={(patch) => setManualChargeForm((current) => ({ ...current, ...patch }))}
-        onSave={handleSaveManualCharge}
-        onCancel={handleCancelManualChargeEdit}
-      />
+      {chargesLocked ? (
+        <div className="mb-4 rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3 text-sm text-slate-400">
+          Este B/L ja foi faturado. As taxas estao bloqueadas para edicao — para alterar,
+          cancele a fatura correspondente em Faturamento.
+        </div>
+      ) : (
+        <ManualChargeFormFields
+          form={manualChargeForm}
+          items={manualChargeItems ?? []}
+          itemsLoading={isManualChargeItemsLoading}
+          saving={addManualChargeMutation.isPending || updateManualChargeMutation.isPending}
+          deleting={deleteManualChargeMutation.isPending}
+          onPatch={(patch) => setManualChargeForm((current) => ({ ...current, ...patch }))}
+          onSave={handleSaveManualCharge}
+          onCancel={handleCancelManualChargeEdit}
+        />
+      )}
 
       <div className="app-table-scroll">
         <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
@@ -305,7 +316,7 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
                   </td>
                   <td className="py-2">{line.review_reason ?? line.notes ?? '-'}</td>
                   <td className="py-2">
-                    {line.source === 'manual' ? (
+                    {line.source === 'manual' && !chargesLocked ? (
                       <div className="flex items-center gap-2">
                         <button
                           className="app-table__icon-button"

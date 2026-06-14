@@ -74,11 +74,13 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const addChargeMutation = useAddManualInvoiceCharge()
   const deleteChargeMutation = useDeleteManualInvoiceCharge(invoiceId)
 
-  // Other Charges so podem ser editados em faturas individuais, abertas e sem pagamentos.
+  // Other Charges so podem ser editados em faturas individuais, em aberto e sem pagamentos.
+  // Status 'covered'/'obsolete'/'paid' representam faturas ja quitadas (direta ou via
+  // consolidada/individual) e nao podem receber itens manuais.
   const canEditCharges = Boolean(
     detailInvoice &&
       !isConsolidatedInvoice(detailInvoice) &&
-      (detailInvoice.status ?? 'issued') !== 'cancelled' &&
+      ['issued', 'overdue', 'draft'].includes(detailInvoice.status ?? 'issued') &&
       (detailQuery.data?.payments.length ?? 0) === 0,
   )
 
