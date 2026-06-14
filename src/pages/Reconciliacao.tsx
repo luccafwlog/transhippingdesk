@@ -5,8 +5,10 @@ import type { DragEvent } from 'react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, PageHeader } from '../components/ui/Card'
+import { Field, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../hooks/useAuth'
 import { formatResultCount, summarizeReconciliation } from '../lib/operationalState'
 import { parsePixExtractFile } from '../services/demurrage/demurrageKpis'
 import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions, reverseDemurragePayment } from '../services/reconciliacao'
@@ -35,12 +37,14 @@ function getAmountStatus(match: UnifiedPixMatch): { tone: 'green' | 'yellow' | '
 export function Reconciliacao() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const { isAdmin } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const [matches, setMatches] = useState<UnifiedPixMatch[] | null>(null)
   const [confirmationResult, setConfirmationResult] = useState<UnifiedPixConfirmationResult | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<{ invoiceId: number; paymentId: number | null } | null>(null)
   const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
+  const [demurrageReason, setDemurrageReason] = useState('')
 
   const demurrageDetailQuery = useQuery({
     queryKey: ['demurrage-invoice-detail', 'reconciliacao', selectedDemurrageId],
@@ -88,12 +92,15 @@ export function Reconciliacao() {
   const demurrageReversalMutation = useMutation({
     mutationFn: async () => {
       if (selectedDemurrageId == null) throw new Error('Nenhuma demurrage selecionada.')
-      await reverseDemurragePayment(selectedDemurrageId, 'Estornado da tela de conciliação')
+      const reason = demurrageReason.trim()
+      if (!reason) throw new Error('Informe a justificativa para cancelar a baixa.')
+      await reverseDemurragePayment(selectedDemurrageId, reason)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
       setSelectedDemurrageId(null)
+      setDemurrageReason('')
       showToast('Pagamento de demurrage estornado.', 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
@@ -306,19 +313,35 @@ export function Reconciliacao() {
 
       <Modal
         open={selectedDemurrageId != null}
-        onClose={() => setSelectedDemurrageId(null)}
+        onClose={() => { setSelectedDemurrageId(null); setDemurrageReason('') }}
         title={`Fatura Demurrage ${demurrageDetailQuery.data?.invoice?.doc_number ?? ''}`}
       >
         <div className="p-2">
-          <div className="mb-3 flex justify-end">
-            <Button
-              variant="danger"
-              onClick={() => demurrageReversalMutation.mutate()}
-              loading={demurrageReversalMutation.isPending}
-            >
-              <RotateCcw size={16} />Cancelar baixa
-            </Button>
-          </div>
+          {isAdmin ? (
+            <div className="mb-3 rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
+              <Field label="Justificativa para cancelar a baixa (obrigatória)">
+                <Textarea
+                  value={demurrageReason}
+                  onChange={(e) => setDemurrageReason(e.target.value)}
+                  placeholder="Descreva o motivo do estorno desta baixa."
+                />
+              </Field>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  variant="danger"
+                  onClick={() => demurrageReversalMutation.mutate()}
+                  loading={demurrageReversalMutation.isPending}
+                  disabled={!demurrageReason.trim()}
+                >
+                  <RotateCcw size={16} />Cancelar baixa
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-3 rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-400">
+              Apenas administradores podem cancelar a baixa de um pagamento.
+            </div>
+          )}
           {demurrageDetailQuery.isLoading ? (
             <div className="p-4 text-sm text-slate-400">Carregando...</div>
           ) : demurrageDetailQuery.data ? (
