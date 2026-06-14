@@ -19,7 +19,7 @@ import {
   useInvoiceDetail,
   useRegisterInvoicePayment,
 } from '../../hooks/useBilling'
-import { useRegisterLedgerInvoicePayment } from '../../hooks/useBillingLedger'
+import { useInvoicePendingRefund, useRegisterLedgerInvoicePayment } from '../../hooks/useBillingLedger'
 import { buildInvoiceFileBaseName, isConsolidatedInvoice } from '../../services/billing'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
 import { reverseLocalInvoicePayment } from '../../services/reconciliacao'
@@ -66,6 +66,8 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const [chargeNotes, setChargeNotes] = useState('')
 
   const detailQuery = useInvoiceDetail(invoiceId)
+  const pendingRefundQuery = useInvoicePendingRefund(invoiceId)
+  const pendingRefund = Number(pendingRefundQuery.data ?? 0)
   const detailInvoice = detailQuery.data?.invoice ?? null
   const isLedgerPayable = isLedgerInvoicePayable(detailInvoice)
   const registerPaymentMutation = useRegisterInvoicePayment()
@@ -243,6 +245,9 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                 <MetricCard label="Total" value={formatBRL(detailQuery.data.invoice.total_brl)} />
                 <MetricCard label="Pago" value={formatBRL(detailQuery.data.invoice.total_paid_brl)} />
                 <MetricCard label="Saldo" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
+                {pendingRefund > 0.01 ? (
+                  <MetricCard label="Restituir" value={formatBRL(pendingRefund)} />
+                ) : null}
                 <MetricCard label="B/Ls" value={String(detailQuery.data.bls.length)} />
               </div>
               <Card>
