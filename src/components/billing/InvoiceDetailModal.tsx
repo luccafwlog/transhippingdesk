@@ -218,10 +218,10 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     setReversalLoading(true)
     try {
       await reverseLocalInvoicePayment(paymentId, reason)
-      showToast('Pagamento estornado.', 'success')
+      showToast('Baixa cancelada.', 'success')
       onClose()
     } catch (error) {
-      showToast(extractMessage(error, 'Falha ao estornar pagamento.'), 'error')
+      showToast(extractMessage(error, 'Falha ao cancelar a baixa.'), 'error')
     } finally {
       setReversalLoading(false)
     }
@@ -230,9 +230,9 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   async function handleSettleRefund(refundId: number) {
     try {
       await settleRefundMutation.mutateAsync(refundId)
-      showToast('Restituição marcada como efetuada.', 'success')
+      showToast('Estorno marcado como efetuado.', 'success')
     } catch (error) {
-      showToast(extractMessage(error, 'Falha ao marcar restituição como efetuada.'), 'error')
+      showToast(extractMessage(error, 'Falha ao marcar o estorno como efetuado.'), 'error')
     }
   }
 
@@ -260,7 +260,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                 <MetricCard label="Pago" value={formatBRL(detailQuery.data.invoice.total_paid_brl)} />
                 <MetricCard label="Saldo" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
                 {pendingRefund > 0.01 ? (
-                  <MetricCard label="Restituir" value={formatBRL(pendingRefund)} />
+                  <MetricCard label="A estornar" value={formatBRL(pendingRefund)} />
                 ) : null}
                 <MetricCard label="B/Ls" value={String(detailQuery.data.bls.length)} />
               </div>
@@ -404,7 +404,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
               {refunds.length > 0 ? (
                 <Card className="overflow-hidden p-0">
                   <div className="border-b border-[#30363d] px-4 py-3">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Restituições ao cliente</h2>
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Estornos ao cliente (valor pago a maior)</h2>
                   </div>
                   <div className="app-table-scroll">
                     <table className="app-table app-table--compact min-w-[640px] text-left text-sm">
@@ -440,7 +440,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                                   onClick={() => handleSettleRefund(refund.id)}
                                   loading={settleRefundMutation.isPending && settleRefundMutation.variables === refund.id}
                                 >
-                                  Marcar restituído
+                                  Marcar estornado
                                 </Button>
                               ) : (
                                 <span className="text-slate-500">—</span>
@@ -455,7 +455,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
               ) : null}
               {enablePaymentReversal ? (
                 <Card>
-                  <h2 className="mb-3 text-base font-semibold text-white">Cancelar baixa (estorno)</h2>
+                  <h2 className="mb-3 text-base font-semibold text-white">Cancelar baixa</h2>
                   {paymentId ? (
                     isAdmin ? (
                       <>
@@ -463,11 +463,11 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                           <Textarea
                             value={reversalReason}
                             onChange={(event) => setReversalReason(event.target.value)}
-                            placeholder="Descreva o motivo do estorno desta baixa."
+                            placeholder="Descreva o motivo do cancelamento desta baixa."
                           />
                         </Field>
                         <div className="mt-2 text-xs text-slate-400">
-                          O estorno reabre a fatura e libera o TXID para nova conciliação. Fica registrado em auditoria.
+                          Cancelar a baixa registra que o valor não foi pago: reabre a fatura e libera o TXID para nova conciliação. Fica registrado em auditoria.
                         </div>
                         <div className="mt-4 flex justify-end">
                           <Button
@@ -487,7 +487,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                     )
                   ) : (
                     <div className="text-sm text-slate-400">
-                      Esta fatura não possui um pagamento registrado para estornar.
+                      Esta fatura não possui um pagamento registrado para cancelar a baixa.
                     </div>
                   )}
                 </Card>

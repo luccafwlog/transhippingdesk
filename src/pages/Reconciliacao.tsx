@@ -101,7 +101,7 @@ export function Reconciliacao() {
       void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
       setSelectedDemurrageId(null)
       setDemurrageReason('')
-      showToast('Pagamento de demurrage estornado.', 'success')
+      showToast('Baixa de demurrage cancelada.', 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -323,7 +323,7 @@ export function Reconciliacao() {
                 <Textarea
                   value={demurrageReason}
                   onChange={(e) => setDemurrageReason(e.target.value)}
-                  placeholder="Descreva o motivo do estorno desta baixa."
+                  placeholder="Descreva o motivo do cancelamento desta baixa."
                 />
               </Field>
               <div className="mt-3 flex justify-end">

@@ -7,14 +7,14 @@ const sql = readFileSync(
   'utf8',
 )
 
-describe('estorno exige justificativa e admin', () => {
-  it('recria os dois RPCs de estorno mantendo o is_admin()', () => {
+describe('cancelar baixa exige justificativa e admin', () => {
+  it('recria os dois RPCs de cancelamento de baixa mantendo o is_admin()', () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.reverse_invoice_payment\b/)
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.reverse_demurrage_payment\b/)
     expect(sql.match(/NOT public\.is_admin\(\)/g)).toHaveLength(2)
   })
 
-  it('bloqueia estorno sem justificativa nos dois RPCs', () => {
+  it('bloqueia o cancelamento de baixa sem justificativa nos dois RPCs', () => {
     const guards = sql.match(/NULLIF\(TRIM\(COALESCE\(p_reason, ''\)\), ''\) IS NULL/g)
     expect(guards).not.toBeNull()
     expect(guards!.length).toBe(2)
