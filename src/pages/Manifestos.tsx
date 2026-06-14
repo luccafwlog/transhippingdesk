@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, Trash2, Upload } from 'lucide-react'
@@ -531,11 +531,30 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   )
   const routeSummary = useMemo(() => summarizeManifestRoutes(primaryManifest), [primaryManifest])
 
-  // Auto-seleciona a única viagem disponível — ajuste durante o render (a
-  // condição se auto-falsifica após o setState, convergindo em um re-render).
-  if (open && !voyageId && voyages?.length === 1) {
-    setVoyageId(String(voyages[0].id))
-  }
+  // U7: reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setVoyageId('')
+      setFiles([])
+      setManifestsByFile({})
+      setParsing(false)
+      setSubmitting(false)
+      setProgress({ current: 0, total: 0 })
+      setImportSummary([])
+      setPreviewIndex(0)
+      setImportStatusMessage(null)
+      setWaitMessage(null)
+    }
+  }, [open])
+
+  // U8: auto-select the single available voyage, runs only when open changes
+  useEffect(() => {
+    if (open && !voyageId && voyages?.length === 1) {
+      setVoyageId(String(voyages[0].id))
+    }
+  // voyageId intentionally omitted — we only want this on open
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, voyages])
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFiles = Array.from(event.target.files ?? [])

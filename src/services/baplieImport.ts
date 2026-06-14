@@ -7,11 +7,18 @@ export async function importBaplieStaging(
   containers: BaplieContainer[],
   actorId?: string | null,
 ): Promise<{ staged: number }> {
+  // B1: snapshot existing rows so we can restore if insert fails (no DB-level transaction available)
+  const { data: existing, error: fetchError } = await supabase
+    .from('baplie_containers' as never)
+    .select('*')
+    .eq('voyage_id', voyageId)
+    .overrideTypes<object[], { merge: false }>()
+  if (fetchError) throw fetchError
+
   const { error: deleteError } = await supabase
     .from('baplie_containers' as never)
     .delete()
     .eq('voyage_id', voyageId)
-
   if (deleteError) throw deleteError
 
   if (!containers.length) return { staged: 0 }
@@ -35,11 +42,21 @@ export async function importBaplieStaging(
   }))
 
   const BATCH = 500
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const { error: insertError } = await supabase
-      .from('baplie_containers' as never)
-      .insert(rows.slice(i, i + BATCH) as never)
-    if (insertError) throw insertError
+  try {
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const { error: insertError } = await supabase
+        .from('baplie_containers' as never)
+        .insert(rows.slice(i, i + BATCH) as never)
+      if (insertError) throw insertError
+    }
+  } catch (insertErr) {
+    // Restore snapshot to avoid leaving voyage with empty/partial staging
+    if (existing?.length) {
+      for (let i = 0; i < existing.length; i += BATCH) {
+        await supabase.from('baplie_containers' as never).insert(existing.slice(i, i + BATCH) as never).catch(() => {})
+      }
+    }
+    throw insertErr
   }
 
   return { staged: rows.length }

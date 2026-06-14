@@ -700,7 +700,15 @@ export async function createInvoiceFromBls(input: {
   if (invoiceId) {
     await persistPixPayload(invoiceId)
     const { error: ledgerError } = await supabase.rpc('link_invoice_to_ledger', { p_invoice_id: invoiceId })
-    if (ledgerError) throw ledgerError
+    if (ledgerError) {
+      // B8: cancel orphan invoice so the BL can be retried cleanly
+      await supabase.rpc('cancel_invoice', {
+        p_invoice_id: invoiceId,
+        p_reason: 'Falha ao vincular ao ledger — fatura cancelada automaticamente.',
+        p_actor: null,
+      }).catch(() => { /* best-effort cleanup; original error is re-thrown */ })
+      throw ledgerError
+    }
   }
 
   return result

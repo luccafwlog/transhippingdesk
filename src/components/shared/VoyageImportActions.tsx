@@ -214,7 +214,7 @@ function CntrImportModal({
       parser={parseManifestFile}
       canImport={(p) => p.bls.length > 0}
       importer={async (preview, file) => {
-        const fileHash = await file.arrayBuffer().then((buf) => computeFileHash(buf)).catch(() => null)
+        const fileHash = await file.arrayBuffer().then((buf) => computeFileHash(buf)).catch((err) => { console.warn('[dedup] hash failed, dedup disabled for this file:', err); return null })
         await importManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, fileHash })
         await onImported()
         showToast(`Manifesto CNTR importado: ${preview.bls.length} B/L(s), ${countDistinctManifestContainers(preview)} container(s).`, 'success')
@@ -472,6 +472,7 @@ function VehiclesImportModal({
       const result = await importVehicleRows({ voyageId, rows: preview.rows })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-vehicle-stats'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),

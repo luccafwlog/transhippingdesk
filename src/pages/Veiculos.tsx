@@ -136,6 +136,7 @@ export function Veiculos() {
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-vehicle-stats'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
       ])
 
@@ -480,7 +481,11 @@ export function Veiculos() {
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox label="Linhas validas" value={parsedImport.rows.length} />
                 <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} />
-                <PreviewBox label="Viagem selecionada" value={importVoyageId ? 1 : 0} />
+                <PreviewBox label="Viagem selecionada" value={
+                  importVoyageId
+                    ? (allVoyageOptions.find((v) => String(v.id) === importVoyageId)?.voyage_number ?? importVoyageId)
+                    : '—'
+                } />
               </div>
 
               <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
@@ -550,7 +555,7 @@ export function Veiculos() {
             <Button variant="secondary" onClick={resetImportState}>
               Fechar
             </Button>
-            <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length} loading={importing} onClick={handleImport}>
+            <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length || (parsedImport?.rowErrors.length ?? 0) > 0} loading={importing} onClick={handleImport}>
               Confirmar importação
             </Button>
           </div>

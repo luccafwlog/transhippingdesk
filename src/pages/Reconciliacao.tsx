@@ -43,11 +43,21 @@ export function Reconciliacao() {
   const confirmMutation = useMutation({
     mutationFn: () => confirmUnifiedPixReconciliation((matches ?? []).filter((m) => !m.ambiguous)),
     onSuccess: ({ local, demurrage }) => {
+      setMatches(null)
+      showToast(`Conciliacao concluida: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
+    },
+    // B15: invalidate on both success and error — partial settlements may have persisted
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['demurrage-kpis'] })
-      setMatches(null)
-      showToast(`Conciliacao concluida: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
+      void queryClient.invalidateQueries({ queryKey: ['bls'] })
+      void queryClient.invalidateQueries({ queryKey: ['bl-summary'] })
+      void queryClient.invalidateQueries({ queryKey: ['bl-detail'] })
+      void queryClient.invalidateQueries({ queryKey: ['customer-detail'] })
+      void queryClient.invalidateQueries({ queryKey: ['customers-summary'] })
+      void queryClient.invalidateQueries({ queryKey: ['local-charge-operations'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -154,9 +164,11 @@ export function Reconciliacao() {
                         <td className="px-3 py-2 text-emerald-400">{fmtBRL(m.transaction.amount)}</td>
                         <td className="px-3 py-2">
                           <Badge tone="green">TXID</Badge>
-                          <div className="mt-1 text-[11px] text-slate-500">Valor e documento sem conflito</div>
+                          <div className="mt-1 text-[11px] text-slate-500">
+                            {m.source === 'demurrage' ? `Valor conferido (${fmtBRL(m.amount)})` : 'Documento sem conflito'}
+                          </div>
                         </td>
-                        <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400">{m.transaction.txid}</td>
+                        <td className="max-w-[180px] truncate px-3 py-2 font-mono text-xs text-slate-400" title={m.transaction.txid}>{m.transaction.txid}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -88,7 +88,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
   for (const baplieC of staged) {
     if (baplieC.status === 'empty') continue
 
-    const key = baplieC.container_number.toUpperCase()
+    const key = baplieC.container_number.replace(/\s+/g, '').toUpperCase()
     const matches = manifestByNumber.get(key)
 
     if (!matches?.length) {

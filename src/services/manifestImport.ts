@@ -174,20 +174,22 @@ export async function importManifest({
   // --- NEW LOGIC: Identify BLs that failed billing (no charges calculated and not exempt) ---
   const importedBlIds = blPayload.map((bl) => bl.id)
   
-  const { data: chargeData } = await supabase
+  const { data: chargeData, error: chargeQueryError } = await supabase
     .from('charge_calculations')
     .select('bl_id')
     .in('bl_id', importedBlIds)
-    
-  const blsWithCharges = new Set((chargeData || []).map(c => String(c.bl_id)))
+  if (chargeQueryError) throw chargeQueryError
+
+  const blsWithCharges = new Set((chargeData ?? []).map(c => String(c.bl_id)))
   const limboBlIds = importedBlIds.filter(id => !blsWithCharges.has(id))
 
   if (limboBlIds.length > 0) {
-    const { data: blsToUpdate } = await supabase
+    const { data: blsToUpdate, error: blQueryError } = await supabase
       .from('bls')
       .select('id, notes, charge_status')
       .in('id', limboBlIds)
-      .neq('charge_status', 'exempt') // Do not flag exempt BLs
+      .neq('charge_status', 'exempt')
+    if (blQueryError) throw blQueryError
 
     if (blsToUpdate && blsToUpdate.length > 0) {
       const updates = blsToUpdate.map(bl => {
@@ -198,7 +200,6 @@ export async function importManifest({
         } else if (!newNotes.includes(errorMsg)) {
           newNotes += `, ${errorMsg}`
         }
-        
         return {
           id: bl.id,
           review_status: 'pending_review' as const,
@@ -207,9 +208,8 @@ export async function importManifest({
           notes: newNotes
         }
       })
-      
-      // Update one by one or upsert. Since it's a few, we can do promises.
-      await Promise.all(updates.map(updateData => 
+
+      const updateResults = await Promise.all(updates.map(updateData =>
         supabase.from('bls').update({
           review_status: updateData.review_status,
           charge_status: updateData.charge_status,
@@ -217,6 +217,8 @@ export async function importManifest({
           notes: updateData.notes
         }).eq('id', updateData.id)
       ))
+      const firstUpdateError = updateResults.find(r => r.error)?.error
+      if (firstUpdateError) throw firstUpdateError
     }
   }
   // --- END NEW LOGIC ---

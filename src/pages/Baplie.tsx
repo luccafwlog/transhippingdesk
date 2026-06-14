@@ -120,6 +120,8 @@ export function Baplie() {
       const result = await importVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
       setConfirmedBaplieManifestId(result.manifestId)
       await queryClient.invalidateQueries({ queryKey: ['baplie-vazios-manifest', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao'] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] })
       showToast(`${emptyContainers.length} container(s) vazio(s) cadastrados em Vazios Importacao.`, 'success')
@@ -135,6 +137,8 @@ export function Baplie() {
       const result = await importVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
       setConfirmedBaplieManifestId(result.manifestId)
       await queryClient.invalidateQueries({ queryKey: ['baplie-vazios-manifest', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
+      await queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao'] })
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] })
       showToast(`Manifesto de vazios substituido. ${emptyContainers.length} container(s) recadastrado(s).`, 'success')
@@ -188,6 +192,7 @@ export function Baplie() {
               emptyCount={emptyContainers.length}
               existingManifest={existingVaziosManifestLoading ? null : (existingVaziosManifest ?? null)}
               confirmedManifestId={confirmedBaplieManifestId}
+              loadingManifest={existingVaziosManifestLoading}
               onConfirmar={handleConfirmarVazios}
               onSubstituir={handleSubstituirVazios}
               onManter={handleManterVazios}
@@ -278,6 +283,7 @@ function VaziosSection({
   emptyCount,
   existingManifest,
   confirmedManifestId,
+  loadingManifest,
   onConfirmar,
   onSubstituir,
   onManter,
@@ -285,6 +291,7 @@ function VaziosSection({
   emptyCount: number
   existingManifest: { id: string; total_containers: number; imported_at: string } | null
   confirmedManifestId: string | null
+  loadingManifest: boolean
   onConfirmar: () => Promise<void>
   onSubstituir: () => Promise<void>
   onManter: () => void
@@ -324,7 +331,7 @@ function VaziosSection({
       ) : (
         <div className="flex items-center justify-between">
           <div className="text-sm text-slate-400">{emptyCount} container(s) vazio(s) aguardando cadastro em Vazios Importacao.</div>
-          <Button loading={loading} onClick={() => run(onConfirmar)}>
+          <Button loading={loading || loadingManifest} disabled={loadingManifest} onClick={() => run(onConfirmar)}>
             Confirmar cadastro de {emptyCount} vazio(s)
           </Button>
         </div>

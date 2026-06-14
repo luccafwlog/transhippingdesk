@@ -430,7 +430,9 @@ async function loadGraniteOperationalRows(
     if (!blId) continue
     const subtotal = Number(row.subtotal ?? 0)
     const current = totalsMap.get(blId) ?? { total_brl: 0, total_usd: 0, line_count: 0, review_required_count: 0 }
-    if (row.currency === 'USD') current.total_usd += subtotal
+    // Normaliza caixa/espaços para não cair 'usd'/' USD ' no bucket BRL silenciosamente (B11).
+    const currency = String(row.currency ?? '').trim().toUpperCase()
+    if (currency === 'USD') current.total_usd += subtotal
     else current.total_brl += subtotal
     current.line_count += 1
     totalsMap.set(blId, current)

@@ -20,6 +20,7 @@ import {
 } from '../../hooks/useLocalCharges'
 import { formatBRL, formatUSD } from '../../lib/utils'
 import { createInvoiceFromBls } from '../../services/billing'
+import { queryKeys } from '../../services/queryKeys'
 import {
   formatNumber,
   resolveChargeLineStatusLabel,
@@ -173,7 +174,15 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
       await markReadyForBillingMutation.mutateAsync({ actorId: user.id })
       if (bl.customer_id) {
         await createInvoiceFromBls({ blIds: [bl.id], customerId: bl.customer_id, issueNow: true, actorId: user.id })
-        await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+        // A emissão muda financial_status -> 'invoiced'; reflita isso nas telas de
+        // Validação/Pendências/B/L que listam o B/L como "Pronto" (B10).
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) }),
+        ])
         showToast('B/L pronto para faturar. Fatura emitida automaticamente.', 'success')
       } else {
         showToast('B/L marcado como pronto para faturar. Sem cliente vinculado — gere a fatura manualmente em Faturamento.', 'success')

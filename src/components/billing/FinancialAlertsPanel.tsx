@@ -5,9 +5,29 @@ import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
 import { acknowledgeAlert, closeAlert, type Alert } from '../../services/alerts'
 
-export function FinancialAlertsPanel({ alerts, onUpdate }: { alerts: Alert[]; onUpdate: () => void }) {
+export function FinancialAlertsPanel({
+  alerts,
+  onUpdate,
+  loading = false,
+}: {
+  alerts: Alert[]
+  onUpdate: () => void
+  loading?: boolean
+}) {
   const { showToast } = useToast()
   const [acting, setActing] = useState<number | null>(null)
+
+  if (loading && !alerts.length) {
+    return (
+      <div className="mb-5 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4" aria-busy="true">
+        <div className="mb-3 h-4 w-56 animate-pulse rounded bg-amber-400/20" />
+        <div className="grid gap-2">
+          <div className="h-9 animate-pulse rounded-lg bg-[#0d1117]/60" />
+          <div className="h-9 animate-pulse rounded-lg bg-[#0d1117]/60" />
+        </div>
+      </div>
+    )
+  }
 
   if (!alerts.length) return null
 

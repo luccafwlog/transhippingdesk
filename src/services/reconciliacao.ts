@@ -50,29 +50,47 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
 
   type InvEntry = { source: 'local' | 'demurrage'; id: number; docNumber: string; customerName: string; customerCnpj: string; amount: number }
 
-  const txidMap: Record<string, InvEntry> = {}
-
+  // B13: separate maps per source to detect cross-source collisions instead of silently overwriting
+  const localMap: Record<string, InvEntry | null> = {}
   for (const inv of localInvoices) {
     const docNum = inv.invoice_number ?? String(inv.id)
-    const entry: InvEntry = { source: 'local', id: inv.id, docNumber: docNum, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.balance_brl ?? inv.total_brl ?? 0 }
     const key = normTxid(docNum)
-    if (key) txidMap[key] = entry
+    if (!key) continue
+    // null marks intra-source collision — skip both
+    localMap[key] = key in localMap ? null : { source: 'local', id: inv.id, docNumber: docNum, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.balance_brl ?? inv.total_brl ?? 0 }
   }
 
+  const demurrageMap: Record<string, InvEntry | null> = {}
   for (const inv of demurrageInvoices) {
-    const entry: InvEntry = { source: 'demurrage', id: inv.id, docNumber: inv.doc_number, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.frozen_total_brl ?? 0 }
     const key = normTxid(inv.doc_number)
-    if (key) txidMap[key] = entry
+    if (!key) continue
+    demurrageMap[key] = key in demurrageMap ? null : { source: 'demurrage', id: inv.id, docNumber: inv.doc_number, customerName: inv.customer?.name ?? '', customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''), amount: inv.frozen_total_brl ?? 0 }
   }
 
   const matches: UnifiedPixMatch[] = []
   for (const tx of transactions) {
     const key = normTxid(tx.txid)
-    if (key && usedTxids.has(key)) continue
-    if (key && txidMap[key]) {
-      const e = txidMap[key]
-      matches.push({ transaction: tx, source: e.source, invoiceId: e.id, docNumber: e.docNumber, customerName: e.customerName, customerCnpj: e.customerCnpj, amount: e.amount, ambiguous: false, matchType: 'txid' })
+    if (!key || usedTxids.has(key)) continue
+
+    const local = localMap[key]
+    const demurrage = demurrageMap[key]
+
+    if (!local && !demurrage) continue
+
+    // B13+B14: same TXID key exists in both maps → ambiguous, surface both candidates
+    if (key in localMap && key in demurrageMap) {
+      if (local) matches.push({ transaction: tx, source: local.source, invoiceId: local.id, docNumber: local.docNumber, customerName: local.customerName, customerCnpj: local.customerCnpj, amount: local.amount, ambiguous: true, matchType: 'txid' })
+      if (demurrage) matches.push({ transaction: tx, source: demurrage.source, invoiceId: demurrage.id, docNumber: demurrage.docNumber, customerName: demurrage.customerName, customerCnpj: demurrage.customerCnpj, amount: demurrage.amount, ambiguous: true, matchType: 'txid' })
+      continue
     }
+
+    // intra-source collision (null): skip entirely
+    const e = local ?? demurrage
+    if (!e) continue
+
+    // B16: for demurrage, mark ambiguous when value diverges (so UI shows warning instead of "sem conflito")
+    const ambiguous = e.source === 'demurrage' && (Math.abs(tx.amount - e.amount) > 0.01 || !Number.isFinite(tx.amount - e.amount))
+    matches.push({ transaction: tx, source: e.source, invoiceId: e.id, docNumber: e.docNumber, customerName: e.customerName, customerCnpj: e.customerCnpj, amount: e.amount, ambiguous, matchType: 'txid' })
   }
 
   return matches
