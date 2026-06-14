@@ -49,7 +49,7 @@ type InvoiceDetailModalProps = {
 }
 
 export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, paymentId }: InvoiceDetailModalProps) {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
 
@@ -59,6 +59,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const [paymentDate, setPaymentDate] = useState('')
   const [paymentNotes, setPaymentNotes] = useState('')
   const [cancelReason, setCancelReason] = useState('')
+  const [reversalReason, setReversalReason] = useState('')
   const [reversalLoading, setReversalLoading] = useState(false)
   const [chargeDescription, setChargeDescription] = useState('')
   const [chargeQuantity, setChargeQuantity] = useState('1')
@@ -209,9 +210,14 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
 
   async function handleReversePayment() {
     if (!paymentId) return
+    const reason = reversalReason.trim()
+    if (!reason) {
+      showToast('Informe a justificativa para cancelar a baixa.', 'error')
+      return
+    }
     setReversalLoading(true)
     try {
-      await reverseLocalInvoicePayment(paymentId, 'Estornado da tela de conciliação')
+      await reverseLocalInvoicePayment(paymentId, reason)
       showToast('Pagamento estornado.', 'success')
       onClose()
     } catch (error) {
@@ -244,11 +250,6 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
           {detailQuery.data?.invoice ? (
             <>
               <div className="flex justify-end gap-2">
-                {enablePaymentReversal && paymentId ? (
-                  <Button variant="danger" onClick={handleReversePayment} loading={reversalLoading}>
-                    <RotateCcw size={16} />Cancelar baixa
-                  </Button>
-                ) : null}
                 <Button variant="secondary" onClick={handlePrintInvoice}>
                   <Printer size={16} />Imprimir PDF
                 </Button>
@@ -452,6 +453,45 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                   </div>
                 </Card>
               ) : null}
+              {enablePaymentReversal ? (
+                <Card>
+                  <h2 className="mb-3 text-base font-semibold text-white">Cancelar baixa (estorno)</h2>
+                  {paymentId ? (
+                    isAdmin ? (
+                      <>
+                        <Field label="Justificativa (obrigatória)">
+                          <Textarea
+                            value={reversalReason}
+                            onChange={(event) => setReversalReason(event.target.value)}
+                            placeholder="Descreva o motivo do estorno desta baixa."
+                          />
+                        </Field>
+                        <div className="mt-2 text-xs text-slate-400">
+                          O estorno reabre a fatura e libera o TXID para nova conciliação. Fica registrado em auditoria.
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                          <Button
+                            variant="danger"
+                            onClick={handleReversePayment}
+                            loading={reversalLoading}
+                            disabled={!reversalReason.trim()}
+                          >
+                            <RotateCcw size={16} />Cancelar baixa
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-slate-400">
+                        Apenas administradores podem cancelar a baixa de um pagamento.
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-sm text-slate-400">
+                      Esta fatura não possui um pagamento registrado para estornar.
+                    </div>
+                  )}
+                </Card>
+              ) : (
               <div className="grid gap-4 xl:grid-cols-2">
                 <Card>
                   <h2 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h2>
@@ -488,6 +528,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                 </Card>
                 <Card><h2 className="mb-3 text-base font-semibold text-white">Cancelar invoice</h2><Field label="Motivo"><Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></Field><div className="mt-4 flex justify-end"><Button variant="danger" loading={cancelInvoiceMutation.isPending} disabled={detailQuery.data.payments.length > 0} onClick={handleCancelInvoice}><Ban size={16} />Cancelar invoice</Button></div></Card>
               </div>
+              )}
             </>
           ) : null}
         </div>
