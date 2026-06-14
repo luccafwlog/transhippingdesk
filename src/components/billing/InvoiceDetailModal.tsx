@@ -19,7 +19,7 @@ import {
   useInvoiceDetail,
   useRegisterInvoicePayment,
 } from '../../hooks/useBilling'
-import { useInvoicePendingRefund, useRegisterLedgerInvoicePayment } from '../../hooks/useBillingLedger'
+import { useInvoiceRefunds, useRegisterLedgerInvoicePayment, useSettleInvoiceRefund } from '../../hooks/useBillingLedger'
 import { buildInvoiceFileBaseName, isConsolidatedInvoice } from '../../services/billing'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
 import { reverseLocalInvoicePayment } from '../../services/reconciliacao'
@@ -66,8 +66,12 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const [chargeNotes, setChargeNotes] = useState('')
 
   const detailQuery = useInvoiceDetail(invoiceId)
-  const pendingRefundQuery = useInvoicePendingRefund(invoiceId)
-  const pendingRefund = Number(pendingRefundQuery.data ?? 0)
+  const refundsQuery = useInvoiceRefunds(invoiceId)
+  const refunds = refundsQuery.data ?? []
+  const pendingRefund = refunds
+    .filter((refund) => refund.status === 'pending')
+    .reduce((sum, refund) => sum + Number(refund.amount_brl ?? 0), 0)
+  const settleRefundMutation = useSettleInvoiceRefund()
   const detailInvoice = detailQuery.data?.invoice ?? null
   const isLedgerPayable = isLedgerInvoicePayable(detailInvoice)
   const registerPaymentMutation = useRegisterInvoicePayment()
@@ -214,6 +218,15 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
       showToast(extractMessage(error, 'Falha ao estornar pagamento.'), 'error')
     } finally {
       setReversalLoading(false)
+    }
+  }
+
+  async function handleSettleRefund(refundId: number) {
+    try {
+      await settleRefundMutation.mutateAsync(refundId)
+      showToast('Restituição marcada como efetuada.', 'success')
+    } catch (error) {
+      showToast(extractMessage(error, 'Falha ao marcar restituição como efetuada.'), 'error')
     }
   }
 
@@ -387,6 +400,58 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                   </table>
                 </div>
               </Card>
+              {refunds.length > 0 ? (
+                <Card className="overflow-hidden p-0">
+                  <div className="border-b border-[#30363d] px-4 py-3">
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Restituições ao cliente</h2>
+                  </div>
+                  <div className="app-table-scroll">
+                    <table className="app-table app-table--compact min-w-[640px] text-left text-sm">
+                      <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th scope="col" className="px-3 py-2">Registrada</th>
+                          <th scope="col" className="px-3 py-2">Valor</th>
+                          <th scope="col" className="px-3 py-2">Status</th>
+                          <th scope="col" className="px-3 py-2">Efetuada</th>
+                          <th scope="col" className="px-3 py-2">Acoes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#30363d]">
+                        {refunds.map((refund) => (
+                          <tr key={refund.id}>
+                            <td className="px-3 py-2">{formatDate(refund.created_at)}</td>
+                            <td className="px-3 py-2">{formatBRL(refund.amount_brl)}</td>
+                            <td className="px-3 py-2">
+                              {refund.status === 'pending' ? (
+                                <Badge tone="yellow">Pendente</Badge>
+                              ) : refund.status === 'settled' ? (
+                                <Badge tone="green">Efetuada</Badge>
+                              ) : (
+                                <Badge tone="slate">Cancelada</Badge>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">{refund.settled_at ? formatDate(refund.settled_at) : '—'}</td>
+                            <td className="px-3 py-2">
+                              {refund.status === 'pending' ? (
+                                <Button
+                                  variant="secondary"
+                                  type="button"
+                                  onClick={() => handleSettleRefund(refund.id)}
+                                  loading={settleRefundMutation.isPending && settleRefundMutation.variables === refund.id}
+                                >
+                                  Marcar restituído
+                                </Button>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              ) : null}
               <div className="grid gap-4 xl:grid-cols-2">
                 <Card>
                   <h2 className="mb-3 text-base font-semibold text-white">Registrar pagamento</h2>
