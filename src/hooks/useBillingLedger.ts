@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createConsolidatedInvoice,
+  getInvoicePendingRefund,
   listConsolidatableReceivables,
   registerLedgerInvoicePayment,
   type ConsolidatableReceivableFilters,
@@ -24,9 +25,18 @@ function useLedgerInvalidation() {
     qc.invalidateQueries({ queryKey: queryKeys.customers.all() })
     qc.invalidateQueries({ queryKey: queryKeys.customers.detail() })
     qc.invalidateQueries({ queryKey: ['invoice-detail'] })
+    qc.invalidateQueries({ queryKey: ['invoice-pending-refund'] })
     qc.invalidateQueries({ queryKey: ['financial-alerts'] })
     qc.invalidateQueries({ queryKey: ['op-count'] })
   }
+}
+
+export function useInvoicePendingRefund(invoiceId?: number | null) {
+  return useQuery({
+    queryKey: ['invoice-pending-refund', invoiceId],
+    enabled: Boolean(invoiceId),
+    queryFn: () => getInvoicePendingRefund(Number(invoiceId)),
+  })
 }
 
 export function useCreateConsolidatedInvoice() {

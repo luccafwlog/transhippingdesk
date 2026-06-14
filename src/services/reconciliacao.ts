@@ -109,6 +109,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   }
 
   const matches: UnifiedPixMatch[] = []
+  const seenTxids = new Set<string>()
   for (const tx of transactions) {
     const key = normTxid(tx.txid)
     if (key && usedTxids.has(key)) continue
@@ -121,13 +122,22 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
     let ambiguityReason: string | undefined
     if (entries.length > 1) {
       ambiguityReason = `${entries.length} documentos usam o mesmo TXID.`
+    } else if (seenTxids.has(key)) {
+      // O mesmo TXID aparece mais de uma vez no extrato (faixas de data sobrepostas).
+      // O PIX copia-e-cola tem valor fixo, entao a fatura ja foi casada pela 1a linha.
+      ambiguityReason = 'TXID repetido no mesmo extrato.'
     } else if (!Number.isFinite(amountDiff)) {
       ambiguityReason = 'Valor do documento nao e numerico.'
-    } else if (entry.source === 'demurrage' && Math.abs(amountDiff) > 0.01) {
-      ambiguityReason = 'Valor do PIX diverge da demurrage emitida.'
-    } else if (entry.source === 'local' && amountDiff > 0.01) {
-      ambiguityReason = 'Valor do PIX supera o saldo aberto da fatura.'
+    } else if (Math.abs(amountDiff) > 0.01) {
+      // PIX e copia-e-cola de valor fixo: precisa bater exatamente. Divergencia para
+      // mais ou para menos e ambigua (nao existe pagamento parcial por PIX).
+      ambiguityReason =
+        entry.source === 'demurrage'
+          ? 'Valor do PIX diverge da demurrage emitida.'
+          : 'Valor do PIX diverge do saldo aberto da fatura.'
     }
+
+    if (key && !ambiguityReason) seenTxids.add(key)
 
     matches.push({
       transaction: tx,

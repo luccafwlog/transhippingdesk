@@ -68,6 +68,13 @@ export async function registerLedgerInvoicePayment(input: {
   if (error) throw error
   return data as unknown as LedgerPaymentResult
 }
+export async function getInvoicePendingRefund(invoiceId: number): Promise<number> {
+  const { data, error } = await supabase.rpc('get_invoice_pending_refund' as never, {
+    p_invoice_id: invoiceId,
+  } as never)
+  if (error) throw error
+  return Number(data ?? 0)
+}
 export async function reconcileInvoicePaymentByTxid(input: {
   txid: string
   amountBrl: number

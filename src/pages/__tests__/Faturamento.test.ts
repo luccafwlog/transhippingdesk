@@ -48,6 +48,7 @@ vi.mock('../../hooks/useBillingLedger', () => ({
   useConsolidatableReceivables: () => ({ data: [], isLoading: false }),
   useCreateConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRegisterLedgerInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useInvoicePendingRefund: () => ({ data: 0 }),
 }))
 
 vi.mock('../../hooks/useLocalCharges', () => ({
