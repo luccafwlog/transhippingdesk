@@ -68,12 +68,33 @@ export async function registerLedgerInvoicePayment(input: {
   if (error) throw error
   return data as unknown as LedgerPaymentResult
 }
-export async function getInvoicePendingRefund(invoiceId: number): Promise<number> {
-  const { data, error } = await supabase.rpc('get_invoice_pending_refund' as never, {
+export type InvoiceRefund = {
+  id: number
+  amount_brl: number
+  status: 'pending' | 'settled' | 'cancelled'
+  created_at: string
+  settled_at: string | null
+  notes: string | null
+}
+
+export async function listInvoiceRefunds(invoiceId: number): Promise<InvoiceRefund[]> {
+  const { data, error } = await supabase.rpc('list_invoice_refunds' as never, {
     p_invoice_id: invoiceId,
   } as never)
   if (error) throw error
-  return Number(data ?? 0)
+  return ((data ?? []) as InvoiceRefund[]).map((row) => ({
+    ...row,
+    id: Number(row.id),
+    amount_brl: Number(row.amount_brl ?? 0),
+  }))
+}
+
+export async function settleInvoiceRefund(refundId: number): Promise<void> {
+  const { error } = await supabase.rpc('settle_invoice_refund' as never, {
+    p_refund_id: refundId,
+    p_actor: null,
+  } as never)
+  if (error) throw error
 }
 export async function reconcileInvoicePaymentByTxid(input: {
   txid: string
