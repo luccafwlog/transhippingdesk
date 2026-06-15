@@ -78,6 +78,7 @@ describe('customers portal provisioning', () => {
       p_contact_email: 'financeiro@cliente.com',
       p_active: true,
       p_actor: 'user-id',
+      p_login_cnpj: null,
     })
   })
 })
