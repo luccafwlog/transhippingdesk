@@ -7,18 +7,11 @@ import { Badge } from '../components/ui/Badge'
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import { usePortalInvoices, usePortalConsolidatableReceivables } from '../hooks/usePortalBilling'
 import { usePortalOperationBls } from '../hooks/usePortalOperation'
+import { isWithinNextCalendarDays } from '../lib/dates'
 import { formatBRL } from '../lib/utils'
 
 const OVERDUE_STATUSES = ['overdue']
 const DUE_SOON_DAYS = 7
-
-function isDueSoon(dateStr: string | null): boolean {
-  if (!dateStr) return false
-  const dueDate = new Date(dateStr)
-  const today = new Date()
-  const diff = dueDate.getTime() - today.getTime()
-  return diff > 0 && diff <= DUE_SOON_DAYS * 86400000
-}
 
 export function PortalDashboard() {
   const { overview } = usePortalAuth()
@@ -50,7 +43,7 @@ export function PortalDashboard() {
       })
     }
 
-    const dueSoon = (invoices ?? []).filter((i) => isDueSoon(i.due_date))
+    const dueSoon = (invoices ?? []).filter((i) => isWithinNextCalendarDays(i.due_date, DUE_SOON_DAYS))
     if (dueSoon.length > 0) {
       result.push({
         type: 'warning',

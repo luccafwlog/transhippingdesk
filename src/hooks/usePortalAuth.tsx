@@ -22,6 +22,10 @@ function isPortalSessionError(error: unknown) {
   return code === '28000' || message.toLowerCase().includes('sessao do portal')
 }
 
+function errorCode(error: unknown) {
+  return typeof error === 'object' && error ? String((error as { code?: string }).code ?? '') : ''
+}
+
 function normalizePortalOverview(payload: Record<string, unknown>) {
   return {
     customer_id: Number(payload.customer_id ?? 0),
@@ -83,7 +87,12 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
       // Se não parece um email, tenta resolver como CNPJ/CPF
       if (!email.includes('@')) {
         if (isDocument(email)) {
-          email = await portalResolveLogin(email)
+          try {
+            email = await portalResolveLogin(email)
+          } catch (error) {
+            if (errorCode(error) === 'P0429') throw error
+            throw new Error('Credenciais invalidas para o portal do cliente.', { cause: error })
+          }
         }
       }
 

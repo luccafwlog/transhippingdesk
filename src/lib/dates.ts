@@ -1,0 +1,24 @@
+const DAY_MS = 86400000
+
+function calendarDayUtc(date: Date) {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function parseCalendarDay(value: string) {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  if (dateOnly) {
+    return Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return calendarDayUtc(parsed)
+}
+
+export function isWithinNextCalendarDays(dateStr: string | null, days: number, today = new Date()): boolean {
+  if (!dateStr) return false
+  const targetDay = parseCalendarDay(dateStr)
+  if (targetDay == null) return false
+  const diffDays = Math.round((targetDay - calendarDayUtc(today)) / DAY_MS)
+  return diffDays >= 0 && diffDays <= days
+}

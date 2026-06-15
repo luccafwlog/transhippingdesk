@@ -54,6 +54,42 @@ const rows: PortalOperationBL[] = [
     containers_returned: 0,
     containers: [],
   },
+  {
+    bl_id: 'BL003',
+    ce_mercante: '987654321098765',
+    pol: 'CNSHA',
+    pod: 'BRVIX',
+    voyage_id: 12,
+    voyage_number: '003W',
+    vessel_name: 'NAVIO DEVOLVIDO',
+    container_count: 2,
+    containers_in_demurrage: 0,
+    containers_returned: 2,
+    containers: [
+      {
+        id: 3,
+        container_number: 'IJKL1234567',
+        type: '40GP',
+        discharge_date: '2026-06-01',
+        return_date: '2026-06-15',
+        usage_days: 14,
+        free_time_days: 21,
+        demurrage_days: 0,
+        status: 'devolvido',
+      },
+      {
+        id: 4,
+        container_number: 'MNOP1234567',
+        type: '20GP',
+        discharge_date: '2026-06-01',
+        return_date: '2026-06-16',
+        usage_days: 15,
+        free_time_days: 21,
+        demurrage_days: 0,
+        status: 'devolvido',
+      },
+    ],
+  },
 ]
 
 vi.mock('../../hooks/usePortalOperation', () => ({
@@ -101,5 +137,17 @@ describe('PortalOperacao', () => {
     await user.click(within(desktop).getByRole('row', { name: /BL002/ }))
 
     expect(within(desktop).getByText('Nenhum container vinculado a este B/L.')).toBeTruthy()
+  })
+
+  it('filtra Devolvidos apenas quando todos os containers do B/L foram devolvidos', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<PortalOperacao />)
+    const desktop = desktopView(container)
+
+    await user.click(screen.getByRole('button', { name: /Filtros/i }))
+    await user.selectOptions(screen.getByLabelText('Status'), 'todos_devolvidos')
+
+    expect(within(desktop).queryByText('BL001')).toBeNull()
+    expect(within(desktop).getByText('BL003')).toBeTruthy()
   })
 })

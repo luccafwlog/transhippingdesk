@@ -36,8 +36,12 @@ export function PortalForgotPassword() {
       if (resetError) throw resetError
       setSent(true)
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Falha ao enviar email de recuperacao.'
-      setError(message)
+      const code = typeof err === 'object' && err !== null ? String((err as { code?: string }).code ?? '') : ''
+      if (code === 'P0429') {
+        setError('Muitas tentativas de recuperacao. Aguarde alguns minutos antes de tentar novamente.')
+      } else {
+        setError('Se o CNPJ ou email informado estiver cadastrado, enviaremos um link para redefinir sua senha.')
+      }
     } finally {
       setSubmitting(false)
     }

@@ -26,6 +26,9 @@ const STATUS_GROUPS: Record<string, string[]> = {
 function blStatusMatches(containers: PortalOperationBL['containers'], filter: StatusFilter): boolean {
   if (!filter) return true
   const statuses = STATUS_GROUPS[filter]
+  if (filter === 'todos_devolvidos') {
+    return containers.length > 0 && containers.every((c) => c.status === 'devolvido')
+  }
   return containers.some((c) => statuses.includes(c.status))
 }
 

@@ -139,9 +139,27 @@ export function PortalBilling() {
     [demurrageInvoices, demFilters],
   )
 
-  async   function handleExportCsv() {
+  function handleExportCsv() {
+    const day = new Date().toISOString().slice(0, 10)
+
+    if (tab === 'demurrage') {
+      const headers = ['Documento', 'B/L', 'Navio/Viagem', 'Emissao', 'Vencimento', 'Total USD', 'Total BRL', 'Status']
+      const dataRows = filteredDemurrage.map((i) => [
+        i.doc_number,
+        i.bl_id,
+        [i.vessel_name, i.voyage_number].filter(Boolean).join(' / '),
+        formatDate(i.billed_at ?? i.doc_date) ?? '',
+        formatDate(i.due_date) ?? '',
+        Number(i.total_usd).toFixed(2),
+        i.frozen_total_brl != null ? formatBRL(i.frozen_total_brl) : '',
+        i.status ?? '',
+      ])
+      downloadCsv(`demurrage-${day}.csv`, headers, dataRows)
+      return
+    }
+
     const headers = ['Fatura', 'Tipo', 'B/Ls', 'Emissao', 'Vencimento', 'Total BRL', 'Status']
-    const dataRows = (invoices ?? []).map((i) => [
+    const dataRows = filteredInvoices.map((i) => [
       i.invoice_number ?? `INV-${i.id}`,
       i.invoice_type === 'consolidated' ? 'Consolidada' : 'Individual',
       (i.bls ?? []).join('; '),
@@ -150,7 +168,7 @@ export function PortalBilling() {
       formatBRL(i.total_brl),
       i.status ?? '',
     ])
-    downloadCsv(`faturas-${new Date().toISOString().slice(0, 10)}.csv`, headers, dataRows)
+    downloadCsv(`faturas-${day}.csv`, headers, dataRows)
   }
 
   async function handleObsolete() {
