@@ -153,7 +153,7 @@ export function PortalBilling() {
     downloadCsv(`faturas-${new Date().toISOString().slice(0, 10)}.csv`, headers, dataRows)
   }
 
-  function handleObsolete() {
+  async function handleObsolete() {
     if (!detailQuery.data?.invoice) return
     if (!window.confirm('Desfazer esta fatura consolidada? Os B/Ls voltam a ficar disponíveis para uma nova consolidação.')) {
       return
