@@ -11,20 +11,17 @@ export function PortalResetPassword() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState(
+    () => window.location.hash.includes('type=recovery'),
+  )
 
   useEffect(() => {
-    supabasePortal.auth.onAuthStateChange(async (event) => {
+    const { data: listener } = supabasePortal.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setReady(true)
       }
     })
-
-    // Verificar se ja existe hash de recovery na URL
-    const hash = window.location.hash
-    if (hash && hash.includes('type=recovery')) {
-      setReady(true)
-    }
+    return () => listener?.subscription.unsubscribe()
   }, [])
 
   async function handleSubmit(event: FormEvent) {

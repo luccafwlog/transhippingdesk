@@ -7,8 +7,7 @@ import { Badge } from '../components/ui/Badge'
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import { usePortalInvoices, usePortalConsolidatableReceivables } from '../hooks/usePortalBilling'
 import { usePortalOperationBls } from '../hooks/usePortalOperation'
-import { formatBRL, formatDate } from '../lib/utils'
-import type { PortalInvoiceSummary } from '../services/portalBilling'
+import { formatBRL } from '../lib/utils'
 
 const OVERDUE_STATUSES = ['overdue']
 const DUE_SOON_DAYS = 7

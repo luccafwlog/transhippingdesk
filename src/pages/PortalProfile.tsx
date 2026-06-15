@@ -16,7 +16,6 @@ export function PortalProfile() {
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [zip, setZip] = useState('')
-  const [loadingProfile, setLoadingProfile] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,7 +30,6 @@ export function PortalProfile() {
         setState(profile.state ?? '')
         setZip(profile.zip ?? '')
       } catch { /* fallback silencioso */ }
-      setLoadingProfile(false)
     }
     void load()
   }, [overview])

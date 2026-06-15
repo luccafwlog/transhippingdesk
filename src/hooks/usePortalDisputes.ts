@@ -1,5 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { usePortalAuth } from './usePortalAuth'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalOpenDemurrageDispute } from '../services/portalBilling'
 
 export function usePortalOpenDispute() {
