@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { usePortalAuth } from '../../hooks/usePortalAuth'
-import { usePortalMarkAllRead, usePortalMarkRead, usePortalNotifications } from '../../hooks/usePortalNotifications'
+import { usePortalMarkAllRead, usePortalMarkRead, usePortalNotifications, usePortalUnreadCount } from '../../hooks/usePortalNotifications'
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const { data: notifications, isLoading } = usePortalNotifications(open)
+  const { data: unreadCount = 0 } = usePortalUnreadCount()
   const markRead = usePortalMarkRead()
   const markAllRead = usePortalMarkAllRead()
   const containerRef = useRef<HTMLDivElement>(null)
   const { overview } = usePortalAuth()
-
-  const unreadCount = (notifications ?? []).filter((n) => !n.read).length
 
   // Fecha ao clicar fora
   useEffect(() => {

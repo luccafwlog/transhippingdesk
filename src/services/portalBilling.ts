@@ -202,28 +202,6 @@ export async function portalOpenDemurrageDispute(demurrageInvoiceId: number, rea
   if (error) throw error
 }
 
-export type PortalDispute = {
-  id: number
-  doc_number: string
-  dispute_subject: string | null
-  dispute_reason: string | null
-  dispute_status: string | null
-  dispute_open: boolean
-  dispute_notes: string | null
-  bl_id: string
-  total_usd: number
-  created_at: string
-}
-
-export async function portalListDisputes(): Promise<PortalDispute[]> {
-  const { data, error } = await rpc('portal_list_disputes')
-  if (error) throw error
-  return ((data ?? []) as PortalDispute[]).map((d) => ({
-    ...d,
-    total_usd: Number(d.total_usd ?? 0),
-  }))
-}
-
 export type PortalProfile = {
   contact_email: string | null
   phone: string | null
