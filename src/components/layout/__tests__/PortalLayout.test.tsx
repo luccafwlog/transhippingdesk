@@ -11,6 +11,7 @@ vi.mock('../../../hooks/usePortalAuth', () => ({
 }))
 
 vi.mock('../../../hooks/usePortalNotifications', () => ({
+  usePortalUnreadCount: () => ({ data: 0 }),
   usePortalNotifications: () => ({ data: [], isLoading: false }),
   usePortalMarkRead: () => ({ mutate: vi.fn() }),
   usePortalMarkAllRead: () => ({ mutate: vi.fn() }),
