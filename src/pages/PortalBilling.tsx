@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type ReactNode } from 'react'
-import { FilePlus2, Printer, RotateCcw } from 'lucide-react'
+import { Download, FilePlus2, Printer, RotateCcw } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
 import { PortalConsolidatedModal } from '../components/portal/PortalConsolidatedModal'
+import { DisputeModal } from '../components/portal/DisputeModal'
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import { formatResultCount } from '../lib/operationalState'
 import {
@@ -24,6 +25,7 @@ import {
 } from '../hooks/usePortalBilling'
 import type { PortalDemurrageInvoice, PortalInvoiceSummary } from '../services/portalBilling'
 import { buildInvoiceFileBaseName } from '../services/billing'
+import { downloadCsv } from '../lib/csv'
 import { formatBRL, formatDate } from '../lib/utils'
 
 type PortalTab = 'local' | 'demurrage'
@@ -74,6 +76,8 @@ export function PortalBilling() {
   const [consolidateOpen, setConsolidateOpen] = useState(false)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
   const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
+  const [disputeInvoiceId, setDisputeInvoiceId] = useState<number | null>(null)
+  const [disputeDocNumber, setDisputeDocNumber] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
   const [localFilters, setLocalFilters] = useState<Filters>(EMPTY_FILTERS)
   const [demFilters, setDemFilters] = useState<Filters>(EMPTY_FILTERS)
@@ -135,6 +139,20 @@ export function PortalBilling() {
     [demurrageInvoices, demFilters],
   )
 
+  async   function handleExportCsv() {
+    const headers = ['Fatura', 'Tipo', 'B/Ls', 'Emissao', 'Vencimento', 'Total BRL', 'Status']
+    const dataRows = (invoices ?? []).map((i) => [
+      i.invoice_number ?? `INV-${i.id}`,
+      i.invoice_type === 'consolidated' ? 'Consolidada' : 'Individual',
+      (i.bls ?? []).join('; '),
+      formatDate(i.issued_at) ?? '',
+      formatDate(i.due_date) ?? '',
+      formatBRL(i.total_brl),
+      i.status ?? '',
+    ])
+    downloadCsv(`faturas-${new Date().toISOString().slice(0, 10)}.csv`, headers, dataRows)
+  }
+
   async function handleObsolete() {
     if (!detailQuery.data?.invoice) return
     if (!window.confirm('Desfazer esta fatura consolidada? Os B/Ls voltam a ficar disponíveis para uma nova consolidação.')) {
@@ -161,10 +179,16 @@ export function PortalBilling() {
         title="Faturas"
         description="Consulte suas faturas, pague via PIX e consolide B/Ls em aberto."
         action={
-          <Button onClick={() => setConsolidateOpen(true)}>
-            <FilePlus2 size={16} />
-            Gerar fatura consolidada
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={handleExportCsv}>
+              <Download size={16} />
+              Exportar CSV
+            </Button>
+            <Button onClick={() => setConsolidateOpen(true)}>
+              <FilePlus2 size={16} />
+              Gerar fatura consolidada
+            </Button>
+          </div>
         }
       />
 
@@ -199,6 +223,7 @@ export function PortalBilling() {
           vesselOptions={demVesselOptions}
           pods={demPods}
           onOpenDetail={setSelectedDemurrageId}
+          onDispute={(id, doc) => { setDisputeInvoiceId(id); setDisputeDocNumber(doc) }}
         />
       )}
 
@@ -206,6 +231,12 @@ export function PortalBilling() {
         open={consolidateOpen}
         onClose={() => setConsolidateOpen(false)}
         onCreated={(id) => setSelectedInvoiceId(id)}
+      />
+
+      <DisputeModal
+        demurrageInvoiceId={disputeInvoiceId}
+        docNumber={disputeDocNumber}
+        onClose={() => setDisputeInvoiceId(null)}
       />
 
       {/* Detalhe da fatura de taxas locais */}
@@ -313,6 +344,19 @@ export function PortalBilling() {
                     </tbody>
                   </table>
                 </DetailSection>
+              ) : null}
+
+              {(detailInvoice as Record<string, unknown>)?.pix_payload ? (
+                <Card className="p-4">
+                  <div className="mb-3 text-sm font-semibold">Pagamento via PIX</div>
+                  <div className="flex flex-col items-center gap-4 sm:flex-row">
+                    <QRCodeSVG value={(detailInvoice as Record<string, unknown>).pix_payload as string} size={120} level="M" />
+                    <div>
+                      <div className="mb-1 text-xs text-[var(--app-muted)]">Copia e cola</div>
+                      <div className="max-w-xs break-all rounded bg-[var(--app-surface-muted)] p-2 font-mono text-xs">{(detailInvoice as Record<string, unknown>).pix_payload as string}</div>
+                    </div>
+                  </div>
+                </Card>
               ) : null}
             </>
           ) : null}
@@ -511,9 +555,10 @@ type DemTabProps = {
   vesselOptions: string[]
   pods: string[]
   onOpenDetail: (id: number) => void
+  onDispute: (id: number, docNumber: string) => void
 }
 
-function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, pods, onOpenDetail }: DemTabProps) {
+function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, pods, onOpenDetail, onDispute }: DemTabProps) {
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[var(--app-border)] px-5 py-4">
@@ -554,9 +599,19 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, po
                 <td className="px-4 py-3">{formatDate(inv.due_date)}</td>
                 <td className="px-4 py-3">$ {Number(inv.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td className="px-4 py-3">{inv.frozen_total_brl != null ? formatBRL(inv.frozen_total_brl) : '—'}</td>
-                <td className="px-4 py-3">{renderDemurrageBadge(inv.status)}</td>
                 <td className="px-4 py-3">
-                  <Button variant="secondary" onClick={() => onOpenDetail(inv.id)}>Detalhes</Button>
+                  <div className="flex items-center gap-1">
+                    {renderDemurrageBadge(inv.status)}
+                    {inv.dispute_open ? <Badge tone="yellow">Disputa</Badge> : null}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-1">
+                    <Button variant="secondary" onClick={() => onOpenDetail(inv.id)}>Detalhes</Button>
+                    {!inv.dispute_open && inv.status !== 'paid' && inv.status !== 'cancelled' ? (
+                      <Button variant="ghost" onClick={() => onDispute(inv.id, inv.doc_number)}>Disputar</Button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -569,19 +624,26 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, po
           <div className="py-6 text-center text-sm text-[var(--app-muted)]">Nenhuma fatura de demurrage para os filtros atuais.</div>
         ) : null}
         {invoices.map((inv) => (
-          <button
+          <div
             key={inv.id}
-            type="button"
-            onClick={() => onOpenDetail(inv.id)}
             className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 text-left"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold">{inv.doc_number}</span>
-              {renderDemurrageBadge(inv.status)}
+              <div className="flex items-center gap-1">
+                {renderDemurrageBadge(inv.status)}
+                {inv.dispute_open ? <Badge tone="yellow">D</Badge> : null}
+              </div>
             </div>
             <div className="mt-1 text-sm text-[var(--app-muted)]">{inv.bl_id} · {inv.pol ?? '-'} / {inv.pod ?? '-'}</div>
             <div className="mt-2 text-sm">$ {Number(inv.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-          </button>
+            <div className="mt-2 flex gap-1">
+              <Button variant="secondary" onClick={() => onOpenDetail(inv.id)}>Detalhes</Button>
+              {!inv.dispute_open && inv.status !== 'paid' && inv.status !== 'cancelled' ? (
+                <Button variant="ghost" onClick={() => onDispute(inv.id, inv.doc_number)}>Disputar</Button>
+              ) : null}
+            </div>
+          </div>
         ))}
       </div>
     </Card>

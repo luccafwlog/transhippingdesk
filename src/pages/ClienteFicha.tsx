@@ -66,6 +66,7 @@ export function ClienteFicha() {
   const [portalEmail, setPortalEmail] = useState('')
   const [portalPassword, setPortalPassword] = useState('')
   const [portalActive, setPortalActive] = useState(true)
+  const [portalCnpj, setPortalCnpj] = useState('')
 
   const portalAccountQuery = useQuery({
     queryKey: ['customer-portal-account', data?.id],
@@ -89,6 +90,7 @@ export function ClienteFicha() {
         contactEmail: trimmedEmail,
         active: portalActive,
         actorId: user?.id ?? null,
+        loginCnpj: portalCnpj || null,
       })
       // 2) cria/atualiza o usuário Supabase Auth (login email + senha)
       await provisionPortalAuthUser({
@@ -145,6 +147,7 @@ export function ClienteFicha() {
 
     setPortalEmail(portalAccount?.contact_email ?? primaryContact?.email ?? '')
     setPortalActive(portalAccount?.active ?? true)
+    setPortalCnpj(portalAccount?.login_cnpj ?? data.cnpj_cpf ?? '')
   }
 
   async function handleSaveCustomer() {
@@ -385,6 +388,14 @@ export function ClienteFicha() {
         ) : null}
 
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="CNPJ para login">
+            <Input
+              type="text"
+              value={portalCnpj}
+              onChange={(event) => setPortalCnpj(event.target.value)}
+              placeholder="CNPJ do cliente (apenas numeros)"
+            />
+          </Field>
           <Field label="Email de login">
             <Input type="email" value={portalEmail} onChange={(event) => setPortalEmail(event.target.value)} placeholder="financeiro@cliente.com" />
           </Field>

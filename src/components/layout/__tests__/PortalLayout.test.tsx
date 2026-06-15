@@ -10,6 +10,12 @@ vi.mock('../../../hooks/usePortalAuth', () => ({
   }),
 }))
 
+vi.mock('../../../hooks/usePortalNotifications', () => ({
+  usePortalNotifications: () => ({ data: [], isLoading: false }),
+  usePortalMarkRead: () => ({ mutate: vi.fn() }),
+  usePortalMarkAllRead: () => ({ mutate: vi.fn() }),
+}))
+
 import { PortalLayout } from '../PortalLayout'
 
 afterEach(cleanup)
