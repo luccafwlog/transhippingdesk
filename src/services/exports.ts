@@ -9,6 +9,9 @@ import type {
 import { getInvoiceBls, getInvoicePaymentDate, isConsolidatedInvoice, type InvoiceListRow } from './billing'
 import { invoiceStatusLabel } from '../pages/faturamentoInvoiceStatus'
 import { formatDate } from '../lib/utils'
+import type { PortalDemurrageInvoice, PortalInvoiceSummary } from './portalBilling'
+import type { PortalOperationBL } from './portalOperation'
+import type { PortalFlatContainer } from '../lib/portalOperationViews'
 
 // Neutraliza injeção de fórmula (CSV/Excel injection). Dados de células vêm de
 // arquivos de armador importados (não confiáveis): um valor iniciado por
@@ -324,6 +327,95 @@ export async function exportVaziosImportacaoWorkbook(rows: VaziosImportacaoConta
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'VaziosImportacao')
   XLSX.writeFile(workbook, `vazios-importacao-${makeTimestamp()}.xlsx`)
+}
+
+// --- Portal do cliente ---------------------------------------------------
+// Exportacoes do portal espelham as colunas exibidas nas telas, escopadas ao
+// cliente autenticado. Sempre .xlsx, nunca CSV.
+
+export async function exportPortalLocalInvoicesWorkbook(rows: PortalInvoiceSummary[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    'B/L': (row.bls ?? []).join(' • '),
+    Fatura: row.invoice_number ?? `INV-${row.id}`,
+    Tipo: row.invoice_type === 'consolidated' ? 'Consolidada' : 'Individual',
+    'Navio/Viagem': (row.vessel_voyages ?? []).join(' / '),
+    POD: (row.pods ?? []).join(' / '),
+    Emissao: row.issued_at ? formatDate(row.issued_at) : '',
+    Pagamento: row.due_date ? formatDate(row.due_date) : '',
+    TotalBRL: Number(row.total_brl ?? 0),
+    PagoBRL: Number(row.total_paid_brl ?? 0),
+    SaldoBRL: Number(row.balance_brl ?? 0),
+    Status: row.status ?? '',
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'TaxasLocais')
+  XLSX.writeFile(workbook, `faturas-taxas-locais-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportPortalDemurrageWorkbook(rows: PortalDemurrageInvoice[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    Documento: row.doc_number,
+    'B/L': row.bl_id,
+    'Navio/Viagem': [row.vessel_name, row.voyage_number].filter(Boolean).join(' / '),
+    POL: row.pol ?? '',
+    POD: row.pod ?? '',
+    Emissao: formatDate(row.billed_at ?? row.doc_date) ?? '',
+    Vencimento: formatDate(row.due_date) ?? '',
+    TotalUSD: Number(row.total_usd ?? 0),
+    TotalBRL: row.frozen_total_brl != null ? Number(row.frozen_total_brl) : '',
+    Status: row.status ?? '',
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Demurrage')
+  XLSX.writeFile(workbook, `faturas-demurrage-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportPortalBlsWorkbook(rows: PortalOperationBL[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    'B/L': row.bl_id,
+    'CE Mercante': row.ce_mercante ?? '',
+    Navio: row.vessel_name ?? '',
+    Viagem: row.voyage_number ?? '',
+    POL: row.pol ?? '',
+    POD: row.pod ?? '',
+    Containers: row.container_count,
+    Devolvidos: row.containers_returned,
+    'Sem devolucao': row.container_count - row.containers_returned,
+    'Em demurrage': row.containers_in_demurrage,
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'BLs')
+  XLSX.writeFile(workbook, `bls-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportPortalContainersWorkbook(rows: PortalFlatContainer[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    Container: row.container_number,
+    Tipo: row.type ?? '',
+    'B/L': row.bl_id,
+    'CE Mercante': row.ce_mercante ?? '',
+    Navio: row.vessel_name ?? '',
+    Viagem: row.voyage_number ?? '',
+    POL: row.pol ?? '',
+    POD: row.pod ?? '',
+    Descarga: formatDate(row.discharge_date) ?? '',
+    Devolucao: row.return_date ? formatDate(row.return_date) : '',
+    'Dias de uso': row.usage_days ?? '',
+    'Free time': row.free_time_days ?? '',
+    'Dias em demurrage': row.demurrage_days ?? '',
+    Status: row.status,
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Containers')
+  XLSX.writeFile(workbook, `containers-${makeTimestamp()}.xlsx`)
 }
 
 function makeTimestamp() {

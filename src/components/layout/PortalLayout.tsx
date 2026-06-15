@@ -7,9 +7,10 @@ import { NotificationBell } from '../portal/NotificationBell'
 import { cn, formatCnpjCpf } from '../../lib/utils'
 
 const portalNavItems = [
-  { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/portal', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/portal/billing', label: 'Faturas', icon: FileText, end: false },
-  { to: '/portal/operacao', label: 'Operacao', icon: Package, end: false },
+  { to: '/portal/operacao', label: 'BLs e Containers', icon: Package, end: false },
+  { to: '/portal/perfil', label: 'Perfil', icon: User, end: false },
 ]
 
 export function PortalLayout() {

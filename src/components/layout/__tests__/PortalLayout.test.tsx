@@ -22,15 +22,18 @@ import { PortalLayout } from '../PortalLayout'
 afterEach(cleanup)
 
 describe('PortalLayout', () => {
-  it('mostra navegacao para faturas e operacao', () => {
+  it('mostra navegacao para Painel, Faturas, BLs e Containers e Perfil', () => {
     render(
       <MemoryRouter initialEntries={['/portal/operacao']}>
         <PortalLayout />
       </MemoryRouter>,
     )
 
+    expect(screen.getByRole('link', { name: 'Painel' }).getAttribute('href')).toBe('/portal')
     expect(screen.getByRole('link', { name: 'Faturas' }).getAttribute('href')).toBe('/portal/billing')
-    expect(screen.getByRole('link', { name: 'Operacao' }).getAttribute('href')).toBe('/portal/operacao')
-    expect(screen.getByRole('link', { name: 'Operacao' }).className).toContain('active')
+    expect(screen.getByRole('link', { name: 'BLs e Containers' }).getAttribute('href')).toBe('/portal/operacao')
+    // "Perfil" aparece no header (icone) e na navegacao; ambos apontam para /portal/perfil
+    expect(screen.getAllByRole('link', { name: 'Perfil' }).every((l) => l.getAttribute('href') === '/portal/perfil')).toBe(true)
+    expect(screen.getByRole('link', { name: 'BLs e Containers' }).className).toContain('active')
   })
 })
