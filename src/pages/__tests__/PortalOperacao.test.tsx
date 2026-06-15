@@ -64,19 +64,26 @@ import { PortalOperacao } from '../PortalOperacao'
 
 afterEach(cleanup)
 
+// jsdom nao aplica CSS, entao tanto a view desktop (hidden md:block) quanto a
+// mobile (md:hidden) renderizam juntas. Escopamos as queries a tabela desktop.
+function desktopView(container: HTMLElement): HTMLElement {
+  return container.querySelector('.md\\:block') as HTMLElement
+}
+
 describe('PortalOperacao', () => {
   it('lista BLs com CE Mercante e abre containers com dias operacionais', async () => {
     const user = userEvent.setup()
-    render(<PortalOperacao />)
+    const { container } = render(<PortalOperacao />)
+    const desktop = desktopView(container)
 
     expect(screen.getByRole('heading', { name: 'Operacao' })).toBeTruthy()
-    expect(screen.getByText('BL001')).toBeTruthy()
-    expect(screen.getByText('CE 123456789012345')).toBeTruthy()
-    expect(screen.getByText('NAVIO TESTE / 001W')).toBeTruthy()
+    expect(within(desktop).getByText('BL001')).toBeTruthy()
+    expect(within(desktop).getByText('CE 123456789012345')).toBeTruthy()
+    expect(within(desktop).getByText('NAVIO TESTE / 001W')).toBeTruthy()
 
-    await user.click(screen.getAllByRole('button').find((b) => b.textContent?.includes('BL001'))!)
+    await user.click(within(desktop).getByRole('row', { name: /BL001/ }))
 
-    const table = screen.getByRole('table', { name: 'Containers do BL BL001' })
+    const table = within(desktop).getByRole('table', { name: 'Containers do BL BL001' })
     expect(within(table).getByText('ABCD1234567')).toBeTruthy()
     expect(within(table).getByText('EFGH1234567')).toBeTruthy()
     expect(within(table).getByText('20/06/2026')).toBeTruthy()
@@ -88,10 +95,11 @@ describe('PortalOperacao', () => {
 
   it('mostra estado de BL sem containers vinculados', async () => {
     const user = userEvent.setup()
-    render(<PortalOperacao />)
+    const { container } = render(<PortalOperacao />)
+    const desktop = desktopView(container)
 
-    await user.click(screen.getAllByRole('button').find((b) => b.textContent?.includes('BL002'))!)
+    await user.click(within(desktop).getByRole('row', { name: /BL002/ }))
 
-    expect(screen.getByText('Nenhum container vinculado a este B/L.')).toBeTruthy()
+    expect(within(desktop).getByText('Nenhum container vinculado a este B/L.')).toBeTruthy()
   })
 })
