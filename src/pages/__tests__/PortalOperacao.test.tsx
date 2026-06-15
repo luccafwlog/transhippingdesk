@@ -74,7 +74,7 @@ describe('PortalOperacao', () => {
     expect(screen.getByText('CE 123456789012345')).toBeTruthy()
     expect(screen.getByText('NAVIO TESTE / 001W')).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: 'Detalhes BL001' }))
+    await user.click(screen.getAllByRole('button').find((b) => b.textContent?.includes('BL001'))!)
 
     const table = screen.getByRole('table', { name: 'Containers do BL BL001' })
     expect(within(table).getByText('ABCD1234567')).toBeTruthy()
@@ -90,7 +90,7 @@ describe('PortalOperacao', () => {
     const user = userEvent.setup()
     render(<PortalOperacao />)
 
-    await user.click(screen.getByRole('button', { name: 'Detalhes BL002' }))
+    await user.click(screen.getAllByRole('button').find((b) => b.textContent?.includes('BL002'))!)
 
     expect(screen.getByText('Nenhum container vinculado a este B/L.')).toBeTruthy()
   })
