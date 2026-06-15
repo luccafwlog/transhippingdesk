@@ -239,6 +239,7 @@ type CustomerPortalAccount = {
   customer_id: number
   contact_email: string | null
   active: boolean
+  login_cnpj: string | null
   created_by: string | null
   last_login_at: string | null
   created_at: string | null
@@ -310,6 +311,7 @@ export async function upsertCustomerPortalAccount(input: {
   contactEmail?: string | null
   active?: boolean
   actorId?: string | null
+  loginCnpj?: string | null
 }) {
   const { data, error } = await supabase.rpc('upsert_customer_portal_account', {
     p_customer_id: input.customerId,
@@ -317,6 +319,7 @@ export async function upsertCustomerPortalAccount(input: {
     p_contact_email: input.contactEmail ?? null,
     p_active: input.active ?? true,
     p_actor: input.actorId ?? null,
+    p_login_cnpj: input.loginCnpj ?? null,
   })
 
   if (error) throw new Error(normalizeCustomerPortalRpcError(error, 'upsert'))

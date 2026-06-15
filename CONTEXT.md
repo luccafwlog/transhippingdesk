@@ -46,8 +46,20 @@ Container com dimensões fora do padrão ISO. Flag `is_oog`.
 Interface externa, separada do sistema interno, onde um Cliente consulta suas faturas (taxas locais e demurrage), efetua pagamento (PIX) e pode consolidar B/Ls em aberto numa fatura única. Autenticação própria, isolada do acesso operacional interno.
 
 **Conta de Portal**
-Vínculo entre um Cliente e uma credencial de acesso ao Portal do Cliente. A credencial canônica é **email + senha**. Um Cliente tem no máximo uma Conta de Portal. Provisionada internamente por um administrador — não há cadastro público.
+Vínculo entre um Cliente e uma credencial de acesso ao Portal do Cliente. A credencial canônica é **CNPJ (ou email) + senha**. Um Cliente tem no máximo uma Conta de Portal. Provisionada internamente por um administrador — não há cadastro público.
+
+**Login de Portal**
+O cliente pode autenticar-se informando seu **CNPJ** (14 dígitos) **ou** o **email** cadastrado na Conta de Portal. Ambos resolvem para o mesmo registro `auth.users` do Supabase Auth.
 
 **Email de contato**
 Endereço para comunicação financeira de um Cliente. É um dado informativo da Conta de Portal e não deve ser confundido com a credencial de login (embora possam coincidir).
+
+**Disputa de Demurrage**
+Contestação aberta pelo cliente sobre valores, dias ou condições de uma fatura de demurrage. A disputa é registrada com texto livre no portal e gera alerta para o operador interno responder.
+
+**Notificação In-App**
+Alerta visual exibido no ícone de sino no cabeçalho do Portal do Cliente. Gerada por eventos como: nova fatura emitida, container em demurrage, resposta a disputa.
+
+**Dashboard do Portal**
+Página inicial do portal (`/portal`) com resumo financeiro (saldo pendente, faturas em aberto), indicadores operacionais (B/Ls, containers, demurrage) e alertas visuais.
 

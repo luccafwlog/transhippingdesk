@@ -1,11 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Building2, LogOut } from 'lucide-react'
+import { Building2, LayoutDashboard, LogOut, User } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePortalAuth } from '../../hooks/usePortalAuth'
+import { NotificationBell } from '../portal/NotificationBell'
 import { formatCnpjCpf } from '../../lib/utils'
 
-// Casca visual própria do portal do cliente. Reusa os tokens/classes do design
-// system interno (app-shell, app-header, app-main) mas com navegação enxuta.
 export function PortalLayout() {
   const { overview, signOut } = usePortalAuth()
 
@@ -13,15 +12,21 @@ export function PortalLayout() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header__content">
-          <div className="app-header__brand">
+          <NavLink to="/portal" className="app-header__brand">
             <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
             <div className="app-header__titles">
               <div className="app-header__eyebrow">Portal do cliente</div>
               <div className="app-header__subtitle">faturas e operacao</div>
             </div>
-          </div>
+          </NavLink>
 
           <div className="app-header__actions">
+            <NotificationBell />
+
+            <NavLink to="/portal/perfil" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)]">
+              <User size={14} />
+            </NavLink>
+
             <div className="app-user-pill" title={formatCnpjCpf(overview?.customer_cnpj_cpf)}>
               <span className="app-user-pill__icon" aria-hidden="true">
                 <Building2 size={14} />
@@ -36,6 +41,7 @@ export function PortalLayout() {
           </div>
         </div>
         <nav className="mx-auto flex w-full max-w-[var(--app-content-max)] gap-2 px-4 pb-3 sm:px-6 lg:px-8" aria-label="Portal">
+          <PortalNavLink to="/portal" label="Dashboard" icon={<LayoutDashboard size={14} />} />
           <PortalNavLink to="/portal/billing" label="Faturas" />
           <PortalNavLink to="/portal/operacao" label="Operacao" />
         </nav>
@@ -48,10 +54,10 @@ export function PortalLayout() {
   )
 }
 
-function PortalNavLink({ to, label }: { to: string; label: string }) {
+function PortalNavLink({ to, label, icon }: { to: string; label: string; icon?: React.ReactNode }) {
   return (
-    <NavLink className={({ isActive }) => `app-tab ${isActive ? 'app-tab--active' : ''}`} to={to}>
-      {label}
+    <NavLink className={({ isActive }) => `app-tab ${isActive ? 'app-tab--active' : ''}`} to={to} end={to === '/portal'}>
+      {icon}{label}
     </NavLink>
   )
 }

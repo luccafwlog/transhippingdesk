@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import { supabasePortal } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
+import { portalResolveLogin } from '../services/portalBilling'
 import type { PortalSessionOverview } from '../services/portalBilling'
 
 type PortalAuthContextValue = {
@@ -28,6 +29,7 @@ function normalizePortalOverview(payload: Record<string, unknown>) {
     customer_cnpj_cpf: String(payload.customer_cnpj_cpf ?? payload.cnpj_cpf ?? ''),
     pending_balance: payload.pending_balance == null ? null : Number(payload.pending_balance),
     contact_email: payload.contact_email == null ? null : String(payload.contact_email),
+    login_cnpj: payload.login_cnpj == null ? null : String(payload.login_cnpj),
   } as PortalSessionOverview
 }
 
@@ -68,11 +70,25 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
     return () => { mounted = false }
   }, [clearSession])
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  function isDocument(value: string): boolean {
+    const digits = value.replace(/\D/g, '')
+    return digits.length === 11 || digits.length === 14
+  }
+
+  const signIn = useCallback(async (login: string, password: string) => {
     setLoading(true)
     try {
+      let email = login.trim()
+
+      // Se não parece um email, tenta resolver como CNPJ/CPF
+      if (!email.includes('@')) {
+        if (isDocument(email)) {
+          email = await portalResolveLogin(email)
+        }
+      }
+
       const { error } = await supabasePortal.auth.signInWithPassword({
-        email: email.trim(),
+        email,
         password,
       })
       if (error) throw new Error(error.message)

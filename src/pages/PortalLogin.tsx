@@ -1,21 +1,31 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import { isSupabaseConfigured } from '../services/supabase'
 
+function isCnpj(value: string): boolean {
+  const digits = value.replace(/\D/g, '')
+  return digits.length === 14
+}
+
+function isCpf(value: string): boolean {
+  const digits = value.replace(/\D/g, '')
+  return digits.length === 11
+}
+
 export function PortalLogin() {
   const navigate = useNavigate()
   const { isAuthenticated, loading, signIn } = usePortalAuth()
-  const [email, setEmail] = useState('')
+  const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   if (!loading && isAuthenticated) {
-    return <Navigate to="/portal/billing" replace />
+    return <Navigate to="/portal" replace />
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -24,8 +34,8 @@ export function PortalLogin() {
     setSubmitting(true)
 
     try {
-      await signIn(email, password)
-      navigate('/portal/billing', { replace: true })
+      await signIn(login, password)
+      navigate('/portal', { replace: true })
     } catch (err: unknown) {
       const code = typeof err === 'object' && err !== null ? String((err as { code?: string }).code ?? '') : ''
       if (code === 'P0429') {
@@ -37,6 +47,9 @@ export function PortalLogin() {
       setSubmitting(false)
     }
   }
+
+  const isCnpjInput = isCnpj(login)
+  const isCpfInput = isCpf(login)
 
   return (
     <main className="app-auth">
@@ -56,13 +69,15 @@ export function PortalLogin() {
         ) : null}
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <Field label="Email">
+          <Field label={isCnpjInput ? 'CNPJ' : isCpfInput ? 'CPF' : 'Login'}>
             <Input
               required
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              type="text"
+              inputMode="email"
+              autoComplete="username"
+              value={login}
+              onChange={(event) => setLogin(event.target.value)}
+              placeholder="CNPJ ou email cadastrado"
             />
           </Field>
 
@@ -81,6 +96,12 @@ export function PortalLogin() {
             Entrar no portal
           </Button>
         </form>
+
+        <div className="mt-3 text-center text-sm">
+          <Link to="/portal/esqueci-senha" className="text-[var(--app-link)] hover:underline">
+            Esqueci minha senha
+          </Link>
+        </div>
 
         <p className="app-auth__meta">
           Acesso provisionado internamente por cliente. Não há cadastro público.
