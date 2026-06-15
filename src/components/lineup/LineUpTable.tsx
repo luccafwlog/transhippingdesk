@@ -38,13 +38,13 @@ export function LineUpTable({
         style={isDisplay && rowHeight ? ({ ['--lineup-display-row-height' as string]: `${rowHeight}px` } as CSSProperties) : undefined}
       >
         <colgroup>
-          <col className={isDisplay ? 'w-[21%]' : 'w-[22%]'} />
+          <col className={isDisplay ? 'w-[19%]' : 'w-[19%]'} />
           <col className={isDisplay ? 'w-[4%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[7%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
-          <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
+          <col className={isDisplay ? 'w-[8%]' : 'w-[8%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[7%]' : 'w-[6%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
