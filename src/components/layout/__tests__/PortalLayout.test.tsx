@@ -31,6 +31,6 @@ describe('PortalLayout', () => {
 
     expect(screen.getByRole('link', { name: 'Faturas' }).getAttribute('href')).toBe('/portal/billing')
     expect(screen.getByRole('link', { name: 'Operacao' }).getAttribute('href')).toBe('/portal/operacao')
-    expect(screen.getByRole('link', { name: 'Operacao' }).className).toContain('app-tab--active')
+    expect(screen.getByRole('link', { name: 'Operacao' }).className).toContain('active')
   })
 })
