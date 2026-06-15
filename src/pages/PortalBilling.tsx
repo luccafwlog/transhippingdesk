@@ -1,4 +1,5 @@
 import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Download, FilePlus2, Printer, RotateCcw } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '../components/ui/Badge'
@@ -25,7 +26,7 @@ import {
 } from '../hooks/usePortalBilling'
 import type { PortalDemurrageInvoice, PortalInvoiceSummary } from '../services/portalBilling'
 import { buildInvoiceFileBaseName } from '../services/billing'
-import { downloadCsv } from '../lib/csv'
+import { exportPortalDemurrageWorkbook, exportPortalLocalInvoicesWorkbook } from '../services/exports'
 import { formatBRL, formatDate, stripBlPrefix } from '../lib/utils'
 
 type PortalTab = 'local' | 'demurrage'
@@ -72,7 +73,15 @@ export function PortalBilling() {
   const { data: demurrageInvoices, isLoading: demurrageLoading } = usePortalDemurrageInvoices()
   const obsoleteMutation = usePortalObsoleteConsolidation()
 
-  const [tab, setTab] = useState<PortalTab>('local')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab: PortalTab = searchParams.get('tab') === 'demurrage' ? 'demurrage' : 'local'
+  const setTab = (next: PortalTab) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev)
+      params.set('tab', next)
+      return params
+    })
+  }
   const [consolidateOpen, setConsolidateOpen] = useState(false)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
   const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
@@ -139,36 +148,12 @@ export function PortalBilling() {
     [demurrageInvoices, demFilters],
   )
 
-  function handleExportCsv() {
-    const day = new Date().toISOString().slice(0, 10)
-
+  function handleExport() {
     if (tab === 'demurrage') {
-      const headers = ['Documento', 'B/L', 'Navio/Viagem', 'Emissao', 'Vencimento', 'Total USD', 'Total BRL', 'Status']
-      const dataRows = filteredDemurrage.map((i) => [
-        i.doc_number,
-        i.bl_id,
-        [i.vessel_name, i.voyage_number].filter(Boolean).join(' / '),
-        formatDate(i.billed_at ?? i.doc_date) ?? '',
-        formatDate(i.due_date) ?? '',
-        Number(i.total_usd).toFixed(2),
-        i.frozen_total_brl != null ? formatBRL(i.frozen_total_brl) : '',
-        i.status ?? '',
-      ])
-      downloadCsv(`demurrage-${day}.csv`, headers, dataRows)
+      void exportPortalDemurrageWorkbook(filteredDemurrage)
       return
     }
-
-    const headers = ['Fatura', 'Tipo', 'B/Ls', 'Emissao', 'Vencimento', 'Total BRL', 'Status']
-    const dataRows = filteredInvoices.map((i) => [
-      i.invoice_number ?? `INV-${i.id}`,
-      i.invoice_type === 'consolidated' ? 'Consolidada' : 'Individual',
-      (i.bls ?? []).join('; '),
-      formatDate(i.issued_at) ?? '',
-      formatDate(i.due_date) ?? '',
-      formatBRL(i.total_brl),
-      i.status ?? '',
-    ])
-    downloadCsv(`faturas-${day}.csv`, headers, dataRows)
+    void exportPortalLocalInvoicesWorkbook(filteredInvoices)
   }
 
   async function handleObsolete() {
@@ -198,9 +183,9 @@ export function PortalBilling() {
         description="Consulte suas faturas, pague via PIX e consolide B/Ls em aberto."
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={handleExportCsv}>
+            <Button variant="ghost" onClick={handleExport}>
               <Download size={16} />
-              Exportar CSV
+              Exportar Excel
             </Button>
             <Button onClick={() => setConsolidateOpen(true)}>
               <FilePlus2 size={16} />
@@ -501,32 +486,42 @@ function LocalFeesTab({ invoices, loading, error, filters, onFilters, vesselOpti
 
       {/* Desktop */}
       <div className="hidden app-table-scroll md:block">
-        <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+        <table className="app-table app-table--compact min-w-[920px] text-left text-sm">
           <thead>
             <tr>
-              <th scope="col" className="px-4 py-3">Fatura</th>
               <th scope="col" className="px-4 py-3">B/L</th>
+              <th scope="col" className="px-4 py-3">Fatura</th>
               <th scope="col" className="px-4 py-3">Tipo</th>
+              <th scope="col" className="px-4 py-3">Navio / Viagem · POD</th>
               <th scope="col" className="px-4 py-3">Emissao</th>
-              <th scope="col" className="px-4 py-3">Total</th>
+              <th scope="col" className="px-4 py-3">Pagamento</th>
+              <th scope="col" className="px-4 py-3">Financeiro</th>
               <th scope="col" className="px-4 py-3">Status</th>
-              <th scope="col" className="px-4 py-3">Acao</th>
+              <th scope="col" className="px-4 py-3">Acoes</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={7}>Carregando faturas...</td></tr>
+              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={9}>Carregando faturas...</td></tr>
             ) : null}
             {!loading && invoices.length === 0 ? (
-              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={7}>Nenhuma fatura para os filtros atuais.</td></tr>
+              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={9}>Nenhuma fatura para os filtros atuais.</td></tr>
             ) : null}
             {invoices.map((invoice) => (
               <tr key={invoice.id}>
-                <td className="px-4 py-3 font-semibold">{invoice.invoice_number ?? `INV-${invoice.id}`}</td>
-                <td className="px-4 py-3">{formatBlList(invoice.bls)}</td>
+                <td className="px-4 py-3 font-semibold">{formatBlList(invoice.bls)}</td>
+                <td className="px-4 py-3">{invoice.invoice_number ?? `INV-${invoice.id}`}</td>
                 <td className="px-4 py-3">{invoice.invoice_type === 'consolidated' ? 'Consolidada' : 'Individual'}</td>
+                <td className="px-4 py-3">
+                  <div>{(invoice.vessel_voyages ?? []).join(' / ') || '—'}</div>
+                  <div className="text-xs text-[var(--app-muted)]">{(invoice.pods ?? []).join(' / ') || '—'}</div>
+                </td>
                 <td className="px-4 py-3">{formatDate(invoice.issued_at)}</td>
-                <td className="px-4 py-3">{formatBRL(invoice.total_brl)}</td>
+                <td className="px-4 py-3">{formatDate(invoice.due_date)}</td>
+                <td className="px-4 py-3">
+                  <div className="font-semibold">{formatBRL(invoice.total_brl)}</div>
+                  <div className="text-xs text-[var(--app-muted)]">Saldo {formatBRL(invoice.balance_brl)}</div>
+                </td>
                 <td className="px-4 py-3">{renderInvoiceBadge(invoice.status)}</td>
                 <td className="px-4 py-3">
                   <Button variant="secondary" onClick={() => onOpenDetail(invoice.id)}>Detalhes</Button>

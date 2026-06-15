@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import type { PortalDemurrageInvoice, PortalInvoiceSummary } from '../../services/portalBilling'
 
 const localInvoices: PortalInvoiceSummary[] = [
@@ -64,7 +65,8 @@ const demurrageInvoices: PortalDemurrageInvoice[] = [
   },
 ]
 
-const downloadCsv = vi.fn()
+const exportLocal = vi.fn()
+const exportDemurrage = vi.fn()
 
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
@@ -98,69 +100,64 @@ vi.mock('../../hooks/usePortalBilling', () => ({
   usePortalObsoleteConsolidation: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }))
 
-vi.mock('../../lib/csv', () => ({
-  downloadCsv: (...args: unknown[]) => downloadCsv(...args),
+vi.mock('../../services/exports', () => ({
+  exportPortalLocalInvoicesWorkbook: (...args: unknown[]) => exportLocal(...args),
+  exportPortalDemurrageWorkbook: (...args: unknown[]) => exportDemurrage(...args),
 }))
 
 import { PortalBilling } from '../PortalBilling'
 
+function renderBilling() {
+  return render(
+    <MemoryRouter initialEntries={['/portal/billing']}>
+      <PortalBilling />
+    </MemoryRouter>,
+  )
+}
+
 afterEach(() => {
   cleanup()
-  downloadCsv.mockClear()
+  exportLocal.mockClear()
+  exportDemurrage.mockClear()
 })
 
 describe('PortalBilling', () => {
-  it('exporta CSV de taxas locais usando apenas as faturas filtradas', async () => {
+  it('exibe abas Taxas Locais e Demurrage e oculta o filtro Cliente', async () => {
     const user = userEvent.setup()
-    render(<PortalBilling />)
+    renderBilling()
+
+    expect(screen.getByRole('tab', { name: 'Taxas Locais' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Demurrage' })).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: /Filtros/i }))
+    expect(screen.queryByLabelText('Cliente')).toBeNull()
+  })
+
+  it('exporta Excel de taxas locais usando apenas as faturas filtradas', async () => {
+    const user = userEvent.setup()
+    renderBilling()
 
     await user.click(screen.getByRole('button', { name: /Filtros/i }))
     await user.type(screen.getByLabelText('B/L'), 'BL-EXPORTADO')
-    await user.click(screen.getByRole('button', { name: /Exportar CSV/i }))
+    await user.click(screen.getByRole('button', { name: /Exportar Excel/i }))
 
-    expect(downloadCsv).toHaveBeenCalledTimes(1)
-    const rows = downloadCsv.mock.calls[0]?.[2] as string[][]
+    expect(exportLocal).toHaveBeenCalledTimes(1)
+    expect(exportDemurrage).not.toHaveBeenCalled()
+    const rows = exportLocal.mock.calls[0]?.[0] as PortalInvoiceSummary[]
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toEqual([
-      'INV-001',
-      'Individual',
-      'BL-EXPORTADO',
-      '01/06/2026',
-      '20/06/2026',
-      expect.stringContaining('100,00'),
-      'issued',
-    ])
+    expect(rows[0].invoice_number).toBe('INV-001')
   })
 
-  it('exporta CSV de demurrage quando a aba Demurrage esta ativa', async () => {
+  it('exporta Excel de demurrage quando a aba Demurrage esta ativa', async () => {
     const user = userEvent.setup()
-    render(<PortalBilling />)
+    renderBilling()
 
     await user.click(screen.getByRole('tab', { name: 'Demurrage' }))
-    await user.click(screen.getByRole('button', { name: /Exportar CSV/i }))
+    await user.click(screen.getByRole('button', { name: /Exportar Excel/i }))
 
-    expect(downloadCsv).toHaveBeenCalledTimes(1)
-    expect(downloadCsv.mock.calls[0]?.[1]).toEqual([
-      'Documento',
-      'B/L',
-      'Navio/Viagem',
-      'Emissao',
-      'Vencimento',
-      'Total USD',
-      'Total BRL',
-      'Status',
-    ])
-    const rows = downloadCsv.mock.calls[0]?.[2] as string[][]
+    expect(exportDemurrage).toHaveBeenCalledTimes(1)
+    const rows = exportDemurrage.mock.calls[0]?.[0] as PortalDemurrageInvoice[]
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toEqual([
-      'DEM-001',
-      'BL-DEM',
-      'NAVIO C / 003W',
-      '03/06/2026',
-      '30/06/2026',
-      '50.00',
-      expect.stringContaining('250,00'),
-      'issued',
-    ])
+    expect(rows[0].doc_number).toBe('DEM-001')
   })
 })

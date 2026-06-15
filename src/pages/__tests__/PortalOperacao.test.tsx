@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import type { PortalOperationBL } from '../../services/portalOperation'
 
 const rows: PortalOperationBL[] = [
@@ -100,54 +101,54 @@ import { PortalOperacao } from '../PortalOperacao'
 
 afterEach(cleanup)
 
-// jsdom nao aplica CSS, entao tanto a view desktop (hidden md:block) quanto a
-// mobile (md:hidden) renderizam juntas. Escopamos as queries a tabela desktop.
-function desktopView(container: HTMLElement): HTMLElement {
-  return container.querySelector('.md\\:block') as HTMLElement
+function renderOperacao(initialEntry = '/portal/operacao') {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <PortalOperacao />
+    </MemoryRouter>,
+  )
 }
 
-describe('PortalOperacao', () => {
-  it('lista BLs com CE Mercante e abre containers com dias operacionais', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<PortalOperacao />)
-    const desktop = desktopView(container)
+describe('PortalOperacao (BLs e Containers)', () => {
+  it('mostra as abas BLs e Containers e a coluna POL na aba BLs', () => {
+    renderOperacao()
+    expect(screen.getByRole('heading', { name: 'BLs e Containers' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'BLs' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Containers' })).toBeTruthy()
 
-    expect(screen.getByRole('heading', { name: 'Operacao' })).toBeTruthy()
-    expect(within(desktop).getByText('BL001')).toBeTruthy()
-    expect(within(desktop).getByText('CE 123456789012345')).toBeTruthy()
-    expect(within(desktop).getByText('NAVIO TESTE / 001W')).toBeTruthy()
-
-    await user.click(within(desktop).getByRole('row', { name: /BL001/ }))
-
-    const table = within(desktop).getByRole('table', { name: 'Containers do BL BL001' })
-    expect(within(table).getByText('ABCD1234567')).toBeTruthy()
-    expect(within(table).getByText('EFGH1234567')).toBeTruthy()
-    expect(within(table).getByText('20/06/2026')).toBeTruthy()
-    expect(within(table).getByText('Pendente')).toBeTruthy()
-    expect(within(table).getByText('19')).toBeTruthy()
-    expect(within(table).getByText('15')).toBeTruthy()
-    expect(within(table).getByText('Em demurrage')).toBeTruthy()
+    const blsTable = screen.getByRole('table')
+    expect(within(blsTable).getByRole('columnheader', { name: 'POL' })).toBeTruthy()
+    // POL exibido na linha do B/L
+    expect(within(blsTable).getAllByText('CNSHA').length).toBeGreaterThan(0)
   })
 
-  it('mostra estado de BL sem containers vinculados', async () => {
+  it('filtra B/Ls por navio na aba BLs', async () => {
     const user = userEvent.setup()
-    const { container } = render(<PortalOperacao />)
-    const desktop = desktopView(container)
-
-    await user.click(within(desktop).getByRole('row', { name: /BL002/ }))
-
-    expect(within(desktop).getByText('Nenhum container vinculado a este B/L.')).toBeTruthy()
-  })
-
-  it('filtra Devolvidos apenas quando todos os containers do B/L foram devolvidos', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<PortalOperacao />)
-    const desktop = desktopView(container)
+    renderOperacao()
 
     await user.click(screen.getByRole('button', { name: /Filtros/i }))
-    await user.selectOptions(screen.getByLabelText('Status'), 'todos_devolvidos')
+    await user.type(screen.getByLabelText('Navio'), 'NAVIO TESTE')
 
-    expect(within(desktop).queryByText('BL001')).toBeNull()
-    expect(within(desktop).getByText('BL003')).toBeTruthy()
+    expect(screen.getByText('BL001')).toBeTruthy()
+    expect(screen.queryByText('BL003')).toBeNull()
+  })
+
+  it('deriva a aba Containers dos containers dos B/Ls', async () => {
+    const user = userEvent.setup()
+    renderOperacao()
+
+    await user.click(screen.getByRole('tab', { name: 'Containers' }))
+    // Containers de todos os B/Ls aparecem sem precisar abrir o B/L
+    expect(screen.getByText('ABCD1234567')).toBeTruthy()
+    expect(screen.getByText('EFGH1234567')).toBeTruthy()
+    expect(screen.getByText('IJKL1234567')).toBeTruthy()
+  })
+
+  it('abre a aba Containers filtrada por demurrage via query param', () => {
+    renderOperacao('/portal/operacao?tab=containers&devolucao=em_demurrage')
+    // Apenas EFGH (em demurrage, sem devolucao) deve aparecer
+    expect(screen.getByText('EFGH1234567')).toBeTruthy()
+    expect(screen.queryByText('ABCD1234567')).toBeNull()
+    expect(screen.queryByText('IJKL1234567')).toBeNull()
   })
 })
