@@ -2,6 +2,12 @@ import { supabasePortal } from './supabase'
 import type { InvoiceDetail } from './billing'
 import type { ConsolidatableReceivable, DemurrageInvoiceItem } from '../types/database'
 
+type PortalRpc = typeof supabasePortal.rpc
+
+function rpc(name: string, args?: Record<string, unknown>): ReturnType<PortalRpc> {
+  return (supabasePortal.rpc as any)(name, args ?? {})
+}
+
 export type PortalSessionOverview = {
   customer_id: number
   customer_name: string
@@ -40,7 +46,7 @@ type PortalInvoiceContainer = {
 type PortalInvoiceDetail = InvoiceDetail & { containers: PortalInvoiceContainer[] }
 
 export async function portalListConsolidatableReceivables() {
-  const { data, error } = await supabasePortal.rpc('portal_list_consolidatable_receivables')
+  const { data, error } = await rpc('portal_list_consolidatable_receivables')
 
   if (error) throw error
 
@@ -52,7 +58,7 @@ export async function portalListConsolidatableReceivables() {
 }
 
 export async function portalListInvoices(): Promise<PortalInvoiceSummary[]> {
-  const { data, error } = await supabasePortal.rpc('portal_list_invoices')
+  const { data, error } = await rpc('portal_list_invoices')
 
   if (error) throw error
 
@@ -70,7 +76,7 @@ export async function portalListInvoices(): Promise<PortalInvoiceSummary[]> {
 }
 
 export async function portalInvoiceDetails(invoiceId: number) {
-  const { data, error } = await supabasePortal.rpc('portal_invoice_details', {
+  const { data, error } = await rpc('portal_invoice_details', {
     p_invoice_id: invoiceId,
   })
 
@@ -122,7 +128,7 @@ export type PortalDemurrageInvoiceDetail = {
 }
 
 export async function portalListDemurrageInvoices(): Promise<PortalDemurrageInvoice[]> {
-  const { data, error } = await supabasePortal.rpc('portal_list_demurrage_invoices')
+  const { data, error } = await rpc('portal_list_demurrage_invoices')
   if (error) throw error
   return ((data ?? []) as PortalDemurrageInvoice[]).map((row) => ({
     ...row,
@@ -132,14 +138,14 @@ export async function portalListDemurrageInvoices(): Promise<PortalDemurrageInvo
 }
 
 export async function portalGetDemurrageInvoiceDetail(invoiceId: number): Promise<PortalDemurrageInvoiceDetail> {
-  const { data, error } = await supabasePortal.rpc('portal_get_demurrage_invoice_detail', { p_invoice_id: invoiceId })
+  const { data, error } = await rpc('portal_get_demurrage_invoice_detail', { p_invoice_id: invoiceId })
   if (error) throw error
   const payload = (data ?? {}) as { invoice?: PortalDemurrageInvoiceDetail['invoice']; items?: DemurrageInvoiceItem[] }
   return { invoice: payload.invoice!, items: payload.items ?? [] }
 }
 
 export async function portalCreateConsolidation(input: { receivableIds: number[] }) {
-  const { data, error } = await supabasePortal.rpc('portal_create_consolidation', {
+  const { data, error } = await rpc('portal_create_consolidation', {
     p_receivable_ids: input.receivableIds,
   })
 
@@ -148,7 +154,7 @@ export async function portalCreateConsolidation(input: { receivableIds: number[]
 }
 
 export async function portalResolveLogin(login: string): Promise<string> {
-  const { data, error } = await supabasePortal.rpc('portal_resolve_login', {
+  const { data, error } = await rpc('portal_resolve_login', {
     p_login: login,
   })
   if (error) throw error
@@ -166,29 +172,29 @@ export type PortalNotification = {
 }
 
 export async function portalListNotifications(): Promise<PortalNotification[]> {
-  const { data, error } = await supabasePortal.rpc('portal_list_notifications', { p_limit: 20 })
+  const { data, error } = await rpc('portal_list_notifications', { p_limit: 20 })
   if (error) throw error
   return (data ?? []) as PortalNotification[]
 }
 
 export async function portalNotificationUnreadCount(): Promise<number> {
-  const { data, error } = await supabasePortal.rpc('portal_notification_unread_count')
+  const { data, error } = await rpc('portal_notification_unread_count')
   if (error) throw error
   return Number(data ?? 0)
 }
 
 export async function portalMarkNotificationRead(notificationId: number): Promise<void> {
-  const { error } = await supabasePortal.rpc('portal_mark_notification_read', { p_notification_id: notificationId })
+  const { error } = await rpc('portal_mark_notification_read', { p_notification_id: notificationId })
   if (error) throw error
 }
 
 export async function portalMarkAllNotificationsRead(): Promise<void> {
-  const { error } = await supabasePortal.rpc('portal_mark_all_notifications_read')
+  const { error } = await rpc('portal_mark_all_notifications_read')
   if (error) throw error
 }
 
 export async function portalOpenDemurrageDispute(demurrageInvoiceId: number, reason: string): Promise<void> {
-  const { error } = await supabasePortal.rpc('portal_open_demurrage_dispute', {
+  const { error } = await rpc('portal_open_demurrage_dispute', {
     p_demurrage_invoice_id: demurrageInvoiceId,
     p_reason: reason,
   })
@@ -209,7 +215,7 @@ export type PortalDispute = {
 }
 
 export async function portalListDisputes(): Promise<PortalDispute[]> {
-  const { data, error } = await supabasePortal.rpc('portal_list_disputes')
+  const { data, error } = await rpc('portal_list_disputes')
   if (error) throw error
   return ((data ?? []) as PortalDispute[]).map((d) => ({
     ...d,
@@ -227,7 +233,7 @@ export type PortalProfile = {
 }
 
 export async function portalGetProfile(): Promise<PortalProfile> {
-  const { data, error } = await supabasePortal.rpc('portal_get_profile')
+  const { data, error } = await rpc('portal_get_profile')
   if (error) throw error
   return (data ?? {}) as PortalProfile
 }
@@ -240,7 +246,7 @@ export async function portalUpdateProfile(input: {
   state?: string | null
   zip?: string | null
 }): Promise<void> {
-  const { error } = await supabasePortal.rpc('portal_update_profile', {
+  const { error } = await rpc('portal_update_profile', {
     p_contact_email: input.contactEmail ?? null,
     p_phone: input.phone ?? null,
     p_address: input.address ?? null,
@@ -252,7 +258,7 @@ export async function portalUpdateProfile(input: {
 }
 
 export async function portalObsoleteConsolidation(invoiceId: number) {
-  const { data, error } = await supabasePortal.rpc('portal_obsolete_consolidation', {
+  const { data, error } = await rpc('portal_obsolete_consolidation', {
     p_invoice_id: invoiceId,
   })
 

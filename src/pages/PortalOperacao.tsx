@@ -15,10 +15,6 @@ type SortKey = 'bl_id' | 'vessel' | 'pod' | 'containers' | 'demurrage'
 type SortDir = 'asc' | 'desc'
 type StatusFilter = '' | 'com_demurrage' | 'todos_devolvidos' | 'com_pendentes'
 
-type SortKey = 'bl_id' | 'vessel' | 'pod' | 'containers' | 'demurrage'
-type SortDir = 'asc' | 'desc'
-type StatusFilter = '' | 'com_demurrage' | 'todos_devolvidos' | 'com_pendentes'
-
 const PAGE_SIZES = [10, 25, 50, 100]
 
 const STATUS_GROUPS: Record<string, string[]> = {
@@ -293,7 +289,7 @@ export function PortalOperacao() {
   )
 }
 
-function Th({ children, sortable, column, onClick, icon }: { children: React.ReactNode; sortable?: boolean; column?: SortKey; onClick?: (k: SortKey) => void; icon?: React.ReactNode }) {
+function Th({ children, sortable, column, onClick, icon }: { children?: React.ReactNode; sortable?: boolean; column?: SortKey; onClick?: (k: SortKey) => void; icon?: React.ReactNode }) {
   const handleClick = () => { if (sortable && column && onClick) onClick(column) }
   return (
     <th

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DollarSign, Container, AlertTriangle, FileText } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { Card, PageHeader } from '../components/ui/Card'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge } from '../components/ui/Badge'
@@ -95,17 +95,14 @@ export function PortalDashboard() {
             <MetricCard
               label="Saldo pendente"
               value={formatBRL(overview?.pending_balance)}
-              icon={<DollarSign size={18} />}
             />
             <MetricCard
               label="Faturas emitidas"
               value={String(invoices?.length ?? 0)}
-              icon={<FileText size={18} />}
             />
             <MetricCard
               label="B/Ls em aberto"
               value={String(totalBls)}
-              icon={<Container size={18} />}
             />
             <MetricCard
               label="Containers"
