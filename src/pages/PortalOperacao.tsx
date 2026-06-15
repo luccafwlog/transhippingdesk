@@ -29,6 +29,11 @@ function blStatusMatches(containers: PortalOperationBL['containers'], filter: St
   return containers.some((c) => statuses.includes(c.status))
 }
 
+function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+  if (sortKey !== column) return <span className="ml-1 text-[var(--app-muted)]">↕</span>
+  return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>
+}
+
 export function PortalOperacao() {
   const { data, isLoading, error } = usePortalOperationBls()
   const rows = useMemo(() => data ?? [], [data])
@@ -62,11 +67,6 @@ export function PortalOperacao() {
       setSortDir('asc')
     }
     setPage(0)
-  }
-
-  function SortIcon({ column }: { column: SortKey }) {
-    if (sortKey !== column) return <span className="ml-1 text-[var(--app-muted)]">↕</span>
-    return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>
   }
 
   const filtered = useMemo(() => {
@@ -209,13 +209,13 @@ export function PortalOperacao() {
               <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
                 <thead>
                   <tr>
-                    <Th sortable column="bl_id" onClick={handleSort} icon={<SortIcon column="bl_id" />}>B/L</Th>
+                    <Th sortable column="bl_id" onClick={handleSort} icon={<SortIcon column="bl_id" sortKey={sortKey} sortDir={sortDir} />}>B/L</Th>
                     <Th>CE Mercante</Th>
-                    <Th sortable column="vessel" onClick={handleSort} icon={<SortIcon column="vessel" />}>Navio/Viagem</Th>
-                    <Th sortable column="pod" onClick={handleSort} icon={<SortIcon column="pod" />}>POD</Th>
-                    <Th sortable column="containers" onClick={handleSort} icon={<SortIcon column="containers" />}>Ctr</Th>
+                    <Th sortable column="vessel" onClick={handleSort} icon={<SortIcon column="vessel" sortKey={sortKey} sortDir={sortDir} />}>Navio/Viagem</Th>
+                    <Th sortable column="pod" onClick={handleSort} icon={<SortIcon column="pod" sortKey={sortKey} sortDir={sortDir} />}>POD</Th>
+                    <Th sortable column="containers" onClick={handleSort} icon={<SortIcon column="containers" sortKey={sortKey} sortDir={sortDir} />}>Ctr</Th>
                     <Th>Devolvidos</Th>
-                    <Th sortable column="demurrage" onClick={handleSort} icon={<SortIcon column="demurrage" />}>Demurrage</Th>
+                    <Th sortable column="demurrage" onClick={handleSort} icon={<SortIcon column="demurrage" sortKey={sortKey} sortDir={sortDir} />}>Demurrage</Th>
                     <Th />
                   </tr>
                 </thead>

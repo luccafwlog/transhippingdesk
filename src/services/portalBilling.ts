@@ -3,9 +3,10 @@ import type { InvoiceDetail } from './billing'
 import type { ConsolidatableReceivable, DemurrageInvoiceItem } from '../types/database'
 
 type PortalRpc = typeof supabasePortal.rpc
+type RpcFn = (name: string, args: Record<string, unknown>) => ReturnType<PortalRpc>
 
 function rpc(name: string, args?: Record<string, unknown>): ReturnType<PortalRpc> {
-  return (supabasePortal.rpc as any)(name, args ?? {})
+  return (supabasePortal.rpc as unknown as RpcFn)(name, args ?? {})
 }
 
 export type PortalSessionOverview = {
