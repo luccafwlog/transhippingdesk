@@ -8,7 +8,7 @@ const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
 const DISPLAY_ROW_TRAVEL_MS = 3000
 const DISPLAY_GRID_TEMPLATE = '18fr 4fr 6fr 6fr 6fr 6fr 6fr 6fr 7fr 6fr 5fr 7fr 11fr 6fr'
-const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'CAR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
+const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'VIN CNTR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
 const isTouchDevice = () => {
   if (typeof window === 'undefined') return false
@@ -357,7 +357,7 @@ function LineUpMobileCard({ row }: { row: LineUpRow }) {
         <CardField label="ETA" value={formatShortDate(row.eta)} />
         <CardField label="ETB" value={formatShortDate(row.etb)} />
         <CardField label="VIN" value={formatInteger(row.vin)} />
-        <CardField label="CAR" value={formatInteger(row.car)} />
+        <CardField label="VIN CNTR" value={formatInteger(row.car)} />
         <CardField label="CG" value={formatInteger(row.cg)} />
         <CardField label="Total" value={formatInteger(row.total)} accent />
         <CardField label="MTY" value={formatInteger(row.mty)} />

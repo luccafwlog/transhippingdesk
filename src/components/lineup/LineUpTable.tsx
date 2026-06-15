@@ -60,8 +60,8 @@ export function LineUpTable({
             <th scope="col" className="px-1 py-2 text-center" title="Porto de descarga">POD</th>
             <th scope="col" className="px-1 py-2 text-center" title="Chegada estimada">ETA</th>
             <th scope="col" className="px-1 py-2 text-center" title="Atracação estimada">ETB</th>
-            <th scope="col" className="px-1 py-2 text-center" title="Veículos (ro-ro)">VIN</th>
-            <th scope="col" className="px-1 py-2 text-center" title="Carros em container">CAR</th>
+<th scope="col" className="px-1 py-2 text-center" title="Veículos">VIN</th>
+<th scope="col" className="px-1 py-2 text-center" title="Containers com veículos">VIN CNTR</th>
             <th scope="col" className="px-1 py-2 text-center" title="Carga geral em container">CG</th>
             <th scope="col" className="px-1 py-2 text-center" title="Total de containers">Total</th>
             <th scope="col" className="px-1 py-2 text-center" title="Containers vazios">MTY</th>
