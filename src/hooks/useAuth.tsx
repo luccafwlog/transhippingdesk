@@ -173,8 +173,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       effectiveRole,
       can: (permission: Permission) => roleHasPermission(role, permission),
       async signIn(email, password) {
+        setLoading(true)
         const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        if (error) {
+          setLoading(false)
+          throw error
+        }
       },
       async signOut() {
         await signOutSupabaseClient(supabase)

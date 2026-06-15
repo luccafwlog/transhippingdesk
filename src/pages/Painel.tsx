@@ -14,7 +14,6 @@ import {
   UserX,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Badge } from '../components/ui/Badge'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { LineUpTable } from '../components/lineup/LineUpTable'
@@ -184,11 +183,7 @@ export function Painel() {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge tone="blue">ETB vinculado ao cadastro manual do POD</Badge>
-            <Badge tone="green">ATD remove a rota do quadro</Badge>
-            <Badge tone="slate">Tela TV: /line-up-tv/display</Badge>
-          </div>
+          
         </div>
       </Card>
 
@@ -206,7 +201,7 @@ export function Painel() {
             emptyDescription="Ajuste o filtro de status ou aguarde o proximo ciclo de atualizacao."
           />
           <p className="border-t border-[var(--app-border)] px-4 py-2 text-[11px] text-[var(--app-muted)]">
-            VIN = veículos (ro-ro) · CAR = carros em container · CG = carga geral · MTY = vazios · RTW = restow ·
+            VIN = veículos · VIN CNTR = containers com veículos · CG = carga geral · MTY = vazios · RTW = restow ·
             BB = break-bulk (máquinas/pacotes) · CEs = status dos CEs Mercante · Linked = manifesto vinculado
           </p>
         </Card>
