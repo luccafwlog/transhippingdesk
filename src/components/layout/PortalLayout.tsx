@@ -1,12 +1,20 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Building2, LayoutDashboard, LogOut, User } from 'lucide-react'
+import { Building2, FileText, LayoutDashboard, LogOut, Menu, Package, User, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePortalAuth } from '../../hooks/usePortalAuth'
 import { NotificationBell } from '../portal/NotificationBell'
-import { formatCnpjCpf } from '../../lib/utils'
+import { cn, formatCnpjCpf } from '../../lib/utils'
+
+const portalNavItems = [
+  { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/portal/billing', label: 'Faturas', icon: FileText, end: false },
+  { to: '/portal/operacao', label: 'Operacao', icon: Package, end: false },
+]
 
 export function PortalLayout() {
   const { overview, signOut } = usePortalAuth()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   return (
     <div className="app-shell">
@@ -23,7 +31,11 @@ export function PortalLayout() {
           <div className="app-header__actions">
             <NotificationBell />
 
-            <NavLink to="/portal/perfil" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)]">
+            <NavLink
+              to="/portal/perfil"
+              aria-label="Perfil"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)]"
+            >
               <User size={14} />
             </NavLink>
 
@@ -40,24 +52,45 @@ export function PortalLayout() {
             </Button>
           </div>
         </div>
-        <nav className="mx-auto flex w-full max-w-[var(--app-content-max)] gap-2 px-4 pb-3 sm:px-6 lg:px-8" aria-label="Portal">
-          <PortalNavLink to="/portal" label="Dashboard" icon={<LayoutDashboard size={14} />} />
-          <PortalNavLink to="/portal/billing" label="Faturas" />
-          <PortalNavLink to="/portal/operacao" label="Operacao" />
-        </nav>
       </header>
+
+      <div className="app-nav-bar">
+        <div className="app-nav-mobile-bar">
+          <button
+            type="button"
+            className="app-nav-toggle"
+            aria-expanded={mobileNavOpen}
+            aria-controls="portal-primary-navigation"
+            onClick={() => setMobileNavOpen((current) => !current)}
+          >
+            {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
+            Menu
+          </button>
+        </div>
+
+        <nav
+          id="portal-primary-navigation"
+          className={cn('app-nav-scroll', mobileNavOpen && 'app-nav-scroll--open')}
+          aria-label="Portal"
+        >
+          {portalNavItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              onClick={() => setMobileNavOpen(false)}
+              className={({ isActive }) => cn('app-nav-link', isActive && 'active')}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
 
       <main className="app-main">
         <Outlet />
       </main>
     </div>
-  )
-}
-
-function PortalNavLink({ to, label, icon }: { to: string; label: string; icon?: React.ReactNode }) {
-  return (
-    <NavLink className={({ isActive }) => `app-tab ${isActive ? 'app-tab--active' : ''}`} to={to} end={to === '/portal'}>
-      {icon}{label}
-    </NavLink>
   )
 }
