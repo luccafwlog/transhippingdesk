@@ -5,24 +5,55 @@ import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { supabasePortal } from '../services/supabase'
 
+const INVALID_LINK_MESSAGE = 'Link de recuperacao invalido ou expirado.'
+
+function parseRecoveryTokens() {
+  const rawHash = window.location.hash.startsWith('#')
+    ? window.location.hash.slice(1)
+    : window.location.hash
+  const params = new URLSearchParams(rawHash)
+  const accessToken = params.get('access_token')
+  const refreshToken = params.get('refresh_token')
+  const type = params.get('type')
+
+  if (type !== 'recovery' || !accessToken || !refreshToken) return null
+  return { accessToken, refreshToken }
+}
+
 export function PortalResetPassword() {
   const navigate = useNavigate()
+  // O cliente do portal usa detectSessionInUrl: false (para nao competir com a
+  // sessao do app interno no mesmo dominio), entao a sessao de recuperacao nao e
+  // estabelecida automaticamente. Com o fluxo implicito (padrao), o link de
+  // recuperacao traz os tokens no hash da URL; estabelecemos a sessao manualmente.
+  const [recoveryTokens] = useState(parseRecoveryTokens)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => (recoveryTokens ? '' : INVALID_LINK_MESSAGE))
   const [submitting, setSubmitting] = useState(false)
-  const [ready, setReady] = useState(
-    () => window.location.hash.includes('type=recovery'),
-  )
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const { data: listener } = supabasePortal.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    if (!recoveryTokens) return
+    let active = true
+
+    supabasePortal.auth
+      .setSession({ access_token: recoveryTokens.accessToken, refresh_token: recoveryTokens.refreshToken })
+      .then(({ error: sessionError }) => {
+        if (!active) return
+        if (sessionError) {
+          setError(INVALID_LINK_MESSAGE)
+          return
+        }
+        // Remove os tokens do hash para nao reprocessar nem vazar na navegacao.
+        window.history.replaceState(null, '', window.location.pathname)
         setReady(true)
-      }
-    })
-    return () => listener?.subscription.unsubscribe()
-  }, [])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [recoveryTokens])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -56,7 +87,11 @@ export function PortalResetPassword() {
     return (
       <main className="app-auth">
         <Card className="app-auth__card">
-          <p className="text-sm text-[var(--app-muted)]">Verificando link de recuperacao...</p>
+          {error ? (
+            <InlineError message={error} />
+          ) : (
+            <p className="text-sm text-[var(--app-muted)]">Verificando link de recuperacao...</p>
+          )}
         </Card>
       </main>
     )
