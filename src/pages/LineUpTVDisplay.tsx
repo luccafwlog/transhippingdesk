@@ -316,13 +316,13 @@ export function LineUpTVDisplay() {
 function renderDisplayCeStatus(status: LineUpRow['ceStatus']) {
   if (status === 'approved') return <span className="app-lineup-display-status app-lineup-display-status--green">Aprovado</span>
   if (status === 'partial') return <span className="app-lineup-display-status app-lineup-display-status--amber">Parcial</span>
-  return <span className="app-lineup-display-status app-lineup-display-status--red">Faltando</span>
+  return <span className="app-lineup-display-status app-lineup-display-status--red">Aguardando</span>
 }
 
 function ceStatusLabel(status: LineUpRow['ceStatus']) {
   if (status === 'approved') return 'Aprovado'
   if (status === 'partial') return 'Parcial'
-  return 'Faltando'
+  return 'Aguardando'
 }
 
 function ceStatusColorClass(status: LineUpRow['ceStatus']) {

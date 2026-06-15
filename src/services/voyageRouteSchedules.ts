@@ -47,7 +47,7 @@ export function getVoyagePodCeStatusLabel(status: VoyagePodCeStatus | null | und
   if (status === 'approving') return 'Em aprovação'
   if (status === 'launching' || status === 'partial') return 'Lançando'
   if (status === 'received') return 'Recebido'
-  if (status === 'missing') return 'Faltando'
+  if (status === 'missing') return 'Aguardando'
   return 'Aguardando'
 }
 
