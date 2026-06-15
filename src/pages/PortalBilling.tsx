@@ -26,7 +26,7 @@ import {
 import type { PortalDemurrageInvoice, PortalInvoiceSummary } from '../services/portalBilling'
 import { buildInvoiceFileBaseName } from '../services/billing'
 import { downloadCsv } from '../lib/csv'
-import { formatBRL, formatDate } from '../lib/utils'
+import { formatBRL, formatDate, stripBlPrefix } from '../lib/utils'
 
 type PortalTab = 'local' | 'demurrage'
 type StatusFilter = '' | 'issued' | 'paid' | 'cancelled'
@@ -307,7 +307,7 @@ export function PortalBilling() {
                     <tbody>
                       {(detailQuery.data?.items ?? []).map((item) => (
                         <tr key={item.id}>
-                          <td className="px-3 py-2">{item.description}</td>
+                          <td className="px-3 py-2">{stripBlPrefix(item.description, item.bl_id)}</td>
                           <td className="px-3 py-2">{item.bl_id ?? '—'}</td>
                           <td className="px-3 py-2 text-right">{item.quantity ?? '—'}</td>
                           <td className="px-3 py-2 text-right">{item.unit_value_brl != null ? formatBRL(item.unit_value_brl) : '—'}</td>
