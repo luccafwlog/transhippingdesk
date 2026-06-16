@@ -86,6 +86,22 @@ export function PortalDashboard() {
           ))}
         </div>
       )}
+
+      <Card className="mt-8 overflow-hidden p-0">
+        <div className="border-b border-[var(--app-border)] px-5 py-4">
+          <h2 className="text-base font-semibold">Chegadas e Saídas</h2>
+        </div>
+        <div className="p-5">
+          <iframe
+            src="https://ship-track-widget.lovable.app"
+            title="Chegadas e Saídas"
+            width="100%"
+            height="700"
+            loading="lazy"
+            style={{ borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', border: 0 }}
+          />
+        </div>
+      </Card>
     </>
   )
 }
