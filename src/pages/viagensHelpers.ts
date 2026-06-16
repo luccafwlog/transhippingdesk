@@ -1,5 +1,6 @@
 // Helpers puros para rótulos, métricas e resumos da tela de Viagens.
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
+import { formatDate } from '../lib/utils'
 
 export function normalizePortName(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase() || '-'
@@ -404,6 +405,100 @@ export function buildVoyageRailItems(
       proximaEscala: getProximaEscala(podRows),
     }
   })
+}
+
+// --- Linha do tempo da viagem ------------------------------------------------
+
+export type VoyageTimelineEventKind =
+  | 'import'
+  | 'escala-date'
+  | 'escala-number'
+  | 'manifestos-linked'
+  | 'divergence-resolved'
+
+export type VoyageTimelineEvent = {
+  id: string
+  kind: VoyageTimelineEventKind
+  at: string
+  title: string
+  detail: string
+}
+
+const SCHEDULE_DATE_LABELS: Record<string, string> = { eta: 'ETA', etb: 'ETB', ata: 'ATA', atd: 'ATD' }
+
+/**
+ * Monta a linha do tempo da viagem a partir de fontes já buscadas: imports de
+ * manifesto, eventos de escala (datas, Nº de Escala, vínculo de manifestos) e
+ * resoluções de conciliação. Ordena do mais recente para o mais antigo. Sem
+ * eventos financeiros.
+ */
+export function buildVoyageTimeline({
+  importBatches,
+  scheduleEvents,
+  resolutions,
+}: {
+  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null }> | null
+  scheduleEvents?: Array<{ entity_id: string; field_name: string; new_value: string | null; changed_at: string | null }> | null
+  resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
+}): VoyageTimelineEvent[] {
+  const events: VoyageTimelineEvent[] = []
+
+  for (const batch of importBatches ?? []) {
+    if (!batch.uploaded_at) continue
+    events.push({
+      id: `import-${batch.id}`,
+      kind: 'import',
+      at: batch.uploaded_at,
+      title: 'Manifesto importado',
+      detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${stripFileExtension(batch.filename)}`,
+    })
+  }
+
+  ;(scheduleEvents ?? []).forEach((row, index) => {
+    const at = row.changed_at
+    if (!at) return
+    const port = row.entity_id.split('::')[1] || '-'
+    const value = (row.new_value ?? '').trim()
+    if (SCHEDULE_DATE_LABELS[row.field_name]) {
+      if (!value) return
+      events.push({
+        id: `sched-${index}`,
+        kind: 'escala-date',
+        at,
+        title: `${SCHEDULE_DATE_LABELS[row.field_name]} de ${port} registrado`,
+        detail: formatDate(value),
+      })
+    } else if (row.field_name === 'escala_number' && value) {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'escala-number',
+        at,
+        title: `Escala de ${port} criada no Mercante`,
+        detail: `Nº ${value}`,
+      })
+    } else if (row.field_name === 'linked' && value === 'true') {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'manifestos-linked',
+        at,
+        title: `Manifestos vinculados à escala de ${port}`,
+        detail: 'ESCALA = SIM',
+      })
+    }
+  })
+
+  ;(resolutions ?? []).forEach((res, index) => {
+    if (!res.resolved_at) return
+    events.push({
+      id: `res-${index}`,
+      kind: 'divergence-resolved',
+      at: res.resolved_at,
+      title: 'Divergência conciliada',
+      detail: res.field_name ? `Campo ${res.field_name}` : 'Baplie ↔ Manifesto',
+    })
+  })
+
+  return events.sort((left, right) => (left.at < right.at ? 1 : left.at > right.at ? -1 : 0))
 }
 
 // --- Importação por POD ------------------------------------------------------

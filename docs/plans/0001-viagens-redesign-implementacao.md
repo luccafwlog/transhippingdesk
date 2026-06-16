@@ -3,7 +3,7 @@
 Base de decisão: ADR `docs/adr/0012-viagens-master-detail-rota-dedicada.md` e termos em `CONTEXT.md`.
 Mockup de referência: `.mockups/viagens-final.html`.
 
-Status: em execução — Fases 0–4 concluídas (PRs #237, #238, #239); Fase 5 em andamento.
+Status: concluído — todas as fases entregues (PRs #237, #238, #239, #240 e o desta Fase 6).
 
 ---
 
@@ -91,7 +91,7 @@ Refatorar `src/components/voyages/VoyageCard.tsx` → `VoyageDetail` com cabeça
 
 ---
 
-## Fase 5 — Modais e edição inline ⏳ (em andamento)
+## Fase 5 — Modais e edição inline ✅ (PR #240)
 
 - `VoyageScheduleModals.tsx`: adicionar campo **Nº Escala** ao modal de POD e ao de POL.
 - Edição de **CE Master** inline na aba Manifestos (input + save por linha).
@@ -100,7 +100,7 @@ Refatorar `src/components/voyages/VoyageCard.tsx` → `VoyageDetail` com cabeça
 
 ---
 
-## Fase 6 — Linha do tempo
+## Fase 6 — Linha do tempo ✅
 
 - `buildVoyageTimeline(voyage, schedulesAudit, batches)` agregando:
   - imports (`import_batches.uploaded_at`),

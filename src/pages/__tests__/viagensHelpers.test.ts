@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildVoyageRailItems,
+  buildVoyageTimeline,
   collectVoyagePorts,
   countPlannedPodRows,
   countDistinctBatchIds,
@@ -381,6 +382,38 @@ describe('buildVoyageRailItems', () => {
   it('usa mapa vazio de escalas sem quebrar', () => {
     const [item] = buildVoyageRailItems(voyages, new Map())
     expect(item.proximaEscala).toBeNull()
+  })
+})
+
+describe('buildVoyageTimeline', () => {
+  it('agrega imports, eventos de escala e resoluções, ordenando do mais recente', () => {
+    const events = buildVoyageTimeline({
+      importBatches: [
+        { id: 1, filename: 'cosco.xlsx', cargo_mode: 'container', uploaded_at: '2026-06-10T10:00:00Z' },
+        { id: 2, filename: 'sem-data', cargo_mode: 'carga_solta', uploaded_at: null }, // ignorado
+      ],
+      scheduleEvents: [
+        { entity_id: '7::BRSSA', field_name: 'eta', new_value: '2026-06-12', changed_at: '2026-06-11T09:00:00Z' },
+        { entity_id: '7::BRSSA', field_name: 'escala_number', new_value: '25BR00481', changed_at: '2026-06-11T16:00:00Z' },
+        { entity_id: '7::BRSSA', field_name: 'linked', new_value: 'true', changed_at: '2026-06-11T16:05:00Z' },
+        { entity_id: '7::BRSSA', field_name: 'eta', new_value: '', changed_at: '2026-06-11T17:00:00Z' }, // limpo → ignora
+        { entity_id: '7::BRSSA', field_name: 'rtw', new_value: '2', changed_at: '2026-06-11T18:00:00Z' }, // não mapeado → ignora
+      ],
+      resolutions: [{ field_name: 'is_imo', resolved_at: '2026-06-13T08:00:00Z' }],
+    })
+
+    expect(events.map((e) => e.kind)).toEqual([
+      'divergence-resolved', // 13/06
+      'manifestos-linked', // 11/06 16:05
+      'escala-number', // 11/06 16:00
+      'escala-date', // 11/06 09:00
+      'import', // 10/06
+    ])
+    expect(events[2].detail).toBe('Nº 25BR00481')
+  })
+
+  it('lida com fontes vazias', () => {
+    expect(buildVoyageTimeline({})).toEqual([])
   })
 })
 
