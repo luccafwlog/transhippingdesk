@@ -6,6 +6,7 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Info, MetricPanel, MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
+import { setImportBatchCeMaster } from '../../services/manifestImport'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useVoyageReconciliation } from '../../hooks/useVoyageReconciliation'
@@ -67,6 +68,7 @@ export type EditingPodPayload = {
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
+  escalaNumber: string | null
 }
 
 export type EditingPolPayload = {
@@ -74,6 +76,7 @@ export type EditingPolPayload = {
   voyageLabel: string
   pol: string
   etd: string | null
+  escalaNumber: string | null
 }
 
 export type EditingExportPayload = {
@@ -198,12 +201,13 @@ export function VoyageCard({
     }
   })
   const plannedPodCount = countPlannedPodRows(podRows)
-  const manifestRows = collectVoyageManifestRowsGroupedByRoute({
+  const manifestRows = collectVoyageManifestBatchRows({
     voyageId: voyage.id,
     batches: importBatches,
     bls: voyage.bls,
     polSchedules,
   })
+  const canEditCeMaster = Boolean(user?.id)
 
   // Estado de Conciliação: divergências da viagem aberta (uma consulta) +
   // sinais baratos do payload.
@@ -299,6 +303,7 @@ export function VoyageCard({
                             rtw: row.rtw,
                             ceStatus: row.ceStatus,
                             linked: row.linked,
+                            escalaNumber: row.escalaNumber,
                           })
                         }
                       >
@@ -620,7 +625,7 @@ export function VoyageCard({
         <div className="mb-3">
           <div className="app-panel__title">Manifestos vinculados</div>
           <div className="app-panel__meta">
-            Um manifesto por linha, com ETD editavel e quantidade de B/Ls vinculados.
+            Um manifesto por linha: ETD por POL, cobertura de CE Mercante e o CE Master (editável).
           </div>
         </div>
 
@@ -628,16 +633,22 @@ export function VoyageCard({
           <div className="app-table-scroll">
             <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
               <colgroup>
-                <col className="w-[52%]" />
-                <col className="w-[18%]" />
-                <col className="w-[14%]" />
-                <col className="w-[16%]" />
+                <col className="w-[32%]" />
+                <col className="w-[12%]" />
+                <col className="w-[8%]" />
+                <col className="w-[11%]" />
+                <col className="w-[19%]" />
+                <col className="w-[11%]" />
+                <col className="w-[7%]" />
               </colgroup>
               <thead>
                 <tr>
                   <th scope="col" className="px-3 py-2">Manifesto</th>
                   <th scope="col" className="px-3 py-2">ETD</th>
                   <th scope="col" className="px-3 py-2">B/Ls</th>
+                  <th scope="col" className="px-3 py-2">CE Merc.</th>
+                  <th scope="col" className="px-3 py-2">CE Master</th>
+                  <th scope="col" className="px-3 py-2">Nº Escala</th>
                   <th scope="col" className="px-3 py-2">Acoes</th>
                 </tr>
               </thead>
@@ -646,22 +657,33 @@ export function VoyageCard({
                   manifestRows.map((row) => (
                     <tr key={`${voyage.id}-manifest-${row.batchId}`}>
                       <td className="px-3 py-2">
-                        <div className="font-semibold text-[var(--app-text-strong)]">{row.routeLabel}</div>
-                        <div className="text-xs text-[var(--app-muted)]">{row.filenameLabel}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--app-muted)]">
+                            {row.modeLabel}
+                          </span>
+                          <span className="font-semibold text-[var(--app-text-strong)]">{row.routeLabel}</span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-[var(--app-muted)]">{row.filename}</div>
                       </td>
                       <td className="px-3 py-2">{formatDate(row.etd)}</td>
                       <td className="px-3 py-2">{row.blCount}</td>
+                      <td className="px-3 py-2">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
+                      <td className="px-3 py-2">
+                        <CeMasterCell batchId={row.batchId} value={row.ceMaster} editable={canEditCeMaster} />
+                      </td>
+                      <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
                       <td className="px-3 py-2">
                         <Button
                           variant="secondary"
                           className="app-voyage-icon-btn"
-                          aria-label={`Editar ETD do manifesto ${row.filenameLabel}`}
+                          aria-label={`Editar ETD e escala do manifesto ${row.filename}`}
                           onClick={() =>
                             onEditPol({
                               voyageId: voyage.id,
                               voyageLabel,
                               pol: row.pol,
                               etd: row.etd,
+                              escalaNumber: row.escalaNumber,
                             })
                           }
                           disabled={!row.pol || row.pol === '-'}
@@ -673,7 +695,7 @@ export function VoyageCard({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-3 py-3 text-[var(--app-muted)]">
+                    <td colSpan={7} className="px-3 py-3 text-[var(--app-muted)]">
                       Nenhum manifesto identificado nesta viagem.
                     </td>
                   </tr>
@@ -843,6 +865,71 @@ function renderLinkedLabel(linked: boolean | null) {
   return linked ? 'SIM' : 'NÃO'
 }
 
+function renderCeCoverage(filled: number, total: number) {
+  if (total === 0) return <span className="text-[var(--app-muted-soft)]">-</span>
+  const color = filled >= total ? '#1f7a4d' : filled > 0 ? '#b8860b' : '#cf4b3f'
+  return (
+    <span className="font-semibold" style={{ color }}>
+      {filled}/{total}
+    </span>
+  )
+}
+
+function CeMasterCell({ batchId, value, editable }: { batchId: number; value: string | null; editable: boolean }) {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const [draft, setDraft] = useState(value ?? '')
+  const [saving, setSaving] = useState(false)
+  // Re-baseia o rascunho quando o valor de origem muda (sem useEffect).
+  const [prevValue, setPrevValue] = useState(value)
+  if (value !== prevValue) {
+    setPrevValue(value)
+    setDraft(value ?? '')
+  }
+
+  if (!editable) {
+    return value ? (
+      <span className="font-mono text-xs text-[var(--app-text-strong)]">{value}</span>
+    ) : (
+      <span className="text-[var(--app-muted-soft)]">-</span>
+    )
+  }
+
+  async function commit() {
+    const normalized = draft.trim() || null
+    if (normalized === (value ?? null)) return
+    setSaving(true)
+    try {
+      await setImportBatchCeMaster(batchId, normalized)
+      await queryClient.invalidateQueries({ queryKey: ['voyages'] })
+      showToast('CE Master atualizado.', 'success')
+    } catch {
+      setDraft(value ?? '')
+      showToast('Falha ao salvar CE Master.', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <input
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          event.currentTarget.blur()
+        }
+      }}
+      disabled={saving}
+      placeholder="—"
+      aria-label="CE Master"
+      className="w-full rounded border border-[var(--app-border)] bg-[var(--app-surface)] px-2 py-1 font-mono text-xs text-[var(--app-text)] focus:border-[var(--app-border-strong)] focus:outline-none disabled:opacity-60"
+    />
+  )
+}
+
 type VoyageImportBatch = {
   id: number
   voyage_id: number | null
@@ -851,9 +938,10 @@ type VoyageImportBatch = {
   uploaded_at: string | null
   status: 'processing' | 'completed' | 'partial' | 'failed' | null
   total_bls: number | null
+  ce_master: string | null
 }
 
-function collectVoyageManifestRowsGroupedByRoute({
+function collectVoyageManifestBatchRows({
   voyageId,
   batches,
   bls,
@@ -862,22 +950,9 @@ function collectVoyageManifestRowsGroupedByRoute({
   voyageId: number
   batches: VoyageImportBatch[] | null | undefined
   bls: VoyageBl[] | null | undefined
-  polSchedules?: Map<string, { etd: string | null }> | undefined
+  polSchedules?: Map<string, { etd: string | null; escalaNumber?: string | null }> | undefined
 }) {
   const blsByBatch = new Map<number, VoyageBl[]>()
-  const routeGroups = new Map<
-    string,
-    {
-      pol: string
-      pod: string
-      blCount: number
-      filenames: string[]
-      modeLabels: string[]
-      batchIds: number[]
-      sortDate: number
-    }
-  >()
-
   for (const bl of bls ?? []) {
     if (!bl.batch_id) continue
     const current = blsByBatch.get(bl.batch_id) ?? []
@@ -885,53 +960,34 @@ function collectVoyageManifestRowsGroupedByRoute({
     blsByBatch.set(bl.batch_id, current)
   }
 
-  for (const batch of batches ?? []) {
-    const batchBls = blsByBatch.get(batch.id) ?? []
-    const pol = batchBls[0]?.pol?.trim() || '-'
-    const pod = batchBls[0]?.pod?.trim() || '-'
-    const routeKey = `${normalizePortName(pol)}::${normalizePortName(pod)}`
-    const filename = stripFileExtension(batch.filename || `manifesto-${batch.id}`)
-    const modeLabel = batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'
-    const batchSortDate = Date.parse(batch.uploaded_at ?? '')
-    const current = routeGroups.get(routeKey)
-
-    if (current) {
-      current.blCount += Number(batch.total_bls ?? batchBls.length)
-      current.batchIds.push(batch.id)
-      if (!current.filenames.includes(filename)) current.filenames.push(filename)
-      if (!current.modeLabels.includes(modeLabel)) current.modeLabels.push(modeLabel)
-      if (Number.isFinite(batchSortDate) && (!Number.isFinite(current.sortDate) || batchSortDate < current.sortDate)) {
-        current.sortDate = batchSortDate
+  return (batches ?? [])
+    .map((batch) => {
+      const batchBls = blsByBatch.get(batch.id) ?? []
+      const pol = batchBls[0]?.pol?.trim() || '-'
+      const pod = batchBls[0]?.pod?.trim() || '-'
+      const polEntity = polSchedules?.get(buildVoyagePolEntityId(voyageId, pol))
+      const ceFilled = batchBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
+      return {
+        batchId: batch.id,
+        pol,
+        modeLabel: batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR',
+        filename: stripFileExtension(batch.filename || `manifesto-${batch.id}`),
+        etd: polEntity?.etd ?? null,
+        escalaNumber: polEntity?.escalaNumber ?? null,
+        blCount: Number(batch.total_bls ?? batchBls.length),
+        ceFilled,
+        ceTotal: batchBls.length,
+        ceMaster: batch.ce_master ?? null,
+        routeLabel: `${formatPortDisplayName(pol)} -> ${formatPortDisplayName(pod)}`,
+        sortDate: Date.parse(batch.uploaded_at ?? ''),
       }
-      continue
-    }
-
-    routeGroups.set(routeKey, {
-      pol,
-      pod,
-      blCount: Number(batch.total_bls ?? batchBls.length),
-      filenames: [filename],
-      modeLabels: [modeLabel],
-      batchIds: [batch.id],
-      sortDate: batchSortDate,
     })
-  }
-
-  return Array.from(routeGroups.values())
     .sort((left, right) => {
       if (Number.isFinite(left.sortDate) && Number.isFinite(right.sortDate) && left.sortDate !== right.sortDate) {
         return left.sortDate - right.sortDate
       }
-      return left.pol.localeCompare(right.pol, 'pt-BR') || left.pod.localeCompare(right.pod, 'pt-BR')
+      return left.routeLabel.localeCompare(right.routeLabel, 'pt-BR')
     })
-    .map((group) => ({
-      batchId: group.batchIds.join('-'),
-      pol: group.pol,
-      etd: polSchedules?.get(buildVoyagePolEntityId(voyageId, group.pol))?.etd ?? null,
-      blCount: group.blCount,
-      routeLabel: `${formatPortDisplayName(group.pol)} -> ${formatPortDisplayName(group.pod)}`,
-      filenameLabel: `${group.modeLabels.join('/')} | ${group.filenames.join(', ')}`,
-    }))
 }
 
 function extractErrorText(error: unknown) {

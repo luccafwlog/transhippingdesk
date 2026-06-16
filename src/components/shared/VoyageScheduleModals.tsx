@@ -27,11 +27,13 @@ export function PolScheduleModal({
     voyageLabel: string
     pol: string
     etd: string | null
+    escalaNumber: string | null
   } | null
   onClose: () => void
-  onSaved: (payload: { voyageId: number; pol: string; etd: string | null }) => Promise<void>
+  onSaved: (payload: { voyageId: number; pol: string; etd: string | null; escalaNumber: string | null }) => Promise<void>
 }) {
   const [etd, setEtd] = useState('')
+  const [escalaNumber, setEscalaNumber] = useState('')
   const [saving, setSaving] = useState(false)
 
   // O pai cria um payload novo a cada abertura; re-baseia os campos por
@@ -40,6 +42,7 @@ export function PolScheduleModal({
   if (open && polSchedule && polSchedule !== prevSchedule) {
     setPrevSchedule(polSchedule)
     setEtd(polSchedule.etd ?? '')
+    setEscalaNumber(polSchedule.escalaNumber ?? '')
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -52,6 +55,7 @@ export function PolScheduleModal({
         voyageId: polSchedule.voyageId,
         pol: polSchedule.pol,
         etd: etd || null,
+        escalaNumber: escalaNumber.trim() || null,
       })
     } finally {
       setSaving(false)
@@ -67,9 +71,14 @@ export function PolScheduleModal({
             <div className="mt-1">POL: {polSchedule.pol}</div>
           </div>
 
-          <Field label="ETD">
-            <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
-          </Field>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="ETD">
+              <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
+            </Field>
+            <Field label="Nº Escala (Mercante)">
+              <Input value={escalaNumber} onChange={(event) => setEscalaNumber(event.target.value)} placeholder="Ex.: 25BR00481" />
+            </Field>
+          </div>
 
           <div className="app-modal__actions">
             <Button variant="secondary" type="button" onClick={onClose}>
@@ -103,6 +112,7 @@ export function PodScheduleModal({
     rtw: number | null
     ceStatus: VoyagePodCeStatus | null
     linked: boolean | null
+    escalaNumber: string | null
   } | null
   onClose: () => void
   onSaved: (payload: {
@@ -115,6 +125,7 @@ export function PodScheduleModal({
     rtw: number | null
     ceStatus: EditableVoyagePodCeStatus
     linked: boolean
+    escalaNumber: string | null
   }) => Promise<void>
 }) {
   const [eta, setEta] = useState('')
@@ -124,6 +135,7 @@ export function PodScheduleModal({
   const [rtw, setRtw] = useState('')
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
   const [linked, setLinked] = useState<'true' | 'false'>('false')
+  const [escalaNumber, setEscalaNumber] = useState('')
   const [saving, setSaving] = useState(false)
 
   // O pai cria um payload novo a cada abertura; re-baseia os campos por
@@ -138,6 +150,7 @@ export function PodScheduleModal({
     setRtw(podSchedule.rtw === null ? '' : String(podSchedule.rtw))
     setCeStatus(getEditableVoyagePodCeStatus(podSchedule.ceStatus))
     setLinked(podSchedule.linked ? 'true' : 'false')
+    setEscalaNumber(podSchedule.escalaNumber ?? '')
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -156,6 +169,7 @@ export function PodScheduleModal({
         rtw: rtw.trim() ? Number(rtw) : null,
         ceStatus,
         linked: linked === 'true',
+        escalaNumber: escalaNumber.trim() || null,
       })
     } finally {
       setSaving(false)
@@ -186,7 +200,7 @@ export function PodScheduleModal({
             </Field>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="RESTOW">
               <Input
                 type="number"
@@ -211,6 +225,9 @@ export function PodScheduleModal({
                 <option value="true">SIM</option>
                 <option value="false">NÃO</option>
               </select>
+            </Field>
+            <Field label="Nº Escala (Mercante)">
+              <Input value={escalaNumber} onChange={(event) => setEscalaNumber(event.target.value)} placeholder="Ex.: 25BR00481" />
             </Field>
           </div>
 
@@ -247,6 +264,7 @@ export function AddPodToVoyageModal({
     rtw: number | null
     ceStatus: EditableVoyagePodCeStatus
     linked: boolean
+    escalaNumber: string | null
   }) => Promise<void>
 }) {
   const [pod, setPod] = useState('')
@@ -257,6 +275,7 @@ export function AddPodToVoyageModal({
   const [rtw, setRtw] = useState('')
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
   const [linked, setLinked] = useState<'true' | 'false'>('false')
+  const [escalaNumber, setEscalaNumber] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Formulário sempre nasce vazio a cada abertura; re-baseia durante o
@@ -273,6 +292,7 @@ export function AddPodToVoyageModal({
       setRtw('')
       setCeStatus('waiting')
       setLinked('false')
+      setEscalaNumber('')
     }
   }
 
@@ -293,6 +313,7 @@ export function AddPodToVoyageModal({
         rtw: rtw.trim() ? Number(rtw) : null,
         ceStatus,
         linked: linked === 'true',
+        escalaNumber: escalaNumber.trim() || null,
       })
     } finally {
       setSaving(false)
@@ -329,7 +350,7 @@ export function AddPodToVoyageModal({
               <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
             </Field>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="RESTOW">
               <Input
                 type="number"
@@ -352,6 +373,9 @@ export function AddPodToVoyageModal({
                 <option value="true">SIM</option>
                 <option value="false">NÃO</option>
               </select>
+            </Field>
+            <Field label="Nº Escala (Mercante)">
+              <Input value={escalaNumber} onChange={(event) => setEscalaNumber(event.target.value)} placeholder="Ex.: 25BR00481" />
             </Field>
           </div>
           <div className="app-modal__actions">

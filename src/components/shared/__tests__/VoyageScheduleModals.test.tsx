@@ -22,6 +22,7 @@ describe('PolScheduleModal', () => {
     voyageLabel: 'NAVIO 123N',
     pol: 'CNNBO',
     etd: '2026-02-10',
+    escalaNumber: null,
   }
 
   it('não renderiza conteúdo quando fechado', () => {
@@ -39,7 +40,7 @@ describe('PolScheduleModal', () => {
     expect(screen.getByText('POL: CNNBO')).toBeTruthy()
 
     await user.click(screen.getByRole('button', { name: 'Salvar ETD' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: '2026-02-10' })
+    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: '2026-02-10', escalaNumber: null })
   })
 
   it('envia etd null quando o campo é limpo', async () => {
@@ -49,7 +50,19 @@ describe('PolScheduleModal', () => {
 
     await user.clear(screen.getByLabelText('ETD'))
     await user.click(screen.getByRole('button', { name: 'Salvar ETD' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: null })
+    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: null, escalaNumber: null })
+  })
+
+  it('pré-preenche e envia o Nº Escala', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    render(
+      <PolScheduleModal open polSchedule={{ ...base, escalaNumber: '25BR00481' }} onClose={() => {}} onSaved={onSaved} />,
+    )
+
+    expect((screen.getByLabelText('Nº Escala (Mercante)') as HTMLInputElement).value).toBe('25BR00481')
+    await user.click(screen.getByRole('button', { name: 'Salvar ETD' }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ escalaNumber: '25BR00481' }))
   })
 })
 
@@ -65,6 +78,7 @@ describe('PodScheduleModal', () => {
     rtw: 3,
     ceStatus: 'waiting' as const,
     linked: true,
+    escalaNumber: null,
   }
 
   it('pré-preenche datas/restow/escala e envia o payload tipado', async () => {
@@ -132,6 +146,7 @@ describe('AddPodToVoyageModal', () => {
       rtw: null,
       ceStatus: 'waiting',
       linked: false,
+      escalaNumber: null,
     })
   })
 })

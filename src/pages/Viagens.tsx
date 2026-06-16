@@ -253,7 +253,7 @@ export function Viagens() {
         open={editingPod !== null}
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked }) => {
+        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked, escalaNumber }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -269,6 +269,7 @@ export function Viagens() {
               rtw,
               ceStatus,
               linked,
+              escalaNumber,
               changedBy: user.id,
             })
             await Promise.all([
@@ -288,7 +289,7 @@ export function Viagens() {
         open={editingPol !== null}
         polSchedule={editingPol}
         onClose={() => setEditingPol(null)}
-        onSaved={async ({ voyageId, pol, etd }) => {
+        onSaved={async ({ voyageId, pol, etd, escalaNumber }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -298,9 +299,13 @@ export function Viagens() {
               voyageId,
               pol,
               etd,
+              escalaNumber,
               changedBy: user.id,
             })
-            await queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] })
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+            ])
             showToast('ETD do POL atualizado com sucesso.', 'success')
             setEditingPol(null)
           } catch {
@@ -313,7 +318,7 @@ export function Viagens() {
         open={addingPodVoyage !== null}
         voyage={addingPodVoyage}
         onClose={() => setAddingPodVoyage(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked }) => {
+        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked, escalaNumber }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -329,6 +334,7 @@ export function Viagens() {
               rtw,
               ceStatus,
               linked,
+              escalaNumber,
               changedBy: user.id,
             })
             await Promise.all([
