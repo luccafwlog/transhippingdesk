@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Boxes, ChevronDown, ChevronUp, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Boxes, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
-import { AccordionSection, Info, MetricPanel, MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
+import { Info, MetricPanel, MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
+import { useVoyageReconciliation } from '../../hooks/useVoyageReconciliation'
 import type { VoyageVehicleStat } from '../../hooks/useVehicles'
 import type { VoyageVaziosImportacaoStat } from '../../hooks/useVaziosImportacaoStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../../lib/containerCounts'
@@ -16,15 +17,20 @@ import {
   collectVoyagePorts,
   countDistinctBatchIds,
   countPlannedPodRows,
+  deriveEstadoConciliacao,
   formatMetric,
   formatPortDisplayName,
   getGraniteModuleStats,
+  getProximaEscala,
   getVaziosModuleStats,
   normalizePortName,
   splitVoyageBls,
   stripFileExtension,
-  summarizeContainerTypes,
-  summarizeModuleAvailability,
+  summarizeExportByPol,
+  summarizeImportByPod,
+  voyageCeCoverage,
+  voyageHasMissingManifest,
+  type EstadoConciliacao,
   type VoyageBl,
 } from '../../pages/viagensHelpers'
 import {
@@ -42,25 +48,13 @@ import type { useVoyages } from '../../hooks/useBls'
 
 export type Voyage = NonNullable<ReturnType<typeof useVoyages>['data']>[number]
 
-export type VoyageSectionKey = 'importação' | 'exportação' | 'origemTrechos'
+type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos'
 
-const VOYAGE_SECTION_ITEMS: Array<{ key: VoyageSectionKey; label: string; description: string }> = [
-  {
-    key: 'importação',
-    label: 'Importação',
-    description: 'Consolidado dos fluxos de CNTR, carga geral, carga solta e veículos vinculados à viagem.',
-  },
-  {
-    key: 'exportação',
-    label: 'Exportação',
-    description: 'Resumo dos módulos de Granito e Vazios vinculados à mesma viagem.',
-  },
-  {
-    key: 'origemTrechos',
-    label: 'Origem e Manifestos',
-    description: 'ETD editavel por manifesto e consolidado dos manifestos identificados na viagem.',
-  },
-]
+const ESTADO_META: Record<EstadoConciliacao, { label: string; color: string; bg: string }> = {
+  divergente: { label: 'Divergente', color: '#cf4b3f', bg: 'rgba(207,75,63,0.12)' },
+  incompleto: { label: 'Incompleto', color: '#b8860b', bg: 'rgba(224,165,46,0.16)' },
+  conciliado: { label: 'Conciliado', color: '#1f7a4d', bg: 'rgba(42,157,99,0.16)' },
+}
 
 export type EditingPodPayload = {
   voyageId: number
@@ -114,15 +108,12 @@ type VoyageCardProps = {
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   scheduledPodRows: VoyagePodSchedule[]
   exportSchedule: VoyageExportSchedule | null
-  sectionState: Partial<Record<VoyageSectionKey, boolean>>
-  onToggleSection: (section: VoyageSectionKey) => void
   onEditVoyage: (voyageId: number) => void
   onDeleteVoyage: (voyageId: number) => void
   onEditPod: (payload: EditingPodPayload) => void
   onEditPol: (payload: EditingPolPayload) => void
   onAddPod: (payload: AddingPodPayload) => void
   onEditExport: (payload: EditingExportPayload) => void
-  defaultExpanded?: boolean
 }
 
 export function VoyageCard({
@@ -134,20 +125,16 @@ export function VoyageCard({
   polSchedules,
   scheduledPodRows,
   exportSchedule,
-  sectionState,
-  onToggleSection,
   onEditVoyage,
   onDeleteVoyage,
   onEditPod,
   onEditPol,
   onAddPod,
   onEditExport,
-  defaultExpanded = false,
 }: VoyageCardProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  // Modo compacto: o hero resume a viagem; o detalhe abre sob demanda.
-  const [expanded, setExpanded] = useState(defaultExpanded)
+  const [activeTab, setActiveTab] = useState<VoyageTabKey>('visao')
   const { showToast } = useToast()
   const { isAdmin, user } = useAuth()
 
@@ -168,33 +155,13 @@ export function VoyageCard({
   const totalBls = (voyage.bls ?? []).length
   const billingClosed = totalBls > 0 && voyagesWithUnpaidBls != null && !voyagesWithUnpaidBls.has(voyage.id)
   const flatContainers = containerBls.flatMap((bl) => bl.bl_containers ?? [])
-  const vehicleContainerNumbers = new Set(vehicleStats.containerNumbers)
-  const generalCargoContainers = flatContainers.filter(
-    (container) => !vehicleContainerNumbers.has(String(container.container_number ?? '').trim().toUpperCase()),
-  )
   const totalContainers = countDistinctContainerNumbers(flatContainers)
-  const totalGeneralCargoContainers = countDistinctContainerNumbers(generalCargoContainers)
   const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
-  const totalGeneralCargoImoContainers = countDistinctContainerNumbersBy(
-    generalCargoContainers,
-    (container) => Boolean(container.is_imo),
-  )
-  const totalGeneralCargoOogContainers = countDistinctContainerNumbersBy(
-    generalCargoContainers,
-    (container) => Boolean(container.is_oog),
-  )
-  const totalBreakbulkMachines = breakbulkBls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)
-  const totalBreakbulkPackages = breakbulkBls.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0)
-  const totalBreakbulkPackagesTotal = breakbulkBls.reduce(
-    (sum, bl) => sum + Number(bl.bb_packages_total ?? bl.bb_packages_qty ?? bl.bl_breakbulk_items?.length ?? 0),
-    0,
-  )
   const totalBreakbulkWeightTon = breakbulkBls.reduce(
     (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
     0,
   )
-  const totalBreakbulkCbm = breakbulkBls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)
   const graniteStats = getGraniteModuleStats(voyage.granite_manifests)
   const vaziosStats = getVaziosModuleStats(voyage.vazios_manifests)
   const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
@@ -204,8 +171,8 @@ export function VoyageCard({
     voyage.pod?.name ?? null,
     scheduledPodRows.map((schedule) => schedule.pod),
   )
-  const containerTypes = summarizeContainerTypes(flatContainers)
-  const generalCargoContainerTypes = summarizeContainerTypes(generalCargoContainers)
+  const importByPod = summarizeImportByPod(voyage.bls, vehicleStats.containerNumbers)
+  const exportByPol = summarizeExportByPol(voyage.granite_manifests, voyage.vazios_manifests)
   const podRows = destinationPorts.map((pod) => {
     const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
     const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(pod))
@@ -227,6 +194,7 @@ export function VoyageCard({
       rtw: schedule?.rtw ?? null,
       ceStatus: schedule?.ceStatus ?? autoCeStatus,
       linked: schedule?.linked ?? false,
+      escalaNumber: schedule?.escalaNumber ?? null,
     }
   })
   const plannedPodCount = countPlannedPodRows(podRows)
@@ -237,48 +205,326 @@ export function VoyageCard({
     polSchedules,
   })
 
+  // Estado de Conciliação: divergências da viagem aberta (uma consulta) +
+  // sinais baratos do payload.
+  const { data: reconciliation } = useVoyageReconciliation(voyage.id)
+  const divergenceCount = reconciliation?.items.length ?? 0
+  const ceCoverage = voyageCeCoverage(voyage.bls)
+  const missingManifest = voyageHasMissingManifest({ bls: voyage.bls, batches: importBatches })
+  const estado = deriveEstadoConciliacao({
+    hasOpenDivergences: divergenceCount > 0,
+    ceFilled: ceCoverage.filled,
+    ceTotal: ceCoverage.total,
+    hasMissingManifest: missingManifest,
+  })
+  const estadoMeta = ESTADO_META[estado]
+  const proximaEscala = getProximaEscala(podRows)
+
+  const planningContent = (
+    <MetricSection
+      title="Planejamento por POD/POL"
+      description="Datas ETA, ETB, ATA e ATD, RESTOW, BLs e CEs, ESCALA e Nº de Escala por porto de descarga ou embarque."
+      actions={isAdmin ? (
+        <>
+          <Button variant="secondary" onClick={() => onAddPod({ voyageId: voyage.id, voyageLabel })}>
+            <Plus size={15} />
+            Adicionar POD
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
+          >
+            <Plus size={15} />
+            Adicionar POL
+          </Button>
+        </>
+      ) : undefined}
+    >
+      <div className="app-voyage-table-frame">
+        <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[9%]" />
+            <col className="w-[13%]" />
+            <col className="w-[8%]" />
+            <col className="w-[12%]" />
+            <col className="w-[8%]" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col" className="px-3 py-2">POD/POL</th>
+              <th scope="col" className="px-3 py-2">ETA</th>
+              <th scope="col" className="px-3 py-2">ETB</th>
+              <th scope="col" className="px-3 py-2">ATA</th>
+              <th scope="col" className="px-3 py-2">ATD</th>
+              <th scope="col" className="px-3 py-2">RESTOW</th>
+              <th scope="col" className="px-3 py-2">BLs e CEs</th>
+              <th scope="col" className="px-3 py-2">ESCALA</th>
+              <th scope="col" className="px-3 py-2">Nº Escala</th>
+              <th scope="col" className="px-3 py-2">Acoes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {podRows.length ? (
+              podRows.map((row) => (
+                <tr key={`${voyage.id}-lineup-${row.pod}`}>
+                  <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{row.pod}</td>
+                  <td className="px-3 py-2">{formatDate(row.eta)}</td>
+                  <td className="px-3 py-2">{formatDate(row.etb)}</td>
+                  <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                  <td className="px-3 py-2">{formatDate(row.atd)}</td>
+                  <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
+                  <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
+                  <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
+                  <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        className="app-voyage-icon-btn"
+                        aria-label={`Editar planejamento do POD ${row.pod}`}
+                        onClick={() =>
+                          onEditPod({
+                            voyageId: voyage.id,
+                            voyageLabel,
+                            pod: row.pod,
+                            eta: row.eta,
+                            etb: row.etb,
+                            ata: row.ata,
+                            atd: row.atd,
+                            rtw: row.rtw,
+                            ceStatus: row.ceStatus,
+                            linked: row.linked,
+                          })
+                        }
+                      >
+                        <Pencil size={15} />
+                      </Button>
+                      {isAdmin ? (
+                        <Button
+                          variant="danger"
+                          className="app-voyage-icon-btn"
+                          aria-label={`Excluir planejamento do POD ${row.pod}`}
+                          onClick={async () => {
+                            const routeBls = (voyage.bls ?? []).filter(
+                              (bl) => normalizePortName(bl.pod) === normalizePortName(row.pod),
+                            )
+                            const hasScheduleData = Boolean(
+                              row.eta || row.etb || row.ata || row.atd || row.rtw !== null,
+                            )
+                            if (routeBls.length > 0) {
+                              showToast('Não é possível excluir este POD: existem B/Ls vinculados.', 'error')
+                              return
+                            }
+                            if (!hasScheduleData && row.linked !== true) {
+                              showToast('Este POD ja nao possui dados planejados para remover.', 'info')
+                              return
+                            }
+                            if (!user?.id) {
+                              showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
+                              return
+                            }
+                            try {
+                              await saveVoyagePodSchedule({
+                                voyageId: voyage.id,
+                                pod: row.pod,
+                                eta: null,
+                                etb: null,
+                                ata: null,
+                                atd: null,
+                                rtw: null,
+                                ceStatus: 'waiting',
+                                linked: false,
+                                changedBy: user.id,
+                              })
+                              await Promise.all([
+                                queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+                                queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+                                queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+                              ])
+                              showToast('Dados do planejamento do POD limpos com sucesso.', 'success')
+                            } catch (error) {
+                              const errorText = extractErrorText(error)
+                              if (errorText.includes('42501') || errorText.includes('permission denied')) {
+                                showToast('Sem permissão para excluir planejamento do POD. Solicite acesso administrativo.', 'error')
+                                return
+                              }
+                              showToast(
+                                `Falha ao excluir planejamento do POD.${errorText ? ` Motivo: ${errorText}` : ''}`,
+                                'error',
+                              )
+                            }
+                          }}
+                        >
+                          <Trash2 size={15} />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={10} className="px-3 py-3 text-[var(--app-muted)]">
+                  Nenhum POD planejado para esta viagem.
+                </td>
+              </tr>
+            )}
+            {exportSchedule ? (
+              <tr className="border-t border-amber-900/40 bg-amber-950/20">
+                <td className="px-3 py-2 font-semibold text-amber-400">
+                  {exportSchedule.pol ?? 'POL'}
+                  <span className="ml-1 text-xs text-amber-600">EXP</span>
+                </td>
+                <td className="px-3 py-2">{formatDate(exportSchedule.eta)}</td>
+                <td className="px-3 py-2">{formatDate(exportSchedule.etb)}</td>
+                <td colSpan={3} className="px-3 py-2 text-amber-500/80 text-xs">
+                  {[
+                    exportSchedule.hasGranite ? 'GRANITE' : null,
+                    exportSchedule.containersQty !== null
+                      ? `${exportSchedule.containersQty} CNTRS${exportSchedule.movementsQty !== null ? ` - ${exportSchedule.movementsQty} MOVES` : ''}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' | ') || '—'}
+                </td>
+                <td className="px-3 py-2">{renderCeStatusLabel(exportSchedule.ceStatus ?? 'waiting')}</td>
+                <td className="px-3 py-2">{renderLinkedLabel(exportSchedule.linked)}</td>
+                <td className="px-3 py-2">-</td>
+                <td className="px-3 py-2">
+                  {isAdmin ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        className="app-voyage-icon-btn"
+                        aria-label="Editar POL de exportação"
+                        onClick={() =>
+                          onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })
+                        }
+                      >
+                        <Pencil size={15} />
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="app-voyage-icon-btn"
+                        aria-label="Excluir POL de exportação"
+                        onClick={async () => {
+                          try {
+                            await deleteVoyageExportSchedule(exportSchedule.id)
+                            await Promise.all([
+                              queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
+                              queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+                              queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+                            ])
+                            showToast('Planejamento de exportação removido.', 'success')
+                          } catch {
+                            showToast('Falha ao remover planejamento de exportação.', 'error')
+                          }
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </div>
+                  ) : null}
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </MetricSection>
+  )
+
+  const navCardsContent = (
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <NavigationCard
+        icon={Boxes}
+        title="Manifestos CNTR"
+        metrics={[`${containerManifestCount} manifestos`, `${containerBls.length} B/Ls`, `${totalContainers} containers distintos`]}
+        onClick={() => navigate(`/manifestos?voyage=${voyage.id}`)}
+        disabled={containerBls.length === 0}
+      />
+      <NavigationCard
+        icon={FileText}
+        title="Manifestos BB"
+        metrics={[`${breakbulkManifestCount} manifestos`, `${breakbulkBls.length} B/Ls`, `${formatMetric(totalBreakbulkWeightTon)} ton`]}
+        onClick={() => navigate(`/carga-solta?voyage=${voyage.id}`)}
+        disabled={breakbulkBls.length === 0}
+      />
+      <NavigationCard
+        icon={Gem}
+        title="Granito"
+        metrics={[`${graniteStats.totalManifests} manifestos`, `${formatMetric(graniteStats.totalWeightTon)} ton`, `${graniteStats.totalBls} B/Ls`]}
+        onClick={() => navigate(`/granito?voyage=${voyage.id}`)}
+        disabled={graniteStats.totalManifests === 0}
+      />
+      <NavigationCard
+        icon={Package}
+        title="Vazios"
+        metrics={[`${vaziosStats.totalBookings} bookings`, `${vaziosStats.distinctContainers} containers`, vaziosStats.destinations || 'Sem destinos']}
+        onClick={() => navigate(`/vazios?voyage=${voyage.id}`)}
+        disabled={vaziosStats.totalManifests === 0}
+      />
+    </section>
+  )
+
   const importacaoContent = (
     <>
-      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
-        <MetricPanel title="Container">
-          <Info label="B/Ls CNTR" value={String(containerBls.length)} />
-          <Info label="CNTRS distintos" value={String(totalContainers)} />
-          <Info label="Containers IMO" value={String(totalImoContainers)} />
-          <Info label="Containers OOG" value={String(totalOogContainers)} />
-          <Info label="Tipos de container" value={containerTypes || '-'} />
-        </MetricPanel>
+      {importByPod.length ? (
+        <div className="grid gap-4">
+          {importByPod.map((pod) => (
+            <div key={`${voyage.id}-imp-${pod.pod}`} className="app-panel app-panel--padded grid gap-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="app-panel__title text-base">{formatPortDisplayName(pod.pod)}</div>
+                <div className="text-xs text-[var(--app-muted)]">
+                  {pod.containers.distinct} CNTRs · {pod.breakbulk.bls} B/Ls carga solta
+                  {pod.vehicles.distinctContainers ? ` · ${pod.vehicles.distinctContainers} CNTRs c/ veículos` : ''}
+                </div>
+              </div>
+              <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+                <MetricPanel title="Containers">
+                  <Info label="CNTRS distintos" value={String(pod.containers.distinct)} />
+                  <Info label="Containers IMO" value={String(pod.containers.imo)} />
+                  <Info label="Containers OOG" value={String(pod.containers.oog)} />
+                  <Info label="Tipos de container" value={pod.containers.types || '-'} />
+                </MetricPanel>
+                {pod.vehicles.distinctContainers ? (
+                  <MetricPanel title="Veiculos">
+                    <Info label="Containers com veiculos" value={String(pod.vehicles.distinctContainers)} />
+                    <Info label="Carga geral (CNTRs)" value={String(pod.generalCargo.distinct)} />
+                  </MetricPanel>
+                ) : null}
+                {pod.breakbulk.bls ? (
+                  <MetricPanel title="Carga solta">
+                    <Info label="B/Ls carga solta" value={String(pod.breakbulk.bls)} />
+                    <Info label="Maquinas" value={formatMetric(pod.breakbulk.machines)} />
+                    <Info label="Packages" value={formatMetric(pod.breakbulk.packages)} />
+                    <Info label="Weight total" value={`${formatMetric(pod.breakbulk.weightTon)} ton`} />
+                    <Info label="CBM total" value={formatMetric(pod.breakbulk.cbm)} />
+                  </MetricPanel>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">
+          Nenhuma carga de importação vinculada a esta viagem.
+        </div>
+      )}
 
-        <MetricPanel title="Container de Carga Geral">
-          <Info label="CNTRS distintos" value={String(totalGeneralCargoContainers)} />
-          <Info label="Containers IMO" value={String(totalGeneralCargoImoContainers)} />
-          <Info label="Containers OOG" value={String(totalGeneralCargoOogContainers)} />
-          <Info label="Tipos de container" value={generalCargoContainerTypes || '-'} />
-        </MetricPanel>
-
-        <MetricPanel title="Veiculos">
-          <Info label="Veiculos vinculados" value={String(vehicleStats.totalVehicles)} />
-          <Info label="Containers com veiculos" value={String(vehicleStats.distinctContainerCount)} />
-          <Info label="Marcas de veiculos" value={vehicleStats.brandSummary} />
-          <Info label="Veiculos por tipo CNTR" value={vehicleStats.vehicleByContainerTypeSummary} />
-          <Info label="Tipos de Container" value={containerTypes || '-'} />
-        </MetricPanel>
-
-        <MetricPanel title="Carga solta">
-          <Info label="B/Ls carga solta" value={String(breakbulkBls.length)} />
-          <Info label="Maquinas" value={formatMetric(totalBreakbulkMachines)} />
-          <Info label="Packages" value={formatMetric(totalBreakbulkPackages)} />
-          <Info label="Packages total" value={formatMetric(totalBreakbulkPackagesTotal)} />
-          <Info label="Weight total" value={`${formatMetric(totalBreakbulkWeightTon)} ton`} />
-          <Info label="CBM total" value={formatMetric(totalBreakbulkCbm)} />
-        </MetricPanel>
-
+      {vaziosImpStats.totalManifests ? (
         <MetricPanel title="Vazios Importacao">
           <Info label="Manifestos" value={String(vaziosImpStats.totalManifests)} />
           <Info label="Containers distintos" value={String(vaziosImpStats.distinctContainers)} />
           <Info label="Tipos" value={vaziosImpStats.containerTypes || '-'} />
           <Info label="Destinos" value={vaziosImpStats.destinations || '-'} />
         </MetricPanel>
-      </div>
+      ) : null}
 
       {user?.id ? (
         <MetricSection
@@ -298,25 +544,34 @@ export function VoyageCard({
 
   const exportacaoContent = (
     <>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <MetricPanel title="Granito">
-          <Info label="Manifestos" value={String(graniteStats.totalManifests)} />
-          <Info label="B/Ls" value={String(graniteStats.totalBls)} />
-          <Info label="Peso total" value={`${formatMetric(graniteStats.totalWeightTon)} ton`} />
-          <Info label="Prontos faturamento" value={String(graniteStats.readyForBillingCount)} />
-          <Info label="Faturados" value={String(graniteStats.invoicedCount)} />
-          <Info label="Portos descarga" value={graniteStats.dischargePorts || '-'} />
-        </MetricPanel>
-
-        <MetricPanel title="Vazios">
-          <Info label="Manifestos" value={String(vaziosStats.totalManifests)} />
-          <Info label="Bookings" value={String(vaziosStats.totalBookings)} />
-          <Info label="Containers distintos" value={String(vaziosStats.distinctContainers)} />
-          <Info label="Tipos" value={vaziosStats.containerTypes || '-'} />
-          <Info label="Destinos" value={vaziosStats.destinations || '-'} />
-          <Info label="Terminais origem" value={vaziosStats.originTerminals || '-'} />
-        </MetricPanel>
-      </div>
+      {exportByPol.length ? (
+        <div className="grid gap-4">
+          {exportByPol.map((pol) => (
+            <div key={`${voyage.id}-exp-${pol.pol}`} className="app-panel app-panel--padded grid gap-4">
+              <div className="app-panel__title text-base">{formatPortDisplayName(pol.pol)}</div>
+              <div className="grid gap-4 xl:grid-cols-2">
+                <MetricPanel title="Granito">
+                  <Info label="Manifestos" value={String(pol.granite.manifests)} />
+                  <Info label="B/Ls" value={String(pol.granite.bls)} />
+                  <Info label="Peso total" value={`${formatMetric(pol.granite.weightTon)} ton`} />
+                  <Info label="Prontos faturamento" value={String(pol.granite.readyForBilling)} />
+                  <Info label="Faturados" value={String(pol.granite.invoiced)} />
+                </MetricPanel>
+                <MetricPanel title="Vazios">
+                  <Info label="Bookings" value={String(pol.vazios.bookings)} />
+                  <Info label="Containers distintos" value={String(pol.vazios.distinctContainers)} />
+                  <Info label="Tipos" value={pol.vazios.types || '-'} />
+                  <Info label="Destinos" value={pol.vazios.destinations || '-'} />
+                </MetricPanel>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">
+          Nenhuma carga de exportação vinculada a esta viagem.
+        </div>
+      )}
 
       {user?.id ? (
         <MetricSection
@@ -334,75 +589,109 @@ export function VoyageCard({
     </>
   )
 
-  const origemTrechosContent = (
-    <div className="app-panel app-panel--padded">
-      <div className="mb-3">
-        <div className="app-panel__title">Manifestos vinculados</div>
-        <div className="app-panel__meta">
-          Um manifesto por linha, com ETD editavel e quantidade de B/Ls vinculados.
+  const manifestosContent = (
+    <>
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3"
+        style={{ borderColor: estadoMeta.color, backgroundColor: estadoMeta.bg }}
+      >
+        <div className="flex items-center gap-3 text-sm">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: estadoMeta.color }} />
+          <div>
+            <div className="font-semibold" style={{ color: estadoMeta.color }}>
+              Conciliação: {estadoMeta.label}
+            </div>
+            <div className="text-xs text-[var(--app-muted)]">
+              CE Mercante {ceCoverage.filled}/{ceCoverage.total}
+              {missingManifest ? ' · manifesto faltando' : ''}
+              {divergenceCount ? ` · ${divergenceCount} divergência${divergenceCount === 1 ? '' : 's'} aberta${divergenceCount === 1 ? '' : 's'}` : ''}
+            </div>
+          </div>
         </div>
+        {divergenceCount ? (
+          <Button variant="secondary" onClick={() => navigate(`/baplie?voyage=${voyage.id}`)}>
+            <AlertTriangle size={15} />
+            Resolver divergências
+          </Button>
+        ) : null}
       </div>
 
-      <div className="app-voyage-table-frame">
-        <div className="app-table-scroll">
-          <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-[52%]" />
-              <col className="w-[18%]" />
-              <col className="w-[14%]" />
-              <col className="w-[16%]" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th scope="col" className="px-3 py-2">Manifesto</th>
-                <th scope="col" className="px-3 py-2">ETD</th>
-                <th scope="col" className="px-3 py-2">B/Ls</th>
-                <th scope="col" className="px-3 py-2">Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {manifestRows.length ? (
-                manifestRows.map((row) => (
-                  <tr key={`${voyage.id}-manifest-${row.batchId}`}>
-                    <td className="px-3 py-2">
-                      <div className="font-semibold text-[var(--app-text-strong)]">{row.routeLabel}</div>
-                      <div className="text-xs text-[var(--app-muted)]">{row.filenameLabel}</div>
-                    </td>
-                    <td className="px-3 py-2">{formatDate(row.etd)}</td>
-                    <td className="px-3 py-2">{row.blCount}</td>
-                    <td className="px-3 py-2">
-                      <Button
-                        variant="secondary"
-                        className="app-voyage-icon-btn"
-                        aria-label={`Editar ETD do manifesto ${row.filenameLabel}`}
-                        onClick={() =>
-                          onEditPol({
-                            voyageId: voyage.id,
-                            voyageLabel,
-                            pol: row.pol,
-                            etd: row.etd,
-                          })
-                        }
-                        disabled={!row.pol || row.pol === '-'}
-                      >
-                        <Pencil size={15} />
-                      </Button>
+      <div className="app-panel app-panel--padded">
+        <div className="mb-3">
+          <div className="app-panel__title">Manifestos vinculados</div>
+          <div className="app-panel__meta">
+            Um manifesto por linha, com ETD editavel e quantidade de B/Ls vinculados.
+          </div>
+        </div>
+
+        <div className="app-voyage-table-frame">
+          <div className="app-table-scroll">
+            <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[52%]" />
+                <col className="w-[18%]" />
+                <col className="w-[14%]" />
+                <col className="w-[16%]" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col" className="px-3 py-2">Manifesto</th>
+                  <th scope="col" className="px-3 py-2">ETD</th>
+                  <th scope="col" className="px-3 py-2">B/Ls</th>
+                  <th scope="col" className="px-3 py-2">Acoes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {manifestRows.length ? (
+                  manifestRows.map((row) => (
+                    <tr key={`${voyage.id}-manifest-${row.batchId}`}>
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-[var(--app-text-strong)]">{row.routeLabel}</div>
+                        <div className="text-xs text-[var(--app-muted)]">{row.filenameLabel}</div>
+                      </td>
+                      <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                      <td className="px-3 py-2">{row.blCount}</td>
+                      <td className="px-3 py-2">
+                        <Button
+                          variant="secondary"
+                          className="app-voyage-icon-btn"
+                          aria-label={`Editar ETD do manifesto ${row.filenameLabel}`}
+                          onClick={() =>
+                            onEditPol({
+                              voyageId: voyage.id,
+                              voyageLabel,
+                              pol: row.pol,
+                              etd: row.etd,
+                            })
+                          }
+                          disabled={!row.pol || row.pol === '-'}
+                        >
+                          <Pencil size={15} />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-3 text-[var(--app-muted)]">
+                      Nenhum manifesto identificado nesta viagem.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="px-3 py-3 text-[var(--app-muted)]">
-                    Nenhum manifesto identificado nesta viagem.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
+
+  const tabs: Array<{ key: VoyageTabKey; label: string }> = [
+    { key: 'visao', label: 'Visão geral' },
+    { key: 'importacao', label: 'Importação' },
+    { key: 'exportacao', label: 'Exportação' },
+    { key: 'manifestos', label: 'Escalas & Manifestos' },
+  ]
 
   return (
     <Card className="grid gap-5">
@@ -429,26 +718,6 @@ export function VoyageCard({
                   </span>
                 ) : null}
               </div>
-            </div>
-
-            <div className="app-voyage-hero-stats">
-              {[
-                `${totalBls} B/Ls`,
-                `${totalContainers} CNTRs`,
-                `${plannedPodCount} Escala${plannedPodCount === 1 ? '' : 's'} planejada${plannedPodCount === 1 ? '' : 's'}`,
-                `${totalImportManifestCount} Manifesto${totalImportManifestCount === 1 ? '' : 's'}`,
-                `Modulos: ${summarizeModuleAvailability({
-                  hasCntrs: containerBls.length > 0,
-                  hasBreakbulk: breakbulkBls.length > 0,
-                  hasVehicles: vehicleStats.totalVehicles > 0,
-                  hasGranite: graniteStats.totalManifests > 0,
-                  hasVazios: vaziosStats.totalManifests > 0,
-                })}`,
-              ].map((item) => (
-                <span key={`${voyage.id}-${item}`} className="app-voyage-hero-stat">
-                  {item}
-                </span>
-              ))}
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--app-muted)]">
@@ -478,15 +747,6 @@ export function VoyageCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start">
-            <Button
-              variant="secondary"
-              onClick={() => setExpanded((open) => !open)}
-              aria-expanded={expanded}
-            >
-              {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-              {expanded ? 'Recolher' : 'Detalhes'}
-            </Button>
           {isAdmin ? (
             <div className="flex items-center gap-2 self-start">
               <Button variant="ghost" className="app-voyage-action-icon" onClick={() => onEditVoyage(voyage.id)}>
@@ -504,278 +764,75 @@ export function VoyageCard({
               </Button>
             </div>
           ) : null}
-          </div>
         </div>
       </section>
 
-      {expanded ? (<>
-      <MetricSection
-        title="Planejamento por POD/POL"
-        description="Datas ETA, ETB, ATA e ATD, RESTOW, BLs e CEs e ESCALA sao controlados por porto de descarga ou embarque."
-        actions={isAdmin ? (
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => onAddPod({ voyageId: voyage.id, voyageLabel })}
-            >
-              <Plus size={15} />
-              Adicionar POD
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
-            >
-              <Plus size={15} />
-              Adicionar POL
-            </Button>
-          </>
-        ) : undefined}
-      >
-        <div className="app-voyage-table-frame">
-          <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[16%]" />
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th scope="col" className="px-3 py-2">POD/POL</th>
-                <th scope="col" className="px-3 py-2">ETA</th>
-                <th scope="col" className="px-3 py-2">ETB</th>
-                <th scope="col" className="px-3 py-2">ATA</th>
-                <th scope="col" className="px-3 py-2">ATD</th>
-                <th scope="col" className="px-3 py-2">RESTOW</th>
-                <th scope="col" className="px-3 py-2">BLs e CEs</th>
-                <th scope="col" className="px-3 py-2">ESCALA</th>
-                <th scope="col" className="px-3 py-2">Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {podRows.length ? (
-                podRows.map((row) => (
-                  <tr key={`${voyage.id}-lineup-${row.pod}`}>
-                    <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{row.pod}</td>
-                    <td className="px-3 py-2">{formatDate(row.eta)}</td>
-                    <td className="px-3 py-2">{formatDate(row.etb)}</td>
-                    <td className="px-3 py-2">{formatDate(row.ata)}</td>
-                    <td className="px-3 py-2">{formatDate(row.atd)}</td>
-                    <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
-                    <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
-                    <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="secondary"
-                          className="app-voyage-icon-btn"
-                          aria-label={`Editar planejamento do POD ${row.pod}`}
-                          onClick={() =>
-                            onEditPod({
-                              voyageId: voyage.id,
-                              voyageLabel,
-                              pod: row.pod,
-                              eta: row.eta,
-                              etb: row.etb,
-                              ata: row.ata,
-                              atd: row.atd,
-                              rtw: row.rtw,
-                              ceStatus: row.ceStatus,
-                              linked: row.linked,
-                            })
-                          }
-                        >
-                          <Pencil size={15} />
-                        </Button>
-                        {isAdmin ? (
-                          <Button
-                            variant="danger"
-                            className="app-voyage-icon-btn"
-                            aria-label={`Excluir planejamento do POD ${row.pod}`}
-                            onClick={async () => {
-                              const routeBls = (voyage.bls ?? []).filter(
-                                (bl) => normalizePortName(bl.pod) === normalizePortName(row.pod),
-                              )
-                              const hasScheduleData = Boolean(
-                                row.eta || row.etb || row.ata || row.atd || row.rtw !== null,
-                              )
-                              if (routeBls.length > 0) {
-                                showToast('Não é possível excluir este POD: existem B/Ls vinculados.', 'error')
-                                return
-                              }
-                              if (!hasScheduleData && row.linked !== true) {
-                                showToast('Este POD ja nao possui dados planejados para remover.', 'info')
-                                return
-                              }
-                              if (!user?.id) {
-                                showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
-                                return
-                              }
-                              try {
-                                await saveVoyagePodSchedule({
-                                  voyageId: voyage.id,
-                                  pod: row.pod,
-                                  eta: null,
-                                  etb: null,
-                                  ata: null,
-                                  atd: null,
-                                  rtw: null,
-                                  ceStatus: 'waiting',
-                                  linked: false,
-                                  changedBy: user.id,
-                                })
-                                await Promise.all([
-                                  queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
-                                  queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-                                  queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-                                ])
-                                showToast('Dados do planejamento do POD limpos com sucesso.', 'success')
-                              } catch (error) {
-                                const errorText = extractErrorText(error)
-                                if (errorText.includes('42501') || errorText.includes('permission denied')) {
-                                  showToast('Sem permissão para excluir planejamento do POD. Solicite acesso administrativo.', 'error')
-                                  return
-                                }
-                                showToast(
-                                  `Falha ao excluir planejamento do POD.${errorText ? ` Motivo: ${errorText}` : ''}`,
-                                  'error',
-                                )
-                              }
-                            }}
-                          >
-                            <Trash2 size={15} />
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={9} className="px-3 py-3 text-[var(--app-muted)]">
-                    Nenhum POD planejado para esta viagem.
-                  </td>
-                </tr>
-              )}
-              {exportSchedule ? (
-                <tr className="border-t border-amber-900/40 bg-amber-950/20">
-                  <td className="px-3 py-2 font-semibold text-amber-400">
-                    {exportSchedule.pol ?? 'POL'}
-                    <span className="ml-1 text-xs text-amber-600">EXP</span>
-                  </td>
-                  <td className="px-3 py-2">{formatDate(exportSchedule.eta)}</td>
-                  <td className="px-3 py-2">{formatDate(exportSchedule.etb)}</td>
-                  <td colSpan={3} className="px-3 py-2 text-amber-500/80 text-xs">
-                    {[
-                      exportSchedule.hasGranite ? 'GRANITE' : null,
-                      exportSchedule.containersQty !== null
-                        ? `${exportSchedule.containersQty} CNTRS${exportSchedule.movementsQty !== null ? ` - ${exportSchedule.movementsQty} MOVES` : ''}`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' | ') || '—'}
-                  </td>
-                  <td className="px-3 py-2">{renderCeStatusLabel(exportSchedule.ceStatus ?? 'waiting')}</td>
-                  <td className="px-3 py-2">{renderLinkedLabel(exportSchedule.linked)}</td>
-                  <td className="px-3 py-2">
-                    {isAdmin ? (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="secondary"
-                          className="app-voyage-icon-btn"
-                          aria-label="Editar POL de exportação"
-                          onClick={() =>
-                            onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })
-                          }
-                        >
-                          <Pencil size={15} />
-                        </Button>
-                        <Button
-                          variant="danger"
-                          className="app-voyage-icon-btn"
-                          aria-label="Excluir POL de exportação"
-                          onClick={async () => {
-                            try {
-                              await deleteVoyageExportSchedule(exportSchedule.id)
-                              await Promise.all([
-                                queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
-                                queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-                                queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-                              ])
-                              showToast('Planejamento de exportação removido.', 'success')
-                            } catch {
-                              showToast('Falha ao remover planejamento de exportação.', 'error')
-                            }
-                          }}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </MetricSection>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <NavigationCard
-          icon={Boxes}
-          title="Manifestos CNTR"
-          metrics={[`${containerManifestCount} manifestos`, `${containerBls.length} B/Ls`, `${totalContainers} containers distintos`]}
-          onClick={() => navigate(`/manifestos?voyage=${voyage.id}`)}
-          disabled={containerBls.length === 0}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiTile label="B/Ls" value={String(totalBls)} sub={`${totalImportManifestCount} manifesto${totalImportManifestCount === 1 ? '' : 's'}`} />
+        <KpiTile label="CNTRs distintos" value={String(totalContainers)} sub={`${totalImoContainers} IMO · ${totalOogContainers} OOG`} />
+        <KpiTile
+          label="Próxima escala"
+          value={proximaEscala ? proximaEscala.pod : '—'}
+          sub={proximaEscala ? formatDate(proximaEscala.eta) : `${plannedPodCount} escala${plannedPodCount === 1 ? '' : 's'} planejada${plannedPodCount === 1 ? '' : 's'}`}
         />
-        <NavigationCard
-          icon={FileText}
-          title="Manifestos BB"
-          metrics={[`${breakbulkManifestCount} manifestos`, `${breakbulkBls.length} B/Ls`, `${formatMetric(totalBreakbulkWeightTon)} ton`]}
-          onClick={() => navigate(`/carga-solta?voyage=${voyage.id}`)}
-          disabled={breakbulkBls.length === 0}
-        />
-        <NavigationCard
-          icon={Gem}
-          title="Granito"
-          metrics={[`${graniteStats.totalManifests} manifestos`, `${formatMetric(graniteStats.totalWeightTon)} ton`, `${graniteStats.totalBls} B/Ls`]}
-          onClick={() => navigate(`/granito?voyage=${voyage.id}`)}
-          disabled={graniteStats.totalManifests === 0}
-        />
-        <NavigationCard
-          icon={Package}
-          title="Vazios"
-          metrics={[`${vaziosStats.totalBookings} bookings`, `${vaziosStats.distinctContainers} containers`, vaziosStats.destinations || 'Sem destinos']}
-          onClick={() => navigate(`/vazios?voyage=${voyage.id}`)}
-          disabled={vaziosStats.totalManifests === 0}
+        <KpiTile
+          label="Conciliação"
+          value={estadoMeta.label}
+          valueColor={estadoMeta.color}
+          sub={`CE ${ceCoverage.filled}/${ceCoverage.total}${divergenceCount ? ` · ${divergenceCount} diverg.` : missingManifest ? ' · manifesto faltando' : ''}`}
         />
       </section>
 
       <section className="grid gap-4">
-        {VOYAGE_SECTION_ITEMS.map((section) => (
-          <AccordionSection
-            key={`${voyage.id}-${section.key}`}
-            title={section.label}
-            description={section.description}
-            open={Boolean(sectionState[section.key])}
-            onToggle={() => onToggleSection(section.key)}
-          >
-            {section.key === 'importação'
-              ? importacaoContent
-              : section.key === 'exportação'
-                ? exportacaoContent
-                : origemTrechosContent}
-          </AccordionSection>
-        ))}
+        <div className="flex flex-wrap gap-1 border-b border-[var(--app-border)]">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              aria-current={activeTab === tab.key}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+                activeTab === tab.key
+                  ? 'border-[var(--app-blue-btn)] text-[var(--app-blue-btn)]'
+                  : 'border-transparent text-[var(--app-muted)] hover:text-[var(--app-text)]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid gap-4">
+          {activeTab === 'visao' ? (
+            <>
+              {planningContent}
+              {navCardsContent}
+            </>
+          ) : null}
+          {activeTab === 'importacao' ? importacaoContent : null}
+          {activeTab === 'exportacao' ? exportacaoContent : null}
+          {activeTab === 'manifestos' ? manifestosContent : null}
+        </div>
       </section>
-      </>) : null}
     </Card>
   )
+}
+
+function KpiTile({ label, value, sub, valueColor }: { label: string; value: string; sub?: string; valueColor?: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+      <div className="text-lg font-bold text-[var(--app-text-strong)]" style={valueColor ? { color: valueColor } : undefined}>
+        {value}
+      </div>
+      <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
+      {sub ? <div className="text-[11px] text-[var(--app-muted-soft)]">{sub}</div> : null}
+    </div>
+  )
+}
+
+function renderEscalaNumber(value: string | null) {
+  if (!value) return <span className="text-[var(--app-muted-soft)]">-</span>
+  return <span className="font-mono text-xs text-[var(--app-text-strong)]">{value}</span>
 }
 
 function renderCeStatusLabel(status: VoyagePodCeStatus | null) {
