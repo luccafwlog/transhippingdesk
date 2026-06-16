@@ -757,6 +757,13 @@ textarea {
   padding: 34px 28px 52px;
 }
 
+/* Sidebar rail transition */
+@media (min-width: 1024px) {
+  .viagens-grid {
+    transition: grid-template-columns 0.25s ease-in-out;
+  }
+}
+
 .page-header {
   display: flex;
   align-items: flex-start;

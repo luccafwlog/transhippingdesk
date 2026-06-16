@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowRight, Search } from 'lucide-react'
+import { ArrowRight, Search, Ship } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import type { EstadoConciliacao, VoyageRailItem } from '../../pages/viagensHelpers'
 
@@ -17,6 +17,7 @@ type VoyageRailProps = {
   selectedId: number | null
   onSelect: (id: number) => void
   initialSearch?: string
+  collapsed?: boolean
 }
 
 function nextEscalaSortKey(item: VoyageRailItem) {
@@ -24,7 +25,7 @@ function nextEscalaSortKey(item: VoyageRailItem) {
   return item.proximaEscala?.eta ?? '￿'
 }
 
-export function VoyageRail({ items, selectedId, onSelect, initialSearch = '' }: VoyageRailProps) {
+export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', collapsed = false }: VoyageRailProps) {
   const [search, setSearch] = useState(initialSearch)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>('all')
@@ -53,6 +54,49 @@ export function VoyageRail({ items, selectedId, onSelect, initialSearch = '' }: 
         return `${left.vesselName} ${left.voyageNumber}`.localeCompare(`${right.vesselName} ${right.voyageNumber}`, 'pt-BR')
       })
   }, [items, search, statusFilter, estadoFilter])
+
+  if (collapsed) {
+    return (
+      <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
+        <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2">
+          <div className="flex items-center justify-center">
+            <Ship size={18} className="text-[var(--app-muted)]" />
+          </div>
+        </div>
+        <div className="max-h-[calc(100vh-13rem)] overflow-y-auto">
+          {visible.length === 0 ? (
+            <div className="px-2 py-4 text-center text-[10px] text-[var(--app-muted)]">Nenhuma viagem.</div>
+          ) : (
+            visible.map((item) => {
+              const estado = ESTADO_META[item.estado]
+              const isSelected = item.id === selectedId
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelect(item.id)}
+                  aria-current={isSelected}
+                  aria-label={`${item.vesselName} / ${item.voyageNumber}`}
+                  title={`${item.vesselName} / ${item.voyageNumber} - ${item.carrierName}`}
+                  className={`flex w-full items-center justify-center border-b border-l-[3px] border-[var(--app-border)] px-2 py-3 transition-colors ${
+                    isSelected
+                      ? 'border-l-[var(--app-blue-btn)] bg-[var(--app-bg-elevated)]'
+                      : 'border-l-transparent hover:bg-[var(--app-surface-muted)]'
+                  }`}
+                >
+                  <span
+                    className="h-2.5 w-2.5 flex-none rounded-full"
+                    style={{ backgroundColor: estado.dot }}
+                    title={`${item.vesselName} / ${item.voyageNumber} - ${estado.label}`}
+                  />
+                </button>
+              )
+            })
+          )}
+        </div>
+      </aside>
+    )
+  }
 
   return (
     <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
