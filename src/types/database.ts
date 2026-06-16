@@ -1354,3 +1354,21 @@ export type VoyageExportSchedule = {
 }
 
 export type VoyageExportCeStatus = NonNullable<VoyageExportSchedule['ce_status']>
+
+export type VesselSchedule = {
+  id: string
+  vessel_name: string
+  voyage: string
+  imo_number: string | null
+  qingdao_etd: string
+  shanghai_etd: string
+  taicang_etd: string
+  ningbo_etd: string
+  nansha_etd: string
+  salvador_eta: string
+  vitoria_eta: string
+  pecem_eta: string | null
+  display_order: number | null
+  created_at: string
+  updated_at: string
+}

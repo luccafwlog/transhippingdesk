@@ -10,6 +10,7 @@ import {
   Receipt,
   ReceiptText,
   RefreshCw,
+  Ship,
   TableProperties,
   UserX,
 } from 'lucide-react'
@@ -153,6 +154,10 @@ export function Painel() {
         description="KPIs operacionais e quadro Line Up consolidados na página principal do sistema."
         action={
           <div className="flex flex-wrap items-center gap-3">
+            <Link to="/chegadas-saidas" className="app-btn app-btn--secondary">
+              <Ship size={14} />
+              Chegadas e Saídas
+            </Link>
             <Link to="/line-up-tv/display" target="_blank" rel="noreferrer" className="app-btn app-btn--secondary">
               <Monitor size={14} />
               Abrir tela TV

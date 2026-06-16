@@ -39,6 +39,7 @@ const DemurrageRates = lazyPage(() => import('./pages/DemurrageRates'), 'Demurra
 const EmbarqueVazios = lazyPage(() => import('./pages/EmbarqueVazios'), 'EmbarqueVazios')
 const VaziosImportacao = lazyPage(() => import('./pages/VaziosImportacao'), 'VaziosImportacao')
 const BaplieEDI = lazyPage(() => import('./pages/Baplie'), 'Baplie')
+const ChegadasSaidas = lazyPage(() => import('./pages/ChegadasSaidas'), 'ChegadasSaidas')
 
 function RouteLoading() {
   return (
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/vazios" element={<Navigate to="/embarquevazios" replace />} />
           <Route path="/vazios-importacao" element={withSuspense(<VaziosImportacao />)} />
           <Route path="/baplie" element={withSuspense(<BaplieEDI />)} />
+          <Route path="/chegadas-saidas" element={withSuspense(<ChegadasSaidas />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>
