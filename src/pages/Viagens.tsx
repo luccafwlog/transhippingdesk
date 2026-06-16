@@ -27,7 +27,6 @@ import {
   type EditingExportPayload,
   type EditingPodPayload,
   type EditingPolPayload,
-  type VoyageSectionKey,
 } from '../components/voyages/VoyageCard'
 import { VoyageRail } from '../components/voyages/VoyageRail'
 
@@ -43,7 +42,6 @@ export function Viagens() {
   const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
   const [deletingVoyageId, setDeletingVoyageId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [openVoyageSections, setOpenVoyageSections] = useState<Record<number, Partial<Record<VoyageSectionKey, boolean>>>>({})
   const [editingPod, setEditingPod] = useState<EditingPodPayload | null>(null)
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
   const [addingPodVoyage, setAddingPodVoyage] = useState<AddingPodPayload | null>(null)
@@ -80,16 +78,6 @@ export function Viagens() {
 
   const selectedVoyage = voyages.find((voyage) => voyage.id === selectedVoyageId)
   const deletingVoyage = voyages.find((voyage) => voyage.id === deletingVoyageId)
-
-  function toggleVoyageSection(id: number, section: VoyageSectionKey) {
-    setOpenVoyageSections((current) => ({
-      ...current,
-      [id]: {
-        ...current[id],
-        [section]: !current[id]?.[section],
-      },
-    }))
-  }
 
   async function handleDeleteVoyage() {
     if (!deletingVoyageId) return
@@ -167,7 +155,6 @@ export function Viagens() {
             <VoyageCard
               key={selectedVoyage.id}
               voyage={selectedVoyage}
-              defaultExpanded
               vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
               vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
               voyagesWithUnpaidBls={voyagesWithUnpaidBls}
@@ -175,8 +162,6 @@ export function Viagens() {
               polSchedules={polSchedules}
               scheduledPodRows={podSchedulesByVoyage.get(selectedVoyage.id) ?? []}
               exportSchedule={exportSchedulesData?.get(selectedVoyage.id) ?? null}
-              sectionState={openVoyageSections[selectedVoyage.id] ?? {}}
-              onToggleSection={(section) => toggleVoyageSection(selectedVoyage.id, section)}
               onEditVoyage={setEditingVoyageId}
               onDeleteVoyage={setDeletingVoyageId}
               onEditPod={setEditingPod}
