@@ -36,6 +36,15 @@ vi.mock('../../hooks/usePortalOperation', () => ({
   usePortalOperationBls: () => ({ data: operationBls, isLoading: false }),
 }))
 
+vi.mock('../../hooks/useVesselSchedules', () => ({
+  useVesselSchedules: () => ({ data: [], isLoading: false }),
+}))
+
+vi.mock('@tanstack/react-query', async () => {
+  const actual = await vi.importActual('@tanstack/react-query')
+  return { ...actual, useQueryClient: () => ({ invalidateQueries: vi.fn() }) }
+})
+
 import { PortalDashboard } from '../PortalDashboard'
 
 function LocationProbe() {
