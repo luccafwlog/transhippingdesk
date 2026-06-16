@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
+import { ArrowLeft, Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -126,15 +126,7 @@ export function Viagens() {
       {error ? <InlineError message="Erro ao carregar viagens." /> : null}
 
       <div className={`viagens-grid lg:grid lg:gap-4 ${railCollapsed ? 'lg:grid-cols-[64px_1fr]' : 'lg:grid-cols-[400px_1fr]'}`}>
-        <div className={`relative ${selectedVoyageId ? 'hidden lg:block' : 'block'}`}>
-          <button
-            type="button"
-            onClick={() => setRailCollapsed((prev) => !prev)}
-            className="absolute -right-3 top-4 z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] shadow-sm transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)] lg:flex"
-            aria-label={railCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
-          >
-            {railCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-          </button>
+        <div className={selectedVoyageId ? 'hidden lg:block' : 'block'}>
           {isLoading ? (
             <Card>Carregando viagens...</Card>
           ) : (
@@ -144,6 +136,7 @@ export function Viagens() {
               onSelect={(id) => navigate(`/viagens/${id}`)}
               initialSearch={searchParams.get('vessel') ?? ''}
               collapsed={railCollapsed}
+              onToggleCollapse={() => setRailCollapsed((prev) => !prev)}
             />
           )}
         </div>

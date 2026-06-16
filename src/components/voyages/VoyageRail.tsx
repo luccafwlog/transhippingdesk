@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowRight, Search, Ship } from 'lucide-react'
+import { ArrowRight, ChevronDown, ChevronUp, PanelLeftClose, Search, Ship } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import type { EstadoConciliacao, VoyageRailItem } from '../../pages/viagensHelpers'
 
@@ -18,6 +18,7 @@ type VoyageRailProps = {
   onSelect: (id: number) => void
   initialSearch?: string
   collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 function nextEscalaSortKey(item: VoyageRailItem) {
@@ -25,10 +26,11 @@ function nextEscalaSortKey(item: VoyageRailItem) {
   return item.proximaEscala?.eta ?? '￿'
 }
 
-export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', collapsed = false }: VoyageRailProps) {
+export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', collapsed = false, onToggleCollapse }: VoyageRailProps) {
   const [search, setSearch] = useState(initialSearch)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>('all')
+  const [filtersOpen, setFiltersOpen] = useState(true)
 
   const visible = useMemo(() => {
     const term = search.trim().toUpperCase()
@@ -59,9 +61,15 @@ export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', co
     return (
       <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
         <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2">
-          <div className="flex items-center justify-center">
-            <Ship size={18} className="text-[var(--app-muted)]" />
-          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="flex w-full items-center justify-center rounded-lg p-1.5 text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface)] hover:text-[var(--app-text)]"
+            aria-label="Expandir barra lateral"
+            title="Expandir barra lateral"
+          >
+            <Ship size={18} />
+          </button>
         </div>
         <div className="max-h-[calc(100vh-13rem)] overflow-y-auto">
           {visible.length === 0 ? (
@@ -98,41 +106,72 @@ export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', co
     )
   }
 
+  const hasActiveFilters = statusFilter !== 'active' || estadoFilter !== 'all'
+
   return (
     <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
       <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-        <div className="relative">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted-soft)]" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar navio, viagem, armador ou porto"
-            className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] py-2 pl-9 pr-3 text-sm text-[var(--app-text)] placeholder:text-[var(--app-muted-soft)] focus:border-[var(--app-border-strong)] focus:outline-none"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted-soft)]" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar navio, viagem, armador ou porto"
+              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] py-2 pl-9 pr-3 text-sm text-[var(--app-text)] placeholder:text-[var(--app-muted-soft)] focus:border-[var(--app-border-strong)] focus:outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+            aria-label="Recolher barra lateral"
+            title="Recolher barra lateral"
+          >
+            <PanelLeftClose size={16} />
+          </button>
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {([
-            ['active', 'Ativas'],
-            ['completed', 'Concluídas'],
-            ['all', 'Todas'],
-          ] as Array<[StatusFilter, string]>).map(([value, label]) => (
-            <RailChip key={value} active={statusFilter === value} onClick={() => setStatusFilter(value)}>
-              {label}
-            </RailChip>
-          ))}
-        </div>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {([
-            ['all', 'Conciliação: todas'],
-            ['incompleto', 'Incompleto'],
-            ['conciliado', 'Conciliado'],
-          ] as Array<[EstadoFilter, string]>).map(([value, label]) => (
-            <RailChip key={value} active={estadoFilter === value} onClick={() => setEstadoFilter(value)}>
-              {label}
-            </RailChip>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((prev) => !prev)}
+          className="mt-2 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface)]"
+        >
+          <span className="flex items-center gap-1.5">
+            Filtros
+            {hasActiveFilters ? (
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--app-blue-btn)]" />
+            ) : null}
+          </span>
+          {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {filtersOpen ? (
+          <div className="mt-1 grid gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['active', 'Ativas'],
+                ['completed', 'Concluídas'],
+                ['all', 'Todas'],
+              ] as Array<[StatusFilter, string]>).map(([value, label]) => (
+                <RailChip key={value} active={statusFilter === value} onClick={() => setStatusFilter(value)}>
+                  {label}
+                </RailChip>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['all', 'Conciliação: todas'],
+                ['incompleto', 'Incompleto'],
+                ['conciliado', 'Conciliado'],
+              ] as Array<[EstadoFilter, string]>).map(([value, label]) => (
+                <RailChip key={value} active={estadoFilter === value} onClick={() => setEstadoFilter(value)}>
+                  {label}
+                </RailChip>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-2 flex items-center justify-between text-xs text-[var(--app-muted-soft)]">
           <span>{visible.length} de {items.length} viagens</span>
@@ -201,10 +240,10 @@ function RailChip({ active, onClick, children }: { active: boolean; onClick: () 
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${
+      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all ${
         active
-          ? 'border-[#c5d8f2] bg-[#eef4fb] text-[var(--app-blue-btn)]'
-          : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] hover:border-[var(--app-border-strong)]'
+          ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white shadow-sm'
+          : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)]'
       }`}
     >
       {children}

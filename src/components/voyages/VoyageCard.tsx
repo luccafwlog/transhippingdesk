@@ -260,19 +260,20 @@ export function VoyageCard({
       ) : undefined}
     >
       <div className="app-voyage-table-frame">
-        <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
-          <colgroup>
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[9%]" />
-            <col className="w-[13%]" />
-            <col className="w-[8%]" />
-            <col className="w-[12%]" />
-            <col className="w-[8%]" />
-          </colgroup>
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact app-table--dense app-table--sticky-actions w-full text-left text-sm">
+            <colgroup>
+              <col className="min-w-[90px]" />
+              <col className="min-w-[80px]" />
+              <col className="min-w-[80px]" />
+              <col className="min-w-[80px]" />
+              <col className="min-w-[80px]" />
+              <col className="min-w-[70px]" />
+              <col className="min-w-[90px]" />
+              <col className="min-w-[70px]" />
+              <col className="min-w-[100px]" />
+              <col className="w-[1%] whitespace-nowrap" />
+            </colgroup>
           <thead>
             <tr>
               <th scope="col" className="px-3 py-2">POD/POL</th>
@@ -455,6 +456,7 @@ export function VoyageCard({
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </MetricSection>
   )
