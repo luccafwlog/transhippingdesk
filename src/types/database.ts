@@ -554,6 +554,8 @@ export type Database = {
       vazios_importacao_manifests: Row<VaziosImportacaoManifest>
       vazios_importacao_containers: Row<VaziosImportacaoContainer>
       voyage_export_schedules: Row<VoyageExportSchedule>
+      vessel_schedules: Row<VesselSchedule>
+      ended_vessels: Row<EndedVessel>
     }
     Views: Record<string, never>
     Functions: {
@@ -1371,4 +1373,22 @@ export type VesselSchedule = {
   display_order: number | null
   created_at: string
   updated_at: string
+}
+
+export type EndedVessel = {
+  id: string
+  original_id: string | null
+  vessel_name: string
+  voyage: string
+  imo_number: string | null
+  qingdao_etd: string
+  shanghai_etd: string
+  taicang_etd: string
+  ningbo_etd: string
+  nansha_etd: string
+  salvador_eta: string
+  vitoria_eta: string
+  pecem_eta: string | null
+  ended_at: string
+  created_at: string
 }
