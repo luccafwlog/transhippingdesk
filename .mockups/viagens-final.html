@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Viagens — redesenho consolidado</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --bg-elev:#ece9e1; --surface:#ffffff; --surface-muted:#f8f6f1;
+    --border:#cdc8bc; --border-strong:#b8b2a5; --text:#1c1915; --text-strong:#0e0c0a;
+    --muted:#5a5549; --muted-soft:#8a8579; --blue:#1d4d88; --blue-soft:#2563a8;
+    --nav:#0e1b30; --green:#1f7a4d; --green-bg:#e7f3ec; --amber:#a8761b; --amber-bg:#fbf2df;
+    --red:#b3261e; --red-bg:#fbe9e7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);
+    -webkit-font-smoothing:antialiased;background-image:radial-gradient(var(--border) .5px,transparent .5px);background-size:22px 22px;font-size:13px}
+  .topbar{height:42px;background:linear-gradient(90deg,#0a1320,#10203a);display:flex;align-items:center;gap:16px;padding:0 20px;color:#aeb9cc;font-size:11.5px}
+  .topbar .brand{color:#fff;font-weight:700}.topbar .warn{color:#e7a13a}
+  .nav{height:50px;background:linear-gradient(90deg,#0e1b30,#152a49);display:flex;align-items:center;gap:22px;padding:0 20px;color:#c4d0e3;font-size:13.5px;font-weight:500}
+  .nav .item{opacity:.78}.nav .item.active{opacity:1;color:#fff;font-weight:600;border-bottom:2px solid #e8a33d;height:50px;display:flex;align-items:center}
+  .nav .badge{background:#e8772f;color:#fff;border-radius:9px;font-size:10.5px;padding:1px 6px;font-weight:700}
+  .wrap{max-width:1500px;margin:0 auto;padding:20px 22px 50px}
+  .crumb{font-size:12px;color:var(--muted-soft);margin-bottom:8px}.crumb b{color:var(--blue);font-weight:600}
+  .md{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+
+  /* RAIL */
+  .rail{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:sticky;top:14px}
+  .rail-head{padding:11px 13px;border-bottom:1px solid var(--border);background:var(--surface-muted)}
+  .rsearch{width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;background:#fff;color:var(--muted)}
+  .rfilters{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+  .fchip{font-size:10.5px;padding:3px 8px;border-radius:7px;background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600}
+  .fchip.on{background:#eef4fb;border-color:#c5d8f2;color:var(--blue)}
+  .rsort{font-size:10.5px;color:var(--muted-soft);margin-top:7px;display:flex;justify-content:space-between}
+  .vrow{padding:10px 13px;border-bottom:1px solid var(--border);cursor:pointer;border-left:3px solid transparent}
+  .vrow:hover{background:var(--surface-muted)}
+  .vrow.sel{background:#eef4fb;border-left:3px solid var(--blue)}
+  .vrow .top{display:flex;align-items:center;gap:7px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.g{background:#2a9d63}.dot.a{background:#e0a52e}.dot.r{background:#cf4b3f}
+  .vrow .carrier{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted-soft);font-weight:700}
+  .vrow .name{font-size:13.5px;font-weight:700;color:var(--text-strong);margin:1px 0 3px}
+  .vrow .route{font-size:11px;color:var(--muted);display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+  .vrow .pills{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+  .pill{font-size:10px;padding:1px 7px;border-radius:18px;background:var(--bg-elev);color:var(--muted);font-weight:600;border:1px solid var(--border)}
+  .cstate{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:18px}
+  .cstate.r{background:var(--red-bg);color:var(--red)}.cstate.a{background:var(--amber-bg);color:var(--amber)}.cstate.g{background:var(--green-bg);color:var(--green)}
+
+  /* DETAIL */
+  .detail{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .dhead{padding:16px 20px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#fff,#fbfaf6)}
+  .dhead .carrier{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted-soft);font-weight:700}
+  .dhead .titlerow{display:flex;align-items:center;gap:10px;margin-top:3px;flex-wrap:wrap}
+  .dhead h2{font-size:22px;font-weight:800;color:var(--text-strong);letter-spacing:-.4px}
+  .chip{font-size:10px;padding:2px 9px;border-radius:18px;font-weight:700}
+  .chip.active{background:#e7eefb;color:#1d4d88;border:1px solid #c5d8f2}
+  .chip.bill{background:var(--green-bg);color:var(--green);border:1px solid #c5e3d2}
+  .acts{margin-left:auto;display:flex;gap:6px}
+  .ghost{background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+  .ghost.danger{color:var(--red);border-color:#e7c7c4}
+  .route-big{display:flex;align-items:center;gap:7px;margin-top:11px;flex-wrap:wrap}
+  .port{background:var(--bg-elev);border:1px solid var(--border);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700}
+  .port.dest{background:#eef4fb;border-color:#c5d8f2;color:#1d4d88}.arrow{color:var(--muted-soft);font-weight:700}
+  .meta-inline{margin-left:6px;font-size:11px;color:var(--muted-soft)}
+
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+  .kpi{background:#fff;padding:11px 16px}
+  .kpi .v{font-size:19px;font-weight:800;color:var(--text-strong)}
+  .kpi .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:600}
+  .kpi .sub{font-size:10.5px;color:var(--muted-soft)}
+  .kpi.state .v{color:var(--amber);font-size:15px}
+
+  .tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--border);background:var(--surface-muted)}
+  .tab{padding:11px 15px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;position:relative;top:1px}
+  .tab .n{font-size:10px;background:var(--bg-elev);border-radius:9px;padding:0 6px;margin-left:5px;color:var(--muted)}
+  .tab.active{color:var(--blue);border-bottom:2px solid var(--blue)}.tab.active .n{background:#e7eefb;color:var(--blue)}
+  .tabbody{padding:16px 20px}.hidden{display:none}
+
+  /* visão geral: planning + timeline side by side */
+  .vg{display:grid;grid-template-columns:1fr 270px;gap:16px;align-items:start}
+  .sectitle{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin:0 0 9px;display:flex;align-items:center;gap:9px}
+  .sectitle:after{content:"";flex:1;height:1px;background:var(--border)}
+  .sectitle.mt{margin-top:18px}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  thead th{background:var(--nav);color:#cdd8ea;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;font-weight:600}
+  tbody td{padding:8px 10px;border-bottom:1px solid var(--border)}tbody tr:last-child td{border-bottom:none}
+  td .strong{font-weight:700;color:var(--text-strong)}
+  .b-ok{background:var(--green-bg);color:var(--green);font-size:10px;padding:1px 8px;border-radius:18px;font-weight:700}
+  .b-warn{background:var(--amber-bg);color:var(--amber);font-size:10px;padding:1px 8px;border-radius:18px;font-weight:700}
+  .b-err{background:var(--red-bg);color:var(--red);font-size:10px;padding:1px 8px;border-radius:18px;font-weight:700}
+  .escala-num{font-family:ui-monospace,monospace;font-size:11px;color:var(--text-strong);font-weight:700}
+  .escala-empty{color:var(--muted-soft);font-style:italic;font-size:11px}
+  .exp-row{background:#fbf2df}.exp-row td:first-child{color:var(--amber);font-weight:800}
+  .iconbtn{width:26px;height:26px;border:1px solid var(--border);border-radius:7px;background:#fff;display:inline-grid;place-items:center;cursor:pointer;color:var(--muted);font-size:12px}
+
+  .navcards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .ncard{border:1px solid var(--border);border-radius:11px;background:#fff;padding:11px;cursor:pointer;display:flex;flex-direction:column;gap:7px;min-height:104px}
+  .ncard:hover{border-color:var(--blue)}
+  .ncard .ic{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);display:grid;place-items:center;color:var(--blue);font-size:16px;background:var(--surface-muted)}
+  .ncard .t{font-weight:700;color:var(--text-strong);font-size:12.5px}
+  .ncard .m{font-size:11px;color:var(--muted);line-height:1.6}
+  .ncard .go{margin-top:auto;color:var(--blue);font-weight:700;font-size:11px}
+  .ncard.off{opacity:.5}
+
+  /* timeline */
+  .tl{border:1px solid var(--border);border-radius:11px;background:var(--surface-muted);padding:12px}
+  .tl h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center}
+  .tl .ev{position:relative;padding:0 0 13px 16px;border-left:2px solid var(--border);margin-left:3px}
+  .tl .ev:last-child{border-left:2px solid transparent;padding-bottom:0}
+  .tl .ev:before{content:"";position:absolute;left:-5px;top:2px;width:8px;height:8px;border-radius:50%;background:var(--blue)}
+  .tl .ev.imp:before{background:#2a9d63}.tl .ev.esc:before{background:#e0a52e}.tl .ev.con:before{background:#cf4b3f}
+  .tl .ev .d{font-size:10px;color:var(--muted-soft)}
+  .tl .ev .t{font-size:11.5px;color:var(--text);font-weight:600;margin-top:1px}
+  .tl .ev .s{font-size:10.5px;color:var(--muted)}
+
+  /* importação por POD */
+  .podblock{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:13px}
+  .podblock>.h{background:var(--surface-muted);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:9px}
+  .podblock>.h .pn{font-size:14px;font-weight:800;color:var(--text-strong)}
+  .podblock>.h .pt{font-size:11px;color:var(--muted-soft)}
+  .podblock>.h .tot{margin-left:auto;font-size:11px;color:var(--muted);display:flex;gap:12px}
+  .podblock>.h .tot b{color:var(--text-strong)}
+  .panels{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+  .mpanel{background:#fff;padding:11px 13px}
+  .mpanel h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--blue-soft);font-weight:700;margin-bottom:8px}
+  .mpanel h3 .sub{color:var(--muted-soft);font-weight:600;text-transform:none;letter-spacing:0}
+  .info{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+  .info .l{font-size:11px;color:var(--muted)}.info .v{font-size:12px;color:var(--text-strong);font-weight:700}
+  .tok{font-size:10px;padding:1px 6px;border-radius:5px;background:var(--surface-muted);border:1px solid var(--border);color:var(--muted);font-weight:600;margin-left:3px}
+  .na{color:var(--muted-soft);font-size:11px}
+  .totline{background:#0e1b30;color:#cdd8ea;border-radius:10px;padding:10px 14px;display:flex;gap:18px;align-items:center;font-size:11.5px}
+  .totline b{color:#fff;font-size:13px}.totline .lbl{text-transform:uppercase;letter-spacing:.4px;font-size:9.5px;color:#8aa0bf;font-weight:700}
+
+  .quick{margin-top:13px;border:1px dashed var(--border-strong);border-radius:11px;background:#fff;padding:12px}
+  .quick h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  .quick p{font-size:11px;color:var(--muted-soft);margin:2px 0 10px}
+  .drop{display:flex;gap:8px;flex-wrap:wrap}
+  .drop .d{flex:1;min-width:120px;border:1px dashed var(--border-strong);border-radius:9px;padding:10px;text-align:center;font-size:11px;color:var(--muted);background:var(--surface-muted)}
+  .drop .d b{display:block;color:var(--text-strong);font-size:11.5px;margin-bottom:1px}
+  .legend{font-size:10.5px;color:var(--muted-soft);margin-top:8px}
+</style>
+</head>
+<body>
+  <div class="topbar"><span class="warn">⚠ 2 demurrages vencidos</span><span style="margin-left:auto">USD R$ 5,42 · CNY R$ 0,76</span><span class="brand">Ana Ribeiro · ADMINISTRATIVO</span></div>
+  <div class="nav"><span class="brand" style="font-weight:800;letter-spacing:1px">⚓ TRANSHIPPING</span>
+    <span class="item">▦ Painel</span><span class="item active">🚢 Viagens</span>
+    <span class="item">📄 Importação <span class="badge">3</span></span><span class="item">📦 Exportação</span>
+    <span class="item">👥 Clientes</span><span class="item">🔔 Alertas <span class="badge">4</span></span>
+    <span class="item">$ Financeiro</span><span class="item">🛡 Admin</span></div>
+
+  <div class="wrap">
+    <div class="crumb">Viagens / <b>COSCO SHIPPING ARIES / O88E</b> &nbsp;·&nbsp; <span style="color:var(--muted-soft)">/viagens/142</span></div>
+    <div class="md">
+      <!-- RAIL -->
+      <aside class="rail">
+        <div class="rail-head">
+          <input class="rsearch" placeholder="🔍 Buscar navio ou viagem…" />
+          <div class="rfilters"><span class="fchip on">Ativas</span><span class="fchip">Divergente</span><span class="fchip">Incompleto</span><span class="fchip">Armador ▾</span></div>
+          <div class="rsort"><span>3 viagens</span><span>Ordenar: próxima escala ▾</span></div>
+        </div>
+        <div class="vrow sel">
+          <div class="top"><span class="dot a"></span><span class="carrier">COSCO SHIPPING</span></div>
+          <div class="name">COSCO SHIPPING ARIES / O88E</div>
+          <div class="route">CNNGB·CNSHA <span class="arrow">→</span> BRSSA·BRVIX</div>
+          <div class="pills"><span class="cstate a">Incompleto</span><span class="pill">10 B/Ls</span><span class="pill">ETA 09/06</span></div>
+        </div>
+        <div class="vrow">
+          <div class="top"><span class="dot g"></span><span class="carrier">XIN PU DONG</span></div>
+          <div class="name">XIN PU DONG / O12S</div>
+          <div class="route">CNSHA <span class="arrow">→</span> BRSSA</div>
+          <div class="pills"><span class="cstate g">Conciliado</span><span class="pill">5 B/Ls</span></div>
+        </div>
+        <div class="vrow">
+          <div class="top"><span class="dot r"></span><span class="carrier">VALIDAÇÃO</span></div>
+          <div class="name">MV VALIDACAO / OO1W</div>
+          <div class="route">— <span class="arrow">→</span> —</div>
+          <div class="pills"><span class="cstate r">Divergente</span><span class="pill">0 CNTR</span></div>
+        </div>
+      </aside>
+
+      <!-- DETAIL -->
+      <main class="detail">
+        <div class="dhead">
+          <div class="carrier">COSCO SHIPPING</div>
+          <div class="titlerow">
+            <h2>COSCO SHIPPING ARIES / O88E</h2>
+            <span class="chip active">Ativa</span>
+            <span class="acts"><button class="ghost">✎ Editar</button><button class="ghost danger">🗑</button></span>
+          </div>
+          <div class="route-big"><span class="port">CNNGB</span><span class="port">CNSHA</span><span class="arrow">→</span><span class="port dest">BRSSA</span><span class="port dest">BRVIX</span><span class="meta-inline">IMO 9784271 · SCAC COSU</span></div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><div class="v">10</div><div class="l">B/Ls</div></div>
+          <div class="kpi"><div class="v">13</div><div class="l">CNTRs distintos</div><div class="sub">2 IMO · 1 OOG</div></div>
+          <div class="kpi"><div class="v">BRSSA · 09/06</div><div class="l">Próxima escala</div><div class="sub">ETA — aguardando ATA</div></div>
+          <div class="kpi state"><div class="v">⬤ Incompleto</div><div class="l">Estado de conciliação</div><div class="sub">CE 8/10 · 1 manifesto faltando</div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" data-tab="vg">Visão geral</div>
+          <div class="tab" data-tab="imp">Importação <span class="n">por POD</span></div>
+          <div class="tab" data-tab="exp">Exportação <span class="n">por POL</span></div>
+          <div class="tab" data-tab="man">Escalas &amp; Manifestos <span class="n">3</span></div>
+        </div>
+
+        <!-- VISÃO GERAL -->
+        <div class="tabbody" data-body="vg">
+          <div class="vg">
+            <div>
+              <div class="sectitle">Planejamento por POD / POL</div>
+              <table>
+                <thead><tr><th>POD/POL</th><th>Nº Escala</th><th>ETA</th><th>ETB</th><th>ATA</th><th>ATD</th><th>RTW</th><th>CEs</th><th>Escala</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td class="strong">BRSSA</td><td><span class="escala-num">25BR00481</span></td><td>09/06</td><td>10/06</td><td>—</td><td>—</td><td>—</td><td><span class="b-warn">8/10</span></td><td>SIM</td><td><span class="iconbtn">✎</span></td></tr>
+                  <tr><td class="strong">BRVIX</td><td><span class="escala-empty">a registrar</span></td><td>12/06</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="b-ok">aprovado</span></td><td>NÃO</td><td><span class="iconbtn">✎</span></td></tr>
+                  <tr class="exp-row"><td>CNSHA <span style="font-size:9px">EXP</span></td><td><span class="escala-num">25CN10233</span></td><td>02/06</td><td>03/06</td><td colspan="3">13 CNTRS · 26 MOVES · GRANITE</td><td><span class="b-warn">lançando</span></td><td>SIM</td><td><span class="iconbtn">✎</span></td></tr>
+                </tbody>
+              </table>
+              <div class="legend">Nº Escala = número da escala no Sistema Mercante (por terminal). Coluna "Escala" SIM/NÃO = manifestos vinculados à escala (segue no Painel). São coisas distintas.</div>
+
+              <div class="sectitle mt">Atalhos por módulo</div>
+              <div class="navcards">
+                <div class="ncard"><div class="ic">📦</div><div class="t">Manifestos CNTR</div><div class="m">1 manifesto · 10 B/Ls<br>13 distintos</div><div class="go">Ver →</div></div>
+                <div class="ncard"><div class="ic">📄</div><div class="t">Carga Solta (BB)</div><div class="m">1 manifesto · 3 B/Ls<br>148 ton</div><div class="go">Ver →</div></div>
+                <div class="ncard"><div class="ic">💎</div><div class="t">Granito</div><div class="m">1 manifesto · 9 B/Ls<br>2.150 ton</div><div class="go">Ver →</div></div>
+                <div class="ncard off"><div class="ic">⬜</div><div class="t">Vazios</div><div class="m">Sem dados</div><div class="go">Ver →</div></div>
+              </div>
+            </div>
+
+            <!-- timeline -->
+            <div class="tl">
+              <h4>Linha do tempo <span style="color:var(--muted-soft);cursor:pointer">⟨ recolher</span></h4>
+              <div class="ev con"><div class="d">hoje · 09:12</div><div class="t">Divergência de atributo</div><div class="s">CNTU2381 — status full/empty</div></div>
+              <div class="ev esc"><div class="d">ontem · 16:40</div><div class="t">Escala BRSSA registrada</div><div class="s">Nº 25BR00481 · Ana R.</div></div>
+              <div class="ev esc"><div class="d">ontem · 16:38</div><div class="t">ETA/ETB BRSSA preenchidos</div><div class="s">09/06 · 10/06</div></div>
+              <div class="ev imp"><div class="d">12/06 · 11:02</div><div class="t">Manifesto CNTR importado</div><div class="s">10 B/Ls · cosco_aries_o88e</div></div>
+              <div class="ev imp"><div class="d">12/06 · 10:55</div><div class="t">Baplie EDI importado</div><div class="s">13 containers staged</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- IMPORTAÇÃO por POD -->
+        <div class="tabbody hidden" data-body="imp">
+          <div class="podblock">
+            <div class="h"><span class="pn">BRSSA</span><span class="pt">Salvador</span><span class="tot"><span>CNTRs <b>8</b></span><span>BB <b>2 B/Ls</b></span><span>Vazios <b>0</b></span></span></div>
+            <div class="panels">
+              <div class="mpanel"><h3>Containers <span class="sub">(carga geral + veíc.)</span></h3>
+                <div class="info"><span class="l">CNTRs distintos</span><span class="v">8</span></div>
+                <div class="info"><span class="l">IMO</span><span class="v">2</span></div>
+                <div class="info"><span class="l">OOG</span><span class="v">1</span></div>
+                <div class="info"><span class="l">Tipos</span><span class="v"><span class="tok">40HC×5</span><span class="tok">20DV×3</span></span></div>
+                <div class="info"><span class="l">↳ Carga Geral</span><span class="v">8</span></div>
+                <div class="info"><span class="l">↳ Veículos</span><span class="v na">—</span></div>
+              </div>
+              <div class="mpanel"><h3>Carga Solta (BB)</h3>
+                <div class="info"><span class="l">B/Ls</span><span class="v">2</span></div>
+                <div class="info"><span class="l">Máquinas</span><span class="v">8</span></div>
+                <div class="info"><span class="l">Packages</span><span class="v">210</span></div>
+                <div class="info"><span class="l">Peso</span><span class="v">96 ton</span></div>
+                <div class="info"><span class="l">CBM</span><span class="v">340</span></div>
+              </div>
+              <div class="mpanel"><h3>Vazios Importação</h3>
+                <div class="info"><span class="l">Manifestos</span><span class="v na">0</span></div>
+                <div class="info"><span class="l">Containers</span><span class="v na">—</span></div>
+                <div class="info"><span class="l">Tipos</span><span class="v na">—</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="podblock">
+            <div class="h"><span class="pn">BRVIX</span><span class="pt">Vitória · único porto de veículos</span><span class="tot"><span>CNTRs <b>5</b></span><span>BB <b>1 B/L</b></span><span>Veíc. <b>42</b></span></span></div>
+            <div class="panels">
+              <div class="mpanel"><h3>Containers <span class="sub">(carga geral + veíc.)</span></h3>
+                <div class="info"><span class="l">CNTRs distintos</span><span class="v">5</span></div>
+                <div class="info"><span class="l">IMO</span><span class="v">0</span></div>
+                <div class="info"><span class="l">Tipos</span><span class="v"><span class="tok">40HC×3</span><span class="tok">20DV×2</span></span></div>
+                <div class="info"><span class="l">↳ Carga Geral</span><span class="v">2</span></div>
+                <div class="info"><span class="l">↳ Veículos (6 cntr)</span><span class="v">3</span></div>
+              </div>
+              <div class="mpanel"><h3>Veículos <span class="sub">(só Vitória)</span></h3>
+                <div class="info"><span class="l">Veículos vinculados</span><span class="v">42</span></div>
+                <div class="info"><span class="l">Containers c/ veíc.</span><span class="v">3</span></div>
+                <div class="info"><span class="l">Marcas</span><span class="v"><span class="tok">BYD</span><span class="tok">CHERY</span></span></div>
+                <div class="info"><span class="l">Por tipo CNTR</span><span class="v">40HC ×14</span></div>
+              </div>
+              <div class="mpanel"><h3>Carga Solta (BB)</h3>
+                <div class="info"><span class="l">B/Ls</span><span class="v">1</span></div>
+                <div class="info"><span class="l">Máquinas</span><span class="v">4</span></div>
+                <div class="info"><span class="l">Peso</span><span class="v">52 ton</span></div>
+                <div class="info"><span class="l">CBM</span><span class="v">172</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="totline"><span class="lbl">Total da viagem</span><span><b>13</b> CNTRs distintos</span><span><b>2</b> IMO</span><span><b>1</b> OOG</span><span><b>3</b> B/Ls carga solta</span><span><b>148</b> ton BB</span><span><b>42</b> veículos</span></div>
+
+          <div class="quick"><h3>＋ Importação rápida</h3><p>Importe manifestos e planilhas direto nesta viagem.</p>
+            <div class="drop"><div class="d"><b>Manifesto CNTR</b>arraste/clique</div><div class="d"><b>Carga Solta</b>arraste/clique</div><div class="d"><b>Baplie EDI</b>arraste/clique</div><div class="d"><b>Veículos</b>arraste/clique</div><div class="d"><b>Vazios Imp.</b>arraste/clique</div></div>
+          </div>
+        </div>
+
+        <!-- EXPORTAÇÃO por POL -->
+        <div class="tabbody hidden" data-body="exp">
+          <div class="podblock">
+            <div class="h"><span class="pn">CNSHA</span><span class="pt">Terminal de embarque · Shanghai</span><span class="tot"><span>Granito <b>9 B/Ls</b></span><span>Vazios <b>0</b></span></span></div>
+            <div class="panels" style="grid-template-columns:repeat(2,1fr)">
+              <div class="mpanel"><h3>Granito</h3>
+                <div class="info"><span class="l">Manifestos</span><span class="v">1</span></div>
+                <div class="info"><span class="l">B/Ls</span><span class="v">9</span></div>
+                <div class="info"><span class="l">Peso total</span><span class="v">2.150 ton</span></div>
+                <div class="info"><span class="l">Prontos p/ faturamento</span><span class="v">6</span></div>
+                <div class="info"><span class="l">Faturados</span><span class="v">3</span></div>
+                <div class="info"><span class="l">Portos descarga</span><span class="v"><span class="tok">CNSHA</span></span></div>
+              </div>
+              <div class="mpanel"><h3>Vazios</h3>
+                <div class="info"><span class="l">Manifestos</span><span class="v na">0</span></div>
+                <div class="info"><span class="l">Bookings</span><span class="v na">0</span></div>
+                <div class="info"><span class="l">Containers</span><span class="v na">—</span></div>
+                <div class="info"><span class="l">Terminais origem</span><span class="v na">—</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="quick"><h3>＋ Exportação rápida</h3><p>Importe manifestos de exportação direto nesta viagem.</p>
+            <div class="drop"><div class="d"><b>Granito</b>arraste/clique</div><div class="d"><b>Vazios Exp.</b>arraste/clique</div></div>
+          </div>
+        </div>
+
+        <!-- MANIFESTOS -->
+        <div class="tabbody hidden" data-body="man">
+          <div class="sectitle">Manifestos vinculados</div>
+          <table>
+            <thead><tr><th>Manifesto</th><th>Rota</th><th>CE Master</th><th>ETD</th><th>B/Ls</th><th>CE Merc.</th><th>Baplie</th><th>Conciliação</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="strong">📦 CNTR · cosco_aries</td><td>CNNGB→BRSSA</td><td><span class="escala-num">152405..817</span></td><td>02/06</td><td>10</td><td><span class="b-warn">8/10</span></td><td><span class="b-ok">sim</span></td><td><span class="b-err">Divergente · 1</span> <span class="iconbtn">↗</span></td><td><span class="iconbtn">✎</span></td></tr>
+              <tr><td class="strong">📐 BB · breakbulk_aries</td><td>CNSHA→BRVIX</td><td><span class="escala-empty">a informar</span></td><td>03/06</td><td>3</td><td><span class="b-ok">3/3</span></td><td><span class="na">—</span></td><td><span class="b-ok">Conciliado</span></td><td><span class="iconbtn">✎</span></td></tr>
+              <tr><td class="strong">💎 GRANITE · granito_aries</td><td>CNSHA→CNSHA</td><td><span class="escala-num">152405..902</span></td><td>—</td><td>9</td><td><span class="b-ok">9/9</span></td><td><span class="na">n/a</span></td><td><span class="b-ok">Conciliado</span></td><td><span class="iconbtn">✎</span></td></tr>
+            </tbody>
+          </table>
+          <div class="legend">CE Master editável por manifesto · CE Merc. = cobertura de CE por B/L · ↗ abre a conciliação para resolver divergências.</div>
+        </div>
+      </main>
+    </div>
+  </div>
+<script>
+  function activate(t){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));document.querySelectorAll('.tabbody').forEach(b=>b.classList.toggle('hidden',b.dataset.body!==t));}
+  if(location.hash)activate(location.hash.slice(1));
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab)));
+</script>
+</body>
+</html>
