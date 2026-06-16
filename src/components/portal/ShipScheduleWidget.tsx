@@ -33,7 +33,7 @@ function DateCell({ value }: { value: string }) {
   const isX = value === 'X'
   const isPast = isDateInPast(value)
   return (
-    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isPast ? 'text-[var(--app-navy)] font-semibold' : 'text-[var(--app-text)]'}`}>
+    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isPast ? 'text-[#162440] font-semibold' : 'text-[var(--app-text)]'}`}>
       {value}
     </td>
   )
@@ -64,7 +64,7 @@ export function ShipScheduleWidget() {
 
   return (
     <div className="w-full overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[var(--app-shadow)]">
-      <div className="bg-[#152238] px-4 py-3 flex items-center gap-3">
+      <div className="bg-[#162440] px-4 py-3 flex items-center gap-3">
         <Ship className="w-5 h-5 text-[#ffffff]" />
         <h2 className="text-base font-bold text-[#ffffff] tracking-wide">
           CSSC Container Liner Service Schedule - ECSA
@@ -81,7 +81,7 @@ export function ShipScheduleWidget() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-[#152238]">
+                <tr className="bg-[#162440]">
                   <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20 min-w-[160px]">
                     Vessel Name
                   </th>
@@ -129,7 +129,7 @@ export function ShipScheduleWidget() {
                   const rowBg = index % 2 === 0 ? 'bg-[var(--app-surface)]' : 'bg-[var(--app-surface-muted)]'
                   return (
                     <tr key={vessel.id} className={`${rowBg} hover:bg-[var(--app-blue-soft)] transition-colors duration-150 border-b border-[var(--app-border)] last:border-b-0`}>
-                      <td className="px-3 py-2.5 text-center border-r border-[var(--app-border)] text-sm font-semibold text-[var(--app-navy)]">
+                      <td className="px-3 py-2.5 text-center border-r border-[var(--app-border)] text-sm font-semibold text-[#162440]">
                         {vessel.imo_number ? (
                           <a
                             href={`https://www.marinetraffic.com/en/ais/details/ships/imo:${vessel.imo_number}`}
@@ -155,12 +155,12 @@ export function ShipScheduleWidget() {
                       {showPecem ? (
                         <>
                           <DateCell value={vessel.vitoria_eta} />
-                          <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isDateInPast(vessel.pecem_eta || '') ? 'text-[var(--app-navy)] font-semibold' : (!vessel.pecem_eta || vessel.pecem_eta === 'X') ? 'text-[var(--app-muted-soft)]' : 'text-[var(--app-text)]'}`}>
+                          <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isDateInPast(vessel.pecem_eta || '') ? 'text-[#162440] font-semibold' : (!vessel.pecem_eta || vessel.pecem_eta === 'X') ? 'text-[var(--app-muted-soft)]' : 'text-[var(--app-text)]'}`}>
                             {vessel.pecem_eta || 'X'}
                           </td>
                         </>
                       ) : (
-                        <td className={`px-3 py-2.5 text-center text-sm ${isDateInPast(vessel.vitoria_eta || '') ? 'text-[var(--app-navy)] font-semibold' : 'text-[var(--app-text)]'}`}>
+                        <td className={`px-3 py-2.5 text-center text-sm ${isDateInPast(vessel.vitoria_eta || '') ? 'text-[#162440] font-semibold' : 'text-[var(--app-text)]'}`}>
                           {vessel.vitoria_eta}
                         </td>
                       )}
@@ -175,7 +175,7 @@ export function ShipScheduleWidget() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span>ETD = Estimated Time of Departure &nbsp; ETA = Estimated Time of Arrival</span>
               <span className="font-medium">X = Não programado</span>
-              <span className="font-medium"><span className="text-[var(--app-navy)]">Datas em azul</span> = Evento confirmado</span>
+              <span className="font-medium"><span className="text-[#162440]">Datas em azul</span> = Evento confirmado</span>
             </div>
             <span className="font-medium">Atualização diária às 09:00.</span>
           </div>
