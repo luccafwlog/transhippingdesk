@@ -337,6 +337,75 @@ export function getProximaEscala(
   return { pod: next.pod, eta: next.eta as string }
 }
 
+// --- Rail (lista master-detail) ----------------------------------------------
+
+export type VoyageRailItem = {
+  id: number
+  carrierName: string
+  vesselName: string
+  voyageNumber: string
+  status: 'active' | 'completed' | 'cancelled'
+  originPorts: string[]
+  destinationPorts: string[]
+  blCount: number
+  containerCount: number
+  estado: EstadoConciliacao
+  proximaEscala: { pod: string; eta: string } | null
+}
+
+type VoyageRailSource = {
+  id: number
+  voyage_number: string
+  status: string | null
+  vessel?: { name: string; carrier?: { name: string } | null } | null
+  pol?: { name: string } | null
+  pod?: { name: string } | null
+  bls?: VoyageBl[] | null
+  import_batches?: Array<{ id: number }> | null
+}
+
+type PodScheduleRow = { pod: string; eta: string | null; ata: string | null }
+
+/**
+ * Monta os itens do rail. Estado de Conciliação usa apenas sinais baratos do
+ * payload (CE + manifesto faltando); divergências (estado 'divergente') ficam
+ * a cargo da view de detalhe, que consulta uma viagem por vez.
+ */
+export function buildVoyageRailItems(
+  voyages: VoyageRailSource[] | null | undefined,
+  podRowsByVoyageId: ReadonlyMap<number, PodScheduleRow[]>,
+): VoyageRailItem[] {
+  return (voyages ?? []).map((voyage) => {
+    const podRows = podRowsByVoyageId.get(voyage.id) ?? []
+    const { containerBls } = splitVoyageBls(voyage.bls)
+    const { filled, total } = voyageCeCoverage(voyage.bls)
+
+    return {
+      id: voyage.id,
+      carrierName: voyage.vessel?.carrier?.name ?? '',
+      vesselName: voyage.vessel?.name ?? 'Navio',
+      voyageNumber: voyage.voyage_number,
+      status: normalizeVoyageStatus(voyage.status),
+      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null),
+      destinationPorts: collectVoyagePorts(
+        voyage.bls,
+        'pod',
+        voyage.pod?.name ?? null,
+        podRows.map((row) => row.pod),
+      ),
+      blCount: (voyage.bls ?? []).length,
+      containerCount: countDistinctContainerNumbers(containerBls.flatMap((bl) => bl.bl_containers ?? [])),
+      estado: deriveEstadoConciliacao({
+        hasOpenDivergences: false,
+        ceFilled: filled,
+        ceTotal: total,
+        hasMissingManifest: voyageHasMissingManifest({ bls: voyage.bls, batches: voyage.import_batches }),
+      }),
+      proximaEscala: getProximaEscala(podRows),
+    }
+  })
+}
+
 // --- Importação por POD ------------------------------------------------------
 
 export type PodImportSummary = {

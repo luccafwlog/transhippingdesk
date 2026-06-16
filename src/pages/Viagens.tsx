@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Field, Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
-import { FilterBar } from '../components/ui/FilterBar'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { AddPodToVoyageModal, ExportScheduleModal, PodScheduleModal, PolScheduleModal } from '../components/shared/VoyageScheduleModals'
 import { Modal } from '../components/ui/Modal'
@@ -15,8 +13,7 @@ import { useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { useVaziosImportacaoStats } from '../hooks/useVaziosImportacaoStats'
 import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
-import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
-import { collectVoyagePorts, normalizeVoyageStatus } from './viagensHelpers'
+import { buildVoyageRailItems, collectVoyagePorts, normalizeVoyageStatus } from './viagensHelpers'
 import { deleteVoyage } from '../services/voyages'
 import {
   buildVoyagePolEntityId,
@@ -32,9 +29,12 @@ import {
   type EditingPolPayload,
   type VoyageSectionKey,
 } from '../components/voyages/VoyageCard'
+import { VoyageRail } from '../components/voyages/VoyageRail'
 
 export function Viagens() {
   const [searchParams] = useSearchParams()
+  const { voyageId } = useParams()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { isAdmin, user } = useAuth()
@@ -43,67 +43,50 @@ export function Viagens() {
   const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
   const [deletingVoyageId, setDeletingVoyageId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [vesselFilter, setVesselFilter] = useState(() => searchParams.get('vessel') ?? '')
-  const [voyageFilter, setVoyageFilter] = useState('')
   const [openVoyageSections, setOpenVoyageSections] = useState<Record<number, Partial<Record<VoyageSectionKey, boolean>>>>({})
   const [editingPod, setEditingPod] = useState<EditingPodPayload | null>(null)
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
   const [addingPodVoyage, setAddingPodVoyage] = useState<AddingPodPayload | null>(null)
   const [editingExport, setEditingExport] = useState<EditingExportPayload | null>(null)
 
-  const filteredVoyages = useMemo(() => {
-    const normalizedVesselFilter = vesselFilter.trim().toUpperCase()
-    const normalizedVoyageFilter = voyageFilter.trim().toUpperCase()
+  const selectedVoyageId = voyageId ? Number(voyageId) : null
 
-    return (data ?? []).filter((voyage) => {
-      const vesselName = voyage.vessel?.name?.toUpperCase() ?? ''
-      const voyageNumber = voyage.voyage_number?.toUpperCase() ?? ''
-
-      const matchesVessel = !normalizedVesselFilter || vesselName.includes(normalizedVesselFilter)
-      const matchesVoyage = !normalizedVoyageFilter || voyageNumber.includes(normalizedVoyageFilter)
-
-      return matchesVessel && matchesVoyage
-    })
-  }, [data, vesselFilter, voyageFilter])
-  const activeFilterCount = (vesselFilter.trim() ? 1 : 0) + (voyageFilter.trim() ? 1 : 0)
-  const filterDescription = describeActiveFilters([
-    { label: 'Navio', value: vesselFilter },
-    { label: 'Viagem', value: voyageFilter },
-  ])
-  const emptyState = describeEmptyState({
-    entitySingular: 'viagem',
-    entityPlural: 'viagens',
-    hasActiveFilters: activeFilterCount > 0,
-    emptyWithoutFilters: 'Nenhuma viagem cadastrada ainda.',
-  })
+  const voyages = useMemo(() => data ?? [], [data])
 
   const polEntityIds = useMemo(
     () =>
       Array.from(
         new Set(
-          filteredVoyages.flatMap((voyage) =>
+          voyages.flatMap((voyage) =>
             collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null).map((pol) => buildVoyagePolEntityId(voyage.id, pol)),
           ),
         ),
       ),
-    [filteredVoyages],
+    [voyages],
   )
 
-  const filteredVoyageIds = useMemo(() => filteredVoyages.map((voyage) => voyage.id), [filteredVoyages])
-  const { data: vehicleStatsData } = useVoyageVehicleStats(filteredVoyageIds)
-  const { data: vaziosImpStatsData } = useVaziosImportacaoStats(filteredVoyageIds)
+  const voyageIds = useMemo(() => voyages.map((voyage) => voyage.id), [voyages])
+  const { data: vehicleStatsData } = useVoyageVehicleStats(voyageIds)
+  const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
   const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, exportSchedulesData } =
-    useViagemSchedulesAndStats(filteredVoyageIds, polEntityIds)
+    useViagemSchedulesAndStats(voyageIds, polEntityIds)
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
-  const deletingVoyage = data?.find((voyage) => voyage.id === deletingVoyageId)
 
-  function toggleVoyageSection(voyageId: number, section: VoyageSectionKey) {
+  const railItems = useMemo(
+    () => buildVoyageRailItems(voyages, podSchedulesByVoyage),
+    [voyages, podSchedulesByVoyage],
+  )
+
+  const selectedVoyage = voyages.find((voyage) => voyage.id === selectedVoyageId)
+  const deletingVoyage = voyages.find((voyage) => voyage.id === deletingVoyageId)
+
+  function toggleVoyageSection(id: number, section: VoyageSectionKey) {
     setOpenVoyageSections((current) => ({
       ...current,
-      [voyageId]: {
-        ...current[voyageId],
-        [section]: !current[voyageId]?.[section],
+      [id]: {
+        ...current[id],
+        [section]: !current[id]?.[section],
       },
     }))
   }
@@ -126,6 +109,7 @@ export function Viagens() {
       ])
 
       showToast('Viagem excluida com sucesso.', 'success')
+      if (selectedVoyageId === deletingVoyageId) navigate('/viagens')
       setDeletingVoyageId(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao excluir viagem.'
@@ -150,61 +134,65 @@ export function Viagens() {
         }
       />
 
-      <FilterBar
-        activeCount={activeFilterCount}
-        onClear={() => { setVesselFilter(''); setVoyageFilter('') }}
-      >
-        <div className="app-filter-grid">
-          <Field label="Navio">
-            <Input
-              placeholder="Filtrar por navio"
-              value={vesselFilter}
-              onChange={(event) => setVesselFilter(event.target.value)}
-            />
-          </Field>
-          <Field label="Viagem">
-            <Input
-              placeholder="Filtrar por numero da viagem"
-              value={voyageFilter}
-              onChange={(event) => setVoyageFilter(event.target.value)}
-            />
-          </Field>
-        </div>
-      </FilterBar>
-
       {error ? <InlineError message="Erro ao carregar viagens." /> : null}
 
-      <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <span className="font-semibold text-white">{formatResultCount(filteredVoyages.length, 'viagem visivel', 'viagens visiveis')}</span>
-        <span className="text-xs text-slate-400">{filterDescription}</span>
-      </div>
+      <div className="lg:grid lg:grid-cols-[320px_1fr] lg:gap-4">
+        <div className={selectedVoyageId ? 'hidden lg:block' : 'block'}>
+          {isLoading ? (
+            <Card>Carregando viagens...</Card>
+          ) : (
+            <VoyageRail
+              items={railItems}
+              selectedId={selectedVoyageId}
+              onSelect={(id) => navigate(`/viagens/${id}`)}
+              initialSearch={searchParams.get('vessel') ?? ''}
+            />
+          )}
+        </div>
 
-      <div className="grid gap-4">
-        {isLoading ? <Card>Carregando viagens...</Card> : null}
-        {!isLoading && filteredVoyages.length === 0 ? (
-          <EmptyState title={emptyState.title} description={emptyState.description} />
-        ) : null}
-        {filteredVoyages.map((voyage) => (
-          <VoyageCard
-            key={voyage.id}
-            voyage={voyage}
-            vehicleStats={vehicleStatsByVoyage[voyage.id]}
-            vaziosImpStats={vaziosImpStatsByVoyage[voyage.id]}
-            voyagesWithUnpaidBls={voyagesWithUnpaidBls}
-            podSchedules={podSchedules}
-            polSchedules={polSchedules}
-            scheduledPodRows={podSchedulesByVoyage.get(voyage.id) ?? []}
-            exportSchedule={exportSchedulesData?.get(voyage.id) ?? null}
-            sectionState={openVoyageSections[voyage.id] ?? {}}
-            onToggleSection={(section) => toggleVoyageSection(voyage.id, section)}
-            onEditVoyage={setEditingVoyageId}
-            onDeleteVoyage={setDeletingVoyageId}
-            onEditPod={setEditingPod}
-            onEditPol={setEditingPol}
-            onAddPod={setAddingPodVoyage}
-            onEditExport={setEditingExport}
-          />
-        ))}
+        <div className={`mt-4 lg:mt-0 ${selectedVoyageId ? 'block' : 'hidden lg:block'}`}>
+          {selectedVoyageId ? (
+            <Button variant="ghost" className="mb-3 lg:hidden" onClick={() => navigate('/viagens')}>
+              <ArrowLeft size={15} />
+              Voltar para a lista
+            </Button>
+          ) : null}
+
+          {!selectedVoyageId ? (
+            <EmptyState
+              title="Selecione uma viagem"
+              description="Escolha uma viagem na lista ao lado para ver o detalhe, planejamento de escalas e os fluxos de importação e exportação."
+            />
+          ) : selectedVoyage ? (
+            <VoyageCard
+              key={selectedVoyage.id}
+              voyage={selectedVoyage}
+              defaultExpanded
+              vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
+              vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
+              voyagesWithUnpaidBls={voyagesWithUnpaidBls}
+              podSchedules={podSchedules}
+              polSchedules={polSchedules}
+              scheduledPodRows={podSchedulesByVoyage.get(selectedVoyage.id) ?? []}
+              exportSchedule={exportSchedulesData?.get(selectedVoyage.id) ?? null}
+              sectionState={openVoyageSections[selectedVoyage.id] ?? {}}
+              onToggleSection={(section) => toggleVoyageSection(selectedVoyage.id, section)}
+              onEditVoyage={setEditingVoyageId}
+              onDeleteVoyage={setDeletingVoyageId}
+              onEditPod={setEditingPod}
+              onEditPol={setEditingPol}
+              onAddPod={setAddingPodVoyage}
+              onEditExport={setEditingExport}
+            />
+          ) : isLoading ? (
+            <Card>Carregando viagem...</Card>
+          ) : (
+            <EmptyState
+              title="Viagem não encontrada"
+              description="A viagem selecionada não existe mais ou foi removida."
+            />
+          )}
+        </div>
       </div>
 
       <VoyageCreateModal
@@ -218,7 +206,7 @@ export function Viagens() {
         voyageId={editingVoyageId ?? undefined}
         title="Editar Viagem"
         initialValues={makeVoyageInitialValues(
-          data?.find((voyage) => voyage.id === editingVoyageId),
+          voyages.find((voyage) => voyage.id === editingVoyageId),
           (podSchedulesByVoyage.get(editingVoyageId ?? -1) ?? [])
             .filter((schedule) => Boolean(schedule.eta))
             .map((schedule) => ({

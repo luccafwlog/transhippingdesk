@@ -75,6 +75,7 @@ export default function App() {
           <Route index element={<Navigate to="/painel" replace />} />
           <Route path="/painel" element={withSuspense(<Painel />)} />
           <Route path="/viagens" element={withSuspense(<Viagens />)} />
+          <Route path="/viagens/:voyageId" element={withSuspense(<Viagens />)} />
           <Route path="/manifestos" element={withSuspense(<Manifestos />)} />
           <Route path="/containers" element={withSuspense(<Containers />)} />
           <Route path="/carga-solta" element={withSuspense(<CargaSolta />)} />

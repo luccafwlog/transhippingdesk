@@ -122,6 +122,7 @@ type VoyageCardProps = {
   onEditPol: (payload: EditingPolPayload) => void
   onAddPod: (payload: AddingPodPayload) => void
   onEditExport: (payload: EditingExportPayload) => void
+  defaultExpanded?: boolean
 }
 
 export function VoyageCard({
@@ -141,11 +142,12 @@ export function VoyageCard({
   onEditPol,
   onAddPod,
   onEditExport,
+  defaultExpanded = false,
 }: VoyageCardProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   // Modo compacto: o hero resume a viagem; o detalhe abre sob demanda.
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const { showToast } = useToast()
   const { isAdmin, user } = useAuth()
 
