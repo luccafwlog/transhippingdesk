@@ -1623,6 +1623,28 @@ BEGIN
     rejected_at = NULL
   WHERE id = p_queue_id;
 
+  IF v_queue.manifest_customer_email IS NOT NULL AND NULLIF(TRIM(v_queue.manifest_customer_email), '') IS NOT NULL THEN
+    INSERT INTO public.customer_contacts (
+      customer_id,
+      name,
+      email,
+      purpose,
+      is_primary
+    )
+    SELECT
+      v_target_customer_id,
+      'Contato manifesto',
+      lower(trim(v_queue.manifest_customer_email)),
+      'financeiro',
+      false
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM public.customer_contacts cc
+      WHERE cc.customer_id = v_target_customer_id
+        AND lower(trim(cc.email)) = lower(trim(v_queue.manifest_customer_email))
+    );
+  END IF;
+
   PERFORM public.sync_customer_reconciliation_queue_for_bl(v_queue.bl_id);
 
   INSERT INTO public.audit_logs (
