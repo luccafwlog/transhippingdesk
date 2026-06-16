@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, Boxes, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Boxes, ChevronDown, ChevronUp, Clock, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -10,12 +10,14 @@ import { setImportBatchCeMaster } from '../../services/manifestImport'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useVoyageReconciliation } from '../../hooks/useVoyageReconciliation'
+import { useVoyageTimeline } from '../../hooks/useVoyageTimeline'
 import type { VoyageVehicleStat } from '../../hooks/useVehicles'
 import type { VoyageVaziosImportacaoStat } from '../../hooks/useVaziosImportacaoStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../../lib/containerCounts'
 import { formatDate } from '../../lib/utils'
 import {
   collectVoyagePorts,
+  buildVoyageTimeline,
   countDistinctBatchIds,
   countPlannedPodRows,
   deriveEstadoConciliacao,
@@ -33,6 +35,7 @@ import {
   voyageHasMissingManifest,
   type EstadoConciliacao,
   type VoyageBl,
+  type VoyageTimelineEvent,
 } from '../../pages/viagensHelpers'
 import {
   buildVoyagePodEntityId,
@@ -138,6 +141,7 @@ export function VoyageCard({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<VoyageTabKey>('visao')
+  const [timelineOpen, setTimelineOpen] = useState(true)
   const { showToast } = useToast()
   const { isAdmin, user } = useAuth()
 
@@ -146,7 +150,7 @@ export function VoyageCard({
   const voyageLabel = `${voyage.vessel?.name ?? 'Navio'} / ${voyage.voyage_number}`
 
   const { containerBls, breakbulkBls } = splitVoyageBls(voyage.bls)
-  const importBatches = voyage.import_batches ?? []
+  const importBatches = useMemo(() => voyage.import_batches ?? [], [voyage.import_batches])
   const distinctContainerBatchCount = countDistinctBatchIds(containerBls)
   const distinctBreakbulkBatchCount = countDistinctBatchIds(breakbulkBls)
   const containerManifestCount =
@@ -223,6 +227,17 @@ export function VoyageCard({
   })
   const estadoMeta = ESTADO_META[estado]
   const proximaEscala = getProximaEscala(podRows)
+
+  const { data: timelineSources } = useVoyageTimeline(voyage.id)
+  const timelineEvents = useMemo(
+    () =>
+      buildVoyageTimeline({
+        importBatches,
+        scheduleEvents: timelineSources?.scheduleEvents,
+        resolutions: timelineSources?.resolutions,
+      }),
+    [importBatches, timelineSources],
+  )
 
   const planningContent = (
     <MetricSection
@@ -826,10 +841,17 @@ export function VoyageCard({
 
         <div className="grid gap-4">
           {activeTab === 'visao' ? (
-            <>
-              {planningContent}
-              {navCardsContent}
-            </>
+            <div className={`grid gap-4 ${timelineOpen ? 'xl:grid-cols-[1fr_300px]' : ''}`}>
+              <div className="grid gap-4">
+                {planningContent}
+                {navCardsContent}
+              </div>
+              <VoyageTimeline
+                events={timelineEvents}
+                open={timelineOpen}
+                onToggle={() => setTimelineOpen((value) => !value)}
+              />
+            </div>
           ) : null}
           {activeTab === 'importacao' ? importacaoContent : null}
           {activeTab === 'exportacao' ? exportacaoContent : null}
@@ -849,6 +871,79 @@ function KpiTile({ label, value, sub, valueColor }: { label: string; value: stri
       <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
       {sub ? <div className="text-[11px] text-[var(--app-muted-soft)]">{sub}</div> : null}
     </div>
+  )
+}
+
+const TIMELINE_DOT: Record<VoyageTimelineEvent['kind'], string> = {
+  import: '#2a9d63',
+  'escala-date': '#1d4d88',
+  'escala-number': '#b8860b',
+  'manifestos-linked': '#2563a8',
+  'divergence-resolved': '#1f7a4d',
+}
+
+function formatTimelineMoment(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return formatDate(value)
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function VoyageTimeline({
+  events,
+  open,
+  onToggle,
+}: {
+  events: VoyageTimelineEvent[]
+  open: boolean
+  onToggle: () => void
+}) {
+  return (
+    <aside className="h-max rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">
+          <Clock size={14} />
+          Linha do tempo
+        </span>
+        {open ? (
+          <ChevronUp size={16} className="text-[var(--app-muted)]" />
+        ) : (
+          <ChevronDown size={16} className="text-[var(--app-muted)]" />
+        )}
+      </button>
+      {open ? (
+        events.length ? (
+          <ol className="mt-3">
+            {events.map((event) => (
+              <li
+                key={event.id}
+                className="relative border-l-2 border-[var(--app-border)] pb-3 pl-4 last:border-l-transparent last:pb-0"
+              >
+                <span
+                  className="absolute -left-[5px] top-1 h-2 w-2 rounded-full"
+                  style={{ backgroundColor: TIMELINE_DOT[event.kind] }}
+                />
+                <div className="text-[10px] text-[var(--app-muted-soft)]">{formatTimelineMoment(event.at)}</div>
+                <div className="text-xs font-semibold text-[var(--app-text)]">{event.title}</div>
+                <div className="text-[11px] text-[var(--app-muted)]">{event.detail}</div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="mt-3 text-xs text-[var(--app-muted)]">Sem eventos registrados ainda.</div>
+        )
+      ) : null}
+    </aside>
   )
 }
 
