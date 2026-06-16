@@ -30,8 +30,23 @@ Container presente no Baplie sem B/L correspondente no manifesto. Resultado: avi
 **Divergência de Atributo**
 Container presente em ambas as fontes com valor conflitante em campo operacional (status full/empty, IMO, OOG). Resultado: aviso com opção de aceitar valor do Baplie por linha.
 
+**Estado de Conciliação da Viagem**
+Sinal derivado que resume, para uma Viagem, o quão pronta para faturamento está sua conciliação de dados. Três níveis: **Divergente** (existe Divergência de Existência ou de Atributo não resolvida) — exige ação; **Incompleto** (falta manifesto, CE Mercante incompleto, ou Baplie ainda em Staging sem conciliação) — aguardando dado; **Conciliado** (tudo conciliado e CEs completos). É leitura, não bloqueio.
+
 **Flags Operacionais**
 Campos que o Baplie pode sobrescrever no `bl_containers`: `is_imo`, `imo_class`, `un_number`, `is_oog`, `status` (full/empty). Dados financeiros (consignatário, peso para billing) são protegidos — só o manifesto os define.
+
+**CE Mercante**
+Conhecimento Eletrônico no sistema federal Mercante. Identifica a carga declarada. No sistema, `ce_mercante` é registrado por B/L; sua cobertura (quantos B/Ls de um manifesto têm CE preenchido) compõe o estado "Incompleto" da conciliação.
+
+**CE Master**
+Número do CE Mercante master de um manifesto — o conhecimento agrupador da carga daquele manifesto, acompanhado para fins de Mercante. Um por manifesto. Distinto dos CEs por B/L.
+
+**Número de Escala (Sistema Mercante)**
+Identificador da escala do navio em um terminal, criado no sistema federal Mercante para cobrir um determinado navio/viagem naquele terminal. Uma Viagem que toca múltiplos terminais pode ter mais de um número de escala. É um dado de registro: existir o número significa que a escala foi **criada** no Mercante.
+
+**Vínculo de Manifestos à Escala**
+Afirmação de que os manifestos da viagem foram vinculados à escala no Mercante — distinta de a escala ter sido criada. É o significado do indicador "ESCALA" (SIM/NÃO) exibido no Painel/Line-Up: SIM = manifestos vinculados. Não confundir com a existência do Número de Escala.
 
 **CNTR**
 Container. Abreviação de domínio usada no sistema.
