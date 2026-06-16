@@ -64,12 +64,12 @@ export function ShipScheduleWidget() {
 
   return (
     <div className="w-full overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[var(--app-shadow)]">
-      <div className="bg-[var(--app-navy)] px-4 py-3 flex items-center gap-3">
-        <Ship className="w-5 h-5 text-white" />
-        <h2 className="text-base font-bold text-white tracking-wide">
+      <div className="bg-[#152238] px-4 py-3 flex items-center gap-3">
+        <Ship className="w-5 h-5 text-[#ffffff]" />
+        <h2 className="text-base font-bold text-[#ffffff] tracking-wide">
           CSSC Container Liner Service Schedule - ECSA
         </h2>
-        <Anchor className="w-4 h-4 text-white/70 ml-auto" />
+        <Anchor className="w-4 h-4 text-[#ffffff] opacity-70 ml-auto" />
       </div>
 
       {!vessels || vessels.length === 0 ? (
@@ -81,43 +81,43 @@ export function ShipScheduleWidget() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-[var(--app-navy)]">
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10 min-w-[160px]">
+                <tr className="bg-[#152238]">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20 min-w-[160px]">
                     Vessel Name
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10 w-14">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20 w-14">
                     VOY
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20">
                     <div>QINGDAO</div>
                     <div className="text-[10px] font-normal opacity-80">ETD</div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20">
                     <div>SHANGHAI</div>
                     <div className="text-[10px] font-normal opacity-80">ETD</div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20">
                     <div>TAICANG</div>
                     <div className="text-[10px] font-normal opacity-80">ETD</div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20">
                     <div>NINGBO</div>
                     <div className="text-[10px] font-normal opacity-80">ETD</div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20">
                     <div>NANSHA</div>
                     <div className="text-[10px] font-normal opacity-80">ETD</div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">
+                  <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider border-r border-[#ffffff]/20">
                     <div>SALVADOR</div>
                     <div className="text-[10px] font-normal opacity-80">ETA</div>
                   </th>
-                  <th className={`px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider ${showPecem ? 'border-r border-white/10' : ''}`}>
+                  <th className={`px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider ${showPecem ? 'border-r border-[#ffffff]/20' : ''}`}>
                     <div>VITÓRIA</div>
                     <div className="text-[10px] font-normal opacity-80">ETA</div>
                   </th>
                   {showPecem && (
-                    <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">
+                    <th className="px-3 py-3 text-center text-xs font-bold text-[#ffffff] uppercase tracking-wider">
                       <div>PECÉM</div>
                       <div className="text-[10px] font-normal opacity-80">ETA</div>
                     </th>
