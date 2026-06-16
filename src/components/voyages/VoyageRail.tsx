@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowRight, ChevronDown, ChevronUp, PanelLeftClose, Search, Ship } from 'lucide-react'
+import { ArrowRight, PanelLeftClose, Ship } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import type { EstadoConciliacao, VoyageRailItem } from '../../pages/viagensHelpers'
 
@@ -9,8 +9,8 @@ const ESTADO_META: Record<EstadoConciliacao, { label: string; dot: string }> = {
   conciliado: { label: 'Conciliado', dot: '#2a9d63' },
 }
 
-type StatusFilter = 'active' | 'completed' | 'all'
-type EstadoFilter = 'all' | 'incompleto' | 'conciliado'
+type StatusFilter = 'all' | 'active' | 'completed'
+type ConciliacaoFilter = 'all' | 'conciliada' | 'pendente'
 
 type VoyageRailProps = {
   items: VoyageRailItem[]
@@ -22,40 +22,36 @@ type VoyageRailProps = {
 }
 
 function nextEscalaSortKey(item: VoyageRailItem) {
-  // Itens com próxima escala vêm primeiro, ordenados por ETA; os demais ao fim.
-  return item.proximaEscala?.eta ?? '￿'
+  return item.proximaEscala?.eta ?? '\uFFFF'
 }
 
 export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', collapsed = false, onToggleCollapse }: VoyageRailProps) {
-  const [search, setSearch] = useState(initialSearch)
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
-  const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>('all')
-  const [filtersOpen, setFiltersOpen] = useState(true)
+  const [vesselSearch, setVesselSearch] = useState('')
+  const [voyageSearch, setVoyageSearch] = useState(initialSearch)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [conciliacaoFilter, setConciliacaoFilter] = useState<ConciliacaoFilter>('all')
 
   const visible = useMemo(() => {
-    const term = search.trim().toUpperCase()
+    const vesselTerm = vesselSearch.trim().toUpperCase()
+    const voyageTerm = voyageSearch.trim().toUpperCase()
     return items
       .filter((item) => {
         if (statusFilter !== 'all' && item.status !== statusFilter) return false
-        if (estadoFilter !== 'all' && item.estado !== estadoFilter) return false
-        if (!term) return true
-        const haystack = [
-          item.vesselName,
-          item.voyageNumber,
-          item.carrierName,
-          ...item.originPorts,
-          ...item.destinationPorts,
-        ]
-          .join(' ')
-          .toUpperCase()
-        return haystack.includes(term)
+        if (conciliacaoFilter === 'conciliada' && item.estado !== 'conciliado') return false
+        if (conciliacaoFilter === 'pendente' && item.estado === 'conciliado') return false
+        if (vesselTerm && !item.vesselName.toUpperCase().includes(vesselTerm)) return false
+        if (voyageTerm) {
+          const haystack = [item.voyageNumber, item.carrierName, ...item.originPorts, ...item.destinationPorts].join(' ').toUpperCase()
+          if (!haystack.includes(voyageTerm)) return false
+        }
+        return true
       })
       .sort((left, right) => {
         const byEscala = nextEscalaSortKey(left).localeCompare(nextEscalaSortKey(right))
         if (byEscala !== 0) return byEscala
         return `${left.vesselName} ${left.voyageNumber}`.localeCompare(`${right.vesselName} ${right.voyageNumber}`, 'pt-BR')
       })
-  }, [items, search, statusFilter, estadoFilter])
+  }, [items, vesselSearch, voyageSearch, statusFilter, conciliacaoFilter])
 
   if (collapsed) {
     return (
@@ -106,80 +102,74 @@ export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', co
     )
   }
 
-  const hasActiveFilters = statusFilter !== 'active' || estadoFilter !== 'all'
-
   return (
     <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
       <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted-soft)]" />
             <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar navio, viagem, armador ou porto"
-              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] py-2 pl-9 pr-3 text-sm text-[var(--app-text)] placeholder:text-[var(--app-muted-soft)] focus:border-[var(--app-border-strong)] focus:outline-none"
+              value={vesselSearch}
+              onChange={(e) => setVesselSearch(e.target.value)}
+              placeholder="Navio"
+              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-1.5 text-sm text-[var(--app-text)] placeholder:text-[var(--app-muted-soft)] focus:border-[var(--app-border-strong)] focus:outline-none"
             />
           </div>
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
             aria-label="Recolher barra lateral"
             title="Recolher barra lateral"
           >
-            <PanelLeftClose size={16} />
+            <PanelLeftClose size={15} />
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setFiltersOpen((prev) => !prev)}
-          className="mt-2 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface)]"
-        >
-          <span className="flex items-center gap-1.5">
-            Filtros
-            {hasActiveFilters ? (
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--app-blue-btn)]" />
-            ) : null}
-          </span>
-          {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
+        <input
+          value={voyageSearch}
+          onChange={(e) => setVoyageSearch(e.target.value)}
+          placeholder="Viagem, armador ou porto"
+          className="mt-2 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-1.5 text-sm text-[var(--app-text)] placeholder:text-[var(--app-muted-soft)] focus:border-[var(--app-border-strong)] focus:outline-none"
+        />
 
-        {filtersOpen ? (
-          <div className="mt-1 grid gap-1.5">
-            <div className="flex flex-wrap gap-1.5">
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
+          <div className="grid gap-1">
+            <span className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">Status</span>
+            <div className="flex gap-1">
               {([
+                ['all', 'Todas'],
                 ['active', 'Ativas'],
                 ['completed', 'Concluídas'],
-                ['all', 'Todas'],
               ] as Array<[StatusFilter, string]>).map(([value, label]) => (
                 <RailChip key={value} active={statusFilter === value} onClick={() => setStatusFilter(value)}>
                   {label}
                 </RailChip>
               ))}
             </div>
-            <div className="flex flex-wrap gap-1.5">
+          </div>
+          <div className="grid gap-1">
+            <span className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">Conciliação</span>
+            <div className="flex gap-1">
               {([
-                ['all', 'Conciliação: todas'],
-                ['incompleto', 'Incompleto'],
-                ['conciliado', 'Conciliado'],
-              ] as Array<[EstadoFilter, string]>).map(([value, label]) => (
-                <RailChip key={value} active={estadoFilter === value} onClick={() => setEstadoFilter(value)}>
+                ['all', 'Todas'],
+                ['conciliada', 'Conciliada'],
+                ['pendente', 'Pendente'],
+              ] as Array<[ConciliacaoFilter, string]>).map(([value, label]) => (
+                <RailChip key={value} active={conciliacaoFilter === value} onClick={() => setConciliacaoFilter(value)}>
                   {label}
                 </RailChip>
               ))}
             </div>
           </div>
-        ) : null}
+        </div>
 
-        <div className="mt-2 flex items-center justify-between text-xs text-[var(--app-muted-soft)]">
+        <div className="mt-2.5 flex items-center justify-between text-xs text-[var(--app-muted-soft)]">
           <span>{visible.length} de {items.length} viagens</span>
           <span>Ordenado por próxima escala</span>
         </div>
       </div>
 
-      <div className="max-h-[calc(100vh-13rem)] overflow-y-auto">
+      <div className="max-h-[calc(100vh-16rem)] overflow-y-auto">
         {visible.length === 0 ? (
           <div className="px-4 py-6 text-sm text-[var(--app-muted)]">Nenhuma viagem para os filtros atuais.</div>
         ) : (
@@ -240,7 +230,7 @@ function RailChip({ active, onClick, children }: { active: boolean; onClick: () 
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all ${
+      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all ${
         active
           ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white shadow-sm'
           : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)]'
