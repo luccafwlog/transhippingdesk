@@ -135,31 +135,27 @@ export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', co
         <div className="mt-2.5 grid grid-cols-2 gap-2">
           <div className="grid gap-1">
             <span className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">Status</span>
-            <div className="flex gap-1">
-              {([
-                ['all', 'Todas'],
-                ['active', 'Ativas'],
-                ['completed', 'Concluídas'],
-              ] as Array<[StatusFilter, string]>).map(([value, label]) => (
-                <RailChip key={value} active={statusFilter === value} onClick={() => setStatusFilter(value)}>
-                  {label}
-                </RailChip>
-              ))}
-            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-2 py-1.5 text-xs text-[var(--app-text)] focus:border-[var(--app-border-strong)] focus:outline-none"
+            >
+              <option value="all">Todas</option>
+              <option value="active">Ativas</option>
+              <option value="completed">Concluídas</option>
+            </select>
           </div>
           <div className="grid gap-1">
             <span className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">Conciliação</span>
-            <div className="flex gap-1">
-              {([
-                ['all', 'Todas'],
-                ['conciliada', 'Conciliada'],
-                ['pendente', 'Pendente'],
-              ] as Array<[ConciliacaoFilter, string]>).map(([value, label]) => (
-                <RailChip key={value} active={conciliacaoFilter === value} onClick={() => setConciliacaoFilter(value)}>
-                  {label}
-                </RailChip>
-              ))}
-            </div>
+            <select
+              value={conciliacaoFilter}
+              onChange={(e) => setConciliacaoFilter(e.target.value as ConciliacaoFilter)}
+              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-2 py-1.5 text-xs text-[var(--app-text)] focus:border-[var(--app-border-strong)] focus:outline-none"
+            >
+              <option value="all">Todas</option>
+              <option value="conciliada">Conciliada</option>
+              <option value="pendente">Pendente</option>
+            </select>
           </div>
         </div>
 
@@ -221,23 +217,6 @@ export function VoyageRail({ items, selectedId, onSelect, initialSearch = '', co
         )}
       </div>
     </aside>
-  )
-}
-
-function RailChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all ${
-        active
-          ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white shadow-sm'
-          : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)]'
-      }`}
-    >
-      {children}
-    </button>
   )
 }
 
