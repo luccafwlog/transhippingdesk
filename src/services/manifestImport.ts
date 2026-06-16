@@ -190,3 +190,16 @@ export async function computeFileHash(buffer: ArrayBuffer): Promise<string> {
   }
   return hex
 }
+
+/**
+ * Define o CE Master (Sistema Mercante) de um manifesto. Editado inline na
+ * página Viagens; operador ativo pode atualizar (RLS de import_batches).
+ */
+export async function setImportBatchCeMaster(batchId: number, ceMaster: string | null) {
+  const normalized = (ceMaster ?? '').trim() || null
+  const { error } = await supabase
+    .from('import_batches')
+    .update({ ce_master: normalized })
+    .eq('id', batchId)
+  if (error) throw error
+}

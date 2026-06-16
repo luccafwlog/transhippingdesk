@@ -331,7 +331,8 @@ export function useVoyages() {
             filename,
             uploaded_at,
             status,
-            total_bls
+            total_bls,
+            ce_master
           ),
           granite_manifests(
             id,
@@ -379,6 +380,7 @@ export function useVoyages() {
             uploaded_at: string | null
             status: 'processing' | 'completed' | 'partial' | 'failed' | null
             total_bls: number | null
+            ce_master: string | null
           }> | null
           granite_manifests?: Array<{
             id: string

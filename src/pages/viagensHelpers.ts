@@ -1,5 +1,5 @@
 // Helpers puros para rótulos, métricas e resumos da tela de Viagens.
-import { countDistinctContainerNumbers } from '../lib/containerCounts'
+import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 
 export function normalizePortName(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase() || '-'
@@ -273,4 +273,181 @@ export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined
       .map((row) => String(row.pod ?? '').trim())
       .filter(Boolean),
   ).size
+}
+
+// --- Estado de Conciliação da Viagem (ver CONTEXT.md) -----------------------
+
+export type EstadoConciliacao = 'divergente' | 'incompleto' | 'conciliado'
+
+/** Cobertura de CE Mercante: quantos B/Ls têm ce_mercante preenchido. */
+export function voyageCeCoverage(bls: Array<{ ce_mercante: string | null }> | null | undefined) {
+  const list = bls ?? []
+  return {
+    filled: list.filter((bl) => String(bl.ce_mercante ?? '').trim()).length,
+    total: list.length,
+  }
+}
+
+/**
+ * Indica se a viagem tem manifesto faltando: há B/Ls mas nenhum batch de
+ * manifesto, ou existem B/Ls órfãos (sem batch_id vinculado).
+ */
+export function voyageHasMissingManifest({
+  bls,
+  batches,
+}: {
+  bls: Array<{ batch_id?: number | null }> | null | undefined
+  batches: Array<{ id: number }> | null | undefined
+}) {
+  const blList = bls ?? []
+  if (blList.length === 0) return false
+  if ((batches ?? []).length === 0) return true
+  return blList.some((bl) => bl.batch_id == null)
+}
+
+/**
+ * Deriva o Estado de Conciliação a partir de sinais já computados. Pura e
+ * desacoplada da consulta de divergências (que é por viagem e cara): o
+ * chamador decide como obter `hasOpenDivergences`. Viagem sem carga (CE total
+ * 0 e sem B/Ls) resulta em 'conciliado' (nada pendente).
+ */
+export function deriveEstadoConciliacao({
+  hasOpenDivergences,
+  ceFilled,
+  ceTotal,
+  hasMissingManifest,
+}: {
+  hasOpenDivergences: boolean
+  ceFilled: number
+  ceTotal: number
+  hasMissingManifest: boolean
+}): EstadoConciliacao {
+  if (hasOpenDivergences) return 'divergente'
+  if (hasMissingManifest || (ceTotal > 0 && ceFilled < ceTotal)) return 'incompleto'
+  return 'conciliado'
+}
+
+/** Próxima escala: menor ETA entre PODs com ETA definido e sem ATA registrado. */
+export function getProximaEscala(
+  podRows: Array<{ pod: string; eta: string | null; ata: string | null }> | null | undefined,
+) {
+  const pending = (podRows ?? []).filter((row) => row.eta && !row.ata)
+  if (!pending.length) return null
+  const next = pending.reduce((earliest, row) => (String(row.eta) < String(earliest.eta) ? row : earliest))
+  return { pod: next.pod, eta: next.eta as string }
+}
+
+// --- Importação por POD ------------------------------------------------------
+
+export type PodImportSummary = {
+  pod: string
+  containers: { distinct: number; imo: number; oog: number; types: string }
+  generalCargo: { distinct: number; imo: number; oog: number }
+  vehicles: { distinctContainers: number }
+  breakbulk: { bls: number; machines: number; packages: number; weightTon: number; cbm: number }
+}
+
+/**
+ * Resume as métricas de importação segmentadas por POD de descarga.
+ * `vehicleContainerNumbers` (de useVoyageVehicleStats) identifica quais
+ * containers carregam veículos, para separar carga geral de veículos sem
+ * embutir regra de porto.
+ */
+export function summarizeImportByPod(
+  bls: VoyageBl[] | null | undefined,
+  vehicleContainerNumbers: string[] | null | undefined,
+): PodImportSummary[] {
+  const { containerBls, breakbulkBls } = splitVoyageBls(bls)
+  const vehicleSet = new Set((vehicleContainerNumbers ?? []).map((n) => String(n).trim().toUpperCase()))
+
+  const pods = Array.from(
+    new Set([
+      ...containerBls.map((bl) => normalizePortName(bl.pod)),
+      ...breakbulkBls.map((bl) => normalizePortName(bl.pod)),
+    ]),
+  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
+
+  return pods.map((pod) => {
+    const flat = containerBls
+      .filter((bl) => normalizePortName(bl.pod) === pod)
+      .flatMap((bl) => bl.bl_containers ?? [])
+    const isVehicle = (container: { container_number?: string | null }) =>
+      vehicleSet.has(String(container.container_number ?? '').trim().toUpperCase())
+    const general = flat.filter((container) => !isVehicle(container))
+    const vehicles = flat.filter(isVehicle)
+    const podBreakbulk = breakbulkBls.filter((bl) => normalizePortName(bl.pod) === pod)
+
+    return {
+      pod,
+      containers: {
+        distinct: countDistinctContainerNumbers(flat),
+        imo: countDistinctContainerNumbersBy(flat, (container) => Boolean(container.is_imo)),
+        oog: countDistinctContainerNumbersBy(flat, (container) => Boolean(container.is_oog)),
+        types: summarizeContainerTypes(flat),
+      },
+      generalCargo: {
+        distinct: countDistinctContainerNumbers(general),
+        imo: countDistinctContainerNumbersBy(general, (container) => Boolean(container.is_imo)),
+        oog: countDistinctContainerNumbersBy(general, (container) => Boolean(container.is_oog)),
+      },
+      vehicles: { distinctContainers: countDistinctContainerNumbers(vehicles) },
+      breakbulk: {
+        bls: podBreakbulk.length,
+        machines: podBreakbulk.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0),
+        packages: podBreakbulk.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0),
+        weightTon: podBreakbulk.reduce(
+          (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
+          0,
+        ),
+        cbm: podBreakbulk.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0),
+      },
+    }
+  })
+}
+
+// --- Exportação por terminal de embarque (POL/origem) ------------------------
+
+export type PolExportSummary = {
+  pol: string
+  granite: { manifests: number; bls: number; weightTon: number; readyForBilling: number; invoiced: number }
+  vazios: { bookings: number; distinctContainers: number; types: string; destinations: string }
+}
+
+/** Resume Granito e Vazios de exportação por terminal de embarque. */
+export function summarizeExportByPol(
+  graniteManifests: VoyageGraniteManifest[] | null | undefined,
+  vaziosManifests: VoyageVaziosManifest[] | null | undefined,
+): PolExportSummary[] {
+  const granite = graniteManifests ?? []
+  const allBookings = (vaziosManifests ?? []).flatMap((manifest) => manifest.vazios_bookings ?? [])
+
+  const pols = Array.from(
+    new Set([
+      ...granite.map((manifest) => normalizePortName(manifest.loading_port)),
+      ...allBookings.map((booking) => normalizePortName(booking.origin_terminal)),
+    ]),
+  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
+
+  return pols.map((pol) => {
+    const polGranite = granite.filter((manifest) => normalizePortName(manifest.loading_port) === pol)
+    const polBookings = allBookings.filter((booking) => normalizePortName(booking.origin_terminal) === pol)
+    const graniteBls = polGranite.flatMap((manifest) => manifest.granite_bls ?? [])
+
+    return {
+      pol,
+      granite: {
+        manifests: polGranite.length,
+        bls: polGranite.reduce((sum, manifest) => sum + Number(manifest.total_bls ?? manifest.granite_bls?.length ?? 0), 0),
+        weightTon: polGranite.reduce((sum, manifest) => sum + Number(manifest.total_weight_kg ?? 0) / 1000, 0),
+        readyForBilling: graniteBls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
+        invoiced: graniteBls.filter((bl) => bl.charge_status === 'invoiced').length,
+      },
+      vazios: {
+        bookings: polBookings.length,
+        distinctContainers: countDistinctContainerNumbers(polBookings),
+        types: summarizeOccurrences(polBookings, (booking) => booking.container_type, 'Não informado'),
+        destinations: summarizeUniqueValues(polBookings.map((booking) => booking.destination)),
+      },
+    }
+  })
 }
