@@ -3,7 +3,7 @@
 Base de decisão: ADR `docs/adr/0012-viagens-master-detail-rota-dedicada.md` e termos em `CONTEXT.md`.
 Mockup de referência: `.mockups/viagens-final.html`.
 
-Status: proposto — aguardando aprovação antes de codar.
+Status: em execução — Fases 0–4 concluídas (PRs #237, #238, #239); Fase 5 em andamento.
 
 ---
 
@@ -15,7 +15,7 @@ Critério de sucesso global: a página atual continua funcionando durante a tran
 
 ---
 
-## Fase 0 — Descoberta pontual (sem código)
+## Fase 0 — Descoberta pontual (sem código) ✅ (PR #237)
 
 Confirmar a fonte das divergências de conciliação (Baplie ↔ Manifesto) e da cobertura de CE, que alimentam o **Estado de Conciliação**.
 
@@ -26,7 +26,7 @@ Saída: definição executável da função `deriveEstadoConciliacao(voyage)` �
 
 ---
 
-## Fase 1 — Migração de dados (Supabase)
+## Fase 1 — Migração de dados (Supabase) ✅ (PR #237)
 
 Seguir o playbook `supabase-migration` (RLS-first, list_tables antes, nota de rollback).
 
@@ -44,7 +44,7 @@ Seguir o playbook `supabase-migration` (RLS-first, list_tables antes, nota de ro
 
 ---
 
-## Fase 2 — Serviços e hooks (camada de dados)
+## Fase 2 — Serviços e hooks (camada de dados) ✅ (PR #237)
 
 Seguir `react-query-pattern` (service-function + use*-hook, chaves e invalidação centralizadas).
 
@@ -67,7 +67,7 @@ Seguir `react-query-pattern` (service-function + use*-hook, chaves e invalidaç�
 
 ---
 
-## Fase 3 — Roteamento e shell master-detail
+## Fase 3 — Roteamento e shell master-detail ✅ (PR #238)
 
 1. `src/App.tsx`: adicionar `<Route path="/viagens/:id" element={withSuspense(<Viagens />)} />` mantendo `/viagens`. A própria `Viagens` lê `:id` e decide o detalhe selecionado.
 2. `src/pages/Viagens.tsx`: layout em grid `rail | detalhe`.
@@ -78,7 +78,7 @@ Seguir `react-query-pattern` (service-function + use*-hook, chaves e invalidaç�
 
 ---
 
-## Fase 4 — Detalhe da viagem em abas
+## Fase 4 — Detalhe da viagem em abas ✅ (PR #239)
 
 Refatorar `src/components/voyages/VoyageCard.tsx` → `VoyageDetail` com cabeçalho + faixa de KPIs + abas. Reusar `MetricPanel`/`Info`/`NavigationCard` de `VoyageSectionCards.tsx`.
 
@@ -91,7 +91,7 @@ Refatorar `src/components/voyages/VoyageCard.tsx` → `VoyageDetail` com cabeça
 
 ---
 
-## Fase 5 — Modais e edição inline
+## Fase 5 — Modais e edição inline ⏳ (em andamento)
 
 - `VoyageScheduleModals.tsx`: adicionar campo **Nº Escala** ao modal de POD e ao de POL.
 - Edição de **CE Master** inline na aba Manifestos (input + save por linha).
