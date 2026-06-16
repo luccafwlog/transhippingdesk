@@ -21,6 +21,7 @@ export type VoyagePolSchedule = {
   voyageId: number
   pol: string
   etd: string | null
+  escalaNumber: string | null
 }
 
 export type VoyagePodSchedule = {
@@ -34,6 +35,7 @@ export type VoyagePodSchedule = {
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
+  escalaNumber: string | null
 }
 
 export function getEditableVoyagePodCeStatus(status: VoyagePodCeStatus | null | undefined): EditableVoyagePodCeStatus {
@@ -76,16 +78,19 @@ export async function listVoyagePolSchedules(entityIds: string[]) {
   const seenFieldsByEntity = new Map<string, Set<string>>()
 
   for (const row of data ?? []) {
-    if (row.field_name !== 'etd') continue
+    if (row.field_name !== 'etd' && row.field_name !== 'escala_number') continue
 
     const entityId = row.entity_id
     const current = schedules.get(entityId) ?? makeEmptyPolSchedule(entityId)
     const seenFields = seenFieldsByEntity.get(entityId) ?? new Set<string>()
-    if (!seenFields.has('etd')) {
+    if (row.field_name === 'etd' && !seenFields.has('etd')) {
       current.etd = normalizeDateValue(row.new_value)
-      seenFields.add('etd')
-      seenFieldsByEntity.set(entityId, seenFields)
     }
+    if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) {
+      current.escalaNumber = normalizeTextValue(row.new_value)
+    }
+    seenFields.add(row.field_name)
+    seenFieldsByEntity.set(entityId, seenFields)
     schedules.set(entityId, current)
   }
 
@@ -120,6 +125,7 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
     if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
+    if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
@@ -211,11 +217,13 @@ export async function saveVoyagePolSchedule({
   voyageId,
   pol,
   etd,
+  escalaNumber,
   changedBy,
 }: {
   voyageId: number
   pol: string
   etd: string | null
+  escalaNumber?: string | null
   changedBy: string | null
 }) {
   const entityId = buildVoyagePolEntityId(voyageId, pol)
@@ -223,6 +231,9 @@ export async function saveVoyagePolSchedule({
 
   const changes = [
     makeAuditRow(POL_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POL'),
+    escalaNumber === undefined
+      ? null
+      : makeAuditRow(POL_ENTITY_TYPE, entityId, 'escala_number', current.escalaNumber, escalaNumber, changedBy, 'Atualizacao manual de Numero de Escala por POL'),
   ].filter(Boolean)
 
   if (!changes.length) return
@@ -241,6 +252,7 @@ export async function saveVoyagePodSchedule({
   rtw,
   ceStatus,
   linked,
+  escalaNumber,
   changedBy,
 }: {
   voyageId: number
@@ -252,6 +264,7 @@ export async function saveVoyagePodSchedule({
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
+  escalaNumber?: string | null
   changedBy: string | null
 }) {
   const entityId = buildVoyagePodEntityId(voyageId, pod)
@@ -289,6 +302,9 @@ export async function saveVoyagePodSchedule({
       changedBy,
       'Atualizacao manual de linked por POD',
     ),
+    escalaNumber === undefined
+      ? null
+      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'escala_number', current.escalaNumber, escalaNumber, changedBy, 'Atualizacao manual de Numero de Escala por POD'),
   ].filter(Boolean)
 
   if (!changes.length) return
@@ -352,6 +368,7 @@ function hydratePodSchedules(
     if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
     if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
+    if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
@@ -369,6 +386,7 @@ function makeEmptyPolSchedule(entityId: string): VoyagePolSchedule {
     voyageId: Number(voyageId),
     pol: pol ?? '-',
     etd: null,
+    escalaNumber: null,
   }
 }
 
@@ -385,13 +403,14 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     rtw: null,
     ceStatus: null,
     linked: null,
+    escalaNumber: null,
   }
 }
 
 function makeAuditRow(
   entityType: string,
   entityId: string,
-  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd' | 'rtw' | 'ces' | 'linked',
+  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,
@@ -418,6 +437,11 @@ function normalizePortValue(value: string | null | undefined) {
 }
 
 function normalizeDateValue(value: string | null | undefined) {
+  const normalized = (value ?? '').trim()
+  return normalized || null
+}
+
+function normalizeTextValue(value: string | null | undefined) {
   const normalized = (value ?? '').trim()
   return normalized || null
 }

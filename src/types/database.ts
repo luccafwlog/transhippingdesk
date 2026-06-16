@@ -259,6 +259,7 @@ export type ImportBatch = {
   total_bls: number | null
   total_containers: number | null
   error_count: number | null
+  ce_master: string | null
 }
 
 export type ImportError = {

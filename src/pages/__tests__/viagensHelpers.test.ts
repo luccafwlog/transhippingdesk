@@ -3,9 +3,13 @@ import {
   collectVoyagePorts,
   countPlannedPodRows,
   countDistinctBatchIds,
+  deriveEstadoConciliacao,
   getGraniteModuleStats,
+  getProximaEscala,
   getVaziosModuleStats,
   splitVoyageBls,
+  summarizeExportByPol,
+  summarizeImportByPod,
   summarizeModuleAvailability,
   formatMetric,
   formatPortDisplayName,
@@ -16,6 +20,8 @@ import {
   summarizeOccurrences,
   summarizeUniqueValues,
   tokenizeInfoValue,
+  voyageCeCoverage,
+  voyageHasMissingManifest,
 } from '../viagensHelpers'
 
 describe('normalizePortName', () => {
@@ -224,5 +230,141 @@ describe('countPlannedPodRows', () => {
     ]
 
     expect(countPlannedPodRows(rows)).toBe(2)
+  })
+})
+
+describe('voyageCeCoverage', () => {
+  it('conta B/Ls com ce_mercante preenchido', () => {
+    const bls = [{ ce_mercante: 'CE1' }, { ce_mercante: '  ' }, { ce_mercante: null }, { ce_mercante: 'CE2' }]
+    expect(voyageCeCoverage(bls)).toEqual({ filled: 2, total: 4 })
+    expect(voyageCeCoverage(null)).toEqual({ filled: 0, total: 0 })
+  })
+})
+
+describe('voyageHasMissingManifest', () => {
+  it('falso quando não há B/Ls', () => {
+    expect(voyageHasMissingManifest({ bls: [], batches: [] })).toBe(false)
+  })
+  it('verdadeiro quando há B/Ls mas nenhum batch', () => {
+    expect(voyageHasMissingManifest({ bls: [{ batch_id: 1 }], batches: [] })).toBe(true)
+  })
+  it('verdadeiro quando há B/L órfão (sem batch_id)', () => {
+    expect(voyageHasMissingManifest({ bls: [{ batch_id: 1 }, { batch_id: null }], batches: [{ id: 1 }] })).toBe(true)
+  })
+  it('falso quando todos os B/Ls têm batch e existe manifesto', () => {
+    expect(voyageHasMissingManifest({ bls: [{ batch_id: 1 }], batches: [{ id: 1 }] })).toBe(false)
+  })
+})
+
+describe('deriveEstadoConciliacao', () => {
+  it('divergente quando há divergências abertas (prioridade máxima)', () => {
+    expect(
+      deriveEstadoConciliacao({ hasOpenDivergences: true, ceFilled: 10, ceTotal: 10, hasMissingManifest: false }),
+    ).toBe('divergente')
+  })
+  it('incompleto quando falta manifesto ou cobertura de CE parcial', () => {
+    expect(
+      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 10, ceTotal: 10, hasMissingManifest: true }),
+    ).toBe('incompleto')
+    expect(
+      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 8, ceTotal: 10, hasMissingManifest: false }),
+    ).toBe('incompleto')
+  })
+  it('conciliado quando tudo completo (e quando não há carga)', () => {
+    expect(
+      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 10, ceTotal: 10, hasMissingManifest: false }),
+    ).toBe('conciliado')
+    expect(
+      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 0, ceTotal: 0, hasMissingManifest: false }),
+    ).toBe('conciliado')
+  })
+})
+
+describe('getProximaEscala', () => {
+  it('escolhe o menor ETA entre PODs sem ATA', () => {
+    const rows = [
+      { pod: 'BRSSA', eta: '2026-06-12', ata: null },
+      { pod: 'BRVIX', eta: '2026-06-09', ata: null },
+      { pod: 'CNSHA', eta: '2026-06-01', ata: '2026-06-01' }, // já chegou → ignora
+    ]
+    expect(getProximaEscala(rows)).toEqual({ pod: 'BRVIX', eta: '2026-06-09' })
+  })
+  it('nulo quando todas têm ATA ou não há ETA', () => {
+    expect(getProximaEscala([{ pod: 'X', eta: null, ata: null }])).toBeNull()
+    expect(getProximaEscala([{ pod: 'X', eta: '2026-06-01', ata: '2026-06-01' }])).toBeNull()
+    expect(getProximaEscala([])).toBeNull()
+  })
+})
+
+describe('summarizeImportByPod', () => {
+  const bls = [
+    {
+      id: 'A',
+      cargo_mode: 'container',
+      pod: 'BRSSA',
+      bl_containers: [
+        { id: 1, container_number: 'GEN1', is_imo: true, is_oog: false, type: '40HC' },
+        { id: 2, container_number: 'VEH1', is_imo: false, is_oog: false, type: '40HC' },
+      ],
+    },
+    {
+      id: 'B',
+      cargo_mode: 'container',
+      pod: 'BRVIX',
+      bl_containers: [{ id: 3, container_number: 'GEN2', is_imo: false, is_oog: true, type: '20DV' }],
+    },
+    {
+      id: 'C',
+      cargo_mode: 'carga_solta',
+      pod: 'BRSSA',
+      bb_machine_qty: 4,
+      bb_packages_qty: 100,
+      bb_weight_ton: 12,
+      total_cbm: 30,
+    },
+  ] as never
+
+  it('segmenta containers/veículos/carga solta por POD', () => {
+    const summary = summarizeImportByPod(bls, ['VEH1'])
+    const ssa = summary.find((s) => s.pod === 'BRSSA')!
+    const vix = summary.find((s) => s.pod === 'BRVIX')!
+
+    expect(summary.map((s) => s.pod)).toEqual(['BRSSA', 'BRVIX'])
+    expect(ssa.containers.distinct).toBe(2)
+    expect(ssa.containers.imo).toBe(1)
+    expect(ssa.generalCargo.distinct).toBe(1) // GEN1 (VEH1 é veículo)
+    expect(ssa.vehicles.distinctContainers).toBe(1)
+    expect(ssa.breakbulk).toEqual({ bls: 1, machines: 4, packages: 100, weightTon: 12, cbm: 30 })
+    expect(vix.containers.oog).toBe(1)
+    expect(vix.vehicles.distinctContainers).toBe(0)
+  })
+})
+
+describe('summarizeExportByPol', () => {
+  it('agrupa granito e vazios por terminal de embarque', () => {
+    const granite = [
+      { loading_port: 'CNSHA', total_bls: 5, total_weight_kg: 2000, granite_bls: [{ id: '1', charge_status: 'invoiced' }] },
+    ] as never
+    const vazios = [
+      {
+        vazios_bookings: [
+          { id: '1', container_number: 'V1', container_type: '40HC', origin_terminal: 'CNSHA', destination: 'X' },
+          { id: '2', container_number: 'V2', container_type: '40HC', origin_terminal: 'CNNBO', destination: 'Y' },
+        ],
+      },
+    ] as never
+
+    const summary = summarizeExportByPol(granite, vazios)
+    const sha = summary.find((s) => s.pol === 'CNSHA')!
+    const nbo = summary.find((s) => s.pol === 'CNNBO')!
+
+    expect(summary.map((s) => s.pol)).toEqual(['CNNBO', 'CNSHA'])
+    expect(sha.granite.manifests).toBe(1)
+    expect(sha.granite.bls).toBe(5)
+    expect(sha.granite.weightTon).toBe(2)
+    expect(sha.granite.invoiced).toBe(1)
+    expect(sha.vazios.bookings).toBe(1)
+    expect(nbo.granite.manifests).toBe(0)
+    expect(nbo.vazios.distinctContainers).toBe(1)
   })
 })
