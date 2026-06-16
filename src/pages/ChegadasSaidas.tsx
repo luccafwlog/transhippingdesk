@@ -205,7 +205,7 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
           updates[field] = val
         }
         if (Object.keys(updates).length > 0) {
-          const { error } = await supabase.from('vessel_schedules').update(updates).eq('id', match.id)
+          const { error } = await supabase.from('vessel_schedules').update(updates as Partial<VesselSchedule>).eq('id', match.id)
           if (error) r.errors.push(`${name}: ${error.message}`)
           else r.updated.push(name)
         }
