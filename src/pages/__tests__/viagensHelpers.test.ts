@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildVoyageRailItems,
   collectVoyagePorts,
   countPlannedPodRows,
   countDistinctBatchIds,
@@ -337,6 +338,49 @@ describe('summarizeImportByPod', () => {
     expect(ssa.breakbulk).toEqual({ bls: 1, machines: 4, packages: 100, weightTon: 12, cbm: 30 })
     expect(vix.containers.oog).toBe(1)
     expect(vix.vehicles.distinctContainers).toBe(0)
+  })
+})
+
+describe('buildVoyageRailItems', () => {
+  const voyages = [
+    {
+      id: 1,
+      voyage_number: 'O88E',
+      status: 'active',
+      vessel: { name: 'ARIES', carrier: { name: 'COSCO' } },
+      pol: { name: 'CNSHA' },
+      pod: { name: 'BRSSA' },
+      import_batches: [{ id: 10 }],
+      bls: [
+        { id: 'a', cargo_mode: 'container', pol: 'CNSHA', pod: 'BRSSA', ce_mercante: 'CE1', batch_id: 10, bl_containers: [{ id: 1, container_number: 'C1' }] },
+        { id: 'b', cargo_mode: 'container', pol: 'CNSHA', pod: 'BRVIX', ce_mercante: null, batch_id: 10, bl_containers: [{ id: 2, container_number: 'C2' }] },
+      ],
+    },
+  ] as never
+
+  it('monta item com estado, rota, contagens e próxima escala', () => {
+    const podRows = new Map([
+      [1, [
+        { pod: 'BRSSA', eta: '2026-06-12', ata: null },
+        { pod: 'BRVIX', eta: '2026-06-09', ata: null },
+      ]],
+    ])
+    const [item] = buildVoyageRailItems(voyages, podRows)
+
+    expect(item.carrierName).toBe('COSCO')
+    expect(item.vesselName).toBe('ARIES')
+    expect(item.blCount).toBe(2)
+    expect(item.containerCount).toBe(2)
+    // 1 de 2 B/Ls com CE → incompleto
+    expect(item.estado).toBe('incompleto')
+    expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-09' })
+    expect(item.destinationPorts).toContain('BRSSA')
+    expect(item.destinationPorts).toContain('BRVIX')
+  })
+
+  it('usa mapa vazio de escalas sem quebrar', () => {
+    const [item] = buildVoyageRailItems(voyages, new Map())
+    expect(item.proximaEscala).toBeNull()
   })
 })
 
