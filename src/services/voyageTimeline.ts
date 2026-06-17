@@ -34,6 +34,7 @@ export async function fetchVoyageTimelineSources(
   auditEvents: VoyageAuditEvent[]
   resolutions: VoyageResolutionEvent[]
   baplieImports: VoyageBaplieImportEvent[]
+  actorNames: Record<string, string>
 }> {
   const [scheduleRes, auditRes, resolutionRes, baplieRes] = await Promise.all([
     supabase
@@ -69,6 +70,28 @@ export async function fetchVoyageTimelineSources(
   if (resolutionRes.error) throw resolutionRes.error
   if (baplieRes.error) throw baplieRes.error
 
+  const actorIds = Array.from(
+    new Set([
+      ...(scheduleRes.data ?? []).map((row) => row.changed_by),
+      ...(auditRes.data ?? []).map((row) => row.changed_by),
+    ].filter(Boolean)),
+  ) as string[]
+  const actorNames: Record<string, string> = {}
+
+  if (actorIds.length) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from('user_profiles')
+      .select('id, full_name')
+      .in('id', actorIds)
+    if (profilesError) throw profilesError
+
+    for (const profile of profiles ?? []) {
+      const row = profile as { id: string; full_name: string | null }
+      const name = String(row.full_name ?? '').trim()
+      if (name) actorNames[row.id] = name
+    }
+  }
+
   return {
     scheduleEvents: (scheduleRes.data ?? []) as VoyageScheduleEvent[],
     auditEvents: (auditRes.data ?? []) as VoyageAuditEvent[],
@@ -77,5 +100,6 @@ export async function fetchVoyageTimelineSources(
       imported_at: String((row as { imported_at?: string | null }).imported_at ?? ''),
       container_count: baplieRes.count ?? null,
     })),
+    actorNames,
   }
 }

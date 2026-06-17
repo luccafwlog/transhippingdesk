@@ -572,6 +572,7 @@ export function buildVoyageTimeline({
   openDivergenceCount,
   voyageStatus,
   ceCoverage,
+  actorNames,
 }: {
   importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; ce_master?: string | null }> | null
   scheduleEvents?: TimelineAuditEvent[] | null
@@ -581,9 +582,12 @@ export function buildVoyageTimeline({
   openDivergenceCount?: number | null
   voyageStatus?: string | null
   ceCoverage?: { filled: number; total: number } | null
+  actorNames?: Record<string, string> | null
 }): VoyageTimelineEvent[] {
   const events: VoyageTimelineEvent[] = []
   let latestImportAt: string | null = null
+  const appendActor = (detail: string, changedBy: string | null | undefined) =>
+    appendTimelineActor(detail, changedBy, actorNames)
 
   for (const batch of importBatches ?? []) {
     if (!batch.uploaded_at) continue
@@ -661,7 +665,7 @@ export function buildVoyageTimeline({
         kind: 'escala-date',
         at,
         title: `${TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]} de ${port} ${changed ? 'alterado' : 'registrado'}`,
-        detail: appendTimelineActor(changed ? `${formatDate(oldValue)} -> ${formatDate(value)}` : formatDate(value), row.changed_by),
+        detail: appendActor(changed ? `${formatDate(oldValue)} -> ${formatDate(value)}` : formatDate(value), row.changed_by),
       })
     } else if (row.field_name === 'escala_number' && value) {
       events.push({
@@ -669,7 +673,7 @@ export function buildVoyageTimeline({
         kind: 'escala-number',
         at,
         title: `Escala de ${port} criada no Mercante`,
-        detail: appendTimelineActor(`Nº ${value}`, row.changed_by),
+        detail: appendActor(`Nº ${value}`, row.changed_by),
       })
     } else if (row.field_name === 'linked' && value === 'true') {
       events.push({
@@ -677,7 +681,7 @@ export function buildVoyageTimeline({
         kind: 'manifestos-linked',
         at,
         title: `Manifestos vinculados à escala de ${port}`,
-        detail: appendTimelineActor('ESCALA = SIM', row.changed_by),
+        detail: appendActor('ESCALA = SIM', row.changed_by),
       })
     } else if (row.field_name === 'ces' && value) {
       events.push({
@@ -685,7 +689,7 @@ export function buildVoyageTimeline({
         kind: 'ce-status',
         at,
         title: `Status de CE de ${port} alterado`,
-        detail: appendTimelineActor(oldValue ? `${formatTimelineCeStatus(oldValue)} -> ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row.changed_by),
+        detail: appendActor(oldValue ? `${formatTimelineCeStatus(oldValue)} -> ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row.changed_by),
       })
     } else if (row.field_name === 'rtw' && value) {
       events.push({
@@ -693,7 +697,7 @@ export function buildVoyageTimeline({
         kind: 'restow',
         at,
         title: `Restow de ${port} registrado`,
-        detail: appendTimelineActor(`RTW ${value}`, row.changed_by),
+        detail: appendActor(`RTW ${value}`, row.changed_by),
       })
     } else if (row.field_name === 'deleted' && value === 'false') {
       events.push({
@@ -701,7 +705,7 @@ export function buildVoyageTimeline({
         kind: 'pod-added',
         at,
         title: `Escala de ${port} adicionada ao planejamento`,
-        detail: appendTimelineActor('POD ativo', row.changed_by),
+        detail: appendActor('POD ativo', row.changed_by),
       })
     } else if (row.field_name === 'deleted' && value === 'true') {
       events.push({
@@ -709,7 +713,7 @@ export function buildVoyageTimeline({
         kind: 'pod-removed',
         at,
         title: `Escala de ${port} removida do planejamento`,
-        detail: appendTimelineActor('Planejamento removido', row.changed_by),
+        detail: appendActor('Planejamento removido', row.changed_by),
       })
     }
   })
@@ -742,7 +746,7 @@ export function buildVoyageTimeline({
         kind: 'ce-master',
         at,
         title: oldValue ? 'CE Master alterado' : 'CE Master definido',
-        detail: appendTimelineActor(oldValue ? `${oldValue} -> ${value}` : value, row.changed_by),
+        detail: appendActor(oldValue ? `${oldValue} -> ${value}` : value, row.changed_by),
       })
       return
     }
@@ -754,7 +758,7 @@ export function buildVoyageTimeline({
         kind: 'voyage-data',
         at,
         title: oldValue ? 'Dados da viagem alterados' : 'Viagem criada',
-        detail: appendTimelineActor(oldValue ? `${label}: ${oldValue} -> ${value}` : `${label}: ${value}`, row.changed_by),
+        detail: appendActor(oldValue ? `${label}: ${oldValue} -> ${value}` : `${label}: ${value}`, row.changed_by),
       })
     }
   })
@@ -777,13 +781,24 @@ export function buildVoyageTimeline({
   })
 }
 
-function appendTimelineActor(detail: string, changedBy: string | null | undefined) {
+function appendTimelineActor(
+  detail: string,
+  changedBy: string | null | undefined,
+  actorNames: Record<string, string> | null | undefined,
+) {
   const actor = String(changedBy ?? '').trim()
-  return actor ? `${detail} · por ${actor}` : detail
+  if (!actor) return detail
+  const name = actorNames?.[actor]?.trim()
+  if (name) return `${detail} · por ${name}`
+  return isUuid(actor) ? detail : `${detail} · por ${actor}`
 }
 
 function formatTimelineCeStatus(value: string) {
   return TIMELINE_CE_STATUS_LABELS[value] ?? value
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 }
 
 // --- Importação por POD ------------------------------------------------------

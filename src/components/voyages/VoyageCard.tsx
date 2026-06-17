@@ -246,6 +246,7 @@ export function VoyageCard({
         openDivergenceCount: divergenceCount,
         voyageStatus: voyage.status,
         ceCoverage,
+        actorNames: timelineSources?.actorNames,
       }),
     [ceCoverage, divergenceCount, importBatches, routeByBatchId, timelineSources, voyage.status],
   )

@@ -536,6 +536,24 @@ describe('buildVoyageTimeline', () => {
     expect(events[1].title).toBe('Dados da viagem alterados')
     expect(events[1].detail).toBe('Nº da viagem: 001E -> 002E · por user-1')
   })
+
+  it('resolve o autor pelo nome e não exibe UUID cru', () => {
+    const userId = '1d9675f6-5737-4db8-bf6e-ce45414e574b'
+    const eventsWithName = buildVoyageTimeline({
+      actorNames: { [userId]: 'Lucca' },
+      scheduleEvents: [
+        { entity_id: '7::BRVIX', field_name: 'eta', new_value: '2026-06-06', changed_by: userId, changed_at: '2026-06-17T16:05:00Z' },
+      ],
+    })
+    const eventsWithoutName = buildVoyageTimeline({
+      scheduleEvents: [
+        { entity_id: '7::BRVIX', field_name: 'eta', new_value: '2026-06-06', changed_by: userId, changed_at: '2026-06-17T16:05:00Z' },
+      ],
+    })
+
+    expect(eventsWithName[0].detail).toBe('06/06/2026 · por Lucca')
+    expect(eventsWithoutName[0].detail).toBe('06/06/2026')
+  })
 })
 
 describe('summarizeExportByPol', () => {
