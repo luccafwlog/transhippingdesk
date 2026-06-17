@@ -934,7 +934,7 @@ function VoyageTimeline({
       </button>
       {open ? (
         events.length ? (
-          <ol className="mt-3">
+          <ol className="mt-3 max-h-[420px] overflow-y-auto pr-1">
             {events.map((event) => (
               <li
                 key={event.id}
