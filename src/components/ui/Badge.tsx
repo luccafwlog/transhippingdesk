@@ -1,6 +1,6 @@
 import { cn } from '../../lib/utils'
 
-type BadgeTone = 'blue' | 'green' | 'red' | 'yellow' | 'slate'
+export type BadgeTone = 'blue' | 'green' | 'red' | 'yellow' | 'slate'
 
 const tones: Record<BadgeTone, string> = {
   blue: 'app-badge--blue',
