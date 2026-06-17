@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Boxes,
   CheckCircle,
+  Download,
   FileText,
   Monitor,
   Package,
@@ -19,7 +20,7 @@ import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 import { formatBRL } from '../lib/utils'
-import { fetchLineUpSnapshot } from '../services/lineup'
+import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { supabase } from '../services/supabase'
 
 type FilterStatus = 'all' | 'active' | 'completed'
@@ -105,8 +106,35 @@ async function fetchDistinctContainerCount() {
   return Number(data ?? 0)
 }
 
+async function exportLineUpToExcel(rows: LineUpRow[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    Navio: row.vesselName,
+    Viagem: row.voyageNumber,
+    POD: row.pod,
+    Status: row.voyageStatus === 'completed' ? 'Concluída' : row.voyageStatus === 'active' ? 'Ativa' : row.voyageStatus ?? '',
+    ETA: row.eta ?? '',
+    ETB: row.etb ?? '',
+    VIN: row.vin,
+    'VIN CNTR': row.car,
+    CG: row.cg,
+    Total: row.total,
+    MTY: row.mty,
+    RTW: row.rtw ?? '',
+    'BB Máquinas': row.bbMachines,
+    'BB Pacotes': row.bbPackages,
+    'BB Total': row.bbTotal,
+    CEs: row.ceStatus,
+    Linked: row.linked ? 'Sim' : 'Não',
+  }))
+  const ws = XLSX.utils.json_to_sheet(exportRows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Line Up')
+  XLSX.writeFile(wb, `painel-lineup-${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
+
 export function Painel() {
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>('active')
   // Relógio para destacar quando o quadro está sem atualização há muito tempo.
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -177,7 +205,7 @@ export function Painel() {
       <Card className="mb-5 mt-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
-            {(['all', 'active', 'completed'] as FilterStatus[]).map((filter) => (
+            {(['active', 'completed', 'all'] as FilterStatus[]).map((filter) => (
               <button
                 key={filter}
                 type="button"
@@ -188,7 +216,15 @@ export function Painel() {
               </button>
             ))}
           </div>
-          
+          <button
+            type="button"
+            onClick={() => void exportLineUpToExcel(rows)}
+            className="app-btn app-btn--secondary"
+            disabled={rows.length === 0}
+          >
+            <Download size={14} />
+            Exportar Excel
+          </button>
         </div>
       </Card>
 
