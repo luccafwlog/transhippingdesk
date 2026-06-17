@@ -33,7 +33,6 @@ import {
   summarizeImportByPod,
   voyageCeCoverage,
   voyageHasMissingManifest,
-  type EstadoConciliacao,
   type VoyageBl,
   type VoyageTimelineEvent,
 } from '../../pages/viagensHelpers'
@@ -47,18 +46,14 @@ import {
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
 import { deleteVoyageExportSchedule, type VoyageExportSchedule } from '../../services/voyageExportSchedules'
-import { statusLabel, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
+import { ESTADO_CONCILIACAO_META, statusLabel, VOYAGE_STATUS_BADGE_TONE, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
+import { Badge } from '../ui/Badge'
 import type { useVoyages } from '../../hooks/useBls'
 
 export type Voyage = NonNullable<ReturnType<typeof useVoyages>['data']>[number]
 
 type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos'
 
-const ESTADO_META: Record<EstadoConciliacao, { label: string; color: string; bg: string }> = {
-  divergente: { label: 'Divergente', color: '#cf4b3f', bg: 'rgba(207,75,63,0.12)' },
-  incompleto: { label: 'Incompleto', color: '#b8860b', bg: 'rgba(224,165,46,0.16)' },
-  conciliado: { label: 'Conciliado', color: '#1f7a4d', bg: 'rgba(42,157,99,0.16)' },
-}
 
 export type EditingPodPayload = {
   voyageId: number
@@ -225,7 +220,7 @@ export function VoyageCard({
     ceTotal: ceCoverage.total,
     hasMissingManifest: missingManifest,
   })
-  const estadoMeta = ESTADO_META[estado]
+  const estadoMeta = ESTADO_CONCILIACAO_META[estado]
   const proximaEscala = getProximaEscala(podRows)
 
   const { data: timelineSources } = useVoyageTimeline(voyage.id)
@@ -745,9 +740,9 @@ export function VoyageCard({
                 <h2 className="text-2xl font-bold text-[var(--app-text-strong)]">
                   {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
                 </h2>
-                <span className="rounded-full border border-[#1f6feb]/30 bg-[#1f6feb]/10 px-3 py-1 text-xs font-semibold text-[#8cc8ff]">
+                <Badge tone={VOYAGE_STATUS_BADGE_TONE[voyage.status ?? 'active'] ?? 'blue'}>
                   {statusLabel(VOYAGE_STATUS_LABELS, voyage.status ?? 'active')}
-                </span>
+                </Badge>
                 {billingClosed ? (
                   <span
                     className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300"
