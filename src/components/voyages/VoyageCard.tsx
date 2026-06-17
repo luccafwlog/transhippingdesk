@@ -838,7 +838,7 @@ export function VoyageCard({
 
         <div className="grid gap-4">
           {activeTab === 'visao' ? (
-            <div className={`grid gap-4 ${timelineOpen ? 'xl:grid-cols-[1fr_300px]' : ''}`}>
+            <div className={`grid gap-4 ${timelineOpen ? 'min-[1800px]:grid-cols-[1fr_300px]' : ''}`}>
               <div className="grid gap-4">
                 {planningContent}
                 {navCardsContent}
