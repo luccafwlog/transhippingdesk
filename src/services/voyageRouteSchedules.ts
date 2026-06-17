@@ -311,6 +311,42 @@ export async function saveVoyagePodSchedule({
 
   const { error } = await supabase.from('audit_logs').insert(changes)
   if (error) throw error
+
+  if (atd !== undefined) {
+    await syncVoyageStatusAfterAtdChange(voyageId, pod, atd)
+  }
+}
+
+async function syncVoyageStatusAfterAtdChange(voyageId: number, changedPod: string, newAtd: string | null) {
+  const allPodSchedules = await listVoyagePodSchedulesByVoyageIds([voyageId])
+
+  const podAtdValues: Array<{ pod: string; atd: string | null }> = []
+  for (const [entityId, schedule] of allPodSchedules) {
+    if (schedule.voyageId !== voyageId) continue
+    const pod = entityId.split('::')[1] ?? '-'
+    const atd = pod === changedPod ? newAtd : schedule.atd
+    podAtdValues.push({ pod, atd })
+  }
+
+  if (podAtdValues.length === 0) return
+
+  const allAtdSet = podAtdValues.every((entry) => entry.atd)
+  const newStatus = allAtdSet ? 'completed' : 'active'
+
+  const { data: voyage, error: fetchError } = await supabase
+    .from('voyages')
+    .select('status')
+    .eq('id', voyageId)
+    .single()
+
+  if (fetchError || !voyage || voyage.status === newStatus) return
+
+  const { error: updateError } = await supabase
+    .from('voyages')
+    .update({ status: newStatus })
+    .eq('id', voyageId)
+
+  if (updateError) throw updateError
 }
 
 async function listScheduleAuditRowsByVoyageIds(entityType: string, voyageIds: number[]) {
