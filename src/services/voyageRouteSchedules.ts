@@ -36,6 +36,8 @@ export type VoyagePodSchedule = {
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber: string | null
+  /** POD removido do planejamento (soft-delete via audit log). */
+  deleted?: boolean
 }
 
 export function getEditableVoyagePodCeStatus(status: VoyagePodCeStatus | null | undefined): EditableVoyagePodCeStatus {
@@ -126,6 +128,7 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
     if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
     if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
+    if (row.field_name === 'deleted' && !seenFields.has('deleted')) current.deleted = normalizeBooleanValue(row.new_value) ?? false
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
@@ -307,6 +310,19 @@ export async function saveVoyagePodSchedule({
       : makeAuditRow(POD_ENTITY_TYPE, entityId, 'escala_number', current.escalaNumber, escalaNumber, changedBy, 'Atualizacao manual de Numero de Escala por POD'),
   ].filter(Boolean)
 
+  // Reincluir um POD que havia sido removido: limpa o soft-delete.
+  if (current.deleted) {
+    changes.push({
+      entity_type: POD_ENTITY_TYPE,
+      entity_id: entityId,
+      field_name: 'deleted',
+      old_value: 'true',
+      new_value: 'false',
+      changed_by: changedBy,
+      justification: 'Reinclusao de POD no planejamento',
+    })
+  }
+
   if (!changes.length) return
 
   const { error } = await supabase.from('audit_logs').insert(changes)
@@ -315,6 +331,35 @@ export async function saveVoyagePodSchedule({
   if (atd !== undefined) {
     await syncVoyageStatusAfterAtdChange(voyageId, pod, atd)
   }
+}
+
+/**
+ * Remove um POD do planejamento via soft-delete (audit log field `deleted`).
+ * O POD some da reconstrução (Visão geral, line-up) e o evento aparece na
+ * linha do tempo. Reinserir o mesmo POD limpa o marcador.
+ */
+export async function deleteVoyagePodSchedule({
+  voyageId,
+  pod,
+  changedBy,
+}: {
+  voyageId: number
+  pod: string
+  changedBy: string | null
+}) {
+  const entityId = buildVoyagePodEntityId(voyageId, pod)
+  const { error } = await supabase.from('audit_logs').insert([
+    {
+      entity_type: POD_ENTITY_TYPE,
+      entity_id: entityId,
+      field_name: 'deleted',
+      old_value: 'false',
+      new_value: 'true',
+      changed_by: changedBy,
+      justification: 'Remocao de POD do planejamento',
+    },
+  ])
+  if (error) throw error
 }
 
 async function syncVoyageStatusAfterAtdChange(voyageId: number, changedPod: string, newAtd: string | null) {
@@ -405,11 +450,18 @@ function hydratePodSchedules(
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
     if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
     if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
+    if (row.field_name === 'deleted' && !seenFields.has('deleted')) current.deleted = normalizeBooleanValue(row.new_value) ?? false
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
 
     schedules.set(entityId, current)
+  }
+
+  // PODs removidos (soft-delete) somem do planejamento e dos consumidores
+  // (Visão geral, line-up, status da viagem).
+  for (const [entityId, schedule] of schedules) {
+    if (schedule.deleted) schedules.delete(entityId)
   }
 
   return schedules
@@ -440,13 +492,14 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     ceStatus: null,
     linked: null,
     escalaNumber: null,
+    deleted: false,
   }
 }
 
 function makeAuditRow(
   entityType: string,
   entityId: string,
-  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number',
+  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number' | 'deleted',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,

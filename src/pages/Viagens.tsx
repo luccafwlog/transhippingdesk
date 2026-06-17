@@ -321,6 +321,7 @@ export function Viagens() {
             })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
             ])
@@ -354,6 +355,7 @@ export function Viagens() {
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
               queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
             ])
             showToast('Manifesto atualizado com sucesso.', 'success')
@@ -389,6 +391,7 @@ export function Viagens() {
             })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
             ])

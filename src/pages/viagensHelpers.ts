@@ -415,6 +415,7 @@ export type VoyageTimelineEventKind =
   | 'escala-number'
   | 'manifestos-linked'
   | 'divergence-resolved'
+  | 'pod-removed'
 
 export type VoyageTimelineEvent = {
   id: string
@@ -483,6 +484,14 @@ export function buildVoyageTimeline({
         at,
         title: `Manifestos vinculados à escala de ${port}`,
         detail: 'ESCALA = SIM',
+      })
+    } else if (row.field_name === 'deleted' && value === 'true') {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'pod-removed',
+        at,
+        title: `Escala de ${port} removida do planejamento`,
+        detail: '',
       })
     }
   })

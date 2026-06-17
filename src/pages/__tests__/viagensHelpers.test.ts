@@ -431,6 +431,17 @@ describe('buildVoyageTimeline', () => {
   it('lida com fontes vazias', () => {
     expect(buildVoyageTimeline({})).toEqual([])
   })
+
+  it('registra remoção de POD (field deleted=true)', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [
+        { entity_id: '7::BRSSA', field_name: 'deleted', new_value: 'true', changed_at: '2026-06-14T10:00:00Z' },
+      ],
+    })
+    expect(events).toHaveLength(1)
+    expect(events[0].kind).toBe('pod-removed')
+    expect(events[0].title).toBe('Escala de BRSSA removida do planejamento')
+  })
 })
 
 describe('summarizeExportByPol', () => {

@@ -39,7 +39,7 @@ import {
   buildVoyagePodEntityId,
   buildVoyagePolEntityId,
   getVoyagePodCeStatusLabel,
-  saveVoyagePodSchedule,
+  deleteVoyagePodSchedule,
   type VoyagePodCeStatus,
   type VoyagePodSchedule,
   type VoyagePolSchedule,
@@ -357,24 +357,18 @@ export function VoyageCard({
                               return
                             }
                             try {
-                              await saveVoyagePodSchedule({
+                              await deleteVoyagePodSchedule({
                                 voyageId: voyage.id,
                                 pod: row.pod,
-                                eta: null,
-                                etb: null,
-                                ata: null,
-                                atd: null,
-                                rtw: null,
-                                ceStatus: 'waiting',
-                                linked: false,
                                 changedBy: user.id,
                               })
                               await Promise.all([
                                 queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+                                queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
                                 queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
                                 queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
                               ])
-                              showToast('Dados do planejamento do POD limpos com sucesso.', 'success')
+                              showToast('POD removido do planejamento.', 'success')
                             } catch (error) {
                               const errorText = extractErrorText(error)
                               if (errorText.includes('42501') || errorText.includes('permission denied')) {
@@ -891,6 +885,7 @@ const TIMELINE_DOT: Record<VoyageTimelineEvent['kind'], string> = {
   'escala-number': '#b8860b',
   'manifestos-linked': '#2563a8',
   'divergence-resolved': '#1f7a4d',
+  'pod-removed': '#cf4b3f',
 }
 
 function formatTimelineMoment(value: string) {
