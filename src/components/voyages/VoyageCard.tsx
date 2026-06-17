@@ -251,12 +251,13 @@ export function VoyageCard({
       compact
       actions={isAdmin ? (
         <>
-          <Button variant="secondary" onClick={() => onAddPod({ voyageId: voyage.id, voyageLabel })}>
+          <Button variant="secondary" className="app-btn--sm" onClick={() => onAddPod({ voyageId: voyage.id, voyageLabel })}>
             <Plus size={15} />
             Adicionar POD
           </Button>
           <Button
             variant="secondary"
+            className="app-btn--sm"
             onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
           >
             <Plus size={15} />

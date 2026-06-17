@@ -131,9 +131,9 @@ export function MetricSection({
 }) {
   return (
     <section
-      className={`grid rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] ${compact ? 'gap-2 p-3' : 'gap-4 p-4'}`}
+      className={`grid rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] ${compact ? 'gap-1 p-3' : 'gap-4 p-4'}`}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className={`flex justify-between gap-4 ${compact ? 'items-center' : 'items-start'}`}>
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
           {description ? <div className="mt-1 text-sm text-[var(--app-muted)]">{description}</div> : null}
