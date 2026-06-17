@@ -412,6 +412,22 @@ describe('buildVoyageTimeline', () => {
     expect(events[2].detail).toBe('Nº 25BR00481')
   })
 
+  it('usa a rota do manifesto no detalhe do import quando informada', () => {
+    const events = buildVoyageTimeline({
+      importBatches: [
+        { id: 1, filename: 'MANIFEST 汽车箱 BRVIT', cargo_mode: 'container', uploaded_at: '2026-06-10T10:00:00Z', route: 'CNQDG → BRVIX' },
+      ],
+    })
+    expect(events[0].detail).toBe('CNTR · CNQDG → BRVIX')
+  })
+
+  it('cai no nome do arquivo quando a rota não é informada', () => {
+    const events = buildVoyageTimeline({
+      importBatches: [{ id: 1, filename: 'cosco.xlsx', cargo_mode: 'container', uploaded_at: '2026-06-10T10:00:00Z' }],
+    })
+    expect(events[0].detail).toBe('CNTR · cosco')
+  })
+
   it('lida com fontes vazias', () => {
     expect(buildVoyageTimeline({})).toEqual([])
   })

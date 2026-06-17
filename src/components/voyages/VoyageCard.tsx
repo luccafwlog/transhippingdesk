@@ -223,15 +223,28 @@ export function VoyageCard({
   const estadoMeta = ESTADO_CONCILIACAO_META[estado]
   const proximaEscala = getProximaEscala(podRows)
 
+  // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
+  // identificar o import na linha do tempo pela rota em vez do nome do arquivo.
+  const routeByBatchId = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const bl of voyage.bls ?? []) {
+      if (bl.batch_id == null || map.has(bl.batch_id)) continue
+      const pol = bl.pol?.trim() || '-'
+      const pod = bl.pod?.trim() || '-'
+      map.set(bl.batch_id, `${formatPortDisplayName(pol)} → ${formatPortDisplayName(pod)}`)
+    }
+    return map
+  }, [voyage.bls])
+
   const { data: timelineSources } = useVoyageTimeline(voyage.id)
   const timelineEvents = useMemo(
     () =>
       buildVoyageTimeline({
-        importBatches,
+        importBatches: importBatches.map((batch) => ({ ...batch, route: routeByBatchId.get(batch.id) ?? null })),
         scheduleEvents: timelineSources?.scheduleEvents,
         resolutions: timelineSources?.resolutions,
       }),
-    [importBatches, timelineSources],
+    [importBatches, routeByBatchId, timelineSources],
   )
 
   const planningContent = (

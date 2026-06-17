@@ -437,7 +437,7 @@ export function buildVoyageTimeline({
   scheduleEvents,
   resolutions,
 }: {
-  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null }> | null
+  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null }> | null
   scheduleEvents?: Array<{ entity_id: string; field_name: string; new_value: string | null; changed_at: string | null }> | null
   resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
 }): VoyageTimelineEvent[] {
@@ -450,7 +450,7 @@ export function buildVoyageTimeline({
       kind: 'import',
       at: batch.uploaded_at,
       title: 'Manifesto importado',
-      detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${stripFileExtension(batch.filename)}`,
+      detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${batch.route ?? stripFileExtension(batch.filename)}`,
     })
   }
 
