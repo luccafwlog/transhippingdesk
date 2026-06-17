@@ -15,6 +15,7 @@ import { useVaziosImportacaoStats } from '../hooks/useVaziosImportacaoStats'
 import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
 import { buildVoyageRailItems, collectVoyagePorts, normalizeVoyageStatus } from './viagensHelpers'
 import { deleteVoyage } from '../services/voyages'
+import { setImportBatchCeMaster } from '../services/manifestImport'
 import {
   buildVoyagePolEntityId,
   saveVoyagePolSchedule,
@@ -335,27 +336,30 @@ export function Viagens() {
         open={editingPol !== null}
         polSchedule={editingPol}
         onClose={() => setEditingPol(null)}
-        onSaved={async ({ voyageId, pol, etd, escalaNumber }) => {
+        onSaved={async ({ voyageId, pol, etd, ceMaster, batchIds }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
           }
           try {
+            // escalaNumber omitido: o Nº de Escala é editado na Visão geral (POD).
             await saveVoyagePolSchedule({
               voyageId,
               pol,
               etd,
-              escalaNumber,
               changedBy: user.id,
             })
+            // Arquivos do mesmo manifesto compartilham o CE Master.
+            await Promise.all((batchIds ?? []).map((id) => setImportBatchCeMaster(id, ceMaster)))
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
               queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['voyages'] }),
             ])
-            showToast('ETD do POL atualizado com sucesso.', 'success')
+            showToast('Manifesto atualizado com sucesso.', 'success')
             setEditingPol(null)
           } catch {
-            showToast('Falha ao salvar o ETD do POL.', 'error')
+            showToast('Falha ao salvar o manifesto.', 'error')
           }
         }}
       />

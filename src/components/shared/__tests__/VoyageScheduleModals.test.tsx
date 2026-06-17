@@ -22,12 +22,13 @@ describe('PolScheduleModal', () => {
     voyageLabel: 'NAVIO 123N',
     pol: 'CNNBO',
     etd: '2026-02-10',
-    escalaNumber: null,
+    ceMaster: null,
+    batchIds: [11, 12],
   }
 
   it('não renderiza conteúdo quando fechado', () => {
     render(<PolScheduleModal open={false} polSchedule={base} onClose={() => {}} onSaved={async () => {}} />)
-    expect(screen.queryByText('Editar ETD do POL')).toBeNull()
+    expect(screen.queryByText('Editar ETD e CE Master')).toBeNull()
   })
 
   it('pré-preenche o ETD e envia o payload correto', async () => {
@@ -39,8 +40,8 @@ describe('PolScheduleModal', () => {
     expect(screen.getByText('NAVIO 123N')).toBeTruthy()
     expect(screen.getByText('POL: CNNBO')).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: 'Salvar ETD' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: '2026-02-10', escalaNumber: null })
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: '2026-02-10', ceMaster: null, batchIds: [11, 12] })
   })
 
   it('envia etd null quando o campo é limpo', async () => {
@@ -49,20 +50,20 @@ describe('PolScheduleModal', () => {
     render(<PolScheduleModal open polSchedule={base} onClose={() => {}} onSaved={onSaved} />)
 
     await user.clear(screen.getByLabelText('ETD'))
-    await user.click(screen.getByRole('button', { name: 'Salvar ETD' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: null, escalaNumber: null })
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: null, ceMaster: null, batchIds: [11, 12] })
   })
 
-  it('pré-preenche e envia o Nº Escala', async () => {
+  it('pré-preenche e envia o CE Master para os batches do manifesto', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(
-      <PolScheduleModal open polSchedule={{ ...base, escalaNumber: '25BR00481' }} onClose={() => {}} onSaved={onSaved} />,
+      <PolScheduleModal open polSchedule={{ ...base, ceMaster: '25BR00481' }} onClose={() => {}} onSaved={onSaved} />,
     )
 
-    expect((screen.getByLabelText('Nº Escala (Mercante)') as HTMLInputElement).value).toBe('25BR00481')
-    await user.click(screen.getByRole('button', { name: 'Salvar ETD' }))
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ escalaNumber: '25BR00481' }))
+    expect((screen.getByLabelText('CE Master') as HTMLInputElement).value).toBe('25BR00481')
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ ceMaster: '25BR00481', batchIds: [11, 12] }))
   })
 })
 

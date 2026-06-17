@@ -6,7 +6,6 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Info, MetricPanel, MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
-import { setImportBatchCeMaster } from '../../services/manifestImport'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useVoyageReconciliation } from '../../hooks/useVoyageReconciliation'
@@ -74,7 +73,8 @@ export type EditingPolPayload = {
   voyageLabel: string
   pol: string
   etd: string | null
-  escalaNumber: string | null
+  ceMaster: string | null
+  batchIds: number[]
 }
 
 export type EditingExportPayload = {
@@ -206,8 +206,6 @@ export function VoyageCard({
     bls: voyage.bls,
     polSchedules,
   })
-  const canEditCeMaster = Boolean(user?.id)
-
   // Estado de Conciliação: divergências da viagem aberta (uma consulta) +
   // sinais baratos do payload.
   const { data: reconciliation } = useVoyageReconciliation(voyage.id)
@@ -658,13 +656,11 @@ export function VoyageCard({
           <div className="app-table-scroll">
             <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
               <colgroup>
-                <col className="w-[32%]" />
-                <col className="w-[12%]" />
+                <col className="w-[50%]" />
+                <col className="w-[14%]" />
+                <col className="w-[10%]" />
+                <col className="w-[18%]" />
                 <col className="w-[8%]" />
-                <col className="w-[11%]" />
-                <col className="w-[19%]" />
-                <col className="w-[11%]" />
-                <col className="w-[7%]" />
               </colgroup>
               <thead>
                 <tr>
@@ -672,15 +668,13 @@ export function VoyageCard({
                   <th scope="col" className="px-3 py-2">ETD</th>
                   <th scope="col" className="px-3 py-2">B/Ls</th>
                   <th scope="col" className="px-3 py-2">CE Merc.</th>
-                  <th scope="col" className="px-3 py-2">CE Master</th>
-                  <th scope="col" className="px-3 py-2">Nº Escala</th>
                   <th scope="col" className="px-3 py-2">Acoes</th>
                 </tr>
               </thead>
               <tbody>
                 {manifestRows.length ? (
                   manifestRows.map((row) => (
-                    <tr key={`${voyage.id}-manifest-${row.batchId}`}>
+                    <tr key={`${voyage.id}-manifest-${row.routeKey}`}>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           <span className="rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--app-muted)]">
@@ -688,27 +682,24 @@ export function VoyageCard({
                           </span>
                           <span className="font-semibold text-[var(--app-text-strong)]">{row.routeLabel}</span>
                         </div>
-                        <div className="mt-0.5 text-xs text-[var(--app-muted)]">{row.filename}</div>
+                        <div className="mt-0.5 text-xs text-[var(--app-muted)]">{row.filenames.join(' · ')}</div>
                       </td>
                       <td className="px-3 py-2">{formatDate(row.etd)}</td>
                       <td className="px-3 py-2">{row.blCount}</td>
                       <td className="px-3 py-2">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
                       <td className="px-3 py-2">
-                        <CeMasterCell batchId={row.batchId} value={row.ceMaster} editable={canEditCeMaster} />
-                      </td>
-                      <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
-                      <td className="px-3 py-2">
                         <Button
                           variant="secondary"
                           className="app-voyage-icon-btn"
-                          aria-label={`Editar ETD e escala do manifesto ${row.filename}`}
+                          aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
                           onClick={() =>
                             onEditPol({
                               voyageId: voyage.id,
                               voyageLabel,
                               pol: row.pol,
                               etd: row.etd,
-                              escalaNumber: row.escalaNumber,
+                              ceMaster: row.ceMaster,
+                              batchIds: row.batchIds,
                             })
                           }
                           disabled={!row.pol || row.pol === '-'}
@@ -720,7 +711,7 @@ export function VoyageCard({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-3 py-3 text-[var(--app-muted)]">
+                    <td colSpan={5} className="px-3 py-3 text-[var(--app-muted)]">
                       Nenhum manifesto identificado nesta viagem.
                     </td>
                   </tr>
@@ -980,61 +971,6 @@ function renderCeCoverage(filled: number, total: number) {
   )
 }
 
-function CeMasterCell({ batchId, value, editable }: { batchId: number; value: string | null; editable: boolean }) {
-  const queryClient = useQueryClient()
-  const { showToast } = useToast()
-  const [draft, setDraft] = useState(value ?? '')
-  const [saving, setSaving] = useState(false)
-  // Re-baseia o rascunho quando o valor de origem muda (sem useEffect).
-  const [prevValue, setPrevValue] = useState(value)
-  if (value !== prevValue) {
-    setPrevValue(value)
-    setDraft(value ?? '')
-  }
-
-  if (!editable) {
-    return value ? (
-      <span className="font-mono text-xs text-[var(--app-text-strong)]">{value}</span>
-    ) : (
-      <span className="text-[var(--app-muted-soft)]">-</span>
-    )
-  }
-
-  async function commit() {
-    const normalized = draft.trim() || null
-    if (normalized === (value ?? null)) return
-    setSaving(true)
-    try {
-      await setImportBatchCeMaster(batchId, normalized)
-      await queryClient.invalidateQueries({ queryKey: ['voyages'] })
-      showToast('CE Master atualizado.', 'success')
-    } catch {
-      setDraft(value ?? '')
-      showToast('Falha ao salvar CE Master.', 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <input
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault()
-          event.currentTarget.blur()
-        }
-      }}
-      disabled={saving}
-      placeholder="—"
-      aria-label="CE Master"
-      className="w-full rounded border border-[var(--app-border)] bg-[var(--app-surface)] px-2 py-1 font-mono text-xs text-[var(--app-text)] focus:border-[var(--app-border-strong)] focus:outline-none disabled:opacity-60"
-    />
-  )
-}
-
 type VoyageImportBatch = {
   id: number
   voyage_id: number | null
@@ -1065,28 +1001,83 @@ function collectVoyageManifestBatchRows({
     blsByBatch.set(bl.batch_id, current)
   }
 
-  return (batches ?? [])
-    .map((batch) => {
-      const batchBls = blsByBatch.get(batch.id) ?? []
-      const pol = batchBls[0]?.pol?.trim() || '-'
-      const pod = batchBls[0]?.pod?.trim() || '-'
-      const polEntity = polSchedules?.get(buildVoyagePolEntityId(voyageId, pol))
-      const ceFilled = batchBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
-      return {
-        batchId: batch.id,
+  // Arquivos de manifesto distintos da mesma rota (POL -> POD) compõem o mesmo
+  // manifesto: agrupamos por rota e somamos B/Ls e cobertura de CE numa única
+  // linha. ETD é por POL; o CE Master é único (mesmo manifesto).
+  type ManifestGroup = {
+    routeKey: string
+    pol: string
+    routeLabel: string
+    batchIds: number[]
+    filenames: string[]
+    modes: Set<'container' | 'carga_solta'>
+    etd: string | null
+    blCount: number
+    ceFilled: number
+    ceTotal: number
+    ceMaster: string | null
+    sortDate: number
+  }
+
+  const groups = new Map<string, ManifestGroup>()
+
+  for (const batch of batches ?? []) {
+    const batchBls = blsByBatch.get(batch.id) ?? []
+    const pol = batchBls[0]?.pol?.trim() || '-'
+    const pod = batchBls[0]?.pod?.trim() || '-'
+    const routeKey = `${pol}__${pod}`
+    const polEntity = polSchedules?.get(buildVoyagePolEntityId(voyageId, pol))
+    const ceFilled = batchBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
+    const sortDate = Date.parse(batch.uploaded_at ?? '')
+
+    const group: ManifestGroup =
+      groups.get(routeKey) ?? {
+        routeKey,
         pol,
-        modeLabel: batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR',
-        filename: stripFileExtension(batch.filename || `manifesto-${batch.id}`),
-        etd: polEntity?.etd ?? null,
-        escalaNumber: polEntity?.escalaNumber ?? null,
-        blCount: Number(batch.total_bls ?? batchBls.length),
-        ceFilled,
-        ceTotal: batchBls.length,
-        ceMaster: batch.ce_master ?? null,
         routeLabel: `${formatPortDisplayName(pol)} -> ${formatPortDisplayName(pod)}`,
-        sortDate: Date.parse(batch.uploaded_at ?? ''),
+        batchIds: [],
+        filenames: [],
+        modes: new Set(),
+        etd: polEntity?.etd ?? null,
+        blCount: 0,
+        ceFilled: 0,
+        ceTotal: 0,
+        ceMaster: null,
+        sortDate: Number.POSITIVE_INFINITY,
       }
-    })
+
+    group.batchIds.push(batch.id)
+    group.filenames.push(stripFileExtension(batch.filename || `manifesto-${batch.id}`))
+    if (batch.cargo_mode) group.modes.add(batch.cargo_mode)
+    group.blCount += Number(batch.total_bls ?? batchBls.length)
+    group.ceFilled += ceFilled
+    group.ceTotal += batchBls.length
+    if (!group.ceMaster && batch.ce_master) group.ceMaster = batch.ce_master
+    if (Number.isFinite(sortDate)) group.sortDate = Math.min(group.sortDate, sortDate)
+
+    groups.set(routeKey, group)
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      routeKey: group.routeKey,
+      pol: group.pol,
+      routeLabel: group.routeLabel,
+      modeLabel:
+        group.modes.has('container') && group.modes.has('carga_solta')
+          ? 'CNTR/BB'
+          : group.modes.has('carga_solta')
+            ? 'BB'
+            : 'CNTR',
+      filenames: group.filenames,
+      batchIds: group.batchIds,
+      etd: group.etd,
+      blCount: group.blCount,
+      ceFilled: group.ceFilled,
+      ceTotal: group.ceTotal,
+      ceMaster: group.ceMaster,
+      sortDate: group.sortDate,
+    }))
     .sort((left, right) => {
       if (Number.isFinite(left.sortDate) && Number.isFinite(right.sortDate) && left.sortDate !== right.sortDate) {
         return left.sortDate - right.sortDate
