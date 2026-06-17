@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useCallback, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/ui/Button'
-import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { AddPodToVoyageModal, ExportScheduleModal, PodScheduleModal, PolScheduleModal } from '../components/shared/VoyageScheduleModals'
 import { Modal } from '../components/ui/Modal'
@@ -29,9 +29,16 @@ import {
   type EditingPolPayload,
 } from '../components/voyages/VoyageCard'
 import { VoyageRail } from '../components/voyages/VoyageRail'
+import { VoyageFilters } from '../components/voyages/VoyageFilters'
+import { SkeletonCard } from '../components/ui/Skeleton'
+import {
+  countActiveFilters,
+  emptyFilters,
+  filterVoyageRailItems,
+  type VoyageFilters as VoyageFiltersState,
+} from '../lib/viagensFilters'
 
 export function Viagens() {
-  const [searchParams] = useSearchParams()
   const { voyageId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -46,7 +53,25 @@ export function Viagens() {
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
   const [addingPodVoyage, setAddingPodVoyage] = useState<AddingPodPayload | null>(null)
   const [editingExport, setEditingExport] = useState<EditingExportPayload | null>(null)
-  const [railCollapsed, setRailCollapsed] = useState(false)
+  const [filters, setFilters] = useState<VoyageFiltersState>(emptyFilters)
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('viagens:rail-collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+  const toggleRail = useCallback(() => {
+    setRailCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('viagens:rail-collapsed', next ? '1' : '0')
+      } catch {
+        /* storage indisponível — ignora */
+      }
+      return next
+    })
+  }, [])
 
   const selectedVoyageId = voyageId ? Number(voyageId) : null
 
@@ -76,6 +101,12 @@ export function Viagens() {
     () => buildVoyageRailItems(voyages, podSchedulesByVoyage),
     [voyages, podSchedulesByVoyage],
   )
+
+  const visibleRailItems = useMemo(
+    () => filterVoyageRailItems(railItems, filters),
+    [railItems, filters],
+  )
+  const activeFilterCount = useMemo(() => countActiveFilters(filters), [filters])
 
   const selectedVoyage = voyages.find((voyage) => voyage.id === selectedVoyageId)
   const deletingVoyage = voyages.find((voyage) => voyage.id === deletingVoyageId)
@@ -125,18 +156,30 @@ export function Viagens() {
 
       {error ? <InlineError message="Erro ao carregar viagens." /> : null}
 
-      <div className={`viagens-grid lg:grid lg:gap-4 ${railCollapsed ? 'lg:grid-cols-[64px_1fr]' : 'lg:grid-cols-[400px_1fr]'}`}>
+      <VoyageFilters
+        filters={filters}
+        onChange={setFilters}
+        onClear={() => setFilters(emptyFilters())}
+        activeCount={activeFilterCount}
+        visibleCount={visibleRailItems.length}
+        totalCount={railItems.length}
+        loading={isLoading}
+      />
+
+      <div className={`viagens-grid lg:grid lg:gap-4 ${railCollapsed ? 'lg:grid-cols-[64px_1fr]' : 'lg:grid-cols-[300px_1fr]'}`}>
         <div className={selectedVoyageId ? 'hidden lg:block' : 'block'}>
           {isLoading ? (
-            <Card>Carregando viagens...</Card>
+            <div className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)]">
+              <SkeletonList />
+            </div>
           ) : (
             <VoyageRail
-              items={railItems}
+              items={visibleRailItems}
               selectedId={selectedVoyageId}
               onSelect={(id) => navigate(`/viagens/${id}`)}
-              initialSearch={searchParams.get('vessel') ?? ''}
+              onEdit={setEditingVoyageId}
               collapsed={railCollapsed}
-              onToggleCollapse={() => setRailCollapsed((prev) => !prev)}
+              onToggleCollapse={toggleRail}
             />
           )}
         </div>
@@ -173,7 +216,7 @@ export function Viagens() {
               onEditExport={setEditingExport}
             />
           ) : isLoading ? (
-            <Card>Carregando viagem...</Card>
+            <SkeletonCard lines={4} />
           ) : (
             <EmptyState
               title="Viagem não encontrada"
@@ -353,6 +396,18 @@ export function Viagens() {
         }}
       />
     </>
+  )
+}
+
+function SkeletonList({ rows = 6 }: { rows?: number }) {
+  return (
+    <div>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="border-b border-[var(--app-border)] px-3 py-3">
+          <SkeletonCard lines={3} />
+        </div>
+      ))}
+    </div>
   )
 }
 
