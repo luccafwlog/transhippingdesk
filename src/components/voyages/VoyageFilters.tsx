@@ -50,8 +50,30 @@ export function VoyageFilters({
             <option value="hoje">Hoje</option>
             <option value="7d">Próximos 7 dias</option>
             <option value="30d">Próximos 30 dias</option>
+            <option value="custom">Entre datas</option>
           </Select>
         </label>
+
+        {filters.periodo === 'custom' ? (
+          <>
+            <label className="app-field">
+              <span className="app-field__label">De</span>
+              <Input
+                type="date"
+                value={filters.dataInicio ?? ''}
+                onChange={(e) => onChange({ ...filters, dataInicio: e.target.value })}
+              />
+            </label>
+            <label className="app-field">
+              <span className="app-field__label">Até</span>
+              <Input
+                type="date"
+                value={filters.dataFim ?? ''}
+                onChange={(e) => onChange({ ...filters, dataFim: e.target.value })}
+              />
+            </label>
+          </>
+        ) : null}
 
         <label className="app-field">
           <span className="app-field__label">Status</span>

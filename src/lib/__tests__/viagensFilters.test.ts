@@ -73,4 +73,41 @@ describe('filterVoyageRailItems', () => {
     const result = filterVoyageRailItems(items, { search: '', status: 'all', conciliacao: 'all', periodo: 'hoje' })
     expect(Array.isArray(result)).toBe(true)
   })
+
+  it('período "custom" filtra escalas entre datas específicas (inclusive)', () => {
+    const result = filterVoyageRailItems(items, {
+      search: '',
+      status: 'all',
+      conciliacao: 'all',
+      periodo: 'custom',
+      dataInicio: '2026-06-19',
+      dataFim: '2026-06-21',
+    })
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe(1) // ETA 2026-06-20 dentro do intervalo; id 2 (18/06) fora
+  })
+
+  it('período "custom" com só data inicial aplica apenas o piso', () => {
+    const result = filterVoyageRailItems(items, {
+      search: '',
+      status: 'all',
+      conciliacao: 'all',
+      periodo: 'custom',
+      dataInicio: '2026-06-19',
+      dataFim: '',
+    })
+    expect(result.map((r) => r.id)).toEqual([1])
+  })
+
+  it('período "custom" sem datas não filtra nada', () => {
+    const result = filterVoyageRailItems(items, {
+      search: '',
+      status: 'all',
+      conciliacao: 'all',
+      periodo: 'custom',
+      dataInicio: '',
+      dataFim: '',
+    })
+    expect(result).toHaveLength(2)
+  })
 })
