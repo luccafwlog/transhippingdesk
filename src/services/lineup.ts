@@ -56,6 +56,7 @@ export type LineUpRow = {
   bbMachines: number
   bbPackages: number
   bbTotal: number
+  atd: string | null
   ceStatus: VoyagePodCeStatus
   linked: boolean
   exportHasGranite: boolean | null
@@ -125,7 +126,6 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       const routeBls = voyageBls.filter((bl) => normalizePort(bl.pod) === pod)
       const routeBlIds = new Set(routeBls.map((bl) => bl.id))
       const schedule = podSchedules.get(buildVoyagePodEntityId(voyage.id, pod))
-      if (schedule?.atd) continue
 
       const distinctContainers = new Map<string, { id: number }>()
 
@@ -186,6 +186,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         bbTotal: bbMachines + bbPackages,
         ceStatus: schedule?.ceStatus ?? autoCeStatus,
         linked: schedule?.linked ?? false,
+        atd: schedule?.atd ?? null,
         exportHasGranite: null,
         exportContainersQty: null,
         exportMovementsQty: null,
@@ -219,6 +220,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       bbTotal: 0,
       ceStatus: 'missing',
       linked: false,
+      atd: null,
       exportHasGranite: exportSchedule.hasGranite,
       exportContainersQty: exportSchedule.containersQty,
       exportMovementsQty: exportSchedule.movementsQty,

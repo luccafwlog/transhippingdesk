@@ -54,7 +54,7 @@ export function LineUpTVDisplay() {
     return () => clearTimeout(t)
   }, [data])
 
-  const rows = useMemo(() => data?.rows ?? [], [data?.rows])
+  const rows = useMemo(() => (data?.rows ?? []).filter((row) => !row.atd), [data?.rows])
   const firstRoute = rows[0] ?? null
   const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS + 1
   const placeholderCount = hasAnimatedLoop ? 0 : Math.max(0, DISPLAY_VISIBLE_ROWS - rows.length)
