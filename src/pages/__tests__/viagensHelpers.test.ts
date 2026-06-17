@@ -404,12 +404,13 @@ describe('buildVoyageTimeline', () => {
 
     expect(events.map((e) => e.kind)).toEqual([
       'divergence-resolved', // 13/06
+      'restow', // 11/06 18:00
       'manifestos-linked', // 11/06 16:05
       'escala-number', // 11/06 16:00
       'escala-date', // 11/06 09:00
       'import', // 10/06
     ])
-    expect(events[2].detail).toBe('Nº 25BR00481')
+    expect(events.find((event) => event.kind === 'escala-number')?.detail).toBe('Nº 25BR00481')
   })
 
   it('usa a rota do manifesto no detalhe do import quando informada', () => {
@@ -441,6 +442,99 @@ describe('buildVoyageTimeline', () => {
     expect(events).toHaveLength(1)
     expect(events[0].kind).toBe('pod-removed')
     expect(events[0].title).toBe('Escala de BRSSA removida do planejamento')
+  })
+
+  it('exibe ETD do POL, mudanças de datas com autor, CE status, RTW e POD reincluído', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [
+        {
+          entity_id: '7::CNSHA',
+          field_name: 'etd',
+          old_value: null,
+          new_value: '2026-06-08',
+          changed_by: 'user-1',
+          changed_at: '2026-06-08T12:00:00Z',
+        },
+        {
+          entity_id: '7::BRVIX',
+          field_name: 'ata',
+          old_value: '2026-06-11',
+          new_value: '2026-06-12',
+          changed_by: 'user-2',
+          changed_at: '2026-06-12T12:00:00Z',
+        },
+        { entity_id: '7::BRVIX', field_name: 'ces', old_value: 'received', new_value: 'approved', changed_at: '2026-06-12T13:00:00Z' },
+        { entity_id: '7::BRVIX', field_name: 'rtw', old_value: null, new_value: '3', changed_at: '2026-06-12T14:00:00Z' },
+        { entity_id: '7::BRVIX', field_name: 'deleted', old_value: 'true', new_value: 'false', changed_at: '2026-06-12T15:00:00Z' },
+      ],
+    })
+
+    expect(events.map((event) => event.kind)).toEqual(['pod-added', 'restow', 'ce-status', 'escala-date', 'escala-date'])
+    expect(events.find((event) => event.title.includes('ETD'))?.title).toBe('ETD de CNSHA registrado')
+    expect(events.find((event) => event.title.includes('ATA'))?.title).toBe('ATA de BRVIX alterado')
+    expect(events.find((event) => event.title.includes('ATA'))?.detail).toBe('11/06/2026 -> 12/06/2026 · por user-2')
+    expect(events.find((event) => event.kind === 'ce-status')?.detail).toBe('Recebido -> Aprovado')
+    expect(events.find((event) => event.kind === 'restow')?.detail).toBe('RTW 3')
+  })
+
+  it('inclui eventos derivados de Baplie, divergência aberta, viagem concluída e cobertura de CE completa', () => {
+    const events = buildVoyageTimeline({
+      importBatches: [
+        { id: 1, filename: 'manifesto.xlsx', cargo_mode: 'container', uploaded_at: '2026-06-10T10:00:00Z', ce_master: 'CE123' },
+      ],
+      scheduleEvents: [
+        { entity_id: '7::BRVIX', field_name: 'atd', new_value: '2026-06-14', changed_at: '2026-06-14T12:00:00Z' },
+        { entity_id: '7::BRSSA', field_name: 'atd', new_value: '2026-06-15', changed_at: '2026-06-15T12:00:00Z' },
+      ],
+      baplieImports: [{ created_at: '2026-06-09T09:00:00Z', container_count: 42 }],
+      openDivergenceCount: 2,
+      voyageStatus: 'completed',
+      ceCoverage: { filled: 3, total: 3 },
+    })
+
+    expect(events.map((event) => event.kind)).toEqual([
+      'voyage-completed',
+      'escala-date',
+      'escala-date',
+      'ce-master',
+      'ce-coverage',
+      'import',
+      'divergence-opened',
+      'baplie-import',
+    ])
+    expect(events.find((event) => event.kind === 'baplie-import')?.detail).toBe('42 containers')
+    expect(events.find((event) => event.kind === 'divergence-opened')?.detail).toBe('2 divergências abertas')
+    expect(events.find((event) => event.kind === 'ce-master')?.detail).toBe('CE123')
+  })
+
+  it('inclui eventos auditados de dados da viagem e CE Master alterado', () => {
+    const events = buildVoyageTimeline({
+      auditEvents: [
+        {
+          entity_type: 'voyages',
+          entity_id: '7',
+          field_name: 'voyage_number',
+          old_value: '001E',
+          new_value: '002E',
+          changed_by: 'user-1',
+          changed_at: '2026-06-11T10:00:00Z',
+        },
+        {
+          entity_type: 'import_batches',
+          entity_id: '1',
+          field_name: 'ce_master',
+          old_value: 'CE000',
+          new_value: 'CE999',
+          changed_at: '2026-06-12T10:00:00Z',
+        },
+      ],
+    })
+
+    expect(events.map((event) => event.kind)).toEqual(['ce-master', 'voyage-data'])
+    expect(events[0].title).toBe('CE Master alterado')
+    expect(events[0].detail).toBe('CE000 -> CE999')
+    expect(events[1].title).toBe('Dados da viagem alterados')
+    expect(events[1].detail).toBe('Nº da viagem: 001E -> 002E · por user-1')
   })
 })
 

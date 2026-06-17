@@ -24,6 +24,9 @@ export async function createVoyage(form: VoyageFormValues, changedBy: string | n
 
   if (createError || !created) throw createError
 
+  await insertVoyageAuditRows([
+    makeVoyageAuditRow(created.id, 'created', null, form.voyageNumber.trim(), changedBy),
+  ])
   await syncDischargePortEtas(created.id, form, changedBy)
 
   return created
@@ -32,6 +35,12 @@ export async function createVoyage(form: VoyageFormValues, changedBy: string | n
 export async function updateVoyage(voyageId: number, form: VoyageFormValues, changedBy: string | null) {
   const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
   const vesselId = await getOrCreateVessel(form.vesselName, form.vesselImo, carrierId)
+  const { data: current, error: currentError } = await supabase
+    .from('voyages')
+    .select('vessel_id, voyage_number, status')
+    .eq('id', voyageId)
+    .single()
+  if (currentError) throw currentError
 
   const { data: updated, error: updateError } = await supabase
     .from('voyages')
@@ -46,6 +55,11 @@ export async function updateVoyage(voyageId: number, form: VoyageFormValues, cha
 
   if (updateError || !updated) throw updateError
 
+  await insertVoyageAuditRows([
+    makeVoyageAuditRow(voyageId, 'vessel_id', current?.vessel_id == null ? null : String(current.vessel_id), String(vesselId), changedBy),
+    makeVoyageAuditRow(voyageId, 'voyage_number', current?.voyage_number ?? null, form.voyageNumber.trim(), changedBy),
+    makeVoyageAuditRow(voyageId, 'status', current?.status ?? null, form.status, changedBy),
+  ])
   await syncDischargePortEtas(voyageId, form, changedBy)
 
   return updated
@@ -144,6 +158,34 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
 
   if (createError || !created) throw createError
   return created.id
+}
+
+function makeVoyageAuditRow(
+  voyageId: number,
+  fieldName: 'created' | 'vessel_id' | 'voyage_number' | 'status',
+  oldValue: string | null,
+  newValue: string | null,
+  changedBy: string | null,
+) {
+  if (!changedBy) return null
+  if ((oldValue ?? '') === (newValue ?? '')) return null
+  return {
+    entity_type: 'voyages',
+    entity_id: String(voyageId),
+    field_name: fieldName,
+    old_value: oldValue,
+    new_value: newValue,
+    changed_by: changedBy,
+    justification: 'Atualizacao de dados da viagem',
+  }
+}
+
+async function insertVoyageAuditRows(rows: Array<ReturnType<typeof makeVoyageAuditRow>>) {
+  const payload = rows.filter(Boolean)
+  if (!payload.length) return
+
+  const { error } = await supabase.from('audit_logs').insert(payload)
+  if (error) throw error
 }
 
 export async function fetchVoyagesWithUnpaidBls(voyageIds: number[]): Promise<Set<number>> {

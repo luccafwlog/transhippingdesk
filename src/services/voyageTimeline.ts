@@ -1,15 +1,25 @@
 import { supabase } from './supabase'
 
 export type VoyageScheduleEvent = {
+  entity_type?: string | null
   entity_id: string
   field_name: string
+  old_value?: string | null
   new_value: string | null
+  changed_by?: string | null
   changed_at: string | null
 }
+
+export type VoyageAuditEvent = VoyageScheduleEvent
 
 export type VoyageResolutionEvent = {
   field_name: string | null
   resolved_at: string | null
+}
+
+export type VoyageBaplieImportEvent = {
+  imported_at: string | null
+  container_count: number | null
 }
 
 /**
@@ -19,13 +29,25 @@ export type VoyageResolutionEvent = {
  */
 export async function fetchVoyageTimelineSources(
   voyageId: number,
-): Promise<{ scheduleEvents: VoyageScheduleEvent[]; resolutions: VoyageResolutionEvent[] }> {
-  const [scheduleRes, resolutionRes] = await Promise.all([
+): Promise<{
+  scheduleEvents: VoyageScheduleEvent[]
+  auditEvents: VoyageAuditEvent[]
+  resolutions: VoyageResolutionEvent[]
+  baplieImports: VoyageBaplieImportEvent[]
+}> {
+  const [scheduleRes, auditRes, resolutionRes, baplieRes] = await Promise.all([
     supabase
       .from('audit_logs')
-      .select('entity_id, field_name, new_value, changed_at')
+      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at')
       .in('entity_type', ['voyage_pod_schedule', 'voyage_pol_schedule'])
       .like('entity_id', `${voyageId}::%`)
+      .order('changed_at', { ascending: false })
+      .range(0, 499),
+    supabase
+      .from('audit_logs')
+      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at')
+      .in('entity_type', ['voyages', 'voyage', 'import_batches', 'import_batch'])
+      .eq('entity_id', String(voyageId))
       .order('changed_at', { ascending: false })
       .range(0, 499),
     supabase
@@ -34,13 +56,26 @@ export async function fetchVoyageTimelineSources(
       .eq('voyage_id', voyageId)
       .order('resolved_at', { ascending: false })
       .range(0, 499),
+    supabase
+      .from('baplie_containers' as never)
+      .select('imported_at', { count: 'exact' })
+      .eq('voyage_id', voyageId)
+      .order('imported_at', { ascending: true })
+      .limit(1),
   ])
 
   if (scheduleRes.error) throw scheduleRes.error
+  if (auditRes.error) throw auditRes.error
   if (resolutionRes.error) throw resolutionRes.error
+  if (baplieRes.error) throw baplieRes.error
 
   return {
     scheduleEvents: (scheduleRes.data ?? []) as VoyageScheduleEvent[],
+    auditEvents: (auditRes.data ?? []) as VoyageAuditEvent[],
     resolutions: (resolutionRes.data ?? []) as VoyageResolutionEvent[],
+    baplieImports: (baplieRes.data ?? []).map((row) => ({
+      imported_at: String((row as { imported_at?: string | null }).imported_at ?? ''),
+      container_count: baplieRes.count ?? null,
+    })),
   }
 }

@@ -351,7 +351,7 @@ export function Viagens() {
               changedBy: user.id,
             })
             // Arquivos do mesmo manifesto compartilham o CE Master.
-            await Promise.all((batchIds ?? []).map((id) => setImportBatchCeMaster(id, ceMaster)))
+            await Promise.all((batchIds ?? []).map((id) => setImportBatchCeMaster(id, ceMaster, user.id)))
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
               queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),

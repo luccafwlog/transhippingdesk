@@ -240,9 +240,14 @@ export function VoyageCard({
       buildVoyageTimeline({
         importBatches: importBatches.map((batch) => ({ ...batch, route: routeByBatchId.get(batch.id) ?? null })),
         scheduleEvents: timelineSources?.scheduleEvents,
+        auditEvents: timelineSources?.auditEvents,
         resolutions: timelineSources?.resolutions,
+        baplieImports: timelineSources?.baplieImports,
+        openDivergenceCount: divergenceCount,
+        voyageStatus: voyage.status,
+        ceCoverage,
       }),
-    [importBatches, routeByBatchId, timelineSources],
+    [ceCoverage, divergenceCount, importBatches, routeByBatchId, timelineSources, voyage.status],
   )
 
   const planningContent = (
@@ -881,11 +886,20 @@ function KpiTile({ label, value, sub, valueColor }: { label: string; value: stri
 
 const TIMELINE_DOT: Record<VoyageTimelineEvent['kind'], string> = {
   import: '#2a9d63',
+  'baplie-import': '#0f766e',
   'escala-date': '#1d4d88',
   'escala-number': '#b8860b',
   'manifestos-linked': '#2563a8',
+  'ce-status': '#7c3aed',
+  restow: '#d97706',
+  'pod-added': '#2a9d63',
   'divergence-resolved': '#1f7a4d',
+  'divergence-opened': '#b45309',
   'pod-removed': '#cf4b3f',
+  'voyage-completed': '#1f7a4d',
+  'ce-master': '#5b5fc7',
+  'voyage-data': '#64748b',
+  'ce-coverage': '#15803d',
 }
 
 function formatTimelineMoment(value: string) {

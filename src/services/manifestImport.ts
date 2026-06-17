@@ -195,11 +195,32 @@ export async function computeFileHash(buffer: ArrayBuffer): Promise<string> {
  * Define o CE Master (Sistema Mercante) de um manifesto. Editado inline na
  * página Viagens; operador ativo pode atualizar (RLS de import_batches).
  */
-export async function setImportBatchCeMaster(batchId: number, ceMaster: string | null) {
+export async function setImportBatchCeMaster(batchId: number, ceMaster: string | null, changedBy: string | null) {
   const normalized = (ceMaster ?? '').trim() || null
+  const { data: current, error: fetchError } = await supabase
+    .from('import_batches')
+    .select('voyage_id, ce_master')
+    .eq('id', batchId)
+    .single()
+  if (fetchError) throw fetchError
+
+  const oldValue = (current?.ce_master ?? '').trim() || null
+  if (oldValue === normalized) return
+
   const { error } = await supabase
     .from('import_batches')
     .update({ ce_master: normalized })
     .eq('id', batchId)
   if (error) throw error
+
+  const { error: auditError } = await supabase.from('audit_logs').insert({
+    entity_type: 'import_batches',
+    entity_id: String(current?.voyage_id ?? batchId),
+    field_name: 'ce_master',
+    old_value: oldValue,
+    new_value: normalized,
+    changed_by: changedBy,
+    justification: 'Atualizacao manual de CE Master',
+  })
+  if (auditError) throw auditError
 }

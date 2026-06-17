@@ -411,11 +411,20 @@ export function buildVoyageRailItems(
 
 export type VoyageTimelineEventKind =
   | 'import'
+  | 'baplie-import'
   | 'escala-date'
   | 'escala-number'
   | 'manifestos-linked'
+  | 'ce-status'
+  | 'restow'
+  | 'pod-added'
   | 'divergence-resolved'
+  | 'divergence-opened'
   | 'pod-removed'
+  | 'voyage-completed'
+  | 'ce-master'
+  | 'voyage-data'
+  | 'ce-coverage'
 
 export type VoyageTimelineEvent = {
   id: string
@@ -433,7 +442,7 @@ const SCHEDULE_DATE_LABELS: Record<string, string> = { eta: 'ETA', etb: 'ETB', a
  * resoluções de conciliação. Ordena do mais recente para o mais antigo. Sem
  * eventos financeiros.
  */
-export function buildVoyageTimeline({
+export function buildVoyageTimelineLegacy({
   importBatches,
   scheduleEvents,
   resolutions,
@@ -508,6 +517,273 @@ export function buildVoyageTimeline({
   })
 
   return events.sort((left, right) => (left.at < right.at ? 1 : left.at > right.at ? -1 : 0))
+}
+
+type TimelineAuditEvent = {
+  entity_type?: string | null
+  entity_id: string
+  field_name: string
+  old_value?: string | null
+  new_value: string | null
+  changed_by?: string | null
+  changed_at: string | null
+}
+
+const TIMELINE_SCHEDULE_DATE_LABELS: Record<string, string> = { etd: 'ETD', eta: 'ETA', etb: 'ETB', ata: 'ATA', atd: 'ATD' }
+const TIMELINE_CE_STATUS_LABELS: Record<string, string> = {
+  waiting: 'Aguardando',
+  received: 'Recebido',
+  launching: 'Lançando',
+  approving: 'Em aprovação',
+  approved: 'Aprovado',
+  partial: 'Lançando',
+  missing: 'Aguardando',
+}
+const TIMELINE_VOYAGE_FIELD_LABELS: Record<string, string> = {
+  created: 'Viagem',
+  voyage_number: 'Nº da viagem',
+  vessel_id: 'Navio',
+  status: 'Status',
+}
+const TIMELINE_KIND_ORDER: Record<VoyageTimelineEventKind, number> = {
+  'voyage-completed': 0,
+  'ce-master': 1,
+  'ce-coverage': 2,
+  import: 3,
+  'divergence-opened': 4,
+  'baplie-import': 5,
+  'pod-added': 6,
+  restow: 7,
+  'ce-status': 8,
+  'manifestos-linked': 9,
+  'escala-number': 10,
+  'escala-date': 11,
+  'divergence-resolved': 12,
+  'voyage-data': 13,
+  'pod-removed': 14,
+}
+
+export function buildVoyageTimeline({
+  importBatches,
+  scheduleEvents,
+  auditEvents,
+  resolutions,
+  baplieImports,
+  openDivergenceCount,
+  voyageStatus,
+  ceCoverage,
+}: {
+  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; ce_master?: string | null }> | null
+  scheduleEvents?: TimelineAuditEvent[] | null
+  auditEvents?: TimelineAuditEvent[] | null
+  resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
+  baplieImports?: Array<{ imported_at?: string | null; created_at?: string | null; container_count?: number | null }> | null
+  openDivergenceCount?: number | null
+  voyageStatus?: string | null
+  ceCoverage?: { filled: number; total: number } | null
+}): VoyageTimelineEvent[] {
+  const events: VoyageTimelineEvent[] = []
+  let latestImportAt: string | null = null
+
+  for (const batch of importBatches ?? []) {
+    if (!batch.uploaded_at) continue
+    if (!latestImportAt || batch.uploaded_at > latestImportAt) latestImportAt = batch.uploaded_at
+
+    const ceMaster = String(batch.ce_master ?? '').trim()
+    if (ceMaster) {
+      events.push({
+        id: `ce-master-batch-${batch.id}`,
+        kind: 'ce-master',
+        at: batch.uploaded_at,
+        title: 'CE Master definido',
+        detail: ceMaster,
+      })
+    }
+
+    events.push({
+      id: `import-${batch.id}`,
+      kind: 'import',
+      at: batch.uploaded_at,
+      title: 'Manifesto importado',
+      detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${batch.route ?? stripFileExtension(batch.filename)}`,
+    })
+  }
+
+  if (ceCoverage && ceCoverage.total > 0 && ceCoverage.filled >= ceCoverage.total && latestImportAt) {
+    events.push({
+      id: 'ce-coverage-complete',
+      kind: 'ce-coverage',
+      at: latestImportAt,
+      title: 'Cobertura de CE Mercante completa',
+      detail: `${ceCoverage.filled}/${ceCoverage.total} B/Ls com CE`,
+    })
+  }
+
+  const firstBaplieImport = (baplieImports ?? [])
+    .map((row) => ({
+      at: row.imported_at ?? row.created_at ?? null,
+      count: Number(row.container_count ?? 0),
+    }))
+    .filter((row): row is { at: string; count: number } => Boolean(row.at))
+    .sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0))[0]
+
+  if (firstBaplieImport) {
+    events.push({
+      id: 'baplie-import',
+      kind: 'baplie-import',
+      at: firstBaplieImport.at,
+      title: 'Baplie EDI importado',
+      detail: firstBaplieImport.count > 0 ? `${formatMetric(firstBaplieImport.count)} containers` : 'Staging Baplie',
+    })
+    if (Number(openDivergenceCount ?? 0) > 0) {
+      events.push({
+        id: 'divergence-opened',
+        kind: 'divergence-opened',
+        at: firstBaplieImport.at,
+        title: 'Divergência detectada',
+        detail: `${formatMetric(openDivergenceCount)} divergência${openDivergenceCount === 1 ? '' : 's'} aberta${openDivergenceCount === 1 ? '' : 's'}`,
+      })
+    }
+  }
+
+  ;(scheduleEvents ?? []).forEach((row, index) => {
+    const at = row.changed_at
+    if (!at) return
+    const port = row.entity_id.split('::')[1] || '-'
+    const value = (row.new_value ?? '').trim()
+    const oldValue = (row.old_value ?? '').trim()
+
+    if (TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]) {
+      if (!value) return
+      const changed = Boolean(oldValue && oldValue !== value)
+      events.push({
+        id: `sched-${index}`,
+        kind: 'escala-date',
+        at,
+        title: `${TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]} de ${port} ${changed ? 'alterado' : 'registrado'}`,
+        detail: appendTimelineActor(changed ? `${formatDate(oldValue)} -> ${formatDate(value)}` : formatDate(value), row.changed_by),
+      })
+    } else if (row.field_name === 'escala_number' && value) {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'escala-number',
+        at,
+        title: `Escala de ${port} criada no Mercante`,
+        detail: appendTimelineActor(`Nº ${value}`, row.changed_by),
+      })
+    } else if (row.field_name === 'linked' && value === 'true') {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'manifestos-linked',
+        at,
+        title: `Manifestos vinculados à escala de ${port}`,
+        detail: appendTimelineActor('ESCALA = SIM', row.changed_by),
+      })
+    } else if (row.field_name === 'ces' && value) {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'ce-status',
+        at,
+        title: `Status de CE de ${port} alterado`,
+        detail: appendTimelineActor(oldValue ? `${formatTimelineCeStatus(oldValue)} -> ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row.changed_by),
+      })
+    } else if (row.field_name === 'rtw' && value) {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'restow',
+        at,
+        title: `Restow de ${port} registrado`,
+        detail: appendTimelineActor(`RTW ${value}`, row.changed_by),
+      })
+    } else if (row.field_name === 'deleted' && value === 'false') {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'pod-added',
+        at,
+        title: `Escala de ${port} adicionada ao planejamento`,
+        detail: appendTimelineActor('POD ativo', row.changed_by),
+      })
+    } else if (row.field_name === 'deleted' && value === 'true') {
+      events.push({
+        id: `sched-${index}`,
+        kind: 'pod-removed',
+        at,
+        title: `Escala de ${port} removida do planejamento`,
+        detail: appendTimelineActor('Planejamento removido', row.changed_by),
+      })
+    }
+  })
+
+  if (voyageStatus === 'completed') {
+    const latestAtd = events
+      .filter((event) => event.kind === 'escala-date' && event.title.startsWith('ATD de '))
+      .map((event) => event.at)
+      .sort((left, right) => (left < right ? 1 : left > right ? -1 : 0))[0]
+    if (latestAtd) {
+      events.push({
+        id: 'voyage-completed',
+        kind: 'voyage-completed',
+        at: latestAtd,
+        title: 'Viagem concluída',
+        detail: 'Todos os PODs com ATD',
+      })
+    }
+  }
+
+  ;(auditEvents ?? []).forEach((row, index) => {
+    const at = row.changed_at
+    const value = (row.new_value ?? '').trim()
+    if (!at || !value) return
+    const oldValue = (row.old_value ?? '').trim()
+
+    if (row.field_name === 'ce_master') {
+      events.push({
+        id: `audit-ce-master-${index}`,
+        kind: 'ce-master',
+        at,
+        title: oldValue ? 'CE Master alterado' : 'CE Master definido',
+        detail: appendTimelineActor(oldValue ? `${oldValue} -> ${value}` : value, row.changed_by),
+      })
+      return
+    }
+
+    if (row.entity_type === 'voyages' || row.entity_type === 'voyage') {
+      const label = TIMELINE_VOYAGE_FIELD_LABELS[row.field_name] ?? row.field_name
+      events.push({
+        id: `audit-voyage-${index}`,
+        kind: 'voyage-data',
+        at,
+        title: oldValue ? 'Dados da viagem alterados' : 'Viagem criada',
+        detail: appendTimelineActor(oldValue ? `${label}: ${oldValue} -> ${value}` : `${label}: ${value}`, row.changed_by),
+      })
+    }
+  })
+
+  ;(resolutions ?? []).forEach((res, index) => {
+    if (!res.resolved_at) return
+    events.push({
+      id: `res-${index}`,
+      kind: 'divergence-resolved',
+      at: res.resolved_at,
+      title: 'Divergência conciliada',
+      detail: res.field_name ? `Campo ${res.field_name}` : 'Baplie -> Manifesto',
+    })
+  })
+
+  return events.sort((left, right) => {
+    if (left.at < right.at) return 1
+    if (left.at > right.at) return -1
+    return TIMELINE_KIND_ORDER[left.kind] - TIMELINE_KIND_ORDER[right.kind]
+  })
+}
+
+function appendTimelineActor(detail: string, changedBy: string | null | undefined) {
+  const actor = String(changedBy ?? '').trim()
+  return actor ? `${detail} · por ${actor}` : detail
+}
+
+function formatTimelineCeStatus(value: string) {
+  return TIMELINE_CE_STATUS_LABELS[value] ?? value
 }
 
 // --- Importação por POD ------------------------------------------------------
