@@ -248,7 +248,7 @@ export function VoyageCard({
   const planningContent = (
     <MetricSection
       title="Planejamento por POD/POL"
-      description="Datas ETA, ETB, ATA e ATD, RESTOW, BLs e CEs, ESCALA e Nº de Escala por porto de descarga ou embarque."
+      compact
       actions={isAdmin ? (
         <>
           <Button variant="secondary" onClick={() => onAddPod({ voyageId: voyage.id, voyageLabel })}>

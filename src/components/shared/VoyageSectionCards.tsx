@@ -121,18 +121,22 @@ export function MetricSection({
   description,
   children,
   actions,
+  compact,
 }: {
   title: string
-  description: string
+  description?: string
   children: ReactNode
   actions?: ReactNode
+  compact?: boolean
 }) {
   return (
-    <section className="grid gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+    <section
+      className={`grid rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] ${compact ? 'gap-2 p-3' : 'gap-4 p-4'}`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">{title}</div>
-          <div className="mt-1 text-sm text-[var(--app-muted)]">{description}</div>
+          {description ? <div className="mt-1 text-sm text-[var(--app-muted)]">{description}</div> : null}
         </div>
         {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
       </div>
