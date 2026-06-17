@@ -656,10 +656,11 @@ export function VoyageCard({
           <div className="app-table-scroll">
             <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
               <colgroup>
-                <col className="w-[50%]" />
+                <col className="w-[44%]" />
+                <col className="w-[13%]" />
+                <col className="w-[9%]" />
                 <col className="w-[14%]" />
-                <col className="w-[10%]" />
-                <col className="w-[18%]" />
+                <col className="w-[12%]" />
                 <col className="w-[8%]" />
               </colgroup>
               <thead>
@@ -668,6 +669,7 @@ export function VoyageCard({
                   <th scope="col" className="px-3 py-2">ETD</th>
                   <th scope="col" className="px-3 py-2">B/Ls</th>
                   <th scope="col" className="px-3 py-2">CE Merc.</th>
+                  <th scope="col" className="px-3 py-2">CE Master</th>
                   <th scope="col" className="px-3 py-2">Acoes</th>
                 </tr>
               </thead>
@@ -687,6 +689,13 @@ export function VoyageCard({
                       <td className="px-3 py-2">{formatDate(row.etd)}</td>
                       <td className="px-3 py-2">{row.blCount}</td>
                       <td className="px-3 py-2">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
+                      <td className="px-3 py-2">
+                        {row.ceMaster ? (
+                          <span className="font-mono text-xs text-[var(--app-text-strong)]">{row.ceMaster}</span>
+                        ) : (
+                          <span className="text-[var(--app-muted-soft)]">-</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <Button
                           variant="secondary"
@@ -711,7 +720,7 @@ export function VoyageCard({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-3 py-3 text-[var(--app-muted)]">
+                    <td colSpan={6} className="px-3 py-3 text-[var(--app-muted)]">
                       Nenhum manifesto identificado nesta viagem.
                     </td>
                   </tr>
