@@ -265,8 +265,8 @@ export function VoyageCard({
               <col className="min-w-[80px]" />
               <col className="min-w-[70px]" />
               <col className="min-w-[90px]" />
-              <col className="min-w-[70px]" />
               <col className="min-w-[100px]" />
+              <col className="min-w-[90px]" />
               <col className="w-[1%] whitespace-nowrap" />
             </colgroup>
           <thead>
@@ -278,8 +278,8 @@ export function VoyageCard({
               <th scope="col" className="px-3 py-2">ATD</th>
               <th scope="col" className="px-3 py-2">RESTOW</th>
               <th scope="col" className="px-3 py-2">BLs e CEs</th>
-              <th scope="col" className="px-3 py-2">ESCALA</th>
               <th scope="col" className="px-3 py-2">Nº Escala</th>
+              <th scope="col" className="px-3 py-2">VINCULADA</th>
               <th scope="col" className="px-3 py-2">Acoes</th>
             </tr>
           </thead>
@@ -294,8 +294,8 @@ export function VoyageCard({
                   <td className="px-3 py-2">{formatDate(row.atd)}</td>
                   <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
                   <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
-                  <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
                   <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
+                  <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Button
