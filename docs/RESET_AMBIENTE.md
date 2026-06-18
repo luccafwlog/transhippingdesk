@@ -1,52 +1,75 @@
 # Reset do Ambiente de Testes
 
-Atualizado em 2026-06-01.
+**Status: suspenso em 2026-06-18. Não execute o script atual.**
 
-Use este procedimento quando precisar zerar dados operacionais entre rodadas de teste.
+O arquivo `supabase/scripts/reset_operational_data.sql` cobre o modelo antigo,
+mas não declara a limpeza e a ordem de dependência de ledger, Demurrage,
+Granito, Vazios, notificações/disputas do Portal e outras tabelas recentes.
+Executá-lo pode falhar por FKs ou produzir um ambiente parcialmente limpo.
 
-## Script oficial
+## Alternativa segura
 
-Arquivo de reset:
+- Use um projeto Supabase descartável ou uma branch de banco.
+- Identifique os dados pelo prefixo e pela viagem de QA.
+- Registre os IDs criados durante a validação.
+- Remova-os pelos fluxos do produto ou por SQL revisado para aquela fixture.
+- Nunca execute limpeza ampla em produção.
 
-`supabase/scripts/reset_operational_data.sql`
+## Consultas de diagnóstico
 
-## Como executar
-
-1. Abra o projeto no Supabase.
-2. Entre em `SQL Editor`.
-3. Abra o arquivo `supabase/scripts/reset_operational_data.sql`.
-4. Cole o conteudo no editor.
-5. Execute.
-
-## Dados preservados
-
-O script preserva cadastros estruturais e comerciais, incluindo usuarios, roles, armadores, navios, portos, viagens, clientes, contatos, tabelas de taxas e overrides.
-
-## Dados removidos
-
-O script remove dados operacionais de teste: import batches, B/Ls, containers, veiculos, calculos, invoices, pagamentos, alertas, auditoria e contador de invoice.
-
-## Conferencia minima
+As consultas abaixo são somente leitura. Elas ajudam a medir o estado do
+ambiente, mas não autorizam exclusão.
 
 ```sql
-SELECT 'import_batches' AS table_name, COUNT(*) AS total FROM public.import_batches
+SELECT 'import_batches' AS table_name, COUNT(*) AS total
+FROM public.import_batches
 UNION ALL
-SELECT 'bls', COUNT(*) FROM public.bls
+SELECT 'bls', COUNT(*)
+FROM public.bls
 UNION ALL
-SELECT 'bl_containers', COUNT(*) FROM public.bl_containers
+SELECT 'bl_containers', COUNT(*)
+FROM public.bl_containers
 UNION ALL
-SELECT 'customers_preserved', COUNT(*) FROM public.customers
+SELECT 'invoices', COUNT(*)
+FROM public.invoices
 UNION ALL
-SELECT 'customer_contacts_preserved', COUNT(*) FROM public.customer_contacts
+SELECT 'bl_receivables', COUNT(*)
+FROM public.bl_receivables
 UNION ALL
-SELECT 'audit_logs', COUNT(*) FROM public.audit_logs;
+SELECT 'ledger_settlements', COUNT(*)
+FROM public.ledger_settlements
+UNION ALL
+SELECT 'demurrage_invoices', COUNT(*)
+FROM public.demurrage_invoices
+UNION ALL
+SELECT 'granite_bls', COUNT(*)
+FROM public.granite_bls
+UNION ALL
+SELECT 'vazios_bookings', COUNT(*)
+FROM public.vazios_bookings
+UNION ALL
+SELECT 'vazios_importacao_containers', COUNT(*)
+FROM public.vazios_importacao_containers
+UNION ALL
+SELECT 'portal_notifications', COUNT(*)
+FROM public.portal_notifications
+UNION ALL
+SELECT 'audit_logs', COUNT(*)
+FROM public.audit_logs;
 ```
 
-Resultado esperado:
+Para localizar uma fixture, prefira filtros por viagem, B/L, cliente ou prefixo
+de arquivo em vez de interpretar a contagem global como dado descartável.
 
-- `import_batches`, `bls`, `bl_containers` e `audit_logs` zerados
-- `customers_preserved` e `customer_contacts_preserved` mantidos
+## Reativação
 
-## Nota
+O procedimento só pode voltar a ser oficial após:
 
-Sempre use caminho relativo ao repositorio. Referencias antigas com caminho absoluto local foram descontinuadas.
+1. mapear todas as FKs e a ordem de remoção;
+2. executar em banco descartável com dados de todos os módulos;
+3. provar preservação de usuários e cadastros estruturais;
+4. executar uma segunda vez para provar idempotência;
+5. documentar restauração ou rollback;
+6. registrar a evidência em `docs/VALIDACAO.md`.
+
+Até lá, o SQL existente é apenas um registro histórico protegido por aviso.

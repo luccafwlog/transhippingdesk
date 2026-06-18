@@ -1,41 +1,116 @@
-# Roadmap do Sistema
+# Roadmap do Transhipping Desk
 
-Atualizado em 2026-06-01.
+Baseline verificado contra o repositório em 2026-06-18.
 
-## Em producao
+Este documento separa capacidades entregues, evolução confirmada, backlog e
+riscos ativos. Planos datados registram o caminho de uma mudança, mas não
+substituem este baseline.
 
-- Operacao completa com viagens, Baplie EDI, manifestos CNTR e BB, containers, veiculos e revisao manual.
-- Modulo Granito em producao (`/granito`, `/granito/taxas`) com importacao COSCO, calculo dedicado e faturamento integrado.
-- Modulos de Vazios em producao:
-  - Vazios Importacao (`/vazios-importacao`), alimentado por Baplie EDI ou planilha avulsa.
-  - Vazios Exportacao (`/embarquevazios`, com redirecionamento de `/vazios`).
-- Taxas Locais, Faturamento, Demurrage e Conciliacao PIX em operacao.
-- Ledger de faturamento local ativo para B/Ls, invoices individuais e invoices consolidadas.
-- Portal do cliente (`/portal/login`, `/portal/billing`) em producao com visao de saldos locais via ledger.
-- Alertas, Relatorios, Line Up TV e Admin de usuarios ativos.
+## Em produção
 
-## Em evolucao
+### Operação
 
-- Parser de manifestos: novos layouts de armador exigem ajustes iterativos.
-- Reconciliacao de cliente: UX ainda pode melhorar para selecao manual em casos ambiguos.
-- Cobertura automatizada: ampliar testes de fluxos end-to-end de faturamento, portal e autenticacao.
-- UX operacional: melhorias de densidade de dados, feedbacks de loading e refinamentos de tabela.
-- Decomposicao gradual das paginas ainda grandes (`BlDetalhe`, `Viagens`, `TaxasLocais`, `Faturamento`, `Revisao`) precedida por testes.
+- viagens em layout master-detail, com deep link por viagem;
+- planejamento POL/POD, escalas do Mercante, CE Master e linha do tempo;
+- importação e reconciliação de Baplie EDI;
+- manifestos CNTR e breakbulk;
+- containers, veículos RoRo e CE Mercante;
+- Vazios de Importação por Baplie ou planilha;
+- bookings de Vazios de Exportação;
+- fluxo especializado de Granito;
+- fila de revisão operacional e reconciliação de cliente.
+
+### Financeiro
+
+- tabelas de taxas locais e overrides por cliente;
+- cálculo, revisão e gate de faturabilidade;
+- tentativa automática de cálculo/emissão após correção de cliente na revisão;
+- invoice individual e consolidada;
+- ledger local, pagamentos parciais, reversões, reembolsos e ciclo de vida;
+- Demurrage em persistência própria;
+- conciliação PIX unificada;
+- documentos imprimíveis com QR PIX;
+- relatórios e alertas financeiros.
+
+### Portal do Cliente
+
+- login por CNPJ, CPF ou email usando sessão Supabase Auth;
+- recuperação de senha;
+- dashboard financeiro e operacional;
+- faturas locais e de Demurrage;
+- consolidação e obsolescência self-service dentro das guardas;
+- B/Ls e containers;
+- gate de visibilidade por CE Mercante;
+- notificações, disputas e perfil;
+- exportações filtradas;
+- programação de navios.
+
+### Plataforma
+
+- RLS e RPCs como fronteira de segurança;
+- default-deny de funções privilegiadas, com exceção pré-login documentada;
+- sessões interna e do Portal isoladas;
+- CI com documentação, lint, build e testes antes do merge;
+- squash merge e deploy automatizado no Firebase;
+- Sentry inicializado em produção;
+- `@e965/xlsx` para planilhas, com limite de upload antes do parsing;
+- auditorias técnica, funcional e visual preservadas como snapshots.
+
+## Em evolução
+
+### Testes e ambientes
+
+- automatizar smoke/E2E dos fluxos de maior risco;
+- executar Auth, RLS, RPCs, Edge Functions e email em ambiente Supabase
+  descartável;
+- reduzir dependência de testes textuais de migration com validação comportamental
+  em banco;
+- manter fixtures reais por layout de armador.
+
+### Arquitetura
+
+- decompor páginas grandes quando houver cobertura de caracterização;
+- consolidar operações de serviço e hooks apenas onde houver duplicação real;
+- melhorar tipagem de selects Supabase complexos;
+- reduzir casts em caminhos financeiros;
+- manter `src/types/database.ts` alinhado ao schema atual.
+
+### Operação e observabilidade
+
+- monitorar abuso e falsos positivos no resolver pré-login do Portal;
+- melhorar visibilidade de falhas em jobs e escritas best-effort;
+- acompanhar drift entre migrations locais e ambientes remotos;
+- amadurecer evidências de release e smoke pós-deploy.
 
 ## Backlog
 
-- Formalizar entidade de trecho de viagem (hoje implicita nos B/Ls e agendas).
-- Notificacoes em tempo real para eventos operacionais prioritarios.
-- Relatorio consolidado de viagem com visao unica CNTR + BB + Granito + Vazios.
-- Evolucao de seguranca do portal com camadas adicionais de autenticacao forte.
-- Migrar `xlsx` para distribuicao corrigida da SheetJS quando houver PR dedicado com validacao dos parsers.
+- formalizar a entidade de trecho de viagem;
+- criar relatório consolidado por viagem para CNTR, BB, Granito, veículos e
+  vazios;
+- adicionar autenticação mais forte ao Portal quando houver requisito de
+  negócio e suporte operacional;
+- substituir o reset suspenso por ferramenta validada, idempotente e segura;
+- automatizar previews ou staging antes do deploy live;
+- avaliar realtime para eventos operacionais prioritários;
+- revisar políticas e índices orientado por queries reais, não por contagem
+  genérica de advisors.
 
-## Riscos monitorados (ativos)
+## Riscos ativos
 
-| Risco | Impacto | Mitigacao |
-|-------|---------|-----------|
-| Parser incompativel com layout novo de armador | Medio | Parser isolado + fixtures de regressao por layout |
-| Cobertura automatizada parcial em fluxos criticos | Medio | Suite de integracao com Supabase real + roteiro de validacao operacional |
-| Reconciliacao ambigua de cliente | Medio | Bloqueio de faturamento enquanto nao houver reconciliacao segura |
-| Dependencia de revisao humana para excecoes operacionais | Medio | Fila de revisao com auditoria e trilha de decisao |
-| `xlsx` vulneravel sem correcao no npm | Medio | Mantido temporariamente porque `npm audit --omit=dev` informa `No fix available`; mitigado por limite de 10 MB antes de `XLSX.read` e acesso restrito a usuarios internos autenticados; substituir quando houver versao corrigida ou biblioteca alternativa validada para todos os parsers |
+| Risco | Impacto | Mitigação atual | Próximo passo |
+|---|---|---|---|
+| Migrations não são aplicadas pelo CI da SPA | Alto | Coordenação manual e testes de contrato | Automatizar detecção de drift e ambiente de validação |
+| E2E completo ainda depende de execução manual | Alto | `docs/VALIDACAO.md`, fixtures e testes unitários | Smoke automatizado dos fluxos financeiro e Portal |
+| Reset amplo está desatualizado | Alto | Script e procedimento marcados como suspensos | Reconstruir e provar em banco descartável |
+| Layout novo de armador pode quebrar parser | Médio | Parsers isolados, limite de upload e fixtures | Fixture real antes de cada novo layout |
+| Resolução pré-login pode sofrer enumeração/abuso | Médio | Hash, janela de tentativas e erro genérico | Métricas e revisão periódica do limite |
+| Páginas grandes concentram risco de regressão | Médio | Mudanças cirúrgicas e testes focados | Decomposição oportunista com caracterização |
+| Advisory em dependência de desenvolvimento | Baixo | Não afeta bundle de produção; `npm audit --omit=dev` limpo em 2026-06-18 | Atualizar jsdom/undici quando versão corrigida estiver compatível |
+
+## Critério para mover um item
+
+- **Em produção:** código, migration e ambiente aplicável foram verificados.
+- **Em evolução:** trabalho confirmado ou risco com ação em andamento.
+- **Backlog:** intenção ainda sem compromisso de implementação.
+- **Resolvido:** remover da lista ativa e preservar a evidência no plano, ADR,
+  auditoria ou histórico Git apropriado.
