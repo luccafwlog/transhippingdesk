@@ -1,5 +1,9 @@
 # Technical Audit — Transhipping Desk
 
+> **Snapshot histórico:** este relatório descreve o repositório e o banco na
+> data indicada. Achados podem ter sido corrigidos depois. Para o estado atual,
+> consulte [`docs/README.md`](./README.md), o código e as migrations.
+
 **Date:** 2026-06-09 · **Scope:** full repository + live Supabase advisors · **Method:** static analysis, local verification (`npm test`, `npm run lint`, `npm run build`, `npm audit`), and Supabase database linter. No code was modified.
 
 Verification status of every claim is labeled: **[verified]** = checked directly against files/command output; **[judgment]** = professional assessment; **[unverified]** = needs human/live confirmation.
