@@ -1,105 +1,109 @@
 ---
 name: react-query-pattern
-description: >
-  React Query v5 + Supabase conventions in Transhipping Desk. Use when adding
-  or editing any file under src/hooks/ or src/services/, when wiring a new
-  page to data, or when reviewing cache keys / invalidation. Codifies the
-  service-function + use*-hook split so it doesn't have to be re-explained
-  per feature.
+description: Use when adding or changing Supabase data access, TanStack React Query hooks, cache keys, invalidation, mutations, reusable remote state, or page-to-service calls in Transhipping Desk.
 ---
 
-# React Query Pattern Playbook
+# React Query and Data Access
 
-This codebase splits data access into two layers. Keep them separate.
+Put reusable operations in services and reusable remote-state lifecycle in
+hooks. Match the existing owner instead of enforcing a layer diagram the
+repository does not universally follow.
 
-## The split
+| Need | Preferred owner |
+|---|---|
+| Reusable Supabase/domain operation | `src/services/` |
+| Reusable query/cache/mutation lifecycle | `src/hooks/` |
+| One-shot import, export or command | Focused service called by the page |
+| Presentation state | Component/page state |
 
-- **`src/services/<entidade>.ts`** — pure async functions. Take args, hit Supabase, return data or throw. **No React, no hooks, no caching.** Easy to unit-test.
-- **`src/hooks/use<Entidade>*.ts`** — wraps services with `useQuery` / `useMutation`. Owns cache keys, invalidation, and optimistic updates. This is what pages consume.
+`useBilling()` is reusable server state. `listInvoicesForExport()` is an
+acceptable one-shot service command. Do not add raw Supabase access when a
+service or hook already owns the operation.
 
-Pages **never** import from `services/` directly. If you find yourself wanting to, write the hook.
+## Services
 
-## Service functions
+Use `src/services/supabase.ts`:
 
 ```ts
-// src/services/faturas.ts
-import { supabase } from '../lib/supabase';
-
-export async function listFaturas(viagemId: string) {
-  const { data, error } = await supabase
-    .from('faturas')
-    .select('*')
-    .eq('viagem_id', viagemId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
-}
+import { supabase } from './supabase'
 ```
 
-- Always check `error` and throw it. React Query handles the rejection.
-- Return the raw row shape from `database.ts` types — let the hook decide what to expose.
-- No `try/catch` swallowing — let it propagate.
+Services accept explicit arguments, execute queries/RPCs, throw on required
+failures, normalize awkward responses when needed, and return typed data
+without React state. Never convert a real failure into empty success.
 
 ## Hooks
 
+Use a hook for shared loading/error/refetch state, cache, mutations,
+invalidation, enabled guards, or optimistic updates.
+
 ```ts
-// src/hooks/useFaturas.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { listFaturas, createFatura } from '../services/faturas';
-
-export function useFaturas(viagemId: string) {
-  const qc = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ['faturas', viagemId],
-    queryFn: () => listFaturas(viagemId),
-    enabled: !!viagemId,
-  });
-
-  const create = useMutation({
-    mutationFn: createFatura,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['faturas', viagemId] }),
-  });
-
-  return { ...query, create };
+export function useVoyageTimeline(voyageId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.voyages.timeline(voyageId),
+    queryFn: () => listVoyageTimeline(voyageId!),
+    enabled: voyageId != null,
+  })
 }
 ```
 
-Return shape: spread the query (`data`, `isLoading`, `error`, `refetch`) and attach named mutations. Pages destructure: `const { data, isLoading, create } = useFaturas(id)`.
+Keep form and modal state outside React Query.
 
-## Cache keys
+## Query keys
 
-- **Always an array.** First element is the entity name (singular or plural — be consistent within the entity). Subsequent elements scope it.
-- Examples:
-  - `['faturas']` — list of all
-  - `['faturas', viagemId]` — scoped by parent
-  - `['fatura', faturaId]` — single record
-  - `['faturas', viagemId, { status: 'paid' }]` — filtered list
-- Filter objects last. Don't put primitives where an object would be more legible.
+Prefer `src/services/queryKeys.ts`.
 
-## Invalidation
+- arrays only;
+- stable entity prefix first;
+- IDs before filter objects;
+- omit absent suffixes when prefix invalidation is expected;
+- do not create a second key family for the same data.
 
-- After a mutation, invalidate the **narrowest** key that covers stale data. `invalidateQueries({ queryKey: ['faturas'] })` invalidates all faturas queries; usually too broad.
-- For optimistic updates, follow React Query v5 patterns: `onMutate` snapshots + `onError` rollback + `onSettled` invalidate. Only adopt this for hot paths — it's extra surface area to test.
+```ts
+operations: (filters?: OperationFilters) =>
+  filters ? ['local-charge-operations', filters] : ['local-charge-operations']
+```
 
-## Enabled / guards
+`['local-charge-operations', undefined]` is not the same base-prefix contract.
 
-- Use `enabled: !!param` for queries that depend on a route param or selected entity. Don't gate inside `queryFn` with early returns — React Query won't know to refetch.
+## Mutations
 
-## Errors
+List every stale view before implementing.
 
-- Pages render errors using the project's toast (`src/components/ui/Toast`). Don't re-throw in components; let React Query expose `error` and surface it.
-- For mutations, prefer `onError: (e) => toast.error(...)` inside the hook so every caller gets consistent UX.
+- invalidate the narrowest complete families;
+- include detail and aggregate keys;
+- include Portal/internal consumers of the same mutation;
+- use optimistic updates only with rollback tests;
+- surface failures through existing toast/error UI.
 
-## What not to do
+## Red-green
 
-- ❌ `useEffect(() => { fetch... })` — there is no place for raw effects fetching data. Use React Query.
-- ❌ Reading `supabase` directly inside a component. Always go through service → hook.
-- ❌ Stuffing form state into React Query. Use `useState` / form libs for UI state; React Query is for **server state**.
-- ❌ `staleTime: Infinity` as a fix for "too many refetches." Diagnose the dependency churn first.
-- ❌ Hand-rolled refetch loops (`setInterval`). Use `refetchInterval` on the query.
+1. Test wrong key shape, stale UI, or missing mutation behavior.
+2. Confirm the expected failure.
+3. Implement the smallest service/hook/key change.
+4. Run focused and related page/component tests.
+
+Prefer pure tests for key factories and behavioral tests for visible
+invalidation.
+
+## Existing direct calls
+
+Pages currently call services for imports, exports, commands and legacy flows.
+Preserve a direct call when extraction has no concrete benefit. Reuse an
+existing hook when it owns the same data, and never duplicate a query in both.
+This is not permission to spread direct Supabase calls.
+
+## Avoid
+
+- raw effect fetching where React Query fits;
+- infinite stale time as a dependency workaround;
+- hand-rolled polling;
+- broad invalidation without an impact list;
+- catch/log followed by fake success;
+- unrelated layer refactors.
 
 ## Verification
 
-- New hook? Mount the page, open DevTools → React Query, confirm the key and that mutations invalidate the right entries.
-- `npm run lint && npm run build` clean before declaring done.
+Complete focused red-green coverage; prove key and invalidation scope; preserve
+loading, empty and error states; avoid duplicate query ownership; run lint,
+tests and build; update living docs if the convention changes.
