@@ -1,6 +1,6 @@
 # 0012 — Página Viagens em master-detail com rota dedicada por viagem
 
-Status: aceito e implementado — 2026-06-16
+Status: aceito — 2026-06-16 · **implementado** (rota `/viagens/:voyageId` ativa; ver [modules/viagens.md](../modules/viagens.md))
 
 ## Contexto
 

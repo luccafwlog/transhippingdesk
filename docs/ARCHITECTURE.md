@@ -208,6 +208,8 @@ Domínios usados pelo navegador precisam permanecer compatíveis com a CSP de
 
 ## Mapa de rotas
 
+Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices → /demurrage`, `/demurrage/reconciliacao → /reconciliacao`.
+
 ### Públicas e autenticação
 
 | Rota | Destino |

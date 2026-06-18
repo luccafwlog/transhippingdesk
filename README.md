@@ -1,13 +1,8 @@
 # Transhipping Desk
 
-Plataforma operacional interna da **Transhipping Agenciamento Marítimo Ltda.**
-para viagens, importações marítimas, revisão de B/Ls, faturamento, demurrage,
-conciliação PIX e atendimento ao cliente.
+Plataforma operacional interna da **Transhipping Agenciamento Marítimo Ltda.** — gestão de viagens, manifestos, faturamento, demurrage e portal do cliente. Em **produção**.
 
-Verificado contra o repositório em 2026-06-18.
-
-**Stack:** React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, Supabase
-(PostgreSQL, Auth e Edge Functions), Firebase Hosting e GitHub Actions.
+**Stack:** React 19 + TypeScript + Vite · Supabase (PostgreSQL + Auth + Edge Functions) · Firebase Hosting · CI/CD via GitHub Actions.
 
 ## Capacidades
 
@@ -150,16 +145,16 @@ do frontend não as aplica.
 
 ## Documentação
 
-Comece pelo [índice documental](./docs/README.md).
+A documentação completa vive em **[`docs/`](docs/README.md)**. Atalhos:
 
-| Documento | Responsabilidade |
-|---|---|
-| [`CONTEXT.md`](./CONTEXT.md) | Vocabulário de domínio |
-| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Arquitetura, fluxos e rotas |
-| [`WORKFLOW.md`](./WORKFLOW.md) | Desenvolvimento, migrations, testes e deploy |
-| [`docs/adr/README.md`](./docs/adr/README.md) | Decisões arquiteturais e supersessões |
-| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Baseline, evolução, backlog e riscos |
-| [`docs/VALIDACAO.md`](./docs/VALIDACAO.md) | Roteiro de validação e evidências |
+- **[Índice](docs/README.md)** — ponto de entrada e mapa de módulos.
+- **[Arquitetura](docs/ARCHITECTURE.md)** — stack, camadas, modelo de dados, mapa de rotas.
+- **[Glossário](docs/GLOSSARIO.md)** — termos de domínio (B/L, Baplie, CE Mercante, demurrage…).
+- **[Módulos](docs/README.md#módulos)** — Faturamento, Viagens, Granito, Manifestos/EDI, Portal, Demurrage, etc.
+- **[Setup](docs/setup/development.md)** · **[Deploy](docs/setup/deploy.md)** · **[Testes](docs/setup/testing.md)**
+- **[Regras de negócio](docs/operations/regras-de-negocio.md)** · **[Segurança](docs/operations/seguranca.md)**
+- **[Roadmap](docs/ROADMAP.md)** · **[ADRs](docs/adr/)** · **[Changelog](docs/CHANGELOG.md)**
 
-Auditorias, specs e planos datados são snapshots históricos; não substituem as
-fontes vivas acima.
+## Diretrizes de desenvolvimento
+
+Comportamento de desenvolvimento assistido por IA: **[CLAUDE.md](CLAUDE.md)**. Convenções específicas (parsers, migrations, invoices, React Query) estão nas skills em `.claude/skills/`.

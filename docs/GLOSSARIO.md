@@ -1,4 +1,4 @@
-# CONTEXT.md
+# Glossário de Domínio
 
 Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
 negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
