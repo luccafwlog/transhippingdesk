@@ -2,6 +2,9 @@
 
 **Data:** 2026-06-09 · **Status:** aceito
 
+Supersedida parcialmente pela ADR 0013: `portal_resolve_login(text)` é a exceção
+pré-autenticação explícita e limitada para `anon`.
+
 ## Contexto
 
 A auditoria técnica de 2026-06-09 (`docs/TECHNICAL-AUDIT-2026-06-09.md`, F5) apontou

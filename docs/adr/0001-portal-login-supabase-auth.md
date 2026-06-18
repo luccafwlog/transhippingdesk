@@ -2,6 +2,9 @@
 
 Status: aceito — 2026-06-03
 
+Supersedida parcialmente pela ADR 0013 quanto ao identificador aceito na tela
+de login. Supabase Auth continua sendo o mecanismo de autenticação e sessão.
+
 ## Contexto
 
 O Portal do Cliente nasceu com dois caminhos de autenticação coexistindo:

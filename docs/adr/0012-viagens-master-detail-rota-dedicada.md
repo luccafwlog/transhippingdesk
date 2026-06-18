@@ -1,6 +1,6 @@
 # 0012 — Página Viagens em master-detail com rota dedicada por viagem
 
-Status: proposto — 2026-06-16
+Status: aceito e implementado — 2026-06-16
 
 ## Contexto
 
