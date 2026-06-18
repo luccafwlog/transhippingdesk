@@ -3,7 +3,7 @@
 Verificado contra o código, a configuração e as migrations em 2026-06-18.
 
 Este é o mapa canônico da arquitetura atual. Termos de negócio vivem em
-[`CONTEXT.md`](../CONTEXT.md); decisões e supersessões vivem no
+[`docs/GLOSSARIO.md`](./GLOSSARIO.md); decisões e supersessões vivem no
 [índice de ADRs](./adr/README.md).
 
 ## Visão geral
@@ -275,5 +275,5 @@ Rotas desconhecidas redirecionam para `/painel`.
 - [`docs/README.md`](./README.md): mapa e autoridade documental;
 - [`WORKFLOW.md`](../WORKFLOW.md): execução, desenvolvimento, testes e deploy;
 - [`docs/ROADMAP.md`](./ROADMAP.md): baseline, evolução e riscos;
-- [`docs/VALIDACAO.md`](./VALIDACAO.md): provas funcionais e técnicas;
+- [`docs/operations/validacao.md`](./operations/validacao.md): provas funcionais e técnicas;
 - [`docs/adr/README.md`](./adr/README.md): decisões arquiteturais.

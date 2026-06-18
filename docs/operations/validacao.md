@@ -134,7 +134,7 @@ shell; eventos aparecem em ordem coerente.
 7. revisar B/Ls;
 8. calcular e faturar.
 
-Fixtures relacionadas: [`test-fixtures/README.md`](../test-fixtures/README.md).
+Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md).
 
 ### Baplie
 
@@ -394,7 +394,7 @@ O reset amplo está suspenso. Para fixtures:
 - confira dependências financeiras antes de excluir;
 - nunca execute `supabase/scripts/reset_operational_data.sql`.
 
-Consulte [`RESET_AMBIENTE.md`](./RESET_AMBIENTE.md).
+Consulte [`reset-ambiente.md`](./reset-ambiente.md).
 
 ## 18. Critério de pronto
 

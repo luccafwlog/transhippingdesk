@@ -96,15 +96,15 @@ for (const route of appRoutes) {
 
 const livingFiles = [
   'README.md',
-  'CONTEXT.md',
+  'docs/GLOSSARIO.md',
   'WORKFLOW.md',
   'AGENTS.md',
   'CLAUDE.md',
   'docs/README.md',
   'docs/ARCHITECTURE.md',
   'docs/ROADMAP.md',
-  'docs/VALIDACAO.md',
-  'docs/RESET_AMBIENTE.md',
+  'docs/operations/validacao.md',
+  'docs/operations/reset-ambiente.md',
   '.claude/skills/import-parser.skill',
   '.claude/skills/react-query-pattern.skill',
   '.claude/skills/invoice-pdf.skill',

@@ -5,10 +5,10 @@ Verificado contra o repositório em 2026-06-18.
 
 Use este documento para procedimentos técnicos. Consulte:
 
-- [`CONTEXT.md`](./CONTEXT.md) para linguagem de domínio;
+- [`docs/GLOSSARIO.md`](./docs/GLOSSARIO.md) para linguagem de domínio;
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) para fluxos e rotas;
 - [`docs/adr/README.md`](./docs/adr/README.md) para decisões;
-- [`docs/VALIDACAO.md`](./docs/VALIDACAO.md) para testes operacionais;
+- [`docs/operations/validacao.md`](./docs/operations/validacao.md) para testes operacionais;
 - [`docs/README.md`](./docs/README.md) para a hierarquia documental.
 
 Código, migrations e configuração executável são a evidência final quando um
@@ -106,9 +106,12 @@ docs/
   README.md               mapa documental
   ARCHITECTURE.md         arquitetura atual
   ROADMAP.md              baseline, evolução e riscos
-  VALIDACAO.md            roteiros de prova
-  RESET_AMBIENTE.md       status do reset
+  GLOSSARIO.md            glossário de domínio
   adr/                    decisões arquiteturais
+  operations/             regras, validação, segurança e reset
+  setup/                  desenvolvimento, testes e deploy
+  modules/                documentação por módulo
+  archive/                snapshots históricos
 ```
 
 Para obter contagens atuais, derive-as do repositório. Exemplo:
@@ -205,7 +208,8 @@ O CI da SPA não aplica migrations. Antes de publicar frontend dependente:
 4. só então publique o código dependente.
 
 Nunca execute um reset amplo para “testar” uma migration. O reset operacional
-atual está suspenso em [`docs/RESET_AMBIENTE.md`](./docs/RESET_AMBIENTE.md).
+atual está suspenso em
+[`docs/operations/reset-ambiente.md`](./docs/operations/reset-ambiente.md).
 
 ## 6. Acesso a dados e React Query
 
@@ -353,7 +357,8 @@ produção.
 
 Auth, RLS, RPCs, Edge Functions, email, impressão, PIX e fluxos completos
 dependem de ambiente real ou equivalente. Registre ambiente, usuário, dados,
-resultado e evidência conforme [`docs/VALIDACAO.md`](./docs/VALIDACAO.md).
+resultado e evidência conforme
+[`docs/operations/validacao.md`](./docs/operations/validacao.md).
 
 ## 12. CI, merge e deploy
 
@@ -405,7 +410,7 @@ ao commit injetado no build.
 Antes de concluir:
 
 - a mudança é mínima e rastreável ao pedido;
-- regras de domínio usam termos do `CONTEXT.md`;
+- regras de domínio usam termos do `docs/GLOSSARIO.md`;
 - decisões novas ou supersessões foram registradas;
 - rotas, comandos, auth, migrations e procedimentos atualizaram os documentos
   vivos;

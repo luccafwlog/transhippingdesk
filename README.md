@@ -141,7 +141,7 @@ do frontend não as aplica.
 - Uploads de planilha têm limite antes do parsing.
 - Invoices são documentos React preparados para impressão pelo navegador.
 - O reset operacional amplo está suspenso; consulte
-  [`docs/RESET_AMBIENTE.md`](./docs/RESET_AMBIENTE.md).
+  [`docs/operations/reset-ambiente.md`](./docs/operations/reset-ambiente.md).
 
 ## Documentação
 
