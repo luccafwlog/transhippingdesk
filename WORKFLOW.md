@@ -1,446 +1,415 @@
 # WORKFLOW.md — Transhipping Desk
 
-Guia operacional e técnico completo do sistema. Documento de referência para
-onboarding de desenvolvedores, manutenção e evolução. Última atualização:
-2026-05-30 (auditoria completa).
+Manual vivo para desenvolver, testar, migrar e publicar o Transhipping Desk.
+Verificado contra o repositório em 2026-06-18.
 
-> Para diretrizes de estilo e comportamento de desenvolvimento, ver `CLAUDE.md`.
-> Para o diagrama de fluxo de negócio canônico, ver `docs/ARCHITECTURE.md`.
-> Para estado/roadmap, ver `docs/ROADMAP.md`.
+Use este documento para procedimentos técnicos. Consulte:
 
----
+- [`CONTEXT.md`](./CONTEXT.md) para linguagem de domínio;
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) para fluxos e rotas;
+- [`docs/adr/README.md`](./docs/adr/README.md) para decisões;
+- [`docs/VALIDACAO.md`](./docs/VALIDACAO.md) para testes operacionais;
+- [`docs/README.md`](./docs/README.md) para a hierarquia documental.
 
-## 1. Visão geral do sistema
+Código, migrations e configuração executável são a evidência final quando um
+snapshot histórico diverge do estado atual.
 
-**Transhipping Desk** é um sistema interno de gestão de operações portuárias de
-*transhipment* (transbordo) para a **Transhipping Agenciamento Marítimo Ltda.**
-Está em **produção**. Cobre o ciclo completo:
+## 1. Stack verificada
 
-1. **Operação** — viagens (navios em escala), manifestos (CNTR, break-bulk,
-   granito), containers, veículos (RoRo), baplie EDI e vazios (import/export).
-2. **Revisão** — fila de aprovação manual de B/Ls antes do faturamento.
-3. **Comercial** — clientes, tabelas de taxas locais e overrides por cliente.
-4. **Financeiro** — taxas locais, faturamento (invoices), demurrage e
-   conciliação de pagamentos PIX.
-5. **Portal do cliente** — autenticação própria para o cliente consultar
-   faturas e saldo em aberto.
+### Frontend
 
-O domínio e a UI são em **português**; o código estrutural é em **inglês**.
+- React 19 e React DOM;
+- TypeScript;
+- Vite;
+- Tailwind CSS via plugin Vite;
+- React Router;
+- TanStack Query;
+- Zod;
+- Vitest e Testing Library;
+- `@e965/xlsx` para leitura e escrita de planilhas;
+- `qrcode.react` para QR PIX;
+- `@sentry/react` para telemetria de produção.
 
----
+As versões exatas vivem em `package.json` e `package-lock.json`; não as duplique
+em documentação.
 
-## 2. Arquitetura completa
+### Backend e infraestrutura
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                          NAVEGADOR (SPA)                           │
-│  React 19 + TypeScript + Vite + Tailwind v4 + React Router v7      │
-│                                                                    │
-│  pages/  ──usa──▶  hooks/ (React Query v5)  ──chama──▶  services/  │
-│     │                                                       │      │
-│     └── components/ (ui, layout, shared, billing, ...)      │      │
-│                                                             │      │
-│  Auth interna: Supabase Auth (useAuth)                      │      │
-│  Auth portal:  Supabase Auth + fallback token (usePortalAuth)│     │
-└─────────────────────────────────────────────────────────────┼─────┘
-                                                               │ HTTPS / WSS
-                                          ┌────────────────────▼─────────────────┐
-                                          │            SUPABASE                   │
-                                          │  Postgres + RLS  (90+ migrations)     │
-                                          │  Auth (JWT)                           │
-                                          │  RPCs (SECURITY DEFINER, ~70 funções) │
-                                          │  Edge Functions (Deno):               │
-                                          │   • provision-portal-user             │
-                                          │   • notify-invoice-issued (webhook)   │
-                                          │  Database Webhooks → Edge Function     │
-                                          └───────────────┬───────────────────────┘
-                                                          │
-                                       ┌──────────────────┴───────────────┐
-                                       │  Integrações externas             │
-                                       │   • Resend (email de fatura)      │
-                                       │   • Banco Central / olinda (ROE)  │
-                                       │   • PIX (payload gerado no cliente │
-                                       │     e no banco via RPC)           │
-                                       └───────────────────────────────────┘
+- Supabase PostgreSQL, Auth, RLS e RPCs;
+- Edge Functions Deno;
+- Resend para email;
+- Firebase Hosting;
+- GitHub Actions para CI, merge e deploy.
 
-Deploy: GitHub Actions → build (Vite) → Firebase Hosting (SPA estática)
+## 2. Arquitetura de execução
+
+```text
+Browser
+  ├─ sessão interna: supabase
+  └─ sessão do Portal: supabasePortal (storage isolado)
+       ↓
+Supabase
+  ├─ PostgreSQL + RLS
+  ├─ RPCs transacionais
+  ├─ Auth
+  └─ Edge Functions
 ```
 
-**Princípios arquiteturais aplicados:**
+Os clientes ficam em `src/services/supabase.ts`.
 
-- **Separação service/hook/page**: `services/` são funções puras de acesso a
-  dados (recebem/importam o cliente Supabase); `hooks/` encapsulam React Query
-  (cache, mutations, invalidação); `pages/` consomem hooks e renderizam UI.
-- **Segurança no banco (RLS-first)**: a autorização real vive em políticas RLS
-  e funções `SECURITY DEFINER`. As checagens no cliente (`can()`, `isAdmin`)
-  são apenas para UX — não são a fronteira de segurança.
-- **Lógica financeira transacional no banco**: criação de invoices,
-  numeração, consolidação e PIX são RPCs transacionais em PL/pgSQL para
-  garantir atomicidade.
-- **Lazy loading por rota**: cada página é um chunk dinâmico (`lazyPage()`);
-  bibliotecas pesadas (`xlsx`, `jspdf`) são importadas dinamicamente.
+### Sessão interna
 
----
+O usuário autentica pelo Supabase Auth e precisa de perfil ativo em
+`user_profiles`. `ProtectedRoute` melhora a navegação, mas não é a fronteira de
+segurança. Policies e funções do banco precisam continuar corretas mesmo para
+uma chamada direta à API.
 
-## 3. Estrutura de diretórios
+### Sessão do Portal
 
-```
+O Portal usa Supabase Auth com cliente e chave de storage próprios. A tela aceita
+CNPJ, CPF ou email. Documentos são resolvidos para o email técnico por
+`portal_resolve_login(text)` antes de `signInWithPassword`.
+
+Não existe sessão alternativa por senha armazenada em tabela. A exceção
+pré-autenticação para o resolver está documentada na
+[ADR 0013](./docs/adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
+
+## 3. Estrutura do repositório
+
+```text
 src/
-  App.tsx              # Rotas + lazy loading de todas as páginas
-  main.tsx             # Bootstrap: QueryClient, providers, ErrorBoundary
-  index.css            # Tailwind v4 + design tokens (variáveis CSS de tema)
-
-  pages/               # Uma página por rota (export nomeado, sem default)
+  App.tsx                 mapa de rotas
+  main.tsx                providers globais e telemetria
+  pages/                  composição de telas
+  hooks/                  queries e mutations reutilizáveis
+  services/               Supabase, parsers, imports e domínio
   components/
-    ui/                # Primitivos: Button, Input, Modal, Badge, Card, Toast,
-                       #   ConfirmDialog, Combobox, Skeleton
-    layout/            # AppLayout, ProtectedRoute, PortalProtectedRoute
-    shared/            # Componentes de domínio entre páginas (modais de import)
-    billing/           # Documentos de fatura (taxas locais) + ValidacaoTab
-    demurrage/         # Documento de fatura (demurrage)
-    lineup/            # Tabela de line-up
-  hooks/               # use* — React Query + lógica de domínio
-  services/            # Acesso ao Supabase + parsers de arquivo
-    charges/           # Sub-módulo de taxas locais (rate/operations/table/recon)
-    demurrage/         # Sub-módulo de demurrage (containers/invoices/rates/kpis)
-    __tests__/         # Testes unitários + fixtures
-  lib/                 # Utilitários sem UI: pix, containerCounts, utils, fileGuard
-  config/              # Constantes (company.ts)
-  types/               # database.ts (GERADO — não editar) + tipos de domínio
-  integration/         # Testes de integração opt-in (Supabase real)
+    ui/                   primitivas visuais
+    layout/               shells e guards
+    shared/               componentes entre módulos
+    billing/              faturamento
+    demurrage/            demurrage
+  lib/                    utilitários puros
+  types/database.ts       tipos gerados e complementos
 
 supabase/
-  migrations/          # 90+ migrations sequenciais (schema + RLS + RPCs)
-  functions/           # Edge Functions (Deno)
-  scripts/             # reset_operational_data.sql
-  seeds/               # validation_seed.sql
-  config.toml          # Config do Supabase CLI
+  migrations/             história do schema
+  functions/              Edge Functions
+  scripts/                scripts operacionais
+  seeds/                  dados de validação
 
 public/
-  templates/           # Modelos de importação (csv/xlsx) servidos ao usuário
-  branding/            # Logos
+  templates/              modelos baixados pelo usuário
+  branding/               imagens públicas
 
-docs/                  # ARCHITECTURE, ROADMAP, VALIDACAO, RESET_AMBIENTE
-.github/workflows/     # firebase-deploy.yml, auto-merge-prs.yml
+docs/
+  README.md               mapa documental
+  ARCHITECTURE.md         arquitetura atual
+  ROADMAP.md              baseline, evolução e riscos
+  VALIDACAO.md            roteiros de prova
+  RESET_AMBIENTE.md       status do reset
+  adr/                    decisões arquiteturais
 ```
 
----
+Para obter contagens atuais, derive-as do repositório. Exemplo:
 
-## 4. Módulos e responsabilidades
-
-### Operação
-| Rota | Página | Responsabilidade |
-|---|---|---|
-| `/painel` | Painel | Dashboard com contadores operacionais |
-| `/viagens` | Viagens | CRUD de viagens, agendas POL/POD/export, stats |
-| `/baplie` | Baplie | Import de baplie EDI (staging + conciliação) |
-| `/manifestos` · `/manifestos/:blId` | Manifestos · BlDetalhe | Import CNTR; detalhe/edição de B/L |
-| `/carga-solta` | CargaSolta | Import de manifesto break-bulk (BB) |
-| `/containers` | Containers | Listagem/exportação de containers |
-| `/veiculos` | Veiculos | Listagem de veículos (RoRo) |
-| `/vazios-importacao` | VaziosImportacao | Containers vazios de importação |
-| `/embarquevazios` | EmbarqueVazios | Bookings de embarque de vazios |
-| `/revisao` | Revisao | Fila de revisão manual de B/Ls |
-| `/granito` · `/granito/taxas` | Granite · GraniteRates | Import COSCO + tarifas de granito |
-
-### Financeiro / Comercial
-| Rota | Página | Responsabilidade |
-|---|---|---|
-| `/clientes` · `/clientes/:cnpj` | Clientes · ClienteFicha | CRUD + ficha + provisão de portal |
-| `/taxas-locais` | TaxasLocais | Tabelas de taxas + overrides por cliente |
-| `/faturamento` | Faturamento | Emissão/gestão de invoices + ledger |
-| `/demurrage` · `/demurrage/taxas` | Demurrage · DemurrageRates | Cálculo/invoices + tarifas |
-| `/reconciliacao` | Reconciliacao | Conciliação PIX (unificada) |
-| `/relatorios` | Relatorios | Exportações consolidadas |
-
-### Suporte / Admin / Portal
-| Rota | Página | Responsabilidade |
-|---|---|---|
-| `/alertas` | Alertas | Alertas operacionais e financeiros |
-| `/line-up-tv` · `/line-up-tv/display` | LineUpTV · LineUpTVDisplay | Painel para TV |
-| `/admin/usuarios` | AdminUsuarios | Gestão de usuários internos (admin) |
-| `/portal/login` · `/portal/billing` | PortalLogin · PortalBilling | Portal do cliente |
-
----
-
-## 5. Banco de dados e relacionamentos
-
-~50 tabelas. Núcleo do modelo:
-
-```
-carriers ──< vessels ──< voyages ──< bls ──< bl_containers
-                                       │        └──< vehicles (FK bl_id, bl_container_id)
-                                       ├──< bl_breakbulk_items
-                                       ├──< charge_calculations ──> charge_tables ──< charge_table_items
-                                       └──< invoice_bls / invoice_receivable_links ──> invoices ──< payments
-customers ──< customer_contacts
-          ──< customer_portal_accounts ──< customer_portal_sessions
-          ──< customer_rate_overrides
-          ──< customer_reconciliation_queue
-
-# Granito (paralelo, parser COSCO):
-granite_manifests ──< granite_bls ──< granite_bl_charges ; granite_rates
-invoices ──< invoice_granite_bls
-
-# Demurrage (sobre containers):
-demurrage_rates ; demurrage_invoices ──< demurrage_invoice_items
-
-# Vazios:
-vazios_manifests / vazios_bookings (export)
-vazios_importacao_manifests ──< vazios_importacao_containers (import)
-baplie_containers (staging EDI)
-
-# Faturamento consolidado / ledger:
-bl_receivables ──< invoice_receivable_links ; ledger_settlements ;
-invoice_counters ; invoice_lifecycle_events ; billing_runs ──< billing_run_logs
-
-# Suporte:
-user_profiles (role: administrativo|financeiro|operacoes|documentacao)
-audit_logs ; alerts ; ports ; import_batches ──< import_errors
-portal_login_attempts ; provision_rate_limit_log ; pricing_rule_versions
+```powershell
+(Get-ChildItem supabase/migrations -File -Filter *.sql).Count
 ```
 
-**Conceitos-chave:**
-- **B/L unificado** vive em duas tabelas: `bls` (`cargo_mode='container'|
-  'carga_solta'`) e `granite_bls`. Revisão, Taxas Locais, Faturamento e PIX
-  tratam ambas no mesmo fluxo.
-- **Invoices** cobrem Container, Break-bulk e Granito (tabela `invoices`);
-  Demurrage tem tabela própria (`demurrage_invoices`). O Faturamento e o Portal
-  agregam ambas.
-- **RLS** ativa em todas as tabelas. Helpers: `is_admin()`, `is_active_user()`,
-  `current_user_role()`. Tabelas financeiras: leitura por usuário ativo,
-  escrita restrita a admin (ver migrations 014, 042, 053).
+## 4. Preparação local
 
----
+### Dependências
 
-## 6. APIs e integrações
-
-### Internas (Supabase RPCs — ~70 funções `SECURITY DEFINER`)
-Exemplos críticos:
-- `import_manifest_transactional` — import atômico de manifesto.
-- `create_invoice_from_bls` / `create_local_consolidated_invoice` /
-  `create_invoice_from_granite_bls` — emissão de faturas.
-- `assign_invoice_number` — numeração sequencial (`invoice_counters`).
-- `build_transshipping_pix_payload`, `pix_crc`, `pix_tlv` — geração PIX no banco.
-- `portal_login`, `portal_list_invoices`, `portal_get_session_overview` — portal.
-- `check_provision_rate_limit` — rate limit persistido para provisão de portal.
-- `mark_overdue_invoices` / `detect_overdue_invoices` — enforcement de atraso.
-
-### Edge Functions (Deno)
-- **`provision-portal-user`** — cria/atualiza usuário Supabase Auth do portal.
-  Exige caller admin ativo; rate-limited (20/h via RPC); CORS restrito a `APP_URL`.
-- **`notify-invoice-issued`** — disparada por Database Webhook quando
-  `invoices.status → 'issued'`. Autenticação por bearer service-role
-  (comparação *timing-safe*); re-busca a fatura do banco; HTML escapado; envia
-  email via Resend.
-
-### Integrações externas
-| Serviço | Uso | Onde |
-|---|---|---|
-| **Resend** | Email de fatura emitida | Edge Function `notify-invoice-issued` |
-| **Banco Central (olinda.bcb.gov.br)** | Cotação ROE (taxa de câmbio) | `useExchangeRates` |
-| **PIX** | Payload de pagamento (`src/lib/pix.ts` + RPC no banco) | Faturas |
-| **Firebase Hosting** | Hospedagem da SPA | CI/CD |
-
----
-
-## 7. Fluxos detalhados do sistema
-
-### Fluxo operacional típico (usuário interno)
-```
-1. Cadastrar viagem (/viagens)
-2. Importar dados da carga:
-   • Manifesto CNTR (/manifestos) ou BB (/carga-solta)
-   • Baplie EDI (/baplie) → concilia com manifesto + alimenta vazios import
-   • Granito: planilha COSCO (/granito)
-   • Veículos: planilha própria (/veiculos)
-   • Vazios: chegadas (/vazios-importacao) e bookings (/embarquevazios)
-3. Revisar pendências de B/L (/revisao) → aprovar
-4. Calcular taxas locais (/taxas-locais) → marcar pronto p/ faturar
-5. Emitir invoices (/faturamento) e/ou demurrage (/demurrage)
-6. Registrar pagamentos e conciliar PIX (/reconciliacao)
-7. (automático) Webhook dispara email ao cliente
-8. Cliente consulta o portal (/portal/billing)
-```
-
-### Fluxo administrativo
-- **Gestão de usuários** (`/admin/usuarios`, role admin): cria perfil em
-  `user_profiles` com `role` e `active`.
-- **Provisão de acesso ao portal** (`ClienteFicha` → Edge Function): admin
-  gera credenciais Supabase Auth para o cliente.
-
-### Jobs / processos automatizados
-- **Overdue enforcement**: `mark_overdue_invoices` / `detect_overdue_invoices`
-  (migrations 024, 031) marcam faturas vencidas e bloqueiam novas emissões para
-  clientes inadimplentes (`fn_block_invoice_overdue_customer`).
-- **Snapshot de agenda de viagem**: trigger `voyage_schedule_snapshot` (046, 052).
-
-### Webhooks
-- **Database Webhook** `invoices UPDATE (status → issued)` →
-  `notify-invoice-issued` → email Resend.
-
-### Autenticação (duas fronteiras)
-- **Interna** (`useAuth`): Supabase Auth + perfil em `user_profiles`; timeout de
-  inatividade de 8h; role → permissões via `roleHasPermission`.
-- **Portal** (`usePortalAuth`): Supabase Auth (preferencial) + fallback de token
-  legacy em `sessionStorage`; rate limit `portal_login` (10/15min por CNPJ).
-
----
-
-## 8. Como executar localmente
-
-```bash
-# 1. Dependências (o repo usa peer deps que exigem --legacy-peer-deps)
+```powershell
 npm ci --legacy-peer-deps
-
-# 2. Variáveis de ambiente
-cp .env.example .env
-# Preencher:
-#   VITE_SUPABASE_URL=https://<projeto>.supabase.co
-#   VITE_SUPABASE_ANON_KEY=<anon key>
-
-# 3. Banco: aplicar TODAS as migrations em ordem no SQL Editor do Supabase
-#    supabase/migrations/001_*.sql  →  (timestamp mais recente)
-
-# 4. Provisionar um usuário interno (após criá-lo no Supabase Auth):
-#    INSERT INTO public.user_profiles (id, role, active)
-#    VALUES ('<auth-user-uuid>', 'administrativo', true);
-
-# 5. Rodar
-npm run dev          # http://localhost:5173
 ```
 
-Sem `VITE_SUPABASE_*` a aplicação loga erro e o cliente Supabase fica vazio.
+Use `npm ci` para reproduzir o lockfile. Alterações intencionais de dependência
+devem atualizar `package.json` e `package-lock.json` juntas.
 
----
+### Ambiente
 
-## 9. Como testar
-
-```bash
-npm test                    # Vitest (unitários) — rápido, sem rede
-npm run test:integration    # Integração contra Supabase REAL (opt-in)
-npm run lint                # ESLint (flat config)
-npm run build               # tsc -b + vite build (verificação de tipos + bundle)
+```powershell
+Copy-Item .env.example .env
 ```
 
-- **Unitários** ficam em `src/**/__tests__/*.test.ts` e `src/pages/__tests__/`.
-  Cobrem parsers de import, taxas locais, reconciliação, reports, migrations de
-  ledger e os componentes de fatura.
-- **Integração** (`src/integration/supabase.integration.test.ts`) só roda com
-  `SUPABASE_RUN_INTEGRATION=1` e credenciais extras no `.env`. **Nunca** rodar em
-  CI sem ambiente isolado.
+Variáveis obrigatórias para o app:
 
-**Critério de "verde" antes de PR:** `npm run build` + `npm test` sem erros;
-`npm run lint` sem novos warnings.
-
----
-
-## 10. Como realizar deploy
-
-Totalmente automatizado via **GitHub Actions** → **Firebase Hosting** (projeto
-`importmanager-bda3e`, target `transhippingdesk`). Nenhum push manual.
-
-- **`auto-merge-prs.yml`** (padrão): todo PR aberto/reaberto é mergeado (squash)
-  via API, faz `npm ci --legacy-peer-deps` + `npm run build` (injeta
-  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_APP_COMMIT_SHA`) e
-  publica no Firebase.
-- **`firebase-deploy.yml`**: cobre push direto em `main` (hotfix).
-- **Manual** (emergência): `npm run build && npx firebase-tools deploy --only hosting`.
-
-**Secrets do repositório:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
-`FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E`.
-
-**Migrations** NÃO são aplicadas pelo CI — aplicar manualmente no Supabase antes
-de fazer deploy de código que dependa delas.
-
----
-
-## 11. Como adicionar funcionalidades
-
-### Nova página + rota
-1. Criar `src/pages/MinhaPagina.tsx` com **export nomeado**
-   (`export function MinhaPagina() {}`) — sem default export.
-2. Registrar em `src/App.tsx`: `const MinhaPagina = lazyPage(() =>
-   import('./pages/MinhaPagina'), 'MinhaPagina')` e adicionar a `<Route>` dentro
-   do guard apropriado (`ProtectedRoute`, `ProtectedRoute adminOnly`, ou
-   `PortalProtectedRoute`).
-3. Adicionar item de navegação no `AppLayout` se aplicável.
-
-### Novo acesso a dados (padrão service + hook)
-1. **Service** (`src/services/xxx.ts`): função pura que importa `supabase`,
-   executa a query e **lança** em erro (`if (error) throw error`). Escapar
-   qualquer input de usuário em `.or()/.ilike()` com `escapeFilterTerm`
-   (`src/lib/utils.ts`).
-2. **Hook** (`src/hooks/useXxx.ts`): `useQuery`/`useMutation`, chave de cache
-   vinda de `src/services/queryKeys.ts`, e `invalidateQueries` das chaves
-   dependentes nas mutations.
-3. Consumir o hook na página.
-
-### Novo parser de importação
-Seguir o playbook em `.claude/skills/import-parser.skill`. Adicionar fixtures de
-regressão em `src/services/__tests__/`. Validar tamanho de upload com
-`assertUploadSize` (`src/lib/fileGuard.ts`).
-
-### Mudança de schema (migration)
-Seguir `.claude/skills/supabase-migration.skill`: nome com timestamp, RLS-first,
-nota de rollback. **Não** editar `src/types/database.ts` à mão — regenerar via
-Supabase CLI. **Nunca** afrouxar RLS sem revisão de segurança.
-
-### Novo documento de fatura (PDF)
-Seguir `.claude/skills/invoice-pdf.skill` para manter layout/fontes/dados
-fiscais/bloco PIX consistentes. `jspdf` deve ser importado dinamicamente.
-
----
-
-## 12. Como criar componentes, rotas e integrações
-
-- **Componentes UI** (`src/components/ui/`): apenas apresentação, sem lógica de
-  domínio. Reutilizar `Button`, `Input/Field`, `Modal`, `Badge`, `Card`,
-  `Toast`, `ConfirmDialog`, `Combobox`, `Skeleton`. Estilo via classes Tailwind
-  + tokens CSS (`--app-border`, `--app-surface`, etc.) de `src/index.css`.
-- **Componentes de domínio compartilhados**: `src/components/shared/`.
-- **Rotas**: ver §11. Lembrar do guard correto; rotas internas dependem de RLS
-  para autorização real (o roteamento só força `adminOnly`).
-- **Integrações externas**: domínios precisam estar na **CSP** do
-  `firebase.json` (`connect-src`). Hoje liberados: `*.supabase.co`,
-  `olinda.bcb.gov.br`, `api.resend.com`. Segredos de servidor ficam **apenas**
-  em Edge Functions (env vars), nunca no bundle do cliente.
-
----
-
-## 13. Boas práticas do projeto
-
-- **Pense antes de codar**: declarar premissas, expor tradeoffs, perguntar
-  quando ambíguo (ver `CLAUDE.md`).
-- **Simplicidade e mudanças cirúrgicas**: tocar só o necessário; não refatorar o
-  que não está quebrado; manter o estilo existente.
-- **Segurança no banco**: a checagem no cliente é UX; a fronteira é RLS + RPC.
-  Escapar todo input de usuário em filtros PostgREST.
-- **Erros em services**: lançar (`throw`), não silenciar. Mutations exibem erro
-  via `Toast`.
-- **Cache**: chaves centralizadas em `queryKeys.ts`; invalidar com precisão.
-- **Bundle**: páginas lazy; libs pesadas (`xlsx`, `jspdf`) com `await import()`.
-- **Exportações de planilha**: usar o sanitizador de `exports.ts` (neutraliza
-  injeção de fórmula em dados importados não confiáveis).
-- **Tipos gerados**: `src/types/database.ts` é gerado — não editar à mão.
-
----
-
-## 14. Riscos conhecidos e melhorias futuras
-
-Estado operacional e backlog em `docs/ROADMAP.md`; fluxo canônico em `docs/ARCHITECTURE.md`.
-
-**Riscos conhecidos**
-- Parser de manifesto sensível a novos layouts de armador (mitigado por fixtures
-  de regressão).
-- Cobertura de testes ainda parcial em fluxos end-to-end de faturamento, portal e autenticação.
-- Dependência `xlsx` (SheetJS) com vulnerabilidade conhecida sem correção no
-  registro npm — usar entrada não confiável apenas em parsing controlado.
-- Algumas escritas best-effort (alertas, eventos operacionais, PIX payload)
-  logam e seguem em vez de falhar — por design, mas pode mascarar falhas.
-
-**Melhorias futuras**
-- Continuar a decomposição das páginas grandes em componentes menores e testáveis.
-- Adicionar testes end-to-end para billing, demurrage, autenticação e portal.
-- Camadas adicionais de autenticação forte no portal (ver ROADMAP).
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-publica
 ```
+
+As variáveis `SUPABASE_*` adicionais são usadas pela suíte de integração. Não
+coloque service role no bundle Vite.
+
+### Execução
+
+```powershell
+npm run dev
+```
+
+O Vite usa a porta padrão local. O proxy `/sb-proxy` existe apenas para a
+auditoria de design com Supabase local.
+
+## 5. Migrations Supabase
+
+O diretório mistura:
+
+- migrations históricas com prefixos sequenciais;
+- migrations atuais com timestamp UTC.
+
+Não renomeie arquivos já aplicados para “organizar” a pasta. O nome participa do
+histórico remoto.
+
+### Antes de criar
+
+1. declare o problema de negócio;
+2. identifique todas as tabelas, funções e policies afetadas;
+3. leia as migrations recentes e o schema real;
+4. confira os ADRs de segurança e domínio relevantes;
+5. defina rollback ou reversão operacional.
+
+Use o playbook `.claude/skills/supabase-migration.skill`.
+
+### Nome de arquivo novo
+
+```text
+YYYYMMDDHHMMSS_descricao_curta.sql
+```
+
+Use timestamp UTC para evitar colisões entre branches.
+
+### Segurança
+
+- tabelas novas precisam de RLS ou revogação explícita para uso servidor;
+- funções `SECURITY DEFINER` precisam de `search_path` controlado;
+- revogue `PUBLIC` e `anon` no mesmo arquivo por padrão;
+- grants pré-autenticação para `anon` exigem decisão explícita, controles contra
+  abuso e teste focado;
+- trigger functions não precisam ser executáveis diretamente por clientes.
+
+### Tipos
+
+Regere `src/types/database.ts` quando o contrato usado pelo app mudar. Não edite
+tipos gerados manualmente para esconder drift.
+
+### Aplicação
+
+O CI da SPA não aplica migrations. Antes de publicar frontend dependente:
+
+1. compare `supabase/migrations/` com o histórico do ambiente;
+2. aplique todas as pendentes por fluxo controlado;
+3. verifique advisors e contrato;
+4. só então publique o código dependente.
+
+Nunca execute um reset amplo para “testar” uma migration. O reset operacional
+atual está suspenso em [`docs/RESET_AMBIENTE.md`](./docs/RESET_AMBIENTE.md).
+
+## 6. Acesso a dados e React Query
+
+### Serviços
+
+Serviços em `src/services/` são os donos preferenciais de:
+
+- chamadas Supabase reutilizáveis;
+- regras de domínio;
+- parsing e importação;
+- exportações;
+- normalização de respostas;
+- erros de operação.
+
+Uma função de serviço deve retornar dados úteis ou lançar o erro. Não transforme
+falha real em sucesso vazio.
+
+### Hooks
+
+Hooks em `src/hooks/` são preferidos quando há:
+
+- estado remoto reutilizado;
+- loading/error/refetch compartilhado;
+- cache;
+- mutation com invalidação;
+- consumo por mais de uma tela ou componente.
+
+Use chaves de `src/services/queryKeys.ts` quando já existir uma família para o
+domínio. Confira a forma exata do prefixo: acrescentar `undefined` pode impedir
+uma invalidação por prefixo.
+
+### Chamadas diretas por páginas
+
+O código atual também chama serviços diretamente em páginas para comandos
+pontuais, como importação, exportação, impressão e ações de baixa frequência.
+Isso é aceitável quando corresponde ao padrão local e não duplica estado remoto.
+
+Não crie uma chamada Supabase direta numa página se um serviço ou hook já é o
+dono daquela operação.
+
+### Supabase direto
+
+Há fluxos legados que importam `supabase` diretamente. Ao tocar neles:
+
+1. preserve a mudança cirúrgica;
+2. extraia serviço/hook apenas quando isso reduzir duplicação ou permitir teste;
+3. não faça uma migração arquitetural ampla sem plano próprio.
+
+## 7. Importações e planilhas
+
+Use `.claude/skills/import-parser.skill`.
+
+Regras mínimas:
+
+1. inspecionar arquivo real;
+2. validar tamanho com `assertUploadSize` antes de `arrayBuffer()` ou parsing;
+3. importar planilhas por `await import('@e965/xlsx')` quando possível;
+4. manter parser puro separado da persistência;
+5. adicionar fixture e teste de regressão;
+6. usar RPC quando múltiplas escritas precisarem ser atômicas;
+7. exibir preview e resumo de erros antes da confirmação;
+8. validar duplicidade ou idempotência.
+
+Parsers existentes são referências, não contratos universais:
+
+- `manifestParser.ts` e `manifestImport.ts`: manifesto CNTR;
+- `breakbulkImport.ts`: carga solta;
+- `baplieParser.ts` e `baplieImport.ts`: EDI e staging;
+- `vehicleImport.ts`: veículos;
+- `ceMercanteImport.ts`: CE;
+- `containerDatesImport.ts`: datas;
+- `customerBase.ts`: clientes.
+
+## 8. Rotas e páginas
+
+`src/App.tsx` é a fonte executável das rotas.
+
+### Nova rota
+
+1. crie uma página com export nomeado;
+2. carregue-a por `lazyPage`;
+3. coloque-a sob o guard apropriado;
+4. adicione navegação, se aplicável;
+5. atualize `docs/ARCHITECTURE.md`;
+6. execute `npm run docs:check`.
+
+Rotas do Portal ficam sob `PortalProtectedRoute` e `PortalLayout`. Rotas internas
+ficam sob `ProtectedRoute` e `AppLayout`. Administração de usuários usa
+`adminOnly`.
+
+## 9. Componentes e interface
+
+- reutilize componentes de `src/components/ui/`;
+- use tokens CSS de `src/index.css`;
+- mantenha lógica de domínio fora de primitivas visuais;
+- preserve estados de loading, vazio, erro e feedback de mutation;
+- ícones sem texto precisam de nome acessível;
+- ações destrutivas precisam de confirmação e proteção no banco.
+
+As páginas grandes devem ser decompostas somente quando a mudança em curso
+ganhar clareza ou testabilidade. Não refatore uma tela inteira como efeito
+colateral de uma correção pequena.
+
+## 10. Invoices e impressão
+
+O sistema usa documentos React preparados para impressão:
+
+- `src/components/billing/InvoiceDocumentLocal.tsx`;
+- `src/components/demurrage/InvoiceDocument.tsx`;
+- `src/components/shared/InvoiceDocumentKit.tsx`;
+- `src/components/shared/invoiceFormat.ts`;
+- regras `@media print` em `src/index.css`.
+
+A ação chama `window.print()`. O usuário escolhe impressora ou “Salvar como PDF”
+no navegador.
+
+Não adicione biblioteca de PDF sem requisito explícito que o diálogo de
+impressão não consiga atender. Use o playbook
+`.claude/skills/invoice-pdf.skill`.
+
+## 11. Testes e validação
+
+### Gate local
+
+```powershell
+npm run docs:check
+npm run lint
+npm test
+npm run build
+```
+
+Execute também o teste focado durante o ciclo red-green.
+
+### Testes de integração
+
+```powershell
+$env:SUPABASE_RUN_INTEGRATION = '1'
+npm run test:integration
+```
+
+Exigem Supabase real e dados controlados. Não aponte a suíte destrutiva para
+produção.
+
+### Validação manual
+
+Auth, RLS, RPCs, Edge Functions, email, impressão, PIX e fluxos completos
+dependem de ambiente real ou equivalente. Registre ambiente, usuário, dados,
+resultado e evidência conforme [`docs/VALIDACAO.md`](./docs/VALIDACAO.md).
+
+## 12. CI, merge e deploy
+
+### Pull request
+
+`.github/workflows/ci.yml` executa:
+
+1. instalação reproduzível;
+2. verificação documental;
+3. lint;
+4. build;
+5. testes.
+
+### Merge e deploy automático
+
+Quando o workflow `CI` termina com sucesso para um pull request,
+`auto-merge-prs.yml`:
+
+1. confirma que o PR continua aberto e no mesmo SHA;
+2. executa squash merge;
+3. faz checkout do SHA final;
+4. gera novo build com `VITE_APP_COMMIT_SHA`;
+5. publica no Firebase Hosting.
+
+O build/deploy permanece nesse workflow porque merges feitos pelo
+`GITHUB_TOKEN` não disparam necessariamente outro workflow de push.
+
+### Push direto
+
+`firebase-deploy.yml` cobre pushes diretos à branch `main`.
+
+### Edge Functions e banco
+
+O deploy Firebase não publica Edge Functions nem aplica migrations. Coordene
+essas etapas antes do frontend que depende delas.
+
+## 13. Telemetria e falhas
+
+`src/lib/telemetry.ts` inicializa Sentry somente em produção e associa o release
+ao commit injetado no build.
+
+- falhas principais devem chegar à UI e interromper a operação insegura;
+- escritas best-effort podem seguir, mas precisam chamar a telemetria;
+- não envie segredos ou PII em contexto de erro;
+- mensagens ao usuário devem distinguir regra de negócio de indisponibilidade.
+
+## 14. Checklist de mudança
+
+Antes de concluir:
+
+- a mudança é mínima e rastreável ao pedido;
+- regras de domínio usam termos do `CONTEXT.md`;
+- decisões novas ou supersessões foram registradas;
+- rotas, comandos, auth, migrations e procedimentos atualizaram os documentos
+  vivos;
+- testes focados passaram;
+- `npm run docs:check`, lint, testes e build passaram quando aplicáveis;
+- `git diff --check` não aponta whitespace;
+- snapshots históricos não foram reescritos como se descrevessem o presente.
