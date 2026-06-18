@@ -1,41 +1,41 @@
-# Roadmap do Sistema
+# Roadmap
 
-Atualizado em 2026-06-01.
+> **Atualizado:** 2026-06-18. Estado atual, em evolução, backlog e riscos ativos.
 
-## Em producao
+## Em produção
 
-- Operacao completa com viagens, Baplie EDI, manifestos CNTR e BB, containers, veiculos e revisao manual.
-- Modulo Granito em producao (`/granito`, `/granito/taxas`) com importacao COSCO, calculo dedicado e faturamento integrado.
-- Modulos de Vazios em producao:
-  - Vazios Importacao (`/vazios-importacao`), alimentado por Baplie EDI ou planilha avulsa.
-  - Vazios Exportacao (`/embarquevazios`, com redirecionamento de `/vazios`).
-- Taxas Locais, Faturamento, Demurrage e Conciliacao PIX em operacao.
-- Ledger de faturamento local ativo para B/Ls, invoices individuais e invoices consolidadas.
-- Portal do cliente (`/portal/login`, `/portal/billing`) em producao com visao de saldos locais via ledger.
-- Alertas, Relatorios, Line Up TV e Admin de usuarios ativos.
+- Operação completa: viagens (master-detail), Baplie EDI, manifestos CNTR e break-bulk, containers, veículos e revisão manual.
+- **Chegadas/Saídas** (`/chegadas-saidas`): schedule de navios por porto (`vessel_schedules`).
+- Módulo **Granito** (`/granito`, `/granito/taxas`): import COSCO, cálculo dedicado e faturamento integrado.
+- **Vazios**: importação (`/vazios-importacao`, via Baplie ou planilha) e exportação (`/embarquevazios`).
+- **Financeiro**: Taxas Locais, Faturamento (ledger local, invoices individuais e consolidadas), Demurrage e Conciliação PIX.
+- **Portal do Cliente** expandido: dashboard, billing, operação, perfil, login por CNPJ ou email, recuperação de senha, disputas de demurrage, notificações in-app, reconsolidação self-service e gate por CE Mercante.
+- Suporte: Alertas, Relatórios, Line-Up TV e Admin de usuários.
 
-## Em evolucao
+## Em evolução
 
-- Parser de manifestos: novos layouts de armador exigem ajustes iterativos.
-- Reconciliacao de cliente: UX ainda pode melhorar para selecao manual em casos ambiguos.
-- Cobertura automatizada: ampliar testes de fluxos end-to-end de faturamento, portal e autenticacao.
-- UX operacional: melhorias de densidade de dados, feedbacks de loading e refinamentos de tabela.
-- Decomposicao gradual das paginas ainda grandes (`BlDetalhe`, `Viagens`, `TaxasLocais`, `Faturamento`, `Revisao`) precedida por testes.
+- **Parser de manifestos:** novos layouts de armador exigem ajustes iterativos (mitigado por fixtures de regressão).
+- **Reconciliação de cliente:** UX para seleção manual em casos ambíguos.
+- **Cobertura automatizada:** ampliar testes end-to-end de faturamento, portal e autenticação.
+- **UX operacional:** densidade de dados, feedbacks de loading, refinamentos de tabela.
+- **Decomposição de páginas grandes** ainda pendentes (`BlDetalhe`, `TaxasLocais`, `Faturamento`, `Revisao`), precedida por testes. *(A página `Viagens` já foi refatorada para master-detail — ADR 0012.)*
 
 ## Backlog
 
-- Formalizar entidade de trecho de viagem (hoje implicita nos B/Ls e agendas).
-- Notificacoes em tempo real para eventos operacionais prioritarios.
-- Relatorio consolidado de viagem com visao unica CNTR + BB + Granito + Vazios.
-- Evolucao de seguranca do portal com camadas adicionais de autenticacao forte.
-- Migrar `xlsx` para distribuicao corrigida da SheetJS quando houver PR dedicado com validacao dos parsers.
+- Formalizar entidade de **trecho de viagem** (hoje implícita nos B/Ls e agendas).
+- Notificações em tempo real para eventos operacionais prioritários.
+- Relatório consolidado de viagem com visão única CNTR + BB + Granito + Vazios.
+- Camadas adicionais de autenticação forte no portal.
+- Migrar `xlsx` para distribuição corrigida da SheetJS quando houver PR dedicado com validação dos parsers.
 
 ## Riscos monitorados (ativos)
 
-| Risco | Impacto | Mitigacao |
-|-------|---------|-----------|
-| Parser incompativel com layout novo de armador | Medio | Parser isolado + fixtures de regressao por layout |
-| Cobertura automatizada parcial em fluxos criticos | Medio | Suite de integracao com Supabase real + roteiro de validacao operacional |
-| Reconciliacao ambigua de cliente | Medio | Bloqueio de faturamento enquanto nao houver reconciliacao segura |
-| Dependencia de revisao humana para excecoes operacionais | Medio | Fila de revisao com auditoria e trilha de decisao |
-| `xlsx` vulneravel sem correcao no npm | Medio | Mantido temporariamente porque `npm audit --omit=dev` informa `No fix available`; mitigado por limite de 10 MB antes de `XLSX.read` e acesso restrito a usuarios internos autenticados; substituir quando houver versao corrigida ou biblioteca alternativa validada para todos os parsers |
+| Risco | Impacto | Mitigação |
+|---|---|---|
+| Parser incompatível com layout novo de armador | Médio | Parser isolado + fixtures de regressão por layout |
+| Cobertura automatizada parcial em fluxos críticos | Médio | Suíte de integração com Supabase real + [roteiro de validação](operations/validacao.md) |
+| Reconciliação ambígua de cliente | Médio | Bloqueio de faturamento enquanto não houver reconciliação segura |
+| Dependência de revisão humana para exceções | Médio | Fila de revisão com auditoria e trilha de decisão |
+| `xlsx` vulnerável sem correção no npm | Médio | Limite de 10 MB antes de `XLSX.read` + acesso restrito a usuários autenticados; substituir quando houver versão corrigida |
+
+Decisões já tomadas estão em [adr/](adr/); entregas relevantes em [CHANGELOG.md](CHANGELOG.md).

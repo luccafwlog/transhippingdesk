@@ -1,6 +1,6 @@
-# CONTEXT.md
+# Glossário de Domínio
 
-Glossário de domínio do Transhipping Desk. Apenas definições — sem implementação.
+Definições dos termos do Transhipping Desk — apenas conceitos, sem implementação. Para arquitetura ver [ARCHITECTURE.md](ARCHITECTURE.md); para regras ver [operations/regras-de-negocio.md](operations/regras-de-negocio.md).
 
 ---
 
@@ -77,4 +77,28 @@ Alerta visual exibido no ícone de sino no cabeçalho do Portal do Cliente. Gera
 
 **Dashboard do Portal**
 Página inicial do portal (`/portal`) com resumo financeiro (saldo pendente, faturas em aberto), indicadores operacionais (B/Ls, containers, demurrage) e alertas visuais.
+
+**Demurrage**
+Cobrança pela retenção de um container além do *free time* acordado. Calculado sobre containers (não sobre B/L), com tabela de tarifas e faixas de dias próprias. Persistência separada das taxas locais.
+
+**Free time**
+Período livre de demurrage concedido a partir da descarga/disponibilização do container, antes de a cobrança começar a contar.
+
+**Taxas Locais (Local Charges)**
+Cobranças operacionais por B/L (não demurrage): tabelas de tarifas por POD/modal de carga, com possibilidade de override por cliente.
+
+**Ledger Local**
+Livro-razão de taxas locais que mantém o saldo a receber por B/L (`bl_receivables`) e as baixas (`ledger_settlements`), ligando invoices individuais e consolidadas aos receivables. Fonte de verdade do saldo local.
+
+**Invoice Consolidada**
+Documento único que agrupa múltiplos receivables/B/Ls em aberto de um mesmo cliente. Distinta da invoice individual, que cobre um B/L.
+
+**ROE (Rate of Exchange) / PTAX**
+Cotação de câmbio usada para converter cobranças em moeda estrangeira para BRL. Obtida do Banco Central (olinda) e, no caso de demurrage, congelada na emissão da invoice.
+
+**TXID**
+Identificador único de uma transação PIX, usado como chave de conciliação entre o extrato recebido e a invoice paga.
+
+**Conta de Escala encerrada (`ended_vessels`)**
+Registro de navios/viagens cujo ciclo operacional foi encerrado, usado em telas de schedule/line-up.
 
