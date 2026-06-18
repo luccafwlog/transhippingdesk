@@ -1,0 +1,84 @@
+# Desenvolvimento local
+
+> Como rodar o Transhipping Desk na sua máquina. Para deploy ver [deploy.md](deploy.md); para testes ver [testing.md](testing.md).
+
+## Pré-requisitos
+
+- **Node.js 20+**
+- Projeto **Supabase** com as migrations aplicadas (ver abaixo)
+
+## 1. Dependências
+
+O repositório usa peer deps que exigem `--legacy-peer-deps`:
+
+```bash
+npm ci --legacy-peer-deps
+```
+
+## 2. Variáveis de ambiente
+
+```bash
+cp .env.example .env
+```
+
+Preencha no `.env` (mínimo para o app subir):
+
+```env
+VITE_SUPABASE_URL=https://<projeto>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key>
+```
+
+Sem `VITE_SUPABASE_*` a aplicação loga erro e o cliente Supabase fica vazio. As demais variáveis (`SUPABASE_*`) são usadas apenas nos [testes de integração](testing.md).
+
+## 3. Banco de dados
+
+Aplique **todas** as migrations em ordem, no **SQL Editor** do Supabase:
+
+```
+supabase/migrations/001_*.sql  →  (timestamp mais recente)
+```
+
+> São **127 migrations** sequenciais (schema + RLS + RPCs). O CI **não** aplica migrations — ver [deploy.md](deploy.md). Para criar uma nova migration, siga a skill `.claude/skills/supabase-migration.skill`.
+
+## 4. Usuário interno
+
+No **Supabase Auth**, crie o usuário e insira o perfil:
+
+```sql
+INSERT INTO public.user_profiles (id, role, active)
+VALUES ('<auth-user-uuid>', 'administrativo', true);
+```
+
+Roles disponíveis: `administrativo` · `financeiro` · `operacoes` · `documentacao` (ver [Admin Usuários](../modules/operacao-suporte.md#admin-usuários) e [Segurança](../operations/seguranca.md)).
+
+## 5. Edge Functions (opcional no dev local)
+
+Variáveis necessárias nas Edge Functions do Supabase:
+
+| Variável | Descrição |
+|---|---|
+| `RESEND_API_KEY` | Chave Resend (envio de email de invoice) |
+| `FROM_EMAIL` | Remetente (ex: `Transhipping <noreply@…>`) |
+| `PORTAL_URL` | URL base do portal do cliente |
+| `APP_URL` | URL do app (restrição de CORS em `provision-portal-user`) |
+
+## 6. Rodar
+
+```bash
+npm run dev          # http://localhost:5173
+```
+
+## Scripts disponíveis
+
+```bash
+npm run dev          # servidor de desenvolvimento (Vite)
+npm run build        # build de produção (tsc -b + vite build)
+npm run lint         # ESLint (flat config)
+npm test             # testes unitários (Vitest)
+npm run test:integration  # testes de integração com Supabase real (opt-in)
+npm run sync         # git fetch + pull --ff-only
+```
+
+## Reset de dados de teste
+
+Para zerar dados operacionais entre rodadas, ver [operations/reset-ambiente.md](../operations/reset-ambiente.md).
