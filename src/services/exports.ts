@@ -1,5 +1,6 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import type { BLListItem, ContainerListItem, CustomerListItem, VaziosImportacaoContainerListItem } from '../types/database'
+import type { BaplieContainer } from '../types/database'
 import type { LocalChargeOperationalRow } from './charges/chargeOperationsService'
 import type {
   CustomerReportRow,
@@ -327,6 +328,31 @@ export async function exportVaziosImportacaoWorkbook(rows: VaziosImportacaoConta
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'VaziosImportacao')
   XLSX.writeFile(workbook, `vazios-importacao-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportBaplieWorkbook(rows: BaplieContainer[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    Container: row.container_number,
+    Status: row.status === 'empty' ? 'Vazio' : row.status === 'full' ? 'Cheio' : (row.status ?? ''),
+    Tipo: row.size_type ?? '',
+    POL: row.pol ?? '',
+    POD: row.pod ?? '',
+    Slot: row.slot ?? '',
+    'B/L ref': row.bl_ref ?? '',
+    'Destino final': row.final_dest ?? '',
+    Perfil: row.is_imo ? 'IMO' : row.is_oog ? 'OOG' : 'Padrao',
+    IMO: row.is_imo ? 'SIM' : 'NAO',
+    'Classe IMO': row.imo_class ?? '',
+    'UN Number': row.un_number ?? '',
+    OOG: row.is_oog ? 'SIM' : 'NAO',
+    'Peso (kg)': row.weight_kg ?? '',
+    'Importado em': row.imported_at ? formatDate(row.imported_at) : '',
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Baplie EDI')
+  XLSX.writeFile(workbook, `baplie-edi-${makeTimestamp()}.xlsx`)
 }
 
 // --- Portal do cliente ---------------------------------------------------

@@ -1,7 +1,8 @@
 import { useState, type ChangeEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Upload, Download } from 'lucide-react'
+import { exportBaplieWorkbook } from '../services/exports'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
@@ -36,6 +37,7 @@ export function Baplie() {
   const queryClient = useQueryClient()
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   // Limpa a confirmação ao trocar de viagem — ajuste durante o render.
   const [prevVoyageId, setPrevVoyageId] = useState(voyageId)
@@ -153,6 +155,18 @@ export function Baplie() {
     showToast('Manifesto de vazios existente mantido.', 'success')
   }
 
+  async function handleExport() {
+    if (!containers.length) return
+    setExporting(true)
+    try {
+      await exportBaplieWorkbook(containers)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao exportar Baplie EDI.', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -214,7 +228,11 @@ export function Baplie() {
 
           <ContainerList containers={containers} />
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" loading={exporting} onClick={handleExport}>
+              <Download size={16} />
+              Exportar Baplie EDI
+            </Button>
             <Button variant="secondary" onClick={() => setUploadOpen(true)}>
               <Upload size={16} />
               Reimportar Baplie EDI
