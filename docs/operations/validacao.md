@@ -1,261 +1,408 @@
-# Validacao do Sistema
+# Validação do Transhipping Desk
 
-Roteiro executavel de validacao do estado atual em 2026-06-01.
+Roteiro executável para o estado verificado em 2026-06-18.
 
-## Ambientes
+O objetivo não é apenas provar que a tela abre. Cada fluxo deve registrar o
+ambiente, a identidade usada, os dados de entrada, o resultado e uma evidência
+reproduzível.
 
-### Local sem Supabase real
+## 1. Gates técnicos
 
-Usado para validacao tecnica, testes unitarios, build e revisao visual limitada.
+### Preparação reproduzível
 
 ```powershell
-npm install
-npm test
+npm ci --legacy-peer-deps
+```
+
+### Gate padrão
+
+```powershell
+npm run docs:check
 npm run lint
+npm test
 npm run build
 ```
 
-Resultado esperado: testes, lint e build sem erro.
+Registre exit code e resumo. Não copie contagens antigas de testes para
+documentos vivos.
 
-Evidencia minima: saida dos comandos com exit code 0.
+### Integração Supabase
 
-### Local com Supabase real
+```powershell
+$env:SUPABASE_RUN_INTEGRATION = '1'
+npm run test:integration
+```
 
-Usado quando o fluxo depende de Auth, RLS, RPCs, Edge Functions, storage ou dados persistidos.
+Use somente projeto ou branch de banco controlado. A suíte requer as variáveis
+`SUPABASE_*` descritas em `.env.example`.
 
-Pre-condicoes gerais:
+## 2. Níveis de ambiente
 
-- `.env` apontando para projeto Supabase de validacao;
-- usuario interno cadastrado com perfil compativel;
-- dados de teste identificaveis para nao misturar com producao;
-- nenhuma operacao destrutiva fora de dados criados para validacao.
+### Local sem Supabase real
 
-### Producao
+Adequado para:
 
-Usado apenas para validacao operacional controlada, sem reset e sem dados destrutivos. Toda evidencia deve indicar data, usuario e entidade validada.
+- documentação, lint, TypeScript e bundle;
+- testes unitários e de componentes;
+- parsers e fixtures;
+- revisão estática de migrations;
+- navegação sem validar persistência.
 
-## Modelo de registro de evidencia
+Não prova Auth, RLS, grants, RPCs, Edge Functions ou email.
 
-Para cada fluxo, registrar:
+### Supabase controlado
 
-- ambiente usado;
-- usuario e perfil;
-- dados de entrada;
-- resultado: passou ou falhou;
-- evidencia coletada;
-- observacao ou link do erro, quando houver.
+Obrigatório para:
 
-## 1. Login interno e permissoes
+- autenticação interna e do Portal;
+- RLS e roles;
+- migrations e funções;
+- imports persistidos;
+- faturamento, ledger, PIX e Demurrage;
+- notificações, disputas e perfil;
+- Edge Functions;
+- qualquer teste destrutivo.
 
-- Objetivo do fluxo: validar acesso interno, redirecionamento e permissoes visiveis por perfil.
-- Ambiente necessario: local com Supabase real ou producao controlada.
-- Perfil de usuario: admin, operacao e financeiro, conforme perfil disponivel.
-- Dados de entrada ou fixture: usuario interno ativo.
-- Pre-condicoes: usuario existe em Auth e possui role em tabela de perfis.
-- Passos:
-  1. Acessar `/login`.
-  2. Entrar com usuario interno ativo.
-  3. Confirmar redirecionamento para `/painel`.
-  4. Abrir rotas permitidas ao perfil.
-  5. Tentar acessar uma rota sem permissao, quando houver perfil limitado.
-- Resultado esperado: login conclui, menu respeita permissao e rotas bloqueadas nao exibem dados sensiveis.
-- Evidencia a coletar: screenshot do painel, perfil usado e rota bloqueada testada.
-- Falhas comuns: sessao expirada, role ausente, RLS bloqueando leitura de perfil.
-- Testes automatizados relacionados: `npm test` cobre helpers e componentes, mas este fluxo exige Supabase real.
+Prefira projeto descartável ou branch de banco. Identifique fixtures por prefixo
+de QA e não misture com produção.
 
-## 2. Importacao CNTR, BB, Baplie, Granito, Veiculos e Vazios
+### Produção
 
-- Objetivo do fluxo: validar que arquivos operacionais geram registros, pendencias e vinculos esperados.
-- Ambiente necessario: local com Supabase real.
-- Perfil de usuario: operacao ou admin.
-- Dados de entrada ou fixture: arquivos de validacao CNTR, BB, Baplie EDI, COSCO Granito, Veiculos, Vazios Importacao e Vazios Exportacao.
-- Pre-condicoes:
-  - viagem cadastrada quando o importador exigir viagem;
-  - clientes base cadastrados para casos de reconciliacao;
-  - arquivos separados entre casos validos e casos com erro esperado.
-- Passos:
-  1. Acessar `/viagens` e confirmar viagem de teste.
-  2. Importar manifesto CNTR em `/manifestos`.
-  3. Abrir detalhe do B/L criado em `/manifestos/:blId`.
-  4. Importar manifesto BB em `/carga-solta`.
-  5. Importar Baplie EDI em `/baplie` e validar criacao de vazios de importacao.
-  6. Importar planilha de veiculos em `/veiculos`.
-  7. Importar planilha COSCO em `/granito`.
-  8. Importar planilha de vazios em `/vazios-importacao` ou gerar via Baplie.
-  9. Importar bookings em `/embarquevazios`.
-- Resultado esperado: registros aparecem nas tabelas corretas, erros de linha ficam visiveis e B/Ls com cliente incerto entram em revisao/reconciliacao.
-- Evidencia a coletar: numero da viagem, B/L, manifesto ou lote importado; screenshot da tabela final; resumo de erros quando houver.
-- Falhas comuns: layout de arquivo divergente, cliente nao cadastrado, POD/POL sem cadastro, arquivo duplicado.
-- Testes automatizados relacionados: `src/services/__tests__/manifestImport.test.ts`, `src/services/__tests__/breakbulkImport.test.ts`, `src/services/__tests__/manifestParser.test.ts`, `src/services/__tests__/breakbulkFixtures.real.test.ts`, `src/services/__tests__/manifestFixtures.real.test.ts`.
+Use apenas para smoke não destrutivo e validação operacional autorizada. Registre
+data, usuário e entidades consultadas. Não execute reset, exclusão ampla, seed
+ou mudança exploratória.
 
-## 3. Revisao manual
+## 3. Modelo de evidência
 
-- Objetivo do fluxo: resolver pendencias operacionais sem perder trilha de decisao.
-- Ambiente necessario: local com Supabase real.
-- Perfil de usuario: operacao ou admin.
-- Dados de entrada ou fixture: B/L pendente de revisao por cliente, peso, CE Mercante ou dado obrigatorio ausente.
-- Pre-condicoes: fila de `/revisao` possui ao menos um item pendente.
-- Passos:
-  1. Acessar `/revisao`.
-  2. Confirmar contagem e filtros da fila.
-  3. Abrir um item pendente.
-  4. Corrigir dado faltante ou vincular cliente.
-  5. Informar justificativa quando a tela exigir.
-  6. Salvar a revisao.
-  7. Recarregar a fila.
-- Resultado esperado: item sai da fila ou muda de estado, dados corrigidos ficam visiveis e B/L avanca para Taxas Locais/Faturamento quando aplicavel.
-- Evidencia a coletar: B/L revisado, justificativa usada, status antes/depois.
-- Falhas comuns: conflito de edicao concorrente, usuario sem permissao para cliente, dado financeiro bloqueando avanco.
-- Testes automatizados relacionados: `src/services/__tests__/blStatusService.test.ts` e testes de importacao que geram pendencia.
+Para cada fluxo:
 
-## 4. Taxas locais e faturamento
+```text
+Ambiente:
+Commit/build:
+Data e hora:
+Usuário e perfil:
+Dados/fixture:
+Passos executados:
+Resultado esperado:
+Resultado observado:
+Evidência:
+Limpeza:
+```
 
-- Objetivo do fluxo: validar cadastro de tabelas/overrides, calculo de pendencias, emissao e baixa de invoices locais.
-- Ambiente necessario: local com Supabase real.
-- Perfil de usuario: financeiro ou admin.
-- Dados de entrada ou fixture: B/L reconciliado e elegivel para taxas locais.
-- Pre-condicoes:
-  - tabela ativa em `/taxas-locais`;
-  - B/L sem pendencia bloqueante;
-  - cliente com dados fiscais suficientes.
-- Passos:
-  1. Acessar `/taxas-locais`.
-  2. Confirmar filtros, contagem de tabelas e itens ativos/manuais.
-  3. Criar ou editar tabela de teste.
-  4. Acessar `/faturamento`.
-  5. Validar abas Faturas, Validacao, Pendencias e Demurrage.
-  6. Emitir invoice individual ou consolidada.
-  7. Registrar pagamento manual de invoice local.
-- Resultado esperado: invoice emitida, ledger atualizado, pagamento registrado e status refletido na tabela sem refresh manual.
-- Evidencia a coletar: numero da invoice, B/L vinculado, valor, status antes/depois.
-- Falhas comuns: B/L sem taxa calculada, cliente sem reconciliacao, permissao financeira ausente, ROE/dados fiscais ausentes.
-- Testes automatizados relacionados: `src/pages/__tests__/Faturamento.test.ts`, `src/pages/__tests__/TaxasLocais.test.ts`, `src/services/__tests__/localCharges.test.ts`.
+Falha encontrada deve incluir rota, entidade, mensagem visível, console/rede
+quando relevante e condição para reprodução.
 
-### Distincao atual em Faturamento
+## 4. Login interno e permissões
 
-- `Validação`: esteira operacional antes do faturamento. Reune filtros de B/L, reconciliacao de cliente, gargalos de calculo/revisao/pronto para faturar e acoes em lote para calcular, revisar, marcar pronto e gerar invoices.
-- `Pendências`: subconjunto de bloqueios de calculo/revisao. Usa `charge_status = 'review_required'` e serve para recalcular ou tratar linhas que impedem a invoice.
-- Proposta de unificacao para revisao com dados reais: criar uma aba `Operacional` com faixas de prioridade da `Validação` e uma subsecao/tabela para as pendencias de revisao de cobranca. Manter `Faturas` e `Demurrage` separados. Nao remover `Validação` ou `Pendências` ate validar a tela unificada com dados reais.
+**Ambiente:** Supabase controlado.
 
-## 5. Demurrage
+1. Entre em `/login` com usuário ativo.
+2. Confirme redirecionamento para `/painel`.
+3. Valide menu e rotas para cada perfil disponível.
+4. Tente abrir `/admin/usuarios` com usuário não administrativo.
+5. Desative um usuário de QA e confirme bloqueio de sessão ou novo login.
+6. Espere ou simule expiração quando o fluxo de sessão for alterado.
 
-- Objetivo do fluxo: validar calculo, edicao controlada, emissao e pagamento de demurrage.
-- Ambiente necessario: local com Supabase real.
-- Perfil de usuario: financeiro ou admin.
-- Dados de entrada ou fixture: container com descarga, devolucao e free time conhecido.
-- Pre-condicoes: B/L e container existem; taxas de demurrage configuradas.
-- Passos:
-  1. Acessar `/demurrage`.
-  2. Filtrar ou localizar o container de teste.
-  3. Conferir status de free time, vencido ou devolvido.
-  4. Gerar invoice quando houver valor devido.
-  5. Emitir ou cancelar invoice conforme caso de validacao.
-  6. Confirmar aparicao da invoice em `/faturamento`, aba Demurrage.
-- Resultado esperado: calculo segue regras configuradas e invoice muda de estado com feedback recuperavel em erro.
-- Evidencia a coletar: container, B/L, invoice de demurrage, valor calculado e status.
-- Falhas comuns: data de descarga ausente, free time divergente, taxa nao configurada, ROE ausente.
-- Testes automatizados relacionados: `src/services/demurrage/__tests__/calculateDemurrage.test.ts`.
+**Esperado:** navegação respeita perfil e o banco não retorna dados proibidos
+mesmo quando a API é chamada diretamente.
 
-## 6. Conciliacao PIX e reconciliacao manual
+## 5. Viagens e master-detail
 
-- Objetivo do fluxo: validar conciliacao por extrato PIX preservando revisao humana para casos ambiguos.
-- Ambiente necessario: local com Supabase real.
-- Perfil de usuario: financeiro ou admin.
-- Dados de entrada ou fixture: arquivo "QR Codes recebidos" `.xlsx` com TXID que case uma invoice e outro TXID/valor ambiguo ou sem candidato.
-- Pre-condicoes:
-  - invoice local ou de demurrage emitida;
-  - extrato PIX contem TXID esperado;
-  - casos ambiguos nao devem ser confirmados automaticamente.
-- Passos:
-  1. Acessar `/reconciliacao`.
-  2. Importar o extrato PIX.
-  3. Conferir contagem de correspondencias, ambiguas e total.
-  4. Abrir a explicacao dos itens ambiguos.
-  5. Confirmar apenas pagamentos nao ambiguos.
-  6. Validar em `/faturamento` ou `/demurrage` que o pagamento foi baixado.
-- Resultado esperado: pagamentos seguros sao conciliados, ambiguos permanecem pendentes de revisao humana e a tela mostra motivo, campo de ambiguidade, dados que conferem/divergem e risco residual.
-- Evidencia a coletar: TXID, invoice, valor, contagem de ambiguos e status pago.
-- Falhas comuns: extrato sem transacoes, TXID repetido, valor divergente, invoice ja paga, cliente/documento divergente.
-- Testes automatizados relacionados: `src/services/__tests__/reconciliacao.test.ts`.
-- Dependencia de auditoria: invoices locais sao conciliadas por TXID via `reconcile_invoice_payment_by_txid`, que registra ledger/payment/settlements e marca a invoice com `pix_txid` e `conciliated_by_extract`. Demurrage e marcado diretamente em `demurrage_invoices` com `status = paid`, `paid_at`, `pix_txid` e `conciliated_by_extract`. Quando houver decisao manual fora desse fluxo, validar tabela ou RPC especifica antes de alterar schema.
+**Ambiente:** Supabase controlado.
 
-## 7. Portal do cliente
+1. Crie uma viagem de QA em `/viagens`.
+2. Confirme seleção no rail e URL `/viagens/:voyageId`.
+3. Recarregue o deep link e confirme a mesma viagem.
+4. Abra um ID inexistente e valide estado recuperável.
+5. Edite agendas POL/POD, Número de Escala e vínculo de manifestos.
+6. Confira CE Master, cards de módulo e linha do tempo.
+7. Valide filtros, painel recolhido e viewport estreita.
 
-- Objetivo do fluxo: validar acesso externo e consulta de cobrancas pelo cliente.
-- Ambiente necessario: local com Supabase real ou producao controlada.
-- Perfil de usuario: cliente com token/sessao valida.
-- Dados de entrada ou fixture: cliente com invoice local ou demurrage visivel no portal.
-- Pre-condicoes: acesso configurado para `/portal/login`; invoice vinculada ao cliente.
-- Passos:
-  1. Acessar `/portal/login`.
-  2. Autenticar com credenciais ou token do cliente.
-  3. Abrir `/portal/billing`.
-  4. Conferir lista de cobrancas.
-  5. Abrir detalhe quando disponivel.
-- Resultado esperado: cliente ve apenas dados proprios, totais batem com faturamento interno e estados de loading/vazio/erro sao claros.
-- Evidencia a coletar: cliente usado, invoice visivel, screenshot da lista/detalhe.
-- Falhas comuns: token expirado, RLS bloqueando dados, invoice sem vinculo com cliente.
-- Testes automatizados relacionados: validacao manual com Supabase real.
+**Esperado:** rota e seleção permanecem sincronizadas; erro de ID não derruba o
+shell; eventos aparecem em ordem coerente.
 
-## 8. Admin de usuarios
+## 6. Importações
 
-- Objetivo do fluxo: validar manutencao de usuarios internos.
-- Ambiente necessario: local com Supabase real ou producao controlada.
-- Perfil de usuario: admin.
-- Dados de entrada ou fixture: usuario interno de teste.
-- Pre-condicoes: admin autenticado e usuario alvo existente.
-- Passos:
-  1. Acessar `/admin/usuarios`.
-  2. Alterar role ou status do usuario de teste.
-  3. Salvar.
-  4. Revalidar login/permissao do usuario alterado.
-- Resultado esperado: alteracao persiste e permissao visivel acompanha a role/status.
-- Evidencia a coletar: usuario alterado, role/status antes/depois.
-- Falhas comuns: usuario sem perfil, permissao admin ausente, cache de sessao.
-- Testes automatizados relacionados: validacao manual com Supabase real.
+### Ordem integrada recomendada
 
-## 9. Relatorios, alertas e Line Up TV
+1. criar viagem;
+2. importar Baplie;
+3. importar manifesto CNTR;
+4. resolver divergências Baplie × Manifesto;
+5. importar veículos;
+6. importar CE Mercante e datas quando aplicável;
+7. revisar B/Ls;
+8. calcular e faturar.
 
-- Objetivo do fluxo: validar fluxos complementares sem alterar dados criticos.
-- Ambiente necessario: local com Supabase real ou producao controlada.
-- Perfil de usuario: usuario interno com acesso aos modulos.
-- Dados de entrada ou fixture: dados operacionais suficientes para gerar listas.
-- Pre-condicoes: existem viagens, B/Ls, invoices ou alertas.
-- Passos:
-  1. Abrir `/relatorios`, navegar pelas abas e exportar um relatorio.
-  2. Abrir `/alertas`, reconhecer um alerta de teste e fechar quando permitido.
-  3. Abrir `/line-up-tv/display`.
-- Resultado esperado: relatorios exportam, alertas mudam de estado e Line Up TV carrega sem erro.
-- Evidencia a coletar: arquivo exportado, alerta reconhecido/fechado, screenshot do painel.
-- Falhas comuns: falta de dados, permissao insuficiente, filtro escondendo resultados.
-- Testes automatizados relacionados: validacao manual com Supabase real.
+Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md).
 
-## 10. Redirecionamentos ativos
+### Baplie
 
-- Objetivo do fluxo: validar compatibilidade de rotas antigas.
-- Ambiente necessario: local sem Supabase real para navegacao basica; Supabase real se a rota final exigir dados.
-- Perfil de usuario: usuario interno autenticado quando necessario.
-- Dados de entrada ou fixture: nenhum.
-- Pre-condicoes: app rodando.
-- Passos:
-  1. Acessar `/vazios`.
-  2. Acessar `/demurrage/invoices`.
-  3. Acessar `/demurrage/reconciliacao`.
-- Resultado esperado:
-  - `/vazios` redireciona para `/embarquevazios`;
-  - `/demurrage/invoices` redireciona para `/demurrage`;
-  - `/demurrage/reconciliacao` redireciona para `/reconciliacao`.
-- Evidencia a coletar: URL final apos redirecionamento.
-- Falhas comuns: rota protegida sem sessao, history mantendo rota antiga.
-- Testes automatizados relacionados: validacao manual.
+- arquivo válido cria staging da viagem;
+- reimportação substitui somente o staging da mesma viagem;
+- IMO/OOG/posição e POL/POD são preservados;
+- vazios de importação são criados quando aplicável;
+- arquivo vazio, inválido ou grande demais falha antes de persistir.
 
-## Criterios de pronto para melhoria funcional
+### Manifesto CNTR
 
-Antes de considerar uma melhoria pronta:
+- preview informa B/Ls, containers e erros;
+- importação transacional não deixa lote parcial;
+- duplicidade e hash seguem o contrato;
+- cliente incerto entra em reconciliação;
+- bloqueio de cliente não é sobrescrito por “sem tabela”;
+- reconciliação com Baplie expõe divergências.
 
-- confirmar ambiente usado;
-- registrar evidencia do fluxo afetado;
-- rodar `npm test` quando houver cobertura automatizada aplicavel;
-- rodar `npm run build` antes de PR;
-- documentar dependencia de Supabase real, seed ou fixture;
-- atualizar este roteiro quando a melhoria alterar passos, resultado esperado ou evidencia.
+### Carga solta
+
+- itens, peso, volume e B/L são importados;
+- cabeçalhos alternativos cobertos por fixture continuam reconhecidos;
+- faturamento usa `cargo_mode` correto.
+
+### Veículos
+
+- preview valida chassi, B/L e container;
+- importação transacional não deixa linhas parciais;
+- reenvio não duplica veículos;
+- resultado pós-persistência é visível.
+
+### Granito
+
+- planilha COSCO gera manifesto, B/Ls e cobranças;
+- revisão combina Granito com a fila comum sem perder origem;
+- invoice e Portal exibem vínculo correto.
+
+### Vazios
+
+- Vazios de Importação aceitam Baplie e planilha;
+- Vazios de Exportação importam bookings;
+- rotas e viagens corretas são preservadas;
+- reimportações não cruzam manifestos.
+
+## 7. Revisão e auto-faturamento
+
+**Ambiente:** Supabase controlado.
+
+Prepare B/Ls com:
+
+- cliente ausente;
+- match por nome;
+- CE ausente;
+- peso ou cobrança pendente;
+- B/L elegível completo.
+
+Passos:
+
+1. abra `/revisao`;
+2. use filtros e contagens;
+3. corrija cliente no modal;
+4. salve justificativa quando exigida;
+5. confirme tentativa automática de cálculo/emissão;
+6. valide mensagem de invoice emitida ou bloqueio restante;
+7. recarregue a fila e confira o estado;
+8. repita com Granito, que mantém o comportamento próprio.
+
+**Esperado:** nenhum B/L avança silenciosamente com dados incertos; B/L comum
+com todos os gates satisfeitos pode emitir automaticamente.
+
+## 8. Guard de faturabilidade
+
+Valide diretamente a RPC e pela UI:
+
+1. tente marcar pronto um B/L sem linha BRL positiva;
+2. tente com linhas zeradas, negativas ou inelegíveis;
+3. tente com linha positiva elegível;
+4. confirme status, motivo de bloqueio e ausência/presença de invoice.
+
+**Esperado:** `ready_for_billing` só é alcançado com valor faturável real.
+
+## 9. Taxas locais e invoices
+
+### Tabelas e overrides
+
+- crie tabela de QA com vigência e POD definidos;
+- adicione itens BRL e, quando aplicável, USD;
+- valide override de cliente;
+- confirme que vigências e prioridades selecionam a tabela esperada.
+
+### Validação financeira
+
+- recalcule B/L selecionado;
+- confirme atualização imediata de linhas, subtotal e bloqueio;
+- marque cobranças revisadas;
+- marque pronto e emita invoice individual;
+- emita consolidada com múltiplos recebíveis;
+- confira breakdown e vínculo de B/Ls.
+
+### Documento
+
+- abra invoice local com um item;
+- abra invoice com itens suficientes para múltiplas páginas;
+- confira empresa, cliente, referência operacional, itens, total, vencimento e
+  QR PIX;
+- use “Imprimir” e valide o preview;
+- teste o QR com payload de QA, sem efetuar pagamento real.
+
+## 10. Ledger, pagamentos e reversões
+
+Valide:
+
+- pagamento integral;
+- pagamento parcial;
+- novo pagamento que liquida saldo;
+- valor acima do saldo e tratamento de reembolso;
+- reversão com justificativa;
+- invoice consolidada obsoleta sem pagamento;
+- bloqueio de obsolescência com pagamento;
+- reemissão e links antigos marcados corretamente.
+
+Confira `invoices`, `bl_receivables`, `invoice_receivable_links`,
+`ledger_settlements`, `payments` e `invoice_lifecycle_events`.
+
+**Esperado:** saldo é reconstituível e estados de B/L, invoice e recebível
+permanecem coerentes.
+
+## 11. Demurrage
+
+Prepare containers:
+
+- dentro do free time;
+- vencido e ainda não devolvido;
+- devolvido com valor;
+- devolução anterior à descarga.
+
+Valide:
+
+1. cálculo por equipamento e faixa;
+2. rejeição da ordem de datas inválida;
+3. desconto e edição controlada;
+4. emissão, impressão, cancelamento e pagamento;
+5. aparição em `/faturamento` e no Portal.
+
+## 12. Conciliação PIX
+
+Use extrato de QA com:
+
+- TXID e valor exatos;
+- valor divergente;
+- TXID repetido;
+- invoice já paga;
+- cobrança local e Demurrage.
+
+Passos:
+
+1. importe em `/reconciliacao`;
+2. confira matches e motivos;
+3. confirme somente linhas seguras;
+4. valide resultado por item;
+5. confira propagação em invoice, recebível, B/L e Demurrage;
+6. teste reversão quando aplicável.
+
+**Esperado:** ambiguidade não é confirmada automaticamente e falha parcial não
+é apresentada como sucesso total.
+
+## 13. Portal do Cliente
+
+### Provisionamento e login
+
+1. provisione conta pela ficha do cliente;
+2. entre por email;
+3. saia e entre por CNPJ;
+4. repita por CPF para cliente compatível;
+5. use identificador ou senha inválidos;
+6. ultrapasse o limite apenas em ambiente descartável;
+7. confirme mensagem genérica e rate limit;
+8. valide coexistência com uma sessão interna no mesmo navegador.
+
+### Recuperação de senha
+
+1. abra `/portal/esqueci-senha`;
+2. solicite por email e documento;
+3. confirme resposta que não enumera conta;
+4. abra `/portal/recuperar-senha` pelo link;
+5. defina nova senha e entre novamente.
+
+### Dashboard
+
+- saldos e contadores batem com o cliente;
+- vencimentos próximos usam dia de calendário;
+- alertas e programação de navios carregam;
+- cliente não vê dados de outro cliente.
+
+### Faturas
+
+- filtros alteram lista e exportação;
+- abas local e Demurrage exportam o conjunto visível;
+- detalhe, PIX e consolidada funcionam;
+- consolidada sem CEs completos permanece oculta;
+- obsolescência respeita propriedade, estado e pagamentos.
+
+### B/Ls e containers
+
+- `/portal/operacao` exibe somente dados do cliente;
+- filtro “Todos devolvidos” exige todos os containers devolvidos;
+- B/L sem CE Mercante permanece oculto;
+- exportações respeitam filtros.
+
+### Notificações, disputas e perfil
+
+- nova invoice gera notificação;
+- sino marca leitura e permite fechar quando previsto;
+- disputa de Demurrage cria registro e alerta interno;
+- resposta aparece ao cliente;
+- edição de perfil atualiza somente campos permitidos.
+
+## 14. Programação de navios
+
+Em `/chegadas-saidas`:
+
+1. adicione navio de QA;
+2. edite datas e ordem;
+3. baixe o modelo;
+4. atualize por planilha;
+5. confira o widget no Portal;
+6. encerre o navio e exporte o histórico;
+7. valide exclusão permanente somente com dado de QA.
+
+**Esperado:** ordem e datas persistem e o Portal reflete a programação.
+
+## 15. Admin, alertas, relatórios e Line Up
+
+- `/admin/usuarios`: alterar role/active de usuário de QA e revalidar acesso;
+- `/alertas`: reconhecer e fechar alerta sem perder vínculo;
+- `/relatorios`: testar abas e arquivos exportados;
+- `/line-up-tv`: validar administração;
+- `/line-up-tv/display`: validar legibilidade e atualização;
+- confirmar ausência de dados técnicos crus em labels.
+
+## 16. Redirecionamentos
+
+Confirme:
+
+- `/vazios` → `/embarquevazios`;
+- `/demurrage/invoices` → `/demurrage`;
+- `/demurrage/reconciliacao` → `/reconciliacao`;
+- rota desconhecida → `/painel`.
+
+## 17. Limpeza
+
+O reset amplo está suspenso. Para fixtures:
+
+- use prefixos de QA;
+- registre IDs criados;
+- remova pelo produto ou por SQL revisado para a fixture;
+- confira dependências financeiras antes de excluir;
+- nunca execute `supabase/scripts/reset_operational_data.sql`.
+
+Consulte [`reset-ambiente.md`](./reset-ambiente.md).
+
+## 18. Critério de pronto
+
+Uma mudança está pronta quando:
+
+- o teste focado reproduziu e protege o comportamento;
+- gates técnicos aplicáveis passaram;
+- fluxo com Supabase real foi validado quando necessário;
+- evidência e limpeza foram registradas;
+- documentação viva e ADRs foram atualizados;
+- riscos residuais foram explicitados.

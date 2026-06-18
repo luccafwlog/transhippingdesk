@@ -4,6 +4,9 @@ Status: aceito — 2026-06-03 · **parcialmente superado** (ver nota)
 
 > **Nota (2026-06-18):** a decisão de adotar **email-only** foi parcialmente revertida. O login por **CNPJ** foi reintroduzido sobre Supabase Auth: o documento (CNPJ/CPF) é resolvido para o email via RPC `portal_resolve_login` e a autenticação final continua sendo `signInWithPassword`. Hoje o portal aceita **CNPJ ou email**. O que se manteve do ADR é o fim do token legado em `sessionStorage` (auth é 100% Supabase Auth). Fonte de verdade: [modules/portal-cliente.md](../modules/portal-cliente.md) e [operations/seguranca.md](../operations/seguranca.md).
 
+Supersedida parcialmente pela ADR 0013 quanto ao identificador aceito na tela
+de login. Supabase Auth continua sendo o mecanismo de autenticação e sessão.
+
 ## Contexto
 
 O Portal do Cliente nasceu com dois caminhos de autenticação coexistindo:

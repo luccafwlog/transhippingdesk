@@ -1,75 +1,101 @@
 ---
 name: invoice-pdf
-description: >
-  Conventions for printable invoice documents (window.print() over styled
-  React components) in Transhipping Desk. Use when editing or adding any
-  document under src/components/billing/ or src/components/demurrage/, or
-  when introducing a new printable document. Keeps layout, fonts, fiscal
-  data, PIX block, and totals consistent across all invoice types.
+description: Use when adding or changing printable local-charge or Demurrage invoice documents, browser print behavior, invoice layout, fiscal formatting, operational references, totals, or PIX QR rendering in Transhipping Desk.
 ---
 
-# Invoice PDF Playbook
+# Printable Invoice Documents
 
-The system emits printable invoices for taxas locais (`components/billing/InvoiceDocumentLocal.tsx`) and demurrage (`components/demurrage/InvoiceDocument.tsx`). They share visual language. Any new document must reuse the existing primitives — do not branch the style.
+Invoices are React documents printed by the browser. Reuse existing blocks and
+prove print output instead of assuming browser pagination behavior.
 
-**There is no PDF library.** Documents are React components styled for print; the user generates the PDF via the browser print dialog (`window.print()` — see `src/pages/Faturamento.tsx`). Print-specific styling uses CSS `@media print` rules.
+## Current architecture
 
-## Before You Start
+- local: `src/components/billing/InvoiceDocumentLocal.tsx`;
+- Demurrage: `src/components/demurrage/InvoiceDocument.tsx`;
+- shared JSX: `src/components/shared/InvoiceDocumentKit.tsx`;
+- formatters: `src/components/shared/invoiceFormat.ts`;
+- print CSS: `src/index.css`;
+- action: `window.print()`;
+- QR: `QRCodeSVG` from `qrcode.react`.
 
-- Read both `src/components/billing/` and `src/components/demurrage/` to identify the shared structure: header, fiscal data block, line items table, totals, PIX block, footer.
-- Read `src/config/` for company data (CNPJ, endereço, etc.) — never inline these in the document.
-- Read `src/lib/pix.ts` — **do not modify**; only call it.
+The user may save a PDF from the browser dialog. Add a dedicated
+PDF-generation library only for an explicit requirement the print architecture
+cannot meet.
 
-State which existing document is your template before writing code.
+## Before editing
 
-## Approach
+Read both invoice implementations, shared JSX/formatters, print CSS, actual
+detail types, and persisted fields. State the closest template. Do not infer
+fiscal data from memory.
 
-`window.print()` over a styled React component is the only PDF mechanism. Do not introduce `jspdf`, `pdfmake`, `react-pdf`, or any HTML-to-PDF library.
+## Reuse
 
-- Layout targets A4 portrait via the browser print dialog — match the existing documents.
-- Margins/spacing: match existing (check the template you copied).
-- Fonts: stick to the system/Tailwind fonts already in use. Adding a font requires explicit user sign-off.
+Use shared owners where applicable:
 
-## Required blocks (in order)
+- `InvoiceDocHeader`;
+- `InvoiceDocTitle`;
+- `InvoiceClientBlock`;
+- `InvoiceDocFooter`;
+- `invoiceFormat.ts`.
 
-1. **Header** — logo + company legal name + CNPJ + endereço, pulled from `src/config/`.
-2. **Document title + number** — e.g. "Fatura de Taxas Locais Nº ####" — uses the counter from `src/lib/` (check existing).
-3. **Cliente** — razão social, CNPJ, endereço.
-4. **Referência operacional** — viagem, navio, escala, B/L(s). This is what makes our invoices auditable; don't omit.
-5. **Line items table** — descrição, quantidade, unitário, total. Right-align numeric columns. Use the same column widths as the template.
-6. **Totais** — subtotal, descontos, total. Bold the final line.
-7. **PIX block** — QR + copia-e-cola string, payload from `src/lib/pix.ts` (or stored `invoice.pix_payload`). Render with `<QRCodeSVG>` from `qrcode.react`.
-8. **Footer** — vencimento, observações, página X de Y.
+Keep line-item and PIX blocks local when structurally different. Extract only
+duplication touched by the change.
 
-Skipping any of these breaks audit/fiscal expectations. If the new document genuinely doesn't need one (e.g. internal report), get explicit user confirmation.
+## Content
 
-## Formatting rules
+Preserve available:
 
-- Currency: `R$ 1.234,56` — pt-BR locale, two decimals, always show `R$`. Use the formatter in `src/lib/` (do not reinvent).
-- Dates: `dd/MM/yyyy`. Use the project formatter.
-- CNPJ / CPF: masked (`00.000.000/0000-00`). Use the project formatter.
-- Weights / volumes: SI units with thousand separators in pt-BR style.
+1. logo and number;
+2. title;
+3. customer name/document;
+4. B/L, navio, viagem and other operational references;
+5. line items and totals;
+6. due date/notes;
+7. PIX QR and copy string when a persisted payload exists;
+8. current footer.
 
-## Page break behavior
+Do not promise address, page counter, repeated header, or another block not
+supported by real data and rendering.
 
-- Line items table must repeat its header on each page.
-- Totals block stays on the **last** page — do not let it split.
-- PIX block stays on the last page, after totals.
-- Footer with page number on every page.
+## Formatting and print
 
-If the table is long enough that totals would orphan, force a break before totals.
+- use project formatters;
+- pt-BR currency, dates and masked documents;
+- align numeric columns consistently;
+- keep controls outside print or hide them;
+- prevent backdrop/document repetition;
+- avoid splitting totals/PIX only where CSS can prove it;
+- preserve A4 portrait unless the existing variant differs;
+- claim pagination behavior only after target-browser evidence.
 
-## Don'ts
+## Red-green
 
-- Don't compute PIX payloads inline — only `src/lib/pix.ts`.
-- Don't hardcode company data — only `src/config/`.
-- Don't add new colors, gradients, or icon fonts. These are fiscal documents, not marketing.
-- Don't add a "Powered by" / watermark / debug overlay, even temporarily.
-- Don't render interactive controls (buttons, inputs) inside the printable area — hide them with `print:hidden` / `@media print`.
+1. Add a component test for required content or conditions.
+2. Confirm the expected failure.
+3. Implement minimum JSX/formatting.
+4. Run focused and related billing tests.
+5. Inspect real print output.
 
-## Verification
+Test semantics, not every inline style.
 
-- Generate the PDF locally with `npm run dev` and the actual data shape.
-- Open in a real PDF viewer (not browser preview) — fonts and PIX QR render differently.
-- Test with a 1-item invoice **and** a multi-page invoice (force ≥40 items).
-- Verify PIX QR is scannable with a real bank app before declaring done.
+## Visual verification
+
+Check one-item and multi-page data, both invoice variants when shared code
+changed, with/without persisted PIX, logo fallback, hidden controls, and
+unclipped totals. For material layout changes, save from the browser and inspect
+the PDF. Scan only a QA PIX payload.
+
+## Avoid
+
+- computing PIX inline or changing `src/lib/pix.ts` as a layout side effect;
+- hardcoding company/customer data;
+- introducing a second visual language;
+- watermark/debug text;
+- copying shared blocks back into each document;
+- declaring print behavior verified from JSX alone.
+
+## Completion
+
+Focused and related tests pass; short and long print previews were inspected;
+conditional PIX matches persisted data; lint/build pass; validation docs change
+when the operator workflow changes.

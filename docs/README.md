@@ -1,10 +1,6 @@
-# Documentação — Transhipping Desk
+# Documentação do Transhipping Desk
 
-Plataforma operacional interna da **Transhipping Agenciamento Marítimo Ltda.**: gestão de viagens, manifestos, faturamento, demurrage e portal do cliente. Sistema em **produção**.
-
-Este é o ponto de entrada da documentação. Cada fato tem um único dono — rotas e mapa de módulos ficam aqui e na [Arquitetura](ARCHITECTURE.md); termos de domínio no [Glossário](GLOSSARIO.md); regras de negócio em [operations/](operations/regras-de-negocio.md).
-
----
+Verificado contra o repositório em 2026-06-18.
 
 ## Por onde começar
 
@@ -20,8 +16,6 @@ Este é o ponto de entrada da documentação. Cada fato tem um único dono — r
 | Validar um fluxo manualmente | [operations/validacao.md](operations/validacao.md) |
 | Saber por que algo foi decidido | [adr/](adr/) |
 
----
-
 ## Visão geral
 
 ```mermaid
@@ -35,8 +29,6 @@ flowchart LR
 Ciclo completo: **Operação** (viagens, manifestos CNTR/break-bulk/granito, containers, veículos, Baplie EDI, vazios) → **Revisão** (aprovação manual de B/Ls antes do faturamento) → **Comercial** (clientes, taxas locais, overrides) → **Financeiro** (faturamento, demurrage, conciliação PIX) → **Portal do Cliente** (consulta de faturas, pagamento, disputas).
 
 O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#3-fluxo-operacional-canônico).
-
----
 
 ## Módulos
 
@@ -54,8 +46,6 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#3-fluxo-o
 | Portal do Cliente | [modules/portal-cliente.md](modules/portal-cliente.md) | `/portal/*` |
 | Operação & Suporte | [modules/operacao-suporte.md](modules/operacao-suporte.md) | `/painel`, `/revisao`, `/alertas`, `/relatorios`, `/line-up-tv`, `/admin/usuarios` |
 
----
-
 ## Referência transversal
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — stack, camadas, modelo de dados, mapa de rotas.
@@ -66,8 +56,6 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#3-fluxo-o
 - [operations/](operations/regras-de-negocio.md) — regras de negócio, segurança, validação, reset.
 - [setup/](setup/development.md) — desenvolvimento, deploy, testes.
 - [archive/](archive/README.md) — auditorias e planos históricos (não-vivos).
-
----
 
 ## Convenções da documentação
 

@@ -1,84 +1,99 @@
 ---
 name: supabase-migration
-description: >
-  Playbook for creating Supabase migrations in Transhipping Desk. Use whenever
-  a schema change is needed (new table, column, index, FK, RLS policy, view,
-  function, enum). Enforces naming, RLS-first, rollback note, and the
-  "list_tables before edit" rule.
+description: Use when creating or reviewing a Transhipping Desk Supabase migration involving tables, columns, indexes, constraints, foreign keys, RLS, grants, views, functions, triggers, RPCs, enums, or generated database types.
 ---
 
 # Supabase Migration Playbook
 
-You are about to change the database schema. The project runs in production — bad migrations break operations. Follow every step. Verify before continuing.
+Inspect the real schema, default to least privilege, and prove migrations in a
+disposable database branch.
 
-## Before You Start (mandatory)
+## Before editing
 
-State explicitly:
-- **Intent**: what business problem the migration solves (one sentence).
-- **Affected tables**: list every table touched.
-- **Breaking?**: does this rename/drop a column or change a type used by app code?
+State:
 
-Then inspect current state with the Supabase MCP:
-- `list_tables` for each affected table (schema, columns, FKs, indexes).
-- `get_advisors` (security + performance) for the project.
-- Read `supabase/migrations/` — find the 2–3 most recent migrations to match style.
+- business intent;
+- affected tables/functions;
+- breaking or additive;
+- app and Portal consumers;
+- rollback/recovery.
 
-**Do not** invent column types or relationships from memory. Read the actual schema first.
+Inspect affected tables, advisors, relevant ADRs, and recent migrations. Never
+invent types, constraints, policies, or grants from memory.
 
-## File location & naming
+## File and scope
 
-- Folder: `supabase/migrations/`
-- Filename: `YYYYMMDDHHMMSS_short_snake_case.sql` (UTC timestamp). Use `date -u +%Y%m%d%H%M%S`.
-- One logical change per file. Splitting is cheap; combining is expensive.
+- create `supabase/migrations/YYYYMMDDHHMMSS_short_name.sql`;
+- PowerShell timestamp: `Get-Date -AsUTC -Format 'yyyyMMddHHmmss'`;
+- one logical change per file;
+- never edit or rename an applied migration;
+- split heavy backfill into a reviewed script under `supabase/scripts/`.
 
-## SQL conventions for this repo
+## SQL conventions
 
-- Wrap multi-statement migrations in a single transaction implicitly (Supabase runs each file in a transaction).
-- Use `if not exists` / `if exists` so re-runs in branch environments don't fail.
-- Foreign keys: always declare `on delete` behavior explicitly (`cascade`, `restrict`, `set null`). Never leave default.
-- Timestamps: `timestamptz default now() not null` for `created_at`. Add `updated_at` only if there's a trigger to maintain it (don't add one silently).
-- IDs: prefer `uuid default gen_random_uuid() primary key` unless the table follows a different existing convention — check siblings first.
-- Indexes: add an index for every FK column and for any column used in `where`/`order by` of hot queries. Name them `idx_<table>_<col>[_<col>]`.
-- Enums: prefer `text` + `check (col in (...))` over `create type` unless the value set is truly closed and shared. Easier to evolve.
-- **Functions (default-deny, ADR 0011):** every `create function` — especially `SECURITY DEFINER` — must be followed in the same file by `revoke execute on function public.<fn>(<args>) from public, anon;`. Trigger functions (`returns trigger`) additionally revoke from `authenticated` (triggers run with owner privileges; no caller needs EXECUTE). Supabase default privileges grant EXECUTE to anon at creation — without the revoke, the security advisor flags it.
+- declare every foreign-key `ON DELETE` behavior;
+- index new FKs and demonstrated hot filters/orderings;
+- use `timestamptz default now() not null` for creation time;
+- add `updated_at` only with its maintenance trigger;
+- prefer UUID/identity according to neighboring tables;
+- prefer text plus check constraint for values expected to evolve;
+- include a rollback comment.
 
-## RLS is not optional
+Do not add speculative indexes or abstractions.
 
-Every new table **must** have:
-1. `alter table <t> enable row level security;`
-2. At least one policy. If the table is server-only, add an explicit `revoke` and a comment explaining no policy is intentional.
-3. Mirror the access pattern of the most similar existing table — find it via `list_tables` and read its policies.
+## RLS and grants
 
-If the table is exposed to the **client portal** (`/portal/*`), policies must scope by the portal user's claim, not by `auth.uid()` alone. Check existing portal tables for the pattern.
+Every new client-visible table needs RLS and policies matching the nearest
+domain table. A server-only table needs explicit revokes and a comment
+explaining why it has no client policy.
 
-## App code coupling
+For every function, especially `SECURITY DEFINER`:
 
-- If you add/rename a column used by app code, regenerate types: `npx supabase gen types typescript --project-id <id> > src/types/database.ts`. **Never** edit `database.ts` by hand.
-- If you drop a column, grep for it in `src/services/` and `src/hooks/` first. Coordinate the SQL drop with the code removal in the same PR.
+- set controlled `search_path`;
+- revoke `PUBLIC` and `anon` in the same migration;
+- revoke direct `authenticated` execution for trigger functions;
+- grant only roles that call the function;
+- validate `auth.uid()` or role inside privileged RPCs.
 
-## Rollback note
+The documented exception is `portal_resolve_login(text)` (ADR 0013). Any new
+pre-authentication `anon` grant requires a business reason, generic
+non-enumerating errors, abuse controls, a focused migration test, and an ADR or
+ADR update. Never copy this exception to ordinary Portal data RPCs.
 
-At the bottom of every migration file, add a comment block:
+## App coupling
 
-```sql
--- Rollback:
---   drop table if exists <t>;
---   -- or column-by-column reversal
-```
+Before dropping/renaming, search `src/services/`, `src/hooks/`, pages, Edge
+Functions, tests and docs. Regenerate `src/types/database.ts` when the app
+contract changes; never hand-edit generated rows to hide drift.
 
-This is documentation, not auto-rollback. It forces you to think about reversibility before merging.
+Coordinate migration application before dependent frontend deployment. The SPA
+CI does not apply migrations.
 
-## Verification checklist (before declaring done)
+## Red-green
 
-- [ ] `list_tables` shows the new shape as expected (run after `apply_migration` on a branch).
-- [ ] `get_advisors --type security` returns no new findings.
-- [ ] `get_advisors --type performance` — at minimum, no missing-index warnings on FKs you added.
-- [ ] If types regenerated: `npm run build` passes (TS catches column rename mismatches).
-- [ ] `npm run lint` clean.
+1. Add a focused migration-contract or integration test.
+2. Confirm failure before the migration exists.
+3. Write the minimum SQL.
+4. Run focused tests.
+5. Apply to a disposable database branch.
+6. verify behavior, RLS, grants and advisors.
 
-## What not to do
+## Verification
 
-- Don't run `apply_migration` directly against the main project for anything beyond trivial additive changes. Use `create_branch` → apply → verify → `merge_branch`.
-- Don't combine schema + data backfill in one migration if the backfill is heavy. Split: schema migration, then a one-off SQL script (in `supabase/scripts/`) for the backfill.
-- Don't add `updated_at` without the trigger that maintains it — it's worse than not having it.
-- Don't use `serial`/`bigserial` for new tables. Use `uuid` or `identity`.
+- migration history shows the expected version;
+- table/function shape matches the contract;
+- authorized calls succeed; unauthorized calls fail;
+- security advisors have no new finding;
+- performance review shows no missing index introduced by this change;
+- generated types and app build align;
+- lint/tests/build pass;
+- living docs update when contracts change.
+
+## Never
+
+- test destructive SQL on production;
+- run the suspended reset script;
+- weaken RLS to fix a frontend error;
+- expose a privileged function to `anon` without the exception process;
+- combine unrelated schema cleanup;
+- report success from a regex-only test.

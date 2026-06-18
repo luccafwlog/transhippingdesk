@@ -1,3 +1,9 @@
+-- SUSPENSO EM 2026-06-18: NAO EXECUTAR.
+-- Este script nao cobre todas as tabelas e dependencias do schema atual.
+-- Consulte docs/RESET_AMBIENTE.md. As instrucoes abaixo sao preservadas apenas
+-- como registro historico ate existir uma substituicao validada em banco
+-- descartavel.
+
 -- Transhipping Desk - reset operacional para testes
 -- Preserva:
 -- - auth.users

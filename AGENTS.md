@@ -64,3 +64,27 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## 5. Project Sources of Truth
+
+- `CONTEXT.md` defines domain language.
+- `docs/ARCHITECTURE.md` defines current architecture and routes.
+- `docs/adr/README.md` indexes accepted and superseded decisions.
+- `WORKFLOW.md` defines development, migrations, testing, and deploy.
+- Dated audits, specs, and plans are historical snapshots, not current truth.
+
+Read the relevant source before changing domain behavior, authentication,
+security boundaries, billing, imports, routes, or database schema.
+
+## 6. Documentation Contract
+
+Update living documentation in the same change when modifying routes, commands,
+environment variables, migrations, auth contracts, operational procedures, or
+architectural decisions. Preserve historical records; use a new ADR or an
+editorial note for later decisions.
+
+## 7. Verification
+
+Run the narrowest relevant checks while working. Before completion, run
+`npm run docs:check`, `npm run lint`, `npm test`, and `npm run build` when the
+change can affect them. Never execute the suspended reset script.
