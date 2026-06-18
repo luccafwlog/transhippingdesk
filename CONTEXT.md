@@ -1,80 +1,182 @@
 # CONTEXT.md
 
-Glossário de domínio do Transhipping Desk. Apenas definições — sem implementação.
+Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
+negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
+aos ADRs.
 
----
+Verificado em 2026-06-18.
 
-## Termos
+## Operação marítima
 
 **Viagem**
-Unidade principal de operação. Um navio em uma escala portuária específica.
+Unidade principal da operação: um navio identificado por número de viagem e
+acompanhado em suas escalas, agendas e cargas.
 
-**B/L (Bill of Lading / Conhecimento de Embarque)**
-Documento emitido pelo armador que agrupa containers sob um consignatário. Fonte de dados financeiros: consignatário, CNPJ, peso para billing.
+**Escala portuária**
+Passagem de uma viagem por um porto ou terminal, com datas operacionais,
+identificadores e vínculos documentais próprios.
 
-**Baplie EDI**
-Arquivo EDI (formato EDIFACT) emitido pelo armador com o plano de estiva da viagem. Fonte primária de containers: lista todos os containers fisicamente a bordo com posição (slot), flags operacionais (IMO, OOG) e referência ao B/L do armador.
-
-**Manifesto**
-Arquivo do armador (planilha) com dados comerciais dos B/Ls: consignatário, CNPJ, descrição de carga, pesos para faturamento. No fluxo padrão, importado após o Baplie para conciliar e enriquecer os containers já staged.
-
-**Staging Baplie**
-Estado intermediário dos containers após importação do Baplie EDI e antes da conciliação com o manifesto. Persiste na tabela `baplie_containers`. Reimport do Baplie substitui o staging anterior da mesma viagem.
-
-**Conciliação Baplie ↔ Manifesto**
-Processo de match entre containers do Baplie e containers do manifesto, dentro de uma viagem. Match key: `container_number` + `voyage_id`. `bl_ref` do Baplie é sinal secundário de divergência, não critério de bloqueio.
-
-**Divergência de Existência**
-Container presente no Baplie sem B/L correspondente no manifesto. Resultado: aviso ao operador, sem bloqueio de fluxo.
-
-**Divergência de Atributo**
-Container presente em ambas as fontes com valor conflitante em campo operacional (status full/empty, IMO, OOG). Resultado: aviso com opção de aceitar valor do Baplie por linha.
-
-**Estado de Conciliação da Viagem**
-Sinal derivado que resume, para uma Viagem, o quão pronta para faturamento está sua conciliação de dados. Três níveis: **Divergente** (existe Divergência de Existência ou de Atributo não resolvida) — exige ação; **Incompleto** (falta manifesto, CE Mercante incompleto, ou Baplie ainda em Staging sem conciliação) — aguardando dado; **Conciliado** (tudo conciliado e CEs completos). É leitura, não bloqueio.
-
-**Flags Operacionais**
-Campos que o Baplie pode sobrescrever no `bl_containers`: `is_imo`, `imo_class`, `un_number`, `is_oog`, `status` (full/empty). Dados financeiros (consignatário, peso para billing) são protegidos — só o manifesto os define.
-
-**CE Mercante**
-Conhecimento Eletrônico no sistema federal Mercante. Identifica a carga declarada. No sistema, `ce_mercante` é registrado por B/L; sua cobertura (quantos B/Ls de um manifesto têm CE preenchido) compõe o estado "Incompleto" da conciliação.
-
-**CE Master**
-Número do CE Mercante master de um manifesto — o conhecimento agrupador da carga daquele manifesto, acompanhado para fins de Mercante. Um por manifesto. Distinto dos CEs por B/L.
-
-**Número de Escala (Sistema Mercante)**
-Identificador da escala do navio em um terminal, criado no sistema federal Mercante para cobrir um determinado navio/viagem naquele terminal. Uma Viagem que toca múltiplos terminais pode ter mais de um número de escala. É um dado de registro: existir o número significa que a escala foi **criada** no Mercante.
+**Número de Escala do Mercante**
+Identificador criado no sistema federal Mercante para uma escala do navio. Uma
+viagem com múltiplos terminais pode ter mais de um número de escala.
 
 **Vínculo de Manifestos à Escala**
-Afirmação de que os manifestos da viagem foram vinculados à escala no Mercante — distinta de a escala ter sido criada. É o significado do indicador "ESCALA" (SIM/NÃO) exibido no Painel/Line-Up: SIM = manifestos vinculados. Não confundir com a existência do Número de Escala.
+Confirmação de que os manifestos foram vinculados à escala no Mercante. Não é
+sinônimo de o Número de Escala existir.
+
+**B/L (Bill of Lading / Conhecimento de Embarque)**
+Documento de transporte que agrupa carga sob um consignatário. É a unidade
+operacional usada para revisão, cobrança de taxas locais e vínculo com cliente.
+
+**Manifesto**
+Arquivo do armador com dados comerciais dos B/Ls, consignatários, documentos,
+pesos, cargas e containers. É a autoridade para dados comerciais e financeiros
+da carga.
 
 **CNTR**
-Container. Abreviação de domínio usada no sistema.
+Abreviação de domínio para container.
+
+**Carga Solta / Breakbulk (BB)**
+Carga transportada sem container, representada por itens, peso e volume
+vinculados ao B/L.
+
+**RoRo**
+Carga rolante, especialmente veículos importados e vinculados a B/L e, quando
+aplicável, ao container físico.
+
+**Granito**
+Fluxo especializado de importação e cobrança baseado em planilhas COSCO. É
+integrado à revisão e ao faturamento, mas mantém regras e registros próprios.
+
+## Baplie e reconciliação
+
+**Baplie EDI**
+Arquivo EDIFACT do plano de estiva. É a autoridade para a presença física de
+containers, posição a bordo e flags operacionais.
+
+**Staging Baplie**
+Estado intermediário dos containers importados do Baplie antes da reconciliação
+com o manifesto. Uma reimportação substitui o staging anterior da viagem.
+
+**Conciliação Baplie × Manifesto**
+Comparação, dentro da mesma viagem, entre a carga física do Baplie e os dados
+comerciais do manifesto.
+
+**Divergência de Existência**
+Container presente numa fonte e ausente na outra. Exige visibilidade para o
+operador, mas não altera silenciosamente dados comerciais.
+
+**Divergência de Atributo**
+Conflito em dado operacional, como status, IMO ou OOG. O operador escolhe qual
+fonte prevalece quando a resolução não é automática.
+
+**Estado de Conciliação da Viagem**
+Resumo de prontidão dos dados:
+
+- **Divergente:** há conflito ainda não resolvido;
+- **Pendente:** falta fonte, CE ou etapa de conciliação;
+- **Conciliada:** fontes e CEs necessários estão coerentes.
+
+É um sinal operacional, não autorização financeira isolada.
+
+**Flags Operacionais**
+Características físicas da carga, como IMO, classe, número ONU, OOG e status
+cheio/vazio. Não incluem consignatário, documento fiscal ou peso de cobrança.
 
 **IMO**
-Carga perigosa classificada pela International Maritime Organization. Flag `is_imo` + classe + número ONU.
+Classificação de carga perigosa segundo a International Maritime Organization.
 
 **OOG (Out of Gauge)**
-Container com dimensões fora do padrão ISO. Flag `is_oog`.
+Container com dimensões fora do padrão ISO.
+
+## Mercante
+
+**CE Mercante**
+Conhecimento Eletrônico registrado por B/L no sistema Mercante. Sua ausência
+pode bloquear a visibilidade de dados e documentos no Portal do Cliente.
+
+**CE Master**
+Conhecimento agrupador associado ao manifesto. É distinto dos CEs individuais
+dos B/Ls.
+
+## Revisão e clientes
+
+**Revisão Operacional**
+Etapa humana para resolver cliente, CE, peso, inconsistências de cálculo e
+outros dados que impedem o avanço seguro.
+
+**Reconciliação de Cliente**
+Vínculo confirmado entre o consignatário importado e o cadastro de Cliente.
+Matching automático incerto deve permanecer pendente de decisão humana.
+
+**Cliente**
+Pessoa jurídica ou física responsável por cargas e cobranças no sistema.
+
+**Email de Contato**
+Canal de comunicação do cliente. Pode coincidir com o email técnico do Portal,
+mas os conceitos não são equivalentes.
+
+## Faturamento
+
+**Taxas Locais**
+Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
+específicas do cliente.
+
+**Recebível Local**
+Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
+ou consolidada e liquidado por um ou mais pagamentos.
+
+**Invoice Individual**
+Documento financeiro emitido para um único conjunto elegível de cobranças.
+
+**Invoice Consolidada**
+Documento que reúne recebíveis de múltiplos B/Ls do mesmo cliente.
+
+**Ledger Local**
+Histórico de recebíveis, vínculos com invoices, liquidações e eventos de ciclo
+de vida usado para reconstruir saldos de taxas locais.
+
+**Demurrage**
+Cobrança pelo período de uso do container além do free time. É calculada a
+partir de eventos físicos e permanece em persistência própria.
+
+**Conciliação PIX**
+Comparação entre transações recebidas e cobranças emitidas, priorizando TXID e
+valor. Casos ambíguos exigem decisão humana.
+
+## Portal do Cliente
 
 **Portal do Cliente**
-Interface externa, separada do sistema interno, onde um Cliente consulta suas faturas (taxas locais e demurrage), efetua pagamento (PIX) e pode consolidar B/Ls em aberto numa fatura única. Autenticação própria, isolada do acesso operacional interno.
+Interface externa onde o cliente consulta painel, faturas, B/Ls, containers,
+notificações, disputas e perfil.
 
 **Conta de Portal**
-Vínculo entre um Cliente e uma credencial de acesso ao Portal do Cliente. A credencial canônica é **CNPJ (ou email) + senha**. Um Cliente tem no máximo uma Conta de Portal. Provisionada internamente por um administrador — não há cadastro público.
+Vínculo entre um Cliente e um usuário do Supabase Auth. Um cliente possui no
+máximo uma conta ativa provisionada internamente.
 
-**Login de Portal**
-O cliente pode autenticar-se informando seu **CNPJ** (14 dígitos) **ou** o **email** cadastrado na Conta de Portal. Ambos resolvem para o mesmo registro `auth.users` do Supabase Auth.
+**Identificador de Login do Portal**
+Valor informado na tela de login: CNPJ, CPF ou email.
 
-**Email de contato**
-Endereço para comunicação financeira de um Cliente. É um dado informativo da Conta de Portal e não deve ser confundido com a credencial de login (embora possam coincidir).
+**Email Técnico do Portal**
+Email associado à conta e usado internamente pelo Supabase Auth. O cliente pode
+entrar com documento sem precisar conhecer esse email.
 
-**Disputa de Demurrage**
-Contestação aberta pelo cliente sobre valores, dias ou condições de uma fatura de demurrage. A disputa é registrada com texto livre no portal e gera alerta para o operador interno responder.
+**Sessão do Portal**
+Sessão do Supabase Auth isolada da sessão do aplicativo interno no mesmo
+navegador.
 
-**Notificação In-App**
-Alerta visual exibido no ícone de sino no cabeçalho do Portal do Cliente. Gerada por eventos como: nova fatura emitida, container em demurrage, resposta a disputa.
+**Login do Portal**
+Resolução do identificador para o email técnico, quando necessário, seguida da
+autenticação por senha no Supabase Auth. Não utiliza senha própria em tabela nem
+sessão por token legado.
 
 **Dashboard do Portal**
-Página inicial do portal (`/portal`) com resumo financeiro (saldo pendente, faturas em aberto), indicadores operacionais (B/Ls, containers, demurrage) e alertas visuais.
+Página inicial com resumo financeiro, indicadores operacionais, programação de
+navios e alertas.
 
+**Disputa de Demurrage**
+Contestação do cliente sobre valores, dias ou condições de uma cobrança de
+demurrage.
+
+**Notificação In-App**
+Mensagem exibida no Portal em resposta a eventos financeiros ou operacionais.

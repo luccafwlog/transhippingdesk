@@ -1,237 +1,165 @@
 # Transhipping Desk
 
-Plataforma operacional interna para **Transhipping Agenciamento Marítimo Ltda.** — gestão de viagens, manifestos, faturamento, demurrage e portal do cliente.
+Plataforma operacional interna da **Transhipping Agenciamento Marítimo Ltda.**
+para viagens, importações marítimas, revisão de B/Ls, faturamento, demurrage,
+conciliação PIX e atendimento ao cliente.
 
-**Stack:** React 19 + TypeScript + Vite · Supabase (PostgreSQL + Auth + Edge Functions) · Firebase Hosting · CI/CD via GitHub Actions
+Verificado contra o repositório em 2026-06-18.
 
----
+**Stack:** React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, Supabase
+(PostgreSQL, Auth e Edge Functions), Firebase Hosting e GitHub Actions.
 
-## Módulos
+## Capacidades
 
-### Operação
-| Rota | Descrição |
-|------|-----------|
-| `/painel` | Dashboard com contadores operacionais |
-| `/viagens` | Cadastro e gestão de viagens |
-| `/manifestos` | Importação de manifestos CNTR |
-| `/carga-solta` | Importação de manifestos breakbulk (BB) |
-| `/containers` | Listagem de containers |
-| `/veiculos` | Listagem de veículos (módulo RoRo) |
-| `/revisao` | Fila de revisão manual de B/Ls |
-| `/line-up-tv` · `/line-up-tv/display` | Painel de line-up em TV |
+- **Operação:** viagens, escalas, Baplie EDI, manifestos CNTR e breakbulk,
+  containers, veículos RoRo e revisão operacional.
+- **Exportação e cargas especiais:** Granito, vazios de importação e bookings de
+  vazios de exportação.
+- **Comercial e financeiro:** clientes, tabelas de taxas, invoices, ledger
+  local, demurrage, PIX, alertas e relatórios.
+- **Portal do Cliente:** painel, faturas, B/Ls, containers, notificações,
+  disputas, perfil e recuperação de senha.
+- **Suporte operacional:** Line Up TV, programação de chegadas e saídas e
+  administração de usuários internos.
 
-### Comercial / Financeiro
-| Rota | Descrição |
-|------|-----------|
-| `/clientes` · `/clientes/:id` | Cadastro de clientes e ficha completa |
-| `/taxas-locais` | Tabelas de tarifas e overrides por cliente |
-| `/faturamento` | Emissão e gestão de invoices |
-| `/demurrage` · `/demurrage/taxas` | Cálculo e invoices de demurrage |
-| `/reconciliacao` | Conciliação PIX / pagamentos |
-| `/relatorios` | Exportações e relatórios consolidados |
+O mapa completo de módulos, rotas e fluxos está em
+[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
-### Módulo Granito
-| Rota | Descrição |
-|------|-----------|
-| `/granito` | Importação de planilha COSCO e faturamento |
-| `/granito/taxas` | Tabela de taxas específica de granito |
+## Início rápido
 
-### Módulo Vazios
-| Rota | Descrição |
-|------|-----------|
-| `/vazios-importacao` | Containers vazios de importação |
-| `/embarquevazios` | Bookings de embarque de vazios (`/vazios` redireciona aqui) |
+### Pré-requisitos
 
-### Portal do Cliente
-| Rota | Descrição |
-|------|-----------|
-| `/portal/login` | Autenticacao por email + senha via Supabase Auth |
-| `/portal/billing` | Visualização de invoices e saldo em aberto |
+- Node.js 20 ou superior;
+- projeto Supabase compatível com as migrations do repositório;
+- usuário interno criado no Supabase Auth e vinculado a `user_profiles`.
 
-### Administração
-| Rota | Descrição |
-|------|-----------|
-| `/alertas` | Central de alertas operacionais e financeiros |
-| `/admin/usuarios` | Gestão de usuários internos (perfil `administrativo`) |
+### Instalação
 
----
-
-## Fluxo Operacional Típico
-
-```
-1. Cadastrar viagem (/viagens)
-2. Importar manifesto CNTR (/manifestos) ou BB (/carga-solta)
-   └─ Granito: importar planilha COSCO (/granito)
-   └─ Vazios: importar chegadas (/vazios-importacao) e bookings (/embarquevazios)
-3. Revisar pendências (/revisao)
-4. Calcular taxas locais (/taxas-locais)
-5. Emitir invoices (/faturamento ou /demurrage)
-6. Registrar pagamentos e conciliar PIX (/reconciliacao)
-7. Cliente consulta portal (/portal/billing)
+```powershell
+npm ci --legacy-peer-deps
+Copy-Item .env.example .env
+npm run dev
 ```
 
----
-
-## Configuração Local
-
-### 1. Pré-requisitos
-
-- Node.js 20+
-- Projeto Supabase com migrations aplicadas
-
-### 2. Variáveis de ambiente
-
-```bash
-cp .env.example .env
-```
-
-Preencha no `.env`:
+Preencha ao menos:
 
 ```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-anon
+VITE_SUPABASE_ANON_KEY=sua-chave-publica
 ```
 
-As demais variáveis (`SUPABASE_*`) são usadas apenas nos testes de integração.
+Sem essas variáveis, a aplicação mostra um erro de configuração e não inicia o
+cliente de dados.
 
-### 3. Banco de dados
+### Banco de dados
 
-Aplique todas as migrations em ordem no **SQL Editor** do Supabase:
+Não aplique um intervalo fixo de arquivos manualmente. O diretório contém
+migrations históricas sequenciais e migrations por timestamp. Compare o
+histórico remoto com `supabase/migrations/` e aplique todas as pendentes por um
+fluxo controlado do Supabase. O CI da SPA não aplica migrations.
 
-```
-supabase/migrations/001_schema.sql  →  053_security_hardening.sql
-```
+Consulte [`WORKFLOW.md`](./WORKFLOW.md) antes de alterar schema, RLS, funções ou
+grants.
 
-### 4. Usuários internos
+### Usuário interno
 
-No **Supabase Auth**, crie o usuário e insira o perfil:
+Depois de criar o usuário no Supabase Auth:
 
 ```sql
 INSERT INTO public.user_profiles (id, role, active)
 VALUES ('<auth-user-uuid>', 'administrativo', true);
 ```
 
-Roles disponíveis: `administrativo` · `financeiro` · `operacoes` · `documentacao`
+Perfis atuais: `administrativo`, `financeiro`, `operacoes` e `documentacao`.
+A autorização real é aplicada no banco por RLS e RPCs; esconder uma rota ou
+botão no navegador é apenas uma barreira de UX.
 
-### 5. Edge Functions (opcional para desenvolvimento local)
+## Comandos
 
-Variáveis necessárias nas Edge Functions do Supabase:
-
-| Variável | Descrição |
-|----------|-----------|
-| `RESEND_API_KEY` | Chave de API Resend (envio de email de invoice) |
-| `FROM_EMAIL` | Remetente (ex: `Transhipping <noreply@...>`) |
-| `PORTAL_URL` | URL base do portal do cliente |
-| `APP_URL` | URL do app (restrição de CORS em `provision-portal-user`) |
-
----
-
-## Scripts
-
-```bash
-npm run dev          # servidor de desenvolvimento
-npm run build        # build de produção (TypeScript + Vite)
-npm run lint         # ESLint
-npm test             # testes unitários (Vitest)
-npm run test:integration  # testes de integração com Supabase real
+```powershell
+npm run dev               # servidor Vite
+npm run docs:check        # links, ADRs, rotas e afirmações obsoletas
+npm run lint              # ESLint
+npm test                  # Vitest
+npm run build             # TypeScript + bundle de produção
+npm run test:integration  # Supabase real; opt-in por variáveis de ambiente
 ```
 
-Os testes de integração requerem `SUPABASE_RUN_INTEGRATION=1` e as variáveis `SUPABASE_*` no `.env`.
+Os testes de integração exigem `SUPABASE_RUN_INTEGRATION=1` e as variáveis
+`SUPABASE_*` de [`.env.example`](./.env.example). Use somente um ambiente
+controlado.
 
----
+## Portal do Cliente
 
-## Templates de Importação
+O Portal usa uma sessão própria do Supabase Auth, isolada da sessão interna do
+mesmo navegador. A tela aceita **CNPJ, CPF ou email** como identificador; CNPJ e
+CPF são resolvidos para o email técnico antes de `signInWithPassword`.
 
-Disponíveis em `public/templates/` e servidos diretamente pelo app:
+Não existe cadastro público nem sessão legada por senha armazenada em tabela.
+O acesso é provisionado internamente a partir da ficha do cliente. A decisão de
+segurança está registrada na
+[ADR 0013](./docs/adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
 
-| Arquivo | Módulo |
-|---------|--------|
-| `base-clientes-modelo.csv/.xlsx` | Importação de clientes |
-| `ce-mercante-modelo.csv/.xlsx` | CE Mercante (vinculação de B/Ls) |
-| `carga-solta-modelo.csv/.xlsx` | Manifesto breakbulk |
-| `veiculos-modelo.csv/.xlsx` | Importação de veículos (RoRo) |
-| `imo-oog-modelo.csv/.xlsx` | Cargas IMO / OOG |
+## Templates de importação
 
----
+Os modelos públicos ficam em [`public/templates/`](./public/templates/) e são
+servidos pela aplicação:
 
-## Deploy
+- base de clientes;
+- CE Mercante;
+- carga solta;
+- veículos;
+- cargas IMO/OOG.
 
-O fluxo de deploy é totalmente automatizado via **GitHub Actions** — nenhum push direto para `main` é necessário.
+Fixtures técnicas para o fluxo E2E ficam em
+[`test-fixtures/`](./test-fixtures/README.md).
 
-### Fluxo dinâmico (padrão)
+## CI e deploy
 
-Todo PR aberto ou reaberto dispara `.github/workflows/auto-merge-prs.yml`:
+O fluxo atual é:
 
-1. **Merge automático** (squash) via API do GitHub → gera SHA do commit final
-2. Checkout do SHA resultante + setup Node 20
-3. `npm ci --legacy-peer-deps` + `npm run build`
-   - Injeta `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_APP_COMMIT_SHA` dos secrets
-4. Deploy para **Firebase Hosting** (projeto `importmanager-bda3e`, target `transhippingdesk`)
+```text
+pull_request
+  -> CI: documentação, lint, build e testes
+  -> workflow_run com sucesso
+  -> squash merge
+  -> novo build
+  -> Firebase Hosting
 
-> `VITE_APP_COMMIT_SHA` expõe o SHA do deploy na aplicação (ex: rodapé ou painel de debug).
-
-### Deploy por push direto para `main`
-
-`.github/workflows/firebase-deploy.yml` cobre pushes diretos a `main` (hotfixes):
-
-1. Checkout + setup Node 20
-2. `npm ci --legacy-peer-deps` + `npm run build`
-3. Deploy para Firebase Hosting
-
-### Deploy manual
-
-```bash
-npm run build
-npx firebase-tools deploy --only hosting
+push direto em main
+  -> build
+  -> Firebase Hosting
 ```
 
-**Secrets necessários no repositório:**
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E`
+Os workflows vivem em [`.github/workflows/`](./.github/workflows/). Migrations e
+Edge Functions continuam exigindo coordenação com o ambiente Supabase; o deploy
+do frontend não as aplica.
 
----
+## Segurança operacional
 
-## Segurança
+- RLS e RPCs são a fronteira de autorização.
+- Funções privilegiadas seguem default-deny, com exceções pré-login explícitas
+  e documentadas.
+- O Portal e o app interno usam clientes Supabase com chaves de storage
+  distintas.
+- Erros de produção são enviados ao Sentry sem replay ou PII padrão.
+- Uploads de planilha têm limite antes do parsing.
+- Invoices são documentos React preparados para impressão pelo navegador.
+- O reset operacional amplo está suspenso; consulte
+  [`docs/RESET_AMBIENTE.md`](./docs/RESET_AMBIENTE.md).
 
-- **RLS** ativo em todas as tabelas; acesso segmentado por role via `is_admin()` / `is_active_user()`
-- **Portal do cliente:** `/portal/login` usa email + senha via Supabase Auth; o fluxo legado por CNPJ/CPF + senha foi removido
-- **Rate limiting:** `provision-portal-user` (20/hora por usuario, persistido em banco) e controles do Supabase Auth para login do portal
-- **Timeout de sessão interna:** 8 horas de inatividade
-- **Headers HTTP:** `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `CSP` sem `unsafe-inline` em scripts
-- **Email:** campos de BD escapados antes de injeção em HTML
+## Documentação
 
----
+Comece pelo [índice documental](./docs/README.md).
 
-## Documentação Interna
+| Documento | Responsabilidade |
+|---|---|
+| [`CONTEXT.md`](./CONTEXT.md) | Vocabulário de domínio |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Arquitetura, fluxos e rotas |
+| [`WORKFLOW.md`](./WORKFLOW.md) | Desenvolvimento, migrations, testes e deploy |
+| [`docs/adr/README.md`](./docs/adr/README.md) | Decisões arquiteturais e supersessões |
+| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Baseline, evolução, backlog e riscos |
+| [`docs/VALIDACAO.md`](./docs/VALIDACAO.md) | Roteiro de validação e evidências |
 
-| Arquivo | Conteúdo |
-|---------|----------|
-| `docs/ARCHITECTURE.md` | Fluxo operacional e mapa de rotas canônico |
-| `docs/adr/` | Decisões arquiteturais aceitas e numeradas |
-| `docs/ROADMAP.md` | Estado atual e backlog priorizado |
-| `docs/VALIDACAO.md` | Roteiro de validação por módulo |
-| `docs/RESET_AMBIENTE.md` | Procedimento de reset de dados de teste |
-| `CLAUDE.md` / `AGENTS.md` | Diretrizes de desenvolvimento assistido por IA |
-
----
-
-## Estrutura do Projeto
-
-```
-src/
-├── components/       # UI e layout compartilhados
-├── hooks/            # useAuth, usePortalAuth, hooks de dados
-├── pages/            # Uma página por rota
-├── services/         # Acesso a Supabase e lógica de domínio
-│   └── __tests__/    # Testes unitários + fixtures
-├── lib/              # Utilitários (pix, containerCounts, utils)
-├── types/            # Tipos gerados do banco (database.ts)
-└── config/           # Configurações estáticas (company.ts)
-
-supabase/
-├── migrations/       # 053 migrations em ordem sequencial
-├── functions/        # Edge Functions (notify-invoice-issued, provision-portal-user)
-├── scripts/          # Scripts utilitários (reset de dados)
-└── seeds/            # Seed de validação
-```
+Auditorias, specs e planos datados são snapshots históricos; não substituem as
+fontes vivas acima.

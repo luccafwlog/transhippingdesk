@@ -1,106 +1,277 @@
-# Arquitetura do Sistema - Espinha Dorsal
+# Arquitetura do Transhipping Desk
 
-Atualizado em 2026-06-01.
+Verificado contra o código, a configuração e as migrations em 2026-06-18.
 
-Este documento descreve a fonte de verdade operacional do codigo atual: rotas, servicos, schema Supabase e fluxo financeiro.
+Este é o mapa canônico da arquitetura atual. Termos de negócio vivem em
+[`CONTEXT.md`](../CONTEXT.md); decisões e supersessões vivem no
+[índice de ADRs](./adr/README.md).
 
-## Fluxo principal
+## Visão geral
 
 ```mermaid
 flowchart LR
-    Viagem(["Viagem"])
+    Browser["Navegador<br/>React SPA"]
+    Internal["Sessão interna<br/>Supabase Auth"]
+    Portal["Sessão do Portal<br/>Supabase Auth isolada"]
+    Database[("Supabase PostgreSQL<br/>RLS + RPCs")]
+    Functions["Edge Functions<br/>Deno"]
+    Resend["Resend"]
+    BCB["Banco Central / PTAX"]
+    Sentry["Sentry"]
+    Firebase["Firebase Hosting"]
 
-    Viagem --> BaplieEDI["Baplie EDI<br/>(staging)"]
-    BaplieEDI --> ConcilBaplie["Conciliacao<br/>Baplie x Manifesto"]
-    BaplieEDI --> VaziosIMP["Vazios<br/>Importacao"]
-
-    Viagem --> ManifCNTR["Manifestos CNTR"]
-    Viagem --> ManifBB["Manifestos BB<br/>(Carga Solta)"]
-    Viagem --> ManifGranito["Manifestos Granito<br/>(COSCO)"]
-    Viagem --> Veiculos["Veiculos<br/>(planilha propria)"]
-    Viagem --> VaziosEXP["Vazios<br/>Exportacao"]
-
-    ConcilBaplie --> BL[/"B/L<br/>Container - Break Bulk - Granito"/]
-    ManifCNTR --> BL
-    ManifBB --> BL
-    ManifGranito --> BL
-    Veiculos --> BL
-    ManifCNTR --> Containers["Containers"]
-
-    BL --> Revisao["Revisao manual"]
-    BL --> TaxasLocais["Taxas Locais"]
-    Revisao -- aprovado --> TaxasLocais
-    Containers --> Demurrage["Demurrage<br/>(somente containers)"]
-
-    TaxasLocais --> Ledger["Ledger local<br/>(receivables por B/L)"]
-    Ledger --> Faturamento["Faturamento<br/>(individuais + consolidadas)"]
-    Demurrage --> Faturamento
-    Faturamento --> ConcilPIX["Conciliacao PIX"]
-    Faturamento --> Portal["Portal do Cliente"]
-
-    Clientes[("Clientes")]
-    BL -.-> Clientes
-    Faturamento -.-> Clientes
+    Browser --> Internal
+    Browser --> Portal
+    Internal --> Database
+    Portal --> Database
+    Browser --> Functions
+    Functions --> Database
+    Functions --> Resend
+    Browser --> BCB
+    Browser --> Sentry
+    Firebase --> Browser
 ```
 
-## Notas de implementacao
+O frontend é uma SPA estática. A segurança real não depende do roteador: tabelas,
+views e funções do Supabase aplicam escopo e autorização por RLS, grants e
+validações dentro das RPCs.
 
-- **B/L e o conceito operacional unificado**, mas vive em duas origens: `bls` (`cargo_mode='container'|'carga_solta'`) e `granite_bls` para o parser COSCO.
-- **Vazios Importacao** aceita Baplie EDI (`importVaziosFromBaplie`) e planilha avulsa por viagem (`importVaziosImportacaoManifest`). As duas fontes escrevem em `vazios_importacao_manifests` / `vazios_importacao_containers`.
-- **Vazios Exportacao** usa planilha propria e grava `vazios_manifests` / `vazios_bookings`.
-- **Veiculos** sao criados por planilha propria (`vehicleImport.ts`) e vinculados ao B/L e ao container fisico quando aplicavel. Nao sao derivados do manifesto CNTR.
-- **Taxas Locais** suporta `container`, `carga_solta` e `granito`. A pagina `/taxas-locais` administra tabelas e overrides; a operacao de validacao/faturamento fica em `/faturamento`.
-- **Revisao Manual** combina `bls` e `granite_bls` numa fila operacional para pendencias de cliente, CE Mercante, peso e inconsistencias de calculo.
-- **Ledger local** usa `bl_receivables`, `invoice_receivable_links`, `ledger_settlements` e `invoice_lifecycle_events` como fonte de saldo para taxas locais. Invoices individuais e consolidadas sao documentos ligados a receivables.
-- **Faturamento** agrega invoices locais (`invoices`), invoices de Granito e invoices de Demurrage. Pagamentos locais elegiveis passam pela RPC transacional de ledger; Demurrage permanece em fluxo proprio.
-- **Conciliacao PIX** usa fluxo unificado para invoices locais/Granito/Demurrage e, no ledger local, conciliacao por TXID.
-- **Portal do Cliente** consome saldos locais a partir do ledger e tambem expoe documentos financeiros emitidos.
+## Fronteiras de autenticação
 
-## Modulos de suporte
+O projeto cria dois clientes em `src/services/supabase.ts`:
 
-| Modulo | Rota | Descricao |
-|---|---|---|
-| Painel | `/painel` | Dashboard operacional com visao geral |
-| Alertas | `/alertas` | Notificacoes e alertas do sistema |
-| Relatorios | `/relatorios` | Exportacao e consulta de relatorios |
-| Line Up TV | `/line-up-tv`, `/line-up-tv/display` | Painel de TV para o terminal portuario |
-| Admin Usuarios | `/admin/usuarios` | Gestao de usuarios (acesso admin) |
+- `supabase`: sessão dos usuários internos;
+- `supabasePortal`: sessão do cliente, com `storageKey` próprio.
+
+As duas sessões podem coexistir no navegador sem que um logout derrube a outra.
+
+### Acesso interno
+
+O usuário autentica pelo Supabase Auth e precisa de perfil ativo em
+`user_profiles`. A interface usa o perfil para navegação e UX; RLS e RPCs
+continuam responsáveis pela autorização.
+
+### Portal do Cliente
+
+O Portal usa exclusivamente sessão do Supabase Auth. CNPJ, CPF e email são
+identificadores aceitos na tela. Quando o identificador é um documento,
+`portal_resolve_login(text)` resolve o email técnico antes de
+`signInWithPassword`.
+
+Essa resolução é a exceção pré-autenticação documentada para `anon`, limitada
+por tentativas e erro genérico. RPCs de dados do Portal exigem sessão
+autenticada e resolvem o cliente por `auth.uid()`. Veja a
+[ADR 0013](./adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
+
+## Camadas do frontend
+
+```text
+src/App.tsx
+  -> páginas lazy em src/pages/
+     -> hooks de estado remoto e mutations em src/hooks/
+     -> serviços, parsers e regras em src/services/
+     -> componentes compartilhados em src/components/
+```
+
+Essa separação é uma direção arquitetural, não uma afirmação de pureza absoluta
+do código legado. Páginas ainda executam alguns comandos de serviço e operações
+de importação/exportação diretamente. Novas mudanças devem reutilizar o menor
+dono existente da operação, sem criar uma segunda implementação.
+
+### Responsabilidades
+
+- `src/pages/`: composição de rotas, estado visual e fluxos de tela;
+- `src/hooks/`: queries e mutations reutilizáveis com TanStack Query;
+- `src/services/`: acesso ao Supabase, parsers, importadores e domínio;
+- `src/components/ui/`: primitivas visuais;
+- `src/components/shared/`: componentes reutilizados por módulos;
+- `src/lib/`: utilitários puros, datas, status, PIX e telemetria;
+- `src/types/database.ts`: tipos gerados e complementos tipados do banco.
+
+## Fluxo operacional e financeiro
+
+```mermaid
+flowchart LR
+    Voyage["Viagem e escalas"]
+    Baplie["Baplie EDI<br/>staging físico"]
+    Manifest["Manifestos<br/>CNTR e BB"]
+    Granite["Granito"]
+    Vehicles["Veículos"]
+    Empty["Vazios"]
+    Reconcile["Conciliação<br/>Baplie × Manifesto"]
+    Review["Revisão e<br/>cliente"]
+    Charges["Taxas locais"]
+    Ledger["Ledger local"]
+    Invoice["Invoices"]
+    Demurrage["Demurrage"]
+    Pix["Conciliação PIX"]
+    ClientPortal["Portal do Cliente"]
+
+    Voyage --> Baplie
+    Voyage --> Manifest
+    Voyage --> Granite
+    Voyage --> Vehicles
+    Voyage --> Empty
+    Baplie --> Reconcile
+    Manifest --> Reconcile
+    Reconcile --> Review
+    Manifest --> Review
+    Granite --> Review
+    Review --> Charges
+    Charges --> Ledger
+    Ledger --> Invoice
+    Vehicles --> Demurrage
+    Manifest --> Demurrage
+    Demurrage --> Pix
+    Invoice --> Pix
+    Invoice --> ClientPortal
+    Demurrage --> ClientPortal
+```
+
+### Importações
+
+- Baplie entra em staging por viagem e pode alimentar Vazios de Importação.
+- Manifestos CNTR e BB alimentam B/Ls e suas cargas.
+- Granito mantém tabelas próprias, integradas downstream.
+- Veículos são importados por planilha e vinculados a B/L/container.
+- CE Mercante e datas operacionais têm importadores específicos.
+- Arquivos de planilha usam `@e965/xlsx` e devem passar pelo limite de upload
+  antes do parsing.
+
+### Revisão e auto-faturamento
+
+Revisão resolve pendências operacionais e de cliente. Ao salvar um B/L comum com
+cliente, o sistema tenta recalcular cobranças e emitir a invoice quando todos os
+gates permitem. O banco rejeita a transição para pronto para faturar quando não
+há linha BRL positiva elegível.
+
+### Taxas locais e ledger
+
+Taxas locais geram recebíveis por B/L. `bl_receivables`,
+`invoice_receivable_links`, `ledger_settlements` e eventos de ciclo de vida são
+a fonte de saldo, reemissão e consolidação.
+
+### Demurrage
+
+Demurrage depende de descarga, devolução, free time e tarifa por equipamento.
+Permanece em tabelas próprias, mas aparece nas mesmas superfícies de faturamento,
+Portal e conciliação.
+
+### Documentos imprimíveis
+
+Invoices são componentes React preparados para impressão. Cabeçalho, título,
+cliente e rodapé compartilhados vivem em
+`src/components/shared/InvoiceDocumentKit.tsx`; regras de impressão vivem em
+`src/index.css`. A geração do arquivo é feita pelo diálogo de impressão do
+navegador via `window.print()`.
+
+## Programação de navios
+
+`/chegadas-saidas` administra `vessel_schedules` e o histórico de navios
+encerrados. A programação alimenta o widget exibido no Dashboard do Portal. Esse
+cadastro é separado das viagens operacionais, embora compartilhe navio e número
+de viagem como linguagem de negócio.
+
+## Supabase
+
+### Migrations
+
+`supabase/migrations/` contém a história completa do schema, com arquivos
+sequenciais antigos e arquivos por timestamp. O número de arquivos não é um
+contrato. O estado de um ambiente é definido pelo histórico aplicado, não por
+um intervalo fixo documentado.
+
+### Segurança
+
+- RLS protege tabelas expostas;
+- helpers como `is_active_user()` e `is_admin()` sustentam policies;
+- operações financeiras e destrutivas usam RPCs ou policies restritas;
+- funções privilegiadas têm `search_path` controlado e grants explícitos;
+- `anon` segue default-deny, exceto funções pré-autenticação documentadas;
+- Edge Functions com service role validam chamador, origem ou segredo.
+
+### Edge Functions
+
+- `provision-portal-user`: cria ou atualiza o usuário Auth do Portal;
+- `notify-invoice-issued`: busca a invoice e envia email pelo Resend.
+
+## Integrações externas
+
+- **Resend:** email de invoice emitida;
+- **Banco Central:** cotação PTAX;
+- **Sentry:** erros do frontend em produção;
+- **Firebase Hosting:** distribuição da SPA;
+- **PIX:** payload persistido e QR renderizado nos documentos financeiros.
+
+Domínios usados pelo navegador precisam permanecer compatíveis com a CSP de
+`firebase.json`.
 
 ## Mapa de rotas
 
-| Rota | Modulo | Secao |
-|---|---|---|
-| `/painel` | Painel | Principal |
-| `/viagens` | Viagens | Principal |
-| `/baplie` | Baplie EDI | Importacao |
-| `/manifestos` | Manifestos CNTR | Importacao |
-| `/manifestos/:blId` | Detalhe B/L | Importacao |
-| `/carga-solta` | Manifestos BB | Importacao |
-| `/containers` | Containers | Importacao |
-| `/veiculos` | Veiculos | Importacao |
-| `/vazios-importacao` | Vazios Importacao | Importacao |
-| `/revisao` | Revisao manual | Importacao |
-| `/granito` | Granito | Exportacao |
-| `/granito/taxas` | Taxas Granito | Exportacao |
-| `/embarquevazios` | Vazios Exportacao | Exportacao |
-| `/clientes` | Clientes | Principal |
-| `/clientes/:cnpj` | Ficha do Cliente | Principal |
-| `/taxas-locais` | Taxas Locais | Financeiro |
-| `/faturamento` | Faturamento | Financeiro |
-| `/demurrage` | Demurrage | Financeiro |
-| `/demurrage/taxas` | Taxas Demurrage | Financeiro |
-| `/reconciliacao` | Conciliacao PIX | Financeiro |
-| `/alertas` | Alertas | Principal |
-| `/relatorios` | Relatorios | Principal |
-| `/line-up-tv` | Line Up TV | Principal |
-| `/line-up-tv/display` | Display TV | Principal |
-| `/admin/usuarios` | Admin Usuarios | Admin |
-| `/portal/login` | Login Portal | Portal |
-| `/portal/billing` | Faturamento Portal | Portal |
+### Públicas e autenticação
 
-## Documentacao viva
+| Rota | Destino |
+|---|---|
+| `/login` | Login interno |
+| `/portal/login` | Login do Portal |
+| `/portal/esqueci-senha` | Solicitação de recuperação |
+| `/portal/recuperar-senha` | Definição de nova senha |
 
-- `docs/ROADMAP.md`: estado atual, evolucao e backlog priorizado.
-- `docs/VALIDACAO.md`: roteiro de validacao tecnica e funcional.
-- `docs/RESET_AMBIENTE.md`: reset de dados operacionais de teste.
-- `docs/adr/`: decisoes arquiteturais aceitas e numeradas.
+### Portal autenticado
+
+| Rota | Destino |
+|---|---|
+| `/portal` | Dashboard do cliente |
+| `/portal/billing` | Faturas de taxas locais e demurrage |
+| `/portal/operacao` | B/Ls e containers |
+| `/portal/perfil` | Contatos e perfil |
+
+### Aplicação interna
+
+| Rota | Destino |
+|---|---|
+| `/painel` | Dashboard operacional |
+| `/viagens` | Lista e seleção de viagens |
+| `/viagens/:voyageId` | Detalhe master-detail deep-linkável |
+| `/baplie` | Importação e conciliação Baplie |
+| `/manifestos` | Manifestos CNTR |
+| `/manifestos/:blId` | Detalhe do B/L |
+| `/carga-solta` | Manifestos breakbulk |
+| `/containers` | Containers |
+| `/veiculos` | Veículos RoRo |
+| `/vazios-importacao` | Vazios de importação |
+| `/embarquevazios` | Bookings de vazios de exportação |
+| `/granito` | Operação de Granito |
+| `/granito/taxas` | Tarifas de Granito |
+| `/revisao` | Revisão operacional |
+| `/clientes` | Clientes |
+| `/clientes/:cnpj` | Ficha do cliente |
+| `/taxas-locais` | Tabelas e overrides |
+| `/faturamento` | Validação, invoices e ledger |
+| `/demurrage` | Operação e invoices de demurrage |
+| `/demurrage/taxas` | Tarifas de demurrage |
+| `/reconciliacao` | Conciliação PIX |
+| `/alertas` | Alertas internos |
+| `/relatorios` | Relatórios e exportações |
+| `/line-up-tv` | Administração do Line Up |
+| `/line-up-tv/display` | Display protegido para TV |
+| `/chegadas-saidas` | Programação exibida no Portal |
+| `/admin/usuarios` | Administração de usuários |
+
+### Redirecionamentos de compatibilidade
+
+| Rota | Redireciona para |
+|---|---|
+| `/vazios` | `/embarquevazios` |
+| `/demurrage/invoices` | `/demurrage` |
+| `/demurrage/reconciliacao` | `/reconciliacao` |
+
+Rotas desconhecidas redirecionam para `/painel`.
+
+## Fontes relacionadas
+
+- [`docs/README.md`](./README.md): mapa e autoridade documental;
+- [`WORKFLOW.md`](../WORKFLOW.md): execução, desenvolvimento, testes e deploy;
+- [`docs/ROADMAP.md`](./ROADMAP.md): baseline, evolução e riscos;
+- [`docs/VALIDACAO.md`](./VALIDACAO.md): provas funcionais e técnicas;
+- [`docs/adr/README.md`](./adr/README.md): decisões arquiteturais.
