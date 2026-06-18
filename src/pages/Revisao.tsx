@@ -843,6 +843,9 @@ function ReviewModal({
 
     setSaving(true)
     try {
+      let autoInvoiceMessage: string | null = null
+      let autoInvoiceIssued = false
+
       if (item.source === 'granite') {
         if (!selectedCustomerId) {
           showToast('Selecione um cliente para vincular.', 'error')
@@ -877,6 +880,16 @@ function ReviewModal({
           justification,
           expectedUpdatedAt: item.updated_at ?? null,
         })
+
+        if (selectedCustomerId) {
+          const autoInvoice = await tryAutoIssueInvoice({
+            blId: item.id,
+            customerId: selectedCustomerId,
+            actorId: user.id,
+          })
+          autoInvoiceIssued = autoInvoice.status === 'invoiced'
+          autoInvoiceMessage = autoInvoice.status === 'blocked' ? autoInvoice.message : null
+        }
       }
 
       await Promise.all([
@@ -891,13 +904,21 @@ function ReviewModal({
 
       const remaining = totalItems - 1
       const isLast = currentIndex !== null && currentIndex >= totalItems - 1
-      showToast(
-        isLast
-          ? 'B/L revisado. Fila concluida.'
-          : `B/L revisado. Proximo: ${remaining - 1} restante${remaining - 1 !== 1 ? 's' : ''}.`,
-        'success',
-      )
-      onReviewSaved(item)
+      if (autoInvoiceIssued) {
+        showToast('B/L revisado e fatura emitida automaticamente.', 'success')
+      } else if (autoInvoiceMessage) {
+        showToast(`B/L revisado, mas faturamento automatico nao concluido: ${autoInvoiceMessage}`, 'info')
+      } else {
+        showToast(
+          isLast
+            ? 'B/L revisado. Fila concluida.'
+            : `B/L revisado. Proximo: ${remaining - 1} restante${remaining - 1 !== 1 ? 's' : ''}.`,
+          'success',
+        )
+      }
+      if (!autoInvoiceIssued) {
+        onReviewSaved(item)
+      }
       onSaveSuccess()
     } catch (error) {
       if (error instanceof ConcurrentEditError) {

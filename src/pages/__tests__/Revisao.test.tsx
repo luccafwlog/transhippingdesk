@@ -28,13 +28,14 @@ vi.mock('../../services/reviewBillingAutomation', () => ({
 
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
-import { applyInlineBlReviewFix } from '../../services/review'
+import { applyInlineBlReviewFix, saveBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
 
 const mockedUseReviewQueue = vi.mocked(useReviewQueue)
 const mockedUseCustomerLookup = vi.mocked(useCustomerLookup)
 const mockedApplyInlineBlReviewFix = vi.mocked(applyInlineBlReviewFix)
+const mockedSaveBlReview = vi.mocked(saveBlReview)
 const mockedTryIssueInvoice = vi.mocked(tryAutoIssueInvoice)
 
 function makeBl(id: string, consignee: string): ReviewQueueItem {
@@ -124,5 +125,23 @@ describe('Revisao', () => {
 
     expect(screen.getByText('2 B/Ls selecionados')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Vincular cliente (2)' })).toBeTruthy()
+  })
+
+  it('recalcula e emite a fatura ao salvar cliente pelo modal', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
+    await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
+    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
+    await user.type(screen.getByLabelText('Justificativa obrigatoria'), 'Cliente cadastrado e vinculado.')
+    await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
+
+    await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
+    expect(mockedTryIssueInvoice).toHaveBeenCalledWith({
+      blId: 'BL1',
+      customerId: 99,
+      actorId: 'user-1',
+    })
   })
 })
