@@ -144,6 +144,20 @@ partir de eventos físicos e permanece em persistência própria.
 Comparação entre transações recebidas e cobranças emitidas, priorizando TXID e
 valor. Casos ambíguos exigem decisão humana.
 
+## Histórico e auditoria
+
+**Histórico (do B/L)**
+Linha do tempo completa dos acontecimentos de um B/L: alterações manuais de
+campos, mudanças em containers, cálculo e revisão de taxas, e emissão e
+pagamento de faturas. É o termo guarda-chuva que abrange a Auditoria — não um
+sinônimo dela.
+
+**Auditoria**
+Subconjunto do Histórico: as alterações deliberadas registradas com
+justificativa (quem mudou o quê, de qual valor para qual, e por quê). Toda
+auditoria é um evento do Histórico; nem todo evento do Histórico é uma auditoria
+— eventos gerados pelo sistema (ex.: emissão de fatura) não têm justificativa.
+
 ## Portal do Cliente
 
 **Portal do Cliente**
