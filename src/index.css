@@ -1394,6 +1394,27 @@ textarea {
   padding: 24px;
 }
 
+/* Variante drawer: reaproveita o Modal (focus-trap/escape) como painel lateral. */
+.app-modal-backdrop:has(> .app-drawer) {
+  place-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.app-drawer {
+  width: min(100%, 620px);
+  max-height: 100vh;
+  height: 100vh;
+  border-radius: 0;
+  border-top: none;
+  border-bottom: none;
+  border-right: none;
+}
+
+.app-drawer .app-modal__header {
+  border-radius: 0;
+}
+
 .app-combobox__list {
   position: absolute;
   top: 100%;
