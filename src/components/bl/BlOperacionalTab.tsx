@@ -9,6 +9,7 @@ import { useInvoiceLinks } from '../../hooks/useBilling'
 import { useBlLocalChargeLines } from '../../hooks/useLocalCharges'
 import type { BlForm } from '../../hooks/useBlEditForm'
 import { cargoModeLabel, type CargoMode } from '../../pages/blDetalheHelpers'
+import { listBlNcms } from '../../lib/ncm'
 import { FINANCIAL_STATUS_LABELS, REVIEW_STATUS_LABELS } from '../../lib/statusLabels'
 import type { BL, BLDetail } from '../../types/database'
 
@@ -55,6 +56,8 @@ export function BlOperacionalTab({
     if (!['issued', 'overdue'].includes(latestInvoice.status ?? '')) return false
     return Math.abs(currentCalcTotal - latestInvoice.total_brl) > 0.01
   }, [latestInvoice, currentCalcTotal])
+
+  const ncms = useMemo(() => listBlNcms(form.cargo_description), [form.cargo_description])
 
   if (!active) return null
 
@@ -129,12 +132,7 @@ export function BlOperacionalTab({
               </Field>
             </>
           ) : null}
-          <Field label="Place of Delivery">
-            <Input
-              value={form.place_of_delivery ?? ''}
-              onChange={(event) => onFieldChange('place_of_delivery', event.target.value)}
-            />
-          </Field>
+
           <Field label="Shipper">
             <Input value={form.shipper ?? ''} onChange={(event) => onFieldChange('shipper', event.target.value)} />
           </Field>
@@ -163,9 +161,7 @@ export function BlOperacionalTab({
               onChange={(event) => onFieldChange('total_cbm', event.target.value)}
             />
           </Field>
-          <Field label="Incoterm">
-            <Input value={form.incoterm ?? ''} onChange={(event) => onFieldChange('incoterm', event.target.value)} />
-          </Field>
+
           <Field label="Pagamento">
             <Select
               value={form.payment_type ?? ''}
@@ -191,6 +187,22 @@ export function BlOperacionalTab({
         </div>
 
         <div className="mt-4 grid gap-4">
+          <Field label="NCM">
+            {ncms.length ? (
+              <div className="flex flex-wrap gap-2">
+                {ncms.map((ncm) => (
+                  <span
+                    key={ncm}
+                    className="rounded-full border border-[#30363d] bg-[#0d1117] px-2.5 py-1 text-xs font-semibold text-slate-200"
+                  >
+                    {ncm}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400">Nenhum NCM identificado na descrição.</div>
+            )}
+          </Field>
           <Field label="Descricao da carga">
             <Textarea
               value={form.cargo_description ?? ''}
