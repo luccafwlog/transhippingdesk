@@ -1,10 +1,10 @@
-# Superpowers Skills
+# Agent Skills
 
-A collection of 14 agent skills following the [agentskills.io](https://agentskills.io) specification. These skills enforce disciplined engineering practices — planning before coding, testing before implementation, verification before completion.
+A unified collection of 27 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
 
 Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) plus optional supporting files (prompts, references, scripts, tests).
 
-## Skills
+## Superpowers (Core Engineering Skills)
 
 | Skill | Description |
 |-------|-------------|
@@ -23,31 +23,90 @@ Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) p
 | **writing-plans** | Write comprehensive implementation plans for engineers with zero codebase context. |
 | **writing-skills** | Meta-skill: how to create new skills using TDD (RED-GREEN-REFACTOR for documentation). |
 
+## Project & Domain Skills
+
+| Skill | Description |
+|-------|-------------|
+| **design-audit** | Full-site UI/UX audit playbook for Transhipping Desk: boot real app, screenshot every page, audit, prioritize P0-P3, apply safe fixes. |
+| **import-parser** | Add or change CSV, XLSX, EDI, EDIFACT, fixed-width, Baplie, vehicle, container, customer, CE Mercante, Granito, or Vazios import behavior. |
+| **invoice-pdf** | Add or change printable local-charge or Demurrage invoice documents, browser print behavior, layout, fiscal formatting, PIX QR rendering. |
+| **react-query-pattern** | Add or change Supabase data access, TanStack React Query hooks, cache keys, invalidation, mutations, reusable remote state. |
+| **supabase-migration** | Create or review Supabase migrations involving tables, columns, indexes, constraints, foreign keys, RLS, grants, views, functions, triggers, RPCs. |
+
+## Design & UX Skills
+
+| Skill | Description |
+|-------|-------------|
+| **frontend-design** | Create distinctive, production-grade frontend interfaces with high design quality. Avoids generic AI aesthetics. |
+| **ui-ux-pro-max** | UI/UX design intelligence: 50+ styles, 161 color palettes, 57 font pairings, 99 UX guidelines, 25 chart types across 10 stacks. |
+
+## Code Quality & Review Skills
+
+| Skill | Description |
+|-------|-------------|
+| **autoreview** | Auto Review closeout. Codex review is the default engine. Run structured review as a closeout check. |
+| **security-audit-penetration-testing** | Complete security audit framework with 6 phases: discovery, resources, audit, plan, testing, reporting. |
+
+## Workflow & Communication Skills
+
+| Skill | Description |
+|-------|-------------|
+| **caveman** | Ultra-compressed communication mode. Cuts token usage ~75% by dropping filler while keeping technical accuracy. |
+| **grill-me** | Interview the user relentlessly about a plan or design until reaching shared understanding. |
+| **grill-me-with-docs** | Grilling session that challenges plans against existing domain model, sharpens terminology, updates docs inline. |
+| **handoff** | Compact the current conversation into a handoff document for another agent to pick up. |
+
 ## Structure
 
 ```
 skills/
+├── README.md
+├── autoreview/
+│   └── SKILL.md
 ├── brainstorming/
 │   ├── SKILL.md
 │   ├── visual-companion.md
 │   ├── spec-document-reviewer-prompt.md
 │   └── scripts/
+├── caveman/
+│   └── SKILL.md
+├── design-audit/
+│   └── SKILL.md
 ├── dispatching-parallel-agents/
 │   └── SKILL.md
 ├── executing-plans/
 │   └── SKILL.md
 ├── finishing-a-development-branch/
 │   └── SKILL.md
+├── frontend-design/
+│   ├── SKILL.md
+│   └── LICENSE.txt
+├── grill-me/
+│   └── SKILL.md
+├── grill-me-with-docs/
+│   └── SKILL.md
+├── handoff/
+│   └── SKILL.md
+├── import-parser/
+│   └── SKILL.md
+├── invoice-pdf/
+│   └── SKILL.md
+├── react-query-pattern/
+│   └── SKILL.md
 ├── receiving-code-review/
 │   └── SKILL.md
 ├── requesting-code-review/
 │   ├── SKILL.md
 │   └── code-reviewer.md
+├── security-audit-penetration-testing/
+│   └── SKILL.md
 ├── subagent-driven-development/
 │   ├── SKILL.md
 │   ├── implementer-prompt.md
 │   ├── spec-reviewer-prompt.md
 │   └── code-quality-reviewer-prompt.md
+├── supabase-migration/
+│   └── SKILL.md
 ├── systematic-debugging/
 │   ├── SKILL.md
 │   ├── root-cause-tracing.md
@@ -59,6 +118,8 @@ skills/
 ├── test-driven-development/
 │   ├── SKILL.md
 │   └── testing-anti-patterns.md
+├── ui-ux-pro-max/
+│   └── SKILL.md
 ├── using-git-worktrees/
 │   └── SKILL.md
 ├── using-superpowers/
@@ -95,4 +156,5 @@ The `using-superpowers/references/` directory contains tool name mappings for:
 
 ## License
 
-These skills are part of the Superpowers plugin. See the original source for licensing terms.
+Superpowers skills: see original source for licensing terms.
+Frontend Design: see `frontend-design/LICENSE.txt`.

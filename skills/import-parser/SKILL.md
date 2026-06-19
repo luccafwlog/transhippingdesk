@@ -1,0 +1,106 @@
+---
+name: import-parser
+description: Use when adding or changing CSV, XLSX, EDI, EDIFACT, fixed-width, carrier, manifesto, Baplie, vehicle, container, customer, CE Mercante, Granito, or Vazios import behavior in Transhipping Desk.
+---
+
+# Import Parser Playbook
+
+Extend the closest proven parser. Preserve source authority, validate before
+persisting, and protect each format with a faithful fixture.
+
+## Before editing
+
+State the format, entity, target tables/RPC, natural key, duplicate behavior,
+atomicity requirement, and closest importer. Inspect a real sample and relevant
+terms in `CONTEXT.md`.
+
+| Shape | Reference |
+|---|---|
+| Header-mapped CSV/XLSX | `manifestParser.ts`, `manifestImport.ts` |
+| Breakbulk | `breakbulkImport.ts` |
+| EDI/EDIFACT | `baplieParser.ts`, `baplieImport.ts` |
+| Focused upsert | `vehicleImport.ts`, `ceMercanteImport.ts` |
+| Replaceable staging | `baplieImport.ts`, `containerDatesImport.ts` |
+| Customer workbook | `customerBase.ts` |
+
+Do not create a generic import framework for one format.
+
+## Red-green
+
+1. Add a real or faithful fixture.
+2. Write valid-row and malformed-input tests.
+3. Confirm the expected failure.
+4. Implement the minimum parser/import change.
+5. Run focused and related parser tests.
+
+## File safety
+
+Validate before reading:
+
+```ts
+import { assertUploadSize } from '../lib/fileGuard'
+
+assertUploadSize(file)
+const XLSX = await import('@e965/xlsx')
+const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+```
+
+Adjust the guard import path to the service location. Prefer dynamic spreadsheet
+imports.
+
+## Parser contract
+
+- no Supabase writes or React imports;
+- named output types;
+- normalize headers, whitespace, BOM and line endings;
+- distinguish required, optional and invalid values;
+- return row-level preview errors;
+- never silently coerce unknown critical values;
+- retain source values needed for audit.
+
+## Persistence contract
+
+Use the client from `src/services/supabase.ts`, normally:
+
+```ts
+import { supabase } from './supabase'
+```
+
+- return a typed summary;
+- use RPC for atomic multi-table changes;
+- upsert only when replacement is intended;
+- use file hash when duplicate uploads matter;
+- follow an existing batching pattern;
+- never report success after a required write failed.
+
+Use a React Query hook for reused mutation lifecycle. A page event may call a
+focused import service directly when matching the existing module and not
+duplicating remote state.
+
+## UI contract
+
+Show selected file, preview/errors, explicit confirmation, progress, imported
+and rejected counts, and refreshed data.
+
+## Schema and verification
+
+Use timestamp migrations and the `supabase-migration` playbook. Regenerate types
+when the app contract changes.
+
+Verify:
+
+- valid, malformed, empty and oversized fixtures;
+- duplicate/idempotency behavior;
+- persisted row count in a controlled environment;
+- source-to-database spot checks;
+- no orphaned staging rows after failure;
+- documentation, lint, tests and build when applicable.
+
+## Common mistakes
+
+- using the obsolete `xlsx` package;
+- checking size after reading;
+- mixing parsing and persistence;
+- letting Baplie overwrite commercial authority;
+- partial multi-table imports without an RPC;
+- testing only a synthetic happy path.
