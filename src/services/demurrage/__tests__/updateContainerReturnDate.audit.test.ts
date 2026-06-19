@@ -7,7 +7,7 @@ vi.mock('../../supabase', () => ({
     from: (table: string) => {
       if (table === 'bl_containers') {
         return {
-          update: (_payload: unknown) => ({
+          update: () => ({
             eq: () => Promise.resolve({ error: null }),
           }),
           select: () => ({
