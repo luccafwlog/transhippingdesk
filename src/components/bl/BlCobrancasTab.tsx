@@ -44,7 +44,7 @@ const EMPTY_MANUAL_CHARGE_FORM: ManualChargeForm = {
 }
 
 // Aba Cobrancas: linhas de taxas locais do B/L, other charges manuais e fluxo de revisão/faturamento.
-export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }) {
+export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -200,8 +200,6 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
     }
   }
 
-  if (!active) return null
-
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -356,4 +354,9 @@ export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }
       </div>
     </Card>
   )
+}
+
+export function BlCobrancasTab({ active, bl }: { active: boolean; bl: BLDetail }) {
+  if (!active) return null
+  return <BlCobrancasSection bl={bl} />
 }

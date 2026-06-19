@@ -1,5 +1,4 @@
 import { useMemo, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
 import { Save } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -10,7 +9,7 @@ import { useBlLocalChargeLines } from '../../hooks/useLocalCharges'
 import type { BlForm } from '../../hooks/useBlEditForm'
 import { cargoModeLabel, type CargoMode } from '../../pages/blDetalheHelpers'
 import { listBlNcms } from '../../lib/ncm'
-import { FINANCIAL_STATUS_LABELS, REVIEW_STATUS_LABELS } from '../../lib/statusLabels'
+import { REVIEW_STATUS_LABELS } from '../../lib/statusLabels'
 import type { BL, BLDetail } from '../../types/database'
 
 // Aba Operacional: formulário de edição manual do B/L. O pai (BlDetalhe) mantém o estado do form.
@@ -67,12 +66,6 @@ export function BlOperacionalTab({
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <StatusBadge label="Modo" value={cargoModeLabel(cargoMode)} tone={isContainerMode ? 'blue' : 'green'} />
           <StatusBadge label="Revisao" value={REVIEW_STATUS_LABELS[bl.review_status ?? 'ok'] ?? bl.review_status ?? 'ok'} />
-          <StatusBadge label="Financeiro" value={FINANCIAL_STATUS_LABELS[bl.financial_status ?? 'pending'] ?? bl.financial_status ?? 'pending'} />
-          {latestInvoice ? (
-            <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latestInvoice.id}`}>
-              Fatura ativa: {latestInvoice.invoice_number ?? `INV-${latestInvoice.id}`}
-            </Link>
-          ) : null}
           {invoiceDiverges ? (
             <Badge tone="yellow">Taxas recalculadas — a fatura pode estar desatualizada</Badge>
           ) : null}
@@ -171,13 +164,6 @@ export function BlOperacionalTab({
               <option value="PREPAID">PREPAID</option>
               <option value="COLLECT">COLLECT</option>
             </Select>
-          </Field>
-          <Field label="Free time override">
-            <Input
-              type="number"
-              value={form.free_time_override ?? ''}
-              onChange={(event) => onFieldChange('free_time_override', event.target.value)}
-            />
           </Field>
           <Field label="Status de revisao">
             {/* Somente leitura: o status é derivado no servidor (save_bl_review →

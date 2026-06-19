@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { ensureDemurrageRatesLoaded, calculateDemurrage } from './demurrageRates'
+import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { DemurrageContainerListItem } from '../../types/database'
 
 export type DemurrageContainerFilters = {
@@ -87,6 +88,7 @@ export async function updateContainerReturnDate(containerId: number, returnDate:
   if (!returnDate) {
     const { error } = await supabase.from('bl_containers').update({ return_date: null, demurrage_status: 'within_free_time' }).eq('id', containerId)
     if (error) throw error
+    await auditReturnDateChange(containerId, null)
     return
   }
 
@@ -106,4 +108,25 @@ export async function updateContainerReturnDate(containerId: number, returnDate:
   const demurrage_status = calc.status === 'overdue' ? 'overdue' : 'within_free_time'
   const { error } = await supabase.from('bl_containers').update({ return_date: returnDate, demurrage_status }).eq('id', containerId)
   if (error) throw error
+
+  await auditReturnDateChange(containerId, returnDate)
+}
+
+// Auditoria best-effort da data de devolução — nunca quebra o fluxo do usuário.
+// Cobre tanto definir quanto limpar (null) a data, para a linha do tempo do B/L.
+async function auditReturnDateChange(containerId: number, returnDate: string | null): Promise<void> {
+  try {
+    const { data: userData } = await supabase.auth.getUser()
+    await supabase.from('audit_logs').insert({
+      entity_type: 'bl_container',
+      entity_id: String(containerId),
+      field_name: 'return_date',
+      old_value: null,
+      new_value: returnDate,
+      changed_by: userData?.user?.id ?? null,
+      justification: 'Data de devolução atualizada na seção Demurrage.',
+    })
+  } catch (auditError) {
+    reportBestEffortFailure('auditar data de devolução do container', auditError, { containerId })
+  }
 }
