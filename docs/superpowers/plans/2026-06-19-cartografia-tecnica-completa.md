@@ -13,12 +13,22 @@
 ## Source of Truth
 
 - Approved design: `docs/superpowers/specs/2026-06-19-cartografia-tecnica-completa-design.md`
-- Starting revision: `35495d1`
+- Historical design revision: `35495d1`
+- Minimum product baseline: PRs `#255` through `#258`, ending at merge commit `206cc1ce9e98a5d866b8af978d7e70dc985389ea`
 - Living module documents: `docs/modules/*.md`
 - Executable routes: `src/App.tsx`
 - Domain language: `docs/GLOSSARIO.md`
 - Architecture and decisions: `docs/ARCHITECTURE.md`, `docs/adr/README.md`
 - Workflow and gates: `WORKFLOW.md`, `AGENTS.md`
+
+### Reviewed Product Changes After the Design Revision
+
+| PR | Product change the cartography must include | Owning plans |
+|---|---|---|
+| `#255` | Shared NCM extraction, read-only NCM chips, forward-only `notify_party` import, and removal of `place_of_delivery` / `incoterm` from the B/L form while preserving database columns | 03, 08 |
+| `#256` | B/L detail reduced to `detalhes`, `faturamento`, and `historico`; customer, charges, demurrage, and invoice state consolidated under billing; audited demurrage overrides and return dates | 03, 06, 08 |
+| `#257` | Paginated, humanized B/L history backed by the secure `bl_timeline` RPC | 03, 07, 08 |
+| `#258` | Local migration version aligned with the already-applied remote version `20260619190144_bl_timeline_rpc.sql` | 07, 08 |
 
 ## Plan Set and Ownership
 
@@ -66,6 +76,7 @@ Do not label migration-regex tests as functional database proof. Use wording suc
 
 ## Execution Rules
 
+- Before Plan 01, execute the baseline preflight below. Do not inspect or document the pre-PR B/L implementation.
 - Do not edit `src/`, existing migrations, Edge Functions, generated types, product CSS, or runtime configuration.
 - Do not apply migrations or run `supabase/scripts/reset_operational_data.sql`.
 - Historical files under `docs/archive/` are read-only evidence.
@@ -76,6 +87,26 @@ Do not label migration-regex tests as functional database proof. Use wording suc
 - Commit each completed plan separately using the commit message specified in that plan.
 
 ## Master Verification
+
+- [ ] **Step 0: Confirm and record the execution baseline**
+
+Run before Plan 01:
+
+```powershell
+git fetch origin --prune
+git merge-base --is-ancestor 206cc1ce9e98a5d866b8af978d7e70dc985389ea HEAD
+if ($LASTEXITCODE -ne 0) {
+  throw 'Current checkout does not contain PRs #255-#258. Reconcile the plan commits onto the updated product branch before continuing.'
+}
+
+$baseFile = git rev-parse --git-path cartography-base
+git rev-parse HEAD | Set-Content -Encoding ascii $baseFile
+Get-Content $baseFile
+```
+
+Expected: the ancestry command exits `0`, and the final command prints the
+revision from which cartography implementation will start. This recorded base
+must contain both the reviewed PRs and the revised plan.
 
 - [ ] **Step 1: Confirm every plan file exists**
 
@@ -134,7 +165,8 @@ Expected: Plan 1 completes first; Plans 2–6 complete before Plan 7.
 Run:
 
 ```powershell
-git diff 35495d1..HEAD --name-only
+$cartographyBase = Get-Content (git rev-parse --git-path cartography-base)
+git diff "$cartographyBase..HEAD" --name-only
 ```
 
 Expected: only documentation, documentation tooling, and the two missing skill-format templates are changed. No path under `src/`, `supabase/migrations/`, or `supabase/functions/` appears.
@@ -148,7 +180,8 @@ npm run docs:check
 npm run lint
 npm test
 npm run build
-git diff --check 35495d1..HEAD
+$cartographyBase = Get-Content (git rev-parse --git-path cartography-base)
+git diff --check "$cartographyBase..HEAD"
 ```
 
 Expected: every command exits `0`.
@@ -187,4 +220,6 @@ The master plan is complete only when:
 
 The plan set changes living documentation, the documentation checker, and two
 missing skill-reference templates. It does not authorize product code, database,
-deployment, or migration changes.
+deployment, or migration changes. Product and migration changes from PRs
+`#255`–`#258` are part of the recorded execution baseline, not cartography
+output.

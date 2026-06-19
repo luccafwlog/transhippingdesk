@@ -25,6 +25,10 @@
 - All files under `docs/modules/`
 - `src/App.tsx`
 - `src/services/queryKeys.ts`
+- `src/services/blTimeline.ts`
+- `src/components/bl/BlDetalhesTab.tsx`
+- `src/components/bl/BlFaturamentoTab.tsx`
+- `src/components/bl/BlHistoricoTab.tsx`
 - `docs/superpowers/specs/2026-06-19-cartografia-tecnica-completa-design.md`
 - `docs/archive/qa-audit-e2e-2026-06-12.md`
 
@@ -261,7 +265,25 @@ unknown — environment exists but cannot be proven safe
 
 If status is `unknown`, STOP before any write and request user confirmation. Do not infer that a historical project ID is still a test environment.
 
-- [ ] **Step 3: Start the application**
+- [ ] **Step 3: Check migration-history alignment when a linked CLI is available**
+
+This is a read-only verification of PR `#258`. If the Supabase CLI is installed,
+authenticated, and linked to the intended project, run:
+
+```powershell
+supabase migration list
+```
+
+Expected: local and remote history both contain `20260619190144` for
+`bl_timeline`; `20260619190023` is absent. Record the command result as `Runtime`
+evidence only when it actually queried the linked remote project. Otherwise
+record:
+
+```text
+Histórico remoto de migrations não verificado — CLI autenticada/vinculada indisponível.
+```
+
+- [ ] **Step 4: Start the application**
 
 Run the Vite server in the background with a hidden process window:
 
@@ -347,14 +369,35 @@ import Baplie fixture
 import manifest fixture
 resolve one Baplie × manifest divergence
 import vehicle fixture
-inspect containers and B/L detail
+inspect containers and the three-tab B/L detail
 exercise review gate until pending list clears
 calculate charges and issue a QA invoice
 ```
 
 Record every created ID/number immediately for cleanup.
 
-- [ ] **Step 3: Exercise non-destructive support surfaces**
+- [ ] **Step 3: Validate the revised B/L detail**
+
+For the imported QA B/L, verify:
+
+```text
+only detalhes / faturamento / historico tabs are selectable and URL-synchronized
+detalhes combines operational fields and physical cargo
+place_of_delivery and incoterm are not editable controls
+NCM chips match cargo_description without treating dangerous-goods "UN NCM" as NCM
+notify_party renders when the documented fixture contains it
+faturamento contains customer, local charges, demurrage, and active invoice state
+free-time save and container return-date set/clear produce B/L timeline entries
+historico loads through bl_timeline and humanizes event families
+Carregar mais requests the next 50 items when the QA timeline exceeds one page
+unrelated global billing/system events do not appear
+```
+
+If fixtures do not contain `notify_party` or enough audit rows for pagination,
+record those checks as `não executado` and retain the focused automated-test
+evidence; do not mutate unrelated data to manufacture coverage.
+
+- [ ] **Step 4: Exercise non-destructive support surfaces**
 
 Verify:
 
@@ -416,6 +459,8 @@ Verify:
 within-free-time calculation
 overdue/returned calculation
 invalid return-before-discharge rejection
+B/L faturamento free-time and P1/P2 override display/save
+B/L faturamento return-date audit appears in historico
 invoice issue/print
 ```
 
@@ -540,7 +585,8 @@ Expected: every command exits `0`.
 - [ ] **Step 4: Audit scope**
 
 ```powershell
-git diff 35495d1..HEAD --name-only
+$cartographyBase = Get-Content (git rev-parse --git-path cartography-base)
+git diff "$cartographyBase..HEAD" --name-only
 ```
 
 Expected: no product source file, migration, Edge Function, or generated database type changed.

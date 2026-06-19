@@ -97,25 +97,38 @@ Expected: exit `0`.
 - Read: `src/pages/Manifestos.tsx`
 - Read: `src/pages/BlDetalhe.tsx`
 - Read: `src/pages/blDetalheHelpers.ts`
+- Read: `src/components/bl/BlDetalhesTab.tsx`
+- Read: `src/components/bl/BlFaturamentoTab.tsx`
 - Read: `src/components/bl/BlCargaTab.tsx`
+- Read: `src/components/bl/BlClienteSection.tsx`
 - Read: `src/components/bl/BlCobrancasTab.tsx`
-- Read: `src/components/bl/BlFinanceiroTab.tsx`
+- Read: `src/components/bl/BlDemurrageSection.tsx`
+- Read: `src/components/bl/BlHistoricoTab.tsx`
 - Read: `src/components/bl/BlOperacionalTab.tsx`
+- Read: `src/components/bl/blTimelinePresentation.ts`
 - Read: `src/hooks/useBls.ts`
 - Read: `src/hooks/useBlEditForm.ts`
+- Read: `src/hooks/useBlTimeline.ts`
 - Read: `src/hooks/useLocalCharges.ts`
+- Read: `src/lib/ncm.ts`
+- Read: `src/services/blTimeline.ts`
 - Read: `src/services/manifestParser.ts`
 - Read: `src/services/manifestImport.ts`
+- Read: `src/services/queryKeys.ts`
 - Read: `src/services/ceMercanteEdiParser.ts`
 - Read: `src/services/ceMercanteImport.ts`
 - Read: `src/services/bls.ts`
 - Read: `src/services/containers.ts`
+- Test: `src/lib/__tests__/ncm.test.ts`
 - Test: `src/services/__tests__/manifestParser.test.ts`
+- Test: `src/services/__tests__/manifestParser.notify.test.ts`
 - Test: `src/services/__tests__/manifestImport.test.ts`
 - Test: `src/services/__tests__/manifestFixtures.real.test.ts`
 - Test: `src/services/__tests__/ceMercanteEdiParser.test.ts`
 - Test: `src/services/__tests__/ceMercanteImport.test.ts`
 - Test: `src/pages/__tests__/blDetalheHelpers.test.ts`
+- Test: `src/pages/__tests__/blTabs.test.tsx`
+- Test: `src/components/bl/__tests__/blTimelinePresentation.test.ts`
 - Test: `src/hooks/__tests__/useBls.test.ts`
 
 - [ ] **Step 1: Apply the shared headings to `manifesto-edi.md`**
@@ -144,13 +157,41 @@ Include:
 - import CE Mercante by row and by manifest;
 - delete eligible B/Ls;
 - navigate to B/L detail;
-- edit operational review fields;
-- update cargo/container data;
-- calculate/review/ready local charges;
-- issue invoice from the B/L;
-- save financial review/customer match.
+- select and URL-synchronize exactly three B/L tabs:
+  `detalhes`, `faturamento`, and `historico`;
+- edit operational review fields and update physical cargo/container data in
+  `detalhes`;
+- render read-only NCM chips derived from `cargo_description` through the shared
+  `extractNcmCodes` helper;
+- show imported `notify_party`, including the first-party-only parser behavior
+  and the literal `SAME AS CONSIGNEE` case;
+- link an existing customer or create/link one from manifest data through
+  `BlClienteSection` and `save_bl_review`;
+- calculate/review/ready local charges in `BlCobrancasSection`;
+- configure demurrage and container return dates in `BlDemurrageSection`;
+- issue/open the active invoice and show financial status under `faturamento`;
+- load and paginate the humanized B/L timeline under `historico`.
 
-- [ ] **Step 3: Trace atomicity and post-processing**
+- [ ] **Step 3: Record the post-PR B/L invariants**
+
+Document explicitly:
+
+- `BlFinanceiroTab` is no longer a current screen; its responsibilities were
+  consolidated into `BlFaturamentoTab`;
+- `place_of_delivery` and `incoterm` are absent from the current edit form and
+  UI, but their database columns were intentionally preserved;
+- NCM is derived for display and shared with breakbulk import rather than stored
+  by the B/L form;
+- `notify_party` import is forward-only: new imports persist it, while existing
+  rows are not backfilled by these PRs;
+- `queryKeys.bls.timeline(blId)` owns paginated timeline cache state;
+- the timeline groups `bl`, `bl_container`, `charge_calculation`, `invoice`, and
+  B/L-scoped `system_event` audit families while excluding unrelated global
+  events;
+- demurrage business rules remain owned by `docs/modules/demurrage.md`; this
+  module documents the B/L entry surface and cross-link.
+
+- [ ] **Step 4: Trace atomicity and post-processing**
 
 Add a Mermaid sequence:
 
@@ -166,6 +207,14 @@ file guard
 ```
 
 Document the difference between code-level parser tests and database transaction guarantees.
+
+- [ ] **Step 5: Run focused manifest and B/L tests**
+
+```powershell
+npx vitest run src/lib/__tests__/ncm.test.ts src/services/__tests__/manifestParser.test.ts src/services/__tests__/manifestParser.notify.test.ts src/services/__tests__/manifestImport.test.ts src/services/__tests__/manifestFixtures.real.test.ts src/services/__tests__/ceMercanteEdiParser.test.ts src/services/__tests__/ceMercanteImport.test.ts src/pages/__tests__/blDetalheHelpers.test.ts src/pages/__tests__/blTabs.test.tsx src/components/bl/__tests__/blTimelinePresentation.test.ts src/hooks/__tests__/useBls.test.ts
+```
+
+Expected: exit `0`.
 
 ### Task 3: Map Breakbulk, Containers, Vehicles, Baplie, and Empties
 
@@ -294,4 +343,3 @@ Expected: no cartography-heading failures for these two files.
 git add -- docs/modules/viagens.md docs/modules/manifesto-edi.md
 git commit -m "docs: map voyages and import pipelines"
 ```
-

@@ -24,6 +24,8 @@ Do not modify product code or migrations.
 - Modify: `docs/modules/demurrage.md`
 - Read: `src/pages/Demurrage.tsx`
 - Read: `src/pages/DemurrageRates.tsx`
+- Read: `src/components/bl/BlDemurrageSection.tsx`
+- Read: `src/components/bl/BlFaturamentoTab.tsx`
 - Read: `src/components/demurrage/InvoiceDocument.tsx`
 - Read: `src/components/shared/InvoiceDocumentKit.tsx`
 - Read: `src/services/demurrage/demurrageContainers.ts`
@@ -33,6 +35,7 @@ Do not modify product code or migrations.
 - Read: `src/hooks/useExchangeRates.ts`
 - Read: `src/lib/pix.ts`
 - Test: `src/services/demurrage/__tests__/calculateDemurrage.test.ts`
+- Test: `src/services/demurrage/__tests__/updateContainerReturnDate.audit.test.ts`
 - Test: `src/services/__tests__/demurrageKpis.test.ts`
 
 - [ ] **Step 1: Apply shared headings and route subsections**
@@ -55,7 +58,14 @@ Include:
 - edit discharge date;
 - edit/clear return date;
 - derive free-time/demurrage status;
-- create invoice for one B/L.
+- create invoice for one B/L;
+- use the B/L `faturamento` tab as a second entry surface for free-time, P1/P2
+  overrides, container return dates, and the resulting calculation;
+- save `free_time_override` through audited `save_bl_review`, including
+  optimistic-lock failures `PT409` / `40001`;
+- save P1/P2 overrides through the current direct B/L update plus explicit
+  best-effort audit rows;
+- audit return-date set and clear operations and record their cache effects.
 
 - [ ] **Step 3: Catalog invoice actions**
 
@@ -96,12 +106,13 @@ Record:
 - [ ] **Step 6: Run focused tests**
 
 ```powershell
-npx vitest run src/services/demurrage/__tests__/calculateDemurrage.test.ts src/services/__tests__/demurrageKpis.test.ts
+npx vitest run src/services/demurrage/__tests__/calculateDemurrage.test.ts src/services/demurrage/__tests__/updateContainerReturnDate.audit.test.ts src/services/__tests__/demurrageKpis.test.ts
 ```
 
 Expected: exit `0`.
 
-Only calculation/KPI assertions receive `Teste`; page mutations remain `Código` until runtime validation.
+Calculation/KPI assertions and the explicit return-date audit assertions receive
+`Teste`. Other page mutations remain `Código` until runtime validation.
 
 ### Task 2: Trace Demurrage Database and Portal Contracts
 
@@ -249,4 +260,3 @@ Expected: no checker failures for these files.
 git add -- docs/modules/demurrage.md docs/modules/granito.md
 git commit -m "docs: map demurrage and granite"
 ```
-

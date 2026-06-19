@@ -19,8 +19,10 @@
 ### Read Exhaustively
 
 - `supabase/migrations/*.sql`
+- `supabase/migrations/20260619190144_bl_timeline_rpc.sql`
 - `supabase/functions/notify-invoice-issued/index.ts`
 - `supabase/functions/provision-portal-user/index.ts`
+- `src/services/blTimeline.ts`
 - `src/services/*.ts`
 - `src/services/charges/*.ts`
 - `src/services/demurrage/*.ts`
@@ -184,6 +186,39 @@ For every table directly accessed by the client, record:
 - SELECT/INSERT/UPDATE/DELETE policies relevant to the caller;
 - helper functions such as `is_active_user()` or `is_admin()`;
 - whether the frontend action relies on a policy or an RPC.
+
+- [ ] **Step 5: Resolve the B/L timeline contract and migration-history repair**
+
+Treat PRs `#257` and `#258` as one final contract:
+
+- the only current local migration path is
+  `supabase/migrations/20260619190144_bl_timeline_rpc.sql`;
+- `20260619190023_bl_timeline_rpc.sql` is the superseded filename and must not be
+  documented as an additional migration;
+- `bl_timeline(p_bl_id text, p_limit int default 50, p_offset int default 0)` is
+  `STABLE` and `SECURITY DEFINER`, uses a controlled `search_path`, requires
+  `is_active_user()`, revokes `PUBLIC` / `anon`, and grants `authenticated`;
+- included event families are direct B/L edits, B/L containers, charge
+  calculations, linked invoices, and B/L-scoped system events;
+- global or unrelated events are intentionally excluded;
+- the filename change repaired local/remote migration-version agreement after
+  the RPC had already been applied remotely; it did not change the SQL contract.
+
+Run:
+
+```powershell
+if (Test-Path supabase/migrations/20260619190023_bl_timeline_rpc.sql) {
+  throw 'Superseded bl_timeline migration filename is still present.'
+}
+if (-not (Test-Path supabase/migrations/20260619190144_bl_timeline_rpc.sql)) {
+  throw 'Final bl_timeline migration filename is missing.'
+}
+rg -n "bl_timeline|SECURITY DEFINER|is_active_user|REVOKE|GRANT" supabase/migrations/20260619190144_bl_timeline_rpc.sql src/services/blTimeline.ts
+```
+
+Expected: only the final migration exists and the contract/security evidence is
+visible. If remote migration history is not inspected in Plan 08, label remote
+alignment as PR evidence rather than fresh `Runtime` proof.
 
 ### Task 4: Map Triggers, Jobs, and Edge Functions
 
