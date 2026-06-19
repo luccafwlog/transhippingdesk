@@ -65,6 +65,7 @@ export async function importManifest({
     return {
       id: bl.id,
       shipper: bl.shipper,
+      notify_party: bl.notify_party,
       consignee: matchedCustomer?.name ?? bl.consignee,
       manifest_customer_name: bl.consignee,
       manifest_customer_email: bl.customer_email,
