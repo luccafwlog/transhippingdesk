@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
-import { Field, Input, Select, Textarea } from '../components/ui/Input'
+import { Field, Input, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
@@ -13,21 +13,26 @@ import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import {
   extractErrorText,
-  getConsigneeFilterOptions,
-  getSelectionConsignee,
+  groupReviewItems,
   needsCeMercante,
   needsCustomerLink,
   needsWeightFix,
-  normalizeConsignee,
+  type ReviewGroup,
 } from './revisaoHelpers'
 import { InlineCustomerPicker, InlineFieldEditor } from '../components/shared/ReviewInlineEditors'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { createCustomer } from '../services/customers'
-import { calculateBlLocalCharges, type LocalChargeCalculationResult } from '../services/charges/chargeOperationsService'
+import { calculateBlLocalCharges } from '../services/charges/chargeOperationsService'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { queryKeys } from '../services/queryKeys'
-import { applyInlineBlReviewFix, ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../services/review'
+import {
+  applyInlineBlReviewFix,
+  ConcurrentEditError,
+  saveBlReview,
+  saveGraniteBlReview,
+  type SaveBlReviewResult,
+} from '../services/review'
 import { tryAutoIssueInvoice } from '../services/reviewBillingAutomation'
 import { supabase } from '../services/supabase'
 
@@ -38,18 +43,14 @@ export function Revisao() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
-  const [consigneeFilter, setConsigneeFilter] = useState('')
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
-  const [batchCustomerSearch, setBatchCustomerSearch] = useState('')
-  const [batchCustomerId, setBatchCustomerId] = useState<number | null>(null)
-  const [batchSaving, setBatchSaving] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [savingGroupKey, setSavingGroupKey] = useState<string | null>(null)
   const [savingInlineId, setSavingInlineId] = useState<string | null>(null)
   const [recalcQueue, setRecalcQueue] = useState<RecalcNotice[]>([])
   const [recalcingId, setRecalcingId] = useState<string | null>(null)
-  const batchCustomerLookup = useCustomerLookup(batchCustomerSearch)
 
   async function invalidateReviewCaches(blId: string) {
     await Promise.all([
@@ -94,45 +95,6 @@ export function Revisao() {
     showToast('Falha ao salvar a correção inline.', 'error')
   }
 
-  async function handleInlineCustomer(item: ReviewQueueItem, customerId: number) {
-    if (!user) return
-    setSavingInlineId(item.id)
-    let autoInvoiceMessage: string | null = null
-    let autoInvoiceIssued = false
-    try {
-      if (item.source === 'granite') {
-        await saveGraniteBlReview({ graniteBlId: item.id, clientId: customerId, changedBy: user.id })
-      } else {
-        await applyInlineBlReviewFix({
-          blId: item.id,
-          field: 'customer_id',
-          value: customerId,
-          previousValue: item.customer_id ?? null,
-          changedBy: user.id,
-          expectedUpdatedAt: item.updated_at ?? null,
-        })
-        const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId, actorId: user.id })
-        autoInvoiceIssued = autoInvoice.status === 'invoiced'
-        autoInvoiceMessage = autoInvoice.status === 'blocked' ? autoInvoice.message : null
-      }
-      await invalidateReviewCaches(item.id)
-      if (!autoInvoiceIssued) {
-        evaluateRecalcNotice(item)
-      }
-      if (autoInvoiceIssued) {
-        showToast('Cliente vinculado e fatura emitida automaticamente.', 'success')
-      } else if (autoInvoiceMessage) {
-        showToast(`Cliente vinculado, mas faturamento automatico nao concluido: ${autoInvoiceMessage}`, 'info')
-      } else {
-        showToast('Cliente vinculado.', 'success')
-      }
-    } catch (err) {
-      await handleInlineError(err)
-    } finally {
-      setSavingInlineId(null)
-    }
-  }
-
   async function handleInlineField(item: ReviewQueueItem, field: 'ce_mercante' | 'bb_weight_ton', rawValue: string) {
     if (!user || item.source !== 'bl') return
     let value: string | number
@@ -153,7 +115,7 @@ export function Revisao() {
 
     setSavingInlineId(item.id)
     try {
-      await applyInlineBlReviewFix({
+      const result = await applyInlineBlReviewFix({
         blId: item.id,
         field,
         value,
@@ -161,42 +123,49 @@ export function Revisao() {
         changedBy: user.id,
         expectedUpdatedAt: item.updated_at ?? null,
       })
-
-      let calculation: LocalChargeCalculationResult | null = null
-      let invoiced = false
-
-      if (item.customer_id) {
-        const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId: item.customer_id, actorId: user.id })
-        if (autoInvoice.status === 'invoiced') {
-          invoiced = true
-        } else {
-          calculation = autoInvoice.calculation ?? null
-        }
-      } else {
-        calculation = await calculateBlLocalCharges(item.id, { actorId: user.id, recalculate: true })
-      }
-
-      await invalidateReviewCaches(item.id)
-
-      if (invoiced) {
-        dismissRecalcNotice(item.id)
-        showToast('Pendência atualizada e fatura emitida automaticamente.', 'success')
-      } else if (calculation && !calculation.review_required && calculation.status !== 'review_required') {
-        dismissRecalcNotice(item.id)
-        if (calculation.exempt || calculation.status === 'exempt') {
-           showToast('Pendência atualizada e B/L isento de taxas locais.', 'success')
-        } else {
-           showToast('Pendência atualizada. Taxas prontas para faturamento, mas falta vinculação de cliente.', 'success')
-        }
-      } else {
-        addRecalcNotice({ id: item.id, label: item.id, source: 'bl' })
-        showToast('Pendência atualizada, mas as taxas locais ainda possuem pendências de revisão.', 'info')
-      }
+      await finishBlCorrection(item, item.customer_id ?? null, result, 'Pendência atualizada')
     } catch (err) {
       await handleInlineError(err)
     } finally {
       setSavingInlineId(null)
     }
+  }
+
+  // Centraliza o pos-correcao de um B/L comum: so tenta faturar quando o gate
+  // canonico nao reporta mais pendencias; senao mantem na fila informando o que
+  // ainda falta. Evita faturar B/L que o cliente nao conseguiria visualizar.
+  async function finishBlCorrection(
+    item: ReviewQueueItem,
+    customerId: number | null,
+    result: SaveBlReviewResult,
+    actionLabel: string,
+  ) {
+    let invoiced = false
+    let blockedMessage: string | null = null
+
+    if (result.resolved && customerId) {
+      const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId, actorId: user?.id ?? null })
+      invoiced = autoInvoice.status === 'invoiced'
+      if (autoInvoice.status === 'blocked') blockedMessage = autoInvoice.message
+    }
+
+    await invalidateReviewCaches(item.id)
+
+    if (invoiced) {
+      dismissRecalcNotice(item.id)
+      showToast(`${actionLabel} e fatura emitida automaticamente.`, 'success')
+      return
+    }
+    if (!result.resolved) {
+      showToast(`${actionLabel}. Ainda falta: ${result.pendencias.join(', ')}.`, 'info')
+      return
+    }
+    if (blockedMessage) {
+      addRecalcNotice({ id: item.id, label: item.id, source: 'bl' })
+      showToast(`${actionLabel}, mas o faturamento automático não concluiu: ${blockedMessage}`, 'info')
+      return
+    }
+    showToast(`${actionLabel}. B/L pronto para faturamento.`, 'success')
   }
 
   async function handleRecalc(notice: RecalcNotice) {
@@ -229,17 +198,17 @@ export function Revisao() {
         (item) =>
           item.id.toLowerCase().includes(q) ||
           (item.consignee ?? '').toLowerCase().includes(q) ||
-          (item.shipper ?? '').toLowerCase().includes(q),
+          (item.shipper ?? '').toLowerCase().includes(q) ||
+          (item.customer?.name ?? '').toLowerCase().includes(q),
       )
     }
     if (reasonFilter) {
       result = result.filter((item) => item.review_reasons?.includes(reasonFilter))
     }
-    if (consigneeFilter) {
-      result = result.filter((item) => normalizeConsignee(item.consignee) === consigneeFilter)
-    }
     return result
-  }, [data, searchText, reasonFilter, consigneeFilter])
+  }, [data, searchText, reasonFilter])
+
+  const groups = useMemo(() => groupReviewItems(filteredData), [filteredData])
 
   const allReasons = useMemo(() => {
     if (!data) return []
@@ -250,121 +219,80 @@ export function Revisao() {
     return [...reasons].sort()
   }, [data])
 
-  const consigneeOptions = useMemo(() => getConsigneeFilterOptions(data ?? []), [data])
-
-  const selected = selectedIndex !== null ? (filteredData[selectedIndex] ?? null) : null
-  const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0) + (consigneeFilter ? 1 : 0)
+  const selected = selectedId ? (filteredData.find((item) => item.id === selectedId) ?? null) : null
+  const currentIndex = selectedId ? filteredData.findIndex((item) => item.id === selectedId) : -1
+  const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0)
   const filterDescription = describeActiveFilters([
     { label: 'Busca', value: searchText },
     { label: 'Motivo', value: reasonFilter },
-    { label: 'Consignatario', value: consigneeFilter },
   ])
   const emptyState = describeEmptyState({
     entitySingular: 'B/L pendente',
     entityPlural: 'B/Ls pendentes',
     hasActiveFilters: activeFilterCount > 0,
-    emptyWithoutFilters: 'Nenhum B/L pendente de revisao.',
+    emptyWithoutFilters: 'Nenhum B/L pendente de revisão.',
     emptyWithFilters: 'Nenhum B/L corresponde ao filtro.',
   })
 
-  function openItem(index: number) {
-    setSelectedIndex(index)
-  }
-
   function handleClose() {
-    setSelectedIndex(null)
+    setSelectedId(null)
   }
 
-  function handleSaveSuccess() {
-    if (selectedIndex === null) return
-    if (selectedIndex < filteredData.length - 1) {
-      setSelectedIndex(selectedIndex + 1)
-    } else {
-      setSelectedIndex(null)
-    }
+  // Navegacao por id: calcula o proximo ANTES do refetch remover o item
+  // resolvido, evitando pular o item seguinte (bug do indice posicional).
+  function handleSaved(resolved: boolean) {
+    if (!resolved || currentIndex < 0) return
+    const nextId = filteredData[currentIndex + 1]?.id ?? null
+    setSelectedId(nextId)
   }
 
-  function toggleCheck(id: string) {
-    setCheckedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+  function toggleGroupCollapsed(key: string) {
+    setCollapsedGroups((current) => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
 
-  function handleConsigneeFilterChange(value: string) {
-    setConsigneeFilter(value)
-    setCheckedIds(new Set())
-  }
-
-  const checkedItems = filteredData.filter((item) => checkedIds.has(item.id))
-  const visibleIds = filteredData.map((item) => item.id)
-  const allVisibleChecked = visibleIds.length > 0 && visibleIds.every((id) => checkedIds.has(id))
-  const someVisibleChecked = visibleIds.some((id) => checkedIds.has(id))
-  const selectedConsignee = getSelectionConsignee(checkedItems)
-  const selectedNeedCustomer = checkedItems.filter(needsCustomerLink)
-  const canBatchLinkCustomer =
-    checkedItems.length > 1 &&
-    selectedNeedCustomer.length === checkedItems.length &&
-    Boolean(selectedConsignee) &&
-    batchCustomerId != null
-
-  async function handleBatchCustomerLink() {
+  // Vincula um cliente a todos os B/Ls do grupo que ainda nao tem cliente.
+  // Resolve "o mesmo problema do mesmo cliente" de uma vez (gargalo de volume).
+  async function handleGroupLinkCustomer(group: ReviewGroup, customerId: number) {
     if (!user) return
-    if (!selectedConsignee) {
-      showToast('Selecione apenas B/Ls do mesmo consignatario.', 'error')
-      return
-    }
-    if (selectedNeedCustomer.length !== checkedItems.length) {
-      showToast('Selecione apenas B/Ls sem cliente vinculado.', 'error')
-      return
-    }
-    if (!batchCustomerId) {
-      showToast('Selecione o cliente para vincular aos B/Ls.', 'error')
-      return
-    }
-    setBatchSaving(true)
+    const targets = group.items.filter(needsCustomerLink)
+    if (targets.length === 0) return
+    setSavingGroupKey(group.key)
     let successCount = 0
     let errorCount = 0
     let invoiceCount = 0
-    const invoiceBlocks: Array<{ blId: string; message: string }> = []
-    for (const item of checkedItems) {
+    const pendingBls: string[] = []
+    for (const item of targets) {
       try {
         if (item.source === 'granite') {
-          await saveGraniteBlReview({ graniteBlId: item.id, clientId: batchCustomerId, changedBy: user.id })
+          await saveGraniteBlReview({ graniteBlId: item.id, clientId: customerId, changedBy: user.id })
+          evaluateRecalcNotice(item)
         } else {
-          await applyInlineBlReviewFix({
+          const result = await applyInlineBlReviewFix({
             blId: item.id,
             field: 'customer_id',
-            value: batchCustomerId,
+            value: customerId,
             previousValue: item.customer_id ?? null,
             changedBy: user.id,
             expectedUpdatedAt: item.updated_at ?? null,
           })
-          const autoInvoice = await tryAutoIssueInvoice({
-            blId: item.id,
-            customerId: batchCustomerId,
-            actorId: user.id,
-          })
-          if (autoInvoice.status === 'invoiced') {
-            invoiceCount++
+          if (result.resolved) {
+            const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId, actorId: user.id })
+            if (autoInvoice.status === 'invoiced') invoiceCount++
           } else {
-            invoiceBlocks.push({ blId: item.id, message: autoInvoice.message })
+            pendingBls.push(item.id)
           }
-        }
-        if (item.source !== 'bl' || invoiceBlocks.some((block) => block.blId === item.id)) {
-          evaluateRecalcNotice(item)
         }
         successCount++
       } catch {
         errorCount++
       }
     }
-    setBatchSaving(false)
-    setCheckedIds(new Set())
-    setBatchCustomerId(null)
-    setBatchCustomerSearch('')
+    setSavingGroupKey(null)
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
       queryClient.invalidateQueries({ queryKey: ['bls'] }),
@@ -374,35 +302,21 @@ export function Revisao() {
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
       queryClient.invalidateQueries({ queryKey: ['op-count'] }),
     ])
-    const firstInvoiceBlock = invoiceBlocks[0]
     const invoiceSummary = invoiceCount > 0 ? ` ${invoiceCount} fatura(s) emitida(s).` : ''
-    const blockSummary = firstInvoiceBlock
-      ? ` ${invoiceBlocks.length} B/L(s) sem fatura automatica. Primeiro bloqueio em ${firstInvoiceBlock.blId}: ${firstInvoiceBlock.message}`
-      : ''
+    const pendingSummary = pendingBls.length > 0 ? ` ${pendingBls.length} ainda com pendências (e-mail/portal/peso).` : ''
     showToast(
       errorCount
-        ? `${successCount} de ${checkedItems.length} B/Ls vinculados; ${errorCount} falharam.${invoiceSummary}${blockSummary}`
-        : `${successCount} de ${checkedItems.length} B/Ls vinculados ao cliente.${invoiceSummary}${blockSummary}`,
-      errorCount || firstInvoiceBlock ? 'info' : 'success',
+        ? `${successCount} de ${targets.length} B/Ls vinculados; ${errorCount} falharam.${invoiceSummary}${pendingSummary}`
+        : `${successCount} B/L(s) vinculados a ${group.displayName}.${invoiceSummary}${pendingSummary}`,
+      errorCount ? 'error' : 'success',
     )
-  }
-
-  function toggleAllVisible(checked: boolean) {
-    setCheckedIds((current) => {
-      const next = new Set(current)
-      for (const id of visibleIds) {
-        if (checked) next.add(id)
-        else next.delete(id)
-      }
-      return next
-    })
   }
 
   return (
     <>
       <PageHeader
-        title="Revisao Manual"
-        description="Fila de B/Ls com pendencias de importação que exigem validação humana."
+        title="Revisão Manual"
+        description="Fila de B/Ls com pendências de importação que exigem validação humana, agrupada por cliente."
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -410,7 +324,7 @@ export function Revisao() {
           <Input
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Buscar B/L, consignatario ou shipper..."
+            placeholder="Buscar B/L, cliente, consignatário..."
             className="app-review-search__input"
           />
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted-soft)]" size={15} />
@@ -432,6 +346,7 @@ export function Revisao() {
               <button
                 key={reason}
                 type="button"
+                aria-pressed={reasonFilter === reason}
                 onClick={() => setReasonFilter(reasonFilter === reason ? null : reason)}
                 className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                   reasonFilter === reason
@@ -445,95 +360,12 @@ export function Revisao() {
           </div>
         ) : null}
 
-        {consigneeOptions.length > 0 ? (
-          <Select
-            className="w-full sm:w-80"
-            value={consigneeFilter}
-            onChange={(event) => handleConsigneeFilterChange(event.target.value)}
-            aria-label="Filtrar por consignatario"
-          >
-            <option value="">Todos os consignatarios</option>
-            {consigneeOptions.map((consignee) => (
-              <option key={consignee} value={consignee}>
-                {consignee}
-              </option>
-            ))}
-          </Select>
-        ) : null}
-
         {data && data.length > 0 ? (
           <span className="ml-auto text-xs text-slate-500">
-            {formatResultCount(filteredData.length, 'B/L visivel', 'B/Ls visiveis')} de {data.length}
+            {formatResultCount(groups.length, 'cliente', 'clientes')} · {formatResultCount(filteredData.length, 'B/L', 'B/Ls')} de {data.length}
           </span>
         ) : null}
       </div>
-
-      {checkedItems.length > 1 && (
-        <div className="mb-3 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
-          <div className="mb-2 text-sm font-medium text-blue-200">
-            {checkedItems.length} B/Ls selecionados
-            {!selectedConsignee ? (
-              <span className="ml-1 text-amber-300">
-                (selecione apenas o mesmo consignatario)
-              </span>
-            ) : null}
-            {selectedNeedCustomer.length !== checkedItems.length ? (
-              <span className="ml-1 text-amber-300">
-                ({checkedItems.length - selectedNeedCustomer.length} ja tem cliente)
-              </span>
-            ) : null}
-          </div>
-          <div className="relative flex flex-wrap items-end gap-2">
-            <div className="relative min-w-[260px] flex-1">
-              <Input
-                value={batchCustomerSearch}
-                onChange={(event) => {
-                  setBatchCustomerSearch(event.target.value)
-                  setBatchCustomerId(null)
-                }}
-                placeholder="Buscar cliente para vincular..."
-                disabled={batchSaving}
-              />
-              {batchCustomerLookup.data?.length ? (
-                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-[#30363d] bg-[#161b22] shadow-xl">
-                  {batchCustomerLookup.data.map((customer) => (
-                    <button
-                      key={customer.id}
-                      type="button"
-                      disabled={batchSaving}
-                      className="block w-full px-3 py-1.5 text-left text-xs text-slate-300 hover:bg-[#21262d] disabled:opacity-50"
-                      onClick={() => {
-                        setBatchCustomerId(customer.id)
-                        setBatchCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
-                      }}
-                    >
-                      <div className="font-medium text-white">{customer.name}</div>
-                      <div className="text-[11px] text-slate-500">{formatCnpjCpf(customer.cnpj_cpf)}</div>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <Button
-              loading={batchSaving}
-              disabled={!canBatchLinkCustomer}
-              onClick={handleBatchCustomerLink}
-            >
-              Vincular cliente ({checkedItems.length})
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setCheckedIds(new Set())
-                setBatchCustomerId(null)
-                setBatchCustomerSearch('')
-              }}
-            >
-              Limpar
-            </Button>
-          </div>
-        </div>
-      )}
 
       {recalcQueue.length > 0 ? (
         <div className="mb-3 space-y-2">
@@ -581,68 +413,122 @@ export function Revisao() {
 
       <Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-semibold text-white">{formatResultCount(filteredData.length, 'pendencia retornada', 'pendencias retornadas')}</span>
+          <span className="font-semibold text-white">{formatResultCount(filteredData.length, 'pendência retornada', 'pendências retornadas')}</span>
           <span className="text-xs text-slate-400">{filterDescription}</span>
         </div>
-        {error ? <InlineError message="Erro ao carregar a fila de revisao." /> : null}
+        {error ? <InlineError message="Erro ao carregar a fila de revisão." /> : null}
         {graniteUnavailable ? (
           <InlineError message="Não foi possível carregar os B/Ls de granito — a fila abaixo pode estar incompleta. Recarregue a página ou contate o suporte." />
         ) : null}
 
-        <div className="app-table-scroll app-table-scroll--sticky">
-          <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-              <tr>
-                <th scope="col" className="px-4 py-3 w-8">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-[#30363d] accent-blue-500"
-                    checked={allVisibleChecked}
-                    ref={(element) => {
-                      if (element) element.indeterminate = someVisibleChecked && !allVisibleChecked
-                    }}
-                    onChange={(event) => toggleAllVisible(event.target.checked)}
-                    aria-label="Selecionar todos os B/Ls visiveis"
-                    disabled={filteredData.length === 0}
-                  />
-                </th>
-                <th scope="col" className="px-4 py-3">B/L</th>
-                <th scope="col" className="px-4 py-3">Pendencias</th>
-                <th scope="col" className="px-4 py-3">Consignatario</th>
-                <th scope="col" className="px-4 py-3">Cliente</th>
-                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
-              </tr>
-            </thead>
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-slate-400">Carregando fila de revisão...</div>
+        ) : null}
+        {!isLoading && !filteredData.length ? (
+          <EmptyState title={emptyState.title} description={emptyState.description} />
+        ) : null}
+
+        <div className="divide-y divide-[#30363d]">
+          {groups.map((group) => (
+            <ReviewGroupBlock
+              key={group.key}
+              group={group}
+              collapsed={collapsedGroups.has(group.key)}
+              savingGroup={savingGroupKey === group.key}
+              savingInlineId={savingInlineId}
+              onToggle={() => toggleGroupCollapsed(group.key)}
+              onGroupLink={(customerId) => handleGroupLinkCustomer(group, customerId)}
+              onCorrect={(id) => setSelectedId(id)}
+              onInlineField={handleInlineField}
+            />
+          ))}
+        </div>
+      </Card>
+
+      <ReviewDrawer
+        item={selected}
+        currentIndex={currentIndex}
+        totalItems={filteredData.length}
+        onClose={handleClose}
+        onSaved={handleSaved}
+        onReviewSaved={evaluateRecalcNotice}
+        onNavigate={(id) => setSelectedId(id)}
+        siblingIds={filteredData.map((item) => item.id)}
+      />
+    </>
+  )
+}
+
+function ReviewGroupBlock({
+  group,
+  collapsed,
+  savingGroup,
+  savingInlineId,
+  onToggle,
+  onGroupLink,
+  onCorrect,
+  onInlineField,
+}: {
+  group: ReviewGroup
+  collapsed: boolean
+  savingGroup: boolean
+  savingInlineId: string | null
+  onToggle: () => void
+  onGroupLink: (customerId: number) => void
+  onCorrect: (id: string) => void
+  onInlineField: (item: ReviewQueueItem, field: 'ce_mercante' | 'bb_weight_ton', value: string) => void
+}) {
+  const unlinkedCount = group.items.filter(needsCustomerLink).length
+  const groupReasons = useMemo(() => {
+    const reasons = new Set<string>()
+    for (const item of group.items) {
+      for (const r of item.review_reasons ?? []) reasons.add(r)
+    }
+    return [...reasons]
+  }, [group.items])
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3 bg-[#0d1117] px-4 py-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex items-center gap-2 text-left"
+          aria-expanded={!collapsed}
+        >
+          <ChevronDown
+            size={16}
+            className={`text-slate-500 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          />
+          <span className="font-semibold text-white">{group.displayName}</span>
+        </button>
+        {group.cnpj ? (
+          <span className="text-xs text-slate-500">{formatCnpjCpf(group.cnpj)}</span>
+        ) : (
+          <span className="text-xs text-amber-300">sem CNPJ</span>
+        )}
+        <Badge tone="slate">{formatResultCount(group.items.length, 'B/L', 'B/Ls')}</Badge>
+        <div className="flex flex-wrap gap-1.5">
+          {groupReasons.slice(0, 4).map((reason) => (
+            <Badge key={reason} tone="yellow">
+              {reason}
+            </Badge>
+          ))}
+        </div>
+        {unlinkedCount > 0 ? (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-slate-400">Vincular cliente a {unlinkedCount}:</span>
+            <InlineCustomerPicker saving={savingGroup} onSelect={onGroupLink} />
+          </div>
+        ) : null}
+      </div>
+
+      {!collapsed ? (
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[820px] text-left text-sm">
             <tbody className="divide-y divide-[#30363d]">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    Carregando fila de revisao...
-                  </td>
-                </tr>
-              ) : null}
-              {!isLoading && !filteredData.length ? (
-                <tr>
-                  <td colSpan={7} className="p-0">
-                    <EmptyState
-                      title={emptyState.title}
-                      description={emptyState.description}
-                    />
-                  </td>
-                </tr>
-              ) : null}
-              {filteredData.map((item, index) => (
+              {group.items.map((item) => (
                 <tr key={item.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-[#30363d] accent-blue-500"
-                      checked={checkedIds.has(item.id)}
-                      onChange={() => toggleCheck(item.id)}
-                      aria-label={`Selecionar B/L ${item.source === 'granite' ? item.bl_number : item.id}`}
-                    />
-                  </td>
                   <td className="px-4 py-3 font-semibold text-white">
                     <div className="flex items-center gap-2">
                       {item.source === 'granite' ? <Badge tone="blue">Granito</Badge> : null}
@@ -652,7 +538,7 @@ export function Revisao() {
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
                       <div className="flex flex-wrap gap-2">
-                        {(item.review_reasons?.length ? item.review_reasons : ['Pendente de revisao']).map((reason) => (
+                        {(item.review_reasons?.length ? item.review_reasons : ['Pendente de revisão']).map((reason) => (
                           <Badge key={reason} tone="yellow">
                             {reason}
                           </Badge>
@@ -664,7 +550,7 @@ export function Revisao() {
                           placeholder="CE Mercante"
                           initial={item.ce_mercante ?? ''}
                           saving={savingInlineId === item.id}
-                          onSave={(value) => handleInlineField(item, 'ce_mercante', value)}
+                          onSave={(value) => onInlineField(item, 'ce_mercante', value)}
                         />
                       ) : null}
                       {item.source === 'bl' && needsWeightFix(item) ? (
@@ -673,28 +559,17 @@ export function Revisao() {
                           placeholder="Peso BB (ton)"
                           initial={item.bb_weight_ton != null ? String(item.bb_weight_ton) : ''}
                           saving={savingInlineId === item.id}
-                          onSave={(value) => handleInlineField(item, 'bb_weight_ton', value)}
+                          onSave={(value) => onInlineField(item, 'bb_weight_ton', value)}
                         />
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-4 py-3">{item.consignee ?? item.shipper ?? '-'}</td>
-                  <td className="px-4 py-3">
-                    {needsCustomerLink(item) ? (
-                      <InlineCustomerPicker
-                        saving={savingInlineId === item.id}
-                        onSelect={(customerId) => handleInlineCustomer(item, customerId)}
-                      />
-                    ) : (
-                      (item.customer?.name ?? 'Não vinculado')
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-slate-400">
                     {item.voyage?.vessel?.name ?? '-'} / {item.voyage?.voyage_number ?? '-'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => openItem(index)}>
+                      <Button variant="secondary" onClick={() => onCorrect(item.id)}>
                         Corrigir
                       </Button>
                       {item.source === 'bl' ? (
@@ -713,37 +588,29 @@ export function Revisao() {
             </tbody>
           </table>
         </div>
-      </Card>
-
-      <ReviewModal
-        item={selected}
-        currentIndex={selectedIndex}
-        totalItems={filteredData.length}
-        onClose={handleClose}
-        onSaveSuccess={handleSaveSuccess}
-        onReviewSaved={evaluateRecalcNotice}
-        onNavigate={(index) => setSelectedIndex(index)}
-      />
-    </>
+      ) : null}
+    </div>
   )
 }
 
-function ReviewModal({
+function ReviewDrawer({
   item,
   currentIndex,
   totalItems,
   onClose,
-  onSaveSuccess,
+  onSaved,
   onReviewSaved,
   onNavigate,
+  siblingIds,
 }: {
   item: ReviewQueueItem | null
-  currentIndex: number | null
+  currentIndex: number
   totalItems: number
   onClose: () => void
-  onSaveSuccess: () => void
+  onSaved: (resolved: boolean) => void
   onReviewSaved: (item: ReviewQueueItem) => void
-  onNavigate: (index: number) => void
+  onNavigate: (id: string) => void
+  siblingIds: string[]
 }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -806,7 +673,7 @@ function ReviewModal({
       setSelectedCustomerId(customer.id)
       setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
-      showToast('Cliente criado e pronto para vinculacao.', 'success')
+      showToast('Cliente criado e pronto para vinculação. Clique em "Marcar como revisado" para concluir.', 'success')
     } catch (error) {
       const message = extractErrorText(error)
       if (message.includes('duplicate key') || message.includes('customers_cnpj_cpf_key')) {
@@ -837,15 +704,12 @@ function ReviewModal({
   async function handleSave() {
     if (!item || !user) return
     if (!justification.trim()) {
-      showToast('Informe a justificativa da revisao.', 'error')
+      showToast('Informe a justificativa da revisão.', 'error')
       return
     }
 
     setSaving(true)
     try {
-      let autoInvoiceMessage: string | null = null
-      let autoInvoiceIssued = false
-
       if (item.source === 'granite') {
         if (!selectedCustomerId) {
           showToast('Selecione um cliente para vincular.', 'error')
@@ -853,73 +717,64 @@ function ReviewModal({
           return
         }
         await saveGraniteBlReview({ graniteBlId: item.id, clientId: selectedCustomerId, changedBy: user.id })
-      } else {
-        await saveBlReview({
-          blId: item.id,
-          original: {
-            shipper: item.shipper,
-            consignee: item.consignee,
-            pol: item.pol,
-            pod: item.pod,
-            total_weight_kg: item.total_weight_kg,
-            total_cbm: item.total_cbm,
-            notes: item.notes,
-          },
-          values: {
-            shipper,
-            consignee,
-            pol,
-            pod,
-            total_weight_kg: totalWeightKg === '' ? null : Number(totalWeightKg),
-            total_cbm: totalCbm === '' ? null : Number(totalCbm),
-            notes,
-          },
-          customerId: selectedCustomerId,
-          previousCustomerId: item.customer_id ?? null,
-          changedBy: user.id,
-          justification,
-          expectedUpdatedAt: item.updated_at ?? null,
-        })
-
-        if (selectedCustomerId) {
-          const autoInvoice = await tryAutoIssueInvoice({
-            blId: item.id,
-            customerId: selectedCustomerId,
-            actorId: user.id,
-          })
-          autoInvoiceIssued = autoInvoice.status === 'invoiced'
-          autoInvoiceMessage = autoInvoice.status === 'blocked' ? autoInvoice.message : null
-        }
+        await invalidateAll(item.id)
+        onReviewSaved(item)
+        showToast('Cliente vinculado ao Granito.', 'success')
+        onSaved(true)
+        return
       }
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', item.id] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', item.id] }),
-        queryClient.invalidateQueries({ queryKey: ['customers'] }),
-        queryClient.invalidateQueries({ queryKey: ['op-count'] }),
-      ])
+      const result = await saveBlReview({
+        blId: item.id,
+        original: {
+          shipper: item.shipper,
+          consignee: item.consignee,
+          pol: item.pol,
+          pod: item.pod,
+          total_weight_kg: item.total_weight_kg,
+          total_cbm: item.total_cbm,
+          notes: item.notes,
+        },
+        values: {
+          shipper,
+          consignee,
+          pol,
+          pod,
+          total_weight_kg: totalWeightKg === '' ? null : Number(totalWeightKg),
+          total_cbm: totalCbm === '' ? null : Number(totalCbm),
+          notes,
+        },
+        customerId: selectedCustomerId,
+        previousCustomerId: item.customer_id ?? null,
+        changedBy: user.id,
+        justification,
+        expectedUpdatedAt: item.updated_at ?? null,
+      })
 
-      const remaining = totalItems - 1
-      const isLast = currentIndex !== null && currentIndex >= totalItems - 1
+      let autoInvoiceIssued = false
+      let autoInvoiceMessage: string | null = null
+      if (result.resolved && selectedCustomerId) {
+        const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId: selectedCustomerId, actorId: user.id })
+        autoInvoiceIssued = autoInvoice.status === 'invoiced'
+        autoInvoiceMessage = autoInvoice.status === 'blocked' ? autoInvoice.message : null
+      }
+
+      await invalidateAll(item.id)
+
       if (autoInvoiceIssued) {
         showToast('B/L revisado e fatura emitida automaticamente.', 'success')
+      } else if (!result.resolved) {
+        showToast(`B/L salvo, mas ainda falta: ${result.pendencias.join(', ')}.`, 'info')
       } else if (autoInvoiceMessage) {
-        showToast(`B/L revisado, mas faturamento automatico nao concluido: ${autoInvoiceMessage}`, 'info')
+        showToast(`B/L revisado, mas o faturamento automático não concluiu: ${autoInvoiceMessage}`, 'info')
       } else {
-        showToast(
-          isLast
-            ? 'B/L revisado. Fila concluida.'
-            : `B/L revisado. Proximo: ${remaining - 1} restante${remaining - 1 !== 1 ? 's' : ''}.`,
-          'success',
-        )
+        showToast('B/L revisado. Pronto para faturamento.', 'success')
       }
+
       if (!autoInvoiceIssued) {
         onReviewSaved(item)
       }
-      onSaveSuccess()
+      onSaved(result.resolved)
     } catch (error) {
       if (error instanceof ConcurrentEditError) {
         void logOperationalEvent({
@@ -927,34 +782,50 @@ function ReviewModal({
           message: error.message,
           changedBy: user?.id ?? null,
           entityId: item.id,
-          context: { source: 'review_modal' },
+          context: { source: 'review_drawer' },
         })
         await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
         showToast('Este B/L foi alterado por outro usuário. A fila foi recarregada.', 'error')
         return
       }
-      showToast('Falha ao salvar a revisao do B/L.', 'error')
+      showToast('Falha ao salvar a revisão do B/L.', 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  const canGoPrev = currentIndex !== null && currentIndex > 0
-  const canGoNext = currentIndex !== null && currentIndex < totalItems - 1
+  async function invalidateAll(blId: string) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
+      queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+      queryClient.invalidateQueries({ queryKey: ['bl-detail', blId] }),
+      queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', blId] }),
+      queryClient.invalidateQueries({ queryKey: ['customers'] }),
+      queryClient.invalidateQueries({ queryKey: ['op-count'] }),
+    ])
+  }
 
+  const canGoPrev = currentIndex > 0
+  const canGoNext = currentIndex >= 0 && currentIndex < totalItems - 1
   const isGranite = item?.source === 'granite'
+  const pendencies = item?.review_reasons?.length ? item.review_reasons : ['Pendente de revisão']
 
   return (
-    <Modal open={Boolean(item)} onClose={onClose} title={item ? (isGranite ? `Vincular cliente — Granito ${item.bl_number}` : `Revisar B/L ${item.id}`) : 'Revisar'}>
-
+    <Modal
+      open={Boolean(item)}
+      onClose={onClose}
+      className="app-drawer"
+      title={item ? (isGranite ? `Vincular cliente — Granito ${item.bl_number}` : `Revisar B/L ${item.id}`) : 'Revisar'}
+    >
       {item ? (
         <div className="grid gap-5">
-          {totalItems > 1 && currentIndex !== null ? (
+          {totalItems > 1 && currentIndex >= 0 ? (
             <div className="flex items-center justify-between rounded-lg border border-[#30363d] bg-[#161b22] px-3 py-2 text-sm">
               <button
                 type="button"
                 disabled={!canGoPrev}
-                onClick={() => canGoPrev && onNavigate(currentIndex - 1)}
+                onClick={() => canGoPrev && onNavigate(siblingIds[currentIndex - 1])}
                 className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
               >
                 <ChevronLeft size={15} />
@@ -966,10 +837,10 @@ function ReviewModal({
               <button
                 type="button"
                 disabled={!canGoNext}
-                onClick={() => canGoNext && onNavigate(currentIndex + 1)}
+                onClick={() => canGoNext && onNavigate(siblingIds[currentIndex + 1])}
                 className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
               >
-                Proximo
+                Próximo
                 <ChevronRight size={15} />
               </button>
             </div>
@@ -978,10 +849,10 @@ function ReviewModal({
           <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
             <div className="mb-2 flex items-center gap-2 font-semibold">
               <AlertTriangle size={16} />
-              Pendencias detectadas
+              Pendências a resolver
             </div>
             <div className="flex flex-wrap gap-2">
-              {(item.review_reasons?.length ? item.review_reasons : ['Pendente de revisao']).map((reason) => (
+              {pendencies.map((reason) => (
                 <Badge key={reason} tone="yellow">
                   {reason}
                 </Badge>
@@ -995,7 +866,7 @@ function ReviewModal({
                 <Field label="Shipper">
                   <Input value={shipper} onChange={(event) => setShipper(event.target.value)} />
                 </Field>
-                <Field label="Consignatario">
+                <Field label="Consignatário">
                   <Input value={consignee} onChange={(event) => setConsignee(event.target.value)} />
                 </Field>
                 <Field label="POL">
@@ -1011,14 +882,14 @@ function ReviewModal({
                   <Input type="number" value={totalCbm} onChange={(event) => setTotalCbm(event.target.value)} />
                 </Field>
               </div>
-              <Field label="Notas da revisao">
+              <Field label="Notas da revisão">
                 <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
               </Field>
             </>
           ) : null}
 
           <Card className="grid gap-4 bg-[#0d1117]">
-            <div className="font-semibold text-white">Vinculacao de cliente</div>
+            <div className="font-semibold text-white">Vinculação de cliente</div>
             <Field label="Buscar cliente por nome ou CNPJ">
               <div className="relative">
                 <Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Digite ao menos 2 caracteres" />
@@ -1054,25 +925,28 @@ function ReviewModal({
               </div>
             ) : null}
 
-            <div className="grid gap-3 md:grid-cols-[1fr_220px_1fr_auto]">
-              <Field label="Novo cliente - nome">
-                <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} />
-              </Field>
-              <Field label="Novo cliente - CNPJ/CPF">
-                <Input value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(event.target.value)} />
-              </Field>
-              <Field label="Novo cliente - e-mail">
-                <Input value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} placeholder="(opcional)" />
-              </Field>
-              <div className="flex items-end">
-                <Button type="button" variant="secondary" onClick={handleCreateCustomer}>
-                  Cadastrar cliente
-                </Button>
+            <div className="grid gap-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Ou cadastre um novo cliente</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Nome">
+                  <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} />
+                </Field>
+                <Field label="CNPJ/CPF">
+                  <Input value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(event.target.value)} />
+                </Field>
+                <Field label="E-mail">
+                  <Input value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} placeholder="(opcional)" />
+                </Field>
+                <div className="flex items-end">
+                  <Button type="button" variant="secondary" onClick={handleCreateCustomer}>
+                    Cadastrar cliente
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
 
-          <Field label="Justificativa obrigatoria">
+          <Field label="Justificativa obrigatória">
             <Textarea value={justification} onChange={(event) => setJustification(event.target.value)} required />
           </Field>
 

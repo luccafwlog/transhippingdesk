@@ -24,6 +24,7 @@ export type ReviewQueueItem = (BL & {
   notes?: string | null
   updated_at?: string | null
   customer_id?: number | null
+  manifest_customer_cnpj_cpf?: string | null
   customer?: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
   voyage?: { vessel?: { name?: string | null } | null; voyage_number?: string | null } | null
   charge_status?: string | null
@@ -119,6 +120,7 @@ export function useReviewQueue() {
         notes: null,
         updated_at: row.created_at,
         customer_id: row.client_id,
+        manifest_customer_cnpj_cpf: row.shipper_cnpj,
         charge_status: row.charge_status,
         customer: row.customer,
         voyage: row.manifest?.voyage
