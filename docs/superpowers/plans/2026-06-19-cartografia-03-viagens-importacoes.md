@@ -94,6 +94,11 @@ Expected: exit `0`.
 **Files:**
 
 - Modify: `docs/modules/manifesto-edi.md`
+- Read: `docs/GLOSSARIO.md`
+- Read: `docs/superpowers/specs/2026-06-19-bl-detail-screen-redesign.md`
+- Read as historical implementation evidence: `docs/superpowers/plans/2026-06-19-bl-operacional-ncm-notify.md`
+- Read as historical implementation evidence: `docs/superpowers/plans/2026-06-19-bl-detail-tabs-restructure.md`
+- Read as historical implementation evidence: `docs/superpowers/plans/2026-06-19-bl-historico-timeline.md`
 - Read: `src/pages/Manifestos.tsx`
 - Read: `src/pages/BlDetalhe.tsx`
 - Read: `src/pages/blDetalheHelpers.ts`
@@ -176,6 +181,9 @@ Include:
 
 Document explicitly:
 
+- PR `#254`'s three implementation plans explain intended sequencing, but the
+  merged code from PRs `#255`–`#258` is authoritative when plan text and current
+  behavior differ;
 - `BlFinanceiroTab` is no longer a current screen; its responsibilities were
   consolidated into `BlFaturamentoTab`;
 - `place_of_delivery` and `incoterm` are absent from the current edit form and
@@ -188,6 +196,9 @@ Document explicitly:
 - the timeline groups `bl`, `bl_container`, `charge_calculation`, `invoice`, and
   B/L-scoped `system_event` audit families while excluding unrelated global
   events;
+- `Histórico` is the full B/L lifecycle timeline, while `Auditoria` is only the
+  justified subset of deliberate changes; every audit event belongs to history,
+  but system-generated history events need not be audits;
 - demurrage business rules remain owned by `docs/modules/demurrage.md`; this
   module documents the B/L entry surface and cross-link.
 

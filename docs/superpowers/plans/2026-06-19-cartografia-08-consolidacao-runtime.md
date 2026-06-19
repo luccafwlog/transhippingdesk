@@ -29,6 +29,8 @@
 - `src/components/bl/BlDetalhesTab.tsx`
 - `src/components/bl/BlFaturamentoTab.tsx`
 - `src/components/bl/BlHistoricoTab.tsx`
+- `docs/GLOSSARIO.md`
+- `docs/superpowers/specs/2026-06-19-bl-detail-screen-redesign.md`
 - `docs/superpowers/specs/2026-06-19-cartografia-tecnica-completa-design.md`
 - `docs/archive/qa-audit-e2e-2026-06-12.md`
 
@@ -389,6 +391,7 @@ notify_party renders when the documented fixture contains it
 faturamento contains customer, local charges, demurrage, and active invoice state
 free-time save and container return-date set/clear produce B/L timeline entries
 historico loads through bl_timeline and humanizes event families
+events with justification are identified as Auditoria within the broader Histórico
 Carregar mais requests the next 50 items when the QA timeline exceeds one page
 unrelated global billing/system events do not appear
 ```

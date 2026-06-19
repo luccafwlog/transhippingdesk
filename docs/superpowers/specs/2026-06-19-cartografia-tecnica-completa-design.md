@@ -396,14 +396,15 @@ git diff --check
 
 ### Baseline conhecido do gate documental
 
-Em 2026-06-19, antes de alterar a cartografia, `npm run docs:check` falha em dez
-links sob `skills/`: dois links relativos ausentes em
-`skills/grill-me-with-docs/SKILL.md` e oito links iniciados por `/en/docs/` em
+Na revisão histórica `35495d1`, `npm run docs:check` falhava em dez links sob
+`skills/`: dois links relativos ausentes em `skills/grill-me-with-docs/SKILL.md`
+e oito links iniciados por `/en/docs/` em
 `skills/writing-skills/anthropic-best-practices.md`.
 
-Essas falhas não foram introduzidas por esta especificação. O plano de execução
-deve incluir uma correção documental mínima do baseline antes do gate final, sem
-alterar o comportamento das skills.
+O PR `#253` corrigiu essas dez falhas antes da implementação do redesenho de B/L.
+Portanto, o plano de execução deve exigir uma baseline contendo os PRs
+`#253`–`#258`, verificar que o gate está limpo antes de adicionar as novas regras
+da cartografia e não recriar nem reescrever os arquivos de skill já corrigidos.
 
 Também será feita uma auditoria final de cobertura:
 

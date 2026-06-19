@@ -32,6 +32,8 @@
 - `src/components/**/*.tsx`
 - `src/services/__tests__/*Migration.test.ts`
 - `src/integration/supabase.integration.test.ts`
+- `docs/GLOSSARIO.md`
+- `docs/superpowers/specs/2026-06-19-bl-detail-screen-redesign.md`
 - `docs/adr/0004-supabase-rls-rpc-fronteira-seguranca.md`
 - `docs/adr/0011-revogacao-anon-security-definer-default-deny.md`
 - `docs/adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md`
@@ -201,6 +203,8 @@ Treat PRs `#257` and `#258` as one final contract:
 - included event families are direct B/L edits, B/L containers, charge
   calculations, linked invoices, and B/L-scoped system events;
 - global or unrelated events are intentionally excluded;
+- the RPC supplies the full `Histórico` contract; rows with a justification are
+  the `Auditoria` subset defined by `docs/GLOSSARIO.md`;
 - the filename change repaired local/remote migration-version agreement after
   the RPC had already been applied remotely; it did not change the SQL contract.
 

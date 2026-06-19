@@ -14,7 +14,8 @@
 
 - Approved design: `docs/superpowers/specs/2026-06-19-cartografia-tecnica-completa-design.md`
 - Historical design revision: `35495d1`
-- Minimum product baseline: PRs `#255` through `#258`, ending at merge commit `206cc1ce9e98a5d866b8af978d7e70dc985389ea`
+- B/L redesign evidence: `docs/superpowers/specs/2026-06-19-bl-detail-screen-redesign.md`
+- Minimum repository baseline: PRs `#253` through `#258`, ending at merge commit `206cc1ce9e98a5d866b8af978d7e70dc985389ea`
 - Living module documents: `docs/modules/*.md`
 - Executable routes: `src/App.tsx`
 - Domain language: `docs/GLOSSARIO.md`
@@ -25,6 +26,8 @@
 
 | PR | Product change the cartography must include | Owning plans |
 |---|---|---|
+| `#253` | Initial B/L redesign specification plus the repair of the ten pre-existing skill-documentation link failures | 01, 03 |
+| `#254` | Final B/L timeline design, implementation-plan evidence, and canonical glossary distinction between `Histórico` and `Auditoria` | 03, 07, 08 |
 | `#255` | Shared NCM extraction, read-only NCM chips, forward-only `notify_party` import, and removal of `place_of_delivery` / `incoterm` from the B/L form while preserving database columns | 03, 08 |
 | `#256` | B/L detail reduced to `detalhes`, `faturamento`, and `historico`; customer, charges, demurrage, and invoice state consolidated under billing; audited demurrage overrides and return dates | 03, 06, 08 |
 | `#257` | Paginated, humanized B/L history backed by the secure `bl_timeline` RPC | 03, 07, 08 |
@@ -34,7 +37,7 @@
 
 | Order | Plan | Exclusive write scope |
 |---|---|---|
-| 1 | `2026-06-19-cartografia-01-fundacao.md` | `scripts/check-docs.mjs`, broken skill-link files/templates |
+| 1 | `2026-06-19-cartografia-01-fundacao.md` | `scripts/check-docs.mjs` |
 | 2A | `2026-06-19-cartografia-02-operacao-suporte.md` | `docs/modules/operacao-suporte.md`, `docs/modules/chegadas-saidas.md` |
 | 2B | `2026-06-19-cartografia-03-viagens-importacoes.md` | `docs/modules/viagens.md`, `docs/modules/manifesto-edi.md` |
 | 2C | `2026-06-19-cartografia-04-clientes-portal.md` | `docs/modules/clientes.md`, `docs/modules/portal-cliente.md` |
@@ -96,7 +99,7 @@ Run before Plan 01:
 git fetch origin --prune
 git merge-base --is-ancestor 206cc1ce9e98a5d866b8af978d7e70dc985389ea HEAD
 if ($LASTEXITCODE -ne 0) {
-  throw 'Current checkout does not contain PRs #255-#258. Reconcile the plan commits onto the updated product branch before continuing.'
+  throw 'Current checkout does not contain PRs #253-#258. Reconcile the plan commits onto the updated repository branch before continuing.'
 }
 
 $baseFile = git rev-parse --git-path cartography-base
@@ -169,7 +172,8 @@ $cartographyBase = Get-Content (git rev-parse --git-path cartography-base)
 git diff "$cartographyBase..HEAD" --name-only
 ```
 
-Expected: only documentation, documentation tooling, and the two missing skill-format templates are changed. No path under `src/`, `supabase/migrations/`, or `supabase/functions/` appears.
+Expected: only living documentation and documentation tooling are changed. No
+path under `src/`, `supabase/migrations/`, or `supabase/functions/` appears.
 
 - [ ] **Step 5: Run the final gates**
 
@@ -218,8 +222,7 @@ The master plan is complete only when:
 
 ### Scope check
 
-The plan set changes living documentation, the documentation checker, and two
-missing skill-reference templates. It does not authorize product code, database,
-deployment, or migration changes. Product and migration changes from PRs
-`#255`–`#258` are part of the recorded execution baseline, not cartography
-output.
+The plan set changes living documentation and the documentation checker. It does
+not authorize product code, database, deployment, migration, or skill-template
+changes. Documentation, product, and migration changes from PRs `#253`–`#258`
+are part of the recorded execution baseline, not cartography output.
