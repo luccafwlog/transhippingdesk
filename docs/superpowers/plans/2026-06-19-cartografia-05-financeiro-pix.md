@@ -307,4 +307,3 @@ Expected: no checker failures for these three files.
 git add -- docs/modules/taxas-locais.md docs/modules/faturamento.md docs/modules/reconciliacao-pix.md
 git commit -m "docs: map local charges billing ledger and pix"
 ```
-

@@ -307,4 +307,3 @@ Expected: `docs:check` may still fail for other unfinished module documents and 
 git add -- docs/modules/operacao-suporte.md docs/modules/chegadas-saidas.md
 git commit -m "docs: map operation support and vessel schedules"
 ```
-
