@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useMemo } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -6,34 +7,30 @@ import { Card, PageHeader } from '../components/ui/Card'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { BLPipeline } from '../components/shared/BLPipeline'
-import { BlCargaTab } from '../components/bl/BlCargaTab'
-import { BlCobrancasTab } from '../components/bl/BlCobrancasTab'
-import { BlFinanceiroTab } from '../components/bl/BlFinanceiroTab'
-import { BlOperacionalTab } from '../components/bl/BlOperacionalTab'
+import { BlDetalhesTab } from '../components/bl/BlDetalhesTab'
+import { BlFaturamentoTab } from '../components/bl/BlFaturamentoTab'
 import { useAuditLogs, useBlDetail } from '../hooks/useBls'
 import { useBlEditForm } from '../hooks/useBlEditForm'
 import { formatDate } from '../lib/utils'
 import { cargoModeLabel, resolveCargoMode } from './blDetalheHelpers'
 
-type BlTab = 'operacional' | 'carga' | 'cobrancas' | 'financeiro' | 'historico'
+export type BlTab = 'detalhes' | 'faturamento' | 'historico'
 
-const BL_TABS: { key: BlTab; label: string }[] = [
-  { key: 'operacional', label: 'Operacional' },
-  { key: 'carga', label: 'Carga' },
-  { key: 'cobrancas', label: 'Cobrancas' },
-  { key: 'financeiro', label: 'Financeiro' },
+export const BL_TABS: { key: BlTab; label: string }[] = [
+  { key: 'detalhes', label: 'Detalhes do B/L' },
+  { key: 'faturamento', label: 'Faturamento' },
   { key: 'historico', label: 'Histórico' },
 ]
 
-function isBlTab(value: string | null): value is BlTab {
-  return value === 'operacional' || value === 'carga' || value === 'cobrancas' || value === 'financeiro' || value === 'historico'
+export function isBlTab(value: string | null): value is BlTab {
+  return value === 'detalhes' || value === 'faturamento' || value === 'historico'
 }
 
 export function BlDetalhe() {
   const { blId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
-  const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'operacional'
+  const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'detalhes'
   const { data: bl, isLoading, error } = useBlDetail(blId)
   const { data: auditLogs } = useAuditLogs('bl', blId)
 
@@ -115,7 +112,7 @@ export function BlDetalhe() {
               type="button"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
-                if (tab.key === 'operacional') next.delete('tab')
+                if (tab.key === 'detalhes') next.delete('tab')
                 else next.set('tab', tab.key)
                 setSearchParams(next, { replace: true })
               }}
@@ -132,38 +129,24 @@ export function BlDetalhe() {
       </div>
 
       {/* Abas montadas incondicionalmente (prop `active`) para preservar estado de formulários ao trocar de aba. */}
-      <BlOperacionalTab
-        active={activeTab === 'operacional'}
+      <BlDetalhesTab
+        active={activeTab === 'detalhes'}
         bl={bl}
+        blId={blId}
         form={form}
         changes={changes}
         saving={saving}
         justification={justification}
         cargoMode={cargoMode}
         isContainerMode={isContainerMode}
+        containerSummary={containerSummary}
+        breakbulkSummary={breakbulkSummary}
         onFieldChange={setField}
         onJustificationChange={setJustification}
         onSubmit={handleSubmit}
       />
 
-      <BlFinanceiroTab
-        active={activeTab === 'financeiro'}
-        bl={bl}
-        cargoMode={cargoMode}
-        isContainerMode={isContainerMode}
-        cargoQuantity={isContainerMode ? containerSummary.distinct : breakbulkSummary.packagesTotal}
-      />
-
-      <BlCobrancasTab active={activeTab === 'cobrancas'} bl={bl} />
-
-      <BlCargaTab
-        active={activeTab === 'carga'}
-        bl={bl}
-        blId={blId}
-        isContainerMode={isContainerMode}
-        containerSummary={containerSummary}
-        breakbulkSummary={breakbulkSummary}
-      />
+      <BlFaturamentoTab active={activeTab === 'faturamento'} bl={bl} />
 
       {activeTab === 'historico' ? (
         <Card>
