@@ -4,6 +4,34 @@ import type { BL } from '../types/database'
 type ReviewEditableFields = Pick<BL, 'shipper' | 'consignee' | 'pol' | 'pod' | 'total_weight_kg' | 'total_cbm' | 'notes'>
 
 /**
+ * Estado recomputado pelo gate ao salvar uma revisao. `pendencias` lista os
+ * bloqueios que ainda impedem o B/L de sair da fila; quando vazio, o RPC ja
+ * marcou o B/L como `reviewed`. A UI usa isso para decidir, sem adivinhar, se
+ * remove a linha/fecha o painel ou apenas reduz as pendencias exibidas.
+ */
+export type SaveBlReviewResult = {
+  updatedAt: string | null
+  reviewStatus: BL['review_status']
+  pendencias: string[]
+  resolved: boolean
+}
+
+function parseSaveBlReviewResult(data: unknown): SaveBlReviewResult {
+  const row = (data ?? {}) as {
+    updated_at?: string | null
+    review_status?: BL['review_status']
+    pendencias?: unknown
+  }
+  const pendencias = Array.isArray(row.pendencias) ? row.pendencias.map(String) : []
+  return {
+    updatedAt: row.updated_at ?? null,
+    reviewStatus: row.review_status ?? null,
+    pendencias,
+    resolved: row.review_status === 'reviewed' && pendencias.length === 0,
+  }
+}
+
+/**
  * Salva a revisao de um B/L usando a RPC `save_bl_review`.
  *
  * A RPC aplica o UPDATE e os INSERTs de audit_log em uma unica
@@ -100,7 +128,7 @@ export async function saveBlReview({
     throw error
   }
 
-  return (data as string) ?? null
+  return parseSaveBlReviewResult(data)
 }
 
 /**
@@ -164,7 +192,7 @@ export async function applyInlineBlReviewFix({
     throw error
   }
 
-  return (data as string) ?? null
+  return parseSaveBlReviewResult(data)
 }
 
 export async function saveGraniteBlReview({
