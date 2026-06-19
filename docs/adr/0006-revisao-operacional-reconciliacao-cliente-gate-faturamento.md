@@ -29,6 +29,9 @@ Manter uma etapa explícita de revisão operacional e reconciliação de cliente
 O gate foi tornado canônico e centrado em "o cliente consegue ver a fatura no portal":
 
 - As pendências que prendem um B/L passam a ser derivadas de estado real por `compute_bl_review_pendencies(bl)` (não do texto de `notes`), e `save_bl_review` recomputa `review_status` — só libera quando o conjunto zera. Isso fecha o vazamento em que corrigir uma de várias pendências liberava o B/L prematuramente.
-- O conjunto de travas inclui agora **e-mail do cliente** (qualquer contato) e **acesso ao portal provisionado/ativo**, além de cliente vinculado e inputs de cálculo. **CE Mercante não é trava** (necessário para exibição no portal, mas não inserido neste momento).
+- O conjunto de travas inclui agora **e-mail do cliente** (qualquer contato) e **acesso ao portal realmente provisionado** (`active = true` e `auth_user_id` preenchido), além de cliente vinculado e inputs de cálculo. **CE Mercante não é trava** (necessário para exibição no portal, mas não inserido neste momento).
 - Todas as travas são resolvíveis dentro da própria revisão, agrupadas por cliente (CNPJ): vínculo, e-mail e provisionamento de portal (admin-only, com senha gerada pelo sistema) em lote.
 - A **justificativa** da correção passou a ser opcional (auto-preenchida como "Revisão manual"); a trilha de auditoria (quem/o quê/antes/depois) permanece automática.
+- O cliente não declara nem audita `review_status`: o banco calcula a transição real, descarta qualquer linha de auditoria de status enviada pelo frontend e grava o antes/depois efetivo.
+- O mesmo gate é aplicado depois de novas importações e novamente nas fronteiras de `ready_for_billing`/invoice. Helpers que leem relações administrativas são `SECURITY DEFINER`, com `search_path` fixo e sem `EXECUTE` para `PUBLIC`, `anon` ou chamadas diretas de `authenticated`.
+- A correção é **prospectiva**: não há backfill top-level. B/Ls históricos já faturados não são reabertos nem têm o status reescrito.

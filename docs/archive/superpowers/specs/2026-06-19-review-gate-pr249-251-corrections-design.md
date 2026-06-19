@@ -98,8 +98,9 @@ travas:
 CE Mercante permanece fora desse gate de revisão. Sua ausência continua
 controlada pelo gate específico de exposição no Portal.
 
-A função será `SECURITY DEFINER`, com `search_path` fixo, validação de usuário
-interno ativo e grants default-deny. Assim, ela pode consultar a tabela
+A função será `SECURITY DEFINER`, com `search_path` fixo e grants
+default-deny. Ela não fica exposta para execução direta; as RPCs públicas que a
+invocam validam usuário interno e ator. Assim, pode consultar a tabela
 admin-only sem expor seus campos ao caller.
 
 ### Salvamento da revisão
@@ -146,8 +147,9 @@ Não será criada uma segunda infraestrutura de provisionamento.
 ### UI e consultas
 
 A fila não fará join direto em `customer_portal_accounts` para derivar o gate.
-O estado necessário será exposto por uma RPC ou consulta segura e mínima,
-evitando conceder leitura da tabela inteira a usuários não-admin.
+Ela usa as pendências canônicas persistidas na linha técnica de `notes`, que é
+recalculada por RPC segura, evitando conceder leitura da tabela inteira a
+usuários não-admin.
 
 Ações admin-only continuam escondidas para outros perfis, mas esses perfis
 conseguem visualizar corretamente se o portal já está provisionado.

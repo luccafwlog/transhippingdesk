@@ -4,6 +4,7 @@
 
 ## 2026-06
 
+- **Revisão/Portal/Faturamento:** correções pós-PRs 249–251: gate canônico aplicado em importação e faturamento, status/auditoria sob autoridade do banco, portal válido somente com `active + auth_user_id`, UI compatível com RLS e provisionamento em sequência segura. Sem backfill de B/Ls históricos faturados. *(ADR 0006; migration `20260619130000_review_gate_hardening`; specs/plans `2026-06-19-review-gate-pr249-251-corrections`)*
 - **Faturamento:** auto-faturamento após correção de cliente na revisão; guarda de estado `invoiceable_ready`. *(specs/plans `2026-06-18-auto-faturamento-apos-revisao`)*
 - **Clientes/Importação:** preservar o motivo de bloqueio de faturamento do cliente durante a importação (sem inferência genérica). *(`2026-06-18-preservar-bloqueio-cliente-importacao`)*
 - **Viagens:** refactor master-detail com rota dedicada `/viagens/:voyageId`, barra de filtros no topo, rail colapsável, linha do tempo (auditoria + eventos de CE), CE Master por manifesto, exportação de Baplie EDI. *(ADR 0012; `2026-06-17-viagens-refactor`; `docs/archive/plans/0001-viagens-redesign`)*

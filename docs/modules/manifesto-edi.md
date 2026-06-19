@@ -1,6 +1,6 @@
 # Manifesto & EDI (Pipeline de Importação)
 
-> **Status:** ativo · **Atualizado:** 2026-06-18 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
+> **Status:** ativo · **Atualizado:** 2026-06-19 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
 
 ## Propósito
 
@@ -102,7 +102,7 @@ flowchart TB
 
 ### Atomicidade e batches
 
-- **Import atômico.** Manifesto container usa `import_manifest_with_postprocess_transactional` (envolve o `import_manifest_transactional` original, migration `012_transactional_rpcs.sql`): grava batch + B/Ls + containers + erros + pós-processamento (audit, billing hold, contatos) em uma transação. Baplie e veículos têm RPCs transacionais próprias (migration `20260612153000`).
+- **Import atômico.** Manifesto container usa `import_manifest_with_postprocess_transactional` (envolve o `import_manifest_transactional` original, migration `012_transactional_rpcs.sql`): grava batch + B/Ls + containers + erros + pós-processamento (audit, billing hold, contatos) em uma transação. Depois dos contatos e antes do billing, aplica `apply_bl_review_gate_after_import` apenas aos B/Ls do lote. Baplie e veículos têm RPCs transacionais próprias (migration `20260612153000`).
 - **`import_batches`** (migration `007_import_batches_cargo_mode.sql`): metadados do lote — `filename`, `voyage_id`, `cargo_mode` (`container` | `carga_solta`), `status`, contadores, `file_hash`, `ce_master`. Constraint única `(voyage_id, cargo_mode, file_hash)` → reupload idêntico levanta `23505`, capturado como `DuplicateManifestImportError`. Rate limit (migration `015`) levanta `P0429` → `RateLimitImportError`.
 - **`import_errors`**: erros de linha do parse (`row_number`, `error_type`, `error_message`, `raw_data`), exibidos no preview.
 - **File size guard.** `assertUploadSize(file)` no início de cada parser; acima de 10 MB lança erro antes de ler o XLSX.
@@ -115,7 +115,7 @@ flowchart TB
 
 ### Outros fluxos
 
-- **Carga solta**: rejeita B/L que já exista como container; grava `bl_breakbulk_items` e dispara cálculo de taxas locais em background.
+- **Carga solta**: rejeita B/L que já exista como container; após o upsert de `bls`, chama `apply_bl_review_gate_after_import` e só então grava itens/dispara cálculo de taxas locais. O gate usa os IDs da importação corrente e não executa backfill de históricos.
 - **Container Dates**: valida devolução ≥ descarga; deriva `demurrage_status` (`returned` | `overdue` | `within_free_time`); quando todos os containers do B/L são `returned`, emite fatura de demurrage se houver valor devido.
 - **Veículos**: match B/L→voyage e container→B/L (tipo+lacre); após inserir, cancela faturas ativas e recalcula charges (veículo isento). Suporta layout COSCO Daily Report.
 - **Vazios Importação**: além da planilha, pode auto-importar do Baplie filtrando `status='empty']` e ligando POD (`importVaziosFromBaplie`); reimport via `delete_baplie_manifest_for_voyage` (delete admin-only, RPC liberada a operador).
@@ -134,6 +134,7 @@ flowchart TB
 
 **RPCs**
 - `import_manifest_with_postprocess_transactional` (envolve `import_manifest_transactional`)
+- `apply_bl_review_gate_after_import` (gate pós-importação, sem backfill)
 - `import_baplie_staging_transactional`
 - `import_vehicle_rows_transactional`
 - `apply_ce_mercante_update` (por B/L) · `apply_ce_mercante_manifest` (por manifesto)

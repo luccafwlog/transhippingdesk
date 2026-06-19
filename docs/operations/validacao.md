@@ -1,6 +1,6 @@
 # Validação do Transhipping Desk
 
-Roteiro executável para o estado verificado em 2026-06-18.
+Roteiro executável para o estado verificado em 2026-06-19.
 
 O objetivo não é apenas provar que a tela abre. Cada fluxo deve registrar o
 ambiente, a identidade usada, os dados de entrada, o resultado e uma evidência
@@ -183,27 +183,31 @@ Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md
 
 **Ambiente:** Supabase controlado.
 
-Prepare B/Ls com:
+Prepare novos B/Ls de QA com:
 
 - cliente ausente;
-- match por nome;
-- CE ausente;
-- peso ou cobrança pendente;
+- cliente vinculado sem e-mail;
+- conta de portal ativa sem `auth_user_id`;
+- carga solta sem `bb_weight_ton`;
+- CE ausente, como controle que **não** deve bloquear este gate;
 - B/L elegível completo.
 
 Passos:
 
 1. abra `/revisao`;
 2. use filtros e contagens;
-3. corrija cliente no modal;
-4. salve justificativa quando exigida;
-5. confirme tentativa automática de cálculo/emissão;
-6. valide mensagem de invoice emitida ou bloqueio restante;
-7. recarregue a fila e confira o estado;
-8. repita com Granito, que mantém o comportamento próprio.
+3. corrija apenas uma de várias pendências e confirme que o B/L permanece na fila;
+4. adicione e-mail e provisione o portal; confirme que a conta só fica ativa depois de receber `auth_user_id`;
+5. salve com e sem justificativa;
+6. confirme que a auditoria registra o `review_status` efetivamente calculado pelo banco;
+7. confirme tentativa automática de cálculo/emissão somente depois de zerar as pendências;
+8. recarregue a fila e confira o estado;
+9. repita com Granito, que mantém o comportamento próprio.
 
 **Esperado:** nenhum B/L avança silenciosamente com dados incertos; B/L comum
-com todos os gates satisfeitos pode emitir automaticamente.
+com todos os gates satisfeitos pode emitir automaticamente. Notas humanas são
+preservadas e a linha `Pendencias de importacao:` continua legível pela UI.
+Não altere nem reabra B/Ls históricos já faturados para executar este roteiro.
 
 ## 8. Guard de faturabilidade
 
@@ -306,13 +310,15 @@ Passos:
 ### Provisionamento e login
 
 1. provisione conta pela ficha do cliente;
-2. entre por email;
-3. saia e entre por CNPJ;
-4. repita por CPF para cliente compatível;
-5. use identificador ou senha inválidos;
-6. ultrapasse o limite apenas em ambiente descartável;
-7. confirme mensagem genérica e rate limit;
-8. valide coexistência com uma sessão interna no mesmo navegador.
+2. simule falha da Edge Function e confirme que a conta permanece inativa;
+3. conclua o provisionamento e confirme `active = true` + `auth_user_id`;
+4. entre por email;
+5. saia e entre por CNPJ;
+6. repita por CPF para cliente compatível;
+7. use identificador ou senha inválidos;
+8. ultrapasse o limite apenas em ambiente descartável;
+9. confirme mensagem genérica e rate limit;
+10. valide coexistência com uma sessão interna no mesmo navegador.
 
 ### Recuperação de senha
 

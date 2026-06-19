@@ -8,6 +8,11 @@
 
 **Tech Stack:** PostgreSQL/Supabase migrations e RLS, React 19, TypeScript, TanStack Query, Vitest e Testing Library.
 
+**Execução:** concluída em 2026-06-19 nos commits `92f7faf`, `effb648` e
+`d408448`; a documentação viva foi atualizada no commit subsequente. Os
+checkboxes abaixo permanecem como roteiro histórico de TDD, não como status
+operacional.
+
 ---
 
 ### Task 1: Especificar o contrato SQL corrigido

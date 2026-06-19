@@ -131,7 +131,8 @@ flowchart LR
 ### Importações
 
 - Baplie entra em staging por viagem e pode alimentar Vazios de Importação.
-- Manifestos CNTR e BB alimentam B/Ls e suas cargas.
+- Manifestos CNTR e BB alimentam B/Ls e suas cargas; o gate canônico de revisão
+  é aplicado aos IDs do novo lote antes do cálculo/faturamento.
 - Granito mantém tabelas próprias, integradas downstream.
 - Veículos são importados por planilha e vinculados a B/L/container.
 - CE Mercante e datas operacionais têm importadores específicos.
@@ -140,10 +141,13 @@ flowchart LR
 
 ### Revisão e auto-faturamento
 
-Revisão resolve pendências operacionais e de cliente. Ao salvar um B/L comum com
-cliente, o sistema tenta recalcular cobranças e emitir a invoice quando todos os
-gates permitem. O banco rejeita a transição para pronto para faturar quando não
-há linha BRL positiva elegível.
+Revisão resolve pendências operacionais e de cliente. O banco calcula o gate por
+estado real: cliente vinculado, e-mail cadastrado, portal ativo com
+`auth_user_id` e peso BB quando aplicável. `save_bl_review` é o único autor do
+status e de sua auditoria; importação, promoção para `ready_for_billing` e
+invoice recalculam o mesmo contrato. Ao zerar as pendências, o sistema tenta
+recalcular cobranças e emitir a invoice. A correção não executa backfill nem
+reabre B/Ls históricos já faturados.
 
 ### Taxas locais e ledger
 

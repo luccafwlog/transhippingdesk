@@ -10,6 +10,7 @@
 - **Tabelas financeiras:** leitura por usuário ativo, escrita restrita a admin.
 - A lógica financeira sensível (criar invoice, numerar, consolidar, PIX) roda em **RPCs `SECURITY DEFINER`** transacionais — o cliente não escreve direto nessas tabelas.
 - **Default-deny em funções** (ADR 0011): o EXECUTE para `anon` foi revogado; novas funções não recebem acesso anônimo por padrão.
+- **Helpers de revisão privilegiados:** `compute_bl_review_pendencies` lê `customer_portal_accounts`, relação administrativa protegida por RLS. Por isso roda como `SECURITY DEFINER` com `search_path` fixo e sem `EXECUTE` direto para `PUBLIC`, `anon` ou `authenticated`; somente RPCs/triggers autorizados o invocam.
 
 > Checagens no front (`can()`, `isAdmin`, `roleHasPermission`) servem só para esconder UI. Nunca são a fronteira real.
 
@@ -30,6 +31,10 @@
 
 - **Provisão de portal** (`provision-portal-user`): 20/hora por usuário, persistido em banco (`provision_rate_limit_log`, RPC `check_provision_rate_limit`).
 - **Login/resolução de portal:** tentativas registradas em `portal_login_attempts` / `portal_login_resolution_attempts`; limites em `portal_rate_limits` (RPC `check_portal_rate_limit`).
+
+## Invariante de provisionamento do portal
+
+Uma conta de `customer_portal_accounts` só pode ficar ativa quando possui `auth_user_id`. Os fluxos internos gravam a conta inativa, chamam a Edge Function e ativam apenas após confirmação; `set_customer_portal_account_active` rejeita ativação sem vínculo Auth. A fila de revisão não consulta essa tabela por join direto: consome a pendência canônica calculada no banco.
 
 ## Edge Functions
 

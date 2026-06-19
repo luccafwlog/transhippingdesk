@@ -1,6 +1,6 @@
 # Documentação do Transhipping Desk
 
-Verificado contra o repositório em 2026-06-18.
+Verificado contra o repositório em 2026-06-19.
 
 ## Por onde começar
 

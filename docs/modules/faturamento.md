@@ -1,6 +1,6 @@
 # Faturamento
 
-> **Status:** ativo · **Atualizado:** 2026-06-18 · **Rotas:** `/faturamento`
+> **Status:** ativo · **Atualizado:** 2026-06-19 · **Rotas:** `/faturamento`
 
 ## Propósito
 
@@ -61,7 +61,7 @@ graph TD
 ## Regras de negócio
 
 - **Numeração de invoice:** o trigger `assign_invoice_number` (BEFORE INSERT em `invoices`) gera o número via `invoice_counters` (sequência por ano), no formato `INV-<ano>-<NNNN>`. Não é informado pela aplicação; só preenche se `invoice_number` vier vazio.
-- **Faturamento gate (invoice individual via ledger):** o B/L precisa de `charge_status = ready_for_billing`, reconciliação de cliente **resolvida** (`reconciled`/`matched_document`/`matched_name`), sem `billing_hold_reason`, `financial_status != invoiced`, todos os B/Ls da seleção com o **mesmo** `customer_id` (não nulo) e sem vínculo a invoice ativa. Aplicado em `ValidacaoTab` e validado dentro de `create_invoice_from_bls_with_ledger`.
+- **Faturamento gate (invoice individual via ledger):** o B/L precisa de `charge_status = ready_for_billing`, reconciliação de cliente **resolvida** (`reconciled`/`matched_document`/`matched_name`), gate canônico de revisão sem pendências, sem `billing_hold_reason`, `financial_status != invoiced`, todos os B/Ls da seleção com o **mesmo** `customer_id` (não nulo) e sem vínculo a invoice ativa. `mark_bl_ready_for_billing`, a promoção automática e o trigger de invoice recalculam as pendências no banco, impedindo bypass por status antigo enviado pelo cliente.
 - **Enforcement de inadimplência:** o trigger `fn_block_invoice_overdue_customer` (BEFORE INSERT em `invoices`) bloqueia a emissão de nova invoice de taxas locais para cliente que possua qualquer invoice `overdue` em aberto (ERRCODE `P0003`). `mark_overdue_invoices()` roda via `pg_cron` diariamente (06:00 UTC) marcando `issued` com `due_date < hoje` como `overdue` em `invoices` e `demurrage_invoices`.
 - **Status reais:** `draft`, `issued`, `partially_paid`, `overdue`, `paid`, `covered`, `obsolete`, `cancelled`. `covered` = invoice individual quitada por consolidada das mesmas receivables; `obsolete` = consolidada superada por pagamento individual.
 - **Consolidação:** `list_consolidatable_receivables` lista receivables abertas/parciais do cliente; `create_local_consolidated_invoice` gera invoice `consolidated` e cria `invoice_receivable_links` (status `active`) para cada receivable. A consolidada **não** persiste itens em `invoice_items` — o breakdown é reconstruído na leitura via `get_consolidated_invoice_item_breakdown` a partir de `charge_calculations`.

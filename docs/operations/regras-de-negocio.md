@@ -8,10 +8,10 @@
 
 Um B/L só pode ser faturado depois de passar por dois portões (ADR 0006):
 
-1. **Revisão manual** — pendências de cliente, peso, CE Mercante e inconsistências de cálculo são resolvidas na fila `/revisao`. Ver [Revisão](../modules/operacao-suporte.md#revisão).
+1. **Revisão manual** — o gate canônico bloqueia cliente ausente, cliente sem e-mail, portal sem conta ativa vinculada ao Supabase Auth e peso BB ausente em carga solta. **CE Mercante não bloqueia a revisão/fatura**; ela é um gate separado de visibilidade no Portal. Ver [Revisão](../modules/operacao-suporte.md#revisão).
 2. **Reconciliação de cliente** — o B/L precisa estar vinculado a um `customer` de forma segura; casos ambíguos ficam em `customer_reconciliation_queue` e bloqueiam o faturamento até resolução manual. Ver [Clientes](../modules/clientes.md).
 
-Esse gate é proposital: prefere-se travar a emissão a emitir uma invoice para o cliente errado.
+O banco é a fonte da verdade: `save_bl_review` calcula e audita o status real; o gate roda após novas importações e novamente ao promover/faturar. A correção de 2026-06-19 é prospectiva e não reabre B/Ls históricos já faturados. Prefere-se travar a emissão a emitir uma invoice para o cliente errado.
 
 ## Numeração de invoices
 
