@@ -1,6 +1,6 @@
 # Correções do Gate de Revisão dos PRs 249–251 — Design
 
-**Data:** 2026-06-19  
+**Data:** 2026-06-19
 **Status:** aprovado pelo usuário em 2026-06-19
 
 ## Contexto
