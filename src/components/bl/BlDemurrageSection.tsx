@@ -1,0 +1,293 @@
+import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Save } from 'lucide-react'
+import { Button } from '../ui/Button'
+import { Card } from '../ui/Card'
+import { Field, Input } from '../ui/Input'
+import { useToast } from '../ui/Toast'
+import { useAuth } from '../../hooks/useAuth'
+import { reportBestEffortFailure } from '../../lib/telemetry'
+import { calculateDemurrage } from '../../services/demurrage/demurrageRates'
+import { updateContainerReturnDate } from '../../services/demurrage/demurrageContainers'
+import { queryKeys } from '../../services/queryKeys'
+import { supabase } from '../../services/supabase'
+import { formatDate } from '../../lib/utils'
+import type { BLDetail } from '../../types/database'
+
+// Seção consolidada de demurrage do B/L: config geral (free time + P1/P2) e
+// tabela por container com devolução editável e demurrage calculado.
+export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const { showToast } = useToast()
+
+  // --- Config form state ---
+  const [freeTime, setFreeTime] = useState<string>(
+    bl.free_time_override != null ? String(bl.free_time_override) : '',
+  )
+  const [p1, setP1] = useState<string>(
+    bl.demurrage_rate_override_p1_usd != null ? String(Number(bl.demurrage_rate_override_p1_usd)) : '',
+  )
+  const [p2, setP2] = useState<string>(
+    bl.demurrage_rate_override_p2_usd != null ? String(Number(bl.demurrage_rate_override_p2_usd)) : '',
+  )
+  const [savingConfig, setSavingConfig] = useState(false)
+
+  // Re-baseia os campos de config quando o B/L (re)carrega — padrão "adjusting
+  // state when props change" do React, em vez de useEffect.
+  const [prevBl, setPrevBl] = useState<BLDetail | null>(null)
+  if (bl !== prevBl) {
+    setPrevBl(bl)
+    setFreeTime(bl.free_time_override != null ? String(bl.free_time_override) : '')
+    setP1(bl.demurrage_rate_override_p1_usd != null ? String(Number(bl.demurrage_rate_override_p1_usd)) : '')
+    setP2(bl.demurrage_rate_override_p2_usd != null ? String(Number(bl.demurrage_rate_override_p2_usd)) : '')
+  }
+
+  // --- Per-container return date state ---
+  const [returnDates, setReturnDates] = useState<Record<number, string>>({})
+  const [savingReturnDate, setSavingReturnDate] = useState<number | null>(null)
+
+  async function handleSaveDemurrageConfig() {
+    if (!user) return
+
+    // Validate P1/P2
+    const p1Val = p1.trim() ? Number(p1.replace(',', '.')) : null
+    const p2Val = p2.trim() ? Number(p2.replace(',', '.')) : null
+    if ((p1Val != null && !Number.isFinite(p1Val)) || (p2Val != null && !Number.isFinite(p2Val))) {
+      showToast('Valores invalidos para override de demurrage.', 'error')
+      return
+    }
+
+    setSavingConfig(true)
+    try {
+      // Step 1: Save free_time_override via save_bl_review (whitelisted field).
+      const { error: rpcError } = await supabase.rpc('save_bl_review', {
+        p_bl_id: bl.id,
+        p_expected_updated_at: bl.updated_at ?? null,
+        p_update_payload: { free_time_override: freeTime.trim() === '' ? '' : freeTime },
+        p_audit_rows: [
+          {
+            entity_type: 'bl',
+            entity_id: bl.id,
+            field_name: 'free_time_override',
+            old_value: String(bl.free_time_override ?? ''),
+            new_value: freeTime,
+            justification: 'Config de demurrage (Faturamento).',
+          },
+        ],
+        p_changed_by: user.id,
+      })
+
+      if (rpcError) {
+        if (rpcError.code === 'PT409' || rpcError.code === '40001') {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) })
+          showToast(
+            'Este B/L foi alterado por outro usuário. Os dados foram recarregados; revise e salve novamente.',
+            'error',
+          )
+          return
+        }
+        showToast('Falha ao salvar config de demurrage.', 'error')
+        return
+      }
+
+      // Step 2: Save P1/P2 via direct update (not whitelisted in save_bl_review).
+      const { error: updateError } = await supabase
+        .from('bls')
+        .update({
+          demurrage_rate_override_p1_usd: p1Val,
+          demurrage_rate_override_p2_usd: p2Val,
+        })
+        .eq('id', bl.id)
+
+      if (updateError) {
+        showToast('Falha ao salvar config de demurrage.', 'error')
+        return
+      }
+
+      // Step 2a: Best-effort audit rows for P1/P2.
+      try {
+        await supabase.from('audit_logs').insert([
+          {
+            entity_type: 'bl',
+            entity_id: bl.id,
+            field_name: 'demurrage_rate_override_p1_usd',
+            old_value: String(bl.demurrage_rate_override_p1_usd ?? ''),
+            new_value: p1Val == null ? null : String(p1Val),
+            changed_by: user.id,
+            justification: 'Config de demurrage (Faturamento).',
+          },
+          {
+            entity_type: 'bl',
+            entity_id: bl.id,
+            field_name: 'demurrage_rate_override_p2_usd',
+            old_value: String(bl.demurrage_rate_override_p2_usd ?? ''),
+            new_value: p2Val == null ? null : String(p2Val),
+            changed_by: user.id,
+            justification: 'Config de demurrage (Faturamento).',
+          },
+        ])
+      } catch (auditError) {
+        reportBestEffortFailure('audit P1/P2 demurrage overrides', auditError, {
+          bl_id: bl.id,
+        })
+      }
+
+      // Both succeeded — invalidate and notify.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) })
+      showToast('Config de demurrage salva.', 'success')
+    } finally {
+      setSavingConfig(false)
+    }
+  }
+
+  async function handleSaveReturnDate(containerId: number) {
+    const returnDate = returnDates[containerId] ?? null
+    setSavingReturnDate(containerId)
+    try {
+      await updateContainerReturnDate(containerId, returnDate || null)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: ['demurrage-containers'] }),
+      ])
+      showToast('Data de devolucao salva.', 'success')
+    } catch {
+      showToast('Erro ao salvar data de devolucao.', 'error')
+    } finally {
+      setSavingReturnDate(null)
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      {/* Config: free time + P1/P2 overrides */}
+      <Card>
+        <h2 className="mb-4 text-lg font-semibold text-white">Config de demurrage</h2>
+        <p className="mb-4 text-sm text-slate-400">
+          Deixe em branco para usar os valores padrão da tabela de taxas.
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field label="Free time override (dias)">
+            <Input
+              value={freeTime}
+              onChange={(e) => setFreeTime(e.target.value)}
+              placeholder={bl.free_time_override != null ? String(bl.free_time_override) : 'Padrão da tabela'}
+            />
+          </Field>
+          <Field label="Taxa P1 override (USD/dia)">
+            <Input
+              value={p1}
+              onChange={(e) => setP1(e.target.value)}
+              placeholder={bl.demurrage_rate_override_p1_usd != null ? String(Number(bl.demurrage_rate_override_p1_usd)) : 'Padrão da tabela'}
+            />
+          </Field>
+          <Field label="Taxa P2 override (USD/dia)">
+            <Input
+              value={p2}
+              onChange={(e) => setP2(e.target.value)}
+              placeholder={bl.demurrage_rate_override_p2_usd != null ? String(Number(bl.demurrage_rate_override_p2_usd)) : 'Padrão da tabela'}
+            />
+          </Field>
+        </div>
+        <div className="mt-4">
+          <Button type="button" variant="secondary" onClick={() => void handleSaveDemurrageConfig()} loading={savingConfig}>
+            <Save size={15} />
+            Salvar config de demurrage
+          </Button>
+        </div>
+      </Card>
+
+      {/* Per-container table */}
+      <Card>
+        <h2 className="mb-4 text-lg font-semibold text-white">Demurrage por container</h2>
+        <div className="app-table-scroll">
+          <table className="app-table app-table--compact min-w-[600px] text-left text-sm">
+            <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+              <tr>
+                <th scope="col" className="py-2">Container</th>
+                <th scope="col" className="py-2">Descarga</th>
+                <th scope="col" className="py-2">Data de devolução</th>
+                <th scope="col" className="py-2">Demurrage</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#30363d]">
+              {bl.bl_containers?.length ? (
+                bl.bl_containers.map((container) => {
+                  const returnDateVal = returnDates[container.id] ?? container.return_date ?? ''
+                  const demCalc =
+                    container.discharge_date && returnDateVal
+                      ? calculateDemurrage(
+                          container.type,
+                          container.discharge_date,
+                          returnDateVal,
+                          bl.free_time_override,
+                          bl.demurrage_rate_override_p1_usd,
+                          bl.demurrage_rate_override_p2_usd,
+                        )
+                      : null
+                  return (
+                    <tr key={container.id}>
+                      <td className="py-2 font-semibold text-white">{container.container_number}</td>
+                      <td className="py-2 text-slate-300">
+                        {container.discharge_date ? (
+                          formatDate(container.discharge_date)
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="date"
+                            className="rounded border border-[#30363d] bg-[#161b22] px-1 py-0.5 text-xs text-white"
+                            value={returnDateVal}
+                            onChange={(e) =>
+                              setReturnDates((prev) => ({ ...prev, [container.id]: e.target.value }))
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="rounded bg-blue-700 px-1.5 py-0.5 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
+                            disabled={savingReturnDate === container.id}
+                            onClick={() => void handleSaveReturnDate(container.id)}
+                          >
+                            {savingReturnDate === container.id ? '...' : <Save size={12} />}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-2">
+                        {demCalc ? (
+                          demCalc.status === 'within_free_time' ? (
+                            <span className="rounded bg-green-900/50 px-1.5 py-0.5 text-xs text-green-400">
+                              Free time
+                            </span>
+                          ) : (
+                            <span
+                              className="rounded bg-red-900/50 px-1.5 py-0.5 text-xs text-red-400"
+                              title={`P1: ${demCalc.days_p1}d × $${demCalc.rate_p1_usd} | P2: ${demCalc.days_p2}d × $${demCalc.rate_p2_usd}`}
+                            >
+                              {demCalc.total_days - demCalc.free_days}d — ${demCalc.total_usd.toFixed(2)}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td className="py-3 text-slate-400" colSpan={4}>
+                    Nenhum container vinculado a este B/L.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
