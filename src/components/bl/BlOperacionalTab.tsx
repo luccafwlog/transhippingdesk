@@ -184,14 +184,9 @@ export function BlOperacionalTab({
             />
           </Field>
           <Field label="Status de revisao">
-            <Select
-              value={form.review_status ?? 'ok'}
-              onChange={(event) => onFieldChange('review_status', event.target.value as BL['review_status'])}
-            >
-              <option value="ok">OK</option>
-              <option value="pending_review">Pendente</option>
-              <option value="reviewed">Revisado</option>
-            </Select>
+            {/* Somente leitura: o status é derivado no servidor (save_bl_review →
+                compute_bl_review_pendencies). Não é editável manualmente. */}
+            <Input disabled value={REVIEW_STATUS_LABELS[bl.review_status ?? 'ok'] ?? bl.review_status ?? 'ok'} />
           </Field>
         </div>
 

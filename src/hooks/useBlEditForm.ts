@@ -26,7 +26,6 @@ const editableFields: (keyof Pick<
   | 'payment_type'
   | 'free_time_override'
   | 'notes'
-  | 'review_status'
 >)[] = [
   'shipper',
   'consignee',
@@ -46,8 +45,11 @@ const editableFields: (keyof Pick<
   'payment_type',
   'free_time_override',
   'notes',
-  'review_status',
 ]
+// `review_status` é deliberadamente omitido: o RPC save_bl_review recalcula o
+// status a partir de compute_bl_review_pendencies e ignora qualquer valor enviado
+// pelo cliente (além de descartar a linha de auditoria correspondente). Mantê-lo
+// como campo editável criava "alterações" e sucesso fantasmas que nunca persistiam.
 
 export type BlForm = Pick<BL, (typeof editableFields)[number]>
 
@@ -205,7 +207,6 @@ function makeForm(bl: BLDetail): BlForm {
     payment_type: bl.payment_type,
     free_time_override: bl.free_time_override,
     notes: bl.notes,
-    review_status: bl.review_status,
   }
 }
 

@@ -8,6 +8,7 @@ import { useToast } from '../ui/Toast'
 import { formatDate, normalizeText } from '../../lib/utils'
 import { calculateDemurrage } from '../../services/demurrage/demurrageRates'
 import { updateContainerReturnDate } from '../../services/demurrage/demurrageContainers'
+import { queryKeys } from '../../services/queryKeys'
 import { formatNumber } from '../../pages/blDetalheHelpers'
 import type { BLDetail } from '../../types/database'
 
@@ -60,7 +61,15 @@ export function BlCargaTab({
     setSavingReturnDate(containerId)
     try {
       await updateContainerReturnDate(containerId, returnDate || null)
-      await queryClient.invalidateQueries({ queryKey: ['bl', blId] })
+      // A data de devolução altera bl_containers (return_date/demurrage_status),
+      // que vive dentro do detalhe do B/L e alimenta a tela de Demurrage. Invalida
+      // as três chaves reais — antes o código invalidava ['bl', blId], que não
+      // existe, deixando o cache do detalhe e a lista de demurrage desatualizados.
+      await Promise.all([
+        blId ? queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(blId) }) : Promise.resolve(),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
+        queryClient.invalidateQueries({ queryKey: ['demurrage-containers'] }),
+      ])
       showToast('Data de devolucao salva.', 'success')
     } catch {
       showToast('Erro ao salvar data de devolucao.', 'error')
