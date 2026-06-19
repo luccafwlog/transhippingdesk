@@ -7,11 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReviewQueueItem } from '../../hooks/useReview'
 
 vi.mock('../../hooks/useReview', () => ({ useReviewQueue: vi.fn() }))
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' } }) }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' }, isAdmin: true }) }))
 vi.mock('../../hooks/useCustomers', () => ({ useCustomerLookup: vi.fn() }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../services/charges/chargeOperationsService', () => ({ calculateBlLocalCharges: vi.fn() }))
-vi.mock('../../services/customers', () => ({ createCustomer: vi.fn() }))
+vi.mock('../../services/customers', () => ({
+  createCustomer: vi.fn(),
+  addCustomerEmail: vi.fn().mockResolvedValue(undefined),
+  provisionPortalForCustomer: vi.fn().mockResolvedValue({ password: 'GENERATED-PASS', portalEmail: 'has@mail.com' }),
+}))
 vi.mock('../../services/operationalEvents', () => ({ logOperationalEvent: vi.fn() }))
 vi.mock('../../services/review', async () => {
   const actual = await vi.importActual<typeof import('../../services/review')>('../../services/review')
@@ -21,6 +25,7 @@ vi.mock('../../services/review', async () => {
     applyInlineBlReviewFix: vi.fn().mockResolvedValue(resolvedResult),
     saveBlReview: vi.fn().mockResolvedValue(resolvedResult),
     saveGraniteBlReview: vi.fn(),
+    recomputeBlReviewGate: vi.fn().mockResolvedValue(resolvedResult),
   }
 })
 vi.mock('../../services/reviewBillingAutomation', () => ({
@@ -29,6 +34,7 @@ vi.mock('../../services/reviewBillingAutomation', () => ({
 
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
+import { addCustomerEmail, provisionPortalForCustomer } from '../../services/customers'
 import { applyInlineBlReviewFix, saveBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
@@ -38,6 +44,8 @@ const mockedUseCustomerLookup = vi.mocked(useCustomerLookup)
 const mockedApplyInlineBlReviewFix = vi.mocked(applyInlineBlReviewFix)
 const mockedSaveBlReview = vi.mocked(saveBlReview)
 const mockedTryIssueInvoice = vi.mocked(tryAutoIssueInvoice)
+const mockedAddCustomerEmail = vi.mocked(addCustomerEmail)
+const mockedProvisionPortal = vi.mocked(provisionPortalForCustomer)
 
 function makeBl(id: string, consignee: string): ReviewQueueItem {
   return {
@@ -51,6 +59,31 @@ function makeBl(id: string, consignee: string): ReviewQueueItem {
     review_reasons: ['Cliente nao vinculado'],
     voyage: { id: 1, voyage_number: '14', vessel: { id: 1, name: 'GREEN SANTOS', carrier: null } },
     updated_at: `2026-06-10T12:00:00.${id.slice(-1)}Z`,
+  } as unknown as ReviewQueueItem
+}
+
+// B/L com cliente vinculado mas faltando e-mail e/ou portal (travas de nivel-cliente).
+function makeLinkedBl(
+  id: string,
+  opts: { emails?: string[]; portalActive?: boolean } = {},
+): ReviewQueueItem {
+  return {
+    id,
+    source: 'bl',
+    consignee: 'Linked Co',
+    shipper: 'Shipper',
+    customer_id: 7,
+    customer: {
+      id: 7,
+      name: 'Linked Co SA',
+      cnpj_cpf: '11222333000181',
+      customer_contacts: (opts.emails ?? []).map((email) => ({ email })),
+      customer_portal_accounts: opts.portalActive ? [{ active: true }] : [],
+    },
+    charge_status: 'review_required',
+    review_reasons: ['Cliente sem e-mail cadastrado'],
+    voyage: { id: 1, voyage_number: '14', vessel: { id: 1, name: 'GREEN SANTOS', carrier: null } },
+    updated_at: `2026-06-11T12:00:00.${id.slice(-1)}Z`,
   } as unknown as ReviewQueueItem
 }
 
@@ -122,7 +155,7 @@ describe('Revisao', () => {
     await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
     await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
     await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
-    await user.type(screen.getByLabelText('Justificativa obrigatória'), 'Cliente cadastrado e vinculado.')
+    await user.type(screen.getByLabelText('Justificativa (opcional)'), 'Cliente cadastrado e vinculado.')
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
     await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
@@ -131,5 +164,55 @@ describe('Revisao', () => {
       customerId: 99,
       actorId: 'user-1',
     })
+  })
+
+  it('salva sem justificativa (campo opcional)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
+    await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
+    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
+    await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
+
+    await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
+    expect(mockedSaveBlReview).toHaveBeenCalledWith(
+      expect.objectContaining({ justification: 'Revisão manual' }),
+    )
+  })
+
+  it('adiciona e-mail ao cliente do grupo direto da fila', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [makeLinkedBl('BLX')],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.type(screen.getByPlaceholderText('E-mail de faturamento'), 'novo@cliente.com')
+    await user.click(screen.getByRole('button', { name: 'Salvar e-mail' }))
+
+    await waitFor(() => expect(mockedAddCustomerEmail).toHaveBeenCalledWith(7, 'novo@cliente.com'))
+  })
+
+  it('provisiona o portal (admin) gerando a senha e exibindo a credencial', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [makeLinkedBl('BLY', { emails: ['has@mail.com'] })],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: 'Provisionar portal' }))
+
+    await waitFor(() =>
+      expect(mockedProvisionPortal).toHaveBeenCalledWith(
+        expect.objectContaining({ customerId: 7, portalEmail: 'has@mail.com', loginCnpj: '11222333000181' }),
+      ),
+    )
+    expect(await screen.findByText('Acesso ao portal provisionado')).toBeTruthy()
+    expect(screen.getByText('GENERATED-PASS')).toBeTruthy()
   })
 })

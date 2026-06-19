@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  customerHasActivePortal,
+  customerHasEmail,
   extractErrorText,
   getConsigneeFilterOptions,
   getReviewItemCnpj,
   getReviewItemDisplayName,
   getSelectionConsignee,
+  groupNeedsEmail,
+  groupNeedsPortal,
   groupReviewItems,
   needsCeMercante,
   needsCustomerLink,
@@ -166,5 +170,42 @@ describe('groupReviewItems', () => {
       item({ id: 'BL2', customer: null, consignee: 'sem doc', manifest_customer_cnpj_cpf: null }),
     ]
     expect(groupReviewItems(rows)).toHaveLength(1)
+  })
+})
+
+describe('customerHasEmail / customerHasActivePortal', () => {
+  it('detecta e-mail em qualquer contato (qualquer classificacao)', () => {
+    expect(customerHasEmail(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_contacts: [{ email: 'a@b.com' }] } }))).toBe(true)
+    expect(customerHasEmail(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_contacts: [{ email: '  ' }] } }))).toBe(false)
+    expect(customerHasEmail(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_contacts: [] } }))).toBe(false)
+  })
+
+  it('detecta portal ativo', () => {
+    expect(customerHasActivePortal(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_portal_accounts: [{ active: true }] } }))).toBe(true)
+    expect(customerHasActivePortal(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_portal_accounts: [{ active: false }] } }))).toBe(false)
+    expect(customerHasActivePortal(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_portal_accounts: [] } }))).toBe(false)
+  })
+})
+
+describe('groupNeedsEmail / groupNeedsPortal', () => {
+  it('so travam quando ha cliente vinculado faltando o dado', () => {
+    const linkedNoEmail = groupReviewItems([
+      item({ id: 'B1', customer_id: 7, customer: { id: 7, name: 'C', cnpj_cpf: '11222333000181', customer_contacts: [], customer_portal_accounts: [] } }),
+    ])[0]
+    expect(groupNeedsEmail(linkedNoEmail)).toBe(true)
+    expect(groupNeedsPortal(linkedNoEmail)).toBe(true)
+
+    const linkedComplete = groupReviewItems([
+      item({ id: 'B2', customer_id: 7, customer: { id: 7, name: 'C', cnpj_cpf: '11222333000181', customer_contacts: [{ email: 'a@b.com' }], customer_portal_accounts: [{ active: true }] } }),
+    ])[0]
+    expect(groupNeedsEmail(linkedComplete)).toBe(false)
+    expect(groupNeedsPortal(linkedComplete)).toBe(false)
+
+    const unlinked = groupReviewItems([
+      item({ id: 'B3', customer_id: null, customer: null, consignee: 'X', manifest_customer_cnpj_cpf: '11222333000181' }),
+    ])[0]
+    // sem cliente vinculado, e-mail/portal nao travam (a trava e "vincular cliente")
+    expect(groupNeedsEmail(unlinked)).toBe(false)
+    expect(groupNeedsPortal(unlinked)).toBe(false)
   })
 })
