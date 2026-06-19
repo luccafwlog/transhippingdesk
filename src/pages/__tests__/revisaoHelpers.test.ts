@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  customerHasActivePortal,
   customerHasEmail,
   extractErrorText,
   getConsigneeFilterOptions,
@@ -173,30 +172,34 @@ describe('groupReviewItems', () => {
   })
 })
 
-describe('customerHasEmail / customerHasActivePortal', () => {
+describe('customerHasEmail', () => {
   it('detecta e-mail em qualquer contato (qualquer classificacao)', () => {
     expect(customerHasEmail(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_contacts: [{ email: 'a@b.com' }] } }))).toBe(true)
     expect(customerHasEmail(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_contacts: [{ email: '  ' }] } }))).toBe(false)
     expect(customerHasEmail(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_contacts: [] } }))).toBe(false)
   })
-
-  it('detecta portal ativo', () => {
-    expect(customerHasActivePortal(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_portal_accounts: [{ active: true }] } }))).toBe(true)
-    expect(customerHasActivePortal(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_portal_accounts: [{ active: false }] } }))).toBe(false)
-    expect(customerHasActivePortal(item({ customer: { id: 1, name: 'X', cnpj_cpf: '1', customer_portal_accounts: [] } }))).toBe(false)
-  })
 })
 
 describe('groupNeedsEmail / groupNeedsPortal', () => {
-  it('so travam quando ha cliente vinculado faltando o dado', () => {
+  it('usa as pendencias canonicas quando ha cliente vinculado', () => {
     const linkedNoEmail = groupReviewItems([
-      item({ id: 'B1', customer_id: 7, customer: { id: 7, name: 'C', cnpj_cpf: '11222333000181', customer_contacts: [], customer_portal_accounts: [] } }),
+      item({
+        id: 'B1',
+        customer_id: 7,
+        customer: { id: 7, name: 'C', cnpj_cpf: '11222333000181', customer_contacts: [] },
+        review_reasons: ['Cliente sem e-mail cadastrado', 'Acesso ao portal nao provisionado'],
+      }),
     ])[0]
     expect(groupNeedsEmail(linkedNoEmail)).toBe(true)
     expect(groupNeedsPortal(linkedNoEmail)).toBe(true)
 
     const linkedComplete = groupReviewItems([
-      item({ id: 'B2', customer_id: 7, customer: { id: 7, name: 'C', cnpj_cpf: '11222333000181', customer_contacts: [{ email: 'a@b.com' }], customer_portal_accounts: [{ active: true }] } }),
+      item({
+        id: 'B2',
+        customer_id: 7,
+        customer: { id: 7, name: 'C', cnpj_cpf: '11222333000181', customer_contacts: [{ email: 'a@b.com' }] },
+        review_reasons: [],
+      }),
     ])[0]
     expect(groupNeedsEmail(linkedComplete)).toBe(false)
     expect(groupNeedsPortal(linkedComplete)).toBe(false)

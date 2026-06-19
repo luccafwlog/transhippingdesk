@@ -93,6 +93,174 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.compute_bl_review_pendencies(TEXT) FROM PUBLIC, anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.get_customer_portal_account(p_customer_id BIGINT)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_result JSONB;
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT public.is_active_user()
+     OR NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Credenciais invalidas ou sem permissao administrativa.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT to_jsonb(t.*)
+  INTO v_result
+  FROM (
+    SELECT
+      a.id,
+      a.customer_id,
+      a.contact_email,
+      a.active,
+      a.auth_user_id,
+      a.portal_email,
+      a.login_cnpj,
+      a.created_by,
+      a.last_login_at,
+      a.created_at,
+      a.updated_at
+    FROM public.customer_portal_accounts AS a
+    WHERE a.customer_id = p_customer_id
+  ) AS t;
+
+  RETURN COALESCE(v_result, '{}'::JSONB);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_customer_portal_account(BIGINT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_customer_portal_account(BIGINT) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.upsert_customer_portal_account(
+  BIGINT, TEXT, TEXT, BOOLEAN, UUID
+);
+
+CREATE OR REPLACE FUNCTION public.upsert_customer_portal_account(
+  p_customer_id BIGINT,
+  p_password TEXT,
+  p_contact_email TEXT DEFAULT NULL,
+  p_active BOOLEAN DEFAULT true,
+  p_actor UUID DEFAULT NULL,
+  p_login_cnpj TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_actor UUID;
+  v_normalized_cnpj TEXT;
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT public.is_active_user()
+     OR NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Credenciais invalidas ou sem permissao administrativa.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF COALESCE(length(trim(COALESCE(p_password, ''))), 0) < 8 THEN
+    RAISE EXCEPTION 'Senha do portal deve ter no minimo 8 caracteres.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  v_actor := COALESCE(p_actor, auth.uid());
+
+  IF p_login_cnpj IS NOT NULL AND trim(p_login_cnpj) <> '' THEN
+    v_normalized_cnpj := regexp_replace(trim(p_login_cnpj), '\D', '', 'g');
+    IF length(v_normalized_cnpj) NOT IN (11, 14) THEN
+      RAISE EXCEPTION 'CNPJ/CPF invalido para login do portal.'
+        USING ERRCODE = '22023';
+    END IF;
+  END IF;
+
+  INSERT INTO public.customer_portal_accounts (
+    customer_id,
+    contact_email,
+    password_hash,
+    active,
+    created_by,
+    login_cnpj
+  )
+  VALUES (
+    p_customer_id,
+    NULLIF(trim(COALESCE(p_contact_email, '')), ''),
+    extensions.crypt(p_password, extensions.gen_salt('bf')),
+    false,
+    v_actor,
+    v_normalized_cnpj
+  )
+  ON CONFLICT (customer_id) DO UPDATE
+  SET
+    contact_email = EXCLUDED.contact_email,
+    password_hash = EXCLUDED.password_hash,
+    active = COALESCE(p_active, true)
+      AND customer_portal_accounts.auth_user_id IS NOT NULL,
+    login_cnpj = EXCLUDED.login_cnpj,
+    updated_at = now();
+
+  RETURN public.get_customer_portal_account(p_customer_id);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.upsert_customer_portal_account(
+  BIGINT, TEXT, TEXT, BOOLEAN, UUID, TEXT
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.upsert_customer_portal_account(
+  BIGINT, TEXT, TEXT, BOOLEAN, UUID, TEXT
+) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.set_customer_portal_account_active(
+  p_customer_id BIGINT,
+  p_active BOOLEAN,
+  p_actor UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT public.is_active_user()
+     OR NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Credenciais invalidas ou sem permissao administrativa.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF COALESCE(p_active, true)
+     AND NOT EXISTS (
+       SELECT 1
+       FROM public.customer_portal_accounts AS a
+       WHERE a.customer_id = p_customer_id
+         AND a.auth_user_id IS NOT NULL
+     ) THEN
+    RAISE EXCEPTION 'Conta do portal sem usuario Auth nao pode ser ativada.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.customer_portal_accounts
+  SET
+    active = COALESCE(p_active, true),
+    updated_at = now()
+  WHERE customer_id = p_customer_id;
+
+  RETURN public.get_customer_portal_account(p_customer_id);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.set_customer_portal_account_active(
+  BIGINT, BOOLEAN, UUID
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_customer_portal_account_active(
+  BIGINT, BOOLEAN, UUID
+) TO authenticated;
+
 -- ============================================================================
 -- 2. Review save restores reconciliation and owns the real status transition
 -- ============================================================================

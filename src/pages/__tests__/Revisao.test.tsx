@@ -67,6 +67,11 @@ function makeLinkedBl(
   id: string,
   opts: { emails?: string[]; portalActive?: boolean } = {},
 ): ReviewQueueItem {
+  const reviewReasons = [
+    ...((opts.emails ?? []).length === 0 ? ['Cliente sem e-mail cadastrado'] : []),
+    ...(opts.portalActive ? [] : ['Acesso ao portal nao provisionado']),
+  ]
+
   return {
     id,
     source: 'bl',
@@ -78,10 +83,9 @@ function makeLinkedBl(
       name: 'Linked Co SA',
       cnpj_cpf: '11222333000181',
       customer_contacts: (opts.emails ?? []).map((email) => ({ email })),
-      customer_portal_accounts: opts.portalActive ? [{ active: true }] : [],
     },
     charge_status: 'review_required',
-    review_reasons: ['Cliente sem e-mail cadastrado'],
+    review_reasons: reviewReasons,
     voyage: { id: 1, voyage_number: '14', vessel: { id: 1, name: 'GREEN SANTOS', carrier: null } },
     updated_at: `2026-06-11T12:00:00.${id.slice(-1)}Z`,
   } as unknown as ReviewQueueItem

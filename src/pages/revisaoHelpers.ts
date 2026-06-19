@@ -81,25 +81,28 @@ export function customerHasEmail(item: ReviewQueueItem) {
   return Boolean(item.customer?.customer_contacts?.some((contact) => (contact.email ?? '').trim()))
 }
 
-export function customerHasActivePortal(item: ReviewQueueItem) {
-  return Boolean(item.customer?.customer_portal_accounts?.some((account) => account.active))
-}
-
 // O cliente de um grupo: primeiro item ja vinculado (todos compartilham o CNPJ).
 export function getGroupLinkedItem(group: ReviewGroup) {
   return group.items.find((item) => item.customer?.id != null) ?? null
 }
 
-// Trava de e-mail no nivel do cliente: so faz sentido quando ha cliente
-// vinculado e ele nao tem nenhum e-mail cadastrado.
+function groupHasReviewReason(group: ReviewGroup, pattern: RegExp) {
+  return group.items.some((item) =>
+    (item.review_reasons ?? []).some((reason) => pattern.test(reason)),
+  )
+}
+
+// As travas de nivel-cliente vêm das pendencias canonicas calculadas pelo banco.
+// Isso evita inferir portal pela relacao protegida por RLS e mantem a UI alinhada
+// ao mesmo estado que decide review_status e faturamento.
 export function groupNeedsEmail(group: ReviewGroup) {
   const linked = getGroupLinkedItem(group)
-  return Boolean(linked) && !customerHasEmail(linked!)
+  return Boolean(linked) && groupHasReviewReason(group, /cliente sem e-mail cadastrado/i)
 }
 
 export function groupNeedsPortal(group: ReviewGroup) {
   const linked = getGroupLinkedItem(group)
-  return Boolean(linked) && !customerHasActivePortal(linked!)
+  return Boolean(linked) && groupHasReviewReason(group, /acesso ao portal nao provisionado/i)
 }
 
 export function needsCeMercante(item: ReviewQueueItem) {

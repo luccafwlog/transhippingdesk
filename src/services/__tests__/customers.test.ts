@@ -2,16 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getCustomerPortalAccount,
   normalizeCustomerPortalRpcError,
+  provisionPortalForCustomer,
   sumIssuedInvoiceBalancesByCustomer,
   upsertCustomerPortalAccount,
 } from '../customers'
 
-const { mockRpc } = vi.hoisted(() => ({
+const { mockInvoke, mockRpc } = vi.hoisted(() => ({
+  mockInvoke: vi.fn(),
   mockRpc: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
   supabase: {
+    functions: {
+      invoke: mockInvoke,
+    },
     rpc: mockRpc,
     from: vi.fn(),
   },
@@ -19,6 +24,7 @@ vi.mock('../supabase', () => ({
 
 describe('customers portal provisioning', () => {
   beforeEach(() => {
+    mockInvoke.mockReset()
     mockRpc.mockReset()
   })
 
@@ -80,6 +86,109 @@ describe('customers portal provisioning', () => {
       p_actor: 'user-id',
       p_login_cnpj: null,
     })
+  })
+
+  it('so ativa a conta depois de vincular o usuario Auth', async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'upsert_customer_portal_account') {
+        return {
+          data: { id: 7, customer_id: 10, active: false },
+          error: null,
+        }
+      }
+      if (name === 'set_customer_portal_account_active') {
+        return {
+          data: {
+            id: 7,
+            customer_id: 10,
+            active: true,
+            auth_user_id: 'auth-user-1',
+            portal_email: 'financeiro@cliente.com',
+          },
+          error: null,
+        }
+      }
+      throw new Error(`RPC inesperada: ${name}`)
+    })
+    mockInvoke.mockResolvedValue({
+      data: { success: true, auth_user_id: 'auth-user-1' },
+      error: null,
+    })
+
+    await provisionPortalForCustomer({
+      customerId: 10,
+      portalEmail: 'financeiro@cliente.com',
+      actorId: 'admin-1',
+      loginCnpj: '12116971001071',
+    })
+
+    expect(mockRpc.mock.calls[0]).toEqual([
+      'upsert_customer_portal_account',
+      expect.objectContaining({ p_active: false }),
+    ])
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'provision-portal-user',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          customer_portal_account_id: 7,
+          portal_email: 'financeiro@cliente.com',
+        }),
+      }),
+    )
+    expect(mockRpc.mock.calls[1]).toEqual([
+      'set_customer_portal_account_active',
+      {
+        p_customer_id: 10,
+        p_active: true,
+        p_actor: 'admin-1',
+      },
+    ])
+  })
+
+  it('mantem a conta inativa quando o provisionamento Auth falha', async () => {
+    mockRpc.mockResolvedValue({
+      data: { id: 7, customer_id: 10, active: false },
+      error: null,
+    })
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: new Error('Falha ao criar usuario Auth'),
+    })
+
+    await expect(
+      provisionPortalForCustomer({
+        customerId: 10,
+        portalEmail: 'financeiro@cliente.com',
+        actorId: 'admin-1',
+      }),
+    ).rejects.toThrow('Falha ao criar usuario Auth')
+
+    expect(mockRpc).toHaveBeenCalledTimes(1)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'upsert_customer_portal_account',
+      expect.objectContaining({ p_active: false }),
+    )
+  })
+
+  it('nao ativa a conta se a Edge Function nao confirmar auth_user_id', async () => {
+    mockRpc.mockResolvedValue({
+      data: { id: 7, customer_id: 10, active: false },
+      error: null,
+    })
+    mockInvoke.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    })
+
+    await expect(
+      provisionPortalForCustomer({
+        customerId: 10,
+        portalEmail: 'financeiro@cliente.com',
+        actorId: 'admin-1',
+      }),
+    ).rejects.toThrow('nao confirmou o usuario Auth')
+
+    expect(mockRpc).toHaveBeenCalledTimes(1)
   })
 })
 

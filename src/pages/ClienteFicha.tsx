@@ -88,17 +88,25 @@ export function ClienteFicha() {
         customerId: data.id,
         password: portalPassword,
         contactEmail: trimmedEmail,
-        active: portalActive,
+        active: false,
         actorId: user?.id ?? null,
         loginCnpj: portalCnpj || null,
       })
       // 2) cria/atualiza o usuário Supabase Auth (login email + senha)
-      await provisionPortalAuthUser({
+      const authResult = await provisionPortalAuthUser({
         accountId: account.id,
         portalEmail: trimmedEmail,
         password: portalPassword,
       })
-      return account
+      if (!authResult.auth_user_id) {
+        throw new Error('O provisionamento do portal nao confirmou o usuario Auth.')
+      }
+      // 3) so publica a conta depois que o vinculo Auth existe.
+      return setCustomerPortalAccountActive({
+        customerId: data.id,
+        active: portalActive,
+        actorId: user?.id ?? null,
+      })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['customer-portal-account', data?.id] })
@@ -619,5 +627,4 @@ export function ClienteFicha() {
     </>
   )
 }
-
 

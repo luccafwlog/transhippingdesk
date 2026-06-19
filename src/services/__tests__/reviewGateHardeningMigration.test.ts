@@ -16,6 +16,8 @@ describe('review gate hardening migration', () => {
   it('considera portal funcional somente com conta ativa e usuario Auth', () => {
     expect(sql).toContain('a.active = true')
     expect(sql).toContain('a.auth_user_id IS NOT NULL')
+    expect(sql).toContain('a.portal_email')
+    expect(sql).toContain('Conta do portal sem usuario Auth nao pode ser ativada')
   })
 
   it('mantem helpers privilegiados fora da API publica', () => {

@@ -848,6 +848,7 @@ export type Database = {
           p_contact_email: string | null
           p_active: boolean
           p_actor: string | null
+          p_login_cnpj: string | null
         }
         Returns: Json
       }

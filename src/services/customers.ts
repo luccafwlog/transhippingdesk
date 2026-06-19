@@ -159,14 +159,22 @@ export async function provisionPortalForCustomer(input: {
     customerId: input.customerId,
     password,
     contactEmail: input.portalEmail,
-    active: true,
+    active: false,
     actorId: input.actorId ?? null,
     loginCnpj: input.loginCnpj ?? null,
   })
-  await provisionPortalAuthUser({
+  const authResult = await provisionPortalAuthUser({
     accountId: account.id,
     portalEmail: input.portalEmail,
     password,
+  })
+  if (!authResult.auth_user_id) {
+    throw new Error('O provisionamento do portal nao confirmou o usuario Auth.')
+  }
+  await setCustomerPortalAccountActive({
+    customerId: input.customerId,
+    active: true,
+    actorId: input.actorId ?? null,
   })
   return { password, portalEmail: input.portalEmail }
 }
@@ -279,6 +287,8 @@ type CustomerPortalAccount = {
   customer_id: number
   contact_email: string | null
   active: boolean
+  auth_user_id: string | null
+  portal_email: string | null
   login_cnpj: string | null
   created_by: string | null
   last_login_at: string | null

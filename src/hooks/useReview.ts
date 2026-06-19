@@ -2,12 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 import type { BL, BLContainer, Customer, Voyage, Vessel, Carrier } from '../types/database'
 
-// Cliente da fila + estado real do gate de e-mail/portal (derivado de joins,
-// nao de texto). `customer_contacts` traz so o e-mail; `customer_portal_accounts`
-// so o flag `active`.
+// Cliente da fila + contatos visiveis ao operador. O estado do portal nao e
+// lido por join porque customer_portal_accounts tem RLS administrativa; as
+// pendencias canonicas ja chegam na linha gerenciada de `notes`.
 export type ReviewCustomer = Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> & {
   customer_contacts?: { email: string | null }[] | null
-  customer_portal_accounts?: { active: boolean | null }[] | null
 }
 
 export type ReviewQueueItem = (BL & {
@@ -49,7 +48,7 @@ export function useReviewQueue() {
           .from('bls')
           .select(
             `*,
-            customer:customers(id, cnpj_cpf, name, customer_contacts(email), customer_portal_accounts(active)),
+            customer:customers(id, cnpj_cpf, name, customer_contacts(email)),
             voyage:voyages(id, voyage_number, vessel:vessels(id, name, carrier:carriers(id, name))),
             bl_containers(id, container_number, is_imo, is_oog)`,
           )
@@ -61,7 +60,7 @@ export function useReviewQueue() {
           .from('granite_bls')
           .select(
             `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status,
-            customer:customers(id, cnpj_cpf, name, customer_contacts(email), customer_portal_accounts(active)),
+            customer:customers(id, cnpj_cpf, name, customer_contacts(email)),
             manifest:granite_manifests(voyage:voyages(id, voyage_number, vessel:vessels(id, name)))`,
           )
           .is('client_id', null)
@@ -84,7 +83,7 @@ export function useReviewQueue() {
         // ainda retornamos a fila de granito sem metadados de viagem.
         const fallback = await supabase
           .from('granite_bls')
-          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status, customer:customers(id, cnpj_cpf, name, customer_contacts(email), customer_portal_accounts(active))')
+          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status, customer:customers(id, cnpj_cpf, name, customer_contacts(email))')
           .is('client_id', null)
           .order('created_at', { ascending: false })
           .range(0, 499)
@@ -148,17 +147,12 @@ export function useReviewQueue() {
   return { ...query, data: query.data?.items, graniteUnavailable: query.data?.graniteUnavailable ?? false }
 }
 
-function extractReviewReasons(notes?: string | null) {
+export function extractReviewReasons(notes?: string | null) {
   if (!notes) return []
-  const marker = 'Pend'
-  if (!notes.startsWith(marker)) return [notes]
+  const match = notes.match(/(?:^|\n)Pendencias de importacao:\s*([^\n]*)/i)
+  if (!match?.[1]) return []
 
-  const parts = notes.split(':')
-  if (parts.length < 2) return [notes]
-
-  return parts
-    .slice(1)
-    .join(':')
+  return match[1]
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
