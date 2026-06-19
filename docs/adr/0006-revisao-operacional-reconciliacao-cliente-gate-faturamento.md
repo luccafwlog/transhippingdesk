@@ -23,3 +23,12 @@ Manter uma etapa explícita de revisão operacional e reconciliação de cliente
 - **Positivas**: reduz emissão indevida; preserva decisão humana onde matching automático é ambíguo; dá aos operadores uma fila clara de trabalho antes do financeiro.
 - **Negativas / custos**: o fluxo fica mais lento que uma importação totalmente automática; filtros e contagens precisam explicar por que um B/L ainda não está faturável.
 - **Regra prática**: qualquer novo importador ou cálculo que gere incerteza deve alimentar revisão/reconciliação, não pular direto para invoice.
+
+## Nota editorial — 2026-06-19
+
+O gate foi tornado canônico e centrado em "o cliente consegue ver a fatura no portal":
+
+- As pendências que prendem um B/L passam a ser derivadas de estado real por `compute_bl_review_pendencies(bl)` (não do texto de `notes`), e `save_bl_review` recomputa `review_status` — só libera quando o conjunto zera. Isso fecha o vazamento em que corrigir uma de várias pendências liberava o B/L prematuramente.
+- O conjunto de travas inclui agora **e-mail do cliente** (qualquer contato) e **acesso ao portal provisionado/ativo**, além de cliente vinculado e inputs de cálculo. **CE Mercante não é trava** (necessário para exibição no portal, mas não inserido neste momento).
+- Todas as travas são resolvíveis dentro da própria revisão, agrupadas por cliente (CNPJ): vínculo, e-mail e provisionamento de portal (admin-only, com senha gerada pelo sistema) em lote.
+- A **justificativa** da correção passou a ser opcional (auto-preenchida como "Revisão manual"); a trilha de auditoria (quem/o quê/antes/depois) permanece automática.

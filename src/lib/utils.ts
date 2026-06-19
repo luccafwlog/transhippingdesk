@@ -87,6 +87,19 @@ export function onlyDigits(value?: string | null) {
   return (value ?? '').replace(/\D/g, '')
 }
 
+// Gera uma senha forte aleatoria (sem caracteres ambiguos) para o sistema
+// provisionar acesso ao portal sem o operador precisar definir/ver senha fixa.
+export function generateStrongPassword(length = 16) {
+  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*-_'
+  const values = new Uint32Array(length)
+  crypto.getRandomValues(values)
+  let result = ''
+  for (let index = 0; index < length; index += 1) {
+    result += charset[values[index] % charset.length]
+  }
+  return result
+}
+
 export function formatCnpjCpf(value?: string | null) {
   const digits = onlyDigits(value)
 

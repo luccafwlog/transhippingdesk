@@ -1,4 +1,4 @@
-import { onlyDigits } from '../lib/utils'
+import { generateStrongPassword, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import { buildDependencyReport, tallyReasons, type DeleteDependencyReport } from './deleteDependencies'
 import { logDeletions } from './deleteAudit'
@@ -129,6 +129,46 @@ export async function upsertCustomerContact(customerId: number, contact: Omit<Cu
   const { data, error } = await query
   if (error || !data) throw error
   return data as CustomerContact
+}
+
+// Adiciona um e-mail de contato a um cliente existente direto da fila de
+// revisao. Qualquer e-mail satisfaz a trava do gate; a classificacao
+// 'faturamento' aqui e so o default administrativo.
+export async function addCustomerEmail(customerId: number, email: string) {
+  const { error } = await supabase.from('customer_contacts').insert({
+    customer_id: customerId,
+    name: 'Contato faturamento',
+    email: email.trim(),
+    purpose: 'faturamento',
+    is_primary: false,
+  })
+  if (error) throw error
+}
+
+// Provisiona o acesso ao portal de um cliente com SENHA GERADA pelo sistema
+// (o operador nunca define a senha). Retorna a senha em claro uma unica vez,
+// para o admin repassar ao cliente. Reusa o fluxo canonico (conta + auth user).
+export async function provisionPortalForCustomer(input: {
+  customerId: number
+  portalEmail: string
+  loginCnpj?: string | null
+  actorId?: string | null
+}): Promise<{ password: string; portalEmail: string }> {
+  const password = generateStrongPassword()
+  const account = await upsertCustomerPortalAccount({
+    customerId: input.customerId,
+    password,
+    contactEmail: input.portalEmail,
+    active: true,
+    actorId: input.actorId ?? null,
+    loginCnpj: input.loginCnpj ?? null,
+  })
+  await provisionPortalAuthUser({
+    accountId: account.id,
+    portalEmail: input.portalEmail,
+    password,
+  })
+  return { password, portalEmail: input.portalEmail }
 }
 
 export async function deleteCustomerContact(contactId: number) {

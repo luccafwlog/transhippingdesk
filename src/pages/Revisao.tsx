@@ -13,6 +13,9 @@ import { useCustomerLookup } from '../hooks/useCustomers'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import {
   extractErrorText,
+  getGroupLinkedItem,
+  groupNeedsEmail,
+  groupNeedsPortal,
   groupReviewItems,
   needsCeMercante,
   needsCustomerLink,
@@ -22,13 +25,14 @@ import {
 import { InlineCustomerPicker, InlineFieldEditor } from '../components/shared/ReviewInlineEditors'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatCnpjCpf, onlyDigits } from '../lib/utils'
-import { createCustomer } from '../services/customers'
+import { addCustomerEmail, createCustomer, provisionPortalForCustomer } from '../services/customers'
 import { calculateBlLocalCharges } from '../services/charges/chargeOperationsService'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { queryKeys } from '../services/queryKeys'
 import {
   applyInlineBlReviewFix,
   ConcurrentEditError,
+  recomputeBlReviewGate,
   saveBlReview,
   saveGraniteBlReview,
   type SaveBlReviewResult,
@@ -37,17 +41,19 @@ import { tryAutoIssueInvoice } from '../services/reviewBillingAutomation'
 import { supabase } from '../services/supabase'
 
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
+type ProvisionedCredential = { name: string; email: string; password: string }
 
 export function Revisao() {
   const { data, isLoading, error, graniteUnavailable } = useReviewQueue()
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { showToast } = useToast()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [savingGroupKey, setSavingGroupKey] = useState<string | null>(null)
+  const [provisionedCredential, setProvisionedCredential] = useState<ProvisionedCredential | null>(null)
   const [savingInlineId, setSavingInlineId] = useState<string | null>(null)
   const [recalcQueue, setRecalcQueue] = useState<RecalcNotice[]>([])
   const [recalcingId, setRecalcingId] = useState<string | null>(null)
@@ -312,6 +318,96 @@ export function Revisao() {
     )
   }
 
+  // Apos uma correcao de nivel-cliente (e-mail/portal), reavalia o gate de todos
+  // os B/Ls ja vinculados do grupo: os que zerarem saem da fila e, se elegiveis,
+  // sao faturados. O updated_at do B/L nao muda (alteramos tabelas do cliente),
+  // entao o lock otimista continua valido.
+  async function refreshGroupGate(group: ReviewGroup) {
+    if (!user) return
+    let invoiceCount = 0
+    for (const item of group.items) {
+      if (item.source !== 'bl' || item.customer_id == null) continue
+      try {
+        const result = await recomputeBlReviewGate({
+          blId: item.id,
+          expectedUpdatedAt: item.updated_at ?? null,
+          changedBy: user.id,
+        })
+        if (result.resolved && item.customer_id) {
+          const autoInvoice = await tryAutoIssueInvoice({ blId: item.id, customerId: item.customer_id, actorId: user.id })
+          if (autoInvoice.status === 'invoiced') invoiceCount++
+        }
+      } catch {
+        // Conflito de concorrencia ou falha pontual: a invalidacao abaixo recarrega o estado real.
+      }
+    }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
+      queryClient.invalidateQueries({ queryKey: ['bls'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+      queryClient.invalidateQueries({ queryKey: ['op-count'] }),
+    ])
+    return invoiceCount
+  }
+
+  async function handleGroupAddEmail(group: ReviewGroup, email: string) {
+    if (!user) return
+    const linked = getGroupLinkedItem(group)
+    const customerId = linked?.customer?.id
+    if (!customerId) return
+    if (!email.trim() || !email.includes('@')) {
+      showToast('Informe um e-mail válido.', 'error')
+      return
+    }
+    setSavingGroupKey(group.key)
+    try {
+      await addCustomerEmail(customerId, email)
+      await queryClient.invalidateQueries({ queryKey: ['customers'] })
+      const invoiceCount = await refreshGroupGate(group)
+      showToast(
+        `E-mail vinculado a ${group.displayName}.${invoiceCount ? ` ${invoiceCount} fatura(s) emitida(s).` : ''}`,
+        'success',
+      )
+    } catch (err) {
+      showToast(`Falha ao salvar e-mail. ${extractErrorText(err)}`.trim(), 'error')
+    } finally {
+      setSavingGroupKey(null)
+    }
+  }
+
+  async function handleGroupProvisionPortal(group: ReviewGroup) {
+    if (!user || !isAdmin) return
+    const linked = getGroupLinkedItem(group)
+    const customerId = linked?.customer?.id
+    if (!customerId) return
+    const email = linked?.customer?.customer_contacts?.find((contact) => (contact.email ?? '').trim())?.email?.trim()
+    if (!email) {
+      showToast('Adicione um e-mail ao cliente antes de provisionar o portal.', 'error')
+      return
+    }
+    setSavingGroupKey(group.key)
+    try {
+      const { password } = await provisionPortalForCustomer({
+        customerId,
+        portalEmail: email,
+        loginCnpj: group.cnpj,
+        actorId: user.id,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['customer-portal-account', customerId] })
+      const invoiceCount = await refreshGroupGate(group)
+      setProvisionedCredential({ name: group.displayName, email, password })
+      showToast(
+        `Portal provisionado para ${group.displayName}.${invoiceCount ? ` ${invoiceCount} fatura(s) emitida(s).` : ''}`,
+        'success',
+      )
+    } catch (err) {
+      showToast(`Falha ao provisionar o portal. ${extractErrorText(err)}`.trim(), 'error')
+    } finally {
+      setSavingGroupKey(null)
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -436,8 +532,11 @@ export function Revisao() {
               collapsed={collapsedGroups.has(group.key)}
               savingGroup={savingGroupKey === group.key}
               savingInlineId={savingInlineId}
+              isAdmin={isAdmin}
               onToggle={() => toggleGroupCollapsed(group.key)}
               onGroupLink={(customerId) => handleGroupLinkCustomer(group, customerId)}
+              onGroupAddEmail={(email) => handleGroupAddEmail(group, email)}
+              onGroupProvisionPortal={() => handleGroupProvisionPortal(group)}
               onCorrect={(id) => setSelectedId(id)}
               onInlineField={handleInlineField}
             />
@@ -455,7 +554,51 @@ export function Revisao() {
         onNavigate={(id) => setSelectedId(id)}
         siblingIds={filteredData.map((item) => item.id)}
       />
+
+      <Modal
+        open={Boolean(provisionedCredential)}
+        onClose={() => setProvisionedCredential(null)}
+        title="Acesso ao portal provisionado"
+      >
+        {provisionedCredential ? (
+          <div className="grid gap-4">
+            <p className="text-sm text-slate-300">
+              Credencial gerada para <span className="font-semibold text-white">{provisionedCredential.name}</span>.
+              Copie e repasse ao cliente — <span className="text-amber-300">ela não será exibida novamente</span>.
+            </p>
+            <div className="grid gap-2">
+              <CredentialRow label="Login (e-mail)" value={provisionedCredential.email} />
+              <CredentialRow label="Senha" value={provisionedCredential.password} />
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setProvisionedCredential(null)}>Concluir</Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </>
+  )
+}
+
+function CredentialRow({ label, value }: { label: string; value: string }) {
+  const { showToast } = useToast()
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2">
+      <div className="min-w-0">
+        <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
+        <div className="truncate font-mono text-sm text-white">{value}</div>
+      </div>
+      <Button
+        variant="secondary"
+        className="px-2.5 py-1 text-xs"
+        onClick={() => {
+          void navigator.clipboard?.writeText(value)
+          showToast('Copiado.', 'success')
+        }}
+      >
+        Copiar
+      </Button>
+    </div>
   )
 }
 
@@ -464,8 +607,11 @@ function ReviewGroupBlock({
   collapsed,
   savingGroup,
   savingInlineId,
+  isAdmin,
   onToggle,
   onGroupLink,
+  onGroupAddEmail,
+  onGroupProvisionPortal,
   onCorrect,
   onInlineField,
 }: {
@@ -473,12 +619,19 @@ function ReviewGroupBlock({
   collapsed: boolean
   savingGroup: boolean
   savingInlineId: string | null
+  isAdmin: boolean
   onToggle: () => void
   onGroupLink: (customerId: number) => void
+  onGroupAddEmail: (email: string) => void
+  onGroupProvisionPortal: () => void
   onCorrect: (id: string) => void
   onInlineField: (item: ReviewQueueItem, field: 'ce_mercante' | 'bb_weight_ton', value: string) => void
 }) {
+  const [emailDraft, setEmailDraft] = useState('')
   const unlinkedCount = group.items.filter(needsCustomerLink).length
+  const hasLinkedCustomer = getGroupLinkedItem(group) != null
+  const needsEmail = groupNeedsEmail(group)
+  const needsPortal = groupNeedsPortal(group)
   const groupReasons = useMemo(() => {
     const reasons = new Set<string>()
     for (const item of group.items) {
@@ -515,12 +668,49 @@ function ReviewGroupBlock({
             </Badge>
           ))}
         </div>
-        {unlinkedCount > 0 ? (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-slate-400">Vincular cliente a {unlinkedCount}:</span>
-            <InlineCustomerPicker saving={savingGroup} onSelect={onGroupLink} />
-          </div>
-        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          {unlinkedCount > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Vincular cliente a {unlinkedCount}:</span>
+              <InlineCustomerPicker saving={savingGroup} onSelect={onGroupLink} />
+            </div>
+          ) : null}
+          {hasLinkedCustomer && needsEmail ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={emailDraft}
+                onChange={(event) => setEmailDraft(event.target.value)}
+                placeholder="E-mail de faturamento"
+                className="w-52 py-1 text-xs"
+                disabled={savingGroup}
+              />
+              <Button
+                variant="secondary"
+                className="px-2.5 py-1 text-xs"
+                loading={savingGroup}
+                onClick={() => onGroupAddEmail(emailDraft)}
+              >
+                Salvar e-mail
+              </Button>
+            </div>
+          ) : null}
+          {hasLinkedCustomer && needsPortal ? (
+            isAdmin ? (
+              <Button
+                variant="secondary"
+                className="px-2.5 py-1 text-xs"
+                loading={savingGroup}
+                disabled={needsEmail}
+                title={needsEmail ? 'Adicione um e-mail antes de provisionar o portal' : undefined}
+                onClick={onGroupProvisionPortal}
+              >
+                Provisionar portal
+              </Button>
+            ) : (
+              <span className="text-xs text-slate-500">Portal pendente (admin)</span>
+            )
+          ) : null}
+        </div>
       </div>
 
       {!collapsed ? (
@@ -703,10 +893,6 @@ function ReviewDrawer({
 
   async function handleSave() {
     if (!item || !user) return
-    if (!justification.trim()) {
-      showToast('Informe a justificativa da revisão.', 'error')
-      return
-    }
 
     setSaving(true)
     try {
@@ -747,7 +933,7 @@ function ReviewDrawer({
         customerId: selectedCustomerId,
         previousCustomerId: item.customer_id ?? null,
         changedBy: user.id,
-        justification,
+        justification: justification.trim() || 'Revisão manual',
         expectedUpdatedAt: item.updated_at ?? null,
       })
 
@@ -946,8 +1132,12 @@ function ReviewDrawer({
             </div>
           </Card>
 
-          <Field label="Justificativa obrigatória">
-            <Textarea value={justification} onChange={(event) => setJustification(event.target.value)} required />
+          <Field label="Justificativa (opcional)">
+            <Textarea
+              value={justification}
+              onChange={(event) => setJustification(event.target.value)}
+              placeholder="Se vazia, registra 'Revisão manual' no histórico."
+            />
           </Field>
 
           <div className="flex justify-end gap-2">

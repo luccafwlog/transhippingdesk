@@ -77,6 +77,31 @@ export function needsCustomerLink(item: ReviewQueueItem) {
   return item.customer_id == null
 }
 
+export function customerHasEmail(item: ReviewQueueItem) {
+  return Boolean(item.customer?.customer_contacts?.some((contact) => (contact.email ?? '').trim()))
+}
+
+export function customerHasActivePortal(item: ReviewQueueItem) {
+  return Boolean(item.customer?.customer_portal_accounts?.some((account) => account.active))
+}
+
+// O cliente de um grupo: primeiro item ja vinculado (todos compartilham o CNPJ).
+export function getGroupLinkedItem(group: ReviewGroup) {
+  return group.items.find((item) => item.customer?.id != null) ?? null
+}
+
+// Trava de e-mail no nivel do cliente: so faz sentido quando ha cliente
+// vinculado e ele nao tem nenhum e-mail cadastrado.
+export function groupNeedsEmail(group: ReviewGroup) {
+  const linked = getGroupLinkedItem(group)
+  return Boolean(linked) && !customerHasEmail(linked!)
+}
+
+export function groupNeedsPortal(group: ReviewGroup) {
+  const linked = getGroupLinkedItem(group)
+  return Boolean(linked) && !customerHasActivePortal(linked!)
+}
+
 export function needsCeMercante(item: ReviewQueueItem) {
   if (item.source !== 'bl') return false
   return (item.review_reasons ?? []).some((reason) => /ce\s*mercante/i.test(reason))
