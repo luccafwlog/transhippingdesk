@@ -9,9 +9,9 @@ import { SkeletonCard } from '../components/ui/Skeleton'
 import { BLPipeline } from '../components/shared/BLPipeline'
 import { BlDetalhesTab } from '../components/bl/BlDetalhesTab'
 import { BlFaturamentoTab } from '../components/bl/BlFaturamentoTab'
-import { useAuditLogs, useBlDetail } from '../hooks/useBls'
+import { BlHistoricoTab } from '../components/bl/BlHistoricoTab'
+import { useBlDetail } from '../hooks/useBls'
 import { useBlEditForm } from '../hooks/useBlEditForm'
-import { formatDate } from '../lib/utils'
 import { cargoModeLabel, resolveCargoMode } from './blDetalheHelpers'
 
 export type BlTab = 'detalhes' | 'faturamento' | 'historico'
@@ -32,7 +32,6 @@ export function BlDetalhe() {
   const tabParam = searchParams.get('tab')
   const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'detalhes'
   const { data: bl, isLoading, error } = useBlDetail(blId)
-  const { data: auditLogs } = useAuditLogs('bl', blId)
 
   const cargoMode = useMemo(() => resolveCargoMode(bl), [bl])
   const isContainerMode = cargoMode === 'container'
@@ -148,24 +147,7 @@ export function BlDetalhe() {
 
       <BlFaturamentoTab active={activeTab === 'faturamento'} bl={bl} />
 
-      {activeTab === 'historico' ? (
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-white">Auditoria</h2>
-          <div className="grid gap-3">
-            {auditLogs?.length ? null : <div className="text-sm text-slate-400">Nenhuma alteracao auditada ainda.</div>}
-            {auditLogs?.map((log) => (
-              <div key={log.id} className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm">
-                <div className="font-semibold text-white">
-                  {log.field_name}: {log.old_value || '-'} {'->'} {log.new_value || '-'}
-                </div>
-                <div className="mt-1 text-slate-400">
-                  {formatDate(log.changed_at)} {'|'} {log.justification ?? 'Sem justificativa'}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : null}
+      <BlHistoricoTab active={activeTab === 'historico'} blId={blId} />
     </>
   )
 }
