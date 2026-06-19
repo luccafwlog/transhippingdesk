@@ -582,7 +582,14 @@ export type Database = {
           p_audit_rows: unknown
           p_changed_by: string
         }
-        Returns: string | null
+        Returns: Json
+      }
+      apply_bl_review_gate_after_import: {
+        Args: {
+          p_bl_ids: string[]
+          p_changed_by: string
+        }
+        Returns: number
       }
       apply_ce_mercante_update: {
         Args: {

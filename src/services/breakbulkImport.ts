@@ -227,6 +227,12 @@ export async function importBreakbulkManifest({
     if (error) throw error
 
     const validBlIds = blRows.map((row) => row.id)
+    const { error: reviewGateError } = await supabase.rpc('apply_bl_review_gate_after_import', {
+      p_bl_ids: validBlIds,
+      p_changed_by: uploadedBy,
+    })
+    if (reviewGateError) throw reviewGateError
+
     const { error: deleteError } = await supabase.from('bl_breakbulk_items').delete().in('bl_id', validBlIds)
     if (deleteError) throw deleteError
 

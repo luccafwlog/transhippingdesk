@@ -66,9 +66,7 @@ export async function saveBlReview({
 
   const customerChanged = previousCustomerId !== customerId
 
-  const updatePayload: Record<string, unknown> = {
-    review_status: 'reviewed',
-  }
+  const updatePayload: Record<string, unknown> = {}
 
   for (const [field, value] of changedEntries) {
     const normalized = normalizeBlValue(field, value)
@@ -103,14 +101,6 @@ export async function saveBlReview({
           },
         ]
       : []),
-    {
-      entity_type: 'bl',
-      entity_id: blId,
-      field_name: 'review_status',
-      old_value: 'pending_review',
-      new_value: 'reviewed',
-      justification,
-    },
   ]
 
   const { data, error } = await supabase.rpc('save_bl_review', {
@@ -133,9 +123,10 @@ export async function saveBlReview({
 
 /**
  * Aplica uma correcao pontual (inline) na fila de revisao reaproveitando a RPC
- * `save_bl_review`: atualiza um unico campo, marca `review_status = reviewed` e
- * grava o audit_log na mesma transacao com optimistic lock. Usada pelas acoes
- * inline de /revisao (vincular cliente, CE Mercante, peso BB) sem abrir o modal.
+ * `save_bl_review`: atualiza um unico campo e grava o audit_log na mesma
+ * transacao com optimistic lock. O banco recomputa e audita `review_status`.
+ * Usada pelas acoes inline de /revisao (vincular cliente, CE Mercante, peso BB)
+ * sem abrir o modal.
  */
 export async function applyInlineBlReviewFix({
   blId,
@@ -154,7 +145,6 @@ export async function applyInlineBlReviewFix({
 }) {
   const justification = 'Correcao inline na fila de revisao'
   const updatePayload: Record<string, unknown> = {
-    review_status: 'reviewed',
     [field]: value,
   }
 
@@ -165,14 +155,6 @@ export async function applyInlineBlReviewFix({
       field_name: field,
       old_value: stringifyValue(previousValue),
       new_value: stringifyValue(value),
-      justification,
-    },
-    {
-      entity_type: 'bl',
-      entity_id: blId,
-      field_name: 'review_status',
-      old_value: 'pending_review',
-      new_value: 'reviewed',
       justification,
     },
   ]

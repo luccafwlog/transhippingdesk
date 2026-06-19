@@ -129,6 +129,11 @@ describe('breakbulkImport', () => {
       customer_reconciliation_status: 'matched_document',
       billing_hold_reason: null,
     })
+    expect(mockRpc).toHaveBeenCalledWith('apply_bl_review_gate_after_import', {
+      p_bl_ids: ['BB001'],
+      p_changed_by: '00000000-0000-0000-0000-000000000001',
+    })
+    expect(mockRpc.mock.calls[0]?.[0]).toBe('apply_bl_review_gate_after_import')
   })
 
   it('agrega linhas do layout BB legado por BL', async () => {
