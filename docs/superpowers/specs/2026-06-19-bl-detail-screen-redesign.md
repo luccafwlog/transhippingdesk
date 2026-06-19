@@ -80,12 +80,22 @@ nomeadas separando somente-leitura de editável):
   **acima** da tabela por container (descarga, data de devolução editável,
   cálculo). Toda escrita passa a usar `save_bl_review` (corrige a auditoria).
 
-### Aba 3 — "Histórico"
+### Aba 3 — "Histórico" (linha do tempo completa do B/L)
 
-- Mantida como aba dedicada (decisão do usuário). Conteúdo atual = lista de
-  `audit_logs` (`campo: antigo → novo`, data, justificativa); agora cobre também
-  os overrides de demurrage, que passam a ser auditados.
-- **Conteúdo a revisar antes de fechar o spec** (ver sessão grill-me-with-docs).
+Decidido em sessão grill-me-with-docs (ver Componente G):
+- **Escopo**: linha do tempo completa do B/L — não só a auditoria de campos.
+  Inclui edições de campo (`bl`), mudanças em container (`bl_container`), taxas
+  (`charge_calculation`/`charge_status`), faturas (`invoice`) e os
+  `system_event` que carregam `bl_id` (ex.: `bl_review_concurrent_conflict`).
+  Ficam de fora os `system_event` globais (`entity_id='billing'`).
+- **Terminologia**: "Histórico" é o guarda-chuva; "Auditoria" é o subconjunto com
+  justificativa (ver `docs/GLOSSARIO.md`). O cabeçalho "Auditoria" da aba é
+  renomeado para "Histórico".
+- **Montagem**: RPC server-side `bl_timeline(bl_id)` (Componente G), não os dois
+  `eq()` de hoje.
+- **Apresentação**: eventos humanizados por família, com badge (Edição ·
+  Container · Taxas · Fatura · Sistema) e frase legível; paginação por
+  "carregar mais" (em vez do range fixo 0–199).
 
 ### Mapa de eliminação de duplicação
 
@@ -153,12 +163,12 @@ testes com as duas amostras.
   para a aba Faturamento (Componente F). A tabela de Carga mantém só composição
   física (nº, seal, tipo, peso, CBM, OOG, IMO, descarga).
 
-## Componente E — Comercial: extrair card de cliente
+## Componente E — Cliente: extrair card para a aba Faturamento
 
-- Nova aba **Comercial** a partir do card "Cliente" do `BlFinanceiroTab`
-  (cliente vinculado, dados do manifesto + cadastrar/vincular, conciliação,
-  busca de vínculo). Lógica de `handleLinkCustomer` / `handleCreateManifestCustomer`
-  preservada.
+- **Seção Cliente** dentro da aba Faturamento (não é aba nova), a partir do card
+  "Cliente" do `BlFinanceiroTab` (cliente vinculado, dados do manifesto +
+  cadastrar/vincular, conciliação, busca de vínculo). Lógica de
+  `handleLinkCustomer` / `handleCreateManifestCustomer` preservada.
 - **Remover** o card "Informações financeiras" (duplicação pura).
 
 ## Componente F — Faturamento: renomear + consolidar demurrage
@@ -172,15 +182,43 @@ testes com as duas amostras.
   - Tabela por container: descarga, data de devolução (editável), cálculo
     (`calculateDemurrage`), reaproveitando `updateContainerReturnDate`.
   - **Auditoria**: substituir o `supabase.update` direto dos overrides por
-    `save_bl_review` (mesmo caminho auditado do resto do B/L).
+    `save_bl_review` (mesmo caminho auditado do resto do B/L). Além disso,
+    `updateContainerReturnDate` (hoje sem auditoria) passa a gravar um evento em
+    `audit_logs` (`entity_type='bl_container'`, `entity_id`=container) para que a
+    mudança de data de devolução apareça na linha do tempo (Componente G).
+
+## Componente G — RPC `bl_timeline` + apresentação do Histórico
+
+Objetivo: montar a linha do tempo completa do B/L (Aba 3) consolidando famílias
+de evento que hoje vivem em `audit_logs` sob chaves heterogêneas.
+
+1. **RPC `bl_timeline(p_bl_id)`** (`security definer`, respeitando o papel/RLS de
+   leitura de `audit_logs` da migração `014_lock_down_financial_reads_and_audit_writes`).
+   UNION resolvido ao `bl_id`, ordenado por `changed_at desc`, com paginação
+   (`p_limit`/`p_offset` ou cursor):
+   - `entity_type='bl'` → `entity_id = bl_id` (direto)
+   - `entity_type='bl_container'` → join `bl_containers.bl_id`
+   - `entity_type IN ('charge_calculation','charge_status')` → join
+     `charge_calculations.bl_id`
+   - `entity_type='invoice'` → join `invoice_bls.bl_id`
+   - `entity_type='system_event'` **apenas** quando `entity_id = bl_id`
+     (inclui `bl_review_concurrent_conflict`); exclui os globais (`'billing'`).
+2. **Hook** `useBlTimeline(blId)` (React Query) substitui `useAuditLogs('bl', …)`
+   na Aba 3, com "carregar mais".
+3. **Apresentação humanizada por família**: mapa `(entity_type, field_name)` →
+   rótulo + badge (Edição · Container · Taxas · Fatura · Sistema) + frase legível
+   (ex.: "Fatura INV-2026-0103 emitida", "Other charge THC adicionado (R$ 500)").
+   Entradas com `justification` são marcadas como auditoria.
 
 ## Fora de escopo / riscos
 
-- Sem migração de banco. Sem mudança no contrato de `save_bl_review` nem no
-  esquema de auditoria.
+- **Migração necessária**: criar o RPC `bl_timeline` (Componente G). Os demais
+  componentes não alteram esquema; `save_bl_review` mantém o contrato.
 - Riscos comportamentais: (a) parser de Notify Party (layout do manifesto);
   (b) overrides de demurrage passam a exigir `expected_updated_at` ao migrar para
-  `save_bl_review` — validar conflito concorrente como nas demais escritas.
+  `save_bl_review` — validar conflito concorrente como nas demais escritas;
+  (c) `bl_timeline` precisa respeitar a RLS de `audit_logs` (não vazar eventos
+  financeiros a papéis sem permissão).
 - `npm run docs:check` após mudanças de markdown/ADR; edições de componente
   passam pelo hook de lint de TypeScript.
 
@@ -189,6 +227,10 @@ testes com as duas amostras.
 - Unit `src/lib/ncm.ts`: NCM real vs UN, múltiplos NCMs, dedupe, vazio.
 - Unit `manifestParser`: notify Modelo 1 (`SAME AS CONSIGNEE`), Modelo 2 (1ª de
   duas), ausência de notify; persistência via `manifestImport` carrega `notify_party`.
-- Render por aba: Operacional sem Place of Delivery/Incoterm e com chips de NCM;
-  Carga sem tabela de partes; Comercial sem card de info financeira; Faturamento
-  com Fatura ativa e seção Demurrage; auditoria registra override de demurrage.
+- RPC `bl_timeline`: une as 4 famílias resolvidas ao `bl_id`, inclui
+  `system_event` com `bl_id` e exclui os globais, ordena por `changed_at desc`,
+  pagina; respeita RLS por papel.
+- Render por aba: Detalhes do B/L sem Place of Delivery/Incoterm e com chips de
+  NCM, sem tabela de partes do BB; Faturamento com Cliente, Fatura ativa, seção
+  Demurrage e auditoria do override; Histórico humanizado por família com
+  "carregar mais".
