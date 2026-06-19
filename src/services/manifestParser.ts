@@ -8,6 +8,7 @@ const headerMap = {
   bl_number: ['b/l', 'bl number', 'bill of lading', 'conhecimento'],
   shipper: ['shipper', 'embarcador', 'exportador'],
   consignee: ['consignee', 'consignatario', 'importador'],
+  notify_party: ['notify', 'notify party'],
   cargo_description: ['description of goods', 'cargo description', 'descricao da carga', 'descricao', 'mercadoria'],
   cnpj_cpf: ['cnpj', 'cpf', 'cnpj/cpf', 'documento'],
   email: ['email', 'e-mail', 'customer email', 'contato email'],
@@ -57,6 +58,7 @@ export type ParsedBL = {
   id: string
   shipper: string | null
   consignee: string | null
+  notify_party: string | null
   customer_email?: string | null
   cargo_description: string | null
   cnpj_cpf: string | null
@@ -199,6 +201,7 @@ function parseHeaderMappedManifest(rows: Record<string, unknown>[]): ParsedManif
       id: blNumber,
       shipper: asString(mapped.shipper) || null,
       consignee: asString(mapped.consignee) || null,
+      notify_party: asString(mapped.notify_party) || null,
       customer_email: asString(mapped.email).toLowerCase() || null,
       cargo_description: normalizeCargoDescription(asString(mapped.cargo_description)) || null,
       cnpj_cpf: cnpjCpf || null,
@@ -228,6 +231,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
     bl: string
     shipper: string
     consignee: string
+    notifyParty: string
     cargoDescription: string
     cnpj: string
     email: string
@@ -258,6 +262,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
         bl: col0,
         shipper: partyData.shipper,
         consignee: partyData.consignee,
+        notifyParty: partyData.notify_party,
         cargoDescription: normalizeCargoDescription(cell(row, 3)),
         cnpj: partyData.cnpj,
         email: partyData.email,
@@ -277,6 +282,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
           id: currentBL.bl,
           shipper: currentBL.shipper || null,
           consignee: currentBL.consignee || null,
+          notify_party: currentBL.notifyParty || null,
           customer_email: currentBL.email || null,
           cargo_description: currentBL.cargoDescription || null,
           cnpj_cpf: onlyDigits(currentBL.cnpj) || null,
@@ -387,10 +393,30 @@ function parseManifestHeader(rawRows: RawSheetRow[]): ManifestMeta {
   return meta
 }
 
-function parseManifestParty(block: string) {
+const COMPANY_HINT = /(LTDA|EIRELI|S\.?\/?A\b|CO\.,?\s*LTD|COMERCIO|INDUSTRIA|SERVICOS|LOGISTICA|TRANSPORTES|TRADING|IMPORTACAO|EXPORTACAO|QUIMICA)/i
+const NON_COMPANY_START = /^(CNPJ|CPF|TEL|PHONE|FAX|MOBILE|CEP|ZIP|E-?MAIL|NAME|ATTN|CONTACT|VIA\b|POLO\b|RUA\b|ROAD\b|ADDRESS|ENDERECO)/i
+
+function looksLikeCompanyName(line: string): boolean {
+  const value = line.trim()
+  if (!value || NON_COMPANY_START.test(value) || value.includes('@')) return false
+  return COMPANY_HINT.test(value)
+}
+
+// Notify party: "SAME AS CONSIGNEE" literal (Modelo 1) ou o primeiro bloco de
+// empresa após o CNPJ do consignee (Modelo 2). Guarda apenas a 1ª notify party.
+function extractNotifyParty(rawBlock: string, parts: string[], consigneeCnpjIndex: number): string {
+  if (/SAME AS CONSIGNEE/i.test(rawBlock)) return 'SAME AS CONSIGNEE'
+  if (consigneeCnpjIndex < 0) return ''
+  for (let i = consigneeCnpjIndex + 1; i < parts.length; i++) {
+    if (looksLikeCompanyName(parts[i])) return cleanupLabel(parts[i])
+  }
+  return ''
+}
+
+export function parseManifestParty(block: string) {
   const parts = normalizeBlock(block)
   if (!parts.length) {
-    return { shipper: '', consignee: '', email: '', cnpj: '' }
+    return { shipper: '', consignee: '', email: '', cnpj: '', notify_party: '' }
   }
 
   const consigneeStartIndex = parts.findIndex((part) => /^(COMPANY|CONSIGNEE)\s*:/i.test(part))
@@ -400,6 +426,9 @@ function parseManifestParty(block: string) {
   const cnpjIndex = consigneeBlock.findIndex((part) => Boolean(extractCnpj(part)))
   const email = consigneeBlock.map(extractEmail).find(Boolean) || shipperParts.map(extractEmail).find(Boolean) || ''
 
+  // Absolute index of the consignee CNPJ within `parts` (used for notify party search)
+  const absoluteCnpjIndex = cnpjIndex >= 0 ? (consigneeStartIndex >= 0 ? consigneeStartIndex : 0) + cnpjIndex : -1
+
   if (cnpjIndex === -1) {
     const fallbackStartIndex = findConsigneeStartAfterSeparator(consigneeBlock, consigneeBlock.length) ?? 0
     const fallbackNameParts = collectConsigneeNameParts(consigneeBlock, fallbackStartIndex, consigneeBlock.length)
@@ -408,6 +437,7 @@ function parseManifestParty(block: string) {
       consignee: fallbackNameParts.join(' ') || cleanupLabel(consigneeBlock[0] || ''),
       email,
       cnpj: '',
+      notify_party: extractNotifyParty(block, parts, absoluteCnpjIndex),
     }
   }
 
@@ -434,6 +464,7 @@ function parseManifestParty(block: string) {
     consignee,
     email,
     cnpj,
+    notify_party: extractNotifyParty(block, parts, absoluteCnpjIndex),
   }
 }
 

@@ -18,11 +18,9 @@ const editableFields: (keyof Pick<
   | 'bb_weight_ton'
   | 'pol'
   | 'pod'
-  | 'place_of_delivery'
   | 'cargo_description'
   | 'total_weight_kg'
   | 'total_cbm'
-  | 'incoterm'
   | 'payment_type'
   | 'free_time_override'
   | 'notes'
@@ -37,11 +35,9 @@ const editableFields: (keyof Pick<
   'bb_weight_ton',
   'pol',
   'pod',
-  'place_of_delivery',
   'cargo_description',
   'total_weight_kg',
   'total_cbm',
-  'incoterm',
   'payment_type',
   'free_time_override',
   'notes',
@@ -199,11 +195,9 @@ function makeForm(bl: BLDetail): BlForm {
     bb_weight_ton: bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : null),
     pol: bl.pol,
     pod: bl.pod,
-    place_of_delivery: bl.place_of_delivery,
     cargo_description: bl.cargo_description,
     total_weight_kg: bl.total_weight_kg,
     total_cbm: bl.total_cbm,
-    incoterm: bl.incoterm,
     payment_type: bl.payment_type,
     free_time_override: bl.free_time_override,
     notes: bl.notes,

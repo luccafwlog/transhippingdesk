@@ -1,5 +1,6 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, chunkArray, onlyDigits } from '../lib/utils'
+import { extractNcmCodes } from '../lib/ncm'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { supabase } from './supabase'
@@ -955,12 +956,6 @@ function extractMachineNcmCodes(value: string) {
   return extractNcmCodes(value).filter((code) => machineNcmPrefixes.some((prefix) => code.startsWith(prefix)))
 }
 
-function extractNcmCodes(value: string) {
-  return Array.from(value.matchAll(/\bNCM(?:\s*(?:NO\.|NUMBER|CODE))?\s*[:.]?\s*([0-9][0-9.,\s/-]{2,30})/gi))
-    .flatMap((match) => Array.from(match[1].matchAll(/\d{4}(?:[.,]?\d{2})?(?:[.,]?\d{2})?/g)))
-    .map((match) => match[0].replace(/\D/g, ''))
-    .filter((code) => code.length >= 4)
-}
 
 function countMachineModelIdentifiers(value: string) {
   const ignoredCodes = new Set(extractNcmCodes(value))
