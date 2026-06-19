@@ -61,7 +61,11 @@ for (const file of markdownFiles) {
   }
 }
 
-const requiredFiles = ['docs/README.md', 'docs/adr/README.md']
+const requiredFiles = [
+  'docs/README.md',
+  'docs/RASTREABILIDADE.md',
+  'docs/adr/README.md',
+]
 for (const requiredFile of requiredFiles) {
   if (!fs.existsSync(path.join(root, requiredFile))) {
     addError(requiredFile, 'required documentation index is missing')
@@ -83,6 +87,45 @@ if (fs.existsSync(adrIndexPath)) {
   }
 }
 
+const moduleDocuments = [
+  'docs/modules/viagens.md',
+  'docs/modules/manifesto-edi.md',
+  'docs/modules/granito.md',
+  'docs/modules/chegadas-saidas.md',
+  'docs/modules/clientes.md',
+  'docs/modules/taxas-locais.md',
+  'docs/modules/faturamento.md',
+  'docs/modules/demurrage.md',
+  'docs/modules/reconciliacao-pix.md',
+  'docs/modules/portal-cliente.md',
+  'docs/modules/operacao-suporte.md',
+]
+
+const requiredModuleHeadings = [
+  '## Propósito e escopo',
+  '## Anatomia das telas',
+  '## Catálogo de ações',
+  '## Estado e dados',
+  '## Fluxos e invariantes',
+  '## Testes e validação',
+  '## Notas e divergências',
+]
+
+for (const moduleDocument of moduleDocuments) {
+  const absolutePath = path.join(root, moduleDocument)
+  if (!fs.existsSync(absolutePath)) {
+    addError(moduleDocument, 'living module document is missing')
+    continue
+  }
+
+  const content = fs.readFileSync(absolutePath, 'utf8')
+  for (const heading of requiredModuleHeadings) {
+    if (!content.includes(heading)) {
+      addError(moduleDocument, `required cartography heading is missing: ${heading}`)
+    }
+  }
+}
+
 const appRoutes = [...read('src/App.tsx').matchAll(/<Route\s+path="([^"]+)"/g)]
   .map((match) => match[1])
   .filter((route) => route !== '*')
@@ -91,6 +134,23 @@ const architecture = read('docs/ARCHITECTURE.md')
 for (const route of appRoutes) {
   if (!architecture.includes(`\`${route}\``)) {
     addError('docs/ARCHITECTURE.md', `route from src/App.tsx is not documented: ${route}`)
+  }
+}
+
+const traceabilityPath = path.join(root, 'docs', 'RASTREABILIDADE.md')
+if (fs.existsSync(traceabilityPath)) {
+  const traceability = fs.readFileSync(traceabilityPath, 'utf8')
+
+  for (const route of appRoutes) {
+    if (!traceability.includes(`\`${route}\``)) {
+      addError('docs/RASTREABILIDADE.md', `route is not mapped: ${route}`)
+    }
+  }
+
+  for (const evidenceLabel of ['Código', 'Teste', 'Runtime', 'Suspeita']) {
+    if (!traceability.includes(`**${evidenceLabel}**`)) {
+      addError('docs/RASTREABILIDADE.md', `evidence label is not defined: ${evidenceLabel}`)
+    }
   }
 }
 
