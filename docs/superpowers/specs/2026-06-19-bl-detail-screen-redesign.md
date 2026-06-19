@@ -41,10 +41,15 @@ Mapa atual:
 - Consolidar demurrage num único lugar.
 - Sequência: **um único redesenho** unificado (o rework da Operacional faz parte).
 
-## Arquitetura de informação alvo (5 abas, por conceito)
+## Arquitetura de informação alvo (3 abas)
 
-### 1. Operacional — identidade do B/L + único formulário auditado
-Seções nomeadas, separando somente-leitura de editável (`save_bl_review`):
+As 5 abas atuais colapsam em 3: **Detalhes do B/L** (Operacional + Carga),
+**Faturamento** (Comercial + Cobranças + Demurrage) e **Histórico**.
+
+### Aba 1 — "Detalhes do B/L" (Operacional + Carga)
+
+**Bloco de edição** (formulário único auditado via `save_bl_review`, seções
+nomeadas separando somente-leitura de editável):
 1. **Rota & Viagem** — Armador/Navio/Viagem *(RO)*, POL, POD, CE Mercante
 2. **Partes** — Shipper, Consignatário, Notify Party
 3. **Carga** — NCM *(chips RO)*, Descrição da carga; *(container)* Peso/CBM;
@@ -52,40 +57,44 @@ Seções nomeadas, separando somente-leitura de editável (`save_bl_review`):
 4. **Comercial** — Pagamento (PREPAID/COLLECT)
 5. **Revisão & Auditoria** — Status de revisão *(RO)*, Notas, Justificativa
    *(obrigatória)*, botão Salvar
-- ❌ Removidos da UI: **Place of Delivery**, **Incoterm** (colunas mantidas, sem
-  migração); `free_time_override` migra para a aba Faturamento (Demurrage).
 
-### 2. Carga — composição física apenas
+**Bloco de composição física** (somente leitura, abaixo do formulário):
 - *(container)* tabela de containers (nº, seal, tipo, peso, CBM, OOG, IMO,
   descarga) + tabela de veículos (busca por chassi)
 - *(BB)* resumo numérico + itens legados
-- ❌ Removidos: a **tabela de partes** (duplica Operacional) e as colunas de
-  devolução/demurrage (migram para Faturamento → Demurrage)
 
-### 3. Comercial — relação com o cliente (o card "Cliente" do antigo Financeiro)
-- Cliente vinculado (nome/CNPJ/saldo), Dados do manifesto + "Cadastrar e
-  vincular", Conciliação, Vincular/Desvincular (busca)
-- ❌ Removido: card "Informações financeiras" (duplicação de modo/CE/trecho/qtd)
+- ❌ Removidos da UI: **Place of Delivery**, **Incoterm** (colunas mantidas, sem
+  migração); a **tabela de partes** do BB (duplica o bloco Partes acima);
+  `free_time_override` e as colunas de devolução/demurrage migram para a aba
+  Faturamento.
 
-### 4. Faturamento — dinheiro: taxas locais + fatura + Demurrage (antigo "Cobranças")
-- **Taxas locais**: motor de cálculo, other charges manuais, marcar revisado,
-  pronto p/ faturar
-- **Fatura**: link da "Fatura ativa" + `financial_status` (movidos do cabeçalho
-  da Operacional)
+### Aba 2 — "Faturamento" (Comercial + Cobranças + Demurrage)
+
+- **Cliente**: vinculado (nome/CNPJ/saldo), Dados do manifesto + "Cadastrar e
+  vincular", Conciliação, Vincular/Desvincular (busca). ❌ Sem o card
+  "Informações financeiras" (duplicação de modo/CE/trecho/qtd).
+- **Taxas locais & fatura**: motor de cálculo, other charges manuais, marcar
+  revisado, pronto p/ faturar; link da "Fatura ativa" + `financial_status`
+  (movidos do cabeçalho da Operacional).
 - **Demurrage (consolidado)**: config do B/L (`free_time_override`, taxas P1/P2)
   **acima** da tabela por container (descarga, data de devolução editável,
   cálculo). Toda escrita passa a usar `save_bl_review` (corrige a auditoria).
 
-### 5. Histórico — auditoria (inalterado; agora cobre também demurrage)
+### Aba 3 — "Histórico"
+
+- Mantida como aba dedicada (decisão do usuário). Conteúdo atual = lista de
+  `audit_logs` (`campo: antigo → novo`, data, justificativa); agora cobre também
+  os overrides de demurrage, que passam a ser auditados.
+- **Conteúdo a revisar antes de fechar o spec** (ver sessão grill-me-with-docs).
 
 ### Mapa de eliminação de duplicação
 
 | Dado | Hoje (vários lugares) | Dono único alvo |
 |------|----------------------|-----------------|
-| Shipper/Consignee/Notify | Operacional (edit) + Carga BB (RO) | Operacional |
-| Trecho POL→POD | Operacional + Carga + Financeiro | Operacional |
-| CE Mercante | Operacional + Carga + Financeiro | Operacional |
-| Qtd. de carga | Carga + Financeiro | Carga |
+| Shipper/Consignee/Notify | Operacional (edit) + Carga BB (RO) | Detalhes do B/L (form) |
+| Trecho POL→POD | Operacional + Carga + Financeiro | Detalhes do B/L (form) |
+| CE Mercante | Operacional + Carga + Financeiro | Detalhes do B/L (form) |
+| Qtd. de carga | Carga + Financeiro | Detalhes do B/L (composição) |
 | Fatura ativa / status financeiro | Cabeçalho Operacional | Faturamento |
 | Free time / P1 / P2 / devolução | Operacional + Financeiro + Carga | Faturamento → Demurrage |
 
