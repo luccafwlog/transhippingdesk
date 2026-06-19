@@ -5,6 +5,7 @@ export const queryKeys = {
     summary: () => ['bl-summary'] as const,
     localChargeLines: (blId: string) => ['bl-local-charge-lines', blId] as const,
     manualChargeItems: (blId: string) => ['manual-charge-items', blId] as const,
+    timeline: (blId: string) => ['bl-timeline', blId] as const,
   },
   invoices: {
     all: () => ['invoices'] as const,
