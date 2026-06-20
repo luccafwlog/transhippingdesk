@@ -1,51 +1,215 @@
 # Taxas Locais
 
-> **Status:** ativo · **Atualizado:** 2026-06-18 · **Rotas:** `/taxas-locais`
+> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/taxas-locais`; ações operacionais também partem de `/revisao`, `/manifestos/:blId` e `/faturamento`
 
-## Propósito
+## Propósito e escopo
 
-Gerencia as tabelas de preços de taxas locais (THC, capatazia, etc.) e os overrides comerciais por cliente, e calcula os charges por B/L que alimentam o [Faturamento](faturamento.md). Cada tabela é escopada por `cargo_mode`, POD e janela de validade; o cálculo resolve o item aplicável, aplica override do cliente quando existir e produz linhas em `charge_calculations` com um workflow de status (calculado → revisado → ready_for_billing).
+Este módulo é o dono da configuração de tarifas locais e das operações que
+transformam os dados de um B/L em linhas faturáveis. A rota `/taxas-locais`
+expõe somente as abas de tabelas e overrides; cálculo, recálculo, revisão,
+liberação para faturamento, cobranças manuais e reconciliação de cliente são
+operações do mesmo domínio disparadas por outras telas.
 
-## Como funciona
+- `src/App.tsx` monta `/taxas-locais` dentro da aplicação interna protegida.
+- `src/pages/TaxasLocais.tsx` exige as capacidades de interface
+  `charge_tables` e `charge_overrides`, definidas em `src/hooks/useAuth.tsx`.
+- `src/services/charges/chargeTableService.ts` e
+  `src/services/charges/chargeRateService.ts` são donos do CRUD de configuração.
+- `src/services/charges/chargeOperationsService.ts` é o dono das operações de
+  cálculo e estado; `src/services/charges/chargeReconciliationService.ts` é o
+  dono da fila de reconciliação de cliente.
+- [Faturamento](faturamento.md) consome B/Ls liberados e o ledger; este documento
+  não redefine emissão, pagamento ou saldo de invoices.
+- Granito aparece na fila operacional unificada, mas usa
+  `src/services/graniteCharges.ts` e `granite_bls`; não compartilha o motor
+  `calculate_bl_local_charges`.
 
-A operação cadastra `charge_tables` e seus `charge_table_items` na aba Tabelas e os `customer_rate_overrides` na aba Overrides. No fluxo do B/L, `calculate_bl_local_charges` resolve a tabela ativa por `cargo_mode`/POD/data, gera as linhas de charge (base + other charges), aplica overrides e marca `review_required` quando há ambiguidade (sem tabela, peso ausente, IMO+OOG). A operação então revisa e libera para faturamento.
+## Anatomia das telas
 
-## Componentes e arquivos
+### Aba Tabelas em `/taxas-locais`
 
-| Camada | Arquivo | Responsabilidade |
-|--------|---------|------------------|
-| Página | [`src/pages/TaxasLocais.tsx`](../../src/pages/TaxasLocais.tsx) | Página com abas Tabelas e Overrides, controladas por role |
-| Página (helper) | [`src/pages/taxasLocaisHelpers.ts`](../../src/pages/taxasLocaisHelpers.ts) | Validação e normalização dos formulários |
-| Hook | [`src/hooks/useLocalCharges.ts`](../../src/hooks/useLocalCharges.ts) | React Query: queries/mutations de tabelas, overrides e operações de charge |
-| Service | [`src/services/charges/chargeTableService.ts`](../../src/services/charges/chargeTableService.ts) | CRUD de `charge_tables` e `charge_table_items` |
-| Service | [`src/services/charges/chargeRateService.ts`](../../src/services/charges/chargeRateService.ts) | CRUD de `customer_rate_overrides`; resolução de valor efetivo |
-| Service | [`src/services/charges/chargeOperationsService.ts`](../../src/services/charges/chargeOperationsService.ts) | Orquestra RPCs de cálculo, charges manuais e transições de status; unifica `bls` + `granite_bls` |
-| Service | [`src/services/charges/chargeReconciliationService.ts`](../../src/services/charges/chargeReconciliationService.ts) | Fila de reconciliação de cliente (consumida pelo gate do faturamento) |
-| Componente | [`src/components/taxasLocais/ChargeTablesTab.tsx`](../../src/components/taxasLocais/ChargeTablesTab.tsx) | UI de CRUD de tabelas e itens |
-| Componente | [`src/components/taxasLocais/ChargeOverridesTab.tsx`](../../src/components/taxasLocais/ChargeOverridesTab.tsx) | UI de CRUD de overrides por cliente |
-| Componente | [`src/components/taxasLocais/chargeForms.ts`](../../src/components/taxasLocais/chargeForms.ts) | Tipos de formulário e defaults |
+`src/components/taxasLocais/ChargeTablesTab.tsx` recebe da página os filtros
+compartilhados de modo de carga e POD. A superfície contém:
 
-## Regras de negócio
+- métricas de tabelas, tabelas ativas, itens e itens somente manuais;
+- filtros por `cargo_mode` e POD;
+- formulários recolhíveis de tabela e item;
+- lista de `charge_tables`, com expansão dos `charge_table_items`;
+- edição, ativação/inativação, criação e exclusão de item;
+- estados de carregamento, erro e vazio produzidos por
+  `useLocalChargeTables`.
 
-- **Escopo da tabela:** `resolve_local_charge_table_id(cargo_mode, pod, reference_date)` retorna a `charge_tables` ativa cujo escopo (`cargo_mode` ∈ container/carga_solta/granito, POD normalizado, janela `valid_from`/`valid_to`) bate com o B/L. `normalize_port_code()` trata aliases (ex. BRVIT/BRSSA); PODs fora da lista passam sem normalização.
-- **Resolução de valor (precedência):** valor base vem de `charge_table_items.unit_value_brl`/`unit_value_usd`. Se existir `customer_rate_overrides` para o `customer_id` + `charge_item_id` vigente na `reference_date` (`valid_from`/`valid_to`), o override mais recente (`ORDER BY created_at DESC LIMIT 1`) substitui o valor e a linha recebe `override_applied = true`.
-- **`application_basis`** do item determina a quantidade: `bl`, `container_distinct_voyage`, `weight_ton` ou `teu`. Para `weight_ton` sem peso válido no B/L, a linha vira `review_required` (não é ignorada).
-- **Auto-review:** `calculate_bl_local_charges` marca `review_required` quando não há tabela ativa, peso ausente em charge por tonelada, ou container simultaneamente `is_imo` e `is_oog` (THD exige revisão manual). Carga LCL/veículo pode resultar em `exempt`.
-- **Workflow de status (`bls.charge_status`):** `not_calculated` → `calculated`/`review_required` (via cálculo) → `reviewed` (`mark_bl_charges_reviewed`) → `ready_for_billing` (`mark_bl_ready_for_billing`, exige zero linhas `review_required` e tabela ativa válida); `exempt` para isenção. Charges manuais entram já como `reviewed`.
-- **Charge tabela obrigatória:** a partir da migration 030, `ready_for_billing` exige tabela ativa correspondente ao POD/modo — sem ela a transição falha.
-- **Idempotência:** `calculate_bl_local_charges` é idempotente por `calculation_key` (único por `bl_id` + chave); recálculo limpa e regrava preservando charges manuais.
-- **Câmbio não converte charges.** BRL e USD são armazenados em paralelo no item conforme `currency`; não há conversão automática FX no cálculo. As cotações de [`src/hooks/useExchangeRates.ts`](../../src/hooks/useExchangeRates.ts) (PTAX via `olinda.bcb.gov.br`) servem apenas para exibição no header.
+Os formulários e defaults vivem em
+`src/components/taxasLocais/chargeForms.ts`; validação e normalização vivem em
+`src/pages/taxasLocaisHelpers.ts`.
 
-## Dependências
+### Aba Overrides em `/taxas-locais`
 
-- **Tabelas Supabase:** `charge_tables`, `charge_table_items`, `charge_calculations`, `customer_rate_overrides`, `bls`, `granite_bls`. (`pricing_rule_versions` existe mas não é consultada aqui.)
-- **RPCs:** `resolve_local_charge_table_id`, `calculate_bl_local_charges`, `list_bl_local_charge_lines`, `list_manual_charge_items_for_bl`, `add_manual_bl_charge`, `update_manual_bl_charge`, `delete_manual_bl_charge`, `mark_bl_charges_reviewed`, `mark_bl_ready_for_billing`, `list_customer_reconciliation_queue`, `approve_customer_reconciliation`, `reject_customer_reconciliation`.
-- **Integrações externas:** Banco Central / `olinda.bcb.gov.br` (PTAX) — somente exibição.
-- **Outros módulos:** [Faturamento](faturamento.md) (consome `ready_for_billing` e a fila de reconciliação), [Demurrage](demurrage.md) (módulo de cobrança irmão), [Regras de negócio](../operations/regras-de-negocio.md), [Glossário](../GLOSSARIO.md), [Arquitetura](../ARCHITECTURE.md).
+`src/components/taxasLocais/ChargeOverridesTab.tsx` contém:
+
+- busca de cliente por nome ou documento;
+- filtros por modo de carga e POD;
+- consulta separada de clientes e itens elegíveis;
+- formulário de criação/edição com vigência e observação;
+- lista de `customer_rate_overrides`, valor base, valor substituto e estado de
+  vigência calculado na interface;
+- confirmação antes da exclusão e estados de carregamento, erro e vazio.
+
+### Superfícies operacionais fora da rota
+
+- `src/components/bl/BlCobrancasTab.tsx`, em `/manifestos/:blId`, lista linhas,
+  calcula/recalcula um B/L, mantém cobranças manuais e promove os estados
+  `reviewed` e `ready_for_billing`.
+- `src/pages/Revisao.tsx` e
+  `src/services/reviewBillingAutomation.ts` recalculam após a revisão.
+- `src/components/billing/ValidacaoTab.tsx`, em `/faturamento`, lista a fila
+  operacional, executa ações em lote, resolve reconciliações e emite invoices.
+- `src/components/billing/PendenciasFaturamentoTab.tsx` recalcula toda a lista
+  visível em `review_required`.
+
+## Catálogo de ações
+
+| Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
+|---|---|---|---|---|---|---|---|
+| `/taxas-locais` · filtrar/listar tabelas | Capacidade `charge_tables`; filtros opcionais | `TaxasLocais` → `ChargeTablesTab` | `useLocalChargeTables` → `listLocalChargeTables` | `SELECT charge_tables` com `charge_table_items` | Query `queryKeys.charges.tables(filters)`; itens são ordenados por `sort_order` e nome | Erro Supabase vira estado de erro da aba | **Código:** `src/pages/TaxasLocais.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` |
+| `/taxas-locais` · criar/editar tabela | Nome, POD e `valid_from`; vigência final não anterior à inicial | `handleSaveTable` | `validateTableInput` → `useSaveChargeTable` → `saveChargeTable` | `INSERT` ou `UPDATE charge_tables` | Invalida `queryKeys.charges.tables()` | Toast “Falha ao salvar tabela”; erro de constraint/RLS é propagado | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/pages/taxasLocaisHelpers.ts`, `src/hooks/useLocalCharges.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
+| `/taxas-locais` · ativar/inativar tabela | Tabela existente | `handleToggleTableActive` | `useSetChargeTableActive` → `setChargeTableActive` | `UPDATE charge_tables.active` | Invalida `queryKeys.charges.tables()` | Toast de falha; não recalcula B/Ls já existentes | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` |
+| `/taxas-locais` · adicionar/editar item | Tabela, nome, valor não negativo e `sort_order` inteiro não negativo | `handleSaveTableItem` | `validateTableItemInput` → `useSaveChargeTableItem` → `saveChargeTableItem` | `INSERT` ou `UPDATE charge_table_items` | Invalida `charges.tables()`, `bls.manualChargeItems('')` e `charges.overrideItems()` | Toast de falha; constraints de moeda/base/perfil podem rejeitar | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
+| `/taxas-locais` · excluir item | Confirmação; item sem bloqueio referencial | `handleDeleteTableItem` | `useDeleteChargeTableItem` → `deleteChargeTableItem` | `DELETE charge_table_items` | Mesmas invalidações do save de item | Mensagem informa possível vínculo com cálculos | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/hooks/useLocalCharges.ts` |
+| `/taxas-locais` · filtrar/listar overrides | Capacidade `charge_overrides`; limite entre 20 e 500 | `ChargeOverridesTab` | `useCustomerRateOverrides` → `listCustomerRateOverrides` | `SELECT customer_rate_overrides` com `customers`, itens e tabelas | Query `queryKeys.charges.overrides(filters)`; filtros de cliente/modo/POD são aplicados no cliente após a leitura limitada | Erro Supabase vira erro da lista | **Código:** `src/components/taxasLocais/ChargeOverridesTab.tsx`, `src/services/charges/chargeRateService.ts` |
+| `/taxas-locais` · buscar cliente/item de override | Busca de cliente vazia ou com pelo menos dois caracteres para filtro remoto; itens ativos e não manuais | Selects do formulário | `useOverrideCustomers` / `useOverrideChargeItems` | `SELECT customers`; `SELECT charge_table_items` + `charge_tables` | Queries `charges.overrideCustomers(search)` e `charges.overrideItems()` | Erro da query impede opções; a tela não cria opção livre | **Código:** `src/components/taxasLocais/ChargeOverridesTab.tsx`, `src/services/charges/chargeRateService.ts` |
+| `/taxas-locais` · criar/editar override | Cliente e item válidos; valor maior que zero; vigência coerente | `handleSaveOverride` | `validateOverrideInput` → `useSaveCustomerRateOverride` → `saveCustomerRateOverride` | `INSERT` ou `UPDATE customer_rate_overrides` | Invalida `charges.overrides()` e `bls.localChargeLines('')` | Toast de falha; erro de validação é exibido antes da chamada | **Código:** `src/components/taxasLocais/ChargeOverridesTab.tsx`, `src/pages/taxasLocaisHelpers.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
+| `/taxas-locais` · excluir override | Confirmação | `handleDeleteOverride` | `useDeleteCustomerRateOverride` → `deleteCustomerRateOverride` | `DELETE customer_rate_overrides` | Mesmas invalidações do save de override | Toast de falha | **Código:** `src/components/taxasLocais/ChargeOverridesTab.tsx`, `src/hooks/useLocalCharges.ts` |
+| B/L/revisão · calcular ou recalcular um B/L | B/L existente; usuário ativo; `recalculate` define limpeza/reuso | `BlCobrancasTab`, `Revisao`, `reviewBillingAutomation` | `useCalculateBlLocalCharges` ou chamada direta → `calculateBlLocalCharges` | RPC `calculate_bl_local_charges` → `charge_calculations`, estado e auditoria do B/L | Invalida linhas do B/L, detalhe, lista de B/Ls, `charges.operations()`/`pendencies()` e viagens | RPC propaga ausência de tabela, dados inválidos e demais regras; UI mostra toast | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/pages/Revisao.tsx`, `src/services/reviewBillingAutomation.ts`, `src/services/charges/chargeOperationsService.ts` · **Teste:** `src/services/__tests__/localCharges.test.ts` |
+| `/faturamento` · calcular/recalcular selecionados | Seleção não vazia; IDs locais separados de Granito | `ValidacaoTab.runBatchOperation`; `PendenciasFaturamentoTab` | `useBatchCalculateLocalCharges` → `calculateLocalChargesBatch`; Granito chama `calculateGraniteBlCharges` | Uma RPC `calculate_bl_local_charges` por B/L local; persistência própria para Granito | Invalida `charges.operations()`/`pendencies()`, B/Ls, `bls.detail('')` e viagens; a aba também invalida invoices e resumo de B/Ls | Lote continua após erro e retorna contagem/primeiro erro | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/components/billing/PendenciasFaturamentoTab.tsx`, `src/hooks/useLocalCharges.ts` |
+| B/L · adicionar cobrança manual | Item elegível, quantidade válida e B/L não faturado conforme RPC | `BlCobrancasTab` → `ManualChargeFormFields` | `useAddManualBlCharge` → `addManualBlCharge` | RPC `add_manual_bl_charge` → `charge_calculations` e auditoria | Invalida linhas/detalhe/lista do B/L, pendências e viagens | RPC/validação bloqueia item ou estado inválido | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/services/charges/chargeOperationsService.ts` · **Teste:** `src/services/__tests__/localCharges.test.ts`, `src/components/billing/__tests__/ManualChargeFormFields.test.tsx` |
+| B/L · editar cobrança manual | Linha manual existente e B/L elegível | `BlCobrancasTab` | `useUpdateManualBlCharge` → `updateManualBlCharge` | RPC `update_manual_bl_charge` | Invalida linhas/detalhe/lista do B/L e pendências | RPC rejeita linha automática, ausente ou invoice protegida | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/hooks/useLocalCharges.ts`, `supabase/migrations/20260614120000_guard_manual_charges_and_clear_pix_on_reversal.sql` |
+| B/L · excluir cobrança manual | Linha manual existente e confirmação da tela | `BlCobrancasTab` | `useDeleteManualBlCharge` → `deleteManualBlCharge` | RPC `delete_manual_bl_charge` | Mesmas invalidações da edição | RPC rejeita linha automática, ausente ou invoice protegida | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/services/charges/chargeOperationsService.ts`, `supabase/migrations/20260614120000_guard_manual_charges_and_clear_pix_on_reversal.sql` |
+| B/L ou lote · marcar revisado | Sem regra de seleção além dos IDs; a RPC valida linhas | `BlCobrancasTab` ou `ValidacaoTab` | `markBlChargesReviewed` / `markLocalChargesReviewedBatch` | RPC `mark_bl_charges_reviewed` → status das linhas/B/L e auditoria | Individual invalida linhas, detalhe, B/Ls, pendências e viagens; lote invalida operações, pendências, B/Ls e `bls.detail('')` | Erros do lote são agregados por B/L; Granito trata “review” como sucesso sem escrita | **Código:** `src/hooks/useLocalCharges.ts`, `src/components/billing/ValidacaoTab.tsx`, `src/services/charges/chargeOperationsService.ts` |
+| B/L ou lote · marcar pronto para faturar | Cliente vinculado/reconciliado, gate canônico sem pendências, nenhuma linha pendente ou USD, valor BRL positivo e tabela vigente | `BlCobrancasTab` ou `ValidacaoTab` | `markBlReadyForBilling` / `markLocalChargesReadyBatch` | RPC `mark_bl_ready_for_billing`; `charge_calculations`, `bls`, `audit_logs` | Individual também invalida invoices; lote invalida operações, pendências, B/Ls, `bls.detail('')` e viagens | RPC define `billing_hold_reason` e rejeita cada gate | **Código atual:** `src/services/charges/chargeOperationsService.ts`, `supabase/migrations/20260619130000_review_gate_hardening.sql` · **Teste de contrato SQL:** `src/services/__tests__/guardInvoiceableReadyStateMigration.test.ts` sobre `supabase/migrations/20260618163840_guard_invoiceable_ready_state.sql` |
+| `/faturamento` · aprovar reconciliação de cliente | Item pendente com cliente sugerido/vinculado | `ValidacaoTab.handleApproveQueueItem` | `useApproveCustomerReconciliation` → `approveCustomerReconciliation` | RPC `approve_customer_reconciliation` → fila e B/L | Invalida `reconciliation.queue()`, `charges.operations()`, `billingRuns.list(50)`, B/Ls e `bls.detail('')` | Sem cliente, a UI bloqueia; RPC propaga conflito/estado inválido | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/services/charges/chargeReconciliationService.ts` |
+| `/faturamento` · rejeitar reconciliação de cliente | Item pendente | `ValidacaoTab.handleRejectQueueItem` | `useRejectCustomerReconciliation` → `rejectCustomerReconciliation` | RPC `reject_customer_reconciliation` → fila e B/L | Mesmas invalidações da aprovação | RPC propaga conflito/estado inválido | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/hooks/useLocalCharges.ts` |
+
+## Estado e dados
+
+### Famílias canônicas de query keys
+
+Definidas em `src/services/queryKeys.ts`:
+
+| Família | Forma exata | Conteúdo |
+|---|---|---|
+| `queryKeys.charges.tables(filters)` | `['local-charge-tables', filters]` | Tabelas e itens |
+| `queryKeys.charges.operations(filters?)` | sem filtro: `['local-charge-operations']`; com filtro: `['local-charge-operations', filters]` | Fila operacional local + Granito |
+| `queryKeys.charges.overrides(filters)` | `['local-charge-overrides', filters]` | Overrides por cliente |
+| `queryKeys.charges.overrideItems()` | `['local-charge-override-items']` | Itens automáticos ativos elegíveis |
+| `queryKeys.charges.overrideCustomers(search)` | `['local-charge-override-customers', search]` | Clientes do seletor |
+| `queryKeys.charges.pendencies()` | `['local-charge-pendencies']` | Pendências de cálculo |
+| `queryKeys.bls.localChargeLines(blId)` | `['bl-local-charge-lines', blId]` | Linhas calculadas/manuais do B/L |
+| `queryKeys.bls.manualChargeItems(blId)` | `['manual-charge-items', blId]` | Itens manuais disponíveis para o B/L |
+| `queryKeys.billingRuns.list(limit)` | `['billing-runs', limit]` | Runs exibidos após reconciliação |
+| `queryKeys.billingRuns.detail(id)` | `['billing-run-detail', id]` | Detalhe de run |
+| `queryKeys.reconciliation.queue(status, limit)` | `['customer-reconciliation-queue', status, limit]` | Fila de reconciliação de cliente |
+
+### Invalidações reais das mutations
+
+| Mutation | Invalidações executadas |
+|---|---|
+| salvar/ativar tabela | `charges.tables()` |
+| salvar/excluir item | `charges.tables()`, `bls.manualChargeItems('')`, `charges.overrideItems()` |
+| salvar/excluir override | `charges.overrides()`, `bls.localChargeLines('')` |
+| adicionar cobrança manual | `bls.localChargeLines(blId)`, `bls.detail(blId)`, `bls.all()`, `charges.pendencies()`, `voyages.all()` |
+| editar/excluir cobrança manual | linhas, detalhe e lista do B/L; `charges.pendencies()` |
+| revisar um B/L | linhas, detalhe e lista do B/L; pendências e viagens |
+| liberar um B/L | linhas, detalhe e lista do B/L; pendências, viagens e `invoices.all()` |
+| calcular um B/L | linhas, detalhe e lista do B/L; `charges.operations()`, pendências e viagens |
+| calcular/revisar/liberar lote | `charges.operations()`, pendências, B/Ls e `bls.detail('')`; cálculo/liberação também invalidam viagens |
+| aprovar/rejeitar reconciliação | `reconciliation.queue()`, `charges.operations()`, `billingRuns.list(50)`, B/Ls e `bls.detail('')` |
+
+### Persistência e ownership
+
+- `charge_tables` possui escopo, vigência e ativação da tabela.
+- `charge_table_items` possui categoria, base de aplicação, perfil, moeda e
+  valor unitário; `manual_only` separa itens automáticos dos adicionáveis.
+- `customer_rate_overrides` possui a substituição por cliente/item/vigência.
+- `charge_calculations` possui as linhas efetivamente calculadas ou manuais.
+- `bls.charge_status`, timestamps e `billing_hold_reason` resumem o workflow,
+  mas as linhas e seus motivos continuam em `charge_calculations`.
+- `customer_reconciliation_queue` possui a decisão pendente; o B/L possui o
+  estado resumido usado pelos gates.
+- `audit_logs` registra transições e operações relevantes; a fila operacional
+  lê o último evento quando a policy permite.
+
+## Fluxos e invariantes
+
+```mermaid
+flowchart LR
+    Config["Tabela ativa + itens + overrides"] --> Calc["calculate_bl_local_charges"]
+    Calc --> Lines["charge_calculations"]
+    Lines --> Review{"Há review_required<br/>ou linha USD?"}
+    Review -->|sim| Hold["B/L bloqueado para revisão"]
+    Review -->|não| Reviewed["mark_bl_charges_reviewed"]
+    Reviewed --> Ready["mark_bl_ready_for_billing"]
+    Ready --> Billing["Faturamento / ledger"]
+    Manual["Cobrança manual"] --> Lines
+    Reconcile["Reconciliação de cliente"] --> Ready
+```
+
+- A tabela aplicável é resolvida por modo, POD normalizado e data; overrides
+  vigentes substituem o valor do item.
+- `calculate_bl_local_charges` é a fronteira de cálculo. Recálculo preserva
+  linhas manuais conforme o contrato SQL vigente.
+- `mark_bl_ready_for_billing` é a fronteira de promoção: cliente precisa estar
+  vinculado e em estado aceito, o gate canônico
+  `compute_bl_review_pendencies` precisa estar vazio, não pode haver linha de
+  taxa pendente ou em USD e deve existir ao menos uma linha BRL positiva e uma
+  tabela vigente. A definição vigente está em
+  `supabase/migrations/20260619130000_review_gate_hardening.sql`.
+- O estado aceito na migration atual é `matched_document` ou `reconciled`;
+  `matched_name` exibido como resolvido por `ValidacaoTab` não satisfaz esse gate
+  SQL.
+- Operações em lote são sequenciais e não atômicas entre B/Ls: cada ID pode
+  concluir ou falhar independentemente.
+- `listLocalChargeOperationalRows` combina `bls` e `granite_bls`, mas os motores
+  e transições de Granito permanecem separados.
+- A UI de `/taxas-locais` não exibe a fila operacional. Esse limite é sustentado
+  por `src/pages/__tests__/TaxasLocais.test.ts`.
+
+## Testes e validação
+
+Os testes não foram executados nesta cartografia, por instrução do coordenador.
+Cobertura estática localizada:
+
+| Arquivo | Evidência coberta |
+|---|---|
+| `src/pages/__tests__/TaxasLocais.test.ts` | Rota contém somente tabelas e overrides |
+| `src/pages/__tests__/taxasLocaisHelpers.test.ts` | Validação de tabela, item e override |
+| `src/services/__tests__/localCharges.test.ts` | Cálculo, linhas, itens manuais, fila paginada e promoção para faturamento |
+| `src/services/__tests__/financialValidation.test.ts` | Validações financeiras reutilizadas nas superfícies relacionadas |
+| `src/components/billing/__tests__/ManualChargeFormFields.test.tsx` | Estados de criação/edição da cobrança manual |
+| `src/services/__tests__/guardInvoiceableReadyStateMigration.test.ts` | **Teste de contrato SQL** do gate de valor BRL faturável |
+| `src/services/__tests__/guardManualChargesMigration.test.ts` | **Teste de contrato SQL** dos bloqueios de cobranças manuais |
+
+Não há evidência de Runtime registrada neste documento.
 
 ## Notas e divergências
 
-- **Granito é isolado.** `granite_bls` tem charges próprios e RPC separada (`mark_granite_bl_ready`); `listLocalChargeOperationalRows` carrega `bls` + `granite_bls` na mesma view operacional, mas não compartilham a RPC de cálculo.
-- **IMO+OOG sem caminho automático.** Container marcado IMO e OOG ao mesmo tempo força `review_required` sem recálculo automático — exige ajuste ou isenção manual.
-- **`pricing_rule_versions` ocioso.** Tabela de versionamento criada para auditoria de regras de preço, mas o módulo audita via `audit_logs` (`entity_type = 'charge_calculation'`).
-- **Charges manuais pulam a revisão.** `add_manual_bl_charge` grava `status = reviewed` direto, fora do loop normal de revisão.
+- **Suspeita — invalidação com argumento vazio/`undefined`.** Ao contrário de
+  `queryKeys.charges.operations()`, que remove o slot de filtro para permitir
+  prefix match, `charges.tables()`, `charges.overrides()` e
+  `reconciliation.queue()` materializam slots `undefined`. Da mesma forma,
+  `bls.detail('')`, `bls.localChargeLines('')` e `bls.manualChargeItems('')`
+  incluem string vazia. Pelo formato das chaves em `src/services/queryKeys.ts`,
+  essas invalidações podem não alcançar queries ativas com filtro ou ID real.
+  Não houve validação em Runtime.
+- **Divergência de gate.** `ValidacaoTab` considera `matched_name` resolvido,
+  enquanto `mark_bl_ready_for_billing` aceita somente `matched_document` ou
+  `reconciled` em
+  `supabase/migrations/20260619130000_review_gate_hardening.sql`.
+- **Overrides são filtrados parcialmente no cliente.** A consulta lê até o
+  limite configurado e só depois filtra nome/documento, modo e POD; resultados
+  fora do lote não aparecem.
+- **Granito é uma agregação visual, não um único domínio de cobrança.** Revisão
+  em lote de Granito retorna sucesso sem escrita, e a liberação usa update
+  direto de `granite_bls`.
+- `pricing_rule_versions` não participa deste caminho atual; cálculo e
+  transições registram evidência principalmente em `audit_logs`.
