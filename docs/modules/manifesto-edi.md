@@ -1,158 +1,196 @@
-# Manifesto & EDI (Pipeline de Importação)
+# Manifestos & EDI
 
-> **Status:** ativo · **Atualizado:** 2026-06-19 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
+> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
 
-## Propósito
+## Propósito e escopo
 
-Pipeline de ingestão de dados operacionais do Transhipping Desk. Recebe arquivos de carriers (planilhas XLSX/CSV e arquivos EDI/EDIFACT `.txt`), faz o **parse** (funções puras em `*Parser.ts`), valida, concilia com customers/voyages e persiste em tabelas de domínio (`bls`, `bl_containers`, `baplie_containers`, etc.). É a fonte de quase todo o dado que alimenta [Viagens](viagens.md), [Faturamento](faturamento.md) e o Portal.
+Pipeline de ingestão e revisão operacional do Transhipping Desk. O módulo recebe planilhas e EDI/EDIFACT, limita o arquivo, faz parse e preview no cliente, persiste em tabelas de domínio e expõe as superfícies de B/L, containers, veículos, Baplie e vazios. A viagem é o eixo operacional; o manifesto é a autoridade de dados comerciais, enquanto o Baplie é uma fonte física de staging e conciliação.
 
-Cobre seis grandes fluxos: **Manifesto Container**, **Carga Solta (breakbulk)**, **Baplie EDI** (staging + conciliação), **CE Mercante** (por B/L e por manifesto), **Containers** (datas e flags), **Veículos** e **Vazios** (exportação e importação). Todo parser segue o playbook do skill [import-parser](../../.claude/skills/import-parser.skill): parser puro → preview → import.
+As rotas são registradas em `src/App.tsx`. Os donos executáveis são as páginas em `src/pages/`, os parsers/importadores em `src/services/`, as RPCs e policies em `supabase/migrations/` e as chaves em `src/services/queryKeys.ts`. `docs/adr/0005-pipeline-importacao-viagem-staging-reconciliacao.md` define a separação entre fontes; `docs/adr/0009-hard-delete-controlado-bloqueios-fiscais-auditoria.md` define exclusões controladas.
 
-## Como funciona
+Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spec e os três planos de `docs/superpowers/` preservam intenção e sequência histórica, mas não prevalecem sobre `src/pages/BlDetalhe.tsx`, `src/components/bl/` e `supabase/migrations/20260619190144_bl_timeline_rpc.sql`.
 
-O padrão é: `*Parser.ts` (pura, sem Supabase) produz um objeto tipado → o componente (`FileImportModal` ou modal dedicado) mostra preview → `*Import.ts` persiste, em geral via RPC transacional. Todo parser chama `assertUploadSize(file)` (`src/lib/fileGuard.ts`, limite 10 MB) antes de ler.
+## Anatomia das telas
+
+### `/manifestos`
+
+- `src/pages/Manifestos.tsx` lista B/Ls de container com paginação, seleção em massa, resumo e filtros por texto, viagem, POL, POD, revisão, financeiro, taxas locais e perfil de carga.
+- Cada linha mostra CE Mercante, navio/viagem, consignatário/cliente, rota, containers distintos, perfil IMO/OOG, status de taxas, invoice e link para `/manifestos/:blId`.
+- O modal CNTR aceita múltiplos arquivos, seleciona/cria uma viagem, calcula SHA-256, exibe preview por arquivo e resumo consolidado e importa sequencialmente.
+- Duplicidade de arquivo é definida pela constraint de `(voyage_id, cargo_mode, file_hash)` e traduzida para `DuplicateManifestImportError`; rate limit `P0429` é tentado novamente uma vez após espera.
+- O modal de CE Mercante aceita planilha por B/L ou EDI de um único manifesto.
+- Admin pode excluir B/Ls elegíveis, individualmente ou em lote, após pré-checagem fiscal.
+- CE Master pertence ao manifesto (`import_batches.ce_master`), mas a edição atual está na ficha `/viagens/:voyageId`, não nesta lista.
+
+### `/manifestos/:blId`
+
+- `src/pages/BlDetalhe.tsx` resolve o modo container/BB e monta exatamente três abas: `detalhes`, `faturamento`, `historico`.
+- A aba padrão `detalhes` remove `tab` da query; as demais sincronizam `?tab=faturamento` ou `?tab=historico`. Chaves antigas, como `operacional`, não são aceitas.
+- **Detalhes do B/L:** `BlDetalhesTab` compõe `BlOperacionalTab` e `BlCargaTab`.
+  - Formulário auditado: POL, POD, CE Mercante, shipper, consignee, `notify_party`, descrição, pesos/CBM, campos BB, pagamento, notas e justificativa.
+  - NCM é somente leitura, derivado de `cargo_description` por `listBlNcms`/`extractNcmCodes` em `src/lib/ncm.ts`, deduplicado e sem ocorrências `UN NCM`.
+  - `notify_party` de novos manifestos CNTR usa a primeira parte posterior ao consignatário ou preserva o literal `SAME AS CONSIGNEE`; continua editável.
+  - Composição física: containers/veículos ou resumo e itens legados de carga solta.
+- **Faturamento:** `BlFaturamentoTab` compõe `BlClienteSection`, `BlCobrancasSection`, `BlDemurrageSection` e o status/link da invoice ativa.
+  - Cliente existente é vinculado/desvinculado por `save_bl_review`; cliente vindo do manifesto pode ser criado por `createCustomer` e então vinculado.
+  - Taxas locais podem ser calculadas, receber linhas manuais, ser revisadas e avançar para faturamento.
+  - Demurrage reúne free time, P1/P2, descarga/devolução e cálculo por container; as regras canônicas continuam em [Demurrage](demurrage.md).
+- **Histórico:** `BlHistoricoTab` usa paginação incremental de `bl_timeline`, badges por família e marca “Auditoria” somente quando há justificativa.
+
+### `/carga-solta`
+
+- `src/pages/CargaSolta.tsx` lista B/Ls BB, indicadores, filtros, exportação e acesso ao mesmo detalhe `/manifestos/:blId`.
+- O importador aceita layout resumido, legado e formatos de carrier; faz preview, rejeita sobrescrita de B/L que já exista como container e registra erros no batch.
+- A tela também abre o modal compartilhado de CE Mercante.
+
+### `/containers`
+
+- `src/pages/Containers.tsx` lista containers consolidados com filtros, resumo distinto por tipo/IMO/OOG, exportação e navegação ao B/L.
+- “Importar Datas Demurrage” atualiza descarga/devolução e pode emitir invoice de demurrage quando todos os containers do B/L retornaram.
+- “Importar IMO/OOG” atualiza flags físicas e audita `bl_container`.
+- Admin pode excluir containers sem cálculos de taxa nem itens de demurrage vinculados; veículos dependentes são removidos primeiro.
+
+### `/veiculos`
+
+- `src/pages/Veiculos.tsx` exige navio/viagem para visualizar lista, estatísticas e filtros; o modal de importação possui seletor próprio de viagem.
+- O parser suporta modelo do sistema, COSCO Daily Report e cabeçalhos chineses.
+- O import valida chassi, B/L da viagem e match não ambíguo de container por número, tipo e lacre.
+- Após inserir veículos, cancela invoices ativas dos B/Ls afetados e recalcula taxas para aplicar isenção; esse pós-processamento ocorre fora da RPC de insert.
+- Admin pode excluir veículos individualmente ou em lote.
+
+### `/baplie`
+
+- `src/pages/Baplie.tsx` sincroniza a viagem em `?voyage=<id>` e trabalha em três estados: sem staging; staging sem manifesto; staging com manifesto.
+- Importação/reimportação substitui o staging completo da viagem por `import_baplie_staging_transactional`.
+- A conciliação considera containers `full`, divergência de existência e diferenças de `is_imo`, `imo_class` e `un_number`.
+- O operador pode aplicar o valor físico do Baplie ou manter o manifesto, inclusive em lote.
+- Containers `empty` podem gerar um manifesto de Vazios de Importação; se já existir um manifesto Baplie, o operador escolhe substituir ou manter.
+
+### `/vazios-importacao`
+
+- `src/pages/VaziosImportacao.tsx` lista e exporta containers vazios por texto, viagem e manifesto.
+- O modal importa planilha com container, tipo e tara para uma viagem.
+- O fluxo alternativo vindo de Baplie é iniciado em `/baplie`, não por botão desta página.
+
+### `/embarquevazios`
+
+- `src/pages/EmbarqueVazios.tsx` lista bookings de vazios de exportação por texto e viagem.
+- O modal faz parse/preview de booking, container, tipo, data, terminal, destino e observações e cria um manifesto associado à viagem.
+- `/vazios` é apenas redirect de compatibilidade para esta rota.
+
+## Catálogo de ações
+
+| Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
+|---|---|---|---|---|---|---|---|
+| `/manifestos` — filtrar, paginar, selecionar e abrir B/L | Sessão interna; dados legíveis por RLS | `Manifestos` | `useBls`, `useBlSummary`, `useInvoiceLinks`; seleção local por `useRowSelection` | Leitura de `bls`, relações e invoices | Queries `['bls', filters]`, `['bl-summary', filters]`, `['invoice-links', ...]`; navega para `/manifestos/:blId` | Filtros de `chargeStatus`/perfil podem carregar tudo e filtrar no cliente; erro de query mostra `InlineError` | `src/pages/Manifestos.tsx`; `src/hooks/useBls.ts`; `src/hooks/useBilling.ts` |
+| `/manifestos` — parse e preview CNTR | Arquivo `.xlsx/.xls/.csv`, até 10 MB | `UploadManifestModal.handleFile` | `parseManifestFile` detecta layout, agrupa B/Ls/containers, partes, rota, ETA e erros | Nenhuma | Estado local por arquivo; preview de até 25 B/Ls e resumo consolidado | Formato ilegível, aba ausente, arquivo grande ou parser sem preview | `src/pages/Manifestos.tsx`; `src/services/manifestParser.ts`; `src/lib/fileGuard.ts` |
+| `/manifestos` — importar manifesto CNTR | Viagem e usuário; preview; SHA-256 disponível | `UploadManifestModal.handleImport` | `importManifestWithRetry` chama `importManifest`; a wrapper SQL executa lote, B/Ls, containers, erros, schedules, contatos, review gate e billing | `import_batches`, `bls`, `bl_containers`, `import_errors`, `audit_logs`, contatos e efeitos de billing | Invalida `['bls']`, `['bl-summary']`, `['invoice-links']`, `['voyages']` | `23505` vira duplicidade; `P0429` espera 60 s e tenta uma vez; arquivos múltiplos podem terminar parcialmente | `src/pages/Manifestos.tsx`; `src/services/manifestImport.ts`; `supabase/migrations/20260619130000_review_gate_hardening.sql` |
+| `/manifestos` — detectar arquivo/batch duplicado | Mesmo hash, viagem e `cargo_mode` | `computeFileHash` / RPC | Constraint `uq_import_batches_voyage_hash`; service mapeia erro | Nenhuma escrita confirmada para a tentativa rejeitada | Evento best-effort `manifest_import_duplicate_hash`; caches só são invalidados ao final do lote da UI | Hash indisponível bloqueia; arquivo alterado produz hash diferente | `src/services/manifestImport.ts`; `supabase/migrations/011_schema_hardening.sql`; `src/pages/Manifestos.tsx` |
+| Manifesto — editar CE Master | Batch/manifesto existente; usuário com permissão | `PolScheduleModal` em `/viagens/:voyageId` | `setImportBatchCeMaster` aplica o valor aos batch IDs agrupados pela rota | `import_batches.ce_master` + `audit_logs` | Invalida `['voyages']` e timeline/schedules pela página Viagens | Não existe ação inline atual em `/manifestos`; múltiplos batches são atualizados pelo frontend, sem transação única | `src/pages/Viagens.tsx`; `src/services/manifestImport.ts`; `src/components/voyages/VoyageCard.tsx` |
+| CE Mercante por linha | Planilha válida; B/L existente | `CeMercanteImportModal.handleSheetImport` | Parser valida cabeçalhos, BL único e CE de 15 dígitos; `importCeMercanteRows` chama `apply_ce_mercante_update` por linha | `bls.ce_mercante` e auditoria pela RPC | Invalida `['bls']`, `['bl-detail']` | Pode cruzar batches; erros são por linha e não revertem updates anteriores | `src/components/shared/CeMercanteImportModal.tsx`; `src/services/ceMercanteImport.ts` |
+| CE Mercante por manifesto EDI | Registros C válidos e cobertura total de um único batch | `CeMercanteImportModal.handleEdiImport` | `parseCeMercanteEdiFile` + RPC `apply_ce_mercante_manifest` all-or-nothing | `bls.ce_mercante`, `audit_logs` | Invalida `['bls']`, `['bl-detail']` | BL/CE duplicado, CE fora de 15 dígitos, B/L inexistente, batches mistos ou cobertura incompleta retornam `ok=false`; nada é gravado | `src/services/ceMercanteEdiParser.ts`; `src/services/ceMercanteImport.ts`; `supabase/migrations/20260608191844_apply_ce_mercante_manifest.sql` |
+| Excluir B/L elegível | Admin; sem invoice, invoice consolidada, recebível, vínculo de recebível ou demurrage invoice | `runBlDelete` | `checkBlDependencies`; confirmação; `deleteBls` remove veículos e B/L | Hard delete de `vehicles` e `bls`; cascatas operacionais; auditoria de exclusão | Invalida `['bls']`, `['bl-summary']`, `['containers']`, `['vehicles']`, `['invoice-links']`, `['voyages']` | Bloqueadores fiscais geram exclusão parcial ou nenhuma; operação irreversível | `src/pages/Manifestos.tsx`; `src/services/bls.ts`; `docs/adr/0009-hard-delete-controlado-bloqueios-fiscais-auditoria.md` |
+| B/L — sincronizar aba com URL | B/L válido | `BL_TABS` / `setSearchParams` | `detalhes` remove `tab`; demais definem query | Nenhuma | Preserva componentes montados por prop `active` | Query desconhecida cai em `detalhes` | `src/pages/BlDetalhe.tsx`; `src/pages/__tests__/blTabs.test.tsx` |
+| B/L — editar revisão operacional e carga | Mudança detectada; justificativa; usuário; `updated_at` esperado | `BlOperacionalTab` / `useBlEditForm` | Normaliza campos, cria auditoria por campo e chama `save_bl_review`; BB sincroniza toneladas para kg | `bls`, `audit_logs`, fila de reconciliação; status recalculado pelo gate | Invalida `['bl-detail', blId]`, `['audit-logs','bl',blId]`, `['bls']`, `['voyages']` | Sem mudança/justificativa; número inválido; `PT409`/`40001` recarrega após conflito | `src/hooks/useBlEditForm.ts`; `supabase/migrations/20260619130000_review_gate_hardening.sql` |
+| B/L — exibir NCM e Notify Party | Descrição/notify importados ou editados | `BlOperacionalTab` | `listBlNcms` deriva chips; parser CNTR preserva primeira notify ou `SAME AS CONSIGNEE` | NCM não persiste em coluna própria; `notify_party` persiste em `bls` | Sem query própria | NCM ausente mostra vazio; notify de imports anteriores não recebe backfill | `src/lib/ncm.ts`; `src/services/manifestParser.ts`; `src/services/manifestImport.ts` |
+| B/L — vincular, criar ou desvincular cliente | Usuário; B/L carregado; dados de manifesto para criação | `BlClienteSection` | `save_bl_review` para vínculo; `createCustomer` e depois vínculo; fallback procura CNPJ já existente | `customers`, contatos e `bls.customer_id`/reconciliação | Invalida `queryKeys.bls.detail(bl.id)` | Conflitos/duplicidade de cliente; falha genérica na UI; vínculo exige estado atual do B/L | `src/components/bl/BlClienteSection.tsx`; `src/services/customers.ts` |
+| B/L — calcular/revisar taxas e faturar | Usuário; linhas/tabela elegíveis; gate e cliente coerentes | `BlCobrancasSection` | Hooks de taxas; linhas manuais; `markBlReadyAndCreateInvoice` quando há cliente | `charge_calculations`, `bls`, recebíveis/invoices conforme serviços/RPCs | Invalida famílias de linhas, B/Ls, pendências, voyages e invoices; caminho de emissão também usa arrays literais | Pendência de revisão, ausência de cliente, USD ou tabela ausente bloqueiam; B/L faturado trava edição | `src/components/bl/BlCobrancasTab.tsx`; `src/hooks/useLocalCharges.ts`; `src/services/billing.ts` |
+| B/L — configurar demurrage e datas de retorno | Usuário; container/B/L carregado | `BlDemurrageSection` | `free_time_override` usa `save_bl_review`; P1/P2 usam update direto + auditoria best-effort; retorno usa `updateContainerReturnDate` | `bls`, `bl_containers`, `audit_logs` | Invalida `queryKeys.bls.detail(bl.id)`, `queryKeys.bls.all()`, `['demurrage-containers']` | Conflito concorrente no free time; P1/P2 ou auditoria podem falhar separadamente; regras pertencem a Demurrage | `src/components/bl/BlDemurrageSection.tsx`; `src/services/demurrage/demurrageContainers.ts` |
+| B/L — abrir invoice ativa e carregar Histórico | B/L válido | `BlFaturamentoTab` / `BlHistoricoTab` | Link para `/faturamento?invoice=<id>`; `useInfiniteQuery` chama `bl_timeline` em páginas de 50 | Leitura de invoices e `audit_logs` resolvidos pela RPC | `queryKeys.invoices.links([blId])`; `queryKeys.bls.timeline(blId)` | Histórico sem evento mostra vazio; falha da RPC não tem estado de erro dedicado na aba | `src/components/bl/BlFaturamentoTab.tsx`; `src/hooks/useBlTimeline.ts`; `src/services/blTimeline.ts`; `supabase/migrations/20260619190144_bl_timeline_rpc.sql` |
+| `/carga-solta` — parse/preview/import BB | Viagem, usuário e arquivo válido | Modal em `CargaSolta` ou `VoyageImportActions` | Parser suporta três layouts; service cria batch, filtra B/Ls incompatíveis, upsert, aplica review gate, substitui itens e dispara taxas em background | `import_batches`, `bls`, `bl_breakbulk_items`, `import_errors` | Página invalida `['bls']`, `['voyages']`, `['port-options']`; ação rápida invalida também Line-Up | B/L existente como container é rejeitado; sequência não é transação única e pode deixar batch `processing` se falhar no meio | `src/pages/CargaSolta.tsx`; `src/services/breakbulkImport.ts` |
+| `/containers` — importar datas | Linhas com B/L, container e descarga; devolução ≥ descarga | `ContainerDatesImportModal` | Deduplica por B/L+container, atualiza datas/status e verifica todos retornados | `bl_containers`; possível `demurrage_invoices` e emissão | Invalida `['demurrage-containers']`, `['demurrage-invoices']`, `['bl-detail']` | Container ausente conta `missing`; falha de update/emissão interrompe; import em lote não grava auditoria própria | `src/components/shared/ContainerDatesImportModal.tsx`; `src/services/containerDatesImport.ts` |
+| `/containers` — importar IMO/OOG | Planilha válida; match B/L+container | Modal em `Containers` | Deduplica, atualiza todos os matches e grava uma auditoria por container alterado | `bl_containers`, `audit_logs` | Invalida `['containers']`, `['bls']`, `['bl-summary']`, `['dashboard']`, `['voyages']` | Valor IMO/OOG inválido; sem match conta `missing`; auditoria falha junto do fluxo | `src/pages/Containers.tsx`; `src/services/containerFlagsImport.ts` |
+| `/containers` — excluir | Admin; sem taxa local nem item de demurrage | `runContainerDelete` | Pré-checagem; remove veículos antes de containers | `vehicles`, `bl_containers`; cascatas; auditoria de delete | Invalida `['containers']`, `['bls']`, `['vehicles']`, `['bl-detail']` | Bloqueadores fiscais; hard delete irreversível | `src/pages/Containers.tsx`; `src/services/containers.ts` |
+| `/veiculos` — parse/preview/import | Viagem; linhas válidas e match não ambíguo | Modal em `Veiculos` ou `VoyageImportActions` | Valida chassi/B/L/container; RPC insere lote; depois cancela invoices ativas e recalcula taxas por B/L | Insert em `vehicles`; pós-processamento em invoices e `charge_calculations` | Página invalida `['vehicles']`, `['vehicle-stats']`, `['voyage-vehicle-stats']`, `['bl-detail']`; ação rápida também `['voyages']` e Line-Up | Duplicidade, B/L fora da viagem, container/tipo/lacre divergente; insert pode ter sucesso e pós-processamento financeiro falhar, retornando erro por B/L | `src/services/vehicleImport.ts`; `supabase/migrations/20260614135728_fix_anon_executable_import_rpcs.sql` |
+| `/veiculos` — excluir | Admin; confirmação | `runDelete` | `deleteVehicles` por IDs | `vehicles` + auditoria de exclusão | Mesmas quatro invalidações da página de veículos | RLS/DB; hard delete irreversível | `src/pages/Veiculos.tsx`; `src/services/vehicles.ts` |
+| `/baplie` — importar ou substituir staging | Viagem, usuário; RPC atual exige admin | `BaplieUploadModal` / ação rápida | Parser EDIFACT; filtro opcional de POD; RPC apaga staging da viagem e insere o novo lote na mesma transação | `baplie_containers` | Invalida `['baplie-staging', voyageId]`, `['baplie-reconciliation', voyageId]` | Sem containers selecionados; parse inválido; `42501` para não-admin | `src/pages/Baplie.tsx`; `src/services/baplieParser.ts`; `src/services/baplieImport.ts`; `supabase/migrations/20260614135728_fix_anon_executable_import_rpcs.sql` |
+| `/baplie` — aplicar atributo físico | Divergência em `is_imo`, `imo_class` ou `un_number` | `ReconciliacaoSection` | `applyBaplieAttribute` atualiza um campo e grava auditoria | `bl_containers`, `audit_logs` | Página invalida apenas `['baplie-reconciliation', voyageId]` | Update ou auditoria pode falhar; ações em lote são sequenciais, não atômicas | `src/pages/Baplie.tsx`; `src/services/baplieReconciliation.ts` |
+| `/baplie` — manter valor do manifesto | Divergência aberta | `ReconciliacaoSection` | Upsert de resolução pela combinação de viagem, container, campo e valores; audita decisão | `baplie_reconciliation_resolutions`, `audit_logs` | Invalida apenas `['baplie-reconciliation', voyageId]` | Mudança posterior de qualquer valor cria nova combinação e pode reabrir divergência | `src/services/baplieReconciliation.ts`; `src/services/__tests__/baplieReconciliation.test.ts` |
+| `/baplie` — importar/substituir/manter vazios | Staging com `status='empty'`; usuário ativo | `VaziosSection` | Import cria manifesto Baplie; substituir chama delete RPC escopada e reimporta; manter não escreve | `vazios_importacao_manifests`, `vazios_importacao_containers` | Invalida `['baplie-vazios-manifest', voyageId]`, staging, reconciliação, `['vazios-importacao']`, `['vazios-importacao-stats']` | Nenhum vazio; delete ou insert falha; delete+reimport não é uma transação única | `src/pages/Baplie.tsx`; `src/services/vaziosImportacaoImport.ts`; `supabase/migrations/20260610163251_vazios_importacao_delete_admin_only.sql` |
+| `/vazios-importacao` — importar planilha | Viagem, usuário e preview | Modal da página ou ação rápida | Cria manifesto e faz upsert de containers por manifesto+número | `vazios_importacao_manifests`, `vazios_importacao_containers` | Página invalida containers/manifests, `['voyages']` e Line-Up; ação rápida invalida só voyages/Line-Up | Manifesto pode existir sem containers se o segundo passo falhar; reimport comum cria novo manifesto | `src/pages/VaziosImportacao.tsx`; `src/services/vaziosImportacaoImport.ts` |
+| `/embarquevazios` — parse/preview/import booking | Viagem, usuário e booking válido | Modal da página ou ação rápida | Cria manifesto e faz upsert por manifesto+booking | `vazios_manifests`, `vazios_bookings` | Invalida `['vazios-bookings']`, `['voyages']` | Manifesto pode ficar sem bookings se insert falhar; idempotência é interna ao novo manifesto | `src/pages/EmbarqueVazios.tsx`; `src/services/vaziosImport.ts` |
+
+## Estado e dados
+
+Principais famílias de cache:
+
+| Superfície | Chaves atuais |
+|---|---|
+| Manifestos/B/Ls | `['bls', filters]`, `['bl-summary', filters]`, `queryKeys.bls.detail(blId)`, `queryKeys.bls.localChargeLines(blId)`, `queryKeys.bls.manualChargeItems(blId)`, `queryKeys.bls.timeline(blId)` |
+| Invoices do B/L | `queryKeys.invoices.links(blIds)` e famílias `queryKeys.invoices.*` |
+| Containers | `['containers', filters]`, `['bl-detail', blId]`, `['demurrage-containers']`, `['demurrage-invoices']` |
+| Veículos | `['vehicles', voyageId, filters]`, `['vehicle-stats', voyageId]`, `['voyage-vehicle-stats', voyageIds]` |
+| Baplie | `['baplie-staging', voyageId]`, `['baplie-bls-exist', voyageId]`, `['baplie-vazios-manifest', voyageId]`, `['baplie-reconciliation', voyageId]` |
+| Vazios de importação | `['vazios-importacao-containers', filters]`, `['vazios-importacao-manifests']`, `['vazios-importacao-stats', voyageIds]` |
+| Vazios de exportação | `['vazios-bookings', filters]` |
+
+As páginas e modais ainda usam várias arrays literais. A cartografia preserva essas formas: não as normaliza para `queryKeys` quando o código não o faz.
+
+Dados e fronteiras:
+
+- **Lote:** `import_batches` e `import_errors`.
+- **B/L:** `bls`, `bl_containers`, `bl_breakbulk_items`, `vehicles`.
+- **Staging físico:** `baplie_containers`.
+- **Decisões:** `baplie_reconciliation_resolutions`.
+- **Vazios:** `vazios_importacao_manifests`/`vazios_importacao_containers` e `vazios_manifests`/`vazios_bookings`.
+- **Financeiro derivado:** `charge_calculations`, `invoices`, `invoice_bls`, recebíveis e tabelas próprias de demurrage.
+- **Histórico:** `audit_logs`, consultado por `bl_timeline`.
+
+Campos físicos que a conciliação Baplie pode alterar: `bl_containers.is_imo`, `imo_class` e `un_number`. O parser também lê peso, OOG, slot, status e portos para staging, mas `applyBaplieAttribute` não oferece caminho para sobrescrever peso, consignatário, cliente, pricing, rota comercial ou cobrança. Esses dados permanecem sob autoridade do manifesto e dos fluxos financeiros.
+
+## Fluxos e invariantes
 
 ```mermaid
-flowchart TB
-  subgraph Baplie[Baplie EDI]
-    BF[arquivo .txt EDIFACT] --> BP[baplieParser]
-    BP --> BS[importBaplieStaging<br/>RPC import_baplie_staging_transactional]
-    BS --> BC[(baplie_containers<br/>staging por voyage)]
-    BC <-->|reconcileBaplieWithManifest<br/>match: container_number normalizado| RECON{Conciliação}
-    RECON -->|aplica is_imo/imo_class/un_number| BLC[(bl_containers)]
-    RECON --> RES[(baplie_reconciliation_resolutions)]
-  end
-
-  subgraph Manifesto[Manifesto Container]
-    MF[XLSX / CSV] --> MP[manifestParser]
-    MP --> MI[importManifest<br/>RPC import_manifest_with_postprocess_transactional]
-    MI --> IB[(import_batches)]
-    MI --> BLS[(bls)]
-    MI --> BLC
-    MI --> IE[(import_errors)]
-  end
-
-  subgraph CE[CE Mercante]
-    CEB[XLSX por B/L] --> CEU[apply_ce_mercante_update]
-    CEE[EDI do manifesto] --> CEM[apply_ce_mercante_manifest<br/>all-or-nothing por batch]
-    CEU --> BLS
-    CEM --> BLS
-    CEMASTER[CE Master por manifesto] --> IB
-  end
-
-  subgraph Vazios
-    VE[XLSX] --> VEX[(vazios_manifests / vazios_bookings)]
-    VI[XLSX ou Baplie status=empty] --> VIM[(vazios_importacao_manifests / _containers)]
-    BC -.importVaziosFromBaplie.-> VIM
-  end
-
-  BLS --> BL[B/L pronto p/ revisão e faturamento]
-  BLC --> BL
+flowchart LR
+    Guard["file guard<br/>assertUploadSize"] --> Parser["parser puro<br/>manifestParser"]
+    Parser --> Preview["preview e erros<br/>UploadManifestModal"]
+    Preview --> RPC["RPC transacional<br/>import_manifest_with_postprocess_transactional"]
+    RPC --> Core["batch + B/Ls + containers + errors"]
+    Core --> Gate["review gate<br/>IDs importados"]
+    Gate --> Billing["charges / billing<br/>pós-processamento SQL"]
+    Billing --> Audit["audit_logs + invalidação de cache no cliente"]
 ```
 
-## Componentes e arquivos
+1. **Manifesto CNTR é transacional no banco.** `import_manifest_with_postprocess_transactional` chama o import core, sincroniza agendas, cria contatos, aplica `apply_bl_review_gate_after_import` aos IDs do lote e executa billing dentro da mesma chamada SQL.
+2. **Teste de parser não prova transação.** Vitest valida parsing, payload e chamadas mockadas. Atomicidade depende da implementação SQL e só é provada integralmente por aplicação da migration e teste contra banco real/controlado.
+3. **Código pós-PR prevalece.** PR `#254` e seus planos descrevem a sequência; os merges `#255`–`#258` definem a tela atual.
+4. **Três abas exatas.** `detalhes`, `faturamento`, `historico`. `BlFinanceiroTab` foi removido; cliente e demurrage foram consolidados em `BlFaturamentoTab`.
+5. **Colunas preservadas, UI removida.** `place_of_delivery` e `incoterm` permanecem em `bls`/tipos e ainda são aceitas pela RPC histórica, mas não integram `editableFields` nem a UI atual.
+6. **NCM derivado.** Não é salvo pelo formulário; `extractNcmCodes` é compartilhado com `breakbulkImport.ts`, elimina `UN NCM`, deduplica e formata apenas para exibição.
+7. **Notify forward-only.** Novos imports CNTR carregam `notify_party`; não há backfill dos B/Ls existentes. A heurística guarda somente a primeira notify e preserva o literal `SAME AS CONSIGNEE`.
+8. **Histórico e Auditoria não são sinônimos.** Histórico é o ciclo completo. Auditoria é o subconjunto com justificativa deliberada; eventos sistêmicos podem pertencer ao Histórico sem serem Auditoria.
+9. **Escopo da timeline.** `bl_timeline` inclui famílias `bl`, `bl_container`, `charge_calculation`, `invoice` e `system_event` cujo `entity_id` é o B/L. Eventos globais, como `entity_id='billing'`, ficam fora. Mudanças de `charge_status`/`financial_status` registradas como `entity_type='bl'` são classificadas pela RPC.
+10. **Demurrage pertence ao módulo próprio.** Esta documentação cobre a entrada no B/L e efeitos de datas; cálculo, tarifas, invoice, disputa e ciclo de vida pertencem a [Demurrage](demurrage.md).
+11. **Carga solta não é uma transação única.** O service cria batch, faz upsert de B/Ls, aplica gate, substitui itens, grava erros e atualiza status em chamadas separadas. O upsert é permitido somente quando o B/L não existe como container.
+12. **Baplie substitui por viagem.** A RPC apaga e reinsere o staging em uma transação. Containers `empty` não entram na conciliação de B/L; alimentam Vazios de Importação.
+13. **Resolução “manter” é dependente dos valores.** O upsert inclui valores Baplie/manifesto; se a combinação mudar em reimport, a divergência pode reaparecer.
+14. **Veículos têm fronteira dividida.** A inserção do lote é transacional; cancelamento de invoices e recálculo de taxas ocorrem depois, por B/L. Falha nessa fase não desfaz veículos já inseridos.
+15. **Datas de container afetam demurrage.** Devolução anterior à descarga é rejeitada; todos retornados podem criar e emitir invoice de demurrage.
+16. **Vazios têm idempotência local.** Planilhas criam novo manifesto e fazem upsert apenas dentro dele. Vazios vindos do Baplie têm replacement explícito por viagem via delete escopado + novo import, sem transação conjunta.
 
-### Parsers (puros) e Importers
+## Testes e validação
 
-| Camada | Arquivo | Responsabilidade |
-| --- | --- | --- |
-| Núcleo | `src/services/importCore.ts` | Helpers comuns: `createRowErrorCollector`, `createHeaderMapper`, `readFirstSheetRows` (extraídos de granite/vazios) |
-| Guard | `src/lib/fileGuard.ts` | `assertUploadSize(file)` — limite 10 MB, anti-DoS no parser XLSX |
-| Parser | `src/services/manifestParser.ts` | Parse de manifesto container (XLSX/CSV); detecta layout (header genérico vs template carrier), tara, CNPJ, POL/POD, IMO/UN, agrupa containers por B/L |
-| Import | `src/services/manifestImport.ts` | Persiste manifesto via RPC `import_manifest_with_postprocess_transactional`; match de customer, billing hold, `setImportBatchCeMaster` |
-| Parser/Import | `src/services/breakbulkImport.ts` | Carga solta: parse + persistência em `bls` + `bl_breakbulk_items`, `cargo_mode='carga_solta'` |
-| Parser | `src/services/baplieParser.ts` | Parse EDIFACT (segmentos `TDT+20`, `EQD+CN`, `MEA+WT`, `LOC+`, `RFF+BM`, `DGS+`) → `ParsedBaplie` |
-| Import | `src/services/baplieImport.ts` | Staging via RPC `import_baplie_staging_transactional` (substitui staging do voyage) |
-| Conciliação | `src/services/baplieReconciliation.ts` | Compara `baplie_containers` (status `full`) vs `bl_containers`; `applyBaplieAttribute` / `keepManifestAttribute` |
-| Parser | `src/services/ceMercanteEdiParser.ts` | Parse EDI Mercante posicional (M=cabeçalho, C=B/L, I=item); valida 15 dígitos e unicidade |
-| Import | `src/services/ceMercanteImport.ts` | Modo por-B/L (`apply_ce_mercante_update`) e por-manifesto (`apply_ce_mercante_manifest`) |
-| Parser/Import | `src/services/containerDatesImport.ts` | Datas de descarga/devolução em `bl_containers`; calcula `demurrage_status`, auto-fatura demurrage |
-| Parser/Import | `src/services/containerFlagsImport.ts` | Flags `is_imo`/`imo_class`/`un_number`/`is_oog` em `bl_containers`, com auditoria |
-| Parser/Import | `src/services/vehicleImport.ts` | Veículos via RPC `import_vehicle_rows_transactional`; cancela/recalcula charges do B/L |
-| Parser/Import | `src/services/vaziosImport.ts` | Vazios de exportação → `vazios_manifests` + `vazios_bookings` |
-| Parser/Import | `src/services/vaziosImportacaoImport.ts` | Vazios de importação (planilha ou Baplie `status=empty`); RPC `delete_baplie_manifest_for_voyage` |
+Evidência de teste localizada, não executada nesta frente:
 
-### Páginas e modais
+- Parsers CNTR/notify/fixtures: `src/services/__tests__/manifestParser.test.ts`, `manifestParser.notify.test.ts`, `manifestFixtures.real.test.ts`.
+- Payload/import CNTR: `src/services/__tests__/manifestImport.test.ts` confirma nome da wrapper e mapeamento de `23505`/`P0429`, usando mocks; não prova rollback do PostgreSQL.
+- CE Mercante: `src/services/__tests__/ceMercanteEdiParser.test.ts` e `ceMercanteImport.test.ts`.
+- B/L pós-PRs: `src/lib/__tests__/ncm.test.ts`, `src/pages/__tests__/blTabs.test.tsx`, `src/components/bl/__tests__/blTimelinePresentation.test.ts`.
+- Carga solta: `src/services/__tests__/breakbulkImport.test.ts` e `breakbulkFixtures.real.test.ts`.
+- Containers/veículos/Baplie/vazios: `containerDatesImport.test.ts`, `vehicleImport.test.ts`, `baplieReconciliation.test.ts`, `vaziosImportacaoImport.test.ts`.
+- `src/components/shared/__tests__/VoyageImportActions.test.ts` testa apenas `buildCntrManifestImportSummary`, não os modais, importadores ou caches.
+- `src/services/__tests__/uploadLimits.test.ts` comprova o guard antes da leitura para base de clientes e PIX; para os parsers deste módulo, a cobertura do guard foi confirmada estaticamente pelas chamadas a `assertUploadSize`.
 
-| Camada | Arquivo | Responsabilidade |
-| --- | --- | --- |
-| Página | `src/pages/Manifestos.tsx` (`/manifestos`) | Lista de B/Ls; import de manifesto; edição inline de CE Mercante / CE Master |
-| Página | `src/pages/BlDetalhe.tsx` (`/manifestos/:blId`) | Detalhe de um B/L, formulário de revisão |
-| Página | `src/pages/CargaSolta.tsx` (`/carga-solta`) | Lista breakbulk; import de carga solta |
-| Página | `src/pages/Containers.tsx` (`/containers`) | Lista de containers; import de datas e de flags |
-| Página | `src/pages/Veiculos.tsx` (`/veiculos`) | Lista de veículos; import de planilha de veículos |
-| Página | `src/pages/Baplie.tsx` (`/baplie`) | Staging do Baplie EDI + tela de conciliação |
-| Página | `src/pages/VaziosImportacao.tsx` (`/vazios-importacao`) | Vazios de importação (devolvidos); import planilha ou Baplie |
-| Página | `src/pages/EmbarqueVazios.tsx` (`/embarquevazios`) | Bookings de vazios de exportação |
-| Componente | `src/components/shared/FileImportModal.tsx` | Modal genérico: select → parse → preview → import |
-| Componente | `src/components/shared/CeMercanteImportModal.tsx` | Upload CE Mercante por B/L (`importCeMercanteRows`) |
-| Componente | `src/components/shared/ContainerDatesImportModal.tsx` | Upload de datas de descarga/devolução (`importContainerDates`) |
-
-## Regras de negócio
-
-### Baplie: staging e conciliação
-
-- **Staging em `baplie_containers`.** O parse do `.txt` não toca o B/L; grava linhas em `baplie_containers`, escopadas por `voyage_id` (migration `20260520132021_create_baplie_containers_staging.sql`). A importação é **transacional e idempotente por voyage**: a RPC `import_baplie_staging_transactional` apaga o staging anterior do voyage e insere o novo.
-- **Chave de match:** `container_number` normalizado (trim + uppercase) dentro do mesmo `voyage_id`. Só containers `status='full'` entram na conciliação (os `empty` vão para Vazios de Importação).
-- **Divergência de Existência** (`missing_in_manifest`): o Baplie traz um container que não existe em nenhum B/L do manifesto daquela voyage.
-- **Divergência de Atributo**: container existe nos dois lados mas diverge em `is_imo`, `imo_class` ou `un_number`.
-- **Campos que o Baplie PODE sobrescrever:** apenas atributos físicos/de segurança — `is_imo`, `imo_class`, `un_number` (via `applyBaplieAttribute`). O operador escolhe aplicar o valor do Baplie ou manter o do manifesto.
-- **Campos financeiros PROTEGIDOS:** consignatário, peso, customer/pricing vêm **somente do manifesto**. Não há caminho para o Baplie sobrescrevê-los. A conciliação só mexe nos três atributos acima.
-- **Resoluções persistidas:** cada decisão (aplicar/manter) é gravada em `baplie_reconciliation_resolutions` (migration `055_baplie_reconciliation_resolutions.sql`) para auditoria e para suprimir divergências já resolvidas em reimportações.
-
-### Atomicidade e batches
-
-- **Import atômico.** Manifesto container usa `import_manifest_with_postprocess_transactional` (envolve o `import_manifest_transactional` original, migration `012_transactional_rpcs.sql`): grava batch + B/Ls + containers + erros + pós-processamento (audit, billing hold, contatos) em uma transação. Depois dos contatos e antes do billing, aplica `apply_bl_review_gate_after_import` apenas aos B/Ls do lote. Baplie e veículos têm RPCs transacionais próprias (migration `20260612153000`).
-- **`import_batches`** (migration `007_import_batches_cargo_mode.sql`): metadados do lote — `filename`, `voyage_id`, `cargo_mode` (`container` | `carga_solta`), `status`, contadores, `file_hash`, `ce_master`. Constraint única `(voyage_id, cargo_mode, file_hash)` → reupload idêntico levanta `23505`, capturado como `DuplicateManifestImportError`. Rate limit (migration `015`) levanta `P0429` → `RateLimitImportError`.
-- **`import_errors`**: erros de linha do parse (`row_number`, `error_type`, `error_message`, `raw_data`), exibidos no preview.
-- **File size guard.** `assertUploadSize(file)` no início de cada parser; acima de 10 MB lança erro antes de ler o XLSX.
-
-### CE Mercante: por B/L vs por manifesto
-
-- **CE Mercante por B/L** (planilha 2 colunas): `importCeMercanteRows` chama `apply_ce_mercante_update` por linha; pode cruzar manifestos. Retorna contagem inserido/sobrescrito/inalterado/erro.
-- **CE por manifesto** (EDI extraído do manifesto): `importCeMercanteEdi` chama `apply_ce_mercante_manifest` (migrations `20260608191844` + `20260608192000` que revoga anon). É **all-or-nothing por batch**: valida ausência de B/L/CE duplicados, formato 15 dígitos, existência de todos os B/Ls e cobertura do batch (todos os B/Ls do batch presentes, nenhum fora).
-- **CE Master por manifesto** (≠ CE por B/L): um único CE agrupador por manifesto, em `import_batches.ce_master`, definido inline em Viagens/Manifestos via `setImportBatchCeMaster`. Ver [Viagens](viagens.md) e [GLOSSARIO](../GLOSSARIO.md).
-
-### Outros fluxos
-
-- **Carga solta**: rejeita B/L que já exista como container; após o upsert de `bls`, chama `apply_bl_review_gate_after_import` e só então grava itens/dispara cálculo de taxas locais. O gate usa os IDs da importação corrente e não executa backfill de históricos.
-- **Container Dates**: valida devolução ≥ descarga; deriva `demurrage_status` (`returned` | `overdue` | `within_free_time`); quando todos os containers do B/L são `returned`, emite fatura de demurrage se houver valor devido.
-- **Veículos**: match B/L→voyage e container→B/L (tipo+lacre); após inserir, cancela faturas ativas e recalcula charges (veículo isento). Suporta layout COSCO Daily Report.
-- **Vazios Importação**: além da planilha, pode auto-importar do Baplie filtrando `status='empty']` e ligando POD (`importVaziosFromBaplie`); reimport via `delete_baplie_manifest_for_voyage` (delete admin-only, RPC liberada a operador).
-
-## Dependências
-
-**Tabelas Supabase**
-- `import_batches`, `import_errors` — lote e erros de importação
-- `bls`, `bl_containers`, `bl_breakbulk_items` — domínio do B/L
-- `baplie_containers` — staging Baplie por voyage
-- `baplie_reconciliation_resolutions` — decisões de conciliação
-- `vehicles` — veículos
-- `vazios_manifests`, `vazios_bookings` — vazios de exportação
-- `vazios_importacao_manifests`, `vazios_importacao_containers` — vazios de importação
-- `customer_contacts`, `audit_logs`, `charge_calculations`, `invoices`, `invoice_items` — efeitos colaterais
-
-**RPCs**
-- `import_manifest_with_postprocess_transactional` (envolve `import_manifest_transactional`)
-- `apply_bl_review_gate_after_import` (gate pós-importação, sem backfill)
-- `import_baplie_staging_transactional`
-- `import_vehicle_rows_transactional`
-- `apply_ce_mercante_update` (por B/L) · `apply_ce_mercante_manifest` (por manifesto)
-- `delete_baplie_manifest_for_voyage`
-- `cancel_invoice` (recálculo após import de veículo)
-
-**Integrações externas**
-- `@e965/xlsx` (parse de planilhas no cliente)
-- Arquivos EDI/EDIFACT de carriers (Baplie, CE Mercante)
-
-**Outros módulos**
-- [Viagens](viagens.md) — consome batches, schedules e estado de conciliação
-- [Faturamento](faturamento.md) — billing hold, demurrage, recálculo de charges
-- [Granito](granito.md) — pipeline de import paralelo (COSCO), tabelas próprias
+Nenhum Vitest, browser, Supabase ou cenário de runtime foi executado, conforme pedido. As migrations transacionais foram lidas, mas não aplicadas nem smoke-tested nesta frente.
 
 ## Notas e divergências
 
-- O nome canônico da RPC de manifesto é `import_manifest_with_postprocess_transactional`; ela **encapsula** o `import_manifest_transactional` original da migration `012`. Citar a wrapper ao falar do caminho real de produção.
-- Schedules de voyage (POL/POD) são reconstruídos de `audit_logs`, não de tabela dedicada — relevante porque o import de manifesto sincroniza ETD/POD via esse mecanismo. Ver [Viagens](viagens.md).
-- Regras de negócio transversais (free time, demurrage, billing hold) em [regras-de-negocio](../operations/regras-de-negocio.md).
-- Para adicionar um novo parser, seguir o skill [import-parser](../../.claude/skills/import-parser.skill): parser puro primeiro, depois importer e modal.
+- CE Master é uma ação relacionada a manifestos, porém a UI executável atual está em `/viagens/:voyageId`; `/manifestos` não possui editor inline.
+- O plano histórico de consolidação dizia que free time e P1/P2 passariam todos por `save_bl_review`. O código atual usa a RPC apenas para `free_time_override`; P1/P2 usam update direto em `bls` e auditoria best-effort em `BlDemurrageSection`.
+- `useBlEditForm` ainda inclui `free_time_override`, embora o campo tenha sido removido de `BlOperacionalTab` e movido para `BlDemurrageSection`. O formulário principal não oferece controle para alterá-lo.
+- A importação de datas em `src/services/containerDatesImport.ts` atualiza `bl_containers` sem inserir eventos `bl_container`; a edição individual em `updateContainerReturnDate` registra auditoria best-effort. Portanto, nem toda mudança de data em lote aparece garantidamente no Histórico do B/L.
+- Ao aplicar/manter atributos no Baplie, a página invalida somente `['baplie-reconciliation', voyageId]`; não invalida explicitamente `['containers']`, `['bl-detail']`, `['voyages']` ou `queryKeys.bls.timeline(blId)`.
+- A UI de Baplie exibe import/reimport para usuário autenticado, mas a RPC `import_baplie_staging_transactional` exige admin no banco; não-admin recebe `42501`.
+- A navegação contextual de Viagens para `/carga-solta?voyage=<id>` não é consumida por `CargaSolta.tsx`. Já `/manifestos`, `/baplie` e `/embarquevazios` leem o contexto de viagem.
+- O redirect `/vazios → /embarquevazios` usa destino fixo em `src/App.tsx`; não há código explícito preservando `?voyage=`.
+- Não inferir “all-or-nothing” para carga solta, planilhas de vazios ou o pós-processamento financeiro de veículos. Essa garantia existe apenas onde a RPC/migration atual a implementa.
