@@ -1,6 +1,6 @@
 # Arquitetura do Transhipping Desk
 
-Verificado contra o código, a configuração e as migrations em 2026-06-18.
+Verificado contra o código, a configuração e as migrations em 2026-06-20.
 
 Este é o mapa canônico da arquitetura atual. Termos de negócio vivem em
 [`docs/GLOSSARIO.md`](./GLOSSARIO.md); decisões e supersessões vivem no
@@ -87,6 +87,13 @@ dono existente da operação, sem criar uma segunda implementação.
 - `src/components/shared/`: componentes reutilizados por módulos;
 - `src/lib/`: utilitários puros, datas, status, PIX e telemetria;
 - `src/types/database.ts`: tipos gerados e complementos tipados do banco.
+
+### Como rastrear uma interação
+
+Use [`docs/RASTREABILIDADE.md`](./RASTREABILIDADE.md) para partir de uma rota ou
+ação e localizar o componente, hook/serviço, contrato Supabase, efeitos de cache,
+testes e evidência de runtime. A explicação completa permanece no documento vivo
+do módulo proprietário.
 
 ## Fluxo operacional e financeiro
 

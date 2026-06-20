@@ -1,12 +1,13 @@
 # Documentação do Transhipping Desk
 
-Verificado contra o repositório em 2026-06-19.
+Verificado contra o repositório em 2026-06-20.
 
 ## Por onde começar
 
 | Você quer… | Vá para |
 |---|---|
 | Entender o sistema de cima | [ARCHITECTURE.md](ARCHITECTURE.md) + [GLOSSARIO.md](GLOSSARIO.md) |
+| Rastrear uma tela, botão, hook, serviço ou RPC | [RASTREABILIDADE.md](RASTREABILIDADE.md) |
 | Mexer num módulo específico | [modules/](#módulos) abaixo |
 | Rodar localmente | [setup/development.md](setup/development.md) |
 | Fazer deploy | [setup/deploy.md](setup/deploy.md) |
@@ -60,6 +61,7 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#3-fluxo-o
 ## Convenções da documentação
 
 - Arquivos em `kebab-case.md`, prosa em **português técnico**, termos de domínio em inglês (BL, invoice, manifest, demurrage, ledger, PIX).
-- Cada doc de módulo segue o mesmo esqueleto: **Propósito · Como funciona · Componentes e arquivos · Regras de negócio · Dependências · Notas e divergências**.
+- Cada doc de módulo usa estes sete blocos: **Propósito e escopo · Anatomia das telas · Catálogo de ações · Estado e dados · Fluxos e invariantes · Testes e validação · Notas e divergências**.
+- Afirmações técnicas são calibradas como **Código**, **Teste**, **Runtime** ou **Suspeita**; inspeções textuais de migrations são nomeadas **Teste de contrato SQL**.
 - Diagramas em **Mermaid**. Caminhos de código escritos como `src/services/billing.ts` (clicáveis).
 - Links internos **relativos**. Datas só no nome de arquivos em `archive/` e nos ADRs.
