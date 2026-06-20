@@ -1,43 +1,110 @@
 # Clientes
-> **Status:** ativo · **Atualizado:** 2026-06-19 · **Rotas:** `/clientes`, `/clientes/:cnpj`
 
-## Propósito
-Cadastro mestre de clientes (Customer Master) do Transhipping Desk: identificação fiscal por CNPJ/CPF, contatos, importação em massa pela planilha *base-clientes*, reconciliação/fuzzy matching de clientes vindos dos manifestos e gestão do acesso ao [Portal do Cliente](portal-cliente.md). O cliente é a entidade que recebe faturas — por isso o cadastro é pré-requisito do [Faturamento](faturamento.md) e da [Revisão](operacao-suporte.md#revisão).
+> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/clientes`, `/clientes/:cnpj`
 
-## Como funciona
-- `/clientes` (`Clientes.tsx`) renderiza a lista mestre paginada (50 linhas/página) com busca, filtros, seleção em massa (admin), exportação e o fluxo de importação *base-clientes*. Cada linha navega para `/clientes/:cnpj` usando `cnpj_cpf` como chave.
-- `/clientes/:cnpj` (`ClienteFicha.tsx`) é a ficha do cliente: formulário do mestre (razão social, endereço, cidade/UF/CEP, notas), CRUD de contatos, histórico de B/Ls e de faturas, e o painel de provisionamento de acesso ao portal (somente admin).
-- O documento é normalizado para dígitos (`onlyDigits`) e validado como **CPF (11 dígitos) ou CNPJ (14 dígitos)**; a exibição usa `formatCnpjCpf()`.
+## Propósito e escopo
 
-## Componentes e arquivos
-| Camada | Arquivo | Responsabilidade |
+O módulo mantém o cadastro mestre de clientes, seus contatos, o vínculo com B/Ls e invoices e o provisionamento administrativo da Conta de Portal. As rotas são internas, montadas sob `ProtectedRoute` e `AppLayout` em `src/App.tsx`; seleção/exclusão em massa e gestão do Portal aparecem somente para admin, mas a fronteira efetiva continua nas policies e RPCs do Supabase.
+
+`clientes.md` é dono do ciclo cadastral e do adaptador interno de provisionamento. Autenticação, sessão e autosserviço externos pertencem a [Portal do Cliente](portal-cliente.md); reconciliação manual e gate de faturamento pertencem a [Operação e suporte](operacao-suporte.md).
+
+Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/pages/ClienteFicha.tsx`, `src/hooks/useCustomers.ts`, `src/services/customers.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts`, `supabase/functions/provision-portal-user/index.ts` e `supabase/migrations/20260619130000_review_gate_hardening.sql`.
+
+## Anatomia das telas
+
+### `/clientes`
+
+`src/pages/Clientes.tsx` compõe:
+
+- cards resumidos de clientes, B/Ls, taxas e saldo;
+- busca por nome, fantasia ou documento e filtros por email, existência de B/L e saldo;
+- tabela paginada em 50 linhas, ordenável por cliente, quantidade de B/Ls e saldo;
+- seleção por linha/página e exclusão controlada, visíveis somente para admin;
+- atalhos para ficha e faturamento, criação manual, importação da base e exportação XLSX;
+- estados explícitos de loading, erro e vazio; modais de cadastro e preview da planilha.
+
+A consulta usa paginação no Supabase apenas no caso simples. Filtros dependentes de contatos/saldo e ordenações calculadas carregam o conjunto candidato, filtram/ordenam no cliente e só depois recortam a página (`src/hooks/useCustomers.ts`).
+
+### `/clientes/:cnpj`
+
+`src/pages/ClienteFicha.tsx` usa o parâmetro `:cnpj` diretamente como chave de `customers.cnpj_cpf`. A ficha reúne:
+
+- mestre editável, com justificativa obrigatória e auditoria;
+- contatos com finalidade e indicador principal;
+- histórico de B/Ls e invoices, com restrição financeira tratada separadamente;
+- painel administrativo da Conta de Portal, incluindo CNPJ/CPF de login, email, senha e status;
+- loading com skeleton e um estado único para documento ausente, inválido, não encontrado ou erro de consulta.
+
+`useCustomerDetail` carrega `customers`, `customer_contacts` e `bls`; invoices são consultadas separadamente, limitadas às 200 mais recentes. Admin também carrega `get_customer_portal_account` na query `['customer-portal-account', customerId]`.
+
+## Catálogo de ações
+
+| Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
+|---|---|---|---|---|---|---|---|
+| `/clientes` — buscar e filtrar | Usuário interno ativo; termos/filtros opcionais | `Clientes`, `setFilterField` | `useCustomers`/`useCustomerSummary`; busca base no Supabase e filtros de contato, email, B/L e saldo em `filterCustomerRowsByClientSideFilters` | Leitura de `customers`, `customer_contacts`, `bls` e invoices emitidas | Reseta página; queries `['customers', filters]` e `['customers-summary', filters]` | Erro da consulta exibe erro da lista; resumo pode falhar em query própria | **Teste:** `src/hooks/__tests__/useCustomersFilters.test.ts`; **Código:** `src/hooks/useCustomers.ts` |
+| `/clientes` — paginar e ordenar | Resultado carregado | `Clientes`, botões de cabeçalho e paginação | `toggleSort`, `sortCustomerRows`; ordenação não padrão força varredura e paginação client-side | Somente leitura | Atualiza `filters.sortKey`, `sortDirection` ou `page`; nova chave de query | Custo cresce com o conjunto quando filtro/ordenação exige processamento local | **Teste:** `src/lib/__tests__/customerTableViewModel.test.ts`; **Código:** `src/hooks/useCustomers.ts` |
+| `/clientes` — selecionar linhas | Admin; linhas na página | Checkboxes e `BulkActionsBar` | `useRowSelection`; “selecionar todos” atua nos IDs da página atual | Nenhuma | Estado local de seleção; limpar após exclusão | Seleção pode atravessar páginas até ser limpa | **Código:** `src/pages/Clientes.tsx` |
+| `/clientes` — abrir ficha/faturamento | Linha existente | Links “Ficha” e ícone financeiro | React Router; `buildCustomerBillingUrl` | Nenhuma | Navega para `/clientes/{cnpj_cpf}` ou `/faturamento?tab=invoices&customer=...` | Rota de ficha falha se a chave não coincidir exatamente | **Teste:** `src/lib/__tests__/customerTableViewModel.test.ts`; **Código:** `src/pages/Clientes.tsx` |
+| `/clientes` — criar cliente | CNPJ/CPF com 11/14 dígitos; razão social com 2+ caracteres; contatos parcialmente preenchidos precisam de nome | Modal “Novo Cliente”, `handleCreateCustomer` | Zod → `createCustomer`; documento normalizado com `onlyDigits` | INSERT em `customers`; INSERT em `customer_contacts` | Invalida `['customers']` e `['customer-lookup']`; navega à ficha | Duplicidade/erro do banco; se contatos falham, o service tenta remover o cliente recém-criado | **Código:** `src/pages/Clientes.tsx`, `src/services/customers.ts` |
+| `/clientes` — importar planilha | `.xlsx`, `.xls` ou `.csv` dentro do limite; cabeçalhos CNPJ/CPF e Razão Social | Modal “Importar Base”, `handleBaseFile`/`handleImportBase` | `assertUploadSize` → import dinâmico de `@e965/xlsx` → `parseCustomerBaseRows` → `importCustomerBaseRows` | UPSERT `customers`; INSERT de novos `customer_contacts`; UPDATE de `bls.customer_id` | Preview com linhas válidas/ignoradas; invalida `['customers']`, `['customer-lookup']`, `['bls']` | Arquivo grande, aba/cabeçalho inválido, documento/nome ausente ou falha em qualquer escrita | **Teste:** limite em `src/services/__tests__/uploadLimits.test.ts`; **Código:** `src/services/customerBase.ts` |
+| `/clientes` — exportar conjunto filtrado | Consulta disponível | `handleExportBase` | Busca todos os clientes por nome, aplica filtros client-side e `exportCustomerBaseWorkbook` | Leitura de `customers`, `customer_contacts`, `bls`, invoices; download XLSX local | Não altera cache; exporta todas as páginas filtradas, não só a página corrente | Toast genérico; veja divergência sobre busca/ordenação/email | **Código:** `src/pages/Clientes.tsx`, `src/services/exports.ts` |
+| `/clientes` — inspecionar dependências e excluir em massa | Admin; ao menos um ID selecionado | `runCustomerDelete`/`BulkActionsBar` | `checkCustomerDependencies` gera deletáveis e bloqueados; confirmação; `deleteCustomers` | SELECT em `bls`, `invoices`, `demurrage_invoices`, `bl_receivables`, `billing_batches`; DELETE `customer_contacts`, `customer_rate_overrides`, `customers`; INSERT best-effort em `audit_logs` | Exclui apenas IDs liberados; limpa seleção; invalida `customers`, `customers-summary`, `customer-lookup` | Todos bloqueados, cancelamento, erro de leitura/delete; falha de auditoria só gera telemetria | **Teste:** `src/services/__tests__/customers.delete.test.ts`; **Código:** `src/services/deleteAudit.ts` |
+| `/clientes/:cnpj` — carregar ficha completa | `:cnpj` presente e igual ao documento persistido | `useCustomerDetail`; query da Conta de Portal para admin | Query mestre/contatos/B/Ls → query de invoices → `getCustomerPortalAccount` | SELECT em `customers`, `customer_contacts`, `bls`, `invoices`; RPC `get_customer_portal_account` | Queries `['customer-detail', cnpj]` e `['customer-portal-account', id]` | Permissão de invoices vira lista vazia com `invoices_access_denied`; demais erros caem no estado genérico | **Código:** `src/hooks/useCustomers.ts`, `src/pages/ClienteFicha.tsx` |
+| `/clientes/:cnpj` — editar mestre | Cliente carregado; usuário presente; justificativa não vazia | `handleSaveCustomer` | `updateCustomerWithAudit` calcula apenas campos alterados | UPDATE `customers`, depois INSERT em `audit_logs` por campo | Invalida `['customer-detail', cnpj]` e `['customers']`; limpa justificativa | Nenhuma alteração gera aviso; update e auditoria não estão na mesma transação | **Código:** `src/pages/ClienteFicha.tsx`, `src/services/customers.ts` |
+| `/clientes/:cnpj` — criar/editar contato | Cliente carregado; nome obrigatório | `handleSaveContact` | `upsertCustomerContact` decide INSERT/UPDATE pelo `contact.id` | INSERT/UPDATE `customer_contacts` | Invalida `['customer-detail', cnpj]`; limpa formulário | Toast genérico em falha | **Código:** `src/pages/ClienteFicha.tsx`, `src/services/customers.ts` |
+| `/clientes/:cnpj` — remover contato | Confirmação explícita | `handleDeleteContact` | `deleteCustomerContact` | DELETE `customer_contacts` por ID | Invalida `['customer-detail', cnpj]` | Cancelamento ou erro do banco | **Código:** `src/pages/ClienteFicha.tsx`, `src/services/customers.ts` |
+| `/clientes/:cnpj` — gravar Conta de Portal inativa | Admin ativo; cliente carregado; email; senha com 8+ caracteres; login documental válido se informado | `savePortalMutation` | `upsertCustomerPortalAccount({ active:false })` | RPC `upsert_customer_portal_account`; tabela `customer_portal_accounts` | Conta permanece inativa até vínculo Auth; invalidação ocorre ao fim do fluxo | `42501`, senha/documento inválido, RPC ausente ou banco indisponível | **Teste:** `src/services/__tests__/customers.test.ts`; **Teste de contrato SQL:** `src/services/__tests__/reviewGateHardeningMigration.test.ts` |
+| `/clientes/:cnpj` — provisionar usuário Auth | Conta inativa criada; admin autenticado; origem permitida; rate limit disponível | `provisionPortalAuthUser` | `supabase.functions.invoke('provision-portal-user')`; Function valida JWT/perfil/origem, cria ou atualiza Auth e vincula a conta | Supabase Auth Admin; UPDATE `customer_portal_accounts.auth_user_id` e `portal_email`; RPC `check_provision_rate_limit` | Retorna `auth_user_id`; erros HTTP têm corpo extraído para a UI | Origem/chamador proibido, rate limit, email inválido/duplicado, senha curta, conta ausente, Auth ou vínculo falho | **Teste:** sequência mockada em `src/services/__tests__/customers.test.ts`; **Código:** `supabase/functions/provision-portal-user/index.ts` |
+| `/clientes/:cnpj` — verificar vínculo e ativar | Edge Function retornou `auth_user_id`; admin | `savePortalMutation` | Verificação explícita do retorno → `setCustomerPortalAccountActive` | RPC `set_customer_portal_account_active`; UPDATE `customer_portal_accounts.active` | Invalida `['customer-portal-account', id]`; limpa senha | Ausência de `auth_user_id` interrompe antes da ativação; RPC também rejeita ativação sem vínculo | **Teste:** `src/services/__tests__/customers.test.ts`; **Teste de contrato SQL:** `src/services/__tests__/reviewGateHardeningMigration.test.ts` |
+| `/clientes/:cnpj` — ativar/desativar conta existente | Admin; conta já provisionada | `handleTogglePortalActive` | `togglePortalActiveMutation` → RPC de status | RPC `set_customer_portal_account_active` | Invalida `['customer-portal-account', id]`; atualiza estado local | Ativação sem `auth_user_id`, permissão ou transporte | **Código:** `src/pages/ClienteFicha.tsx`, `src/services/customers.ts`; **Teste de contrato SQL:** `src/services/__tests__/reviewGateHardeningMigration.test.ts` |
+| `/clientes/:cnpj` — rota inválida/não encontrada | Documento ausente, formatado ou inexistente | Estado terminal de `ClienteFicha` | `useCustomerDetail` só habilita com valor; consulta por igualdade exata | SELECT `customers` por `cnpj_cpf` | Nenhuma navegação automática | Exibe “Cliente não encontrado ou erro ao consultar o Supabase”, sem distinguir causa | **Código:** `src/pages/ClienteFicha.tsx`, `src/hooks/useCustomers.ts` |
+
+## Estado e dados
+
+| Estado/fonte | Dono e formato | Observações |
 |---|---|---|
-| Page | `src/pages/Clientes.tsx` | Lista mestre, busca/filtros, importação *base-clientes*, export |
-| Page | `src/pages/ClienteFicha.tsx` | Ficha do cliente, contatos, provisionamento de portal |
-| Hook | `src/hooks/useCustomers.ts` | Queries React Query: lista, summary, detalhe, lookup |
-| Service | `src/services/customers.ts` | CRUD de `customers`/`customer_contacts`, RPCs de conta de portal, invoke `provision-portal-user` |
-| Service | `src/services/customerBase.ts` | Parse e importação da planilha *base-clientes* |
-| Service | `src/services/customerReconciliation.ts` | `loadCustomerMaps`, `findMatchedCustomer` (fuzzy matching) |
-| Migration | `supabase/migrations/20260618145508_preserve_customer_billing_block_reason.sql` | Preserva o motivo de bloqueio de faturamento por reconciliação |
-| Migration | `supabase/migrations/20260619130000_review_gate_hardening.sql` | Torna portal ativo dependente de `auth_user_id` e endurece RPCs administrativas |
+| `['customers', filters]` | `useCustomers` | Lista e total da paginação; filtros/ordenação fazem parte da chave. |
+| `['customers-summary', filters]` | `useCustomerSummary` | Reexecuta a busca sem paginação; `staleTime` de 60 s. |
+| `['customer-detail', cnpj]` | `useCustomerDetail` | Mestre, contatos, B/Ls, até 200 invoices e saldo apenas de status `issued`. |
+| `['customer-lookup', search]` | `useCustomerLookup` | Habilitada com 2+ caracteres; até 25 resultados. |
+| `['customer-portal-account', customerId]` | `ClienteFicha` | Somente admin; `retry:false`. |
+| Filtros, seleção, modais e formulários | Estado local das páginas | Não persistem na URL, exceto a própria rota da ficha. |
+| `customers.cnpj_cpf` | Identidade cadastral | UNIQUE e NOT NULL desde `supabase/migrations/001_schema.sql`; criação/importação persistem apenas dígitos. |
+| `customer_contacts` | Contatos do cliente | Finalidade aceita: `geral`, `operacional`, `faturamento`, `financeiro`. |
+| `customer_portal_accounts` | Conta técnica do Portal | Relaciona cliente a `auth.users` por `auth_user_id`; `active` não substitui o vínculo Auth. |
 
-Cache keys (`useCustomers.ts`): `['customers', filters]`, `['customers-summary', filters]`, `['customer-detail', cnpj]`, `['customer-lookup', search]`; a ficha usa `['customer-portal-account', id]`.
+O saldo da lista não usa `customers.pending_balance`: `fetchIssuedInvoiceBalanceByCustomer` percorre invoices `issued`. A ficha aplica a mesma noção sobre as invoices que conseguiu ler. Dados de matching ficam em quatro mapas em memória, carregados em páginas de 1.000 registros por `loadCustomerMaps`.
 
-## Regras de negócio
-- **Identificação:** campo `cnpj_cpf`, armazenado só com dígitos; aceita CPF (11) ou CNPJ (14). Serve de chave de rota e de identidade do cliente.
-- **Contatos:** `upsertCustomerContact(customerId, contact)` insere/atualiza (`is_primary`, `purpose` ∈ `geral|operacional|faturamento|financeiro`); `deleteCustomerContact(contactId)` remove um contato.
-- **Importação *base-clientes*:** `parseCustomerBaseFile(file)` lê `.xlsx/.xls/.csv` via SheetJS e mapeia colunas (`cnpj/cpf`, `razao social`, `nome fantasia`, `email`, `endereco`, `cidade`, `uf`, `cep`). Obrigatórias: CNPJ/CPF e Razão Social. `importCustomerBaseRows(rows)` faz upsert deduplicando por `cnpj_cpf`, mescla múltiplos e-mails em contatos e revincula retroativamente B/Ls não vinculados cujo `manifest_customer_cnpj_cpf` bate. Retorna `{ imported, updated, contactsCreated, blsLinked }`.
-- **Reconciliação / fuzzy matching:** `loadCustomerMaps()` carrega todos os clientes (paginado de 1000) em quatro índices — por documento, por nome normalizado, por nome canônico e uma lista canônica para iteração fuzzy. `canonicalizeName()` aplica `normalizeText` (lowercase, sem diacríticos), remove sufixos societários (LTDA, S/A, EIRELI, EPP, ME, etc.) e colapsa espaços. `findMatchedCustomer(candidate, maps)` resolve em cascata: (1) documento exato → `document`; (2) nome normalizado exato → `name`; (3) nome canônico exato → `name`; (4) Levenshtein ≥ 0,90 com guarda de primeira palavra idêntica → `name`.
-- **Billing block reason:** quando a reconciliação de cliente bloqueia o faturamento, um B/L pode terminar sem linhas de cobrança — o que **não** significa que seu POD/modal não tenha tabela de tarifas válida. A migration `20260618145508` recria `import_manifest_with_postprocess_transactional()` para preservar o motivo específico de hold produzido por `run_billing_for_import_batch`, evitando que o motivo seja sobrescrito por um genérico, e insere os e-mails de contato do manifesto em `customer_contacts`.
-- **Provisionamento de portal:** na ficha, o admin define `portal_email` + senha (mín. 8 caracteres); na fila de revisão, a senha é gerada pelo sistema. Em ambos os caminhos a sequência é **criar/atualizar a conta inativa → invocar `provision-portal-user` → exigir `auth_user_id` → ativar**. A Edge Function cria/atualiza o usuário Supabase Auth e grava `auth_user_id`/`portal_email`. Os RPCs recusam ativação sem vínculo Auth e removem a assinatura antiga de `upsert_customer_portal_account`, evitando contas aparentemente ativas mas impossíveis de autenticar. Ver [Portal do Cliente](portal-cliente.md).
+## Fluxos e invariantes
 
-## Dependências
-- **Tabelas:** `customers`, `customer_contacts`, `customer_rate_overrides`, `customer_portal_accounts`, `customer_portal_sessions`, `customer_reconciliation_queue` (SET NULL ao excluir cliente); leitura de `bls`, `invoices`, `demurrage_invoices`, `bl_receivables`, `billing_batches` para histórico e checagens de dependência antes de excluir.
-- **RPCs:** `get_customer_portal_account`, `upsert_customer_portal_account`, `set_customer_portal_account_active`.
-- **Integrações externas:** Edge Function `provision-portal-user` (Supabase Auth admin); SheetJS para parse de planilha.
-- **Outros módulos:** [Faturamento](faturamento.md), [Revisão](operacao-suporte.md#revisão), [Reconciliação PIX](reconciliacao-pix.md), [Portal do Cliente](portal-cliente.md). Termos em [Glossário](../GLOSSARIO.md); regras transversais em [regras-de-negócio](../operations/regras-de-negocio.md).
+1. **Identidade normalizada:** CPF tem 11 dígitos e CNPJ 14. Criação, importação e login de Portal removem pontuação; `customers.cnpj_cpf` é a identidade única.
+2. **Chave de rota:** `/clientes/:cnpj` consulta igualdade exata. Links internos usam o valor persistido; deep links devem usar os 11/14 dígitos canônicos.
+3. **Contatos:** `purpose` pertence ao conjunto `geral/operacional/faturamento/financeiro`; `is_primary` é preferência de exibição, não unicidade garantida pelo service.
+4. **Importação e dedupe:** o parser mescla linhas do mesmo documento, preserva o melhor texto e a união de emails; a persistência faz UPSERT por `cnpj_cpf`, evita emails já existentes e vincula retroativamente B/Ls ainda sem cliente quando `manifest_customer_cnpj_cpf` coincide.
+5. **Precedência de matching:** documento exato → nome normalizado exato → nome canônico exato → Levenshtein `>= 0,90`. O fuzzy só compara candidatos cujo primeiro token canônico seja idêntico.
+6. **Conta ativa funcional:** `active=true` requer `auth_user_id` e email técnico. A sequência canônica é conta inativa → `provision-portal-user` → confirmação de `auth_user_id` → ativação.
+7. **Edge Function:** `provision-portal-user` é um adaptador server-side para privilégios de Supabase Auth. O botão React não é fronteira de segurança; a Function valida JWT, perfil administrativo e origem, e as RPCs validam admin no banco.
+8. **Hard delete:** a UI é admin-only, RLS de `customers`/`customer_contacts` reserva DELETE a admin (`supabase/migrations/010_rls_by_role.sql`) e o service bloqueia qualquer cliente com B/L, invoice local, invoice de demurrage, recebível ou lote. Contatos e overrides são removidos antes do mestre; exclusão em massa pode prosseguir parcialmente.
+
+## Testes e validação
+
+Os testes abaixo foram inspecionados, mas não executados nesta cartografia, conforme coordenação do Plano 04.
+
+| Evidência | Tipo | O que sustenta | Limite |
+|---|---|---|---|
+| `src/services/__tests__/customers.test.ts` | **Teste** unitário | Erros de RPC, saldo `issued`, sequência conta inativa → Function → ativação e bloqueio sem `auth_user_id` | Supabase, Auth e Function são mocks; não prova deploy/runtime. |
+| `src/services/__tests__/customers.delete.test.ts` | **Teste** unitário | Bloqueio por B/L/fatura, delete parcial e ordem contatos → overrides → cliente | Não prova RLS, FKs ou auditoria real. |
+| `src/services/__tests__/customerReconciliation.test.ts` | **Teste** unitário | Precedência, canonização e guarda do primeiro token no fuzzy | Não carrega uma base real. |
+| `src/hooks/__tests__/useCustomersFilters.test.ts` | **Teste** unitário | Filtro de email e cards derivados | Não cobre paginação híbrida nem consulta Supabase. |
+| `src/lib/__tests__/customerTableViewModel.test.ts` | **Teste** unitário | Ordenação, chips, contato principal e URL de faturamento | Não cobre interação completa da página. |
+| `src/services/__tests__/uploadLimits.test.ts` | **Teste** unitário | Rejeição de planilha acima do limite antes de `arrayBuffer` | Não cobre parsing/importação de fixture válida. |
+| `src/services/__tests__/reviewGateHardeningMigration.test.ts` | **Teste de contrato SQL** | Presença textual do gate `active + auth_user_id` e rejeição de ativação inválida | Regex/conteúdo de migration; não executa PostgreSQL nem confirma migration aplicada. |
+
+**Runtime não executado.** Validação futura precisa registrar ambiente e dados controlados para: criar cliente e contatos; importar XLSX/CSV com duplicatas, erros e B/L retroativo; editar mestre e conferir `audit_logs`; provisionar/criar/resetar/desativar usuário Auth real; tentar ativação sem `auth_user_id`; excluir lote misto e conferir bloqueios, RLS, cascatas/SET NULL e auditoria.
 
 ## Notas e divergências
-- A exclusão de cliente é guardada por dependências fiscais (faturas, receivables, batches) — ver [segurança](../operations/seguranca.md) e [ARCHITECTURE](../ARCHITECTURE.md).
-- `customer_rate_overrides` aparece no cadastro mas a manutenção de tarifas por cliente é responsabilidade de [Taxas Locais](taxas-locais.md).
-- O fuzzy matching usa guarda de primeira palavra para reduzir falsos positivos; nomes muito curtos ou genéricos ainda podem exigir revisão manual na [Revisão](operacao-suporte.md#revisão).
+
+- **Suspeita — exportação não espelha integralmente a visão.** `handleExportBase` exporta todas as páginas filtradas, mas não reaplica a ordenação ativa, omite a cláusula de documento normalizado usada por `useCustomers` e `exportCustomerBaseWorkbook` grava a coluna Email vazia. Uma busca por documento formatado ou a expectativa de round-trip pode produzir arquivo diferente da tabela.
+- **Código — update e auditoria não são atômicos.** `updateCustomerWithAudit` atualiza `customers` antes de inserir `audit_logs`; falha da auditoria deixa o cadastro alterado embora a UI informe falha.
+- **Código — mensagem de migration desatualizada.** `normalizeCustomerPortalRpcError` orienta aplicar `025_billing_orchestration_portal.sql`, enquanto o contrato vigente de ativação foi endurecido por `supabase/migrations/20260619130000_review_gate_hardening.sql`.
+- `customer_rate_overrides` é apagado junto do hard delete, mas sua manutenção funcional pertence a [Taxas Locais](taxas-locais.md).

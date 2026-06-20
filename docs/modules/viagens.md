@@ -1,97 +1,120 @@
 # Viagens
 
-> **Status:** ativo · **Atualizado:** 2026-06-18 · **Rotas:** `/viagens`, `/viagens/:voyageId`
+> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/viagens`, `/viagens/:voyageId`
 
-## Propósito
+## Propósito e escopo
 
-Centro operacional da **Viagem** (navio em uma escala/voyage): planejamento de escalas (POL/POD), métricas de importação/exportação por porto, dados do Sistema Mercante (Número de Escala, CE Master), estado de conciliação Baplie↔manifesto e linha do tempo de eventos. É o ponto de convergência de quase todos os módulos: consome `import_batches`, schedules, B/Ls e conciliação.
+Centro operacional da **Viagem**: um navio identificado por número de viagem, acompanhado em suas escalas, agendas, manifestos e cargas. O módulo é o agregador master-detail de planejamento POL/POD, exportação, CE Master, indicadores Mercante, timeline e conciliação Baplie × Manifesto; a persistência dos imports pertence a [Manifestos & EDI](manifesto-edi.md), Granito e Vazios.
 
-Adota layout **master-detail** com rota dedicada por viagem (ver [ADR 0012](../adr/0012-viagens-master-detail-rota-dedicada.md)): um **rail** à esquerda lista/filtra as viagens; o **detalhe** abre em `/viagens/:voyageId`, deep-linkável a partir de Painel, Alertas e Financeiro.
+As duas rotas usam a mesma página, `src/pages/Viagens.tsx`, registrada em `src/App.tsx`. O rail e a rota dedicada seguem a [ADR 0012](../adr/0012-viagens-master-detail-rota-dedicada.md). Termos como Viagem, Escala, Número de Escala, Vínculo de Manifestos, CE Mercante e CE Master seguem `docs/GLOSSARIO.md`.
 
-## Como funciona
+Fontes principais: `src/pages/Viagens.tsx`, `src/pages/viagensHelpers.ts`, `src/components/voyages/VoyageCard.tsx`, `src/hooks/useViagemSchedulesAndStats.ts`, `src/services/voyages.ts`, `src/services/voyageRouteSchedules.ts`, `src/services/voyageExportSchedules.ts` e `src/services/voyageTimeline.ts`.
 
-A página carrega a lista de voyages, agrega schedules e estatísticas por viagem (`useViagemSchedulesAndStats`) e, ao selecionar uma, mostra o detalhe (`VoyageCard`) em abas: Visão geral, Importação, Exportação, Escalas & Manifestos. Timeline e conciliação são carregadas sob demanda por viagem.
+## Anatomia das telas
 
-Particularidade arquitetural: **schedules POL/POD não têm tabela própria** — o estado é reconstruído de `audit_logs` (padrão insert-only). Cada alteração de ETD/ETA/CE/escala/linked vira uma linha de auditoria; a leitura (`listVoyagePodSchedules`/`listVoyagePolSchedules`) reduz os logs ao valor mais recente por campo por `entity_id` (formato `voyageId::portCode`). Já as **export schedules** têm tabela dedicada (`voyage_export_schedules`, upsert por `voyage_id`).
+### `/viagens`
 
-| Hook | Query key | Fonte |
-| --- | --- | --- |
-| `useViagemSchedulesAndStats` | (vários) | `voyagesWithUnpaidBls`, POL/POD via audit_logs, export schedules |
-| `useVoyageTimeline` | `['voyage-timeline', voyageId]` | `audit_logs`, `baplie_reconciliation_resolutions`, `baplie_containers` |
-| `useVoyageReconciliation` | `['baplie-reconciliation', voyageId]` | `reconcileBaplieWithManifest` (por voyage) |
+- `src/pages/Viagens.tsx` carrega até 500 viagens por `useVoyages` em `src/hooks/useBls.ts`, junto de B/Ls, batches, Granito e vazios de exportação.
+- `src/components/voyages/VoyageFilters.tsx` oferece busca por navio, viagem, armador e porto; período (`hoje`, `7d`, `30d` ou intervalo); status; e conciliação.
+- `src/lib/viagensFilters.ts` filtra localmente e ordena por próxima escala com ETA ascendente, depois por navio/viagem. Viagens sem próxima escala ficam ao final.
+- `src/components/voyages/VoyageRail.tsx` mostra rota POL→POD, B/Ls, containers distintos, próxima escala e estado de conciliação. A seleção navega para `/viagens/:voyageId`.
+- O rail pode ser recolhido; essa preferência é local em `localStorage['viagens:rail-collapsed']`.
+- Sem seleção, o desktop mostra o estado “Selecione uma viagem”; no mobile o rail ocupa a lista principal.
+- Usuários admin veem “Nova Viagem” e edição no item do rail. O cadastro também aceita PODs/ETAs antecipados para o Line-Up.
 
-## Componentes e arquivos
+### `/viagens/:voyageId`
 
-| Camada | Arquivo | Responsabilidade |
-| --- | --- | --- |
-| Página | `src/pages/Viagens.tsx` | Master-detail; rail + detalhe via `:voyageId`; modais de viagem, POD/POL e export schedules |
-| Helpers | `src/pages/viagensHelpers.ts` | Funções puras: `VoyageRailItem`, estado de conciliação, timeline derivada, métricas por POD/POL |
-| Service | `src/services/voyages.ts` | CRUD de `voyages`; `getOrCreateCarrier`/`getOrCreateVessel`; `voyagesWithUnpaidBls`; audit |
-| Service | `src/services/voyageForm.ts` | Schema/validação (Zod) do formulário de viagem; default carrier CSSC |
-| Service | `src/services/voyageRouteSchedules.ts` | POL/POD via audit_logs: `saveVoyagePol/PodSchedule`, `list*`, `delete*`, sync no import |
-| Service | `src/services/voyageExportSchedules.ts` | CRUD de `voyage_export_schedules` (upsert por `voyage_id`) |
-| Service | `src/services/voyageTimeline.ts` | `fetchVoyageTimelineSources` (audit_logs, resolutions, baplie imports, nomes de atores) |
-| Hook | `src/hooks/useVoyageTimeline.ts` | React Query da timeline (stale 60s) |
-| Hook | `src/hooks/useViagemSchedulesAndStats.ts` | Agrega POL/POD/export + B/Ls não pagos |
-| Hook | `src/hooks/useVoyageReconciliation.ts` | Conciliação Baplie por voyage (stale 60s) |
-| Componente | `src/components/voyages/VoyageCard.tsx` | Detalhe em abas; edição de POD/POL/export schedules |
-| Componente | `src/components/voyages/VoyageRail.tsx` | Rail: lista compacta, rota POL→POD, contadores, dot de estado |
-| Componente | `src/components/voyages/VoyageFilters.tsx` | Busca, período, status, filtro de conciliação |
-| Migration | `supabase/migrations/001_schema.sql` | `voyages`, `vessels`, `carriers`, `ports`, `audit_logs` |
-| Migration | `supabase/migrations/20260521000000_voyage_export_schedules.sql` (+ `_ces_linked`, `_pol`) | `voyage_export_schedules` |
-| Migration | `supabase/migrations/046_voyage_schedule_snapshot_trigger.sql`, `052_fix_voyage_snapshot_null_new_value.sql` | Snapshot/trigger de schedule |
-| Migration | `supabase/migrations/20260616120000_import_batches_ce_master.sql` | `import_batches.ce_master` (CE Master) |
+- `useParams()` converte `:voyageId` com `Number`. Se não houver viagem correspondente, a página mantém a URL e mostra “Viagem não encontrada”; não há redirect automático.
+- `src/components/voyages/VoyageCard.tsx` possui quatro abas locais, não sincronizadas na URL: `visao`, `importacao`, `exportacao` e `manifestos`.
+- **Visão geral:** KPIs, planejamento por POD/POL, edição/exclusão de agenda, cards contextuais e timeline.
+- **Importação:** métricas por POD para containers, IMO/OOG, veículos, carga geral, carga solta e vazios de importação; inclui importação rápida por `src/components/shared/VoyageImportActions.tsx`.
+- **Exportação:** métricas por POL para Granito e vazios de exportação; inclui importação rápida de Granito e bookings de vazios.
+- **Escalas & Manifestos:** resumo de conciliação, cobertura de CE Mercante, batches agrupados por rota, ETD por POL e CE Master.
+- A timeline é expansível e combina imports, agendas, dados da viagem, CE Master, Baplie e resoluções de divergência.
+- Navegação contextual:
+  - `/manifestos?voyage=<id>`;
+  - `/carga-solta?voyage=<id>`;
+  - `/granito?voyage=<id>`;
+  - `/vazios?voyage=<id>` (rota de compatibilidade que redireciona para `/embarquevazios`);
+  - `/baplie?voyage=<id>`.
 
-## Regras de negócio
+## Catálogo de ações
 
-### POL / POD e export schedules
+| Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
+|---|---|---|---|---|---|---|---|
+| `/viagens` — buscar, filtrar e ordenar rail | Lista carregada; filtros são locais | `VoyageFilters` | `filterVoyageRailItems` combina busca, status, conciliação e período; ordena por ETA/navio | Nenhuma | Não altera cache; contador deriva da lista visível | ETA ausente exclui a viagem dos filtros de período; intervalo vazio não filtra | `src/components/voyages/VoyageFilters.tsx`; `src/lib/viagensFilters.ts`; `src/lib/__tests__/viagensFilters.test.ts` |
+| `/viagens` — selecionar viagem e sincronizar rota | ID existente no rail | `VoyageRail.onSelect` | `navigate('/viagens/' + id)`; voltar no mobile usa `/viagens` | Nenhuma | A troca monta `VoyageCard` com `key={voyage.id}` e reinicia estado local das abas | ID removido entre lista e clique cai no estado “não encontrada” | `src/pages/Viagens.tsx`; `src/components/voyages/VoyageRail.tsx` |
+| `/viagens/:voyageId` — tratar ID inválido ou excluído | Parâmetro presente | `selectedVoyageId = Number(voyageId)` | Busca em `voyages.find`; não consulta detalhe isolado | Nenhuma | Mantém lista e URL atuais | `NaN`, ID inexistente ou removido mostra estado vazio; não redireciona | `src/pages/Viagens.tsx`; `docs/adr/0012-viagens-master-detail-rota-dedicada.md` |
+| Criar ou editar viagem | Admin para abrir pela página; usuário autenticado para auditoria completa | `VoyageCreateModal` | Zod normaliza armador, SCAC, navio, IMO, viagem, status e POD/ETA; `createVoyage`/`updateVoyage` reutilizam ou criam carrier/vessel | `carriers`, `vessels`, `voyages`; eventos `entity_type='voyages'`; POD/ETA via `audit_logs` | Invalida `['voyages']`, `['voyage-options']`, `['voyage-pod-schedules']`, `['bls']`, `['lineup-tv-v3']`, `['lineup-tv-display-v2']` | Validação do formulário; falha de lookup/insert/update/auditoria | `src/components/shared/VoyageCreateModal.tsx`; `src/services/voyageForm.ts`; `src/services/voyages.ts` |
+| Excluir viagem | Admin; sem B/L, batch CNTR/BB, manifesto de Granito ou manifesto de vazios | Modal em `Viagens` | `deleteVoyage` pré-conta dependências e só então executa delete | `voyages` | Invalida `['voyages']`, `['voyage-options']`, `['voyage-pod-schedules']`, `['bls']`, `['containers']`, `['dashboard']`, `['lineup-tv-v3']`, `['lineup-tv-display-v2']`; seleção volta a `/viagens` | Dependências bloqueiam com contagens; RLS/DB podem negar | `src/pages/Viagens.tsx`; `src/services/voyages.ts` |
+| Adicionar ou editar schedule POD | Usuário com `user.id`; POD não vazio para inclusão | `AddPodToVoyageModal` / `PodScheduleModal` | `saveVoyagePodSchedule` compara o estado reconstruído e insere apenas campos alterados; ATD pode alternar status da viagem | `audit_logs`, `entity_type='voyage_pod_schedule'`, `entity_id='<voyageId>::<POD>'`; trigger materializa `voyages.pod_schedule_snapshot` | Invalida `['voyage-pod-schedules']`, `['voyage-timeline']`, `['lineup-tv-v3']`, `['lineup-tv-display-v2']` | Sessão sem usuário; insert de auditoria; atualização de status da viagem | `src/pages/Viagens.tsx`; `src/components/shared/VoyageScheduleModals.tsx`; `src/services/voyageRouteSchedules.ts`; `supabase/migrations/046_voyage_schedule_snapshot_trigger.sql` |
+| Editar schedule POL e CE Master | Usuário com `user.id`; manifesto agrupado possui batch IDs | `PolScheduleModal` | Salva ETD em `saveVoyagePolSchedule`; grava o mesmo CE Master em todos os batches do manifesto com `setImportBatchCeMaster` | ETD em `audit_logs` (`voyage_pol_schedule`); CE Master em `import_batches.ce_master` + `audit_logs` | Invalida `['voyage-pol-schedules']`, `['voyage-pod-schedules']`, `['voyage-timeline']`, `['voyages']` | Falha parcial é possível entre ETD e múltiplos updates de batch, pois a sequência do frontend não é uma transação única | `src/pages/Viagens.tsx`; `src/services/voyageRouteSchedules.ts`; `src/services/manifestImport.ts`; `supabase/migrations/20260616120000_import_batches_ce_master.sql` |
+| Excluir snapshot/POD do planejamento | Admin; POD sem B/L vinculado; possui dados de agenda ou `linked=true`; usuário autenticado | Lixeira da grade em `VoyageCard` | `deleteVoyagePodSchedule` grava `deleted=true`; a leitura omite schedules cujo último marcador está deletado | Evento insert-only em `audit_logs`; trigger atualiza `pod_schedule_snapshot` | Invalida `['voyage-pod-schedules']`, `['voyage-timeline']`, `['lineup-tv-v3']`, `['lineup-tv-display-v2']` | B/L vinculado bloqueia; ausência de dados vira informação; `42501` é traduzido como falta de permissão | `src/components/voyages/VoyageCard.tsx`; `src/services/voyageRouteSchedules.ts`; `supabase/migrations/052_fix_voyage_snapshot_null_new_value.sql` |
+| Criar/editar ou excluir export schedule | Admin | `ExportScheduleModal` e linha EXP | Upsert por `voyage_id`; delete por `id` | `voyage_export_schedules` | Invalida `['voyage-export-schedules']`, `['lineup-tv-v3']`, `['lineup-tv-display-v2']` | Erro de RLS/DB; a UI mostra mensagem genérica | `src/pages/Viagens.tsx`; `src/components/voyages/VoyageCard.tsx`; `src/services/voyageExportSchedules.ts` |
+| Carregar timeline | Viagem selecionada | `useVoyageTimeline` | Busca agendas e auditoria, resoluções Baplie, primeira importação Baplie e nomes de atores; `buildVoyageTimeline` humaniza e ordena | Leitura de `audit_logs`, `baplie_reconciliation_resolutions`, `baplie_containers`, `user_profiles`; batches vêm do payload de voyages | Família `['voyage-timeline', voyageId]`, stale time 60 s | Qualquer fonte obrigatória com erro rejeita a query; não há paginação além dos ranges de 500 eventos por fonte | `src/hooks/useVoyageTimeline.ts`; `src/services/voyageTimeline.ts`; `src/pages/viagensHelpers.ts` |
+| Carregar resumo de conciliação | Viagem selecionada; staging/manifesto podem estar vazios | `useVoyageReconciliation` | `reconcileBaplieWithManifest` compara Baplie `full` com `bl_containers` da viagem | Leitura de `baplie_containers`, `bls`, `bl_containers`, `baplie_reconciliation_resolutions` | Família `['baplie-reconciliation', voyageId]`, compartilhada com `/baplie`, stale time 60 s | Consultas paginadas podem falhar; part lot com múltiplos matches não gera decisão automática | `src/hooks/useVoyageReconciliation.ts`; `src/services/baplieReconciliation.ts` |
+| Navegar para manifestos, carga solta, Granito, vazios e Baplie | Card habilitado quando há dados; Baplie aparece para divergências | `NavigationCard` / botão “Resolver divergências” | `navigate` acrescenta `?voyage=<id>` | Nenhuma | A tela destino decide se consome o parâmetro | `/carga-solta` não lê hoje o parâmetro; `/vazios` redireciona sem preservar explicitamente a query | `src/components/voyages/VoyageCard.tsx`; `src/App.tsx`; `src/pages/Manifestos.tsx`; `src/pages/CargaSolta.tsx`; `src/pages/EmbarqueVazios.tsx` |
+| Importação rápida no contexto da viagem | Usuário autenticado; tipo disponível na aba | `VoyageImportActions` | Abre parsers/previews de CNTR, BB, Granito, vazios, veículos ou Baplie com `voyageId` travado | Conforme o importador proprietário | Usa arrays literais como `['bls']`, `['voyages']`, `['lineup-tv-v3']`, `['baplie-staging', voyageId]`, `['vehicles']` | A atomicidade varia por importador; detalhes em [Manifestos & EDI](manifesto-edi.md) | `src/components/shared/VoyageImportActions.tsx`; `src/components/shared/FileImportModal.tsx` |
 
-- **POL (Port of Loading):** porto de origem/embarque. Para exportação, gravado em `voyage_export_schedules.pol`; para origem do manifesto, sincronizado de `import_batches` para o schedule POL (`voyage_pol_schedule`, campos `etd`, `escalaNumber`).
-- **POD (Port of Discharge):** porto(s) de descarga. Vários PODs por viagem → várias linhas `voyage_pod_schedule` (campos `etd`, `eta`, `etb`, `ata`, `atd`, `rtw`, `ceStatus`, `linked`, `escalaNumber`, `deleted`). Reconstruídas de `audit_logs`.
-- **`voyage_export_schedules`** (tabela real, 1:1 por voyage): `pol`, `has_granite`, `containers_qty`, `movements_qty`, `eta`, `etb`, `ce_status` (`waiting|received|launching|approving|approved`), `linked`.
+## Estado e dados
 
-### Timeline
+Famílias canônicas de cache:
 
-`voyageTimeline.ts` cruza 4 fontes (`audit_logs` de schedule, `audit_logs` de voyage, `baplie_reconciliation_resolutions`, primeira data de `baplie_containers`) e deriva eventos ordenados do mais recente ao mais antigo: manifesto importado, Baplie importado, datas de escala (ETA/ETB/ATA/ATD), criação de Nº de Escala, manifestos vinculados, mudança de status de CE, RTW (restow), divergência aberta/resolvida, CE Master definido, viagem concluída (todos PODs com ATD).
+| Família | Forma no código | Fonte |
+|---|---|---|
+| Viagens agregadas | `queryKeys.voyages.all()` | `voyages` + relações carregadas por `useVoyages` |
+| Indicador de billing | `queryKeys.voyages.billingStatus(voyageIds)` | `fetchVoyagesWithUnpaidBls` em `src/services/voyages.ts` |
+| POL | `queryKeys.voyages.polSchedules(entityIds)` | estado reconstruído de `audit_logs` |
+| POD | `queryKeys.voyages.podSchedules(voyageIds)` | estado reconstruído de `audit_logs` |
+| Exportação | `queryKeys.voyages.exportSchedules(voyageIds)` | `voyage_export_schedules` |
+| Timeline | `['voyage-timeline', voyageId]` | `audit_logs`, resoluções e Baplie |
+| Conciliação | `['baplie-reconciliation', voyageId]` | comparação Baplie × manifesto |
 
-### Sistema Mercante: CE Master e indicadores
+`src/services/queryKeys.ts` define as cinco famílias `queryKeys.voyages.*`. Nos hooks de timeline e conciliação, o `voyageId` não nulo é convertido para `String(voyageId)`; a tabela acima expressa a família lógica exigida pelos consumidores.
 
-- **CE Master por manifesto.** Distinto do CE Mercante por B/L. É o CE agrupador de um manifesto, armazenado em `import_batches.ce_master`, editado inline e auditado (`setImportBatchCeMaster` em `manifestImport.ts`). Um por manifesto/batch. Ver [GLOSSARIO](../GLOSSARIO.md) e [Manifesto & EDI](manifesto-edi.md).
-- **Número de Escala** (Mercante): identificador da escala do navio no terminal. Existir o número = a escala foi **criada** no Mercante (campo `escalaNumber` do POD schedule).
-- **Indicador "ESCALA" / VINCULADA** (`linked`): afirma que os **manifestos foram vinculados** à escala no Mercante — passo distinto de a escala ter sido criada. `linked=true` → "ESCALA = SIM". **Não confundir** com a existência do Número de Escala (ver [GLOSSARIO](../GLOSSARIO.md), "Vínculo de Manifestos à Escala"). Pode ser marcado manualmente ou auto-vinculado no import do manifesto quando o POD já tem ETA.
-- **"No Escala" / não escalado**: estado derivado da ausência — sem `escalaNumber` e/ou `linked=false` o POD aparece como não escalado; não é um flag explícito no código.
+O payload de `useVoyages` inclui:
 
-### Estado de Conciliação
+- `voyages`, `vessels`, `carriers` e `ports`;
+- `import_batches`, inclusive `ce_master`;
+- `bls`, `bl_containers` e `bl_breakbulk_items`;
+- `granite_manifests`/`granite_bls`;
+- `vazios_manifests`/`vazios_bookings`.
 
-Sinal de leitura (não bloqueio) derivado em `viagensHelpers.ts`, exibido como dot no rail e usado em filtro:
+POL/POD e exportação têm contratos diferentes:
 
-| Nível | Significado |
-| --- | --- |
-| **Divergente** | Há Divergência de Existência ou de Atributo (Baplie↔manifesto) não resolvida — exige ação |
-| **Incompleto** | Falta manifesto, CE Mercante incompleto, ou Baplie em staging sem conciliação |
-| **Conciliado** | Tudo conciliado e CEs completos |
+- `saveVoyagePolSchedule`, `saveVoyagePodSchedule` e `deleteVoyagePodSchedule` gravam eventos insert-only em `audit_logs`. `listVoyagePolSchedules` e `listVoyagePodSchedules*` reduzem do mais recente para o mais antigo por `entity_id` e campo.
+- O trigger `trg_voyage_schedule_snapshot` mantém `voyages.pol_schedule_snapshot` e `voyages.pod_schedule_snapshot`, mas os leitores atuais de `src/services/voyageRouteSchedules.ts` ainda consultam `audit_logs`.
+- `voyage_export_schedules` é uma tabela física 1:1 por `voyage_id`, com CRUD direto em `src/services/voyageExportSchedules.ts`.
 
-## Dependências
+## Fluxos e invariantes
 
-**Tabelas Supabase**
-- `voyages` (`vessel_id`, `voyage_number`, `pol_id`, `pod_id`, `etd/eta/ata`, `status` `active|completed|cancelled`)
-- `vessels` (`name`, `imo`, `carrier_id`), `carriers` (`name`, `scac`), `ports` (`name`, `locode`, `country`)
-- `voyage_export_schedules` (1:1 por voyage)
-- `audit_logs` — fonte de verdade dos schedules POL/POD e da timeline
-- `import_batches` (`ce_master`), `baplie_containers`, `baplie_reconciliation_resolutions` — leitura cruzada
-- `bls` — `voyagesWithUnpaidBls`
+1. **Seleção e deep-link.** A viagem selecionada pertence à URL; as quatro abas internas pertencem apenas ao estado de `VoyageCard`.
+2. **Próxima escala.** `getProximaEscala` escolhe o menor ETA entre PODs sem ATA. O rail usa esse valor para ordenação e filtros de período.
+3. **POD removido.** “Excluir” não apaga histórico: grava `deleted=true`. Reincluir o mesmo POD por `saveVoyagePodSchedule` grava `deleted=false`.
+4. **Conclusão da viagem.** Ao alterar ATD, `syncVoyageStatusAfterAtdChange` marca `completed` apenas quando todos os PODs ativos têm ATD; caso contrário, volta a `active`.
+5. **Número de Escala ≠ VINCULADA.** `escala_number` identifica a escala criada no Mercante; `linked=true` confirma que manifestos foram vinculados à escala.
+6. **CE Master ≠ CE Mercante.** CE Master vive em `import_batches.ce_master`, um valor por manifesto agrupado; CE Mercante vive em cada B/L.
+7. **Timeline não financeira.** A timeline combina agenda, viagem, CE, imports e Baplie; `src/services/voyageTimeline.ts` exclui eventos financeiros por decisão de produto.
+8. **Conciliação é sinal operacional.** `divergente` tem prioridade; `incompleto` cobre falta de manifesto ou CE; `conciliado` indica coerência dos sinais usados pela tela, não autorização financeira.
+9. **`billingStatus` é um proxy.** Apesar do nome `fetchVoyagesWithUnpaidBls`, a consulta atual identifica viagens com B/L cujo `charge_status != 'exempt'`; não comprova pagamento de invoice.
 
-**RPCs** — schedules e CE Master operam por inserts em `audit_logs` / upsert direto, não por RPC dedicada. (Conciliação Baplie é client-side via `reconcileBaplieWithManifest`.)
+## Testes e validação
 
-**Integrações externas** — nenhuma direta.
+Evidência estática localizada:
 
-**Outros módulos**
-- [Manifesto & EDI](manifesto-edi.md) — batches, CE Master, conciliação Baplie
-- [Faturamento](faturamento.md) — `voyagesWithUnpaidBls`, deep-link do Financeiro
-- Painel / Alertas — deep-link para `/viagens/:voyageId`
+- `src/lib/__tests__/viagensFilters.test.ts`: busca, status, conciliação, período e ordenação por próxima escala.
+- `src/pages/__tests__/viagensHelpers.test.ts`: métricas, estado de conciliação, próxima escala, timeline e agrupamentos por POD/POL.
+- `src/components/shared/__tests__/VoyageScheduleModals.test.tsx`: normalização e payload dos modais POL, POD, inclusão de POD e export schedule.
+- `src/components/shared/__tests__/VoyageSectionCards.test.tsx`: navegação, estado desabilitado e componentes de métricas.
+- `src/components/shared/__tests__/VoyageImportActions.test.ts`: somente o resumo consolidado de manifestos CNTR; não prova persistência nem invalidações.
+
+Os testes Vitest não foram executados nesta frente, conforme orientação do coordenador. Também não houve validação em navegador, Supabase ou runtime; comportamento operacional acima é classificado como inferência estática de código/migration.
 
 ## Notas e divergências
 
-- **Schedules sem tabela própria.** POL/POD vivem em `audit_logs` (insert-only). Qualquer consumidor precisa reconstruir o estado pelas funções `list*`, não esperar uma tabela `voyage_pod_schedules`. Apenas `voyage_export_schedules` é tabela física.
-- A rota dedicada `/viagens/:voyageId` precisa tratar `:voyageId` inexistente e a responsividade do par rail+detalhe (desktop-first), conforme as consequências do [ADR 0012](../adr/0012-viagens-master-detail-rota-dedicada.md).
-- O "ESCALA = SIM" (VINCULADA) é frequentemente confundido com o Número de Escala — são estados distintos do Mercante; ver [GLOSSARIO](../GLOSSARIO.md).
+- `CONTEXT.md`, citado pelas instruções do projeto como fonte de domínio, não existe neste checkout; foram usados `docs/GLOSSARIO.md`, `docs/ARCHITECTURE.md`, ADRs, código e migrations.
+- As migrations 046/052 introduzem snapshots JSONB de schedule, mas a leitura atual continua baseada em `audit_logs`. Não documentar snapshot como fonte de leitura até o serviço mudar.
+- O card “Vazios” navega para `/vazios?voyage=<id>`; `src/App.tsx` redireciona para `/embarquevazios` com destino fixo, portanto a preservação do query param não está garantida pelo código do redirect.
+- O card de Carga Solta envia `?voyage=<id>`, mas `src/pages/CargaSolta.tsx` não inicializa seus filtros por `useSearchParams`; o contexto não é aplicado hoje.
+- O CE Master é editado na ficha de Viagens por `PolScheduleModal`. `src/pages/Manifestos.tsx` não oferece edição inline atual, apesar de planos/documentação históricos associarem a ação também a Manifestos.
+- A família de timeline é invalidada por prefixo `['voyage-timeline']`; o hook armazena o ID como string. A notação `['voyage-timeline', voyageId]` neste documento representa a família, não afirma tipo numérico no cache.
