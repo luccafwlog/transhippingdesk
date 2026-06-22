@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { reportBestEffortFailure } from '../lib/telemetry'
 
 export interface ExchangeRates {
   usd: number | null
@@ -114,8 +115,9 @@ export function useExchangeRates(): ExchangeRates & { loading: boolean } {
         saveCache(result)
         setRates(result)
       })
-      .catch(() => {
-        // Keep existing state (cached or null)
+      .catch((error: unknown) => {
+        // Mantém o estado atual (cache ou null); registra para observabilidade.
+        reportBestEffortFailure('useExchangeRates: PTAX do cabeçalho indisponível', error)
       })
       .finally(() => {
         setLoading(false)

@@ -21,6 +21,7 @@ import { useInvoices } from '../hooks/useBilling'
 import { isConsolidatedInvoice, listInvoicesForExport } from '../services/billing'
 import { exportInvoicesWorkbook } from '../services/exports'
 import { detectOverdueInvoices, listFinancialAlerts } from '../services/alerts'
+import { reportBestEffortFailure } from '../lib/telemetry'
 import { describeActiveFilters, describeEmptyState } from '../lib/operationalState'
 import { formatBRL } from '../lib/utils'
 
@@ -105,7 +106,10 @@ export function Faturamento() {
       void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
       void queryClient.invalidateQueries({ queryKey: ['invoices'] })
       void queryClient.invalidateQueries({ queryKey: ['op-count'] })
-    }).catch(() => undefined)
+    }).catch((error: unknown) => {
+      // Sem isto a detecção de vencidos falharia em silêncio ao abrir a tela.
+      reportBestEffortFailure('detectOverdueInvoices ao abrir Faturamento', error)
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
