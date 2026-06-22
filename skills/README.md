@@ -1,6 +1,6 @@
 # Agent Skills
 
-A unified collection of 27 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
+A unified collection of 28 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
 
 Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) plus optional supporting files (prompts, references, scripts, tests).
 
@@ -46,6 +46,7 @@ Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) p
 |-------|-------------|
 | **autoreview** | Auto Review closeout. Codex review is the default engine. Run structured review as a closeout check. |
 | **security-audit-penetration-testing** | Complete security audit framework with 6 phases: discovery, resources, audit, plan, testing, reporting. |
+| **thermo-nuclear-code-quality-review** | Extremely strict maintainability review for abstraction quality, giant files (1k-line threshold), and spaghetti-condition growth. Biased toward ambitious "code judo" restructuring. |
 
 ## Workflow & Communication Skills
 
@@ -118,6 +119,8 @@ skills/
 ├── test-driven-development/
 │   ├── SKILL.md
 │   └── testing-anti-patterns.md
+├── thermo-nuclear-code-quality-review/
+│   └── SKILL.md
 ├── ui-ux-pro-max/
 │   └── SKILL.md
 ├── using-git-worktrees/
