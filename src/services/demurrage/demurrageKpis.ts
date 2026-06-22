@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { assertUploadSize } from '../../lib/fileGuard'
+import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { PixTransaction, RoeSource } from '../../types/database'
 
 export type DemurrageKPIs = {
@@ -169,9 +170,14 @@ export async function fetchROE(): Promise<FetchROEResult> {
     const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * 1.065).toFixed(4))
     saveROECache(roe)
     return { roe, offline: false, cachedAt: null, source: 'bcb_live' }
-  } catch {
+  } catch (error) {
     const cached = loadCachedROE()
+    // PTAX alimenta a conversão da cobrança de demurrage: a queda do BCB precisa
+    // ser observável mesmo quando o cache evita interromper o operador.
+    reportBestEffortFailure('fetchROE: BCB PTAX indisponivel', error, {
+      fellBackToCache: cached != null,
+    })
     if (cached) return { roe: cached.roe, offline: true, cachedAt: cached.fetchedAt, source: 'cached' }
-    throw new Error('BCB offline e sem cache de PTAX disponivel. Informe a taxa manualmente.')
+    throw new Error('BCB offline e sem cache de PTAX disponivel. Informe a taxa manualmente.', { cause: error })
   }
 }
