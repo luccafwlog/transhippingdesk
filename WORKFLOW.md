@@ -92,6 +92,11 @@ src/
   lib/                    utilitários puros
   types/database.ts       tipos gerados e complementos
 
+scripts/
+  check-docs.mjs          verificação de documentação (`npm run docs:check`)
+  perf/                   harness de orçamento de carga das rotas
+  design-audit/           bootstrap e seed da auditoria de design
+
 supabase/
   migrations/             história do schema
   functions/              Edge Functions

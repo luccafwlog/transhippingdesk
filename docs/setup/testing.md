@@ -38,6 +38,24 @@ SUPABASE_INTEGRATION_PASSWORD=…
 
 > **Nunca** rodar a suíte de integração em CI compartilhado ou contra produção — ela exige um ambiente Supabase isolado de validação.
 
+## Orçamento de carga das rotas (performance)
+
+`scripts/perf/measure-page-load.mjs` mede o custo de "page load" por rota — a
+quantidade de JS que o navegador precisa baixar e fazer parse/compile para
+renderizar a rota numa visita fria (rede e dados ficam fora por decisão, ver o
+cabeçalho do script). Cada rota deve ficar abaixo de **50 ms** de parse/compile
+(mediana de 7 execuções).
+
+```bash
+npx vite build                                                   # gera dist/.vite/manifest.json
+node --experimental-vm-modules scripts/perf/measure-page-load.mjs
+```
+
+O harness depende de `build.manifest` habilitado em `vite.config.ts` para
+resolver o grafo de chunks de cada rota. Não roda no CI; é uma verificação
+manual para mudanças que afetem o peso do bundle (ex.: importar uma biblioteca
+pesada como `@e965/xlsx` deve usar `await import(...)` lazy, não import estático).
+
 ## Critério de "verde" antes de PR
 
 `npm run build` + `npm test` sem erros e `npm run lint` sem novos warnings. O workflow `ci.yml` roda exatamente esses passos em todo PR — ver [deploy.md](deploy.md).

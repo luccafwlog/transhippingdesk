@@ -78,6 +78,11 @@ do código legado. Páginas ainda executam alguns comandos de serviço e operaç
 de importação/exportação diretamente. Novas mudanças devem reutilizar o menor
 dono existente da operação, sem criar uma segunda implementação.
 
+As páginas são carregadas sob demanda (`React.lazy`) e bibliotecas pesadas como
+`@e965/xlsx` entram por `await import(...)`, fora do grafo estático da rota. Cada
+rota tem um orçamento de **50 ms** de parse/compile de JS, verificável por
+`scripts/perf/measure-page-load.mjs` — ver [setup/testing.md](./setup/testing.md#orçamento-de-carga-das-rotas-performance).
+
 ### Responsabilidades
 
 - `src/pages/`: composição de rotas, estado visual e fluxos de tela;
