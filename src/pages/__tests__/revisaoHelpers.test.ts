@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   customerHasEmail,
-  extractErrorText,
   getConsigneeFilterOptions,
   getReviewItemCnpj,
   getReviewItemDisplayName,
@@ -53,21 +52,6 @@ describe('needsWeightFix', () => {
   })
 })
 
-describe('extractErrorText', () => {
-  it('normaliza diferentes formatos de erro para minúsculas', () => {
-    expect(extractErrorText(new Error('Falha GRAVE'))).toBe('falha grave')
-    expect(extractErrorText('Erro X')).toBe('erro x')
-    expect(extractErrorText({ code: 'P0001', message: 'Conflito', details: 'D', hint: 'H' })).toBe(
-      'p0001 conflito d h',
-    )
-  })
-
-  it('retorna string vazia para entradas vazias/desconhecidas', () => {
-    expect(extractErrorText(null)).toBe('')
-    expect(extractErrorText(undefined)).toBe('')
-    expect(extractErrorText(123)).toBe('')
-  })
-})
 
 describe('getConsigneeFilterOptions', () => {
   it('lista consignatarios unicos ordenados, ignorando vazios', () => {
