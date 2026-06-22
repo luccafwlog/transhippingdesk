@@ -38,6 +38,7 @@ export default defineConfig({
     'import.meta.env.VITE_APP_COMMIT_SHA': JSON.stringify(appCommitSha),
   },
   build: {
+    manifest: true,
     rollupOptions: {
       output: {
         // Isola vendors estáveis em chunks próprios para melhorar o cache do

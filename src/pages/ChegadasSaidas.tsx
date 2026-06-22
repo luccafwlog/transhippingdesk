@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, Archive, Download, FileSpreadsheet, Pencil, Plus, Trash2, Upload } from 'lucide-react'
-import * as XLSX from '@e965/xlsx'
 import { Card, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { supabase } from '../services/supabase'
@@ -149,6 +148,7 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
   const { showToast } = useToast()
 
   const downloadTemplate = async () => {
+    const XLSX = await import('@e965/xlsx')
     const { data } = await supabase.from('vessel_schedules').select('*').order('display_order', { ascending: true })
     const rows = [
       { 'VESSEL NAME': 'EXEMPLO NAVIO', 'VOY': '1', 'QINGDAO ETD': '01/01/2026', 'SHANGHAI ETD': '02/01/2026',
@@ -176,6 +176,7 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
     setUploading(true)
     setResult(null)
     try {
+      const XLSX = await import('@e965/xlsx')
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf, { cellDates: false })
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { raw: true })
@@ -334,6 +335,7 @@ export function ChegadasSaidas() {
   }
 
   const downloadEnded = async () => {
+    const XLSX = await import('@e965/xlsx')
     const { data } = await supabase.from('ended_vessels').select('*').order('ended_at', { ascending: false })
     if (!data || data.length === 0) { showToast('Nenhum navio encerrado', 'info'); return }
     const rows = data.map((v) => ({
