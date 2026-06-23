@@ -63,7 +63,7 @@ then renormalize (`git add --renormalize .`) and confirm the suite still passes.
 **Problem:** the atomic-write fixes (`save_granite_bl_review`, `import_breakbulk_manifest_transactional`, `set_import_batch_ce_master_atomic`, `import_vazios_transactional`, `save_bl_demurrage_config`, etc.) only take effect once their migrations are applied. They were validated on a disposable PostgreSQL 17 (148/148, 0 failed) but not on the live project.
 **Action:** apply `supabase/migrations/` to a staging Supabase, smoke-test the Granite review / demurrage config / breakbulk-import flows, then promote.
 **Acceptance:** the new RPCs exist on the target project; the dependent UI flows succeed against it.
-- [ ] Done
+- [x] Done — verified against the live "Transhipping Desk" project (`fgmkhbzhaeebrsizwccx`, authorized by the user): `list_migrations` matches local `supabase/migrations/` 1:1 (all atomic-write versions `20260623095500`…`20260623120000` applied), and `pg_proc` confirms every new RPC exists — `import_breakbulk_manifest_transactional`, `set_import_batch_ce_master`, `import_vazios_bookings_transactional` / `import_vazios_importacao_transactional` / `replace_vazios_from_baplie_transactional`, `save_bl_demurrage_config`, `save_granite_bl_review`. (Plan used shorthand names; true names confirmed.) Read-only verification only — no mutating RPCs were executed against production data; driving the live Granite-review / demurrage-config / breakbulk-import UI is the safe manual smoke step.
 
 ### Task 7 — Version a summary of the canonical workbook 🧹
 **Problem:** the audit ledger (`outputs/.../transhipping-desk-feature-audit.xlsx` + `build-feature-audit.mjs`) is intentionally **untracked**, so the repo has no committed record of the 223-story / 62-defect outcome.
