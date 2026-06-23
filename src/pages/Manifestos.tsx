@@ -650,7 +650,8 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
             results.push({ file: file.name, status: 'error', message: error.message })
             continue
           }
-          results.push({ file: file.name, status: 'error', message: 'Falha ao importar manifesto.' })
+          console.error('Erro ao importar manifesto:', error)
+          results.push({ file: file.name, status: 'error', message: String(error instanceof Error ? error.message : error) })
         }
       }
 

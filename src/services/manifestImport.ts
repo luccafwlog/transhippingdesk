@@ -162,7 +162,20 @@ export async function importManifest({
     throw rpcError
   }
 
-  return batchId as number
+  const batchIdNum = batchId as number
+  queueImportBilling(batchIdNum, uploadedBy)
+
+  return batchIdNum
+}
+
+function queueImportBilling(batchId: number, uploadedBy: string) {
+  setTimeout(() => {
+    supabase.rpc('run_billing_for_import_batch', {
+      p_batch_id: batchId,
+      p_actor: uploadedBy,
+      p_recalculate: true,
+    }).then(() => undefined, () => undefined)
+  }, 0)
 }
 
 export class DuplicateManifestImportError extends Error {
