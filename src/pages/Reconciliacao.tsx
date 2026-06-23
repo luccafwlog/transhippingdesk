@@ -106,8 +106,9 @@ export function Reconciliacao() {
     onError: (e: Error) => showToast(e.message, 'error'),
   })
 
-  const unambiguous = (matches ?? []).filter((m) => !m.ambiguous)
-  const ambiguous = (matches ?? []).filter((m) => m.ambiguous)
+  const unmatched = (matches ?? []).filter((m) => m.source === 'unmatched')
+  const unambiguous = (matches ?? []).filter((m) => m.source !== 'unmatched' && !m.ambiguous)
+  const ambiguous = (matches ?? []).filter((m) => m.source !== 'unmatched' && m.ambiguous)
   const reconciliationSummary = summarizeReconciliation({
     safe: unambiguous.length,
     ambiguous: ambiguous.length,
@@ -180,7 +181,7 @@ export function Reconciliacao() {
             </div>
           </Card>
 
-          <div className="mb-4 grid grid-cols-3 gap-4">
+          <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Card className="p-4 text-center">
               <div className="text-xs text-slate-500">Correspondencias</div>
               <div className="text-2xl font-bold text-white">{unambiguous.length}</div>
@@ -188,6 +189,10 @@ export function Reconciliacao() {
             <Card className="p-4 text-center">
               <div className="text-xs text-slate-500">Ambiguas (ignoradas)</div>
               <div className="text-2xl font-bold text-amber-400">{ambiguous.length}</div>
+            </Card>
+            <Card className="p-4 text-center">
+              <div className="text-xs text-slate-500">Sem candidato</div>
+              <div className="text-2xl font-bold text-slate-300">{unmatched.length}</div>
             </Card>
             <Card className="p-4 text-center">
               <div className="text-xs text-slate-500">Total</div>
@@ -276,6 +281,26 @@ export function Reconciliacao() {
                       <div className="text-xs uppercase tracking-wide text-amber-100/70">Motivo</div>
                       <div>{m.ambiguityReason ?? (m.source === 'demurrage' ? 'Valor diferente ou documento duplicado' : 'Valor acima do saldo ou documento duplicado')}</div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
+          {unmatched.length > 0 ? (
+            <Card className="mb-4">
+              <div className="border-b border-[#30363d] p-4">
+                <div className="text-sm font-semibold text-white">Sem documento candidato ({unmatched.length})</div>
+                <div className="mt-1 text-xs text-slate-400">
+                  Estas transacoes permanecem visiveis para conferencia e nao entram na confirmacao.
+                </div>
+              </div>
+              <div className="divide-y divide-[#30363d]">
+                {unmatched.map((match, index) => (
+                  <div key={`${match.transaction.txid}-unmatched-${index}`} className="grid gap-2 px-4 py-3 text-sm md:grid-cols-3">
+                    <div className="font-mono text-xs text-slate-300">{match.transaction.txid}</div>
+                    <div className="text-slate-300">{fmtBRL(match.transaction.amount)}</div>
+                    <div className="text-slate-400">{match.transaction.date || 'Data nao identificada'}</div>
                   </div>
                 ))}
               </div>

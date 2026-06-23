@@ -4,7 +4,7 @@ import type { PixTransaction } from '../types/database'
 
 export type UnifiedPixMatch = {
   transaction: PixTransaction
-  source: 'local' | 'demurrage'
+  source: 'local' | 'demurrage' | 'unmatched'
   invoiceId: number
   docNumber: string
   customerName: string
@@ -13,7 +13,7 @@ export type UnifiedPixMatch = {
   ambiguous: boolean
   ambiguityReason?: string
   candidateCount?: number
-  matchType: 'txid'
+  matchType: 'txid' | 'unmatched'
 }
 
 export type UnifiedPixConfirmationResult = {
@@ -115,7 +115,22 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
     if (key && usedTxids.has(key)) continue
 
     const entries = key ? txidMap.get(key) ?? [] : []
-    if (!entries.length) continue
+    if (!entries.length) {
+      matches.push({
+        transaction: tx,
+        source: 'unmatched',
+        invoiceId: 0,
+        docNumber: tx.txid,
+        customerName: '',
+        customerCnpj: onlyDigits(tx.cnpj ?? ''),
+        amount: tx.amount,
+        ambiguous: true,
+        ambiguityReason: 'Nenhum documento aberto usa este TXID.',
+        candidateCount: 0,
+        matchType: 'unmatched',
+      })
+      continue
+    }
 
     const entry = entries[0]
     const amountDiff = tx.amount - entry.amount
@@ -159,7 +174,8 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
 
 export async function confirmUnifiedPixReconciliation(matches: UnifiedPixMatch[]): Promise<UnifiedPixConfirmationResult> {
   const payload = matches
-    .filter((match) => !match.ambiguous)
+    .filter((match): match is UnifiedPixMatch & { source: 'local' | 'demurrage' } =>
+      !match.ambiguous && match.source !== 'unmatched')
     .map((match) => {
       const paidAt = match.transaction.date
       if (!paidAt) {
@@ -245,6 +261,23 @@ const DEFAULT_HISTORY_FILTERS: ReconciliationFilters = {
   pageSize: 50,
 }
 
+export function normalizeReconciliationInvoiceTypeFilter(
+  filter: ReconciliationFilters['invoiceTypeFilter'],
+): '' | 'consolidated' | 'individual' {
+  return filter === 'single' ? 'individual' : filter
+}
+
+export function selectLatestPayment(
+  payments: Array<{ id: number; paid_at: string | null }>,
+): { id: number; paid_at: string } | null {
+  return payments
+    .filter((payment): payment is { id: number; paid_at: string } => Boolean(payment.paid_at))
+    .reduce<{ id: number; paid_at: string } | null>(
+      (latest, payment) => !latest || payment.paid_at > latest.paid_at ? payment : latest,
+      null,
+    )
+}
+
 const HISTORY_LOCAL_SELECT = `
   id, invoice_number, customer_id, bl_id, issued_at, due_date, total_brl, status, invoice_type,
   total_paid_brl, balance_brl, created_at,
@@ -285,39 +318,55 @@ export async function listReconciliationHistory(
   userFilters: Partial<ReconciliationFilters>,
 ): Promise<{ rows: ReconciliationHistoryRow[]; totalCount: number }> {
   const filters: ReconciliationFilters = { ...DEFAULT_HISTORY_FILTERS, ...userFilters }
+  const pageSize = 1000
 
-  const [localPromise, demurragePromise] = await Promise.all([
-    (() => {
+  async function loadLocalRows() {
+    const rows: Record<string, unknown>[] = []
+    for (let from = 0; ; from += pageSize) {
       let q = supabase
         .from('invoices')
         .select(HISTORY_LOCAL_SELECT)
         .in('status', ['paid', 'covered', 'partially_paid'])
         .order('created_at', { ascending: false })
-        .limit(2000)
+        .range(from, from + pageSize - 1)
       if (filters.customerId) q = q.eq('customer_id', Number(filters.customerId))
-      return q.overrideTypes<Record<string, unknown>[]>()
-    })(),
-    (() => {
+      const result = await q.overrideTypes<Record<string, unknown>[]>()
+      if (result.error) throw result.error
+      rows.push(...(result.data ?? []))
+      if ((result.data?.length ?? 0) < pageSize) break
+    }
+    return rows
+  }
+
+  async function loadDemurrageRows() {
+    const rows: Record<string, unknown>[] = []
+    for (let from = 0; ; from += pageSize) {
       let q = supabase
         .from('demurrage_invoices')
         .select(HISTORY_DEMURRAGE_SELECT)
         .eq('status', 'paid')
         .order('created_at', { ascending: false })
-        .limit(2000)
+        .range(from, from + pageSize - 1)
       if (filters.customerId) q = q.eq('customer_id', Number(filters.customerId))
-      return q.overrideTypes<Record<string, unknown>[]>()
-    })(),
+      const result = await q.overrideTypes<Record<string, unknown>[]>()
+      if (result.error) throw result.error
+      rows.push(...(result.data ?? []))
+      if ((result.data?.length ?? 0) < pageSize) break
+    }
+    return rows
+  }
+
+  const [localSourceRows, demurrageSourceRows] = await Promise.all([
+    loadLocalRows(),
+    loadDemurrageRows(),
   ])
 
-  if (localPromise.error) throw localPromise.error
-  if (demurragePromise.error) throw demurragePromise.error
-
   const localRows: ReconciliationHistoryRow[] = []
-  for (const inv of localPromise.data ?? []) {
+  for (const inv of localSourceRows) {
     const bls = flattenBls(inv)
     const paymentsArr = (inv.payments as Array<{ id: number; paid_at: string | null }> | null) ?? []
-    const dates = paymentsArr.map((p) => p.paid_at).filter((d): d is string => Boolean(d))
-    const paymentDate = dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : null
+    const latestPayment = selectLatestPayment(paymentsArr)
+    const paymentDate = latestPayment?.paid_at ?? null
     const invTotal = Number(inv.total_brl ?? 0)
     for (const bl of bls) {
       localRows.push({
@@ -338,13 +387,13 @@ export async function listReconciliationHistory(
         balance: inv.balance_brl != null ? Number(inv.balance_brl) : null,
         paidAt: paymentDate,
         status: (inv.status as string) ?? '',
-        paymentId: paymentsArr.length > 0 ? (paymentsArr[paymentsArr.length - 1] as { id: number }).id : null,
+        paymentId: latestPayment?.id ?? null,
       })
     }
   }
 
   const demurrageRows: ReconciliationHistoryRow[] = []
-  for (const inv of demurragePromise.data ?? []) {
+  for (const inv of demurrageSourceRows) {
     const voyage = (inv.bl as Record<string, unknown> | null)?.voyage as Record<string, unknown> | null
     const invTotal = Number(inv.frozen_total_brl ?? 0)
     demurrageRows.push({
@@ -390,7 +439,8 @@ export async function listReconciliationHistory(
     all = all.filter((r) => (r.voyageNumber?.toUpperCase() ?? '').includes(term))
   }
   if (filters.invoiceTypeFilter) {
-    all = all.filter((r) => r.invoiceType === filters.invoiceTypeFilter)
+    const invoiceType = normalizeReconciliationInvoiceTypeFilter(filters.invoiceTypeFilter)
+    all = all.filter((r) => r.invoiceType === invoiceType)
   }
   if (filters.pod) {
     const term = filters.pod.toUpperCase()

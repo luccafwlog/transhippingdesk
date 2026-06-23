@@ -18,8 +18,7 @@ import {
   useLocalChargeOperations,
 } from '../../hooks/useLocalCharges'
 import { useVoyageOptions } from '../../hooks/useBls'
-import { calculateGraniteBlCharges } from '../../services/graniteCharges'
-import { markGraniteBlReady } from '../../services/charges/chargeOperationsService'
+import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
 import { queryKeys } from '../../services/queryKeys'
 import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
 import { createInvoiceFromBls } from '../../services/billing'
@@ -293,27 +292,6 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Falha ao emitir fatura individual.', 'error')
     }
-  }
-
-  async function runGraniteBatch(
-    ids: string[],
-    action: 'recalculate' | 'review' | 'ready',
-  ): Promise<{ total: number; successCount: number; errorCount: number; errors: Array<{ blId: string; message: string }> }> {
-    if (action === 'review') {
-      return { total: ids.length, successCount: ids.length, errorCount: 0, errors: [] }
-    }
-    const worker = action === 'ready' ? markGraniteBlReady : calculateGraniteBlCharges
-    const errors: Array<{ blId: string; message: string }> = []
-    let ok = 0
-    for (const id of ids) {
-      try {
-        await worker(id)
-        ok++
-      } catch (e) {
-        errors.push({ blId: id, message: e instanceof Error ? e.message : 'Erro inesperado no processamento Granito.' })
-      }
-    }
-    return { total: ids.length, successCount: ok, errorCount: errors.length, errors }
   }
 
   async function handleApproveQueueItem(queueId: number, customerId?: number | null) {

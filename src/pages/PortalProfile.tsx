@@ -18,6 +18,7 @@ export function PortalProfile() {
   const [zip, setZip] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -29,7 +30,10 @@ export function PortalProfile() {
         setCity(profile.city ?? '')
         setState(profile.state ?? '')
         setZip(profile.zip ?? '')
-      } catch { /* fallback silencioso */ }
+      } catch (err: unknown) {
+        setLoadFailed(true)
+        setError(err instanceof Error ? err.message : 'Falha ao carregar perfil.')
+      }
     }
     void load()
   }, [overview])
@@ -105,7 +109,7 @@ export function PortalProfile() {
           {error ? <InlineError message={error} /> : null}
 
           <div className="flex justify-end">
-            <Button loading={submitting} type="submit">Salvar alteracoes</Button>
+            <Button disabled={loadFailed} loading={submitting} type="submit">Salvar alteracoes</Button>
           </div>
         </form>
       </Card>

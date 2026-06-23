@@ -6,11 +6,10 @@ import { Card } from '../ui/Card'
 import { Field, Input } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
-import { reportBestEffortFailure } from '../../lib/telemetry'
+import { saveBlDemurrageConfig } from '../../services/blDemurrageConfig'
 import { calculateDemurrage } from '../../services/demurrage/demurrageRates'
 import { updateContainerReturnDate } from '../../services/demurrage/demurrageContainers'
 import { queryKeys } from '../../services/queryKeys'
-import { supabase } from '../../services/supabase'
 import { formatDate } from '../../lib/utils'
 import type { BLDetail } from '../../types/database'
 
@@ -50,92 +49,42 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
   async function handleSaveDemurrageConfig() {
     if (!user) return
 
+    const freeTimeVal = freeTime.trim() ? Number(freeTime) : null
     // Validate P1/P2
     const p1Val = p1.trim() ? Number(p1.replace(',', '.')) : null
     const p2Val = p2.trim() ? Number(p2.replace(',', '.')) : null
-    if ((p1Val != null && !Number.isFinite(p1Val)) || (p2Val != null && !Number.isFinite(p2Val))) {
+    if ([freeTimeVal, p1Val, p2Val].some((value) => value != null && !Number.isFinite(value))) {
       showToast('Valores invalidos para override de demurrage.', 'error')
       return
     }
 
     setSavingConfig(true)
     try {
-      // Step 1: Save free_time_override via save_bl_review (whitelisted field).
-      const { error: rpcError } = await supabase.rpc('save_bl_review', {
-        p_bl_id: bl.id,
-        p_expected_updated_at: bl.updated_at ?? null,
-        p_update_payload: { free_time_override: freeTime.trim() === '' ? '' : freeTime },
-        p_audit_rows: [
-          {
-            entity_type: 'bl',
-            entity_id: bl.id,
-            field_name: 'free_time_override',
-            old_value: String(bl.free_time_override ?? ''),
-            new_value: freeTime,
-            justification: 'Config de demurrage (Faturamento).',
-          },
-        ],
-        p_changed_by: user.id,
+      await saveBlDemurrageConfig({
+        blId: bl.id,
+        expectedUpdatedAt: bl.updated_at ?? null,
+        freeTime: freeTimeVal,
+        p1: p1Val,
+        p2: p2Val,
+        changedBy: user.id,
       })
-
-      if (rpcError) {
-        if (rpcError.code === 'PT409' || rpcError.code === '40001') {
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) })
-          showToast(
-            'Este B/L foi alterado por outro usuário. Os dados foram recarregados; revise e salve novamente.',
-            'error',
-          )
-          return
-        }
-        showToast('Falha ao salvar config de demurrage.', 'error')
-        return
-      }
-
-      // Step 2: Save P1/P2 via direct update (not whitelisted in save_bl_review).
-      const { error: updateError } = await supabase
-        .from('bls')
-        .update({
-          demurrage_rate_override_p1_usd: p1Val,
-          demurrage_rate_override_p2_usd: p2Val,
-        })
-        .eq('id', bl.id)
-
-      if (updateError) {
-        showToast('Falha ao salvar config de demurrage.', 'error')
-        return
-      }
-
-      // Step 2a: Best-effort audit rows for P1/P2.
-      try {
-        await supabase.from('audit_logs').insert([
-          {
-            entity_type: 'bl',
-            entity_id: bl.id,
-            field_name: 'demurrage_rate_override_p1_usd',
-            old_value: String(bl.demurrage_rate_override_p1_usd ?? ''),
-            new_value: p1Val == null ? null : String(p1Val),
-            changed_by: user.id,
-            justification: 'Config de demurrage (Faturamento).',
-          },
-          {
-            entity_type: 'bl',
-            entity_id: bl.id,
-            field_name: 'demurrage_rate_override_p2_usd',
-            old_value: String(bl.demurrage_rate_override_p2_usd ?? ''),
-            new_value: p2Val == null ? null : String(p2Val),
-            changed_by: user.id,
-            justification: 'Config de demurrage (Faturamento).',
-          },
-        ])
-      } catch (auditError) {
-        reportBestEffortFailure('audit P1/P2 demurrage overrides', auditError, {
-          bl_id: bl.id,
-        })
-      }
-
-      // Both succeeded — invalidate and notify.
       await queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) })
       showToast('Config de demurrage salva.', 'success')
+      return
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : ''
+      if (code === 'PT409' || code === '40001') {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) })
+        showToast(
+          'Este B/L foi alterado por outro usuario. Os dados foram recarregados; revise e salve novamente.',
+          'error',
+        )
+      } else {
+        showToast('Falha ao salvar config de demurrage.', 'error')
+      }
+      return
     } finally {
       setSavingConfig(false)
     }

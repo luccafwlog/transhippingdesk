@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Archive, Download, FileSpreadsheet, Pencil, Plus, T
 import { Card, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { supabase } from '../services/supabase'
+import { archiveVesselSchedule, reorderVesselSchedules } from '../services/vesselScheduleAdmin'
 import type { VesselSchedule } from '../types/database'
 
 const emptyVessel = {
@@ -149,7 +150,11 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
 
   const downloadTemplate = async () => {
     const XLSX = await import('@e965/xlsx')
-    const { data } = await supabase.from('vessel_schedules').select('*').order('display_order', { ascending: true })
+    const { data, error } = await supabase.from('vessel_schedules').select('*').order('display_order', { ascending: true })
+    if (error) {
+      showToast('Falha ao carregar os navios para gerar o modelo.', 'error')
+      return
+    }
     const rows = [
       { 'VESSEL NAME': 'EXEMPLO NAVIO', 'VOY': '1', 'QINGDAO ETD': '01/01/2026', 'SHANGHAI ETD': '02/01/2026',
         'TAICANG ETD': '03/01/2026', 'NINGBO ETD': '04/01/2026', 'NANSHA ETD': '05/01/2026',
@@ -306,24 +311,23 @@ export function ChegadasSaidas() {
     const newIdx = dir === 'up' ? index - 1 : index + 1
     const [moved] = list.splice(index, 1)
     list.splice(newIdx, 0, moved)
-    const results = await Promise.all(list.map((v, i) => supabase.from('vessel_schedules').update({ display_order: i }).eq('id', v.id)))
-    if (results.some((r) => r.error)) showToast('Erro ao reordenar', 'error')
-    queryClient.invalidateQueries({ queryKey: ['admin-vessel-schedules'] })
+    try {
+      await reorderVesselSchedules(list.map((v, i) => ({ id: v.id, displayOrder: i })))
+      queryClient.invalidateQueries({ queryKey: ['admin-vessel-schedules'] })
+    } catch {
+      showToast('Erro ao reordenar', 'error')
+    }
   }
 
   const handleEnd = async (v: VesselSchedule) => {
     if (!confirm(`Encerrar "${v.vessel_name}"? Será arquivado e removido da tabela ativa.`)) return
-    const { error: insErr } = await supabase.from('ended_vessels').insert([{
-      original_id: v.id, vessel_name: v.vessel_name, voyage: v.voyage, imo_number: v.imo_number,
-      qingdao_etd: v.qingdao_etd, shanghai_etd: v.shanghai_etd, taicang_etd: v.taicang_etd,
-      ningbo_etd: v.ningbo_etd, nansha_etd: v.nansha_etd, salvador_eta: v.salvador_eta,
-      vitoria_eta: v.vitoria_eta, pecem_eta: v.pecem_eta,
-    }])
-    if (insErr) { showToast(`Erro ao arquivar: ${insErr.message}`, 'error'); return }
-    const { error: delErr } = await supabase.from('vessel_schedules').delete().eq('id', v.id)
-    if (delErr) { showToast(`Erro ao remover: ${delErr.message}`, 'error'); return }
-    showToast(`${v.vessel_name} encerrado!`, 'success')
-    queryClient.invalidateQueries({ queryKey: ['admin-vessel-schedules'] })
+    try {
+      await archiveVesselSchedule(v.id)
+      showToast(`${v.vessel_name} encerrado!`, 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-vessel-schedules'] })
+    } catch (error) {
+      showToast(`Erro ao arquivar: ${error instanceof Error ? error.message : 'falha inesperada'}`, 'error')
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -336,7 +340,11 @@ export function ChegadasSaidas() {
 
   const downloadEnded = async () => {
     const XLSX = await import('@e965/xlsx')
-    const { data } = await supabase.from('ended_vessels').select('*').order('ended_at', { ascending: false })
+    const { data, error } = await supabase.from('ended_vessels').select('*').order('ended_at', { ascending: false })
+    if (error) {
+      showToast('Falha ao carregar os navios encerrados.', 'error')
+      return
+    }
     if (!data || data.length === 0) { showToast('Nenhum navio encerrado', 'info'); return }
     const rows = data.map((v) => ({
       'VESSEL NAME': v.vessel_name, 'VOY': v.voyage, 'IMO': v.imo_number || '',

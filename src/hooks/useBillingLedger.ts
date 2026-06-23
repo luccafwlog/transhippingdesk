@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   createConsolidatedInvoice,
   listConsolidatableReceivables,
@@ -8,6 +8,7 @@ import {
   type ConsolidatableReceivableFilters,
 } from '../services/billingLedger'
 import { queryKeys } from '../services/queryKeys'
+import { reverseLocalInvoicePayment } from '../services/reconciliacao'
 
 export function useConsolidatableReceivables(filters: ConsolidatableReceivableFilters) {
   return useQuery({
@@ -17,19 +18,31 @@ export function useConsolidatableReceivables(filters: ConsolidatableReceivableFi
   })
 }
 
+export function invalidateBillingLedgerQueries(qc: Pick<QueryClient, 'invalidateQueries'>) {
+  qc.invalidateQueries({ queryKey: queryKeys.billingLedger.all() })
+  qc.invalidateQueries({ queryKey: queryKeys.invoices.all() })
+  qc.invalidateQueries({ queryKey: queryKeys.bls.all() })
+  qc.invalidateQueries({ queryKey: queryKeys.customers.all() })
+  qc.invalidateQueries({ queryKey: queryKeys.customers.detail() })
+  qc.invalidateQueries({ queryKey: ['invoice-detail'] })
+  qc.invalidateQueries({ queryKey: ['invoice-refunds'] })
+  qc.invalidateQueries({ queryKey: ['financial-alerts'] })
+  qc.invalidateQueries({ queryKey: ['op-count'] })
+  qc.invalidateQueries({ queryKey: ['reconciliation-history'] })
+}
+
+export async function reverseLocalPaymentAndInvalidate(
+  qc: Pick<QueryClient, 'invalidateQueries'>,
+  paymentId: number,
+  reason: string,
+) {
+  await reverseLocalInvoicePayment(paymentId, reason)
+  invalidateBillingLedgerQueries(qc)
+}
+
 function useLedgerInvalidation() {
   const qc = useQueryClient()
-  return () => {
-    qc.invalidateQueries({ queryKey: queryKeys.billingLedger.all() })
-    qc.invalidateQueries({ queryKey: queryKeys.invoices.all() })
-    qc.invalidateQueries({ queryKey: queryKeys.bls.all() })
-    qc.invalidateQueries({ queryKey: queryKeys.customers.all() })
-    qc.invalidateQueries({ queryKey: queryKeys.customers.detail() })
-    qc.invalidateQueries({ queryKey: ['invoice-detail'] })
-    qc.invalidateQueries({ queryKey: ['invoice-refunds'] })
-    qc.invalidateQueries({ queryKey: ['financial-alerts'] })
-    qc.invalidateQueries({ queryKey: ['op-count'] })
-  }
+  return () => invalidateBillingLedgerQueries(qc)
 }
 
 export function useInvoiceRefunds(invoiceId?: number | null) {

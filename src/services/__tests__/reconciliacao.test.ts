@@ -67,7 +67,7 @@ describe('reconciliacao PIX unificada', () => {
     mockDemurrageUpdate.mockReset()
   })
 
-  it('nao casa fatura local por CNPJ e valor quando o TXID nao corresponde ao numero da invoice', async () => {
+  it('mantem visivel como unmatched quando o TXID nao corresponde a nenhum documento', async () => {
     installFromMock({
       localInvoices: [
         {
@@ -90,7 +90,16 @@ describe('reconciliacao PIX unificada', () => {
       },
     ])
 
-    expect(matches).toEqual([])
+    expect(matches).toEqual([
+      expect.objectContaining({
+        source: 'unmatched',
+        docNumber: 'OUTRO-TXID',
+        ambiguous: true,
+        ambiguityReason: 'Nenhum documento aberto usa este TXID.',
+        candidateCount: 0,
+        matchType: 'unmatched',
+      }),
+    ])
   })
 
   it('marca como ambiguo quando o mesmo TXID existe em fatura local e demurrage', async () => {

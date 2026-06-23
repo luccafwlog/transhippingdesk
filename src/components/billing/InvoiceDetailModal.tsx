@@ -19,10 +19,14 @@ import {
   useInvoiceDetail,
   useRegisterInvoicePayment,
 } from '../../hooks/useBilling'
-import { useInvoiceRefunds, useRegisterLedgerInvoicePayment, useSettleInvoiceRefund } from '../../hooks/useBillingLedger'
+import {
+  reverseLocalPaymentAndInvalidate,
+  useInvoiceRefunds,
+  useRegisterLedgerInvoicePayment,
+  useSettleInvoiceRefund,
+} from '../../hooks/useBillingLedger'
 import { buildInvoiceFileBaseName, isConsolidatedInvoice } from '../../services/billing'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
-import { reverseLocalInvoicePayment } from '../../services/reconciliacao'
 import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { formatBRL, formatDate, formatUSD, stripBlPrefix } from '../../lib/utils'
@@ -217,7 +221,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     }
     setReversalLoading(true)
     try {
-      await reverseLocalInvoicePayment(paymentId, reason)
+      await reverseLocalPaymentAndInvalidate(queryClient, paymentId, reason)
       showToast('Baixa cancelada.', 'success')
       onClose()
     } catch (error) {

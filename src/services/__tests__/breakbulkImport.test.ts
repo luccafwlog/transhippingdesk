@@ -46,9 +46,13 @@ describe('breakbulkImport', () => {
     expect(manifest.bls[0]?.total_weight_kg).toBeCloseTo(259312)
   })
 
-  it('persiste reconciliacao financeira quando BB casa cliente por documento', async () => {
+  it('envia lote, BLs, itens e erros para a RPC transacional', async () => {
     const upsertBls = vi.fn(() => Promise.resolve({ error: null }))
-    mockRpc.mockResolvedValue({ data: { status: 'calculated' }, error: null })
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve(name === 'import_breakbulk_manifest_transactional'
+        ? { data: { batch_id: 77 }, error: null }
+        : { data: { status: 'calculated' }, error: null }),
+    )
     mockFrom.mockImplementation((table: string) => {
       if (table === 'voyages') {
         return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { id: 10 }, error: null })) })) })) }
@@ -119,21 +123,21 @@ describe('breakbulkImport', () => {
       uploadedBy: '00000000-0000-0000-0000-000000000001',
     })
 
-    expect(upsertBls).toHaveBeenCalled()
-    const upsertCalls = upsertBls.mock.calls as unknown as Array<[Array<Record<string, unknown>>]>
-    const rows = upsertCalls[0]?.[0] ?? []
-    expect(rows[0]).toMatchObject({
-      customer_id: 123,
-      manifest_customer_cnpj_cpf: '12.116.971/0010-71',
-      manifest_customer_name: 'TIMBRO TRADING S.A.',
-      customer_reconciliation_status: 'matched_document',
-      billing_hold_reason: null,
-    })
-    expect(mockRpc).toHaveBeenCalledWith('apply_bl_review_gate_after_import', {
-      p_bl_ids: ['BB001'],
-      p_changed_by: '00000000-0000-0000-0000-000000000001',
-    })
-    expect(mockRpc.mock.calls[0]?.[0]).toBe('apply_bl_review_gate_after_import')
+    expect(upsertBls).not.toHaveBeenCalled()
+    expect(mockRpc).toHaveBeenCalledWith('import_breakbulk_manifest_transactional', expect.objectContaining({
+      p_filename: 'bb.xlsx',
+      p_voyage_id: 10,
+      p_uploaded_by: '00000000-0000-0000-0000-000000000001',
+      p_bls: [expect.objectContaining({
+        id: 'BB001',
+        customer_id: 123,
+        manifest_customer_cnpj_cpf: '12.116.971/0010-71',
+        customer_reconciliation_status: 'matched_document',
+        billing_hold_reason: null,
+      })],
+      p_items: [],
+      p_errors: [],
+    }))
   })
 
   it('agrega linhas do layout BB legado por BL', async () => {

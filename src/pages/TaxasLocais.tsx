@@ -13,6 +13,8 @@ export function TaxasLocais() {
   const [tab, setTab] = useState<LocalChargeTab>('tabelas')
   const [cargoModeFilter, setCargoModeFilter] = useState<CargoModeFilter>('')
   const [podFilter, setPodFilter] = useState('')
+  const activeTab: LocalChargeTab =
+    tab === 'tabelas' && canManageTables ? 'tabelas' : canManageOverrides ? 'overrides' : 'tabelas'
 
   return (
     <>
@@ -22,11 +24,11 @@ export function TaxasLocais() {
       />
 
       <div className="mb-5 flex flex-wrap gap-2" role="tablist">
-        {canManageTables ? <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} /> : null}
-        {canManageOverrides ? <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} /> : null}
+        {canManageTables ? <TabButton active={activeTab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} /> : null}
+        {canManageOverrides ? <TabButton active={activeTab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} /> : null}
       </div>
 
-      {tab === 'tabelas' && canManageTables ? (
+      {activeTab === 'tabelas' && canManageTables ? (
         <ChargeTablesTab
           cargoModeFilter={cargoModeFilter}
           setCargoModeFilter={setCargoModeFilter}
@@ -35,7 +37,7 @@ export function TaxasLocais() {
         />
       ) : null}
 
-      {tab === 'overrides' && canManageOverrides ? (
+      {activeTab === 'overrides' && canManageOverrides ? (
         <ChargeOverridesTab
           cargoModeFilter={cargoModeFilter}
           setCargoModeFilter={setCargoModeFilter}

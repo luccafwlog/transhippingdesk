@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addManualBlCharge,
+  calculateLocalChargesBatch,
   calculateBlLocalCharges,
   listBlLocalChargeLines,
   listManualChargeItemsForBl,
   listLocalChargePendencies,
   listLocalChargeOperationalRows,
   markBlReadyForBilling,
+  markLocalChargesReviewedBatch,
 } from '../charges/chargeOperationsService'
 import { listLocalChargeTables } from '../charges/chargeTableService'
 
@@ -75,6 +77,41 @@ describe('localCharges service', () => {
       p_bl_id: 'CSC001',
       p_actor: 'user-id',
       p_recalculate: true,
+    })
+  })
+
+  it('recalcula o lote inteiro e agrega falhas por B/L sem interromper os demais', async () => {
+    mockRpc
+      .mockResolvedValueOnce({ data: { bl_id: 'BL1', status: 'calculated' }, error: null })
+      .mockResolvedValueOnce({ data: null, error: new Error('tabela ausente') })
+      .mockResolvedValueOnce({ data: { bl_id: 'BL3', status: 'calculated' }, error: null })
+
+    const result = await calculateLocalChargesBatch([' bl1 ', 'BL2', 'BL3', 'BL1'], {
+      actorId: 'user-1',
+      recalculate: true,
+    })
+
+    expect(result).toEqual({
+      total: 3,
+      successCount: 2,
+      errorCount: 1,
+      errors: [{ blId: 'BL2', message: 'tabela ausente' }],
+    })
+    expect(mockRpc).toHaveBeenCalledTimes(3)
+  })
+
+  it('aprova revisao por B/L e isola uma falha sem falso sucesso', async () => {
+    mockRpc
+      .mockResolvedValueOnce({ data: { status: 'reviewed' }, error: null })
+      .mockResolvedValueOnce({ data: null, error: new Error('linha ainda pendente') })
+
+    const result = await markLocalChargesReviewedBatch(['BL1', 'BL2'], 'user-1')
+
+    expect(result).toEqual({
+      total: 2,
+      successCount: 1,
+      errorCount: 1,
+      errors: [{ blId: 'BL2', message: 'linha ainda pendente' }],
     })
   })
 

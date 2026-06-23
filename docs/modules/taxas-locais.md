@@ -176,8 +176,10 @@ flowchart LR
 
 ## Testes e validação
 
-Os testes não foram executados nesta cartografia, por instrução do coordenador.
-Cobertura estática localizada:
+O lote comportamental de 2026-06-23 executou 9 arquivos e 37 testes com sucesso.
+Além dos contratos existentes, a rota e os componentes foram exercidos para
+criação, edição, ativação/inativação, exclusão confirmada, seleção da primeira
+aba autorizada e paginação completa antes dos filtros de overrides.
 
 | Arquivo | Evidência coberta |
 |---|---|
@@ -188,26 +190,25 @@ Cobertura estática localizada:
 | `src/components/billing/__tests__/ManualChargeFormFields.test.tsx` | Estados de criação/edição da cobrança manual |
 | `src/services/__tests__/guardInvoiceableReadyStateMigration.test.ts` | **Teste de contrato SQL** do gate de valor BRL faturável |
 | `src/services/__tests__/guardManualChargesMigration.test.ts` | **Teste de contrato SQL** dos bloqueios de cobranças manuais |
+| `src/components/taxasLocais/__tests__/TaxasLocais.behavior.test.tsx` | CRUD comportamental de tabelas, itens e overrides |
+| `src/services/__tests__/chargeRateService.test.ts` | Pagina toda a fonte antes de filtrar e limitar overrides |
 
-Não há evidência de Runtime registrada neste documento.
+Comando focado:
+`npm test -- --run src/components/taxasLocais/__tests__/TaxasLocais.behavior.test.tsx src/pages/__tests__/TaxasLocais.test.ts src/pages/__tests__/taxasLocaisHelpers.test.ts src/services/__tests__/chargeRateService.test.ts src/services/__tests__/localCharges.test.ts src/services/__tests__/queryKeysPrefix.test.ts src/components/billing/__tests__/ManualChargeFormFields.test.tsx src/services/__tests__/guardInvoiceableReadyStateMigration.test.ts src/services/__tests__/guardManualChargesMigration.test.ts`.
 
 ## Notas e divergências
 
-- **Suspeita — invalidação com argumento vazio/`undefined`.** Ao contrário de
-  `queryKeys.charges.operations()`, que remove o slot de filtro para permitir
-  prefix match, `charges.tables()`, `charges.overrides()` e
-  `reconciliation.queue()` materializam slots `undefined`. Da mesma forma,
-  `bls.detail('')`, `bls.localChargeLines('')` e `bls.manualChargeItems('')`
-  incluem string vazia. Pelo formato das chaves em `src/services/queryKeys.ts`,
-  essas invalidações podem não alcançar queries ativas com filtro ou ID real.
-  Não houve validação em Runtime.
-- **Divergência de gate.** `ValidacaoTab` considera `matched_name` resolvido,
-  enquanto `mark_bl_ready_for_billing` aceita somente `matched_document` ou
-  `reconciled` em
-  `supabase/migrations/20260619130000_review_gate_hardening.sql`.
-- **Overrides são filtrados parcialmente no cliente.** A consulta lê até o
-  limite configurado e só depois filtra nome/documento, modo e POD; resultados
-  fora do lote não aparecem.
+- **Invalidação por prefixo validada.** As factories de tabelas, overrides,
+  reconciliação e detalhes agora retornam uma chave-base real quando chamadas
+  sem argumento. `src/services/__tests__/queryKeysPrefix.test.ts` protege esse
+  contrato.
+- **Gate de reconciliação alinhado.** A interface considera resolvidos somente
+  `matched_document` e `reconciled`, os mesmos estados aceitos por
+  `mark_bl_ready_for_billing`.
+- **Overrides são filtrados no cliente após paginação completa.** A consulta
+  percorre a fonte em páginas de 500 registros, aplica nome/documento, modo e
+  POD e somente então limita a visão. Isso preserva correção sem depender da
+  posição do override no histórico.
 - **Granito é uma agregação visual, não um único domínio de cobrança.** Revisão
   em lote de Granito retorna sucesso sem escrita, e a liberação usa update
   direto de `granite_bls`.

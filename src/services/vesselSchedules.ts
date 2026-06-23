@@ -9,7 +9,7 @@ export async function listVesselSchedules(): Promise<VesselSchedule[]> {
 
   if (error) {
     console.error('[vesselSchedules] erro ao buscar:', error.message)
-    return []
+    throw error
   }
 
   return (data ?? []).map(normalizeVesselSchedule)

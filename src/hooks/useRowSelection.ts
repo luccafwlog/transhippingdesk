@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type RowKey = string | number
 
@@ -7,8 +7,16 @@ type RowKey = string | number
  * listagens que oferecem acoes em massa (exclusao de BLs, containers, veiculos,
  * clientes). Mantem apenas as chaves selecionadas; a pagina decide o que sao.
  */
-export function useRowSelection<K extends RowKey = RowKey>() {
+export function useRowSelection<K extends RowKey = RowKey>(scope?: unknown) {
   const [selected, setSelected] = useState<Set<K>>(() => new Set<K>())
+  const previousScope = useRef(scope)
+
+  useEffect(() => {
+    if (previousScope.current !== scope) {
+      previousScope.current = scope
+      setSelected(new Set<K>())
+    }
+  }, [scope])
 
   const isSelected = useCallback((key: K) => selected.has(key), [selected])
 

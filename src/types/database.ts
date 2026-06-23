@@ -599,6 +599,60 @@ export type Database = {
         }
         Returns: string
       }
+      set_import_batch_ce_master: {
+        Args: {
+          p_batch_id: number
+          p_ce_master: string | null
+          p_changed_by: string | null
+        }
+        Returns: undefined
+      }
+      import_vazios_bookings_transactional: {
+        Args: {
+          p_voyage_id: number
+          p_description: string | null
+          p_uploaded_by: string
+          p_bookings: Json
+        }
+        Returns: Json
+      }
+      import_vazios_importacao_transactional: {
+        Args: {
+          p_voyage_id: number
+          p_description: string | null
+          p_uploaded_by: string
+          p_containers: Json
+        }
+        Returns: Json
+      }
+      replace_vazios_from_baplie_transactional: {
+        Args: {
+          p_voyage_id: number
+          p_description: string | null
+          p_uploaded_by: string
+          p_replace_existing: boolean
+        }
+        Returns: Json
+      }
+      save_bl_demurrage_config: {
+        Args: {
+          p_bl_id: string
+          p_expected_updated_at: string | null
+          p_free_time_override: number | null
+          p_rate_p1_usd: number | null
+          p_rate_p2_usd: number | null
+          p_changed_by: string
+        }
+        Returns: undefined
+      }
+      save_granite_bl_review: {
+        Args: {
+          p_granite_bl_id: string
+          p_client_id: number
+          p_changed_by: string
+        }
+        Returns: undefined
+      }
       calculate_bl_local_charges: {
         Args: {
           p_bl_id: string
@@ -690,6 +744,48 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_bls_ready_and_create_invoice: {
+        Args: {
+          p_bl_ids: string[]
+          p_customer_id: number
+          p_due_date: string | null
+          p_notes: string | null
+          p_actor: string | null
+        }
+        Returns: Json
+      }
+      update_customer_with_audit: {
+        Args: {
+          p_customer_id: number
+          p_updates: Json
+          p_changed_by: string
+          p_justification: string
+        }
+        Returns: boolean
+      }
+      create_customer_with_contacts: {
+        Args: {
+          p_customer: Json
+          p_contacts: Json
+        }
+        Returns: Json
+      }
+      import_granite_manifest_transactional: {
+        Args: {
+          p_voyage_id: number
+          p_vessel_voyage: string
+          p_loading_port: string | null
+          p_discharge_port: string | null
+          p_total_bls: number
+          p_total_weight_kg: number
+          p_uploaded_by: string
+          p_bls: Json
+        }
+        Returns: {
+          manifest_id: string
+          inserted_bls: number
+        }
+      }
       create_invoice_from_granite_bls: {
         Args: {
           p_granite_bl_ids: string[]
@@ -710,6 +806,18 @@ export type Database = {
           p_actor: string | null
         }
         Returns: Json
+      }
+      archive_vessel_schedule: {
+        Args: {
+          p_vessel_id: string
+        }
+        Returns: Json
+      }
+      reorder_vessel_schedules: {
+        Args: {
+          p_order: Json
+        }
+        Returns: number
       }
       sync_local_charge_receivable: {
         Args: {
@@ -977,6 +1085,18 @@ export type Database = {
       count_distinct_containers: {
         Args: Record<string, never>
         Returns: number
+      }
+      import_breakbulk_manifest_transactional: {
+        Args: {
+          p_filename: string
+          p_voyage_id: number
+          p_uploaded_by: string
+          p_total_bls: number
+          p_bls: Json
+          p_items: Json
+          p_errors: Json
+        }
+        Returns: Json
       }
     }
     Enums: Record<string, never>

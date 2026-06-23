@@ -65,11 +65,14 @@ export async function listCustomerRateOverrides(filters?: {
   limit?: number
 }) {
   const limit = Math.max(20, Math.min(500, Number(filters?.limit ?? 200)))
+  const pageSize = 500
+  const rows: LocalChargeOverrideItem[] = []
 
-  const { data, error } = await supabase
-    .from('customer_rate_overrides')
-    .select(
-      `
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('customer_rate_overrides')
+      .select(
+        `
       id,
       customer_id,
       charge_item_id,
@@ -100,17 +103,19 @@ export async function listCustomerRateOverrides(filters?: {
         )
       )
     `,
-    )
-    .order('created_at', { ascending: false })
-    .limit(limit)
-    .overrideTypes<LocalChargeOverrideItem[], { merge: false }>()
+      )
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+      .overrideTypes<LocalChargeOverrideItem[], { merge: false }>()
 
-  if (error) throw error
+    if (error) throw error
+    rows.push(...(data ?? []))
+    if ((data?.length ?? 0) < pageSize) break
+  }
 
   const search = String(filters?.customerSearch ?? '').trim().toLowerCase()
   const modeFilter = filters?.cargoMode ?? ''
   const podFilter = String(filters?.pod ?? '').trim().toUpperCase()
-  const rows = data ?? []
 
   return rows.filter((row) => {
     const customerName = String(row.customer?.name ?? '').toLowerCase()
@@ -128,7 +133,7 @@ export async function listCustomerRateOverrides(filters?: {
       return false
     }
     return true
-  })
+  }).slice(0, limit)
 }
 
 export async function listOverrideChargeItems() {

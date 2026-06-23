@@ -306,7 +306,13 @@ export function ClienteFicha() {
   }
 
   if (error || !data || !form) {
-    return <Card className="text-red-200">Cliente não encontrado ou erro ao consultar o Supabase.</Card>
+    const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : ''
+    const notFound = !cnpj || code === 'PGRST116' || (!error && !data)
+    return (
+      <Card className="text-red-200">
+        {notFound ? 'Cliente não encontrado.' : 'Falha ao consultar o cliente.'}
+      </Card>
+    )
   }
 
   return (

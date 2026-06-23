@@ -1,0 +1,47 @@
+// @vitest-environment jsdom
+
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, useLocation } from 'react-router-dom'
+import { expect, it, vi } from 'vitest'
+
+vi.mock('../../../hooks/usePortalAuth', () => ({
+  usePortalAuth: () => ({ overview: { customer_name: 'Cliente' } }),
+}))
+vi.mock('../../../hooks/usePortalNotifications', () => ({
+  usePortalNotifications: () => ({
+    data: [{
+      id: 1,
+      type: 'invoice_issued',
+      title: 'Nova fatura',
+      message: 'Abra a fatura.',
+      link: '/portal/billing?invoice=10',
+      read: false,
+    }],
+    isLoading: false,
+  }),
+  usePortalUnreadCount: () => ({ data: 1 }),
+  usePortalMarkRead: () => ({ mutateAsync: vi.fn() }),
+  usePortalMarkAllRead: () => ({ mutateAsync: vi.fn() }),
+}))
+
+import { NotificationBell } from '../NotificationBell'
+
+function LocationProbe() {
+  return <div data-testid="location">{useLocation().pathname}{useLocation().search}</div>
+}
+
+it('navigates to a notification link after selection', async () => {
+  const user = userEvent.setup()
+  render(
+    <MemoryRouter initialEntries={['/portal']}>
+      <NotificationBell />
+      <LocationProbe />
+    </MemoryRouter>,
+  )
+
+  await user.click(screen.getByRole('button', { name: 'Notificacoes (1 nao lidas)' }))
+  await user.click(screen.getByRole('button', { name: /Nova fatura/ }))
+
+  expect(screen.getByTestId('location').textContent).toBe('/portal/billing?invoice=10')
+})
