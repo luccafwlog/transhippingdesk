@@ -8,7 +8,9 @@ function readMigrations() {
   return fs
     .readdirSync(migrationsDir)
     .filter((file) => file.endsWith('.sql'))
-    .map((file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8'))
+    // Normalize CRLF so the content assertions are independent of git's
+    // core.autocrlf checkout behaviour (the committed files use LF).
+    .map((file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8').replace(/\r\n/g, '\n'))
     .join('\n')
 }
 
