@@ -1,0 +1,7 @@
+# Normalize line endings on checkin to LF; let Git decide text vs binary.
+* text=auto eol=lf
+
+# Force LF for files whose content tests compare verbatim.
+*.sql text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf

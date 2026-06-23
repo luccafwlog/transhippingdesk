@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   parse: vi.fn(),
+  importManifest: vi.fn(),
   loadMaps: vi.fn(() => Promise.resolve({})),
   findMatch: vi.fn(),
   showToast: vi.fn(),
@@ -24,7 +25,7 @@ vi.mock('../../hooks/useBls', () => ({
   useVoyageOptions: () => ({ data: [{ id: 7, voyage_number: '14N', vessel: { name: 'GREEN' } }] }),
 }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
-vi.mock('../../services/graniteImport', () => ({ parseGraniteManifestFile: mocks.parse, importGraniteManifest: vi.fn() }))
+vi.mock('../../services/graniteImport', () => ({ parseGraniteManifestFile: mocks.parse, importGraniteManifest: mocks.importManifest }))
 vi.mock('../../services/graniteCharges', () => ({ listGraniteBls: vi.fn(), calculateGraniteBlCharges: vi.fn() }))
 vi.mock('../../services/billing', () => ({ createInvoiceFromGraniteBls: vi.fn() }))
 vi.mock('../../services/customerReconciliation', () => ({ loadCustomerMaps: mocks.loadMaps, findMatchedCustomer: mocks.findMatch }))
@@ -77,6 +78,32 @@ it('US-079: o preview alerta sobre B/Ls pendentes sem cliente resolvido', async 
   await user.upload(screen.getByLabelText(/Arquivo/), new File(['x'], 'cosco.xlsx'))
 
   await waitFor(() => expect(screen.getByText(/sem cliente resolvido/)).toBeTruthy())
+})
+
+it('US-079: importar com pendencias chama importGraniteManifest e reporta a pendencia no toast', async () => {
+  const user = userEvent.setup()
+  mocks.parse.mockResolvedValue({ vesselVoyage: 'NAVIO/14', bls: [bl(), bl({ bl_number: 'BL-G2' })], rowErrors: [] })
+  // Sem match: os dois B/Ls seguem pendentes ao confirmar.
+  mocks.findMatch.mockReturnValue(null)
+  mocks.importManifest.mockResolvedValue({ manifestId: 'm1', pendingCount: 2 })
+  renderGranite()
+
+  await user.click(screen.getByRole('button', { name: /Importar Planilha COSCO/ }))
+  await user.selectOptions(screen.getByLabelText('Viagem de destino'), '7')
+  await user.upload(screen.getByLabelText(/Arquivo/), new File(['x'], 'cosco.xlsx'))
+  await waitFor(() => expect(screen.getByText(/sem cliente resolvido/)).toBeTruthy())
+
+  await user.click(screen.getByRole('button', { name: /Confirmar importação/ }))
+
+  await waitFor(() => expect(mocks.importManifest).toHaveBeenCalledTimes(1))
+  expect(mocks.importManifest).toHaveBeenCalledWith(
+    expect.objectContaining({ voyageId: 7, uploadedBy: 'u1', filename: 'cosco.xlsx' }),
+  )
+  // O toast de sucesso comunica que houve faturamento pendente.
+  expect(mocks.showToast).toHaveBeenCalledWith(
+    expect.stringContaining('2 com faturamento pendente'),
+    'success',
+  )
 })
 
 it('US-078: resolver o CNPJ no preview reconcilia o B/L pendente', async () => {

@@ -15,7 +15,7 @@ function updateResult(data: unknown, error: unknown = null) {
   return builder
 }
 
-beforeEach(() => fromMock.mockReset())
+beforeEach(() => { fromMock.mockReset() })
 
 it('falha ao reconhecer quando o alerta ja mudou de estado', async () => {
   fromMock.mockReturnValue(updateResult(null))

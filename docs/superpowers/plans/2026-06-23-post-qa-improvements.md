@@ -19,7 +19,7 @@
 
 **Files:** `src/pages/AdminUsuarios.tsx`, `src/services/adminObservability.ts`, `src/services/__tests__/adminObservability.test.ts`, `src/pages/__tests__/AdminUsuarios.behavior.test.tsx`.
 **Acceptance:** page and workbook agree; no orphaned module; `npm test` + `npm run lint` green.
-- [ ] Done
+- [x] Done — page already wired per Option A (imports `fetchAuditLogs`/`fetchSystemMetrics` from the service, renders `InlineError` for logs/métricas); service is consumed, not orphaned; added DEF-061/062 behavior tests proving the error states render.
 
 ### Task 2 — Add `.gitattributes` to normalize line endings 🧹
 **Problem:** the repo has no `.gitattributes` and `core.autocrlf=true` checks `.sql`/`.ts` out as CRLF on Windows, which already caused one false test failure (fixed by normalizing `\r\n` in `containerDateAuditMigration.test.ts`). Without a policy this recurs.
@@ -31,7 +31,7 @@
 ```
 then renormalize (`git add --renormalize .`) and confirm the suite still passes.
 **Acceptance:** fresh checkout has LF in `.sql`/`.ts`; migration-content tests pass without the normalization crutch.
-- [ ] Done
+- [x] Done — added `.gitattributes` (`* text=auto eol=lf`, plus explicit `*.sql`/`*.ts`/`*.tsx`), renormalized (no CRLF found — repo was already clean), and removed the `\r\n` crutch from `containerDateAuditMigration.test.ts` (passes).
 
 ---
 
@@ -41,19 +41,19 @@ then renormalize (`git add --renormalize .`) and confirm the suite still passes.
 **Problem:** `src/components/shared/__tests__/VoyageImportActions.behavior.test.tsx` (US-223) only asserts that the import buttons render — it does not prove the modal opens with the voyage id locked or that the importer is wired.
 **Action:** add a test that clicking an action opens its importer modal scoped to the given `voyageId`; OR explicitly document the limit in the workbook note.
 **Acceptance:** the story's evidence reflects real coverage of the voyage-scoped import, not just button presence.
-- [ ] Done
+- [x] Done — added two tests: clicking "Manifesto BB" opens the importer modal showing the voyage label (scope proof), and confirming a parsed preview calls `importBreakbulkManifest` with the locked `voyageId: 7`.
 
 ### Task 4 — Cover the Granite "import with pending" path ⚡
 **Problem:** US-079 ("aceitar ou rejeitar pendentes") is currently evidenced by the *pending alert* in `Granite.behavior.test.tsx`, not by actually importing with unresolved B/Ls.
 **Action:** add a test that confirms importing a manifest that still has pending (unreconciled) B/Ls calls `importGraniteManifest` and that those B/Ls land without billing (the `pendingCount` path), and that the success toast reports the pendency.
 **Acceptance:** the accept-with-pending flow is exercised end-to-end (mocked), not inferred from the warning banner.
-- [ ] Done
+- [x] Done — added US-079 test that selects a voyage, uploads a manifest with two unreconciled B/Ls, confirms, and asserts `importGraniteManifest` is called with `voyageId: 7` and that the success toast reports "2 com faturamento pendente".
 
 ### Task 5 — Remove the fragile `beforeEach(mockReset)` footgun 🧹
 **Problem:** `src/services/__tests__/alertsTransitions.test.ts:18` (and any siblings) use `beforeEach(() => fromMock.mockReset())`. The arrow implicitly **returns** the mock, which Vitest treats as a cleanup hook and calls post-test (`from(undefined)`). It passes today by luck; it bit us once in `adminObservability.test.ts`.
 **Action:** convert to a block body `beforeEach(() => { fromMock.mockReset() })` everywhere this pattern appears.
 **Acceptance:** `grep -rn "beforeEach(() => fromMock.mockReset())" src` returns nothing.
-- [ ] Done
+- [x] Done — converted all three siblings (`alertsTransitions`, `blDemurrageConfigAtomic`, `graniteReviewAtomic`) to block-body `beforeEach(() => { …mockReset() })`; grep returns nothing; tests pass.
 
 ---
 

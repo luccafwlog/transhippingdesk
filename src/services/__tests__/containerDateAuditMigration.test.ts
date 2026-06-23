@@ -8,9 +8,9 @@ function readMigrations() {
   return fs
     .readdirSync(migrationsDir)
     .filter((file) => file.endsWith('.sql'))
-    // Normalize CRLF so the content assertions are independent of git's
-    // core.autocrlf checkout behaviour (the committed files use LF).
-    .map((file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8').replace(/\r\n/g, '\n'))
+    // `.gitattributes` pins *.sql to `eol=lf`, so a fresh checkout is always
+    // LF regardless of core.autocrlf — no per-read normalization needed.
+    .map((file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8'))
     .join('\n')
 }
 

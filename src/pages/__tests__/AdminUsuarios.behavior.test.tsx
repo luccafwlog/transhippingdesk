@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listAllUserProfiles: vi.fn(),
   updateUserProfile: vi.fn(),
   mutate: vi.fn(),
+  errorByKey: {} as Record<string, unknown>,
 }))
 
 const users = [
@@ -18,8 +19,10 @@ const users = [
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
-    if (queryKey[0] === 'admin-users') return { data: users, isLoading: false, error: null }
-    return { data: undefined, isLoading: false, error: null }
+    const key = queryKey[0] as string
+    const error = mocks.errorByKey[key] ?? null
+    if (key === 'admin-users') return { data: users, isLoading: false, error }
+    return { data: undefined, isLoading: false, error }
   },
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
   useMutation: (opts: { mutationFn: (vars: unknown) => unknown }) => ({
@@ -45,6 +48,7 @@ import { AdminUsuarios } from '../AdminUsuarios'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.errorByKey = {}
   mocks.updateUserProfile.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
@@ -75,4 +79,22 @@ it('US-147: altera o perfil de acesso de um usuario', () => {
   fireEvent.change(select, { target: { value: 'financeiro' } })
 
   expect(mocks.updateUserProfile).toHaveBeenCalledWith('u-1', { role: 'financeiro' })
+})
+
+it('DEF-061: surface dedicada de erro ao carregar logs de acoes', () => {
+  mocks.errorByKey = { 'admin-audit-logs': new Error('logs down') }
+  render(<AdminUsuarios />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Log de Ações' }))
+
+  expect(screen.getByText('Erro ao carregar logs de ações.')).toBeTruthy()
+})
+
+it('DEF-062: surface dedicada de erro ao carregar metricas do sistema', () => {
+  mocks.errorByKey = { 'admin-metrics': new Error('metrics down') }
+  render(<AdminUsuarios />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Métricas' }))
+
+  expect(screen.getByText('Erro ao carregar métricas do sistema.')).toBeTruthy()
 })
