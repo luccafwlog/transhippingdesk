@@ -1,6 +1,6 @@
 # Deploy
 
-> Hospedagem: **Firebase Hosting** (projeto `importmanager-bda3e`, target `transhippingdesk`, pasta publicada `dist`). CI/CD via **GitHub Actions** (deploy atômico via staging channel → release para `live`). Nenhum push manual é necessário.
+> Hospedagem: **Firebase Hosting** (projeto `importmanager-bda3e`, target `transhippingdesk`, pasta publicada `dist`). CI/CD via **GitHub Actions** (CLI direta, sem action de terceiros). Nenhum push manual é necessário.
 
 ## Workflows
 
@@ -20,15 +20,6 @@ Todo PR aberto/reaberto dispara `auto-merge-prs.yml`:
 4. Deploy para Firebase Hosting.
 
 > `VITE_APP_COMMIT_SHA` expõe o SHA do deploy na aplicação (rastreabilidade).
-
-### Deploy atômico
-
-Para evitar erros de MIME type durante o deploy (quando o `index.html` referencia assets que ainda não foram publicados), o deploy é feito em duas etapas:
-
-1. **Staging channel**: todos os assets (`dist/`) são enviados para um canal temporário (`deploy-<sha>`).
-2. **Release atômico**: o conteúdo do canal temporário é liberado para o canal `live` — a troca é instantânea e só ocorre depois que todos os arquivos estão disponíveis.
-
-Isso garante que o `index.html` nunca referencie assets inexistentes durante a janela de deploy.
 
 ### Deploy manual (emergência)
 

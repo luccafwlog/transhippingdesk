@@ -26,29 +26,11 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Authenticate to Firebase
-        env:
-          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E }}
-        run: echo "$FIREBASE_SA" > /tmp/firebase-sa.json
-
-      - name: Deploy to staging channel
-        id: deploy
+      - name: Deploy to Firebase Hosting
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
         run: |
-          SHA7="${GITHUB_SHA:0:7}"
-          CHANNEL="deploy-${SHA7}"
-          npx firebase-tools@latest hosting:channel:deploy "$CHANNEL" \
-            --project importmanager-bda3e \
-            --expires 30m \
-            --non-interactive
-          echo "CHANNEL=$CHANNEL" >> "$GITHUB_ENV"
-
-      - name: Release to live (atomic)
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
-        run: |
-          npx firebase-tools@latest hosting:channel:release "$CHANNEL" \
-            --to live \
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E }}' > /tmp/firebase-sa.json
+          npx firebase-tools@latest deploy --only hosting:transhippingdesk \
             --project importmanager-bda3e \
             --non-interactive
