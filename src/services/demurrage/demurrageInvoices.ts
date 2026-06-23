@@ -37,6 +37,52 @@ function genDemurrageDocnum(blId: string): string {
   return `DEM-${year}-${ts}${suffix}`
 }
 
+type DemurrageInvoiceItemSnapshot = {
+  container_id: number
+  container_number: string
+  container_type: string
+  discharge_date: string
+  return_date: string
+  total_days: number
+  free_days: number
+  days_p1: number
+  rate_p1_usd: number
+  days_p2: number
+  rate_p2_usd: number
+  subtotal_usd: number
+}
+
+async function createDemurrageInvoiceWithItems(input: {
+  docNumber: string
+  blId: string
+  customerId: number
+  totalUsd: number
+  dueDate: string
+  readyAt: string | null
+  roeManual: boolean
+  roe: number | null
+  items: DemurrageInvoiceItemSnapshot[]
+}): Promise<number> {
+  const { data, error } = await supabase.rpc('create_demurrage_invoice_with_items' as never, {
+    p_doc_number: input.docNumber,
+    p_bl_id: input.blId,
+    p_customer_id: input.customerId,
+    p_total_usd: input.totalUsd,
+    p_due_date: input.dueDate,
+    p_ready_at: input.readyAt,
+    p_roe_manual: input.roeManual,
+    p_roe: input.roe,
+    p_items: input.items,
+  } as never)
+  if (error) throw error
+
+  const invoiceId = Number((data as { invoice_id?: number } | null)?.invoice_id)
+  if (!Number.isFinite(invoiceId) || invoiceId <= 0) {
+    throw new Error('RPC de Demurrage nao retornou uma invoice valida.')
+  }
+  return invoiceId
+}
+
 export async function createInvoiceForBL(blId: string): Promise<number> {
   await ensureDemurrageRatesLoaded()
 
@@ -56,25 +102,21 @@ export async function createInvoiceForBL(blId: string): Promise<number> {
   if (cErr) throw cErr
   if (!containers?.length) throw new Error('Nenhum container em atraso para este BL')
 
-  const items = containers.map((c) => {
-    const calc = calculateDemurrage(c.type, c.discharge_date!, c.return_date!, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
-    return { container: c, calc }
-  })
+  const items = containers
+    .map((c) => {
+      const calc = calculateDemurrage(c.type, c.discharge_date!, c.return_date!, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+      return { container: c, calc }
+    })
+    .filter((i) => i.calc.total_usd > 0)
+
+  if (!items.length) throw new Error('Nenhum container com sobreestadia para este BL')
 
   const total_usd = items.reduce((sum, i) => sum + i.calc.total_usd, 0)
   const doc_number = genDemurrageDocnum(blId)
   const due_date = nextBusinessDay()
   const ready_at = containers.every((c) => c.return_date) ? containers.reduce((max, c) => (c.return_date! > max ? c.return_date! : max), containers[0].return_date!) : null
 
-  const { data: inv, error: invErr } = await supabase
-    .from('demurrage_invoices')
-    .insert({ doc_number, bl_id: blId, customer_id: bl.customer_id, total_usd, due_date, ready_at, roe_manual: bl.demurrage_roe_manual ?? false, roe: bl.demurrage_roe ?? null })
-    .select('id')
-    .single()
-  if (invErr) throw invErr
-
   const itemRows = items.map(({ container: c, calc }) => ({
-    invoice_id: inv.id,
     container_id: c.id,
     container_number: c.container_number,
     container_type: c.type ?? '',
@@ -89,10 +131,17 @@ export async function createInvoiceForBL(blId: string): Promise<number> {
     subtotal_usd: calc.total_usd,
   }))
 
-  const { error: itemErr } = await supabase.from('demurrage_invoice_items').insert(itemRows)
-  if (itemErr) throw itemErr
-
-  return inv.id
+  return createDemurrageInvoiceWithItems({
+    docNumber: doc_number,
+    blId,
+    customerId: bl.customer_id,
+    totalUsd: total_usd,
+    dueDate: due_date,
+    readyAt: ready_at,
+    roeManual: bl.demurrage_roe_manual ?? false,
+    roe: bl.demurrage_roe ?? null,
+    items: itemRows,
+  })
 }
 
 export async function createInvoiceForReturnedBL(blId: string): Promise<number | null> {
@@ -130,15 +179,7 @@ export async function createInvoiceForReturnedBL(blId: string): Promise<number |
   const due_date = nextBusinessDay()
   const ready_at = containers.reduce((max, c) => (c.return_date! > max ? c.return_date! : max), containers[0].return_date!)
 
-  const { data: inv, error: invErr } = await supabase
-    .from('demurrage_invoices')
-    .insert({ doc_number, bl_id: blId, customer_id: bl.customer_id, total_usd, due_date, ready_at, roe_manual: bl.demurrage_roe_manual ?? false, roe: bl.demurrage_roe ?? null })
-    .select('id')
-    .single()
-  if (invErr) throw invErr
-
   const itemRows = items.map(({ container: c, calc }) => ({
-    invoice_id: inv.id,
     container_id: c.id,
     container_number: c.container_number,
     container_type: c.type ?? '',
@@ -153,10 +194,17 @@ export async function createInvoiceForReturnedBL(blId: string): Promise<number |
     subtotal_usd: calc.total_usd,
   }))
 
-  const { error: itemErr } = await supabase.from('demurrage_invoice_items').insert(itemRows)
-  if (itemErr) throw itemErr
-
-  return inv.id
+  return createDemurrageInvoiceWithItems({
+    docNumber: doc_number,
+    blId,
+    customerId: bl.customer_id,
+    totalUsd: total_usd,
+    dueDate: due_date,
+    readyAt: ready_at,
+    roeManual: bl.demurrage_roe_manual ?? false,
+    roe: bl.demurrage_roe ?? null,
+    items: itemRows,
+  })
 }
 
 export async function issueInvoice(invoiceId: number, roe: number, roeSource: RoeSource = 'bcb_live'): Promise<void> {

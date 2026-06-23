@@ -104,21 +104,16 @@ function getRate(containerType: string | null, freeTimeOverride?: number | null,
   const groups = resolveActiveRateGroups()
   const group = groups.find((g) => g.aliases.includes(type)) ?? groups[0] ?? DEFAULT_RATE
 
-  let freeUntil = group.freeUntil
-  let p1 = { ...group.p1 }
-  let p2 = { ...group.p2, range: [...group.p2.range] as [number, number] }
-
-  if (freeTimeOverride != null && freeTimeOverride !== group.freeUntil) {
-    const delta = freeTimeOverride - group.freeUntil
-    freeUntil = freeTimeOverride
-    p1 = { range: [group.p1.range[0] + delta, group.p1.range[1] + delta], usd: group.p1.usd }
-    p2 = { range: [group.p2.range[0] + delta, Infinity], usd: group.p2.usd }
-  }
+  const freeUntil = freeTimeOverride != null ? freeTimeOverride : group.freeUntil
+  const p1Start = freeUntil + 1
+  const p1End = group.p1.range[1]
+  const p1Range: [number, number] = [p1Start, p1End]
+  const p2Range: [number, number] = [group.p2.range[0], Infinity]
 
   return {
     freeUntil,
-    p1: { range: p1.range, usd: ov1 ?? p1.usd },
-    p2: { range: p2.range, usd: ov2 ?? p2.usd },
+    p1: { range: p1Range, usd: ov1 != null ? ov1 : group.p1.usd },
+    p2: { range: p2Range, usd: ov2 != null ? ov2 : group.p2.usd },
   }
 }
 

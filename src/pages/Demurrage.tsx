@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, FileText, Pencil, Upload } from 'lucide-react'
+import { Clock, DollarSign, FileText, Pencil, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../hooks/useAuth'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
+import { DemurragePaymentReversalModal } from '../components/demurrage/DemurragePaymentReversalModal'
 import { calculateDemurrage } from '../services/demurrage/demurrageRates'
 import { listDemurrageContainers, updateContainerDates } from '../services/demurrage/demurrageContainers'
 import {
@@ -21,17 +23,17 @@ import {
   listDemurrageInvoices,
   markInvoicePaid,
   unissueInvoice,
-  unmarkInvoicePaid,
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
+import { reverseDemurragePayment } from '../services/reconciliacao'
 import { fetchDemurrageKPIs, fetchROE } from '../services/demurrage/demurrageKpis'
+import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
 
-type DemurrageTab = 'containers' | 'rascunhos' | 'emitidas' | 'pagas'
-type InvoiceStatus = 'draft' | 'issued' | 'paid'
+type DemurrageTab = 'containers' | (typeof DEMURRAGE_INVOICE_TABS)[number]['key']
 
 type DiscountForm = {
   discount_type: DemurrageInvoice['discount_type']
@@ -66,6 +68,7 @@ function DemurrageStatusBadge({ status }: { status: string | null }) {
 
 function InvoiceStatusBadge({ status }: { status: DemurrageInvoice['status'] }) {
   if (status === 'paid') return <Badge tone="green">Pago</Badge>
+  if (status === 'overdue') return <Badge tone="red">Vencido</Badge>
   if (status === 'issued') return <Badge tone="blue">Faturado</Badge>
   if (status === 'cancelled') return <Badge tone="slate">Cancelado</Badge>
   return <Badge tone="yellow">Rascunho</Badge>
@@ -83,16 +86,12 @@ function groupByBl(containers: DemurrageContainerListItem[]): Map<string, Demurr
 
 const TAB_LABELS: { key: DemurrageTab; label: string }[] = [
   { key: 'containers', label: 'Containers' },
-  { key: 'rascunhos', label: 'Rascunhos' },
-  { key: 'emitidas', label: 'Emitidas' },
-  { key: 'pagas', label: 'Pagas' },
+  ...DEMURRAGE_INVOICE_TABS.map(({ key, label }) => ({ key, label })),
 ]
 
-const TAB_TO_STATUS: Record<Exclude<DemurrageTab, 'containers'>, InvoiceStatus> = {
-  rascunhos: 'draft',
-  emitidas: 'issued',
-  pagas: 'paid',
-}
+const TAB_TO_STATUS = Object.fromEntries(
+  DEMURRAGE_INVOICE_TABS.map(({ key, status }) => [key, status]),
+) as Record<Exclude<DemurrageTab, 'containers'>, NonNullable<DemurrageInvoice['status']>>
 
 const DISCOUNT_TYPE_LABELS: Record<NonNullable<DemurrageInvoice['discount_type']>, string> = {
   comercial: 'Comercial',
@@ -128,6 +127,7 @@ export function Demurrage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
+  const { isAdmin } = useAuth()
   const [tab, setTab] = useState<DemurrageTab>('containers')
   // ?busca= permite que alertas de demurrage abram a página já filtrada.
   const [searchParams] = useSearchParams()
@@ -142,6 +142,7 @@ export function Demurrage() {
   const [viewInvoiceId, setViewInvoiceId] = useState<number | null>(null)
   const [docType, setDocType] = useState<'invoice' | 'receipt'>('invoice')
   const [payingId, setPayingId] = useState<number | null>(null)
+  const [reversingPaymentId, setReversingPaymentId] = useState<number | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
   const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
 
@@ -271,8 +272,12 @@ export function Demurrage() {
   })
 
   const unpayMutation = useMutation({
-    mutationFn: unmarkInvoicePaid,
-    onSuccess: () => { invalidateInvoices(); showToast('Pagamento desmarcado.', 'success') },
+    mutationFn: ({ id, reason }: { id: number; reason: string }) => reverseDemurragePayment(id, reason),
+    onSuccess: () => {
+      invalidateInvoices()
+      setReversingPaymentId(null)
+      showToast('Baixa cancelada com auditoria.', 'success')
+    },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
 
@@ -300,16 +305,6 @@ export function Demurrage() {
       tone: 'danger',
     })
     if (ok) unissueMutation.mutate(invoiceId)
-  }
-
-  async function handleUnmarkInvoicePaid(invoiceId: number) {
-    const ok = await confirm({
-      title: 'Desmarcar pagamento',
-      message: 'Remover a marcacao de pagamento desta invoice?',
-      confirmLabel: 'Desmarcar',
-      tone: 'danger',
-    })
-    if (ok) unpayMutation.mutate(invoiceId)
   }
 
   const discountMutation = useMutation({
@@ -379,10 +374,20 @@ export function Demurrage() {
         title="Demurrage"
         description="Rastreamento e faturamento de sobreestadia de containers"
         action={
-          <Button variant="secondary" onClick={() => setImportOpen(true)}>
-            <Upload size={15} />
-            Importar Datas
-          </Button>
+          <>
+            {isAdmin && (
+              <Link to="/demurrage/taxas">
+                <Button variant="secondary">
+                  <DollarSign size={15} />
+                  Tarifas
+                </Button>
+              </Link>
+            )}
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              <Upload size={15} />
+              Importar Datas
+            </Button>
+          </>
         }
       />
 
@@ -637,7 +642,7 @@ export function Demurrage() {
                                 <>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('receipt') }}>Recibo</Button>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleUnmarkInvoicePaid(inv.id)}>Desmarcar</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => setReversingPaymentId(inv.id)}>Cancelar baixa</Button>
                                 </>
                               )}
                             </div>
@@ -876,6 +881,16 @@ export function Demurrage() {
           </div>
         </div>
       </Modal>
+
+      {reversingPaymentId != null ? (
+        <DemurragePaymentReversalModal
+          open
+          invoiceId={reversingPaymentId}
+          loading={unpayMutation.isPending}
+          onClose={() => setReversingPaymentId(null)}
+          onSubmit={(reason) => unpayMutation.mutate({ id: reversingPaymentId, reason })}
+        />
+      ) : null}
 
       {/* Invoice/receipt viewer */}
       {viewInvoiceId && invoiceDetail && (
