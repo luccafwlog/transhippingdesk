@@ -11,6 +11,7 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
 import { PortalConsolidatedModal } from '../components/portal/PortalConsolidatedModal'
 import { DisputeModal } from '../components/portal/DisputeModal'
@@ -68,6 +69,7 @@ function matchesText(values: string[], term: string) {
 export function PortalBilling() {
   const { overview } = usePortalAuth()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const { data: receivables } = usePortalConsolidatableReceivables()
   const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = usePortalInvoices()
   const { data: demurrageInvoices, isLoading: demurrageLoading } = usePortalDemurrageInvoices()
@@ -158,9 +160,13 @@ export function PortalBilling() {
 
   async function handleObsolete() {
     if (!detailQuery.data?.invoice) return
-    if (!window.confirm('Desfazer esta fatura consolidada? Os B/Ls voltam a ficar disponíveis para uma nova consolidação.')) {
-      return
-    }
+    const confirmed = await confirm({
+      title: 'Desfazer fatura consolidada',
+      message: 'Desfazer esta fatura consolidada? Os B/Ls voltam a ficar disponíveis para uma nova consolidação.',
+      confirmLabel: 'Desfazer',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     try {
       await obsoleteMutation.mutateAsync(Number(detailQuery.data.invoice.id))
       showToast('Fatura consolidada desfeita. Os B/Ls foram liberados.', 'success')

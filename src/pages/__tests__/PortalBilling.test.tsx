@@ -68,9 +68,17 @@ const demurrageInvoices: PortalDemurrageInvoice[] = [
 const exportLocal = vi.fn()
 const exportDemurrage = vi.fn()
 
+const mocks = vi.hoisted(() => ({
+  confirm: vi.fn(),
+  obsolete: vi.fn(),
+  detail: null as unknown,
+}))
+
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }))
+
+vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => mocks.confirm }))
 
 vi.mock('../../components/portal/PortalConsolidatedModal', () => ({
   PortalConsolidatedModal: () => null,
@@ -95,9 +103,9 @@ vi.mock('../../hooks/usePortalBilling', () => ({
   usePortalConsolidatableReceivables: () => ({ data: [] }),
   usePortalInvoices: () => ({ data: localInvoices, isLoading: false, error: null }),
   usePortalDemurrageInvoices: () => ({ data: demurrageInvoices, isLoading: false }),
-  usePortalInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
+  usePortalInvoiceDetail: () => ({ data: mocks.detail, isLoading: false, error: null }),
   usePortalDemurrageInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
-  usePortalObsoleteConsolidation: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  usePortalObsoleteConsolidation: () => ({ isPending: false, mutateAsync: mocks.obsolete }),
 }))
 
 vi.mock('../../services/exports', () => ({
@@ -119,7 +127,31 @@ afterEach(() => {
   cleanup()
   exportLocal.mockClear()
   exportDemurrage.mockClear()
+  mocks.confirm.mockReset()
+  mocks.obsolete.mockReset()
+  mocks.detail = null
 })
+
+const consolidatedDetail = {
+  invoice: {
+    id: 1,
+    invoice_number: 'INV-001',
+    invoice_type: 'consolidated',
+    status: 'issued',
+    total_brl: 100,
+    total_paid_brl: 0,
+    balance_brl: 100,
+  },
+  payments: [],
+  bls: ['BL-A', 'BL-B'],
+}
+
+async function openConsolidatedDetail(user: ReturnType<typeof userEvent.setup>) {
+  mocks.detail = consolidatedDetail
+  renderBilling()
+  await user.click(screen.getAllByRole('button', { name: 'Detalhes' })[0])
+  return screen.getByRole('button', { name: /Refazer consolidada/ })
+}
 
 describe('PortalBilling', () => {
   it('exibe abas Taxas Locais e Demurrage e oculta o filtro Cliente', async () => {
@@ -159,5 +191,27 @@ describe('PortalBilling', () => {
     const rows = exportDemurrage.mock.calls[0]?.[0] as PortalDemurrageInvoice[]
     expect(rows).toHaveLength(1)
     expect(rows[0].doc_number).toBe('DEM-001')
+  })
+
+  it('Task 10: desfazer consolidada usa ConfirmDialog e so executa apos confirmar', async () => {
+    const user = userEvent.setup()
+    mocks.confirm.mockResolvedValue(true)
+    const obsoleteButton = await openConsolidatedDetail(user)
+
+    await user.click(obsoleteButton)
+
+    expect(mocks.confirm).toHaveBeenCalledTimes(1)
+    expect(mocks.obsolete).toHaveBeenCalledWith(1)
+  })
+
+  it('Task 10: cancelar a confirmacao nao desfaz a fatura', async () => {
+    const user = userEvent.setup()
+    mocks.confirm.mockResolvedValue(false)
+    const obsoleteButton = await openConsolidatedDetail(user)
+
+    await user.click(obsoleteButton)
+
+    expect(mocks.confirm).toHaveBeenCalledTimes(1)
+    expect(mocks.obsolete).not.toHaveBeenCalled()
   })
 })
