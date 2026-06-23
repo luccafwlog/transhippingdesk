@@ -1,5 +1,7 @@
 # Risk-First Financial Repairs Implementation Plan
 
+> **✅ Completed (2026-06-23).** All repairs landed and are covered by passing tests (`graniteBillingWorkflow`, demurrage reversal, `createDemurrageInvoiceAtomic`, atomic batch billing) with their migrations validated on a disposable PostgreSQL 17 replay. Recorded as fixed defects in the canonical audit workbook. Kept for historical record.
+
 ## 1. Granite workflow
 
 - Add failing tests for calculate → ready → invoice ordering.
