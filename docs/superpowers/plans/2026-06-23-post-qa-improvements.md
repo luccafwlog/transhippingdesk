@@ -89,7 +89,7 @@ then renormalize (`git add --renormalize .`) and confirm the suite still passes.
 **Problem:** `src/pages/AdminUsuarios.tsx:68` `handleToggleActive` mutates immediately on click — deactivating a user (which revokes their access) has **no confirmation**, unlike other destructive flows that use `src/components/ui/ConfirmDialog.tsx`.
 **Reproducing expectation:** clicking "Desativar" opens a `ConfirmDialog`; `updateUserProfile` is **not** called until the dialog is confirmed, and is called with `{ active: false }` only after confirm.
 **Files:** `src/pages/AdminUsuarios.tsx`, `src/pages/__tests__/AdminUsuarios.behavior.test.tsx`.
-- [ ] Done
+- [x] Done — `handleToggleActive` now awaits `useConfirm` (danger tone, access-revocation message) before mutating; `updateUserProfile` only fires after confirm. Tests cover both the confirmed-toggle and cancelled paths.
 
 ### Task 10 — Replace native `window.confirm` with the styled `ConfirmDialog` ⚡
 **Problem:** destructive actions are split between the app's `ConfirmDialog` and the browser's native `window.confirm`. The latter still appears in `src/pages/Manifestos.tsx`, `ChegadasSaidas.tsx`, `GraniteRates.tsx`, `Veiculos.tsx`, `Demurrage.tsx`, `Containers.tsx`, `PortalBilling.tsx`, `ClienteFicha.tsx`, `Clientes.tsx`, and `src/components/bl/BlCobrancasTab.tsx`, `src/components/taxasLocais/ChargeOverridesTab.tsx`, `ChargeTablesTab.tsx`. Native dialogs are unstyled, unmockable in jsdom (so the confirm branch stays untested), and inconsistent.
@@ -101,7 +101,7 @@ then renormalize (`git add --renormalize .`) and confirm the suite still passes.
 **Problem:** import previews show the **full** parsed count in a stat box but render only the first N rows in the table with no "showing first N of M" footer — so a 600-row manifest looks like it parsed 50. Affected: `src/pages/Granite.tsx:423` (50), `Manifestos.tsx:756` / `CargaSolta.tsx:527` / `VaziosImportacao.tsx:360` / `EmbarqueVazios.tsx:301` (25), `Veiculos.tsx:507` / `Containers.tsx:562` (20), `Clientes.tsx:915` (15). `src/pages/Baplie.tsx:862` already does this ("de N no arquivo") and is the pattern to follow.
 **Reproducing expectation:** given a parsed preview with more rows than the cap, the table renders exactly the cap **and** a footer like "mostrando as primeiras N de M" (absent when M ≤ N).
 **Files:** the pages listed above + a shared helper/footer component + tests.
-- [ ] Done
+- [x] Done — added `src/components/shared/TruncationNote.tsx` (renders nothing when `total <= shown`) with tests, and wired it under each capped preview table: Granite (50), Manifestos/CargaSolta/VaziosImportacao/EmbarqueVazios (25), Veiculos/Containers (20), Clientes (15).
 
 ---
 

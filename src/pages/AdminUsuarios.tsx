@@ -4,6 +4,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { MANAGED_PROFILES, PROFILE_LABELS, listAllUserProfiles, updateUserProfile } from '../services/adminUsers'
 import { LOG_PAGE_SIZE, fetchAuditLogs, fetchSystemMetrics, type LogFilters } from '../services/adminObservability'
 import type { UserProfileRole } from '../types/database'
@@ -23,6 +24,7 @@ function roleBadgeTone(role: UserProfileRole): 'blue' | 'green' | 'yellow' | 'sl
 export function AdminUsuarios() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [tab, setTab] = useState<AdminTab>('usuários')
   const [logFilters, setLogFilters] = useState<LogFilters>({
@@ -65,7 +67,16 @@ export function AdminUsuarios() {
     },
   })
 
-  function handleToggleActive(id: string, current: boolean) {
+  async function handleToggleActive(id: string, current: boolean) {
+    const confirmed = await confirm({
+      title: current ? 'Desativar usuário' : 'Ativar usuário',
+      message: current
+        ? 'Desativar este usuário revoga imediatamente o acesso dele ao sistema. Confirmar?'
+        : 'Reativar este usuário restaura o acesso dele ao sistema. Confirmar?',
+      confirmLabel: current ? 'Desativar' : 'Ativar',
+      tone: current ? 'danger' : 'primary',
+    })
+    if (!confirmed) return
     setPendingId(id)
     mutation.mutate({ id, updates: { active: !current } })
   }
@@ -175,7 +186,7 @@ export function AdminUsuarios() {
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={() => handleToggleActive(u.id, u.active)}
+                              onClick={() => void handleToggleActive(u.id, u.active)}
                               className="app-table__action text-xs disabled:opacity-40"
                             >
                               {u.active ? 'Desativar' : 'Ativar'}

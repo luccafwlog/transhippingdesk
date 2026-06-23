@@ -8,6 +8,7 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { useAuth } from '../hooks/useAuth'
@@ -518,6 +519,7 @@ export function Veiculos() {
                   </tbody>
                 </table>
               </div>
+              <TruncationNote shown={20} total={parsedImport.rows.length} noun="veículo" nounPlural="veículos" />
 
               {parsedImport.rowErrors.length ? (
                 <div className="grid gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">

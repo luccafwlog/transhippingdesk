@@ -7,6 +7,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TruncationNote } from '../components/shared/TruncationNote'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyageOptions } from '../hooks/useBls'
 import {
@@ -448,6 +449,7 @@ export function Granite() {
                   </tbody>
                 </table>
               </div>
+              <TruncationNote shown={50} total={manifest.bls.length} noun="B/L" nounPlural="B/Ls" />
 
               {manifest.rowErrors.length ? (
                 <div className="max-h-32 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">

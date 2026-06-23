@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listAllUserProfiles: vi.fn(),
   updateUserProfile: vi.fn(),
   mutate: vi.fn(),
+  confirm: vi.fn(),
   errorByKey: {} as Record<string, unknown>,
 }))
 
@@ -34,6 +35,7 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
+vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => mocks.confirm }))
 vi.mock('../../services/supabase', () => ({ supabase: { from: vi.fn() } }))
 vi.mock('../../services/adminUsers', async (importActual) => {
   const actual = await importActual<typeof import('../../services/adminUsers')>()
@@ -50,6 +52,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.errorByKey = {}
   mocks.updateUserProfile.mockResolvedValue(undefined)
+  mocks.confirm.mockResolvedValue(true)
 })
 afterEach(cleanup)
 
@@ -63,13 +66,25 @@ it('US-146: lista os usuarios com nome, perfil e status', () => {
   expect(screen.getAllByText('Inativo').length).toBeGreaterThan(0)
 })
 
-it('US-147: alterna o status ativo de um usuario', () => {
+it('US-147: alterna o status ativo de um usuario apos confirmar', async () => {
   render(<AdminUsuarios />)
 
   // Alice is active -> her action button reads "Desativar"
   fireEvent.click(screen.getAllByRole('button', { name: 'Desativar' })[0])
 
-  expect(mocks.updateUserProfile).toHaveBeenCalledWith('u-1', { active: false })
+  // Pede confirmação antes de mutar (ação revoga acesso).
+  await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
+  await waitFor(() => expect(mocks.updateUserProfile).toHaveBeenCalledWith('u-1', { active: false }))
+})
+
+it('Task 9: cancelar a confirmacao nao desativa o usuario', async () => {
+  mocks.confirm.mockResolvedValue(false)
+  render(<AdminUsuarios />)
+
+  fireEvent.click(screen.getAllByRole('button', { name: 'Desativar' })[0])
+
+  await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
+  expect(mocks.updateUserProfile).not.toHaveBeenCalled()
 })
 
 it('US-147: altera o perfil de acesso de um usuario', () => {
