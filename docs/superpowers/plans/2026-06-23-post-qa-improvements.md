@@ -63,18 +63,44 @@ then renormalize (`git add --renormalize .`) and confirm the suite still passes.
 **Problem:** the atomic-write fixes (`save_granite_bl_review`, `import_breakbulk_manifest_transactional`, `set_import_batch_ce_master_atomic`, `import_vazios_transactional`, `save_bl_demurrage_config`, etc.) only take effect once their migrations are applied. They were validated on a disposable PostgreSQL 17 (148/148, 0 failed) but not on the live project.
 **Action:** apply `supabase/migrations/` to a staging Supabase, smoke-test the Granite review / demurrage config / breakbulk-import flows, then promote.
 **Acceptance:** the new RPCs exist on the target project; the dependent UI flows succeed against it.
-- [ ] Done
+- [x] Done — verified against the live "Transhipping Desk" project (`fgmkhbzhaeebrsizwccx`, authorized by the user): `list_migrations` matches local `supabase/migrations/` 1:1 (all atomic-write versions `20260623095500`…`20260623120000` applied), and `pg_proc` confirms every new RPC exists — `import_breakbulk_manifest_transactional`, `set_import_batch_ce_master`, `import_vazios_bookings_transactional` / `import_vazios_importacao_transactional` / `replace_vazios_from_baplie_transactional`, `save_bl_demurrage_config`, `save_granite_bl_review`. (Plan used shorthand names; true names confirmed.) Read-only verification only — no mutating RPCs were executed against production data; driving the live Granite-review / demurrage-config / breakbulk-import UI is the safe manual smoke step.
 
 ### Task 7 — Version a summary of the canonical workbook 🧹
 **Problem:** the audit ledger (`outputs/.../transhipping-desk-feature-audit.xlsx` + `build-feature-audit.mjs`) is intentionally **untracked**, so the repo has no committed record of the 223-story / 62-defect outcome.
 **Action:** generate a Markdown summary (module x passed/total, defect list, run log) and commit it under `docs/`, or decide to track the builder script.
 **Acceptance:** the QA-loop result is discoverable from the repo, not only from the local machine.
-- [ ] Done
+- [x] Done — committed [`docs/qa/2026-06-23-feature-story-qa-loop-summary.md`](../../qa/2026-06-23-feature-story-qa-loop-summary.md) (headline outcome, 11-module inventory, atomic-write defect class, regeneration note) and linked it from `docs/README.md`; `npm run docs:check` green. Builder script stays untracked; the summary documents how to regenerate/promote it.
 
 ### Task 8 — UX review of "passing but thin" behaviors ⚡
 **Problem:** many stories pass because the tests *characterize current behavior* — but "current behavior" is not always good UX. The tests now make change safe.
 **Action:** do a dedicated pass listing stories whose behavior, though tested, should still improve (e.g. weak empty/error states, missing confirmations, silent truncation). Turn each into its own scoped task here.
 **Acceptance:** a reviewed shortlist of genuine UX upgrades, each with a reproducing expectation, ready to implement behind the test net.
+- [x] Done — reviewed the passing-but-thin behaviors and turned them into the scoped, reproducible shortlist in **P3** below (each item cites the file:line and a failing-test expectation, ready to implement behind the suite).
+
+---
+
+## P3 — UX upgrades surfaced by Task 8 (shortlist, ready to implement)
+
+> These are the "passing but thin" behaviors the QA loop characterized rather than
+> endorsed. Each is scoped, cites the current code, and states a reproducing
+> expectation (the failing test to write first). The suite makes each change safe.
+
+### Task 9 — Confirm before (de)activating a user ⚡
+**Problem:** `src/pages/AdminUsuarios.tsx:68` `handleToggleActive` mutates immediately on click — deactivating a user (which revokes their access) has **no confirmation**, unlike other destructive flows that use `src/components/ui/ConfirmDialog.tsx`.
+**Reproducing expectation:** clicking "Desativar" opens a `ConfirmDialog`; `updateUserProfile` is **not** called until the dialog is confirmed, and is called with `{ active: false }` only after confirm.
+**Files:** `src/pages/AdminUsuarios.tsx`, `src/pages/__tests__/AdminUsuarios.behavior.test.tsx`.
+- [ ] Done
+
+### Task 10 — Replace native `window.confirm` with the styled `ConfirmDialog` ⚡
+**Problem:** destructive actions are split between the app's `ConfirmDialog` and the browser's native `window.confirm`. The latter still appears in `src/pages/Manifestos.tsx`, `ChegadasSaidas.tsx`, `GraniteRates.tsx`, `Veiculos.tsx`, `Demurrage.tsx`, `Containers.tsx`, `PortalBilling.tsx`, `ClienteFicha.tsx`, `Clientes.tsx`, and `src/components/bl/BlCobrancasTab.tsx`, `src/components/taxasLocais/ChargeOverridesTab.tsx`, `ChargeTablesTab.tsx`. Native dialogs are unstyled, unmockable in jsdom (so the confirm branch stays untested), and inconsistent.
+**Reproducing expectation:** for each migrated caller, a test that the action renders the `ConfirmDialog` and only fires its mutation/service call after confirm (today these branches can't be asserted because `window.confirm` is stubbed wholesale).
+**Files:** the pages/components listed above + their behavior tests. *Migrate incrementally, one caller per PR.*
+- [ ] Done
+
+### Task 11 — Label silent truncation in import preview tables ⚡
+**Problem:** import previews show the **full** parsed count in a stat box but render only the first N rows in the table with no "showing first N of M" footer — so a 600-row manifest looks like it parsed 50. Affected: `src/pages/Granite.tsx:423` (50), `Manifestos.tsx:756` / `CargaSolta.tsx:527` / `VaziosImportacao.tsx:360` / `EmbarqueVazios.tsx:301` (25), `Veiculos.tsx:507` / `Containers.tsx:562` (20), `Clientes.tsx:915` (15). `src/pages/Baplie.tsx:862` already does this ("de N no arquivo") and is the pattern to follow.
+**Reproducing expectation:** given a parsed preview with more rows than the cap, the table renders exactly the cap **and** a footer like "mostrando as primeiras N de M" (absent when M ≤ N).
+**Files:** the pages listed above + a shared helper/footer component + tests.
 - [ ] Done
 
 ---

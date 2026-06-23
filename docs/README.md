@@ -57,6 +57,7 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#3-fluxo-o
 - [operations/](operations/regras-de-negocio.md) — regras de negócio, segurança, validação, reset.
 - [setup/](setup/development.md) — desenvolvimento, deploy, testes.
 - [archive/](archive/README.md) — auditorias e planos históricos (não-vivos).
+- [qa/](qa/2026-06-23-feature-story-qa-loop-summary.md) — resultado do loop de QA por história (223/223 histórias, 62 defeitos corrigidos).
 
 ## Convenções da documentação
 
