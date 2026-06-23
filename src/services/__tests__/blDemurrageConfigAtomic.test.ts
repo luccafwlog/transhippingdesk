@@ -6,7 +6,7 @@ import { saveBlDemurrageConfig } from '../blDemurrageConfig'
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
 vi.mock('../supabase', () => ({ supabase: { rpc: rpcMock } }))
 
-beforeEach(() => rpcMock.mockReset())
+beforeEach(() => { rpcMock.mockReset() })
 
 it('salva free time e overrides P1/P2 em uma unica RPC', async () => {
   rpcMock.mockResolvedValue({ error: null })

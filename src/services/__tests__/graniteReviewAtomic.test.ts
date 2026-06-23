@@ -6,7 +6,7 @@ import { saveGraniteBlReview } from '../review'
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
 vi.mock('../supabase', () => ({ supabase: { rpc: rpcMock } }))
 
-beforeEach(() => rpcMock.mockReset())
+beforeEach(() => { rpcMock.mockReset() })
 
 it('vincula cliente Granite e auditoria em uma unica RPC', async () => {
   rpcMock.mockResolvedValue({ error: null })
