@@ -26,21 +26,27 @@ export async function listAlerts(statusFilter: AlertStatusFilter = 'all'): Promi
 }
 
 export async function acknowledgeAlert(id: number): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('alerts')
     .update({ status: 'acknowledged' })
     .eq('id', id)
     .eq('status', 'open')
+    .select('id')
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw new Error('O estado foi alterado por outro usuario. Atualize a lista e tente novamente.')
 }
 
 export async function closeAlert(id: number): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('alerts')
     .update({ status: 'closed', closed_at: new Date().toISOString() })
     .eq('id', id)
     .neq('status', 'closed')
+    .select('id')
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw new Error('O estado foi alterado por outro usuario. Atualize a lista e tente novamente.')
 }
 
 export async function createAlert(input: {

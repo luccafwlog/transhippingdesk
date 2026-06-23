@@ -175,9 +175,9 @@ export function ShipScheduleWidget() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span>ETD = Estimated Time of Departure &nbsp; ETA = Estimated Time of Arrival</span>
               <span className="font-medium">X = Não programado</span>
-              <span className="font-medium"><span className="text-[#162440]">Datas em azul</span> = Evento confirmado</span>
+              <span className="font-medium"><span className="text-[#162440]">Datas em azul</span> = data programada já alcançada</span>
             </div>
-            <span className="font-medium">Atualização diária às 09:00.</span>
+            <span className="font-medium">Atualizado conforme os dados publicados.</span>
           </div>
         </>
       )}

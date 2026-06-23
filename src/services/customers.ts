@@ -31,9 +31,11 @@ type CreateCustomerInput = {
 }
 
 export async function createCustomer(input: CreateCustomerInput) {
-  const { data, error } = await supabase
-    .from('customers')
-    .insert({
+  const contacts = (input.contacts ?? []).filter(
+    (contact) => contact.name.trim() || (contact.email ?? '').trim() || (contact.phone ?? '').trim(),
+  )
+  const { data, error } = await supabase.rpc('create_customer_with_contacts', {
+    p_customer: {
       cnpj_cpf: onlyDigits(input.cnpjCpf),
       name: input.name.trim(),
       trade_name: normalizeText(input.tradeName),
@@ -42,35 +44,18 @@ export async function createCustomer(input: CreateCustomerInput) {
       state: normalizeState(input.state),
       zip: normalizeZip(input.zip),
       notes: normalizeText(input.notes),
-    })
-    .select('*')
-    .single()
-
-  if (error || !data) throw error
-
-  const contacts = (input.contacts ?? []).filter(
-    (contact) => contact.name.trim() || (contact.email ?? '').trim() || (contact.phone ?? '').trim(),
-  )
-
-  if (contacts.length) {
-    const contactPayload = contacts.map((contact) => ({
-      customer_id: data.id,
-      name: contact.name.trim() || 'Contato sem nome',
+    },
+    p_contacts: contacts.map((contact) => ({
+      name: contact.name.trim(),
       email: normalizeText(contact.email),
       phone: normalizeText(contact.phone),
       purpose: contact.purpose ?? 'geral',
       is_primary: contact.is_primary ?? false,
-    }))
+    })),
+  })
 
-    const { error: contactError } = await supabase.from('customer_contacts').insert(contactPayload)
-
-    if (contactError) {
-      await supabase.from('customers').delete().eq('id', data.id)
-      throw contactError
-    }
-  }
-
-  return data as Customer
+  if (error || !data) throw error
+  return data as unknown as Customer
 }
 
 export async function updateCustomerWithAudit({
@@ -93,23 +78,15 @@ export async function updateCustomerWithAudit({
   if (!changedEntries.length) return false
 
   const payload = Object.fromEntries(changedEntries) as Partial<CustomerEditableFields>
-  const { error: updateError } = await supabase.from('customers').update(payload).eq('id', customerId)
-  if (updateError) throw updateError
+  const { data, error } = await supabase.rpc('update_customer_with_audit', {
+    p_customer_id: customerId,
+    p_updates: payload,
+    p_changed_by: changedBy,
+    p_justification: justification,
+  })
 
-  const { error: auditError } = await supabase.from('audit_logs').insert(
-    changedEntries.map(([field, value]) => ({
-      entity_type: 'customer',
-      entity_id: String(customerId),
-      field_name: field,
-      old_value: stringifyValue(original[field]),
-      new_value: stringifyValue(value),
-      changed_by: changedBy,
-      justification,
-    })),
-  )
-
-  if (auditError) throw auditError
-  return true
+  if (error) throw error
+  return data === true
 }
 
 export async function upsertCustomerContact(customerId: number, contact: Omit<CustomerContact, 'customer_id' | 'created_at'>) {

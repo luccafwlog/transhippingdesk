@@ -5,84 +5,13 @@ import { MetricCard } from '../components/ui/MetricCard'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
 import { MANAGED_PROFILES, PROFILE_LABELS, listAllUserProfiles, updateUserProfile } from '../services/adminUsers'
-import { supabase } from '../services/supabase'
+import { LOG_PAGE_SIZE, fetchAuditLogs, fetchSystemMetrics, type LogFilters } from '../services/adminObservability'
 import type { UserProfileRole } from '../types/database'
 
 type AdminTab = 'usuários' | 'logs' | 'métricas'
 
 const VERSION = '2.0.0'
 const COMMIT_SHA = String(import.meta.env.VITE_APP_COMMIT_SHA ?? 'unknown')
-
-type AuditLogRow = {
-  id: number
-  entity_type: string
-  entity_id: string
-  field_name: string | null
-  old_value: string | null
-  new_value: string | null
-  changed_by: string | null
-  changed_at: string
-  justification: string | null
-  changer_name: string | null
-}
-
-const LOG_PAGE_SIZE = 50
-
-type LogFilters = {
-  entityType: string
-  changedBy: string
-  dateFrom: string
-  dateTo: string
-  page: number
-}
-
-async function fetchAuditLogs(filters: LogFilters): Promise<{ rows: AuditLogRow[]; count: number }> {
-  const from = filters.page * LOG_PAGE_SIZE
-  const to = from + LOG_PAGE_SIZE - 1
-
-  let query = supabase
-    .from('audit_logs')
-    .select('id, entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at, justification', { count: 'exact' })
-    .order('changed_at', { ascending: false })
-    .range(from, to)
-
-  if (filters.entityType) query = query.eq('entity_type', filters.entityType)
-  if (filters.changedBy) query = query.eq('changed_by', filters.changedBy)
-  if (filters.dateFrom) query = query.gte('changed_at', filters.dateFrom + 'T00:00:00')
-  if (filters.dateTo) query = query.lte('changed_at', filters.dateTo + 'T23:59:59')
-
-  const { data, error, count } = await query
-  if (error) throw error
-
-  const rows = (data ?? []) as unknown as Omit<AuditLogRow, 'changer_name'>[]
-  if (!rows.length) return { rows: [], count: count ?? 0 }
-
-  const changerIds = Array.from(new Set(rows.map((r) => r.changed_by).filter(Boolean))) as string[]
-  const nameById = new Map<string, string>()
-  if (changerIds.length) {
-    const { data: profiles } = await supabase.from('user_profiles').select('id, full_name').in('id', changerIds)
-    for (const p of profiles ?? []) nameById.set((p as { id: string; full_name: string }).id, (p as { id: string; full_name: string }).full_name)
-  }
-
-  return {
-    rows: rows.map((r) => ({ ...r, changer_name: r.changed_by ? (nameById.get(r.changed_by) ?? r.changed_by) : null })),
-    count: count ?? 0,
-  }
-}
-
-async function fetchSystemMetrics() {
-  const [voyageRes, reconRes, invoiceRes] = await Promise.all([
-    supabase.from('voyages').select('created_at').order('created_at', { ascending: false }).limit(1),
-    supabase.from('audit_logs').select('changed_at').eq('entity_type', 'pix_reconciliation').order('changed_at', { ascending: false }).limit(1),
-    supabase.from('invoices').select('created_at').order('created_at', { ascending: false }).limit(1),
-  ])
-
-  return {
-    lastVoyageAt: voyageRes.data?.[0]?.created_at ?? null,
-    lastPixReconAt: (reconRes.data?.[0] as { changed_at?: string } | undefined)?.changed_at ?? null,
-    lastInvoiceAt: invoiceRes.data?.[0]?.created_at ?? null,
-  }
-}
 
 function roleBadgeTone(role: UserProfileRole): 'blue' | 'green' | 'yellow' | 'slate' | 'red' {
   if (role === 'admin' || role === 'administrativo') return 'blue'
@@ -105,7 +34,7 @@ export function AdminUsuarios() {
     queryFn: listAllUserProfiles,
   })
 
-  const { data: auditLogsResult, isLoading: logsLoading } = useQuery({
+  const { data: auditLogsResult, isLoading: logsLoading, error: logsError } = useQuery({
     queryKey: ['admin-audit-logs', logFilters],
     queryFn: () => fetchAuditLogs(logFilters),
     enabled: tab === 'logs',
@@ -115,7 +44,7 @@ export function AdminUsuarios() {
   const auditLogsTotal = auditLogsResult?.count ?? 0
   const auditLogsTotalPages = Math.max(1, Math.ceil(auditLogsTotal / LOG_PAGE_SIZE))
 
-  const { data: metrics } = useQuery({
+  const { data: metrics, error: metricsError } = useQuery({
     queryKey: ['admin-metrics'],
     queryFn: fetchSystemMetrics,
     enabled: tab === 'métricas',
@@ -287,6 +216,14 @@ export function AdminUsuarios() {
               />
             </div>
             <div>
+              <label className="mb-1 block app-field__label">Autor (ID)</label>
+              <input
+                className="app-input w-44"
+                value={logFilters.changedBy}
+                onChange={(e) => setLogFilters((f) => ({ ...f, changedBy: e.target.value, page: 0 }))}
+              />
+            </div>
+            <div>
               <label className="mb-1 block app-field__label">De</label>
               <input type="date" className="app-input" value={logFilters.dateFrom} onChange={(e) => setLogFilters((f) => ({ ...f, dateFrom: e.target.value, page: 0 }))} />
             </div>
@@ -294,7 +231,7 @@ export function AdminUsuarios() {
               <label className="mb-1 block app-field__label">Ate</label>
               <input type="date" className="app-input" value={logFilters.dateTo} onChange={(e) => setLogFilters((f) => ({ ...f, dateTo: e.target.value, page: 0 }))} />
             </div>
-            {(logFilters.entityType || logFilters.dateFrom || logFilters.dateTo) && (
+            {(logFilters.entityType || logFilters.changedBy || logFilters.dateFrom || logFilters.dateTo) && (
               <button
                 type="button"
                 className="app-btn app-btn--secondary"
@@ -307,6 +244,8 @@ export function AdminUsuarios() {
               <span className="ml-auto text-xs text-[var(--app-muted)]">{auditLogsTotal} registros</span>
             )}
           </div>
+
+          {logsError ? <InlineError message="Erro ao carregar logs de ações." /> : null}
 
           <Card className="overflow-hidden p-0">
             {logsLoading ? (
@@ -379,11 +318,15 @@ export function AdminUsuarios() {
       ) : null}
 
       {tab === 'métricas' ? (
+        metricsError ? (
+          <InlineError message="Erro ao carregar métricas do sistema." />
+        ) : (
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
           <MetricCard label="Última alteração em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
           <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
           <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />
         </div>
+        )
       ) : null}
     </>
   )

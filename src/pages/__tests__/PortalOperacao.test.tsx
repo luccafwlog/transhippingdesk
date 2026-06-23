@@ -96,8 +96,13 @@ const rows: PortalOperationBL[] = [
 vi.mock('../../hooks/usePortalOperation', () => ({
   usePortalOperationBls: () => ({ data: rows, isLoading: false, error: null }),
 }))
+vi.mock('../../services/exports', () => ({
+  exportPortalBlsWorkbook: vi.fn(),
+  exportPortalContainersWorkbook: vi.fn(),
+}))
 
 import { PortalOperacao } from '../PortalOperacao'
+import { exportPortalBlsWorkbook, exportPortalContainersWorkbook } from '../../services/exports'
 
 afterEach(cleanup)
 
@@ -150,5 +155,20 @@ describe('PortalOperacao (BLs e Containers)', () => {
     expect(screen.getByText('EFGH1234567')).toBeTruthy()
     expect(screen.queryByText('ABCD1234567')).toBeNull()
     expect(screen.queryByText('IJKL1234567')).toBeNull()
+  })
+
+  it('US-172: exporta os B/Ls e os containers para Excel', async () => {
+    const user = userEvent.setup()
+    renderOperacao()
+
+    // aba BLs: exporta B/Ls
+    await user.click(screen.getByRole('button', { name: 'Exportar Excel' }))
+    expect(exportPortalBlsWorkbook).toHaveBeenCalledTimes(1)
+    expect((exportPortalBlsWorkbook as ReturnType<typeof vi.fn>).mock.calls[0][0]).toHaveLength(rows.length)
+
+    // aba Containers: exporta containers
+    await user.click(screen.getByRole('tab', { name: 'Containers' }))
+    await user.click(screen.getByRole('button', { name: 'Exportar Excel' }))
+    expect(exportPortalContainersWorkbook).toHaveBeenCalledTimes(1)
   })
 })

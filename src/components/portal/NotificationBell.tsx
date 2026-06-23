@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/usePortalAuth'
 import { usePortalMarkAllRead, usePortalMarkRead, usePortalNotifications, usePortalUnreadCount } from '../../hooks/usePortalNotifications'
 
@@ -9,6 +10,7 @@ export function NotificationBell() {
   const { data: unreadCount = 0 } = usePortalUnreadCount()
   const markRead = usePortalMarkRead()
   const markAllRead = usePortalMarkAllRead()
+  const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
   const { overview } = usePortalAuth()
 
@@ -74,8 +76,10 @@ export function NotificationBell() {
                   className={`flex w-full gap-3 border-b border-[var(--app-border)] px-4 py-3 text-left text-sm transition-colors hover:bg-[var(--app-surface-hover)] ${
                     !n.read ? 'bg-[var(--app-surface-muted)]' : ''
                   }`}
-                  onClick={() => {
-                    if (!n.read) markRead.mutate(n.id)
+                  onClick={async () => {
+                    if (!n.read) await markRead.mutateAsync(n.id)
+                    if (n.link?.startsWith('/portal')) navigate(n.link)
+                    setOpen(false)
                   }}
                 >
                   <div className="mt-1 shrink-0">

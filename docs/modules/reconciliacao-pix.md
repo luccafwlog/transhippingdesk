@@ -39,11 +39,12 @@ Após o matching, a página apresenta:
 - tabela de matches não ambíguos com origem, documento, cliente, valor do PIX,
   valor esperado e TXID;
 - painel separado de ambiguidades, com candidato, contagem e motivo;
-- estado vazio quando nenhuma correspondência foi retornada;
+- painel “Sem documento candidato” para cada transação não conciliável;
 - botão de confirmação habilitado somente quando existe match não ambíguo.
 
-Transações sem documento candidato não geram um objeto `UnifiedPixMatch` e,
-portanto, não aparecem nem são contadas separadamente.
+Transações sem documento candidato geram um `UnifiedPixMatch` com
+`source = unmatched`. Elas permanecem visíveis para conferência, são contadas
+separadamente e nunca entram na confirmação.
 
 ### Confirmação e resultado por item
 
@@ -79,18 +80,18 @@ Depois da RPC, a página substitui os matches por um cartão de resultado com:
 | `/reconciliacao` · selecionar/upload de planilha | Arquivo `.xlsx`/`.xls` dentro do limite | Dropzone/input → `processFile` | `matchMutation` chama `parsePixExtractFile` | Leitura local do arquivo; sem escrita remota | Limpa `matches` e `confirmationResult`; inicia estado de processamento | Arquivo grande, formato inválido ou nenhuma transação gera toast de erro | **Código:** `src/pages/Reconciliacao.tsx`, `src/services/demurrage/demurrageKpis.ts` |
 | Parser · extrair linhas bancárias | Cabeçalho `identificador` e coluna `valor pago` | `parsePixExtractFile` | `assertUploadSize` → `parsePixExtract` → import dinâmico de `@e965/xlsx` | Nenhuma persistência | Retorna `{txid, cnpj, date, amount}`; ignora TXID vazio/valor não positivo | Cabeçalho/valor ausente lança erro; data inválida vira string vazia e falhará na confirmação | **Código:** `src/services/demurrage/demurrageKpis.ts` |
 | Matching · carregar documentos locais e Demurrage | Transações parseadas | `matchUnifiedPixTransactions` | Duas queries paralelas; normalização alfanumérica maiúscula | `SELECT invoices` locais pagáveis e `SELECT demurrage_invoices` emitidas | Sem cache React Query; monta mapa único de TXID para os dois domínios | Erro de qualquer query aborta o matching | **Código:** `src/services/reconciliacao.ts` · **Teste:** `src/services/__tests__/reconciliacao.test.ts` |
-| Matching · classificar sem match | TXID sem candidato aberto | Loop de `matchUnifiedPixTransactions` | `txidMap.get(key)` retorna vazio | Sem persistência | A linha é omitida do array, não recebe objeto/status “unmatched” | Operador vê apenas o estado geral “nenhuma correspondência” quando todo o arquivo é omitido | **Código:** `src/services/reconciliacao.ts` · **Teste:** caso sem TXID em `src/services/__tests__/reconciliacao.test.ts` |
+| Matching · classificar sem match | TXID sem candidato aberto | Loop de `matchUnifiedPixTransactions` | `txidMap.get(key)` retorna vazio | Sem persistência | Retorna linha `source = unmatched`, painel dedicado e contagem; nunca entra na confirmação | Nenhum documento é alterado | **Código:** `src/services/reconciliacao.ts`, `src/pages/Reconciliacao.tsx` · **Teste:** `src/services/__tests__/reconciliacao.test.ts`, `src/pages/__tests__/Reconciliacao.behavior.test.tsx` |
 | Matching · classificar ambiguidade de documento/TXID | Mais de um documento com TXID normalizado ou TXID repetido no extrato | Mesmo loop | `entries.length > 1` ou `seenTxids` | Sem persistência | `ambiguous = true`, motivo e `candidateCount`; UI move para painel ignorado | Não há seleção manual de candidato nesta tela | **Código:** `src/services/reconciliacao.ts`, `src/pages/Reconciliacao.tsx` · **Teste:** `src/services/__tests__/reconciliacao.test.ts` |
 | Matching · classificar divergência de valor | Diferença absoluta maior que `0,01` ou valor esperado não numérico | Mesmo loop | Compara transação com saldo local ou `frozen_total_brl` | Sem persistência | Marca como ambíguo; local e Demurrage recebem motivos distintos | Não existe pagamento parcial por PIX neste fluxo | **Código:** `src/services/reconciliacao.ts` · **Teste:** `src/services/__tests__/reconciliacao.test.ts` |
 | `/reconciliacao` · confirmar somente não ambíguos | Ao menos um match seguro; data parseada | `confirmMutation` | Filtra `!ambiguous`; `confirmUnifiedPixReconciliation` refiltra e monta JSON | RPC `confirm_unified_pix_matches` | Em sucesso invalida Demurrage, invoices, KPIs, B/Ls, detalhe de B/L, cliente e histórico | Data vazia falha antes da RPC; qualquer erro do lote é propagado | **Código:** `src/pages/Reconciliacao.tsx`, `src/services/reconciliacao.ts` · **Teste:** `src/services/__tests__/reconciliacao.test.ts` |
 | RPC unificada · conciliar item local | `source = local`, data presente, TXID casa uma invoice pagável e valor quita saldo | `confirm_unified_pix_matches` | `reconcile_invoice_payment_by_txid` → `register_ledger_invoice_payment` | `payments`, `ledger_settlements`, `bl_receivables`, links, invoice, B/Ls e eventos | Item `{source: local, status: ok}`; transação inteira aborta se um item falhar | Sem match, ambíguo no domínio local, já conciliado ou valor inexato gera falha do lote | **Código:** `supabase/migrations/20260612161000_confirm_unified_pix_matches.sql`, `supabase/migrations/20260614160000_pix_exact_and_manual_overpayment_refunds.sql` |
 | RPC unificada · conciliar item Demurrage | `source = demurrage`, invoice existente e diferença até `0,01` | Mesma RPC | Trava e valida cada documento; acumula lote para `confirm_demurrage_pix_matches` | `UPDATE demurrage_invoices`: `paid`, `paid_at`, `pix_txid`, `conciliated_by_extract` | Item `{source: demurrage, status: ok}` | Documento ausente, valor divergente ou contagem atualizada diferente aborta o lote | **Código:** `supabase/migrations/20260612161000_confirm_unified_pix_matches.sql`, `supabase/migrations/20260610094207_confirm_demurrage_pix_matches_batch.sql` |
 | Resultado · exibir retorno por fonte/item | Confirmação concluída | `confirmMutation.onSuccess` | Normalização de `UnifiedPixConfirmationResult` | Sem nova persistência | Mostra contagens e itens; limpa matches | Shape sem itens vira array vazio | **Código:** `src/pages/Reconciliacao.tsx`, `src/services/reconciliacao.ts` |
-| Histórico · listar/filtrar/ordenar/paginar | Sessão interna | `ReconciliationHistoryTable` | `useQuery` → `listReconciliationHistory` | Leituras limitadas a 2000 de cada domínio; filtros/ordenação/paginação no cliente | Query `['reconciliation-history', filters]`, `staleTime` 15 s | Erro de qualquer domínio falha a tabela inteira | **Código:** `src/components/billing/ReconciliationHistoryTable.tsx`, `src/services/reconciliacao.ts` |
-| Histórico · exportar | Filtros atuais | Botão “Exportar Excel” | `exportReconciliationHistoryExcel` consulta com página única ampla e carrega `@e965/xlsx` | Arquivo local `conciliacao-<timestamp>.xlsx` | Sem invalidação; neutraliza prefixos de fórmula em strings | Erro de leitura/geração é propagado pela promise do clique | **Código:** `src/services/reconciliacao.ts` |
+| Histórico · listar/filtrar/ordenar/paginar | Sessão interna | `ReconciliationHistoryTable` | `useQuery` → `listReconciliationHistory` | Pagina completamente os dois domínios em lotes de 1000; filtros/ordenação/paginação no cliente | Query `['reconciliation-history', filters]`, `staleTime` 15 s; data e `paymentId` vêm da mesma baixa mais recente | Erro de qualquer domínio falha a tabela inteira | **Código:** `src/components/billing/ReconciliationHistoryTable.tsx`, `src/services/reconciliacao.ts` · **Teste:** `src/services/__tests__/reconciliationHistoryPagination.test.ts`, `src/services/__tests__/reconciliationInvoiceType.test.ts` |
+| Histórico · exportar | Filtros atuais | Botão “Exportar Excel” | `exportReconciliationHistoryExcel` consulta com página única ampla e carrega `@e965/xlsx` | Arquivo local `conciliacao-<timestamp>.xlsx` | Sem invalidação; neutraliza prefixos de fórmula em strings | Falha exibe toast dedicado e encerra o estado de processamento | **Código:** `src/components/billing/ReconciliationHistoryTable.tsx`, `src/services/reconciliacao.ts` |
 | Histórico · abrir detalhe local | Linha local; invoice/payment IDs disponíveis | `onSelectLocalInvoice` | `InvoiceDetailModal` → `useInvoiceDetail`/`useInvoiceRefunds` | Leituras do faturamento | Queries de detalhe/refund | `paymentId = null` permite detalhe, mas não cancelamento da baixa | **Código:** `src/pages/Reconciliacao.tsx`, `src/components/billing/ReconciliationHistoryTable.tsx` |
 | Histórico · abrir detalhe Demurrage | Linha Demurrage | `onSelectDemurrageInvoice` | Query `getDemurrageDetail` | Leitura de invoice e itens de Demurrage | Query `['demurrage-invoice-detail', 'reconciliacao', id]` | Erro mostra falha no modal | **Código:** `src/pages/Reconciliacao.tsx`, `src/services/demurrage/demurrageInvoices.ts` |
-| Detalhe local · cancelar baixa | Admin, `paymentId` e justificativa | `InvoiceDetailModal.handleReversePayment` | `reverseLocalInvoicePayment` | RPC `reverse_invoice_payment` restaura ledger/links/status, limpa PIX e exclui `payments` | Fecha o modal; não há invalidação explícita no handler | RPC exige admin/justificativa e rejeita payment/invoice ausente | **Código:** `src/components/billing/InvoiceDetailModal.tsx`, `src/services/reconciliacao.ts`, `supabase/migrations/20260615010000_fix_bls_financial_status_on_reversal.sql` |
+| Detalhe local · cancelar baixa | Admin, `paymentId` e justificativa | `InvoiceDetailModal.handleReversePayment` | `reverseLocalPaymentAndInvalidate` → `reverseLocalInvoicePayment` | RPC `reverse_invoice_payment` restaura ledger/links/status, limpa PIX e exclui `payments` | Invalida ledger, invoices, B/Ls, cliente, detalhe, refunds, alertas e histórico antes de fechar | RPC exige admin/justificativa e rejeita payment/invoice ausente | **Código:** `src/components/billing/InvoiceDetailModal.tsx`, `src/hooks/useBillingLedger.ts`, `src/services/reconciliacao.ts` · **Teste:** `src/hooks/__tests__/billingLedgerInvalidation.test.ts` |
 | Detalhe Demurrage · cancelar baixa | Admin, invoice paga e justificativa | `demurrageReversalMutation` | `reverseDemurragePayment` | RPC `reverse_demurrage_payment` volta status a `issued`, limpa data/TXID e audita | Invalida `['demurrage-invoices']` e `['reconciliation-history']`; fecha modal | UI e RPC exigem justificativa; estado diferente de `paid` falha | **Código:** `src/pages/Reconciliacao.tsx`, `src/services/reconciliacao.ts`, `supabase/migrations/20260614180000_require_justification_on_payment_reversal.sql` |
 
 ## Estado e dados
@@ -162,7 +163,10 @@ flowchart TD
 
 ## Testes e validação
 
-Os testes não foram executados nesta cartografia, por instrução do coordenador.
+O lote comportamental de 2026-06-23 executou os serviços, contratos SQL,
+componentes e a página completa. A página foi exercitada com upload, separação
+entre seguros/ambíguos/sem candidato, confirmação, resultado, detalhes e
+estorno de Demurrage.
 
 ### Testes de comportamento estático
 
@@ -171,6 +175,12 @@ Os testes não foram executados nesta cartografia, por instrução do coordenado
   data obrigatória e lote Demurrage.
 - `src/lib/__tests__/pix.test.ts`: payload BRCode, sanitização/limite de TXID e
   CRC-16.
+- `src/pages/__tests__/Reconciliacao.behavior.test.tsx`: upload, revisão,
+  confirmação, detalhes e estorno.
+- `src/components/billing/__tests__/ReconciliationHistoryTable.behavior.test.tsx`:
+  filtros, exportação, erro, detalhe e falha de exportação.
+- `src/services/__tests__/reconciliationHistoryPagination.test.ts`: paginação
+  integral antes dos filtros.
 
 ### Teste de contrato SQL
 
@@ -181,13 +191,10 @@ Estes testes verificam texto de migrations, não um banco aplicado:
 - `src/services/__tests__/reversalBlsFinancialStatusMigration.test.ts`
 - `src/services/__tests__/reversalJustificationMigration.test.ts`
 
-Não há evidência de Runtime registrada neste documento.
-
 ## Notas e divergências
 
-- **Unmatched não é uma classificação persistida ou exibida.** O serviço omite
-  transações sem candidato. Isso impede revisar por linha quais entradas do
-  workbook ficaram sem match.
+- **Unmatched é uma classificação somente de revisão.** Permanece visível na
+  página, mas não é persistida e não entra no payload de confirmação.
 - **Suspeita sem prova de falha/exploit — ambiguidade é parcialmente
   client-side.** A RPC unificada não recebe a classificação do frontend. Uma
   chamada direta ainda revalida o match local e os valores, mas não demonstra
@@ -201,15 +208,8 @@ Não há evidência de Runtime registrada neste documento.
   `ledger_settlements.pix_txid`; Demurrage mantém seu próprio campo. O trigger
   reduz duplicação entre settlements, mas não elimina a necessidade de
   sincronização entre documento e ledger.
-- **Suspeita — flag de Demurrage após estorno.**
-  `reverse_demurrage_payment` limpa `status`, `paid_at` e `pix_txid`, mas a
-  definição atual em
-  `supabase/migrations/20260614180000_require_justification_on_payment_reversal.sql`
-  não redefine `conciliated_by_extract = false`.
-- **Suspeita — cache após estorno local.** `handleReversePayment` fecha o modal
-  sem invalidar `reconciliation-history`, invoices, detalhe ou ledger. A
-  próxima atualização depende de refetch por outro mecanismo.
-- **Suspeita — filtro “Único BL” do histórico.** A UI envia
-  `invoiceTypeFilter = single`, enquanto os valores persistidos são
-  `individual`, `consolidated` e `granite`; o filtro do serviço compara por
-  igualdade. Não houve validação em Runtime.
+- **Estorno de Demurrage limpa a origem do pagamento.** A migration
+  `20260622132451_clear_demurrage_extract_flag_on_reversal.sql` redefine
+  `conciliated_by_extract = false`.
+- **Filtro “Único BL” alinhado.** O valor visual `single` é normalizado para
+  `individual` antes da comparação.

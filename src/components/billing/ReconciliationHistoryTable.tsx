@@ -8,6 +8,7 @@ import { SkeletonTable } from '../ui/Skeleton'
 import { FilterBar } from '../ui/FilterBar'
 import { Field, Input, Select } from '../ui/Input'
 import { Combobox, type ComboOption } from '../ui/Combobox'
+import { useToast } from '../ui/Toast'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { listBillingCustomers } from '../../services/billing'
 import { listReconciliationHistory, exportReconciliationHistoryExcel, type ReconciliationFilters } from '../../services/reconciliacao'
@@ -29,6 +30,7 @@ export function ReconciliationHistoryTable({
   onSelectLocalInvoice,
   onSelectDemurrageInvoice,
 }: ReconciliationHistoryTableProps) {
+  const { showToast } = useToast()
   const [paidFrom, setPaidFrom] = useState('')
   const [paidTo, setPaidTo] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'' | 'local' | 'demurrage'>('')
@@ -41,6 +43,7 @@ export function ReconciliationHistoryTable({
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const [sort, setSort] = useState<SortConfig>(DEFAULT_SORT)
+  const [exporting, setExporting] = useState(false)
 
   const filters: ReconciliationFilters = {
     paidFrom, paidTo, source: sourceFilter, customerId,
@@ -92,6 +95,17 @@ export function ReconciliationHistoryTable({
     setVoyageSearch('')
     setPod('')
     setPage(1)
+  }
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      await exportReconciliationHistoryExcel(filters)
+    } catch {
+      showToast('Falha ao exportar o histórico de conciliação.', 'error')
+    } finally {
+      setExporting(false)
+    }
   }
 
   function renderSortCell(field: SortField, label: string) {
@@ -197,7 +211,7 @@ export function ReconciliationHistoryTable({
           <span className="text-xs text-slate-400">
             Página {page} de {totalPages}
           </span>
-          <Button variant="secondary" className="text-xs" onClick={() => exportReconciliationHistoryExcel(filters)}>
+          <Button variant="secondary" className="text-xs" onClick={handleExport} loading={exporting}>
             Exportar Excel
           </Button>
         </div>

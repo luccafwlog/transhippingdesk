@@ -147,7 +147,7 @@ describeIntegration('supabase integration - hardening gate', () => {
     expect(result.data).toBe('unchanged')
   })
 
-  operatorRlsTest('RLS financeiro bloqueia leitura de invoices para operador', async () => {
+  operatorRlsTest('RLS financeiro permite leitura e bloqueia mutacao para operador', async () => {
     const operatorClient = createClient<Database>(env.url, env.anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
@@ -162,7 +162,14 @@ describeIntegration('supabase integration - hardening gate', () => {
     }
 
     const invoices = await operatorClient.from('invoices').select('id').limit(1)
-    expect(invoices.error?.code).toBe('42501')
+    expect(invoices.error).toBeNull()
+
+    const cancel = await operatorClient.rpc('cancel_invoice', {
+      p_invoice_id: -1,
+      p_reason: 'integration-operator-must-not-cancel',
+      p_actor: login.data.user.id,
+    })
+    expect(cancel.error?.code).toBe('42501')
 
     await operatorClient.auth.signOut()
   })
@@ -313,11 +320,6 @@ describeIntegration('supabase integration - hardening gate', () => {
       expect(afterPay2.error).toBeNull()
       expect((afterPay2.data ?? []).every((row) => row.financial_status === 'paid')).toBe(true)
     } finally {
-      await client
-        .from('charge_calculations')
-        .delete()
-        .like('calculation_key', `${marker}:%`)
-
       for (const blId of blIds) {
         const original = originalStatus.get(blId)
         if (!original) continue

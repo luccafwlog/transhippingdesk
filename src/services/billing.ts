@@ -470,6 +470,62 @@ export async function listInvoiceDetails(invoiceId: number) {
     payments: payload.payments ?? [],
   }
 
+  if (result.invoice?.invoice_type === 'granite' && result.bls.length === 0) {
+    const { data: graniteLinks, error: graniteLinksError } = await supabase
+      .from('invoice_granite_bls')
+      .select(`
+        id,
+        granite_bl_id,
+        subtotal_brl,
+        granite_bl:granite_bls(
+          bl_number,
+          loading_port,
+          discharge_port,
+          manifest:granite_manifests(
+            voyage:voyages(
+              voyage_number,
+              vessel:vessels(name)
+            )
+          )
+        )
+      `)
+      .eq('invoice_id', invoiceId)
+
+    if (graniteLinksError) throw graniteLinksError
+
+    type GraniteInvoiceLink = {
+      id: number
+      granite_bl_id: string
+      subtotal_brl: number
+      granite_bl: {
+        bl_number: string
+        loading_port: string | null
+        discharge_port: string | null
+        manifest: {
+          voyage: {
+            voyage_number: string | null
+            vessel: { name: string | null } | null
+          } | null
+        } | null
+      } | null
+    }
+
+    result.bls = ((graniteLinks ?? []) as unknown as GraniteInvoiceLink[]).map((link) => ({
+      id: Number(link.id),
+      invoice_id: invoiceId,
+      bl_id: link.granite_bl?.bl_number ?? link.granite_bl_id,
+      charge_status_snapshot: null,
+      financial_status_snapshot: null,
+      subtotal_brl: Number(link.subtotal_brl ?? 0),
+      subtotal_usd: 0,
+      created_at: null,
+      pol: link.granite_bl?.loading_port ?? null,
+      pod: link.granite_bl?.discharge_port ?? null,
+      voyage_number: link.granite_bl?.manifest?.voyage?.voyage_number ?? null,
+      vessel_name: link.granite_bl?.manifest?.voyage?.vessel?.name ?? null,
+    }))
+  }
+
   // Consolidated ledger invoices have no invoice_items/invoice_bls; render them
   // from invoice_receivable_links so the existing PDF/print path works unchanged.
   if (result.invoice && result.items.length === 0) {
@@ -718,6 +774,32 @@ export async function markBlReadyAndCreateInvoice(input: {
     p_notes: input.notes ?? null,
     p_actor: input.actorId ?? null,
   } as never)
+
+  if (error) throw error
+
+  const result = (data ?? {}) as Json
+  const invoiceId = (result as { invoice_id?: number }).invoice_id
+  if (invoiceId) {
+    await persistPixPayload(invoiceId)
+  }
+
+  return result
+}
+
+export async function markBlsReadyAndCreateInvoice(input: {
+  blIds: string[]
+  customerId: number
+  dueDate?: string | null
+  notes?: string | null
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('mark_bls_ready_and_create_invoice', {
+    p_bl_ids: input.blIds,
+    p_customer_id: input.customerId,
+    p_due_date: input.dueDate ?? null,
+    p_notes: input.notes ?? null,
+    p_actor: input.actorId ?? null,
+  })
 
   if (error) throw error
 

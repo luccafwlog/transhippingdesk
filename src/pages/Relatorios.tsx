@@ -30,7 +30,7 @@ export function Relatorios() {
     <>
       <PageHeader
         title="Relatórios"
-        description="Visão consolidada de operação, faturamento e clientes por período. Limite de 2.000 linhas por consulta."
+        description="Visão consolidada de operação, faturamento e clientes por período. Cada visão informa seu próprio limite."
       />
 
       <div className="mb-4 flex flex-wrap gap-2" role="tablist">

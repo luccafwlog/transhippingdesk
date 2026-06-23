@@ -1,0 +1,154 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { Painel } from '../Painel'
+
+const { showToast, writeFileMock } = vi.hoisted(() => ({
+  showToast: vi.fn(),
+  writeFileMock: vi.fn(),
+}))
+
+vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast }) }))
+vi.mock('@e965/xlsx', () => ({
+  utils: {
+    json_to_sheet: vi.fn(() => ({})),
+    book_new: vi.fn(() => ({})),
+    book_append_sheet: vi.fn(),
+  },
+  writeFile: writeFileMock,
+}))
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: ({ queryKey }: { queryKey: string[] }) => {
+    if (queryKey[0] === 'dashboard') {
+      return {
+        data: {
+          totalBls: 42,
+          totalContainers: 7,
+          pendingReview: 3,
+          chargeReviewRequired: 2,
+          readyForBilling: 9,
+          pendingFinancial: 1,
+          openInvoices: 5,
+          openInvoicesAmount: 1000,
+          invoicesAccessDenied: false,
+          openAlerts: 0,
+          blsWithoutCustomer: 0,
+          podsWithoutChargeTable: 0,
+        },
+        isLoading: false,
+        error: null,
+      }
+    }
+    return {
+      data: {
+        rows: [{
+          id: '1::SSZ',
+          voyageId: 1,
+          voyageNumber: 'V1',
+          voyageStatus: 'active',
+          vesselName: 'Navio',
+          pod: 'SSZ',
+          eta: null,
+          etb: null,
+          rowType: 'import',
+          vin: 0,
+          car: 0,
+          cg: 1,
+          total: 1,
+          mty: 0,
+          rtw: null,
+          bbMachines: 0,
+          bbPackages: 0,
+          bbTotal: 0,
+          atd: null,
+          ceStatus: 'missing',
+          linked: false,
+          exportHasGranite: null,
+          exportContainersQty: null,
+          exportMovementsQty: null,
+          exportCeStatus: null,
+          exportLinked: null,
+        }],
+        lastChangedAt: '2026-06-23T00:00:00Z',
+      },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      isFetching: false,
+    }
+  },
+}))
+
+beforeEach(() => {
+  showToast.mockReset()
+  writeFileMock.mockReset()
+})
+
+afterEach(cleanup)
+
+it('informa falha e encerra loading quando a exportacao do Line-Up falha', async () => {
+  writeFileMock.mockImplementation(() => {
+    throw new Error('disk full')
+  })
+
+  render(
+    <MemoryRouter>
+      <Painel />
+    </MemoryRouter>,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Exportar Excel' }))
+
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith('Falha ao exportar o Line Up.', 'error'))
+  expect(screen.getByRole('button', { name: 'Exportar Excel' }).hasAttribute('disabled')).toBe(false)
+})
+
+function renderPainel() {
+  render(
+    <MemoryRouter>
+      <Painel />
+    </MemoryRouter>,
+  )
+}
+
+it('US-120: carrega os KPIs do dashboard com valores e destinos de navegacao', () => {
+  renderPainel()
+
+  expect(screen.getAllByText('B/Ls ativos').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('42').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Containers distintos').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('7').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Prontos para faturar').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('9').length).toBeGreaterThan(0)
+
+  const blsLink = screen.getAllByText('B/Ls ativos')[0].closest('a')
+  expect(blsLink?.getAttribute('href')).toBe('/manifestos')
+})
+
+it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizacao', () => {
+  renderPainel()
+
+  expect(screen.getAllByText('Navio').length).toBeGreaterThan(0)
+  expect(screen.getByText(/Atualizado:/)).toBeTruthy()
+})
+
+it('US-122: filtra o Line-Up por status de escala', () => {
+  renderPainel()
+
+  expect(screen.getAllByText('Navio').length).toBeGreaterThan(0)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Escalas concluidas' }))
+  expect(screen.queryAllByText('Navio').length).toBe(0)
+  expect(screen.getAllByText('Nenhuma escala encontrada.').length).toBeGreaterThan(0)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Escalas ativas' }))
+  expect(screen.getAllByText('Navio').length).toBeGreaterThan(0)
+})
+
+it('US-123: oferece os atalhos para Chegadas/Saidas e para a tela TV', () => {
+  renderPainel()
+
+  expect(screen.getByRole('link', { name: /Chegadas e Sa/ }).getAttribute('href')).toBe('/chegadas-saidas')
+  expect(screen.getByRole('link', { name: /Abrir tela TV/ }).getAttribute('href')).toBe('/line-up-tv/display')
+})

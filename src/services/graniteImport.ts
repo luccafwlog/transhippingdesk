@@ -192,38 +192,12 @@ export async function importGraniteManifest({
   uploadedBy,
   allowPending = true,
 }: ImportGraniteArgs): Promise<{ manifestId: string; pendingCount: number }> {
-  const { data: voyageRow, error: voyageError } = await supabase
-    .from('voyages')
-    .select('id')
-    .eq('id', voyageId)
-    .single()
-  if (voyageError || !voyageRow) throw new Error('Viagem nao encontrada.')
-
   const totalWeightKg = manifest.bls.reduce((sum, bl) => sum + bl.real_weight_kg, 0)
   const vesselVoyage = manifest.vesselVoyage || manifest.bls[0]?.vessel_voyage || filename
-
-  const { data: manifestRow, error: manifestError } = await supabase
-    .from('granite_manifests')
-    .insert({
-      voyage_id: voyageId,
-      vessel_voyage: vesselVoyage,
-      loading_port: manifest.bls[0]?.loading_port ?? null,
-      discharge_port: manifest.bls[0]?.discharge_port ?? null,
-      total_bls: manifest.bls.length,
-      total_weight_kg: totalWeightKg,
-      imported_by: uploadedBy,
-    })
-    .select('id')
-    .single()
-
-  if (manifestError || !manifestRow) throw manifestError ?? new Error('Falha ao criar manifesto.')
-
-  const manifestId = manifestRow.id
 
   const blRows = manifest.bls
     .filter((bl) => allowPending || bl.clientId !== null)
     .map((bl) => ({
-      manifest_id: manifestId,
       client_id: bl.clientId,
       sequence: bl.sequence,
       booking_number: bl.booking_number,
@@ -253,14 +227,20 @@ export async function importGraniteManifest({
       charge_status: 'not_calculated' as const,
     }))
 
-  if (blRows.length) {
-    const { error: insertError } = await supabase
-      .from('granite_bls')
-      .upsert(blRows, { onConflict: 'manifest_id,bl_number' })
-    if (insertError) throw insertError
-  }
+  const { data, error } = await supabase.rpc('import_granite_manifest_transactional', {
+    p_voyage_id: voyageId,
+    p_vessel_voyage: vesselVoyage,
+    p_loading_port: manifest.bls[0]?.loading_port ?? null,
+    p_discharge_port: manifest.bls[0]?.discharge_port ?? null,
+    p_total_bls: blRows.length,
+    p_total_weight_kg: totalWeightKg,
+    p_uploaded_by: uploadedBy,
+    p_bls: blRows,
+  })
+  if (error) throw error
+  if (!data?.manifest_id) throw new Error('Falha ao criar manifesto.')
 
   const pendingCount = manifest.bls.filter((bl) => bl.reconciliationStatus !== 'matched').length
 
-  return { manifestId, pendingCount }
+  return { manifestId: data.manifest_id, pendingCount }
 }

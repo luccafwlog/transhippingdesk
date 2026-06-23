@@ -4,6 +4,7 @@ import { extractNcmCodes } from '../lib/ncm'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { supabase } from './supabase'
+import type { Json } from '../types/database'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -112,23 +113,6 @@ export async function importBreakbulkManifest({
   const { error: voyageError } = await supabase.from('voyages').select('id').eq('id', voyageId).single()
   if (voyageError) throw voyageError
 
-  const { data: batch, error: batchError } = await supabase
-    .from('import_batches')
-    .insert({
-      filename,
-      voyage_id: voyageId,
-      cargo_mode: 'carga_solta',
-      uploaded_by: uploadedBy,
-      status: 'processing',
-      total_bls: manifest.bls.length,
-      total_containers: 0,
-      error_count: manifest.rowErrors.length,
-    })
-    .select()
-    .single()
-
-  if (batchError) throw batchError
-
   const customerMaps = await loadCustomerMaps()
 
   const existingModeByBl = new Map<string, 'container' | 'carga_solta' | null>()
@@ -185,7 +169,6 @@ export async function importBreakbulkManifest({
       {
         id: bl.bl_id,
         voyage_id: voyageId,
-        batch_id: batch.id,
         cargo_mode: 'carga_solta' as const,
         ce_mercante: bl.ce_mercante,
         bb_machine_qty: bl.bb_machine_qty,
@@ -223,61 +206,41 @@ export async function importBreakbulkManifest({
     ]
   })
 
-  if (blRows.length) {
-    const { error } = await supabase.from('bls').upsert(blRows, { onConflict: 'id' })
-    if (error) throw error
+  const itemRows = manifest.bls
+    .filter((bl) => !invalidBls.has(bl.bl_id))
+    .flatMap((bl) =>
+      bl.items.map((item) => ({
+        bl_id: bl.bl_id,
+        item_description: item.item_description,
+        package_qty: item.package_qty,
+        package_unit: item.package_unit,
+        gross_weight_kg: item.gross_weight_kg,
+        cbm: item.cbm,
+        marks: item.marks,
+      })),
+    )
 
-    const validBlIds = blRows.map((row) => row.id)
-    const { error: reviewGateError } = await supabase.rpc('apply_bl_review_gate_after_import', {
-      p_bl_ids: validBlIds,
-      p_changed_by: uploadedBy,
-    })
-    if (reviewGateError) throw reviewGateError
+  const errorRows = importErrors.map((rowError) => ({
+    row_number: rowError.row > 0 ? rowError.row : null,
+    error_type: 'parser',
+    error_message: rowError.message,
+    raw_data: rowError.raw as Json,
+  }))
 
-    const { error: deleteError } = await supabase.from('bl_breakbulk_items').delete().in('bl_id', validBlIds)
-    if (deleteError) throw deleteError
-
-    const itemRows = manifest.bls
-      .filter((bl) => !invalidBls.has(bl.bl_id))
-      .flatMap((bl) =>
-        bl.items.map((item) => ({
-          bl_id: bl.bl_id,
-          item_description: item.item_description,
-          package_qty: item.package_qty,
-          package_unit: item.package_unit,
-          gross_weight_kg: item.gross_weight_kg,
-          cbm: item.cbm,
-          marks: item.marks,
-        })),
-      )
-
-    if (itemRows.length) {
-      const { error: insertItemsError } = await supabase.from('bl_breakbulk_items').insert(itemRows)
-      if (insertItemsError) throw insertItemsError
-    }
+  const { data, error } = await supabase.rpc('import_breakbulk_manifest_transactional', {
+    p_filename: filename,
+    p_voyage_id: voyageId,
+    p_uploaded_by: uploadedBy,
+    p_total_bls: manifest.bls.length,
+    p_bls: blRows,
+    p_items: itemRows,
+    p_errors: errorRows,
+  })
+  if (error) throw error
+  const batchId = Number((data as { batch_id?: number } | null)?.batch_id)
+  if (!Number.isFinite(batchId) || batchId <= 0) {
+    throw new Error('A importacao BB nao retornou um lote valido.')
   }
-
-  if (importErrors.length) {
-    const rows = importErrors.map((rowError) => ({
-      batch_id: batch.id,
-      row_number: rowError.row > 0 ? rowError.row : null,
-      bl_number:
-        typeof rowError.raw === 'object' && rowError.raw && 'bl_id' in rowError.raw
-          ? String((rowError.raw as { bl_id?: unknown }).bl_id ?? '')
-          : null,
-      error_type: 'parser',
-      error_message: rowError.message,
-      raw_data: rowError.raw,
-    }))
-    const { error } = await supabase.from('import_errors').insert(rows)
-    if (error) throw error
-  }
-
-  const { error: updateError } = await supabase
-    .from('import_batches')
-    .update({ status: importErrors.length ? 'partial' : 'completed' })
-    .eq('id', batch.id)
-  if (updateError) throw updateError
 
   // Dispara cálculo de taxas locais em background para os BLs importados com sucesso.
   const validBlIds = blRows.map((row) => row.id)
@@ -285,7 +248,7 @@ export async function importBreakbulkManifest({
     void triggerLocalChargesForBls(validBlIds, uploadedBy)
   }
 
-  return batch.id
+  return batchId
 }
 
 async function triggerLocalChargesForBls(blIds: string[], actorId: string) {

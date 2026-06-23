@@ -9,7 +9,13 @@ types.setTypeParser(20, v => Number(v))       // int8 -> number
 
 const PORT = 54321
 const JWT_SECRET = 'local-audit-jwt-secret-local-audit-jwt-secret-32'
-const pool = new Pool({ host: '127.0.0.1', database: 'app', user: 'postgres', password: 'postgres' })
+const pool = new Pool({
+  host: process.env.PGHOST || '127.0.0.1',
+  port: Number(process.env.PGPORT || 5432),
+  database: process.env.PGDATABASE || 'app',
+  user: process.env.PGUSER || 'postgres',
+  password: process.env.PGPASSWORD || 'postgres',
+})
 
 const IDENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 function qi(name) {
@@ -298,16 +304,37 @@ async function handleRest(req, res, urlObj, claims) {
     const args = req.method === 'POST' ? (await readBody(req)) || {} : Object.fromEntries(urlObj.searchParams)
     const names = Object.keys(args)
     names.forEach(n => { if (!IDENT.test(n)) throw new Error('bad arg name') })
+    const argSql = names.map((n, i) => `${qi(n)} := $${i + 1}`).join(', ')
+    const signatures = await pool.query(
+      `select
+         p.proretset,
+         t.typtype,
+         t.typname,
+         p.proargnames[1:p.pronargs] as argnames,
+         array(
+           select format_type(arg_oid, null)
+           from unnest(p.proargtypes::oid[]) with ordinality as args(arg_oid, ord)
+           order by ord
+         ) as argtypes
+       from pg_proc p
+       join pg_type t on t.oid = p.prorettype
+       where p.pronamespace = 'public'::regnamespace
+         and p.proname = $1`,
+      [fn],
+    )
+    const meta = signatures.rows.find(row =>
+      row.argnames?.length === names.length &&
+      names.every(name => row.argnames.includes(name)),
+    )
+    if (!meta) return send(res, 404, { message: `function ${fn} not found for supplied arguments` })
+    const typeByName = new Map(meta.argnames.map((name, index) => [name, meta.argtypes[index]]))
     const params = names.map(n => {
       const v = args[n]
+      const expectedType = typeByName.get(n)
+      if (Array.isArray(v) && expectedType !== 'json' && expectedType !== 'jsonb') return v
       return v !== null && typeof v === 'object' ? JSON.stringify(v) : v
     })
-    const argSql = names.map((n, i) => `${qi(n)} := $${i + 1}`).join(', ')
-    const meta = await pool.query(
-      `select p.proretset, t.typtype, t.typname from pg_proc p join pg_type t on t.oid = p.prorettype
-       where p.pronamespace = 'public'::regnamespace and p.proname = $1 limit 1`, [fn])
-    if (!meta.rows.length) return send(res, 404, { message: `function ${fn} not found` })
-    const { proretset, typtype, typname } = meta.rows[0]
+    const { proretset, typtype, typname } = meta
     const r = await withClaims(claims, c => c.query(`SELECT * FROM ${qi(fn)}(${argSql})`, params))
     let out
     if (typname === 'void') out = null
@@ -446,7 +473,12 @@ const server = http.createServer(async (req, res) => {
     send(res, 404, { message: `not implemented: ${urlObj.pathname}` })
   } catch (e) {
     console.error(`[shim] ${req.method} ${req.url} -> ${e.message}`)
-    send(res, 400, { message: e.message, code: 'SHIM', details: null, hint: null })
+    send(res, 400, {
+      message: e.message,
+      code: e.code || 'SHIM',
+      details: e.detail || null,
+      hint: e.hint || null,
+    })
   }
 })
 

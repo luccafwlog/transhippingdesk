@@ -34,7 +34,7 @@ vi.mock('../../services/reviewBillingAutomation', () => ({
 
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
-import { addCustomerEmail, provisionPortalForCustomer } from '../../services/customers'
+import { addCustomerEmail, createCustomer, provisionPortalForCustomer } from '../../services/customers'
 import { applyInlineBlReviewFix, saveBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
@@ -150,6 +150,29 @@ describe('Revisao', () => {
     expect(mockedTryIssueInvoice).toHaveBeenCalledTimes(2)
     expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
     expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL2', customerId: 99, actorId: 'user-1' })
+  })
+
+  it('US-126: cria e seleciona um novo cliente pelo drawer', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createCustomer).mockResolvedValue({ id: 321, name: 'Novo Cliente', cnpj_cpf: '11222333000181' } as never)
+    renderPage()
+
+    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
+    const nome = screen.getByLabelText('Nome')
+    await user.clear(nome)
+    await user.type(nome, 'Novo Cliente')
+    const doc = screen.getByLabelText('CNPJ/CPF')
+    await user.clear(doc)
+    await user.type(doc, '11222333000181')
+    await user.click(screen.getByRole('button', { name: 'Cadastrar cliente' }))
+
+    await waitFor(() =>
+      expect(createCustomer).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Novo Cliente', cnpjCpf: '11222333000181' }),
+      ),
+    )
+    // cliente recém-criado fica selecionado para vinculação
+    expect(screen.getByText('Cliente selecionado para vinculação.')).toBeTruthy()
   })
 
   it('recalcula e emite a fatura ao salvar cliente pelo drawer', async () => {

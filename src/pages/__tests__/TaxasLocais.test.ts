@@ -4,8 +4,15 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { TaxasLocais } from '../TaxasLocais'
 
+const authState = vi.hoisted(() => ({
+  capabilities: new Set(['charge_tables', 'charge_overrides']),
+}))
+
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({ can: () => true, user: { id: 'user-1' } }),
+  useAuth: () => ({
+    can: (capability: string) => authState.capabilities.has(capability),
+    user: { id: 'user-1' },
+  }),
 }))
 
 vi.mock('../../components/ui/Toast', async () => {
@@ -65,11 +72,21 @@ vi.mock('../../hooks/useLocalCharges', () => ({
 
 describe('TaxasLocais', () => {
   it('mantem somente cadastro de tabelas e overrides, sem fila operacional de pendencias', () => {
+    authState.capabilities = new Set(['charge_tables', 'charge_overrides'])
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
     expect(html).toContain('Tabelas')
     expect(html).toContain('Overrides')
     expect(html).not.toContain('Pendencias de calculo')
     expect(html).not.toContain('Recalcular pendencias')
+  })
+
+  it('abre overrides quando essa e a unica capacidade disponivel', () => {
+    authState.capabilities = new Set(['charge_overrides'])
+
+    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
+
+    expect(html).toContain('Overrides por cliente')
+    expect(html).toContain('Novo override')
   })
 })

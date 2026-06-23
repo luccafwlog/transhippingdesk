@@ -104,31 +104,7 @@ export async function importVaziosManifest({
   uploadedBy,
   description,
 }: ImportVaziosArgs): Promise<{ manifestId: string }> {
-  const { data: voyageRow, error: voyageError } = await supabase
-    .from('voyages')
-    .select('id')
-    .eq('id', voyageId)
-    .single()
-  if (voyageError || !voyageRow) throw new Error('Viagem nao encontrada.')
-
-  const { data: manifestRow, error: manifestError } = await supabase
-    .from('vazios_manifests')
-    .insert({
-      voyage_id: voyageId,
-      description: description ?? null,
-      total_bookings: manifest.bookings.length,
-      imported_by: uploadedBy,
-    })
-    .select('id')
-    .single()
-
-  if (manifestError || !manifestRow) throw manifestError ?? new Error('Falha ao criar manifesto.')
-
-  const manifestId = manifestRow.id
-
-  if (manifest.bookings.length) {
-    const rows = manifest.bookings.map((b) => ({
-      manifest_id: manifestId,
+  const bookings = manifest.bookings.map((b) => ({
       booking_number: b.booking_number,
       container_number: b.container_number,
       container_type: b.container_type,
@@ -136,15 +112,17 @@ export async function importVaziosManifest({
       origin_terminal: b.origin_terminal,
       destination: b.destination,
       notes: b.notes,
-    }))
+  }))
 
-    const { error: insertError } = await supabase
-      .from('vazios_bookings')
-      .upsert(rows, { onConflict: 'manifest_id,booking_number' })
-    if (insertError) throw insertError
-  }
-
-  return { manifestId }
+  const { data, error } = await supabase.rpc('import_vazios_bookings_transactional', {
+    p_voyage_id: voyageId,
+    p_description: description ?? null,
+    p_uploaded_by: uploadedBy,
+    p_bookings: bookings,
+  })
+  if (error) throw error
+  const result = data as { manifest_id: string }
+  return { manifestId: result.manifest_id }
 }
 
 export async function listVaziosBookings(filters: {

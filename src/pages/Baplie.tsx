@@ -24,7 +24,7 @@ import {
 import {
   importVaziosFromBaplie,
   getBaplieManifestForVoyage,
-  deleteBaplieManifestForVoyage,
+  replaceVaziosFromBaplie,
 } from '../services/vaziosImportacaoImport'
 import type { BaplieContainer } from '../types/database'
 import { formatDate } from '../lib/utils'
@@ -33,7 +33,7 @@ export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
   const voyageId = searchParams.get('voyage') ?? ''
   const { showToast } = useToast()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const queryClient = useQueryClient()
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
@@ -135,8 +135,7 @@ export function Baplie() {
   async function handleSubstituirVazios() {
     if (!user || !voyageId || !existingVaziosManifest) return
     try {
-      await deleteBaplieManifestForVoyage(Number(voyageId))
-      const result = await importVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
+      const result = await replaceVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
       setConfirmedBaplieManifestId(result.manifestId)
       await queryClient.invalidateQueries({ queryKey: ['baplie-vazios-manifest', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
@@ -189,7 +188,7 @@ export function Baplie() {
           <div className="py-6 text-center text-sm text-slate-400">Carregando...</div>
         </Card>
       ) : !hasStaging ? (
-        <StateA onUpload={() => setUploadOpen(true)} />
+        <StateA canImport={isAdmin} onUpload={() => setUploadOpen(true)} />
       ) : (
         <>
           <StatsSection
@@ -233,10 +232,12 @@ export function Baplie() {
               <Download size={16} />
               Exportar Baplie EDI
             </Button>
-            <Button variant="secondary" onClick={() => setUploadOpen(true)}>
-              <Upload size={16} />
-              Reimportar Baplie EDI
-            </Button>
+            {isAdmin ? (
+              <Button variant="secondary" onClick={() => setUploadOpen(true)}>
+                <Upload size={16} />
+                Reimportar Baplie EDI
+              </Button>
+            ) : null}
           </div>
         </>
       )}
@@ -254,15 +255,19 @@ export function Baplie() {
   )
 }
 
-function StateA({ onUpload }: { onUpload: () => void }) {
+function StateA({ canImport, onUpload }: { canImport: boolean; onUpload: () => void }) {
   return (
     <Card>
       <div className="flex flex-col items-center gap-4 py-10">
         <div className="text-sm text-slate-400">Nenhum arquivo Baplie EDI importado para esta viagem.</div>
-        <Button onClick={onUpload}>
-          <Upload size={16} />
-          Importar Baplie EDI
-        </Button>
+        {canImport ? (
+          <Button onClick={onUpload}>
+            <Upload size={16} />
+            Importar Baplie EDI
+          </Button>
+        ) : (
+          <div className="text-sm text-amber-200">A importacao Baplie exige perfil administrativo.</div>
+        )}
       </div>
     </Card>
   )

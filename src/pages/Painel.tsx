@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
+import { useToast } from '../components/ui/Toast'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 import { formatBRL } from '../lib/utils'
@@ -134,7 +135,9 @@ async function exportLineUpToExcel(rows: LineUpRow[]) {
 }
 
 export function Painel() {
+  const { showToast } = useToast()
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('active')
+  const [isExporting, setIsExporting] = useState(false)
   // Relógio para destacar quando o quadro está sem atualização há muito tempo.
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -174,6 +177,17 @@ export function Painel() {
     ? Math.floor((now - new Date(lineup.lastChangedAt).getTime()) / 60000)
     : null
   const isStale = staleMinutes !== null && staleMinutes >= 10
+
+  async function handleExport() {
+    setIsExporting(true)
+    try {
+      await exportLineUpToExcel(rows)
+    } catch {
+      showToast('Falha ao exportar o Line Up.', 'error')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   return (
     <>
@@ -218,9 +232,9 @@ export function Painel() {
           </div>
           <button
             type="button"
-            onClick={() => void exportLineUpToExcel(rows)}
+            onClick={() => void handleExport()}
             className="app-btn app-btn--secondary"
-            disabled={rows.length === 0}
+            disabled={rows.length === 0 || isExporting}
           >
             <Download size={14} />
             Exportar Excel

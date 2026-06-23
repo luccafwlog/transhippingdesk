@@ -88,7 +88,6 @@ export function Clientes() {
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { isAdmin, user } = useAuth()
-  const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const [actionsMenu, setActionsMenu] = useState<
     { id: number; top: number; left: number; cnpj: string; email: string | null } | null
@@ -104,6 +103,18 @@ export function Clientes() {
     page: 0,
     pageSize: 50,
   })
+  const selectionScope = [
+    filters.search,
+    filters.contactEmail,
+    filters.emailStatus,
+    filters.blStatus,
+    filters.pendingStatus,
+    filters.sortKey,
+    filters.sortDirection,
+    filters.page,
+    filters.pageSize,
+  ].join('|')
+  const selection = useRowSelection<number>(selectionScope)
 
   function setFilterField<K extends 'search' | 'contactEmail' | 'emailStatus' | 'blStatus' | 'pendingStatus'>(
     field: K,

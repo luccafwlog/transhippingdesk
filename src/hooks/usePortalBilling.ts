@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePortalAuth } from './usePortalAuth'
+import { supabasePortal } from '../services/supabase'
 import {
   portalCreateConsolidation,
   portalGetDemurrageInvoiceDetail,
@@ -42,6 +44,18 @@ export function usePortalInvoiceDetail(invoiceId?: number | null) {
 
 export function usePortalDemurrageInvoices() {
   const { isAuthenticated } = usePortalAuth()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const channel = supabasePortal.channel('portal_demurrage_invoices')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'demurrage_invoices' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['portal-demurrage-invoices'] })
+      })
+      .subscribe()
+    return () => { supabasePortal.removeChannel(channel) }
+  }, [isAuthenticated, queryClient])
+
   return useQuery({
     queryKey: ['portal-demurrage-invoices'],
     enabled: isAuthenticated,

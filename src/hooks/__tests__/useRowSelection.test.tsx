@@ -37,4 +37,17 @@ describe('useRowSelection', () => {
     act(() => result.current.clear())
     expect(result.current.count).toBe(0)
   })
+
+  it('limpa a selecao quando o escopo da listagem muda', () => {
+    const { result, rerender } = renderHook(
+      ({ scope }) => useRowSelection<number>(scope),
+      { initialProps: { scope: 'page-1' } },
+    )
+
+    act(() => result.current.toggle(10))
+    expect(result.current.count).toBe(1)
+
+    rerender({ scope: 'page-2' })
+    expect(result.current.count).toBe(0)
+  })
 })

@@ -64,12 +64,29 @@ describe('calculateDemurrage', () => {
     expect(r.total_usd).toBe(4 * 30)
   })
 
-  it('override de free time desloca as faixas', () => {
-    // free 25 → P1 passa a [26,34]
+  it('override de free time recalcula P1 a partir de freeUntil+1', () => {
+    // free 25 → P1 = [26, 30] (fim do P1 do grupo), P2 = [31, ∞]
     const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-29', 25) // 28 dias
     expect(r.free_days).toBe(25)
     expect(r.days_p1).toBe(3) // dias 26..28
     expect(r.total_usd).toBe(3 * 30)
+  })
+
+  it('override de free time maior que fim P1 resulta em P1 zero', () => {
+    // free 30 → P1 = [31, 30] = vazio, P2 = [31, ∞]
+    const r = calculateDemurrage('20GP', '2026-01-01', '2026-02-05', 30) // 35 dias
+    expect(r.free_days).toBe(30)
+    expect(r.days_p1).toBe(0)
+    expect(r.days_p2).toBe(5) // dias 31..35
+    expect(r.total_usd).toBe(5 * 50)
+  })
+
+  it('override de free time menor expande P1', () => {
+    // free 15 → P1 = [16, 30], P2 = [31, ∞]
+    const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-26', 15) // 25 dias
+    expect(r.free_days).toBe(15)
+    expect(r.days_p1).toBe(10) // dias 16..25
+    expect(r.total_usd).toBe(10 * 30)
   })
 
   it('override de tarifa por dia (ov1) é aplicado', () => {
@@ -77,6 +94,13 @@ describe('calculateDemurrage', () => {
     expect(r.days_p1).toBe(4)
     expect(r.rate_p1_usd).toBe(100)
     expect(r.total_usd).toBe(4 * 100)
+  })
+
+  it('ov1 = 0 permite taxa P1 zero', () => {
+    const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-26', null, 0)
+    expect(r.days_p1).toBe(4)
+    expect(r.rate_p1_usd).toBe(0)
+    expect(r.total_usd).toBe(0)
   })
 
   it('rejeita datas inválidas', () => {

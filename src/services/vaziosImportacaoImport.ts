@@ -87,43 +87,20 @@ export async function importVaziosImportacaoManifest({
   voyageId,
   description,
 }: ImportVaziosImportacaoArgs): Promise<{ manifestId: string }> {
-  const { data: voyageRow, error: voyageError } = await supabase
-    .from('voyages')
-    .select('id')
-    .eq('id', voyageId)
-    .single()
-  if (voyageError || !voyageRow) throw new Error('Viagem nao encontrada.')
-
-  const { data: manifestRow, error: manifestError } = await supabase
-    .from('vazios_importacao_manifests')
-    .insert({
-      voyage_id: voyageId,
-      description: description ?? null,
-      total_containers: manifest.containers.length,
-      imported_by: uploadedBy,
-    })
-    .select('id')
-    .single()
-
-  if (manifestError || !manifestRow) throw manifestError ?? new Error('Falha ao criar manifesto.')
-
-  const manifestId = manifestRow.id
-
-  if (manifest.containers.length) {
-    const rows = manifest.containers.map((c) => ({
-      manifest_id: manifestId,
-      container_number: c.container_number,
-      container_type: c.container_type,
-      tare_kg: c.tare_kg,
-    }))
-
-    const { error: insertError } = await supabase
-      .from('vazios_importacao_containers')
-      .upsert(rows, { onConflict: 'manifest_id,container_number' })
-    if (insertError) throw insertError
-  }
-
-  return { manifestId }
+  const containers = manifest.containers.map((container) => ({
+    container_number: container.container_number,
+    container_type: container.container_type,
+    tare_kg: container.tare_kg,
+  }))
+  const { data, error } = await supabase.rpc('import_vazios_importacao_transactional', {
+    p_voyage_id: voyageId,
+    p_description: description ?? null,
+    p_uploaded_by: uploadedBy,
+    p_containers: containers,
+  })
+  if (error) throw error
+  const result = data as { manifest_id: string }
+  return { manifestId: result.manifest_id }
 }
 
 export async function importVaziosFromBaplie({
@@ -135,51 +112,41 @@ export async function importVaziosFromBaplie({
   uploadedBy: string
   description?: string
 }): Promise<{ manifestId: string; total: number }> {
-  const PAGE = 1000
-  let containers: { container_number: string; size_type: string | null; weight_kg: number | null; pod: string | null }[] = []
-  let from = 0
-  while (true) {
-    const { data, error: stagedError } = await supabase
-      .from('baplie_containers' as never)
-      .select('container_number, size_type, weight_kg, pod')
-      .eq('voyage_id', voyageId)
-      .eq('status', 'empty')
-      .range(from, from + PAGE - 1)
-    if (stagedError) throw stagedError
-    containers = containers.concat((data ?? []) as { container_number: string; size_type: string | null; weight_kg: number | null; pod: string | null }[])
-    if (!data || data.length < PAGE) break
-    from += PAGE
-  }
-  if (!containers.length) throw new Error('Nenhum container vazio encontrado no Baplie desta viagem.')
+  return persistVaziosFromBaplie({ voyageId, uploadedBy, description, replaceExisting: false })
+}
 
-  const { data: manifestRow, error: manifestError } = await supabase
-    .from('vazios_importacao_manifests')
-    .insert({
-      voyage_id: voyageId,
-      description: description ?? 'Importado via Baplie EDI',
-      total_containers: containers.length,
-      imported_by: uploadedBy,
-      source: 'baplie',
-    } as never)
-    .select('id')
-    .single()
+export async function replaceVaziosFromBaplie({
+  voyageId,
+  uploadedBy,
+  description,
+}: {
+  voyageId: number
+  uploadedBy: string
+  description?: string
+}): Promise<{ manifestId: string; total: number }> {
+  return persistVaziosFromBaplie({ voyageId, uploadedBy, description, replaceExisting: true })
+}
 
-  if (manifestError || !manifestRow) throw manifestError ?? new Error('Falha ao criar manifesto.')
-
-  const rows = containers.map((c) => ({
-    manifest_id: manifestRow.id,
-    container_number: c.container_number,
-    container_type: c.size_type,
-    tare_kg: c.weight_kg,
-    pod: c.pod,
-  }))
-
-  const { error: insertError } = await supabase
-    .from('vazios_importacao_containers')
-    .upsert(rows, { onConflict: 'manifest_id,container_number' })
-  if (insertError) throw insertError
-
-  return { manifestId: manifestRow.id, total: containers.length }
+async function persistVaziosFromBaplie({
+  voyageId,
+  uploadedBy,
+  description,
+  replaceExisting,
+}: {
+  voyageId: number
+  uploadedBy: string
+  description?: string
+  replaceExisting: boolean
+}): Promise<{ manifestId: string; total: number }> {
+  const { data, error } = await supabase.rpc('replace_vazios_from_baplie_transactional', {
+    p_voyage_id: voyageId,
+    p_description: description ?? null,
+    p_uploaded_by: uploadedBy,
+    p_replace_existing: replaceExisting,
+  })
+  if (error) throw error
+  const result = data as { manifest_id: string; total: number }
+  return { manifestId: result.manifest_id, total: result.total }
 }
 
 export async function getBaplieManifestForVoyage(voyageId: number): Promise<{
