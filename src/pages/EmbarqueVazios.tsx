@@ -8,6 +8,7 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TruncationNote } from '../components/shared/TruncationNote'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyageOptions } from '../hooks/useBls'
 import {
@@ -309,6 +310,7 @@ export function EmbarqueVazios() {
                   </tbody>
                 </table>
               </div>
+              <TruncationNote shown={25} total={manifest.bookings.length} noun="booking" nounPlural="bookings" />
 
               {manifest.rowErrors.length ? (
                 <div className="max-h-32 overflow-auto rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">

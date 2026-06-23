@@ -11,6 +11,7 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { useAuth } from '../hooks/useAuth'
@@ -930,6 +931,7 @@ export function Clientes() {
                   </tbody>
                 </table>
               </div>
+              <TruncationNote shown={15} total={parsedBase.rows.length} noun="cliente" nounPlural="clientes" />
 
               {parsedBase.rowErrors.length ? (
                 <div className="grid gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">

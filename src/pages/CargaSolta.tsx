@@ -10,6 +10,7 @@ import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TruncationNote } from '../components/shared/TruncationNote'
 import { useAuth } from '../hooks/useAuth'
 import { fetchAllBls, type BlFilters, useBls, usePortOptions, useVoyageOptions } from '../hooks/useBls'
 import { useInvoiceLinks } from '../hooks/useBilling'
@@ -555,6 +556,7 @@ export function CargaSolta() {
                   </tbody>
                 </table>
               </div>
+              <TruncationNote shown={25} total={manifest.bls.length} noun="B/L" nounPlural="B/Ls" />
 
               {manifest.rowErrors.length ? (
                 <div className="max-h-44 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">

@@ -8,6 +8,7 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
@@ -570,6 +571,7 @@ export function Containers() {
                   </tbody>
                 </table>
               </div>
+              <TruncationNote shown={20} total={parsedFlags.rows.length} noun="linha" nounPlural="linhas" />
 
               {parsedFlags.rowErrors.length ? (
                 <div className="grid gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">

@@ -14,6 +14,7 @@ import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
@@ -768,6 +769,7 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
                 </tbody>
               </table>
             </div>
+            <TruncationNote shown={25} total={primaryManifest.bls.length} noun="B/L" nounPlural="B/Ls" />
 
             {primaryManifest.rowErrors.length ? (
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
