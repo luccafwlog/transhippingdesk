@@ -1,6 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
-import type { DemurrageInvoiceDetail } from '../../types/database'
+import type { DemurrageInvoiceDetail, RoeSource } from '../../types/database'
 import { COMPANY } from '../../config/company'
+import { DEMURRAGE_ROE_MARKUP } from '../../services/demurrage/demurrageKpis'
 import { cell, documentRoot, fmtBRL, labelCell } from '../shared/invoiceFormat'
 import { InvoiceClientBlock, InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
@@ -16,6 +17,17 @@ function fmtUSD(v: number) {
 function fmtDate(s: string | null | undefined) {
   if (!s) return '—'
   return new Date(`${s}T12:00:00`).toLocaleDateString('pt-BR')
+}
+
+function fmtRefDate(s: string | null | undefined) {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('pt-BR')
+}
+
+function roeSourceLabel(source: RoeSource | null): string {
+  if (source === 'cached') return 'BCB (cache)'
+  if (source === 'manual') return 'Informada manualmente'
+  return 'BCB'
 }
 
 export function InvoiceDocument({ detail, type }: Props) {
@@ -59,6 +71,13 @@ export function InvoiceDocument({ detail, type }: Props) {
       <InvoiceDocTitle>
         {isInvoice ? 'FATURA DE SOBREESTADIA DE CONTAINER' : 'RECIBO DE QUITAÇÃO DE SOBREESTADIA'}
       </InvoiceDocTitle>
+
+      {roe != null && (
+        <p style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', margin: '0 0 12px' }}>
+          Valores calculados em {fmtRefDate(invoice.updated_at)} com PTAX de R$ {fmtBRL(roe / DEMURRAGE_ROE_MARKUP)}
+          {' '}(fonte: {roeSourceLabel(invoice.roe_source)})
+        </p>
+      )}
 
       <InvoiceClientBlock name={customer?.name} cnpjCpf={customer?.cnpj_cpf} />
       <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '0 0 0' }} />

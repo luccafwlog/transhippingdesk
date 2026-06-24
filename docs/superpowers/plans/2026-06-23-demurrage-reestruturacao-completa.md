@@ -27,7 +27,7 @@
 - [x] **Fase 3** — Descontos em USD
 - [ ] **Fase 4** — Visão por consignatário
 - [ ] **Fase 5** — Visão de containers (operacional)
-- [ ] **Fase 6** — Data de referência no documento
+- [x] **Fase 6** — Data de referência no documento
 - [ ] **Fase 7** — Conciliação PIX por txid + janela das duas PTAX
 - [ ] **Fase 8** — Portal do Cliente (push/armazenado)
 
