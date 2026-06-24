@@ -1744,13 +1744,20 @@ textarea {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 60;
+  z-index: 9999;
   display: grid;
   gap: 12px;
   width: min(24rem, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.app-toast-stack > * {
+  pointer-events: auto;
 }
 
 .app-toast {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -1761,6 +1768,13 @@ textarea {
   font-size: 14px;
   font-weight: 700;
   backdrop-filter: blur(10px);
+  animation: toast-slide-in 0.3s ease-out;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.app-toast--exit {
+  opacity: 0;
+  transform: translateX(100%);
 }
 
 .app-toast--success {
@@ -3716,6 +3730,32 @@ textarea {
 
 .app-toast__close:hover {
   opacity: 1;
+}
+
+.app-toast__progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 0 0 10px 10px;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
 }
 
 /* ─── Field required indicator ───────────────────────────────────────────── */
