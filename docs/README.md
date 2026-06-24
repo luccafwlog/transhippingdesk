@@ -29,7 +29,7 @@ flowchart LR
 
 Ciclo completo: **Operação** (viagens, manifestos CNTR/break-bulk/granito, containers, veículos, Baplie EDI, vazios) → **Revisão** (aprovação manual de B/Ls antes do faturamento) → **Comercial** (clientes, taxas locais, overrides) → **Financeiro** (faturamento, demurrage, conciliação PIX) → **Portal do Cliente** (consulta de faturas, pagamento, disputas).
 
-O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#3-fluxo-operacional-canônico).
+O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#fluxo-operacional-e-financeiro).
 
 ## Módulos
 

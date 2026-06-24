@@ -10,6 +10,7 @@ Use este documento para procedimentos técnicos. Consulte:
 - [`docs/adr/README.md`](./docs/adr/README.md) para decisões;
 - [`docs/operations/validacao.md`](./docs/operations/validacao.md) para testes operacionais;
 - [`docs/CONVENCOES.md`](./docs/CONVENCOES.md) para estilo e labels de evidência;
+- [`docs/RASTREABILIDADE.md`](./docs/RASTREABILIDADE.md) para rastrear rotas até componentes, hooks, RPCs e testes;
 - [`docs/README.md`](./docs/README.md) para a hierarquia documental.
 
 Código, migrations e configuração executável são a evidência final quando um
@@ -112,7 +113,6 @@ docs/
   README.md               mapa documental
   ARCHITECTURE.md         arquitetura atual
   ROADMAP.md              baseline, evolução e riscos
-  CONTEXT.md              glossário de domínio
   adr/                    decisões arquiteturais
   operations/             regras, validação, segurança e reset
   setup/                  desenvolvimento, testes e deploy
