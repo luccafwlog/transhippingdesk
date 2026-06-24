@@ -544,6 +544,7 @@ export type Database = {
       invoice_granite_bls: Row<InvoiceGraniteBlLink>
       demurrage_invoices: Row<DemurrageInvoice>
       demurrage_invoice_items: Row<DemurrageInvoiceItem>
+      demurrage_invoice_history: Row<DemurrageInvoiceHistory>
       demurrage_rates: Row<DemurrageRate>
       granite_manifests: Row<GraniteManifest>
       granite_bls: Row<GraniteBl>
@@ -559,6 +560,20 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
+      recalculate_demurrage_invoices: {
+        Args: {
+          p_ptax: number
+          p_quote_date: string
+          p_source?: string
+        }
+        Returns: Json
+      }
+      recalculate_demurrage_invoices_manual: {
+        Args: {
+          p_ptax: number
+        }
+        Returns: Json
+      }
       import_manifest_transactional: {
         Args: {
           p_filename: string
@@ -1129,9 +1144,9 @@ export type DemurrageInvoice = {
   total_usd: number
   roe: number | null
   roe_manual: boolean | null
-  frozen_roe: number | null
+  current_roe: number | null
   roe_source: 'bcb_live' | 'cached' | 'manual' | null
-  frozen_total_brl: number | null
+  current_total_brl: number | null
   discount_type: 'comercial' | 'datas' | 'cortesia' | 'acordo' | 'erro' | null
   discount_value: number | null
   discount_mode: 'percent' | 'fixed' | null
@@ -1168,6 +1183,19 @@ export type DemurrageInvoiceItem = {
   days_p2: number
   rate_p2_usd: number
   subtotal_usd: number
+  created_at: string
+}
+
+export type DemurrageInvoiceHistory = {
+  id: number
+  invoice_id: number
+  event_date: string
+  ptax_used: number
+  roe_used: number
+  total_usd: number
+  total_brl: number
+  discount_usd: number
+  source: 'bcb_live' | 'cached' | 'manual' | 'payment'
   created_at: string
 }
 

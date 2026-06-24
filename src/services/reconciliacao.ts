@@ -38,7 +38,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   type DemurrageInv = {
     id: number
     doc_number: string
-    frozen_total_brl: number | null
+    current_total_brl: number | null
     pix_txid: string | null
     customer: { name: string; cnpj_cpf: string } | null
   }
@@ -52,7 +52,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       .overrideTypes<LocalInv[], { merge: false }>(),
     supabase
       .from('demurrage_invoices')
-      .select('id, doc_number, frozen_total_brl, status, pix_txid, customer:customers(id, name, cnpj_cpf)')
+      .select('id, doc_number, current_total_brl, status, pix_txid, customer:customers(id, name, cnpj_cpf)')
       .eq('status', 'issued')
       .overrideTypes<DemurrageInv[], { merge: false }>(),
   ])
@@ -102,7 +102,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       docNumber: inv.doc_number,
       customerName: inv.customer?.name ?? '',
       customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''),
-      amount: inv.frozen_total_brl ?? 0,
+      amount: inv.current_total_brl ?? 0,
     }
     const key = normTxid(inv.doc_number)
     if (key) txidMap.set(key, [...(txidMap.get(key) ?? []), entry])
@@ -395,7 +395,7 @@ export async function listReconciliationHistory(
   const demurrageRows: ReconciliationHistoryRow[] = []
   for (const inv of demurrageSourceRows) {
     const voyage = (inv.bl as Record<string, unknown> | null)?.voyage as Record<string, unknown> | null
-    const invTotal = Number(inv.frozen_total_brl ?? 0)
+    const invTotal = Number(inv.current_total_brl ?? 0)
     demurrageRows.push({
       id: `demurrage-${inv.id}`,
       source: 'demurrage',

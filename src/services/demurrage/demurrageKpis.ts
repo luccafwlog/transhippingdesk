@@ -3,17 +3,47 @@ import { assertUploadSize } from '../../lib/fileGuard'
 import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { PixTransaction, RoeSource } from '../../types/database'
 
+// Spread fixo do armador aplicado sobre a PTAX (ADR 0014). Ponto canônico no
+// frontend; o backend replica a mesma constante na RPC de recálculo.
+export const DEMURRAGE_ROE_MARKUP = 1.065
+
 export type DemurrageKPIs = {
   overdueContainers: number
   draftInvoicesTotalUsd: number
   issuedInvoicesTotalBrl: number
 }
 
+/**
+ * Data (event_date) do último recálculo registrado em demurrage_invoice_history,
+ * ou null se não houver histórico. Usada pelo banner de staleness em /demurrage.
+ */
+export async function fetchLatestRecalcDate(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('demurrage_invoice_history')
+    .select('event_date')
+    .order('event_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data?.event_date ?? null
+}
+
+/**
+ * Recálculo manual disparado pelo operador quando o BCB está fora ou o job falhou.
+ * Informa a PTAX (cotação de venda, sem markup); o markup é aplicado no banco.
+ */
+export async function recalculateInvoicesManual(ptax: number): Promise<{ updated: number }> {
+  const { data, error } = await supabase.rpc('recalculate_demurrage_invoices_manual', { p_ptax: ptax })
+  if (error) throw error
+  const updated = Number((data as { updated?: number } | null)?.updated ?? 0)
+  return { updated }
+}
+
 export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
   const [contRes, draftRes, issuedRes] = await Promise.all([
     supabase.from('bl_containers').select('id', { count: 'exact', head: true }).eq('demurrage_status', 'overdue'),
     supabase.from('demurrage_invoices').select('total_usd').eq('status', 'draft'),
-    supabase.from('demurrage_invoices').select('frozen_total_brl').eq('status', 'issued'),
+    supabase.from('demurrage_invoices').select('current_total_brl').eq('status', 'issued'),
   ])
   for (const res of [contRes, draftRes, issuedRes]) {
     if (res.error) throw res.error
@@ -21,7 +51,7 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
   return {
     overdueContainers: contRes.count ?? 0,
     draftInvoicesTotalUsd: (draftRes.data ?? []).reduce((s, r) => s + (r.total_usd ?? 0), 0),
-    issuedInvoicesTotalBrl: (issuedRes.data ?? []).reduce((s, r) => s + (r.frozen_total_brl ?? 0), 0),
+    issuedInvoicesTotalBrl: (issuedRes.data ?? []).reduce((s, r) => s + (r.current_total_brl ?? 0), 0),
   }
 }
 
@@ -167,7 +197,7 @@ export async function fetchROE(): Promise<FetchROEResult> {
     if (!resp.ok) throw new Error(`BCB HTTP ${resp.status}`)
     const json = await resp.json()
     if (!json.value?.length || !json.value[0].cotacaoVenda) throw new Error('Sem cotações no BCB')
-    const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * 1.065).toFixed(4))
+    const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * DEMURRAGE_ROE_MARKUP).toFixed(4))
     saveROECache(roe)
     return { roe, offline: false, cachedAt: null, source: 'bcb_live' }
   } catch (error) {

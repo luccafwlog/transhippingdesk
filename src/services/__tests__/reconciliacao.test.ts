@@ -118,7 +118,7 @@ describe('reconciliacao PIX unificada', () => {
         {
           id: 20,
           doc_number: 'INV-001',
-          frozen_total_brl: 100,
+          current_total_brl: 100,
           pix_txid: null,
           customer: { name: 'Cliente Demurrage', cnpj_cpf: '12.345.678/0001-95' },
         },
@@ -139,7 +139,7 @@ describe('reconciliacao PIX unificada', () => {
         {
           id: 20,
           doc_number: 'DEM-001',
-          frozen_total_brl: 100,
+          current_total_brl: 100,
           pix_txid: null,
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },

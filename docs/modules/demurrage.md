@@ -1,12 +1,16 @@
 # Demurrage
 
-> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/demurrage`, `/demurrage/taxas`
+> **Status:** ativo · **Atualizado:** 2026-06-24 · **Rotas:** `/demurrage`, `/demurrage/taxas`
 
 ## Propósito e escopo
 
 Demurrage acompanha descarga e devolução de containers, resolve free time e
-tarifas P1/P2, calcula a sobreestadia em USD e mantém invoices próprias com ROE
-e total BRL congelados na emissão. As rotas internas ficam sob
+tarifas P1/P2, calcula a sobreestadia em USD e mantém invoices próprias cujo
+total BRL é **recalculado diariamente pela PTAX até o pagamento** (USD travado na
+emissão; ROE/BRL congelam só no pagamento — ver
+[ADR 0014](../adr/0014-demurrage-recalculo-diario-substitui-roe-congelado.md) e
+[ADR 0015](../adr/0015-demurrage-conciliacao-janela-duas-ptax-data-pagamento.md)).
+As rotas internas ficam sob
 `ProtectedRoute` em [`src/App.tsx`](../../src/App.tsx); a interface de tarifas
 expõe mutações apenas para admin, enquanto as policies e RPCs continuam sendo a
 fronteira efetiva de autorização.
@@ -92,7 +96,7 @@ excluir para admin, conforme
 | `/demurrage` · criar invoice para B/L | Cliente vinculado; ao menos um container com `demurrage_status='overdue'` | Botão `Gerar Fatura`; `generateMutation` | `createInvoiceForBL` recalcula cada item, gera `doc_number`, vencimento e `ready_at` | INSERT direto em `demurrage_invoices`, depois INSERT em `demurrage_invoice_items` | Invalida containers, invoices e KPIs | Sem cliente/containers elegíveis lança erro; as duas inserções não formam uma RPC atômica | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · listar invoices | Aba `Rascunhos`, `Emitidas` ou `Pagas` | Query da página | `listDemurrageInvoices({status})` | SELECT em `demurrage_invoices`, `customers`, `bls`, `voyages`, `vessels` | Query `['demurrage-invoices', status]`, `staleTime=30s` | Erro mostra `InlineError` | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · abrir detalhe/breakdown | Invoice selecionada | Botão `Detalhes` ou visualizador | `getInvoiceDetail` carrega cabeçalho e itens em paralelo | SELECT em `demurrage_invoices` e `demurrage_invoice_items` | Query `['demurrage-invoice-detail', id]` | Erro da invoice ou dos itens rejeita a leitura | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
-| `/demurrage` · emitir e congelar ROE/BRL | Invoice `draft`; PTAX ao vivo ou cache disponível | `issueMutation` | `fetchROE` → `issueInvoice`; aplica desconto, gera payload PIX | UPDATE direto em `demurrage_invoices`: `status`, datas, `frozen_roe`, `frozen_total_brl`, `roe_source`, `pix_payload` | Invalida invoices e KPIs; avisa quando usa cache | BCB sem cache rejeita; erro de UPDATE mantém o rascunho | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageKpis.ts`](../../src/services/demurrage/demurrageKpis.ts), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts), [`049_demurrage_roe_source.sql`](../../supabase/migrations/049_demurrage_roe_source.sql) |
+| `/demurrage` · emitir e congelar ROE/BRL | Invoice `draft`; PTAX ao vivo ou cache disponível | `issueMutation` | `fetchROE` → `issueInvoice`; aplica desconto, gera payload PIX | UPDATE direto em `demurrage_invoices`: `status`, datas, `current_roe`, `current_total_brl`, `roe_source`, `pix_payload` | Invalida invoices e KPIs; avisa quando usa cache | BCB sem cache rejeita; erro de UPDATE mantém o rascunho | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageKpis.ts`](../../src/services/demurrage/demurrageKpis.ts), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts), [`049_demurrage_roe_source.sql`](../../supabase/migrations/049_demurrage_roe_source.sql) |
 | `/demurrage` · desem emitir | UI oferece para `issued`; confirmação aceita | `handleUnissueInvoice`; `unissueMutation` | `unissueInvoice` | UPDATE direto: volta a `draft`, limpa congelados/payload e recalcula vencimento | Invalida invoices e KPIs | Erro mostra toast; o serviço não adiciona guarda de status própria | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · marcar pago manualmente | UI exibe a ação para invoice `issued`; o serviço também aceita `overdue`; data informada | Modal `Registrar Pagamento`; `payMutation` | Reusa ROE congelado ou busca ROE; `markInvoicePaid` valida status | UPDATE direto em `demurrage_invoices` | Invalida invoices e KPIs | Status incompatível ou ROE indisponível rejeita | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · desmarcar pagamento | UI oferece para `paid`; confirmação aceita | `handleUnmarkInvoicePaid`; `unpayMutation` | `unmarkInvoicePaid` | UPDATE direto para `issued`, `paid_at=null` | Invalida invoices e KPIs | Erro mostra toast; não exige justificativa nem chama o RPC de reversão | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
@@ -123,9 +127,20 @@ excluir para admin, conforme
 - **Datas:** `bl_containers.discharge_date` e `return_date` são a fonte
   operacional. `demurrage_invoice_items` copia datas, dias, tarifas e subtotal
   no momento de criação da invoice.
-- **ROE de emissão:** `fetchROE` consulta a PTAX dos últimos dez dias, aplica
-  markup `1,065` e usa `localStorage['demurrage_roe_cache']` como fallback.
-  `issueInvoice` congela `frozen_roe`, `frozen_total_brl` e `roe_source`.
+- **ROE e recálculo diário:** `fetchROE` consulta a PTAX dos últimos dez dias,
+  aplica o markup canônico `DEMURRAGE_ROE_MARKUP` (`1,065`, ADR 0014) e usa
+  `localStorage['demurrage_roe_cache']` como fallback. Sob recálculo diário, o
+  valor em BRL não é congelado na emissão: a RPC `recalculate_demurrage_invoices`
+  (`service_role`) reprecifica toda fatura `issued` e não paga quando a PTAX muda,
+  grava `current_roe`/`current_total_brl`/`roe_source`, regenera o `pix_payload` e
+  insere a foto em `demurrage_invoice_history`. A Edge Function agendada
+  [`recalc-demurrage-ptax`](../../supabase/functions/recalc-demurrage-ptax/index.ts)
+  busca a PTAX (política do `demurrage-manager`: `CotacaoDolarPeriodo`, ~10 dias,
+  `top 1` desc) e chama a RPC em dias úteis. Quando o BCB está fora, o operador usa
+  o botão **Informar PTAX** em `/demurrage` →
+  `recalculate_demurrage_invoices_manual` (autenticada). Um banner de staleness
+  aparece quando há faturas aguardando pagamento e o último recálculo é anterior ao
+  último dia útil.
 - **Câmbio de display é outro contrato:** o header usa
   [`src/hooks/useExchangeRates.ts`](../../src/hooks/useExchangeRates.ts),
   cache `header_ptax_display`, PTAX sem markup e derivação CNY. Esse valor não é
@@ -167,8 +182,10 @@ flowchart LR
   substituem apenas o valor diário.
 - A criação da invoice recalcula e persiste um snapshot. Alterações posteriores
   de datas ou tarifas não reescrevem os itens existentes.
-- Emissão é o ponto de congelamento do ROE e do total BRL. Pagamento deve
-  preservar esses valores; o câmbio do header é apenas informativo.
+- Sob recálculo diário, a emissão **não** congela o ROE/BRL: ela trava o USD e
+  fixa o `current_total_brl` do dia. O congelamento real ocorre no pagamento
+  (`source='payment'` no histórico), quando o recálculo daquela fatura cessa. O
+  câmbio do header é apenas informativo.
 - `localStorage` permite continuidade quando o BCB está indisponível, mas não
   impõe expiração máxima ao cache de ROE. A UI avisa a data do cache quando o
   caminho explícito de emissão recebe `offline=true`.
@@ -185,7 +202,7 @@ flowchart LR
   `confirm_demurrage_pix_matches`, wrapper transacional
   `confirm_unified_pix_matches` e reversão auditada
   `reverse_demurrage_payment`.
-- O wrapper unificado valida data, fonte, valor contra `frozen_total_brl` com
+- O wrapper unificado valida data, fonte, valor contra `current_total_brl` com
   tolerância de `0,01` e quantidade atualizada antes de chamar o lote base.
 
 ## Testes e validação

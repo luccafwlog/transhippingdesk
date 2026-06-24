@@ -409,7 +409,7 @@ export function PortalBilling() {
                 <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                   <MetricCard label="Status" value={invoice.status === 'paid' ? 'Pago' : invoice.status === 'overdue' ? 'Vencida' : 'Emitida'} />
                   <MetricCard label="Total USD" value={`$ ${Number(invoice.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
-                  <MetricCard label="Total BRL" value={invoice.frozen_total_brl != null ? formatBRL(invoice.frozen_total_brl) : '—'} />
+                  <MetricCard label="Total BRL" value={invoice.current_total_brl != null ? formatBRL(invoice.current_total_brl) : '—'} />
                   <MetricCard label="Vencimento" value={formatDate(invoice.due_date) ?? '—'} />
                 </div>
 
@@ -617,7 +617,7 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, po
                 <td className="px-4 py-3">{formatDate(inv.billed_at)}</td>
                 <td className="px-4 py-3">{formatDate(inv.due_date)}</td>
                 <td className="px-4 py-3">$ {Number(inv.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td className="px-4 py-3">{inv.frozen_total_brl != null ? formatBRL(inv.frozen_total_brl) : '—'}</td>
+                <td className="px-4 py-3">{inv.current_total_brl != null ? formatBRL(inv.current_total_brl) : '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     {renderDemurrageBadge(inv.status)}

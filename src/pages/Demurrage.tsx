@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, DollarSign, FileText, Pencil, Upload } from 'lucide-react'
+import { AlertTriangle, Clock, DollarSign, FileText, Pencil, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -26,7 +26,7 @@ import {
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import { reverseDemurragePayment } from '../services/reconciliacao'
-import { fetchDemurrageKPIs, fetchROE } from '../services/demurrage/demurrageKpis'
+import { fetchDemurrageKPIs, fetchROE, fetchLatestRecalcDate, recalculateInvoicesManual } from '../services/demurrage/demurrageKpis'
 import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
@@ -55,6 +55,16 @@ function fmtUSD(v: number | null | undefined) {
   if (v == null) return '—'
   return '$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+// Último dia útil (hoje se for dia de semana; senão a sexta anterior). O recálculo
+// do BCB só roda em dias úteis. ponytail: feriados nacionais não são considerados
+// (banner pode soar falso-positivo em feriado) — operador pode ignorar/informar manual.
+function lastBusinessDayISO(): string {
+  const d = new Date()
+  if (d.getDay() === 0) d.setDate(d.getDate() - 2)
+  else if (d.getDay() === 6) d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
 function fmtBRL(v: number | null | undefined) {
   if (v == null) return '—'
   return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -165,6 +175,33 @@ export function Demurrage() {
     staleTime: 60_000,
   })
 
+  const [ptaxModalOpen, setPtaxModalOpen] = useState(false)
+  const [ptaxInput, setPtaxInput] = useState('')
+
+  const { data: latestRecalcDate } = useQuery({
+    queryKey: ['demurrage-latest-recalc'],
+    queryFn: fetchLatestRecalcDate,
+    staleTime: 60_000,
+  })
+
+  // Banner de staleness: só interessa quando há faturas aguardando pagamento (BRL > 0)
+  // e o último recálculo é anterior ao último dia útil (job falhou / BCB fora).
+  const recalcStale =
+    (kpis?.issuedInvoicesTotalBrl ?? 0) > 0 &&
+    (latestRecalcDate == null || latestRecalcDate < lastBusinessDayISO())
+
+  const recalcManualMutation = useMutation({
+    mutationFn: (ptax: number) => recalculateInvoicesManual(ptax),
+    onSuccess: (res) => {
+      showToast(`PTAX aplicada — ${res.updated} fatura(s) recalculada(s).`, 'success')
+      setPtaxModalOpen(false)
+      setPtaxInput('')
+      void queryClient.invalidateQueries({ queryKey: ['demurrage-latest-recalc'] })
+      invalidateInvoices()
+    },
+    onError: (err) => showToast(err instanceof Error ? err.message : 'Falha ao recalcular.', 'error'),
+  })
+
   const invoiceStatus = tab !== 'containers' ? TAB_TO_STATUS[tab] : null
   const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = useQuery({
     queryKey: ['demurrage-invoices', invoiceStatus],
@@ -259,7 +296,7 @@ export function Demurrage() {
   const payMutation = useMutation({
     mutationFn: async ({ id, date }: { id: number; date: string }) => {
       const inv = invoices?.find((i) => i.id === id)
-      let roe = inv?.frozen_roe ?? null
+      let roe = inv?.current_roe ?? null
       if (!roe) {
         const result = await fetchROE()
         if (result.offline) setRoeOfflineWarning(result.cachedAt)
@@ -370,6 +407,43 @@ export function Demurrage() {
     <>
       <ContainerDatesImportModal open={importOpen} onClose={() => setImportOpen(false)} />
 
+      <Modal open={ptaxModalOpen} onClose={() => setPtaxModalOpen(false)} title="Informar PTAX manualmente">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-400">
+            Use quando o BCB estiver indisponível ou o recálculo automático falhar. Informe a cotação de
+            venda do dólar (PTAX, sem markup). O sistema recalcula todas as faturas emitidas e não pagas.
+          </p>
+          <Field label="PTAX (cotação de venda)">
+            <Input
+              type="number"
+              step="0.0001"
+              min="0"
+              value={ptaxInput}
+              onChange={(e) => setPtaxInput(e.target.value)}
+              placeholder="Ex.: 5.4321"
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPtaxModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                const ptax = parseFloat(ptaxInput.replace(',', '.'))
+                if (!Number.isFinite(ptax) || ptax <= 0) {
+                  showToast('Informe uma PTAX válida maior que zero.', 'error')
+                  return
+                }
+                recalcManualMutation.mutate(ptax)
+              }}
+              disabled={recalcManualMutation.isPending}
+            >
+              {recalcManualMutation.isPending ? 'Recalculando…' : 'Recalcular'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <PageHeader
         title="Demurrage"
         description="Rastreamento e faturamento de sobreestadia de containers"
@@ -386,6 +460,10 @@ export function Demurrage() {
             <Button variant="secondary" onClick={() => setImportOpen(true)}>
               <Upload size={15} />
               Importar Datas
+            </Button>
+            <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}>
+              <DollarSign size={15} />
+              Informar PTAX
             </Button>
           </>
         }
@@ -412,6 +490,19 @@ export function Demurrage() {
           </div>
         </Card>
       </div>
+
+      {/* Banner de staleness do recálculo diário */}
+      {recalcStale ? (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          <span className="flex items-center gap-2">
+            <AlertTriangle size={16} />
+            PTAX de hoje não obtida do BCB. Os valores em BRL podem estar desatualizados.
+          </span>
+          <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}>
+            Informar PTAX
+          </Button>
+        </div>
+      ) : null}
 
       {/* ROE offline warning */}
       {roeOfflineWarning ? (
@@ -596,7 +687,7 @@ export function Demurrage() {
                           <td className="py-2">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
                           <td className="py-2 font-semibold text-amber-400">{fmtUSD(inv.total_usd)}</td>
                           <td className="py-2 font-semibold text-green-400">
-                            {fmtBRL(inv.frozen_total_brl)}
+                            {fmtBRL(inv.current_total_brl)}
                             {inv.roe_source === 'cached' && (
                               <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 text-xs text-amber-400" title="ROE via cache (BCB offline)">ROE cache</span>
                             )}

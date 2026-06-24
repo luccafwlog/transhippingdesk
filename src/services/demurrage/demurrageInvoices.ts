@@ -228,8 +228,8 @@ export async function issueInvoice(invoiceId: number, roe: number, roeSource: Ro
     status: 'issued',
     billed_at: today,
     first_billed_at: inv.first_billed_at ?? today,
-    frozen_roe: roe,
-    frozen_total_brl: parseFloat(totalBRL.toFixed(2)),
+    current_roe: roe,
+    current_total_brl: parseFloat(totalBRL.toFixed(2)),
     roe_source: roeSource,
     pix_payload,
   }).eq('id', invoiceId)
@@ -240,8 +240,8 @@ export async function unissueInvoice(invoiceId: number): Promise<void> {
   const { error } = await supabase.from('demurrage_invoices').update({
     status: 'draft',
     billed_at: null,
-    frozen_roe: null,
-    frozen_total_brl: null,
+    current_roe: null,
+    current_total_brl: null,
     pix_payload: null,
     due_date: nextBusinessDay(),
   }).eq('id', invoiceId)
@@ -251,7 +251,7 @@ export async function unissueInvoice(invoiceId: number): Promise<void> {
 export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: number | null): Promise<void> {
   const { data: inv, error: fetchErr } = await supabase
     .from('demurrage_invoices')
-    .select('status, frozen_roe, frozen_total_brl, total_usd, discount_mode, discount_value, doc_number')
+    .select('status, current_roe, current_total_brl, total_usd, discount_mode, discount_value, doc_number')
     .eq('id', invoiceId)
     .single()
   if (fetchErr) throw fetchErr
@@ -260,8 +260,8 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
     throw new Error(`Fatura não pode ser marcada como paga no status atual: ${inv.status}`)
   }
 
-  let frozenRoe = inv.frozen_roe
-  let frozenTotalBrl = inv.frozen_total_brl
+  let frozenRoe = inv.current_roe
+  let frozenTotalBrl = inv.current_total_brl
 
   if (frozenRoe == null && roe != null) {
     frozenRoe = roe
@@ -278,8 +278,8 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
   const { error } = await supabase.from('demurrage_invoices').update({
     status: 'paid',
     paid_at: paidAt,
-    frozen_roe: frozenRoe,
-    frozen_total_brl: frozenTotalBrl,
+    current_roe: frozenRoe,
+    current_total_brl: frozenTotalBrl,
     ...(pix_payload ? { pix_payload } : {}),
   }).eq('id', invoiceId)
   if (error) throw error

@@ -8,9 +8,9 @@ import { InvoiceDocument } from '../InvoiceDocument'
 const detail = {
   doc_number: 'DEM-2026-0001',
   bl_id: 'BL-9',
-  frozen_roe: 5,
+  current_roe: 5,
   roe: 5,
-  frozen_total_brl: 500,
+  current_total_brl: 500,
   discount_value: 0,
   discount_mode: null,
   due_date: '2026-07-01',

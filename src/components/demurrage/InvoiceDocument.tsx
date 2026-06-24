@@ -26,7 +26,7 @@ export function InvoiceDocument({ detail, type }: Props) {
   const voyageNumber = bl?.voyage?.voyage_number ?? '—'
   const containerList = items.map((i) => i.container_number).join(', ')
 
-  const roe = invoice.frozen_roe ?? invoice.roe ?? null
+  const roe = invoice.current_roe ?? invoice.roe ?? null
   const roeValue = roe ?? 1
 
   // Per-row BRL = subtotal_usd × roe
@@ -46,7 +46,7 @@ export function InvoiceDocument({ detail, type }: Props) {
     }
   }
 
-  const totalBRL = invoice.frozen_total_brl ?? Math.max(0, rawTotalBRL - discountAmt)
+  const totalBRL = invoice.current_total_brl ?? Math.max(0, rawTotalBRL - discountAmt)
   const hasDiscount = (invoice.discount_value ?? 0) > 0
 
   return (

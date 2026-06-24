@@ -530,8 +530,8 @@ function DemurrageReportTab() {
 
   const invoices = data ?? []
   const totalUSD = invoices.reduce((s, inv) => s + (inv.total_usd ?? 0), 0)
-  const totalBRL = invoices.reduce((s, inv) => s + (inv.frozen_total_brl ?? 0), 0)
-  const paidBRL = invoices.filter((i) => i.status === 'paid').reduce((s, inv) => s + (inv.frozen_total_brl ?? 0), 0)
+  const totalBRL = invoices.reduce((s, inv) => s + (inv.current_total_brl ?? 0), 0)
+  const paidBRL = invoices.filter((i) => i.status === 'paid').reduce((s, inv) => s + (inv.current_total_brl ?? 0), 0)
 
   function fmtUSD(v: number) {
     return '$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -610,7 +610,7 @@ function DemurrageReportTab() {
                     <td className="px-4 py-2 text-[var(--app-muted)]">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
                     <td className="px-4 py-2 text-[var(--app-muted)]">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
                     <td className="px-4 py-2 text-right font-semibold text-amber-700">{fmtUSD(inv.total_usd ?? 0)}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-green-700">{formatBRL(inv.frozen_total_brl ?? 0)}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-green-700">{formatBRL(inv.current_total_brl ?? 0)}</td>
                     <td className="px-4 py-2">
                       <Badge tone={inv.status === 'paid' ? 'green' : inv.status === 'issued' ? 'blue' : inv.status === 'cancelled' ? 'slate' : 'yellow'}>
                         {inv.status === 'paid' ? 'Pago' : inv.status === 'issued' ? 'Faturado' : inv.status === 'cancelled' ? 'Cancelado' : 'Rascunho'}

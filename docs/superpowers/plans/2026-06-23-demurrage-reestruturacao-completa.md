@@ -10,6 +10,29 @@
 
 ---
 
+## Checklist de execução
+
+- [x] **Fase 1** — Recálculo diário + Histórico
+  - [x] 1.1 Tabela `demurrage_invoice_history`
+  - [x] 1.2 Renomear `frozen_* → current_*` (migração + types + consumidores)
+  - [x] 1.3 RPC núcleo `recalculate_demurrage_invoices`
+  - [x] 1.4 RPC wrapper manual `recalculate_demurrage_invoices_manual`
+  - [x] 1.5 Edge Function agendada
+  - [x] 1.6 Banner de staleness + botão manual em `/demurrage`
+- [ ] **Fase 2** — Simplificação do fluxo + emissão automática
+  - [ ] 2.1 `create_demurrage_invoice_with_items` nasce `issued` + foto inicial
+  - [ ] 2.2 Emissão automática na importação
+  - [ ] 2.3 Remover job `mark_overdue_invoices`
+  - [ ] 2.4 UI: remover rascunhos/vencimento/overdue; ação Cancelar
+- [ ] **Fase 3** — Descontos em USD
+- [ ] **Fase 4** — Visão por consignatário
+- [ ] **Fase 5** — Visão de containers (operacional)
+- [ ] **Fase 6** — Data de referência no documento
+- [ ] **Fase 7** — Conciliação PIX por txid + janela das duas PTAX
+- [ ] **Fase 8** — Portal do Cliente (push/armazenado)
+
+---
+
 ## Sumário
 
 Substituição do modelo de ROE congelado-na-emissão pelo **recálculo diário** do valor em BRL
