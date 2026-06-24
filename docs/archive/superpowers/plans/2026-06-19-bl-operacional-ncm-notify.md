@@ -1,5 +1,7 @@
 # BL Operacional core (NCM + Notify Party + removals) Implementation Plan
 
+> **✅ Completed (2026-06-24).** Delivered via PR `#255`. Shared NCM extraction, read-only NCM chips, forward-only `notify_party` import, removal of `place_of_delivery`/`incoterm` from BL form (columns preserved in DB).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remove Place of Delivery and Incoterm from the B/L form, show a derived read-only NCM list, and populate Notify Party from the container manifest parser (forward only).

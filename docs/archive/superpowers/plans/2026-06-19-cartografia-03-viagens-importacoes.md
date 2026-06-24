@@ -1,5 +1,7 @@
 # Voyages and Import Pipelines Cartography Implementation Plan
 
+> **✅ Completed (2026-06-24).** `docs/modules/viagens.md` and `docs/modules/manifesto-edi.md` mapped with standard contract, action catalogs, and evidence labels.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Document every developer-relevant action in voyages, manifests, B/L details, containers, vehicles, Baplie, breakbulk, and empty-container flows.

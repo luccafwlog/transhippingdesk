@@ -41,7 +41,7 @@ Defect Type, Evidence, Source References, Open Questions / Notes`.
 ## Provenance
 
 This edition supersedes the intentionally-untracked ledger described in
-[`../qa/2026-06-23-feature-story-qa-loop-summary.md`](../qa/2026-06-23-feature-story-qa-loop-summary.md):
+[`../archive/qa/2026-06-23-feature-story-qa-loop-summary.md`](../archive/qa/2026-06-23-feature-story-qa-loop-summary.md):
 that summary recorded the outcome but not the per-row workbook. This is the
 durable, committed per-row record. It is verified against `src/App.tsx`,
 the RPC call sites, `supabase/functions/`, the migrations and

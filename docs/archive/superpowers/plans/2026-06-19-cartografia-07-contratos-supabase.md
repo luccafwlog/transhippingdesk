@@ -1,5 +1,7 @@
 # Supabase Contracts and Security Boundaries Cartography Implementation Plan
 
+> **✅ Completed (2026-06-24).** `docs/RASTREABILIDADE.md` created with complete RPC, migration, RLS, and evidence-label inventory. All executable routes mapped to contracts.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Exhaustively map the Supabase tables, RPCs, triggers, RLS policies, grants, migrations, and Edge Functions that form the executable backend contract.

@@ -45,7 +45,7 @@ export function describeTimelineEvent(event: BlTimelineEvent): string {
   return `${field_name}: ${old_value ?? '-'} → ${new_value ?? '-'}`
 }
 
-// Auditoria = entrada com justificativa deliberada (ver docs/GLOSSARIO.md).
+// Auditoria = entrada com justificativa deliberada (ver CONTEXT.md).
 export function isAudited(event: BlTimelineEvent): boolean {
   return Boolean(event.justification && event.justification.trim())
 }

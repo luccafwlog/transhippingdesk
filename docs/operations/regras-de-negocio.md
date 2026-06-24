@@ -1,6 +1,6 @@
 # Regras de negócio
 
-> Regras **não óbvias** que atravessam módulos. Regras específicas de cada módulo ficam no doc do módulo. Termos em [GLOSSARIO.md](../GLOSSARIO.md).
+> Regras **não óbvias** que atravessam módulos. Regras específicas de cada módulo ficam no doc do módulo. Termos em [CONTEXT.md](../../CONTEXT.md).
 
 ---
 
@@ -53,7 +53,7 @@ Na importação, o consignatário do manifesto é casado contra a base de `custo
 - **Divergência de atributo** (status full/empty, IMO, OOG conflitantes) → aviso, com opção de aceitar valor do Baplie por linha.
 - O Baplie pode sobrescrever flags operacionais (`is_imo`, `imo_class`, `un_number`, `is_oog`, `status`); **dados financeiros** (consignatário, peso para billing) são protegidos e só o manifesto os define.
 
-Detalhes em [Manifestos & EDI](../modules/manifesto-edi.md). Definições em [GLOSSARIO.md](../GLOSSARIO.md).
+Detalhes em [Manifestos & EDI](../modules/manifesto-edi.md). Definições em [CONTEXT.md](../../CONTEXT.md).
 
 ## Conciliação PIX
 

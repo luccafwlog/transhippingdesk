@@ -1,5 +1,7 @@
 # Technical Cartography Foundation Implementation Plan
 
+> **✅ Completed (2026-06-24).** Checker contract enforced in `scripts/check-docs.mjs`. Baseline verified against PR `#253`–`#258`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Verify the clean documentation baseline delivered by PR `#253` and add mechanical enforcement for the cartography contract.

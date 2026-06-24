@@ -3,7 +3,7 @@
 Verificado contra o código, a configuração e as migrations em 2026-06-20.
 
 Este é o mapa canônico da arquitetura atual. Termos de negócio vivem em
-[`docs/GLOSSARIO.md`](./GLOSSARIO.md); decisões e supersessões vivem no
+[`CONTEXT.md`](../CONTEXT.md); decisões e supersessões vivem no
 [índice de ADRs](./adr/README.md).
 
 ## Visão geral

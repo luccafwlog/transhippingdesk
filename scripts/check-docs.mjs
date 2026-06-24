@@ -156,7 +156,6 @@ if (fs.existsSync(traceabilityPath)) {
 
 const livingFiles = [
   'README.md',
-  'docs/GLOSSARIO.md',
   'WORKFLOW.md',
   'AGENTS.md',
   'CLAUDE.md',

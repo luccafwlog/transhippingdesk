@@ -1,5 +1,7 @@
 # BL Histórico timeline (`bl_timeline` RPC) Implementation Plan
 
+> **✅ Completed (2026-06-24).** Delivered via PR `#257`. Paginated, humanized B/L history backed by secure `bl_timeline` RPC. Timeline documented in `docs/RASTREABILIDADE.md` and `docs/modules/viagens.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn the Histórico tab into a full B/L lifecycle timeline, assembled by a server-side `bl_timeline(bl_id)` RPC and rendered as humanized, paginated events.

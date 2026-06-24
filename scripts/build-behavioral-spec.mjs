@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Builds the canonical behavioral specification for Transhipping Desk.
 //
-// Source of truth: docs/spec/<date>-behavioral-spec.csv
-// View layer:      docs/spec/<date>-behavioral-spec.xlsx
+// Source of truth: docs/behavioral-spec/<date>-behavioral-spec.csv
+// View layer:      docs/behavioral-spec/<date>-behavioral-spec.xlsx
 //
 // The dataset below is code-derived and verified against:
 //   - src/App.tsx (routes), src/**/*.rpc('...') (RPC catalog)

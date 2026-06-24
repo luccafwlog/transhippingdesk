@@ -1,5 +1,7 @@
 # Customers and Customer Portal Cartography Implementation Plan
 
+> **✅ Completed (2026-06-24).** `docs/modules/clientes.md` and `docs/modules/portal-cliente.md` mapped with standard contract, action catalogs, and evidence labels.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Trace customer master data, contacts, reconciliation, Portal provisioning, Portal authentication, self-service billing, operation, notifications, disputes, and profile actions.

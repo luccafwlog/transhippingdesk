@@ -5,7 +5,7 @@ Verificado contra o repositório em 2026-06-18.
 
 Use este documento para procedimentos técnicos. Consulte:
 
-- [`docs/GLOSSARIO.md`](./docs/GLOSSARIO.md) para linguagem de domínio;
+- [`CONTEXT.md`](./CONTEXT.md) para linguagem de domínio;
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) para fluxos e rotas;
 - [`docs/adr/README.md`](./docs/adr/README.md) para decisões;
 - [`docs/operations/validacao.md`](./docs/operations/validacao.md) para testes operacionais;
@@ -111,7 +111,7 @@ docs/
   README.md               mapa documental
   ARCHITECTURE.md         arquitetura atual
   ROADMAP.md              baseline, evolução e riscos
-  GLOSSARIO.md            glossário de domínio
+  CONTEXT.md              glossário de domínio
   adr/                    decisões arquiteturais
   operations/             regras, validação, segurança e reset
   setup/                  desenvolvimento, testes e deploy
@@ -415,7 +415,7 @@ ao commit injetado no build.
 Antes de concluir:
 
 - a mudança é mínima e rastreável ao pedido;
-- regras de domínio usam termos do `docs/GLOSSARIO.md`;
+- regras de domínio usam termos do `CONTEXT.md`;
 - decisões novas ou supersessões foram registradas;
 - rotas, comandos, auth, migrations e procedimentos atualizaram os documentos
   vivos;

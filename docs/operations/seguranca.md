@@ -25,7 +25,7 @@
 | **Interna** | `src/hooks/useAuth.tsx` | Supabase Auth + perfil em `user_profiles`; timeout de inatividade de **8 horas**; role → permissões. |
 | **Portal** | `src/hooks/usePortalAuth.tsx` | Supabase Auth. Login por **CNPJ (14 dígitos) OU email** resolvido via RPC `portal_resolve_login`. |
 
-> **Portal login:** o ADR 0001 originalmente definiu email-only e remoção do CNPJ. Isso foi **superado** — o login por CNPJ foi reintroduzido (migrations `…fase1_login_cnpj` e `…harden_portal_resolve_login`). A verdade vigente está em [Portal do Cliente](../modules/portal-cliente.md) e no [Glossário](../GLOSSARIO.md) (termo *Login de Portal*).
+> **Portal login:** o ADR 0001 originalmente definiu email-only e remoção do CNPJ. Isso foi **superado** — o login por CNPJ foi reintroduzido (migrations `…fase1_login_cnpj` e `…harden_portal_resolve_login`). A verdade vigente está em [Portal do Cliente](../modules/portal-cliente.md) e no [CONTEXT.md](../../CONTEXT.md) (termo *Login de Portal*).
 
 ## Rate limiting
 

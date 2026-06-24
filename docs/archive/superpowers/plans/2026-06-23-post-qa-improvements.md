@@ -1,5 +1,7 @@
 # Post-QA Improvements Backlog
 
+> **✅ Completed (2026-06-24).** All 11 tasks marked `[x] Done`. Migrations validated against live Supabase. Contained within the canonical behavioral spec at `docs/behavioral-spec/`.
+
 > **Context:** After [`2026-06-22-complete-feature-story-qa-loop.md`](./2026-06-22-complete-feature-story-qa-loop.md) reached 223/223 stories Passed with all repository gates green, the full suite (729 tests) acts as a regression safety net. The items below are the concrete findings that surfaced *while writing the coverage* — they are NOT failing tests, they are improvements and divergences to act on, safely, with the suite guarding every change.
 
 > **For agentic workers:** Use `superpowers:executing-plans` (or `subagent-driven-development`). Work one item at a time, TDD where code changes behavior. After each item run the affected focused tests, then `npm run lint` and `npm test` before moving on. Tick the checkbox when done.

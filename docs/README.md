@@ -6,7 +6,7 @@ Verificado contra o repositório em 2026-06-20.
 
 | Você quer… | Vá para |
 |---|---|
-| Entender o sistema de cima | [ARCHITECTURE.md](ARCHITECTURE.md) + [GLOSSARIO.md](GLOSSARIO.md) |
+| Entender o sistema de cima | [ARCHITECTURE.md](ARCHITECTURE.md) + [CONTEXT.md](../CONTEXT.md) |
 | Rastrear uma tela, botão, hook, serviço ou RPC | [RASTREABILIDADE.md](RASTREABILIDADE.md) |
 | Mexer num módulo específico | [modules/](#módulos) abaixo |
 | Rodar localmente | [setup/development.md](setup/development.md) |
@@ -50,19 +50,16 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#3-fluxo-o
 ## Referência transversal
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — stack, camadas, modelo de dados, mapa de rotas.
-- [GLOSSARIO.md](GLOSSARIO.md) — termos de domínio (B/L, Baplie, CE Mercante, demurrage…).
+- [CONTEXT.md](../CONTEXT.md) — termos de domínio (B/L, Baplie, CE Mercante, demurrage…).
 - [ROADMAP.md](ROADMAP.md) — estado atual, backlog e riscos.
 - [CHANGELOG.md](CHANGELOG.md) — histórico de entregas relevantes.
 - [adr/](adr/) — decisões arquiteturais numeradas.
 - [operations/](operations/regras-de-negocio.md) — regras de negócio, segurança, validação, reset.
 - [setup/](setup/development.md) — desenvolvimento, deploy, testes.
 - [archive/](archive/README.md) — auditorias e planos históricos (não-vivos).
-- [qa/](qa/2026-06-23-feature-story-qa-loop-summary.md) — resultado do loop de QA por história (223/223 histórias, 62 defeitos corrigidos).
+- [qa/](archive/qa/2026-06-23-feature-story-qa-loop-summary.md) — resultado do loop de QA por história (223/223 histórias, 62 defeitos corrigidos).
 
 ## Convenções da documentação
 
-- Arquivos em `kebab-case.md`, prosa em **português técnico**, termos de domínio em inglês (BL, invoice, manifest, demurrage, ledger, PIX).
-- Cada doc de módulo usa estes sete blocos: **Propósito e escopo · Anatomia das telas · Catálogo de ações · Estado e dados · Fluxos e invariantes · Testes e validação · Notas e divergências**.
-- Afirmações técnicas são calibradas como **Código**, **Teste**, **Runtime** ou **Suspeita**; inspeções textuais de migrations são nomeadas **Teste de contrato SQL**.
-- Diagramas em **Mermaid**. Caminhos de código escritos como `src/services/billing.ts` (clicáveis).
-- Links internos **relativos**. Datas só no nome de arquivos em `archive/` e nos ADRs.
+Ver [`CONVENCOES.md`](CONVENCOES.md) — formato, estrutura dos módulos,
+labels de evidência, catálogo de ações e regras de histórico vs arquivo.

@@ -1,5 +1,7 @@
 # BL detail tabs restructure (3 tabs + demurrage) Implementation Plan
 
+> **✅ Completed (2026-06-24).** Delivered via PR `#256`. BL detail reduced to `detalhes`, `faturamento`, and `historico` tabs. Demurrage, customer, charges, and invoice state consolidated under billing.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Collapse the 5 B/L tabs into 3 (Detalhes do B/L, Faturamento, Histórico), removing cross-tab duplication and consolidating all demurrage into Faturamento with audited writes.

@@ -6,7 +6,7 @@
 
 Centro operacional da **Viagem**: um navio identificado por número de viagem, acompanhado em suas escalas, agendas, manifestos e cargas. O módulo é o agregador master-detail de planejamento POL/POD, exportação, CE Master, indicadores Mercante, timeline e conciliação Baplie × Manifesto; a persistência dos imports pertence a [Manifestos & EDI](manifesto-edi.md), Granito e Vazios.
 
-As duas rotas usam a mesma página, `src/pages/Viagens.tsx`, registrada em `src/App.tsx`. O rail e a rota dedicada seguem a [ADR 0012](../adr/0012-viagens-master-detail-rota-dedicada.md). Termos como Viagem, Escala, Número de Escala, Vínculo de Manifestos, CE Mercante e CE Master seguem `docs/GLOSSARIO.md`.
+As duas rotas usam a mesma página, `src/pages/Viagens.tsx`, registrada em `src/App.tsx`. O rail e a rota dedicada seguem a [ADR 0012](../adr/0012-viagens-master-detail-rota-dedicada.md). Termos como Viagem, Escala, Número de Escala, Vínculo de Manifestos, CE Mercante e CE Master seguem `CONTEXT.md`.
 
 Fontes principais: `src/pages/Viagens.tsx`, `src/pages/viagensHelpers.ts`, `src/components/voyages/VoyageCard.tsx`, `src/hooks/useViagemSchedulesAndStats.ts`, `src/services/voyages.ts`, `src/services/voyageRouteSchedules.ts`, `src/services/voyageExportSchedules.ts` e `src/services/voyageTimeline.ts`.
 
@@ -112,7 +112,7 @@ Os testes Vitest não foram executados nesta frente, conforme orientação do co
 
 ## Notas e divergências
 
-- `CONTEXT.md`, citado pelas instruções do projeto como fonte de domínio, não existe neste checkout; foram usados `docs/GLOSSARIO.md`, `docs/ARCHITECTURE.md`, ADRs, código e migrations.
+- `CONTEXT.md` é a fonte canônica de linguagem de domínio do sistema, complementada por `docs/ARCHITECTURE.md`, ADRs, código e migrations.
 - As migrations 046/052 introduzem snapshots JSONB de schedule, mas a leitura atual continua baseada em `audit_logs`. Não documentar snapshot como fonte de leitura até o serviço mudar.
 - O card “Vazios” navega para `/vazios?voyage=<id>`; `src/App.tsx` redireciona para `/embarquevazios` com destino fixo, portanto a preservação do query param não está garantida pelo código do redirect.
 - O card de Carga Solta envia `?voyage=<id>`, mas `src/pages/CargaSolta.tsx` não inicializa seus filtros por `useSearchParams`; o contexto não é aplicado hoje.

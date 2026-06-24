@@ -1,5 +1,7 @@
 # Operation, Support, and Vessel Schedule Cartography Implementation Plan
 
+> **✅ Completed (2026-06-24).** `docs/modules/operacao-suporte.md` and `docs/modules/chegadas-saidas.md` mapped with standard contract, action catalogs, and evidence labels.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Expand the living documentation for dashboard, review, alerts, reports, Line-Up, user administration, and vessel schedules into route/action-level technical cartography.

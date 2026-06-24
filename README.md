@@ -149,7 +149,7 @@ A documentação completa vive em **[`docs/`](docs/README.md)**. Atalhos:
 
 - **[Índice](docs/README.md)** — ponto de entrada e mapa de módulos.
 - **[Arquitetura](docs/ARCHITECTURE.md)** — stack, camadas, modelo de dados, mapa de rotas.
-- **[Glossário](docs/GLOSSARIO.md)** — termos de domínio (B/L, Baplie, CE Mercante, demurrage…).
+- **[CONTEXT.md](CONTEXT.md)** — termos de domínio (B/L, Baplie, CE Mercante, demurrage…).
 - **[Módulos](docs/README.md#módulos)** — Faturamento, Viagens, Granito, Manifestos/EDI, Portal, Demurrage, etc.
 - **[Setup](docs/setup/development.md)** · **[Deploy](docs/setup/deploy.md)** · **[Testes](docs/setup/testing.md)**
 - **[Regras de negócio](docs/operations/regras-de-negocio.md)** · **[Segurança](docs/operations/seguranca.md)**

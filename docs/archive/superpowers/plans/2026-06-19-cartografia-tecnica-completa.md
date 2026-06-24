@@ -1,5 +1,7 @@
 # Complete Technical Cartography Master Implementation Plan
 
+> **✅ Completed (2026-06-24).** All 8 subplans executed. Outputs: `docs/RASTREABILIDADE.md`, 11 module docs with standard contract, `scripts/check-docs.mjs` enforcement, `docs/behavioral-spec/` verification matrix, runtime evidence on critical scenarios. Delivered via cartografia plans 01–08 + associated PRs.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Coordinate the complete developer-facing cartography of Transhipping Desk without changing product or database behavior.

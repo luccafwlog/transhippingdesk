@@ -25,7 +25,7 @@ Rótulos usados na coluna **Evidência**:
 - **Suspeita**: divergência ou risco que exige confirmação em schema/ambiente controlado;
 - **Runtime** não é atribuído neste documento, pois nenhum fluxo foi executado contra ambiente nesta passagem.
 
-Fontes de linguagem e arquitetura: `docs/GLOSSARIO.md`, `docs/ARCHITECTURE.md`, `docs/adr/0006-revisao-operacional-reconciliacao-cliente-gate-faturamento.md`, `docs/operations/seguranca.md` e `WORKFLOW.md`.
+Fontes de linguagem e arquitetura: `CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/adr/0006-revisao-operacional-reconciliacao-cliente-gate-faturamento.md`, `docs/operations/seguranca.md` e `WORKFLOW.md`.
 
 ## Anatomia das telas
 
