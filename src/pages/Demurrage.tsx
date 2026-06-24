@@ -25,14 +25,15 @@ import {
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import { reverseDemurragePayment } from '../services/reconciliacao'
-import { fetchDemurrageKPIs, fetchROE, fetchLatestRecalcDate, recalculateInvoicesManual } from '../services/demurrage/demurrageKpis'
+import { fetchDemurrageKPIs, fetchROE, fetchLatestRecalcDate, recalculateInvoicesManual, fetchCustomerDemurrageSummary, fetchCustomerDemurrageDetail } from '../services/demurrage/demurrageKpis'
+import { CustomerSummaryReport } from '../components/demurrage/CustomerSummaryReport'
 import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
 
-type DemurrageTab = 'containers' | (typeof DEMURRAGE_INVOICE_TABS)[number]['key']
+type DemurrageTab = 'containers' | 'clientes' | (typeof DEMURRAGE_INVOICE_TABS)[number]['key']
 
 type DiscountForm = {
   discount_type: DemurrageInvoice['discount_type']
@@ -94,11 +95,12 @@ function groupByBl(containers: DemurrageContainerListItem[]): Map<string, Demurr
 const TAB_LABELS: { key: DemurrageTab; label: string }[] = [
   { key: 'containers', label: 'Containers' },
   ...DEMURRAGE_INVOICE_TABS.map(({ key, label }) => ({ key, label })),
+  { key: 'clientes', label: 'Por Cliente' },
 ]
 
 const TAB_TO_STATUS = Object.fromEntries(
   DEMURRAGE_INVOICE_TABS.map(({ key, status }) => [key, status]),
-) as Record<Exclude<DemurrageTab, 'containers'>, NonNullable<DemurrageInvoice['status']>>
+) as Record<Exclude<DemurrageTab, 'containers' | 'clientes'>, NonNullable<DemurrageInvoice['status']>>
 
 const DISCOUNT_TYPE_LABELS: Record<NonNullable<DemurrageInvoice['discount_type']>, string> = {
   comercial: 'Comercial',
@@ -174,6 +176,21 @@ export function Demurrage() {
 
   const [ptaxModalOpen, setPtaxModalOpen] = useState(false)
   const [ptaxInput, setPtaxInput] = useState('')
+  const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null)
+  const [customerReportOpen, setCustomerReportOpen] = useState(false)
+
+  const { data: customerSummary } = useQuery({
+    queryKey: ['demurrage-customer-summary'],
+    queryFn: fetchCustomerDemurrageSummary,
+    staleTime: 60_000,
+    enabled: tab === 'clientes',
+  })
+
+  const { data: customerDetail } = useQuery({
+    queryKey: ['demurrage-customer-detail', expandedCustomer],
+    queryFn: () => fetchCustomerDemurrageDetail(expandedCustomer!),
+    enabled: expandedCustomer != null,
+  })
 
   const { data: latestRecalcDate } = useQuery({
     queryKey: ['demurrage-latest-recalc'],
@@ -199,7 +216,7 @@ export function Demurrage() {
     onError: (err) => showToast(err instanceof Error ? err.message : 'Falha ao recalcular.', 'error'),
   })
 
-  const invoiceStatus = tab !== 'containers' ? TAB_TO_STATUS[tab] : null
+  const invoiceStatus = tab !== 'containers' && tab !== 'clientes' ? TAB_TO_STATUS[tab] : null
   const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = useQuery({
     queryKey: ['demurrage-invoices', invoiceStatus],
     queryFn: () => listDemurrageInvoices({ status: invoiceStatus! }),
@@ -603,8 +620,75 @@ export function Demurrage() {
         </>
       ) : null}
 
+      {/* ── Por Cliente: demurrage em aberto agregado por consignatário ── */}
+      {tab === 'clientes' ? (
+        <>
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-semibold text-white">
+              {formatResultCount(customerSummary?.length ?? 0, 'consignatário', 'consignatários')}
+            </span>
+            <Button
+              variant="secondary"
+              disabled={!customerSummary?.length}
+              onClick={() => setCustomerReportOpen(true)}
+            >
+              <FileText size={15} />
+              Imprimir
+            </Button>
+          </div>
+          {!customerSummary?.length ? (
+            <EmptyState icon={FileText} title="Nada em aberto" description="Nenhuma fatura de demurrage emitida e não paga." />
+          ) : (
+            <div className="space-y-2">
+              {customerSummary.map((c) => (
+                <Card key={c.customer_id} className="overflow-hidden">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5"
+                    onClick={() => setExpandedCustomer((id) => (id === c.customer_id ? null : c.customer_id))}
+                  >
+                    <span className="font-medium text-white">{c.customer_name}</span>
+                    <span className="flex items-center gap-4 text-sm">
+                      <span className="text-slate-400">{c.invoice_count} fat.</span>
+                      <span className="font-semibold text-amber-400">{fmtUSD(c.total_usd)}</span>
+                      <span className="font-semibold text-green-400">{fmtBRL(c.total_brl)}</span>
+                    </span>
+                  </button>
+                  {expandedCustomer === c.customer_id && (
+                    <div className="border-t border-[#30363d] px-4 py-2">
+                      <table className="w-full text-sm">
+                        <thead className="text-xs uppercase text-slate-500">
+                          <tr>
+                            <th className="py-1 text-left">Nº Doc</th>
+                            <th className="py-1 text-left">BL</th>
+                            <th className="py-1 text-left">Emissão</th>
+                            <th className="py-1 text-right">USD</th>
+                            <th className="py-1 text-right">BRL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(customerDetail ?? []).map((d) => (
+                            <tr key={d.id}>
+                              <td className="py-1 font-mono text-xs">{d.doc_number}</td>
+                              <td className="py-1 text-blue-400">{d.bl_id}</td>
+                              <td className="py-1">{d.billed_at ? formatDate(d.billed_at) : '—'}</td>
+                              <td className="py-1 text-right text-amber-400">{fmtUSD(d.total_usd)}</td>
+                              <td className="py-1 text-right text-green-400">{fmtBRL(d.current_total_brl)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
+
       {/* ── Tabs: Faturas / Pagas / Canceladas ── */}
-      {tab !== 'containers' ? (
+      {tab !== 'containers' && tab !== 'clientes' ? (
         <>
           {invoicesLoading && <Card>Carregando...</Card>}
           {invoicesError && <InlineError message="Erro ao carregar faturas." />}
@@ -953,6 +1037,18 @@ export function Demurrage() {
               <Button variant="secondary" onClick={() => window.print()}>Imprimir</Button>
             </div>
             <InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} />
+          </div>
+        </Modal>
+      )}
+
+      {/* Relatório de demurrage em aberto por consignatário */}
+      {customerReportOpen && customerSummary && (
+        <Modal open onClose={() => setCustomerReportOpen(false)} title="Demurrage em aberto por consignatário">
+          <div className="p-2">
+            <div className="mb-2 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => window.print()}>Imprimir</Button>
+            </div>
+            <CustomerSummaryReport rows={customerSummary} />
           </div>
         </Modal>
       )}

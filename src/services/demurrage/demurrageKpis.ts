@@ -7,6 +7,74 @@ import type { PixTransaction, RoeSource } from '../../types/database'
 // frontend; o backend replica a mesma constante na RPC de recálculo.
 export const DEMURRAGE_ROE_MARKUP = 1.065
 
+export type CustomerDemurrageSummary = {
+  customer_id: number
+  customer_name: string
+  cnpj_cpf: string | null
+  invoice_count: number
+  total_usd: number
+  total_brl: number
+}
+
+export type CustomerDemurrageDetailItem = {
+  id: number
+  doc_number: string
+  bl_id: string
+  billed_at: string | null
+  total_usd: number
+  current_total_brl: number | null
+  current_roe: number | null
+}
+
+/**
+ * Agrega as faturas de Demurrage emitidas e não pagas por consignatário (cliente):
+ * USD estável + BRL (snapshot do último recálculo). Usado pela aba "Por Cliente".
+ */
+export async function fetchCustomerDemurrageSummary(): Promise<CustomerDemurrageSummary[]> {
+  const { data, error } = await supabase
+    .from('demurrage_invoices')
+    .select('customer_id, total_usd, current_total_brl, customer:customers(id,name,cnpj_cpf)')
+    .eq('status', 'issued')
+    .is('paid_at', null)
+  if (error) throw error
+
+  const byCustomer = new Map<number, CustomerDemurrageSummary>()
+  for (const row of (data ?? []) as unknown as Array<{
+    customer_id: number
+    total_usd: number | null
+    current_total_brl: number | null
+    customer: { id: number; name: string; cnpj_cpf: string | null } | null
+  }>) {
+    const id = row.customer_id
+    const existing = byCustomer.get(id) ?? {
+      customer_id: id,
+      customer_name: row.customer?.name ?? '—',
+      cnpj_cpf: row.customer?.cnpj_cpf ?? null,
+      invoice_count: 0,
+      total_usd: 0,
+      total_brl: 0,
+    }
+    existing.invoice_count += 1
+    existing.total_usd += row.total_usd ?? 0
+    existing.total_brl += row.current_total_brl ?? 0
+    byCustomer.set(id, existing)
+  }
+  return Array.from(byCustomer.values()).sort((a, b) => b.total_usd - a.total_usd)
+}
+
+/** Faturas emitidas e não pagas de um consignatário, para o accordion/relatório. */
+export async function fetchCustomerDemurrageDetail(customerId: number): Promise<CustomerDemurrageDetailItem[]> {
+  const { data, error } = await supabase
+    .from('demurrage_invoices')
+    .select('id, doc_number, bl_id, billed_at, total_usd, current_total_brl, current_roe')
+    .eq('status', 'issued')
+    .is('paid_at', null)
+    .eq('customer_id', customerId)
+    .order('billed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as CustomerDemurrageDetailItem[]
+}
+
 export type DemurrageKPIs = {
   overdueContainers: number
   draftInvoicesTotalUsd: number
