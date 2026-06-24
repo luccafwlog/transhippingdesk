@@ -393,7 +393,7 @@ function KpiCard({
 
   if (linkTo) {
     return (
-      <Link to={linkTo} className="block transition-opacity hover:opacity-80">
+      <Link to={linkTo} className="block painel-kpi-card-link">
         {inner}
       </Link>
     )

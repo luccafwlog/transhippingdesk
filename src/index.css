@@ -1098,6 +1098,20 @@ textarea {
   color: transparent;
 }
 
+.painel-kpi-card-link {
+  transition: transform 160ms ease-out, opacity 160ms ease-out;
+}
+
+.painel-kpi-card-link:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .painel-kpi-card-link:hover {
+    opacity: 0.85;
+  }
+}
+
 .app-btn {
   display: inline-flex;
   align-items: center;
