@@ -180,6 +180,7 @@ export async function deleteBaplieManifestForVoyage(voyageId: number): Promise<v
 export async function listVaziosImportacaoContainers(filters: {
   manifestId?: string
   voyageId?: string
+  pod?: string
   search?: string
   page?: number
   pageSize?: number
@@ -222,6 +223,13 @@ export async function listVaziosImportacaoContainers(filters: {
     const ids = (manifestIds ?? []).map((m: { id: string }) => m.id)
     if (!ids.length) return { rows: [], count: 0 }
     query = query.in('manifest_id', ids)
+  }
+
+  if (filters.pod) {
+    const safe = escapeFilterTerm(filters.pod)
+    if (safe) {
+      query = query.ilike('pod', safe)
+    }
   }
 
   const { data, error, count } = await query

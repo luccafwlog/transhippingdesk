@@ -34,6 +34,7 @@ const pageSizes = [20, 50, 100]
 export function Manifestos() {
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
+  const initialPod = searchParams.get('pod') ?? ''
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const { isAdmin, user } = useAuth()
@@ -44,7 +45,7 @@ export function Manifestos() {
     voyageId: initialVoyage,
     cargoMode: 'container',
     pol: '',
-    pod: '',
+    pod: initialPod,
     reviewStatus: '',
     financialStatus: '',
     chargeStatus: '',

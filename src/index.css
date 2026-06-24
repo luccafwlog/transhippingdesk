@@ -1058,60 +1058,6 @@ textarea {
   line-height: 1.45;
 }
 
-.painel-kpi-card {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  min-height: 164px;
-}
-
-.painel-kpi-card.app-surface--padded {
-  padding: 20px 20px 18px;
-}
-
-.painel-kpi-card__icon {
-  margin-bottom: 14px;
-}
-
-.painel-kpi-card__copy {
-  display: grid;
-  gap: 0;
-}
-
-.painel-kpi-card .app-kpi-card__label {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-}
-
-.painel-kpi-card .app-kpi-card__value {
-  margin-top: 12px;
-  font-size: clamp(2.15rem, 1.45vw + 1.4rem, 2.85rem);
-  line-height: 0.96;
-}
-
-.painel-kpi-card .app-kpi-card__sub {
-  min-height: 22px;
-  margin-top: 16px;
-  font-size: 13px;
-}
-
-.painel-kpi-card__sub--empty {
-  color: transparent;
-}
-
-.painel-kpi-card-link {
-  transition: transform 160ms ease-out, opacity 160ms ease-out;
-}
-
-.painel-kpi-card-link:active {
-  transform: scale(0.97);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .painel-kpi-card-link:hover {
-    opacity: 0.85;
-  }
-}
-
 .app-btn {
   display: inline-flex;
   align-items: center;

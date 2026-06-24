@@ -30,6 +30,8 @@ export function Containers() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
+  const initialPod = searchParams.get('pod') ?? ''
+  const initialVehicleContainer = (searchParams.get('vehicle_container') ?? '') as ContainerFilters['vehicleContainer']
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { user, isAdmin } = useAuth()
@@ -40,12 +42,13 @@ export function Containers() {
     voyageId: initialVoyage,
     cargoMode: 'container',
     pol: '',
-    pod: '',
+    pod: initialPod,
     reviewStatus: '',
     financialStatus: '',
     chargeStatus: '',
     cargoProfile: '',
     containerType: '',
+    vehicleContainer: initialVehicleContainer,
     page: 1,
     pageSize: 20,
   })
@@ -67,7 +70,7 @@ export function Containers() {
   }
 
   const activeFilterCount = (
-    ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile', 'containerType'] as (keyof ContainerFilters)[]
+    ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile', 'containerType', 'vehicleContainer'] as (keyof ContainerFilters)[]
   ).filter((key) => String(filters[key] ?? '').trim() !== '').length
 
   function clearFilters() {
@@ -82,6 +85,7 @@ export function Containers() {
       chargeStatus: '',
       cargoProfile: '',
       containerType: '',
+      vehicleContainer: '',
       page: 1,
     }))
   }

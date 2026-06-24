@@ -1,4 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -21,6 +22,7 @@ import { importVehicleRows, parseVehicleImportFile, type ParsedVehicleImport } f
 const pageSizes = [20, 50, 100]
 
 export function Veiculos() {
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
@@ -29,7 +31,7 @@ export function Veiculos() {
   const [deleting, setDeleting] = useState(false)
   const { data: options } = useVehicleOptions()
   const [selectedVesselId, setSelectedVesselId] = useState('')
-  const [selectedVoyageId, setSelectedVoyageId] = useState('')
+  const [selectedVoyageId, setSelectedVoyageId] = useState(searchParams.get('voyage') ?? '')
   const [importVoyageId, setImportVoyageId] = useState('')
   const [filters, setFilters] = useState<VehiclePageFilters>({
     search: '',
