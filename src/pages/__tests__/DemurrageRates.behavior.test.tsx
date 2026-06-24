@@ -22,6 +22,7 @@ vi.mock('@tanstack/react-query', () => ({
 }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAdmin: true }) }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
+vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => vi.fn(() => Promise.resolve(true)) }))
 vi.mock('../../services/demurrage/demurrageRates', () => ({ invalidateDemurrageRatesCache: vi.fn() }))
 vi.mock('../../services/supabase', () => ({
   supabase: {
