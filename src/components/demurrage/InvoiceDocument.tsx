@@ -37,12 +37,14 @@ export function InvoiceDocument({ detail, type }: Props) {
 
   const rawTotalBRL = itemsWithBRL.reduce((s, i) => s + i.subtotal_brl, 0)
 
+  // Desconto sempre em USD, antes da conversão (ADR 0014): o valor fixo está em
+  // dólares e é convertido a BRL pelo ROE; o percentual incide sobre o total.
   let discountAmt = 0
   if (invoice.discount_value && invoice.discount_value > 0) {
     if (invoice.discount_mode === 'percent') {
       discountAmt = rawTotalBRL * (invoice.discount_value / 100)
     } else {
-      discountAmt = invoice.discount_value
+      discountAmt = invoice.discount_value * roeValue
     }
   }
 

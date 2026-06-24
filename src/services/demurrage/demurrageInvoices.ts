@@ -251,12 +251,13 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
 
   if (frozenRoe == null && roe != null) {
     frozenRoe = roe
-    let totalBRL = (inv.total_usd ?? 0) * roe
+    // Desconto sempre em USD, antes da conversão para BRL (ADR 0014).
+    let discountedUsd = inv.total_usd ?? 0
     if (inv.discount_value && inv.discount_value > 0) {
-      if (inv.discount_mode === 'percent') totalBRL = totalBRL * (1 - Math.min(100, inv.discount_value) / 100)
-      else totalBRL = Math.max(0, totalBRL - inv.discount_value)
+      if (inv.discount_mode === 'percent') discountedUsd = discountedUsd * (1 - Math.min(100, inv.discount_value) / 100)
+      else discountedUsd = Math.max(0, discountedUsd - inv.discount_value)
     }
-    frozenTotalBrl = parseFloat(totalBRL.toFixed(2))
+    frozenTotalBrl = parseFloat((discountedUsd * roe).toFixed(2))
   }
 
   const pix_payload = frozenTotalBrl && inv.doc_number ? buildTransshippingPixPayload(frozenTotalBrl, inv.doc_number) : undefined
@@ -266,6 +267,36 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
     paid_at: paidAt,
     current_roe: frozenRoe,
     current_total_brl: frozenTotalBrl,
+    ...(pix_payload ? { pix_payload } : {}),
+  }).eq('id', invoiceId)
+  if (error) throw error
+}
+
+/**
+ * Recalcula o current_total_brl e o QR PIX de uma fatura emitida e não paga após
+ * mudança de desconto, aplicando o desconto em USD antes da conversão pelo ROE
+ * vigente (ADR 0014). A foto de histórico do desconto é gravada no próximo
+ * recálculo diário (Fase 1).
+ */
+export async function recomputeDiscountedBrl(invoiceId: number): Promise<void> {
+  const { data: inv, error: fetchErr } = await supabase
+    .from('demurrage_invoices')
+    .select('total_usd, discount_mode, discount_value, current_roe, doc_number, status, paid_at')
+    .eq('id', invoiceId)
+    .single()
+  if (fetchErr) throw fetchErr
+  if (inv.status !== 'issued' || inv.paid_at != null || inv.current_roe == null) return
+
+  let discountedUsd = inv.total_usd ?? 0
+  if (inv.discount_value && inv.discount_value > 0) {
+    if (inv.discount_mode === 'percent') discountedUsd = discountedUsd * (1 - Math.min(100, inv.discount_value) / 100)
+    else discountedUsd = Math.max(0, discountedUsd - inv.discount_value)
+  }
+  const totalBrl = parseFloat((discountedUsd * inv.current_roe).toFixed(2))
+  const pix_payload = inv.doc_number ? buildTransshippingPixPayload(totalBrl, inv.doc_number) : undefined
+
+  const { error } = await supabase.from('demurrage_invoices').update({
+    current_total_brl: totalBrl,
     ...(pix_payload ? { pix_payload } : {}),
   }).eq('id', invoiceId)
   if (error) throw error

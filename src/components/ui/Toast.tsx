@@ -39,7 +39,8 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: numbe
   const barRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<number | null>(null)
   const remainingRef = useRef(toast.duration)
-  const createdAtRef = useRef(Date.now())
+  // Definido na montagem (não durante o render — react-hooks/purity).
+  const createdAtRef = useRef<number | null>(null)
   const [exiting, setExiting] = useState(false)
 
   const cleanup = useCallback(() => {
@@ -50,6 +51,7 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: numbe
   }, [])
 
   useEffect(() => {
+    createdAtRef.current = Date.now()
     const bar = barRef.current
     if (bar) {
       bar.style.animation = `toast-progress ${toast.duration}ms linear forwards`
@@ -69,7 +71,7 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: numbe
     const bar = barRef.current
     if (!bar) return
 
-    const elapsed = Date.now() - createdAtRef.current
+    const elapsed = Date.now() - (createdAtRef.current ?? Date.now())
     remainingRef.current = Math.max(0, toast.duration - elapsed)
 
     if (remainingRef.current <= 0) {

@@ -24,7 +24,7 @@
   - [x] 2.2 Emissão automática na importação
   - [x] 2.3 Remover job `mark_overdue_invoices` (demurrage; taxas locais mantidas)
   - [x] 2.4 UI: remover rascunhos/vencimento/overdue; ação Cancelar
-- [ ] **Fase 3** — Descontos em USD
+- [x] **Fase 3** — Descontos em USD
 - [ ] **Fase 4** — Visão por consignatário
 - [ ] **Fase 5** — Visão de containers (operacional)
 - [ ] **Fase 6** — Data de referência no documento

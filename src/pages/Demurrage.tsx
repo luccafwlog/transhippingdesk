@@ -21,6 +21,7 @@ import {
   getInvoiceDetail,
   listDemurrageInvoices,
   markInvoicePaid,
+  recomputeDiscountedBrl,
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import { reverseDemurragePayment } from '../services/reconciliacao'
@@ -315,19 +316,21 @@ export function Demurrage() {
   }
 
   const discountMutation = useMutation({
-    mutationFn: ({ id, form }: { id: number; form: DiscountForm }) => {
+    mutationFn: async ({ id, form }: { id: number; form: DiscountForm }) => {
       const validation = demurrageDiscountSchema.safeParse(form)
       if (!validation.success) {
         throw new Error(formatValidationError(validation.error, 'Desconto invalido.'))
       }
       const discount = validation.data
-      return updateDemurrageInvoice(id, {
+      await updateDemurrageInvoice(id, {
         discount_type: discount.discount_type,
         discount_value: discount.discount_value,
         discount_mode: discount.discount_mode,
         discount_justification: discount.discount_justification,
         discount_approver: discount.discount_approver,
       })
+      // Reflete o desconto (USD) no BRL e no QR já, sem esperar o recálculo diário.
+      await recomputeDiscountedBrl(id)
     },
     onSuccess: () => {
       invalidateInvoices()
@@ -817,7 +820,7 @@ export function Demurrage() {
                 onChange={(e) => setDiscountForm((f) => ({ ...f, discount_mode: e.target.value as 'percent' | 'fixed' }))}
               >
                 <option value="percent">Percentual (%)</option>
-                <option value="fixed">Valor fixo (BRL)</option>
+                <option value="fixed">Valor fixo (USD)</option>
               </Select>
             </Field>
           </div>
@@ -829,6 +832,11 @@ export function Demurrage() {
               value={discountForm.discount_value}
               onChange={(e) => setDiscountForm((f) => ({ ...f, discount_value: e.target.value }))}
             />
+            <p className="mt-1 text-xs text-slate-400">
+              {discountForm.discount_mode === 'fixed'
+                ? 'Valor em dólares (USD), descontado antes da conversão para BRL.'
+                : 'Percentual sobre o total USD.'}
+            </p>
           </Field>
           <Field label="Justificativa">
             <Textarea
