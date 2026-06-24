@@ -26,7 +26,7 @@
   - [x] 2.4 UI: remover rascunhos/vencimento/overdue; ação Cancelar
 - [x] **Fase 3** — Descontos em USD
 - [x] **Fase 4** — Visão por consignatário
-- [ ] **Fase 5** — Visão de containers (operacional)
+- [x] **Fase 5** — Visão de containers (operacional)
 - [x] **Fase 6** — Data de referência no documento
 - [ ] **Fase 7** — Conciliação PIX por txid + janela das duas PTAX
 - [ ] **Fase 8** — Portal do Cliente (push/armazenado)

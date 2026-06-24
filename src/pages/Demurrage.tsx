@@ -92,6 +92,23 @@ function groupByBl(containers: DemurrageContainerListItem[]): Map<string, Demurr
   return map
 }
 
+function containerBlRates(c: DemurrageContainerListItem) {
+  return c.bl as {
+    free_time_override?: number | null
+    demurrage_rate_override_p1_usd?: number | null
+    demurrage_rate_override_p2_usd?: number | null
+  } | null
+}
+
+// Demurrage operacional do container: usa a devolução quando existe, senão hoje
+// (container ainda fora, sobreestadia correndo). Null sem data de descarga.
+function effectiveDemurrage(c: DemurrageContainerListItem) {
+  if (!c.discharge_date) return null
+  const end = c.return_date ?? new Date().toISOString().slice(0, 10)
+  const bl = containerBlRates(c)
+  return calculateDemurrage(c.type, c.discharge_date, end, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd)
+}
+
 const TAB_LABELS: { key: DemurrageTab; label: string }[] = [
   { key: 'containers', label: 'Containers' },
   ...DEMURRAGE_INVOICE_TABS.map(({ key, label }) => ({ key, label })),
@@ -375,6 +392,8 @@ export function Demurrage() {
   })
 
   const filtered = (containers ?? []).filter((c) => {
+    // Devolvido dentro do free time (sem demurrage) não é monitoramento operacional.
+    if (c.demurrage_status === 'returned' && (effectiveDemurrage(c)?.total_usd ?? 0) <= 0) return false
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -387,11 +406,7 @@ export function Demurrage() {
   const grouped = groupByBl(filtered)
   const containerFilterDescription = describeActiveFilters([{ label: 'Busca', value: search }])
 
-  const totalOverdueUSD = filtered.reduce((sum, c) => {
-    if (!c.discharge_date || !c.return_date) return sum
-    const bl = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-    return sum + calculateDemurrage(c.type, c.discharge_date, c.return_date, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd).total_usd
-  }, 0)
+  const totalOverdueUSD = filtered.reduce((sum, c) => sum + (effectiveDemurrage(c)?.total_usd ?? 0), 0)
 
   return (
     <>
@@ -529,20 +544,22 @@ export function Demurrage() {
           </div>
 
           {!containersLoading && !containersError && grouped.size === 0 && (
-            <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
+            <EmptyState icon={Clock} title="Nenhum container em demurrage" description="Nenhum container fora do free time (ainda fora ou devolvido com sobreestadia)." />
           )}
 
           {grouped.size > 0 ? (
             <Card className="overflow-hidden p-0">
               <div className="overflow-x-auto">
-                <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
+                <table className="app-table app-table--compact min-w-[1100px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                     <tr>
                       <th scope="col" className="px-4 py-2">Container</th>
                       <th scope="col" className="py-2">Tipo</th>
                       <th scope="col" className="py-2">Descarga</th>
                       <th scope="col" className="py-2">Devolucao</th>
-                      <th scope="col" className="py-2">Dias totais</th>
+                      <th scope="col" className="py-2">Free time</th>
+                      <th scope="col" className="py-2">Dias excedidos</th>
+                      <th scope="col" className="py-2">P1 / P2</th>
                       <th scope="col" className="py-2">Status</th>
                       <th scope="col" className="py-2">USD</th>
                       <th scope="col" className="py-2"></th>
@@ -554,15 +571,11 @@ export function Demurrage() {
                       const customerName = firstBl?.customer?.name ?? blId
                       const voyageInfo = firstBl?.voyage?.voyage_number ? `${firstBl.voyage.voyage_number} — ${firstBl.voyage.vessel?.name ?? ''}` : ''
                       const hasOverdue = blContainers.some((c) => c.demurrage_status === 'overdue')
-                      const blTotalUSD = blContainers.reduce((sum, c) => {
-                        if (!c.discharge_date || !c.return_date) return sum
-                        const blData = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-                        return sum + calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd).total_usd
-                      }, 0)
+                      const blTotalUSD = blContainers.reduce((sum, c) => sum + (effectiveDemurrage(c)?.total_usd ?? 0), 0)
 
                       return [
                         <tr key={`${blId}-header`} className="bg-[var(--app-surface-muted)]">
-                          <td colSpan={8} className="px-4 py-2">
+                          <td colSpan={10} className="px-4 py-2">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div className="flex flex-wrap items-baseline gap-2">
                                 <Link to={`/manifestos/${blId}`} className="font-semibold text-blue-400 hover:underline">{blId}</Link>
@@ -586,15 +599,17 @@ export function Demurrage() {
                           </td>
                         </tr>,
                         ...blContainers.map((c) => {
-                          const blData = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-                          const calc = c.discharge_date && c.return_date ? calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd) : null
+                          const calc = effectiveDemurrage(c)
+                          const excessDays = calc ? Math.max(0, calc.total_days - calc.free_days) : 0
                           return (
                             <tr key={c.id}>
                               <td className="px-4 py-2 font-semibold text-white">{c.container_number}</td>
                               <td className="py-2">{c.type ?? '-'}</td>
                               <td className="py-2">{c.discharge_date ? formatDate(c.discharge_date) : '—'}</td>
                               <td className="py-2">{c.return_date ? formatDate(c.return_date) : <span className="text-slate-500">Pendente</span>}</td>
-                              <td className="py-2">{calc ? calc.total_days : '—'}</td>
+                              <td className="py-2">{calc ? calc.free_days : '—'}</td>
+                              <td className="py-2">{calc ? excessDays : '—'}</td>
+                              <td className="py-2 text-slate-400">{calc ? `${calc.days_p1} / ${calc.days_p2}` : '—'}</td>
                               <td className="py-2"><DemurrageStatusBadge status={c.demurrage_status} /></td>
                               <td className="py-2 font-semibold text-amber-400">{calc && calc.total_usd > 0 ? fmtUSD(calc.total_usd) : '—'}</td>
                               <td className="py-2">

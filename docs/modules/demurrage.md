@@ -43,11 +43,13 @@ Fontes executáveis principais:
 a aba `Por Cliente`. Sob recálculo diário (ADR 0014) não há `draft` nem
 `overdue`: a fatura nasce `issued`.
 
-- A aba `Containers` carrega containers com descarga e ainda não marcados como
-  `returned`, aceita `?busca=`, filtra por container/B/L/cliente, agrupa por B/L
-  e deriva total USD e status com `calculateDemurrage`.
-- A barra de KPIs é sempre visível e combina contagem de containers em atraso,
-  total USD da lista filtrada, rascunhos em USD e emitidas em BRL.
+- A aba `Containers` é **monitoramento operacional** (ADR 0014): mostra containers
+  ainda fora (`overdue`, demurrage correndo até hoje) **e** devolvidos com
+  demurrage > 0. Os devolvidos dentro do free time são excluídos no frontend.
+  Aceita `?busca=`, agrupa por B/L e deriva free time, dias excedidos, P1/P2 e
+  total USD com `calculateDemurrage` (devolução ou hoje, quando ainda fora).
+- A barra de KPIs combina contagem de containers em atraso, total USD da lista
+  filtrada e total BRL aguardando pagamento.
 - `Importar Datas` abre
   [`src/components/shared/ContainerDatesImportModal.tsx`](../../src/components/shared/ContainerDatesImportModal.tsx):
   parseia planilha, mostra preview e erros, atualiza datas e pode criar/emitir
@@ -87,7 +89,7 @@ excluir para admin, conforme
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| `/demurrage` · carregar, filtrar e agrupar tracking | Sessão interna; aba `Containers` | `Demurrage`; `groupByBl`; filtro local | `listDemurrageContainers`; `ensureDemurrageRatesLoaded`; `calculateDemurrage` | SELECT em `bl_containers`, `bls`, `customers`, `voyages`, `vessels`; SELECT em `demurrage_rates` | Query `['demurrage-containers']`, `staleTime=60s`; agrupamento e total USD derivados no cliente | Erro de query mostra `InlineError`; falha de tarifas usa grupos estáticos | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageContainers.ts`](../../src/services/demurrage/demurrageContainers.ts), [`demurrageRates.ts`](../../src/services/demurrage/demurrageRates.ts) |
+| `/demurrage` · monitorar containers em demurrage | Sessão interna; aba `Containers` | `Demurrage`; `groupByBl`; `effectiveDemurrage`; filtro local | `listDemurrageContainers` (`demurrage_status IN ('overdue','returned')`); `ensureDemurrageRatesLoaded`; `calculateDemurrage` | SELECT em `bl_containers`, `bls`, `customers`, `voyages`, `vessels`; SELECT em `demurrage_rates` | Query `['demurrage-containers']`, `staleTime=60s`; devolvidos no free time excluídos no cliente; colunas free time / dias excedidos / P1·P2 / USD | Erro de query mostra `InlineError`; falha de tarifas usa grupos estáticos | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageContainers.ts`](../../src/services/demurrage/demurrageContainers.ts), [`demurrageRates.ts`](../../src/services/demurrage/demurrageRates.ts) |
 | `/demurrage` · carregar KPIs | Sessão interna | Query montada pela página | `fetchDemurrageKPIs` executa três consultas paralelas | `bl_containers` e `demurrage_invoices` | Query `['demurrage-kpis']`, `staleTime=60s` | Qualquer consulta com erro rejeita o conjunto; a página mantém placeholders | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageKpis.ts`](../../src/services/demurrage/demurrageKpis.ts) |
 | `/demurrage` · importar datas | Arquivo com B/L, container e descarga; devolução opcional | `ContainerDatesImportModal.handleFile/handleImport` | `parseContainerDatesFile` → `importContainerDates` → `resolveStatus`; quando todo o B/L retorna, `createInvoiceForReturnedBL` → `fetchROE` → `issueInvoice` | UPDATE em `bl_containers`; possível INSERT em `demurrage_invoices` e `demurrage_invoice_items` | Invalida `['demurrage-containers']`, `['demurrage-invoices']`, `['bl-detail']`; reporta atualizados, inalterados e ausentes | Colunas/datas inválidas ficam no preview; falha de qualquer escrita interrompe o import | **Código:** [`ContainerDatesImportModal.tsx`](../../src/components/shared/ContainerDatesImportModal.tsx), [`containerDatesImport.ts`](../../src/services/containerDatesImport.ts) |
 | `/demurrage` · editar descarga e devolução | Descarga obrigatória; devolução vazia ou não anterior | `openEditContainer`; `containerDatesMutation` | `demurrageDatesSchema` → `updateContainerDates` → cálculo de status | UPDATE direto em `bl_containers` | Invalida `['demurrage-containers']`; fecha modal | Validação local bloqueia formato/ordem; constraint do banco rejeita ordem inválida | **Código/Teste:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageContainers.ts`](../../src/services/demurrage/demurrageContainers.ts), [`financialValidation.test.ts`](../../src/services/__tests__/financialValidation.test.ts) |
