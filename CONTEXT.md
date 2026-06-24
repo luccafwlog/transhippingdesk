@@ -50,7 +50,9 @@ Reavaliação do valor em BRL de toda invoice de Demurrage **não paga**, a cada
 
 Documento financeiro que cobra sobreestadia de containers. Cada item armazena a composição completa do cálculo: free days, dias P1, taxa P1, dias P2, taxa P2, subtotal. O cliente (portal) deve ver free time e valor por período para garantir transparência. O admin vê o detalhe completo incluindo ROE e descontos.
 
-- **Related:** P1, P2, Free Time, ROE
+Só pode ser emitida quando **todos os containers do B/L já foram devolvidos** — não se fatura com container ainda fora, pois os dias de demurrage (e portanto o `total_usd`) ainda estariam acumulando. Na emissão o **valor em USD fica fixo** (dias travados); apenas o valor em BRL flutua com o Recálculo Diário até o pagamento. O monitoramento de containers ainda fora (demurrage correndo) é operacional, não gera fatura.
+
+- **Related:** P1, P2, Free Time, ROE, Recálculo Diário
 
 ### Tarifa de Demurrage (Rate)
 
