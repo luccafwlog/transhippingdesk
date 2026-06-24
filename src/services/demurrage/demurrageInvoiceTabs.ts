@@ -1,13 +1,13 @@
 import type { DemurrageInvoice } from '../../types/database'
 
+// Sob recálculo diário não há 'draft' nem 'overdue' (ADR 0014): a fatura nasce
+// 'issued'. A aba "Emitidas" passa a se chamar "Faturas".
 export const DEMURRAGE_INVOICE_TABS: Array<{
-  key: 'rascunhos' | 'emitidas' | 'vencidas' | 'pagas' | 'canceladas'
+  key: 'emitidas' | 'pagas' | 'canceladas'
   label: string
   status: NonNullable<DemurrageInvoice['status']>
 }> = [
-  { key: 'rascunhos', label: 'Rascunhos', status: 'draft' },
-  { key: 'emitidas', label: 'Emitidas', status: 'issued' },
-  { key: 'vencidas', label: 'Vencidas', status: 'overdue' },
+  { key: 'emitidas', label: 'Faturas', status: 'issued' },
   { key: 'pagas', label: 'Pagas', status: 'paid' },
   { key: 'canceladas', label: 'Canceladas', status: 'cancelled' },
 ]

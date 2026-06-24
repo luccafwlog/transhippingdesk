@@ -19,11 +19,11 @@
   - [x] 1.4 RPC wrapper manual `recalculate_demurrage_invoices_manual`
   - [x] 1.5 Edge Function agendada
   - [x] 1.6 Banner de staleness + botão manual em `/demurrage`
-- [ ] **Fase 2** — Simplificação do fluxo + emissão automática
-  - [ ] 2.1 `create_demurrage_invoice_with_items` nasce `issued` + foto inicial
-  - [ ] 2.2 Emissão automática na importação
-  - [ ] 2.3 Remover job `mark_overdue_invoices`
-  - [ ] 2.4 UI: remover rascunhos/vencimento/overdue; ação Cancelar
+- [x] **Fase 2** — Simplificação do fluxo + emissão automática
+  - [x] 2.1 `create_demurrage_invoice_with_items` nasce `issued` + foto inicial
+  - [x] 2.2 Emissão automática na importação
+  - [x] 2.3 Remover job `mark_overdue_invoices` (demurrage; taxas locais mantidas)
+  - [x] 2.4 UI: remover rascunhos/vencimento/overdue; ação Cancelar
 - [ ] **Fase 3** — Descontos em USD
 - [ ] **Fase 4** — Visão por consignatário
 - [ ] **Fase 5** — Visão de containers (operacional)

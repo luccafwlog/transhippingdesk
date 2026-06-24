@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   ensureRates: vi.fn(),
   calculate: vi.fn(),
+  fetchROE: vi.fn(),
 }))
 
 vi.mock('../../supabase', () => ({
@@ -13,6 +14,9 @@ vi.mock('../../supabase', () => ({
 vi.mock('../demurrageRates', () => ({
   ensureDemurrageRatesLoaded: mocks.ensureRates,
   calculateDemurrage: mocks.calculate,
+}))
+vi.mock('../demurrageKpis', () => ({
+  fetchROE: mocks.fetchROE,
 }))
 
 import { createInvoiceForBL } from '../demurrageInvoices'
@@ -31,17 +35,22 @@ function listQuery(result: unknown) {
   const builder = {
     select: vi.fn(),
     eq: vi.fn(),
+    in: vi.fn(),
+    limit: vi.fn(),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   }
   builder.select.mockReturnValue(builder)
   builder.eq.mockReturnValue(builder)
+  builder.in.mockReturnValue(builder)
+  builder.limit.mockReturnValue(builder)
   return builder
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.ensureRates.mockResolvedValue(undefined)
+  mocks.fetchROE.mockResolvedValue({ roe: 5.5, offline: false, cachedAt: null, source: 'bcb_live' })
   mocks.calculate.mockReturnValue({
     total_days: 12,
     free_days: 7,
@@ -81,16 +90,8 @@ beforeEach(() => {
       })
     }
     if (table === 'demurrage_invoices') {
-      return {
-        insert: vi.fn(() => ({
-          select: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({ data: { id: 111 }, error: null }),
-          })),
-        })),
-      }
-    }
-    if (table === 'demurrage_invoice_items') {
-      return { insert: vi.fn().mockResolvedValue({ error: null }) }
+      // Guard de duplicidade: nenhuma fatura ativa para o B/L.
+      return listQuery({ data: [], error: null }) as unknown as Record<string, unknown>
     }
     throw new Error(`Unexpected table: ${table}`)
   })
@@ -106,6 +107,8 @@ describe('atomic Demurrage invoice creation', () => {
       p_customer_id: 9,
       p_total_usd: 500,
       p_ready_at: '2026-06-13',
+      p_current_roe: 5.5,
+      p_roe_source: 'bcb_live',
       p_items: [{
         container_id: 4,
         container_number: 'ABCD1234567',

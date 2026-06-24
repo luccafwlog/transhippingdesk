@@ -38,8 +38,10 @@ Fontes executáveis principais:
 
 ### `/demurrage`
 
-[`src/pages/Demurrage.tsx`](../../src/pages/Demurrage.tsx) mantém quatro abas:
-`Containers`, `Rascunhos`, `Emitidas` e `Pagas`.
+[`src/pages/Demurrage.tsx`](../../src/pages/Demurrage.tsx) mantém a aba
+`Containers` e três abas de fatura: `Faturas` (`issued`), `Pagas` e `Canceladas`.
+Sob recálculo diário (ADR 0014) não há `draft` nem `overdue`: a fatura nasce
+`issued`.
 
 - A aba `Containers` carrega containers com descarga e ainda não marcados como
   `returned`, aceita `?busca=`, filtra por container/B/L/cliente, agrupa por B/L
@@ -52,9 +54,9 @@ Fontes executáveis principais:
   invoice quando todos os containers do B/L foram devolvidos.
 - O modal `Editar datas do container` altera descarga e devolução, validando
   formato e ordem antes da escrita.
-- As abas de invoice consultam um status exato por vez (`draft`, `issued` ou
-  `paid`). Cada linha abre breakdown, desconto e disputa; ações adicionais
-  dependem do status.
+- As abas de invoice consultam um status exato por vez (`issued`, `paid` ou
+  `cancelled`). Cada linha abre breakdown, desconto e disputa; em `issued` há
+  `Registrar Pgto`, `Fatura` e `Cancelar` (ação explícita e auditada).
 - O visualizador de fatura/recibo usa
   [`src/components/demurrage/InvoiceDocument.tsx`](../../src/components/demurrage/InvoiceDocument.tsx)
   e o kit compartilhado
@@ -93,12 +95,10 @@ excluir para admin, conforme
 | B/L · salvar free time | Usuário autenticado; B/L carregado com `updated_at` esperado | `BlDemurrageSection.handleSaveDemurrageConfig` | RPC auditada `save_bl_review` com payload e linha de auditoria | UPDATE de `bls.free_time_override` e INSERT de auditoria dentro da RPC | Invalida `queryKeys.bls.detail(bl.id)` | `PT409` ou `40001` recarrega detalhe e exige nova revisão; outros erros abortam antes dos overrides P1/P2 | **Código:** [`BlDemurrageSection.tsx`](../../src/components/bl/BlDemurrageSection.tsx), [`021_save_bl_review_stale_fast_fail.sql`](../../supabase/migrations/021_save_bl_review_stale_fast_fail.sql), [`022_save_bl_review_conflict_code_pt409.sql`](../../supabase/migrations/022_save_bl_review_conflict_code_pt409.sql) |
 | B/L · salvar overrides P1/P2 | Free time salvo com sucesso; valores vazios ou numéricos | Mesmo handler, etapa posterior à RPC | UPDATE direto em `bls`; auditoria separada best-effort | `bls.demurrage_rate_override_p1_usd`, `bls.demurrage_rate_override_p2_usd`; `audit_logs` | Invalida detalhe do B/L ao concluir | Valor não numérico é bloqueado; falha do UPDATE aborta; falha da auditoria só gera telemetria | **Código:** [`BlDemurrageSection.tsx`](../../src/components/bl/BlDemurrageSection.tsx) |
 | Derivar free time, P1/P2 e status | Tipo, descarga e devolução válidos; tarifas carregadas ou fallback | Tracking, aba do B/L, import e criação de invoice | `calculateDemurrage` resolve tarifa e calcula dias inclusivos de P1/P2 | Sem escrita; lê cache em memória de tarifas | Resultado `within_free_time` ou `overdue`; usado para UI e persistência subsequente | String vazia/data inválida ou devolução anterior lança erro | **Código/Teste:** [`demurrageRates.ts`](../../src/services/demurrage/demurrageRates.ts), [`calculateDemurrage.test.ts`](../../src/services/demurrage/__tests__/calculateDemurrage.test.ts) |
-| `/demurrage` · criar invoice para B/L | Cliente vinculado; ao menos um container com `demurrage_status='overdue'` | Botão `Gerar Fatura`; `generateMutation` | `createInvoiceForBL` recalcula cada item, gera `doc_number`, vencimento e `ready_at` | INSERT direto em `demurrage_invoices`, depois INSERT em `demurrage_invoice_items` | Invalida containers, invoices e KPIs | Sem cliente/containers elegíveis lança erro; as duas inserções não formam uma RPC atômica | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
+| `/demurrage` · criar invoice para B/L (nasce `issued`) | Cliente vinculado; container elegível; sem fatura ativa (`issued`/`paid`) no B/L | Botão `Gerar Fatura`; `generateMutation` | `createInvoiceForBL` resolve ROE (`resolveCurrentRoe`: override manual ou `fetchROE`), recalcula itens e chama a RPC atômica `create_demurrage_invoice_with_items` | RPC: INSERT em `demurrage_invoices` (`status='issued'`, `current_roe`/`current_total_brl`/`pix_payload`), itens e a foto inicial em `demurrage_invoice_history` | Invalida containers, invoices e KPIs | B/L já com fatura ativa lança erro (não duplica); PTAX indisponível sem cache rejeita | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts), [`20260624130000_demurrage_create_invoice_issued.sql`](../../supabase/migrations/20260624130000_demurrage_create_invoice_issued.sql) |
 | `/demurrage` · listar invoices | Aba `Rascunhos`, `Emitidas` ou `Pagas` | Query da página | `listDemurrageInvoices({status})` | SELECT em `demurrage_invoices`, `customers`, `bls`, `voyages`, `vessels` | Query `['demurrage-invoices', status]`, `staleTime=30s` | Erro mostra `InlineError` | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · abrir detalhe/breakdown | Invoice selecionada | Botão `Detalhes` ou visualizador | `getInvoiceDetail` carrega cabeçalho e itens em paralelo | SELECT em `demurrage_invoices` e `demurrage_invoice_items` | Query `['demurrage-invoice-detail', id]` | Erro da invoice ou dos itens rejeita a leitura | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
-| `/demurrage` · emitir e congelar ROE/BRL | Invoice `draft`; PTAX ao vivo ou cache disponível | `issueMutation` | `fetchROE` → `issueInvoice`; aplica desconto, gera payload PIX | UPDATE direto em `demurrage_invoices`: `status`, datas, `current_roe`, `current_total_brl`, `roe_source`, `pix_payload` | Invalida invoices e KPIs; avisa quando usa cache | BCB sem cache rejeita; erro de UPDATE mantém o rascunho | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageKpis.ts`](../../src/services/demurrage/demurrageKpis.ts), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts), [`049_demurrage_roe_source.sql`](../../supabase/migrations/049_demurrage_roe_source.sql) |
-| `/demurrage` · desem emitir | UI oferece para `issued`; confirmação aceita | `handleUnissueInvoice`; `unissueMutation` | `unissueInvoice` | UPDATE direto: volta a `draft`, limpa congelados/payload e recalcula vencimento | Invalida invoices e KPIs | Erro mostra toast; o serviço não adiciona guarda de status própria | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
-| `/demurrage` · marcar pago manualmente | UI exibe a ação para invoice `issued`; o serviço também aceita `overdue`; data informada | Modal `Registrar Pagamento`; `payMutation` | Reusa ROE congelado ou busca ROE; `markInvoicePaid` valida status | UPDATE direto em `demurrage_invoices` | Invalida invoices e KPIs | Status incompatível ou ROE indisponível rejeita | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
+| `/demurrage` · marcar pago manualmente | UI exibe a ação para invoice `issued`; data informada | Modal `Registrar Pagamento`; `payMutation` | Reusa `current_roe` ou busca ROE; `markInvoicePaid` valida status | UPDATE direto em `demurrage_invoices` | Invalida invoices e KPIs | Status incompatível ou ROE indisponível rejeita | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · desmarcar pagamento | UI oferece para `paid`; confirmação aceita | `handleUnmarkInvoicePaid`; `unpayMutation` | `unmarkInvoicePaid` | UPDATE direto para `issued`, `paid_at=null` | Invalida invoices e KPIs | Erro mostra toast; não exige justificativa nem chama o RPC de reversão | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · cancelar invoice | UI oferece no rascunho; confirmação aceita | `handleCancelInvoice`; `cancelMutation` | `cancelDemurrageInvoice` | UPDATE direto de `status='cancelled'` | Invalida invoices e KPIs | Erro mostra toast; o serviço não valida pagamentos/status | **Código:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts) |
 | `/demurrage` · aplicar ou remover desconto | Invoice visível; percentual entre 0 e 100 ou valor fixo não negativo | Modal `Desconto`; `discountMutation` | `demurrageDiscountSchema` → `updateDemurrageInvoice` | UPDATE direto dos campos de desconto | Invalida invoices e KPIs | Validação rejeita modo/valor inválido; erro do banco mostra toast | **Código/Teste:** [`Demurrage.tsx`](../../src/pages/Demurrage.tsx), [`financialValidation.ts`](../../src/services/financialValidation.ts), [`financialValidation.test.ts`](../../src/services/__tests__/financialValidation.test.ts) |
@@ -161,13 +161,11 @@ excluir para admin, conforme
 ```mermaid
 flowchart LR
     Dates["Datas do container<br/>descarga e devolução"] --> Calc["Cálculo<br/>free time + P1/P2"]
-    Calc --> Draft["Invoice draft<br/>+ itens snapshot"]
-    Draft --> Freeze["Emitir<br/>buscar ROE + congelar BRL/fonte"]
-    Freeze --> Issued["issued"]
+    Calc --> Create["Criar (nasce issued)<br/>USD travado + ROE do dia<br/>+ itens + foto inicial"]
+    Create --> Issued["issued<br/>BRL recalculado diariamente"]
     Issued --> Manual["paid<br/>baixa manual"]
     Issued --> Pix["paid<br/>conciliação PIX"]
-    Issued --> Cancelled["cancelled"]
-    Draft --> Cancelled
+    Issued --> Cancelled["cancelled<br/>ação explícita"]
     Manual --> Reverse["reverse_demurrage_payment<br/>admin + justificativa"]
     Pix --> Reverse
     Reverse --> Issued
@@ -189,9 +187,11 @@ flowchart LR
 - `localStorage` permite continuidade quando o BCB está indisponível, mas não
   impõe expiração máxima ao cache de ROE. A UI avisa a data do cache quando o
   caminho explícito de emissão recebe `offline=true`.
-- `mark_overdue_invoices()` em
-  [`supabase/migrations/031_overdue_enforcement.sql`](../../supabase/migrations/031_overdue_enforcement.sql)
-  move `issued` vencida para `overdue` diariamente.
+- `mark_overdue_invoices()` foi reduzida em
+  [`20260624131000_demurrage_drop_overdue.sql`](../../supabase/migrations/20260624131000_demurrage_drop_overdue.sql)
+  para tratar **apenas** faturas de taxas locais (`public.invoices`). Demurrage não
+  tem vencimento sob recálculo diário (ADR 0014); faturas `overdue` legadas foram
+  migradas de volta a `issued`.
 - `set_container_discharge_date` em
   [`supabase/migrations/028_demurrage_module.sql`](../../supabase/migrations/028_demurrage_module.sql)
   é um trigger `BEFORE INSERT`: copia `voyages.ata` somente quando o container
@@ -240,16 +240,6 @@ flowchart LR
 - **Código — auditoria desigual de datas:** a devolução editada pela aba do B/L
   grava `audit_logs` best-effort; o modal geral `updateContainerDates` não grava
   auditoria equivalente para descarga/devolução.
-- **Código — criação não atômica:** `createInvoiceForBL` e
-  `createInvoiceForReturnedBL` inserem cabeçalho e itens em chamadas separadas.
-  Falha na segunda escrita pode deixar uma invoice sem itens.
-- **Código — abas não mostram `overdue` nem `cancelled`:** a aba `Emitidas`
-  consulta apenas `status='issued'`; invoices movidas para `overdue` pelo cron e
-  canceladas não têm aba própria em `/demurrage`.
-- **Código — fonte do ROE no import automático:** `containerDatesImport.ts`
-  descarta `source` retornado por `fetchROE` e chama `issueInvoice(invoiceId,
-  roe)`, cujo default é `bcb_live`. Se o valor veio do cache, `roe_source` pode
-  não refletir a origem real.
 - **Código — trigger de descarga limitado ao insert:** o trigger não reage a
   mudanças posteriores de `voyages.ata`; correções exigem import ou edição
   explícita das datas.

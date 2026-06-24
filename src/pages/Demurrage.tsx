@@ -19,10 +19,8 @@ import {
   cancelDemurrageInvoice,
   createInvoiceForBL,
   getInvoiceDetail,
-  issueInvoice,
   listDemurrageInvoices,
   markInvoicePaid,
-  unissueInvoice,
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import { reverseDemurragePayment } from '../services/reconciliacao'
@@ -78,10 +76,8 @@ function DemurrageStatusBadge({ status }: { status: string | null }) {
 
 function InvoiceStatusBadge({ status }: { status: DemurrageInvoice['status'] }) {
   if (status === 'paid') return <Badge tone="green">Pago</Badge>
-  if (status === 'overdue') return <Badge tone="red">Vencido</Badge>
-  if (status === 'issued') return <Badge tone="blue">Faturado</Badge>
   if (status === 'cancelled') return <Badge tone="slate">Cancelado</Badge>
-  return <Badge tone="yellow">Rascunho</Badge>
+  return <Badge tone="blue">Faturado</Badge>
 }
 
 function groupByBl(containers: DemurrageContainerListItem[]): Map<string, DemurrageContainerListItem[]> {
@@ -277,22 +273,6 @@ export function Demurrage() {
     onSettled: () => setGeneratingBl(null),
   })
 
-  const issueMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const result = await fetchROE()
-      if (result.offline) setRoeOfflineWarning(result.cachedAt)
-      await issueInvoice(id, result.roe, result.source)
-    },
-    onSuccess: () => { invalidateInvoices(); showToast('Fatura emitida. Valores congelados.', 'success') },
-    onError: (e: Error) => showToast(e.message, 'error'),
-  })
-
-  const unissueMutation = useMutation({
-    mutationFn: unissueInvoice,
-    onSuccess: () => { invalidateInvoices(); showToast('Emissao revertida.', 'success') },
-    onError: (e: Error) => showToast(e.message, 'error'),
-  })
-
   const payMutation = useMutation({
     mutationFn: async ({ id, date }: { id: number; date: string }) => {
       const inv = invoices?.find((i) => i.id === id)
@@ -332,16 +312,6 @@ export function Demurrage() {
       tone: 'danger',
     })
     if (ok) cancelMutation.mutate(invoiceId)
-  }
-
-  async function handleUnissueInvoice(invoiceId: number) {
-    const ok = await confirm({
-      title: 'Desemitir invoice',
-      message: 'Reverter a emissao desta invoice de demurrage?',
-      confirmLabel: 'Desemitir',
-      tone: 'danger',
-    })
-    if (ok) unissueMutation.mutate(invoiceId)
   }
 
   const discountMutation = useMutation({
@@ -470,7 +440,7 @@ export function Demurrage() {
       />
 
       {/* KPI bar — always visible */}
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-3 gap-4">
         <Card className="p-4">
           <div className="text-xs text-slate-400">Containers em atraso</div>
           <div className="text-2xl font-bold text-red-400">{kpis?.overdueContainers ?? '—'}</div>
@@ -478,10 +448,6 @@ export function Demurrage() {
         <Card className="p-4">
           <div className="text-xs text-slate-400">Total USD (visivel)</div>
           <div className="text-2xl font-bold text-amber-400">{fmtUSD(totalOverdueUSD)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-slate-400">Faturas rascunho (USD)</div>
-          <div className="text-2xl font-bold text-slate-300">{kpis ? fmtUSD(kpis.draftInvoicesTotalUsd) : '—'}</div>
         </Card>
         <Card className="p-4">
           <div className="text-xs text-slate-400">Aguardando pagamento (BRL)</div>
@@ -634,7 +600,7 @@ export function Demurrage() {
         </>
       ) : null}
 
-      {/* ── Tabs: Rascunhos / Emitidas / Pagas ── */}
+      {/* ── Tabs: Faturas / Pagas / Canceladas ── */}
       {tab !== 'containers' ? (
         <>
           {invoicesLoading && <Card>Carregando...</Card>}
@@ -647,11 +613,7 @@ export function Demurrage() {
             <EmptyState
               icon={FileText}
               title="Nenhuma fatura"
-              description={
-                tab === 'rascunhos'
-                  ? 'Nenhum rascunho. Faturas geradas por importação são emitidas automaticamente — rascunhos aparecem apenas quando a BCB está offline.'
-                  : `Nenhuma fatura com status "${tab}".`
-              }
+              description={`Nenhuma fatura com status "${tab}".`}
             />
           )}
 
@@ -665,7 +627,6 @@ export function Demurrage() {
                       <th scope="col" className="py-2">BL</th>
                       <th scope="col" className="py-2">Cliente</th>
                       <th scope="col" className="py-2">Emissao</th>
-                      <th scope="col" className="py-2">Vencimento</th>
                       <th scope="col" className="py-2">Total USD</th>
                       <th scope="col" className="py-2">Total BRL</th>
                       <th scope="col" className="py-2">Status</th>
@@ -684,7 +645,6 @@ export function Demurrage() {
                           <td className="py-2 text-blue-400">{inv.bl_id}</td>
                           <td className="py-2">{customer?.name ?? '—'}</td>
                           <td className="py-2">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
-                          <td className="py-2">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
                           <td className="py-2 font-semibold text-amber-400">{fmtUSD(inv.total_usd)}</td>
                           <td className="py-2 font-semibold text-green-400">
                             {fmtBRL(inv.current_total_brl)}
@@ -716,17 +676,11 @@ export function Demurrage() {
                               >
                                 Disputa
                               </Button>
-                              {inv.status === 'draft' && (
-                                <>
-                                  <Button variant="secondary" className="app-btn--sm" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleCancelInvoice(inv.id)}>Cancelar</Button>
-                                </>
-                              )}
                               {inv.status === 'issued' && (
                                 <>
                                   <Button variant="secondary" className="app-btn--sm" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleUnissueInvoice(inv.id)}>Desemitir</Button>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleCancelInvoice(inv.id)}>Cancelar</Button>
                                 </>
                               )}
                               {inv.status === 'paid' && (

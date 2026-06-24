@@ -9,8 +9,6 @@ vi.mock('../demurrageRates', () => ({
 }))
 
 import {
-  issueInvoice,
-  unissueInvoice,
   markInvoicePaid,
   cancelDemurrageInvoice,
   updateDemurrageInvoice,
@@ -50,18 +48,6 @@ beforeEach(() => {
   builders = new Map()
   fromMock.mockReset()
   fromMock.mockImplementation((table: string) => builderFor(table))
-})
-
-it('US-041: emite a invoice congelando ROE e total BRL', async () => {
-  results.demurrage_invoices = { data: { total_usd: 100, discount_mode: null, discount_value: null, first_billed_at: null, doc_number: 'DEM-1' }, error: null }
-  await issueInvoice(5, 5)
-  expect(lastUpdate('demurrage_invoices')).toMatchObject({ status: 'issued', current_roe: 5, current_total_brl: 500 })
-})
-
-it('US-042: desemite a invoice voltando para draft', async () => {
-  results.demurrage_invoices = { data: null, error: null }
-  await unissueInvoice(5)
-  expect(lastUpdate('demurrage_invoices')).toMatchObject({ status: 'draft', current_roe: null, current_total_brl: null })
 })
 
 it('US-043: marca como paga uma invoice emitida', async () => {
