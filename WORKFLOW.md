@@ -1,7 +1,7 @@
 # WORKFLOW.md — Transhipping Desk
 
 Manual vivo para desenvolver, testar, migrar e publicar o Transhipping Desk.
-Verificado contra o repositório em 2026-06-18.
+Verificado contra o repositório em 2026-06-24.
 
 Use este documento para procedimentos técnicos. Consulte:
 
@@ -9,6 +9,7 @@ Use este documento para procedimentos técnicos. Consulte:
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) para fluxos e rotas;
 - [`docs/adr/README.md`](./docs/adr/README.md) para decisões;
 - [`docs/operations/validacao.md`](./docs/operations/validacao.md) para testes operacionais;
+- [`docs/CONVENCOES.md`](./docs/CONVENCOES.md) para estilo e labels de evidência;
 - [`docs/README.md`](./docs/README.md) para a hierarquia documental.
 
 Código, migrations e configuração executável são a evidência final quando um
@@ -39,7 +40,7 @@ em documentação.
 - Edge Functions Deno;
 - Resend para email;
 - Firebase Hosting;
-- GitHub Actions para CI, merge e deploy.
+- GitHub Actions para CI e deploy.
 
 ## 2. Arquitetura de execução
 
@@ -116,6 +117,9 @@ docs/
   operations/             regras, validação, segurança e reset
   setup/                  desenvolvimento, testes e deploy
   modules/                documentação por módulo
+  CONVENCOES.md           convenções de documentação
+  behavioral-spec/        matriz de verificação comportamental
+  superpowers/            planos e specs (vivos e archive)
   archive/                snapshots históricos
 ```
 
@@ -365,7 +369,7 @@ dependem de ambiente real ou equivalente. Registre ambiente, usuário, dados,
 resultado e evidência conforme
 [`docs/operations/validacao.md`](./docs/operations/validacao.md).
 
-## 12. CI, merge e deploy
+## 12. CI e deploy
 
 ### Pull request
 
@@ -377,12 +381,9 @@ resultado e evidência conforme
 4. build;
 5. testes.
 
-O build/deploy permanece nesse workflow porque merges feitos pelo
-`GITHUB_TOKEN` não disparam necessariamente outro workflow de push.
+### Push em main
 
-### Push direto
-
-`firebase-deploy.yml` cobre pushes diretos à branch `main`.
+`.github/workflows/firebase-deploy.yml` executa build + Firebase Hosting.
 
 ### Edge Functions e banco
 
