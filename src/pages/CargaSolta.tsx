@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -21,6 +21,7 @@ import type { BLListItem } from '../types/database'
 const pageSizes = [20, 50, 100]
 
 export function CargaSolta() {
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -28,10 +29,10 @@ export function CargaSolta() {
   const { data: portOptions } = usePortOptions()
   const [filters, setFilters] = useState<BlFilters>({
     search: '',
-    voyageId: '',
+    voyageId: searchParams.get('voyage') ?? '',
     cargoMode: 'carga_solta',
     pol: '',
-    pod: '',
+    pod: searchParams.get('pod') ?? '',
     reviewStatus: '',
     financialStatus: '',
     chargeStatus: '',

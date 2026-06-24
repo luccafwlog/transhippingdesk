@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -28,11 +29,13 @@ type Filters = {
   search: string
   manifestId: string
   voyageId: string
+  pod: string
   page: number
   pageSize: number
 }
 
 export function VaziosImportacao() {
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -41,7 +44,8 @@ export function VaziosImportacao() {
   const [filters, setFilters] = useState<Filters>({
     search: '',
     manifestId: '',
-    voyageId: '',
+    voyageId: searchParams.get('voyage') ?? '',
+    pod: searchParams.get('pod') ?? '',
     page: 1,
     pageSize: 20,
   })
@@ -70,12 +74,13 @@ export function VaziosImportacao() {
     setFilters((f) => ({ ...f, [key]: value, page: key === 'page' ? Number(value) : 1 }))
   }
 
-  const activeFilterCount = (['search', 'manifestId', 'voyageId'] as (keyof Filters)[])
+  const activeFilterCount = (['search', 'manifestId', 'voyageId', 'pod'] as (keyof Filters)[])
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
   const filterDescription = describeActiveFilters([
     { label: 'Texto', value: filters.search },
     { label: 'Manifesto', value: filters.manifestId },
     { label: 'Viagem', value: filters.voyageId },
+    { label: 'POD', value: filters.pod },
   ])
   const emptyState = describeEmptyState({
     entitySingular: 'container',
@@ -86,7 +91,7 @@ export function VaziosImportacao() {
   })
 
   function clearFilters() {
-    setFilters((f) => ({ ...f, search: '', manifestId: '', voyageId: '', page: 1 }))
+    setFilters((f) => ({ ...f, search: '', manifestId: '', voyageId: '', pod: '', page: 1 }))
   }
 
   function resetUpload() {

@@ -133,21 +133,63 @@ export function LineUpTable({
                   </>
                 ) : (
                   <>
-                    <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{formatInteger(row.vin)}</td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.car)}</td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.cg)}</td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center font-semibold text-[#58a6ff]' : 'px-3 py-3 text-center font-semibold text-[#58a6ff]'}>{formatInteger(row.total)}</td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatInteger(row.mty)}</td>
-                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{row.rtw === null ? '-' : formatInteger(row.rtw)}</td>
-                    <td className={isDisplay ? 'px-1 py-1' : 'px-3 py-3'}>
-                      <div className="app-lineup-bb">
-                        <span>{formatInteger(row.bbMachines)} MAQ</span>
-                        <span>{formatInteger(row.bbPackages)} PACK</span>
-                        <span>{formatInteger(row.bbTotal)} TOTAL</span>
-                      </div>
+                    <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
+                      {isDisplay ? formatInteger(row.vin) : (
+                        <Link to={`/veiculos?voyage=${row.voyageId}`} className="hover:underline hover:text-[#58a6ff]">
+                          {formatInteger(row.vin)}
+                        </Link>
+                      )}
                     </td>
                     <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
-                      {isDisplay ? renderDisplayCeStatus(row.ceStatus) : renderCeStatus(row.ceStatus)}
+                      {isDisplay ? formatInteger(row.car) : (
+                        <Link to={`/containers?voyage=${row.voyageId}&pod=${encodeURIComponent(row.pod)}&vehicle_container=true`} className="hover:underline hover:text-[#58a6ff]">
+                          {formatInteger(row.car)}
+                        </Link>
+                      )}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                      {isDisplay ? formatInteger(row.cg) : (
+                        <Link to={`/containers?voyage=${row.voyageId}&pod=${encodeURIComponent(row.pod)}&vehicle_container=false`} className="hover:underline hover:text-[#58a6ff]">
+                          {formatInteger(row.cg)}
+                        </Link>
+                      )}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center font-semibold text-[#58a6ff]' : 'px-3 py-3 text-center font-semibold text-[#58a6ff]'}>
+                      {isDisplay ? formatInteger(row.total) : (
+                        <Link to={`/containers?voyage=${row.voyageId}&pod=${encodeURIComponent(row.pod)}`} className="hover:underline hover:text-[#58a6ff]">
+                          {formatInteger(row.total)}
+                        </Link>
+                      )}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                      {isDisplay ? formatInteger(row.mty) : (
+                        <Link to={`/vazios-importacao?voyage=${row.voyageId}&pod=${encodeURIComponent(row.pod)}`} className="hover:underline hover:text-[#58a6ff]">
+                          {formatInteger(row.mty)}
+                        </Link>
+                      )}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{row.rtw === null ? '-' : formatInteger(row.rtw)}</td>
+                    <td className={isDisplay ? 'px-1 py-1' : 'px-3 py-3'}>
+                      {isDisplay ? (
+                        <div className="app-lineup-bb">
+                          <span>{formatInteger(row.bbMachines)} MAQ</span>
+                          <span>{formatInteger(row.bbPackages)} PACK</span>
+                          <span>{formatInteger(row.bbTotal)} TOTAL</span>
+                        </div>
+                      ) : (
+                        <Link to={`/carga-solta?voyage=${row.voyageId}&pod=${encodeURIComponent(row.pod)}`} className="block app-lineup-bb hover:opacity-80">
+                          <span>{formatInteger(row.bbMachines)} MAQ</span>
+                          <span>{formatInteger(row.bbPackages)} PACK</span>
+                          <span>{formatInteger(row.bbTotal)} TOTAL</span>
+                        </Link>
+                      )}
+                    </td>
+                    <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                      {isDisplay ? renderDisplayCeStatus(row.ceStatus) : (
+                        <Link to={`/manifestos?voyage=${row.voyageId}&pod=${encodeURIComponent(row.pod)}`} className="inline-block hover:opacity-80">
+                          {renderCeStatus(row.ceStatus)}
+                        </Link>
+                      )}
                     </td>
                     <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
                       {isDisplay ? (

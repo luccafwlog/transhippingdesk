@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/ui/Button'
@@ -41,6 +41,7 @@ import {
 
 export function Viagens() {
   const { voyageId } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -54,7 +55,11 @@ export function Viagens() {
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
   const [addingPodVoyage, setAddingPodVoyage] = useState<AddingPodPayload | null>(null)
   const [editingExport, setEditingExport] = useState<EditingExportPayload | null>(null)
-  const [filters, setFilters] = useState<VoyageFiltersState>(emptyFilters)
+  const initialVessel = searchParams.get('vessel') ?? ''
+  const [filters, setFilters] = useState<VoyageFiltersState>({
+    ...emptyFilters(),
+    search: initialVessel,
+  })
   const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem('viagens:rail-collapsed') === '1'

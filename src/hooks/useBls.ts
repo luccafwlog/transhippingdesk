@@ -43,6 +43,7 @@ export type ContainerFilters = {
   chargeStatus: string
   cargoProfile: string
   containerType?: string
+  vehicleContainer: '' | 'true' | 'false'
   page: number
   pageSize: number
 }
@@ -192,7 +193,17 @@ export async function fetchAllContainers(filters: ContainerFilters) {
     ),
   )
 
-  return applyContainerFilters(flattenedRows, filters)
+  let vehicleContainerSet: Set<number> | undefined
+  if (filters.vehicleContainer) {
+    const ids = flattenedRows.map((r) => r.id).filter(Boolean)
+    const { data: vehicles } = await supabase
+      .from('vehicles')
+      .select('container_id')
+      .in('container_id', ids.length ? ids : [0])
+    vehicleContainerSet = new Set((vehicles ?? []).map((v: { container_id: number }) => v.container_id))
+  }
+
+  return applyContainerFilters(flattenedRows, filters, vehicleContainerSet)
 }
 
 export function useBlDetail(blId?: string) {
@@ -494,13 +505,19 @@ function normalizeChargeStatus(value: string | null | undefined) {
     .toLowerCase()
 }
 
-function applyContainerFilters(rows: ContainerListItem[], filters: ContainerFilters) {
+function applyContainerFilters(
+  rows: ContainerListItem[],
+  filters: ContainerFilters,
+  vehicleContainerSet?: Set<number>,
+) {
   const searchTerm = normalizeText(filters.search)
 
   return rows.filter((row) => {
     if (filters.cargoProfile === 'oog' && !row.is_oog) return false
     if (filters.cargoProfile === 'imo' && !row.is_imo) return false
     if (filters.containerType && String(row.type ?? '').trim().toUpperCase() !== filters.containerType.trim().toUpperCase()) return false
+    if (filters.vehicleContainer === 'true' && !vehicleContainerSet?.has(row.id)) return false
+    if (filters.vehicleContainer === 'false' && vehicleContainerSet?.has(row.id)) return false
 
     if (!searchTerm) return true
 
