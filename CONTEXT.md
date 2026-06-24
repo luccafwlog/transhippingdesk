@@ -30,13 +30,13 @@ Valor de free time específico de um B/L, sobrescrevendo o padrão do grupo tari
 
 ### ROE (Taxa de Câmbio)
 
-Taxa de câmbio USD→BRL congelada no momento da emissão da invoice. Calculada a partir da PTAX do BCB com markup de 1,065. Uma vez emitida, a invoice preserva `frozen_roe` e `frozen_total_brl`.
+Taxa de câmbio USD→BRL aplicada à invoice, calculada a partir da PTAX do BCB com markup de 1,065. **Não é congelada na emissão**: enquanto a invoice não está paga, o ROE é recalculado a cada nova PTAX divulgada pelo BCB (dias úteis). O congelamento real do valor ocorre apenas no momento do pagamento, registrado de forma imutável no histórico da invoice. As colunas que guardam o último valor recalculado chamam-se `current_roe` e `current_total_brl`.
 
-- **Related:** PTAX, Markup
+- **Related:** PTAX, Markup, Recálculo Diário
 
 ### Markup
 
-Fator multiplicativo (1,065) aplicado à PTAX para obter o ROE de emissão. Serve como margem de proteção contra flutuações cambiais.
+Fator multiplicativo (1,065) aplicado à PTAX para obter o ROE. É o **spread fixo cobrado pelo armador**, não uma margem de proteção contra flutuação cambial — a proteção cambial deixa de existir quando o valor passa a ser recalculado diariamente.
 
 - **Related:** ROE, PTAX
 
