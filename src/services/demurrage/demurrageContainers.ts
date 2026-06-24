@@ -39,7 +39,9 @@ export async function listDemurrageContainers(filters?: DemurrageContainerFilter
       )
     `)
     .not('discharge_date', 'is', null)
-    .neq('demurrage_status', 'returned')
+    // Operacional (ADR 0014): containers ainda fora (overdue) e devolvidos com
+    // demurrage. Os 'returned' dentro do free time são excluídos no frontend.
+    .in('demurrage_status', ['overdue', 'returned'])
     .order('discharge_date', { ascending: false })
 
   if (filters?.blId) query = query.eq('bl_id', filters.blId)

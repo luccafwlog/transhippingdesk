@@ -2,8 +2,7 @@ import { assertUploadSize } from '../lib/fileGuard'
 import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 import { calculateDemurrage } from './demurrage/demurrageRates'
-import { createInvoiceForReturnedBL, issueInvoice } from './demurrage/demurrageInvoices'
-import { fetchROE } from './demurrage/demurrageKpis'
+import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -127,11 +126,9 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     })
 
     if (allReturned) {
-      const invoiceId = await createInvoiceForReturnedBL(blId)
-      if (invoiceId !== null) {
-        const { roe } = await fetchROE()
-        await issueInvoice(invoiceId, roe)
-      }
+      // Nasce 'issued' com a foto inicial (ADR 0014). Retorna null se o B/L já
+      // tem fatura ativa (não sobrescreve) ou se não há demurrage devido.
+      await createInvoiceForReturnedBL(blId)
     }
   }
 

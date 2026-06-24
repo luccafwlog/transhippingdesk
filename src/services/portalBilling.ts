@@ -108,8 +108,10 @@ export type PortalDemurrageInvoice = {
   billed_at: string | null
   paid_at: string | null
   total_usd: number
-  frozen_roe: number | null
-  frozen_total_brl: number | null
+  current_roe: number | null
+  current_total_brl: number | null
+  roe_source: string | null
+  updated_at: string | null
   status: string
   pix_payload: string | null
   dispute_open: boolean | null
@@ -134,7 +136,7 @@ export async function portalListDemurrageInvoices(): Promise<PortalDemurrageInvo
   return ((data ?? []) as PortalDemurrageInvoice[]).map((row) => ({
     ...row,
     total_usd: Number(row.total_usd ?? 0),
-    frozen_total_brl: row.frozen_total_brl != null ? Number(row.frozen_total_brl) : null,
+    current_total_brl: row.current_total_brl != null ? Number(row.current_total_brl) : null,
   }))
 }
 

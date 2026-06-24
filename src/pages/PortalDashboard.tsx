@@ -29,7 +29,7 @@ export function PortalDashboard() {
     const localTotal = openLocal.reduce((sum, i) => sum + (i.balance_brl ?? 0), 0)
 
     const openDemurrage = (demurrage ?? []).filter((i) => !CLOSED_DEMURRAGE_STATUSES.includes(i.status ?? 'issued'))
-    const demurrageTotal = openDemurrage.reduce((sum, i) => sum + (i.frozen_total_brl ?? 0), 0)
+    const demurrageTotal = openDemurrage.reduce((sum, i) => sum + (i.current_total_brl ?? 0), 0)
 
     const containersNoReturn = countContainersWithoutReturn(operationBls ?? [])
     const containersDemurrage = countContainersInDemurrage(operationBls ?? [])

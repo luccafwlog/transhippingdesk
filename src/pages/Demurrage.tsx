@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, DollarSign, FileText, Pencil, Upload } from 'lucide-react'
+import { AlertTriangle, Clock, DollarSign, FileText, Pencil, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -19,21 +19,21 @@ import {
   cancelDemurrageInvoice,
   createInvoiceForBL,
   getInvoiceDetail,
-  issueInvoice,
   listDemurrageInvoices,
   markInvoicePaid,
-  unissueInvoice,
+  recomputeDiscountedBrl,
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import { reverseDemurragePayment } from '../services/reconciliacao'
-import { fetchDemurrageKPIs, fetchROE } from '../services/demurrage/demurrageKpis'
+import { fetchDemurrageKPIs, fetchROE, fetchLatestRecalcDate, recalculateInvoicesManual, fetchCustomerDemurrageSummary, fetchCustomerDemurrageDetail } from '../services/demurrage/demurrageKpis'
+import { CustomerSummaryReport } from '../components/demurrage/CustomerSummaryReport'
 import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
 
-type DemurrageTab = 'containers' | (typeof DEMURRAGE_INVOICE_TABS)[number]['key']
+type DemurrageTab = 'containers' | 'clientes' | (typeof DEMURRAGE_INVOICE_TABS)[number]['key']
 
 type DiscountForm = {
   discount_type: DemurrageInvoice['discount_type']
@@ -55,6 +55,16 @@ function fmtUSD(v: number | null | undefined) {
   if (v == null) return '—'
   return '$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+// Último dia útil (hoje se for dia de semana; senão a sexta anterior). O recálculo
+// do BCB só roda em dias úteis. ponytail: feriados nacionais não são considerados
+// (banner pode soar falso-positivo em feriado) — operador pode ignorar/informar manual.
+function lastBusinessDayISO(): string {
+  const d = new Date()
+  if (d.getDay() === 0) d.setDate(d.getDate() - 2)
+  else if (d.getDay() === 6) d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
 function fmtBRL(v: number | null | undefined) {
   if (v == null) return '—'
   return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -68,10 +78,8 @@ function DemurrageStatusBadge({ status }: { status: string | null }) {
 
 function InvoiceStatusBadge({ status }: { status: DemurrageInvoice['status'] }) {
   if (status === 'paid') return <Badge tone="green">Pago</Badge>
-  if (status === 'overdue') return <Badge tone="red">Vencido</Badge>
-  if (status === 'issued') return <Badge tone="blue">Faturado</Badge>
   if (status === 'cancelled') return <Badge tone="slate">Cancelado</Badge>
-  return <Badge tone="yellow">Rascunho</Badge>
+  return <Badge tone="blue">Faturado</Badge>
 }
 
 function groupByBl(containers: DemurrageContainerListItem[]): Map<string, DemurrageContainerListItem[]> {
@@ -84,14 +92,32 @@ function groupByBl(containers: DemurrageContainerListItem[]): Map<string, Demurr
   return map
 }
 
+function containerBlRates(c: DemurrageContainerListItem) {
+  return c.bl as {
+    free_time_override?: number | null
+    demurrage_rate_override_p1_usd?: number | null
+    demurrage_rate_override_p2_usd?: number | null
+  } | null
+}
+
+// Demurrage operacional do container: usa a devolução quando existe, senão hoje
+// (container ainda fora, sobreestadia correndo). Null sem data de descarga.
+function effectiveDemurrage(c: DemurrageContainerListItem) {
+  if (!c.discharge_date) return null
+  const end = c.return_date ?? new Date().toISOString().slice(0, 10)
+  const bl = containerBlRates(c)
+  return calculateDemurrage(c.type, c.discharge_date, end, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd)
+}
+
 const TAB_LABELS: { key: DemurrageTab; label: string }[] = [
   { key: 'containers', label: 'Containers' },
   ...DEMURRAGE_INVOICE_TABS.map(({ key, label }) => ({ key, label })),
+  { key: 'clientes', label: 'Por Cliente' },
 ]
 
 const TAB_TO_STATUS = Object.fromEntries(
   DEMURRAGE_INVOICE_TABS.map(({ key, status }) => [key, status]),
-) as Record<Exclude<DemurrageTab, 'containers'>, NonNullable<DemurrageInvoice['status']>>
+) as Record<Exclude<DemurrageTab, 'containers' | 'clientes'>, NonNullable<DemurrageInvoice['status']>>
 
 const DISCOUNT_TYPE_LABELS: Record<NonNullable<DemurrageInvoice['discount_type']>, string> = {
   comercial: 'Comercial',
@@ -165,7 +191,49 @@ export function Demurrage() {
     staleTime: 60_000,
   })
 
-  const invoiceStatus = tab !== 'containers' ? TAB_TO_STATUS[tab] : null
+  const [ptaxModalOpen, setPtaxModalOpen] = useState(false)
+  const [ptaxInput, setPtaxInput] = useState('')
+  const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null)
+  const [customerReportOpen, setCustomerReportOpen] = useState(false)
+
+  const { data: customerSummary } = useQuery({
+    queryKey: ['demurrage-customer-summary'],
+    queryFn: fetchCustomerDemurrageSummary,
+    staleTime: 60_000,
+    enabled: tab === 'clientes',
+  })
+
+  const { data: customerDetail } = useQuery({
+    queryKey: ['demurrage-customer-detail', expandedCustomer],
+    queryFn: () => fetchCustomerDemurrageDetail(expandedCustomer!),
+    enabled: expandedCustomer != null,
+  })
+
+  const { data: latestRecalcDate } = useQuery({
+    queryKey: ['demurrage-latest-recalc'],
+    queryFn: fetchLatestRecalcDate,
+    staleTime: 60_000,
+  })
+
+  // Banner de staleness: só interessa quando há faturas aguardando pagamento (BRL > 0)
+  // e o último recálculo é anterior ao último dia útil (job falhou / BCB fora).
+  const recalcStale =
+    (kpis?.issuedInvoicesTotalBrl ?? 0) > 0 &&
+    (latestRecalcDate == null || latestRecalcDate < lastBusinessDayISO())
+
+  const recalcManualMutation = useMutation({
+    mutationFn: (ptax: number) => recalculateInvoicesManual(ptax),
+    onSuccess: (res) => {
+      showToast(`PTAX aplicada — ${res.updated} fatura(s) recalculada(s).`, 'success')
+      setPtaxModalOpen(false)
+      setPtaxInput('')
+      void queryClient.invalidateQueries({ queryKey: ['demurrage-latest-recalc'] })
+      invalidateInvoices()
+    },
+    onError: (err) => showToast(err instanceof Error ? err.message : 'Falha ao recalcular.', 'error'),
+  })
+
+  const invoiceStatus = tab !== 'containers' && tab !== 'clientes' ? TAB_TO_STATUS[tab] : null
   const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = useQuery({
     queryKey: ['demurrage-invoices', invoiceStatus],
     queryFn: () => listDemurrageInvoices({ status: invoiceStatus! }),
@@ -240,26 +308,10 @@ export function Demurrage() {
     onSettled: () => setGeneratingBl(null),
   })
 
-  const issueMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const result = await fetchROE()
-      if (result.offline) setRoeOfflineWarning(result.cachedAt)
-      await issueInvoice(id, result.roe, result.source)
-    },
-    onSuccess: () => { invalidateInvoices(); showToast('Fatura emitida. Valores congelados.', 'success') },
-    onError: (e: Error) => showToast(e.message, 'error'),
-  })
-
-  const unissueMutation = useMutation({
-    mutationFn: unissueInvoice,
-    onSuccess: () => { invalidateInvoices(); showToast('Emissao revertida.', 'success') },
-    onError: (e: Error) => showToast(e.message, 'error'),
-  })
-
   const payMutation = useMutation({
     mutationFn: async ({ id, date }: { id: number; date: string }) => {
       const inv = invoices?.find((i) => i.id === id)
-      let roe = inv?.frozen_roe ?? null
+      let roe = inv?.current_roe ?? null
       if (!roe) {
         const result = await fetchROE()
         if (result.offline) setRoeOfflineWarning(result.cachedAt)
@@ -297,30 +349,22 @@ export function Demurrage() {
     if (ok) cancelMutation.mutate(invoiceId)
   }
 
-  async function handleUnissueInvoice(invoiceId: number) {
-    const ok = await confirm({
-      title: 'Desemitir invoice',
-      message: 'Reverter a emissao desta invoice de demurrage?',
-      confirmLabel: 'Desemitir',
-      tone: 'danger',
-    })
-    if (ok) unissueMutation.mutate(invoiceId)
-  }
-
   const discountMutation = useMutation({
-    mutationFn: ({ id, form }: { id: number; form: DiscountForm }) => {
+    mutationFn: async ({ id, form }: { id: number; form: DiscountForm }) => {
       const validation = demurrageDiscountSchema.safeParse(form)
       if (!validation.success) {
         throw new Error(formatValidationError(validation.error, 'Desconto invalido.'))
       }
       const discount = validation.data
-      return updateDemurrageInvoice(id, {
+      await updateDemurrageInvoice(id, {
         discount_type: discount.discount_type,
         discount_value: discount.discount_value,
         discount_mode: discount.discount_mode,
         discount_justification: discount.discount_justification,
         discount_approver: discount.discount_approver,
       })
+      // Reflete o desconto (USD) no BRL e no QR já, sem esperar o recálculo diário.
+      await recomputeDiscountedBrl(id)
     },
     onSuccess: () => {
       invalidateInvoices()
@@ -348,6 +392,8 @@ export function Demurrage() {
   })
 
   const filtered = (containers ?? []).filter((c) => {
+    // Devolvido dentro do free time (sem demurrage) não é monitoramento operacional.
+    if (c.demurrage_status === 'returned' && (effectiveDemurrage(c)?.total_usd ?? 0) <= 0) return false
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -360,15 +406,48 @@ export function Demurrage() {
   const grouped = groupByBl(filtered)
   const containerFilterDescription = describeActiveFilters([{ label: 'Busca', value: search }])
 
-  const totalOverdueUSD = filtered.reduce((sum, c) => {
-    if (!c.discharge_date || !c.return_date) return sum
-    const bl = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-    return sum + calculateDemurrage(c.type, c.discharge_date, c.return_date, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd).total_usd
-  }, 0)
+  const totalOverdueUSD = filtered.reduce((sum, c) => sum + (effectiveDemurrage(c)?.total_usd ?? 0), 0)
 
   return (
     <>
       <ContainerDatesImportModal open={importOpen} onClose={() => setImportOpen(false)} />
+
+      <Modal open={ptaxModalOpen} onClose={() => setPtaxModalOpen(false)} title="Informar PTAX manualmente">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-400">
+            Use quando o BCB estiver indisponível ou o recálculo automático falhar. Informe a cotação de
+            venda do dólar (PTAX, sem markup). O sistema recalcula todas as faturas emitidas e não pagas.
+          </p>
+          <Field label="PTAX (cotação de venda)">
+            <Input
+              type="number"
+              step="0.0001"
+              min="0"
+              value={ptaxInput}
+              onChange={(e) => setPtaxInput(e.target.value)}
+              placeholder="Ex.: 5.4321"
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPtaxModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                const ptax = parseFloat(ptaxInput.replace(',', '.'))
+                if (!Number.isFinite(ptax) || ptax <= 0) {
+                  showToast('Informe uma PTAX válida maior que zero.', 'error')
+                  return
+                }
+                recalcManualMutation.mutate(ptax)
+              }}
+              disabled={recalcManualMutation.isPending}
+            >
+              {recalcManualMutation.isPending ? 'Recalculando…' : 'Recalcular'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <PageHeader
         title="Demurrage"
@@ -387,12 +466,16 @@ export function Demurrage() {
               <Upload size={15} />
               Importar Datas
             </Button>
+            <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}>
+              <DollarSign size={15} />
+              Informar PTAX
+            </Button>
           </>
         }
       />
 
       {/* KPI bar — always visible */}
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-3 gap-4">
         <Card className="p-4">
           <div className="text-xs text-slate-400">Containers em atraso</div>
           <div className="text-2xl font-bold text-red-400">{kpis?.overdueContainers ?? '—'}</div>
@@ -402,16 +485,25 @@ export function Demurrage() {
           <div className="text-2xl font-bold text-amber-400">{fmtUSD(totalOverdueUSD)}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-slate-400">Faturas rascunho (USD)</div>
-          <div className="text-2xl font-bold text-slate-300">{kpis ? fmtUSD(kpis.draftInvoicesTotalUsd) : '—'}</div>
-        </Card>
-        <Card className="p-4">
           <div className="text-xs text-slate-400">Aguardando pagamento (BRL)</div>
           <div className="text-2xl font-bold text-blue-400">
             {kpis ? fmtBRL(kpis.issuedInvoicesTotalBrl) : '—'}
           </div>
         </Card>
       </div>
+
+      {/* Banner de staleness do recálculo diário */}
+      {recalcStale ? (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          <span className="flex items-center gap-2">
+            <AlertTriangle size={16} />
+            PTAX de hoje não obtida do BCB. Os valores em BRL podem estar desatualizados.
+          </span>
+          <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}>
+            Informar PTAX
+          </Button>
+        </div>
+      ) : null}
 
       {/* ROE offline warning */}
       {roeOfflineWarning ? (
@@ -452,20 +544,22 @@ export function Demurrage() {
           </div>
 
           {!containersLoading && !containersError && grouped.size === 0 && (
-            <EmptyState icon={Clock} title="Nenhum container ativo" description="Todos os containers foram devolvidos ou não há descargas registradas." />
+            <EmptyState icon={Clock} title="Nenhum container em demurrage" description="Nenhum container fora do free time (ainda fora ou devolvido com sobreestadia)." />
           )}
 
           {grouped.size > 0 ? (
             <Card className="overflow-hidden p-0">
               <div className="overflow-x-auto">
-                <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
+                <table className="app-table app-table--compact min-w-[1100px] text-left text-sm">
                   <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                     <tr>
                       <th scope="col" className="px-4 py-2">Container</th>
                       <th scope="col" className="py-2">Tipo</th>
                       <th scope="col" className="py-2">Descarga</th>
                       <th scope="col" className="py-2">Devolucao</th>
-                      <th scope="col" className="py-2">Dias totais</th>
+                      <th scope="col" className="py-2">Free time</th>
+                      <th scope="col" className="py-2">Dias excedidos</th>
+                      <th scope="col" className="py-2">P1 / P2</th>
                       <th scope="col" className="py-2">Status</th>
                       <th scope="col" className="py-2">USD</th>
                       <th scope="col" className="py-2"></th>
@@ -477,15 +571,11 @@ export function Demurrage() {
                       const customerName = firstBl?.customer?.name ?? blId
                       const voyageInfo = firstBl?.voyage?.voyage_number ? `${firstBl.voyage.voyage_number} — ${firstBl.voyage.vessel?.name ?? ''}` : ''
                       const hasOverdue = blContainers.some((c) => c.demurrage_status === 'overdue')
-                      const blTotalUSD = blContainers.reduce((sum, c) => {
-                        if (!c.discharge_date || !c.return_date) return sum
-                        const blData = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-                        return sum + calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd).total_usd
-                      }, 0)
+                      const blTotalUSD = blContainers.reduce((sum, c) => sum + (effectiveDemurrage(c)?.total_usd ?? 0), 0)
 
                       return [
                         <tr key={`${blId}-header`} className="bg-[var(--app-surface-muted)]">
-                          <td colSpan={8} className="px-4 py-2">
+                          <td colSpan={10} className="px-4 py-2">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div className="flex flex-wrap items-baseline gap-2">
                                 <Link to={`/manifestos/${blId}`} className="font-semibold text-blue-400 hover:underline">{blId}</Link>
@@ -509,15 +599,17 @@ export function Demurrage() {
                           </td>
                         </tr>,
                         ...blContainers.map((c) => {
-                          const blData = c.bl as { free_time_override?: number | null; demurrage_rate_override_p1_usd?: number | null; demurrage_rate_override_p2_usd?: number | null } | null
-                          const calc = c.discharge_date && c.return_date ? calculateDemurrage(c.type, c.discharge_date, c.return_date, blData?.free_time_override, blData?.demurrage_rate_override_p1_usd, blData?.demurrage_rate_override_p2_usd) : null
+                          const calc = effectiveDemurrage(c)
+                          const excessDays = calc ? Math.max(0, calc.total_days - calc.free_days) : 0
                           return (
                             <tr key={c.id}>
                               <td className="px-4 py-2 font-semibold text-white">{c.container_number}</td>
                               <td className="py-2">{c.type ?? '-'}</td>
                               <td className="py-2">{c.discharge_date ? formatDate(c.discharge_date) : '—'}</td>
                               <td className="py-2">{c.return_date ? formatDate(c.return_date) : <span className="text-slate-500">Pendente</span>}</td>
-                              <td className="py-2">{calc ? calc.total_days : '—'}</td>
+                              <td className="py-2">{calc ? calc.free_days : '—'}</td>
+                              <td className="py-2">{calc ? excessDays : '—'}</td>
+                              <td className="py-2 text-slate-400">{calc ? `${calc.days_p1} / ${calc.days_p2}` : '—'}</td>
                               <td className="py-2"><DemurrageStatusBadge status={c.demurrage_status} /></td>
                               <td className="py-2 font-semibold text-amber-400">{calc && calc.total_usd > 0 ? fmtUSD(calc.total_usd) : '—'}</td>
                               <td className="py-2">
@@ -543,8 +635,75 @@ export function Demurrage() {
         </>
       ) : null}
 
-      {/* ── Tabs: Rascunhos / Emitidas / Pagas ── */}
-      {tab !== 'containers' ? (
+      {/* ── Por Cliente: demurrage em aberto agregado por consignatário ── */}
+      {tab === 'clientes' ? (
+        <>
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-semibold text-white">
+              {formatResultCount(customerSummary?.length ?? 0, 'consignatário', 'consignatários')}
+            </span>
+            <Button
+              variant="secondary"
+              disabled={!customerSummary?.length}
+              onClick={() => setCustomerReportOpen(true)}
+            >
+              <FileText size={15} />
+              Imprimir
+            </Button>
+          </div>
+          {!customerSummary?.length ? (
+            <EmptyState icon={FileText} title="Nada em aberto" description="Nenhuma fatura de demurrage emitida e não paga." />
+          ) : (
+            <div className="space-y-2">
+              {customerSummary.map((c) => (
+                <Card key={c.customer_id} className="overflow-hidden">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5"
+                    onClick={() => setExpandedCustomer((id) => (id === c.customer_id ? null : c.customer_id))}
+                  >
+                    <span className="font-medium text-white">{c.customer_name}</span>
+                    <span className="flex items-center gap-4 text-sm">
+                      <span className="text-slate-400">{c.invoice_count} fat.</span>
+                      <span className="font-semibold text-amber-400">{fmtUSD(c.total_usd)}</span>
+                      <span className="font-semibold text-green-400">{fmtBRL(c.total_brl)}</span>
+                    </span>
+                  </button>
+                  {expandedCustomer === c.customer_id && (
+                    <div className="border-t border-[#30363d] px-4 py-2">
+                      <table className="w-full text-sm">
+                        <thead className="text-xs uppercase text-slate-500">
+                          <tr>
+                            <th className="py-1 text-left">Nº Doc</th>
+                            <th className="py-1 text-left">BL</th>
+                            <th className="py-1 text-left">Emissão</th>
+                            <th className="py-1 text-right">USD</th>
+                            <th className="py-1 text-right">BRL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(customerDetail ?? []).map((d) => (
+                            <tr key={d.id}>
+                              <td className="py-1 font-mono text-xs">{d.doc_number}</td>
+                              <td className="py-1 text-blue-400">{d.bl_id}</td>
+                              <td className="py-1">{d.billed_at ? formatDate(d.billed_at) : '—'}</td>
+                              <td className="py-1 text-right text-amber-400">{fmtUSD(d.total_usd)}</td>
+                              <td className="py-1 text-right text-green-400">{fmtBRL(d.current_total_brl)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {/* ── Tabs: Faturas / Pagas / Canceladas ── */}
+      {tab !== 'containers' && tab !== 'clientes' ? (
         <>
           {invoicesLoading && <Card>Carregando...</Card>}
           {invoicesError && <InlineError message="Erro ao carregar faturas." />}
@@ -556,11 +715,7 @@ export function Demurrage() {
             <EmptyState
               icon={FileText}
               title="Nenhuma fatura"
-              description={
-                tab === 'rascunhos'
-                  ? 'Nenhum rascunho. Faturas geradas por importação são emitidas automaticamente — rascunhos aparecem apenas quando a BCB está offline.'
-                  : `Nenhuma fatura com status "${tab}".`
-              }
+              description={`Nenhuma fatura com status "${tab}".`}
             />
           )}
 
@@ -574,7 +729,6 @@ export function Demurrage() {
                       <th scope="col" className="py-2">BL</th>
                       <th scope="col" className="py-2">Cliente</th>
                       <th scope="col" className="py-2">Emissao</th>
-                      <th scope="col" className="py-2">Vencimento</th>
                       <th scope="col" className="py-2">Total USD</th>
                       <th scope="col" className="py-2">Total BRL</th>
                       <th scope="col" className="py-2">Status</th>
@@ -593,10 +747,9 @@ export function Demurrage() {
                           <td className="py-2 text-blue-400">{inv.bl_id}</td>
                           <td className="py-2">{customer?.name ?? '—'}</td>
                           <td className="py-2">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
-                          <td className="py-2">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
                           <td className="py-2 font-semibold text-amber-400">{fmtUSD(inv.total_usd)}</td>
                           <td className="py-2 font-semibold text-green-400">
-                            {fmtBRL(inv.frozen_total_brl)}
+                            {fmtBRL(inv.current_total_brl)}
                             {inv.roe_source === 'cached' && (
                               <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 text-xs text-amber-400" title="ROE via cache (BCB offline)">ROE cache</span>
                             )}
@@ -625,17 +778,11 @@ export function Demurrage() {
                               >
                                 Disputa
                               </Button>
-                              {inv.status === 'draft' && (
-                                <>
-                                  <Button variant="secondary" className="app-btn--sm" onClick={() => issueMutation.mutate(inv.id)}>Emitir</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleCancelInvoice(inv.id)}>Cancelar</Button>
-                                </>
-                              )}
                               {inv.status === 'issued' && (
                                 <>
                                   <Button variant="secondary" className="app-btn--sm" onClick={() => setPayingId(inv.id)}>Registrar Pgto</Button>
-                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleUnissueInvoice(inv.id)}>Desemitir</Button>
                                   <Button variant="ghost" className="app-btn--sm" onClick={() => { setViewInvoiceId(inv.id); setDocType('invoice') }}>Fatura</Button>
+                                  <Button variant="ghost" className="app-btn--sm" onClick={() => void handleCancelInvoice(inv.id)}>Cancelar</Button>
                                 </>
                               )}
                               {inv.status === 'paid' && (
@@ -772,7 +919,7 @@ export function Demurrage() {
                 onChange={(e) => setDiscountForm((f) => ({ ...f, discount_mode: e.target.value as 'percent' | 'fixed' }))}
               >
                 <option value="percent">Percentual (%)</option>
-                <option value="fixed">Valor fixo (BRL)</option>
+                <option value="fixed">Valor fixo (USD)</option>
               </Select>
             </Field>
           </div>
@@ -784,6 +931,11 @@ export function Demurrage() {
               value={discountForm.discount_value}
               onChange={(e) => setDiscountForm((f) => ({ ...f, discount_value: e.target.value }))}
             />
+            <p className="mt-1 text-xs text-slate-400">
+              {discountForm.discount_mode === 'fixed'
+                ? 'Valor em dólares (USD), descontado antes da conversão para BRL.'
+                : 'Percentual sobre o total USD.'}
+            </p>
           </Field>
           <Field label="Justificativa">
             <Textarea
@@ -900,6 +1052,18 @@ export function Demurrage() {
               <Button variant="secondary" onClick={() => window.print()}>Imprimir</Button>
             </div>
             <InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} />
+          </div>
+        </Modal>
+      )}
+
+      {/* Relatório de demurrage em aberto por consignatário */}
+      {customerReportOpen && customerSummary && (
+        <Modal open onClose={() => setCustomerReportOpen(false)} title="Demurrage em aberto por consignatário">
+          <div className="p-2">
+            <div className="mb-2 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => window.print()}>Imprimir</Button>
+            </div>
+            <CustomerSummaryReport rows={customerSummary} />
           </div>
         </Modal>
       )}

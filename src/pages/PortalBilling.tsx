@@ -28,7 +28,14 @@ import {
 import type { PortalDemurrageInvoice, PortalInvoiceSummary } from '../services/portalBilling'
 import { buildInvoiceFileBaseName } from '../services/billing'
 import { exportPortalDemurrageWorkbook, exportPortalLocalInvoicesWorkbook } from '../services/exports'
+import { DEMURRAGE_ROE_MARKUP } from '../services/demurrage/demurrageKpis'
 import { formatBRL, formatDate, stripBlPrefix } from '../lib/utils'
+
+function portalRoeSourceLabel(source: string | null): string {
+  if (source === 'cached') return 'BCB (cache)'
+  if (source === 'manual') return 'informada manualmente'
+  return 'BCB'
+}
 
 type PortalTab = 'local' | 'demurrage'
 type StatusFilter = '' | 'issued' | 'paid' | 'cancelled'
@@ -407,11 +414,15 @@ export function PortalBilling() {
             return (
               <>
                 <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                  <MetricCard label="Status" value={invoice.status === 'paid' ? 'Pago' : invoice.status === 'overdue' ? 'Vencida' : 'Emitida'} />
+                  <MetricCard label="Status" value={invoice.status === 'paid' ? 'Pago' : 'Emitida'} />
                   <MetricCard label="Total USD" value={`$ ${Number(invoice.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
-                  <MetricCard label="Total BRL" value={invoice.frozen_total_brl != null ? formatBRL(invoice.frozen_total_brl) : '—'} />
-                  <MetricCard label="Vencimento" value={formatDate(invoice.due_date) ?? '—'} />
+                  <MetricCard label="Total BRL" value={invoice.current_total_brl != null ? formatBRL(invoice.current_total_brl) : '—'} />
+                  <MetricCard label="PTAX ref." value={invoice.current_roe != null ? formatBRL(invoice.current_roe / DEMURRAGE_ROE_MARKUP) : '—'} />
                 </div>
+                <p className="text-xs text-[var(--app-muted)]">
+                  Valores atualizados em {formatDate(invoice.updated_at) ?? '—'} · fonte {portalRoeSourceLabel(invoice.roe_source)}.
+                  O valor em BRL acompanha a PTAX diária até o pagamento.
+                </p>
 
                 <Card className="overflow-hidden p-0">
                   <div className="app-table-scroll">
@@ -596,7 +607,7 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, po
               <th scope="col" className="px-4 py-3">Documento</th>
               <th scope="col" className="px-4 py-3">BL / Trecho</th>
               <th scope="col" className="px-4 py-3">Emissao</th>
-              <th scope="col" className="px-4 py-3">Vencimento</th>
+              <th scope="col" className="px-4 py-3">Atualizado em</th>
               <th scope="col" className="px-4 py-3">Total USD</th>
               <th scope="col" className="px-4 py-3">Total BRL</th>
               <th scope="col" className="px-4 py-3">Status</th>
@@ -615,9 +626,9 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, po
                 <td className="px-4 py-3 font-semibold">{inv.doc_number}</td>
                 <td className="px-4 py-3">{inv.bl_id} — {inv.pol ?? '-'} / {inv.pod ?? '-'}</td>
                 <td className="px-4 py-3">{formatDate(inv.billed_at)}</td>
-                <td className="px-4 py-3">{formatDate(inv.due_date)}</td>
+                <td className="px-4 py-3">{formatDate(inv.updated_at)}</td>
                 <td className="px-4 py-3">$ {Number(inv.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td className="px-4 py-3">{inv.frozen_total_brl != null ? formatBRL(inv.frozen_total_brl) : '—'}</td>
+                <td className="px-4 py-3">{inv.current_total_brl != null ? formatBRL(inv.current_total_brl) : '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     {renderDemurrageBadge(inv.status)}

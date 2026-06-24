@@ -112,18 +112,13 @@ function renderPainel() {
   )
 }
 
-it('US-120: carrega os KPIs do dashboard com valores e destinos de navegacao', () => {
+it('US-120: as celulas do Line-Up navegam para os destinos corretos', () => {
   renderPainel()
 
-  expect(screen.getAllByText('B/Ls ativos').length).toBeGreaterThan(0)
-  expect(screen.getAllByText('42').length).toBeGreaterThan(0)
-  expect(screen.getAllByText('Containers distintos').length).toBeGreaterThan(0)
-  expect(screen.getAllByText('7').length).toBeGreaterThan(0)
-  expect(screen.getAllByText('Prontos para faturar').length).toBeGreaterThan(0)
-  expect(screen.getAllByText('9').length).toBeGreaterThan(0)
-
-  const blsLink = screen.getAllByText('B/Ls ativos')[0].closest('a')
-  expect(blsLink?.getAttribute('href')).toBe('/manifestos')
+  // Os KPI cards do dashboard foram removidos; a navegacao migrou para as celulas
+  // do Line-Up (commit "transform Painel table cells into navigation links").
+  const vesselLink = screen.getAllByText('Navio')[0].closest('a')
+  expect(vesselLink?.getAttribute('href')).toBe('/viagens?vessel=Navio')
 })
 
 it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizacao', () => {

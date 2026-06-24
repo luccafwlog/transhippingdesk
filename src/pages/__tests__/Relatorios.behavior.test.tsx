@@ -23,7 +23,7 @@ vi.mock('@tanstack/react-query', () => ({
       return {
         data: [{
           id: 'd1', doc_number: 'DEM-1', bl_id: 'BL-9', status: 'issued', total_usd: 100,
-          frozen_total_brl: 500, billed_at: null, due_date: null, customer: { name: 'Cliente Dem' },
+          current_total_brl: 500, billed_at: null, due_date: null, customer: { name: 'Cliente Dem' },
         }],
         isLoading: false,
         error: null,

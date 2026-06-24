@@ -24,22 +24,22 @@
 ## Modules inventoried
 
 The 223 stories were seeded from the executable routes in `src/App.tsx` and the
-living module catalogs under [`../modules/`](../modules/). Coverage spans all 11
+living module catalogs under [`../modules/`](../../modules/). Coverage spans all 11
 canonical modules:
 
 | Module | Catalog | Primary routes |
 |---|---|---|
-| Viagens | [viagens.md](../modules/viagens.md) | `/viagens`, `/viagens/:voyageId` |
-| Manifestos & EDI | [manifesto-edi.md](../modules/manifesto-edi.md) | `/manifestos`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios` |
-| Granito | [granito.md](../modules/granito.md) | `/granito`, `/granito/taxas` |
-| Chegadas/Saídas | [chegadas-saidas.md](../modules/chegadas-saidas.md) | `/chegadas-saidas` |
-| Clientes | [clientes.md](../modules/clientes.md) | `/clientes`, `/clientes/:cnpj` |
-| Taxas Locais | [taxas-locais.md](../modules/taxas-locais.md) | `/taxas-locais` |
-| Faturamento | [faturamento.md](../modules/faturamento.md) | `/faturamento` |
-| Demurrage | [demurrage.md](../modules/demurrage.md) | `/demurrage`, `/demurrage/taxas` |
-| Conciliação PIX | [reconciliacao-pix.md](../modules/reconciliacao-pix.md) | `/reconciliacao` |
-| Portal do Cliente | [portal-cliente.md](../modules/portal-cliente.md) | `/portal/*` |
-| Operação & Suporte | [operacao-suporte.md](../modules/operacao-suporte.md) | `/painel`, `/revisao`, `/alertas`, `/relatorios`, `/line-up-tv`, `/admin/usuarios` |
+| Viagens | [viagens.md](../../modules/viagens.md) | `/viagens`, `/viagens/:voyageId` |
+| Manifestos & EDI | [manifesto-edi.md](../../modules/manifesto-edi.md) | `/manifestos`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios` |
+| Granito | [granito.md](../../modules/granito.md) | `/granito`, `/granito/taxas` |
+| Chegadas/Saídas | [chegadas-saidas.md](../../modules/chegadas-saidas.md) | `/chegadas-saidas` |
+| Clientes | [clientes.md](../../modules/clientes.md) | `/clientes`, `/clientes/:cnpj` |
+| Taxas Locais | [taxas-locais.md](../../modules/taxas-locais.md) | `/taxas-locais` |
+| Faturamento | [faturamento.md](../../modules/faturamento.md) | `/faturamento` |
+| Demurrage | [demurrage.md](../../modules/demurrage.md) | `/demurrage`, `/demurrage/taxas` |
+| Conciliação PIX | [reconciliacao-pix.md](../../modules/reconciliacao-pix.md) | `/reconciliacao` |
+| Portal do Cliente | [portal-cliente.md](../../modules/portal-cliente.md) | `/portal/*` |
+| Operação & Suporte | [operacao-suporte.md](../../modules/operacao-suporte.md) | `/painel`, `/revisao`, `/alertas`, `/relatorios`, `/line-up-tv`, `/admin/usuarios` |
 
 ## What the loop changed in the codebase
 
@@ -54,7 +54,7 @@ transactional RPCs guarded by migrations and behavior tests:
 - `save_bl_demurrage_config`
 
 > 🗄️ These RPCs only take effect once their migrations under
-> [`../../supabase/migrations/`](../../supabase/migrations/) are applied to the
+> [`../../supabase/migrations/`](../../../supabase/migrations/) are applied to the
 > target Supabase project. Deployment to a controlled project is tracked as
 > Task 6 of the post-QA backlog.
 
@@ -67,7 +67,7 @@ improvements/divergences) are tracked in
 Two defect IDs from this loop remain referenced directly in the test suite —
 **DEF-061** and **DEF-062** (dedicated error states on `/admin/usuarios` for the
 *logs* and *métricas* tabs), with behavior tests in
-[`../../src/pages/__tests__/AdminUsuarios.behavior.test.tsx`](../../src/pages/__tests__/AdminUsuarios.behavior.test.tsx).
+[`../../src/pages/__tests__/AdminUsuarios.behavior.test.tsx`](../../../src/pages/__tests__/AdminUsuarios.behavior.test.tsx).
 
 ## Regenerating the full ledger
 

@@ -77,7 +77,7 @@ function DemurrageInvoicesPanel({ query, onOpenDetail }: DemurrageInvoicesPanelP
   const invoices = useMemo(() => query.data ?? [], [query.data])
   const summary = useMemo(() => {
     const open = invoices.filter((row) => row.status === 'issued' || row.status === 'overdue')
-    const openBalance = open.reduce((sum, row) => sum + Number(row.frozen_total_brl ?? 0), 0)
+    const openBalance = open.reduce((sum, row) => sum + Number(row.current_total_brl ?? 0), 0)
     const totalUsd = invoices.reduce((sum, row) => sum + Number(row.total_usd ?? 0), 0)
     return {
       total: invoices.length,
@@ -133,7 +133,7 @@ function DemurrageInvoicesPanel({ query, onOpenDetail }: DemurrageInvoicesPanelP
                     <td className="px-4 py-3">{inv.billed_at ? formatDate(inv.billed_at) : '-'}</td>
                     <td className="px-4 py-3">{inv.due_date ? formatDate(inv.due_date) : '-'}</td>
                     <td className="px-4 py-3 text-amber-400">{formatUSD(Number(inv.total_usd ?? 0))}</td>
-                    <td className="px-4 py-3 text-green-400">{formatBRL(Number(inv.frozen_total_brl ?? 0))}</td>
+                    <td className="px-4 py-3 text-green-400">{formatBRL(Number(inv.current_total_brl ?? 0))}</td>
                     <td className="px-4 py-3">{renderDemurrageStatus(inv.status)}</td>
                     <td className="px-4 py-3"><Button variant="secondary" onClick={() => onOpenDetail(inv.id)}>Detalhes</Button></td>
                   </tr>

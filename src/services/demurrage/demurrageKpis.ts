@@ -3,17 +3,115 @@ import { assertUploadSize } from '../../lib/fileGuard'
 import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { PixTransaction, RoeSource } from '../../types/database'
 
+// Spread fixo do armador aplicado sobre a PTAX (ADR 0014). Ponto canônico no
+// frontend; o backend replica a mesma constante na RPC de recálculo.
+export const DEMURRAGE_ROE_MARKUP = 1.065
+
+export type CustomerDemurrageSummary = {
+  customer_id: number
+  customer_name: string
+  cnpj_cpf: string | null
+  invoice_count: number
+  total_usd: number
+  total_brl: number
+}
+
+export type CustomerDemurrageDetailItem = {
+  id: number
+  doc_number: string
+  bl_id: string
+  billed_at: string | null
+  total_usd: number
+  current_total_brl: number | null
+  current_roe: number | null
+}
+
+/**
+ * Agrega as faturas de Demurrage emitidas e não pagas por consignatário (cliente):
+ * USD estável + BRL (snapshot do último recálculo). Usado pela aba "Por Cliente".
+ */
+export async function fetchCustomerDemurrageSummary(): Promise<CustomerDemurrageSummary[]> {
+  const { data, error } = await supabase
+    .from('demurrage_invoices')
+    .select('customer_id, total_usd, current_total_brl, customer:customers(id,name,cnpj_cpf)')
+    .eq('status', 'issued')
+    .is('paid_at', null)
+  if (error) throw error
+
+  const byCustomer = new Map<number, CustomerDemurrageSummary>()
+  for (const row of (data ?? []) as unknown as Array<{
+    customer_id: number
+    total_usd: number | null
+    current_total_brl: number | null
+    customer: { id: number; name: string; cnpj_cpf: string | null } | null
+  }>) {
+    const id = row.customer_id
+    const existing = byCustomer.get(id) ?? {
+      customer_id: id,
+      customer_name: row.customer?.name ?? '—',
+      cnpj_cpf: row.customer?.cnpj_cpf ?? null,
+      invoice_count: 0,
+      total_usd: 0,
+      total_brl: 0,
+    }
+    existing.invoice_count += 1
+    existing.total_usd += row.total_usd ?? 0
+    existing.total_brl += row.current_total_brl ?? 0
+    byCustomer.set(id, existing)
+  }
+  return Array.from(byCustomer.values()).sort((a, b) => b.total_usd - a.total_usd)
+}
+
+/** Faturas emitidas e não pagas de um consignatário, para o accordion/relatório. */
+export async function fetchCustomerDemurrageDetail(customerId: number): Promise<CustomerDemurrageDetailItem[]> {
+  const { data, error } = await supabase
+    .from('demurrage_invoices')
+    .select('id, doc_number, bl_id, billed_at, total_usd, current_total_brl, current_roe')
+    .eq('status', 'issued')
+    .is('paid_at', null)
+    .eq('customer_id', customerId)
+    .order('billed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as CustomerDemurrageDetailItem[]
+}
+
 export type DemurrageKPIs = {
   overdueContainers: number
   draftInvoicesTotalUsd: number
   issuedInvoicesTotalBrl: number
 }
 
+/**
+ * Data (event_date) do último recálculo registrado em demurrage_invoice_history,
+ * ou null se não houver histórico. Usada pelo banner de staleness em /demurrage.
+ */
+export async function fetchLatestRecalcDate(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('demurrage_invoice_history')
+    .select('event_date')
+    .order('event_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data?.event_date ?? null
+}
+
+/**
+ * Recálculo manual disparado pelo operador quando o BCB está fora ou o job falhou.
+ * Informa a PTAX (cotação de venda, sem markup); o markup é aplicado no banco.
+ */
+export async function recalculateInvoicesManual(ptax: number): Promise<{ updated: number }> {
+  const { data, error } = await supabase.rpc('recalculate_demurrage_invoices_manual', { p_ptax: ptax })
+  if (error) throw error
+  const updated = Number((data as { updated?: number } | null)?.updated ?? 0)
+  return { updated }
+}
+
 export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
   const [contRes, draftRes, issuedRes] = await Promise.all([
     supabase.from('bl_containers').select('id', { count: 'exact', head: true }).eq('demurrage_status', 'overdue'),
     supabase.from('demurrage_invoices').select('total_usd').eq('status', 'draft'),
-    supabase.from('demurrage_invoices').select('frozen_total_brl').eq('status', 'issued'),
+    supabase.from('demurrage_invoices').select('current_total_brl').eq('status', 'issued'),
   ])
   for (const res of [contRes, draftRes, issuedRes]) {
     if (res.error) throw res.error
@@ -21,7 +119,7 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
   return {
     overdueContainers: contRes.count ?? 0,
     draftInvoicesTotalUsd: (draftRes.data ?? []).reduce((s, r) => s + (r.total_usd ?? 0), 0),
-    issuedInvoicesTotalBrl: (issuedRes.data ?? []).reduce((s, r) => s + (r.frozen_total_brl ?? 0), 0),
+    issuedInvoicesTotalBrl: (issuedRes.data ?? []).reduce((s, r) => s + (r.current_total_brl ?? 0), 0),
   }
 }
 
@@ -167,7 +265,7 @@ export async function fetchROE(): Promise<FetchROEResult> {
     if (!resp.ok) throw new Error(`BCB HTTP ${resp.status}`)
     const json = await resp.json()
     if (!json.value?.length || !json.value[0].cotacaoVenda) throw new Error('Sem cotações no BCB')
-    const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * 1.065).toFixed(4))
+    const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * DEMURRAGE_ROE_MARKUP).toFixed(4))
     saveROECache(roe)
     return { roe, offline: false, cachedAt: null, source: 'bcb_live' }
   } catch (error) {

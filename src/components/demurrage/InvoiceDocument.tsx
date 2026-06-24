@@ -1,6 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
-import type { DemurrageInvoiceDetail } from '../../types/database'
+import type { DemurrageInvoiceDetail, RoeSource } from '../../types/database'
 import { COMPANY } from '../../config/company'
+import { DEMURRAGE_ROE_MARKUP } from '../../services/demurrage/demurrageKpis'
 import { cell, documentRoot, fmtBRL, labelCell } from '../shared/invoiceFormat'
 import { InvoiceClientBlock, InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
@@ -18,6 +19,17 @@ function fmtDate(s: string | null | undefined) {
   return new Date(`${s}T12:00:00`).toLocaleDateString('pt-BR')
 }
 
+function fmtRefDate(s: string | null | undefined) {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('pt-BR')
+}
+
+function roeSourceLabel(source: RoeSource | null): string {
+  if (source === 'cached') return 'BCB (cache)'
+  if (source === 'manual') return 'Informada manualmente'
+  return 'BCB'
+}
+
 export function InvoiceDocument({ detail, type }: Props) {
   const { items, customer, bl, ...invoice } = detail
   const isInvoice = type === 'invoice'
@@ -26,7 +38,7 @@ export function InvoiceDocument({ detail, type }: Props) {
   const voyageNumber = bl?.voyage?.voyage_number ?? '—'
   const containerList = items.map((i) => i.container_number).join(', ')
 
-  const roe = invoice.frozen_roe ?? invoice.roe ?? null
+  const roe = invoice.current_roe ?? invoice.roe ?? null
   const roeValue = roe ?? 1
 
   // Per-row BRL = subtotal_usd × roe
@@ -37,16 +49,18 @@ export function InvoiceDocument({ detail, type }: Props) {
 
   const rawTotalBRL = itemsWithBRL.reduce((s, i) => s + i.subtotal_brl, 0)
 
+  // Desconto sempre em USD, antes da conversão (ADR 0014): o valor fixo está em
+  // dólares e é convertido a BRL pelo ROE; o percentual incide sobre o total.
   let discountAmt = 0
   if (invoice.discount_value && invoice.discount_value > 0) {
     if (invoice.discount_mode === 'percent') {
       discountAmt = rawTotalBRL * (invoice.discount_value / 100)
     } else {
-      discountAmt = invoice.discount_value
+      discountAmt = invoice.discount_value * roeValue
     }
   }
 
-  const totalBRL = invoice.frozen_total_brl ?? Math.max(0, rawTotalBRL - discountAmt)
+  const totalBRL = invoice.current_total_brl ?? Math.max(0, rawTotalBRL - discountAmt)
   const hasDiscount = (invoice.discount_value ?? 0) > 0
 
   return (
@@ -57,6 +71,13 @@ export function InvoiceDocument({ detail, type }: Props) {
       <InvoiceDocTitle>
         {isInvoice ? 'FATURA DE SOBREESTADIA DE CONTAINER' : 'RECIBO DE QUITAÇÃO DE SOBREESTADIA'}
       </InvoiceDocTitle>
+
+      {roe != null && (
+        <p style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', margin: '0 0 12px' }}>
+          Valores calculados em {fmtRefDate(invoice.updated_at)} com PTAX de R$ {fmtBRL(roe / DEMURRAGE_ROE_MARKUP)}
+          {' '}(fonte: {roeSourceLabel(invoice.roe_source)})
+        </p>
+      )}
 
       <InvoiceClientBlock name={customer?.name} cnpjCpf={customer?.cnpj_cpf} />
       <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '0 0 0' }} />

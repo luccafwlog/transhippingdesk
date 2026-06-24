@@ -1,12 +1,35 @@
 # Plano de Reestruturação — Demurrage
 
 **Data:** 23/06/2026 (revisado em 24/06/2026 após sessão de grilling)
-**Status:** Proposto
+**Status:** Implementado — 2026-06-24 (todas as 8 fases; ver checklist)
 **Rotas afetadas:** `/demurrage`, `/demurrage/taxas`, `/reconciliacao`, `/portal/billing`
 **Serviços afetados:** `src/services/demurrage/`, `src/services/containerDatesImport.ts`, `src/services/reconciliacao.ts`
 **Componentes afetados:** `src/pages/Demurrage.tsx`, `src/pages/DemurrageRates.tsx`, `src/components/demurrage/InvoiceDocument.tsx`, `src/components/bl/BlDemurrageSection.tsx`, `src/pages/PortalBilling.tsx`
 **Banco:** Migrações novas + alteração de RPCs existentes
 **Decisões de referência:** ADR 0014 (recálculo diário) e ADR 0015 (conciliação por txid + janela de PTAX)
+
+---
+
+## Checklist de execução
+
+- [x] **Fase 1** — Recálculo diário + Histórico
+  - [x] 1.1 Tabela `demurrage_invoice_history`
+  - [x] 1.2 Renomear `frozen_* → current_*` (migração + types + consumidores)
+  - [x] 1.3 RPC núcleo `recalculate_demurrage_invoices`
+  - [x] 1.4 RPC wrapper manual `recalculate_demurrage_invoices_manual`
+  - [x] 1.5 Edge Function agendada
+  - [x] 1.6 Banner de staleness + botão manual em `/demurrage`
+- [x] **Fase 2** — Simplificação do fluxo + emissão automática
+  - [x] 2.1 `create_demurrage_invoice_with_items` nasce `issued` + foto inicial
+  - [x] 2.2 Emissão automática na importação
+  - [x] 2.3 Remover job `mark_overdue_invoices` (demurrage; taxas locais mantidas)
+  - [x] 2.4 UI: remover rascunhos/vencimento/overdue; ação Cancelar
+- [x] **Fase 3** — Descontos em USD
+- [x] **Fase 4** — Visão por consignatário
+- [x] **Fase 5** — Visão de containers (operacional)
+- [x] **Fase 6** — Data de referência no documento
+- [x] **Fase 7** — Conciliação PIX por txid + janela das duas PTAX
+- [x] **Fase 8** — Portal do Cliente (push/armazenado)
 
 ---
 

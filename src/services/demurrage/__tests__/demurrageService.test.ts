@@ -9,8 +9,6 @@ vi.mock('../demurrageRates', () => ({
 }))
 
 import {
-  issueInvoice,
-  unissueInvoice,
   markInvoicePaid,
   cancelDemurrageInvoice,
   updateDemurrageInvoice,
@@ -52,20 +50,8 @@ beforeEach(() => {
   fromMock.mockImplementation((table: string) => builderFor(table))
 })
 
-it('US-041: emite a invoice congelando ROE e total BRL', async () => {
-  results.demurrage_invoices = { data: { total_usd: 100, discount_mode: null, discount_value: null, first_billed_at: null, doc_number: 'DEM-1' }, error: null }
-  await issueInvoice(5, 5)
-  expect(lastUpdate('demurrage_invoices')).toMatchObject({ status: 'issued', frozen_roe: 5, frozen_total_brl: 500 })
-})
-
-it('US-042: desemite a invoice voltando para draft', async () => {
-  results.demurrage_invoices = { data: null, error: null }
-  await unissueInvoice(5)
-  expect(lastUpdate('demurrage_invoices')).toMatchObject({ status: 'draft', frozen_roe: null, frozen_total_brl: null })
-})
-
 it('US-043: marca como paga uma invoice emitida', async () => {
-  results.demurrage_invoices = { data: { status: 'issued', frozen_roe: 5, frozen_total_brl: 500, total_usd: 100, doc_number: 'DEM-1' }, error: null }
+  results.demurrage_invoices = { data: { status: 'issued', current_roe: 5, current_total_brl: 500, total_usd: 100, doc_number: 'DEM-1' }, error: null }
   await markInvoicePaid(5, '2026-06-23')
   expect(lastUpdate('demurrage_invoices')).toMatchObject({ status: 'paid', paid_at: '2026-06-23' })
 })
@@ -105,7 +91,7 @@ it('US-030: lista os containers em tracking e filtra por cliente', async () => {
 
 it('US-031: calcula os KPIs de demurrage', async () => {
   results.bl_containers = { data: [], count: 3, error: null }
-  results.demurrage_invoices = { data: [{ total_usd: 50, frozen_total_brl: 200 }], error: null }
+  results.demurrage_invoices = { data: [{ total_usd: 50, current_total_brl: 200 }], error: null }
   const kpis = await fetchDemurrageKPIs()
   expect(kpis.overdueContainers).toBe(3)
   expect(kpis.draftInvoicesTotalUsd).toBe(50)

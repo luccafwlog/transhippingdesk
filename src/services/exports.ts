@@ -391,7 +391,7 @@ export async function exportPortalDemurrageWorkbook(rows: PortalDemurrageInvoice
     Emissao: formatDate(row.billed_at ?? row.doc_date) ?? '',
     Vencimento: formatDate(row.due_date) ?? '',
     TotalUSD: Number(row.total_usd ?? 0),
-    TotalBRL: row.frozen_total_brl != null ? Number(row.frozen_total_brl) : '',
+    TotalBRL: row.current_total_brl != null ? Number(row.current_total_brl) : '',
     Status: row.status ?? '',
   }))
 
