@@ -18,6 +18,8 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0011](./0011-revogacao-anon-security-definer-default-deny.md) | Default-deny de `anon` em funções privilegiadas | aceito | Supersedida parcialmente pela 0013 quanto à allowlist `anon` |
 | [0012](./0012-viagens-master-detail-rota-dedicada.md) | Viagens em master-detail com rota dedicada | aceito | Implementada em 2026-06-16 |
 | [0013](./0013-portal-auth-identificador-resolvido-e-excecao-anon.md) | Portal com identificador resolvido e exceção limitada de `anon` | aceito | Decisão vigente para autenticação do Portal |
+| [0014](./0014-demurrage-recalculo-diario-substitui-roe-congelado.md) | Demurrage: recálculo diário substitui ROE congelado na emissão | aceito | Estende a 0008; redefine ROE/Markup |
+| [0015](./0015-demurrage-conciliacao-janela-duas-ptax-data-pagamento.md) | Demurrage: conciliação por janela de duas PTAX na data do pagamento | aceito | Depende da 0014 |
 
 ## Convenção
 

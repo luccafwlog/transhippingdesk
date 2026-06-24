@@ -40,6 +40,12 @@ Fator multiplicativo (1,065) aplicado à PTAX para obter o ROE. É o **spread fi
 
 - **Related:** ROE, PTAX
 
+### Recálculo Diário
+
+Reavaliação do valor em BRL de toda invoice de Demurrage **não paga**, a cada nova PTAX divulgada pelo BCB (dias úteis). Atualiza `current_roe`/`current_total_brl` e grava uma entrada imutável no histórico. Encerra-se no pagamento, quando o valor é congelado.
+
+- **Related:** ROE, PTAX, Markup, Invoice de Demurrage
+
 ### Invoice de Demurrage
 
 Documento financeiro que cobra sobreestadia de containers. Cada item armazena a composição completa do cálculo: free days, dias P1, taxa P1, dias P2, taxa P2, subtotal. O cliente (portal) deve ver free time e valor por período para garantir transparência. O admin vê o detalhe completo incluindo ROE e descontos.
