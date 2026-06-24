@@ -377,17 +377,6 @@ resultado e evidência conforme
 4. build;
 5. testes.
 
-### Merge e deploy automático
-
-Quando o workflow `CI` termina com sucesso para um pull request,
-`auto-merge-prs.yml`:
-
-1. confirma que o PR continua aberto e no mesmo SHA;
-2. executa squash merge;
-3. faz checkout do SHA final;
-4. gera novo build com `VITE_APP_COMMIT_SHA`;
-5. publica no Firebase Hosting.
-
 O build/deploy permanece nesse workflow porque merges feitos pelo
 `GITHUB_TOKEN` não disparam necessariamente outro workflow de push.
 

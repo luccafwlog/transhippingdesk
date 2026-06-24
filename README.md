@@ -116,13 +116,9 @@ O fluxo atual é:
 ```text
 pull_request
   -> CI: documentação, lint, build e testes
-  -> workflow_run com sucesso
-  -> squash merge
-  -> novo build
-  -> Firebase Hosting
 
-push direto em main
-  -> build
+push em main
+  -> CI + build + Firebase Hosting
   -> Firebase Hosting
 ```
 

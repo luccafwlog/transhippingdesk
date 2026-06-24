@@ -7,21 +7,9 @@
 | Workflow | Gatilho | O que faz |
 |---|---|---|
 | `.github/workflows/ci.yml` | `pull_request` | `npm ci --legacy-peer-deps` → `lint` → `build` (tsc + vite) → `test`. Gate de qualidade do PR. |
-| `.github/workflows/auto-merge-prs.yml` | PR aberto/reaberto | **Merge automático** (squash) via API → checkout do SHA → build → **deploy** Firebase. |
-| `.github/workflows/firebase-deploy.yml` | push direto em `main` | Build + deploy (cobre hotfixes). |
+| `.github/workflows/firebase-deploy.yml` | push em `main` | Build + deploy. |
 
-### Fluxo padrão (auto-merge)
-
-Todo PR aberto/reaberto dispara `auto-merge-prs.yml`:
-
-1. **Merge automático** (squash) via API do GitHub → gera o SHA final.
-2. Checkout do SHA + setup Node 20.
-3. `npm ci --legacy-peer-deps` + `npm run build`, injetando `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_APP_COMMIT_SHA` dos secrets.
-4. Deploy para Firebase Hosting.
-
-> `VITE_APP_COMMIT_SHA` expõe o SHA do deploy na aplicação (rastreabilidade).
-
-### Deploy manual (emergência)
+### Deploy manual
 
 ```bash
 npm run build
