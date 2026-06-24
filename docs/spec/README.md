@@ -48,8 +48,22 @@ the RPC call sites, `supabase/functions/`, the migrations and
 [`../RASTREABILIDADE.md`](../RASTREABILIDADE.md), and the green Vitest suite
 (`npm test`).
 
-The open `Tested-Fail` rows are the documented `Suspeita: ACL` security items:
-`anon` EXECUTE granted on six Portal read RPCs (contradicts ADR 0013) and
-several `SECURITY DEFINER` RPCs lacking an internal `is_active_user()` guard
-(ADR 0004). Their fixes require **new** migrations and remote grant
-verification; they are tracked in the `Notes` column, not silently closed.
+The documented `Suspeita: ACL` security items have been **resolved** by two new
+migrations, asserted by `src/services/__tests__/definerActiveUserGuardMigration.test.ts`:
+
+- `20260624100000_revoke_anon_portal_read_rpcs.sql` — revokes `anon` EXECUTE
+  from the six Portal read RPCs, restoring the ADR 0013 allowlist.
+- `20260624100100_guard_definer_rpcs_active_user.sql` — adds the canonical
+  `auth.uid() + is_active_user()` gate (ADR 0004) to `calculate_bl_local_charges`,
+  `detect_overdue_invoices`, `list_bl_local_charge_lines`,
+  `list_manual_charge_items_for_bl` and `list_customer_reconciliation_queue`
+  (the three readers are converted from `LANGUAGE sql` to `plpgsql` with the
+  query preserved verbatim under `RETURN QUERY`).
+
+No `Tested-Fail` rows remain. The strongest evidence reachable in this
+environment is the green Vitest + SQL-contract suite; **applying the new grants
+to the remote project and confirming them at runtime is a controlled-deploy
+step** (the project's "Plano 08"), tracked in each affected row's `Notes`. Rows
+still marked `Spec'd` / `Tested-Pass` carry no open defect — their status
+reflects evidence strength (static read / SQL-contract) where no executed
+behavior test exists, not an unresolved issue.

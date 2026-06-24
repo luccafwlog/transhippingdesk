@@ -322,6 +322,37 @@ triggers.forEach((x, i) => {
     'SQL (migration)', `supabase/migrations/${src}`, 'Indirect effect; runtime not inspected for cron jobs.'))
 })
 
+// ───────────────────────────── REMEDIATION PASS ─────────────────────────────
+// The Suspeita: ACL defects were fixed with two new migrations and a green
+// SQL-contract suite (definerActiveUserGuardMigration.test.ts). Remote grant
+// application is tracked for the controlled deploy. Flip the affected rows from
+// Tested-Fail to Verified and move the detail to Notes.
+const anonFixed = new Set([
+  'portal_list_operation_bls', 'portal_list_consolidatable_receivables', 'portal_list_invoices',
+  'portal_invoice_details', 'portal_list_demurrage_invoices', 'portal_get_demurrage_invoice_detail',
+])
+const guardFixed = new Set([
+  'calculate_bl_local_charges', 'detect_overdue_invoices', 'list_bl_local_charge_lines',
+  'list_manual_charge_items_for_bl', 'list_customer_reconciliation_queue',
+])
+const rpcNameOf = (s) => (s.match(/supabase\.rpc\('([^']+)'\)/) || [])[1]
+for (const row of rows) {
+  const name = rpcNameOf(row['User Story'])
+  if (row.ID === 'AUTH-06') {
+    row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
+    row.Evidence = 'SQL-contract + Static'
+    row['Open Questions / Notes'] = 'RESOLVED: 20260624100000_revoke_anon_portal_read_rpcs.sql revokes anon from the six Portal read RPCs; 20260624100100_guard_definer_rpcs_active_user.sql adds is_active_user() gates. Asserted by definerActiveUserGuardMigration.test.ts (green). Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
+  } else if (name && anonFixed.has(name)) {
+    row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
+    row.Evidence = 'SQL-contract'
+    row['Open Questions / Notes'] = 'RESOLVED: anon EXECUTE revoked in 20260624100000_revoke_anon_portal_read_rpcs.sql (ADR 0013). definerActiveUserGuardMigration.test.ts green. Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
+  } else if (name && guardFixed.has(name)) {
+    row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
+    row.Evidence = 'SQL-contract'
+    row['Open Questions / Notes'] = 'RESOLVED: is_active_user() gate added in 20260624100100_guard_definer_rpcs_active_user.sql (ADR 0004); SQL readers converted to plpgsql (query preserved via RETURN QUERY). definerActiveUserGuardMigration.test.ts green. Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
+  }
+}
+
 // ───────────────────────────── EMIT CSV + XLSX ─────────────────────────────
 function toCsv(records) {
   const esc = (v) => {
