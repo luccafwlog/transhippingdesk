@@ -12,7 +12,7 @@ const localInvoices: PortalInvoiceSummary[] = [
 ]
 
 const demurrageInvoices: PortalDemurrageInvoice[] = [
-  { id: 10, doc_number: 'DEM-1', doc_date: '2026-06-03', due_date: '2026-06-30', billed_at: '2026-06-03', paid_at: null, total_usd: 50, current_roe: 5, current_total_brl: 250, status: 'issued', pix_payload: null, dispute_open: false, discount_type: null, discount_value: null, discount_mode: null, bl_id: 'BL1', pol: null, pod: null, voyage_number: null, vessel_name: null },
+  { id: 10, doc_number: 'DEM-1', doc_date: '2026-06-03', due_date: '2026-06-30', billed_at: '2026-06-03', paid_at: null, total_usd: 50, current_roe: 5, current_total_brl: 250, roe_source: 'bcb_live', updated_at: '2026-06-03T12:00:00Z', status: 'issued', pix_payload: null, dispute_open: false, discount_type: null, discount_value: null, discount_mode: null, bl_id: 'BL1', pol: null, pod: null, voyage_number: null, vessel_name: null },
 ]
 
 const operationBls: PortalOperationBL[] = [

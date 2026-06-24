@@ -1,7 +1,7 @@
 # Plano de Reestruturação — Demurrage
 
 **Data:** 23/06/2026 (revisado em 24/06/2026 após sessão de grilling)
-**Status:** Proposto
+**Status:** Implementado — 2026-06-24 (todas as 8 fases; ver checklist)
 **Rotas afetadas:** `/demurrage`, `/demurrage/taxas`, `/reconciliacao`, `/portal/billing`
 **Serviços afetados:** `src/services/demurrage/`, `src/services/containerDatesImport.ts`, `src/services/reconciliacao.ts`
 **Componentes afetados:** `src/pages/Demurrage.tsx`, `src/pages/DemurrageRates.tsx`, `src/components/demurrage/InvoiceDocument.tsx`, `src/components/bl/BlDemurrageSection.tsx`, `src/pages/PortalBilling.tsx`
@@ -29,7 +29,7 @@
 - [x] **Fase 5** — Visão de containers (operacional)
 - [x] **Fase 6** — Data de referência no documento
 - [x] **Fase 7** — Conciliação PIX por txid + janela das duas PTAX
-- [ ] **Fase 8** — Portal do Cliente (push/armazenado)
+- [x] **Fase 8** — Portal do Cliente (push/armazenado)
 
 ---
 

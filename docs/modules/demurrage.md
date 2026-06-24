@@ -153,12 +153,16 @@ excluir para admin, conforme
   [`src/lib/pix.ts`](../../src/lib/pix.ts) com valor BRL e `doc_number` como
   TXID. A baixa de demurrage não cria `bl_receivables`,
   `invoice_receivable_links` nem `ledger_settlements`.
-- **Portal:** [`src/services/portalBilling.ts`](../../src/services/portalBilling.ts)
+- **Portal (push/armazenado):** [`src/services/portalBilling.ts`](../../src/services/portalBilling.ts)
   chama `portal_list_demurrage_invoices()` e
-  `portal_get_demurrage_invoice_detail(bigint)`. A implementação atual em
-  [`20260615220000_portal_ce_mercante_gate.sql`](../../supabase/migrations/20260615220000_portal_ce_mercante_gate.sql)
-  resolve o cliente pela sessão, limita a invoices `issued|overdue|paid` e exige
-  liberação do B/L para o Portal.
+  `portal_get_demurrage_invoice_detail(bigint)`. O cliente resolve pela sessão,
+  limita a invoices `issued|overdue|paid` e exige liberação do B/L. Sob recálculo
+  diário (ADR 0014) o portal **não** recalcula on-demand: exibe o **último
+  recálculo armazenado** — USD fixo (`total_usd`) + BRL dinâmico
+  (`current_total_brl`) com data/fonte de referência (`updated_at`, `roe_source`,
+  via [`20260624150000_portal_demurrage_reference.sql`](../../supabase/migrations/20260624150000_portal_demurrage_reference.sql)).
+  Assim o valor exibido == valor do QR == histórico. Sem notificação a cada
+  recálculo.
 
 ## Fluxos e invariantes
 

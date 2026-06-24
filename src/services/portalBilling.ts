@@ -110,6 +110,8 @@ export type PortalDemurrageInvoice = {
   total_usd: number
   current_roe: number | null
   current_total_brl: number | null
+  roe_source: string | null
+  updated_at: string | null
   status: string
   pix_payload: string | null
   dispute_open: boolean | null

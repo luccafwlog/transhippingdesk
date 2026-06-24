@@ -51,6 +51,8 @@ const demurrageInvoices: PortalDemurrageInvoice[] = [
     total_usd: 50,
     current_roe: 5,
     current_total_brl: 250,
+    roe_source: 'bcb_live',
+    updated_at: '2026-06-03T12:00:00Z',
     status: 'issued',
     pix_payload: null,
     dispute_open: false,
