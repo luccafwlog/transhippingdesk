@@ -209,11 +209,17 @@ um intervalo fixo documentado.
 ### Edge Functions
 
 - `provision-portal-user`: cria ou atualiza o usuário Auth do Portal;
-- `notify-invoice-issued`: busca a invoice e envia email pelo Resend.
+- `notify-invoice-issued`: implementada para buscar a invoice e enviar email
+  pelo Resend, mas **não está ativa**. Não há Database Webhook configurado, o
+  `RESEND_API_KEY` não está provisionado e, por decisão atual, o projeto não
+  dispara email para clientes. A notificação ao cliente acontece in-app
+  (gatilho `trg_notify_invoice_issued`). Reativar é trabalho futuro, fora do
+  escopo atual.
 
 ## Integrações externas
 
-- **Resend:** email de invoice emitida;
+- **Resend:** email de invoice emitida — código presente, porém **inativo**
+  (sem webhook, sem chave, sem plano atual de envio ao cliente);
 - **Banco Central:** cotação PTAX;
 - **Sentry:** erros do frontend em produção;
 - **Firebase Hosting:** distribuição da SPA;

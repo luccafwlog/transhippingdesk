@@ -48,8 +48,9 @@ the RPC call sites, `supabase/functions/`, the migrations and
 [`../RASTREABILIDADE.md`](../RASTREABILIDADE.md), and the green Vitest suite
 (`npm test`).
 
-The documented `Suspeita: ACL` security items have been **resolved** by two new
-migrations, asserted by `src/services/__tests__/definerActiveUserGuardMigration.test.ts`:
+The documented `Suspeita: ACL` security items have been **resolved** by three
+new migrations, asserted by `definerActiveUserGuardMigration.test.ts` and
+`revokeAnonDefinerDriftMigration.test.ts`:
 
 - `20260624100000_revoke_anon_portal_read_rpcs.sql` — revokes `anon` EXECUTE
   from the six Portal read RPCs, restoring the ADR 0013 allowlist.
@@ -59,11 +60,22 @@ migrations, asserted by `src/services/__tests__/definerActiveUserGuardMigration.
   `list_manual_charge_items_for_bl` and `list_customer_reconciliation_queue`
   (the three readers are converted from `LANGUAGE sql` to `plpgsql` with the
   query preserved verbatim under `RETURN QUERY`).
+- `20260624110000_revoke_anon_definer_drift.sql` — Plano 08 runtime checks
+  surfaced 8 further `SECURITY DEFINER` functions still `anon`-executable
+  (default-grant drift on functions recreated after `20260609225321`). This
+  re-runs the comprehensive `anon`/`PUBLIC` revoke, carving out
+  `portal_resolve_login` (ADR 0013).
 
-No `Tested-Fail` rows remain. The strongest evidence reachable in this
-environment is the green Vitest + SQL-contract suite; **applying the new grants
-to the remote project and confirming them at runtime is a controlled-deploy
-step** (the project's "Plano 08"), tracked in each affected row's `Notes`. Rows
-still marked `Spec'd` / `Tested-Pass` carry no open defect — their status
-reflects evidence strength (static read / SQL-contract) where no executed
-behavior test exists, not an unresolved issue.
+**Plano 08 was executed:** the first two migrations were verified at runtime in
+production (`fgmkhbzhaeebrsizwccx`, 2026-06-24) — `anon` EXECUTE is `false` on
+the six Portal RPCs, the five guarded functions are `plpgsql` with the
+`is_active_user()` check, all `pg_cron` jobs exist, and no public table has RLS
+disabled. The affected rows now carry `Runtime (prod)` evidence.
+
+No `Tested-Fail` rows remain. Rows still marked `Spec'd` / `Tested-Pass` carry
+no open defect — their status reflects evidence strength (static read /
+SQL-contract) where no executed behavior test exists, not an unresolved issue.
+Notably `EDGE-02` (`notify-invoice-issued`) is **inactive by decision**: there
+is no Database Webhook and no `RESEND_API_KEY` in production, so the project
+sends no customer email today (client notification is in-app). Re-activation is
+future work, not a defect.
