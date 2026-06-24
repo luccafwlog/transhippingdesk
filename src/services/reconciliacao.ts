@@ -63,6 +63,34 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   const localInvoices = localRes.data ?? []
   const demurrageInvoices = demurrageRes.data ?? []
 
+  // Janela das duas PTAX (ADR 0015): para validar pagamentos feitos com um QR de
+  // um dia anterior, carregamos o histórico de recálculo das faturas candidatas.
+  const demurrageIds = demurrageInvoices.map((i) => i.id)
+  const historyByInvoice = new Map<number, Array<{ event_date: string; total_brl: number }>>()
+  if (demurrageIds.length) {
+    const { data: histRows, error: histErr } = await supabase
+      .from('demurrage_invoice_history')
+      .select('invoice_id, event_date, total_brl, id')
+      .in('invoice_id', demurrageIds)
+      .order('event_date', { ascending: false })
+      .order('id', { ascending: false })
+    if (histErr) throw histErr
+    for (const row of (histRows ?? []) as Array<{ invoice_id: number; event_date: string; total_brl: number }>) {
+      const list = historyByInvoice.get(row.invoice_id) ?? []
+      list.push({ event_date: row.event_date, total_brl: Number(row.total_brl) })
+      historyByInvoice.set(row.invoice_id, list)
+    }
+  }
+
+  // Aceita o valor pago se casar com qualquer uma das duas entradas de recálculo
+  // mais recentes com event_date <= data do pagamento, ou (fallback) com o corrente.
+  function demurrageAmountAcceptable(invoiceId: number, paymentDate: string, amount: number, currentBrl: number): boolean {
+    const rows = historyByInvoice.get(invoiceId) ?? []
+    const windowRows = rows.filter((r) => r.event_date <= paymentDate).slice(0, 2)
+    if (windowRows.some((r) => Math.abs(r.total_brl - amount) <= 0.01)) return true
+    return Math.abs(currentBrl - amount) <= 0.01
+  }
+
   const usedTxids = new Set<string>(
     [
       ...localInvoices.map((i) => i.pix_txid ?? '').filter(Boolean),
@@ -143,12 +171,16 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       ambiguityReason = 'TXID repetido no mesmo extrato.'
     } else if (!Number.isFinite(amountDiff)) {
       ambiguityReason = 'Valor do documento nao e numerico.'
-    } else if (Math.abs(amountDiff) > 0.01) {
-      // PIX e copia-e-cola de valor fixo: precisa bater exatamente. Divergencia para
-      // mais ou para menos e ambigua (nao existe pagamento parcial por PIX).
+    } else if (
+      entry.source === 'demurrage'
+        ? !demurrageAmountAcceptable(entry.id, tx.date, tx.amount, entry.amount)
+        : Math.abs(amountDiff) > 0.01
+    ) {
+      // PIX e copia-e-cola de valor fixo: precisa bater exatamente. Para demurrage,
+      // aceita a janela das duas PTAX (QR de um dia anterior ainda e pagavel).
       ambiguityReason =
         entry.source === 'demurrage'
-          ? 'Valor do PIX diverge da demurrage emitida.'
+          ? 'Valor do PIX diverge da demurrage (fora da janela das duas PTAX).'
           : 'Valor do PIX diverge do saldo aberto da fatura.'
     }
 

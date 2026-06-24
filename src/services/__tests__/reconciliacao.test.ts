@@ -21,6 +21,7 @@ function createSelectBuilder(result: { data: unknown; error: unknown }) {
     select: vi.fn(() => builder),
     in: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    order: vi.fn(() => builder),
     overrideTypes: vi.fn(() => builder),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
@@ -28,9 +29,10 @@ function createSelectBuilder(result: { data: unknown; error: unknown }) {
   return builder
 }
 
-function installFromMock(input: { localInvoices?: unknown[]; demurrageInvoices?: unknown[] }) {
+function installFromMock(input: { localInvoices?: unknown[]; demurrageInvoices?: unknown[]; demurrageHistory?: unknown[] }) {
   const localInvoices = input.localInvoices ?? []
   const demurrageInvoices = input.demurrageInvoices ?? []
+  const demurrageHistory = input.demurrageHistory ?? []
   const invoiceUpdateBuilder = {
     eq: vi.fn(() => Promise.resolve({ data: null, error: null })),
   }
@@ -48,6 +50,11 @@ function installFromMock(input: { localInvoices?: unknown[]; demurrageInvoices?:
       return {
         select: vi.fn(() => createSelectBuilder({ data: demurrageInvoices, error: null })),
         update: mockDemurrageUpdate,
+      }
+    }
+    if (table === 'demurrage_invoice_history') {
+      return {
+        select: vi.fn(() => createSelectBuilder({ data: demurrageHistory, error: null })),
       }
     }
     throw new Error(`Tabela nao mockada: ${table}`)
@@ -152,6 +159,32 @@ describe('reconciliacao PIX unificada', () => {
 
     expect(matches).toHaveLength(1)
     expect(matches[0]).toMatchObject({ source: 'demurrage', ambiguous: true })
+  })
+
+  it('aceita demurrage paga com o valor de uma PTAX anterior (janela das duas PTAX)', async () => {
+    installFromMock({
+      demurrageInvoices: [
+        {
+          id: 20,
+          doc_number: 'DEM-001',
+          current_total_brl: 110, // valor de hoje (PTAX nova)
+          pix_txid: null,
+          customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
+        },
+      ],
+      demurrageHistory: [
+        { invoice_id: 20, event_date: '2026-05-28', total_brl: 110, id: 2 },
+        { invoice_id: 20, event_date: '2026-05-27', total_brl: 100, id: 1 },
+      ],
+    })
+
+    // Cliente pagou em 28/05 com o QR de 27/05 (valor 100); deve casar pela janela.
+    const matches = await matchUnifiedPixTransactions([
+      { txid: 'DEM-001', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 100 },
+    ])
+
+    expect(matches).toHaveLength(1)
+    expect(matches[0]).toMatchObject({ source: 'demurrage', ambiguous: false })
   })
 
   it('marca fatura local com valor a menor como ambiguo (PIX nao admite parcial)', async () => {
