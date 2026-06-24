@@ -76,6 +76,11 @@ rows.push(
     'Functional/Operational (security ACL)', 'SQL-contract + Static',
     'docs/adr/0011*.md; docs/adr/0013*.md; supabase/migrations/20260615220000_portal_ce_mercante_gate.sql',
     'Fix prepared as new migration 20260624100000_revoke_anon_portal_read_rpcs.sql (revokes anon, keeps authenticated). Writing it requires the protected-migrations override; pending user authorization. anon is already functionally blocked because current_portal_customer_id() raises 28000 on null auth.uid().'),
+  r('AUTH-07', 'Auth (Security)', 'As the platform I want no SECURITY DEFINER function executable by anon except the ADR 0013 exception',
+    'Plano 08 production check (fgmkhbzhaeebrsizwccx, 2026-06-24) via the security advisor found 8 SECURITY DEFINER functions still anon-executable beyond portal_resolve_login: cancel_invoice, create_invoice_from_bls, create_invoice_from_bls_with_ledger, settle_invoice_refund (all guarded by active+admin+uid -> NOT exploitable), bl_has_portal_release(text) (unguarded boolean reader -> minor unauth oracle), and the trigger fns notify_invoice_issued/notify_demurrage_issued/notify_dispute_responded (not REST-exposed). Drift from default Supabase grants on functions recreated after 20260609225321.',
+    'Verified', '', '', 'Runtime (prod) + SQL-contract',
+    'supabase/migrations/20260624110000_revoke_anon_definer_drift.sql; security advisor anon_security_definer_function_executable',
+    'RESOLVED: 20260624110000 re-runs the comprehensive anon/PUBLIC revoke over all public SECURITY DEFINER functions (and authenticated from trigger fns), carving out portal_resolve_login (ADR 0013). Idempotent; internal definer->definer calls use owner privilege so helpers keep working. Asserted by revokeAnonDefinerDriftMigration.test.ts.'),
 )
 
 // ───────────────────────────── SPA ROUTES ─────────────────────────────
@@ -241,9 +246,9 @@ rows.push(
     'Verified', '', '', 'Vitest', 'supabase/functions/provision-portal-user/index.ts; supabase/config.toml; customers.test.ts',
     'customers.test.ts mocks invoke order/failure; Edge runtime not executed here.'),
   r('EDGE-02', 'Faturamento / Portal', 'As the DB webhook I invoke notify-invoice-issued on invoices.status -> issued',
-    'Bearer must equal SUPABASE_SERVICE_ROLE_KEY (timing-safe); accepts absent Origin or Origin == SUPABASE_URL; service role re-reads invoice/customer/contacts (no DB writes); sends email via Resend. No recipient/key -> skipped/sent:false; auth fail 401; Resend/parse fail 500.',
-    'Spec’d', '', '', 'Static', 'supabase/functions/notify-invoice-issued/index.ts',
-    'Suspeita: webhook/secret/deploy not versioned; no dedicated config.toml block to confirm verify_jwt; no own rate limit. Needs controlled-runtime confirmation.'),
+    'Code path: bearer must equal SUPABASE_SERVICE_ROLE_KEY (timing-safe); accepts absent Origin or Origin == SUPABASE_URL; service role re-reads invoice/customer/contacts (no DB writes); sends email via Resend. No recipient/key -> skipped/sent:false; auth fail 401; Resend/parse fail 500.',
+    'Spec’d', '', '', 'Static + Runtime (prod)', 'supabase/functions/notify-invoice-issued/index.ts',
+    'INACTIVE BY DECISION (not a defect): production check 2026-06-24 confirms no Database Webhook wires this function and RESEND_API_KEY is not provisioned, so it never runs. The project does not send customer email today; client notification is in-app (trg_notify_invoice_issued). Re-activation (webhook + key + optional rate limit) is future work, out of current scope.'),
 )
 
 // ───────────────────────────── RLS TABLE BOUNDARIES ─────────────────────────────
@@ -340,16 +345,16 @@ for (const row of rows) {
   const name = rpcNameOf(row['User Story'])
   if (row.ID === 'AUTH-06') {
     row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
-    row.Evidence = 'SQL-contract + Static'
-    row['Open Questions / Notes'] = 'RESOLVED: 20260624100000_revoke_anon_portal_read_rpcs.sql revokes anon from the six Portal read RPCs; 20260624100100_guard_definer_rpcs_active_user.sql adds is_active_user() gates. Asserted by definerActiveUserGuardMigration.test.ts (green). Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
+    row.Evidence = 'SQL-contract + Runtime (prod)'
+    row['Open Questions / Notes'] = 'RESOLVED & RUNTIME-VERIFIED in production (fgmkhbzhaeebrsizwccx, 2026-06-24): both migrations applied; the six Portal read RPCs show anon EXECUTE=false; portal_resolve_login keeps anon (ADR 0013). Plano 08 also found drift — 8 other SECURITY DEFINER funcs were anon-executable (4 guarded financial RPCs, the bl_has_portal_release helper, 3 non-REST trigger fns); not exploitable but ADR 0011 drift, fixed by 20260624110000_revoke_anon_definer_drift.sql.'
   } else if (name && anonFixed.has(name)) {
     row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
-    row.Evidence = 'SQL-contract'
-    row['Open Questions / Notes'] = 'RESOLVED: anon EXECUTE revoked in 20260624100000_revoke_anon_portal_read_rpcs.sql (ADR 0013). definerActiveUserGuardMigration.test.ts green. Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
+    row.Evidence = 'SQL-contract + Runtime (prod)'
+    row['Open Questions / Notes'] = 'RESOLVED & RUNTIME-VERIFIED: anon EXECUTE=false confirmed in production (fgmkhbzhaeebrsizwccx, 2026-06-24); authenticated EXECUTE=true. Migration 20260624100000 (ADR 0013), asserted by definerActiveUserGuardMigration.test.ts.'
   } else if (name && guardFixed.has(name)) {
     row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
-    row.Evidence = 'SQL-contract'
-    row['Open Questions / Notes'] = 'RESOLVED: is_active_user() gate added in 20260624100100_guard_definer_rpcs_active_user.sql (ADR 0004); SQL readers converted to plpgsql (query preserved via RETURN QUERY). definerActiveUserGuardMigration.test.ts green. Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
+    row.Evidence = 'SQL-contract + Runtime (prod)'
+    row['Open Questions / Notes'] = 'RESOLVED & RUNTIME-VERIFIED in production (fgmkhbzhaeebrsizwccx, 2026-06-24): language=plpgsql, is_active_user() guard present, anon EXECUTE=false. Migration 20260624100100 (ADR 0004); readers converted to plpgsql with query preserved via RETURN QUERY.'
   }
 }
 
