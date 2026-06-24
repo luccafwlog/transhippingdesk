@@ -4,6 +4,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { Field, Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -56,6 +57,7 @@ export function DemurrageRates() {
   const queryClient = useQueryClient()
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<DemurrageRateForm & { id?: number }>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -100,6 +102,7 @@ export function DemurrageRates() {
   }
 
   async function handleDelete(id: number) {
+    if (!(await confirm({ message: 'Excluir esta tarifa?', tone: 'danger', confirmLabel: 'Excluir' }))) return
     setDeletingId(id)
     try {
       await deleteDemurrageRate(id)
@@ -140,49 +143,49 @@ export function DemurrageRates() {
 
       <Card className="overflow-hidden p-0">
         <div className="app-table-scroll">
-          <table className="app-table text-left text-sm">
-            <thead>
+          <table className="app-table app-table--compact min-w-[800px] text-left text-sm whitespace-nowrap">
+            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th scope="col">Tipo Container</th>
-                <th scope="col">Free Days</th>
-                <th scope="col">P1 (dias)</th>
-                <th scope="col">P1 USD/dia</th>
-                <th scope="col">P2 (dias)</th>
-                <th scope="col">P2 USD/dia</th>
-                <th scope="col">Vigência</th>
-                <th scope="col">Status</th>
-                {isAdmin && <th scope="col" className="w-20">Ações</th>}
+                <th scope="col" className="px-4 py-3">Tipo Container</th>
+                <th scope="col" className="px-4 py-3">Free Days</th>
+                <th scope="col" className="px-4 py-3">P1 (dias)</th>
+                <th scope="col" className="px-4 py-3">P1 USD/dia</th>
+                <th scope="col" className="px-4 py-3">P2 (dias)</th>
+                <th scope="col" className="px-4 py-3">P2 USD/dia</th>
+                <th scope="col" className="px-4 py-3">Vigência</th>
+                <th scope="col" className="px-4 py-3">Status</th>
+                {isAdmin && <th scope="col" className="px-4 py-3 w-20">Ações</th>}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[#30363d]">
               {isLoading && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Carregando...
                   </td>
                 </tr>
               )}
               {!isLoading && !rates?.length && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Nenhuma tarifa cadastrada.
                   </td>
                 </tr>
               )}
               {(rates ?? []).map((rate) => (
-                <tr key={rate.id}>
-                  <td className="font-mono font-semibold">{rate.container_type}</td>
-                  <td>{rate.free_days}</td>
-                  <td>
+                <tr key={rate.id} className="hover:bg-[#21262d]/60">
+                  <td className="px-4 py-3 font-mono font-semibold">{rate.container_type}</td>
+                  <td className="px-4 py-3">{rate.free_days}</td>
+                  <td className="px-4 py-3">
                     {rate.p1_day_from}–{rate.p1_day_to}
                   </td>
-                  <td>$ {Number(rate.p1_usd).toFixed(2)}</td>
-                  <td>{rate.p2_day_from}+</td>
-                  <td>$ {Number(rate.p2_usd).toFixed(2)}</td>
-                  <td className="text-slate-300">
+                  <td className="px-4 py-3">$ {Number(rate.p1_usd).toFixed(2)}</td>
+                  <td className="px-4 py-3">{rate.p2_day_from}+</td>
+                  <td className="px-4 py-3">$ {Number(rate.p2_usd).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-400">
                     {rate.valid_from ?? '—'} {rate.valid_to ? `→ ${rate.valid_to}` : ''}
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     {isAdmin ? (
                       <button onClick={() => handleToggleActive(rate)} className="cursor-pointer">
                         <Badge tone={rate.active ? 'green' : 'slate'}>{rate.active ? 'Ativo' : 'Inativo'}</Badge>
@@ -192,11 +195,11 @@ export function DemurrageRates() {
                     )}
                   </td>
                   {isAdmin && (
-                    <td>
+                    <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button
                           onClick={() => openEdit(rate)}
-                          className="text-slate-400 hover:text-white"
+                          className="app-table__icon-button app-table__icon-button--sm"
                           title="Editar"
                           aria-label="Editar tarifa"
                         >
@@ -205,7 +208,7 @@ export function DemurrageRates() {
                         <button
                           onClick={() => handleDelete(rate.id)}
                           disabled={deletingId === rate.id}
-                          className="text-red-400 hover:text-red-300 disabled:opacity-40"
+                          className="app-table__icon-button app-table__icon-button--danger app-table__icon-button--sm"
                           title="Excluir"
                           aria-label="Excluir tarifa"
                         >
