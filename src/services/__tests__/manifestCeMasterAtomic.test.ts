@@ -33,7 +33,7 @@ describe('setImportBatchCeMaster', () => {
 
 it('define uma RPC transacional e protegida para CE Master', () => {
   const sql = fs.readFileSync(
-    path.resolve('supabase/migrations/20260623110000_set_import_batch_ce_master_atomic.sql'),
+    path.resolve('supabase/migrations/145_set_import_batch_ce_master_atomic.sql'),
     'utf8',
   )
 

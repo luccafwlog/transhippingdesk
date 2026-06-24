@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('consolidated invoice breakdown migration', () => {
   it('restricts the breakdown RPC to active admins', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260609133000_restrict_consolidated_invoice_breakdown.sql'),
+      resolve(process.cwd(), 'supabase/migrations/090_restrict_consolidated_invoice_breakdown.sql'),
       'utf8',
     )
 

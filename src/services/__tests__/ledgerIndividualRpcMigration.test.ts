@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('ledger individual invoice RPC migration', () => {
   it('defines the individual receivable RPC and routes auto emission through it', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260529140000_ledger_individual_invoice_rpc.sql'),
+      resolve(process.cwd(), 'supabase/migrations/070_ledger_individual_invoice_rpc.sql'),
       'utf8',
     )
 

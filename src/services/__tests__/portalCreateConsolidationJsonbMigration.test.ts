@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('portal create consolidation jsonb fix migration', () => {
   const sql = readFileSync(
-    resolve(process.cwd(), 'supabase/migrations/20260615200000_fix_portal_create_consolidation_jsonb.sql'),
+    resolve(process.cwd(), 'supabase/migrations/121_fix_portal_create_consolidation_jsonb.sql'),
     'utf8',
   )
 

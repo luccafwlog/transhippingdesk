@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260619130000_review_gate_hardening.sql',
+  'supabase/migrations/129_review_gate_hardening.sql',
 )
 const sql = existsSync(migrationPath) ? readFileSync(migrationPath, 'utf8') : ''
 

@@ -36,7 +36,7 @@ Demurrage **não** entra no ledger local — mantém persistência própria (`de
 
 ## Bloqueio de faturamento por cliente (billing block)
 
-O cliente pode ter um motivo de bloqueio de faturamento persistido. A migration `20260618145508_preserve_customer_billing_block_reason.sql` deixou de **inferir** um motivo genérico durante a importação — o motivo só é definido por ação explícita, preservando o que já existir. Ver [Clientes](../modules/clientes.md).
+O cliente pode ter um motivo de bloqueio de faturamento persistido. A migration `126_preserve_customer_billing_block_reason.sql` deixou de **inferir** um motivo genérico durante a importação — o motivo só é definido por ação explícita, preservando o que já existir. Ver [Clientes](../modules/clientes.md).
 
 ## Câmbio (ROE / PTAX)
 
@@ -63,7 +63,7 @@ Detalhes em [Manifestos & EDI](../modules/manifesto-edi.md). Definições em [CO
 
 ## Gate de CE Mercante no Portal
 
-O Portal do Cliente só expõe dados de B/Ls que tenham `ce_mercante` preenchido (migration `20260615220000_portal_ce_mercante_gate.sql`). Evita mostrar carga ainda não declarada no Mercante. Ver [Portal do Cliente](../modules/portal-cliente.md).
+O Portal do Cliente só expõe dados de B/Ls que tenham `ce_mercante` preenchido (migration `123_portal_ce_mercante_gate.sql`). Evita mostrar carga ainda não declarada no Mercante. Ver [Portal do Cliente](../modules/portal-cliente.md).
 
 ## Hard delete controlado
 

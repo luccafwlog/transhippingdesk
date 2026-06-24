@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('ledger partial payments migration', () => {
   const sql = readFileSync(
-    resolve(process.cwd(), 'supabase/migrations/20260612162000_register_ledger_partial_payments.sql'),
+    resolve(process.cwd(), 'supabase/migrations/104_register_ledger_partial_payments.sql'),
     'utf8',
   )
 

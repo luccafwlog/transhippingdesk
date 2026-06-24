@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('portal resolve login hardening migration', () => {
   const sql = readFileSync(
-    resolve(process.cwd(), 'supabase/migrations/20260615210000_harden_portal_resolve_login.sql'),
+    resolve(process.cwd(), 'supabase/migrations/122_harden_portal_resolve_login.sql'),
     'utf8',
   )
 

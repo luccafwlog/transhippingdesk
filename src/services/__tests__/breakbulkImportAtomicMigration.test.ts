@@ -3,7 +3,7 @@ import path from 'node:path'
 import { expect, it } from 'vitest'
 
 const migrationPath = path.resolve(
-  'supabase/migrations/20260623095500_import_breakbulk_manifest_transactional.sql',
+  'supabase/migrations/144_import_breakbulk_manifest_transactional.sql',
 )
 
 it('persiste o manifesto BB inteiro em uma unica funcao transacional protegida', () => {

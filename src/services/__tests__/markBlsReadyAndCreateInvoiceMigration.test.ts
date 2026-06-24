@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260622133100_mark_bls_ready_and_create_invoice_atomic.sql',
+  'supabase/migrations/133_mark_bls_ready_and_create_invoice_atomic.sql',
 )
 
 it('promotes and invoices a customer B/L group in one database transaction', () => {

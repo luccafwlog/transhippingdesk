@@ -102,7 +102,7 @@ describe('imports de vazios transacionais', () => {
 
 it('define RPCs transacionais protegidas para os tres fluxos', () => {
   const sql = fs.readFileSync(
-    path.resolve('supabase/migrations/20260623111000_import_vazios_transactional.sql'),
+    path.resolve('supabase/migrations/146_import_vazios_transactional.sql'),
     'utf8',
   )
 

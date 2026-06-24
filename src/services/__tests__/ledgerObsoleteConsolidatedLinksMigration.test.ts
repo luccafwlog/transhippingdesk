@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('ledger obsolete consolidated links migration', () => {
   it('marks every active link obsolete when a consolidated invoice becomes obsolete', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260529143000_ledger_obsolete_consolidated_links.sql'),
+      resolve(process.cwd(), 'supabase/migrations/073_ledger_obsolete_consolidated_links.sql'),
       'utf8',
     )
 

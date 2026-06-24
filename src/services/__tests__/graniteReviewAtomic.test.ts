@@ -22,7 +22,7 @@ it('vincula cliente Granite e auditoria em uma unica RPC', async () => {
 
 it('define RPC protegida com update e auditoria na mesma transacao', () => {
   const sql = fs.readFileSync(
-    path.resolve('supabase/migrations/20260623120000_save_granite_bl_review_atomic.sql'),
+    path.resolve('supabase/migrations/148_save_granite_bl_review_atomic.sql'),
     'utf8',
   )
   expect(sql).toMatch(/FUNCTION public\.save_granite_bl_review/i)

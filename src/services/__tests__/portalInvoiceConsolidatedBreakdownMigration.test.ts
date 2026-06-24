@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('portal invoice consolidated breakdown migration', () => {
   const sql = readFileSync(
-    resolve(process.cwd(), 'supabase/migrations/20260615190000_portal_invoice_consolidated_breakdown.sql'),
+    resolve(process.cwd(), 'supabase/migrations/120_portal_invoice_consolidated_breakdown.sql'),
     'utf8',
   )
 

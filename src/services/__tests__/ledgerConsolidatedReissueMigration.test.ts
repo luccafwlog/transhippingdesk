@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('ledger consolidated reissue migration', () => {
   it('marks obsolete consolidated invoices as replaced when a new consolidated links the same receivable', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260529150000_ledger_consolidated_reissue_links.sql'),
+      resolve(process.cwd(), 'supabase/migrations/076_ledger_consolidated_reissue_links.sql'),
       'utf8',
     )
 

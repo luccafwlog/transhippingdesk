@@ -20,6 +20,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0013](./0013-portal-auth-identificador-resolvido-e-excecao-anon.md) | Portal com identificador resolvido e exceção limitada de `anon` | aceito | Decisão vigente para autenticação do Portal |
 | [0014](./0014-demurrage-recalculo-diario-substitui-roe-congelado.md) | Demurrage: recálculo diário substitui ROE congelado na emissão | aceito | Estende a 0008; redefine ROE/Markup |
 | [0015](./0015-demurrage-conciliacao-janela-duas-ptax-data-pagamento.md) | Demurrage: conciliação por txid + janela das duas PTAX na data do pagamento | aceito | Depende da 0014 |
+| [0016](./0016-migrations-nomenclatura-numerada-sequencial.md) | Migrations: nomenclatura numerada sequencial única | aceito | Estende a 0010; atualiza WORKFLOW.md §5 |
 
 ## Convenção
 
