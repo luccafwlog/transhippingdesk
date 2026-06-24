@@ -1219,3 +1219,5 @@ install_skill 'invoice-pdf' "$(cat /home/user/transhipping-desk2/.claude/skills/
 install_skill 'react-query-pattern' "$(cat /home/user/transhipping-desk2/.claude/skills/react-query-pattern.skill)"
 
 install_skill 'loop-me' "$(cat /home/user/transhipping-desk2/.claude/skills/loop-me.skill)"
+
+install_skill 'emil-design-eng' "$(cat /home/user/transhipping-desk2/.claude/skills/emil-design-eng.skill)"
