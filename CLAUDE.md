@@ -88,6 +88,7 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 
 - `CONTEXT.md` defines domain language.
 - `docs/ARCHITECTURE.md` defines current architecture and routes.
+- `docs/RASTREABILIDADE.md` traces every route/action to components, hooks, services, RPCs, and tests.
 - `docs/adr/README.md` indexes accepted and superseded decisions.
 - `WORKFLOW.md` defines development, migrations, testing, and deploy.
 - Dated audits, specs, and plans are historical snapshots, not current truth.
