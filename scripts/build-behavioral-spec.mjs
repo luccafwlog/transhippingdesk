@@ -341,15 +341,15 @@ for (const row of rows) {
   if (row.ID === 'AUTH-06') {
     row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
     row.Evidence = 'SQL-contract + Static'
-    row['Open Questions / Notes'] = 'RESOLVED: 20260624100000_revoke_anon_portal_read_rpcs.sql revokes anon from the six Portal read RPCs; 20260624100100_guard_definer_rpcs_active_user.sql adds is_active_user() gates. Asserted by definerActiveUserGuardMigration.test.ts (green). Remote grant application pending controlled deploy.'
+    row['Open Questions / Notes'] = 'RESOLVED: 20260624100000_revoke_anon_portal_read_rpcs.sql revokes anon from the six Portal read RPCs; 20260624100100_guard_definer_rpcs_active_user.sql adds is_active_user() gates. Asserted by definerActiveUserGuardMigration.test.ts (green). Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
   } else if (name && anonFixed.has(name)) {
     row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
     row.Evidence = 'SQL-contract'
-    row['Open Questions / Notes'] = 'RESOLVED: anon EXECUTE revoked in 20260624100000_revoke_anon_portal_read_rpcs.sql (ADR 0013). definerActiveUserGuardMigration.test.ts green. Remote grant application pending controlled deploy.'
+    row['Open Questions / Notes'] = 'RESOLVED: anon EXECUTE revoked in 20260624100000_revoke_anon_portal_read_rpcs.sql (ADR 0013). definerActiveUserGuardMigration.test.ts green. Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
   } else if (name && guardFixed.has(name)) {
     row.Status = 'Verified'; row.Defects = '-'; row['Defect Type'] = '-'
     row.Evidence = 'SQL-contract'
-    row['Open Questions / Notes'] = 'RESOLVED: is_active_user() gate added in 20260624100100_guard_definer_rpcs_active_user.sql (ADR 0004); SQL readers converted to plpgsql (query preserved via RETURN QUERY). definerActiveUserGuardMigration.test.ts green. Remote grant application pending controlled deploy.'
+    row['Open Questions / Notes'] = 'RESOLVED: is_active_user() gate added in 20260624100100_guard_definer_rpcs_active_user.sql (ADR 0004); SQL readers converted to plpgsql (query preserved via RETURN QUERY). definerActiveUserGuardMigration.test.ts green. Migrations applied cleanly to the PR Supabase preview branch (all tasks green); production grant application on merge/deploy.'
   }
 }
 
