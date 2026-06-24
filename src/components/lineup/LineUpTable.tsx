@@ -93,7 +93,7 @@ export function LineUpTable({
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-2 py-2 text-center font-semibold text-white'}>
                   {isDisplay ? row.vesselName : (
                     <Link
-                      to={`/viagens?vessel=${encodeURIComponent(row.vesselName)}`}
+                      to={`/viagens/${row.voyageId}`}
                       className="hover:underline hover:text-[#58a6ff]"
                     >
                       {row.vesselName}

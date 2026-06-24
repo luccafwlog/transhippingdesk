@@ -311,6 +311,13 @@ export function Containers() {
               ))}
             </Select>
           </Field>
+          <Field label="Veículo">
+            <Select value={filters.vehicleContainer} onChange={(event) => updateFilter('vehicleContainer', event.target.value as ContainerFilters['vehicleContainer'])}>
+              <option value="">Todos</option>
+              <option value="true">Com veículo</option>
+              <option value="false">Sem veículo</option>
+            </Select>
+          </Field>
         </div>
       </FilterBar>
 
