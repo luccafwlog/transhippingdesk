@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { expect, it, vi } from 'vitest'
@@ -43,5 +43,9 @@ it('navigates to a notification link after selection', async () => {
   await user.click(screen.getByRole('button', { name: 'Notificacoes (1 nao lidas)' }))
   await user.click(screen.getByRole('button', { name: /Nova fatura/ }))
 
-  expect(screen.getByTestId('location').textContent).toBe('/portal/billing?invoice=10')
+  // O handler aguarda markRead antes de navegar, entao a navegacao ocorre num
+  // microtask posterior ao clique — espere por ela em vez de assumir sincronia.
+  await waitFor(() => {
+    expect(screen.getByTestId('location').textContent).toBe('/portal/billing?invoice=10')
+  })
 })
