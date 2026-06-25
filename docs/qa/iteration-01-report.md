@@ -184,3 +184,57 @@ Evidência de runtime de browser para autenticação, guards e responsividade,
 sem defeitos. O desconto restante é exclusivamente o que depende de um Supabase
 real com dados (jornadas internas autenticadas e contratos RLS em execução),
 fora do alcance seguro deste ambiente.
+
+---
+
+# Iteração 4 — Caça dirigida em lógica sem teste direto
+
+Data: 2026-06-25.
+
+## 1. Resumo de cobertura
+
+Suite após a iteração: 187 arquivos de teste, 780 testes (771 pass / 9 skip).
+Gates verdes. Foco: módulos de lógica pura sem teste direto e de impacto
+operacional/financeiro.
+
+## 2. Áreas revisadas
+
+- `src/services/lineup.ts` (Line-Up / Painel) — ver item 4 (DEF-002).
+- `src/pages/faturamentoLedgerPayment.ts` (gate de pagabilidade de invoice do
+  ledger) — **sem defeito**; coberto agora por teste.
+- `src/lib/containerCounts.ts` (contagem de containers distintos) — **sem
+  defeito**; coberto agora por teste.
+- `src/lib/csv.ts` (`downloadCsv`) — **código morto**: não é chamado em nenhum
+  ponto de `src/` (apenas referências em planos arquivados). Não alterado
+  (CLAUDE.md §3: mencionar, não remover código morto pré-existente). Observação:
+  o escape não trata `\r` isolado nem injeção de fórmula — irrelevante enquanto
+  não houver chamador.
+
+## 3. Defeitos encontrados — 1
+
+| Defect ID | Feature | Severidade | Status |
+|---|---|---|---|
+| DEF-002 | F-010/F-011 Line-Up | Low | Corrigido |
+
+## 4. Defeitos corrigidos
+
+- **DEF-002:** comparador de ordenação do Line-Up vazava `NaN` quando duas ETAs
+  eram nulas (`Infinity - Infinity`), pulando os desempates ETB/navio/viagem/POD.
+  Corrigido em [`lineup.ts`](../../src/services/lineup.ts) com comparador sem NaN;
+  comparador exportado e coberto por regressão.
+
+## 5. Riscos remanescentes
+
+Iguais às iterações anteriores e **bounded pelo ambiente** (sem backend Supabase
+real neste sandbox: Docker daemon não inicia — `ulimit` negado; sem Supabase CLI;
+Postgres cru não serve PostgREST/Auth). Logo, permanecem sem evidência de runtime
+remoto: contratos RLS em execução, Edge Functions e jornadas internas
+autenticadas no browser com dados reais. São limites de infraestrutura, não
+defeitos conhecidos em aberto.
+
+## 6. Pontuação de confiança
+
+**Confiança: 93%** (+1). Mais um defeito real (ainda que Low) encontrado e
+corrigido, e fechamento de lacunas de teste em lógica financeira/operacional
+pura. O desconto restante é exclusivamente o escopo dependente de um Supabase
+real, fora do alcance seguro deste ambiente.

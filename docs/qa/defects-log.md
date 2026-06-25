@@ -4,6 +4,7 @@
 |---|---|---|---|---|
 | DEF-001 | F-031 | High | Corrigido (2026-06-25) | Demurrage P2 conta dias dentro do free time override (sobrecobrança) |
 | HARD-001 | F-031 | Medium | Mitigado (2026-06-25) | Cálculo de desconto USD duplicado em 2 caminhos; consolidado em fonte única |
+| DEF-002 | F-010/F-011 | Low | Corrigido (2026-06-25) | Ordenação do Line-Up vaza NaN quando duas ETAs são nulas, pulando os desempates |
 
 ## DEF-001 — Demurrage P2 sobrecobra dias dentro do free time override
 
@@ -68,3 +69,33 @@ mesmo desconto.
 (percentual limitado a 0–100; valor fixo com piso em zero; ignora descontos não
 positivos), reutilizada nos dois caminhos. Comportamento idêntico ao anterior;
 coberta por `applyDemurrageUsdDiscount.test.ts`.
+
+## DEF-002 — Ordenação do Line-Up vaza NaN com ETAs nulas
+
+- **Feature:** F-010/F-011 (Line-Up TV / Painel)
+- **Severidade:** Low (UX / consistência — ordem de exibição das linhas do Line-Up
+  com ETA ausente fica dependente da engine, não do desempate documentado)
+- **Arquivo:** `src/services/lineup.ts` (`compareDateValues`)
+
+### Resultado esperado
+
+Quando duas linhas têm `eta` nula, o comparador de ETA deve retornar 0 para que
+os critérios seguintes (ETB, nome do navio, número da viagem, POD) decidam a
+ordem.
+
+### Resultado observado (antes do fix)
+
+`toSortableDateValue(null)` retorna `Number.POSITIVE_INFINITY`. O comparador
+fazia `Infinity - Infinity = NaN`; como `NaN !== 0` é verdadeiro, a função
+retornava `NaN` e os desempates eram silenciosamente ignorados (ordem
+dependente da engine; com TimSort, ordem de inserção).
+
+### Hipótese de causa raiz (confirmada)
+
+Subtração de valores ordenáveis sem tratar o caso de igualdade de infinitos.
+
+### Correção
+
+`compareDateValues` passou a comparar por igualdade (`if (l === r) return 0; l <
+r ? -1 : 1`), eliminando o NaN e mantendo nulos no fim. O comparador foi
+exportado e coberto por `src/services/__tests__/lineupSort.test.ts`.
