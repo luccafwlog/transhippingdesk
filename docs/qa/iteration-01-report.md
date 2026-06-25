@@ -292,3 +292,47 @@ Evidência de runtime de browser para as jornadas internas autenticadas com dado
 reais, sem defeitos de produto; 159 migrations aplicadas sem erro; responsivo OK.
 O desconto restante (4%) é exclusivamente RLS/grants de produção e Edge Functions
 em runtime remoto — não verificáveis sem um Supabase real autorizado.
+
+---
+
+# Iteração 6 — Fluxos de escrita/mutação em runtime de browser
+
+Data: 2026-06-25.
+
+Aprofunda a iteração 5: além de render/leitura, agora os **fluxos de
+escrita/mutação** foram exercidos pela UI real e **verificados persistindo no
+banco** (UI → supabase-js → proxy → shim PostgREST/GoTrue → PostgreSQL).
+
+## Mutações validadas end-to-end
+
+| # | Fluxo | UI | Resultado no banco |
+|---|---|---|---|
+| 1 | Criar viagem (Nova Viagem) | `/viagens` modal | `voyages` 3→4; QA901W / MV QA RUNTIME / active |
+| 2 | Criar cliente (Novo Cliente) | `/clientes` modal | `customers` 8→9; 11222333000144 / Santos/SP |
+| 3 | Cancelar invoice (lifecycle financeiro) | `/faturamento` → Detalhes | FAT-2026-0016 → `cancelled`; auditado em `audit_logs` (overdue→cancelled + justificativa) |
+
+## Achado de fidelidade do seed (não é bug de produto)
+
+- Registrar pagamento (`register_ledger_invoice_payment`) retornou
+  `22023: "Invoice ... sem receivables ativos vinculados no ledger"`. Investigado:
+  o seed cria `bl_receivables` (5) mas **não popula `invoice_receivable_links`**
+  (0), então as invoices semeadas não são lastreadas pelo ledger. A função
+  **rejeita corretamente** (guard defensivo). Em produção, invoices nascem por
+  `create_invoice_from_bls_with_ledger`, que cria os vínculos. Conclusão:
+  **limitação do seed de validação**, não defeito. Recomendação (opcional):
+  enriquecer `scripts/design-audit/seed_audit.sql` / `validation_seed.sql` com
+  `invoice_receivable_links` para permitir exercitar a baixa via UI.
+
+## Defeitos de produto encontrados — 0
+
+Erros de console na varredura permanecem apenas os artefatos conhecidos
+(Google Fonts, PTAX do BCB) e o 404 do shim em `detect_overdue_invoices`
+(função 0-arg não resolvida pelo emulador; existe e tem grant — executa em
+produção).
+
+## Confiança: **97%** (+1)
+
+Pipeline de escrita validado de ponta a ponta em 3 fluxos (incl. lifecycle
+financeiro com auditoria), sem defeito de produto. O resíduo restante é RLS de
+produção e Edge Functions em runtime remoto, mais a baixa de pagamento via UI
+(bloqueada apenas pela fidelidade do seed local, não pelo código).
