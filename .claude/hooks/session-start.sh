@@ -1221,3 +1221,18 @@ install_skill 'react-query-pattern' "$(cat /home/user/transhipping-desk2/.claude
 install_skill 'loop-me' "$(cat /home/user/transhipping-desk2/.claude/skills/loop-me.skill)"
 
 install_skill 'emil-design-eng' "$(cat /home/user/transhipping-desk2/.claude/skills/emil-design-eng.skill)"
+
+# --- no-mistakes git gate: works in both Claude Code cloud and local ---
+# Installs a PINNED, checksum-verified no-mistakes binary, then gates this repo,
+# which also (re)installs the version-matched /no-mistakes agent skill. Every
+# step is guarded so a network failure never aborts session start.
+# Authorized by the user (see scripts/no-mistakes/).
+if [ -x "$CLAUDE_PROJECT_DIR/scripts/no-mistakes/setup.sh" ]; then
+  "$CLAUDE_PROJECT_DIR/scripts/no-mistakes/setup.sh" || true
+  nm_bin="$HOME/.no-mistakes/bin/no-mistakes"
+  if [ -x "$nm_bin" ] && git -C "$CLAUDE_PROJECT_DIR" remote get-url origin >/dev/null 2>&1; then
+    export PATH="$HOME/.local/bin:$PATH"
+    # init is idempotent ("set up or refresh") and installs the /no-mistakes skill.
+    ( cd "$CLAUDE_PROJECT_DIR" && "$nm_bin" init >/dev/null 2>&1 ) || true
+  fi
+fi
