@@ -9,12 +9,12 @@ Great interfaces rarely come from a single thing. It's usually a collection of s
 
 ## Quick Reference
 
-| Category | When to Use |
+| Category | Principles |
 | --- | --- |
-| [Typography](typography.md) | Text wrapping, font smoothing, tabular numbers |
-| [Surfaces](surfaces.md) | Border radius, optical alignment, shadows, image outlines, hit areas |
-| [Animations](animations.md) | Interruptible animations, enter/exit transitions, icon animations, scale on press |
-| [Performance](performance.md) | Transition specificity, `will-change` usage |
+| Typography | Text wrapping, font smoothing, tabular numbers |
+| Surfaces | Border radius, optical alignment, shadows, image outlines, hit areas |
+| Animations | Interruptible animations, enter/exit transitions, icon animations, scale on press |
+| Performance | Transition specificity, `will-change` usage |
 
 ## Core Principles
 
@@ -140,9 +140,6 @@ Rows should cite the specific file and the specific property that changed when i
 - [ ] `will-change` only on transform/opacity/filter, never `all`
 - [ ] Interactive elements have at least 40×40px hit area
 
-## Reference Files
+## Learn More
 
-- [typography.md](typography.md) — Text wrapping, font smoothing, tabular numbers
-- [surfaces.md](surfaces.md) — Border radius, optical alignment, shadows, image outlines
-- [animations.md](animations.md) — Interruptible animations, enter/exit transitions, icon animations, scale on press
-- [performance.md](performance.md) — Transition specificity, `will-change` usage
+These principles cover typography, surfaces, animations, and performance — core areas for polished interfaces. Apply them systematically when building or reviewing UI components.
