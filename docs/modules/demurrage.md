@@ -241,6 +241,15 @@ flowchart LR
 
 ## Notas e divergências
 
+- **Corrigido (2026-06-25) — P2 não conta dias livres do override:** quando o
+  `free_time_override` do B/L é maior que o fim da faixa P1 do grupo, a cobrança
+  começa em `override+1` (direto em P2), mas
+  [`calculateDemurrage`](../../src/services/demurrage/demurrageRates.ts) contava
+  P2 a partir do dia fixo da faixa do grupo, incluindo indevidamente os dias
+  ainda livres pelo override (sobrecobrança). O início de P2 passou a ser
+  `max(p2_day_from, freeUntil+1)`, alinhado ao glossário (P1 começa em
+  `override+1`, sem deslocar as faixas; ver `CONTEXT.md`). Caso normal
+  (override ≤ fim de P1) permanece inalterado.
 - **Suspeita — RPC base de PIX:** a função
   `confirm_demurrage_pix_matches(jsonb)` em
   [`095_confirm_demurrage_pix_matches_batch.sql`](../../supabase/migrations/095_confirm_demurrage_pix_matches_batch.sql)
