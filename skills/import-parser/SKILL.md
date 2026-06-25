@@ -84,8 +84,9 @@ and rejected counts, and refreshed data.
 
 ## Schema and verification
 
-Use timestamp migrations and the `supabase-migration` playbook. Regenerate types
-when the app contract changes.
+Use sequential numbered migrations (`NNN_short_name.sql`, next number after the
+highest prefix) and the `supabase-migration` playbook. Regenerate types when the
+app contract changes.
 
 Verify:
 

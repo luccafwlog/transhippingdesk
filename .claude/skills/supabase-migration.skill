@@ -23,10 +23,16 @@ invent types, constraints, policies, or grants from memory.
 
 ## File and scope
 
-- create `supabase/migrations/YYYYMMDDHHMMSS_short_name.sql`;
-- PowerShell timestamp: `Get-Date -AsUTC -Format 'yyyyMMddHHmmss'`;
+- create `supabase/migrations/NNN_short_name.sql`, where `NNN` is the **next
+  sequential three-digit number** after the highest existing prefix — list the
+  folder and add 1 (if the last is `159_…`, create `160_…`);
+- the project standardized on sequential numbering (ADR 0016, WORKFLOW §5). **Do
+  not** use timestamped (`YYYYMMDDHHMMSS`) names; in parallel branches, reconcile
+  the number before merge so lexical order = apply order;
 - one logical change per file;
-- never edit or rename an applied migration;
+- never edit or rename an applied migration (the #283 renumber was a documented
+  one-time exception on a disposable DB; renaming an applied migration desyncs
+  `schema_migrations` and needs `supabase migration repair`);
 - split heavy backfill into a reviewed script under `supabase/scripts/`.
 
 ## SQL conventions
