@@ -35,10 +35,10 @@ Sem `VITE_SUPABASE_*` a aplicação loga erro e o cliente Supabase fica vazio. A
 Aplique **todas** as migrations em ordem, no **SQL Editor** do Supabase:
 
 ```
-supabase/migrations/001_*.sql  →  (timestamp mais recente)
+supabase/migrations/001_*.sql  →  supabase/migrations/159_*.sql
 ```
 
-> São **127 migrations** sequenciais (schema + RLS + RPCs). O CI **não** aplica migrations — ver [deploy.md](deploy.md). Para criar uma nova migration, siga a skill `.claude/skills/supabase-migration.skill`.
+> São **159 migrations** numeradas sequencialmente (schema + RLS + RPCs); ver ADR 0016. O CI **não** aplica migrations — ver [deploy.md](deploy.md). Para criar uma nova migration, siga a skill `.claude/skills/supabase-migration.skill` (próximo número: `160_`).
 
 ## 4. Usuário interno
 
