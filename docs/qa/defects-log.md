@@ -5,6 +5,7 @@
 | DEF-001 | F-031 | High | Corrigido (2026-06-25) | Demurrage P2 conta dias dentro do free time override (sobrecobrança) |
 | HARD-001 | F-031 | Medium | Mitigado (2026-06-25) | Cálculo de desconto USD duplicado em 2 caminhos; consolidado em fonte única |
 | DEF-002 | F-010/F-011 | Low | Corrigido (2026-06-25) | Ordenação do Line-Up vaza NaN quando duas ETAs são nulas, pulando os desempates |
+| DEF-003 | F-036 | Medium | Corrigido (2026-06-25) | Criar tarifa de demurrage sem "Válido de" envia valid_from=null e falha (23502) com toast genérico |
 
 ## DEF-001 — Demurrage P2 sobrecobra dias dentro do free time override
 
@@ -99,3 +100,43 @@ Subtração de valores ordenáveis sem tratar o caso de igualdade de infinitos.
 `compareDateValues` passou a comparar por igualdade (`if (l === r) return 0; l <
 r ? -1 : 1`), eliminando o NaN e mantendo nulos no fim. O comparador foi
 exportado e coberto por `src/services/__tests__/lineupSort.test.ts`.
+
+## DEF-003 — Criar tarifa de demurrage sem "Válido de" falha com erro genérico
+
+- **Feature:** F-036 (Tarifas de demurrage — /demurrage/taxas)
+- **Severidade:** Medium (validação / integridade / mensagem de erro — bloqueia
+  ação legítima de admin com toast genérico)
+- **Arquivo:** `src/pages/DemurrageRates.tsx` (`upsertDemurrageRate`)
+
+### Passos de reprodução
+
+1. `/demurrage/taxas` → "Nova Tarifa".
+2. Preencher tipo de container e valores, **deixar "Válido de" em branco**.
+3. Salvar.
+
+### Resultado esperado
+
+Tarifa criada; `valid_from` assume o default do banco (data de hoje), como
+acontece ao inserir omitindo a coluna.
+
+### Resultado observado (antes do fix)
+
+`EMPTY_FORM.valid_from = null` e o `onChange` mantém `null` quando o campo fica
+vazio. O `upsert` enviava `valid_from: null` explícito; a coluna é NOT NULL com
+default, então o `null` explícito viola a constraint:
+`23502 null value in column "valid_from" ... violates not-null constraint`.
+A UI exibia apenas "Falha ao salvar tarifa." (toast genérico), sem indicar a
+causa. Confirmado em runtime de browser (iteração 6) e via chamada direta.
+
+### Causa raiz (confirmada)
+
+Enviar `null` explícito sobrescreve o default do banco. O formulário de taxas
+locais (`validateTableInput`) trata `valid_from` como obrigatório e não tem o
+problema — o defeito é isolado ao formulário de demurrage.
+
+### Correção
+
+`buildDemurrageRateUpsertPayload` (`src/pages/demurrageRatesHelpers.ts`) omite a
+chave `valid_from` quando nula, deixando o default vigente aplicar. Coberto por
+`src/pages/__tests__/demurrageRatesHelpers.test.ts` e revalidado em runtime
+(tarifa QA3 criada sem "Válido de", `valid_from` = data de hoje).

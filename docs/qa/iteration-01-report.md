@@ -336,3 +336,58 @@ Pipeline de escrita validado de ponta a ponta em 3 fluxos (incl. lifecycle
 financeiro com auditoria), sem defeito de produto. O resíduo restante é RLS de
 produção e Edge Functions em runtime remoto, mais a baixa de pagamento via UI
 (bloqueada apenas pela fidelidade do seed local, não pelo código).
+
+---
+
+# Iteração 7 — Todos os fluxos de mutação possíveis em runtime de browser
+
+Data: 2026-06-25.
+
+Exercitou exaustivamente os fluxos de escrita pela UI real contra a stack local,
+verificando persistência no banco. Para destravar fluxos bloqueados pelo
+emulador, o `sb-shim.cjs` foi estendido (melhoria de ferramenta, não do produto):
+resolução de RPC com parâmetros DEFAULT/0-arg e preservação de precisão de
+microssegundos em `timestamptz` (necessária para o lock otimista).
+
+## Fluxos de mutação validados end-to-end (UI → banco)
+
+| Fluxo | RPC/tabela | Resultado |
+|---|---|---|
+| Criar viagem | `voyages` | QA901W criado (it. 6) |
+| Criar cliente | `customers` | persistido (it. 6) |
+| Cancelar invoice | `cancel_invoice` | FAT-2026-0016 → cancelled + auditoria (it. 6) |
+| Emitir consolidada | `create_local_consolidated_invoice` | INV-2026-0001 criada (1 receivable, ledger link) |
+| Registrar pagamento | `register_ledger_invoice_payment` | invoice → paid, settlement + receivable settled |
+| Alertas | `alerts` update | acknowledge + close |
+| Criar escala | `vessel_schedules` | MV QA SCHEDULE / QA77E |
+| Criar tarifa demurrage | `demurrage_rates` | QA3 (após fix DEF-003) |
+| Criar tabela de taxas | `charge_tables` | Tabela QA Runtime |
+| Admin: role + ativo | `user_profiles` | operator→financeiro; deativado (com confirm) |
+| Editar B/L | `save_bl_review` | notify_party + recompute, auditado (lock otimista OK) |
+| Import manifesto CNTR | `import_manifest_with_postprocess_transactional` | 2 B/Ls + 3 CNTR |
+| Import Baplie EDI | `import_baplie_staging_transactional` | 3 containers de staging |
+
+## Guards de negócio confirmados (comportamento correto, não bug)
+
+- Pagamento em invoice sem ledger: rejeitado (`22023`).
+- Consolidada para cliente com invoice vencida: bloqueado (`P0003`, trigger overdue).
+
+## Defeito de produto encontrado e corrigido — DEF-003 (Medium)
+
+Criar tarifa de demurrage sem "Válido de" enviava `valid_from: null` e violava o
+NOT NULL (`23502`) com toast genérico. Corrigido com
+`buildDemurrageRateUpsertPayload` (omite a chave nula → default do banco) +
+teste. Detalhe em [`defects-log.md`](./defects-log.md).
+
+## Vehicle import
+
+Não exercitado em browser (a fixture `qa-veiculos.xlsx` referencia B/Ls/chassi
+que não casam com os B/Ls recém-importados; o trigger `validate_vehicle_relationships`
+exige coerência). Permanece coberto por `vehicleImport.test.ts`.
+
+## Confiança: **98%** (+1)
+
+Todos os fluxos de mutação alcançáveis foram exercitados de ponta a ponta, com 1
+defeito real corrigido e os guards de negócio confirmados. O resíduo (2%) é RLS
+de produção / Edge Functions em runtime remoto e o import de veículos com fixture
+casada — fora do alcance deste ambiente.
