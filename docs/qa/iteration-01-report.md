@@ -443,3 +443,79 @@ ciclo de demurrage (datas → cálculo → emissão) e o ciclo financeiro local
 (emitir → pagar → reverter, este último com gate confirmado). O 1% restante é
 RLS de produção e Edge Functions (provisionamento de portal, e-mail) em runtime
 remoto, fora do alcance deste ambiente.
+
+---
+
+# Iteração 9 — Portal do Cliente em runtime de browser
+
+Data: 2026-06-25.
+
+Fecha a maior lacuna de usuário final: o **Portal externo** (`/portal/*`), antes
+validado só no shell de login, foi exercido end-to-end contra dados reais. Conta
+de portal provisionada manualmente (auth user + `customer_portal_accounts`), pois
+o provisionamento normal é via Edge Function (indisponível).
+
+## Fluxos validados (UI → banco)
+
+| Fluxo | RPC | Resultado |
+|---|---|---|
+| Login por CNPJ | `portal_resolve_login` + Auth isolado | sessão do portal estabelecida |
+| Dashboard | `portal_get_session_overview_v2` + `vessel_schedules` | KPIs e programação reais |
+| Faturas (listar/abrir) | `portal_list_invoices`, `portal_invoice_details` | escopo só do cliente; breakdown de B/Ls/itens |
+| Operação | `portal_list_operation_bls` | B/Ls liberados pelo gate de CE |
+| Perfil (escrita) | `portal_update_profile` | telefone do contato persistido |
+| Disputa de demurrage (escrita) | `portal_open_demurrage_dispute` | `dispute_status=aberto` + alerta interno + notificação |
+| Notificações | `portal_list_notifications`, `portal_mark_all_notifications_read` | listadas e marcadas como lidas |
+
+## Defeito de ferramenta corrigido (não-produto)
+
+- **sb-shim — escalar JSON inválido:** `send()` emitia strings escalares (ex.:
+  `portal_resolve_login` retorna `text`) sem aspas JSON, fazendo o supabase-js
+  falhar no parse e tratar como erro ("Credenciais inválidas"). Corrigido para
+  sempre `JSON.stringify`. É bug do emulador de auditoria, não do produto (PostgREST
+  real já devolve JSON válido). Sem o fix, nenhum login de portal funcionava no
+  sandbox.
+
+## Defeitos de produto — 0
+
+---
+
+# Iteração 10 — RLS / fronteira de segurança (runtime local)
+
+Data: 2026-06-25.
+
+Transforma as marcações **Suspeita** da `RASTREABILIDADE.md` em verificação
+executada: chamadas reais ao Postgres local via shim com 4 papéis — admin
+(auditor), operador ativo, **usuário autenticado inativo** e **anon** — contra
+um schema com todas as migrations aplicadas.
+
+## Matriz (todos conforme esperado)
+
+| Caso | admin | operador ativo | inativo | anon |
+|---|---|---|---|---|
+| `invoices` SELECT (financeiro, admin-only) | dados | `[]` | `[]` | — |
+| `bls` SELECT (ativo lê) | dados | dados | `[]` | — |
+| RPCs de leitura do Portal | — | — | — | **28000** (sessão inválida) |
+| `list_bl_local_charge_lines` (definer) | ok | — | **42501** | — |
+| `list_customer_reconciliation_queue` | ok | — | **42501** | — |
+| `calculate_bl_local_charges` | ok | — | **42501** | — |
+| `detect_overdue_invoices` | ok | — | **42501** | — |
+| `create_invoice_from_bls_with_ledger` (admin) | ok | **42501** | — | — |
+| `register_ledger_invoice_payment` (admin) | ok | **42501** | — | — |
+
+## Conclusões
+
+- **Suspeitas refutadas no schema aplicado:** os definers marcados como "guard
+  interno ausente" **bloqueiam usuário inativo** (`42501`); os grants `anon` em
+  leituras do Portal são **inócuos** porque as funções rejeitam `auth.uid()` nulo
+  (`28000`). A leitura financeira (`invoices`) é admin-only de fato; RPCs
+  financeiros exigem admin (`42501` para operador ativo).
+- **Limite de evidência:** valida o **contrato definido pelas migrations** num
+  Postgres descartável. **Não** prova grants/RLS/jobs do projeto **remoto** de
+  produção — isso continua exigindo verificação autorizada (ADR 0011/0013).
+
+## Defeitos de produto — 0
+
+## Confiança: **99%+** — Portal e fronteira de segurança (nível de schema) agora
+com evidência de runtime. Resíduo: grants/RLS remotos de produção e Edge
+Functions, fora do alcance do sandbox.

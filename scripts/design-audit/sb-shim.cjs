@@ -268,7 +268,10 @@ function session(row) {
 
 // ---------- http ----------
 function send(res, status, body, headers = {}) {
-  const data = body == null ? '' : typeof body === 'string' ? body : JSON.stringify(body)
+  // Always JSON-encode (content-type is application/json). Scalar RPC results
+  // (e.g. portal_resolve_login returns text) must be quoted JSON, otherwise the
+  // supabase-js client fails to parse a bare string and treats it as an error.
+  const data = body == null ? '' : JSON.stringify(body)
   res.writeHead(status, { 'content-type': 'application/json', ...headers })
   res.end(data)
 }
