@@ -3,6 +3,7 @@
 | Defect ID | Feature ID | Severidade | Status | Resumo |
 |---|---|---|---|---|
 | DEF-001 | F-031 | High | Corrigido (2026-06-25) | Demurrage P2 conta dias dentro do free time override (sobrecobrança) |
+| HARD-001 | F-031 | Medium | Mitigado (2026-06-25) | Cálculo de desconto USD duplicado em 2 caminhos; consolidado em fonte única |
 
 ## DEF-001 — Demurrage P2 sobrecobra dias dentro do free time override
 
@@ -50,3 +51,20 @@ A derivação de `demurrage_days` do Portal em
 e não faz o split P1/P2, portanto não compartilha o defeito; a função SQL
 `132_create_demurrage_invoice_atomic.sql` apenas persiste os valores calculados
 no cliente. A correção no cliente é, assim, a correção completa.
+
+## HARD-001 — Cálculo de desconto USD duplicado (mitigado)
+
+- **Feature:** F-031 (Demurrage)
+- **Severidade:** Medium (risco de integridade — divergência futura de valor)
+- **Arquivo:** `src/services/demurrage/demurrageInvoices.ts`
+
+`markInvoicePaid` (congelamento no pagamento) e `recomputeDiscountedBrl`
+(recálculo após mudança de desconto) tinham cópias idênticas da aritmética de
+desconto em USD. Manter duas cópias em sincronia é frágil: uma mudança de regra
+em um caminho e não no outro produziria valores de fatura divergentes para o
+mesmo desconto.
+
+**Mitigação:** extraída a função pura exportada `applyDemurrageUsdDiscount`
+(percentual limitado a 0–100; valor fixo com piso em zero; ignora descontos não
+positivos), reutilizada nos dois caminhos. Comportamento idêntico ao anterior;
+coberta por `applyDemurrageUsdDiscount.test.ts`.

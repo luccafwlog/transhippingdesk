@@ -77,3 +77,53 @@ SQL/RLS em runtime remoto, Edge Functions e validação de UI por browser).
 - Defeitos documentados: **Sim** (DEF-001).
 - Defeitos críticos/altos abertos: **Não** (DEF-001 corrigido).
 - Regressão sem falhas: **Sim**.
+
+---
+
+# Iteração 2 — Relatório
+
+Data: 2026-06-25.
+
+## 1. Resumo de cobertura
+
+Suite após a iteração: 184 arquivos de teste, 765 testes (756 pass / 9 skip).
+Gates verdes. Revisão dirigida (caça a defeitos) nas áreas de maior impacto
+financeiro/integridade não cobertas na iteração 1.
+
+## 2. Features revisadas em profundidade
+
+- F-028/F-031 Conciliação PIX e janela das duas PTAX
+  (`reconciliacao.ts`) — lógica de match por TXID/valor e janela de recálculo
+  conferida; **sem defeito**.
+- F-020/F-031 Desconto de demurrage e congelamento de BRL
+  (`demurrageInvoices.ts`) — ver item 4.
+- Validação financeira (`financialValidation.ts`): parsing BR de número,
+  validação de data (UTC round-trip), cap de percentual — **sem defeito**.
+- Status de demurrage corrente (`containerDatesImport.ts`) — **sem defeito**;
+  beneficiado pela correção DEF-001.
+- Lógica pura de dependências de exclusão (`deleteDependencies.ts`) e
+  `portCode.ts` — **sem defeito**.
+
+## 3. Defeitos encontrados — 0 novos defeitos funcionais
+
+## 4. Hardening aplicado (risco de integridade)
+
+- **HARD-001:** o cálculo do desconto em USD da fatura de demurrage estava
+  **duplicado** em dois caminhos (`markInvoicePaid` e `recomputeDiscountedBrl`)
+  de [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts).
+  Cópias que precisam ficar em sincronia são risco de divergência do valor
+  faturado. Consolidado em uma fonte única `applyDemurrageUsdDiscount`, com teste
+  dedicado (`applyDemurrageUsdDiscount.test.ts`). Comportamento idêntico ao
+  anterior (sem mudança de valor).
+
+## 5. Riscos remanescentes
+
+Iguais aos da iteração 1 (contratos SQL/RLS não executados em runtime remoto,
+Edge Functions mockadas, validação de UI por browser não executada). Nenhum
+novo risco introduzido.
+
+## 6. Pontuação de confiança
+
+**Confiança: 90%** (+2). Revisão dirigida ampliou a área inspecionada sem
+encontrar novos defeitos funcionais; consolidação de lógica financeira reduziu
+risco de divergência. Desconto remanescente pelos mesmos limites de ambiente.
