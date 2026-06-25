@@ -127,3 +127,60 @@ novo risco introduzido.
 **Confiança: 90%** (+2). Revisão dirigida ampliou a área inspecionada sem
 encontrar novos defeitos funcionais; consolidação de lógica financeira reduziu
 risco de divergência. Desconto remanescente pelos mesmos limites de ambiente.
+
+---
+
+# Iteração 3 — Validação de runtime de UI (browser)
+
+Data: 2026-06-25.
+
+Fecha parte do risco "runtime de UI por browser não executado": a app foi
+**bootada de verdade** (`npm run dev`, Vite) e exercida com Chromium headless
+(Playwright) contra `http://localhost:5173`, sem backend real (Supabase
+placeholder). Jornadas de UI validadas como smoke E2E.
+
+## Jornadas executadas (9/9 PASS)
+
+| # | Jornada | Resultado |
+|---|---|---|
+| 1 | `/login` renderiza com inputs + botão | PASS (2 inputs, senha, botão) |
+| 2 | `/login` tem campo de senha | PASS |
+| 3 | Rota protegida `/painel` redireciona não autenticado → `/login` | PASS |
+| 4 | Rota desconhecida redireciona (sem 404 cru) → `/login` | PASS |
+| 5 | `/portal/login` renderiza independente | PASS |
+| 6 | `/portal/esqueci-senha` renderiza | PASS |
+| 7 | Acessibilidade: inputs do login têm nome acessível | PASS |
+| 8 | Login sem erros de console inesperados (excl. backend) | PASS |
+| 9 | Mobile 375px: login sem overflow horizontal | PASS |
+
+Cobre, em runtime de browser: F-001 (login interno), F-002 (portal login),
+F-003 (recuperação), F-042 (redirecionamentos/route guards) e a base de layout
+responsivo e acessibilidade do shell de autenticação.
+
+## Método e reprodutibilidade
+
+Driver Playwright direto (Chromium em `/opt/pw-browsers`), fora do CI por exigir
+dev server + browser não declarados como dependência do projeto (CLAUDE.md §2:
+sem nova dependência). Não foi adicionado teste não executável ao repositório; o
+roteiro vive como ferramenta de validação de runtime. Capturas: login desktop,
+login mobile, portal login.
+
+## Defeitos encontrados — 0
+
+Nenhum defeito de renderização, navegação, guard de rota, acessibilidade básica
+ou responsividade no shell de autenticação.
+
+## Riscos remanescentes (reduzidos)
+
+As jornadas autenticadas profundas (dashboards, faturamento, importações) ainda
+exigem um backend Supabase com dados — não disponível neste sandbox. O shell de
+autenticação, os guards de rota e o redirecionamento agora têm evidência de
+runtime; as telas internas continuam cobertas por testes de comportamento
+(React Testing Library) e não por browser com dados reais.
+
+## Confiança: **92%** (+2)
+
+Evidência de runtime de browser para autenticação, guards e responsividade,
+sem defeitos. O desconto restante é exclusivamente o que depende de um Supabase
+real com dados (jornadas internas autenticadas e contratos RLS em execução),
+fora do alcance seguro deste ambiente.
