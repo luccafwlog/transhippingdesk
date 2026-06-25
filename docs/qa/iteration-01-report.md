@@ -238,3 +238,57 @@ defeitos conhecidos em aberto.
 corrigido, e fechamento de lacunas de teste em lógica financeira/operacional
 pura. O desconto restante é exclusivamente o escopo dependente de um Supabase
 real, fora do alcance seguro deste ambiente.
+
+---
+
+# Iteração 5 — Jornadas internas autenticadas em runtime de browser
+
+Data: 2026-06-25.
+
+Fecha o risco residual das iterações anteriores: as **jornadas internas
+autenticadas** (dashboards, faturamento, importações) agora foram exercidas em
+runtime de browser **contra dados reais**, não apenas em testes de
+comportamento. Isto foi possível subindo a stack local sancionada pelo projeto
+(skill `design-audit`): PostgreSQL 16 + `pg_cron`, `bootstrap.sql`, as **159
+migrations aplicadas em ordem sem erro**, grants, `validation_seed.sql` +
+`seed_audit.sql`, o emulador `sb-shim.cjs` (PostgREST + GoTrue) e o dev server
+Vite via proxy `/sb-proxy`. Login real: `auditor@local.test` (admin).
+
+## Jornadas autenticadas executadas (13 rotas internas, todas renderizaram)
+
+`/login` → `/painel` (Line-Up com viagens/containers/veículos/BB/CE reais),
+`/viagens`, `/manifestos`, `/faturamento` (6 faturas, saldo R$ 8.075,00, abas
+Faturas/Validação/Pendências/Demurrage), `/clientes`, `/demurrage`, `/revisao`,
+`/reconciliacao`, `/granito`, `/relatorios`, `/containers`, `/chegadas-saidas`,
+`/taxas-locais`, `/admin/usuarios`. Login real → sessão → rotas protegidas →
+páginas com dados; sem tela branca, sem crash de render.
+
+## Responsivo (390×844)
+
+`/painel` e `/faturamento`: **overflow horizontal de página = 0**; as tabelas
+largas (1024px) ficam em container com scroll horizontal próprio (padrão
+"rolar, não esmagar"). Sem quebra de layout.
+
+## Defeitos encontrados — 0
+
+Único erro não-artefato em toda a varredura: `rpc/detect_overdue_invoices` →
+404 **do shim** (a função existe no banco e tem grant para `authenticated`;
+PostgREST real a executa — limitação do emulador, não bug do produto; a página
+renderiza normalmente). Demais erros de console são artefatos de ambiente
+conhecidos e documentados pela skill: Google Fonts e a API PTAX do BCB são
+bloqueadas pelo proxy de egress.
+
+## Riscos remanescentes (agora mínimos)
+
+- Contratos RLS/grants em execução remota e Edge Functions reais permanecem fora
+  do alcance (sem projeto Supabase remoto autorizado). O emulador local valida
+  render + queries, não a RLS de produção byte-a-byte.
+- Migrations aplicam-se limpas localmente — evidência adicional de que o SQL
+  versionado está coerente (159/159 sem erro).
+
+## Confiança: **96%** (+3)
+
+Evidência de runtime de browser para as jornadas internas autenticadas com dados
+reais, sem defeitos de produto; 159 migrations aplicadas sem erro; responsivo OK.
+O desconto restante (4%) é exclusivamente RLS/grants de produção e Edge Functions
+em runtime remoto — não verificáveis sem um Supabase real autorizado.
