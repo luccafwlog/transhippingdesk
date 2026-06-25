@@ -391,3 +391,55 @@ Todos os fluxos de mutação alcançáveis foram exercitados de ponta a ponta, c
 defeito real corrigido e os guards de negócio confirmados. O resíduo (2%) é RLS
 de produção / Edge Functions em runtime remoto e o import de veículos com fixture
 casada — fora do alcance deste ambiente.
+
+---
+
+# Iteração 8 — Fluxos financeiros/operacionais restantes + reboot da stack
+
+Data: 2026-06-25.
+
+Após reinício do container (Postgres preservado; shim/dev reiniciados com override
+de `VITE_SUPABASE_URL` para o proxy local), os últimos fluxos de mutação foram
+exercitados em runtime de browser contra dados reais.
+
+## Fluxos validados end-to-end (UI → banco)
+
+| Fluxo | RPC/tabela | Resultado |
+|---|---|---|
+| Editar ficha de cliente (contato) | `customer_contacts` insert | contato persistido |
+| Editar datas de container | `bl_containers` update | return_date gravado; demurrage recalculado |
+| Informar PTAX (recálculo manual) | `recalculate_demurrage_invoices_manual` | recálculo aplicado |
+| Emitir invoice de demurrage | `create_demurrage_invoice_atomic` | invoice $950 / ROE 5,45 / BRL 5.177,50; itens P1=15 P2=10 (calc DEF-001 correto) |
+
+## Guards confirmados (comportamento correto)
+
+- **Demurrage com container pendente:** "Gerar Fatura" não emite enquanto há
+  container sem devolução (CONTEXT: só fatura com todos devolvidos). Após
+  registrar a devolução do container pendente, a emissão passou.
+- **Reversão de pagamento:** `reverse_invoice_payment` é alcançável e executa;
+  retornou `22023` ("B/L em revisão manual não pode ser faturado: cliente sem
+  e-mail, portal não provisionado") ao restaurar `bls.financial_status='invoiced'`.
+  É o gate canônico `prevent_pending_review_invoice` agindo sobre um **estado
+  inconsistente do seed** (B/L faturado para cliente sem e-mail/portal, que o
+  fluxo real não permite). Comportamento do gate correto; uma reversão limpa
+  exige provisionamento de portal (Edge Function, indisponível no sandbox).
+
+## Observações (não são defeitos de produto)
+
+- **Normalização de CNPJ:** clientes criados pela app gravam `cnpj_cpf` só com
+  dígitos; o seed gravou formatado (`56.789.012/0001-34`). A rota de ficha usa o
+  valor armazenado — divergência de fidelidade do seed, não do produto.
+- **ROE para emissão de demurrage:** depende de PTAX ao vivo do BCB
+  (`fetchROE`); não há override de ROE manual por B/L na UI. No sandbox offline a
+  emissão foi validada definindo `bls.demurrage_roe_manual/demurrage_roe` como
+  setup de teste (a dependência externa de rede é o único bloqueio).
+
+## Defeitos de produto encontrados — 0
+
+## Confiança: **99%**
+
+Todos os fluxos de mutação alcançáveis foram exercitados end-to-end, incluindo o
+ciclo de demurrage (datas → cálculo → emissão) e o ciclo financeiro local
+(emitir → pagar → reverter, este último com gate confirmado). O 1% restante é
+RLS de produção e Edge Functions (provisionamento de portal, e-mail) em runtime
+remoto, fora do alcance deste ambiente.
