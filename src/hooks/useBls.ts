@@ -363,7 +363,7 @@ export function useVoyages() {
           ),
           bls(
             *,
-            bl_containers(id, container_number, type, is_oog, is_imo),
+            bl_containers(id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, is_oog, is_imo, imo_class, un_number),
             bl_breakbulk_items(id, gross_weight_kg, cbm)
           )
         `,
@@ -437,9 +437,14 @@ export function useVoyages() {
           bl_containers?: Array<{
             id: number
             container_number: string
+            seal_number?: string | null
             type?: string | null
+            tare_weight_kg?: number | null
+            gross_weight_kg?: number | null
             is_oog?: boolean | null
             is_imo?: boolean | null
+            imo_class?: string | null
+            un_number?: string | null
           }> | null
           bl_breakbulk_items?: Array<{
             id: number

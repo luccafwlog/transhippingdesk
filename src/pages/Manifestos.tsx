@@ -1,13 +1,14 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, Download, Trash2, Upload } from 'lucide-react'
+import { Boxes, Download, FileText, Trash2, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
+import { MercanteEdiModal } from '../components/shared/MercanteEdiModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
@@ -55,6 +56,11 @@ export function Manifestos() {
   })
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
+  const [ediModalOpen, setEdiModalOpen] = useState(false)
+  const [ediModalVoyage, setEdiModalVoyage] = useState<{ vessel?: { name?: string | null } | null; pol?: string | null; pod?: string | null } | null>(null)
+  const [ediModalBls, setEdiModalBls] = useState<Array<{ id: string; pol?: string | null; pod?: string | null; shipper?: string | null; consignee?: string | null; bl_containers?: Array<{ id: number; container_number: string; seal_number?: string | null; type?: string | null; tare_weight_kg?: number | null; gross_weight_kg?: number | null; imo_class?: string | null; un_number?: string | null }> | null }>>([])
+  const [ediModalPol, setEdiModalPol] = useState<string>('')
+  const [ediModalPod, setEdiModalPod] = useState<string>('')
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
@@ -159,6 +165,33 @@ export function Manifestos() {
     }
   }
 
+  function handleOpenEdiModal() {
+    const selectedIds = [...selection.selected]
+    if (!selectedIds.length) return
+    const selectedBls = (data?.rows ?? []).filter((row) => selection.isSelected(row.id))
+    if (!selectedBls.length) return
+
+    const groups = new Map<string, { pol: string; pod: string; bls: typeof selectedBls }>()
+    for (const bl of selectedBls) {
+      const key = `${bl.pol?.trim() ?? ''}__${bl.pod?.trim() ?? ''}`
+      if (!groups.has(key)) {
+        groups.set(key, { pol: bl.pol?.trim() ?? '', pod: bl.pod?.trim() ?? '', bls: [] })
+      }
+      groups.get(key)!.bls.push(bl)
+    }
+
+    const first = [...groups.values()][0]!
+    setEdiModalVoyage({ pol: first.pol || null, pod: first.pod || null })
+    setEdiModalBls(first.bls as typeof ediModalBls)
+    setEdiModalPol(first.pol)
+    setEdiModalPod(first.pod)
+    setEdiModalOpen(true)
+
+    if (groups.size > 1) {
+      showToast(`Agrupado em ${groups.size} rota(s). Selecionar um grupo por vez.`, 'info')
+    }
+  }
+
   const pageBlIds = (data?.rows ?? []).map((row) => row.id)
   const allPageSelected = pageBlIds.length > 0 && pageBlIds.every((id) => selection.isSelected(id))
   const blColumnCount = isAdmin ? 12 : 11
@@ -177,6 +210,15 @@ export function Manifestos() {
               <Boxes size={16} />
               Containers
             </Link>
+            <Button
+              variant="secondary"
+              onClick={handleOpenEdiModal}
+              disabled={!selection.count}
+              title={!selection.count ? 'Selecione B/Ls para gerar EDI Mercante' : 'Gerar EDI Mercante dos B/Ls selecionados'}
+            >
+              <FileText size={16} />
+              Gerar EDI Mercante
+            </Button>
             <Button variant="secondary" loading={exporting} onClick={handleExport}>
               <Download size={16} />
               Exportar
@@ -440,6 +482,14 @@ export function Manifestos() {
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
+      <MercanteEdiModal
+        open={ediModalOpen}
+        onClose={() => setEdiModalOpen(false)}
+        voyage={ediModalVoyage ?? { pol: '', pod: '' }}
+        bls={ediModalBls}
+        prefilledPol={ediModalPol}
+        prefilledPod={ediModalPod}
+      />
 
     </>
   )
