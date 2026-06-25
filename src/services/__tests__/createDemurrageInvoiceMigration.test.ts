@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260622132732_create_demurrage_invoice_atomic.sql',
+  'supabase/migrations/132_create_demurrage_invoice_atomic.sql',
 )
 
 it('creates Demurrage invoice header and items in one protected RPC', () => {

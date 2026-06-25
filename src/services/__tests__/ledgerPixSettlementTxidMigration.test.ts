@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('ledger PIX settlement TXID migration', () => {
   it('keeps only one PIX TXID settlement row per invoice payment', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260529145000_ledger_pix_txid_single_settlement_row.sql'),
+      resolve(process.cwd(), 'supabase/migrations/075_ledger_pix_txid_single_settlement_row.sql'),
       'utf8',
     )
 

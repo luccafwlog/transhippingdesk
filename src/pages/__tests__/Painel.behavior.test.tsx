@@ -118,7 +118,7 @@ it('US-120: as celulas do Line-Up navegam para os destinos corretos', () => {
   // Os KPI cards do dashboard foram removidos; a navegacao migrou para as celulas
   // do Line-Up (commit "transform Painel table cells into navigation links").
   const vesselLink = screen.getAllByText('Navio')[0].closest('a')
-  expect(vesselLink?.getAttribute('href')).toBe('/viagens?vessel=Navio')
+  expect(vesselLink?.getAttribute('href')).toBe('/viagens/1')
 })
 
 it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizacao', () => {

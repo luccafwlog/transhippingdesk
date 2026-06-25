@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('ledger PIX payload migration', () => {
   it('generates PIX payloads in the database for local individual and consolidated invoices', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260529144000_ledger_invoice_pix_payload.sql'),
+      resolve(process.cwd(), 'supabase/migrations/074_ledger_invoice_pix_payload.sql'),
       'utf8',
     )
 

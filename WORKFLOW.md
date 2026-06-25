@@ -167,13 +167,15 @@ auditoria de design com Supabase local.
 
 ## 5. Migrations Supabase
 
-O diretório mistura:
-
-- migrations históricas com prefixos sequenciais;
-- migrations atuais com timestamp UTC.
+O diretório usa um único esquema: prefixo sequencial numerado de três dígitos
+(`001_…` a `159_…`). Migrations que nasceram com timestamp UTC foram
+renumeradas uma única vez para esse padrão (ver ADR 0016); o timestamp original
+fica preservado como comentário no cabeçalho de cada arquivo afetado.
 
 Não renomeie arquivos já aplicados para “organizar” a pasta. O nome participa do
-histórico remoto.
+histórico remoto; a renumeração de ADR 0016 foi uma padronização pontual,
+validada por replay completo das migrations e só segura em banco descartável
+(o `db reset` reaplica do zero e ressincroniza `schema_migrations`).
 
 ### Antes de criar
 
@@ -188,10 +190,13 @@ Use o playbook `.claude/skills/supabase-migration.skill`.
 ### Nome de arquivo novo
 
 ```text
-YYYYMMDDHHMMSS_descricao_curta.sql
+NNN_descricao_curta.sql
 ```
 
-Use timestamp UTC para evitar colisões entre branches.
+Use o próximo número sequencial disponível (o último é `159_`, então o próximo
+é `160_`), com três dígitos e zero à esquerda. Em caso de branches paralelos,
+reconcilie os números antes do merge para preservar a ordem lexicográfica = ordem
+de aplicação.
 
 ### Segurança
 

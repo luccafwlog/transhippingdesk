@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('ledger settlement guard migration', () => {
   it('enforces one live ledger settlement per receivable and one normalized PIX TXID', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260529141000_ledger_settlement_uniqueness_guards.sql'),
+      resolve(process.cwd(), 'supabase/migrations/071_ledger_settlement_uniqueness_guards.sql'),
       'utf8',
     )
 

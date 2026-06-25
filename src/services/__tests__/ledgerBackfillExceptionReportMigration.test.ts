@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('ledger backfill exception report migration', () => {
   it('returns explicit exception and total mismatch details from backfill RPCs', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260529142000_ledger_backfill_exception_report.sql'),
+      resolve(process.cwd(), 'supabase/migrations/072_ledger_backfill_exception_report.sql'),
       'utf8',
     )
 

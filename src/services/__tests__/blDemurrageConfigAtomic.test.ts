@@ -32,7 +32,7 @@ it('salva free time e overrides P1/P2 em uma unica RPC', async () => {
 
 it('define RPC atomica, auditada e protegida', () => {
   const sql = fs.readFileSync(
-    path.resolve('supabase/migrations/20260623112000_save_bl_demurrage_config_atomic.sql'),
+    path.resolve('supabase/migrations/147_save_bl_demurrage_config_atomic.sql'),
     'utf8',
   )
   expect(sql).toMatch(/FUNCTION public\.save_bl_demurrage_config/i)

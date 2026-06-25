@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('revoke anon SECURITY DEFINER drift migration', () => {
   const sql = readFileSync(
-    resolve(process.cwd(), 'supabase/migrations/20260624110000_revoke_anon_definer_drift.sql'),
+    resolve(process.cwd(), 'supabase/migrations/152_revoke_anon_definer_drift.sql'),
     'utf8',
   )
 

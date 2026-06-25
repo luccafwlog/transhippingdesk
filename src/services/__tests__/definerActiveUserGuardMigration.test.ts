@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 const read = (file: string) => readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')
 
 describe('revoke anon on portal read RPCs migration', () => {
-  const sql = read('20260624100000_revoke_anon_portal_read_rpcs.sql')
+  const sql = read('150_revoke_anon_portal_read_rpcs.sql')
 
   const portalReadRpcs = [
     'portal_list_operation_bls()',
@@ -28,7 +28,7 @@ describe('revoke anon on portal read RPCs migration', () => {
 })
 
 describe('SECURITY DEFINER active-user guard migration', () => {
-  const sql = read('20260624100100_guard_definer_rpcs_active_user.sql')
+  const sql = read('151_guard_definer_rpcs_active_user.sql')
 
   const guardedRpcs = [
     'calculate_bl_local_charges',

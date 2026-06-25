@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('remaining permissive RLS hardening migration', () => {
   it('replaces permissive policies on BAPLIE and voyage export tables', () => {
     const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260609134000_harden_remaining_permissive_rls.sql'),
+      resolve(process.cwd(), 'supabase/migrations/091_harden_remaining_permissive_rls.sql'),
       'utf8',
     )
 
