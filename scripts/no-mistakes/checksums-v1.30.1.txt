@@ -1,0 +1,6 @@
+265f8c3c434ccbaef6f75f564a67b56b92254f50b044d34ff82b24074279db11  no-mistakes-v1.30.1-darwin-amd64.tar.gz
+a299e56d77d797620e744fb9b4e6b2fe7e7e3aaf5cca25bd2b6e90f6069f657a  no-mistakes-v1.30.1-darwin-arm64.tar.gz
+c1973d17e74042cb2787e8e2f643ba18b5830ca1094d5f3dfd62402bb0923581  no-mistakes-v1.30.1-linux-amd64.tar.gz
+0eef02342f3106106103f6d338dec55952524a7ca6fa477ad01b8622a9bee114  no-mistakes-v1.30.1-linux-arm64.tar.gz
+6d324e16b1ef51c0ba8ca0073bf839e91d790566d36d40011c49199da1201694  no-mistakes-v1.30.1-windows-amd64.zip
+11ec1108dc22b4a19c01db72ef368ac56dfa16488bf0079ace3d1c0cca530579  no-mistakes-v1.30.1-windows-arm64.zip
