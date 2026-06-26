@@ -1,10 +1,12 @@
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Pencil } from 'lucide-react'
+import { AlertTriangle, Download, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { formatDate } from '../../lib/utils'
 import type { VoyagePolSchedule } from '../../services/voyageRouteSchedules'
 import { collectVoyageManifestBatchRows, renderCeCoverage, type VoyageImportBatch } from './voyageCardHelpers'
 import type { EditingPolPayload, Voyage } from './voyageCardTypes'
+import { MercanteEdiModal } from '../shared/MercanteEdiModal'
 
 type EstadoMeta = { color: string; bg: string; label: string }
 
@@ -30,12 +32,30 @@ export function VoyageManifestosTab({
   onEditPol: (payload: EditingPolPayload) => void
 }) {
   const navigate = useNavigate()
+  const [ediModalOpen, setEdiModalOpen] = useState(false)
+  const [ediModalPol, setEdiModalPol] = useState<string>('')
+  const [ediModalPod, setEdiModalPod] = useState<string>('')
+
   const manifestRows = collectVoyageManifestBatchRows({
     voyageId: voyage.id,
     batches: importBatches,
     bls: voyage.bls,
     polSchedules,
   })
+
+  const ediModalBls = useMemo(() => {
+    if (!ediModalOpen) return []
+    return (voyage.bls ?? []).filter(
+      (bl) => bl.pol?.trim() === ediModalPol && bl.pod?.trim() === ediModalPod,
+    )
+  }, [voyage.bls, ediModalPol, ediModalPod, ediModalOpen])
+
+  function handleOpenEdiModal(routeKey: string) {
+    const [pol, pod] = routeKey.split('__')
+    setEdiModalPol(pol ?? '')
+    setEdiModalPod(pod ?? '')
+    setEdiModalOpen(true)
+  }
 
   return (
     <>
@@ -76,12 +96,12 @@ export function VoyageManifestosTab({
           <div className="app-table-scroll">
             <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
               <colgroup>
-                <col className="w-[44%]" />
-                <col className="w-[13%]" />
-                <col className="w-[9%]" />
-                <col className="w-[14%]" />
+                <col className="w-[40%]" />
                 <col className="w-[12%]" />
                 <col className="w-[8%]" />
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+                <col className="w-[16%]" />
               </colgroup>
               <thead>
                 <tr>
@@ -117,24 +137,36 @@ export function VoyageManifestosTab({
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <Button
-                          variant="secondary"
-                          className="app-voyage-icon-btn"
-                          aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
-                          onClick={() =>
-                            onEditPol({
-                              voyageId: voyage.id,
-                              voyageLabel,
-                              pol: row.pol,
-                              etd: row.etd,
-                              ceMaster: row.ceMaster,
-                              batchIds: row.batchIds,
-                            })
-                          }
-                          disabled={!row.pol || row.pol === '-'}
-                        >
-                          <Pencil size={15} />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="secondary"
+                            className="app-voyage-icon-btn"
+                            aria-label={`Gerar EDI Mercante de ${row.routeLabel}`}
+                            title="Gerar EDI Mercante"
+                            onClick={() => handleOpenEdiModal(row.routeKey)}
+                            disabled={!row.pol || row.pol === '-'}
+                          >
+                            <Download size={15} />
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            className="app-voyage-icon-btn"
+                            aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
+                            onClick={() =>
+                              onEditPol({
+                                voyageId: voyage.id,
+                                voyageLabel,
+                                pol: row.pol,
+                                etd: row.etd,
+                                ceMaster: row.ceMaster,
+                                batchIds: row.batchIds,
+                              })
+                            }
+                            disabled={!row.pol || row.pol === '-'}
+                          >
+                            <Pencil size={15} />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -150,6 +182,15 @@ export function VoyageManifestosTab({
           </div>
         </div>
       </div>
+
+      <MercanteEdiModal
+        open={ediModalOpen}
+        onClose={() => setEdiModalOpen(false)}
+        voyage={voyage}
+        bls={ediModalBls}
+        prefilledPol={ediModalPol}
+        prefilledPod={ediModalPod}
+      />
     </>
   )
 }
