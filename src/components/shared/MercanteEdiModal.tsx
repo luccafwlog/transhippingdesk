@@ -10,6 +10,7 @@ import {
   type MercanteManifestData,
 } from '../../services/mercanteEdiGenerator'
 import { downloadEdiMercante } from '../../services/mercanteEdiDownload'
+import { extractNcmCodes } from '../../lib/ncm'
 type VoyageBl = {
   id: string
   shipper?: string | null
@@ -27,6 +28,7 @@ type VoyageBl = {
     type?: string | null
     tare_weight_kg?: number | null
     gross_weight_kg?: number | null
+    cbm?: number | null
     is_imo?: boolean | null
     imo_class?: string | null
     un_number?: string | null
@@ -115,8 +117,8 @@ export function MercanteEdiModal({
           containerType: c.type ?? '',
           tareWeightKg: c.tare_weight_kg ?? 0,
           grossWeightKg: c.gross_weight_kg ?? 0,
-          totalCbm: 0,
-          ncmCodes: [],
+          totalCbm: c.cbm ?? 0,
+          ncmCodes: extractNcmCodes(bl.cargo_description ?? ''),
           isImo: c.is_imo ?? false,
           imoClass: c.imo_class ?? '',
           unNumber: c.un_number ?? '',

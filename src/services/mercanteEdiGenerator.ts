@@ -1,3 +1,4 @@
+import { extractNcmCodes } from '../lib/ncm'
 import type { BL, BLContainer, Voyage, Vessel, Port } from '../types/database'
 
 export type MercanteManifestData = {
@@ -187,8 +188,8 @@ export function blToMercanteBlData(bl: BL, containers: BLContainer[]): MercanteB
       containerType: c.type ?? '',
       tareWeightKg: c.tare_weight_kg ?? 0,
       grossWeightKg: c.gross_weight_kg ?? 0,
-      totalCbm: 0,
-      ncmCodes: [],
+      totalCbm: c.cbm ?? 0,
+      ncmCodes: extractNcmCodes(bl.cargo_description ?? ''),
       isImo: c.is_imo ?? false,
       imoClass: c.imo_class ?? '',
       unNumber: c.un_number ?? '',
