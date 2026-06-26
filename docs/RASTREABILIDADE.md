@@ -315,8 +315,8 @@ como **Teste de contrato SQL** e não foram executados nesta frente. Eles cobrem
   `portalInvoiceHistoryLinksMigration`, `portalOperationMigration` e
   `portalResolveLoginHardeningMigration`.
 
-`src/integration/supabase.integration.test.ts` é **Integração não executada**.
-Quando habilitada contra ambiente controlado, a suite cobre:
+`src/integration/supabase.integration.test.ts` cobre, quando habilitada contra
+ambiente controlado:
 
 - `import_manifest_transactional`: hash duplicado `23505` e rate limit `P0429`;
 - `save_bl_review`: lock otimista `PT409`;
@@ -330,6 +330,27 @@ Quando habilitada contra ambiente controlado, a suite cobre:
 - `reconcile_invoice_payment_by_txid` sem match e com TXID vazio;
 - `link_invoice_to_ledger` e leitura de `invoice_receivable_links`.
 
-Não há evidência **Runtime** nova neste Plano 07. Grants remotos, jobs ativos,
-webhook de email, deploy das Edge Functions e alinhamento remoto da migration
-`20260619190144` permanecem para inspeção controlada no Plano 08.
+### Verificação local em runtime (2026-06-26)
+
+Executada contra um Postgres descartável com todas as migrations aplicadas, via
+um emulador parcial de PostgREST/GoTrue (`scripts/design-audit/sb-shim.cjs`) com
+`SUPABASE_RUN_INTEGRATION=1`:
+
+- **Runtime (local):** o *hardening gate* passou — `import_manifest_transactional`
+  rejeita hash duplicado (`23505`) e aciona rate limit (`P0429`); `save_bl_review`
+  retorna `PT409` em timestamp stale; `apply_ce_mercante_update` retorna
+  `unchanged`; e o operador (não-admin) **lê** `invoices` mas é bloqueado
+  (`42501`) ao chamar `cancel_invoice`. Os testes de fluxo de ledger/billing
+  permaneceram *gated* (fixtures), mas esse fluxo tem evidência **Runtime (local)**
+  pela UV de browser (emitir consolidada → pagar → reverter; emitir demurrage).
+- **Suspeitas reavaliadas:** os `SECURITY DEFINER` marcados como "guard interno
+  ausente" (`list_bl_local_charge_lines`, `list_customer_reconciliation_queue`,
+  `calculate_bl_local_charges`, `detect_overdue_invoices`) **bloqueiam usuário
+  autenticado inativo** com `42501`; as leituras do Portal com grant `anon` são
+  inócuas porque rejeitam `auth.uid()` nulo (`28000`). No schema aplicado, essas
+  Suspeitas **não se reproduzem**.
+
+**Limite da evidência:** o emulador é parcial e o Postgres é local. Isto valida o
+**contrato definido pelas migrations**, não o projeto **remoto**. Grants/RLS/jobs
+de produção, webhook de email, deploy das Edge Functions e alinhamento remoto da
+migration `20260619190144` permanecem para inspeção controlada (ADR 0011/0013).

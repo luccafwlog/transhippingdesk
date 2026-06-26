@@ -1279,7 +1279,9 @@ textarea {
 .app-badge--green {
   background: var(--app-green-soft);
   border-color: #86efac;
-  color: var(--app-green);
+  /* Tom mais escuro que var(--app-green) só no badge: garante contraste AA
+     (>=4.5:1) do texto 11px sobre o fundo verde-suave (a11y A11Y-001). */
+  color: #157a45;
 }
 
 .app-badge--red {
@@ -1291,7 +1293,9 @@ textarea {
 .app-badge--yellow {
   background: var(--app-gold-soft);
   border-color: #fde68a;
-  color: #b45309;
+  /* Âmbar levemente mais escuro: contraste AA (>=4.5:1) sobre o gold-suave
+     (antes 4.47:1 — falhava por margem; a11y A11Y-001). */
+  color: #a85309;
 }
 
 .app-badge--slate {

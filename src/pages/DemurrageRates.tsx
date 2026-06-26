@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import type { DemurrageRate } from '../types/database'
 import { invalidateDemurrageRatesCache } from '../services/demurrage/demurrageRates'
+import { buildDemurrageRateUpsertPayload } from './demurrageRatesHelpers'
 import { supabase } from '../services/supabase'
 
 type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at'>
@@ -39,7 +40,7 @@ async function listDemurrageRates(): Promise<DemurrageRate[]> {
 }
 
 async function upsertDemurrageRate(rate: Partial<DemurrageRate> & { container_type: string }) {
-  const { error } = await supabase.from('demurrage_rates').upsert(rate)
+  const { error } = await supabase.from('demurrage_rates').upsert(buildDemurrageRateUpsertPayload(rate))
   if (error) throw error
 }
 

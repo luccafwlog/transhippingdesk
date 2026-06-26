@@ -519,6 +519,13 @@ function toSortableDateValue(value: string | null) {
   return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
 }
 
-function compareDateValues(left: string | null, right: string | null) {
-  return toSortableDateValue(left) - toSortableDateValue(right)
+export function compareDateValues(left: string | null, right: string | null) {
+  // Subtrair os valores ordenáveis produziria NaN quando ambos são nulos
+  // (Infinity - Infinity), o que faria o comparador "vazar" um NaN e pular os
+  // critérios de desempate (etb/navio/viagem/pod). Comparar por igualdade evita
+  // isso e mantém nulos no fim.
+  const leftValue = toSortableDateValue(left)
+  const rightValue = toSortableDateValue(right)
+  if (leftValue === rightValue) return 0
+  return leftValue < rightValue ? -1 : 1
 }

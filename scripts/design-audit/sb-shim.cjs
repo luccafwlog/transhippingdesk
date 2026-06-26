@@ -6,6 +6,13 @@ const { Pool, types } = require('pg')
 types.setTypeParser(1082, v => v)            // date -> 'YYYY-MM-DD' like PostgREST
 types.setTypeParser(1700, v => parseFloat(v)) // numeric -> number
 types.setTypeParser(20, v => Number(v))       // int8 -> number
+// Keep timestamptz/timestamp as the raw Postgres string to preserve microsecond
+// precision. The default pg parser returns a JS Date, which JSON.stringify then
+// truncates to milliseconds — breaking optimistic-lock checks (save_bl_review)
+// that round-trip updated_at and compare it back at full precision, like real
+// PostgREST does.
+types.setTypeParser(1184, v => v)            // timestamptz -> raw string
+types.setTypeParser(1114, v => v)            // timestamp   -> raw string
 
 const PORT = 54321
 const JWT_SECRET = 'local-audit-jwt-secret-local-audit-jwt-secret-32'
@@ -261,7 +268,10 @@ function session(row) {
 
 // ---------- http ----------
 function send(res, status, body, headers = {}) {
-  const data = body == null ? '' : typeof body === 'string' ? body : JSON.stringify(body)
+  // Always JSON-encode (content-type is application/json). Scalar RPC results
+  // (e.g. portal_resolve_login returns text) must be quoted JSON, otherwise the
+  // supabase-js client fails to parse a bare string and treats it as an error.
+  const data = body == null ? '' : JSON.stringify(body)
   res.writeHead(status, { 'content-type': 'application/json', ...headers })
   res.end(data)
 }
@@ -322,10 +332,14 @@ async function handleRest(req, res, urlObj, claims) {
          and p.proname = $1`,
       [fn],
     )
-    const meta = signatures.rows.find(row =>
-      row.argnames?.length === names.length &&
-      names.every(name => row.argnames.includes(name)),
-    )
+    // PostgREST resolves overloads allowing DEFAULT parameters to be omitted:
+    // a call is valid when the supplied arg names are a subset of the function's
+    // argnames. Prefer an exact-arity match, then fall back to a subset match so
+    // functions with default params (or zero args) resolve like real PostgREST.
+    const candidates = signatures.rows.map(row => ({ ...row, argnames: row.argnames ?? [] }))
+    const meta =
+      candidates.find(row => row.argnames.length === names.length && names.every(name => row.argnames.includes(name))) ||
+      candidates.find(row => names.every(name => row.argnames.includes(name)))
     if (!meta) return send(res, 404, { message: `function ${fn} not found for supplied arguments` })
     const typeByName = new Map(meta.argnames.map((name, index) => [name, meta.argtypes[index]]))
     const params = names.map(n => {

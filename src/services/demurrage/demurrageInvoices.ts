@@ -17,6 +17,25 @@ export type DemurrageInvoiceListItem = DemurrageInvoice & {
   bl?: { id: string; pol: string | null; pod: string | null; voyage?: { id: number; voyage_number: string; vessel?: { id: number; name: string } | null } | null } | null
 }
 
+/**
+ * Aplica o desconto da fatura de demurrage em USD, antes da conversão para BRL
+ * (ADR 0014). Fonte única usada por todos os caminhos que congelam ou recalculam
+ * o valor, evitando divergência entre eles. Percentual é limitado a 0–100 e o
+ * valor fixo nunca leva o subtotal abaixo de zero.
+ */
+export function applyDemurrageUsdDiscount(
+  totalUsd: number,
+  discountMode: string | null | undefined,
+  discountValue: number | null | undefined,
+): number {
+  let discounted = totalUsd ?? 0
+  if (discountValue && discountValue > 0) {
+    if (discountMode === 'percent') discounted = discounted * (1 - Math.min(100, discountValue) / 100)
+    else discounted = Math.max(0, discounted - discountValue)
+  }
+  return discounted
+}
+
 function genDemurrageDocnum(blId: string): string {
   const year = new Date().getFullYear()
   const ts = Date.now().toString(36).slice(-4).toUpperCase()
@@ -252,11 +271,7 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
   if (frozenRoe == null && roe != null) {
     frozenRoe = roe
     // Desconto sempre em USD, antes da conversão para BRL (ADR 0014).
-    let discountedUsd = inv.total_usd ?? 0
-    if (inv.discount_value && inv.discount_value > 0) {
-      if (inv.discount_mode === 'percent') discountedUsd = discountedUsd * (1 - Math.min(100, inv.discount_value) / 100)
-      else discountedUsd = Math.max(0, discountedUsd - inv.discount_value)
-    }
+    const discountedUsd = applyDemurrageUsdDiscount(inv.total_usd ?? 0, inv.discount_mode, inv.discount_value)
     frozenTotalBrl = parseFloat((discountedUsd * roe).toFixed(2))
   }
 
@@ -287,11 +302,7 @@ export async function recomputeDiscountedBrl(invoiceId: number): Promise<void> {
   if (fetchErr) throw fetchErr
   if (inv.status !== 'issued' || inv.paid_at != null || inv.current_roe == null) return
 
-  let discountedUsd = inv.total_usd ?? 0
-  if (inv.discount_value && inv.discount_value > 0) {
-    if (inv.discount_mode === 'percent') discountedUsd = discountedUsd * (1 - Math.min(100, inv.discount_value) / 100)
-    else discountedUsd = Math.max(0, discountedUsd - inv.discount_value)
-  }
+  const discountedUsd = applyDemurrageUsdDiscount(inv.total_usd ?? 0, inv.discount_mode, inv.discount_value)
   const totalBrl = parseFloat((discountedUsd * inv.current_roe).toFixed(2))
   const pix_payload = inv.doc_number ? buildTransshippingPixPayload(totalBrl, inv.doc_number) : undefined
 
