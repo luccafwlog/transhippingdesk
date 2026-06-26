@@ -582,3 +582,46 @@ Reverificado em browser: badges ≥4,5:1 e `document.title` muda por rota.
 
 ## Confiança: **99%+** — diff sem vulnerabilidades e a11y estrutural limpa; dois
 itens P3 de polimento (contraste de badge e títulos por rota) documentados.
+
+---
+
+# Iteração 12 — Suíte de integração (local) + reconciliação da doc
+
+Data: 2026-06-26.
+
+## Suíte de integração executada contra a stack local
+
+`SUPABASE_RUN_INTEGRATION=1` apontando para o shim local. **Hardening gate:
+5/5 passou** (após resetar a janela de rate limit no Postgres descartável):
+
+| Teste | Resultado |
+|---|---|
+| `import_manifest_transactional` hash duplicado `23505` | PASS |
+| `import_manifest_transactional` rate limit `P0429` | PASS |
+| `save_bl_review` lock otimista `PT409` (timestamp stale) | PASS |
+| `apply_ce_mercante_update` retorna `unchanged` | PASS |
+| RLS financeiro: operador lê `invoices`, `cancel_invoice` → `42501` | PASS |
+
+Os 4 testes de **ledger/billing** permanecem *gated* (exigem fixtures e escrita
+pesada); esse fluxo já tem evidência de runtime pela UV de browser (iterações
+7–8: emitir consolidada → pagar → reverter; emitir demurrage) e pelos testes de
+contrato `*Migration.test.ts`.
+
+**Nota de fidelidade:** o `23505` é sensível a estado compartilhado — a janela de
+rate limit persiste no Postgres local entre execuções; rodar a suíte duas vezes
+seguidas faz o 2º import do teste de duplicidade cair em `P0429`. Resetada a
+janela, a execução única passa limpa. É artefato do ambiente local, não defeito.
+
+## Reconciliação da documentação viva
+
+`docs/RASTREABILIDADE.md` recebeu uma seção **"Verificação local em runtime
+(2026-06-26)"**: registra o hardening gate executado e reavalia as **Suspeitas**
+de RLS (definers bloqueiam inativo com `42501`; grants `anon` inócuos com
+`28000`), com o limite explícito de que isso valida o **contrato das migrations**,
+não o projeto remoto de produção.
+
+## Defeitos de produto — 0
+
+## Confiança: **99%+** — o único artefato de teste antes não executado (suíte de
+integração) agora roda localmente no núcleo de segurança; doc viva alinhada à
+evidência. Resíduo inalterado: ambiente remoto de produção.
