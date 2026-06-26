@@ -66,8 +66,8 @@ export function MercanteEdiModal({
   prefilledPod,
 }: MercanteEdiModalProps) {
   const { showToast } = useToast()
-  const [shippingCompany, setShippingCompany] = useState('')
-  const [agencyCnpj, setAgencyCnpj] = useState('')
+  const [shippingCompany, setShippingCompany] = useState('CN001321')
+  const [agencyCnpj, setAgencyCnpj] = useState('06352972000121')
   const [terminal, setTerminal] = useState('')
   const [emissionDate, setEmissionDate] = useState(new Date().toISOString().slice(0, 10))
   const [generating, setGenerating] = useState(false)
@@ -79,8 +79,8 @@ export function MercanteEdiModal({
   const podName = voyage.pod?.name ?? podCode
 
   function resetState() {
-    setShippingCompany('')
-    setAgencyCnpj('')
+    setShippingCompany('CN001321')
+    setAgencyCnpj('06352972000121')
     setTerminal('')
     setEmissionDate(new Date().toISOString().slice(0, 10))
   }

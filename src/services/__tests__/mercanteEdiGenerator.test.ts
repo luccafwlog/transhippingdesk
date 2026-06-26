@@ -15,8 +15,8 @@ const SAMPLE_MANIFEST: MercanteManifestData = {
   polLocode: 'CNNGB',
   podLocode: 'BRVIX',
   terminalCode: 'BRVIX004',
-  operationDate: '04072026',
-  closingDate: '18052026',
+  operationDate: '20260704',
+  closingDate: '20260518',
   bls: [
     {
       blNumber: 'CSC4537060EC00',
@@ -57,8 +57,8 @@ describe('generateM5Record', () => {
     expect(m5.substring(6, 10)).toBe('    ')
     expect(m5.substring(10, 24)).toBe('CN01321       ')
     expect(m5.substring(24, 38)).toBe('06352972000121')
-    expect(m5.substring(38, 46)).toBe('18052026')
-    expect(m5.substring(46, 54)).toBe('04072026')
+    expect(m5.substring(38, 46)).toBe('20260518')
+    expect(m5.substring(46, 54)).toBe('20260704')
     expect(m5.substring(54, 59)).toBe('CNNGB')
     expect(m5.substring(59, 64)).toBe('BRVIX')
     expect(m5.substring(64, 74)).toBe('39        ')
@@ -66,15 +66,15 @@ describe('generateM5Record', () => {
     expect(m5.substring(84, 92)).toBe('BRVIX004')
   })
 
-  it('converts ISO date (YYYY-MM-DD) to DDMMYYYY format', () => {
+  it('accepts ISO date (YYYY-MM-DD) producing YYYYMMDD', () => {
     const m5 = generateM5Record({
       ...SAMPLE_MANIFEST,
       operationDate: '2026-07-04',
       closingDate: '2026-05-18',
     })
 
-    expect(m5.substring(38, 46)).toBe('18052026')
-    expect(m5.substring(46, 54)).toBe('04072026')
+    expect(m5.substring(38, 46)).toBe('20260518')
+    expect(m5.substring(46, 54)).toBe('20260704')
   })
 })
 
@@ -89,6 +89,18 @@ describe('generateC5Record', () => {
     expect(c5.substring(6, 24)).toBe('CSC4537060EC00    ')
     expect(c5.substring(29, 71)).toBe('NEXT SHIPPING LOGISTICA INTERNACIONAL LTDA')
     expect(c5.substring(367, 381)).toBe('20185717000162')
+  })
+
+  it('strips newlines from text fields to keep single-line record', () => {
+    const c5 = generateC5Record({
+      ...SAMPLE_MANIFEST.bls[0],
+      cargoDescription: 'LINE1\nLINE2\nLINE3',
+      consigneeName: 'LINE1\r\nLINE2',
+    })
+
+    expect(c5.length).toBe(4104)
+    expect(c5.includes('\n')).toBe(false)
+    expect(c5.includes('\r')).toBe(false)
   })
 })
 
