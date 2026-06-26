@@ -11,6 +11,7 @@ import {
 } from '../../services/mercanteEdiGenerator'
 import { downloadEdiMercante } from '../../services/mercanteEdiDownload'
 import { extractNcmCodes } from '../../lib/ncm'
+import { portNameToUf } from '../../services/mercanteEdiGenerator'
 type VoyageBl = {
   id: string
   shipper?: string | null
@@ -111,6 +112,11 @@ export function MercanteEdiModal({
         totalPackages: 0,
         totalWeightKg: bl.total_weight_kg ?? 0,
         totalCbm: bl.total_cbm ?? 0,
+        polLocode: polCode,
+        podLocode: podCode,
+        countryOfOrigin: polCode.slice(0, 2),
+        destinationUf: portNameToUf(podName),
+        paymentType: '',
         containers: (bl.bl_containers ?? []).map((c) => ({
           containerNumber: c.container_number,
           sealNumber: c.seal_number ?? '',

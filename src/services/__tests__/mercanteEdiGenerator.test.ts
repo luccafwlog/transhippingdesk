@@ -29,6 +29,11 @@ const SAMPLE_MANIFEST: MercanteManifestData = {
       totalPackages: 560,
       totalWeightKg: 13600,
       totalCbm: 0,
+      polLocode: 'CNNGB',
+      podLocode: 'BRVIX',
+      countryOfOrigin: 'CN',
+      destinationUf: '',
+      paymentType: '',
       containers: [
         {
           containerNumber: 'CSGU6470070',
