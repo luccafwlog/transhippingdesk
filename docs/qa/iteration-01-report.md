@@ -519,3 +519,62 @@ um schema com todas as migrations aplicadas.
 ## Confiança: **99%+** — Portal e fronteira de segurança (nível de schema) agora
 com evidência de runtime. Resíduo: grants/RLS remotos de produção e Edge
 Functions, fora do alcance do sandbox.
+
+---
+
+# Iteração 11 — Security review do diff + auditoria de acessibilidade
+
+Data: 2026-06-26.
+
+## Parte 1 — Security review (diff da branch vs `main`)
+
+Revisado todo o código **enviado** (excluindo testes e a ferramenta de
+auditoria) do diff desta branch.
+
+| Arquivo | Mudança | Veredito |
+|---|---|---|
+| `demurrage/demurrageRates.ts` | clamp do início de P2 (DEF-001) | aritmética pura; sem superfície de ataque; reduz sobrecobrança |
+| `demurrage/demurrageInvoices.ts` | `applyDemurrageUsdDiscount` (fonte única) | comportamento idêntico; percentual capado 0–100; piso 0 |
+| `lineup.ts` | `compareDateValues` sem NaN | comparador puro |
+| `pages/demurrageRatesHelpers.ts` + `DemurrageRates.tsx` | omite `valid_from` nulo no upsert | strip de chave conhecida; upsert continua sob RLS admin-only |
+| `scripts/design-audit/sb-shim.cjs` | resolução de RPC com default/0-arg, precisão de timestamp, JSON escalar | **ferramenta dev-only, não embarcada em produção** |
+
+**Veredito: 0 vulnerabilidades no diff.** Sem injeção, bypass de autorização,
+exposição de segredo ou de dados novos. As mudanças de produto são lógica pura
+atrás dos gates de RLS/admin já existentes. As mudanças no `sb-shim` são do
+emulador de auditoria local (não vão para produção).
+
+## Parte 2 — Auditoria de acessibilidade (runtime de browser)
+
+Sem `axe-core` instalado e CDN bloqueada (CLAUDE.md §2: sem nova dependência),
+foi executada uma auditoria WCAG estrutural via DOM em 6 telas + modal:
+`/painel`, `/faturamento` (+ InvoiceDetailModal), `/clientes`, `/demurrage`,
+`/portal/billing`. Checks: `lang`, `alt`, nome acessível de
+botões/links/inputs, associação de `label`, IDs duplicados, hierarquia de
+headings, landmark `main`, `tabindex` positivo, semântica de diálogo e foco.
+
+**Resultado estrutural: 0 problemas.** Base de a11y forte e consistente:
+`<html lang>` presente, todos os controles com nome acessível, formulários com
+`label`, landmark `main`, h1 por página, sem IDs duplicados. O `InvoiceDetailModal`
+tem `role=dialog`, `aria-modal=true`, nome acessível e **foco preso** ao abrir.
+
+### Achados (P3 — baixa prioridade, recomendações)
+
+- **A11Y-001 (contraste):** dois textos de badge de status em tema escuro ficam
+  abaixo do AA (texto pequeno, 11px): verde `--app-green #1a8c50` (~3,85:1) e
+  âmbar `#b45309` (~4,47:1; falha por 0,03). Correção exige ajustar **tokens de
+  design compartilhados** (`src/index.css`), com impacto visual em todo o app —
+  fora de "fix pequeno e seguro" sem aval de design. Recomenda-se subir o verde
+  para ~`#1faa61`+ (≥4,5:1) e o âmbar para ~`#a85108`, revalidando os usos.
+- **A11Y-002 (títulos de página):** todas as rotas usam o mesmo `document.title`
+  ("Transhipping Desk"). WCAG 2.4.2 recomenda títulos descritivos por rota
+  (ajuda leitores de tela e histórico do navegador). Recomenda-se definir o
+  título por rota (ex.: "Faturamento · Transhipping Desk").
+
+Nenhum dos dois é defeito funcional; ambos documentados como recomendações de
+melhoria, sem alterar tokens compartilhados nesta passada.
+
+## Defeitos de produto — 0
+
+## Confiança: **99%+** — diff sem vulnerabilidades e a11y estrutural limpa; dois
+itens P3 de polimento (contraste de badge e títulos por rota) documentados.
