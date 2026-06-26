@@ -21,8 +21,8 @@
 | D5 | M5 grouped by POL→POD pair | Voyage with 3 POLs × 2 PODs = up to 6 distinct M5 manifests |
 | D6 | B/Ls filtered at BL-level by POL/POD | B/Ls with different POL/POD excluded from that route's M5 |
 | D7 | Empresa/Agência/Terminal optional and modal-fillable | Data not in DB yet; defaults from carrier.scac when omitted |
-| D8 | MVP with available data | Addresses (consignatário/shipper) and total packages empty until parser updated |
-| D9 | C5/I5 with space-delimited fields (4 spaces) | Consistent with parser's `split(/\s{2,}/)`; may need fixed positions if Mercante rejects it |
+| D8 | MVP with available data | Addresses included when available; total packages defaults to 0 |
+| D9 | C5/I5 with fixed-position format | Mercante rejected space-delimited format; validated against `MODELO EDI MERCANTE.TXT` (M5: 164, C5: 4104, I5: 5000 chars) |
 | D10 | Modal in both /viagens and /manifestos | Two entry points, same UI |
 
 ---
@@ -46,11 +46,16 @@
 - Create: `src/services/mercanteEdiGenerator.ts`
 - Create: `src/services/__tests__/mercanteEdiGenerator.test.ts`
 
+**Record format (fixed-position, validated against `MODELO EDI MERCANTE.TXT`):**
+- M5: 164 chars — header do manifesto
+- C5: 4104 chars — conhecimento (1 por BL)
+- I5: 5000 chars — item de carga (1 por container)
+
 - [x] Define types (`MercanteManifestData`, `MercanteBlData`, `MercanteContainerData`)
-- [x] Implement formatting helpers (`fmtAlfa`, `fmtNum`, `fmtDate`)
-- [x] Implement `generateM5Record()`, `generateC5Record()`, `generateI5Record()`
+- [x] Implement formatting helpers (`fmtAlfa`, `fmtNum`, `fmtDate`, `fmtNumDec`)
+- [x] Implement `generateM5Record()` (164 chars), `generateC5Record()` (4104 chars), `generateI5Record()` (5000 chars)
 - [x] Implement `generateEdiMercante()`, `buildManifestData()`, `blToMercanteBlData()`
-- [x] Write and pass tests (5/5)
+- [x] Write and pass tests (5/5) with exact length assertions
 - [x] Commit
 
 ---
@@ -110,7 +115,7 @@
 ## Self-Review
 
 **1. Spec coverage:**
-- Task 1: Core generator ✓
+- Task 1: Core generator ✓ (M5: 164, C5: 4104, I5: 5000 — validated against model file)
 - Task 2: Download helper ✓
 - Task 2b: Modal component ✓
 - Task 3: UI in voyage manifests tab ✓
@@ -123,8 +128,12 @@
 - `MercanteManifestData` → `generateEdiMercante` → `buildManifestData` ✓
 - Modal types compatible with both Voyage and B/L row data ✓
 
+**4. Format validation:**
+- C5/I5 fields use fixed-position format per `MODELO EDI MERCANTE.TXT`
+- Field widths: M5=164, C5=4104, I5=5000
+- IMO/UN area at pos 448-460 (I5), NCM at pos 532-535 (I5)
+
 **Known gaps (ponytail):**
-- Exact C5/I5 format needs validation against Mercante system (space-delimited vs fixed positions)
-- Addresses (consignatário/shipper) and total packages empty until parser updated
-- Empty container count hardcoded as 0
+- Some C5 additional fields (pos 1402-1795, 3797-4104) padded with zeros — need real data mapping
 - Agency CNPJ same as shipping company — add separate field when available
+- Dates in C5 emission field (pos 635-642) not populated — needs date from BL/manifest data
