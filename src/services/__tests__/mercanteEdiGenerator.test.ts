@@ -51,6 +51,7 @@ describe('generateM5Record', () => {
   it('generates M5 record with correct field positions', () => {
     const m5 = generateM5Record(SAMPLE_MANIFEST)
 
+    expect(m5.length).toBe(164)
     expect(m5.substring(0, 2)).toBe('M5')
     expect(m5.substring(2, 6)).toBe('0001')
     expect(m5.substring(6, 10)).toBe('    ')
@@ -71,6 +72,7 @@ describe('generateC5Record', () => {
     const bl = SAMPLE_MANIFEST.bls[0]
     const c5 = generateC5Record(bl)
 
+    expect(c5.length).toBe(4104)
     expect(c5.substring(0, 2)).toBe('C5')
     expect(c5.substring(2, 6)).toBe('0001')
     expect(c5.substring(6, 24)).toBe('CSC4537060EC00    ')
@@ -83,8 +85,9 @@ describe('generateI5Record', () => {
   it('generates I5 record with fixed-width fields', () => {
     const bl = SAMPLE_MANIFEST.bls[0]
     const ctr = bl.containers[0]
-    const i5 = generateI5Record(ctr, 1, bl.cargoDescription, bl.totalPackages)
+    const i5 = generateI5Record(ctr, 1)
 
+    expect(i5.length).toBe(5000)
     expect(i5.substring(0, 3)).toBe('I51')
     expect(i5.substring(3, 7)).toBe('0001')
     expect(i5.substring(19, 23)).toBe('45G1')

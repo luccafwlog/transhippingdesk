@@ -75,12 +75,13 @@ export function generateM5Record(data: MercanteManifestData): string {
   const termCarr = fmtAlfa(data.terminalCode, 40)
   const nrManifesto = fmtAlfa(data.bls[0]?.blNumber ?? '', 10)
   const espacos = fmtAlfa('', 10)
-  const filler = fmtAlfa('', 16)
+  const filler = fmtAlfa('', 20)
 
   return `M5${qtdeCe}${qtdeVazio}${empNav}${agenNav}${encManif}${descarga}${portoOrig}${portoDest}${viagem}${imo}${termCarr}${nrManifesto}${espacos}${filler}`
 }
 
 export function generateC5Record(bl: MercanteBlData): string {
+  // ponytail: modelo real define 4104 chars por registro C5
   let record = ''
   record += 'C5'
   record += fmtNum(bl.containers.length, 4)
@@ -94,45 +95,38 @@ export function generateC5Record(bl: MercanteBlData): string {
   record += fmtAlfa('', 55)
   record += fmtAlfa(bl.consigneeCnpjCpf, 14)
   record += fmtAlfa(bl.shipperName, 253)
-  record += fmtDate('')
-  record += fmtAlfa(bl.blNumber, 18)
-  record += fmtAlfa('N', 1)
-  record += fmtNum(0, 15)
-  record += fmtAlfa('', 1)
-  for (let i = 0; i < 10; i++) {
-    record += fmtAlfa('', 11)
-    record += fmtAlfa('', 4)
-    record += fmtAlfa('', 15)
-  }
-  for (let i = 0; i < 15; i++) {
-    record += fmtAlfa('', 3)
-    record += fmtAlfa('', 3)
-    record += fmtNum(0, 13)
-    record += fmtAlfa('', 1)
-    record += fmtAlfa('', 2)
-  }
-  record += fmtAlfa('I', 1)
-  record += fmtAlfa('', 2)
   record += fmtAlfa('', 8)
-  record += fmtAlfa('', 8)
-  record += fmtAlfa('N', 1)
-  record += fmtAlfa('', 2475)
-  record += fmtAlfa('', 5)
-  record += fmtAlfa('', 253)
+  record += fmtAlfa(bl.cargoDescription, 253)
+  record += fmtAlfa('', 506)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 3)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa(bl.consigneeCnpjCpf, 14)
+  record += fmtAlfa(bl.consigneeName, 253)
+  record += fmtAlfa('', 44)
+  record += fmtAlfa('', 4)
+  record += fmtAlfa('', 16)
   record += fmtAlfa('', 10)
   record += fmtAlfa('', 10)
-  record += fmtAlfa('', 5)
-  record += fmtAlfa('', 5)
-  record += fmtAlfa('', 100)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 2001)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 3)
+  for (let i = 0; i < 13; i++) {
+    record += fmtAlfa('', 20)
+  }
+  record += fmtAlfa('', 15)
   return record
 }
 
 export function generateI5Record(
   container: MercanteContainerData,
   seq: number,
-  cargoDescription?: string,
-  blTotalPackages?: number,
 ): string {
+  // ponytail: modelo real define 5000 chars por registro I5
   let record = ''
   record += 'I5'
   record += fmtAlfa('1', 1)
@@ -142,34 +136,24 @@ export function generateI5Record(
   record += fmtAlfa(container.containerNumber, 11)
   record += fmtNumDec(container.tareWeightKg, 9, 3)
   record += fmtNumDec(container.totalCbm ?? 0, 11, 3)
-  const ncmCount = Math.min(container.ncmCodes.length, 191)
-  for (let i = 0; i < 191; i++) {
-    record += i < ncmCount ? fmtAlfa(container.ncmCodes[i], 8) : fmtAlfa('', 8)
-  }
+  record += fmtAlfa('', 393)
   if (container.isImo) {
-    record += fmtAlfa(container.imoClass, 4)
-    record += 'S'
+    record += ' '
+    record += '00'
     record += fmtNum(container.unNumber, 4)
-    record += fmtAlfa('', 2)
+    record += fmtAlfa(container.imoClass, 1)
   } else {
-    record += fmtAlfa('', 4)
-    record += 'N'
-    record += fmtNum(0, 4)
-    record += fmtAlfa('', 2)
+    record += fmtAlfa('', 8)
   }
   record += fmtAlfa('', 3)
-  record += fmtAlfa('', 20)
-  record += fmtAlfa('', 20)
-  record += fmtNum(blTotalPackages ?? 0, 6)
-  record += fmtNumDec(0, 12, 3)
-  record += fmtNumDec(0, 13, 2)
-  record += fmtAlfa('', 3)
-  record += fmtAlfa('N', 1)
-  record += fmtAlfa(container.sealNumber, 15)
-  for (let i = 1; i < 10; i++) {
-    record += fmtAlfa('', 15)
-  }
-  record += fmtAlfa(cargoDescription ?? '', 253)
+  record += '00'
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 50)
+  record += fmtAlfa('', 1)
+  record += fmtAlfa(container.ncmCodes[0] ?? '', 4)
+  record += fmtAlfa('', 5)
+  record += fmtAlfa('', 4460)
   return record
 }
 
@@ -180,7 +164,7 @@ export function generateEdiMercante(data: MercanteManifestData): string {
   for (const bl of data.bls) {
     lines.push(generateC5Record(bl))
     bl.containers.forEach((ctr, idx) => {
-      lines.push(generateI5Record(ctr, idx + 1, bl.cargoDescription, bl.totalPackages))
+      lines.push(generateI5Record(ctr, idx + 1))
     })
   }
 
