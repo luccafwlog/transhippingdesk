@@ -19,10 +19,10 @@ describe('downloadEdiMercante', () => {
       download: '',
       click: clickSpy,
     } as unknown as HTMLAnchorElement)
-    vi.spyOn(document.body, 'appendChild').mockImplementation(appendChildSpy)
-    vi.spyOn(document.body, 'removeChild').mockImplementation(removeChildSpy)
+    vi.spyOn(document.body, 'appendChild').mockImplementation(appendChildSpy as (node: Node) => Node)
+    vi.spyOn(document.body, 'removeChild').mockImplementation(removeChildSpy as (child: Node) => Node)
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeObjectURLSpy)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeObjectURLSpy as (url: string) => void)
   })
 
   afterEach(() => {
