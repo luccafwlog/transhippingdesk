@@ -6,8 +6,8 @@
 | HARD-001 | F-031 | Medium | Mitigado (2026-06-25) | Cálculo de desconto USD duplicado em 2 caminhos; consolidado em fonte única |
 | DEF-002 | F-010/F-011 | Low | Corrigido (2026-06-25) | Ordenação do Line-Up vaza NaN quando duas ETAs são nulas, pulando os desempates |
 | DEF-003 | F-036 | Medium | Corrigido (2026-06-25) | Criar tarifa de demurrage sem "Válido de" envia valid_from=null e falha (23502) com toast genérico |
-| A11Y-001 | transversal | Low (P3) | Aberto — recomendação | Contraste AA: badges de status verde (#1a8c50 ~3,85:1) e âmbar (#b45309 ~4,47:1) abaixo de 4,5:1 em texto 11px; correção mexe em tokens compartilhados |
-| A11Y-002 | transversal | Low (P3) | Aberto — recomendação | document.title genérico em todas as rotas (WCAG 2.4.2); recomendar título descritivo por rota |
+| A11Y-001 | transversal | Low (P3) | Corrigido (2026-06-26) | Contraste AA dos badges verde/âmbar; escopado às classes `.app-badge--green/--yellow` (4,85:1 e 4,78:1), sem mexer no token global |
+| A11Y-002 | transversal | Low (P3) | Corrigido (2026-06-26) | document.title descritivo por rota (`routeTitle` + `DocumentTitle` em App), WCAG 2.4.2 |
 
 ## DEF-001 — Demurrage P2 sobrecobra dias dentro do free time override
 

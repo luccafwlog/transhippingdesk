@@ -571,8 +571,12 @@ tem `role=dialog`, `aria-modal=true`, nome acessível e **foco preso** ao abrir.
   (ajuda leitores de tela e histórico do navegador). Recomenda-se definir o
   título por rota (ex.: "Faturamento · Transhipping Desk").
 
-Nenhum dos dois é defeito funcional; ambos documentados como recomendações de
-melhoria, sem alterar tokens compartilhados nesta passada.
+**Atualização (2026-06-26): ambos corrigidos.** A11Y-001 — contraste resolvido de
+forma escopada às classes `.app-badge--green` (#157a45, 4,85:1) e
+`.app-badge--yellow` (#a85309, 4,78:1), sem tocar o token global `--app-green`.
+A11Y-002 — `routeTitle()` (`src/lib/pageTitle.ts`) + `<DocumentTitle>` em
+`App.tsx` definem título descritivo por rota; coberto por `pageTitle.test.ts`.
+Reverificado em browser: badges ≥4,5:1 e `document.title` muda por rota.
 
 ## Defeitos de produto — 0
 
