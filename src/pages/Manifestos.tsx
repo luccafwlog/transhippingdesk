@@ -57,8 +57,35 @@ export function Manifestos() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [ediModalOpen, setEdiModalOpen] = useState(false)
-  const [ediModalVoyage, setEdiModalVoyage] = useState<{ vessel?: { name?: string | null } | null; pol?: string | null; pod?: string | null } | null>(null)
-  const [ediModalBls, setEdiModalBls] = useState<Array<{ id: string; pol?: string | null; pod?: string | null; shipper?: string | null; consignee?: string | null; bl_containers?: Array<{ id: number; container_number: string; seal_number?: string | null; type?: string | null; tare_weight_kg?: number | null; gross_weight_kg?: number | null; imo_class?: string | null; un_number?: string | null }> | null }>>([])
+  const [ediModalVoyage, setEdiModalVoyage] = useState<{
+    voyage_number: string
+    vessel?: { name?: string | null; imo?: string | null; carrier?: { scac?: string | null } | null } | null
+    pol?: { locode?: string | null; name?: string | null } | null
+    pod?: { locode?: string | null; name?: string | null } | null
+  } | null>(null)
+  const [ediModalBls, setEdiModalBls] = useState<Array<{
+    id: string
+    shipper?: string | null
+    consignee?: string | null
+    pol?: string | null
+    pod?: string | null
+    cargo_description?: string | null
+    total_weight_kg?: number | null
+    total_cbm?: number | null
+    manifest_customer_cnpj_cpf?: string | null
+    manifest_customer_name?: string | null
+    bl_containers?: Array<{
+      id: number
+      container_number: string
+      seal_number?: string | null
+      type?: string | null
+      tare_weight_kg?: number | null
+      gross_weight_kg?: number | null
+      is_imo?: boolean | null
+      imo_class?: string | null
+      un_number?: string | null
+    }> | null
+  }>>([])
   const [ediModalPol, setEdiModalPol] = useState<string>('')
   const [ediModalPod, setEdiModalPod] = useState<string>('')
   const [exporting, setExporting] = useState(false)
@@ -181,7 +208,15 @@ export function Manifestos() {
     }
 
     const first = [...groups.values()][0]!
-    setEdiModalVoyage({ pol: first.pol || null, pod: first.pod || null })
+    const firstBl = first.bls[0]
+    setEdiModalVoyage({
+      voyage_number: firstBl.voyage?.voyage_number ?? '',
+      vessel: firstBl.voyage?.vessel
+        ? { name: firstBl.voyage.vessel.name, imo: firstBl.voyage.vessel.imo ?? '', carrier: firstBl.voyage.vessel.carrier }
+        : null,
+      pol: { locode: first.pol || null, name: null },
+      pod: { locode: first.pod || null, name: null },
+    })
     setEdiModalBls(first.bls as typeof ediModalBls)
     setEdiModalPol(first.pol)
     setEdiModalPod(first.pod)
@@ -485,7 +520,7 @@ export function Manifestos() {
       <MercanteEdiModal
         open={ediModalOpen}
         onClose={() => setEdiModalOpen(false)}
-        voyage={ediModalVoyage ?? { pol: '', pod: '' }}
+        voyage={ediModalVoyage ?? { voyage_number: '', pol: { locode: '', name: '' }, pod: { locode: '', name: '' } }}
         bls={ediModalBls}
         prefilledPol={ediModalPol}
         prefilledPod={ediModalPod}

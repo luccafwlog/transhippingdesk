@@ -51,7 +51,12 @@ function fmtNum(value: number | string, length: number): string {
 
 function fmtDate(value: string): string {
   const digits = value.replace(/\D/g, '')
-  if (digits.length === 8) return digits
+  if (digits.length === 8) {
+    if (value.includes('-')) {
+      return digits.substring(6, 8) + digits.substring(4, 6) + digits.substring(0, 4)
+    }
+    return digits
+  }
   return digits.substring(6, 8) + digits.substring(4, 6) + digits.substring(0, 4)
 }
 
@@ -202,6 +207,7 @@ export function buildManifestData(params: {
   shippingCompanyCode: string
   agencyCnpj: string
   terminalCode: string
+  emissionDate: string
   voyage: Voyage
   vessel: Vessel
   polPort: Port | null
@@ -221,8 +227,8 @@ export function buildManifestData(params: {
     polLocode: params.polPort?.locode ?? '',
     podLocode: params.podPort?.locode ?? '',
     terminalCode: params.terminalCode,
-    operationDate: new Date().toISOString().slice(0, 10),
-    closingDate: new Date().toISOString().slice(0, 10),
+    operationDate: params.emissionDate,
+    closingDate: params.emissionDate,
     bls: blData,
   }
 }

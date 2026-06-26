@@ -10,8 +10,6 @@ import {
   type MercanteManifestData,
 } from '../../services/mercanteEdiGenerator'
 import { downloadEdiMercante } from '../../services/mercanteEdiDownload'
-import type { Voyage, Port } from '../../types/database'
-
 type VoyageBl = {
   id: string
   shipper?: string | null
@@ -33,12 +31,27 @@ type VoyageBl = {
     imo_class?: string | null
     un_number?: string | null
   }> | null
+  bl_breakbulk_items?: Array<{
+    gross_weight_kg?: number | null
+    cbm?: number | null
+  }> | null
+}
+
+type ModalVoyage = {
+  voyage_number: string
+  vessel?: {
+    name?: string | null
+    imo?: string | null
+    carrier?: { scac?: string | null } | null
+  } | null
+  pol?: { locode?: string | null; name?: string | null } | null
+  pod?: { locode?: string | null; name?: string | null } | null
 }
 
 type MercanteEdiModalProps = {
   open: boolean
   onClose: () => void
-  voyage: Voyage & { vessel?: Vessel & { carrier?: { name?: string | null; scac?: string | null } | null }; pol?: Port | null; pod?: Port | null }
+  voyage: ModalVoyage
   bls: VoyageBl[]
   prefilledPol?: string
   prefilledPod?: string
@@ -56,6 +69,7 @@ export function MercanteEdiModal({
   const [shippingCompany, setShippingCompany] = useState('')
   const [agencyCnpj, setAgencyCnpj] = useState('')
   const [terminal, setTerminal] = useState('')
+  const [emissionDate, setEmissionDate] = useState(new Date().toISOString().slice(0, 10))
   const [generating, setGenerating] = useState(false)
 
   const vessel = voyage.vessel
@@ -68,6 +82,7 @@ export function MercanteEdiModal({
     setShippingCompany('')
     setAgencyCnpj('')
     setTerminal('')
+    setEmissionDate(new Date().toISOString().slice(0, 10))
   }
 
   function handleClose() {
@@ -116,13 +131,13 @@ export function MercanteEdiModal({
         polLocode: polCode,
         podLocode: podCode,
         terminalCode: terminal,
-        operationDate: new Date().toISOString().slice(0, 10),
-        closingDate: new Date().toISOString().slice(0, 10),
+        operationDate: emissionDate,
+        closingDate: emissionDate,
         bls: blData,
       }
 
       const edi = generateEdiMercante(manifestData)
-      const filename = `MERCANTE_M5_${voyage.voyage_number}_${polCode}_${podCode}`
+      const filename = `MERCANTE_M5_${voyage.voyage_number ?? polCode ?? 'SINDICATO'}_${polCode}_${podCode}`
       downloadEdiMercante(edi, filename)
       showToast(`EDI Mercante gerado com ${bls.length} B/L(s).`, 'success')
       handleClose()
@@ -173,7 +188,7 @@ export function MercanteEdiModal({
 
           <Field label="Agência de Navegação (opcional)">
             <Input
-              placeholder="CNPJ da agência (ex: 06352972000121)"
+              placeholder={vessel?.carrier?.scac ? `CNPJ do armador` : 'CNPJ da agência (ex: 06352972000121)'}
               value={agencyCnpj}
               onChange={(e) => setAgencyCnpj(e.target.value)}
             />
@@ -184,6 +199,14 @@ export function MercanteEdiModal({
               placeholder="Código do terminal (ex: BRVIX004)"
               value={terminal}
               onChange={(e) => setTerminal(e.target.value)}
+            />
+          </Field>
+
+          <Field label="Data de Emissão">
+            <Input
+              type="date"
+              value={emissionDate}
+              onChange={(e) => setEmissionDate(e.target.value)}
             />
           </Field>
         </div>

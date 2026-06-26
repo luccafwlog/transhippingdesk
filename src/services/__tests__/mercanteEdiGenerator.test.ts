@@ -65,6 +65,17 @@ describe('generateM5Record', () => {
     expect(m5.substring(74, 84)).toBe('9846495   ')
     expect(m5.substring(84, 92)).toBe('BRVIX004')
   })
+
+  it('converts ISO date (YYYY-MM-DD) to DDMMYYYY format', () => {
+    const m5 = generateM5Record({
+      ...SAMPLE_MANIFEST,
+      operationDate: '2026-07-04',
+      closingDate: '2026-05-18',
+    })
+
+    expect(m5.substring(38, 46)).toBe('18052026')
+    expect(m5.substring(46, 54)).toBe('04072026')
+  })
 })
 
 describe('generateC5Record', () => {
@@ -104,6 +115,24 @@ describe('generateEdiMercante', () => {
     expect(lines[0].startsWith('M5')).toBe(true)
     expect(lines[1].startsWith('C5')).toBe(true)
     expect(lines[2].startsWith('I5')).toBe(true)
+  })
+
+  it('handles B/Ls without containers', () => {
+    const edi = generateEdiMercante({
+      ...SAMPLE_MANIFEST,
+      bls: [
+        {
+          ...SAMPLE_MANIFEST.bls[0],
+          containers: [],
+        },
+      ],
+    })
+    const lines = edi.split('\r\n')
+
+    expect(lines.length).toBe(2)
+    expect(lines[0].startsWith('M5')).toBe(true)
+    expect(lines[1].startsWith('C5')).toBe(true)
+    expect(lines[1].substring(2, 6)).toBe('0000')
   })
 
   it('generates multiple I5 records for multiple containers', () => {
