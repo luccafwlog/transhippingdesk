@@ -1248,7 +1248,7 @@ export type PixTransaction = {
 export type BLListItem = BL & {
   customer?: Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> | null
   voyage?: (Pick<Voyage, 'id' | 'voyage_number' | 'eta' | 'ata' | 'status'> & {
-    vessel?: (Pick<Vessel, 'id' | 'name'> & {
+    vessel?: (Pick<Vessel, 'id' | 'name' | 'imo'> & {
       carrier?: Pick<Carrier, 'id' | 'name' | 'scac'> | null
     }) | null
   }) | null
