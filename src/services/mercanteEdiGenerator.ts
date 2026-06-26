@@ -41,7 +41,7 @@ export type MercanteContainerData = {
 }
 
 function fmtAlfa(value: string, length: number): string {
-  return value.slice(0, length).padEnd(length, ' ')
+  return value.replace(/[\r\n]/g, '').slice(0, length).padEnd(length, ' ')
 }
 
 function fmtNum(value: number | string, length: number): string {
@@ -50,14 +50,7 @@ function fmtNum(value: number | string, length: number): string {
 }
 
 function fmtDate(value: string): string {
-  const digits = value.replace(/\D/g, '')
-  if (digits.length === 8) {
-    if (value.includes('-')) {
-      return digits.substring(6, 8) + digits.substring(4, 6) + digits.substring(0, 4)
-    }
-    return digits
-  }
-  return digits.substring(6, 8) + digits.substring(4, 6) + digits.substring(0, 4)
+  return value.replace(/\D/g, '').slice(0, 8)
 }
 
 function fmtNumDec(value: number, length: number, decimals: number): string {
