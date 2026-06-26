@@ -1,3 +1,13 @@
+# Loop de QA contínua — registro de iterações (snapshot)
+
+> **Snapshot histórico congelado em 2026-06-26.** Registro das 12 iterações do
+> loop de QA contínua (mergeado em `main` via PR #291). As datas "Last Tested" na
+> planilha refletem o dia de cada iteração (2026-06-25/26) e não são atualizadas
+> após o congelamento. Artefatos irmãos: [`defects-log.md`](./defects-log.md) e
+> [`feature-spreadsheet.csv`](./feature-spreadsheet.csv).
+
+---
+
 # Iteração 1 — Relatório de validação contínua
 
 Data: 2026-06-25. Branch: `claude/quirky-einstein-3van4s`.
@@ -36,21 +46,21 @@ DEF-001: `calculateDemurrage` contava a faixa P2 a partir do dia fixo do grupo,
 incluindo dias ainda livres quando o `free_time_override` do B/L ultrapassava o
 fim de P1 — sobrecobrança de demurrage na invoice emitida ao cliente. O caminho
 afetado alimenta a geração dos itens da invoice em
-[`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts).
+[`demurrageInvoices.ts`](../../../../src/services/demurrage/demurrageInvoices.ts).
 
 ## 4. Defeitos corrigidos
 
 - **DEF-001:** início de P2 passou a ser `max(p2_day_from, freeUntil+1)` em
-  [`demurrageRates.ts`](../../src/services/demurrage/demurrageRates.ts). Teste de
+  [`demurrageRates.ts`](../../../../src/services/demurrage/demurrageRates.ts). Teste de
   regressão adicionado; caso normal (override ≤ fim de P1) inalterado. Doc viva
-  atualizada em [`../modules/demurrage.md`](../modules/demurrage.md).
+  atualizada em [`../modules/demurrage.md`](../../../modules/demurrage.md).
 
 ## 5. Riscos remanescentes
 
 - **Contratos SQL não executados contra banco:** 26 testes `*Migration.test.ts`
   são *Teste de contrato SQL* (detectam drift no SQL versionado, não provam
   RLS/grants em execução). Itens marcados **Suspeita** em
-  [`../RASTREABILIDADE.md`](../RASTREABILIDADE.md) (ex.: grants `anon` em leituras
+  [`../RASTREABILIDADE.md`](../../../RASTREABILIDADE.md) (ex.: grants `anon` em leituras
   do Portal; definers sem `is_active_user()`) exigem verificação remota
   autorizada e tocam migrations protegidas — fora do escopo de correção segura
   nesta iteração.
@@ -110,7 +120,7 @@ financeiro/integridade não cobertas na iteração 1.
 
 - **HARD-001:** o cálculo do desconto em USD da fatura de demurrage estava
   **duplicado** em dois caminhos (`markInvoicePaid` e `recomputeDiscountedBrl`)
-  de [`demurrageInvoices.ts`](../../src/services/demurrage/demurrageInvoices.ts).
+  de [`demurrageInvoices.ts`](../../../../src/services/demurrage/demurrageInvoices.ts).
   Cópias que precisam ficar em sincronia são risco de divergência do valor
   faturado. Consolidado em uma fonte única `applyDemurrageUsdDiscount`, com teste
   dedicado (`applyDemurrageUsdDiscount.test.ts`). Comportamento idêntico ao
@@ -220,7 +230,7 @@ operacional/financeiro.
 
 - **DEF-002:** comparador de ordenação do Line-Up vazava `NaN` quando duas ETAs
   eram nulas (`Infinity - Infinity`), pulando os desempates ETB/navio/viagem/POD.
-  Corrigido em [`lineup.ts`](../../src/services/lineup.ts) com comparador sem NaN;
+  Corrigido em [`lineup.ts`](../../../../src/services/lineup.ts) com comparador sem NaN;
   comparador exportado e coberto por regressão.
 
 ## 5. Riscos remanescentes
