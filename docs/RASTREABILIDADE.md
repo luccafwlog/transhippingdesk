@@ -203,6 +203,7 @@ loops, não apenas por regex de `CREATE POLICY`.
 | `customer_contacts` | CRUD | `src/services/customerBase.ts`; `src/services/customers.ts` | Estado final de `010`: ativo lê/insere/atualiza; admin deleta | Email participa do gate; Edge de email lê contatos via service role. | Clientes | **Código:** callers + `010_rls_by_role.sql` |
 | `customer_rate_overrides` | CRUD | `src/services/charges/chargeRateService.ts`; `src/services/customers.ts` | `010` + `014`: todas as operações admin | Afeta cálculo e itens manuais; delete controlado no fluxo de cliente. | Taxas Locais / Clientes | **Código:** callers + migrations `010`/`014` |
 | `customers` | CRUD/`UPSERT` | `src/components/bl/BlClienteSection.tsx`; `src/hooks/useCustomers.ts`; `src/pages/Clientes.tsx`; `src/pages/Revisao.tsx`; `src/services/billing.ts`; `src/services/charges/chargeRateService.ts`; `src/services/customerBase.ts`; `src/services/customerReconciliation.ts`; `src/services/customers.ts` | Estado final de `010`: ativo lê/insere/atualiza; admin deleta | `updated_at`; cascades/SET NULL; Portal profile escreve via RPC. | Clientes | **Código:** callers + migrations `003`/`010` |
+| `demurrage_invoice_history` | `SELECT` | `src/services/reconciliacao.ts`; `src/services/demurrage/demurrageKpis.ts` | Estado final de `160`: ativo lê (`is_active_user()`); escrita só via RPCs SECURITY DEFINER (auditoria) | Foto diária do valor recalculado (ADR 0014/0015). **Correção:** `153` criara o SELECT permissivo (`USING (true)`) que expunha o histórico financeiro de todos os clientes a sessões do Portal (`authenticated`); `160` alinha à tabela-pai. | Demurrage | **Código:** callers; **Teste de contrato SQL:** `demurrageInvoiceHistoryRlsMigration.test.ts` |
 | `demurrage_invoice_items` | `SELECT`, `INSERT` | `src/services/containers.ts`; `src/services/demurrage/demurrageInvoices.ts` | Estado final de `050`: ativo lê/insere/atualiza; admin deleta | Linhas congeladas da invoice; cascade ao apagar invoice. | Demurrage | **Código:** callers + migrations `042`/`050` |
 | `demurrage_invoices` | `SELECT`, `INSERT`, `UPDATE` | `src/services/bls.ts`; `src/services/customers.ts`; `src/services/demurrage/demurrageInvoices.ts`; `src/services/demurrage/demurrageKpis.ts`; `src/services/reconciliacao.ts` | Estado final de `050`: ativo lê/insere/atualiza; admin deleta | `updated_at`, notificações, disputa e cron overdue. | Demurrage | **Código:** callers + migrations `028`/`042`/`050` |
 | `demurrage_rates` | CRUD/`UPSERT` | `src/pages/DemurrageRates.tsx`; `src/services/demurrage/demurrageRates.ts` | SELECT ativo; INSERT/UPDATE/DELETE exigem ativo+admin | `updated_at`; RPC do Portal escolhe tarifa ativa/vigente. | Demurrage | **Código:** callers + migrations `048`/`20260610094629` |
@@ -273,6 +274,7 @@ loops, não apenas por regex de `CREATE POLICY`.
 | RLS base | `002_rls.sql`: CRUD para qualquer `authenticated` por `auth.role()` | `010_rls_by_role.sql` + `014_lock_down_financial_reads_and_audit_writes.sql` | Introduz `is_active_user()`/`is_admin()`, restringe deletes/financeiro e torna auditoria append-oriented. |
 | RLS Demurrage/Granito/Vazios | `028`, `034`–`036`: policies `true` ou apenas `auth.role()` | `042_rls_module_hardening.sql`, `050_alignment_granite_portal_demurrage.sql`, `20260610163251` | Alinha a ativo/admin e remove policies antigas de Vazios que sobreviveram por nome incorreto. |
 | RLS Baplie/export | Policies permissivas ou ausentes | `091_harden_remaining_permissive_rls.sql` | Ativo para leitura/escrita operacional; delete admin. |
+| RLS `demurrage_invoice_history` | `153_demurrage_invoice_history.sql`: SELECT `TO authenticated USING (true)` (mais permissivo que a tabela-pai) | `160_demurrage_invoice_history_rls_active.sql` | Restringe leitura a `is_active_user()`; fecha exposição do histórico financeiro a sessões do Portal (Broken Access Control, OWASP A01). |
 | `anon` em definers | Grants históricos amplos, inclusive Portal e funções internas | `20260530102907` e `20260609225321` revogam `PUBLIC`/`anon` de todos os definers; migrations novas devem revogar no mesmo arquivo | Default-deny da ADR 0011; trigger functions também perdem execute de `authenticated`. |
 | RPCs de dados do Portal | Fluxo legado por `p_session_token`, grants `anon` | Funções sem token usam `current_portal_customer_id()` desde `20260603130350` | Sessão passa a ser exclusivamente Supabase Auth. Migrations `20260615220000` voltam a conceder `anon` a seis leituras: **Suspeita** de drift documental/ACL, ainda que `auth.uid()` nulo seja rejeitado. |
 | `portal_resolve_login` | `20260615000002`: resolver autenticado; `20260615145427`: grant `anon` sem hardening final | `122_harden_portal_resolve_login.sql` | Exceção ADR 0013 com hash, rate limit, erro genérico e tabela sem grants públicos. |
@@ -313,8 +315,8 @@ como **Teste de contrato SQL** e não foram executados nesta frente. Eles cobrem
   `portalInvoiceHistoryLinksMigration`, `portalOperationMigration` e
   `portalResolveLoginHardeningMigration`.
 
-`src/integration/supabase.integration.test.ts` é **Integração não executada**.
-Quando habilitada contra ambiente controlado, a suite cobre:
+`src/integration/supabase.integration.test.ts` cobre, quando habilitada contra
+ambiente controlado:
 
 - `import_manifest_transactional`: hash duplicado `23505` e rate limit `P0429`;
 - `save_bl_review`: lock otimista `PT409`;
@@ -328,6 +330,27 @@ Quando habilitada contra ambiente controlado, a suite cobre:
 - `reconcile_invoice_payment_by_txid` sem match e com TXID vazio;
 - `link_invoice_to_ledger` e leitura de `invoice_receivable_links`.
 
-Não há evidência **Runtime** nova neste Plano 07. Grants remotos, jobs ativos,
-webhook de email, deploy das Edge Functions e alinhamento remoto da migration
-`20260619190144` permanecem para inspeção controlada no Plano 08.
+### Verificação local em runtime (2026-06-26)
+
+Executada contra um Postgres descartável com todas as migrations aplicadas, via
+um emulador parcial de PostgREST/GoTrue (`scripts/design-audit/sb-shim.cjs`) com
+`SUPABASE_RUN_INTEGRATION=1`:
+
+- **Runtime (local):** o *hardening gate* passou — `import_manifest_transactional`
+  rejeita hash duplicado (`23505`) e aciona rate limit (`P0429`); `save_bl_review`
+  retorna `PT409` em timestamp stale; `apply_ce_mercante_update` retorna
+  `unchanged`; e o operador (não-admin) **lê** `invoices` mas é bloqueado
+  (`42501`) ao chamar `cancel_invoice`. Os testes de fluxo de ledger/billing
+  permaneceram *gated* (fixtures), mas esse fluxo tem evidência **Runtime (local)**
+  pela UV de browser (emitir consolidada → pagar → reverter; emitir demurrage).
+- **Suspeitas reavaliadas:** os `SECURITY DEFINER` marcados como "guard interno
+  ausente" (`list_bl_local_charge_lines`, `list_customer_reconciliation_queue`,
+  `calculate_bl_local_charges`, `detect_overdue_invoices`) **bloqueiam usuário
+  autenticado inativo** com `42501`; as leituras do Portal com grant `anon` são
+  inócuas porque rejeitam `auth.uid()` nulo (`28000`). No schema aplicado, essas
+  Suspeitas **não se reproduzem**.
+
+**Limite da evidência:** o emulador é parcial e o Postgres é local. Isto valida o
+**contrato definido pelas migrations**, não o projeto **remoto**. Grants/RLS/jobs
+de produção, webhook de email, deploy das Edge Functions e alinhamento remoto da
+migration `20260619190144` permanecem para inspeção controlada (ADR 0011/0013).

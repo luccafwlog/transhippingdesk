@@ -1,5 +1,6 @@
-import { Suspense, type ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Suspense, useEffect, type ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { routeTitle } from './lib/pageTitle'
 import { AppLayout } from './components/layout/AppLayout'
 import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
 import { PortalLayout } from './components/layout/PortalLayout'
@@ -55,9 +56,20 @@ function withSuspense(node: ReactNode) {
   return <Suspense fallback={<RouteLoading />}>{node}</Suspense>
 }
 
+// Mantém document.title descritivo por rota (WCAG 2.4.2). Não renderiza nada.
+function DocumentTitle() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    document.title = routeTitle(pathname)
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   return (
-    <Routes>
+    <>
+      <DocumentTitle />
+      <Routes>
       <Route path="/login" element={withSuspense(<Login />)} />
       <Route path="/portal/login" element={withSuspense(<PortalLogin />)} />
       <Route path="/portal/esqueci-senha" element={withSuspense(<PortalForgotPassword />)} />
@@ -110,6 +122,7 @@ export default function App() {
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/painel" replace />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }

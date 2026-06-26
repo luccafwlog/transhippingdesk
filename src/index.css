@@ -165,6 +165,7 @@ body {
   color: var(--app-text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
@@ -183,6 +184,7 @@ textarea {
 .financial {
   font-family: var(--app-font-mono);
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-shell {
@@ -275,6 +277,7 @@ textarea {
   font-family: var(--app-font-mono);
   font-size: 11px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 /* HeaderInfoBar — user zone */
@@ -374,6 +377,7 @@ textarea {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-market-meta {
@@ -492,7 +496,7 @@ textarea {
   color: rgba(255, 255, 255, 0.7);
   font-size: 12px;
   font-weight: 600;
-  transition: all 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
 .app-header__quick-link:hover {
@@ -806,6 +810,7 @@ textarea {
   color: var(--app-muted);
   font-size: 14px;
   line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .page-header__actions {
@@ -965,6 +970,7 @@ textarea {
   font-weight: 800;
   line-height: 1.15;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-action-row {
@@ -1033,6 +1039,7 @@ textarea {
   white-space: nowrap; /* valor monetário é atômico — nunca parte */
   overflow-wrap: normal;
   word-break: keep-all;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-kpi-card__value--blue {
@@ -1095,6 +1102,10 @@ textarea {
   cursor: not-allowed;
   opacity: 0.6;
   transform: none !important;
+}
+
+.app-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .app-btn--primary {
@@ -1268,7 +1279,9 @@ textarea {
 .app-badge--green {
   background: var(--app-green-soft);
   border-color: #86efac;
-  color: var(--app-green);
+  /* Tom mais escuro que var(--app-green) só no badge: garante contraste AA
+     (>=4.5:1) do texto 11px sobre o fundo verde-suave (a11y A11Y-001). */
+  color: #157a45;
 }
 
 .app-badge--red {
@@ -1280,7 +1293,9 @@ textarea {
 .app-badge--yellow {
   background: var(--app-gold-soft);
   border-color: #fde68a;
-  color: #b45309;
+  /* Âmbar levemente mais escuro: contraste AA (>=4.5:1) sobre o gold-suave
+     (antes 4.47:1 — falhava por margem; a11y A11Y-001). */
+  color: #a85309;
 }
 
 .app-badge--slate {
@@ -1790,6 +1805,7 @@ textarea {
   color: var(--app-text-strong);
   font-size: 15px;
   font-weight: 600;
+  text-wrap: balance;
 }
 
 .app-empty-state__description {
@@ -1798,6 +1814,7 @@ textarea {
   color: var(--app-muted);
   font-size: 13px;
   line-height: 1.6;
+  text-wrap: pretty;
 }
 
 .app-inline-error {
@@ -1848,6 +1865,7 @@ textarea {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.03em;
+  text-wrap: balance;
 }
 
 .app-soft-panel__description {
@@ -1855,6 +1873,7 @@ textarea {
   color: var(--app-muted);
   font-size: 13px;
   line-height: 1.6;
+  text-wrap: pretty;
 }
 
 .app-auth {
@@ -2247,12 +2266,16 @@ textarea {
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
-  transition: all 0.18s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .app-table__action:hover {
   border-color: #9ebeff;
   background: linear-gradient(180deg, #ffffff, #e5efff);
+}
+
+.app-table__action:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .app-table__icon-button {
@@ -2267,7 +2290,11 @@ textarea {
   border-radius: 10px;
   background: linear-gradient(180deg, #ffffff, var(--app-surface-muted));
   color: var(--app-text-strong);
-  transition: all 0.18s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.app-table__icon-button:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .app-table__icon-button:hover {

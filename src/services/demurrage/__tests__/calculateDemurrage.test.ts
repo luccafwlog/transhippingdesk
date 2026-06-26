@@ -81,6 +81,16 @@ describe('calculateDemurrage', () => {
     expect(r.total_usd).toBe(5 * 50)
   })
 
+  it('override de free time além do fim de P1 não cobra dias livres como P2', () => {
+    // free 33 (> fim P1 do grupo, 30) → cobrança começa no dia 34, direto em P2.
+    // Dias 31..33 continuam livres pelo override e não podem virar P2.
+    const r = calculateDemurrage('20GP', '2026-01-01', '2026-02-10', 33) // 40 dias
+    expect(r.free_days).toBe(33)
+    expect(r.days_p1).toBe(0)
+    expect(r.days_p2).toBe(7) // dias 34..40, não 31..40
+    expect(r.total_usd).toBe(7 * 50)
+  })
+
   it('override de free time menor expande P1', () => {
     // free 15 → P1 = [16, 30], P2 = [31, ∞]
     const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-26', 15) // 25 dias

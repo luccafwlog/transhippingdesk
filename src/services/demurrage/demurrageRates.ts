@@ -145,7 +145,11 @@ export function calculateDemurrage(
   }
 
   const diasP1 = Math.max(0, Math.min(dc, rate.p1.range[1]) - rate.p1.range[0] + 1)
-  const diasP2 = Math.max(0, dc - rate.p2.range[0] + 1)
+  // P2 nunca pode incluir dias dentro do free time: quando o override empurra o
+  // início da cobrança (freeUntil+1) além do início da faixa P2 do grupo, a
+  // contagem de P2 começa na cobrança, não no dia fixo da faixa.
+  const p2Start = Math.max(rate.p2.range[0], rate.freeUntil + 1)
+  const diasP2 = Math.max(0, dc - p2Start + 1)
   const totalUSD = diasP1 * rate.p1.usd + diasP2 * rate.p2.usd
 
   return { total_days: dc, free_days: rate.freeUntil, days_p1: diasP1, rate_p1_usd: rate.p1.usd, days_p2: diasP2, rate_p2_usd: rate.p2.usd, total_usd: totalUSD, status: 'overdue' }

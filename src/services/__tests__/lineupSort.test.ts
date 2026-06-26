@@ -1,0 +1,45 @@
+import { describe, expect, it, vi } from 'vitest'
+
+// lineup.ts importa o cliente Supabase no topo do módulo; o comparador puro
+// testado aqui não o toca, então um stub vazio basta.
+vi.mock('../supabase', () => ({ supabase: {} }))
+
+import { compareDateValues } from '../lineup'
+
+describe('compareDateValues (ordenação do Line-Up)', () => {
+  it('ordena datas em ordem crescente', () => {
+    expect(compareDateValues('2026-01-01', '2026-01-02')).toBeLessThan(0)
+    expect(compareDateValues('2026-01-02', '2026-01-01')).toBeGreaterThan(0)
+  })
+
+  it('coloca valores nulos no fim (nulo é "maior")', () => {
+    expect(compareDateValues('2026-01-01', null)).toBeLessThan(0)
+    expect(compareDateValues(null, '2026-01-01')).toBeGreaterThan(0)
+  })
+
+  it('dois nulos são iguais — NÃO retorna NaN (preserva desempate posterior)', () => {
+    const result = compareDateValues(null, null)
+    expect(Number.isNaN(result)).toBe(false)
+    expect(result).toBe(0)
+  })
+
+  it('duas datas iguais retornam 0', () => {
+    expect(compareDateValues('2026-01-01', '2026-01-01')).toBe(0)
+  })
+
+  it('usado como comparador, mantém o desempate quando as ETAs são nulas', () => {
+    // Regressão: quando ambas as ETAs são nulas, o comparador de eta deve
+    // devolver 0 para que o critério seguinte (ex.: nome do navio) decida.
+    type Row = { eta: string | null; vessel: string }
+    const rows: Row[] = [
+      { eta: null, vessel: 'ZEUS' },
+      { eta: null, vessel: 'ARES' },
+    ]
+    const sorted = [...rows].sort((a, b) => {
+      const byEta = compareDateValues(a.eta, b.eta)
+      if (byEta !== 0) return byEta
+      return a.vessel.localeCompare(b.vessel, 'pt-BR')
+    })
+    expect(sorted.map((r) => r.vessel)).toEqual(['ARES', 'ZEUS'])
+  })
+})
