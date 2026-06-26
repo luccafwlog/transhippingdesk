@@ -100,6 +100,7 @@ export function MercanteEdiModal({
           containerType: c.type ?? '',
           tareWeightKg: c.tare_weight_kg ?? 0,
           grossWeightKg: c.gross_weight_kg ?? 0,
+          totalCbm: 0,
           ncmCodes: [],
           isImo: c.is_imo ?? false,
           imoClass: c.imo_class ?? '',

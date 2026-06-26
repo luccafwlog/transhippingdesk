@@ -36,6 +36,7 @@ const SAMPLE_MANIFEST: MercanteManifestData = {
           containerType: '45G1',
           tareWeightKg: 3800,
           grossWeightKg: 6800,
+          totalCbm: 0,
           ncmCodes: ['8711'],
           isImo: true,
           imoClass: '9',
@@ -66,31 +67,28 @@ describe('generateM5Record', () => {
 })
 
 describe('generateC5Record', () => {
-  it('generates C5 record with fields separated by 4 spaces', () => {
+  it('generates C5 record with fixed-width fields', () => {
     const bl = SAMPLE_MANIFEST.bls[0]
     const c5 = generateC5Record(bl)
 
     expect(c5.substring(0, 2)).toBe('C5')
-    expect(c5.substring(2, 6)).toBe('0560')
-    const tokens = c5.split('    ')
-    expect(tokens.length).toBeGreaterThanOrEqual(10)
-    expect(tokens[1]).toBe('20185717000162')
-    expect(tokens[2]).toBe('NEXT SHIPPING LOGISTICA INTERNACIONAL LTDA')
-    expect(tokens[7]).toBe('560')
-    expect(tokens[8]).toBe('13600')
+    expect(c5.substring(2, 6)).toBe('0001')
+    expect(c5.substring(6, 24)).toBe('CSC4537060EC00    ')
+    expect(c5.substring(29, 71)).toBe('NEXT SHIPPING LOGISTICA INTERNACIONAL LTDA')
+    expect(c5.substring(367, 381)).toBe('20185717000162')
   })
 })
 
 describe('generateI5Record', () => {
-  it('generates I5 record with correct container data', () => {
-    const ctr = SAMPLE_MANIFEST.bls[0].containers[0]
-    const i5 = generateI5Record(ctr, 1)
+  it('generates I5 record with fixed-width fields', () => {
+    const bl = SAMPLE_MANIFEST.bls[0]
+    const ctr = bl.containers[0]
+    const i5 = generateI5Record(ctr, 1, bl.cargoDescription, bl.totalPackages)
 
-    expect(i5.startsWith('I50001')).toBe(true)
-    const tokens = i5.split('    ')
-    expect(tokens[1]).toBe('CSGU6470070')
-    expect(tokens[2]).toBe('03800000')
-    expect(tokens[3]).toBe('45G1')
+    expect(i5.substring(0, 3)).toBe('I51')
+    expect(i5.substring(3, 7)).toBe('0001')
+    expect(i5.substring(19, 23)).toBe('45G1')
+    expect(i5.substring(23, 34)).toBe('CSGU6470070')
   })
 })
 

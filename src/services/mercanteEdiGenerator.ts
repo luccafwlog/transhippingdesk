@@ -33,6 +33,7 @@ export type MercanteContainerData = {
   containerType: string
   tareWeightKg: number
   grossWeightKg: number
+  totalCbm: number
   ncmCodes: string[]
   isImo: boolean
   imoClass: string
@@ -54,7 +55,11 @@ function fmtDate(value: string): string {
   return digits.substring(6, 8) + digits.substring(4, 6) + digits.substring(0, 4)
 }
 
-const SEP = '    '
+function fmtNumDec(value: number, length: number, decimals: number): string {
+  const mult = 10 ** decimals
+  const intVal = Math.round(value * mult)
+  return String(intVal).padStart(length, '0')
+}
 
 export function generateM5Record(data: MercanteManifestData): string {
   const qtdeCe = fmtNum(data.bls.length, 4)
@@ -76,39 +81,96 @@ export function generateM5Record(data: MercanteManifestData): string {
 }
 
 export function generateC5Record(bl: MercanteBlData): string {
-  const qtdeVol = fmtNum(bl.totalPackages, 4)
-  const consigDoc = fmtAlfa(bl.consigneeCnpjCpf, 14)
-  const parts = [
-    `C5${qtdeVol}`,
-    consigDoc,
-    bl.consigneeName,
-    bl.consigneeAddress,
-    bl.shipperName,
-    bl.shipperAddress,
-    bl.cargoDescription,
-    String(bl.totalPackages),
-    String(bl.totalWeightKg),
-    bl.totalCbm > 0 ? bl.totalCbm.toFixed(3) : '0.000',
-  ]
-  return parts.join(SEP)
+  let record = ''
+  record += 'C5'
+  record += fmtNum(bl.containers.length, 4)
+  record += fmtAlfa(bl.blNumber, 18)
+  record += fmtAlfa('N', 1)
+  record += fmtAlfa('N', 1)
+  record += fmtAlfa('', 2)
+  record += fmtAlfa('N', 1)
+  record += fmtAlfa(bl.consigneeName + (bl.consigneeAddress ? ' - ' + bl.consigneeAddress : ''), 253)
+  record += fmtAlfa('', 30)
+  record += fmtAlfa('', 55)
+  record += fmtAlfa(bl.consigneeCnpjCpf, 14)
+  record += fmtAlfa(bl.shipperName, 253)
+  record += fmtDate('')
+  record += fmtAlfa(bl.blNumber, 18)
+  record += fmtAlfa('N', 1)
+  record += fmtNum(0, 15)
+  record += fmtAlfa('', 1)
+  for (let i = 0; i < 10; i++) {
+    record += fmtAlfa('', 11)
+    record += fmtAlfa('', 4)
+    record += fmtAlfa('', 15)
+  }
+  for (let i = 0; i < 15; i++) {
+    record += fmtAlfa('', 3)
+    record += fmtAlfa('', 3)
+    record += fmtNum(0, 13)
+    record += fmtAlfa('', 1)
+    record += fmtAlfa('', 2)
+  }
+  record += fmtAlfa('I', 1)
+  record += fmtAlfa('', 2)
+  record += fmtAlfa('', 8)
+  record += fmtAlfa('', 8)
+  record += fmtAlfa('N', 1)
+  record += fmtAlfa('', 2475)
+  record += fmtAlfa('', 5)
+  record += fmtAlfa('', 253)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 10)
+  record += fmtAlfa('', 5)
+  record += fmtAlfa('', 5)
+  record += fmtAlfa('', 100)
+  return record
 }
 
-export function generateI5Record(container: MercanteContainerData, seq: number): string {
-  const nrSeq = fmtNum(seq, 4)
-  const type = fmtAlfa(container.containerType, 4)
-  const tare = fmtNum(Math.round(container.tareWeightKg), 6)
-  const grossWeight = fmtNum(Math.round(container.grossWeightKg), 7)
-  const ncm = (container.ncmCodes[0] ?? '').padEnd(4)
-  const parts = [
-    `I5${nrSeq}`,
-    container.containerNumber,
-    container.sealNumber,
-    type,
-    tare,
-    grossWeight,
-    ncm,
-  ]
-  return parts.join(SEP)
+export function generateI5Record(
+  container: MercanteContainerData,
+  seq: number,
+  cargoDescription?: string,
+  blTotalPackages?: number,
+): string {
+  let record = ''
+  record += 'I5'
+  record += fmtAlfa('1', 1)
+  record += fmtNum(seq, 4)
+  record += fmtNumDec(container.grossWeightKg, 12, 3)
+  record += fmtAlfa(container.containerType, 4)
+  record += fmtAlfa(container.containerNumber, 11)
+  record += fmtNumDec(container.tareWeightKg, 9, 3)
+  record += fmtNumDec(container.totalCbm ?? 0, 11, 3)
+  const ncmCount = Math.min(container.ncmCodes.length, 191)
+  for (let i = 0; i < 191; i++) {
+    record += i < ncmCount ? fmtAlfa(container.ncmCodes[i], 8) : fmtAlfa('', 8)
+  }
+  if (container.isImo) {
+    record += fmtAlfa(container.imoClass, 4)
+    record += 'S'
+    record += fmtNum(container.unNumber, 4)
+    record += fmtAlfa('', 2)
+  } else {
+    record += fmtAlfa('', 4)
+    record += 'N'
+    record += fmtNum(0, 4)
+    record += fmtAlfa('', 2)
+  }
+  record += fmtAlfa('', 3)
+  record += fmtAlfa('', 20)
+  record += fmtAlfa('', 20)
+  record += fmtNum(blTotalPackages ?? 0, 6)
+  record += fmtNumDec(0, 12, 3)
+  record += fmtNumDec(0, 13, 2)
+  record += fmtAlfa('', 3)
+  record += fmtAlfa('N', 1)
+  record += fmtAlfa(container.sealNumber, 15)
+  for (let i = 1; i < 10; i++) {
+    record += fmtAlfa('', 15)
+  }
+  record += fmtAlfa(cargoDescription ?? '', 253)
+  return record
 }
 
 export function generateEdiMercante(data: MercanteManifestData): string {
@@ -118,7 +180,7 @@ export function generateEdiMercante(data: MercanteManifestData): string {
   for (const bl of data.bls) {
     lines.push(generateC5Record(bl))
     bl.containers.forEach((ctr, idx) => {
-      lines.push(generateI5Record(ctr, idx + 1))
+      lines.push(generateI5Record(ctr, idx + 1, bl.cargoDescription, bl.totalPackages))
     })
   }
 
@@ -143,6 +205,7 @@ export function blToMercanteBlData(bl: BL, containers: BLContainer[]): MercanteB
       containerType: c.type ?? '',
       tareWeightKg: c.tare_weight_kg ?? 0,
       grossWeightKg: c.gross_weight_kg ?? 0,
+      totalCbm: 0,
       ncmCodes: [],
       isImo: c.is_imo ?? false,
       imoClass: c.imo_class ?? '',
