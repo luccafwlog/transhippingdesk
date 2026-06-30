@@ -1,6 +1,6 @@
 # Manifestos & EDI
 
-> **Status:** ativo · **Atualizado:** 2026-06-23 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
+> **Status:** ativo · **Atualizado:** 2026-06-30 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
 
 ## Propósito e escopo
 
@@ -171,6 +171,47 @@ flowchart LR
 14. **Veículos têm fronteira dividida.** A inserção do lote é transacional; cancelamento de invoices e recálculo de taxas ocorrem depois, por B/L. Falha nessa fase não desfaz veículos já inseridos.
 15. **Datas de container afetam demurrage.** Devolução anterior à descarga é rejeitada; todos retornados podem criar e emitir invoice de demurrage.
 16. **Vazios são atômicos por manifesto.** Planilhas criam cabeçalho e itens na mesma RPC. Vazios vindos do Baplie substituem por viagem dentro da mesma transação; a opção “manter” não escreve.
+
+## Geração de EDI Mercante (M5)
+
+`src/services/mercanteEdiGenerator.ts` gera o arquivo posicional de manifesto de
+Longo Curso (Importação) aceito pelo Mercante/Siscomex Carga. O modal
+`MercanteEdiModal` (em `/viagens/:voyageId` e `/manifestos`) monta os dados da
+viagem e dos B/Ls e baixa o arquivo via blob. Registros e larguras fixas
+validados contra um arquivo real aceito pelo Mercante: **M5 164**, **C5 4104**,
+**I5 5000**; linhas separadas por `CRLF`.
+
+- **M5 (cabeçalho):** empresa/agência, datas de encerramento (carregamento no
+  POL) e descarga (chegada no POD) derivadas de `voyage.etd`/`voyage.eta`, POL,
+  POD, viagem, IMO do navio e terminal de descarga (campo final, pos 124).
+- **C5 (conhecimento, 1 por B/L):** número do B/L, blocos posicionais completos
+  de consignatário, embarcador e notify (nome + endereço + CNPJ + contato),
+  CNPJ do notify, cubagem (m³ × 1000), rota POL/POD e descrição. A descrição
+  recebe a data de emissão, o telefone do consignatário após `**`, a segunda
+  notify (`ALSO NOTIFY:`) e o total de volumes. Campos estruturados de partes
+  removem `/` e `-`; a descrição preserva a pontuação.
+- **I5 (item, 1 por container):** peso bruto e tara (× 1000), tipo ISO 6346
+  (mapeado de `20GP`→`22G1`, `40HC`→`45G1`, etc.), número, cubagem + lacre
+  (pos 458) e NCMs (passo de 8 a partir da pos 531).
+- **Correções de dados:** o LOCODE de TAICANG é normalizado de `CNTAC`
+  (impresso pelo COSCO) para `CNTAG` (`normalizeMercanteLocode`); o tipo do
+  container é convertido para ISO; CNPJs têm `/` e `-` removidos nos campos de
+  partes.
+
+A `migration 161` adiciona a `bls` as colunas `consignee_block`,
+`consignee_address`, `consignee_phone`, `shipper_block`, `notify_cnpj_cpf`,
+`notify_block`, `notify2_block`, `total_packages` e `packages_unit`. O parser
+de manifesto de carrier (`extractMercanteBlocks`) segmenta a célula de partes
+em embarcador/consignatário/notify/notify2 e o `import_manifest_with_postprocess_transactional`
+persiste os blocos na mesma transação. B/Ls importados antes da migration
+mantêm os campos nulos e o gerador recai nos campos de nome.
+
+**Lacunas conhecidas (ponytail):** dois trechos do C5 não são reproduzidos
+byte a byte porque não existem nos dados do Transhipping Desk — o valor
+computado em pos 1739 (origem desconhecida no sistema legado) e o bloco de
+frete em pos 3796 (frete marítimo e códigos de despesa do Mercante não
+constam do manifesto nem das taxas locais). Ambos saem zerados, com estrutura
+correta, até que uma fonte de frete seja adicionada.
 
 ## Testes e validação
 

@@ -69,6 +69,15 @@ export type ParsedBL = {
   review_status: 'ok' | 'pending_review'
   review_reasons: string[]
   containers: ParsedContainer[]
+  // Full positional party blocks for Mercante EDI (M5) generation.
+  consignee_block?: string | null
+  consignee_phone?: string | null
+  shipper_block?: string | null
+  notify_cnpj_cpf?: string | null
+  notify_block?: string | null
+  notify2_block?: string | null
+  total_packages?: number | null
+  packages_unit?: string | null
 }
 
 export type ParsedManifest = {
@@ -278,6 +287,8 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
         if (!currentBL.cnpj) reasons.add('CNPJ/CPF ausente')
         if (!currentBL.email) reasons.add('E-mail ausente')
 
+        const blocks = extractMercanteBlocks(shipperConsigneeBlock, cell(row, 3))
+
         grouped.set(currentBL.bl, {
           id: currentBL.bl,
           shipper: currentBL.shipper || null,
@@ -293,6 +304,7 @@ function parseCarrierManifest(rawRows: RawSheetRow[]): ParsedManifest {
           review_status: reasons.size > 0 ? 'pending_review' : 'ok',
           review_reasons: Array.from(reasons),
           containers: [],
+          ...blocks,
         })
       }
 
@@ -411,6 +423,49 @@ function extractNotifyParty(rawBlock: string, parts: string[], consigneeCnpjInde
     if (looksLikeCompanyName(parts[i])) return cleanupLabel(parts[i])
   }
   return ''
+}
+
+// Mercante EDI needs the full positional party blocks, not just names. Carrier
+// manifests stack SHIPPER / CONSIGNEE / NOTIFY / NOTIFY2 in one cell, each block
+// opening with a company-name line. ponytail: boundary detection is heuristic
+// (company-name lines) like the rest of this parser; falls back to name-only
+// fields downstream when a block can't be isolated.
+export function extractMercanteBlocks(rawBlock: string, descriptionRaw: string) {
+  const lines = normalizeBlock(rawBlock)
+  const blocks: string[][] = []
+  for (const line of lines) {
+    const last = blocks[blocks.length - 1]
+    if (looksLikeCompanyName(line) && (!last || last.length > 0)) {
+      blocks.push([line])
+    } else {
+      if (!last) blocks.push([])
+      blocks[blocks.length - 1].push(line)
+    }
+  }
+
+  const shipper = blocks[0] ?? []
+  const consignee = blocks[1] ?? []
+  const notify = blocks[2] ?? []
+  const notify2 = blocks.slice(3).flat()
+
+  const phoneIdx = consignee.findIndex((l) => /\b(PHONE|TEL|MOBILE|FONE)\b/i.test(l))
+  const consigneePhone = phoneIdx >= 0 ? consignee[phoneIdx] : ''
+  const consigneeLines = phoneIdx >= 0 ? consignee.filter((_, i) => i !== phoneIdx) : consignee
+
+  const notifyCnpj = notify.map(extractCnpj).find(Boolean) ?? ''
+  const descFirst = asString(descriptionRaw).split(/\n/)[0] ?? ''
+  const pkg = descFirst.match(/^\s*(\d+)\s*([A-Za-z]+)/)
+
+  return {
+    shipper_block: shipper.join('\n') || null,
+    consignee_block: consigneeLines.join('\n') || null,
+    consignee_phone: consigneePhone || null,
+    notify_block: notify.join('\n') || null,
+    notify_cnpj_cpf: notifyCnpj ? onlyDigits(notifyCnpj) : null,
+    notify2_block: notify2.join(' ') || null,
+    total_packages: pkg ? Number(pkg[1]) : null,
+    packages_unit: pkg ? pkg[2].toUpperCase() : null,
+  }
 }
 
 export function parseManifestParty(block: string) {

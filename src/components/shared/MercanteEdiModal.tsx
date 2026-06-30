@@ -16,8 +16,19 @@ type VoyageBl = {
   id: string
   shipper?: string | null
   consignee?: string | null
+  notify_party?: string | null
+  consignee_block?: string | null
+  consignee_address?: string | null
+  consignee_phone?: string | null
+  shipper_block?: string | null
+  notify_cnpj_cpf?: string | null
+  notify_block?: string | null
+  notify2_block?: string | null
+  total_packages?: number | null
+  packages_unit?: string | null
   pol?: string | null
   pod?: string | null
+  payment_type?: string | null
   cargo_description?: string | null
   total_weight_kg?: number | null
   total_cbm?: number | null
@@ -42,6 +53,8 @@ type VoyageBl = {
 
 type ModalVoyage = {
   voyage_number: string
+  etd?: string | null
+  eta?: string | null
   vessel?: {
     name?: string | null
     imo?: string | null
@@ -101,22 +114,31 @@ export function MercanteEdiModal({
 
     setGenerating(true)
     try {
+      const destUf = portNameToUf(podName)
       const blData: MercanteBlData[] = bls.map((bl) => ({
         blNumber: bl.id,
         consigneeCnpjCpf: bl.manifest_customer_cnpj_cpf ?? '',
         consigneeName: bl.manifest_customer_name ?? bl.consignee ?? '',
-        consigneeAddress: '',
+        consigneeBlock: bl.consignee_block ?? bl.manifest_customer_name ?? bl.consignee ?? '',
+        consigneeAddress: bl.consignee_address ?? '',
         shipperName: bl.shipper ?? '',
-        shipperAddress: '',
+        shipperBlock: bl.shipper_block ?? bl.shipper ?? '',
+        notifyCnpjCpf: bl.notify_cnpj_cpf ?? '',
+        notifyBlock: bl.notify_block ?? bl.notify_party ?? '',
+        notify2Block: bl.notify2_block ?? '',
+        consigneePhone: bl.consignee_phone ?? '',
         cargoDescription: bl.cargo_description ?? '',
-        totalPackages: 0,
+        totalPackages: bl.total_packages ?? 0,
+        packagesUnit: bl.packages_unit ?? '',
         totalWeightKg: bl.total_weight_kg ?? 0,
         totalCbm: bl.total_cbm ?? 0,
         polLocode: polCode,
         podLocode: podCode,
         countryOfOrigin: polCode.slice(0, 2),
-        destinationUf: portNameToUf(podName),
-        paymentType: '',
+        destinationUf: destUf,
+        terminalCode: terminal,
+        paymentType: bl.payment_type ?? '',
+        freightLines: [],
         containers: (bl.bl_containers ?? []).map((c) => ({
           containerNumber: c.container_number,
           sealNumber: c.seal_number ?? '',
@@ -139,8 +161,8 @@ export function MercanteEdiModal({
         polLocode: polCode,
         podLocode: podCode,
         terminalCode: terminal,
-        operationDate: emissionDate,
-        closingDate: emissionDate,
+        operationDate: voyage.eta || emissionDate,
+        closingDate: voyage.etd || emissionDate,
         bls: blData,
       }
 
