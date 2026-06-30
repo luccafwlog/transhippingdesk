@@ -161,6 +161,7 @@ export function MercanteEdiModal({
         polLocode: polCode,
         podLocode: podCode,
         terminalCode: terminal,
+        emissionDate,
         operationDate: voyage.eta || emissionDate,
         closingDate: voyage.etd || emissionDate,
         bls: blData,

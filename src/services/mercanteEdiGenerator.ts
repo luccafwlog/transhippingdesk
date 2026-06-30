@@ -81,9 +81,11 @@ export type MercanteManifestData = {
   polLocode: string
   podLocode: string
   terminalCode: string
-  /** Discharge/arrival date at POD (YYYYMMDD or YYYY-MM-DD). */
+  /** B/L emission date — drives the C5 emission field (YYYYMMDD or YYYY-MM-DD). */
+  emissionDate: string
+  /** Discharge/arrival date at POD — M5 descarga (YYYYMMDD or YYYY-MM-DD). */
   operationDate: string
-  /** Manifest closing / loading date at POL (YYYYMMDD or YYYY-MM-DD). */
+  /** Manifest closing / loading date at POL — M5 encerramento. */
   closingDate: string
   bls: MercanteBlData[]
 }
@@ -304,7 +306,8 @@ export function generateI5Record(container: MercanteContainerData, seq: number):
   }
 
   place(buf, 458, fmtNumDec(container.totalCbm ?? 0, 13, 3), 13)
-  place(buf, 471, digits(container.sealNumber), 6)
+  // Seals may be alphanumeric (e.g. SEL123) — keep the text, don't strip letters.
+  place(buf, 471, (container.sealNumber ?? '').replace(/\s+/g, ''), 6)
 
   // NCM codes: 4-digit code every 8 chars from offset 531.
   container.ncmCodes.slice(0, 6).forEach((ncm, i) => {
@@ -319,7 +322,7 @@ export function generateEdiMercante(data: MercanteManifestData): string {
   lines.push(generateM5Record(data))
 
   for (const bl of data.bls) {
-    lines.push(generateC5Record(bl, data.operationDate))
+    lines.push(generateC5Record(bl, data.emissionDate))
     bl.containers.forEach((ctr, idx) => {
       lines.push(generateI5Record(ctr, idx + 1))
     })
@@ -390,6 +393,8 @@ export function buildManifestData(params: {
   shippingCompanyCode: string
   agencyCnpj: string
   terminalCode: string
+  /** B/L emission date (C5 emission field). */
+  emissionDate: string
   /** Loading/closing date at POL (manifest header SAILED). */
   loadingDate: string
   /** Discharge/arrival date at POD. */
@@ -422,6 +427,7 @@ export function buildManifestData(params: {
     polLocode,
     podLocode,
     terminalCode: params.terminalCode,
+    emissionDate: params.emissionDate,
     operationDate: params.dischargeDate,
     closingDate: params.loadingDate,
     bls: blData,

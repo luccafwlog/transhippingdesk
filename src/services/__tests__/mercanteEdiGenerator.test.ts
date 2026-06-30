@@ -84,6 +84,7 @@ const MANIFEST: MercanteManifestData = {
   polLocode: 'CNTAC',
   podLocode: 'BRSSA',
   terminalCode: 'BRSSA002',
+  emissionDate: '2026-04-25',
   operationDate: '2026-06-02',
   closingDate: '2026-04-25',
   bls: [FLOPAM_BL],
@@ -187,6 +188,11 @@ describe('generateI5Record (FWL parity)', () => {
     expect(i5.substring(531, 535)).toBe('2923')
   })
 
+  it('preserves alphanumeric seal values (no digit stripping)', () => {
+    const alpha = generateI5Record({ ...FLOPAM_BL.containers[0], sealNumber: 'SEL123' }, 1)
+    expect(alpha.substring(471, 477)).toBe('SEL123')
+  })
+
   it('places multiple NCM codes on an 8-char stride', () => {
     const multi = generateI5Record(
       { ...FLOPAM_BL.containers[0], ncmCodes: ['2923', '8708'] },
@@ -205,6 +211,13 @@ describe('generateEdiMercante', () => {
     expect(lines[1].startsWith('C5')).toBe(true)
     expect(lines[2].startsWith('I5')).toBe(true)
     expect(lines.every((l) => l.length === 164 || l.length === 4104 || l.length === 5000)).toBe(true)
+  })
+
+  it('uses the emission date (not the discharge date) on the C5', () => {
+    // operationDate is 2026-06-02 (discharge); the C5 emission field must stay
+    // the emission date 2026-04-25.
+    const c5 = generateEdiMercante(MANIFEST).split('\r\n')[1]
+    expect(c5.substring(634, 642)).toBe('20260425')
   })
 
   it('emits one I5 per container', () => {
