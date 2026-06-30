@@ -27,11 +27,17 @@ sinônimo de o Número de Escala existir.
 **B/L (Bill of Lading / Conhecimento de Embarque)**
 Documento de transporte que agrupa carga sob um consignatário. É a unidade
 operacional usada para revisão, cobrança de taxas locais e vínculo com cliente.
+Também é uma **fonte de ingestão e correção**: o arquivo do B/L pode criar um
+B/L inexistente e corrigir dados comerciais já gravados (com auditoria), além
+de ser a única fonte de Frete & Despesas do BL e da data de emissão do B/L.
 
 **Manifesto**
 Arquivo do armador com dados comerciais dos B/Ls, consignatários, documentos,
-pesos, cargas e containers. É a autoridade para dados comerciais e financeiros
-da carga.
+pesos, cargas e containers. É a **autoridade inicial** dos dados comerciais e
+financeiros da carga: prevalece na ingestão, mas um B/L emitido/corrigido pode
+sobrescrever dados comerciais posteriormente, sempre com auditoria e preview da
+diferença. O manifesto **não** carrega frete; e nenhuma correção via B/L altera
+variáveis de faturamento.
 
 **CNTR**
 Abreviação de domínio para container.
@@ -98,6 +104,16 @@ pode bloquear a visibilidade de dados e documentos no Portal do Cliente.
 **CE Master**
 Conhecimento agrupador associado ao manifesto. É distinto dos CEs individuais
 dos B/Ls.
+
+**Frete & Despesas do BL**
+Linhas da seção "Freight & Charges" do conhecimento de embarque (B/L): frete
+marítimo (ex.: OCEAN FREIGHT) e despesas declaradas pelo armador (ex.: THD),
+cada uma com valor, moeda e indicador prepaid/collect. É a **fonte do bloco de
+frete do registro C5** do EDI Mercante — informação que o manifesto não traz.
+
+- **Distinto de:** Taxas Locais. Frete & Despesas do BL é dado declarado pelo
+  armador para o manifesto Mercante; Taxas Locais é a cobrança do desk ao
+  cliente (Recebível Local / invoice). Os dois não se alimentam.
 
 ## Revisão e clientes
 
