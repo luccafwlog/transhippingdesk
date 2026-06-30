@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildManifestData,
   generateM5Record,
   generateC5Record,
   generateI5Record,
@@ -238,5 +239,161 @@ describe('generateEdiMercante', () => {
     expect(lines[1].substring(2, 6)).toBe('0002')
     expect(lines[2].includes('LYGU0131106')).toBe(true)
     expect(lines[3].includes('FTAU1747156')).toBe(true)
+  })
+})
+
+describe('buildManifestData', () => {
+  it('uses each B/L destination to infer UF when route POD is shared', () => {
+    const manifest = buildManifestData({
+      shippingCompanyCode: 'CN01321',
+      agencyCnpj: '06352972000121',
+      terminalCode: 'BRSSA001',
+      emissionDate: '2026-07-04',
+      loadingDate: '2026-07-01',
+      dischargeDate: '2026-07-04',
+      voyage: { id: 1, voyage_number: '39', vessel_id: 1, pol_id: null, pod_id: null, etd: null, eta: null, ata: null, status: 'active', created_at: null },
+      vessel: { id: 1, name: 'COSCO TEST', imo: '9846495', carrier_id: 1, created_at: null },
+      polPort: { id: 1, name: 'Ningbo', locode: 'CNNGB', country: 'CN', created_at: null },
+      podPort: { id: 2, name: 'Vitoria', locode: 'BRVIX', country: 'BR', created_at: null },
+      bls: [
+        {
+          id: 'BLSSA',
+          voyage_id: 1,
+          batch_id: 1,
+          cargo_mode: 'container',
+          ce_mercante: null,
+          bb_machine_qty: null,
+          bb_packages_qty: null,
+          bb_packages_total: null,
+          bb_weight_ton: null,
+          shipper: null,
+          consignee: null,
+          notify_party: null,
+          customer_id: null,
+          manifest_customer_cnpj_cpf: null,
+          manifest_customer_name: null,
+          manifest_customer_email: null,
+          customer_reconciliation_status: null,
+          customer_reconciliation_notes: null,
+          billing_hold_reason: null,
+          last_billing_run_id: null,
+          pol: 'CNNGB',
+          pod: 'Salvador',
+          place_of_delivery: null,
+          cargo_description: null,
+          total_weight_kg: 1000,
+          total_cbm: 30,
+          incoterm: null,
+          payment_type: null,
+          financial_status: 'pending',
+          review_status: 'ok',
+          charge_status: 'not_calculated',
+          charges_calculated_at: null,
+          charges_reviewed_at: null,
+          charge_exemption_reason: null,
+          container_load_type: null,
+          free_time_override: null,
+          demurrage_rate_override_p1_usd: null,
+          demurrage_rate_override_p2_usd: null,
+          demurrage_roe_manual: null,
+          demurrage_roe: null,
+          notes: null,
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+      blContainers: new Map(),
+    })
+
+    expect(manifest.bls[0].destinationUf).toBe('BA')
+  })
+
+  it('uses the container CBM as the item cubage', () => {
+    const ediBl = buildManifestData({
+      shippingCompanyCode: 'CN01321',
+      agencyCnpj: '06352972000121',
+      terminalCode: 'BRSSA001',
+      emissionDate: '2026-07-04',
+      loadingDate: '2026-07-01',
+      dischargeDate: '2026-07-04',
+      voyage: { id: 1, voyage_number: '39', vessel_id: 1, pol_id: null, pod_id: null, etd: null, eta: null, ata: null, status: 'active', created_at: null },
+      vessel: { id: 1, name: 'COSCO TEST', imo: '9846495', carrier_id: 1, created_at: null },
+      polPort: { id: 1, name: 'Ningbo', locode: 'CNNGB', country: 'CN', created_at: null },
+      podPort: { id: 2, name: 'Salvador', locode: 'BRSSA', country: 'BR', created_at: null },
+      bls: [
+        {
+          id: 'BL001',
+          voyage_id: 1,
+          batch_id: 1,
+          cargo_mode: 'container',
+          ce_mercante: null,
+          bb_machine_qty: null,
+          bb_packages_qty: null,
+          bb_packages_total: null,
+          bb_weight_ton: null,
+          shipper: null,
+          consignee: null,
+          notify_party: null,
+          customer_id: null,
+          manifest_customer_cnpj_cpf: null,
+          manifest_customer_name: null,
+          manifest_customer_email: null,
+          customer_reconciliation_status: null,
+          customer_reconciliation_notes: null,
+          billing_hold_reason: null,
+          last_billing_run_id: null,
+          pol: 'CNNGB',
+          pod: 'BRSSA',
+          place_of_delivery: null,
+          cargo_description: null,
+          total_weight_kg: 6800,
+          total_cbm: 99.9,
+          incoterm: null,
+          payment_type: null,
+          financial_status: 'pending',
+          review_status: 'ok',
+          charge_status: 'not_calculated',
+          charges_calculated_at: null,
+          charges_reviewed_at: null,
+          charge_exemption_reason: null,
+          container_load_type: null,
+          free_time_override: null,
+          demurrage_rate_override_p1_usd: null,
+          demurrage_rate_override_p2_usd: null,
+          demurrage_roe_manual: null,
+          demurrage_roe: null,
+          notes: null,
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+      blContainers: new Map([
+        [
+          'BL001',
+          [
+            {
+              id: 1,
+              bl_id: 'BL001',
+              container_number: 'CSGU6470070',
+              seal_number: '03800000',
+              type: '45G1',
+              tare_weight_kg: 3800,
+              gross_weight_kg: 6800,
+              cbm: 42.5,
+              is_oog: false,
+              is_imo: true,
+              imo_class: '9',
+              un_number: '3556',
+              discharge_date: null,
+              return_date: null,
+              demurrage_status: null,
+              created_at: null,
+            },
+          ],
+        ],
+      ]),
+    }).bls[0]
+
+    expect(ediBl.containers[0].totalCbm).toBe(42.5)
   })
 })

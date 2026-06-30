@@ -1,34 +1,65 @@
 import { extractNcmCodes } from '../lib/ncm'
 import type { BL, BLContainer, Voyage, Vessel, Port } from '../types/database'
 
-// ponytail: port-to-UF mapping for known Brazilian discharge ports
+function normalizeDestinationKey(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+// ponytail: static mapping for known Brazilian discharge ports; expand to a ports table/state column if coverage grows.
 export function portNameToUf(name: string): string {
   const map: Record<string, string> = {
     salvador: 'BA',
+    brssa: 'BA',
     vitoria: 'ES',
+    brvix: 'ES',
     santos: 'SP',
+    brssz: 'SP',
     'rio de janeiro': 'RJ',
+    brrio: 'RJ',
     paranagua: 'PR',
+    brpng: 'PR',
     itajai: 'SC',
+    britj: 'SC',
     navegantes: 'SC',
     'sao francisco do sul': 'SC',
     'rio grande': 'RS',
+    brrig: 'RS',
     suape: 'PE',
+    brsua: 'PE',
     pecem: 'CE',
+    brpec: 'CE',
     manaus: 'AM',
+    brmao: 'AM',
     'vila do conde': 'PA',
+    brvdc: 'PA',
     itaqui: 'MA',
+    britq: 'MA',
     'sao luis': 'MA',
     'porto alegre': 'RS',
     aratu: 'BA',
+    bratu: 'BA',
     ilheus: 'BA',
+    brilheus: 'BA',
     fortaleza: 'CE',
+    brfor: 'CE',
     natal: 'RN',
+    brnat: 'RN',
     cabedelo: 'PB',
+    brcab: 'PB',
     maceio: 'AL',
+    brmcz: 'AL',
     aracaju: 'SE',
+    braju: 'SE',
   }
-  return map[name.toLowerCase().trim()] ?? ''
+  return map[normalizeDestinationKey(name)] ?? ''
+}
+
+function isLocode(value: string | null | undefined): value is string {
+  return /^[A-Z]{2}[A-Z0-9]{3}$/.test((value ?? '').trim().toUpperCase())
 }
 
 // ponytail: UN/LOCODE corrections where carrier manifests use a non-standard
@@ -350,6 +381,7 @@ export type MercanteBlSource = BL &
   }>
 
 export function blToMercanteBlData(bl: MercanteBlSource, containers: BLContainer[]): MercanteBlData {
+  const totalCbm = bl.total_cbm ?? 0
   return {
     blNumber: bl.id,
     consigneeCnpjCpf: bl.manifest_customer_cnpj_cpf ?? '',
@@ -366,7 +398,7 @@ export function blToMercanteBlData(bl: MercanteBlSource, containers: BLContainer
     totalPackages: bl.total_packages ?? 0,
     packagesUnit: bl.packages_unit ?? '',
     totalWeightKg: bl.total_weight_kg ?? 0,
-    totalCbm: bl.total_cbm ?? 0,
+    totalCbm,
     polLocode: bl.pol ?? '',
     podLocode: bl.pod ?? '',
     countryOfOrigin: (bl.pol ?? '').slice(0, 2),
@@ -403,17 +435,16 @@ export function buildManifestData(params: {
   vessel: Vessel
   polPort: Port | null
   podPort: Port | null
-  bls: BL[]
+  bls: MercanteBlSource[]
   blContainers: Map<string, BLContainer[]>
 }): MercanteManifestData {
-  const podUf = portNameToUf(params.podPort?.name ?? '')
   const polLocode = normalizeMercanteLocode(params.polPort?.locode ?? '')
   const podLocode = normalizeMercanteLocode(params.podPort?.locode ?? '')
   const blData = params.bls.map((bl) => {
     const bd = blToMercanteBlData(bl, params.blContainers.get(bl.id) ?? [])
-    bd.destinationUf = podUf
+    bd.destinationUf = portNameToUf(bl.pod ?? '') || portNameToUf(params.podPort?.name ?? '')
     bd.polLocode = polLocode
-    bd.podLocode = podLocode
+    bd.podLocode = isLocode(bl.pod) ? normalizeMercanteLocode(bl.pod) : podLocode
     bd.countryOfOrigin = polLocode.slice(0, 2)
     bd.terminalCode = params.terminalCode
     return bd

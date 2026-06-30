@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
 
-import { deleteVoyage } from '../voyages'
+import { createVoyage, deleteVoyage } from '../voyages'
 import { deleteVoyagePodSchedule } from '../voyageRouteSchedules'
 
 function countResult(count: number) {
@@ -63,4 +63,64 @@ it('US-218: exclusao de POD grava evento insert-only deleted=true', async () => 
     changed_by: 'user-1',
   })
   expect(String(rows[0].entity_id)).toMatch(/^5::/)
+})
+
+it('salva IMO quando a viagem usa um navio ja existente sem IMO', async () => {
+  const vesselsUpdateEq = vi.fn(() => Promise.resolve({ error: null }))
+  const vesselsUpdate = vi.fn(() => ({ eq: vesselsUpdateEq }))
+  const voyagesInsertSingle = vi.fn(() => Promise.resolve({ data: { id: 42 }, error: null }))
+  const auditInsert = vi.fn(() => Promise.resolve({ error: null }))
+
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'carriers') {
+      return {
+        select: () => ({
+          limit: () => ({
+            eq: () => Promise.resolve({ data: [{ id: 7 }], error: null }),
+          }),
+        }),
+      }
+    }
+
+    if (table === 'vessels') {
+      return {
+        select: () => ({
+          eq: () => ({
+            limit: () => Promise.resolve({ data: [{ id: 9, imo: null }], error: null }),
+          }),
+        }),
+        update: vesselsUpdate,
+      }
+    }
+
+    if (table === 'voyages') {
+      return {
+        insert: () => ({
+          select: () => ({
+            single: voyagesInsertSingle,
+          }),
+        }),
+      }
+    }
+
+    if (table === 'audit_logs') return { insert: auditInsert }
+
+    throw new Error(`Tabela nao mockada: ${table}`)
+  })
+
+  await createVoyage(
+    {
+      carrierName: 'COSCO',
+      carrierScac: 'COSU',
+      vesselName: 'COSCO TEST',
+      vesselImo: '9846495',
+      voyageNumber: '39',
+      status: 'active',
+      dischargePortEtas: [],
+    },
+    'user-1',
+  )
+
+  expect(vesselsUpdate).toHaveBeenCalledWith({ imo: '9846495', carrier_id: 7 })
+  expect(vesselsUpdateEq).toHaveBeenCalledWith('id', 9)
 })

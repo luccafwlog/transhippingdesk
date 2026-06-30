@@ -38,6 +38,8 @@ describe('manifestParser', () => {
     expect(manifest.suggestedVoyage?.vesselName).toBe('GREEN SHANGHAI')
     expect(manifest.suggestedVoyage?.voyageNumber).toBe('2')
     expect(manifest.bls[0]?.consignee).toBe('IMPORTADOR ALFA LTDA')
+    expect(manifest.bls[0]?.containers[0]?.cbm).toBe(20)
+    expect(manifest.bls[0]?.containers[1]?.cbm).toBe(30)
     expect(manifest.bls[1]?.shipper).toBe('SENDER BETA')
     expect(countDistinctManifestContainers(manifest)).toBe(2)
     expect(manifest.rowErrors).toHaveLength(0)

@@ -141,18 +141,31 @@ async function syncDischargePortEtas(voyageId: number, form: VoyageFormValues, c
 }
 
 async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
+  const normalizedImo = imo.trim() || null
   const { data: existing, error: existingError } = await supabase
     .from('vessels')
-    .select('id')
+    .select('id, imo, carrier_id')
     .eq('name', name.trim())
     .limit(1)
 
   if (existingError) throw existingError
-  if (existing?.[0]) return existing[0].id
+  if (existing?.[0]) {
+    const vessel = existing[0]
+    const updates: { imo?: string; carrier_id?: number } = {}
+    if (normalizedImo && vessel.imo !== normalizedImo) updates.imo = normalizedImo
+    if (vessel.carrier_id !== carrierId) updates.carrier_id = carrierId
+
+    if (Object.keys(updates).length > 0) {
+      const { error: updateError } = await supabase.from('vessels').update(updates).eq('id', vessel.id)
+      if (updateError) throw updateError
+    }
+
+    return vessel.id
+  }
 
   const { data: created, error: createError } = await supabase
     .from('vessels')
-    .insert({ name: name.trim(), imo: imo.trim() || null, carrier_id: carrierId })
+    .insert({ name: name.trim(), imo: normalizedImo, carrier_id: carrierId })
     .select('id')
     .single()
 

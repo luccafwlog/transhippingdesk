@@ -73,6 +73,10 @@ type MercanteEdiModalProps = {
   prefilledPod?: string
 }
 
+function isLocode(value: string | null | undefined): value is string {
+  return /^[A-Z]{2}[A-Z0-9]{3}$/.test((value ?? '').trim().toUpperCase())
+}
+
 export function MercanteEdiModal({
   open,
   onClose,
@@ -114,44 +118,48 @@ export function MercanteEdiModal({
 
     setGenerating(true)
     try {
-      const destUf = portNameToUf(podName)
-      const blData: MercanteBlData[] = bls.map((bl) => ({
-        blNumber: bl.id,
-        consigneeCnpjCpf: bl.manifest_customer_cnpj_cpf ?? '',
-        consigneeName: bl.manifest_customer_name ?? bl.consignee ?? '',
-        consigneeBlock: bl.consignee_block ?? bl.manifest_customer_name ?? bl.consignee ?? '',
-        consigneeAddress: bl.consignee_address ?? '',
-        shipperName: bl.shipper ?? '',
-        shipperBlock: bl.shipper_block ?? bl.shipper ?? '',
-        notifyCnpjCpf: bl.notify_cnpj_cpf ?? '',
-        notifyBlock: bl.notify_block ?? bl.notify_party ?? '',
-        notify2Block: bl.notify2_block ?? '',
-        consigneePhone: bl.consignee_phone ?? '',
-        cargoDescription: bl.cargo_description ?? '',
-        totalPackages: bl.total_packages ?? 0,
-        packagesUnit: bl.packages_unit ?? '',
-        totalWeightKg: bl.total_weight_kg ?? 0,
-        totalCbm: bl.total_cbm ?? 0,
-        polLocode: polCode,
-        podLocode: podCode,
-        countryOfOrigin: polCode.slice(0, 2),
-        destinationUf: destUf,
-        terminalCode: terminal,
-        paymentType: bl.payment_type ?? '',
-        freightLines: [],
-        containers: (bl.bl_containers ?? []).map((c) => ({
-          containerNumber: c.container_number,
-          sealNumber: c.seal_number ?? '',
-          containerType: c.type ?? '',
-          tareWeightKg: c.tare_weight_kg ?? 0,
-          grossWeightKg: c.gross_weight_kg ?? 0,
-          totalCbm: c.cbm ?? 0,
-          ncmCodes: extractNcmCodes(bl.cargo_description ?? ''),
-          isImo: c.is_imo ?? false,
-          imoClass: c.imo_class ?? '',
-          unNumber: c.un_number ?? '',
-        })),
-      }))
+      const blData: MercanteBlData[] = bls.map((bl) => {
+        const containers = bl.bl_containers ?? []
+        const totalCbm = bl.total_cbm ?? 0
+
+        return {
+          blNumber: bl.id,
+          consigneeCnpjCpf: bl.manifest_customer_cnpj_cpf ?? '',
+          consigneeName: bl.manifest_customer_name ?? bl.consignee ?? '',
+          shipperName: bl.shipper ?? '',
+          cargoDescription: bl.cargo_description ?? '',
+          consigneeBlock: bl.consignee_block ?? bl.manifest_customer_name ?? bl.consignee ?? '',
+          consigneeAddress: bl.consignee_address ?? '',
+          shipperBlock: bl.shipper_block ?? bl.shipper ?? '',
+          notifyCnpjCpf: bl.notify_cnpj_cpf ?? '',
+          notifyBlock: bl.notify_block ?? bl.notify_party ?? '',
+          notify2Block: bl.notify2_block ?? '',
+          consigneePhone: bl.consignee_phone ?? '',
+          totalPackages: bl.total_packages ?? 0,
+          packagesUnit: bl.packages_unit ?? '',
+          totalWeightKg: bl.total_weight_kg ?? 0,
+          totalCbm,
+          polLocode: isLocode(bl.pol) ? bl.pol : polCode,
+          podLocode: isLocode(bl.pod) ? bl.pod : podCode,
+          countryOfOrigin: (isLocode(bl.pol) ? bl.pol : polCode).slice(0, 2),
+          destinationUf: portNameToUf(bl.pod ?? '') || portNameToUf(podName),
+          terminalCode: terminal,
+          paymentType: bl.payment_type ?? '',
+          freightLines: [],
+          containers: containers.map((c) => ({
+            containerNumber: c.container_number,
+            sealNumber: c.seal_number ?? '',
+            containerType: c.type ?? '',
+            tareWeightKg: c.tare_weight_kg ?? 0,
+            grossWeightKg: c.gross_weight_kg ?? 0,
+            totalCbm: c.cbm ?? 0,
+            ncmCodes: extractNcmCodes(bl.cargo_description ?? ''),
+            isImo: c.is_imo ?? false,
+            imoClass: c.imo_class ?? '',
+            unNumber: c.un_number ?? '',
+          })),
+        }
+      })
 
       const manifestData: MercanteManifestData = {
         shippingCompanyCode: shippingCompany || vessel?.carrier?.scac || '',
