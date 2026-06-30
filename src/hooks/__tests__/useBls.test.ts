@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchAllBls, useBls, type BlFilters } from '../useBls'
+import { fetchAllBls, useBls, useVoyages, type BlFilters } from '../useBls'
 
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
@@ -51,6 +51,16 @@ function createBlQuery(rows: unknown[]) {
     or: vi.fn(() => builder),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve({ data: rows.slice(selectedRange[0], selectedRange[1] + 1), error: null }).then(resolve, reject),
+  }
+  return builder
+}
+
+function createVoyageQuery(rows: unknown[]) {
+  const builder = {
+    order: vi.fn(() => builder),
+    range: vi.fn(() => builder),
+    then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve({ data: rows, error: null }).then(resolve, reject),
   }
   return builder
 }
@@ -106,5 +116,32 @@ describe('fetchAllBls', () => {
 
     await waitFor(() => expect(result.current.data?.count).toBe(1))
     expect(result.current.data?.rows.map((row) => row.id)).toEqual(['BL-STANDARD'])
+  })
+})
+
+describe('useVoyages', () => {
+  beforeEach(() => {
+    mockFrom.mockReset()
+  })
+
+  it('busca a cubagem individual dos containers para o EDI Mercante', async () => {
+    let voyageSelect = ''
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'voyages') {
+        return {
+          select: vi.fn((select: string) => {
+            voyageSelect = select
+            return createVoyageQuery([])
+          }),
+        }
+      }
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    const { result } = renderHook(() => useVoyages(), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(voyageSelect.match(/bl_containers\(([^)]*)\)/)?.[1]).toContain('cbm')
   })
 })

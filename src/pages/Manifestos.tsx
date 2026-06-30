@@ -81,6 +81,7 @@ export function Manifestos() {
       type?: string | null
       tare_weight_kg?: number | null
       gross_weight_kg?: number | null
+      cbm?: number | null
       is_imo?: boolean | null
       imo_class?: string | null
       un_number?: string | null
