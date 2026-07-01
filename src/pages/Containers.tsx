@@ -15,9 +15,10 @@ import { useRowSelection } from '../hooks/useRowSelection'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
+import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { checkContainerDependencies, deleteContainers } from '../services/containers'
 import { formatBlockedSummary } from '../services/deleteDependencies'
-import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useVoyageOptions, useContainerTypeOptions } from '../hooks/useBls'
+import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useContainerTypeOptions } from '../hooks/useBls'
 import {
   importContainerFlagsRows,
   parseContainerFlagsImportFile,
@@ -243,9 +244,12 @@ export function Containers() {
               onChange={(event) => updateFilter('search', event.target.value)}
             />
           </Field>
-          <Field label="Viagem">
-            <VoyageSelect value={filters.voyageId} onChange={(value) => updateFilter('voyageId', value)} />
-          </Field>
+          <VoyageCombobox
+            clearable
+            label="Viagem"
+            selectedVoyageId={filters.voyageId}
+            onSelect={(id) => updateFilter('voyageId', id == null ? '' : String(id))}
+          />
           <Field label="POL">
             <Select value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)}>
               <option value="">Todos</option>
@@ -634,28 +638,5 @@ function PreviewBox({ label, value }: { label: string; value: number }) {
       <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-1 text-2xl font-bold text-white">{value}</div>
     </div>
-  )
-}
-
-function VoyageSelect({
-  value,
-  onChange,
-  emptyLabel = 'Todas',
-}: {
-  value: string
-  onChange: (value: string) => void
-  emptyLabel?: string
-}) {
-  const { data } = useVoyageOptions()
-
-  return (
-    <Select value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">{emptyLabel}</option>
-      {data?.map((voyage) => (
-        <option key={voyage.id} value={voyage.id}>
-          {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
-        </option>
-      ))}
-    </Select>
   )
 }

@@ -3,11 +3,12 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/Card'
-import { Field, Input, Select } from '../ui/Input'
+import { Field, Input } from '../ui/Input'
 import { useToast } from '../ui/Toast'
+import { VoyageCombobox } from '../shared/VoyageCombobox'
 import { useBillingCustomers } from '../../hooks/useBilling'
 import { useConsolidatableReceivables, useCreateConsolidatedInvoice } from '../../hooks/useBillingLedger'
-import { isReceivableSelectable, listReceivableVoyageOptions, summarizeConsolidation } from './consolidatedInvoiceSelection'
+import { isReceivableSelectable, summarizeConsolidation } from './consolidatedInvoiceSelection'
 
 function fmtBRL(v: number | null | undefined) {
   return 'R$ ' + Number(v ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -26,11 +27,6 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   const [error, setError] = useState('')
 
   const { data: customerOptions } = useBillingCustomers(customerSearch)
-  const { data: voyageReceivables } = useConsolidatableReceivables({
-    customerId,
-    voyageId: null,
-    search: null,
-  })
   const { data: receivables, isLoading } = useConsolidatableReceivables({
     customerId,
     voyageId,
@@ -39,7 +35,6 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
   const createMutation = useCreateConsolidatedInvoice()
 
   const rows = receivables ?? []
-  const voyageOptions = listReceivableVoyageOptions(voyageReceivables ?? [])
   const summary = summarizeConsolidation(rows, selected)
   const selectedTotal = summary.total
   const eligibleCount = summary.eligibleCount
@@ -191,21 +186,16 @@ export function ConsolidatedInvoiceModal({ open, onClose }: Props) {
             </div>
 
             <div className="invoice-create-modal__field--voyage">
-              <Field label="Viagem">
-                <Select
-                  value={voyageId == null ? '' : String(voyageId)}
-                  onChange={(e) => {
-                    setVoyageId(e.target.value ? Number(e.target.value) : null)
-                    setSelected([])
-                  }}
-                  disabled={!customerId || voyageOptions.length === 0}
-                >
-                  <option value="">Todas as viagens</option>
-                  {voyageOptions.map((option) => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
-                  ))}
-                </Select>
-              </Field>
+              <VoyageCombobox
+                clearable
+                label="Viagem"
+                selectedVoyageId={voyageId}
+                disabled={!customerId}
+                onSelect={(id) => {
+                  setVoyageId(id)
+                  setSelected([])
+                }}
+              />
             </div>
 
             <div className="invoice-create-modal__field--bl">

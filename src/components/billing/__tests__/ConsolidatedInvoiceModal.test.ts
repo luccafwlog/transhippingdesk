@@ -14,6 +14,10 @@ vi.mock('../../../hooks/useBillingLedger', () => ({
   useCreateConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
+vi.mock('../../../hooks/useBls', () => ({
+  useVoyageOptions: () => ({ data: [] }),
+}))
+
 vi.mock('../../ui/Toast', async () => {
   const actual = await vi.importActual<typeof import('../../ui/Toast')>('../../ui/Toast')
   return {
@@ -29,7 +33,7 @@ describe('ConsolidatedInvoiceModal', () => {
     )
 
     expect(html).toContain('Viagem')
-    expect(html).toContain('Todas as viagens')
+    expect(html).toContain('Busque por navio ou viagem')
   })
 
   it('usa layout empilhado (filtros em grade no topo, tabela, rodape fixo)', () => {

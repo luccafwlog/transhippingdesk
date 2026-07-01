@@ -11,8 +11,9 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
+import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
-import { fetchAllBls, type BlFilters, useBls, usePortOptions, useVoyageOptions } from '../hooks/useBls'
+import { fetchAllBls, type BlFilters, useBls, usePortOptions } from '../hooks/useBls'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { formatDate } from '../lib/utils'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
@@ -25,11 +26,11 @@ export function CargaSolta() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
-  const { data: voyageOptions } = useVoyageOptions()
   const { data: portOptions } = usePortOptions()
+  const initialVoyageId = searchParams.get('voyage') ?? ''
   const [filters, setFilters] = useState<BlFilters>({
     search: '',
-    voyageId: searchParams.get('voyage') ?? '',
+    voyageId: initialVoyageId,
     cargoMode: 'carga_solta',
     pol: '',
     pod: searchParams.get('pod') ?? '',
@@ -43,7 +44,7 @@ export function CargaSolta() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [voyageId, setVoyageId] = useState('')
+  const [voyageId, setVoyageId] = useState(initialVoyageId)
   const [file, setFile] = useState<File | null>(null)
   const [manifest, setManifest] = useState<ParsedBreakbulkManifest | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -238,16 +239,12 @@ export function CargaSolta() {
               onChange={(event) => updateFilter('search', event.target.value)}
             />
           </Field>
-          <Field label="Viagem">
-            <Select value={filters.voyageId} onChange={(event) => updateFilter('voyageId', event.target.value)}>
-              <option value="">Todas</option>
-              {voyageOptions?.map((voyage) => (
-                <option key={voyage.id} value={voyage.id}>
-                  {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            clearable
+            label="Viagem"
+            selectedVoyageId={filters.voyageId}
+            onSelect={(id) => updateFilter('voyageId', id == null ? '' : String(id))}
+          />
           <Field label="POL">
             <Select value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)}>
               <option value="">Todos</option>
@@ -462,16 +459,12 @@ export function CargaSolta() {
             </div>
           </div>
 
-          <Field label="Viagem de destino">
-            <Select value={voyageId} onChange={(event) => setVoyageId(event.target.value)}>
-              <option value="">Selecione uma viagem</option>
-              {voyageOptions?.map((voyage) => (
-                <option key={voyage.id} value={voyage.id}>
-                  {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            required
+            label="Viagem de destino"
+            selectedVoyageId={voyageId}
+            onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
+          />
 
           <Field label="Arquivo .xlsx, .xls ou .csv">
             <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />

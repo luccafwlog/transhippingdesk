@@ -18,6 +18,10 @@ vi.mock('../../../hooks/useBillingLedger', () => ({
   useCreateConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
+vi.mock('../../../hooks/useBls', () => ({
+  useVoyageOptions: () => ({ data: [] }),
+}))
+
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 
 import { ConsolidatedInvoiceModal } from '../ConsolidatedInvoiceModal'

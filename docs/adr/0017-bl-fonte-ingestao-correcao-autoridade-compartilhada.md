@@ -74,6 +74,31 @@ e oferece override auditado**:
 Assim, "bloqueada por design" (última consequência) passa a ser "**bloqueada por
 padrão, sobrescrevível com auditoria**".
 
+## Nota editorial — 2026-07-01 (autoridade co-primária e viagem declarada)
+
+A redação original chamava o manifesto de **autoridade inicial** e tratava o B/L
+como fonte secundária de ingestão/correção. O uso real derrubou essa hierarquia:
+o arquivo do B/L é uma **forma primária de introduzir os B/Ls de uma viagem**, e
+a operação pode rodar **só com B/Ls, dispensando o manifesto**. A decisão evolui:
+
+- **Autoridade co-primária.** Manifesto e B/L são fontes de ingestão de igual
+  status. Nenhuma é autoridade por decreto: a precedência é **temporal** (quem
+  cria o B/L primeiro) somada ao gate de faturamento da decisão 3. Toda
+  sobrescrita segue precedida de preview do diff + auditoria. `CONTEXT.md`
+  redefine **Manifesto** e **B/L** como fontes co-primárias.
+- **Viagem declarada e existente.** Todo import de B/L exige o operador
+  **apontar navio + viagem por busca preditiva** (ver ADR 0018); a viagem
+  **precisa existir** (criada antes via "Nova Viagem"). Dispensa-se o manifesto,
+  não a criação da Viagem — que segue sendo a unidade principal da operação.
+- **Divergência bloqueia.** O parser lê navio+viagem do arquivo do B/L (`A18`);
+  se divergirem da viagem apontada, a linha é bloqueada e **não grava**. O
+  auto-match silencioso de viagem (`resolveVoyageId` casando por navio+número+
+  rota) sai de cena: o arquivo passa a **validar** a viagem declarada, não a
+  resolvê-la. Um upload mira **uma** viagem.
+- **Nome.** Como o import sempre criou o B/L inteiro (partes, rota, datas,
+  containers/veículos, frete), a ação deixa de se chamar "Importar Frete B/L" e
+  passa a "**Importar B/L**"; "frete" era resíduo do escopo original.
+
 ## Consequências
 
 - `CONTEXT.md` redefine **Manifesto** como autoridade *inicial* e **B/L** como

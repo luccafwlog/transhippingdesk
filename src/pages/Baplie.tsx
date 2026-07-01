@@ -6,11 +6,11 @@ import { exportBaplieWorkbook } from '../services/exports'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
-import { Field, Input, Select } from '../components/ui/Input'
+import { Field, Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
-import { useVoyageOptions } from '../hooks/useBls'
 import { supabase } from '../services/supabase'
 import { parseBaplieFile } from '../services/baplieParser'
 import { importBaplieStaging } from '../services/baplieImport'
@@ -174,9 +174,12 @@ export function Baplie() {
       />
 
       <Card className="mb-5">
-        <Field label="Viagem">
-          <VoyageSelect value={voyageId} onChange={handleVoyageChange} />
-        </Field>
+        <VoyageCombobox
+          clearable
+          label="Viagem"
+          selectedVoyageId={voyageId}
+          onSelect={(id) => handleVoyageChange(id == null ? '' : String(id))}
+        />
       </Card>
 
       {!voyageId ? (
@@ -718,13 +721,11 @@ function BaplieUploadModal({
 }) {
   const { user } = useAuth()
   const { showToast } = useToast()
-  const { data: voyages } = useVoyageOptions()
   const [voyageId, setVoyageId] = useState(initialVoyageId)
   const [parsed, setParsed] = useState<Awaited<ReturnType<typeof parseBaplieFile>> | null>(null)
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
-  const [autoSelectedOpen, setAutoSelectedOpen] = useState(false)
 
   // Re-baseia a viagem ao abrir o modal — ajuste durante o render,
   // mantendo o gatilho original (open ou initialVoyageId mudou).
@@ -734,15 +735,9 @@ function BaplieUploadModal({
     if (open) setVoyageId(initialVoyageId)
   }
 
-  if (open && !autoSelectedOpen && !voyageId && voyages?.length === 1) {
-    setVoyageId(String(voyages[0].id))
-    setAutoSelectedOpen(true)
-  }
-
   function handleClose() {
     setParsed(null)
     setExcludedPods(new Set())
-    setAutoSelectedOpen(false)
     onClose()
   }
 
@@ -789,32 +784,15 @@ function BaplieUploadModal({
   }
 
   const pods = parsed?.pods ?? []
-  const lockedVoyage = initialVoyageId
-    ? voyages?.find((voyage) => String(voyage.id) === initialVoyageId)
-    : null
-  const lockedVoyageLabel = lockedVoyage
-    ? `${lockedVoyage.vessel?.name ?? 'Navio'} / ${lockedVoyage.voyage_number}`
-    : 'Viagem selecionada'
-
   return (
     <Modal open={open} onClose={handleClose} title="Importar Baplie EDI">
       <div className="grid gap-5">
-        <Field label="Viagem de destino">
-          {initialVoyageId ? (
-            <Select value={voyageId} disabled>
-              <option value={voyageId}>{lockedVoyageLabel}</option>
-            </Select>
-          ) : (
-            <Select value={voyageId} onChange={(e) => setVoyageId(e.target.value)}>
-              <option value="">Selecione uma viagem</option>
-              {voyages?.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
+        <VoyageCombobox
+          required
+          label="Viagem de destino"
+          selectedVoyageId={voyageId}
+          onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
+        />
 
         <Field label="Arquivo .edi ou .txt">
           <Input accept=".edi,.txt,.edi2" type="file" onChange={handleFile} />
@@ -890,20 +868,6 @@ function BaplieUploadModal({
         ) : null}
       </div>
     </Modal>
-  )
-}
-
-function VoyageSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const { data } = useVoyageOptions()
-  return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">Selecione uma viagem</option>
-      {data?.map((v) => (
-        <option key={v.id} value={v.id}>
-          {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
-        </option>
-      ))}
-    </Select>
   )
 }
 

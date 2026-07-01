@@ -112,12 +112,10 @@ type ExistingBl = Pick<
   bl_freight_lines?: Pick<BlFreightLine, 'seq' | 'description' | 'category' | 'mercante_code' | 'currency' | 'amount' | 'payment'>[] | null
 }
 
-type VoyageCandidate = {
+export type BlFreightSelectedVoyage = {
   id: number
-  voyage_number: string
-  vessel?: { name?: string | null } | null
-  pol?: { locode?: string | null } | null
-  pod?: { locode?: string | null } | null
+  vesselName?: string | null
+  voyageNumber?: string | null
 }
 
 /** Billing variables recomputed per B/L; see chargeTableService application bases. */
@@ -134,13 +132,13 @@ export type BuildBlFreightPreviewArgs = {
   billingLockedBlIds?: Set<string>
   /** container numbers that already belong to a different B/L (container_distinct_voyage billing) */
   sharedContainerNumbers?: Set<string>
-  voyageIdByBl?: Map<string, number | null>
+  selectedVoyage?: BlFreightSelectedVoyage | null
   onlyBlId?: string | null
 }
 
 export async function previewBlFreightImport(args: {
   documents: ParsedBLDocument[]
-  voyageId?: number | null
+  voyageId: number
   onlyBlId?: string | null
 }): Promise<BlFreightImportPreview> {
   const blNumbers = args.documents.map((doc) => doc.blNumber).filter(Boolean)
@@ -152,23 +150,15 @@ export async function previewBlFreightImport(args: {
   // with a unique one (same count) still changes container_distinct_voyage billing.
   const existingContainerNumbers = existingBls.flatMap((bl) => (bl.bl_containers ?? []).map((container) => container.container_number))
   const sharedContainerNumbers = await fetchSharedContainerNumbers(blNumbers, [...containerNumbers, ...existingContainerNumbers])
-  const voyageIdByBl = new Map<string, number | null>()
-
-  for (const doc of args.documents) {
-    if (args.voyageId) {
-      voyageIdByBl.set(doc.blNumber, args.voyageId)
-      continue
-    }
-    const existing = existingBls.find((bl) => bl.id === doc.blNumber)
-    voyageIdByBl.set(doc.blNumber, existing?.voyage_id ?? await resolveVoyageId(doc))
-  }
+  const selectedVoyage = await fetchSelectedVoyage(args.voyageId)
+  if (!selectedVoyage) throw new Error('Viagem selecionada nao encontrada.')
 
   return buildBlFreightPreview({
     documents: args.documents,
     existingBls,
     billingLockedBlIds,
     sharedContainerNumbers,
-    voyageIdByBl,
+    selectedVoyage,
     onlyBlId: args.onlyBlId,
   })
 }
@@ -178,37 +168,42 @@ export function buildBlFreightPreview({
   existingBls = [],
   billingLockedBlIds = new Set(),
   sharedContainerNumbers = new Set(),
-  voyageIdByBl = new Map(),
+  selectedVoyage = null,
   onlyBlId = null,
 }: BuildBlFreightPreviewArgs): BlFreightImportPreview {
   const existingById = new Map(existingBls.map((bl) => [bl.id, bl]))
   const rows = documents.map((doc) => {
     const existing = existingById.get(doc.blNumber) ?? null
-    const voyageId = voyageIdByBl.get(doc.blNumber) ?? existing?.voyage_id ?? null
-    const payload = buildBlFreightPayload(doc, voyageId)
+    const voyageId = selectedVoyage?.id ?? null
+    const payload = voyageId ? buildBlFreightPayload(doc, voyageId) : null
     const blockedReasons: string[] = []
 
     if (onlyBlId && doc.blNumber !== onlyBlId) {
       blockedReasons.push(`Arquivo contem B/L ${doc.blNumber}, mas a ficha aberta e ${onlyBlId}.`)
     }
-    if (!voyageId) {
-      blockedReasons.push('Viagem nao encontrada para criar o B/L.')
+    if (!selectedVoyage) {
+      blockedReasons.push('Selecione uma viagem para importar o B/L.')
+    } else {
+      const mismatchReason = getDeclaredVoyageMismatchReason(doc, selectedVoyage)
+      if (mismatchReason) blockedReasons.push(mismatchReason)
     }
 
-    const consigneeDocumentMatches = existing?.manifest_customer_cnpj_cpf
+    const consigneeDocumentMatches = payload && existing?.manifest_customer_cnpj_cpf
       ? onlyDigits(existing.manifest_customer_cnpj_cpf) === onlyDigits(payload.manifest_customer_cnpj_cpf)
       : null
 
     const billed = billingLockedBlIds.has(doc.blNumber)
-    const impact = existing && billed
+    const impact = existing && billed && payload
       ? computeBillingImpact(existing, payload, sharedContainerNumbers)
       : { messages: [], container: false, weight: false, cnpj: false }
     const requiresBillingOverride = impact.messages.length > 0
 
-    const diffs = existing ? diffExistingBl(existing, payload, impact) : []
+    const diffs = existing && payload ? diffExistingBl(existing, payload, impact) : []
     // Only the operator's override decision is pending; a billing impact never nulls the payload.
-    payload.billing_impact = requiresBillingOverride
-    payload.override_billing = !requiresBillingOverride
+    if (payload) {
+      payload.billing_impact = requiresBillingOverride
+      payload.override_billing = !requiresBillingOverride
+    }
 
     const status: BlFreightImportRow['status'] = blockedReasons.length
       ? 'blocked'
@@ -463,26 +458,46 @@ async function fetchSharedContainerNumbers(blNumbers: string[], containerNumbers
   )
 }
 
-async function resolveVoyageId(doc: ParsedBLDocument): Promise<number | null> {
-  if (!doc.route.voyage) return null
+async function fetchSelectedVoyage(voyageId: number): Promise<BlFreightSelectedVoyage | null> {
   const { data, error } = await supabase
     .from('voyages')
-    .select('id, voyage_number, vessel:vessels(name), pol:ports!voyages_pol_id_fkey(locode), pod:ports!voyages_pod_id_fkey(locode)')
-    .eq('voyage_number', doc.route.voyage)
-    .limit(20)
+    .select('id, voyage_number, vessel:vessels(name)')
+    .eq('id', voyageId)
+    .maybeSingle()
   if (error) throw error
+  if (!data) return null
 
-  const candidates = (data ?? []) as unknown as VoyageCandidate[]
-  const normalizedVessel = normalizeText(doc.route.vessel)
-  const normalizedPol = normalizeText(doc.route.pol)
-  const normalizedPod = normalizeText(doc.route.pod)
-  // Require the vessel to match; a shared voyage_number across vessels must not
-  // silently attach the B/L to the first candidate.
-  return candidates.find((voyage) => (
-    normalizeText(voyage.vessel?.name) === normalizedVessel
-    && (!normalizedPol || normalizeText(voyage.pol?.locode) === normalizedPol)
-    && (!normalizedPod || normalizeText(voyage.pod?.locode) === normalizedPod)
-  ))?.id ?? null
+  const voyage = data as unknown as {
+    id: number
+    voyage_number: string | null
+    vessel?: { name?: string | null } | null
+  }
+  return {
+    id: voyage.id,
+    vesselName: voyage.vessel?.name ?? null,
+    voyageNumber: voyage.voyage_number ?? null,
+  }
+}
+
+function getDeclaredVoyageMismatchReason(doc: ParsedBLDocument, selectedVoyage: BlFreightSelectedVoyage) {
+  const vesselMismatch = Boolean(
+    doc.route.vessel
+    && selectedVoyage.vesselName
+    && normalizeText(doc.route.vessel) !== normalizeText(selectedVoyage.vesselName),
+  )
+  const voyageMismatch = Boolean(
+    doc.route.voyage
+    && selectedVoyage.voyageNumber
+    && normalizeText(doc.route.voyage) !== normalizeText(selectedVoyage.voyageNumber),
+  )
+  if (!vesselMismatch && !voyageMismatch) return null
+  return `Arquivo e da viagem ${formatVoyageRef(doc.route.vessel, doc.route.voyage)}, mas voce apontou ${formatVoyageRef(selectedVoyage.vesselName, selectedVoyage.voyageNumber)}.`
+}
+
+function formatVoyageRef(vessel?: string | null, voyage?: string | null) {
+  const vesselLabel = String(vessel ?? '').trim() || 'Navio nao informado'
+  const voyageLabel = String(voyage ?? '').trim() || 'viagem nao informada'
+  return `${vesselLabel} / ${voyageLabel}`
 }
 
 function normalizeFreightCategory(value: string) {

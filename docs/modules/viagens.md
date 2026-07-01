@@ -1,6 +1,6 @@
 # Viagens
 
-> **Status:** ativo · **Atualizado:** 2026-06-30 · **Rotas:** `/viagens`, `/viagens/:voyageId`
+> **Status:** ativo · **Atualizado:** 2026-07-01 · **Rotas:** `/viagens`, `/viagens/:voyageId`
 
 ## Propósito e escopo
 
@@ -15,6 +15,7 @@ Fontes principais: `src/pages/Viagens.tsx`, `src/pages/viagensHelpers.ts`, `src/
 ### `/viagens`
 
 - `src/pages/Viagens.tsx` carrega até 500 viagens por `useVoyages` em `src/hooks/useBls.ts`, junto de B/Ls, batches, Granito e vazios de exportação.
+- `src/components/shared/VoyageCombobox.tsx` é o seletor preditivo compartilhado para telas que apontam uma viagem fora do rail; filtros usam modo `clearable` e importações usam modo `required`, ambos sobre o cache local de `useVoyageOptions`.
 - `src/components/voyages/VoyageFilters.tsx` oferece busca por navio, viagem, armador e porto; período (`hoje`, `7d`, `30d` ou intervalo); status; e conciliação.
 - `src/lib/viagensFilters.ts` filtra localmente e ordena por próxima escala com ETA ascendente, depois por navio/viagem. Viagens sem próxima escala ficam ao final.
 - `src/components/voyages/VoyageRail.tsx` mostra rota POL→POD, B/Ls, containers distintos, próxima escala e estado de conciliação. A seleção navega para `/viagens/:voyageId`.
@@ -27,7 +28,7 @@ Fontes principais: `src/pages/Viagens.tsx`, `src/pages/viagensHelpers.ts`, `src/
 - `useParams()` converte `:voyageId` com `Number`. Se não houver viagem correspondente, a página mantém a URL e mostra “Viagem não encontrada”; não há redirect automático.
 - `src/components/voyages/VoyageCard.tsx` possui quatro abas locais, não sincronizadas na URL: `visao`, `importacao`, `exportacao` e `manifestos`.
 - **Visão geral:** KPIs, planejamento por POD/POL, edição/exclusão de agenda, cards contextuais e timeline.
-- **Importação:** métricas por POD para containers, IMO/OOG, veículos, carga geral, carga solta e vazios de importação; inclui importação rápida por `src/components/shared/VoyageImportActions.tsx`.
+- **Importação:** métricas por POD para containers, IMO/OOG, veículos, B/L, carga geral, carga solta e vazios de importação; inclui importação rápida por `src/components/shared/VoyageImportActions.tsx`.
 - **Exportação:** métricas por POL para Granito e vazios de exportação; inclui importação rápida de Granito e bookings de vazios.
 - **Escalas & Manifestos:** resumo de conciliação, cobertura de CE Mercante, batches agrupados por rota, ETD por POL e CE Master.
 - A timeline é expansível e combina imports, agendas, dados da viagem, CE Master, Baplie e resoluções de divergência.
@@ -54,7 +55,7 @@ Fontes principais: `src/pages/Viagens.tsx`, `src/pages/viagensHelpers.ts`, `src/
 | Carregar timeline | Viagem selecionada | `useVoyageTimeline` | Busca agendas e auditoria, resoluções Baplie, primeira importação Baplie e nomes de atores; `buildVoyageTimeline` humaniza e ordena | Leitura de `audit_logs`, `baplie_reconciliation_resolutions`, `baplie_containers`, `user_profiles`; batches vêm do payload de voyages | Família `['voyage-timeline', voyageId]`, stale time 60 s | Qualquer fonte obrigatória com erro rejeita a query; não há paginação além dos ranges de 500 eventos por fonte | `src/hooks/useVoyageTimeline.ts`; `src/services/voyageTimeline.ts`; `src/pages/viagensHelpers.ts` |
 | Carregar resumo de conciliação | Viagem selecionada; staging/manifesto podem estar vazios | `useVoyageReconciliation` | `reconcileBaplieWithManifest` compara Baplie `full` com `bl_containers` da viagem | Leitura de `baplie_containers`, `bls`, `bl_containers`, `baplie_reconciliation_resolutions` | Família `['baplie-reconciliation', voyageId]`, compartilhada com `/baplie`, stale time 60 s | Consultas paginadas podem falhar; part lot com múltiplos matches não gera decisão automática | `src/hooks/useVoyageReconciliation.ts`; `src/services/baplieReconciliation.ts` |
 | Navegar para manifestos, carga solta, Granito, vazios e Baplie | Card habilitado quando há dados; Baplie aparece para divergências | `NavigationCard` / botão “Resolver divergências” | `navigate` acrescenta `?voyage=<id>` | Nenhuma | A tela destino decide se consome o parâmetro | `/carga-solta` não lê hoje o parâmetro; `/vazios` redireciona sem preservar explicitamente a query | `src/components/voyages/VoyageCard.tsx`; `src/App.tsx`; `src/pages/Manifestos.tsx`; `src/pages/CargaSolta.tsx`; `src/pages/EmbarqueVazios.tsx` |
-| Importação rápida no contexto da viagem | Usuário autenticado; tipo disponível na aba | `VoyageImportActions` | Abre parsers/previews de CNTR, BB, Granito, vazios, veículos ou Baplie com `voyageId` travado | Conforme o importador proprietário | Usa arrays literais como `['bls']`, `['voyages']`, `['lineup-tv-v3']`, `['baplie-staging', voyageId]`, `['vehicles']` | A atomicidade varia por importador; detalhes em [Manifestos & EDI](manifesto-edi.md) | `src/components/shared/VoyageImportActions.tsx`; `src/components/shared/FileImportModal.tsx` |
+| Importação rápida no contexto da viagem | Usuário autenticado; tipo disponível na aba | `VoyageImportActions` | Abre parsers/previews de CNTR, B/L, BB, Granito, vazios, veículos ou Baplie com `voyageId` travado | Conforme o importador proprietário | Usa arrays literais como `['bls']`, `['voyages']`, `['lineup-tv-v3']`, `['baplie-staging', voyageId]`, `['vehicles']` | A atomicidade varia por importador; detalhes em [Manifestos & EDI](manifesto-edi.md) | `src/components/shared/VoyageImportActions.tsx`; `src/components/shared/FileImportModal.tsx` |
 
 ## Estado e dados
 
@@ -108,6 +109,7 @@ Evidência estática localizada:
 - `src/services/__tests__/voyageRouteSchedules.test.ts`: fallback automático do status de B/Ls e CEs por POD, preservando `Aprovado` como estado manual.
 - `src/components/shared/__tests__/VoyageScheduleModals.test.tsx`: normalização e payload dos modais POL, POD, inclusão de POD e export schedule.
 - `src/components/shared/__tests__/VoyageSectionCards.test.tsx`: navegação, estado desabilitado e componentes de métricas.
+- `src/components/shared/__tests__/VoyageCombobox.test.tsx`: filtro local, seleção obrigatória/limpável e hidratação por `selectedVoyageId`.
 - `src/components/shared/__tests__/VoyageImportActions.test.ts`: somente o resumo consolidado de manifestos CNTR; não prova persistência nem invalidações.
 
 Os testes Vitest não foram executados nesta frente, conforme orientação do coordenador. Também não houve validação em navegador, Supabase ou runtime; comportamento operacional acima é classificado como inferência estática de código/migration.

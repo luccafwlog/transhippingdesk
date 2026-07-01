@@ -29,7 +29,7 @@ const IMPORT_LABELS: Record<ImportType, string> = {
   vaziosExp: 'Vazios Exp',
   vehicles: 'Planilha Veiculos',
   baplie: 'Baplie EDI',
-  blFreight: 'Frete B/L',
+  blFreight: 'B/L',
 }
 
 export function VoyageImportActions({

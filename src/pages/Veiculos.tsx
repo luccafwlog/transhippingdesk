@@ -12,6 +12,7 @@ import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
+import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { useVehicleOptions, useVehicles, type VehiclePageFilters } from '../hooks/useVehicles'
@@ -30,7 +31,6 @@ export function Veiculos() {
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const { data: options } = useVehicleOptions()
-  const [selectedVesselId, setSelectedVesselId] = useState('')
   const [selectedVoyageId, setSelectedVoyageId] = useState(searchParams.get('voyage') ?? '')
   const [importVoyageId, setImportVoyageId] = useState('')
   const [filters, setFilters] = useState<VehiclePageFilters>({
@@ -57,19 +57,10 @@ export function Veiculos() {
     errors: { row: number; message: string }[]
   } | null>(null)
 
-  const vesselOptions = options?.vessels ?? []
   const allVoyageOptions = useMemo(() => options?.voyages ?? [], [options?.voyages])
-  const voyageOptions = useMemo(
-    () => (options?.voyages ?? []).filter((voyage) => String(voyage.vessel?.id ?? '') === selectedVesselId),
-    [options?.voyages, selectedVesselId],
-  )
 
   // Ajustes de estado durante o render (sem useEffect): cada condição se
   // auto-falsifica após o setState, convergindo em um re-render.
-  if (selectedVoyageId && !voyageOptions.some((voyage) => String(voyage.id) === selectedVoyageId)) {
-    setSelectedVoyageId('')
-  }
-
   if (importOpen && !autoSelectedImportOpen && !importVoyageId) {
     if (selectedVoyageId) {
       setImportVoyageId(selectedVoyageId)
@@ -217,30 +208,12 @@ export function Veiculos() {
 
       <Card className="mb-5">
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Navio">
-            <Select value={selectedVesselId} onChange={(event) => setSelectedVesselId(event.target.value)}>
-              <option value="">Selecione</option>
-              {vesselOptions.map((vessel) => (
-                <option key={vessel.id} value={vessel.id}>
-                  {vessel.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Viagem">
-            <Select
-              disabled={!selectedVesselId}
-              value={selectedVoyageId}
-              onChange={(event) => setSelectedVoyageId(event.target.value)}
-            >
-              <option value="">{selectedVesselId ? 'Selecione' : 'Selecione um navio primeiro'}</option>
-              {voyageOptions.map((voyage) => (
-                <option key={voyage.id} value={voyage.id}>
-                  {voyage.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            clearable
+            label="Viagem"
+            selectedVoyageId={selectedVoyageId}
+            onSelect={(id) => setSelectedVoyageId(id == null ? '' : String(id))}
+          />
         </div>
         {!voyageId ? (
           <div className="mt-3 text-sm text-amber-200">
@@ -252,7 +225,7 @@ export function Veiculos() {
       {!voyageId ? (
         <Card className="overflow-hidden p-0">
           <EmptyState
-            title="Selecione um navio e uma viagem"
+            title="Selecione uma viagem"
             description="Os veículos, indicadores e filtros aparecem após escolher a viagem acima. Para importar, use o botão Importar Veículos."
           />
         </Card>
@@ -467,16 +440,12 @@ export function Veiculos() {
             </div>
           </div>
 
-          <Field label="Viagem de destino">
-            <Select value={importVoyageId} onChange={(event) => setImportVoyageId(event.target.value)}>
-              <option value="">Selecione uma viagem</option>
-              {allVoyageOptions.map((voyage) => (
-                <option key={voyage.id} value={voyage.id}>
-                  {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            required
+            label="Viagem de destino"
+            selectedVoyageId={importVoyageId}
+            onSelect={(id) => setImportVoyageId(id == null ? '' : String(id))}
+          />
 
           <Field label="Arquivo .xlsx, .xls ou .csv">
             <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFileChange} />
