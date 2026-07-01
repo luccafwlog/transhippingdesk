@@ -1,8 +1,0 @@
-{
-  "postgresVersion": "17.10",
-  "environment": "disposable local PostgreSQL + Supabase shim",
-  "exitCode": 0,
-  "passed": true,
-  "stdoutTail": "\n> transhipping-desk@0.0.0 test:integration\n> vitest run src/integration/supabase.integration.test.ts\n\n\n RUN  v4.1.9 C:/Users/Lucca/Downloads/transhipping-desk2\n\n\n Test Files  1 passed (1)\n      Tests  9 passed (9)\n   Start at  21:52:06\n   Duration  1.07s (transform 49ms, setup 0ms, import 168ms, tests 624ms, environment 0ms)\n\n",
-  "stderrTail": ""
-}
