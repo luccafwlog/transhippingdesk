@@ -27,17 +27,21 @@ sinônimo de o Número de Escala existir.
 **B/L (Bill of Lading / Conhecimento de Embarque)**
 Documento de transporte que agrupa carga sob um consignatário. É a unidade
 operacional usada para revisão, cobrança de taxas locais e vínculo com cliente.
-Também é uma **fonte de ingestão e correção**: o arquivo do B/L pode criar um
-B/L inexistente e corrigir dados comerciais já gravados (com auditoria), além
-de ser a única fonte de Frete & Despesas do BL e da data de emissão do B/L.
+Também é uma **fonte de ingestão co-primária** (ao lado do manifesto): o arquivo
+do B/L pode criar um B/L inexistente — inclusive quando não há manifesto,
+**dispensando-o** — e corrigir dados comerciais já gravados (com auditoria e
+preview do diff), além de ser a única fonte de Frete & Despesas do BL e da data
+de emissão do B/L.
 
 **Manifesto**
 Arquivo do armador com dados comerciais dos B/Ls, consignatários, documentos,
-pesos, cargas e containers. É a **autoridade inicial** dos dados comerciais e
-financeiros da carga: prevalece na ingestão, mas um B/L emitido/corrigido pode
-sobrescrever dados comerciais posteriormente, sempre com auditoria e preview da
-diferença. O manifesto **não** carrega frete; e nenhuma correção via B/L altera
-variáveis de faturamento.
+pesos, cargas e containers. É uma **fonte de ingestão co-primária** dos dados
+comerciais e financeiros da carga, **ao lado do B/L**. Quando presente, costuma
+ser a primeira a chegar e criar os B/Ls; mas a operação pode prosseguir **só com
+B/Ls, sem manifesto**. Nenhuma fonte é autoridade por decreto: a precedência é
+temporal (quem cria primeiro) mais o gate de faturamento, e toda sobrescrita
+entre fontes é precedida de preview do diff e auditada. O manifesto **não**
+carrega frete; e nenhuma correção via B/L altera variáveis de faturamento.
 
 **CNTR**
 Abreviação de domínio para container.
