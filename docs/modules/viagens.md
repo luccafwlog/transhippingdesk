@@ -1,6 +1,6 @@
 # Viagens
 
-> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/viagens`, `/viagens/:voyageId`
+> **Status:** ativo · **Atualizado:** 2026-06-30 · **Rotas:** `/viagens`, `/viagens/:voyageId`
 
 ## Propósito e escopo
 
@@ -94,9 +94,10 @@ POL/POD e exportação têm contratos diferentes:
 4. **Conclusão da viagem.** Ao alterar ATD, `syncVoyageStatusAfterAtdChange` marca `completed` apenas quando todos os PODs ativos têm ATD; caso contrário, volta a `active`.
 5. **Número de Escala ≠ VINCULADA.** `escala_number` identifica a escala criada no Mercante; `linked=true` confirma que manifestos foram vinculados à escala.
 6. **CE Master ≠ CE Mercante.** CE Master vive em `import_batches.ce_master`, um valor por manifesto agrupado; CE Mercante vive em cada B/L.
-7. **Timeline não financeira.** A timeline combina agenda, viagem, CE, imports e Baplie; `src/services/voyageTimeline.ts` exclui eventos financeiros por decisão de produto.
-8. **Conciliação é sinal operacional.** `divergente` tem prioridade; `incompleto` cobre falta de manifesto ou CE; `conciliado` indica coerência dos sinais usados pela tela, não autorização financeira.
-9. **`billingStatus` é um proxy.** Apesar do nome `fetchVoyagesWithUnpaidBls`, a consulta atual identifica viagens com B/L cujo `charge_status != 'exempt'`; não comprova pagamento de invoice.
+7. **Status de B/Ls e CEs do POD.** O valor manual salvo em `audit_logs.field_name='ces'` é soberano. Sem valor manual, a tela deriva apenas um fallback operacional: nenhum CE preenchido vira `Aguardando`, alguns CEs viram `Lançando`, todos os CEs viram `Em aprovação`; `Aprovado` só aparece quando selecionado manualmente.
+8. **Timeline não financeira.** A timeline combina agenda, viagem, CE, imports e Baplie; `src/services/voyageTimeline.ts` exclui eventos financeiros por decisão de produto.
+9. **Conciliação é sinal operacional.** `divergente` tem prioridade; `incompleto` cobre falta de manifesto ou CE; `conciliado` indica coerência dos sinais usados pela tela, não autorização financeira.
+10. **`billingStatus` é um proxy.** Apesar do nome `fetchVoyagesWithUnpaidBls`, a consulta atual identifica viagens com B/L cujo `charge_status != 'exempt'`; não comprova pagamento de invoice.
 
 ## Testes e validação
 
@@ -104,6 +105,7 @@ Evidência estática localizada:
 
 - `src/lib/__tests__/viagensFilters.test.ts`: busca, status, conciliação, período e ordenação por próxima escala.
 - `src/pages/__tests__/viagensHelpers.test.ts`: métricas, estado de conciliação, próxima escala, timeline e agrupamentos por POD/POL.
+- `src/services/__tests__/voyageRouteSchedules.test.ts`: fallback automático do status de B/Ls e CEs por POD, preservando `Aprovado` como estado manual.
 - `src/components/shared/__tests__/VoyageScheduleModals.test.tsx`: normalização e payload dos modais POL, POD, inclusão de POD e export schedule.
 - `src/components/shared/__tests__/VoyageSectionCards.test.tsx`: navegação, estado desabilitado e componentes de métricas.
 - `src/components/shared/__tests__/VoyageImportActions.test.ts`: somente o resumo consolidado de manifestos CNTR; não prova persistência nem invalidações.

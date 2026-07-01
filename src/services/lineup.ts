@@ -1,4 +1,4 @@
-import { buildVoyagePodEntityId, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
+import { buildVoyagePodEntityId, deriveAutomaticVoyagePodCeStatus, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
 import { fetchExportSchedulesByVoyageIds, type ExportCeStatus } from './voyageExportSchedules'
 import { supabase } from './supabase'
 import { isDateOnly } from '../lib/utils'
@@ -155,12 +155,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       const totalContainers = distinctContainers.size
       const carContainers = vehicleContainerKeys.size
       const ceFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
-      const autoCeStatus =
-        ceFilledCount === routeBls.length && routeBls.length > 0
-          ? 'approved'
-          : ceFilledCount > 0
-            ? 'partial'
-            : 'missing'
+      const autoCeStatus = deriveAutomaticVoyagePodCeStatus(ceFilledCount, routeBls.length) ?? 'missing'
 
       const bbMachines = routeBls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)
       const bbPackages = routeBls.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0)

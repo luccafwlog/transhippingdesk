@@ -1,0 +1,40 @@
+{
+  "postgresVersion": "17.10",
+  "fixturePersistence": "rolled back",
+  "checks": [
+    {
+      "id": "customer-update-audit",
+      "result": "passed"
+    },
+    {
+      "id": "vessel-reorder-atomic",
+      "result": "passed"
+    },
+    {
+      "id": "vessel-archive-atomic",
+      "result": "passed"
+    },
+    {
+      "id": "granite-import-atomic",
+      "result": "passed"
+    },
+    {
+      "id": "granite-invoice-classification",
+      "result": "passed"
+    },
+    {
+      "id": "ata-derived-date-propagation",
+      "result": "passed"
+    },
+    {
+      "id": "container-dates-audit-and-manual-preservation",
+      "result": "passed"
+    },
+    {
+      "id": "breakbulk-import-atomic",
+      "result": "passed"
+    }
+  ],
+  "passed": 8,
+  "failed": 0
+}
