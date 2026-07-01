@@ -72,6 +72,7 @@ DECLARE
   v_container_bls TEXT[] := ARRAY[]::TEXT[];
   v_vehicle_bls TEXT[] := ARRAY[]::TEXT[];
   v_weight_locked_bls TEXT[] := ARRAY[]::TEXT[];
+  v_billing_hold_bls TEXT[] := ARRAY[]::TEXT[];
   v_inserted_vehicles INTEGER := 0;
   v_vehicle_items_total INTEGER := 0;
   v_vehicles_skipped INTEGER := 0;
@@ -230,6 +231,15 @@ BEGIN
     AND NOT t.override_billing
     AND b.cargo_mode = 'carga_solta';
 
+  -- Billed B/Ls whose operator declined the override: the billed identity
+  -- (CNPJ/name) is held so an advertised block is actually enforced. Cosmetic
+  -- billed B/Ls carry override_billing = true and are not held.
+  SELECT COALESCE(array_agg(id ORDER BY id), ARRAY[]::TEXT[])
+  INTO v_billing_hold_bls
+  FROM pg_temp.tmp_bl_freight_import
+  WHERE billing_locked
+    AND NOT override_billing;
+
   CREATE TEMP TABLE pg_temp.tmp_old_bl_values ON COMMIT DROP AS
   SELECT
     b.id,
@@ -302,8 +312,8 @@ BEGIN
     incoterm = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'incoterm') THEN EXCLUDED.incoterm ELSE bls.incoterm END,
     payment_type = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'payment_type') THEN EXCLUDED.payment_type ELSE bls.payment_type END,
     bl_emission_date = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'bl_emission_date') THEN EXCLUDED.bl_emission_date ELSE bls.bl_emission_date END,
-    manifest_customer_cnpj_cpf = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_cnpj_cpf') THEN EXCLUDED.manifest_customer_cnpj_cpf ELSE bls.manifest_customer_cnpj_cpf END,
-    manifest_customer_name = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_name') THEN EXCLUDED.manifest_customer_name ELSE bls.manifest_customer_name END,
+    manifest_customer_cnpj_cpf = CASE WHEN EXCLUDED.id <> ALL(v_billing_hold_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_cnpj_cpf') THEN EXCLUDED.manifest_customer_cnpj_cpf ELSE bls.manifest_customer_cnpj_cpf END,
+    manifest_customer_name = CASE WHEN EXCLUDED.id <> ALL(v_billing_hold_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_name') THEN EXCLUDED.manifest_customer_name ELSE bls.manifest_customer_name END,
     manifest_customer_email = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_email') THEN EXCLUDED.manifest_customer_email ELSE bls.manifest_customer_email END,
     notes = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'notes') THEN EXCLUDED.notes ELSE bls.notes END,
     updated_at = now();

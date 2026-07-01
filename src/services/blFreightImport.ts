@@ -148,7 +148,10 @@ export async function previewBlFreightImport(args: {
   const existingIds = new Set(existingBls.map((bl) => bl.id))
   const billingLockedBlIds = await fetchBillingLockedBlIds([...existingIds])
   const containerNumbers = args.documents.flatMap((doc) => doc.containers.map((container) => container.containerNumber))
-  const sharedContainerNumbers = await fetchSharedContainerNumbers(blNumbers, containerNumbers)
+  // Also check the containers a billed B/L already has: replacing a shared container
+  // with a unique one (same count) still changes container_distinct_voyage billing.
+  const existingContainerNumbers = existingBls.flatMap((bl) => (bl.bl_containers ?? []).map((container) => container.container_number))
+  const sharedContainerNumbers = await fetchSharedContainerNumbers(blNumbers, [...containerNumbers, ...existingContainerNumbers])
   const voyageIdByBl = new Map<string, number | null>()
 
   for (const doc of args.documents) {
@@ -338,11 +341,17 @@ function computeBillingImpact(
     messages.push(`Quantidade de containers: ${existingCount} -> ${nextCount}`)
   }
 
-  const shared = payload.containers
-    .map((container) => container.container_number)
-    .filter((number) => sharedContainerNumbers.has(number))
+  // A shared container matters only when the container set actually changes:
+  // adding/removing/swapping a container that is (or was) on another B/L shifts
+  // container_distinct_voyage quantities. Check both incoming and existing sides.
+  const containerSetChanged = normalizeContainerSet(existingContainers) !== normalizeContainerSet(payload.containers)
+  const sharedInvolved = [
+    ...payload.containers.map((container) => container.container_number),
+    ...existingContainers.map((container) => container.container_number),
+  ].filter((number): number is string => Boolean(number) && sharedContainerNumbers.has(number))
+  const shared = containerSetChanged ? [...new Set(sharedInvolved)] : []
   if (shared.length) {
-    messages.push(`Container(s) tambem vinculados a outro B/L: ${shared.join(', ')}`)
+    messages.push(`Container(s) compartilhados com outro B/L afetados: ${shared.join(', ')}`)
   }
 
   const existingImoOog = existingContainers.some((container) => container.is_imo || container.is_oog)

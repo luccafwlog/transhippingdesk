@@ -73,6 +73,10 @@ describe('BL freight lines migration contract', () => {
     // override is audited distinctly from a blocked change
     expect(sql).toMatch(/FATURAMENTO_SOBRESCRITO/i)
     expect(sql).toMatch(/ALTERACAO_OPERACIONAL_BLOQUEADA[\s\S]+billing_impact[\s\S]+NOT t\.override_billing/i)
+    // the billed identity (CNPJ/name) is held when the operator declined the override
+    expect(sql).toMatch(/v_billing_hold_bls[\s\S]+billing_locked[\s\S]+NOT override_billing/i)
+    expect(sql).toMatch(/manifest_customer_cnpj_cpf = CASE WHEN EXCLUDED\.id <> ALL\(v_billing_hold_bls\)/i)
+    expect(sql).toMatch(/manifest_customer_name = CASE WHEN EXCLUDED\.id <> ALL\(v_billing_hold_bls\)/i)
   })
 
   it('reports skipped vehicles that could not be matched to a container', () => {

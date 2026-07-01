@@ -184,6 +184,45 @@ describe('blFreightImport', () => {
     expect(row?.billingImpacts.some((message) => message.includes('Peso (carga solta'))).toBe(true)
   })
 
+  it('flags replacing an existing shared container even when the count is unchanged', () => {
+    // existing billed BL has one container that is shared with another B/L;
+    // the import replaces it with the parsed unique container (same count).
+    const preview = buildBlFreightPreview({
+      documents: [parsedBL()],
+      voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
+      billingLockedBlIds: new Set(['CSC45250E02Y00']),
+      sharedContainerNumbers: new Set(['SHARED000000']),
+      existingBls: [
+        {
+          id: 'CSC45250E02Y00',
+          voyage_id: 7,
+          cargo_mode: 'container',
+          shipper: 'SHIPPER LTDA\nADDRESS',
+          consignee: 'IMPORTADOR LTDA',
+          notify_party: 'NOTIFY LTDA',
+          pol: 'CNSHA',
+          pod: 'BRSSZ',
+          place_of_delivery: 'SANTOS',
+          total_weight_kg: 28000,
+          total_cbm: 68.5,
+          payment_type: 'PREPAID',
+          bl_emission_date: '2026-02-20',
+          manifest_customer_cnpj_cpf: '12345678000195',
+          manifest_customer_name: 'IMPORTADOR LTDA',
+          bl_containers: [
+            { container_number: 'SHARED000000', seal_number: null, type: '40HC', tare_weight_kg: 3900, gross_weight_kg: 28000, cbm: 68.5, is_imo: false, is_oog: false },
+          ],
+          bl_freight_lines: [],
+        },
+      ],
+    })
+
+    const row = preview.rows[0]
+    expect(row?.requiresBillingOverride).toBe(true)
+    expect(row?.billingImpacts.some((message) => message.includes('compartilhados'))).toBe(true)
+    expect(row?.diffs.find((diff) => diff.field === 'containers')?.billingImpact).toBe(true)
+  })
+
   it('blocks a BL-detail scoped import when the file has another BL number', () => {
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
