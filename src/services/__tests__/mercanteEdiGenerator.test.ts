@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  blToMercanteBlData,
   buildManifestData,
   generateM5Record,
   generateC5Record,
@@ -168,7 +169,25 @@ describe('generateC5Record (FWL parity)', () => {
   })
 
   it('constant terminal/UF/flag tail block', () => {
-    expect(c5.substring(1756, 1795)).toBe('0000220PHHIBABRSSA002CNN000000000000000')
+    expect(c5.substring(1739, 1760)).toBe('000000000000000000000')
+    expect(c5.substring(1760, 1799)).toBe('0000220PHHIBABRSSA002CNN000000000000000')
+  })
+
+  it('writes ocean freight and despesas for CSC45250E02Y00', () => {
+    const bl = {
+      ...FLOPAM_BL,
+      blNumber: 'CSC45250E02Y00',
+      oceanFreightValueCents: 260000,
+      freightLines: [
+        { code: '01779', valueCents: 171700, type: 'C' },
+        { code: '00322', valueCents: 17200, type: 'P' },
+      ],
+    }
+    const freightC5 = generateC5Record(bl, '2026-04-25')
+
+    expect(freightC5.substring(1739, 1760)).toBe('000000000000000260000')
+    expect(freightC5.substring(1760, 1771)).toBe('0000220PHHI')
+    expect(freightC5.substring(3796, 3836)).toBe('0177900000000171700C0032200000000017200P')
   })
 })
 
@@ -221,6 +240,16 @@ describe('generateEdiMercante', () => {
     expect(c5.substring(634, 642)).toBe('20260425')
   })
 
+  it('prefers the B/L emission date when available', () => {
+    const c5 = generateEdiMercante({
+      ...MANIFEST,
+      emissionDate: '2026-04-25',
+      bls: [{ ...FLOPAM_BL, emissionDate: '2026-04-26' }],
+    }).split('\r\n')[1]
+
+    expect(c5.substring(634, 642)).toBe('20260426')
+  })
+
   it('emits one I5 per container', () => {
     const edi = generateEdiMercante({
       ...MANIFEST,
@@ -243,6 +272,48 @@ describe('generateEdiMercante', () => {
 })
 
 describe('buildManifestData', () => {
+  it('maps imported BL freight rows to ocean freight and Mercante despesas', () => {
+    const bl = blToMercanteBlData(
+      {
+        id: 'CSC45250E02Y00',
+        manifest_customer_cnpj_cpf: null,
+        manifest_customer_name: null,
+        consignee: null,
+        consignee_block: '',
+        consignee_address: '',
+        consignee_phone: '',
+        shipper: null,
+        shipper_block: '',
+        notify_cnpj_cpf: '',
+        notify_block: '',
+        notify_party: null,
+        notify2_block: '',
+        cargo_description: '',
+        total_packages: 0,
+        packages_unit: '',
+        total_weight_kg: 0,
+        total_cbm: 0,
+        pol: 'CNTAC',
+        pod: 'BRSSA',
+        payment_type: null,
+        bl_emission_date: '2026-04-26',
+        bl_freight_lines: [
+          { description: 'OCEAN FREIGHT', amount: 'USD 2,600.00', payment: 'PREPAID' },
+          { category: 'THD', amount: 'USD 1,717.00', payment: 'COLLECT' },
+          { category: 'BAF', amount: 'USD 172.00', payment: 'PREPAID' },
+        ],
+      } as Parameters<typeof blToMercanteBlData>[0],
+      [],
+    )
+
+    expect(bl.emissionDate).toBe('2026-04-26')
+    expect(bl.oceanFreightValueCents).toBe(260000)
+    expect(bl.freightLines).toEqual([
+      { code: '01779', valueCents: 171700, type: 'C' },
+      { code: '00322', valueCents: 17200, type: 'P' },
+    ])
+  })
+
   it('uses each B/L destination to infer UF when route POD is shared', () => {
     const manifest = buildManifestData({
       shippingCompanyCode: 'CN01321',

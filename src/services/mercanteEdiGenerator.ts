@@ -104,6 +104,13 @@ export type MercanteFreightLine = {
   type: string
 }
 
+// ponytail: seed only the Mercante expense codes confirmed against current COSCO BLs;
+// extend this map as new charge categories are validated against accepted EDIs.
+export const MERCANTE_DESPESA_CODE: Record<string, string> = {
+  THD: '01779',
+  BAF: '00322',
+}
+
 export type MercanteManifestData = {
   shippingCompanyCode: string
   agencyCnpj: string
@@ -152,6 +159,10 @@ export type MercanteBlData = {
   /** Discharge terminal code (e.g. BRSSA002), echoed into the C5 tail block. */
   terminalCode: string
   paymentType: string
+  /** B/L emission date override (YYYYMMDD or YYYY-MM-DD), when imported per BL. */
+  emissionDate?: string
+  /** Ocean freight value in cents, written to C5 [1739:1760). */
+  oceanFreightValueCents?: number
   freightLines: MercanteFreightLine[]
   containers: MercanteContainerData[]
 }
@@ -206,6 +217,10 @@ function fmtNum(value: number | string, length: number): string {
 function fmtNumDec(value: number, length: number, decimals: number): string {
   const intVal = Math.round((value || 0) * 10 ** decimals)
   return String(intVal).slice(-length).padStart(length, '0')
+}
+
+function fmtCents(valueCents: number | null | undefined, length: number): string {
+  return String(Math.round(valueCents ?? 0)).slice(-length).padStart(length, '0')
 }
 
 /** Place `value` (left-justified) into a fixed-size record buffer. */
@@ -289,16 +304,13 @@ export function generateC5Record(bl: MercanteBlData, emissionDate?: string): str
   place(buf, 1424, digits(bl.notifyCnpjCpf), 14)
   place(buf, 1438, cleanParty(bl.notifyBlock), 301)
 
-  // ponytail: pos 1739 holds a computed value from the source system that does
-  // not correlate with weight/CBM/packages in the reference; left as zeros.
-  place(buf, 1739, fmtNum(0, 17), 17)
-
-  // Constant terminal/UF/flag block (parameterised by UF + terminal).
-  place(buf, 1756, '0000220PHHI', 11)
-  place(buf, 1767, bl.destinationUf, 2)
-  place(buf, 1769, bl.terminalCode, 8)
-  place(buf, 1777, 'CNN', 3)
-  place(buf, 1780, fmtNum(0, 15), 15)
+  // Ocean freight (2 decimals), followed by the constant terminal/UF/flag block.
+  place(buf, 1739, fmtCents(bl.oceanFreightValueCents, 21), 21)
+  place(buf, 1760, '0000220PHHI', 11)
+  place(buf, 1771, bl.destinationUf, 2)
+  place(buf, 1773, bl.terminalCode, 8)
+  place(buf, 1781, 'CNN', 3)
+  place(buf, 1784, fmtNum(0, 15), 15)
 
   // Freight block: 15 units of [code(5)][value(14, 2dp)][type(1)] from 3796.
   for (let i = 0; i < 15; i++) {
@@ -306,7 +318,7 @@ export function generateC5Record(bl: MercanteBlData, emissionDate?: string): str
     const line = bl.freightLines[i]
     if (line) {
       place(buf, off, fmtNum(line.code, 5), 5)
-      place(buf, off + 5, fmtNum(line.valueCents, 14), 14)
+      place(buf, off + 5, fmtCents(line.valueCents, 14), 14)
       place(buf, off + 19, line.type, 1)
     } else {
       place(buf, off, fmtNum(0, 19), 19)
@@ -353,7 +365,7 @@ export function generateEdiMercante(data: MercanteManifestData): string {
   lines.push(generateM5Record(data))
 
   for (const bl of data.bls) {
-    lines.push(generateC5Record(bl, data.emissionDate))
+    lines.push(generateC5Record(bl, bl.emissionDate ?? data.emissionDate))
     bl.containers.forEach((ctr, idx) => {
       lines.push(generateI5Record(ctr, idx + 1))
     })
@@ -367,8 +379,9 @@ export function generateEdiMercante(data: MercanteManifestData): string {
 // Columns added by migration 161 to capture the full positional party blocks.
 // Typed as an optional extension so the generator compiles before the generated
 // `database.ts` types are regenerated, and degrades gracefully pre-migration.
-export type MercanteBlSource = BL &
+export type MercanteBlSource = Omit<BL, 'bl_emission_date' | 'bl_freight_lines'> &
   Partial<{
+    bl_emission_date: string | null
     consignee_block: string | null
     consignee_address: string | null
     consignee_phone: string | null
@@ -378,10 +391,69 @@ export type MercanteBlSource = BL &
     notify2_block: string | null
     total_packages: number | null
     packages_unit: string | null
+    bl_freight_lines: MercanteBlFreightLineSource[] | null
   }>
+
+type MercanteBlFreightLineSource = {
+  description?: string | null
+  category?: string | null
+  mercante_code?: string | null
+  amount?: number | string | null
+  payment?: string | null
+}
+
+function normalizeFreightCategory(line: MercanteBlFreightLineSource): string {
+  return (line.category || line.description || '').toUpperCase().trim().replace(/[\s-]+/g, '_')
+}
+
+function moneyToCents(value: number | string | null | undefined): number {
+  if (typeof value === 'number') return Math.round(value * 100)
+  const raw = (value ?? '').replace(/[^\d,.-]/g, '')
+  const lastComma = raw.lastIndexOf(',')
+  const lastDot = raw.lastIndexOf('.')
+  const normalized = lastComma > lastDot
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw.replace(/,/g, '')
+  const parsed = Number.parseFloat(normalized)
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0
+}
+
+function paymentToMercanteType(payment: string | null | undefined): string {
+  return payment?.toUpperCase() === 'PREPAID' ? 'P' : 'C'
+}
+
+function mapFreightLines(lines: MercanteBlFreightLineSource[] | null | undefined): {
+  oceanFreightValueCents: number
+  freightLines: MercanteFreightLine[]
+} {
+  const result: MercanteFreightLine[] = []
+  let oceanFreightValueCents = 0
+
+  for (const line of lines ?? []) {
+    const category = normalizeFreightCategory(line)
+    const valueCents = moneyToCents(line.amount)
+
+    if (category === 'OCEAN_FREIGHT') {
+      oceanFreightValueCents = valueCents
+      continue
+    }
+
+    const code = line.mercante_code || MERCANTE_DESPESA_CODE[category]
+    if (!code) continue
+
+    result.push({
+      code,
+      valueCents,
+      type: paymentToMercanteType(line.payment),
+    })
+  }
+
+  return { oceanFreightValueCents, freightLines: result }
+}
 
 export function blToMercanteBlData(bl: MercanteBlSource, containers: BLContainer[]): MercanteBlData {
   const totalCbm = bl.total_cbm ?? 0
+  const freight = mapFreightLines(bl.bl_freight_lines)
   return {
     blNumber: bl.id,
     consigneeCnpjCpf: bl.manifest_customer_cnpj_cpf ?? '',
@@ -405,7 +477,9 @@ export function blToMercanteBlData(bl: MercanteBlSource, containers: BLContainer
     destinationUf: '',
     terminalCode: '',
     paymentType: bl.payment_type ?? '',
-    freightLines: [],
+    emissionDate: bl.bl_emission_date ?? undefined,
+    oceanFreightValueCents: freight.oceanFreightValueCents,
+    freightLines: freight.freightLines,
     containers: containers.map((c) => ({
       containerNumber: c.container_number,
       sealNumber: c.seal_number ?? '',
