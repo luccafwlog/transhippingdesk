@@ -206,12 +206,17 @@ em embarcador/consignatário/notify/notify2 e o `import_manifest_with_postproces
 persiste os blocos na mesma transação. B/Ls importados antes da migration
 mantêm os campos nulos e o gerador recai nos campos de nome.
 
-**Lacunas conhecidas (ponytail):** dois trechos do C5 não são reproduzidos
-byte a byte porque não existem nos dados do Transhipping Desk — o valor
-computado em pos 1739 (origem desconhecida no sistema legado) e o bloco de
-frete em pos 3796 (frete marítimo e códigos de despesa do Mercante não
-constam do manifesto nem das taxas locais). Ambos saem zerados, com estrutura
-correta, até que uma fonte de frete seja adicionada.
+**Lacuna de frete (ponytail):** dois trechos do C5 saem zerados hoje porque a
+fonte de frete ainda não foi ingerida — mas o formato dos dois já foi decodificado
+byte a byte contra um EDI real e aceito (evidência: Runtime). O campo em pos
+**`[1739:1760)`** (antes tido como "origem desconhecida") é o **frete marítimo**
+(2 casas decimais, âncora `220PHHI` em 1760); o bloco em pos **3796** carrega as
+**despesas** em fatias `[código(5)][valor(14, 2dp)][tipo(1)]` — `01779 = THD`,
+`00322 = BAF`, tipo `P`/`C` = prepaid/collect, valor literal sem conversão de
+moeda. Ambos permanecem zerados, com estrutura correta, até a implementação do
+**upload do B/L** como fonte de frete — desenho em
+[`docs/superpowers/specs/2026-07-01-bl-freight-import-design.md`](../superpowers/specs/2026-07-01-bl-freight-import-design.md)
+e decisão em [ADR 0017](../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md).
 
 ## Testes e validação
 
