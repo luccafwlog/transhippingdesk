@@ -22,6 +22,7 @@ import {
 } from '../../pages/viagensHelpers'
 import {
   buildVoyagePodEntityId,
+  deriveAutomaticVoyagePodCeStatus,
   type VoyagePodSchedule,
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
@@ -143,14 +144,7 @@ export function VoyageCard({
     const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
     const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(pod))
     const routeCeFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
-    const autoCeStatus =
-      routeBls.length === 0
-        ? null
-        : routeCeFilledCount === routeBls.length
-          ? 'approved'
-          : routeCeFilledCount > 0
-            ? 'partial'
-            : 'missing'
+    const autoCeStatus = deriveAutomaticVoyagePodCeStatus(routeCeFilledCount, routeBls.length)
     return {
       pod,
       eta: schedule?.eta ?? null,

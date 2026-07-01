@@ -55,6 +55,13 @@ export function getVoyagePodCeStatusLabel(status: VoyagePodCeStatus | null | und
   return 'Aguardando'
 }
 
+export function deriveAutomaticVoyagePodCeStatus(ceFilledCount: number, blCount: number): VoyagePodCeStatus | null {
+  if (blCount <= 0) return null
+  if (ceFilledCount >= blCount) return 'approving'
+  if (ceFilledCount > 0) return 'launching'
+  return 'missing'
+}
+
 export function buildVoyagePolEntityId(voyageId: number, pol: string | null | undefined) {
   return `${voyageId}::${normalizePortValue(pol)}`
 }
