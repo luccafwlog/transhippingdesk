@@ -95,6 +95,20 @@ describe('blFreightImport', () => {
     expect(payload.vehicles[0]).toMatchObject({ chassis: '9BWZZZ377VT004251', container_number: 'TCLU1234567' })
   })
 
+  it('parses Brazilian DD/MM/YYYY emission dates instead of aborting the import', () => {
+    const doc = parsedBL()
+    doc.dates.issueDate = '21/04/2026'
+    doc.dates.ladenOnBoard = '20/04/2026'
+    // Before the fix this produced "2104-20-26", which the RPC's ::DATE cast rejected.
+    expect(buildBlFreightPayload(doc, 7).bl_emission_date).toBe('2026-04-21')
+
+    const invalid = parsedBL()
+    invalid.dates.issueDate = '99/99/9999'
+    invalid.dates.ladenOnBoard = ''
+    // An unparseable cell yields null, never a bad string that blows up the transaction.
+    expect(buildBlFreightPayload(invalid, 7).bl_emission_date).toBeNull()
+  })
+
   it('flags container-set changes as override-required without dropping the payload', () => {
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],

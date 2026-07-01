@@ -508,12 +508,28 @@ function firstLine(value: string) {
   return value.split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? null
 }
 
-function normalizeDate(value: string) {
+// B/L cells carry Brazilian dates (DD/MM/YYYY). The previous digit-slice assumed
+// YYYYMMDD order, turning 21/04/2026 into "2104-20-26" and aborting the whole
+// import when the RPC cast it to DATE. Parse the real order and reject anything
+// that is not a valid calendar date so one bad cell never nulls the transaction.
+function normalizeDate(value: string): string | null {
   const trimmed = value.trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
-  const digits = trimmed.replace(/\D/g, '')
-  if (digits.length >= 8) return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`
+  if (!trimmed) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return isValidIsoDate(trimmed) ? trimmed : null
+  const parts = trimmed.split(/[-/.]/)
+  if (parts.length === 3 && parts[0].length <= 2) {
+    const [day, month, year] = parts
+    const iso = `${year.padStart(4, '20')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    return isValidIsoDate(iso) ? iso : null
+  }
   return null
+}
+
+function isValidIsoDate(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
 }
 
 function sumNumbers(values: Array<number | null>) {
