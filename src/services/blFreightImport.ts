@@ -1,6 +1,8 @@
 import { onlyDigits } from '../lib/utils'
 import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import type { ParsedBLDocument } from './blParser'
+import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
+import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
 export type BlFreightImportDiff = {
@@ -42,6 +44,7 @@ export type BlFreightImportPreview = {
 export type BlFreightRpcPayload = {
   id: string
   voyage_id: number | null
+  customer_id: number | null
   cargo_mode: 'container'
   shipper: string | null
   consignee: string | null
@@ -134,6 +137,8 @@ export type BuildBlFreightPreviewArgs = {
   sharedContainerNumbers?: Set<string>
   selectedVoyage?: BlFreightSelectedVoyage | null
   onlyBlId?: string | null
+  /** customers indexed by document/name so the import links each B/L to its payer */
+  customerMaps?: CustomerMaps | null
 }
 
 export async function previewBlFreightImport(args: {
@@ -142,7 +147,7 @@ export async function previewBlFreightImport(args: {
   onlyBlId?: string | null
 }): Promise<BlFreightImportPreview> {
   const blNumbers = args.documents.map((doc) => doc.blNumber).filter(Boolean)
-  const existingBls = await fetchExistingBls(blNumbers)
+  const [existingBls, customerMaps] = await Promise.all([fetchExistingBls(blNumbers), loadCustomerMaps()])
   const existingIds = new Set(existingBls.map((bl) => bl.id))
   const billingLockedBlIds = await fetchBillingLockedBlIds([...existingIds])
   const containerNumbers = args.documents.flatMap((doc) => doc.containers.map((container) => container.containerNumber))
@@ -160,6 +165,7 @@ export async function previewBlFreightImport(args: {
     sharedContainerNumbers,
     selectedVoyage,
     onlyBlId: args.onlyBlId,
+    customerMaps,
   })
 }
 
@@ -170,12 +176,19 @@ export function buildBlFreightPreview({
   sharedContainerNumbers = new Set(),
   selectedVoyage = null,
   onlyBlId = null,
+  customerMaps = null,
 }: BuildBlFreightPreviewArgs): BlFreightImportPreview {
   const existingById = new Map(existingBls.map((bl) => [bl.id, bl]))
   const rows = documents.map((doc) => {
     const existing = existingById.get(doc.blNumber) ?? null
     const voyageId = selectedVoyage?.id ?? null
     const payload = voyageId ? buildBlFreightPayload(doc, voyageId) : null
+    if (payload && customerMaps) {
+      payload.customer_id = findMatchedCustomer(
+        { cnpjCpf: payload.manifest_customer_cnpj_cpf, consignee: payload.consignee },
+        customerMaps,
+      )?.customer.id ?? null
+    }
     const blockedReasons: string[] = []
 
     if (onlyBlId && doc.blNumber !== onlyBlId) {
@@ -280,13 +293,15 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
   return {
     id: doc.blNumber,
     voyage_id: voyageId,
+    // Resolved from the consignee document/name during preview (see buildBlFreightPreview).
+    customer_id: null,
     cargo_mode: 'container',
     shipper: doc.parties.shipperBlock || null,
     consignee: firstLine(doc.parties.consigneeBlock),
     notify_party: doc.parties.notifyBlock || null,
-    pol: doc.route.pol || null,
-    pod: doc.route.pod || null,
-    place_of_delivery: doc.route.delivery || null,
+    pol: normalizePortCode(doc.route.pol),
+    pod: normalizePortCode(doc.route.pod),
+    place_of_delivery: normalizePortCode(doc.route.delivery),
     total_weight_kg: sumNumbers(containers.map((container) => container.gross_weight_kg)),
     total_cbm: sumNumbers(containers.map((container) => container.cbm)),
     payment_type: oceanFreight?.payment ?? null,
