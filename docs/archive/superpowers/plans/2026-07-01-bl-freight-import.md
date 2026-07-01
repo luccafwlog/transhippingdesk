@@ -1,6 +1,6 @@
 # BL Freight Import Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Fazer o upload do Excel do B/L (template COSCO) alimentar a lacuna de frete do EDI Mercante — frete marítimo + despesas (THD/BAF/…) — reaproveitando os dados que o manifesto já traz, permitindo criar/corrigir o B/L e nunca tocando faturamento.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest, React (TanStack Query), Supabase (Postgres + RPC).
 
-**Fontes de verdade:** [spec](../specs/2026-07-01-bl-freight-import-design.md) · [ADR 0017](../../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md) · `CONTEXT.md` · `docs/modules/manifesto-edi.md`.
+**Fontes de verdade:** [spec](../specs/2026-07-01-bl-freight-import-design.md) · [ADR 0017](../../../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md) · `CONTEXT.md` · `docs/modules/manifesto-edi.md`.
 
 ---
 
@@ -55,66 +55,66 @@
 
 **Files:** Create `src/services/blParser.ts`, `src/services/__tests__/blParser.test.ts`
 
-- [ ] Definir `ParsedBLDocument` (partes, rota, datas, itens físicos, `freightCharges: { description, currency, amount, payment }[]`)
-- [ ] Ler células fixas (nº BL `AC6`, partes, rota, navio/viagem `A18`, datas `A38`/`AB35`)
-- [ ] Parsear seção 11 "Freight & Charges" (linhas a partir de `A26`: descrição/rate/per/amount/prepaid/collect), separando moeda do valor
-- [ ] Parsear container `A47` (nº/lacre/tara/tipo/peso/cbm) e aba `VIN` (chassi/container/BL) para RoRo
-- [ ] `assertUploadSize` no ponto de entrada; `ponytail:` marcando 1 layout COSCO
-- [ ] Testes com os fixtures reais (container, RoRo/VIN, multi-container) → assert de todas as linhas de frete
-- [ ] Commit
+- [x] Definir `ParsedBLDocument` (partes, rota, datas, itens físicos, `freightCharges: { description, currency, amount, payment }[]`)
+- [x] Ler células fixas (nº BL `AC6`, partes, rota, navio/viagem `A18`, datas `A38`/`AB35`)
+- [x] Parsear seção 11 "Freight & Charges" (linhas a partir de `A26`: descrição/rate/per/amount/prepaid/collect), separando moeda do valor
+- [x] Parsear container `A47` (nº/lacre/tara/tipo/peso/cbm) e aba `VIN` (chassi/container/BL) para RoRo
+- [x] `assertUploadSize` no ponto de entrada; `ponytail:` marcando 1 layout COSCO
+- [x] Testes com os fixtures reais (container, RoRo/VIN, multi-container) → assert de todas as linhas de frete
+- [x] Commit
 
 ## Task 2: Migration — `bl_freight_lines` + `bls.bl_emission_date`
 
 **Files:** Create `supabase/migrations/NNN_bl_freight_lines.sql`; Modify `src/types/database.ts`
 
-- [ ] Tabela `bl_freight_lines` (`bl_id`, `seq`, `description`, `category`, `mercante_code`, `currency`, `amount`, `payment`) com FK/índice e RLS coerente com `bls`
-- [ ] Coluna `bls.bl_emission_date`
-- [ ] Seguir `docs/adr/0016` (nome numerado sequencial); revisar com skill `supabase-migration`
-- [ ] Regenerar tipos e atualizar `src/types/database.ts`
-- [ ] Teste de contrato SQL (replay limpo)
-- [ ] Commit
+- [x] Tabela `bl_freight_lines` (`bl_id`, `seq`, `description`, `category`, `mercante_code`, `currency`, `amount`, `payment`) com FK/índice e RLS coerente com `bls`
+- [x] Coluna `bls.bl_emission_date`
+- [x] Seguir `docs/adr/0016` (nome numerado sequencial); revisar com skill `supabase-migration`
+- [x] Regenerar tipos e atualizar `src/types/database.ts`
+- [x] Teste de contrato SQL (replay limpo)
+- [x] Commit
 
 ## Task 3: Gerador de EDI — frete marítimo + despesas
 
 **Files:** Modify `src/services/mercanteEdiGenerator.ts`, `src/services/__tests__/mercanteEdiGenerator.test.ts`
 
-- [ ] Mapa `MERCANTE_DESPESA_CODE` (`THD→01779`, `BAF→00322`), estilo `ponytail` (extensível)
-- [ ] `blToMercanteBlData`: popular `freightLines` a partir de `bl_freight_lines` (despesas → código+valor+tipo P/C)
-- [ ] `generateC5Record`: escrever frete marítimo (`OCEAN_FREIGHT`) no campo `[1739:1760)`, corrigindo o offset da constante `220PHHI`
-- [ ] Usar `bl_emission_date` por B/L quando disponível
-- [ ] Teste: reproduzir o C5 de `CSC45250E02Y00` byte a byte (OF `2600,00`; `01779/1717,00/C`; `00322/172,00/P`)
-- [ ] Commit
+- [x] Mapa `MERCANTE_DESPESA_CODE` (`THD→01779`, `BAF→00322`), estilo `ponytail` (extensível)
+- [x] `blToMercanteBlData`: popular `freightLines` a partir de `bl_freight_lines` (despesas → código+valor+tipo P/C)
+- [x] `generateC5Record`: escrever frete marítimo (`OCEAN_FREIGHT`) no campo `[1739:1760)`, corrigindo o offset da constante `220PHHI`
+- [x] Usar `bl_emission_date` por B/L quando disponível
+- [x] Teste: reproduzir o C5 de `CSC45250E02Y00` byte a byte (OF `2600,00`; `01779/1717,00/C`; `00322/172,00/P`)
+- [x] Commit
 
 ## Task 4: Serviço de import — casamento, diff, create/correct
 
 **Files:** Create `src/services/blFreightImport.ts`, `src/services/__tests__/blFreightImport.test.ts`; RPC na migration da Task 2 (ou nova)
 
-- [ ] Casar por nº de B/L (conferir CNPJ do consignatário); resolver viagem por navio+viagem+POL/POD (create)
-- [ ] Computar diff campo-a-campo (de→para) para B/L existente
-- [ ] Gate de faturamento: bloquear alteração de peso/containers quando há cálculo/invoice; comerciais sempre liberados
-- [ ] RPC transacional create/correct com auditoria + justificativa automática (espelhar `import_manifest_with_postprocess_transactional`)
-- [ ] Persistir `bl_freight_lines` e `bl_emission_date`; nunca tocar faturamento
-- [ ] Testes de payload/diff/gate (mocks) — atomicidade validada por teste de contrato SQL
-- [ ] Commit
+- [x] Casar por nº de B/L (conferir CNPJ do consignatário); resolver viagem por navio+viagem+POL/POD (create)
+- [x] Computar diff campo-a-campo (de→para) para B/L existente
+- [x] Gate de faturamento: bloquear alteração de peso/containers quando há cálculo/invoice; comerciais sempre liberados
+- [x] RPC transacional create/correct com auditoria + justificativa automática (espelhar `import_manifest_with_postprocess_transactional`)
+- [x] Persistir `bl_freight_lines` e `bl_emission_date`; nunca tocar faturamento
+- [x] Testes de payload/diff/gate (mocks) — atomicidade validada por teste de contrato SQL
+- [x] Commit
 
 ## Task 5: UI — modal compartilhado com preview do diff (3 entradas)
 
 **Files:** Create `src/components/shared/BlImportModal.tsx`; Modify `src/pages/Manifestos.tsx`, `src/components/shared/VoyageImportActions.tsx`, ficha do B/L
 
-- [ ] Modal: upload → parse/preview → tabela de diff (novos/atualizados/bloqueados) → confirmar
-- [ ] Entrada lote em `/manifestos`; ação rápida em `/viagens/:voyageId`; atalho na ficha `/manifestos/:blId` (filtrado)
-- [ ] Invalidação de cache coerente (`['bls']`, `bl-detail`, `voyages`); toasts de sucesso/erro/bloqueio
-- [ ] Testes de componente (preview/diff/estados)
-- [ ] Commit
+- [x] Modal: upload → parse/preview → tabela de diff (novos/atualizados/bloqueados) → confirmar
+- [x] Entrada lote em `/manifestos`; ação rápida em `/viagens/:voyageId`; atalho na ficha `/manifestos/:blId` (filtrado)
+- [x] Invalidação de cache coerente (`['bls']`, `bl-detail`, `voyages`); toasts de sucesso/erro/bloqueio
+- [x] Testes de componente (preview/diff/estados)
+- [x] Commit
 
 ## Task 6: Documentação viva + validação final
 
 **Files:** Modify `docs/modules/manifesto-edi.md`, `docs/RASTREABILIDADE.md`, `docs/ARCHITECTURE.md` (se surgir rota)
 
-- [ ] Catálogo de ações e Estado/dados do módulo com o fluxo de import do B/L
-- [ ] Rastreabilidade das novas telas/serviços/RPC/tabela
-- [ ] `npm run docs:check`, `npm run lint`, `npm test`, `npm run build`
-- [ ] Commit
+- [x] Catálogo de ações e Estado/dados do módulo com o fluxo de import do B/L
+- [x] Rastreabilidade das novas telas/serviços/RPC/tabela
+- [x] `npm run docs:check`, `npm run lint`, `npm test`, `npm run build`
+- [x] Commit
 
 ---
 

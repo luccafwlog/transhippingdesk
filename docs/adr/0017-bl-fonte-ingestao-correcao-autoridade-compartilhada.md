@@ -22,7 +22,7 @@ então correções não podem colidir com faturamento já emitido
 ([ADR 0006](./0006-revisao-operacional-reconciliacao-cliente-gate-faturamento.md)).
 
 O formato de frete do C5 foi validado byte a byte contra um EDI Mercante real e
-aceito (ver `docs/superpowers/specs/2026-07-01-bl-freight-import-design.md`):
+aceito (ver `docs/archive/superpowers/specs/2026-07-01-bl-freight-import-design.md`):
 frete marítimo em campo próprio (offset 1739), despesas no bloco 3796 com código
 + tipo prepaid/collect, valor literal sem conversão de moeda.
 

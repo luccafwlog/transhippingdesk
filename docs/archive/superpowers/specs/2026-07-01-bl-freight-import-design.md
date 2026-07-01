@@ -5,7 +5,7 @@
 > Spec/plano — snapshot de decisão, não verdade corrente. A autoridade
 > executável é o código; enquanto esta feature não é implementada, o gerador de
 > EDI continua zerando o frete (ver `docs/modules/manifesto-edi.md`). Decisão
-> arquitetural em [ADR 0017](../../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md).
+> arquitetural em [ADR 0017](../../../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md).
 
 ## Problema
 
@@ -61,7 +61,7 @@ Fatos confirmados nos 10 conhecimentos do arquivo:
    prepaid/collect); nenhuma conversão. A gravação no EDI usa o número literal.
 3. **Escopo do B/L: ingestão + correção.** O arquivo do B/L pode **criar** um
    B/L inexistente (completo, incluindo containers/veículos) e **corrigir** um
-   B/L já existente. Ver [ADR 0017](../../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md).
+   B/L já existente. Ver [ADR 0017](../../../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md).
 4. **Precedência: preview do diff + sobrescreve com auditoria.** Ao importar,
    o operador vê os campos que mudam (de→para), confirma, e o B/L sobrescreve
    com auditoria e justificativa automática. Nada muda em silêncio.
