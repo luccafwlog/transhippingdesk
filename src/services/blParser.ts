@@ -3,6 +3,9 @@ import { asString, onlyDigits } from '../lib/utils'
 
 export type BLFreightCharge = {
   description: string
+  rateCurrency: string | null
+  rateAmount: number | null
+  per: string | null
   currency: string | null
   amount: number | null
   payment: 'PREPAID' | 'COLLECT' | null
@@ -107,17 +110,25 @@ function parseFreightCharges(rows: RawSheetRow[]): BLFreightCharge[] {
     const row = rows[rowIndex]
     const description = cellValue(row, 0)
     if (!description) {
-      if (charges.length) break
       continue
     }
 
+    const rateText = cellValue(row, 7)
+    const per = cellValue(row, 11) || null
     const prepaid = cellValue(row, 22)
     const collect = cellValue(row, 23)
-    const amountText = cellValue(row, 15) || prepaid || collect || cellValue(row, 7)
+    const amount = cellValue(row, 15)
+    if (!rateText && !per && !amount && !prepaid && !collect) continue
+
+    const rate = parseMoney(rateText)
+    const amountText = amount || prepaid || collect || rateText
     const money = parseMoney(amountText)
 
     charges.push({
       description,
+      rateCurrency: rate.currency,
+      rateAmount: rate.amount,
+      per,
       currency: money.currency,
       amount: money.amount,
       payment: prepaid ? 'PREPAID' : collect ? 'COLLECT' : null,
@@ -153,7 +164,8 @@ function parseContainers(rows: RawSheetRow[]): ParsedBLContainer[] {
 }
 
 function parseVehicles(workbook: { Sheets: Record<string, unknown> }, utils: typeof import('@e965/xlsx').utils) {
-  const vinSheet = workbook.Sheets.VIN
+  const vinSheetName = Object.keys(workbook.Sheets).find((name) => name.trim().toUpperCase() === 'VIN')
+  const vinSheet = vinSheetName ? workbook.Sheets[vinSheetName] : null
   if (!vinSheet) return []
 
   const rows = utils.sheet_to_json<Record<string, unknown>>(vinSheet, { defval: '' })

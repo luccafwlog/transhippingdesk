@@ -2,6 +2,8 @@ import * as XLSX from '@e965/xlsx'
 import { describe, expect, it } from 'vitest'
 import { parseBLBuffer, parseBLFile } from '../blParser'
 
+// Fixtures reais de B/L COSCO nao estao versionados no repositorio; estes
+// workbooks sinteticos preservam as celulas fixas e colunas do template.
 function coscoBuffer({
   blNumber = 'CSC45250E02Y00',
   freightRows = [
@@ -13,6 +15,7 @@ function coscoBuffer({
     'TCLU1234567 / SEAL001 / 3900 / COC / 1 PKG / 40HC / 28000 KGS / 68.500 CBM',
   ],
   vinRows = [] as Array<Record<string, string>>,
+  vinSheetName = 'VIN',
 } = {}) {
   const rows: Array<Array<string | number>> = Array.from({ length: 60 }, () => [])
   rows[5][0] = 'SHIPPER EXPORTS LTDA\nRua A, 100'
@@ -48,7 +51,7 @@ function coscoBuffer({
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), 'Page 1')
   if (vinRows.length) {
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(vinRows), 'VIN')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(vinRows), vinSheetName)
   }
   return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
 }
@@ -93,9 +96,9 @@ describe('blParser', () => {
       },
     ])
     expect(parsed.freightCharges).toEqual([
-      { description: 'OCEAN FREIGHT', currency: 'USD', amount: 2600, payment: 'COLLECT' },
-      { description: 'THD', currency: 'USD', amount: 1717, payment: 'COLLECT' },
-      { description: 'BAF', currency: 'USD', amount: 172, payment: 'PREPAID' },
+      { description: 'OCEAN FREIGHT', rateCurrency: 'USD', rateAmount: 2600, per: 'BL', currency: 'USD', amount: 2600, payment: 'COLLECT' },
+      { description: 'THD', rateCurrency: 'USD', rateAmount: 1717, per: 'CNTR', currency: 'USD', amount: 1717, payment: 'COLLECT' },
+      { description: 'BAF', rateCurrency: 'USD', rateAmount: 172, per: 'CNTR', currency: 'USD', amount: 172, payment: 'PREPAID' },
     ])
   })
 
@@ -113,14 +116,27 @@ describe('blParser', () => {
 
     expect(parsed.containers.map((container) => container.containerNumber)).toEqual(['TCLU1234567', 'CSNU7654321'])
     expect(parsed.freightCharges).toEqual([
-      { description: 'OCEAN FREIGHT', currency: 'USD', amount: 3000, payment: 'PREPAID' },
-      { description: 'THD', currency: 'BRL', amount: 400.5, payment: 'COLLECT' },
+      { description: 'OCEAN FREIGHT', rateCurrency: 'USD', rateAmount: 3000, per: 'BL', currency: 'USD', amount: 3000, payment: 'PREPAID' },
+      { description: 'THD', rateCurrency: 'BRL', rateAmount: 400.5, per: 'CNTR', currency: 'BRL', amount: 400.5, payment: 'COLLECT' },
     ])
+  })
+
+  it('mantem despesas apos linha em branco dentro da secao de frete', async () => {
+    const parsed = await parseBLBuffer(coscoBuffer({
+      freightRows: [
+        ['OCEAN FREIGHT', 'USD 3,000.00', 'BL', 'USD 3,000.00', 'USD 3,000.00', ''],
+        ['', '', '', '', '', ''],
+        ['BAF', 'USD 172.00', 'CNTR', 'USD 172.00', 'USD 172.00', ''],
+      ],
+    }))
+
+    expect(parsed.freightCharges.map((charge) => charge.description)).toEqual(['OCEAN FREIGHT', 'BAF'])
   })
 
   it('parseia aba VIN para carga RoRo', async () => {
     const parsed = await parseBLBuffer(coscoBuffer({
       containerRows: [],
+      vinSheetName: 'Vin ',
       vinRows: [
         { CHASSIS: '9BWZZZ377VT004251', 'CONTAINER NO': 'RORO001', 'B/L NO.': 'CSC45250E02Y00' },
         { CHASSIS: '9BWZZZ377VT004252', 'CONTAINER NO': 'RORO001', 'B/L NO.': 'CSC45250E02Y00' },
