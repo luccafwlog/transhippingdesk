@@ -109,6 +109,32 @@ describe('blFreightImport', () => {
     expect(buildBlFreightPayload(invalid, 7).bl_emission_date).toBeNull()
   })
 
+  it('normalizes port city names to UN/LOCODEs, keeping codes untouched', () => {
+    const doc = parsedBL()
+    doc.route.pol = 'CNSHA'
+    doc.route.pod = 'SALVADOR, BRAZIL'
+    doc.route.delivery = 'VITORIA,BRAZIL'
+    const payload = buildBlFreightPayload(doc, 7)
+    expect(payload.pol).toBe('CNSHA')
+    expect(payload.pod).toBe('BRSSA')
+    expect(payload.place_of_delivery).toBe('BRVIX')
+  })
+
+  it('links each B/L to its customer via the consignee document', () => {
+    const customer = { id: 42, name: 'IMPORTADOR LTDA' }
+    const preview = buildBlFreightPreview({
+      documents: [parsedBL()],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      customerMaps: {
+        customersByDocument: new Map([['12345678000195', customer]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+    })
+    expect(preview.rows[0].payload?.customer_id).toBe(42)
+  })
+
   it('flags container-set changes as override-required without dropping the payload', () => {
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
