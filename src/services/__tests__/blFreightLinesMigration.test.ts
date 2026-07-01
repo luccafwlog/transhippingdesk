@@ -59,6 +59,30 @@ describe('BL freight lines migration contract', () => {
     expect(body).not.toMatch(/run_billing|calculate_bl_local_charges|INSERT INTO public\.charge_calculations|INSERT INTO public\.invoice_bls/i)
   })
 
+  it('gates billing variables (weight for carga solta, containers) behind an operator override', () => {
+    const sql = readMigration()
+
+    // weight is only held back for billed carga solta without override
+    expect(sql).toMatch(/v_weight_locked_bls[\s\S]+cargo_mode = 'carga_solta'/i)
+    expect(sql).toMatch(/total_weight_kg = CASE WHEN EXCLUDED\.id <> ALL\(v_weight_locked_bls\)/i)
+    // cbm is never a billing variable -> always applied when present
+    expect(sql).toMatch(/total_cbm = CASE WHEN EXISTS \([\s\S]+payload \? 'total_cbm'/i)
+    // containers/vehicles apply on billed B/Ls only under override
+    expect(sql).toMatch(/INTO v_container_bls[\s\S]+\(NOT billing_locked OR override_billing\)/i)
+    expect(sql).toMatch(/INTO v_vehicle_bls[\s\S]+\(NOT billing_locked OR override_billing\)/i)
+    // override is audited distinctly from a blocked change
+    expect(sql).toMatch(/FATURAMENTO_SOBRESCRITO/i)
+    expect(sql).toMatch(/ALTERACAO_OPERACIONAL_BLOQUEADA[\s\S]+billing_impact[\s\S]+NOT t\.override_billing/i)
+  })
+
+  it('reports skipped vehicles that could not be matched to a container', () => {
+    const sql = readMigration()
+
+    expect(sql).toMatch(/v_vehicle_items_total/i)
+    expect(sql).toMatch(/GET DIAGNOSTICS v_inserted_vehicles = ROW_COUNT/i)
+    expect(sql).toMatch(/'vehicles_skipped', v_vehicles_skipped/i)
+  })
+
   it('uses fixed search_path, active-user auth, and authenticated-only execute', () => {
     const sql = readMigration()
 

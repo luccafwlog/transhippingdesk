@@ -71,6 +71,10 @@ DECLARE
   v_unlocked_bls TEXT[] := ARRAY[]::TEXT[];
   v_container_bls TEXT[] := ARRAY[]::TEXT[];
   v_vehicle_bls TEXT[] := ARRAY[]::TEXT[];
+  v_weight_locked_bls TEXT[] := ARRAY[]::TEXT[];
+  v_inserted_vehicles INTEGER := 0;
+  v_vehicle_items_total INTEGER := 0;
+  v_vehicles_skipped INTEGER := 0;
   v_audited_fields TEXT[] := ARRAY[
     'voyage_id',
     'cargo_mode',
@@ -127,7 +131,9 @@ BEGIN
     manifest_customer_name TEXT,
     manifest_customer_email TEXT,
     notes TEXT,
-    billing_locked BOOLEAN NOT NULL DEFAULT false
+    billing_locked BOOLEAN NOT NULL DEFAULT false,
+    override_billing BOOLEAN NOT NULL DEFAULT false,
+    billing_impact BOOLEAN NOT NULL DEFAULT false
   ) ON COMMIT DROP;
 
   INSERT INTO pg_temp.tmp_bl_freight_import (
@@ -152,7 +158,9 @@ BEGIN
     manifest_customer_cnpj_cpf,
     manifest_customer_name,
     manifest_customer_email,
-    notes
+    notes,
+    override_billing,
+    billing_impact
   )
   SELECT
     NULLIF(bl->>'id', ''),
@@ -176,7 +184,9 @@ BEGIN
     public.normalize_document_text(bl->>'manifest_customer_cnpj_cpf'),
     NULLIF(bl->>'manifest_customer_name', ''),
     NULLIF(bl->>'manifest_customer_email', ''),
-    NULLIF(bl->>'notes', '')
+    NULLIF(bl->>'notes', ''),
+    COALESCE(NULLIF(bl->>'override_billing', '')::BOOLEAN, false),
+    COALESCE(NULLIF(bl->>'billing_impact', '')::BOOLEAN, false)
   FROM jsonb_array_elements(p_bls) AS bl;
 
   IF EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import WHERE id IS NULL) THEN
@@ -209,6 +219,16 @@ BEGIN
   INTO v_unlocked_bls
   FROM pg_temp.tmp_bl_freight_import
   WHERE NOT billing_locked;
+
+  -- Weight is a billing variable only for carga solta; hold it back when the B/L
+  -- is billed and the operator did not override.
+  SELECT COALESCE(array_agg(t.id ORDER BY t.id), ARRAY[]::TEXT[])
+  INTO v_weight_locked_bls
+  FROM pg_temp.tmp_bl_freight_import AS t
+  JOIN public.bls AS b ON b.id = t.id
+  WHERE t.billing_locked
+    AND NOT t.override_billing
+    AND b.cargo_mode = 'carga_solta';
 
   CREATE TEMP TABLE pg_temp.tmp_old_bl_values ON COMMIT DROP AS
   SELECT
@@ -277,8 +297,8 @@ BEGIN
     pod = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'pod') THEN EXCLUDED.pod ELSE bls.pod END,
     place_of_delivery = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'place_of_delivery') THEN EXCLUDED.place_of_delivery ELSE bls.place_of_delivery END,
     cargo_description = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'cargo_description') THEN EXCLUDED.cargo_description ELSE bls.cargo_description END,
-    total_weight_kg = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'total_weight_kg') THEN EXCLUDED.total_weight_kg ELSE bls.total_weight_kg END,
-    total_cbm = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'total_cbm') THEN EXCLUDED.total_cbm ELSE bls.total_cbm END,
+    total_weight_kg = CASE WHEN EXCLUDED.id <> ALL(v_weight_locked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'total_weight_kg') THEN EXCLUDED.total_weight_kg ELSE bls.total_weight_kg END,
+    total_cbm = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'total_cbm') THEN EXCLUDED.total_cbm ELSE bls.total_cbm END,
     incoterm = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'incoterm') THEN EXCLUDED.incoterm ELSE bls.incoterm END,
     payment_type = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'payment_type') THEN EXCLUDED.payment_type ELSE bls.payment_type END,
     bl_emission_date = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'bl_emission_date') THEN EXCLUDED.bl_emission_date ELSE bls.bl_emission_date END,
@@ -354,13 +374,13 @@ BEGIN
   SELECT COALESCE(array_agg(id ORDER BY id), ARRAY[]::TEXT[])
   INTO v_container_bls
   FROM pg_temp.tmp_bl_freight_import
-  WHERE NOT billing_locked
+  WHERE (NOT billing_locked OR override_billing)
     AND payload ? 'containers';
 
   SELECT COALESCE(array_agg(id ORDER BY id), ARRAY[]::TEXT[])
   INTO v_vehicle_bls
   FROM pg_temp.tmp_bl_freight_import
-  WHERE NOT billing_locked
+  WHERE (NOT billing_locked OR override_billing)
     AND payload ? 'vehicles';
 
   CREATE TEMP TABLE pg_temp.tmp_new_containers (
@@ -416,6 +436,15 @@ BEGIN
   SELECT id, bl_id, container_number
   FROM inserted;
 
+  SELECT COALESCE(SUM(
+    jsonb_array_length(
+      CASE WHEN jsonb_typeof(t.payload->'vehicles') = 'array' THEN t.payload->'vehicles' ELSE '[]'::jsonb END
+    )
+  ), 0)
+  INTO v_vehicle_items_total
+  FROM pg_temp.tmp_bl_freight_import AS t
+  WHERE t.id = ANY(v_vehicle_bls);
+
   INSERT INTO public.vehicles (
     voyage_id,
     container_id,
@@ -450,50 +479,62 @@ BEGIN
     AND NULLIF(v.item->>'chassis', '') IS NOT NULL
     AND COALESCE(NULLIF(v.item->>'container_id', '')::BIGINT, c.id) IS NOT NULL;
 
-  IF COALESCE(cardinality(v_locked_bls), 0) > 0
-     AND EXISTS (
-       SELECT 1
-       FROM pg_temp.tmp_bl_freight_import AS t
-       WHERE t.billing_locked
-         AND (
-           t.payload ? 'containers'
-           OR t.payload ? 'vehicles'
-           OR t.payload ? 'total_weight_kg'
-           OR t.payload ? 'total_cbm'
-         )
-     ) THEN
-    INSERT INTO public.audit_logs (
-      entity_type,
-      entity_id,
-      field_name,
-      old_value,
-      new_value,
-      changed_by,
-      justification
-    )
-    SELECT
-      'bl',
-      t.id,
-      'ALTERACAO_OPERACIONAL_BLOQUEADA',
-      NULL,
-      'billing_locked',
-      p_changed_by,
-      'Importacao automatica de frete do BL bloqueou peso/containers por faturamento existente'
-    FROM pg_temp.tmp_bl_freight_import AS t
-    WHERE t.billing_locked
-      AND (
-        t.payload ? 'containers'
-        OR t.payload ? 'vehicles'
-        OR t.payload ? 'total_weight_kg'
-        OR t.payload ? 'total_cbm'
-      );
-  END IF;
+  GET DIAGNOSTICS v_inserted_vehicles = ROW_COUNT;
+  v_vehicles_skipped := GREATEST(v_vehicle_items_total - v_inserted_vehicles, 0);
+
+  -- Billing-relevant changes held back because the operator did not override.
+  INSERT INTO public.audit_logs (
+    entity_type,
+    entity_id,
+    field_name,
+    old_value,
+    new_value,
+    changed_by,
+    justification
+  )
+  SELECT
+    'bl',
+    t.id,
+    'ALTERACAO_OPERACIONAL_BLOQUEADA',
+    NULL,
+    'billing_locked',
+    p_changed_by,
+    'Importacao de frete do BL: alteracao com impacto em faturamento bloqueada (sem override do operador)'
+  FROM pg_temp.tmp_bl_freight_import AS t
+  WHERE t.billing_locked
+    AND t.billing_impact
+    AND NOT t.override_billing;
+
+  -- Billing-relevant changes applied under an explicit operator override.
+  INSERT INTO public.audit_logs (
+    entity_type,
+    entity_id,
+    field_name,
+    old_value,
+    new_value,
+    changed_by,
+    justification
+  )
+  SELECT
+    'bl',
+    t.id,
+    'FATURAMENTO_SOBRESCRITO',
+    NULL,
+    'override_billing',
+    p_changed_by,
+    'Importacao de frete do BL: alteracao com impacto em faturamento aplicada por override do operador'
+  FROM pg_temp.tmp_bl_freight_import AS t
+  WHERE t.billing_locked
+    AND t.billing_impact
+    AND t.override_billing;
 
   RETURN jsonb_build_object(
     'bls_received', v_total_bls,
     'freight_lines_inserted', v_inserted_freight_lines,
     'billing_locked', v_locked_bls,
-    'operational_updated', v_unlocked_bls
+    'operational_updated', v_unlocked_bls,
+    'vehicles_inserted', v_inserted_vehicles,
+    'vehicles_skipped', v_vehicles_skipped
   );
 END;
 $function$;

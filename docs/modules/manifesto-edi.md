@@ -19,7 +19,7 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - O modal CNTR aceita múltiplos arquivos, seleciona/cria uma viagem, calcula SHA-256, exibe preview por arquivo e resumo consolidado e importa sequencialmente.
 - Duplicidade de arquivo é definida pela constraint de `(voyage_id, cargo_mode, file_hash)` e traduzida para `DuplicateManifestImportError`; rate limit `P0429` é tentado novamente uma vez após espera.
 - O modal de CE Mercante aceita planilha por B/L ou EDI de um único manifesto.
-- O modal de Frete do B/L aceita Excel COSCO, mostra preview de novos/atualizados/bloqueados e confirma via RPC transacional. A ação em lote fica na lista; a mesma entrada existe como ação rápida da viagem e como atalho filtrado na ficha do B/L.
+- O modal de Frete do B/L aceita Excel COSCO, mostra preview de novos/atualizados/bloqueados e confirma via RPC transacional (`import_bl_freight_transactional`). Mudanças com impacto em faturamento (quantidade de containers, container compartilhado, IMO/OOG, peso de carga solta, CNPJ faturado) são informadas e só são aplicadas com override do operador, auditado; sem override, os demais campos são aplicados e o B/L não é descartado. A ação em lote fica na lista; a mesma entrada existe como ação rápida da viagem e como atalho filtrado na ficha do B/L.
 - Admin pode excluir B/Ls elegíveis, individualmente ou em lote, após pré-checagem fiscal.
 - CE Master pertence ao manifesto (`import_batches.ce_master`), mas a edição atual está na ficha `/viagens/:voyageId`, não nesta lista.
 

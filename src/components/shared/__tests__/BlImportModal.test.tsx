@@ -79,6 +79,8 @@ const previewWithDiff = {
       voyageId: 7,
       consigneeDocumentMatches: null,
       blockedReasons: [],
+      billingImpacts: [],
+      requiresBillingOverride: false,
       diffs: [],
       payload: { id: 'COSU123' },
     },
@@ -89,7 +91,9 @@ const previewWithDiff = {
       voyageId: 7,
       consigneeDocumentMatches: true,
       blockedReasons: [],
-      diffs: [{ field: 'bl_freight_lines', from: 'USD 10', to: 'USD 12', blocked: false }],
+      billingImpacts: [],
+      requiresBillingOverride: false,
+      diffs: [{ field: 'bl_freight_lines', from: 'USD 10', to: 'USD 12', billingImpact: false }],
       payload: { id: 'COSU456' },
     },
   ],
@@ -99,6 +103,7 @@ const previewWithDiff = {
     updatedCount: 1,
     unchangedCount: 0,
     blockedCount: 0,
+    billingOverrideCount: 0,
   },
 }
 
@@ -143,10 +148,12 @@ it('bloqueia confirmacao quando todos os B/Ls estao bloqueados', async () => {
       voyageId: null,
       consigneeDocumentMatches: null,
       blockedReasons: ['Viagem nao encontrada para criar o B/L.'],
+      billingImpacts: [],
+      requiresBillingOverride: false,
       diffs: [],
       payload: null,
     }],
-    summary: { total: 1, newCount: 0, updatedCount: 0, unchangedCount: 0, blockedCount: 1 },
+    summary: { total: 1, newCount: 0, updatedCount: 0, unchangedCount: 0, blockedCount: 1, billingOverrideCount: 0 },
   })
 
   const { container } = renderModal()
@@ -173,10 +180,46 @@ it('confirma importacao, invalida caches e fecha modal', async () => {
   await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
   fireEvent.click(confirm)
 
-  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithDiff, 'user-1'))
+  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithDiff, 'user-1', false))
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bls'] })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bl-detail'] })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyages'] })
   expect(mocks.showToast).toHaveBeenCalledWith('Importacao de frete concluida: 2 B/L(s), 0 bloqueado(s).', 'success')
   expect(onClose).toHaveBeenCalled()
+})
+
+it('exibe impacto de faturamento e envia override quando o operador marca', async () => {
+  const previewWithBillingImpact = {
+    rows: [{
+      blNumber: 'COSU777',
+      status: 'updated',
+      existing: true,
+      voyageId: 7,
+      consigneeDocumentMatches: true,
+      blockedReasons: [],
+      billingImpacts: ['Quantidade de containers: 1 -> 2'],
+      requiresBillingOverride: true,
+      diffs: [{ field: 'containers', from: 'a', to: 'b', billingImpact: true }],
+      payload: { id: 'COSU777' },
+    }],
+    summary: { total: 1, newCount: 0, updatedCount: 1, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 1 },
+  }
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU777'))
+  mocks.previewBlFreightImport.mockResolvedValue(previewWithBillingImpact)
+  const { container } = renderModal()
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  await screen.findByText('Faturamento: Quantidade de containers: 1 -> 2')
+  const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement
+  expect(checkbox).toBeTruthy()
+  fireEvent.click(checkbox)
+
+  const confirm = await screen.findByRole('button', { name: /Confirmar importacao/ })
+  await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
+  fireEvent.click(confirm)
+
+  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithBillingImpact, 'user-1', true))
 })
