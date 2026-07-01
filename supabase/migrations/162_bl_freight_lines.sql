@@ -15,8 +15,7 @@ CREATE TABLE IF NOT EXISTS public.bl_freight_lines (
   currency TEXT,
   amount NUMERIC(14,2),
   payment TEXT,
-  PRIMARY KEY (bl_id, seq),
-  UNIQUE (bl_id, seq)
+  PRIMARY KEY (bl_id, seq)
 );
 
 CREATE INDEX IF NOT EXISTS idx_bl_freight_lines_bl_id
@@ -78,7 +77,6 @@ DECLARE
     'shipper',
     'consignee',
     'notify_party',
-    'customer_id',
     'pol',
     'pod',
     'place_of_delivery',
@@ -268,26 +266,26 @@ BEGIN
     notes
   FROM pg_temp.tmp_bl_freight_import
   ON CONFLICT (id) DO UPDATE SET
-    voyage_id = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) THEN EXCLUDED.voyage_id ELSE bls.voyage_id END,
-    batch_id = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) THEN EXCLUDED.batch_id ELSE bls.batch_id END,
-    cargo_mode = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) THEN EXCLUDED.cargo_mode ELSE bls.cargo_mode END,
-    shipper = EXCLUDED.shipper,
-    consignee = EXCLUDED.consignee,
-    notify_party = EXCLUDED.notify_party,
-    customer_id = EXCLUDED.customer_id,
-    pol = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) THEN EXCLUDED.pol ELSE bls.pol END,
-    pod = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) THEN EXCLUDED.pod ELSE bls.pod END,
-    place_of_delivery = EXCLUDED.place_of_delivery,
-    cargo_description = EXCLUDED.cargo_description,
-    total_weight_kg = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) THEN EXCLUDED.total_weight_kg ELSE bls.total_weight_kg END,
-    total_cbm = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) THEN EXCLUDED.total_cbm ELSE bls.total_cbm END,
-    incoterm = EXCLUDED.incoterm,
-    payment_type = EXCLUDED.payment_type,
-    bl_emission_date = EXCLUDED.bl_emission_date,
-    manifest_customer_cnpj_cpf = EXCLUDED.manifest_customer_cnpj_cpf,
-    manifest_customer_name = EXCLUDED.manifest_customer_name,
-    manifest_customer_email = EXCLUDED.manifest_customer_email,
-    notes = EXCLUDED.notes,
+    voyage_id = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'voyage_id') THEN EXCLUDED.voyage_id ELSE bls.voyage_id END,
+    batch_id = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'batch_id') THEN EXCLUDED.batch_id ELSE bls.batch_id END,
+    cargo_mode = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'cargo_mode') THEN EXCLUDED.cargo_mode ELSE bls.cargo_mode END,
+    shipper = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'shipper') THEN EXCLUDED.shipper ELSE bls.shipper END,
+    consignee = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'consignee') THEN EXCLUDED.consignee ELSE bls.consignee END,
+    notify_party = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'notify_party') THEN EXCLUDED.notify_party ELSE bls.notify_party END,
+    customer_id = bls.customer_id,
+    pol = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'pol') THEN EXCLUDED.pol ELSE bls.pol END,
+    pod = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'pod') THEN EXCLUDED.pod ELSE bls.pod END,
+    place_of_delivery = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'place_of_delivery') THEN EXCLUDED.place_of_delivery ELSE bls.place_of_delivery END,
+    cargo_description = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'cargo_description') THEN EXCLUDED.cargo_description ELSE bls.cargo_description END,
+    total_weight_kg = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'total_weight_kg') THEN EXCLUDED.total_weight_kg ELSE bls.total_weight_kg END,
+    total_cbm = CASE WHEN EXCLUDED.id = ANY(v_unlocked_bls) AND EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'total_cbm') THEN EXCLUDED.total_cbm ELSE bls.total_cbm END,
+    incoterm = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'incoterm') THEN EXCLUDED.incoterm ELSE bls.incoterm END,
+    payment_type = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'payment_type') THEN EXCLUDED.payment_type ELSE bls.payment_type END,
+    bl_emission_date = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'bl_emission_date') THEN EXCLUDED.bl_emission_date ELSE bls.bl_emission_date END,
+    manifest_customer_cnpj_cpf = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_cnpj_cpf') THEN EXCLUDED.manifest_customer_cnpj_cpf ELSE bls.manifest_customer_cnpj_cpf END,
+    manifest_customer_name = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_name') THEN EXCLUDED.manifest_customer_name ELSE bls.manifest_customer_name END,
+    manifest_customer_email = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'manifest_customer_email') THEN EXCLUDED.manifest_customer_email ELSE bls.manifest_customer_email END,
+    notes = CASE WHEN EXISTS (SELECT 1 FROM pg_temp.tmp_bl_freight_import t WHERE t.id = EXCLUDED.id AND t.payload ? 'notes') THEN EXCLUDED.notes ELSE bls.notes END,
     updated_at = now();
 
   INSERT INTO public.audit_logs (
@@ -316,7 +314,12 @@ BEGIN
   WHERE COALESCE(old_values.old_row->>field_name, '') IS DISTINCT FROM COALESCE(to_jsonb(b)->>field_name, '');
 
   DELETE FROM public.bl_freight_lines
-  WHERE bl_id IN (SELECT id FROM pg_temp.tmp_bl_freight_import);
+  WHERE bl_id IN (
+    SELECT id
+    FROM pg_temp.tmp_bl_freight_import
+    WHERE payload ? 'freight_lines'
+       OR payload ? 'freightLines'
+  );
 
   INSERT INTO public.bl_freight_lines (
     bl_id,
@@ -367,8 +370,7 @@ BEGIN
   ) ON COMMIT DROP;
 
   DELETE FROM public.vehicles
-  WHERE bl_id = ANY(v_container_bls)
-     OR bl_id = ANY(v_vehicle_bls);
+  WHERE bl_id = ANY(v_vehicle_bls);
 
   DELETE FROM public.bl_containers
   WHERE bl_id = ANY(v_container_bls);

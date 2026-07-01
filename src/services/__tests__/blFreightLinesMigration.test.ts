@@ -11,7 +11,6 @@ describe('BL freight lines migration contract', () => {
 
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS public\.bl_freight_lines/i)
     expect(sql).toMatch(/bl_id TEXT NOT NULL REFERENCES public\.bls\(id\) ON DELETE CASCADE/i)
-    expect(sql).toMatch(/UNIQUE \(bl_id, seq\)/i)
     expect(sql).toMatch(/CREATE INDEX IF NOT EXISTS idx_bl_freight_lines_bl_id/i)
     expect(sql).toMatch(/ALTER TABLE public\.bl_freight_lines ENABLE ROW LEVEL SECURITY/i)
     expect(sql).toMatch(/CREATE POLICY bl_freight_lines_select_active/i)
@@ -25,8 +24,19 @@ describe('BL freight lines migration contract', () => {
 
     expect(sql).toMatch(/ALTER TABLE public\.bls[\s\S]+ADD COLUMN IF NOT EXISTS bl_emission_date DATE/i)
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.import_bl_freight_transactional/i)
-    expect(sql).toMatch(/bl_emission_date = EXCLUDED\.bl_emission_date/i)
+    expect(sql).toMatch(/bl_emission_date = CASE WHEN EXISTS \([\s\S]+payload \? 'bl_emission_date'[\s\S]+THEN EXCLUDED\.bl_emission_date ELSE bls\.bl_emission_date END/i)
     expect(sql).toMatch(/INSERT INTO public\.bl_freight_lines/i)
+  })
+
+  it('preserves omitted correction fields instead of nulling existing data', () => {
+    const sql = readMigration()
+
+    expect(sql).toMatch(/shipper = CASE WHEN EXISTS \([\s\S]+payload \? 'shipper'[\s\S]+ELSE bls\.shipper END/i)
+    expect(sql).toMatch(/customer_id = bls\.customer_id/i)
+    expect(sql).toMatch(/bl_emission_date = CASE WHEN EXISTS \([\s\S]+payload \? 'bl_emission_date'[\s\S]+ELSE bls\.bl_emission_date END/i)
+    expect(sql).toMatch(/DELETE FROM public\.bl_freight_lines[\s\S]+payload \? 'freight_lines'[\s\S]+payload \? 'freightLines'/i)
+    expect(sql).toMatch(/DELETE FROM public\.vehicles\s+WHERE bl_id = ANY\(v_vehicle_bls\);/i)
+    expect(sql).not.toMatch(/DELETE FROM public\.vehicles\s+WHERE bl_id = ANY\(v_container_bls\)/i)
   })
 
   it('guards protected operational mutations when billing artifacts exist', () => {
