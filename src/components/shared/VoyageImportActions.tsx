@@ -6,6 +6,7 @@ import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { FileImportModal, type FilePreviewEntry } from './FileImportModal'
+import { BlImportModal } from './BlImportModal'
 import { computeFileHash, importManifest } from '../../services/manifestImport'
 import { supabase } from '../../services/supabase'
 import { countDistinctManifestContainers, parseManifestFile } from '../../services/manifestParser'
@@ -18,7 +19,7 @@ import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
 import { buildCntrManifestImportSummary } from './voyageImportSummary'
 
-type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie'
+type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
   cntr: 'Manifesto CNTR',
@@ -28,6 +29,7 @@ const IMPORT_LABELS: Record<ImportType, string> = {
   vaziosExp: 'Vazios Exp',
   vehicles: 'Planilha Veiculos',
   baplie: 'Baplie EDI',
+  blFreight: 'Frete B/L',
 }
 
 export function VoyageImportActions({
@@ -186,6 +188,15 @@ export function VoyageImportActions({
 
       {activeType === 'vehicles' ? (
         <VehiclesImportModal voyageId={voyageId} voyageLabel={voyageLabel} onClose={() => setActiveType(null)} />
+      ) : null}
+
+      {activeType === 'blFreight' ? (
+        <BlImportModal
+          open
+          voyageId={voyageId}
+          voyageLabel={voyageLabel}
+          onClose={() => setActiveType(null)}
+        />
       ) : null}
     </>
   )

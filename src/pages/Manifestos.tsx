@@ -8,6 +8,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
+import { BlImportModal } from '../components/shared/BlImportModal'
 import { MercanteEdiModal } from '../components/shared/MercanteEdiModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
@@ -55,6 +56,7 @@ export function Manifestos() {
     pageSize: 20,
   })
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [blFreightOpen, setBlFreightOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [ediModalOpen, setEdiModalOpen] = useState(false)
   const [ediModalVoyage, setEdiModalVoyage] = useState<{
@@ -85,6 +87,16 @@ export function Manifestos() {
       is_imo?: boolean | null
       imo_class?: string | null
       un_number?: string | null
+    }> | null
+    bl_freight_lines?: Array<{
+      bl_id: string
+      seq: number
+      description: string | null
+      category: string | null
+      mercante_code: string | null
+      currency: string | null
+      amount: number | null
+      payment: string | null
     }> | null
   }>>([])
   const [ediModalPol, setEdiModalPol] = useState<string>('')
@@ -262,6 +274,10 @@ export function Manifestos() {
             <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
               <Upload size={16} />
               Importar CE Mercante
+            </Button>
+            <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
+              <Upload size={16} />
+              Importar Frete B/L
             </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload size={16} />
@@ -517,6 +533,7 @@ export function Manifestos() {
       </Card>
 
       <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <BlImportModal open={blFreightOpen} onClose={() => setBlFreightOpen(false)} />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
       <MercanteEdiModal
         open={ediModalOpen}

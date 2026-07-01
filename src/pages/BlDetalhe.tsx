@@ -1,15 +1,17 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Upload } from 'lucide-react'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { Card, PageHeader } from '../components/ui/Card'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { BLPipeline } from '../components/shared/BLPipeline'
+import { BlImportModal } from '../components/shared/BlImportModal'
 import { BlDetalhesTab } from '../components/bl/BlDetalhesTab'
 import { BlFaturamentoTab } from '../components/bl/BlFaturamentoTab'
 import { BlHistoricoTab } from '../components/bl/BlHistoricoTab'
+import { Button } from '../components/ui/Button'
 import { useBlDetail } from '../hooks/useBls'
 import { useBlEditForm } from '../hooks/useBlEditForm'
 import { cargoModeLabel, resolveCargoMode } from './blDetalheHelpers'
@@ -29,6 +31,7 @@ export function isBlTab(value: string | null): value is BlTab {
 export function BlDetalhe() {
   const { blId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [blFreightOpen, setBlFreightOpen] = useState(false)
   const tabParam = searchParams.get('tab')
   const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'detalhes'
   const { data: bl, isLoading, error } = useBlDetail(blId)
@@ -37,6 +40,7 @@ export function BlDetalhe() {
   const isContainerMode = cargoMode === 'container'
   const backHref = isContainerMode ? '/manifestos' : '/carga-solta'
   const backLabel = isContainerMode ? 'Voltar aos manifestos CNTR' : 'Voltar aos manifestos BB'
+  const voyageLabel = [bl?.voyage?.vessel?.name, bl?.voyage?.voyage_number].filter(Boolean).join(' / ')
 
   const { form, setField, justification, setJustification, saving, changes, handleSubmit } = useBlEditForm(bl, isContainerMode)
 
@@ -91,10 +95,18 @@ export function BlDetalhe() {
             : 'Edicao manual com auditoria. Esta tela exibe o resumo operacional do manifesto BB vinculado a este B/L.'
         }
         action={
-          <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={backHref}>
-            <ArrowLeft className="mr-1 inline" size={16} />
-            {backLabel}
-          </Link>
+          <div className="flex flex-wrap justify-end gap-2">
+            {isContainerMode ? (
+              <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
+                <Upload size={16} />
+                Importar Frete B/L
+              </Button>
+            ) : null}
+            <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={backHref}>
+              <ArrowLeft className="mr-1 inline" size={16} />
+              {backLabel}
+            </Link>
+          </div>
         }
       />
 
@@ -148,6 +160,14 @@ export function BlDetalhe() {
       <BlFaturamentoTab active={activeTab === 'faturamento'} bl={bl} />
 
       <BlHistoricoTab active={activeTab === 'historico'} blId={blId} />
+
+      <BlImportModal
+        open={blFreightOpen}
+        onClose={() => setBlFreightOpen(false)}
+        voyageId={bl.voyage_id}
+        voyageLabel={voyageLabel || undefined}
+        onlyBlId={bl.id}
+      />
     </>
   )
 }

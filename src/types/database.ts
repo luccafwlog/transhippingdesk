@@ -1288,6 +1288,7 @@ export type BLListItem = BL & {
     | 'un_number'
     | 'created_at'
   >[]
+  bl_freight_lines?: BlFreightLine[] | null
   bl_breakbulk_items?: Pick<
     BLBreakbulkItem,
     'id' | 'bl_id' | 'item_description' | 'package_qty' | 'package_unit' | 'gross_weight_kg' | 'cbm' | 'marks' | 'created_at'
@@ -1302,6 +1303,7 @@ export type BLDetail = BL & {
     }) | null
   }) | null
   bl_containers?: BLContainer[]
+  bl_freight_lines?: BlFreightLine[] | null
   bl_breakbulk_items?: BLBreakbulkItem[]
   vehicles?: VehicleListItem[] | null
 }
