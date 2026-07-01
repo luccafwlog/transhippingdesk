@@ -95,7 +95,7 @@ describe('blFreightImport', () => {
     expect(payload.vehicles[0]).toMatchObject({ chassis: '9BWZZZ377VT004251', container_number: 'TCLU1234567' })
   })
 
-  it('computes field diffs and blocks physical changes when billing exists', () => {
+  it('flags container-set changes as override-required without dropping the payload', () => {
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
       voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
@@ -104,6 +104,7 @@ describe('blFreightImport', () => {
         {
           id: 'CSC45250E02Y00',
           voyage_id: 7,
+          cargo_mode: 'container',
           shipper: 'OLD SHIPPER',
           consignee: 'IMPORTADOR LTDA',
           notify_party: 'NOTIFY LTDA',
@@ -122,11 +123,104 @@ describe('blFreightImport', () => {
       ],
     })
 
-    expect(preview.summary).toMatchObject({ total: 1, blockedCount: 1 })
-    expect(preview.rows[0]?.status).toBe('blocked')
-    expect(preview.rows[0]?.blockedReasons.join(' ')).toContain('Peso ou composicao fisica')
-    expect(preview.rows[0]?.diffs.find((diff) => diff.field === 'shipper')?.blocked).toBe(false)
-    expect(preview.rows[0]?.diffs.find((diff) => diff.field === 'total_weight_kg')?.blocked).toBe(true)
+    const row = preview.rows[0]
+    expect(preview.summary).toMatchObject({ total: 1, blockedCount: 0, billingOverrideCount: 1 })
+    expect(row?.status).toBe('updated')
+    expect(row?.requiresBillingOverride).toBe(true)
+    // container count 0 -> 1 is a billing impact; the row stays importable
+    expect(row?.billingImpacts.some((message) => message.includes('Quantidade de containers'))).toBe(true)
+    expect(row?.payload).not.toBeNull()
+    expect(row?.payload?.billing_impact).toBe(true)
+    expect(row?.payload?.override_billing).toBe(false)
+    // weight/CBM on a container B/L are freely correctable; containers are the impact
+    expect(row?.diffs.find((diff) => diff.field === 'total_weight_kg')?.billingImpact).toBe(false)
+    expect(row?.diffs.find((diff) => diff.field === 'total_cbm')?.billingImpact).toBe(false)
+    expect(row?.diffs.find((diff) => diff.field === 'containers')?.billingImpact).toBe(true)
+    expect(row?.diffs.find((diff) => diff.field === 'shipper')?.billingImpact).toBe(false)
+  })
+
+  it('treats weight as a billing impact only for carga solta cargo', () => {
+    const matchingContainer = {
+      container_number: 'TCLU1234567',
+      seal_number: 'SEAL001',
+      type: '40HC',
+      tare_weight_kg: 3900,
+      gross_weight_kg: 28000,
+      cbm: 68.5,
+      is_imo: false,
+      is_oog: false,
+    }
+    const preview = buildBlFreightPreview({
+      documents: [parsedBL()],
+      voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
+      billingLockedBlIds: new Set(['CSC45250E02Y00']),
+      existingBls: [
+        {
+          id: 'CSC45250E02Y00',
+          voyage_id: 7,
+          cargo_mode: 'carga_solta',
+          shipper: 'SHIPPER LTDA\nADDRESS',
+          consignee: 'IMPORTADOR LTDA',
+          notify_party: 'NOTIFY LTDA',
+          pol: 'CNSHA',
+          pod: 'BRSSZ',
+          place_of_delivery: 'SANTOS',
+          total_weight_kg: 999,
+          total_cbm: 68.5,
+          payment_type: 'PREPAID',
+          bl_emission_date: '2026-02-20',
+          manifest_customer_cnpj_cpf: '12345678000195',
+          manifest_customer_name: 'IMPORTADOR LTDA',
+          bl_containers: [matchingContainer],
+          bl_freight_lines: [],
+        },
+      ],
+    })
+
+    const row = preview.rows[0]
+    expect(row?.requiresBillingOverride).toBe(true)
+    expect(row?.diffs.find((diff) => diff.field === 'total_weight_kg')?.billingImpact).toBe(true)
+    expect(row?.diffs.find((diff) => diff.field === 'containers')).toBeUndefined()
+    expect(row?.billingImpacts.some((message) => message.includes('Peso (carga solta'))).toBe(true)
+  })
+
+  it('flags replacing an existing shared container even when the count is unchanged', () => {
+    // existing billed BL has one container that is shared with another B/L;
+    // the import replaces it with the parsed unique container (same count).
+    const preview = buildBlFreightPreview({
+      documents: [parsedBL()],
+      voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
+      billingLockedBlIds: new Set(['CSC45250E02Y00']),
+      sharedContainerNumbers: new Set(['SHARED000000']),
+      existingBls: [
+        {
+          id: 'CSC45250E02Y00',
+          voyage_id: 7,
+          cargo_mode: 'container',
+          shipper: 'SHIPPER LTDA\nADDRESS',
+          consignee: 'IMPORTADOR LTDA',
+          notify_party: 'NOTIFY LTDA',
+          pol: 'CNSHA',
+          pod: 'BRSSZ',
+          place_of_delivery: 'SANTOS',
+          total_weight_kg: 28000,
+          total_cbm: 68.5,
+          payment_type: 'PREPAID',
+          bl_emission_date: '2026-02-20',
+          manifest_customer_cnpj_cpf: '12345678000195',
+          manifest_customer_name: 'IMPORTADOR LTDA',
+          bl_containers: [
+            { container_number: 'SHARED000000', seal_number: null, type: '40HC', tare_weight_kg: 3900, gross_weight_kg: 28000, cbm: 68.5, is_imo: false, is_oog: false },
+          ],
+          bl_freight_lines: [],
+        },
+      ],
+    })
+
+    const row = preview.rows[0]
+    expect(row?.requiresBillingOverride).toBe(true)
+    expect(row?.billingImpacts.some((message) => message.includes('compartilhados'))).toBe(true)
+    expect(row?.diffs.find((diff) => diff.field === 'containers')?.billingImpact).toBe(true)
   })
 
   it('blocks a BL-detail scoped import when the file has another BL number', () => {
@@ -152,6 +246,8 @@ describe('blFreightImport', () => {
           voyageId: 7,
           consigneeDocumentMatches: null,
           blockedReasons: [],
+          billingImpacts: [],
+          requiresBillingOverride: false,
           diffs: [],
           payload: buildBlFreightPayload(parsedBL(), 7),
         },
@@ -162,11 +258,13 @@ describe('blFreightImport', () => {
           voyageId: 7,
           consigneeDocumentMatches: null,
           blockedReasons: ['bloqueado'],
+          billingImpacts: [],
+          requiresBillingOverride: false,
           diffs: [],
           payload: null,
         },
       ],
-      summary: { total: 2, newCount: 1, updatedCount: 0, unchangedCount: 0, blockedCount: 1 },
+      summary: { total: 2, newCount: 1, updatedCount: 0, unchangedCount: 0, blockedCount: 1, billingOverrideCount: 0 },
     }
 
     await expect(confirmBlFreightImport(preview, 'user-1')).resolves.toEqual({ bls_received: 1 })
@@ -174,5 +272,52 @@ describe('blFreightImport', () => {
       p_bls: [preview.rows[0]?.payload],
       p_changed_by: 'user-1',
     })
+  })
+
+  it('applies the operator override flag only to billing-impacting rows', async () => {
+    mockRpc.mockResolvedValue({ data: { bls_received: 2 }, error: null })
+    const impactPayload = { ...buildBlFreightPayload(parsedBL(), 7), id: 'IMPACT', billing_impact: true, override_billing: false }
+    const freePayload = { ...buildBlFreightPayload(parsedBL(), 7), id: 'FREE' }
+    const preview: BlFreightImportPreview = {
+      rows: [
+        {
+          blNumber: 'IMPACT',
+          status: 'updated',
+          existing: true,
+          voyageId: 7,
+          consigneeDocumentMatches: true,
+          blockedReasons: [],
+          billingImpacts: ['Quantidade de containers: 1 -> 2'],
+          requiresBillingOverride: true,
+          diffs: [],
+          payload: impactPayload,
+        },
+        {
+          blNumber: 'FREE',
+          status: 'updated',
+          existing: true,
+          voyageId: 7,
+          consigneeDocumentMatches: true,
+          blockedReasons: [],
+          billingImpacts: [],
+          requiresBillingOverride: false,
+          diffs: [],
+          payload: freePayload,
+        },
+      ],
+      summary: { total: 2, newCount: 0, updatedCount: 2, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 1 },
+    }
+
+    await confirmBlFreightImport(preview, 'user-1', true)
+    const sent = mockRpc.mock.calls[0]?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
+    expect(sent.find((bl) => bl.id === 'IMPACT')?.override_billing).toBe(true)
+    expect(sent.find((bl) => bl.id === 'FREE')?.override_billing).toBe(true)
+
+    mockRpc.mockClear()
+    await confirmBlFreightImport(preview, 'user-1', false)
+    const sentNoOverride = mockRpc.mock.calls[0]?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
+    // impacting row stays un-applied; the free row still applies
+    expect(sentNoOverride.find((bl) => bl.id === 'IMPACT')?.override_billing).toBe(false)
+    expect(sentNoOverride.find((bl) => bl.id === 'FREE')?.override_billing).toBe(true)
   })
 })

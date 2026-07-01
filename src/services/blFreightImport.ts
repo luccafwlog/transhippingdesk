@@ -7,7 +7,8 @@ export type BlFreightImportDiff = {
   field: string
   from: string | number | null
   to: string | number | null
-  blocked: boolean
+  /** true when this change touches a billing variable and needs an explicit override */
+  billingImpact: boolean
 }
 
 export type BlFreightImportRow = {
@@ -16,7 +17,12 @@ export type BlFreightImportRow = {
   existing: boolean
   voyageId: number | null
   consigneeDocumentMatches: boolean | null
+  /** hard blocks that prevent importing the row at all (wrong file, missing voyage) */
   blockedReasons: string[]
+  /** human-readable changes that affect billing; shown so the operator can decide to override */
+  billingImpacts: string[]
+  /** true when the row changes a billing variable on an already-billed B/L */
+  requiresBillingOverride: boolean
   diffs: BlFreightImportDiff[]
   payload: BlFreightRpcPayload | null
 }
@@ -29,6 +35,7 @@ export type BlFreightImportPreview = {
     updatedCount: number
     unchangedCount: number
     blockedCount: number
+    billingOverrideCount: number
   }
 }
 
@@ -48,6 +55,10 @@ export type BlFreightRpcPayload = {
   bl_emission_date: string | null
   manifest_customer_cnpj_cpf: string | null
   manifest_customer_name: string | null
+  /** true when this B/L touches a billing variable (drives audit labeling in the RPC) */
+  billing_impact: boolean
+  /** authorizes applying billing-relevant physical changes (containers/vehicles/carga-solta weight) to a billed B/L */
+  override_billing: boolean
   freight_lines: Array<{
     seq: number
     description: string
@@ -83,6 +94,7 @@ type ExistingBl = Pick<
   BL,
   | 'id'
   | 'voyage_id'
+  | 'cargo_mode'
   | 'shipper'
   | 'consignee'
   | 'notify_party'
@@ -96,7 +108,7 @@ type ExistingBl = Pick<
   | 'manifest_customer_cnpj_cpf'
   | 'manifest_customer_name'
 > & {
-  bl_containers?: Pick<BLContainer, 'container_number' | 'seal_number' | 'type' | 'tare_weight_kg' | 'gross_weight_kg' | 'cbm'>[] | null
+  bl_containers?: Pick<BLContainer, 'container_number' | 'seal_number' | 'type' | 'tare_weight_kg' | 'gross_weight_kg' | 'cbm' | 'is_imo' | 'is_oog'>[] | null
   bl_freight_lines?: Pick<BlFreightLine, 'seq' | 'description' | 'category' | 'mercante_code' | 'currency' | 'amount' | 'payment'>[] | null
 }
 
@@ -108,10 +120,20 @@ type VoyageCandidate = {
   pod?: { locode?: string | null } | null
 }
 
+/** Billing variables recomputed per B/L; see chargeTableService application bases. */
+type BillingImpact = {
+  messages: string[]
+  container: boolean
+  weight: boolean
+  cnpj: boolean
+}
+
 export type BuildBlFreightPreviewArgs = {
   documents: ParsedBLDocument[]
   existingBls?: ExistingBl[]
   billingLockedBlIds?: Set<string>
+  /** container numbers that already belong to a different B/L (container_distinct_voyage billing) */
+  sharedContainerNumbers?: Set<string>
   voyageIdByBl?: Map<string, number | null>
   onlyBlId?: string | null
 }
@@ -125,6 +147,11 @@ export async function previewBlFreightImport(args: {
   const existingBls = await fetchExistingBls(blNumbers)
   const existingIds = new Set(existingBls.map((bl) => bl.id))
   const billingLockedBlIds = await fetchBillingLockedBlIds([...existingIds])
+  const containerNumbers = args.documents.flatMap((doc) => doc.containers.map((container) => container.containerNumber))
+  // Also check the containers a billed B/L already has: replacing a shared container
+  // with a unique one (same count) still changes container_distinct_voyage billing.
+  const existingContainerNumbers = existingBls.flatMap((bl) => (bl.bl_containers ?? []).map((container) => container.container_number))
+  const sharedContainerNumbers = await fetchSharedContainerNumbers(blNumbers, [...containerNumbers, ...existingContainerNumbers])
   const voyageIdByBl = new Map<string, number | null>()
 
   for (const doc of args.documents) {
@@ -140,6 +167,7 @@ export async function previewBlFreightImport(args: {
     documents: args.documents,
     existingBls,
     billingLockedBlIds,
+    sharedContainerNumbers,
     voyageIdByBl,
     onlyBlId: args.onlyBlId,
   })
@@ -149,6 +177,7 @@ export function buildBlFreightPreview({
   documents,
   existingBls = [],
   billingLockedBlIds = new Set(),
+  sharedContainerNumbers = new Set(),
   voyageIdByBl = new Map(),
   onlyBlId = null,
 }: BuildBlFreightPreviewArgs): BlFreightImportPreview {
@@ -169,16 +198,17 @@ export function buildBlFreightPreview({
     const consigneeDocumentMatches = existing?.manifest_customer_cnpj_cpf
       ? onlyDigits(existing.manifest_customer_cnpj_cpf) === onlyDigits(payload.manifest_customer_cnpj_cpf)
       : null
-    if (consigneeDocumentMatches === false) {
-      blockedReasons.push('CNPJ do consignatario diverge do B/L existente.')
-    }
 
-    const hasBillingLock = billingLockedBlIds.has(doc.blNumber)
-    const diffs = existing ? diffExistingBl(existing, payload, hasBillingLock) : []
-    const blockedByBilling = diffs.some((diff) => diff.blocked)
-    if (blockedByBilling) {
-      blockedReasons.push('Peso ou composicao fisica bloqueados por calculo/invoice existente.')
-    }
+    const billed = billingLockedBlIds.has(doc.blNumber)
+    const impact = existing && billed
+      ? computeBillingImpact(existing, payload, sharedContainerNumbers)
+      : { messages: [], container: false, weight: false, cnpj: false }
+    const requiresBillingOverride = impact.messages.length > 0
+
+    const diffs = existing ? diffExistingBl(existing, payload, impact) : []
+    // Only the operator's override decision is pending; a billing impact never nulls the payload.
+    payload.billing_impact = requiresBillingOverride
+    payload.override_billing = !requiresBillingOverride
 
     const status: BlFreightImportRow['status'] = blockedReasons.length
       ? 'blocked'
@@ -195,6 +225,8 @@ export function buildBlFreightPreview({
       voyageId,
       consigneeDocumentMatches,
       blockedReasons,
+      billingImpacts: impact.messages,
+      requiresBillingOverride,
       diffs,
       payload: blockedReasons.length ? null : payload,
     }
@@ -208,12 +240,21 @@ export function buildBlFreightPreview({
       updatedCount: rows.filter((row) => row.status === 'updated').length,
       unchangedCount: rows.filter((row) => row.status === 'unchanged').length,
       blockedCount: rows.filter((row) => row.status === 'blocked').length,
+      billingOverrideCount: rows.filter((row) => row.requiresBillingOverride).length,
     },
   }
 }
 
-export async function confirmBlFreightImport(preview: BlFreightImportPreview, changedBy: string) {
-  const payload = preview.rows.flatMap((row) => (row.payload ? [row.payload] : []))
+export async function confirmBlFreightImport(
+  preview: BlFreightImportPreview,
+  changedBy: string,
+  overrideBilling = false,
+) {
+  const payload = preview.rows.flatMap((row) => {
+    if (!row.payload) return []
+    // Rows that touch a billing variable only apply the physical change when the operator overrode.
+    return [row.requiresBillingOverride ? { ...row.payload, override_billing: overrideBilling } : row.payload]
+  })
   if (!payload.length) {
     throw new Error('Nenhum B/L liberado para importar.')
   }
@@ -257,6 +298,8 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     bl_emission_date: normalizeDate(doc.dates.issueDate || doc.dates.ladenOnBoard),
     manifest_customer_cnpj_cpf: doc.parties.consigneeTaxId,
     manifest_customer_name: firstLine(doc.parties.consigneeBlock),
+    billing_impact: false,
+    override_billing: true,
     freight_lines: doc.freightCharges.map((charge, index) => ({
       seq: index + 1,
       description: charge.description,
@@ -278,7 +321,64 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
   }
 }
 
-function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, billingLocked: boolean): BlFreightImportDiff[] {
+// Billing variables (chargeTableService): container count/TEU, shared containers
+// (container_distinct_voyage), IMO/OOG profile, weight for carga_solta, and the
+// billed CNPJ. Everything else is freely correctable.
+// ponytail: granito cargo is billed through its own weight-based workflow; if it
+// starts flowing through this import, add cargo_mode 'granito' to the weight gate.
+function computeBillingImpact(
+  existing: ExistingBl,
+  payload: BlFreightRpcPayload,
+  sharedContainerNumbers: Set<string>,
+): BillingImpact {
+  const messages: string[] = []
+  const existingContainers = existing.bl_containers ?? []
+
+  const existingCount = existingContainers.length
+  const nextCount = payload.containers.length
+  const countChanged = existingCount !== nextCount
+  if (countChanged) {
+    messages.push(`Quantidade de containers: ${existingCount} -> ${nextCount}`)
+  }
+
+  // A shared container matters only when the container set actually changes:
+  // adding/removing/swapping a container that is (or was) on another B/L shifts
+  // container_distinct_voyage quantities. Check both incoming and existing sides.
+  const containerSetChanged = normalizeContainerSet(existingContainers) !== normalizeContainerSet(payload.containers)
+  const sharedInvolved = [
+    ...payload.containers.map((container) => container.container_number),
+    ...existingContainers.map((container) => container.container_number),
+  ].filter((number): number is string => Boolean(number) && sharedContainerNumbers.has(number))
+  const shared = containerSetChanged ? [...new Set(sharedInvolved)] : []
+  if (shared.length) {
+    messages.push(`Container(s) compartilhados com outro B/L afetados: ${shared.join(', ')}`)
+  }
+
+  const existingImoOog = existingContainers.some((container) => container.is_imo || container.is_oog)
+  const nextImoOog = payload.containers.some((container) => container.is_imo || container.is_oog)
+  const imoOogChanged = existingImoOog !== nextImoOog
+  if (imoOogChanged) {
+    messages.push('Perfil IMO/OOG dos containers muda')
+  }
+
+  const isBreakBulk = existing.cargo_mode === 'carga_solta'
+  const weightChanged = normalizeComparable(existing.total_weight_kg) !== normalizeComparable(payload.total_weight_kg)
+  const weight = isBreakBulk && weightChanged
+  if (weight) {
+    messages.push(`Peso (carga solta, variavel de faturamento): ${existing.total_weight_kg ?? '-'} -> ${payload.total_weight_kg ?? '-'}`)
+  }
+
+  const existingDoc = onlyDigits(existing.manifest_customer_cnpj_cpf ?? '')
+  const nextDoc = onlyDigits(payload.manifest_customer_cnpj_cpf ?? '')
+  const cnpj = Boolean(existingDoc) && Boolean(nextDoc) && existingDoc !== nextDoc
+  if (cnpj) {
+    messages.push(`CNPJ faturado: ${existing.manifest_customer_cnpj_cpf} -> ${payload.manifest_customer_cnpj_cpf}`)
+  }
+
+  return { messages, container: countChanged || shared.length > 0 || imoOogChanged, weight, cnpj }
+}
+
+function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, impact: BillingImpact): BlFreightImportDiff[] {
   const diffs: BlFreightImportDiff[] = []
   addDiff(diffs, 'shipper', existing.shipper, payload.shipper, false)
   addDiff(diffs, 'consignee', existing.consignee, payload.consignee, false)
@@ -288,12 +388,14 @@ function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, bill
   addDiff(diffs, 'place_of_delivery', existing.place_of_delivery, payload.place_of_delivery, false)
   addDiff(diffs, 'payment_type', existing.payment_type, payload.payment_type, false)
   addDiff(diffs, 'bl_emission_date', existing.bl_emission_date, payload.bl_emission_date, false)
-  addDiff(diffs, 'total_weight_kg', existing.total_weight_kg, payload.total_weight_kg, billingLocked)
-  addDiff(diffs, 'total_cbm', existing.total_cbm, payload.total_cbm, billingLocked)
+  addDiff(diffs, 'manifest_customer_cnpj_cpf', existing.manifest_customer_cnpj_cpf, payload.manifest_customer_cnpj_cpf, impact.cnpj)
+  addDiff(diffs, 'manifest_customer_name', existing.manifest_customer_name, payload.manifest_customer_name, false)
+  addDiff(diffs, 'total_weight_kg', existing.total_weight_kg, payload.total_weight_kg, impact.weight)
+  addDiff(diffs, 'total_cbm', existing.total_cbm, payload.total_cbm, false)
 
   const existingContainers = normalizeContainerSet(existing.bl_containers ?? [])
   const nextContainers = normalizeContainerSet(payload.containers)
-  addDiff(diffs, 'containers', existingContainers, nextContainers, billingLocked)
+  addDiff(diffs, 'containers', existingContainers, nextContainers, impact.container)
 
   const existingFreight = normalizeFreightSet(existing.bl_freight_lines ?? [])
   const nextFreight = normalizeFreightSet(payload.freight_lines)
@@ -307,12 +409,12 @@ function addDiff(
   field: string,
   from: string | number | null | undefined,
   to: string | number | null | undefined,
-  blocked: boolean,
+  billingImpact: boolean,
 ) {
   const left = normalizeComparable(from)
   const right = normalizeComparable(to)
   if (left === right) return
-  diffs.push({ field, from: from ?? null, to: to ?? null, blocked })
+  diffs.push({ field, from: from ?? null, to: to ?? null, billingImpact })
 }
 
 async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
@@ -320,10 +422,10 @@ async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
   const { data, error } = await supabase
     .from('bls')
     .select(`
-      id, voyage_id, shipper, consignee, notify_party, pol, pod, place_of_delivery,
+      id, voyage_id, cargo_mode, shipper, consignee, notify_party, pol, pod, place_of_delivery,
       total_weight_kg, total_cbm, payment_type, bl_emission_date,
       manifest_customer_cnpj_cpf, manifest_customer_name,
-      bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm),
+      bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_imo, is_oog),
       bl_freight_lines(seq, description, category, mercante_code, currency, amount, payment)
     `)
     .in('id', blNumbers)
@@ -345,6 +447,22 @@ async function fetchBillingLockedBlIds(blNumbers: string[]) {
   ] as string[])
 }
 
+async function fetchSharedContainerNumbers(blNumbers: string[], containerNumbers: string[]) {
+  const numbers = [...new Set(containerNumbers.filter(Boolean))]
+  if (!numbers.length) return new Set<string>()
+  const { data, error } = await supabase
+    .from('bl_containers')
+    .select('container_number, bl_id')
+    .in('container_number', numbers)
+  if (error) throw error
+  const importSet = new Set(blNumbers)
+  return new Set(
+    ((data ?? []) as Array<{ container_number: string | null; bl_id: string | null }>)
+      .filter((row) => row.container_number && row.bl_id && !importSet.has(row.bl_id))
+      .map((row) => row.container_number as string),
+  )
+}
+
 async function resolveVoyageId(doc: ParsedBLDocument): Promise<number | null> {
   if (!doc.route.voyage) return null
   const { data, error } = await supabase
@@ -358,11 +476,13 @@ async function resolveVoyageId(doc: ParsedBLDocument): Promise<number | null> {
   const normalizedVessel = normalizeText(doc.route.vessel)
   const normalizedPol = normalizeText(doc.route.pol)
   const normalizedPod = normalizeText(doc.route.pod)
+  // Require the vessel to match; a shared voyage_number across vessels must not
+  // silently attach the B/L to the first candidate.
   return candidates.find((voyage) => (
     normalizeText(voyage.vessel?.name) === normalizedVessel
     && (!normalizedPol || normalizeText(voyage.pol?.locode) === normalizedPol)
     && (!normalizedPod || normalizeText(voyage.pod?.locode) === normalizedPod)
-  ))?.id ?? candidates[0]?.id ?? null
+  ))?.id ?? null
 }
 
 function normalizeFreightCategory(value: string) {

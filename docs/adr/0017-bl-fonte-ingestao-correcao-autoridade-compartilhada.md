@@ -49,6 +49,31 @@ frete marítimo em campo próprio (offset 1739), despesas no bloco 3796 com cód
    Mercante (campo de frete do C5 + bloco de despesas), com moeda original
    preservada apenas para exibição/auditoria e valor gravado literal.
 
+## Nota editorial — 2026-07-01 (refino da proteção de faturamento)
+
+A implementação (`import_bl_freight_transactional` na migration
+`162_bl_freight_lines.sql` + `src/services/blFreightImport.ts`) **refina a
+decisão 3**, que na redação original bloqueava peso e conjunto de containers em
+bloco. O bloqueio total mostrou-se largo demais e derrubava o B/L inteiro quando
+só um campo era sensível. O modelo corrente identifica exatamente as **variáveis
+de faturamento** (ver `chargeTableService.ts`) e, em vez de descartar, **informa
+e oferece override auditado**:
+
+- **Sempre corrigíveis** (não são variáveis de faturamento): campos comerciais,
+  frete/despesas, **CBM**, e **peso quando a carga é `container`**.
+- **Impacto de faturamento** (informado; aplicado só com override explícito do
+  operador): **quantidade de containers**, **container compartilhado com outro
+  B/L** (`container_distinct_voyage`), **perfil IMO/OOG**, **peso quando a carga
+  é `carga_solta`** (`weight_ton`) e **mudança do CNPJ faturado**.
+- O override é decidido no preview e auditado como `FATURAMENTO_SOBRESCRITO`; sem
+  override, a mudança com impacto vira `ALTERACAO_OPERACIONAL_BLOQUEADA` e os
+  demais campos são aplicados normalmente (o B/L não é mais descartado inteiro).
+- `granito` mantém seu fluxo de faturamento próprio; se passar a fluir por este
+  import, o mesmo gate de peso deve ser estendido (`ponytail`).
+
+Assim, "bloqueada por design" (última consequência) passa a ser "**bloqueada por
+padrão, sobrescrevível com auditoria**".
+
 ## Consequências
 
 - `CONTEXT.md` redefine **Manifesto** como autoridade *inicial* e **B/L** como

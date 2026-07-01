@@ -439,7 +439,13 @@ function mapFreightLines(lines: MercanteBlFreightLineSource[] | null | undefined
     }
 
     const code = line.mercante_code || MERCANTE_DESPESA_CODE[category]
-    if (!code) continue
+    if (!code) {
+      // ponytail: MERCANTE_DESPESA_CODE only seeds THD/BAF; unknown expense codes
+      // are dropped from the C5 until mapped. Surface them so missing codes are
+      // noticed instead of silently vanishing from the customs document.
+      console.warn(`[mercanteEdi] despesa sem codigo Mercante ignorada: "${line.description ?? category}"`)
+      continue
+    }
 
     result.push({
       code,

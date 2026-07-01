@@ -34,17 +34,20 @@ export function BlImportModal({
   const [preview, setPreview] = useState<BlFreightImportPreview | null>(null)
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [overrideBilling, setOverrideBilling] = useState(false)
 
   const importableCount = useMemo(
     () => preview?.rows.filter((row) => Boolean(row.payload)).length ?? 0,
     [preview],
   )
+  const billingOverrideCount = preview?.summary.billingOverrideCount ?? 0
 
   function resetAndClose() {
     setFiles([])
     setPreview(null)
     setParsing(false)
     setSubmitting(false)
+    setOverrideBilling(false)
     onClose()
   }
 
@@ -52,6 +55,7 @@ export function BlImportModal({
     const selectedFiles = Array.from(event.target.files ?? [])
     setFiles(selectedFiles)
     setPreview(null)
+    setOverrideBilling(false)
     if (!selectedFiles.length) return
 
     setParsing(true)
@@ -97,7 +101,7 @@ export function BlImportModal({
 
     setSubmitting(true)
     try {
-      await confirmBlFreightImport(preview, user?.id ?? '')
+      await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
@@ -147,6 +151,22 @@ export function BlImportModal({
 
         {preview ? <BlImportPreview preview={preview} /> : null}
 
+        {billingOverrideCount > 0 ? (
+          <label className="app-panel app-panel--padded flex items-start gap-2 text-sm text-amber-200">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={overrideBilling}
+              onChange={(event) => setOverrideBilling(event.target.checked)}
+            />
+            <span>
+              Sobrescrever faturamento em {billingOverrideCount} B/L(s) com impacto (quantidade de containers,
+              container compartilhado, IMO/OOG, peso de carga solta ou CNPJ faturado). Sem marcar, os demais campos
+              sao aplicados e as mudancas com impacto em faturamento sao ignoradas.
+            </span>
+          </label>
+        ) : null}
+
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={resetAndClose}>
             Cancelar
@@ -179,7 +199,7 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
               <th scope="col" className="px-3 py-2">Status</th>
               <th scope="col" className="px-3 py-2">Viagem</th>
               <th scope="col" className="px-3 py-2">Diferencas</th>
-              <th scope="col" className="px-3 py-2">Bloqueios</th>
+              <th scope="col" className="px-3 py-2">Bloqueios / Faturamento</th>
             </tr>
           </thead>
           <tbody>
@@ -194,10 +214,13 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
                   <DiffList row={row} />
                 </td>
                 <td className="px-3 py-2">
-                  {row.blockedReasons.length ? (
-                    <ul className="grid gap-1 text-xs text-amber-300">
+                  {row.blockedReasons.length || row.billingImpacts.length ? (
+                    <ul className="grid gap-1 text-xs">
                       {row.blockedReasons.map((reason) => (
-                        <li key={reason}>{reason}</li>
+                        <li key={reason} className="text-red-300">{reason}</li>
+                      ))}
+                      {row.billingImpacts.map((reason) => (
+                        <li key={reason} className="text-amber-300">Faturamento: {reason}</li>
                       ))}
                     </ul>
                   ) : (
@@ -221,10 +244,10 @@ function DiffList({ row }: { row: BlFreightImportRow }) {
   return (
     <div className="grid gap-1">
       {row.diffs.map((diff) => (
-        <div key={`${row.blNumber}-${diff.field}`} className={diff.blocked ? 'text-amber-300' : undefined}>
+        <div key={`${row.blNumber}-${diff.field}`} className={diff.billingImpact ? 'text-amber-300' : undefined}>
           <span className="font-semibold">{diff.field}</span>:{' '}
           <span>{formatDiffValue(diff.from)}</span> {'->'} <span>{formatDiffValue(diff.to)}</span>
-          {diff.blocked ? <span className="ml-1 text-xs">(bloqueado)</span> : null}
+          {diff.billingImpact ? <span className="ml-1 text-xs">(faturamento)</span> : null}
         </div>
       ))}
     </div>
