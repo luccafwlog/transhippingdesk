@@ -21,6 +21,21 @@ vi.mock('../../../services/blFreightImport', () => ({
   previewBlFreightImport: mocks.previewBlFreightImport,
   confirmBlFreightImport: mocks.confirmBlFreightImport,
 }))
+vi.mock('../VoyageCombobox', () => ({
+  VoyageCombobox: ({
+    initialValue,
+    onSelect,
+  }: {
+    initialValue?: string
+    onSelect: (voyageId: number | null) => void
+  }) => (
+    <div>
+      <span data-testid="voyage-initial">{initialValue ?? ''}</span>
+      <button type="button" onClick={() => onSelect(7)}>Escolher viagem</button>
+      <button type="button" onClick={() => onSelect(null)}>Limpar viagem</button>
+    </div>
+  ),
+}))
 
 import { BlImportModal } from '../BlImportModal'
 
@@ -156,7 +171,7 @@ it('bloqueia confirmacao quando todos os B/Ls estao bloqueados', async () => {
     summary: { total: 1, newCount: 0, updatedCount: 0, unchangedCount: 0, blockedCount: 1, billingOverrideCount: 0 },
   })
 
-  const { container } = renderModal()
+  const { container } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
 
   fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
     target: { files: [new File(['x'], 'blocked.xlsx')] },
@@ -167,10 +182,42 @@ it('bloqueia confirmacao quando todos os B/Ls estao bloqueados', async () => {
   expect((screen.getByRole('button', { name: /Confirmar importacao/ }) as HTMLButtonElement).disabled).toBe(true)
 })
 
+it('mantem confirmacao e preview travados enquanto nenhuma viagem foi escolhida', async () => {
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU123'))
+
+  const { container } = renderModal()
+
+  expect((screen.getByRole('button', { name: /Confirmar importacao/ }) as HTMLButtonElement).disabled).toBe(true)
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  await waitFor(() => expect(mocks.previewBlFreightImport).not.toHaveBeenCalled())
+  expect(mocks.showToast).toHaveBeenCalledWith('Selecione a viagem antes de carregar o preview do B/L.', 'error')
+})
+
+it('usa o voyageId escolhido pelo operador ao preparar o preview', async () => {
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU123'))
+  mocks.previewBlFreightImport.mockResolvedValue(previewWithDiff)
+  const { container } = renderModal()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Escolher viagem' }))
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  await waitFor(() => expect(mocks.previewBlFreightImport).toHaveBeenCalledWith({
+    documents: [expect.objectContaining({ blNumber: 'COSU123' })],
+    voyageId: 7,
+    onlyBlId: null,
+  }))
+})
+
 it('confirma importacao, invalida caches e fecha modal', async () => {
   mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU123'))
   mocks.previewBlFreightImport.mockResolvedValue(previewWithDiff)
-  const { container, onClose } = renderModal({ onlyBlId: 'COSU123' })
+  const { container, onClose } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N', onlyBlId: 'COSU123' })
 
   fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
     target: { files: [new File(['x'], 'bl.xlsx')] },
@@ -184,7 +231,7 @@ it('confirma importacao, invalida caches e fecha modal', async () => {
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bls'] })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bl-detail'] })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyages'] })
-  expect(mocks.showToast).toHaveBeenCalledWith('Importacao de frete concluida: 2 B/L(s), 0 bloqueado(s).', 'success')
+  expect(mocks.showToast).toHaveBeenCalledWith('Importacao de B/L concluida: 2 B/L(s), 0 bloqueado(s).', 'success')
   expect(onClose).toHaveBeenCalled()
 })
 
@@ -206,7 +253,7 @@ it('exibe impacto de faturamento e envia override quando o operador marca', asyn
   }
   mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU777'))
   mocks.previewBlFreightImport.mockResolvedValue(previewWithBillingImpact)
-  const { container } = renderModal()
+  const { container } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
 
   fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
     target: { files: [new File(['x'], 'bl.xlsx')] },

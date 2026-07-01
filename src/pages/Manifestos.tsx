@@ -13,6 +13,7 @@ import { MercanteEdiModal } from '../components/shared/MercanteEdiModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
+import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -22,7 +23,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { checkBlDependencies, deleteBls } from '../services/bls'
 import { formatBlockedSummary } from '../services/deleteDependencies'
-import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions, useVoyageOptions } from '../hooks/useBls'
+import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions } from '../hooks/useBls'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
@@ -277,7 +278,7 @@ export function Manifestos() {
             </Button>
             <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
               <Upload size={16} />
-              Importar Frete B/L
+              Importar B/L
             </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload size={16} />
@@ -296,9 +297,12 @@ export function Manifestos() {
               onChange={(event) => updateFilter('search', event.target.value)}
             />
           </Field>
-          <Field label="Viagem">
-            <VoyageSelect value={filters.voyageId} onChange={(value) => updateFilter('voyageId', value)} />
-          </Field>
+          <VoyageCombobox
+            clearable
+            label="Viagem"
+            selectedVoyageId={filters.voyageId}
+            onSelect={(id) => updateFilter('voyageId', id == null ? '' : String(id))}
+          />
           <Field label="POL">
             <Select value={filters.pol} onChange={(event) => updateFilter('pol', event.target.value)}>
               <option value="">Todos</option>
@@ -532,8 +536,18 @@ export function Manifestos() {
         </div>
       </Card>
 
-      <UploadManifestModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
-      <BlImportModal open={blFreightOpen} onClose={() => setBlFreightOpen(false)} />
+      <UploadManifestModal
+        key={`${uploadOpen ? 'open' : 'closed'}-${filters.voyageId}`}
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        initialVoyageId={filters.voyageId}
+      />
+      <BlImportModal
+        key={`${blFreightOpen ? 'open' : 'closed'}-${filters.voyageId}`}
+        open={blFreightOpen}
+        onClose={() => setBlFreightOpen(false)}
+        voyageId={filters.voyageId ? Number(filters.voyageId) : null}
+      />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
       <MercanteEdiModal
         open={ediModalOpen}
@@ -584,35 +598,19 @@ function InvoiceLink({
   )
 }
 
-function VoyageSelect({
-  value,
-  onChange,
-  emptyLabel = 'Todas',
+function UploadManifestModal({
+  open,
+  onClose,
+  initialVoyageId = '',
 }: {
-  value: string
-  onChange: (value: string) => void
-  emptyLabel?: string
+  open: boolean
+  onClose: () => void
+  initialVoyageId?: string
 }) {
-  const { data } = useVoyageOptions()
-
-  return (
-    <Select value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">{emptyLabel}</option>
-      {data?.map((voyage) => (
-        <option key={voyage.id} value={voyage.id}>
-          {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
-        </option>
-      ))}
-    </Select>
-  )
-}
-
-function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
-  const { data: voyages } = useVoyageOptions()
-  const [voyageId, setVoyageId] = useState('')
+  const [voyageId, setVoyageId] = useState(initialVoyageId)
   const [files, setFiles] = useState<File[]>([])
   const [manifestsByFile, setManifestsByFile] = useState<Record<string, ParsedManifest>>({})
   const [parsing, setParsing] = useState(false)
@@ -623,7 +621,6 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   const [previewIndex, setPreviewIndex] = useState(0)
   const [importStatusMessage, setImportStatusMessage] = useState<string | null>(null)
   const [waitMessage, setWaitMessage] = useState<string | null>(null)
-  const [autoSelectedOpen, setAutoSelectedOpen] = useState(false)
 
   const primaryManifest = files.length ? manifestsByFile[files[previewIndex]?.name] ?? null : null
   const totals = useMemo(
@@ -637,13 +634,6 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   )
   const routeSummary = useMemo(() => summarizeManifestRoutes(primaryManifest), [primaryManifest])
 
-  // Auto-seleciona a única viagem disponível — ajuste durante o render (a
-  // condição se auto-falsifica após o setState, convergindo em um re-render).
-  if (open && !autoSelectedOpen && !voyageId && voyages?.length === 1) {
-    setVoyageId(String(voyages[0].id))
-    setAutoSelectedOpen(true)
-  }
-
   function resetModalState() {
     setFiles([])
     setManifestsByFile({})
@@ -654,7 +644,6 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
     setPreviewIndex(0)
     setImportStatusMessage(null)
     setWaitMessage(null)
-    setAutoSelectedOpen(false)
   }
 
   function closeModal() {
@@ -799,9 +788,12 @@ function UploadManifestModal({ open, onClose }: { open: boolean; onClose: () => 
   return (
     <Modal open={open} onClose={closeModal} title="Importar Manifesto CNTR">
       <div className="grid gap-5">
-        <Field label="Viagem de destino">
-          <VoyageSelect value={voyageId} onChange={setVoyageId} emptyLabel="Selecione uma viagem" />
-        </Field>
+        <VoyageCombobox
+          required
+          label="Viagem de destino"
+          selectedVoyageId={voyageId}
+          onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
+        />
         <div className="flex justify-end">
           <Button variant="secondary" onClick={() => setCreateVoyageOpen(true)}>
             Criar viagem agora

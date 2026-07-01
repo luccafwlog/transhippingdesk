@@ -55,6 +55,20 @@ function renderGranite() {
   )
 }
 
+function getDestinationVoyageInput() {
+  const inputs = screen.getAllByPlaceholderText('Busque por navio ou viagem')
+  return inputs[inputs.length - 1]! as HTMLInputElement
+}
+
+async function selectVoyage(user: ReturnType<typeof userEvent.setup>) {
+  const input = getDestinationVoyageInput()
+  await user.type(input, 'GREEN')
+  await waitFor(() => expect(screen.getByText('GREEN / 14N')).toBeTruthy())
+  await user.click(screen.getByText('GREEN / 14N'))
+  await waitFor(() => expect(getDestinationVoyageInput().value).toBe('GREEN / 14N'))
+  return getDestinationVoyageInput()
+}
+
 beforeEach(() => vi.clearAllMocks())
 afterEach(cleanup)
 
@@ -65,8 +79,8 @@ it('US-075: abre o modal de importacao e oferece a selecao de viagem', async () 
   await user.click(screen.getByRole('button', { name: /Importar Planilha COSCO/ }))
 
   expect(screen.getByText('Viagem de destino')).toBeTruthy()
-  expect(screen.getByRole('option', { name: 'Selecione uma viagem' })).toBeTruthy()
-  expect(screen.getAllByRole('option', { name: 'GREEN / 14N' }).length).toBeGreaterThan(0)
+  const input = await selectVoyage(user)
+  expect(input.value).toBe('GREEN / 14N')
 })
 
 it('US-079: o preview alerta sobre B/Ls pendentes sem cliente resolvido', async () => {
@@ -75,6 +89,7 @@ it('US-079: o preview alerta sobre B/Ls pendentes sem cliente resolvido', async 
   renderGranite()
 
   await user.click(screen.getByRole('button', { name: /Importar Planilha COSCO/ }))
+  await selectVoyage(user)
   await user.upload(screen.getByLabelText(/Arquivo/), new File(['x'], 'cosco.xlsx'))
 
   await waitFor(() => expect(screen.getByText(/sem cliente resolvido/)).toBeTruthy())
@@ -89,7 +104,7 @@ it('US-079: importar com pendencias chama importGraniteManifest e reporta a pend
   renderGranite()
 
   await user.click(screen.getByRole('button', { name: /Importar Planilha COSCO/ }))
-  await user.selectOptions(screen.getByLabelText('Viagem de destino'), '7')
+  await selectVoyage(user)
   await user.upload(screen.getByLabelText(/Arquivo/), new File(['x'], 'cosco.xlsx'))
   await waitFor(() => expect(screen.getByText(/sem cliente resolvido/)).toBeTruthy())
 
@@ -113,6 +128,7 @@ it('US-078: resolver o CNPJ no preview reconcilia o B/L pendente', async () => {
   renderGranite()
 
   await user.click(screen.getByRole('button', { name: /Importar Planilha COSCO/ }))
+  await selectVoyage(user)
   await user.upload(screen.getByLabelText(/Arquivo/), new File(['x'], 'cosco.xlsx'))
   await waitFor(() => expect(screen.getByText(/sem cliente resolvido/)).toBeTruthy())
 

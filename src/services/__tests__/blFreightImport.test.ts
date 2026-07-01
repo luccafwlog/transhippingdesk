@@ -98,7 +98,7 @@ describe('blFreightImport', () => {
   it('flags container-set changes as override-required without dropping the payload', () => {
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
-      voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
       billingLockedBlIds: new Set(['CSC45250E02Y00']),
       existingBls: [
         {
@@ -152,7 +152,7 @@ describe('blFreightImport', () => {
     }
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
-      voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
       billingLockedBlIds: new Set(['CSC45250E02Y00']),
       existingBls: [
         {
@@ -189,7 +189,7 @@ describe('blFreightImport', () => {
     // the import replaces it with the parsed unique container (same count).
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
-      voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
       billingLockedBlIds: new Set(['CSC45250E02Y00']),
       sharedContainerNumbers: new Set(['SHARED000000']),
       existingBls: [
@@ -226,13 +226,30 @@ describe('blFreightImport', () => {
   it('blocks a BL-detail scoped import when the file has another BL number', () => {
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
-      voyageIdByBl: new Map([['CSC45250E02Y00', 7]]),
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
       onlyBlId: 'OUTROBL',
     })
 
     expect(preview.rows[0]?.status).toBe('blocked')
     expect(preview.rows[0]?.blockedReasons[0]).toContain('OUTROBL')
     expect(preview.rows[0]?.payload).toBeNull()
+  })
+
+  it('blocks a BL file from a different declared vessel/voyage', () => {
+    const document = parsedBL()
+    document.route.vessel = 'OTHER VESSEL'
+    document.route.voyage = '99W'
+
+    const preview = buildBlFreightPreview({
+      documents: [document],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+    })
+
+    const row = preview.rows[0]
+    expect(row?.status).toBe('blocked')
+    expect(row?.voyageId).toBe(7)
+    expect(row?.payload).toBeNull()
+    expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem OTHER VESSEL / 99W, mas voce apontou GREEN SANTOS / 14.')
   })
 
   it('calls the transactional RPC only with unblocked payloads', async () => {

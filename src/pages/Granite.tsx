@@ -8,8 +8,8 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
+import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
-import { useVoyageOptions } from '../hooks/useBls'
 import {
   parseGraniteManifestFile,
   importGraniteManifest,
@@ -37,7 +37,6 @@ export function Granite() {
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { showToast } = useToast()
-  const { data: voyageOptions } = useVoyageOptions()
   const initialVoyageId = searchParams.get('voyage') ?? ''
 
   const [filters, setFilters] = useState<Filters>({
@@ -192,16 +191,12 @@ export function Granite() {
               onChange={(e) => updateFilter('search', e.target.value)}
             />
           </Field>
-          <Field label="Viagem">
-            <Select value={filters.voyageId} onChange={(e) => updateFilter('voyageId', e.target.value)}>
-              <option value="">Todas</option>
-              {voyageOptions?.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            clearable
+            label="Viagem"
+            selectedVoyageId={filters.voyageId}
+            onSelect={(id) => updateFilter('voyageId', id == null ? '' : String(id))}
+          />
           <Field label="Porto de descarga">
             <Input
               placeholder="Ex: ITMDX"
@@ -377,16 +372,12 @@ export function Granite() {
             </div>
           </div>
 
-          <Field label="Viagem de destino">
-            <Select value={voyageId} onChange={(e) => setVoyageId(e.target.value)}>
-              <option value="">Selecione uma viagem</option>
-              {voyageOptions?.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            required
+            label="Viagem de destino"
+            selectedVoyageId={voyageId}
+            onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
+          />
 
           <Field label="Arquivo .xls / .xlsx">
             <Input accept=".xlsx,.xls" type="file" onChange={handleFile} />

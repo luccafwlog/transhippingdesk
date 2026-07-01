@@ -19,6 +19,9 @@ type ComboboxProps = {
   onSelectOption?: (option: ComboOption) => void
   /** Minimo de caracteres antes de buscar sugestoes. */
   minChars?: number
+  /** Refaz a busca mantendo o texto quando a fonte de opcoes muda. */
+  refreshKey?: string | number | boolean | null
+  disabled?: boolean
 }
 
 const DEBOUNCE_MS = 300
@@ -34,6 +37,8 @@ export function Combobox({
   fetchOptions,
   onSelectOption,
   minChars = 1,
+  refreshKey = null,
+  disabled = false,
 }: ComboboxProps) {
   const [text, setText] = useState(initialValue)
   const [touched, setTouched] = useState(false)
@@ -56,7 +61,7 @@ export function Combobox({
   // Ignora o disparo inicial (estado semeado via initialValue/URL) para nao
   // sobrescrever filtros ja aplicados antes do usuario interagir.
   useEffect(() => {
-    if (!touched) return
+    if (disabled || !touched) return
     if (justSelectedRef.current) {
       justSelectedRef.current = false
       return
@@ -77,7 +82,7 @@ export function Combobox({
         .finally(() => setLoading(false))
     }, DEBOUNCE_MS)
     return () => window.clearTimeout(handle)
-  }, [text, minChars, touched])
+  }, [disabled, text, minChars, touched, refreshKey])
 
   // Fecha o dropdown ao clicar fora.
   useEffect(() => {
@@ -127,6 +132,7 @@ export function Combobox({
         aria-autocomplete="list"
         autoComplete="off"
         value={text}
+        disabled={disabled}
         placeholder={placeholder}
         onChange={(event) => {
           setTouched(true)
@@ -135,11 +141,12 @@ export function Combobox({
           setHighlight(-1)
         }}
         onFocus={() => {
+          if (disabled) return
           if (options.length > 0) setOpen(true)
         }}
         onKeyDown={handleKeyDown}
       />
-      {open && (text.trim().length >= minChars) ? (
+      {open && !disabled && (text.trim().length >= minChars) ? (
         <ul
           id={listId}
           role="listbox"

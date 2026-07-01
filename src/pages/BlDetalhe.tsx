@@ -99,7 +99,7 @@ export function BlDetalhe() {
             {isContainerMode ? (
               <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
                 <Upload size={16} />
-                Importar Frete B/L
+                Importar B/L
               </Button>
             ) : null}
             <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={backHref}>
@@ -162,6 +162,7 @@ export function BlDetalhe() {
       <BlHistoricoTab active={activeTab === 'historico'} blId={blId} />
 
       <BlImportModal
+        key={`${blFreightOpen ? 'open' : 'closed'}-${bl.voyage_id ?? 'none'}-${bl.id}`}
         open={blFreightOpen}
         onClose={() => setBlFreightOpen(false)}
         voyageId={bl.voyage_id}

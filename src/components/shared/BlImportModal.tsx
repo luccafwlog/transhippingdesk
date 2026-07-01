@@ -13,6 +13,7 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
+import { VoyageCombobox } from './VoyageCombobox'
 
 export function BlImportModal({
   open,
@@ -35,6 +36,7 @@ export function BlImportModal({
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [overrideBilling, setOverrideBilling] = useState(false)
+  const [selectedVoyageId, setSelectedVoyageId] = useState<number | null>(voyageId)
 
   const importableCount = useMemo(
     () => preview?.rows.filter((row) => Boolean(row.payload)).length ?? 0,
@@ -48,7 +50,14 @@ export function BlImportModal({
     setParsing(false)
     setSubmitting(false)
     setOverrideBilling(false)
+    setSelectedVoyageId(voyageId ?? null)
     onClose()
+  }
+
+  function handleVoyageSelect(nextVoyageId: number | null) {
+    setSelectedVoyageId(nextVoyageId)
+    setPreview(null)
+    setOverrideBilling(false)
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
@@ -57,6 +66,10 @@ export function BlImportModal({
     setPreview(null)
     setOverrideBilling(false)
     if (!selectedFiles.length) return
+    if (!selectedVoyageId) {
+      showToast('Selecione a viagem antes de carregar o preview do B/L.', 'error')
+      return
+    }
 
     setParsing(true)
     try {
@@ -74,7 +87,7 @@ export function BlImportModal({
 
       const nextPreview = await previewBlFreightImport({
         documents,
-        voyageId,
+        voyageId: selectedVoyageId,
         onlyBlId,
       })
       setPreview(nextPreview)
@@ -85,11 +98,11 @@ export function BlImportModal({
       }
 
       showToast(
-        `Preview de frete carregado: ${nextPreview.summary.total} B/L(s), ${nextPreview.summary.blockedCount} bloqueado(s).`,
+        `Preview de B/L carregado: ${nextPreview.summary.total} B/L(s), ${nextPreview.summary.blockedCount} bloqueado(s).`,
         nextPreview.summary.blockedCount ? 'info' : 'success',
       )
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Falha ao preparar preview de frete.'
+      const message = error instanceof Error ? error.message : 'Falha ao preparar preview de B/L.'
       showToast(message, 'error')
     } finally {
       setParsing(false)
@@ -108,12 +121,12 @@ export function BlImportModal({
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
       showToast(
-        `Importacao de frete concluida: ${importableCount} B/L(s), ${preview.summary.blockedCount} bloqueado(s).`,
+        `Importacao de B/L concluida: ${importableCount} B/L(s), ${preview.summary.blockedCount} bloqueado(s).`,
         'success',
       )
       resetAndClose()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Falha ao confirmar importacao de frete.'
+      const message = error instanceof Error ? error.message : 'Falha ao confirmar importacao de B/L.'
       showToast(message, 'error')
     } finally {
       setSubmitting(false)
@@ -121,22 +134,21 @@ export function BlImportModal({
   }
 
   return (
-    <Modal open={open} onClose={resetAndClose} title="Importar frete do B/L">
+    <Modal open={open} onClose={resetAndClose} title="Importar B/L">
       <div className="grid gap-5">
-        {voyageLabel || onlyBlId ? (
+        {onlyBlId ? (
           <div className="app-panel app-panel--padded text-sm">
-            {voyageLabel ? (
-              <div>
-                Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
-              </div>
-            ) : null}
-            {onlyBlId ? (
-              <div>
-                B/L: <span className="font-semibold text-[var(--app-text-strong)]">{onlyBlId}</span>
-              </div>
-            ) : null}
+            B/L: <span className="font-semibold text-[var(--app-text-strong)]">{onlyBlId}</span>
           </div>
         ) : null}
+
+        <VoyageCombobox
+          key={`${open ? 'open' : 'closed'}-${voyageId ?? 'none'}-${voyageLabel ?? ''}`}
+          required
+          initialValue={voyageLabel}
+          selectedVoyageId={selectedVoyageId}
+          onSelect={handleVoyageSelect}
+        />
 
         <Field label="Arquivo .xlsx / .xls">
           <Input accept=".xlsx,.xls" multiple type="file" onChange={handleFile} />
@@ -171,11 +183,14 @@ export function BlImportModal({
           <Button variant="secondary" onClick={resetAndClose}>
             Cancelar
           </Button>
-          <Button disabled={importableCount === 0} loading={submitting || parsing} onClick={() => void handleConfirm()}>
+          <Button disabled={!selectedVoyageId || importableCount === 0} loading={submitting || parsing} onClick={() => void handleConfirm()}>
             <Upload size={16} />
             Confirmar importacao
           </Button>
         </div>
+        {!selectedVoyageId ? (
+          <div className="text-sm text-amber-700">Selecione uma viagem para habilitar a importacao.</div>
+        ) : null}
       </div>
     </Modal>
   )

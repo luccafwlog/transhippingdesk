@@ -7,6 +7,7 @@ import { Button } from '../ui/Button'
 import { Card, EmptyState, InlineError } from '../ui/Card'
 import { Field, Input, Select } from '../ui/Input'
 import { useToast } from '../ui/Toast'
+import { VoyageCombobox } from '../shared/VoyageCombobox'
 import {
   useBatchCalculateLocalCharges,
   useBatchMarkLocalChargesReady,
@@ -17,7 +18,6 @@ import {
   useRejectCustomerReconciliation,
   useLocalChargeOperations,
 } from '../../hooks/useLocalCharges'
-import { useVoyageOptions } from '../../hooks/useBls'
 import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
 import { queryKeys } from '../../services/queryKeys'
 import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
@@ -46,7 +46,6 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
   const [selectedOpsRows, setSelectedOpsRows] = useState<string[]>([])
   const [exportingOps, setExportingOps] = useState(false)
 
-  const { data: voyageOptions } = useVoyageOptions()
   const {
     data: operationsRows,
     isLoading: operationsLoading,
@@ -352,16 +351,12 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
               <option value="granito">Granito</option>
             </Select>
           </Field>
-          <Field label="Viagem">
-            <Select value={opsFilters.voyageId} onChange={(event) => updateOpsFilter('voyageId', event.target.value)}>
-              <option value="">Todas</option>
-              {voyageOptions?.map((voyage) => (
-                <option key={voyage.id} value={voyage.id}>
-                  {voyage.vessel?.name ?? 'Navio'} / {voyage.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            clearable
+            label="Viagem"
+            selectedVoyageId={opsFilters.voyageId}
+            onSelect={(id) => updateOpsFilter('voyageId', id == null ? '' : String(id))}
+          />
           <Field label="POD">
             <Input
               value={opsFilters.pod}
@@ -813,4 +808,3 @@ function PipelineStep({
     </button>
   )
 }
-

@@ -9,8 +9,8 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
+import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
-import { useVoyageOptions } from '../hooks/useBls'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
 import {
@@ -39,7 +39,6 @@ export function VaziosImportacao() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
-  const { data: voyageOptions } = useVoyageOptions()
 
   const [filters, setFilters] = useState<Filters>({
     search: '',
@@ -51,7 +50,7 @@ export function VaziosImportacao() {
   })
 
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [voyageId, setVoyageId] = useState('')
+  const [voyageId, setVoyageId] = useState(searchParams.get('voyage') ?? '')
   const [description, setDescription] = useState('')
   const [manifest, setManifest] = useState<ParsedVaziosImportacaoManifest | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -192,16 +191,12 @@ export function VaziosImportacao() {
               onChange={(e) => updateFilter('search', e.target.value)}
             />
           </Field>
-          <Field label="Viagem">
-            <Select value={filters.voyageId} onChange={(e) => updateFilter('voyageId', e.target.value)}>
-              <option value="">Todas</option>
-              {voyageOptions?.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            clearable
+            label="Viagem"
+            selectedVoyageId={filters.voyageId}
+            onSelect={(id) => updateFilter('voyageId', id == null ? '' : String(id))}
+          />
           <Field label="Manifesto">
             <Select value={filters.manifestId} onChange={(e) => updateFilter('manifestId', e.target.value)}>
               <option value="">Todos</option>
@@ -315,16 +310,12 @@ export function VaziosImportacao() {
             </div>
           </div>
 
-          <Field label="Viagem de destino">
-            <Select value={voyageId} onChange={(e) => setVoyageId(e.target.value)}>
-              <option value="">Selecione uma viagem</option>
-              {voyageOptions?.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.vessel?.name ?? 'Navio'} / {v.voyage_number}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <VoyageCombobox
+            required
+            label="Viagem de destino"
+            selectedVoyageId={voyageId}
+            onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
+          />
 
           <Field label="Descricao (opcional)">
             <Input
