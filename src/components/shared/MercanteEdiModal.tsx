@@ -5,13 +5,15 @@ import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import {
+  blToMercanteBlData,
   generateEdiMercante,
   type MercanteBlData,
+  type MercanteBlSource,
   type MercanteManifestData,
 } from '../../services/mercanteEdiGenerator'
 import { downloadEdiMercante } from '../../services/mercanteEdiDownload'
-import { extractNcmCodes } from '../../lib/ncm'
 import { portNameToUf } from '../../services/mercanteEdiGenerator'
+import type { BLContainer, BlFreightLine } from '../../types/database'
 type VoyageBl = {
   id: string
   shipper?: string | null
@@ -35,6 +37,8 @@ type VoyageBl = {
   manifest_customer_cnpj_cpf?: string | null
   manifest_customer_name?: string | null
   bl_containers?: Array<{
+    id?: number
+    bl_id?: string | null
     container_number: string
     seal_number?: string | null
     type?: string | null
@@ -44,7 +48,12 @@ type VoyageBl = {
     is_imo?: boolean | null
     imo_class?: string | null
     un_number?: string | null
+    discharge_date?: string | null
+    return_date?: string | null
+    demurrage_status?: 'within_free_time' | 'overdue' | 'returned' | null
+    created_at?: string | null
   }> | null
+  bl_freight_lines?: BlFreightLine[] | null
   bl_breakbulk_items?: Array<{
     gross_weight_kg?: number | null
     cbm?: number | null
@@ -120,45 +129,15 @@ export function MercanteEdiModal({
     try {
       const blData: MercanteBlData[] = bls.map((bl) => {
         const containers = bl.bl_containers ?? []
-        const totalCbm = bl.total_cbm ?? 0
-
-        return {
-          blNumber: bl.id,
-          consigneeCnpjCpf: bl.manifest_customer_cnpj_cpf ?? '',
-          consigneeName: bl.manifest_customer_name ?? bl.consignee ?? '',
-          shipperName: bl.shipper ?? '',
-          cargoDescription: bl.cargo_description ?? '',
-          consigneeBlock: bl.consignee_block ?? bl.manifest_customer_name ?? bl.consignee ?? '',
-          consigneeAddress: bl.consignee_address ?? '',
-          shipperBlock: bl.shipper_block ?? bl.shipper ?? '',
-          notifyCnpjCpf: bl.notify_cnpj_cpf ?? '',
-          notifyBlock: bl.notify_block ?? bl.notify_party ?? '',
-          notify2Block: bl.notify2_block ?? '',
-          consigneePhone: bl.consignee_phone ?? '',
-          totalPackages: bl.total_packages ?? 0,
-          packagesUnit: bl.packages_unit ?? '',
-          totalWeightKg: bl.total_weight_kg ?? 0,
-          totalCbm,
-          polLocode: isLocode(bl.pol) ? bl.pol : polCode,
-          podLocode: isLocode(bl.pod) ? bl.pod : podCode,
-          countryOfOrigin: (isLocode(bl.pol) ? bl.pol : polCode).slice(0, 2),
-          destinationUf: portNameToUf(bl.pod ?? '') || portNameToUf(podName),
-          terminalCode: terminal,
-          paymentType: bl.payment_type ?? '',
-          freightLines: [],
-          containers: containers.map((c) => ({
-            containerNumber: c.container_number,
-            sealNumber: c.seal_number ?? '',
-            containerType: c.type ?? '',
-            tareWeightKg: c.tare_weight_kg ?? 0,
-            grossWeightKg: c.gross_weight_kg ?? 0,
-            totalCbm: c.cbm ?? 0,
-            ncmCodes: extractNcmCodes(bl.cargo_description ?? ''),
-            isImo: c.is_imo ?? false,
-            imoClass: c.imo_class ?? '',
-            unNumber: c.un_number ?? '',
-          })),
-        }
+        const data = blToMercanteBlData(bl as unknown as MercanteBlSource, containers as BLContainer[])
+        const resolvedPol = isLocode(bl.pol) ? bl.pol : polCode
+        const resolvedPod = isLocode(bl.pod) ? bl.pod : podCode
+        data.polLocode = resolvedPol
+        data.podLocode = resolvedPod
+        data.countryOfOrigin = resolvedPol.slice(0, 2)
+        data.destinationUf = portNameToUf(bl.pod ?? '') || portNameToUf(podName)
+        data.terminalCode = terminal
+        return data
       })
 
       const manifestData: MercanteManifestData = {

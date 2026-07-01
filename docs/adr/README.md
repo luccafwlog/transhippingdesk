@@ -21,6 +21,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0014](./0014-demurrage-recalculo-diario-substitui-roe-congelado.md) | Demurrage: recálculo diário substitui ROE congelado na emissão | aceito | Estende a 0008; redefine ROE/Markup |
 | [0015](./0015-demurrage-conciliacao-janela-duas-ptax-data-pagamento.md) | Demurrage: conciliação por txid + janela das duas PTAX na data do pagamento | aceito | Depende da 0014 |
 | [0016](./0016-migrations-nomenclatura-numerada-sequencial.md) | Migrations: nomenclatura numerada sequencial única | aceito | Estende a 0010; atualiza WORKFLOW.md §5 |
+| [0017](./0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md) | B/L como fonte de ingestão/correção; autoridade compartilhada com o manifesto | aceito | Estende a 0005 e a 0006 |
 
 ## Convenção
 

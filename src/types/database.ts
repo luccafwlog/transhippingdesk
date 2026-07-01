@@ -185,6 +185,7 @@ export type BL = {
   cargo_description: string | null
   total_weight_kg: number | null
   total_cbm: number | null
+  bl_emission_date: string | null
   incoterm: string | null
   payment_type: 'PREPAID' | 'COLLECT' | null
   financial_status: 'pending' | 'invoiced' | 'paid' | 'cancelled' | null
@@ -221,6 +222,17 @@ export type BLContainer = {
   return_date: string | null
   demurrage_status: 'within_free_time' | 'overdue' | 'returned' | null
   created_at: string | null
+}
+
+export type BlFreightLine = {
+  bl_id: string
+  seq: number
+  description: string | null
+  category: string | null
+  mercante_code: string | null
+  currency: string | null
+  amount: number | null
+  payment: string | null
 }
 
 export type BLBreakbulkItem = {
@@ -531,6 +543,7 @@ export type Database = {
       import_errors: Row<ImportError>
       bls: Row<BL>
       bl_containers: Row<BLContainer>
+      bl_freight_lines: Row<BlFreightLine>
       bl_breakbulk_items: Row<BLBreakbulkItem>
       vehicles: Row<Vehicle>
       invoices: Row<Invoice>
@@ -588,6 +601,13 @@ export type Database = {
           p_errors: unknown
         }
         Returns: number
+      }
+      import_bl_freight_transactional: {
+        Args: {
+          p_bls: Json
+          p_changed_by: string
+        }
+        Returns: Json
       }
       save_bl_review: {
         Args: {
@@ -1268,6 +1288,7 @@ export type BLListItem = BL & {
     | 'un_number'
     | 'created_at'
   >[]
+  bl_freight_lines?: BlFreightLine[] | null
   bl_breakbulk_items?: Pick<
     BLBreakbulkItem,
     'id' | 'bl_id' | 'item_description' | 'package_qty' | 'package_unit' | 'gross_weight_kg' | 'cbm' | 'marks' | 'created_at'
@@ -1282,6 +1303,7 @@ export type BLDetail = BL & {
     }) | null
   }) | null
   bl_containers?: BLContainer[]
+  bl_freight_lines?: BlFreightLine[] | null
   bl_breakbulk_items?: BLBreakbulkItem[]
   vehicles?: VehicleListItem[] | null
 }

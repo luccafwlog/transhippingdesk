@@ -13,6 +13,7 @@ const blSelect = `
   customer:customers(id, cnpj_cpf, name),
   voyage:voyages(id, voyage_number, eta, ata, status, vessel:vessels(id, name, imo, carrier:carriers(id, name, scac))),
   bl_containers(id, bl_id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_oog, is_imo, imo_class, un_number, created_at),
+  bl_freight_lines(bl_id, seq, description, category, mercante_code, currency, amount, payment),
   bl_breakbulk_items(id, bl_id, item_description, package_qty, package_unit, gross_weight_kg, cbm, marks, created_at)
 `
 
@@ -219,6 +220,7 @@ export function useBlDetail(blId?: string) {
           customer:customers(*),
           voyage:voyages(*, vessel:vessels(*, carrier:carriers(*))),
           bl_containers(*),
+          bl_freight_lines(*),
           bl_breakbulk_items(*),
           vehicles(*, container:bl_containers(id, container_number, type, seal_number))
         `,

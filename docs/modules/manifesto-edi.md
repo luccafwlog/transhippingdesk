@@ -1,10 +1,10 @@
 # Manifestos & EDI
 
-> **Status:** ativo · **Atualizado:** 2026-06-30 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
+> **Status:** ativo · **Atualizado:** 2026-07-01 · **Rotas:** `/manifestos`, `/manifestos/:blId`, `/carga-solta`, `/containers`, `/veiculos`, `/baplie`, `/vazios-importacao`, `/embarquevazios`
 
 ## Propósito e escopo
 
-Pipeline de ingestão e revisão operacional do Transhipping Desk. O módulo recebe planilhas e EDI/EDIFACT, limita o arquivo, faz parse e preview no cliente, persiste em tabelas de domínio e expõe as superfícies de B/L, containers, veículos, Baplie e vazios. A viagem é o eixo operacional; o manifesto é a autoridade de dados comerciais, enquanto o Baplie é uma fonte física de staging e conciliação.
+Pipeline de ingestão e revisão operacional do Transhipping Desk. O módulo recebe planilhas e EDI/EDIFACT, limita o arquivo, faz parse e preview no cliente, persiste em tabelas de domínio e expõe as superfícies de B/L, containers, veículos, Baplie e vazios. A viagem é o eixo operacional; o manifesto é a autoridade inicial dos dados comerciais, o B/L pode corrigir dados comerciais e alimentar Frete & Despesas do BL, e o Baplie é uma fonte física de staging e conciliação.
 
 As rotas são registradas em `src/App.tsx`. Os donos executáveis são as páginas em `src/pages/`, os parsers/importadores em `src/services/`, as RPCs e policies em `supabase/migrations/` e as chaves em `src/services/queryKeys.ts`. `docs/adr/0005-pipeline-importacao-viagem-staging-reconciliacao.md` define a separação entre fontes; `docs/adr/0009-hard-delete-controlado-bloqueios-fiscais-auditoria.md` define exclusões controladas.
 
@@ -19,6 +19,7 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - O modal CNTR aceita múltiplos arquivos, seleciona/cria uma viagem, calcula SHA-256, exibe preview por arquivo e resumo consolidado e importa sequencialmente.
 - Duplicidade de arquivo é definida pela constraint de `(voyage_id, cargo_mode, file_hash)` e traduzida para `DuplicateManifestImportError`; rate limit `P0429` é tentado novamente uma vez após espera.
 - O modal de CE Mercante aceita planilha por B/L ou EDI de um único manifesto.
+- O modal de Frete do B/L aceita Excel COSCO, mostra preview de novos/atualizados/bloqueados e confirma via RPC transacional (`import_bl_freight_transactional`). Mudanças com impacto em faturamento (quantidade de containers, container compartilhado, IMO/OOG, peso de carga solta, CNPJ faturado) são informadas e só são aplicadas com override do operador, auditado; sem override, os demais campos são aplicados e o B/L não é descartado. A ação em lote fica na lista; a mesma entrada existe como ação rápida da viagem e como atalho filtrado na ficha do B/L.
 - Admin pode excluir B/Ls elegíveis, individualmente ou em lote, após pré-checagem fiscal.
 - CE Master pertence ao manifesto (`import_batches.ce_master`), mas a edição atual está na ficha `/viagens/:voyageId`, não nesta lista.
 
@@ -31,6 +32,7 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
   - NCM é somente leitura, derivado de `cargo_description` por `listBlNcms`/`extractNcmCodes` em `src/lib/ncm.ts`, deduplicado e sem ocorrências `UN NCM`.
   - `notify_party` de novos manifestos CNTR usa a primeira parte posterior ao consignatário ou preserva o literal `SAME AS CONSIGNEE`; continua editável.
   - Composição física: containers/veículos ou resumo e itens legados de carga solta.
+  - Atalho "Importar frete do B/L" abre o modal compartilhado filtrado para o B/L da ficha, evitando aplicar arquivo de outro conhecimento.
 - **Faturamento:** `BlFaturamentoTab` compõe `BlClienteSection`, `BlCobrancasSection`, `BlDemurrageSection` e o status/link da invoice ativa.
   - Cliente existente é vinculado/desvinculado por `save_bl_review`; cliente vindo do manifesto pode ser criado por `createCustomer` e então vinculado.
   - Taxas locais podem ser calculadas, receber linhas manuais, ser revisadas e avançar para faturamento.
@@ -85,6 +87,7 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 | `/manifestos` — filtrar, paginar, selecionar e abrir B/L | Sessão interna; dados legíveis por RLS | `Manifestos` | `useBls`, `useBlSummary`, `useInvoiceLinks`; seleção local por `useRowSelection` | Leitura de `bls`, relações e invoices | Queries `['bls', filters]`, `['bl-summary', filters]`, `['invoice-links', ...]`; navega para `/manifestos/:blId` | Filtros de `chargeStatus`/perfil podem carregar tudo e filtrar no cliente; erro de query mostra `InlineError` | `src/pages/Manifestos.tsx`; `src/hooks/useBls.ts`; `src/hooks/useBilling.ts` |
 | `/manifestos` — parse e preview CNTR | Arquivo `.xlsx/.xls/.csv`, até 10 MB | `UploadManifestModal.handleFile` | `parseManifestFile` detecta layout, agrupa B/Ls/containers, partes, rota, ETA e erros | Nenhuma | Estado local por arquivo; preview de até 25 B/Ls e resumo consolidado | Formato ilegível, aba ausente, arquivo grande ou parser sem preview | `src/pages/Manifestos.tsx`; `src/services/manifestParser.ts`; `src/lib/fileGuard.ts` |
 | `/manifestos` — importar manifesto CNTR | Viagem e usuário; preview; SHA-256 disponível | `UploadManifestModal.handleImport` | `importManifestWithRetry` chama `importManifest`; a wrapper SQL executa lote, B/Ls, containers, erros, schedules, contatos, review gate e billing | `import_batches`, `bls`, `bl_containers`, `import_errors`, `audit_logs`, contatos e efeitos de billing | Invalida `['bls']`, `['bl-summary']`, `['invoice-links']`, `['voyages']` | `23505` vira duplicidade; `P0429` espera 60 s e tenta uma vez; arquivos múltiplos podem terminar parcialmente | `src/pages/Manifestos.tsx`; `src/services/manifestImport.ts`; `supabase/migrations/129_review_gate_hardening.sql` |
+| `/manifestos` — importar Frete & Despesas do B/L | Sessão interna; arquivo COSCO `.xlsx/.xls`; B/L existente ou viagem resolvida/escopada | `BlImportModal` | `parseBLFile` lê células posicionais, `previewBlFreightImport` calcula diff/gate, `confirmBlFreightImport` chama `import_bl_freight_transactional` | `bls.bl_emission_date`, `bl_freight_lines`, `bl_containers`/`vehicles` quando liberados, `audit_logs` | Invalida `['bls']`, `['bl-detail']`, `['voyages']`; EDI Mercante passa a ler `bl_freight_lines` | CNPJ divergente, viagem ausente ou peso/containers bloqueados por cálculo/invoice deixam a linha bloqueada; itens bloqueados não são enviados à RPC | `src/components/shared/BlImportModal.tsx`; `src/services/blParser.ts`; `src/services/blFreightImport.ts`; `supabase/migrations/162_bl_freight_lines.sql`; testes `blParser.test.ts`, `blFreightImport.test.ts`, `BlImportModal.test.tsx` |
 | `/manifestos` — detectar arquivo/batch duplicado | Mesmo hash, viagem e `cargo_mode` | `computeFileHash` / RPC | Constraint `uq_import_batches_voyage_hash`; service mapeia erro | Nenhuma escrita confirmada para a tentativa rejeitada | Evento best-effort `manifest_import_duplicate_hash`; caches só são invalidados ao final do lote da UI | Hash indisponível bloqueia; arquivo alterado produz hash diferente | `src/services/manifestImport.ts`; `supabase/migrations/011_schema_hardening.sql`; `src/pages/Manifestos.tsx` |
 | Manifesto — editar CE Master | Batch/manifesto existente; usuário ativo | `PolScheduleModal` em `/viagens/:voyageId` | `setImportBatchCeMaster` chama RPC com lock, update e auditoria na mesma transação | `import_batches.ce_master` + `audit_logs` | Invalida `['voyages']` e timeline/schedules pela página Viagens | Não existe ação inline atual em `/manifestos`; batches agrupados ainda são enviados em chamadas independentes | `src/pages/Viagens.tsx`; `src/services/manifestImport.ts`; `supabase/migrations/145_set_import_batch_ce_master_atomic.sql` |
 | CE Mercante por linha | Planilha válida; B/L existente | `CeMercanteImportModal.handleSheetImport` | Parser valida cabeçalhos, BL único e CE de 15 dígitos; `importCeMercanteRows` chama `apply_ce_mercante_update` por linha | `bls.ce_mercante` e auditoria pela RPC | Invalida `['bls']`, `['bl-detail']` | Pode cruzar batches; erros são por linha e não revertem updates anteriores | `src/components/shared/CeMercanteImportModal.tsx`; `src/services/ceMercanteImport.ts` |
@@ -92,6 +95,7 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 | Excluir B/L elegível | Admin; sem invoice, invoice consolidada, recebível, vínculo de recebível ou demurrage invoice | `runBlDelete` | `checkBlDependencies`; confirmação; `deleteBls` remove veículos e B/L | Hard delete de `vehicles` e `bls`; cascatas operacionais; auditoria de exclusão | Invalida `['bls']`, `['bl-summary']`, `['containers']`, `['vehicles']`, `['invoice-links']`, `['voyages']` | Bloqueadores fiscais geram exclusão parcial ou nenhuma; operação irreversível | `src/pages/Manifestos.tsx`; `src/services/bls.ts`; `docs/adr/0009-hard-delete-controlado-bloqueios-fiscais-auditoria.md` |
 | B/L — sincronizar aba com URL | B/L válido | `BL_TABS` / `setSearchParams` | `detalhes` remove `tab`; demais definem query | Nenhuma | Preserva componentes montados por prop `active` | Query desconhecida cai em `detalhes` | `src/pages/BlDetalhe.tsx`; `src/pages/__tests__/blTabs.test.tsx` |
 | B/L — editar revisão operacional e carga | Mudança detectada; justificativa; usuário; `updated_at` esperado | `BlOperacionalTab` / `useBlEditForm` | Normaliza campos, cria auditoria por campo e chama `save_bl_review`; BB sincroniza toneladas para kg | `bls`, `audit_logs`, fila de reconciliação; status recalculado pelo gate | Invalida `['bl-detail', blId]`, `['audit-logs','bl',blId]`, `['bls']`, `['voyages']` | Sem mudança/justificativa; número inválido; `PT409`/`40001` recarrega após conflito | `src/hooks/useBlEditForm.ts`; `supabase/migrations/129_review_gate_hardening.sql` |
+| B/L — importar frete na ficha | B/L aberto; arquivo COSCO do mesmo B/L | `BlDetalhe` → `BlImportModal` | Modal chama o mesmo parser/preview/importador com `onlyBlId` | `bls.bl_emission_date`, `bl_freight_lines` e auditoria; dados físicos só se não houver bloqueio financeiro | Invalida `['bl-detail']`, `['bls']`, `['voyages']` | Arquivo de outro B/L é bloqueado no preview; bloqueios financeiros aparecem linha a linha | `src/pages/BlDetalhe.tsx`; `src/components/shared/BlImportModal.tsx`; `src/services/blFreightImport.ts` |
 | B/L — exibir NCM e Notify Party | Descrição/notify importados ou editados | `BlOperacionalTab` | `listBlNcms` deriva chips; parser CNTR preserva primeira notify ou `SAME AS CONSIGNEE` | NCM não persiste em coluna própria; `notify_party` persiste em `bls` | Sem query própria | NCM ausente mostra vazio; notify de imports anteriores não recebe backfill | `src/lib/ncm.ts`; `src/services/manifestParser.ts`; `src/services/manifestImport.ts` |
 | B/L — vincular, criar ou desvincular cliente | Usuário; B/L carregado; dados de manifesto para criação | `BlClienteSection` | `save_bl_review` para vínculo; `createCustomer` e depois vínculo; fallback procura CNPJ já existente | `customers`, contatos e `bls.customer_id`/reconciliação | Invalida `queryKeys.bls.detail(bl.id)` | Conflitos/duplicidade de cliente; falha genérica na UI; vínculo exige estado atual do B/L | `src/components/bl/BlClienteSection.tsx`; `src/services/customers.ts` |
 | B/L — calcular/revisar taxas e faturar | Usuário; linhas/tabela elegíveis; gate e cliente coerentes | `BlCobrancasSection` | Hooks de taxas; linhas manuais; `markBlReadyAndCreateInvoice` quando há cliente | `charge_calculations`, `bls`, recebíveis/invoices conforme serviços/RPCs | Invalida famílias de linhas, B/Ls, pendências, voyages e invoices; caminho de emissão também usa arrays literais | Pendência de revisão, ausência de cliente, USD ou tabela ausente bloqueiam; B/L faturado trava edição | `src/components/bl/BlCobrancasTab.tsx`; `src/hooks/useLocalCharges.ts`; `src/services/billing.ts` |
@@ -116,7 +120,7 @@ Principais famílias de cache:
 
 | Superfície | Chaves atuais |
 |---|---|
-| Manifestos/B/Ls | `['bls', filters]`, `['bl-summary', filters]`, `queryKeys.bls.detail(blId)`, `queryKeys.bls.localChargeLines(blId)`, `queryKeys.bls.manualChargeItems(blId)`, `queryKeys.bls.timeline(blId)` |
+| Manifestos/B/Ls | `['bls', filters]`, `['bl-summary', filters]`, `queryKeys.bls.detail(blId)`, `queryKeys.bls.localChargeLines(blId)`, `queryKeys.bls.manualChargeItems(blId)`, `queryKeys.bls.timeline(blId)`; `useBls`/`useBlDetail` carregam `bl_freight_lines` para EDI e preview |
 | Invoices do B/L | `queryKeys.invoices.links(blIds)` e famílias `queryKeys.invoices.*` |
 | Containers | `['containers', filters]`, `['bl-detail', blId]`, `['demurrage-containers']`, `['demurrage-invoices']` |
 | Veículos | `['vehicles', voyageId, filters]`, `['vehicle-stats', voyageId]`, `['voyage-vehicle-stats', voyageIds]` |
@@ -129,7 +133,7 @@ As páginas e modais ainda usam várias arrays literais. A cartografia preserva 
 Dados e fronteiras:
 
 - **Lote:** `import_batches` e `import_errors`.
-- **B/L:** `bls`, `bl_containers`, `bl_breakbulk_items`, `vehicles`.
+- **B/L:** `bls`, `bl_containers`, `bl_breakbulk_items`, `bl_freight_lines`, `vehicles`.
 - **Staging físico:** `baplie_containers`.
 - **Decisões:** `baplie_reconciliation_resolutions`.
 - **Vazios:** `vazios_importacao_manifests`/`vazios_importacao_containers` e `vazios_manifests`/`vazios_bookings`.
@@ -137,6 +141,8 @@ Dados e fronteiras:
 - **Histórico:** `audit_logs`, consultado por `bl_timeline`.
 
 Campos físicos que a conciliação Baplie pode alterar: `bl_containers.is_imo`, `imo_class` e `un_number`. O parser também lê peso, OOG, slot, status e portos para staging, mas `applyBaplieAttribute` não oferece caminho para sobrescrever peso, consignatário, cliente, pricing, rota comercial ou cobrança. Esses dados permanecem sob autoridade do manifesto e dos fluxos financeiros.
+
+`bl_freight_lines` guarda Frete & Despesas do B/L por linha e não participa de Taxas Locais, invoices, recebíveis ou demurrage. A importação via B/L pode corrigir campos comerciais com auditoria, mas bloqueia peso e composição física quando já existe cálculo de taxa ou vínculo em invoice.
 
 ## Fluxos e invariantes
 
@@ -149,6 +155,16 @@ flowchart LR
     Core --> Gate["review gate<br/>IDs importados"]
     Gate --> Billing["charges / billing<br/>pós-processamento SQL"]
     Billing --> Audit["audit_logs + invalidação de cache no cliente"]
+```
+
+```mermaid
+flowchart LR
+    BLFile["B/L COSCO .xlsx"] --> BLGuard["assertUploadSize"]
+    BLGuard --> BLParser["blParser posicional"]
+    BLParser --> BLDiff["preview de diff<br/>novos / atualizados / bloqueados"]
+    BLDiff --> BLRPC["import_bl_freight_transactional"]
+    BLRPC --> BLData["bls.bl_emission_date<br/>bl_freight_lines"]
+    BLData --> EDI["C5 frete [1739:1760)<br/>despesas 3796"]
 ```
 
 1. **Manifesto CNTR é transacional no banco.** `import_manifest_with_postprocess_transactional` chama o import core, sincroniza agendas, cria contatos, aplica `apply_bl_review_gate_after_import` aos IDs do lote e executa billing dentro da mesma chamada SQL.
@@ -171,6 +187,7 @@ flowchart LR
 14. **Veículos têm fronteira dividida.** A inserção do lote é transacional; cancelamento de invoices e recálculo de taxas ocorrem depois, por B/L. Falha nessa fase não desfaz veículos já inseridos.
 15. **Datas de container afetam demurrage.** Devolução anterior à descarga é rejeitada; todos retornados podem criar e emitir invoice de demurrage.
 16. **Vazios são atômicos por manifesto.** Planilhas criam cabeçalho e itens na mesma RPC. Vazios vindos do Baplie substituem por viagem dentro da mesma transação; a opção “manter” não escreve.
+17. **Frete do B/L não toca faturamento.** `import_bl_freight_transactional` persiste `bl_freight_lines` e `bl_emission_date`; não insere nem recalcula `charge_calculations`, invoices ou ledger. Quando há cálculo/invoice, peso e containers ficam bloqueados e apenas campos comerciais/frete seguem corrigíveis.
 
 ## Geração de EDI Mercante (M5)
 
@@ -206,12 +223,13 @@ em embarcador/consignatário/notify/notify2 e o `import_manifest_with_postproces
 persiste os blocos na mesma transação. B/Ls importados antes da migration
 mantêm os campos nulos e o gerador recai nos campos de nome.
 
-**Lacunas conhecidas (ponytail):** dois trechos do C5 não são reproduzidos
-byte a byte porque não existem nos dados do Transhipping Desk — o valor
-computado em pos 1739 (origem desconhecida no sistema legado) e o bloco de
-frete em pos 3796 (frete marítimo e códigos de despesa do Mercante não
-constam do manifesto nem das taxas locais). Ambos saem zerados, com estrutura
-correta, até que uma fonte de frete seja adicionada.
+**Frete do B/L:** o upload do Excel COSCO do B/L alimenta `bl_freight_lines` e
+`bls.bl_emission_date`. O gerador usa a linha `OCEAN_FREIGHT` no campo C5
+**`[1739:1760)`** (2 casas decimais, âncora `220PHHI` em 1760) e as despesas no
+bloco **3796**, em fatias `[código(5)][valor(14, 2 dp)][tipo(1)]`. O mapa
+confirmado começa com `01779 = THD` e `00322 = BAF`; tipo `P`/`C` vem de
+prepaid/collect e o valor é literal, sem conversão de moeda. B/Ls sem linhas de
+frete continuam emitindo zeros nesses campos.
 
 ## Testes e validação
 
@@ -221,6 +239,7 @@ ignorado, com 634 testes aprovados e 9 ignorados.
 - Parsers CNTR/notify/fixtures: `src/services/__tests__/manifestParser.test.ts`, `manifestParser.notify.test.ts`, `manifestFixtures.real.test.ts`.
 - Payload/import CNTR: `src/services/__tests__/manifestImport.test.ts` confirma nome da wrapper e mapeamento de `23505`/`P0429`, usando mocks; não prova rollback do PostgreSQL.
 - CE Mercante: `src/services/__tests__/ceMercanteEdiParser.test.ts` e `ceMercanteImport.test.ts`.
+- Frete do B/L: `src/services/__tests__/blParser.test.ts`, `src/services/__tests__/blFreightImport.test.ts`, `src/services/__tests__/blFreightLinesMigration.test.ts`, `src/services/__tests__/mercanteEdiGenerator.test.ts` e `src/components/shared/__tests__/BlImportModal.test.tsx`.
 - B/L pós-PRs: `src/lib/__tests__/ncm.test.ts`, `src/pages/__tests__/blTabs.test.tsx`, `src/components/bl/__tests__/blTimelinePresentation.test.ts`.
 - Carga solta: `src/services/__tests__/breakbulkImport.test.ts` e `breakbulkFixtures.real.test.ts`.
 - Atomicidade BB: `src/services/__tests__/breakbulkImportAtomicMigration.test.ts`;
