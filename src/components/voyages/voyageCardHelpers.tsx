@@ -50,20 +50,25 @@ export function collectVoyageManifestBatchRows({
   bls: VoyageBl[] | null | undefined
   polSchedules?: Map<string, { etd: string | null; escalaNumber?: string | null }> | undefined
 }) {
+  const batchesById = new Map<number, VoyageImportBatch>()
+  for (const batch of batches ?? []) {
+    batchesById.set(batch.id, batch)
+  }
+
   const blsByBatch = new Map<number, VoyageBl[]>()
   for (const bl of bls ?? []) {
-    if (!bl.batch_id) continue
+    if (bl.batch_id === null || bl.batch_id === undefined) continue
     const current = blsByBatch.get(bl.batch_id) ?? []
     current.push(bl)
     blsByBatch.set(bl.batch_id, current)
   }
 
-  // Arquivos de manifesto distintos da mesma rota (POL -> POD) compõem o mesmo
-  // manifesto: agrupamos por rota e somamos B/Ls e cobertura de CE numa única
-  // linha. ETD é por POL; o CE Master é único (mesmo manifesto).
+  // A linha nasce da rota dos B/Ls; batches entram como metadados quando existem.
+  // Assim importacoes de B/L sem arquivo de manifesto tambem aparecem na tela.
   type ManifestGroup = {
     routeKey: string
     pol: string
+    pod: string
     routeLabel: string
     batchIds: number[]
     filenames: string[]
@@ -78,41 +83,75 @@ export function collectVoyageManifestBatchRows({
 
   const groups = new Map<string, ManifestGroup>()
 
-  for (const batch of batches ?? []) {
-    const batchBls = blsByBatch.get(batch.id) ?? []
-    const pol = batchBls[0]?.pol?.trim() || '-'
-    const pod = batchBls[0]?.pod?.trim() || '-'
+  function normalizeManifestPort(value: string | null | undefined) {
+    return String(value ?? '').trim().toUpperCase() || '-'
+  }
+
+  function getGroup(polValue: string | null | undefined, podValue: string | null | undefined) {
+    const pol = normalizeManifestPort(polValue)
+    const pod = normalizeManifestPort(podValue)
     const routeKey = `${pol}__${pod}`
+    const existing = groups.get(routeKey)
+    if (existing) return existing
+
     const polEntity = polSchedules?.get(buildVoyagePolEntityId(voyageId, pol))
-    const ceFilled = batchBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
-    const sortDate = Date.parse(batch.uploaded_at ?? '')
 
-    const group: ManifestGroup =
-      groups.get(routeKey) ?? {
-        routeKey,
-        pol,
-        routeLabel: `${formatPortDisplayName(pol)} -> ${formatPortDisplayName(pod)}`,
-        batchIds: [],
-        filenames: [],
-        modes: new Set(),
-        etd: polEntity?.etd ?? null,
-        blCount: 0,
-        ceFilled: 0,
-        ceTotal: 0,
-        ceMaster: null,
-        sortDate: Number.POSITIVE_INFINITY,
-      }
-
-    group.batchIds.push(batch.id)
-    group.filenames.push(stripFileExtension(batch.filename || `manifesto-${batch.id}`))
-    if (batch.cargo_mode) group.modes.add(batch.cargo_mode)
-    group.blCount += Number(batch.total_bls ?? batchBls.length)
-    group.ceFilled += ceFilled
-    group.ceTotal += batchBls.length
-    if (!group.ceMaster && batch.ce_master) group.ceMaster = batch.ce_master
-    if (Number.isFinite(sortDate)) group.sortDate = Math.min(group.sortDate, sortDate)
+    const group: ManifestGroup = {
+      routeKey,
+      pol,
+      pod,
+      routeLabel: `${formatPortDisplayName(pol)} -> ${formatPortDisplayName(pod)}`,
+      batchIds: [],
+      filenames: [],
+      modes: new Set(),
+      etd: polEntity?.etd ?? null,
+      blCount: 0,
+      ceFilled: 0,
+      ceTotal: 0,
+      ceMaster: null,
+      sortDate: Number.POSITIVE_INFINITY,
+    }
 
     groups.set(routeKey, group)
+    return group
+  }
+
+  function attachBatchMetadata(group: ManifestGroup, batch: VoyageImportBatch) {
+    if (!group.batchIds.includes(batch.id)) {
+      group.batchIds.push(batch.id)
+    }
+    const filename = stripFileExtension(batch.filename || `manifesto-${batch.id}`)
+    if (!group.filenames.includes(filename)) {
+      group.filenames.push(filename)
+    }
+    if (batch.cargo_mode) group.modes.add(batch.cargo_mode)
+    if (!group.ceMaster && batch.ce_master) group.ceMaster = batch.ce_master
+    const sortDate = Date.parse(batch.uploaded_at ?? '')
+    if (Number.isFinite(sortDate)) group.sortDate = Math.min(group.sortDate, sortDate)
+  }
+
+  for (const bl of bls ?? []) {
+    const group = getGroup(bl.pol, bl.pod)
+    group.blCount += 1
+    group.ceTotal += 1
+    if (String(bl.ce_mercante ?? '').trim()) group.ceFilled += 1
+    group.modes.add(bl.cargo_mode === 'carga_solta' ? 'carga_solta' : 'container')
+
+    if (bl.batch_id !== null && bl.batch_id !== undefined) {
+      const batch = batchesById.get(bl.batch_id)
+      if (batch) attachBatchMetadata(group, batch)
+    }
+  }
+
+  for (const batch of batches ?? []) {
+    if (Array.from(groups.values()).some((group) => group.batchIds.includes(batch.id))) continue
+
+    const batchBls = blsByBatch.get(batch.id) ?? []
+    const group = getGroup(batchBls[0]?.pol, batchBls[0]?.pod)
+    attachBatchMetadata(group, batch)
+    group.blCount += Number(batch.total_bls ?? batchBls.length)
+    group.ceFilled += batchBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
+    group.ceTotal += batchBls.length
   }
 
   return Array.from(groups.values())
@@ -126,7 +165,7 @@ export function collectVoyageManifestBatchRows({
           : group.modes.has('carga_solta')
             ? 'BB'
             : 'CNTR',
-      filenames: group.filenames,
+      filenames: group.filenames.length ? group.filenames : ['Rota derivada dos B/Ls'],
       batchIds: group.batchIds,
       etd: group.etd,
       blCount: group.blCount,

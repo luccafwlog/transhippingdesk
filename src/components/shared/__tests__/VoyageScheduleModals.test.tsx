@@ -65,6 +65,25 @@ describe('PolScheduleModal', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ ceMaster: '25BR00481', batchIds: [11, 12] }))
   })
+
+  it('edita apenas ETD quando a rota nao possui batch de manifesto', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    render(
+      <PolScheduleModal
+        open
+        polSchedule={{ ...base, ceMaster: '25BR00481', batchIds: [] }}
+        onClose={() => {}}
+        onSaved={onSaved}
+      />,
+    )
+
+    expect(screen.getByText('Editar ETD')).toBeTruthy()
+    expect(screen.queryByLabelText('CE Master')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ ceMaster: null, batchIds: [] }))
+  })
 })
 
 describe('PodScheduleModal', () => {

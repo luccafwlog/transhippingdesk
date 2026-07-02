@@ -88,7 +88,7 @@ export function VoyageManifestosTab({
         <div className="mb-3">
           <div className="app-panel__title">Manifestos vinculados</div>
           <div className="app-panel__meta">
-            Um manifesto por linha: ETD por POL, cobertura de CE Mercante e o CE Master (editável).
+            Uma rota por linha: B/Ls vinculados por POL/POD, ETD por POL, CE Mercante e CE Master quando houver batch.
           </div>
         </div>
 
@@ -105,7 +105,7 @@ export function VoyageManifestosTab({
               </colgroup>
               <thead>
                 <tr>
-                  <th scope="col" className="px-3 py-2">Manifesto</th>
+                  <th scope="col" className="px-3 py-2">Rota / Manifesto</th>
                   <th scope="col" className="px-3 py-2">ETD</th>
                   <th scope="col" className="px-3 py-2">B/Ls</th>
                   <th scope="col" className="px-3 py-2">CE Merc.</th>
@@ -151,7 +151,8 @@ export function VoyageManifestosTab({
                           <Button
                             variant="secondary"
                             className="app-voyage-icon-btn"
-                            aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
+                            aria-label={`${row.batchIds.length ? 'Editar ETD e CE Master' : 'Editar ETD'} de ${row.routeLabel}`}
+                            title={row.batchIds.length ? 'Editar ETD e CE Master' : 'Editar ETD'}
                             onClick={() =>
                               onEditPol({
                                 voyageId: voyage.id,
@@ -173,7 +174,7 @@ export function VoyageManifestosTab({
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-3 py-3 text-[var(--app-muted)]">
-                      Nenhum manifesto identificado nesta viagem.
+                      Nenhuma rota de B/L identificada nesta viagem.
                     </td>
                   </tr>
                 )}

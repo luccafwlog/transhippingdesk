@@ -36,6 +36,7 @@ export function PolScheduleModal({
   const [etd, setEtd] = useState('')
   const [ceMaster, setCeMaster] = useState('')
   const [saving, setSaving] = useState(false)
+  const canEditCeMaster = Boolean(polSchedule?.batchIds.length)
 
   // O pai cria um payload novo a cada abertura; re-baseia os campos por
   // identidade do payload, durante o render (sem useEffect).
@@ -43,7 +44,7 @@ export function PolScheduleModal({
   if (open && polSchedule && polSchedule !== prevSchedule) {
     setPrevSchedule(polSchedule)
     setEtd(polSchedule.etd ?? '')
-    setCeMaster(polSchedule.ceMaster ?? '')
+    setCeMaster(polSchedule.batchIds.length ? polSchedule.ceMaster ?? '' : '')
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -56,7 +57,7 @@ export function PolScheduleModal({
         voyageId: polSchedule.voyageId,
         pol: polSchedule.pol,
         etd: etd || null,
-        ceMaster: ceMaster.trim() || null,
+        ceMaster: canEditCeMaster ? ceMaster.trim() || null : null,
         batchIds: polSchedule.batchIds,
       })
     } finally {
@@ -65,7 +66,7 @@ export function PolScheduleModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar ETD e CE Master">
+    <Modal open={open} onClose={onClose} title={canEditCeMaster ? 'Editar ETD e CE Master' : 'Editar ETD'}>
       {polSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="app-panel app-panel--padded text-sm">
@@ -73,13 +74,15 @@ export function PolScheduleModal({
             <div className="mt-1">POL: {polSchedule.pol}</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className={`grid gap-4 ${canEditCeMaster ? 'md:grid-cols-2' : ''}`}>
             <Field label="ETD">
               <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
             </Field>
-            <Field label="CE Master">
-              <Input value={ceMaster} onChange={(event) => setCeMaster(event.target.value)} placeholder="Ex.: 25BR00481" />
-            </Field>
+            {canEditCeMaster ? (
+              <Field label="CE Master">
+                <Input value={ceMaster} onChange={(event) => setCeMaster(event.target.value)} placeholder="Ex.: 25BR00481" />
+              </Field>
+            ) : null}
           </div>
 
           <div className="app-modal__actions">
