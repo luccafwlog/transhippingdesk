@@ -118,7 +118,8 @@ docs/
   setup/                  desenvolvimento, testes e deploy
   modules/                documentação por módulo
   CONVENCOES.md           convenções de documentação
-  behavioral-spec/        matriz de verificação comportamental
+  spec/                   matriz de verificação comportamental (canônica)
+  behavioral-spec/        snapshot histórico da matriz (edição 2026-06-24)
   superpowers/            planos e specs (vivos e archive)
   archive/                snapshots históricos
 ```

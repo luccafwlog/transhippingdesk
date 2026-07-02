@@ -1,8 +1,15 @@
-# Behavioral Specification
+# Behavioral Specification — historical snapshot (2026-06-24)
 
-This directory holds the **single canonical, code-derived behavioral
-specification** for Transhipping Desk. It tracks every feature from
-specification through verification in one spreadsheet.
+> **Superseded (2026-07-02).** The living, canonical behavioral spec now lives in
+> [`../spec/`](../spec/) (`2026-07-02-behavioral-spec.{csv,xlsx}`), rebuilt from
+> code and driven through the QA loop. This directory is kept as a historical
+> snapshot of the 2026-06-24 edition; the note below describes how that edition
+> was generated and no longer reflects the current build script (which now reads
+> the CSV as source of truth instead of embedding the dataset).
+
+This directory holds a **code-derived behavioral specification** snapshot for
+Transhipping Desk. It tracks every feature from specification through
+verification in one spreadsheet.
 
 ## Canonical files
 
