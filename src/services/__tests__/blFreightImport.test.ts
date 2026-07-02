@@ -7,8 +7,9 @@ import {
 } from '../blFreightImport'
 import type { ParsedBLDocument } from '../blParser'
 
-const { mockRpc } = vi.hoisted(() => ({
+const { mockRpc, mockTryAutoIssueInvoice } = vi.hoisted(() => ({
   mockRpc: vi.fn(),
+  mockTryAutoIssueInvoice: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
@@ -16,6 +17,10 @@ vi.mock('../supabase', () => ({
     rpc: mockRpc,
     from: vi.fn(),
   },
+}))
+
+vi.mock('../reviewBillingAutomation', () => ({
+  tryAutoIssueInvoice: mockTryAutoIssueInvoice,
 }))
 
 function parsedBL(): ParsedBLDocument {
@@ -67,6 +72,7 @@ function parsedBL(): ParsedBLDocument {
 describe('blFreightImport', () => {
   beforeEach(() => {
     mockRpc.mockReset()
+    mockTryAutoIssueInvoice.mockReset()
   })
 
   it('builds the transactional RPC payload from a parsed COSCO BL', () => {
@@ -133,6 +139,34 @@ describe('blFreightImport', () => {
       },
     })
     expect(preview.rows[0].payload?.customer_id).toBe(42)
+    expect(preview.rows[0].payload).toMatchObject({
+      customer_reconciliation_status: 'matched_document',
+      customer_reconciliation_notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+      billing_hold_reason: null,
+    })
+  })
+
+  it('keeps name-only customer matches under manual reconciliation', () => {
+    const customer = { id: 43, name: 'IMPORTADOR LTDA' }
+    const doc = parsedBL()
+    doc.parties.consigneeTaxId = '00999999000100'
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      customerMaps: {
+        customersByDocument: new Map(),
+        customersByName: new Map([['importador ltda', customer]]),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+    })
+
+    expect(preview.rows[0].payload).toMatchObject({
+      customer_id: 43,
+      customer_reconciliation_status: 'matched_name',
+      customer_reconciliation_notes: 'Cliente sugerido por nome; validar documento.',
+      billing_hold_reason: 'Aguardando reconciliacao de cliente antes do faturamento.',
+    })
   })
 
   it('flags container-set changes as override-required without dropping the payload', () => {
@@ -329,6 +363,61 @@ describe('blFreightImport', () => {
       p_bls: [preview.rows[0]?.payload],
       p_changed_by: 'user-1',
     })
+    expect(mockTryAutoIssueInvoice).not.toHaveBeenCalled()
+  })
+
+  it('triggers automatic billing only after document-level customer reconciliation', async () => {
+    mockRpc.mockResolvedValue({ data: { bls_received: 2 }, error: null })
+    mockTryAutoIssueInvoice.mockResolvedValue({ status: 'blocked', message: 'Sem tabela vigente.' })
+    const documentMatched = {
+      ...buildBlFreightPayload(parsedBL(), 7),
+      id: 'DOCMATCH',
+      customer_id: 42,
+      customer_reconciliation_status: 'matched_document' as const,
+      customer_reconciliation_notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+      billing_hold_reason: null,
+    }
+    const nameMatched = {
+      ...buildBlFreightPayload(parsedBL(), 7),
+      id: 'NAMEMATCH',
+      customer_id: 43,
+      customer_reconciliation_status: 'matched_name' as const,
+      customer_reconciliation_notes: 'Cliente sugerido por nome; validar documento.',
+      billing_hold_reason: 'Aguardando reconciliacao de cliente antes do faturamento.',
+    }
+    const preview: BlFreightImportPreview = {
+      rows: [
+        {
+          blNumber: 'DOCMATCH',
+          status: 'new',
+          existing: false,
+          voyageId: 7,
+          consigneeDocumentMatches: null,
+          blockedReasons: [],
+          billingImpacts: [],
+          requiresBillingOverride: false,
+          diffs: [],
+          payload: documentMatched,
+        },
+        {
+          blNumber: 'NAMEMATCH',
+          status: 'new',
+          existing: false,
+          voyageId: 7,
+          consigneeDocumentMatches: null,
+          blockedReasons: [],
+          billingImpacts: [],
+          requiresBillingOverride: false,
+          diffs: [],
+          payload: nameMatched,
+        },
+      ],
+      summary: { total: 2, newCount: 2, updatedCount: 0, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 0 },
+    }
+
+    await confirmBlFreightImport(preview, 'user-1')
+    expect(mockTryAutoIssueInvoice).toHaveBeenCalledTimes(1)
+    expect(mockTryAutoIssueInvoice).toHaveBeenCalledWith({ blId: 'DOCMATCH', customerId: 42, actorId: 'user-1' })
   })
 
   it('applies the operator override flag only to billing-impacting rows', async () => {

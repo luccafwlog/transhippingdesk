@@ -1,6 +1,6 @@
 # Taxas Locais
 
-> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/taxas-locais`; ações operacionais também partem de `/revisao`, `/manifestos/:blId` e `/faturamento`
+> **Status:** ativo · **Atualizado:** 2026-07-02 · **Rotas:** `/taxas-locais`; ações operacionais também partem de `/revisao`, `/manifestos/:blId` e `/faturamento`
 
 ## Propósito e escopo
 
@@ -165,8 +165,8 @@ flowchart LR
   tabela vigente. A definição vigente está em
   `supabase/migrations/129_review_gate_hardening.sql`.
 - O estado aceito na migration atual é `matched_document` ou `reconciled`;
-  `matched_name` exibido como resolvido por `ValidacaoTab` não satisfaz esse gate
-  SQL.
+  `ValidacaoTab` usa o mesmo helper canônico e mantém `matched_name` como
+  pendente até aprovação manual.
 - Operações em lote são sequenciais e não atômicas entre B/Ls: cada ID pode
   concluir ou falhar independentemente.
 - `listLocalChargeOperationalRows` combina `bls` e `granite_bls`, mas os motores

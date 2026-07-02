@@ -3,6 +3,7 @@ import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import type { ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
 import { normalizePortCode } from './portCode'
+import { tryAutoIssueInvoice } from './reviewBillingAutomation'
 import { supabase } from './supabase'
 
 export type BlFreightImportDiff = {
@@ -45,6 +46,9 @@ export type BlFreightRpcPayload = {
   id: string
   voyage_id: number | null
   customer_id: number | null
+  customer_reconciliation_status: BL['customer_reconciliation_status']
+  customer_reconciliation_notes: string | null
+  billing_hold_reason: string | null
   cargo_mode: 'container'
   shipper: string | null
   consignee: string | null
@@ -184,10 +188,10 @@ export function buildBlFreightPreview({
     const voyageId = selectedVoyage?.id ?? null
     const payload = voyageId ? buildBlFreightPayload(doc, voyageId) : null
     if (payload && customerMaps) {
-      payload.customer_id = findMatchedCustomer(
+      applyCustomerReconciliation(payload, findMatchedCustomer(
         { cnpjCpf: payload.manifest_customer_cnpj_cpf, consignee: payload.consignee },
         customerMaps,
-      )?.customer.id ?? null
+      ))
     }
     const blockedReasons: string[] = []
 
@@ -272,6 +276,8 @@ export async function confirmBlFreightImport(
     p_changed_by: changedBy,
   })
   if (error) throw error
+
+  void triggerAutoBillingForImportedBls(payload, changedBy)
   return data
 }
 
@@ -295,6 +301,9 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     voyage_id: voyageId,
     // Resolved from the consignee document/name during preview (see buildBlFreightPreview).
     customer_id: null,
+    customer_reconciliation_status: 'missing_customer',
+    customer_reconciliation_notes: 'Cliente nao encontrado na base cadastral.',
+    billing_hold_reason: CUSTOMER_RECONCILIATION_HOLD_REASON,
     cargo_mode: 'container',
     shipper: doc.parties.shipperBlock || null,
     consignee: firstLine(doc.parties.consigneeBlock),
@@ -328,6 +337,39 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
       weight_kg: 0,
       cbm: 0,
     })),
+  }
+}
+
+const CUSTOMER_RECONCILIATION_HOLD_REASON = 'Aguardando reconciliacao de cliente antes do faturamento.'
+
+function applyCustomerReconciliation(
+  payload: BlFreightRpcPayload,
+  match: ReturnType<typeof findMatchedCustomer>,
+) {
+  const status: BL['customer_reconciliation_status'] = match?.matchType === 'document'
+    ? 'matched_document'
+    : match?.matchType === 'name'
+      ? 'matched_name'
+      : 'missing_customer'
+
+  payload.customer_id = match?.customer.id ?? null
+  payload.customer_reconciliation_status = status
+  payload.customer_reconciliation_notes = status === 'matched_document'
+    ? 'Cliente reconciliado automaticamente por CNPJ/CPF.'
+    : status === 'matched_name'
+      ? 'Cliente sugerido por nome; validar documento.'
+      : 'Cliente nao encontrado na base cadastral.'
+  payload.billing_hold_reason = status === 'matched_document' ? null : CUSTOMER_RECONCILIATION_HOLD_REASON
+}
+
+async function triggerAutoBillingForImportedBls(payloads: BlFreightRpcPayload[], changedBy: string) {
+  for (const payload of payloads) {
+    if (!payload.customer_id || payload.customer_reconciliation_status !== 'matched_document') continue
+    try {
+      await tryAutoIssueInvoice({ blId: payload.id, customerId: payload.customer_id, actorId: changedBy })
+    } catch {
+      // Best-effort post-commit automation: import success must not be rolled back by billing.
+    }
   }
 }
 

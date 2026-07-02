@@ -22,6 +22,7 @@ import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
 import { queryKeys } from '../../services/queryKeys'
 import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
 import { createInvoiceFromBls } from '../../services/billing'
+import { isCustomerReconciliationResolved } from '../../services/customerReconciliationStatus'
 
 type OpsFilters = {
   search: string
@@ -718,10 +719,6 @@ function renderReconciliationStatus(status: string | null) {
   if (status === 'matched_name') return <Badge tone="yellow">Match nome</Badge>
   if (status === 'rejected') return <Badge tone="red">Rejeitado</Badge>
   return <Badge tone="yellow">Pendente</Badge>
-}
-
-function isCustomerReconciliationResolved(status: string | null | undefined) {
-  return ['matched_document', 'matched_name', 'reconciled'].includes(status ?? '')
 }
 
 function getBillingBlockReason(row: {
