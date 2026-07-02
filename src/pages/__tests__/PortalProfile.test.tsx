@@ -4,9 +4,12 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 
 const getProfile = vi.hoisted(() => vi.fn())
+// Stable identities: PortalProfile's load effect depends on `overview`, so a fresh
+// object per render would re-trigger the effect in a loop past test teardown.
+const auth = vi.hoisted(() => ({ overview: { contact_email: 'fallback@example.com' }, refreshOverview: vi.fn() }))
 
 vi.mock('../../hooks/usePortalAuth', () => ({
-  usePortalAuth: () => ({ overview: { contact_email: 'fallback@example.com' }, refreshOverview: vi.fn() }),
+  usePortalAuth: () => auth,
 }))
 vi.mock('../../services/portalBilling', () => ({
   portalGetProfile: getProfile,
