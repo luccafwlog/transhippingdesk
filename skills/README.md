@@ -1,6 +1,6 @@
 # Agent Skills
 
-A unified collection of 28 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
+A unified collection of 29 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
 
 Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) plus optional supporting files (prompts, references, scripts, tests).
 
@@ -56,6 +56,7 @@ Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) p
 | **grill-me** | Interview the user relentlessly about a plan or design until reaching shared understanding. |
 | **grill-me-with-docs** | Grilling session that challenges plans against existing domain model, sharpens terminology, updates docs inline. |
 | **handoff** | Compact the current conversation into a handoff document for another agent to pick up. |
+| **wayfinder** | Plan a huge chunk of work as a shared map of investigation tickets on the issue tracker, resolved one at a time until the way to the goal is clear. |
 
 ## Structure
 
@@ -129,6 +130,8 @@ skills/
 │   ├── SKILL.md
 │   └── references/
 ├── verification-before-completion/
+│   └── SKILL.md
+├── wayfinder/
 │   └── SKILL.md
 ├── writing-plans/
 │   ├── SKILL.md
