@@ -248,7 +248,7 @@ export function Manifestos() {
   return (
     <>
       <PageHeader
-        title="Manifestos CNTR"
+        title="BLs CNTR"
         description="Consulta paginada de B/Ls de container e importação de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
           <div className="flex flex-wrap justify-end gap-2">
