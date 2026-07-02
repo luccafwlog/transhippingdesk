@@ -4,9 +4,8 @@ This directory holds the **single canonical, code-derived behavioral
 specification** for Transhipping Desk. It tracks every feature from
 specification through verification in one spreadsheet.
 
-The previous edition (`2026-06-24`) is kept as a historical snapshot in
-[`../behavioral-spec/`](../behavioral-spec/); this directory is the living
-source of truth.
+This directory is the living source of truth. Dated CSV/XLSX pairs are editions:
+the newest is canonical and older ones are historical snapshots.
 
 ## Canonical files
 
@@ -54,10 +53,11 @@ This edition was rebuilt from scratch against the executable repository at
 [`../RASTREABILIDADE.md`](../RASTREABILIDADE.md), then driven through one QA loop
 against the green Vitest suite (`npm test`).
 
-All 139 rows are `Verified`: 108 are backed by an executed `Vitest` or
-`SQL-contract` assertion; the remaining 31 are verified by static code read
-where the feature has no executable surface in this environment (SQL triggers,
-`pg_cron` jobs, Edge Functions, live-DB RLS). The `Evidence` column preserves
-the strength of each verification. Rows carry no open defect; the two remaining
+All 139 rows are verified and carry no open defect. 108 are `Verified` — backed
+by an executed `Vitest` or `SQL-contract` assertion; the remaining 31 are
+`Verified (static)`, confirmed by static code read where the feature has no
+executable surface in this environment (SQL triggers, `pg_cron` jobs, Edge
+Functions, live-DB RLS). The `Evidence` column preserves the strength of each
+verification. The two remaining
 `Open Questions / Notes` (`OPS-ROUTE-01`, `VOY-ACC-02`) are design-intent
 confirmations about pre-existing code, not defects.
