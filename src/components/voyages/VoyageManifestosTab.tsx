@@ -17,7 +17,6 @@ export function VoyageManifestosTab({
   polSchedules,
   divergenceCount,
   ceCoverage,
-  missingManifest,
   estadoMeta,
   onEditPol,
 }: {
@@ -27,7 +26,6 @@ export function VoyageManifestosTab({
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   divergenceCount: number
   ceCoverage: { filled: number; total: number }
-  missingManifest: boolean
   estadoMeta: EstadoMeta
   onEditPol: (payload: EditingPolPayload) => void
 }) {
@@ -71,7 +69,6 @@ export function VoyageManifestosTab({
             </div>
             <div className="text-xs text-[var(--app-muted)]">
               CE Mercante {ceCoverage.filled}/{ceCoverage.total}
-              {missingManifest ? ' · manifesto faltando' : ''}
               {divergenceCount ? ` · ${divergenceCount} divergência${divergenceCount === 1 ? '' : 's'} aberta${divergenceCount === 1 ? '' : 's'}` : ''}
             </div>
           </div>

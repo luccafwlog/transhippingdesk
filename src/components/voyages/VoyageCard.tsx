@@ -11,14 +11,13 @@ import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '
 import { formatDate } from '../../lib/utils'
 import {
   collectVoyagePorts,
-  countDistinctBatchIds,
+  countDistinctRoutes,
   countPlannedPodRows,
   deriveEstadoConciliacao,
   getProximaEscala,
   normalizePortName,
   splitVoyageBls,
   voyageCeCoverage,
-  voyageHasMissingManifest,
 } from '../../pages/viagensHelpers'
 import {
   buildVoyagePodEntityId,
@@ -121,12 +120,9 @@ export function VoyageCard({
 
   const { containerBls } = splitVoyageBls(voyage.bls)
   const importBatches = useMemo<VoyageImportBatch[]>(() => voyage.import_batches ?? [], [voyage.import_batches])
-  const containerManifestCount =
-    importBatches.filter((batch) => batch.cargo_mode !== 'carga_solta').length || countDistinctBatchIds(containerBls)
-  const breakbulkManifestCount =
-    importBatches.filter((batch) => batch.cargo_mode === 'carga_solta').length ||
-    countDistinctBatchIds(splitVoyageBls(voyage.bls).breakbulkBls)
-  const totalImportManifestCount = importBatches.length || containerManifestCount + breakbulkManifestCount
+  // Contagem por rota (par POL/POD), não por arquivo de manifesto (#315): viagens
+  // só-B/L não têm batch, e dois arquivos da mesma rota são uma rota só.
+  const totalImportManifestCount = countDistinctRoutes(voyage.bls)
   const totalBls = (voyage.bls ?? []).length
   const billingClosed = totalBls > 0 && voyagesWithUnpaidBls != null && !voyagesWithUnpaidBls.has(voyage.id)
   const flatContainers = containerBls.flatMap((bl) => bl.bl_containers ?? [])
@@ -164,12 +160,10 @@ export function VoyageCard({
   const { data: reconciliation } = useVoyageReconciliation(voyage.id)
   const divergenceCount = reconciliation?.items.length ?? 0
   const ceCoverage = voyageCeCoverage(voyage.bls)
-  const missingManifest = voyageHasMissingManifest({ bls: voyage.bls, batches: importBatches })
   const estado = deriveEstadoConciliacao({
     hasOpenDivergences: divergenceCount > 0,
     ceFilled: ceCoverage.filled,
     ceTotal: ceCoverage.total,
-    hasMissingManifest: missingManifest,
   })
   const estadoMeta = ESTADO_CONCILIACAO_META[estado]
   const proximaEscala = getProximaEscala(podRows)
@@ -267,7 +261,7 @@ export function VoyageCard({
           label="Conciliação"
           value={estadoMeta.label}
           valueColor={estadoMeta.color}
-          sub={`CE ${ceCoverage.filled}/${ceCoverage.total}${divergenceCount ? ` · ${divergenceCount} diverg.` : missingManifest ? ' · manifesto faltando' : ''}`}
+          sub={`CE ${ceCoverage.filled}/${ceCoverage.total}${divergenceCount ? ` · ${divergenceCount} diverg.` : ''}`}
         />
       </section>
 
@@ -326,7 +320,6 @@ export function VoyageCard({
               polSchedules={polSchedules}
               divergenceCount={divergenceCount}
               ceCoverage={ceCoverage}
-              missingManifest={missingManifest}
               estadoMeta={estadoMeta}
               onEditPol={onEditPol}
             />

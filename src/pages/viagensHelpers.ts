@@ -183,6 +183,22 @@ export function countDistinctBatchIds(bls: VoyageBl[] | null | undefined) {
   return new Set((bls ?? []).map((bl) => bl.batch_id).filter((batchId): batchId is number => Number.isInteger(batchId))).size
 }
 
+/**
+ * Conta rotas distintas (par POL/POD normalizado) de um conjunto de B/Ls. A
+ * "quantidade de manifestos" de uma viagem passa a ser o número de rotas, não
+ * de arquivos importados: uma viagem pode nascer só de B/Ls (sem batch de
+ * manifesto), e dois arquivos da mesma rota são uma rota só (ADR 0017).
+ */
+export function countDistinctRoutes(bls: Array<{ pol?: string | null; pod?: string | null }> | null | undefined) {
+  const routes = new Set<string>()
+  for (const bl of bls ?? []) {
+    const pol = String(bl.pol ?? '').trim().toUpperCase() || '-'
+    const pod = String(bl.pod ?? '').trim().toUpperCase() || '-'
+    routes.add(`${pol}__${pod}`)
+  }
+  return routes.size
+}
+
 export function getGraniteModuleStats(manifests: VoyageGraniteManifest[] | null | undefined) {
   const totalManifests = manifests?.length ?? 0
   const totalBls = (manifests ?? []).reduce(
@@ -290,41 +306,26 @@ export function voyageCeCoverage(bls: Array<{ ce_mercante: string | null }> | nu
 }
 
 /**
- * Indica se a viagem tem manifesto faltando: há B/Ls mas nenhum batch de
- * manifesto, ou existem B/Ls órfãos (sem batch_id vinculado).
- */
-export function voyageHasMissingManifest({
-  bls,
-  batches,
-}: {
-  bls: Array<{ batch_id?: number | null }> | null | undefined
-  batches: Array<{ id: number }> | null | undefined
-}) {
-  const blList = bls ?? []
-  if (blList.length === 0) return false
-  if ((batches ?? []).length === 0) return true
-  return blList.some((bl) => bl.batch_id == null)
-}
-
-/**
  * Deriva o Estado de Conciliação a partir de sinais já computados. Pura e
  * desacoplada da consulta de divergências (que é por viagem e cara): o
  * chamador decide como obter `hasOpenDivergences`. Viagem sem carga (CE total
  * 0 e sem B/Ls) resulta em 'conciliado' (nada pendente).
+ *
+ * A ausência de manifesto NÃO é mais sinal de incompletude: uma viagem pode
+ * nascer só de B/Ls (ADR 0017), fonte comercial co-primária. O que ainda torna
+ * a viagem incompleta é cobertura de CE parcial.
  */
 export function deriveEstadoConciliacao({
   hasOpenDivergences,
   ceFilled,
   ceTotal,
-  hasMissingManifest,
 }: {
   hasOpenDivergences: boolean
   ceFilled: number
   ceTotal: number
-  hasMissingManifest: boolean
 }): EstadoConciliacao {
   if (hasOpenDivergences) return 'divergente'
-  if (hasMissingManifest || (ceTotal > 0 && ceFilled < ceTotal)) return 'incompleto'
+  if (ceTotal > 0 && ceFilled < ceTotal) return 'incompleto'
   return 'conciliado'
 }
 
@@ -400,7 +401,6 @@ export function buildVoyageRailItems(
         hasOpenDivergences: false,
         ceFilled: filled,
         ceTotal: total,
-        hasMissingManifest: voyageHasMissingManifest({ bls: voyage.bls, batches: voyage.import_batches }),
       }),
       proximaEscala: getProximaEscala(podRows),
     }
