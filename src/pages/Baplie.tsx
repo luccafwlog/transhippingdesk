@@ -106,7 +106,6 @@ export function Baplie() {
   const hasStaging = containers.length > 0
   const hasManifest = !!blsExist
   const stateC = hasStaging && hasManifest
-  const stateB = hasStaging && !hasManifest
 
   function handleVoyageChange(value: string) {
     const next = new URLSearchParams(searchParams)
@@ -203,7 +202,7 @@ export function Baplie() {
             divergences={stateC ? divergenceCount : null}
           />
 
-          {stateB ? (
+          {emptyContainers.length > 0 ? (
             <VaziosSection
               emptyCount={emptyContainers.length}
               existingManifest={existingVaziosManifestLoading ? null : (existingVaziosManifest ?? null)}
