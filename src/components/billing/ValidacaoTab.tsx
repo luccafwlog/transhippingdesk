@@ -20,7 +20,7 @@ import {
 } from '../../hooks/useLocalCharges'
 import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
 import { queryKeys } from '../../services/queryKeys'
-import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
+import { formatBRL, formatDate } from '../../lib/utils'
 import { createInvoiceFromBls } from '../../services/billing'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliationStatus'
 import { getBillingBlockReason, isPendingBillingReview } from './validacaoPipeline'
@@ -116,19 +116,15 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
   }
 
   function handlePipelineStep(step: 'reconciliation' | 'review' | 'ready_for_billing') {
-    if (step === 'reconciliation') {
-      setReconciliationFilter(true)
-      setReviewFilter(false)
-      setOpsFilters((f) => ({ ...f, chargeStatus: '' }))
-    } else if (step === 'review') {
-      setReviewFilter(true)
-      setReconciliationFilter(false)
-      setOpsFilters((f) => ({ ...f, chargeStatus: '' }))
-    } else {
-      setReconciliationFilter(false)
-      setReviewFilter(false)
-      setOpsFilters((f) => ({ ...f, chargeStatus: step }))
-    }
+    // Passo funciona como toggle: clicar no passo já ativo limpa o filtro. Um
+    // único filtro por vez — os três mecanismos convergem aqui (#317).
+    const isActive =
+      (step === 'reconciliation' && reconciliationFilter) ||
+      (step === 'review' && reviewFilter) ||
+      (step === 'ready_for_billing' && opsFilters.chargeStatus === 'ready_for_billing')
+    setReconciliationFilter(!isActive && step === 'reconciliation')
+    setReviewFilter(!isActive && step === 'review')
+    setOpsFilters((f) => ({ ...f, chargeStatus: !isActive && step === 'ready_for_billing' ? step : '' }))
     setSelectedOpsRows([])
     setExpandedBlId(null)
   }
@@ -543,12 +539,9 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                       <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
                       <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
                       <td className="px-4 py-3">
-                        <span
-                          className="app-table__truncate app-table__truncate--lg"
-                          title={blockReason}
-                        >
+                        <div className="max-w-[420px] whitespace-normal text-sm leading-snug text-[var(--app-text-strong)]">
                           {blockReason}
-                        </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -575,6 +568,12 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                         <td colSpan={10} className="px-6 py-4">
                           <div className="grid gap-4 xl:grid-cols-2">
                             <div className="grid gap-3">
+                              {blockReason ? (
+                                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">Por que não fatura?</div>
+                                  <div className="mt-0.5">{blockReason}</div>
+                                </div>
+                              ) : null}
                               <div className="app-metric-tile__label">Detalhes</div>
                               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                                 <div>
@@ -589,14 +588,6 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                                       <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
                                     ) : null}
                                   </div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Subtotal USD</div>
-                                  <div className="text-[var(--app-text-strong)]">{formatUSD(row.totals.total_usd)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Billing run</div>
-                                  <div className="text-[var(--app-text-strong)]">{row.last_billing_run_id ?? '-'}</div>
                                 </div>
                                 <div>
                                   <div className="text-[var(--app-muted)]">Ult. calculo</div>
