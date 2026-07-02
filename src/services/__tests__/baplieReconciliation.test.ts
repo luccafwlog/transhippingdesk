@@ -195,6 +195,58 @@ describe('reconcileBaplieWithManifest', () => {
 
     await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [] })
   })
+
+  it('deduplica containers repetidos no staging Baplie antes de reconciliar', async () => {
+    installReconcileMocks({
+      bls: [{ id: 'BL1' }],
+      baplie: [
+        {
+          container_number: 'ABCD1234567',
+          status: 'full',
+          bl_ref: 'BL1',
+          slot: '010101',
+          is_imo: true,
+          imo_class: '9',
+          un_number: '3166',
+          is_oog: false,
+        },
+        {
+          container_number: 'ABCD 1234567',
+          status: 'full',
+          bl_ref: 'BL1',
+          slot: '010102',
+          is_imo: true,
+          imo_class: '9',
+          un_number: '3166',
+          is_oog: false,
+        },
+      ],
+      containers: [
+        {
+          id: 10,
+          bl_id: 'BL1',
+          container_number: 'ABCD1234567',
+          is_imo: false,
+          imo_class: null,
+          un_number: null,
+          is_oog: false,
+        },
+      ],
+    })
+
+    const result = await reconcileBaplieWithManifest(1)
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]).toMatchObject({
+      kind: 'attribute_divergence',
+      container_number: 'ABCD1234567',
+      divergences: [
+        { field: 'is_imo' },
+        { field: 'imo_class' },
+        { field: 'un_number' },
+      ],
+    })
+  })
 })
 
 describe('keepManifestAttribute', () => {

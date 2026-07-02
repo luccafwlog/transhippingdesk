@@ -1,5 +1,6 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, onlyDigits } from '../lib/utils'
+import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 
 export type BLFreightCharge = {
   description: string
@@ -140,16 +141,19 @@ function parseFreightCharges(rows: RawSheetRow[]): BLFreightCharge[] {
 
 function parseContainers(rows: RawSheetRow[]): ParsedBLContainer[] {
   const containers: ParsedBLContainer[] = []
+  const seen = new Set<string>()
 
   for (let rowIndex = 46; rowIndex < rows.length; rowIndex += 1) {
     const line = cellValue(rows[rowIndex], 0)
-    if (!line) break
+    if (!line) continue
 
     const parts = line.split('/').map((part) => part.trim())
-    if (!parts[0]) continue
+    const containerNumber = normalizeIsoContainerNumber(parts[0])
+    if (!containerNumber || seen.has(containerNumber)) continue
+    seen.add(containerNumber)
 
     containers.push({
-      containerNumber: parts[0],
+      containerNumber,
       sealNumber: parts[1] || null,
       tareKg: parseNumber(parts[2]),
       ownership: parts[3] || null,

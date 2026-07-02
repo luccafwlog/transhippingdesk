@@ -126,6 +126,24 @@ describe('blFreightImport', () => {
     expect(payload.place_of_delivery).toBe('BRVIX')
   })
 
+  it('normaliza e filtra containers fora do padrao ISO antes da RPC', () => {
+    const doc = parsedBL()
+    doc.containers = [
+      { ...doc.containers[0], containerNumber: 'tclu 1234567' },
+      {
+        ...doc.containers[0],
+        containerNumber: "OCEAN FREIGHT PREPAID SHIPPER'S LOAD STOW COUNT AND SEAL",
+        sealNumber: 'BAD',
+      },
+    ]
+
+    const payload = buildBlFreightPayload(doc, 7)
+
+    expect(payload.containers.map((container) => container.container_number)).toEqual(['TCLU1234567'])
+    expect(payload.total_weight_kg).toBe(28000)
+    expect(payload.total_cbm).toBe(68.5)
+  })
+
   it('links each B/L to its customer via the consignee document', () => {
     const customer = { id: 42, name: 'IMPORTADOR LTDA' }
     const preview = buildBlFreightPreview({
@@ -223,6 +241,8 @@ describe('blFreightImport', () => {
       cbm: 68.5,
       is_imo: false,
       is_oog: false,
+      imo_class: null,
+      un_number: null,
     }
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
@@ -284,7 +304,18 @@ describe('blFreightImport', () => {
           manifest_customer_cnpj_cpf: '12345678000195',
           manifest_customer_name: 'IMPORTADOR LTDA',
           bl_containers: [
-            { container_number: 'SHARED000000', seal_number: null, type: '40HC', tare_weight_kg: 3900, gross_weight_kg: 28000, cbm: 68.5, is_imo: false, is_oog: false },
+            {
+              container_number: 'SHARED000000',
+              seal_number: null,
+              type: '40HC',
+              tare_weight_kg: 3900,
+              gross_weight_kg: 28000,
+              cbm: 68.5,
+              is_imo: false,
+              is_oog: false,
+              imo_class: null,
+              un_number: null,
+            },
           ],
           bl_freight_lines: [],
         },
@@ -295,6 +326,56 @@ describe('blFreightImport', () => {
     expect(row?.requiresBillingOverride).toBe(true)
     expect(row?.billingImpacts.some((message) => message.includes('compartilhados'))).toBe(true)
     expect(row?.diffs.find((diff) => diff.field === 'containers')?.billingImpact).toBe(true)
+  })
+
+  it('preserva atributos IMO/OOG existentes quando o B/L reimporta o mesmo container', () => {
+    const preview = buildBlFreightPreview({
+      documents: [parsedBL()],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [
+        {
+          id: 'CSC45250E02Y00',
+          voyage_id: 7,
+          cargo_mode: 'container',
+          shipper: 'SHIPPER LTDA\nADDRESS',
+          consignee: 'IMPORTADOR LTDA',
+          notify_party: 'NOTIFY LTDA',
+          pol: 'CNSHA',
+          pod: 'BRSSZ',
+          place_of_delivery: 'SANTOS',
+          total_weight_kg: 28000,
+          total_cbm: 68.5,
+          payment_type: 'PREPAID',
+          bl_emission_date: '2026-02-20',
+          manifest_customer_cnpj_cpf: '12345678000195',
+          manifest_customer_name: 'IMPORTADOR LTDA',
+          bl_containers: [
+            {
+              container_number: 'TCLU1234567',
+              seal_number: 'SEAL001',
+              type: '40HC',
+              tare_weight_kg: 3900,
+              gross_weight_kg: 28000,
+              cbm: 68.5,
+              is_imo: true,
+              is_oog: false,
+              imo_class: '9',
+              un_number: '3166',
+            },
+          ],
+          bl_freight_lines: [],
+        },
+      ],
+    })
+
+    expect(preview.rows[0].payload?.containers[0]).toMatchObject({
+      container_number: 'TCLU1234567',
+      is_imo: true,
+      is_oog: false,
+      imo_class: '9',
+      un_number: '3166',
+    })
+    expect(preview.rows[0].diffs.find((diff) => diff.field === 'containers')).toBeUndefined()
   })
 
   it('blocks a BL-detail scoped import when the file has another BL number', () => {

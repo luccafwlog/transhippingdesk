@@ -121,6 +121,18 @@ describe('blParser', () => {
     ])
   })
 
+  it('ignora texto contratual no bloco de containers e continua lendo containers validos', async () => {
+    const parsed = await parseBLBuffer(coscoBuffer({
+      containerRows: [
+        'FFAU4532914 / SEAL001 / 3900 / COC / 1 PKG / 40HC / 28000 KGS / 68.500 CBM',
+        "OCEAN FREIGHT PREPAID SHIPPER'S LOAD STOW COUNT AND SEAL NOTWITHSTANDING ANY PROVISION TO THE CONTRARY",
+        'SEKU 6862599 / SEAL002 / 2230 / COC / 2 PKG / 20GP / 12000 KGS / 30.250 CBM',
+      ],
+    }))
+
+    expect(parsed.containers.map((container) => container.containerNumber)).toEqual(['FFAU4532914', 'SEKU6862599'])
+  })
+
   it('mantem despesas apos linha em branco dentro da secao de frete', async () => {
     const parsed = await parseBLBuffer(coscoBuffer({
       freightRows: [

@@ -50,7 +50,9 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
     from += PAGE
   }
 
-  if (!staged.length) return { items: [] }
+  const dedupedStaged = dedupeBaplieContainers(staged)
+
+  if (!dedupedStaged.length) return { items: [] }
 
   const blIds = (blRows ?? []).map((b) => b.id)
 
@@ -85,7 +87,7 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
 
   const items: BaplieReconciliationItem[] = []
 
-  for (const baplieC of staged) {
+  for (const baplieC of dedupedStaged) {
     if (baplieC.status === 'empty') continue
 
     const key = normalizeContainerNumber(baplieC.container_number)
@@ -218,6 +220,30 @@ function normalizeVal(v: string | null | undefined) {
 
 function normalizeContainerNumber(v: string | null | undefined) {
   return (v ?? '').replace(/\s+/g, '').toUpperCase()
+}
+
+function dedupeBaplieContainers(rows: BaplieContainerRow[]) {
+  const byNumber = new Map<string, BaplieContainerRow>()
+
+  for (const row of rows) {
+    const key = normalizeContainerNumber(row.container_number)
+    if (!/^[A-Z]{4}\d{7}$/.test(key)) continue
+
+    const existing = byNumber.get(key)
+    if (!existing) {
+      byNumber.set(key, { ...row, container_number: key })
+      continue
+    }
+
+    existing.status = existing.status === 'full' || row.status === 'full' ? 'full' : 'empty'
+    existing.bl_ref = row.bl_ref ?? existing.bl_ref
+    existing.slot = row.slot ?? existing.slot
+    existing.is_imo = Boolean(existing.is_imo || row.is_imo)
+    existing.imo_class = row.imo_class ?? existing.imo_class
+    existing.un_number = row.un_number ?? existing.un_number
+  }
+
+  return Array.from(byNumber.values())
 }
 
 async function fetchManifestResolutionKeys(voyageId: number, blContainerIds: number[]) {

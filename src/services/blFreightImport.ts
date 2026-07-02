@@ -1,4 +1,5 @@
 import { onlyDigits } from '../lib/utils'
+import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import type { ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
@@ -82,10 +83,10 @@ export type BlFreightRpcPayload = {
     tare_weight_kg: number | null
     gross_weight_kg: number | null
     cbm: number | null
-    is_oog: false
-    is_imo: false
-    imo_class: null
-    un_number: null
+    is_oog: boolean
+    is_imo: boolean
+    imo_class: string | null
+    un_number: string | null
   }>
   vehicles: Array<{
     chassis: string
@@ -115,7 +116,7 @@ type ExistingBl = Pick<
   | 'manifest_customer_cnpj_cpf'
   | 'manifest_customer_name'
 > & {
-  bl_containers?: Pick<BLContainer, 'container_number' | 'seal_number' | 'type' | 'tare_weight_kg' | 'gross_weight_kg' | 'cbm' | 'is_imo' | 'is_oog'>[] | null
+  bl_containers?: Pick<BLContainer, 'container_number' | 'seal_number' | 'type' | 'tare_weight_kg' | 'gross_weight_kg' | 'cbm' | 'is_imo' | 'is_oog' | 'imo_class' | 'un_number'>[] | null
   bl_freight_lines?: Pick<BlFreightLine, 'seq' | 'description' | 'category' | 'mercante_code' | 'currency' | 'amount' | 'payment'>[] | null
 }
 
@@ -187,6 +188,9 @@ export function buildBlFreightPreview({
     const existing = existingById.get(doc.blNumber) ?? null
     const voyageId = selectedVoyage?.id ?? null
     const payload = voyageId ? buildBlFreightPayload(doc, voyageId) : null
+    if (payload && existing) {
+      preserveExistingContainerPhysicalAttributes(payload, existing)
+    }
     if (payload && customerMaps) {
       applyCustomerReconciliation(payload, findMatchedCustomer(
         { cnpjCpf: payload.manifest_customer_cnpj_cpf, consignee: payload.consignee },
@@ -282,18 +286,22 @@ export async function confirmBlFreightImport(
 }
 
 export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | null): BlFreightRpcPayload {
-  const containers = doc.containers.map((container) => ({
-    container_number: container.containerNumber,
-    seal_number: container.sealNumber,
-    type: container.type,
-    tare_weight_kg: container.tareKg,
-    gross_weight_kg: container.grossWeightKg,
-    cbm: container.cbm,
-    is_oog: false as const,
-    is_imo: false as const,
-    imo_class: null,
-    un_number: null,
-  }))
+  const containers = doc.containers.flatMap((container) => {
+    const containerNumber = normalizeIsoContainerNumber(container.containerNumber)
+    if (!containerNumber) return []
+    return [{
+      container_number: containerNumber,
+      seal_number: container.sealNumber,
+      type: container.type,
+      tare_weight_kg: container.tareKg,
+      gross_weight_kg: container.grossWeightKg,
+      cbm: container.cbm,
+      is_oog: false,
+      is_imo: false,
+      imo_class: null,
+      un_number: null,
+    }]
+  })
   const oceanFreight = doc.freightCharges.find((line) => normalizeFreightCategory(line.description) === 'OCEAN_FREIGHT')
 
   return {
@@ -331,7 +339,7 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     containers,
     vehicles: doc.vehicles.map((vehicle) => ({
       chassis: vehicle.chassis,
-      container_number: vehicle.containerNumber,
+      container_number: normalizeIsoContainerNumber(vehicle.containerNumber),
       brand: 'NA',
       model: 'NA',
       weight_kg: 0,
@@ -360,6 +368,25 @@ function applyCustomerReconciliation(
       ? 'Cliente sugerido por nome; validar documento.'
       : 'Cliente nao encontrado na base cadastral.'
   payload.billing_hold_reason = status === 'matched_document' ? null : CUSTOMER_RECONCILIATION_HOLD_REASON
+}
+
+function preserveExistingContainerPhysicalAttributes(payload: BlFreightRpcPayload, existing: ExistingBl) {
+  const existingByNumber = new Map(
+    (existing.bl_containers ?? []).flatMap((container) => {
+      const containerNumber = normalizeIsoContainerNumber(container.container_number)
+      return containerNumber ? [[containerNumber, container]] : []
+    }),
+  )
+
+  for (const container of payload.containers) {
+    const current = existingByNumber.get(container.container_number)
+    if (!current) continue
+
+    container.is_imo = Boolean(current.is_imo)
+    container.is_oog = Boolean(current.is_oog)
+    container.imo_class = current.imo_class ?? null
+    container.un_number = current.un_number ?? null
+  }
 }
 
 async function triggerAutoBillingForImportedBls(payloads: BlFreightRpcPayload[], changedBy: string) {
@@ -477,7 +504,7 @@ async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
       id, voyage_id, cargo_mode, shipper, consignee, notify_party, pol, pod, place_of_delivery,
       total_weight_kg, total_cbm, payment_type, bl_emission_date,
       manifest_customer_cnpj_cpf, manifest_customer_name,
-      bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_imo, is_oog),
+      bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_imo, is_oog, imo_class, un_number),
       bl_freight_lines(seq, description, category, mercante_code, currency, amount, payment)
     `)
     .in('id', blNumbers)

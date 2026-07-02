@@ -1,4 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
+import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import { normalizePortCode } from './portCode'
 
 export type BaplieContainer = {
@@ -61,6 +62,7 @@ function parseBaplieText(text: string): ParsedBaplie {
   let final_dest: string | null = null
   let bl_ref: string | null = null
   let oog_dims: boolean = false
+  let currentContainer: BaplieContainer | null = null
 
   for (const seg of segments) {
     if (seg.startsWith('LOC+147+')) {
@@ -72,6 +74,7 @@ function parseBaplieText(text: string): ParsedBaplie {
       final_dest = null
       bl_ref = null
       oog_dims = false
+      currentContainer = null
       continue
     }
 
@@ -114,12 +117,16 @@ function parseBaplieText(text: string): ParsedBaplie {
     if (seg.startsWith('EQD+CN+')) {
       const parts = seg.replace(/'$/, '').split('+')
       const rawNumber = parts[2] ?? ''
-      const container_number = rawNumber.replace(/\s+/g, '').toUpperCase()
+      const container_number = normalizeIsoContainerNumber(rawNumber)
+      if (!container_number) {
+        currentContainer = null
+        continue
+      }
       const size_type = parts[3] ?? null
       const statusCode = parts[6] ?? ''
       const status: BaplieContainer['status'] = statusCode === '4' ? 'empty' : 'full'
 
-      containers.push({
+      currentContainer = upsertBaplieContainer(containers, {
         container_number,
         size_type: size_type || null,
         status,
@@ -146,12 +153,10 @@ function parseBaplieText(text: string): ParsedBaplie {
       const imo_class = classPart.split(':')[0] || null
       const un_number = parts[3] ?? null
 
-      if (containers.length > 0) {
-        const last = containers[containers.length - 1]
-        // Only attach if this DGS is in the same block (no LOC+147 yet)
-        last.is_imo = true
-        last.imo_class = imo_class
-        last.un_number = un_number || null
+      if (currentContainer) {
+        currentContainer.is_imo = true
+        currentContainer.imo_class = imo_class
+        currentContainer.un_number = un_number || null
       }
       continue
     }
@@ -160,6 +165,25 @@ function parseBaplieText(text: string): ParsedBaplie {
   const pods = Array.from(new Set(containers.map((c) => c.pod).filter((p): p is string => Boolean(p)))).sort()
 
   return { vessel_name, voyage_number, containers, pods }
+}
+
+function upsertBaplieContainer(containers: BaplieContainer[], next: BaplieContainer) {
+  const existing = containers.find((container) => container.container_number === next.container_number)
+  if (!existing) {
+    containers.push(next)
+    return next
+  }
+
+  existing.size_type = next.size_type ?? existing.size_type
+  existing.status = existing.status === 'full' || next.status === 'full' ? 'full' : 'empty'
+  existing.weight_kg = next.weight_kg ?? existing.weight_kg
+  existing.pol = next.pol ?? existing.pol
+  existing.pod = next.pod ?? existing.pod
+  existing.final_dest = next.final_dest ?? existing.final_dest
+  existing.bl_ref = next.bl_ref ?? existing.bl_ref
+  existing.slot = next.slot ?? existing.slot
+  existing.is_oog = existing.is_oog || next.is_oog
+  return existing
 }
 
 function extractLocCode(seg: string): string | null {
