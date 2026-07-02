@@ -23,6 +23,7 @@ import { queryKeys } from '../../services/queryKeys'
 import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
 import { createInvoiceFromBls } from '../../services/billing'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliationStatus'
+import { getBillingBlockReason, isPendingBillingReview } from './validacaoPipeline'
 
 type OpsFilters = {
   search: string
@@ -37,6 +38,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
   const queryClient = useQueryClient()
   const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
   const [reconciliationFilter, setReconciliationFilter] = useState(false)
+  const [reviewFilter, setReviewFilter] = useState(false)
   const [opsFilters, setOpsFilters] = useState<OpsFilters>({
     search: '',
     cargoMode: '',
@@ -72,7 +74,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     const readyInvoiced = readyRows.filter((row) => row.financial_status === 'invoiced').length
     return {
       total: rows.length,
-      reviewRequired: rows.filter((row) => row.charge_status === 'review_required').length,
+      reviewPending: rows.filter(isPendingBillingReview).length,
       ready: readyRows.length,
       readyInvoiced,
       readyPendingInvoice: Math.max(readyRows.length - readyInvoiced, 0),
@@ -88,12 +90,15 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     if (reconciliationFilter) {
       return rows.filter((row) => !isCustomerReconciliationResolved(row.customer_reconciliation_status))
     }
+    if (reviewFilter) {
+      return rows.filter(isPendingBillingReview)
+    }
     return rows
-  }, [operationsRows, reconciliationFilter])
+  }, [operationsRows, reconciliationFilter, reviewFilter])
 
   const pipelineBottleneck = useMemo(() => {
     if (operationsSummary.reconciliationPending > 0) return 'reconciliation'
-    if (operationsSummary.reviewRequired > 0) return 'review_required'
+    if (operationsSummary.reviewPending > 0) return 'review'
     if (operationsSummary.ready > 0) return 'ready_for_billing'
     return null
   }, [operationsSummary])
@@ -107,14 +112,21 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     setOpsFilters((current) => ({ ...current, [field]: value }))
     setSelectedOpsRows([])
     setReconciliationFilter(false)
+    setReviewFilter(false)
   }
 
-  function handlePipelineStep(step: 'reconciliation' | 'review_required' | 'ready_for_billing') {
+  function handlePipelineStep(step: 'reconciliation' | 'review' | 'ready_for_billing') {
     if (step === 'reconciliation') {
       setReconciliationFilter(true)
+      setReviewFilter(false)
+      setOpsFilters((f) => ({ ...f, chargeStatus: '' }))
+    } else if (step === 'review') {
+      setReviewFilter(true)
+      setReconciliationFilter(false)
       setOpsFilters((f) => ({ ...f, chargeStatus: '' }))
     } else {
       setReconciliationFilter(false)
+      setReviewFilter(false)
       setOpsFilters((f) => ({ ...f, chargeStatus: step }))
     }
     setSelectedOpsRows([])
@@ -411,17 +423,17 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
           <PipelineStep
             number={2}
             label="Em revisao"
-            count={operationsSummary.reviewRequired}
-            isBottleneck={pipelineBottleneck === 'review_required'}
-            active={opsFilters.chargeStatus === 'review_required' && !reconciliationFilter}
-            onClick={() => handlePipelineStep('review_required')}
+            count={operationsSummary.reviewPending}
+            isBottleneck={pipelineBottleneck === 'review'}
+            active={reviewFilter}
+            onClick={() => handlePipelineStep('review')}
           />
           <PipelineStep
             number={3}
             label="Pronto faturar"
             count={operationsSummary.ready}
             isBottleneck={pipelineBottleneck === 'ready_for_billing'}
-            active={opsFilters.chargeStatus === 'ready_for_billing' && !reconciliationFilter}
+            active={opsFilters.chargeStatus === 'ready_for_billing' && !reconciliationFilter && !reviewFilter}
             onClick={() => handlePipelineStep('ready_for_billing')}
           />
         </div>
@@ -719,29 +731,6 @@ function renderReconciliationStatus(status: string | null) {
   if (status === 'matched_name') return <Badge tone="yellow">Match nome</Badge>
   if (status === 'rejected') return <Badge tone="red">Rejeitado</Badge>
   return <Badge tone="yellow">Pendente</Badge>
-}
-
-function getBillingBlockReason(row: {
-  charge_status: string | null
-  financial_status: string | null
-  billing_hold_reason: string | null
-  customer_reconciliation_status: string | null
-  customer_reconciliation_notes: string | null
-  charge_exemption_reason: string | null
-  customer?: { id: number | null } | null
-  totals: { total_brl: number; line_count: number; review_required_count: number }
-}) {
-  if (row.financial_status === 'invoiced') return 'Fatura ja emitida.'
-  if (row.billing_hold_reason) return row.billing_hold_reason
-  if (!row.customer?.id) return 'Cliente nao vinculado.'
-  if (!isCustomerReconciliationResolved(row.customer_reconciliation_status)) {
-    return row.customer_reconciliation_notes ?? 'Conciliação de cliente pendente.'
-  }
-  if (row.charge_status === 'exempt') return row.charge_exemption_reason ?? 'B/L isento de taxas locais.'
-  if (row.totals.review_required_count > 0) return 'Ha linhas de taxa com revisao pendente.'
-  if (row.totals.line_count === 0 || Number(row.totals.total_brl ?? 0) <= 0) return 'Sem linhas de taxa calculadas.'
-  if (row.charge_status !== 'ready_for_billing') return 'Ainda nao marcado como pronto para faturar.'
-  return 'Pronto para emissao individual.'
 }
 
 function renderDetectionType(type: string | null) {

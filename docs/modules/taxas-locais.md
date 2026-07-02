@@ -64,6 +64,11 @@ Os formulários e defaults vivem em
   `src/services/reviewBillingAutomation.ts` recalculam após a revisão.
 - `src/components/billing/ValidacaoTab.tsx`, em `/faturamento`, lista a fila
   operacional, executa ações em lote, resolve reconciliações e emite invoices.
+  O passo "Em revisão" do funil conta todo B/L já conciliado que ainda não é
+  faturável (`isPendingBillingReview` em `validacaoPipeline.ts`), incluindo os
+  presos no gate de revisão (`review_status = pending_review`), e o motivo de
+  bloqueio expõe a pendência canônica (ex.: portal não provisionado) via
+  `extractReviewReasons`.
 - `src/components/billing/PendenciasFaturamentoTab.tsx` recalcula toda a lista
   visível em `review_required`.
 
