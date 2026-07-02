@@ -107,6 +107,10 @@ export function MercanteEdiModal({
   const polName = voyage.pol?.name ?? polCode
   const podName = voyage.pod?.name ?? podCode
 
+  // Frete & Despesas só existem no B/L (bl_freight_lines). Sem elas, o C5 sai com
+  // frete zerado e o Mercante pode rejeitar — avisa antes de gerar (#309).
+  const blsWithoutFreight = bls.filter((bl) => !(bl.bl_freight_lines?.length))
+
   function resetState() {
     setShippingCompany('CN001321')
     setAgencyCnpj('06352972000121')
@@ -228,6 +232,14 @@ export function MercanteEdiModal({
             />
           </Field>
         </div>
+
+        {blsWithoutFreight.length ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <strong>{blsWithoutFreight.length}</strong> de {bls.length} B/L(s) sem Frete &amp; Despesas: o EDI sairá com
+            frete <strong>zerado</strong> nesses conhecimentos e o Mercante pode rejeitar. Importe o B/L (arquivo COSCO)
+            antes de gerar, ou gere ciente da lacuna.
+          </div>
+        ) : null}
 
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={handleClose}>
