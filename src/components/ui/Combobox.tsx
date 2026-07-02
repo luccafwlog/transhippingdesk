@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export type ComboOption = {
   value: string
@@ -50,7 +51,20 @@ export function Combobox({
   const onValueChangeRef = useRef(onValueChange)
   const fetchOptionsRef = useRef(fetchOptions)
   const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLUListElement>(null)
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({})
   const listId = useId()
+
+  // Posiciona o dropdown em coordenadas de viewport (position: fixed) a partir do
+  // input, para renderizá-lo num portal no body e escapar de `overflow:hidden` e
+  // da sobreposição pelo card seguinte (#318).
+  const updateMenuPosition = useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setMenuStyle({ position: 'fixed', top: rect.bottom, left: rect.left, width: rect.width, zIndex: 9999 })
+  }, [])
 
   useEffect(() => {
     onValueChangeRef.current = onValueChange
@@ -84,15 +98,30 @@ export function Combobox({
     return () => window.clearTimeout(handle)
   }, [disabled, text, minChars, touched, refreshKey])
 
-  // Fecha o dropdown ao clicar fora.
+  // Fecha o dropdown ao clicar fora. O menu é portalado no body, então também
+  // conta como "dentro" para não fechar antes do clique numa opção.
   useEffect(() => {
     if (!open) return
     function onPointerDown(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
+      const target = event.target as Node
+      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false)
     }
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [open])
+
+  // Reposiciona o menu enquanto aberto (abertura, mudança de opções, scroll de
+  // qualquer ancestral, resize).
+  useEffect(() => {
+    if (!open) return
+    updateMenuPosition()
+    window.addEventListener('scroll', updateMenuPosition, true)
+    window.addEventListener('resize', updateMenuPosition)
+    return () => {
+      window.removeEventListener('scroll', updateMenuPosition, true)
+      window.removeEventListener('resize', updateMenuPosition)
+    }
+  }, [open, options.length, loading, updateMenuPosition])
 
   function handleSelect(option: ComboOption) {
     justSelectedRef.current = true
@@ -125,6 +154,7 @@ export function Combobox({
     <div className="app-field" ref={containerRef} style={{ position: 'relative' }}>
       <span className="app-field__label">{label}</span>
       <input
+        ref={inputRef}
         className="app-input app-input--full"
         role="combobox"
         aria-expanded={open}
@@ -146,11 +176,14 @@ export function Combobox({
         }}
         onKeyDown={handleKeyDown}
       />
-      {open && !disabled && (text.trim().length >= minChars) ? (
+      {open && !disabled && (text.trim().length >= minChars)
+        ? createPortal(
         <ul
           id={listId}
+          ref={menuRef}
           role="listbox"
           className="app-combobox__list"
+          style={menuStyle}
         >
           {loading ? (
             <li className="app-combobox__empty">Buscando…</li>
@@ -174,8 +207,10 @@ export function Combobox({
               </li>
             ))
           )}
-        </ul>
-      ) : null}
+        </ul>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }
