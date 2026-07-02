@@ -53,7 +53,7 @@ describe('reconcileBaplieWithManifest', () => {
     mockFrom.mockReset()
   })
 
-  it('nao gera divergencia para OOG', async () => {
+  it('gera divergencia de OOG entre Baplie e manifesto', async () => {
     installReconcileMocks({
       bls: [{ id: 'BL1' }],
       baplie: [
@@ -81,7 +81,14 @@ describe('reconcileBaplieWithManifest', () => {
       ],
     })
 
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [] })
+    const result = await reconcileBaplieWithManifest(1)
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]).toMatchObject({
+      kind: 'attribute_divergence',
+      container_number: 'ABCD1234567',
+      divergences: [{ field: 'is_oog', baplie_value: true, manifest_value: false }],
+    })
   })
 
   it('ignora divergencia IMO ja resolvida mantendo manifesto para a combinacao exata de valores', async () => {

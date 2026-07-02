@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import type { BLContainer, BaplieContainer as BaplieContainerRow } from '../types/database'
 
 export type AttributeDivergence = {
-  field: 'is_imo' | 'imo_class' | 'un_number'
+  field: 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'
   baplie_value: string | boolean | null
   manifest_value: string | boolean | null
 }
@@ -56,13 +56,13 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
 
   const blIds = (blRows ?? []).map((b) => b.id)
 
-  const blContainers: Pick<BLContainer, 'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number'>[] = []
+  const blContainers: Pick<BLContainer, 'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'>[] = []
   if (blIds.length) {
     let fromC = 0
     while (true) {
       const { data, error } = await supabase
         .from('bl_containers')
-        .select('id, bl_id, container_number, is_imo, imo_class, un_number')
+        .select('id, bl_id, container_number, is_imo, imo_class, un_number, is_oog')
         .in('bl_id', blIds)
         .range(fromC, fromC + PAGE - 1)
       if (error) throw error
@@ -126,6 +126,12 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
         manifest_value: mc.un_number,
       }, Boolean(baplieC.is_imo) && normalizeVal(baplieC.un_number) !== normalizeVal(mc.un_number))
 
+      addDivergenceIfOpen(divergences, manifestResolutionKeys, mc.id, {
+        field: 'is_oog',
+        baplie_value: baplieC.is_oog,
+        manifest_value: Boolean(mc.is_oog),
+      }, Boolean(baplieC.is_oog) !== Boolean(mc.is_oog))
+
       if (divergences.length > 0) {
         items.push({
           kind: 'attribute_divergence',
@@ -153,6 +159,7 @@ export async function applyBaplieAttribute(
   if (field === 'is_imo') update.is_imo = value as boolean
   else if (field === 'imo_class') update.imo_class = value as string | null
   else if (field === 'un_number') update.un_number = value as string | null
+  else if (field === 'is_oog') update.is_oog = value as boolean
 
   const { error } = await supabase.from('bl_containers').update(update).eq('id', blContainerId)
   if (error) throw error

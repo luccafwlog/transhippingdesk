@@ -220,7 +220,10 @@ export function Baplie() {
               voyageId={Number(voyageId)}
               items={reconciliationData.items}
               actorId={user?.id ?? null}
-              onApplied={() => queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })}
+              onApplied={() => {
+                queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
+                queryClient.invalidateQueries({ queryKey: ['voyages'] })
+              }}
             />
           ) : stateC && !reconciliationData ? (
             <Card className="mb-5">
@@ -563,7 +566,7 @@ function ReconciliacaoSection({
               loading={applying === 'bulk-accept'}
               onClick={() => handleBulk(divergenceRows, 'accept')}
             >
-              Aplicar Baplie a todos IMO
+              Aplicar Baplie a todos
             </Button>
             <Button
               variant="ghost"
@@ -571,7 +574,7 @@ function ReconciliacaoSection({
               loading={applying === 'bulk-keep'}
               onClick={() => handleBulk(divergenceRows, 'keep')}
             >
-              Manter Manifesto em todos IMO
+              Manter Manifesto em todos
             </Button>
           </div>
           <div className="overflow-auto rounded-xl border border-[#30363d]">
@@ -583,7 +586,7 @@ function ReconciliacaoSection({
                       type="checkbox"
                       checked={divergenceRows.length > 0 && selectedRows.length === divergenceRows.length}
                       onChange={(event) => toggleAllSelected(event.target.checked)}
-                      aria-label="Selecionar divergencias IMO"
+                      aria-label="Selecionar todas as divergencias"
                       className="accent-blue-500"
                     />
                   </th>
@@ -876,6 +879,7 @@ function fieldLabel(field: AttributeDivergence['field']): string {
     case 'is_imo': return 'IMO'
     case 'imo_class': return 'Classe IMO'
     case 'un_number': return 'No. ONU'
+    case 'is_oog': return 'OOG'
   }
 }
 
