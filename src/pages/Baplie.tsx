@@ -16,10 +16,8 @@ import { parseBaplieFile } from '../services/baplieParser'
 import { importBaplieStaging } from '../services/baplieImport'
 import {
   reconcileBaplieWithManifest,
-  applyBaplieAttribute,
-  keepManifestAttribute,
+  applyBapliePhysicalFlags,
   type BaplieReconciliationItem,
-  type AttributeDivergence,
 } from '../services/baplieReconciliation'
 import {
   importVaziosFromBaplie,
@@ -215,15 +213,7 @@ export function Baplie() {
           ) : null}
 
           {stateC && reconciliationData ? (
-            <ReconciliacaoSection
-              voyageId={Number(voyageId)}
-              items={reconciliationData.items}
-              actorId={user?.id ?? null}
-              onApplied={() => {
-                queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
-                queryClient.invalidateQueries({ queryKey: ['voyages'] })
-              }}
-            />
+            <ReconciliacaoSection items={reconciliationData.items} />
           ) : stateC && !reconciliationData ? (
             <Card className="mb-5">
               <div className="py-4 text-center text-sm text-slate-400">Carregando divergencias...</div>
@@ -250,9 +240,22 @@ export function Baplie() {
       <BaplieUploadModal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
-        onImported={() => {
-          queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
-          queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
+        onImported={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
+          // Baplie soberano: aplica automaticamente as flags físicas (IMO/OOG) aos
+          // bl_containers da viagem, para contagem e EDI refletirem o Baplie (#306).
+          if (voyageId && user) {
+            try {
+              const applied = await applyBapliePhysicalFlags(Number(voyageId), user.id)
+              if (applied > 0) {
+                await queryClient.invalidateQueries({ queryKey: ['containers'] })
+                await queryClient.invalidateQueries({ queryKey: ['voyages'] })
+              }
+            } catch {
+              showToast('Baplie importado, mas falha ao aplicar flags físicas ao B/L.', 'error')
+            }
+          }
+          await queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
         }}
         initialVoyageId={voyageId}
       />
@@ -372,126 +375,20 @@ function VaziosSection({
   )
 }
 
-function ReconciliacaoSection({
-  voyageId,
-  items,
-  actorId,
-  onApplied,
-}: {
-  voyageId: number
-  items: BaplieReconciliationItem[]
-  actorId: string | null
-  onApplied: () => void
-}) {
-  const { showToast } = useToast()
-  const [applying, setApplying] = useState<string | null>(null)
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
-
+function ReconciliacaoSection({ items }: { items: BaplieReconciliationItem[] }) {
   const missing = items.filter(
     (item): item is Extract<BaplieReconciliationItem, { kind: 'missing_in_manifest' }> =>
       item.kind === 'missing_in_manifest',
   )
-  const divergent = items.filter(
-    (item): item is Extract<BaplieReconciliationItem, { kind: 'attribute_divergence' }> =>
-      item.kind === 'attribute_divergence',
+  const missingInBaplie = items.filter(
+    (item): item is Extract<BaplieReconciliationItem, { kind: 'missing_in_baplie' }> =>
+      item.kind === 'missing_in_baplie',
   )
-  const divergenceRows = divergent.flatMap((item) =>
-    item.divergences.map((divergence) => ({
-      key: `${item.bl_container_id}-${divergence.field}`,
-      item,
-      divergence,
-    })),
-  )
-  const selectedRows = divergenceRows.filter((row) => selectedKeys.has(row.key))
-
-  function toggleSelected(key: string) {
-    setSelectedKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
-
-  function toggleAllSelected(checked: boolean) {
-    setSelectedKeys(checked ? new Set(divergenceRows.map((row) => row.key)) : new Set())
-  }
-
-  async function handleAccept(blContainerId: number, field: AttributeDivergence['field'], value: string | boolean | null) {
-    const key = `${blContainerId}-${field}`
-    setApplying(key)
-    try {
-      await applyBaplieAttribute(blContainerId, field, value, actorId)
-      showToast(`Campo "${fieldLabel(field)}" atualizado com valor do Baplie.`, 'success')
-      onApplied()
-    } catch {
-      showToast('Falha ao aplicar valor do Baplie.', 'error')
-    } finally {
-      setApplying(null)
-    }
-  }
-
-  async function handleKeep(
-    blContainerId: number,
-    field: AttributeDivergence['field'],
-    baplieValue: string | boolean | null,
-    manifestValue: string | boolean | null,
-  ) {
-    const key = `${blContainerId}-${field}`
-    setApplying(key)
-    try {
-      await keepManifestAttribute({ voyageId, blContainerId, field, baplieValue, manifestValue, actorId })
-      showToast(`Campo "${fieldLabel(field)}" mantido com valor do Manifesto.`, 'success')
-      setSelectedKeys((prev) => {
-        const next = new Set(prev)
-        next.delete(key)
-        return next
-      })
-      onApplied()
-    } catch {
-      showToast('Falha ao manter valor do Manifesto.', 'error')
-    } finally {
-      setApplying(null)
-    }
-  }
-
-  async function handleBulk(rows: typeof divergenceRows, action: 'accept' | 'keep') {
-    if (!rows.length) return
-    setApplying(`bulk-${action}`)
-    try {
-      for (const row of rows) {
-        if (action === 'accept') {
-          await applyBaplieAttribute(
-            row.item.bl_container_id,
-            row.divergence.field,
-            row.divergence.baplie_value,
-            actorId,
-          )
-        } else {
-          await keepManifestAttribute({
-            voyageId,
-            blContainerId: row.item.bl_container_id,
-            field: row.divergence.field,
-            baplieValue: row.divergence.baplie_value,
-            manifestValue: row.divergence.manifest_value,
-            actorId,
-          })
-        }
-      }
-      showToast(`${rows.length} divergencia(s) ${action === 'accept' ? 'atualizada(s) pelo Baplie' : 'mantida(s) pelo Manifesto'}.`, 'success')
-      setSelectedKeys(new Set())
-      onApplied()
-    } catch {
-      showToast('Falha ao aplicar ação em lote.', 'error')
-    } finally {
-      setApplying(null)
-    }
-  }
 
   if (!items.length) {
     return (
       <Card className="mb-5">
-        <div className="py-4 text-center text-sm text-emerald-400">Nenhuma divergencia entre Baplie e manifesto.</div>
+        <div className="py-4 text-center text-sm text-emerald-400">Sem divergências de existência entre Baplie e B/Ls. Flags físicas (IMO/OOG) do Baplie aplicadas automaticamente.</div>
       </Card>
     )
   }
@@ -500,18 +397,18 @@ function ReconciliacaoSection({
     <Card className="mb-5 overflow-hidden p-0">
       <div className="border-b border-[#30363d] px-4 py-3">
         <div className="text-sm font-semibold text-white">
-          Divergencias Baplie x Manifesto
+          Divergências de existência Baplie × B/L
           <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-normal text-amber-400">
             {items.length}
           </span>
         </div>
-        <div className="text-xs text-slate-500 mt-0.5">Revise e aceite os valores do Baplie para atualizar o manifesto.</div>
+        <div className="text-xs text-slate-500 mt-0.5">Baplie é soberano nas flags físicas (IMO/OOG) e já foram aplicadas ao B/L. Aqui só aparecem containers presentes em uma fonte e ausentes na outra.</div>
       </div>
 
       {missing.length > 0 ? (
         <div className="border-b border-[#30363d] p-4">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
-            Containers no Baplie sem B/L no manifesto ({missing.length})
+            Containers no Baplie sem B/L ({missing.length})
           </div>
           <div className="overflow-auto rounded-xl border border-[#30363d]">
             <table className="app-table app-table--compact min-w-[400px] text-left text-sm">
@@ -537,106 +434,30 @@ function ReconciliacaoSection({
         </div>
       ) : null}
 
-      {divergent.length > 0 ? (
+      {missingInBaplie.length > 0 ? (
         <div className="p-4">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-400">
-            Divergencias de atributos ({divergent.length})
-          </div>
-          <div className="mb-3 flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              disabled={!selectedRows.length}
-              loading={applying === 'bulk-accept'}
-              onClick={() => handleBulk(selectedRows, 'accept')}
-            >
-              Aplicar Baplie aos selecionados
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={!selectedRows.length}
-              loading={applying === 'bulk-keep'}
-              onClick={() => handleBulk(selectedRows, 'keep')}
-            >
-              Manter Manifesto nos selecionados
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={!divergenceRows.length}
-              loading={applying === 'bulk-accept'}
-              onClick={() => handleBulk(divergenceRows, 'accept')}
-            >
-              Aplicar Baplie a todos
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={!divergenceRows.length}
-              loading={applying === 'bulk-keep'}
-              onClick={() => handleBulk(divergenceRows, 'keep')}
-            >
-              Manter Manifesto em todos
-            </Button>
+            Containers em B/L ausentes do Baplie ({missingInBaplie.length})
           </div>
           <div className="overflow-auto rounded-xl border border-[#30363d]">
-            <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+            <table className="app-table app-table--compact min-w-[400px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                 <tr>
-                  <th scope="col" className="px-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={divergenceRows.length > 0 && selectedRows.length === divergenceRows.length}
-                      onChange={(event) => toggleAllSelected(event.target.checked)}
-                      aria-label="Selecionar todas as divergencias"
-                      className="accent-blue-500"
-                    />
-                  </th>
                   <th scope="col" className="px-3 py-2">Container</th>
                   <th scope="col" className="px-3 py-2">B/L</th>
-                  <th scope="col" className="px-3 py-2">Campo</th>
-                  <th scope="col" className="px-3 py-2">Baplie</th>
-                  <th scope="col" className="px-3 py-2">Manifesto</th>
-                  <th scope="col" className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]">
-                {divergenceRows.map(({ key, item, divergence: div }) => {
-                    return (
-                      <tr key={key}>
-                        <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedKeys.has(key)}
-                            onChange={() => toggleSelected(key)}
-                            aria-label={`Selecionar ${item.container_number} ${fieldLabel(div.field)}`}
-                            className="accent-blue-500"
-                          />
-                        </td>
-                        <td className="px-3 py-2 font-semibold text-white">{item.container_number}</td>
-                        <td className="px-3 py-2">{item.bl_number ?? '-'}</td>
-                        <td className="px-3 py-2">{fieldLabel(div.field)}</td>
-                        <td className="px-3 py-2 text-amber-300">{formatDivergenceValue(div.baplie_value)}</td>
-                        <td className="px-3 py-2">{formatDivergenceValue(div.manifest_value)}</td>
-                        <td className="px-3 py-2">
-                          <Button
-                            variant="ghost"
-                            loading={applying === key}
-                            onClick={() => handleAccept(item.bl_container_id, div.field, div.baplie_value)}
-                          >
-                            Aceitar Baplie
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            loading={applying === key}
-                            onClick={() => handleKeep(item.bl_container_id, div.field, div.baplie_value, div.manifest_value)}
-                          >
-                            Manter Manifesto
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                {missingInBaplie.map((item) => (
+                  <tr key={item.container_number}>
+                    <td className="px-3 py-2 font-semibold text-white">{item.container_number}</td>
+                    <td className="px-3 py-2">{item.bl_number ?? '-'}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
+          <p className="mt-1 text-xs text-slate-500">Ação: conferir se o container foi embarcado / atualizar o Baplie.</p>
         </div>
       ) : null}
     </Card>
@@ -871,19 +692,4 @@ function BaplieUploadModal({
       </div>
     </Modal>
   )
-}
-
-function fieldLabel(field: AttributeDivergence['field']): string {
-  switch (field) {
-    case 'is_imo': return 'IMO'
-    case 'imo_class': return 'Classe IMO'
-    case 'un_number': return 'No. ONU'
-    case 'is_oog': return 'OOG'
-  }
-}
-
-function formatDivergenceValue(v: string | boolean | null): string {
-  if (v === null || v === undefined) return '-'
-  if (typeof v === 'boolean') return v ? 'Sim' : 'Nao'
-  return String(v)
 }

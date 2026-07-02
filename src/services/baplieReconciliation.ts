@@ -1,12 +1,11 @@
 import { supabase } from './supabase'
 import type { BLContainer, BaplieContainer as BaplieContainerRow } from '../types/database'
 
-export type AttributeDivergence = {
-  field: 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'
-  baplie_value: string | boolean | null
-  manifest_value: string | boolean | null
-}
-
+// Baplie/EDI é soberano para as flags físicas (is_imo, imo_class, un_number,
+// is_oog) — CONTEXT.md. Portanto a conciliação NÃO aponta divergência de
+// atributo: o valor do Baplie é aplicado automaticamente ao B/L. A única
+// divergência apontada é de EXISTÊNCIA: container no Baplie e em nenhum B/L, ou
+// em B/L e ausente do Baplie (#306).
 export type BaplieReconciliationItem =
   | {
       kind: 'missing_in_manifest'
@@ -15,27 +14,128 @@ export type BaplieReconciliationItem =
       slot: string | null
     }
   | {
-      kind: 'attribute_divergence'
+      kind: 'missing_in_baplie'
       container_number: string
       bl_container_id: number
       bl_number: string | null
-      baplie_bl_ref: string | null
-      divergences: AttributeDivergence[]
     }
 
 export type BaplieReconciliationResult = {
   items: BaplieReconciliationItem[]
 }
 
-export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
-  const { data: blRows, error: blError } = await supabase
-    .from('bls')
-    .select('id')
-    .eq('voyage_id', voyageId)
+type BlContainerPhysical = Pick<
+  BLContainer,
+  'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'
+>
+
+export type BapliePhysicalUpdate = {
+  bl_container_id: number
+  is_imo: boolean
+  imo_class: string | null
+  un_number: string | null
+  is_oog: boolean
+}
+
+/** Divergências de existência (pura, testável) — as duas direções. */
+export function computeExistenceDivergences(
+  staged: BaplieContainerRow[],
+  blContainers: BlContainerPhysical[],
+): BaplieReconciliationItem[] {
+  const items: BaplieReconciliationItem[] = []
+
+  const blByNumber = new Map<string, BlContainerPhysical[]>()
+  for (const c of blContainers) {
+    const key = normalizeContainerNumber(c.container_number)
+    const list = blByNumber.get(key) ?? []
+    list.push(c)
+    blByNumber.set(key, list)
+  }
+
+  const baplieFullNumbers = new Set<string>()
+  for (const b of staged) {
+    if (b.status === 'empty') continue
+    baplieFullNumbers.add(normalizeContainerNumber(b.container_number))
+  }
+
+  // Container no Baplie (full) e em nenhum B/L.
+  for (const b of staged) {
+    if (b.status === 'empty') continue
+    const key = normalizeContainerNumber(b.container_number)
+    if (!blByNumber.has(key)) {
+      items.push({
+        kind: 'missing_in_manifest',
+        container_number: b.container_number,
+        baplie_bl_ref: b.bl_ref,
+        slot: b.slot,
+      })
+    }
+  }
+
+  // Container em B/L e ausente do Baplie (full).
+  for (const mc of blContainers) {
+    const key = normalizeContainerNumber(mc.container_number)
+    if (!baplieFullNumbers.has(key)) {
+      items.push({
+        kind: 'missing_in_baplie',
+        container_number: mc.container_number,
+        bl_container_id: mc.id,
+        bl_number: (mc.bl_id as string) ?? null,
+      })
+    }
+  }
+
+  return items
+}
+
+/**
+ * Flags físicas do Baplie que devem sobrescrever o B/L (pura, testável). Para
+ * cada container full do Baplie que casa com exatamente um bl_container, se
+ * qualquer flag física diferir, produz um update com os valores do Baplie.
+ * Quando o Baplie não é IMO, zera classe/ONU.
+ */
+export function computeBapliePhysicalUpdates(
+  staged: BaplieContainerRow[],
+  blContainers: BlContainerPhysical[],
+): BapliePhysicalUpdate[] {
+  const blByNumber = new Map<string, BlContainerPhysical[]>()
+  for (const c of blContainers) {
+    const key = normalizeContainerNumber(c.container_number)
+    const list = blByNumber.get(key) ?? []
+    list.push(c)
+    blByNumber.set(key, list)
+  }
+
+  const updates: BapliePhysicalUpdate[] = []
+  for (const b of staged) {
+    if (b.status === 'empty') continue
+    const matches = blByNumber.get(normalizeContainerNumber(b.container_number))
+    if (!matches || matches.length !== 1) continue
+    const mc = matches[0]
+
+    const isImo = Boolean(b.is_imo)
+    const imoClass = isImo ? (b.imo_class ?? null) : null
+    const unNumber = isImo ? (b.un_number ?? null) : null
+    const isOog = Boolean(b.is_oog)
+
+    const differs =
+      isImo !== Boolean(mc.is_imo) ||
+      isOog !== Boolean(mc.is_oog) ||
+      normalizeVal(imoClass) !== normalizeVal(mc.imo_class) ||
+      normalizeVal(unNumber) !== normalizeVal(mc.un_number)
+
+    if (differs) {
+      updates.push({ bl_container_id: mc.id, is_imo: isImo, imo_class: imoClass, un_number: unNumber, is_oog: isOog })
+    }
+  }
+  return updates
+}
+
+async function fetchStagingAndBlContainers(voyageId: number) {
+  const { data: blRows, error: blError } = await supabase.from('bls').select('id').eq('voyage_id', voyageId)
   if (blError) throw blError
 
   const PAGE = 1000
-
   const staged: BaplieContainerRow[] = []
   let from = 0
   while (true) {
@@ -50,13 +150,8 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
     from += PAGE
   }
 
-  const dedupedStaged = dedupeBaplieContainers(staged)
-
-  if (!dedupedStaged.length) return { items: [] }
-
   const blIds = (blRows ?? []).map((b) => b.id)
-
-  const blContainers: Pick<BLContainer, 'id' | 'bl_id' | 'container_number' | 'is_imo' | 'imo_class' | 'un_number' | 'is_oog'>[] = []
+  const blContainers: BlContainerPhysical[] = []
   if (blIds.length) {
     let fromC = 0
     while (true) {
@@ -66,159 +161,60 @@ export async function reconcileBaplieWithManifest(voyageId: number): Promise<Bap
         .in('bl_id', blIds)
         .range(fromC, fromC + PAGE - 1)
       if (error) throw error
-      blContainers.push(...((data ?? []) as typeof blContainers))
+      blContainers.push(...((data ?? []) as BlContainerPhysical[]))
       if (!data || data.length < PAGE) break
       fromC += PAGE
     }
   }
 
-  const manifestResolutionKeys = await fetchManifestResolutionKeys(
-    voyageId,
-    blContainers.map((container) => container.id),
-  )
+  return { staged: dedupeBaplieContainers(staged), blContainers }
+}
 
-  const manifestByNumber = new Map<string, NonNullable<typeof blContainers>>()
-  for (const c of blContainers ?? []) {
-    const key = normalizeContainerNumber(c.container_number)
-    const list = manifestByNumber.get(key) ?? []
-    list.push(c)
-    manifestByNumber.set(key, list)
-  }
+export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
+  const { staged, blContainers } = await fetchStagingAndBlContainers(voyageId)
+  if (!staged.length) return { items: [] }
+  return { items: computeExistenceDivergences(staged, blContainers) }
+}
 
-  const items: BaplieReconciliationItem[] = []
+/**
+ * Aplica as flags físicas do Baplie (soberano) aos bl_containers da viagem, com
+ * auditoria. Idempotente: só grava onde há diferença. Retorna quantos containers
+ * foram atualizados.
+ */
+export async function applyBapliePhysicalFlags(voyageId: number, actorId: string | null): Promise<number> {
+  const { staged, blContainers } = await fetchStagingAndBlContainers(voyageId)
+  const updates = computeBapliePhysicalUpdates(staged, blContainers)
 
-  for (const baplieC of dedupedStaged) {
-    if (baplieC.status === 'empty') continue
-
-    const key = normalizeContainerNumber(baplieC.container_number)
-    const matches = manifestByNumber.get(key)
-
-    if (!matches?.length) {
-      items.push({
-        kind: 'missing_in_manifest',
-        container_number: baplieC.container_number,
-        baplie_bl_ref: baplieC.bl_ref,
-        slot: baplieC.slot,
+  for (const update of updates) {
+    const { error } = await supabase
+      .from('bl_containers')
+      .update({
+        is_imo: update.is_imo,
+        imo_class: update.imo_class,
+        un_number: update.un_number,
+        is_oog: update.is_oog,
       })
-      continue
-    }
+      .eq('id', update.bl_container_id)
+    if (error) throw error
 
-    if (matches.length > 1) continue
-
-    for (const mc of matches) {
-      const divergences: AttributeDivergence[] = []
-
-      addDivergenceIfOpen(divergences, manifestResolutionKeys, mc.id, {
-        field: 'is_imo',
-        baplie_value: baplieC.is_imo,
-        manifest_value: Boolean(mc.is_imo),
-      }, Boolean(baplieC.is_imo) !== Boolean(mc.is_imo))
-
-      addDivergenceIfOpen(divergences, manifestResolutionKeys, mc.id, {
-        field: 'imo_class',
-        baplie_value: baplieC.imo_class,
-        manifest_value: mc.imo_class,
-      }, Boolean(baplieC.is_imo) && normalizeVal(baplieC.imo_class) !== normalizeVal(mc.imo_class))
-
-      addDivergenceIfOpen(divergences, manifestResolutionKeys, mc.id, {
-        field: 'un_number',
-        baplie_value: baplieC.un_number,
-        manifest_value: mc.un_number,
-      }, Boolean(baplieC.is_imo) && normalizeVal(baplieC.un_number) !== normalizeVal(mc.un_number))
-
-      addDivergenceIfOpen(divergences, manifestResolutionKeys, mc.id, {
-        field: 'is_oog',
-        baplie_value: baplieC.is_oog,
-        manifest_value: Boolean(mc.is_oog),
-      }, Boolean(baplieC.is_oog) !== Boolean(mc.is_oog))
-
-      if (divergences.length > 0) {
-        items.push({
-          kind: 'attribute_divergence',
-          container_number: baplieC.container_number,
-          bl_container_id: mc.id,
-          bl_number: mc.bl_id as string,
-          baplie_bl_ref: baplieC.bl_ref,
-          divergences,
-        })
-      }
-    }
-  }
-
-  return { items }
-}
-
-export async function applyBaplieAttribute(
-  blContainerId: number,
-  field: AttributeDivergence['field'],
-  value: string | boolean | null,
-  actorId: string | null,
-): Promise<void> {
-  const update: Partial<BLContainer> = {}
-
-  if (field === 'is_imo') update.is_imo = value as boolean
-  else if (field === 'imo_class') update.imo_class = value as string | null
-  else if (field === 'un_number') update.un_number = value as string | null
-  else if (field === 'is_oog') update.is_oog = value as boolean
-
-  const { error } = await supabase.from('bl_containers').update(update).eq('id', blContainerId)
-  if (error) throw error
-
-  await supabase.from('audit_logs').insert({
-    entity_type: 'bl_container',
-    entity_id: String(blContainerId),
-    field_name: field,
-    old_value: null,
-    new_value: String(value),
-    changed_by: actorId,
-    changed_at: new Date().toISOString(),
-    justification: 'Operador aceitou valor do Baplie via modal de reconciliacao',
-  })
-}
-
-export async function keepManifestAttribute({
-  voyageId,
-  blContainerId,
-  field,
-  baplieValue,
-  manifestValue,
-  actorId,
-}: {
-  voyageId: number
-  blContainerId: number
-  field: AttributeDivergence['field']
-  baplieValue: string | boolean | null
-  manifestValue: string | boolean | null
-  actorId: string | null
-}): Promise<void> {
-  const payload = {
-    voyage_id: voyageId,
-    bl_container_id: blContainerId,
-    field_name: field,
-    baplie_value: serializeResolutionValue(baplieValue),
-    manifest_value: serializeResolutionValue(manifestValue),
-    resolution: 'manifest',
-    resolved_by: actorId,
-  }
-
-  const { error } = await supabase
-    .from('baplie_reconciliation_resolutions' as never)
-    .upsert(payload as never, {
-      onConflict: 'voyage_id,bl_container_id,field_name,baplie_value,manifest_value,resolution',
+    await supabase.from('audit_logs').insert({
+      entity_type: 'bl_container',
+      entity_id: String(update.bl_container_id),
+      field_name: 'baplie_physical_flags',
+      old_value: null,
+      new_value: JSON.stringify({
+        is_imo: update.is_imo,
+        imo_class: update.imo_class,
+        un_number: update.un_number,
+        is_oog: update.is_oog,
+      }),
+      changed_by: actorId,
+      changed_at: new Date().toISOString(),
+      justification: 'Baplie soberano: flags físicas aplicadas automaticamente',
     })
-  if (error) throw error
+  }
 
-  const { error: auditError } = await supabase.from('audit_logs').insert({
-    entity_type: 'bl_container',
-    entity_id: String(blContainerId),
-    field_name: field,
-    old_value: payload.baplie_value,
-    new_value: payload.manifest_value,
-    changed_by: actorId,
-    changed_at: new Date().toISOString(),
-    justification: 'Operador manteve valor do Manifesto via reconciliacao Baplie',
-  })
-  if (auditError) throw auditError
+  return updates.length
 }
 
 function normalizeVal(v: string | null | undefined) {
@@ -248,60 +244,8 @@ function dedupeBaplieContainers(rows: BaplieContainerRow[]) {
     existing.is_imo = Boolean(existing.is_imo || row.is_imo)
     existing.imo_class = row.imo_class ?? existing.imo_class
     existing.un_number = row.un_number ?? existing.un_number
+    existing.is_oog = Boolean(existing.is_oog || row.is_oog)
   }
 
   return Array.from(byNumber.values())
-}
-
-async function fetchManifestResolutionKeys(voyageId: number, blContainerIds: number[]) {
-  if (!blContainerIds.length) return new Set<string>()
-
-  const { data, error } = await supabase
-    .from('baplie_reconciliation_resolutions' as never)
-    .select('bl_container_id, field_name, baplie_value, manifest_value')
-    .eq('voyage_id', voyageId)
-    .eq('resolution', 'manifest')
-    .in('bl_container_id', blContainerIds)
-  if (error) throw error
-
-  return new Set(
-    ((data ?? []) as Array<{
-      bl_container_id: number
-      field_name: AttributeDivergence['field']
-      baplie_value: string
-      manifest_value: string
-    }>).map((row) =>
-      makeResolutionKey(row.bl_container_id, row.field_name, row.baplie_value, row.manifest_value),
-    ),
-  )
-}
-
-function addDivergenceIfOpen(
-  divergences: AttributeDivergence[],
-  manifestResolutionKeys: Set<string>,
-  blContainerId: number,
-  divergence: AttributeDivergence,
-  isDivergent: boolean,
-) {
-  if (!isDivergent) return
-  const key = makeResolutionKey(
-    blContainerId,
-    divergence.field,
-    serializeResolutionValue(divergence.baplie_value),
-    serializeResolutionValue(divergence.manifest_value),
-  )
-  if (!manifestResolutionKeys.has(key)) divergences.push(divergence)
-}
-
-function makeResolutionKey(
-  blContainerId: number,
-  field: AttributeDivergence['field'],
-  baplieValue: string,
-  manifestValue: string,
-) {
-  return `${blContainerId}:${field}:${baplieValue}:${manifestValue}`
-}
-
-function serializeResolutionValue(value: string | boolean | null) {
-  return JSON.stringify(value ?? null)
 }

@@ -185,6 +185,7 @@ export function VoyageManifestosTab({
         open={ediModalOpen}
         onClose={() => setEdiModalOpen(false)}
         voyage={voyage}
+        voyageId={voyage.id}
         bls={ediModalBls}
         prefilledPol={ediModalPol}
         prefilledPod={ediModalPod}
