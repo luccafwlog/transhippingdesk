@@ -20,6 +20,7 @@ import {
   buildVoyagePolEntityId,
   saveVoyagePolSchedule,
   saveVoyagePodSchedule,
+  setVoyageRouteCeMaster,
 } from '../services/voyageRouteSchedules'
 import { saveVoyageExportSchedule } from '../services/voyageExportSchedules'
 import {
@@ -98,7 +99,7 @@ export function Viagens() {
   const voyageIds = useMemo(() => voyages.map((voyage) => voyage.id), [voyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(voyageIds)
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
-  const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, exportSchedulesData } =
+  const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, exportSchedulesData, routeCeMasters } =
     useViagemSchedulesAndStats(voyageIds, polEntityIds)
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
@@ -212,6 +213,7 @@ export function Viagens() {
               voyagesWithUnpaidBls={voyagesWithUnpaidBls}
               podSchedules={podSchedules}
               polSchedules={polSchedules}
+              routeCeMasters={routeCeMasters}
               scheduledPodRows={podSchedulesByVoyage.get(selectedVoyage.id) ?? []}
               exportSchedule={exportSchedulesData?.get(selectedVoyage.id) ?? null}
               onEditVoyage={setEditingVoyageId}
@@ -342,7 +344,7 @@ export function Viagens() {
         open={editingPol !== null}
         polSchedule={editingPol}
         onClose={() => setEditingPol(null)}
-        onSaved={async ({ voyageId, pol, etd, ceMaster, batchIds }) => {
+        onSaved={async ({ voyageId, pol, pod, etd, ceMaster, batchIds }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -355,11 +357,17 @@ export function Viagens() {
               etd,
               changedBy: user.id,
             })
-            // Arquivos do mesmo manifesto compartilham o CE Master.
-            await Promise.all((batchIds ?? []).map((id) => setImportBatchCeMaster(id, ceMaster, user.id)))
+            if (batchIds?.length) {
+              // Arquivos do mesmo manifesto compartilham o CE Master.
+              await Promise.all(batchIds.map((id) => setImportBatchCeMaster(id, ceMaster, user.id)))
+            } else {
+              // Viagem só-B/L: sem batch onde guardar; CE Master fica por rota (#322).
+              await setVoyageRouteCeMaster({ voyageId, pol, pod, ceMaster, changedBy: user.id })
+            }
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
               queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+              queryClient.invalidateQueries({ queryKey: ['voyage-route-ce-masters'] }),
               queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
             ])

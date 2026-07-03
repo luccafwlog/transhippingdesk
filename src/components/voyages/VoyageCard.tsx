@@ -85,6 +85,7 @@ type VoyageCardProps = {
   voyagesWithUnpaidBls: Set<number> | null | undefined
   podSchedules: Map<string, VoyagePodSchedule> | undefined
   polSchedules: Map<string, VoyagePolSchedule> | undefined
+  routeCeMasters: Map<string, string> | undefined
   scheduledPodRows: VoyagePodSchedule[]
   exportSchedule: VoyageExportSchedule | null
   onEditVoyage: (voyageId: number) => void
@@ -102,6 +103,7 @@ export function VoyageCard({
   voyagesWithUnpaidBls,
   podSchedules,
   polSchedules,
+  routeCeMasters,
   scheduledPodRows,
   exportSchedule,
   onEditVoyage,
@@ -318,6 +320,7 @@ export function VoyageCard({
               voyageLabel={voyageLabel}
               importBatches={importBatches}
               polSchedules={polSchedules}
+              routeCeMasters={routeCeMasters}
               divergenceCount={divergenceCount}
               ceCoverage={ceCoverage}
               estadoMeta={estadoMeta}

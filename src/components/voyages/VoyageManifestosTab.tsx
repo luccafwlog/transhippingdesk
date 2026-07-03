@@ -15,6 +15,7 @@ export function VoyageManifestosTab({
   voyageLabel,
   importBatches,
   polSchedules,
+  routeCeMasters,
   divergenceCount,
   ceCoverage,
   estadoMeta,
@@ -24,6 +25,7 @@ export function VoyageManifestosTab({
   voyageLabel: string
   importBatches: VoyageImportBatch[]
   polSchedules: Map<string, VoyagePolSchedule> | undefined
+  routeCeMasters: Map<string, string> | undefined
   divergenceCount: number
   ceCoverage: { filled: number; total: number }
   estadoMeta: EstadoMeta
@@ -39,6 +41,7 @@ export function VoyageManifestosTab({
     batches: importBatches,
     bls: voyage.bls,
     polSchedules,
+    routeCeMasters,
   })
 
   const ediModalBls = useMemo(() => {
@@ -148,13 +151,14 @@ export function VoyageManifestosTab({
                           <Button
                             variant="secondary"
                             className="app-voyage-icon-btn"
-                            aria-label={`${row.batchIds.length ? 'Editar ETD e CE Master' : 'Editar ETD'} de ${row.routeLabel}`}
-                            title={row.batchIds.length ? 'Editar ETD e CE Master' : 'Editar ETD'}
+                            aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
+                            title="Editar ETD e CE Master"
                             onClick={() =>
                               onEditPol({
                                 voyageId: voyage.id,
                                 voyageLabel,
                                 pol: row.pol,
+                                pod: row.pod,
                                 etd: row.etd,
                                 ceMaster: row.ceMaster,
                                 batchIds: row.batchIds,

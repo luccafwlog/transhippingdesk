@@ -26,17 +26,17 @@ export function PolScheduleModal({
     voyageId: number
     voyageLabel: string
     pol: string
+    pod: string
     etd: string | null
     ceMaster: string | null
     batchIds: number[]
   } | null
   onClose: () => void
-  onSaved: (payload: { voyageId: number; pol: string; etd: string | null; ceMaster: string | null; batchIds: number[] }) => Promise<void>
+  onSaved: (payload: { voyageId: number; pol: string; pod: string; etd: string | null; ceMaster: string | null; batchIds: number[] }) => Promise<void>
 }) {
   const [etd, setEtd] = useState('')
   const [ceMaster, setCeMaster] = useState('')
   const [saving, setSaving] = useState(false)
-  const canEditCeMaster = Boolean(polSchedule?.batchIds.length)
 
   // O pai cria um payload novo a cada abertura; re-baseia os campos por
   // identidade do payload, durante o render (sem useEffect).
@@ -44,7 +44,7 @@ export function PolScheduleModal({
   if (open && polSchedule && polSchedule !== prevSchedule) {
     setPrevSchedule(polSchedule)
     setEtd(polSchedule.etd ?? '')
-    setCeMaster(polSchedule.batchIds.length ? polSchedule.ceMaster ?? '' : '')
+    setCeMaster(polSchedule.ceMaster ?? '')
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -56,8 +56,9 @@ export function PolScheduleModal({
       await onSaved({
         voyageId: polSchedule.voyageId,
         pol: polSchedule.pol,
+        pod: polSchedule.pod,
         etd: etd || null,
-        ceMaster: canEditCeMaster ? ceMaster.trim() || null : null,
+        ceMaster: ceMaster.trim() || null,
         batchIds: polSchedule.batchIds,
       })
     } finally {
@@ -66,23 +67,21 @@ export function PolScheduleModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={canEditCeMaster ? 'Editar ETD e CE Master' : 'Editar ETD'}>
+    <Modal open={open} onClose={onClose} title="Editar ETD e CE Master">
       {polSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="app-panel app-panel--padded text-sm">
             <div className="font-semibold text-[var(--app-text-strong)]">{polSchedule.voyageLabel}</div>
-            <div className="mt-1">POL: {polSchedule.pol}</div>
+            <div className="mt-1">Rota: {polSchedule.pol} -&gt; {polSchedule.pod}</div>
           </div>
 
-          <div className={`grid gap-4 ${canEditCeMaster ? 'md:grid-cols-2' : ''}`}>
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="ETD">
               <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
             </Field>
-            {canEditCeMaster ? (
-              <Field label="CE Master">
-                <Input value={ceMaster} onChange={(event) => setCeMaster(event.target.value)} placeholder="Ex.: 25BR00481" />
-              </Field>
-            ) : null}
+            <Field label="CE Master">
+              <Input value={ceMaster} onChange={(event) => setCeMaster(event.target.value)} placeholder="Ex.: 25BR00481" />
+            </Field>
           </div>
 
           <div className="app-modal__actions">

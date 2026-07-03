@@ -369,6 +369,67 @@ export async function deleteVoyagePodSchedule({
   if (error) throw error
 }
 
+/**
+ * CE Master por ROTA (POL/POD), independente de batch de manifesto (#322).
+ * Viagem só-B/L não tem batch onde guardar a CE agrupadora; aqui fica por rota.
+ * A chave do mapa é `${voyageId}::${POL}__${POD}` (portos em maiúsculas).
+ */
+export function buildVoyageRouteCeMasterKey(
+  voyageId: number,
+  pol: string | null | undefined,
+  pod: string | null | undefined,
+) {
+  return `${voyageId}::${normalizeRoutePort(pol)}__${normalizeRoutePort(pod)}`
+}
+
+export async function setVoyageRouteCeMaster({
+  voyageId,
+  pol,
+  pod,
+  ceMaster,
+  changedBy,
+}: {
+  voyageId: number
+  pol: string
+  pod: string
+  ceMaster: string | null
+  changedBy: string
+}) {
+  const { error } = await supabase.rpc('set_voyage_route_ce_master' as never, {
+    p_voyage_id: voyageId,
+    p_pol: pol,
+    p_pod: pod,
+    p_ce_master: ceMaster,
+    p_changed_by: changedBy,
+  } as never)
+  if (error) throw error
+}
+
+export async function listVoyageRouteCeMasters(voyageIds: number[]) {
+  const result = new Map<string, string>()
+  if (!voyageIds.length) return result
+
+  const { data, error } = await supabase
+    .from('voyage_route_ce_master' as never)
+    .select('voyage_id, pol, pod, ce_master')
+    .in('voyage_id', voyageIds)
+
+  if (error) throw error
+
+  for (const row of (data ?? []) as Array<{
+    voyage_id: number
+    pol: string | null
+    pod: string | null
+    ce_master: string | null
+  }>) {
+    const ce = normalizeTextValue(row.ce_master)
+    if (!ce) continue
+    result.set(buildVoyageRouteCeMasterKey(row.voyage_id, row.pol, row.pod), ce)
+  }
+
+  return result
+}
+
 async function syncVoyageStatusAfterAtdChange(voyageId: number, changedPod: string, newAtd: string | null) {
   const allPodSchedules = await listVoyagePodSchedulesByVoyageIds([voyageId])
 
@@ -530,6 +591,10 @@ function makeAuditRow(
 
 function normalizePortValue(value: string | null | undefined) {
   return normalizePortCode(value) ?? '-'
+}
+
+function normalizeRoutePort(value: string | null | undefined) {
+  return String(value ?? '').trim().toUpperCase() || '-'
 }
 
 function normalizeDateValue(value: string | null | undefined) {

@@ -56,6 +56,7 @@ export const queryKeys = {
     billingStatus: (voyageIds: number[]) => ['voyage-billing-status', voyageIds] as const,
     polSchedules: (entityIds: string[]) => ['voyage-pol-schedules', entityIds] as const,
     podSchedules: (voyageIds: number[]) => ['voyage-pod-schedules', voyageIds] as const,
+    routeCeMasters: (voyageIds: number[]) => ['voyage-route-ce-masters', voyageIds] as const,
     exportSchedules: (voyageIds: number[]) => ['voyage-export-schedules', voyageIds] as const,
   },
   customers: {
