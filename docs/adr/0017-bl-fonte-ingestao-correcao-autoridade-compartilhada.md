@@ -110,6 +110,19 @@ a operação pode rodar **só com B/Ls, dispensando o manifesto**. A decisão ev
 - Estende, sem revogar, a 0005 (novo caminho de ingestão) e a 0006 (o gate
   financeiro ganha uma barreira adicional na correção via B/L).
 
+## Nota editorial — 2026-07-03 (import de manifesto para de sobrescrever em silêncio)
+
+Realizando o princípio "nada sobrescrito em silêncio" na direção
+**manifesto → B/L existente**, a migration `165_manifest_overwrite_opt_in.sql`
+(#320) torna o import de manifesto **conservador por padrão**: ao reimportar um
+manifesto sobre um B/L já existente (inclusive nascido de arquivo de B/L), os
+campos comerciais `shipper, consignee, cargo_description, pol, pod,
+total_weight_kg, total_cbm` **são mantidos** — o manifesto só os sobrescreve
+quando o operador marca *"aplicar sobrescritas"* no preview (`p_apply_overwrites`),
+gravando auditoria `FONTE_SOBRESCRITO`. O preview do diff (de→para) já existia
+(#307); agora o apply respeita a decisão. Campos de orquestração/reconciliação
+(voyage/batch/customer/review) mantêm o comportamento anterior.
+
 ## Alternativas consideradas
 
 - **Divergência vira revisão (estilo Baplie).** Resolver campo a campo em uma

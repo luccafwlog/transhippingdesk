@@ -621,6 +621,7 @@ function UploadManifestModal({
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState<Array<{ file: string; status: 'success' | 'error'; message: string }>>([])
   const [previewIndex, setPreviewIndex] = useState(0)
+  const [applyOverwrites, setApplyOverwrites] = useState(false)
   const [importStatusMessage, setImportStatusMessage] = useState<string | null>(null)
   const [waitMessage, setWaitMessage] = useState<string | null>(null)
 
@@ -667,6 +668,7 @@ function UploadManifestModal({
     setProgress({ current: 0, total: 0 })
     setImportSummary([])
     setPreviewIndex(0)
+    setApplyOverwrites(false)
     setImportStatusMessage(null)
     setWaitMessage(null)
   }
@@ -737,6 +739,7 @@ function UploadManifestModal({
             manifest,
             uploadedBy: user.id,
             fileHash,
+            applyOverwrites,
             onRateLimitWait: (seconds) => setWaitMessage(`Limite atingido. Aguardando ${seconds}s para retomar...`),
             onResume: () => setWaitMessage(null),
           })
@@ -876,9 +879,18 @@ function UploadManifestModal({
                 {overwrites.length > 10 ? (
                   <div className="mt-1 text-xs">… e mais {overwrites.length - 10} B/L(s).</div>
                 ) : null}
-                <div className="mt-1 text-xs">
-                  Confira antes de confirmar — a importação aplica essas mudanças (ADR 0017: nada em silêncio).
-                </div>
+                <label className="mt-2 flex items-start gap-2 text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={applyOverwrites}
+                    onChange={(e) => setApplyOverwrites(e.target.checked)}
+                    className="mt-0.5 accent-amber-600"
+                  />
+                  <span>
+                    Aplicar estas sobrescritas ao confirmar (auditado como FONTE_SOBRESCRITO). Desmarcado, o B/L é
+                    <strong> mantido</strong> — nada é sobrescrito em silêncio (ADR 0017).
+                  </span>
+                </label>
               </div>
             ) : null}
 
@@ -1014,6 +1026,7 @@ async function importManifestWithRetry(payload: {
   manifest: ParsedManifest
   uploadedBy: string
   fileHash: string | null
+  applyOverwrites: boolean
   onRateLimitWait?: (seconds: number) => void
   onResume?: () => void
 }) {

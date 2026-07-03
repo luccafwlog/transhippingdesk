@@ -11,6 +11,12 @@ export type ImportManifestArgs = {
   uploadedBy: string
   /** Hash opcional do arquivo original; habilita dedupe por (voyage, cargo_mode, hash). */
   fileHash?: string | null
+  /**
+   * Quando true, o manifesto sobrescreve os campos comerciais de B/Ls já
+   * existentes (com auditoria FONTE_SOBRESCRITO). Padrão false: mantém o B/L
+   * (fonte co-primária, ADR 0017) — nada é sobrescrito em silêncio (#320).
+   */
+  applyOverwrites?: boolean
 }
 
 /**
@@ -23,6 +29,7 @@ export async function importManifest({
   manifest,
   uploadedBy,
   fileHash = null,
+  applyOverwrites = false,
 }: ImportManifestArgs) {
   const distinctContainerCount = countDistinctManifestContainers(manifest)
 
@@ -156,6 +163,7 @@ export async function importManifest({
     p_pol_etd: polEtdPayload,
     p_pod_linked: podLinkedPayload,
     p_contact_emails: contactPayload,
+    p_apply_overwrites: applyOverwrites,
   } as never)
 
   if (rpcError) {
