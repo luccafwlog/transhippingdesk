@@ -3,6 +3,7 @@ import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
+import { applyBapliePhysicalFlags } from './baplieReconciliation'
 import { normalizePortCode } from './portCode'
 import { tryAutoIssueInvoice } from './reviewBillingAutomation'
 import { supabase } from './supabase'
@@ -285,6 +286,14 @@ export async function confirmBlFreightImport(
     p_changed_by: changedBy,
   })
   if (error) throw error
+
+  // B/L nascido DEPOIS do Baplie (fluxo B/L-primário): aplica as flags físicas
+  // soberanas do Baplie (IMO/OOG) aos containers recém-criados, fechando o gap
+  // do #306. Best-effort e idempotente — sem Baplie, é no-op.
+  const voyageId = payload.find((bl) => bl.voyage_id != null)?.voyage_id ?? null
+  if (voyageId != null) {
+    void applyBapliePhysicalFlags(voyageId, changedBy).catch(() => {})
+  }
 
   void triggerAutoBillingForImportedBls(payload, changedBy)
   return data
