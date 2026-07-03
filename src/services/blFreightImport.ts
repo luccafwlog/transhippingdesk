@@ -1,7 +1,7 @@
 import { onlyDigits } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import type { BL, BLContainer, BlFreightLine } from '../types/database'
-import type { ParsedBLDocument } from './blParser'
+import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
 import { normalizePortCode } from './portCode'
 import { tryAutoIssueInvoice } from './reviewBillingAutomation'
@@ -54,6 +54,11 @@ export type BlFreightRpcPayload = {
   shipper: string | null
   consignee: string | null
   notify_party: string | null
+  consignee_block: string | null
+  shipper_block: string | null
+  notify_block: string | null
+  notify2_block: string | null
+  notify_cnpj_cpf: string | null
   pol: string | null
   pod: string | null
   place_of_delivery: string | null
@@ -316,6 +321,13 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     shipper: doc.parties.shipperBlock || null,
     consignee: firstLine(doc.parties.consigneeBlock),
     notify_party: doc.parties.notifyBlock || null,
+    // Blocos estruturados de partes p/ o C5 do EDI não sair degradado em
+    // viagem só-B/L (#321). Persistidos por import_bl_freight_transactional (166).
+    consignee_block: doc.parties.consigneeBlock || null,
+    shipper_block: doc.parties.shipperBlock || null,
+    notify_block: doc.parties.notifyBlock || null,
+    notify2_block: doc.parties.alsoNotifyBlock || null,
+    notify_cnpj_cpf: extractTaxId(doc.parties.notifyBlock) || null,
     pol: normalizePortCode(doc.route.pol),
     pod: normalizePortCode(doc.route.pod),
     place_of_delivery: normalizePortCode(doc.route.delivery),

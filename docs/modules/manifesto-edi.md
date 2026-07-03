@@ -233,6 +233,12 @@ confirmado começa com `01779 = THD` e `00322 = BAF`; tipo `P`/`C` vem de
 prepaid/collect e o valor é literal, sem conversão de moeda. B/Ls sem linhas de
 frete continuam emitindo zeros nesses campos.
 
+Desde a migration `166_bl_import_party_blocks.sql` (#321), o import de B/L também
+persiste os **blocos estruturados de partes** (`consignee_block`, `shipper_block`,
+`notify_block`, `notify2_block`, `notify_cnpj_cpf`) a partir do Excel COSCO, para
+o C5 não sair degradado numa viagem só-B/L. `consignee_address`/`consignee_phone`/
+`total_packages` seguem vindos apenas do manifesto (o layout do B/L não os separa).
+
 ## Testes e validação
 
 O lote de 2026-06-23 executou a suíte completa: 148 arquivos passaram, 1 foi
