@@ -44,11 +44,14 @@ export function collectVoyageManifestBatchRows({
   batches,
   bls,
   polSchedules,
+  routeCeMasters,
 }: {
   voyageId: number
   batches: VoyageImportBatch[] | null | undefined
   bls: VoyageBl[] | null | undefined
   polSchedules?: Map<string, { etd: string | null; escalaNumber?: string | null }> | undefined
+  /** CE Master por rota (#322): fallback para viagens só-B/L sem batch. Chave `${voyageId}::${POL}__${POD}`. */
+  routeCeMasters?: Map<string, string> | undefined
 }) {
   const batchesById = new Map<number, VoyageImportBatch>()
   for (const batch of batches ?? []) {
@@ -158,6 +161,7 @@ export function collectVoyageManifestBatchRows({
     .map((group) => ({
       routeKey: group.routeKey,
       pol: group.pol,
+      pod: group.pod,
       routeLabel: group.routeLabel,
       modeLabel:
         group.modes.has('container') && group.modes.has('carga_solta')
@@ -171,7 +175,7 @@ export function collectVoyageManifestBatchRows({
       blCount: group.blCount,
       ceFilled: group.ceFilled,
       ceTotal: group.ceTotal,
-      ceMaster: group.ceMaster,
+      ceMaster: group.ceMaster ?? routeCeMasters?.get(`${voyageId}::${group.routeKey}`) ?? null,
       sortDate: group.sortDate,
     }))
     .sort((left, right) => {

@@ -5,6 +5,7 @@ import {
   collectVoyagePorts,
   countPlannedPodRows,
   countDistinctBatchIds,
+  countDistinctRoutes,
   deriveEstadoConciliacao,
   getGraniteModuleStats,
   getProximaEscala,
@@ -23,7 +24,6 @@ import {
   summarizeUniqueValues,
   tokenizeInfoValue,
   voyageCeCoverage,
-  voyageHasMissingManifest,
 } from '../viagensHelpers'
 
 describe('normalizePortName', () => {
@@ -243,42 +243,38 @@ describe('voyageCeCoverage', () => {
   })
 })
 
-describe('voyageHasMissingManifest', () => {
-  it('falso quando não há B/Ls', () => {
-    expect(voyageHasMissingManifest({ bls: [], batches: [] })).toBe(false)
+describe('countDistinctRoutes', () => {
+  it('conta pares POL/POD distintos, normalizando caixa/espaços', () => {
+    const bls = [
+      { pol: 'CNTAC', pod: 'BRVIX' },
+      { pol: ' cntac ', pod: 'brvix' },
+      { pol: 'CNSHA', pod: 'BRSSA' },
+    ]
+    expect(countDistinctRoutes(bls)).toBe(2)
   })
-  it('verdadeiro quando há B/Ls mas nenhum batch', () => {
-    expect(voyageHasMissingManifest({ bls: [{ batch_id: 1 }], batches: [] })).toBe(true)
+  it('não depende de batch: B/Ls só-B/L (sem batch) contam por rota', () => {
+    const bls = [
+      { pol: 'CNTAC', pod: 'BRVIX' },
+      { pol: 'CNTAC', pod: 'BRRIO' },
+    ]
+    expect(countDistinctRoutes(bls)).toBe(2)
   })
-  it('verdadeiro quando há B/L órfão (sem batch_id)', () => {
-    expect(voyageHasMissingManifest({ bls: [{ batch_id: 1 }, { batch_id: null }], batches: [{ id: 1 }] })).toBe(true)
-  })
-  it('falso quando todos os B/Ls têm batch e existe manifesto', () => {
-    expect(voyageHasMissingManifest({ bls: [{ batch_id: 1 }], batches: [{ id: 1 }] })).toBe(false)
+  it('trata POL/POD ausente como "-"', () => {
+    expect(countDistinctRoutes([{ pol: null, pod: null }, {}])).toBe(1)
+    expect(countDistinctRoutes(null)).toBe(0)
   })
 })
 
 describe('deriveEstadoConciliacao', () => {
   it('divergente quando há divergências abertas (prioridade máxima)', () => {
-    expect(
-      deriveEstadoConciliacao({ hasOpenDivergences: true, ceFilled: 10, ceTotal: 10, hasMissingManifest: false }),
-    ).toBe('divergente')
+    expect(deriveEstadoConciliacao({ hasOpenDivergences: true, ceFilled: 10, ceTotal: 10 })).toBe('divergente')
   })
-  it('incompleto quando falta manifesto ou cobertura de CE parcial', () => {
-    expect(
-      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 10, ceTotal: 10, hasMissingManifest: true }),
-    ).toBe('incompleto')
-    expect(
-      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 8, ceTotal: 10, hasMissingManifest: false }),
-    ).toBe('incompleto')
+  it('incompleto quando a cobertura de CE é parcial', () => {
+    expect(deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 8, ceTotal: 10 })).toBe('incompleto')
   })
-  it('conciliado quando tudo completo (e quando não há carga)', () => {
-    expect(
-      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 10, ceTotal: 10, hasMissingManifest: false }),
-    ).toBe('conciliado')
-    expect(
-      deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 0, ceTotal: 0, hasMissingManifest: false }),
-    ).toBe('conciliado')
+  it('conciliado quando CE completa — inclusive viagem só-B/L sem manifesto', () => {
+    expect(deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 10, ceTotal: 10 })).toBe('conciliado')
+    expect(deriveEstadoConciliacao({ hasOpenDivergences: false, ceFilled: 0, ceTotal: 0 })).toBe('conciliado')
   })
 })
 

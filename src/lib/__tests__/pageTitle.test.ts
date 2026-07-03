@@ -12,7 +12,7 @@ describe('routeTitle (WCAG 2.4.2 — título por rota)', () => {
     expect(routeTitle('/demurrage/taxas')).toBe('Tarifas de Demurrage · Transhipping Desk')
     expect(routeTitle('/demurrage')).toBe('Demurrage · Transhipping Desk')
     expect(routeTitle('/manifestos/COSU6401234501')).toBe('Detalhe do B/L · Transhipping Desk')
-    expect(routeTitle('/manifestos')).toBe('Manifestos · Transhipping Desk')
+    expect(routeTitle('/manifestos')).toBe('BLs CNTR · Transhipping Desk')
     expect(routeTitle('/clientes/12.345.678/0001-90')).toBe('Ficha do Cliente · Transhipping Desk')
   })
 

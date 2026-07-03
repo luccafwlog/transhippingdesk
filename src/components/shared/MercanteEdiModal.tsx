@@ -13,6 +13,7 @@ import {
 } from '../../services/mercanteEdiGenerator'
 import { downloadEdiMercante } from '../../services/mercanteEdiDownload'
 import { portNameToUf } from '../../services/mercanteEdiGenerator'
+import { useVoyageReconciliation } from '../../hooks/useVoyageReconciliation'
 import type { BLContainer, BlFreightLine } from '../../types/database'
 type VoyageBl = {
   id: string
@@ -80,6 +81,8 @@ type MercanteEdiModalProps = {
   bls: VoyageBl[]
   prefilledPol?: string
   prefilledPod?: string
+  /** Viagem para checar prontidão física (divergências de existência Baplie × B/L). */
+  voyageId?: number
 }
 
 function isLocode(value: string | null | undefined): value is string {
@@ -93,8 +96,13 @@ export function MercanteEdiModal({
   bls,
   prefilledPol,
   prefilledPod,
+  voyageId,
 }: MercanteEdiModalProps) {
   const { showToast } = useToast()
+  // Prontidão física: sem Baplie, `items` fica vazio e não trava (B/L é a verdade
+  // física); com Baplie, divergências de existência abertas viram aviso (#314).
+  const { data: reconciliation } = useVoyageReconciliation(open ? voyageId : undefined)
+  const existencePending = reconciliation?.items.length ?? 0
   const [shippingCompany, setShippingCompany] = useState('CN001321')
   const [agencyCnpj, setAgencyCnpj] = useState('06352972000121')
   const [terminal, setTerminal] = useState('')
@@ -106,6 +114,10 @@ export function MercanteEdiModal({
   const podCode = prefilledPod ?? voyage.pod?.locode ?? ''
   const polName = voyage.pol?.name ?? polCode
   const podName = voyage.pod?.name ?? podCode
+
+  // Frete & Despesas só existem no B/L (bl_freight_lines). Sem elas, o C5 sai com
+  // frete zerado e o Mercante pode rejeitar — avisa antes de gerar (#309).
+  const blsWithoutFreight = bls.filter((bl) => !(bl.bl_freight_lines?.length))
 
   function resetState() {
     setShippingCompany('CN001321')
@@ -228,6 +240,21 @@ export function MercanteEdiModal({
             />
           </Field>
         </div>
+
+        {existencePending > 0 ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <strong>{existencePending}</strong> divergência(s) de existência entre Baplie e B/Ls nesta viagem: a carga
+            física pode não estar coerente. Resolva na tela <strong>Baplie</strong> antes de gerar o EDI.
+          </div>
+        ) : null}
+
+        {blsWithoutFreight.length ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <strong>{blsWithoutFreight.length}</strong> de {bls.length} B/L(s) sem Frete &amp; Despesas: o EDI sairá com
+            frete <strong>zerado</strong> nesses conhecimentos e o Mercante pode rejeitar. Importe o B/L (arquivo COSCO)
+            antes de gerar, ou gere ciente da lacuna.
+          </div>
+        ) : null}
 
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={handleClose}>

@@ -15,9 +15,9 @@ export function VoyageManifestosTab({
   voyageLabel,
   importBatches,
   polSchedules,
+  routeCeMasters,
   divergenceCount,
   ceCoverage,
-  missingManifest,
   estadoMeta,
   onEditPol,
 }: {
@@ -25,9 +25,9 @@ export function VoyageManifestosTab({
   voyageLabel: string
   importBatches: VoyageImportBatch[]
   polSchedules: Map<string, VoyagePolSchedule> | undefined
+  routeCeMasters: Map<string, string> | undefined
   divergenceCount: number
   ceCoverage: { filled: number; total: number }
-  missingManifest: boolean
   estadoMeta: EstadoMeta
   onEditPol: (payload: EditingPolPayload) => void
 }) {
@@ -41,6 +41,7 @@ export function VoyageManifestosTab({
     batches: importBatches,
     bls: voyage.bls,
     polSchedules,
+    routeCeMasters,
   })
 
   const ediModalBls = useMemo(() => {
@@ -71,7 +72,6 @@ export function VoyageManifestosTab({
             </div>
             <div className="text-xs text-[var(--app-muted)]">
               CE Mercante {ceCoverage.filled}/{ceCoverage.total}
-              {missingManifest ? ' · manifesto faltando' : ''}
               {divergenceCount ? ` · ${divergenceCount} divergência${divergenceCount === 1 ? '' : 's'} aberta${divergenceCount === 1 ? '' : 's'}` : ''}
             </div>
           </div>
@@ -151,13 +151,14 @@ export function VoyageManifestosTab({
                           <Button
                             variant="secondary"
                             className="app-voyage-icon-btn"
-                            aria-label={`${row.batchIds.length ? 'Editar ETD e CE Master' : 'Editar ETD'} de ${row.routeLabel}`}
-                            title={row.batchIds.length ? 'Editar ETD e CE Master' : 'Editar ETD'}
+                            aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
+                            title="Editar ETD e CE Master"
                             onClick={() =>
                               onEditPol({
                                 voyageId: voyage.id,
                                 voyageLabel,
                                 pol: row.pol,
+                                pod: row.pod,
                                 etd: row.etd,
                                 ceMaster: row.ceMaster,
                                 batchIds: row.batchIds,
@@ -188,6 +189,7 @@ export function VoyageManifestosTab({
         open={ediModalOpen}
         onClose={() => setEdiModalOpen(false)}
         voyage={voyage}
+        voyageId={voyage.id}
         bls={ediModalBls}
         prefilledPol={ediModalPol}
         prefilledPod={ediModalPod}

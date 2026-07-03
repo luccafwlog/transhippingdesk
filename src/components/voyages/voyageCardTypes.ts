@@ -21,6 +21,7 @@ export type EditingPolPayload = {
   voyageId: number
   voyageLabel: string
   pol: string
+  pod: string
   etd: string | null
   ceMaster: string | null
   batchIds: number[]

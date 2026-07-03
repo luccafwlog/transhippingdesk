@@ -12,7 +12,7 @@ import { formatDate } from '../../lib/utils'
 import { extractErrorText } from '../../lib/errors'
 import {
   buildVoyageTimeline,
-  countDistinctBatchIds,
+  countDistinctRoutes,
   formatMetric,
   formatPortDisplayName,
   getGraniteModuleStats,
@@ -63,12 +63,9 @@ export function VoyageVisaoTab({
   const [timelineOpen, setTimelineOpen] = useState(true)
 
   const { containerBls, breakbulkBls } = splitVoyageBls(voyage.bls)
-  const distinctContainerBatchCount = countDistinctBatchIds(containerBls)
-  const distinctBreakbulkBatchCount = countDistinctBatchIds(breakbulkBls)
-  const containerManifestCount =
-    importBatches.filter((batch) => batch.cargo_mode !== 'carga_solta').length || distinctContainerBatchCount
-  const breakbulkManifestCount =
-    importBatches.filter((batch) => batch.cargo_mode === 'carga_solta').length || distinctBreakbulkBatchCount
+  // Contagem por rota (par POL/POD), não por arquivo de manifesto (#315).
+  const containerManifestCount = countDistinctRoutes(containerBls)
+  const breakbulkManifestCount = countDistinctRoutes(breakbulkBls)
   const flatContainers = containerBls.flatMap((bl) => bl.bl_containers ?? [])
   const totalContainers = countDistinctContainerNumbers(flatContainers)
   const totalBreakbulkWeightTon = breakbulkBls.reduce(

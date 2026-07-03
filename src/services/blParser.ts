@@ -225,7 +225,7 @@ function parseNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function extractTaxId(value: string) {
+export function extractTaxId(value: string) {
   const digits = onlyDigits(value)
   return digits.length >= 14 ? digits.slice(0, 14) : digits || null
 }

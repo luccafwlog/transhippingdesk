@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, FileText, Trash2, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -30,6 +30,8 @@ import { describeActiveFilters, describeEmptyState, formatResultCount } from '..
 import { formatCnpjCpf } from '../lib/utils'
 import { computeFileHash, DuplicateManifestImportError, importManifest, RateLimitImportError } from '../services/manifestImport'
 import { countDistinctManifestContainers, parseManifestFile, type ParsedManifest } from '../services/manifestParser'
+import { computeManifestOverwriteDiff } from '../services/manifestOverwritePreview'
+import { supabase } from '../services/supabase'
 import { logOperationalEvent } from '../services/operationalEvents'
 
 const pageSizes = [20, 50, 100]
@@ -248,7 +250,7 @@ export function Manifestos() {
   return (
     <>
       <PageHeader
-        title="Manifestos CNTR"
+        title="BLs CNTR"
         description="Consulta paginada de B/Ls de container e importação de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
           <div className="flex flex-wrap justify-end gap-2">
@@ -619,6 +621,7 @@ function UploadManifestModal({
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState<Array<{ file: string; status: 'success' | 'error'; message: string }>>([])
   const [previewIndex, setPreviewIndex] = useState(0)
+  const [applyOverwrites, setApplyOverwrites] = useState(false)
   const [importStatusMessage, setImportStatusMessage] = useState<string | null>(null)
   const [waitMessage, setWaitMessage] = useState<string | null>(null)
 
@@ -634,6 +637,29 @@ function UploadManifestModal({
   )
   const routeSummary = useMemo(() => summarizeManifestRoutes(primaryManifest), [primaryManifest])
 
+  // Preview de sobrescrita (#307): B/Ls já existentes na viagem que este
+  // manifesto mudaria. Read-only — só dá transparência antes de confirmar.
+  const previewFileName = files[previewIndex]?.name ?? null
+  const { data: existingOverwriteBls } = useQuery({
+    queryKey: ['manifest-overwrite-existing', voyageId, previewFileName],
+    enabled: Boolean(voyageId) && Boolean(primaryManifest?.bls.length),
+    queryFn: async () => {
+      const ids = primaryManifest?.bls.map((bl) => bl.id) ?? []
+      if (!ids.length) return [] as Parameters<typeof computeManifestOverwriteDiff>[1]
+      const { data, error } = await supabase
+        .from('bls')
+        .select('id, shipper, consignee, cargo_description, pol, pod, total_weight_kg, total_cbm')
+        .eq('voyage_id', Number(voyageId))
+        .in('id', ids)
+      if (error) throw error
+      return (data ?? []) as unknown as Parameters<typeof computeManifestOverwriteDiff>[1]
+    },
+  })
+  const overwrites = useMemo(
+    () => computeManifestOverwriteDiff(primaryManifest?.bls ?? [], existingOverwriteBls ?? []),
+    [primaryManifest, existingOverwriteBls],
+  )
+
   function resetModalState() {
     setFiles([])
     setManifestsByFile({})
@@ -642,6 +668,7 @@ function UploadManifestModal({
     setProgress({ current: 0, total: 0 })
     setImportSummary([])
     setPreviewIndex(0)
+    setApplyOverwrites(false)
     setImportStatusMessage(null)
     setWaitMessage(null)
   }
@@ -712,6 +739,7 @@ function UploadManifestModal({
             manifest,
             uploadedBy: user.id,
             fileHash,
+            applyOverwrites,
             onRateLimitWait: (seconds) => setWaitMessage(`Limite atingido. Aguardando ${seconds}s para retomar...`),
             onResume: () => setWaitMessage(null),
           })
@@ -832,6 +860,39 @@ function UploadManifestModal({
               <PreviewBox label="Containers distintos" value={totals.containers} />
               <PreviewBox label="Pendentes revisao" value={totals.pending} />
             </div>
+
+            {overwrites.length > 0 ? (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="font-semibold">
+                  {overwrites.length} B/L(s) já existente(s) nesta viagem serão sobrescritos por este manifesto:
+                </div>
+                <ul className="mt-1 space-y-1">
+                  {overwrites.slice(0, 10).map((ow) => (
+                    <li key={ow.bl_number}>
+                      <span className="font-mono text-xs font-semibold">{ow.bl_number}</span>{' '}
+                      <span className="text-amber-800">
+                        {ow.diffs.map((d) => `${d.field}: "${d.from}" → "${d.to}"`).join(' · ')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {overwrites.length > 10 ? (
+                  <div className="mt-1 text-xs">… e mais {overwrites.length - 10} B/L(s).</div>
+                ) : null}
+                <label className="mt-2 flex items-start gap-2 text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={applyOverwrites}
+                    onChange={(e) => setApplyOverwrites(e.target.checked)}
+                    className="mt-0.5 accent-amber-600"
+                  />
+                  <span>
+                    Aplicar estas sobrescritas ao confirmar (auditado como FONTE_SOBRESCRITO). Desmarcado, o B/L é
+                    <strong> mantido</strong> — nada é sobrescrito em silêncio (ADR 0017).
+                  </span>
+                </label>
+              </div>
+            ) : null}
 
             {routeSummary.multipleRoutes ? (
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
@@ -965,6 +1026,7 @@ async function importManifestWithRetry(payload: {
   manifest: ParsedManifest
   uploadedBy: string
   fileHash: string | null
+  applyOverwrites: boolean
   onRateLimitWait?: (seconds: number) => void
   onResume?: () => void
 }) {

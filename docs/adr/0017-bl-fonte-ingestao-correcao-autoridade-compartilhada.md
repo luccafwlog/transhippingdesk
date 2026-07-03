@@ -110,8 +110,60 @@ a operação pode rodar **só com B/Ls, dispensando o manifesto**. A decisão ev
 - Estende, sem revogar, a 0005 (novo caminho de ingestão) e a 0006 (o gate
   financeiro ganha uma barreira adicional na correção via B/L).
 
+## Nota editorial — 2026-07-03 (import de manifesto para de sobrescrever em silêncio)
+
+Realizando o princípio "nada sobrescrito em silêncio" na direção
+**manifesto → B/L existente**, a migration `165_manifest_overwrite_opt_in.sql`
+(#320) torna o import de manifesto **conservador por padrão**: ao reimportar um
+manifesto sobre um B/L já existente (inclusive nascido de arquivo de B/L), os
+campos comerciais `shipper, consignee, cargo_description, pol, pod,
+total_weight_kg, total_cbm` **são mantidos** — o manifesto só os sobrescreve
+quando o operador marca *"aplicar sobrescritas"* no preview (`p_apply_overwrites`),
+gravando auditoria `FONTE_SOBRESCRITO`. O preview do diff (de→para) já existia
+(#307); agora o apply respeita a decisão. Campos de orquestração/reconciliação
+(voyage/batch/customer/review) mantêm o comportamento anterior.
+
+## Nota editorial — 2026-07-03 (o lote deixa de ser a espinha; vira metadado opcional)
+
+Pesquisa do #324 (Fog do mapa #304). Um B/L nascido de arquivo de B/L fica com
+`batch_id = null` — o import de B/L (`import_bl_freight_transactional`, migration
+162) **não cria** `import_batch`. Mapeando os consumidores de `batch_id` /
+`import_batches`, a maior parte das dependências que assumiam "lote = manifesto"
+já foi resolvida e o lote deixou de ser a espinha da ingestão:
+
+- **Contagem de "manifestos" da viagem** passou a ser por **rota** (POL/POD) via
+  `countDistinctRoutes` (ADR 0017 / mapa #304); `countDistinctBatchIds` ficou sem
+  consumidor de produção (só em teste) — dead code a remover quando se tocar o
+  arquivo.
+- **CE Master** saiu de `import_batches.ce_master` para `voyage_route_ce_master`
+  por rota em viagem só-B/L (#322).
+- **Faturamento** do B/L nascido de B/L roda **inline** no próprio
+  `import_bl_freight_transactional` (gate `billing_locked`/hold), sem depender de
+  `run_billing_for_import_batch` (que é o caminho do manifesto).
+- **Tela Escalas & Manifestos** já é B/L-first: a linha nasce da rota dos B/Ls e
+  o batch entra como metadado quando existe (`collectVoyageManifestBatchRows`).
+
+**Decisão.** O modelo de lote passa a ser **metadado opcional do manifesto**, não
+a unidade obrigatória de toda ingestão. O import de B/L **não** sintetiza um
+`import_batch` "bl_file": `import_batches` carrega colunas específicas de
+manifesto (`ce_master`, `cargo_mode` único, `total_bls`) que não descrevem um
+arquivo de B/L, e forçá-lo seria acoplar de volta o que #322/#304 desacoplaram.
+
+**Furo residual assumido (`ponytail`).** O import de B/L não tem **dedup em nível
+de arquivo** (`uq_import_batches_voyage_hash` só existe para manifesto/breakbulk/
+granito) nem **agrupamento de erros por arquivo**; hoje a dedup é por **linha**
+(upsert por `bls.id`) e os erros aparecem por B/L no modal. Ceiling: reimportar o
+mesmo arquivo de B/L não é barrado no nível do arquivo. Upgrade quando virar dor
+real: um log leve de import por arquivo com `file_hash` (não a tabela
+`import_batches`), preservando o desacoplamento.
+
 ## Alternativas consideradas
 
+- **Sintetizar um `import_batch` "bl_file" para o import de B/L.** Ganharia dedup
+  por arquivo e agrupamento de erros "de graça", mas reacopla a ingestão de B/L
+  ao modelo de manifesto (colunas `ce_master`/`cargo_mode`/`total_bls` que não se
+  aplicam) logo após #322/#304 terem removido esse acoplamento. Rejeitada; a
+  dedup por arquivo, se necessária, vira um log próprio (ver nota 2026-07-03).
 - **Divergência vira revisão (estilo Baplie).** Resolver campo a campo em uma
   tela de conciliação. Rejeitada: mais passos e código do que o fluxo de
   correção justifica.

@@ -43,6 +43,7 @@ describe('collectVoyageManifestBatchRows', () => {
     expect(rows[0]).toMatchObject({
       routeKey: 'CNTAC__BRVIX',
       pol: 'CNTAC',
+      pod: 'BRVIX',
       routeLabel: 'TAICANG -> BRVIX',
       modeLabel: 'CNTR',
       filenames: ['Rota derivada dos B/Ls'],
@@ -53,6 +54,18 @@ describe('collectVoyageManifestBatchRows', () => {
       ceTotal: 2,
       ceMaster: null,
     })
+  })
+
+  it('usa CE Master por rota como fallback quando a viagem so-B/L nao tem batch', () => {
+    const rows = collectVoyageManifestBatchRows({
+      voyageId: 14,
+      batches: [],
+      bls: [makeBl({ id: 'BL-001', ce_mercante: 'CE-001' })],
+      routeCeMasters: new Map([['14::CNTAC__BRVIX', '25BR09999']]),
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ routeKey: 'CNTAC__BRVIX', batchIds: [], ceMaster: '25BR09999' })
   })
 
   it('soma B/Ls avulsos na mesma rota de um batch existente', () => {

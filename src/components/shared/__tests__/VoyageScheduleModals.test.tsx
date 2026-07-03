@@ -21,6 +21,7 @@ describe('PolScheduleModal', () => {
     voyageId: 7,
     voyageLabel: 'NAVIO 123N',
     pol: 'CNNBO',
+    pod: 'BRSSZ',
     etd: '2026-02-10',
     ceMaster: null,
     batchIds: [11, 12],
@@ -36,12 +37,12 @@ describe('PolScheduleModal', () => {
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(<PolScheduleModal open polSchedule={base} onClose={() => {}} onSaved={onSaved} />)
 
-    // contexto exibido
+    // contexto exibido: rota POL -> POD
     expect(screen.getByText('NAVIO 123N')).toBeTruthy()
-    expect(screen.getByText('POL: CNNBO')).toBeTruthy()
+    expect(screen.getByText('Rota: CNNBO -> BRSSZ')).toBeTruthy()
 
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: '2026-02-10', ceMaster: null, batchIds: [11, 12] })
+    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', pod: 'BRSSZ', etd: '2026-02-10', ceMaster: null, batchIds: [11, 12] })
   })
 
   it('envia etd null quando o campo é limpo', async () => {
@@ -51,7 +52,7 @@ describe('PolScheduleModal', () => {
 
     await user.clear(screen.getByLabelText('ETD'))
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', etd: null, ceMaster: null, batchIds: [11, 12] })
+    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', pod: 'BRSSZ', etd: null, ceMaster: null, batchIds: [11, 12] })
   })
 
   it('pré-preenche e envia o CE Master para os batches do manifesto', async () => {
@@ -66,7 +67,7 @@ describe('PolScheduleModal', () => {
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ ceMaster: '25BR00481', batchIds: [11, 12] }))
   })
 
-  it('edita apenas ETD quando a rota nao possui batch de manifesto', async () => {
+  it('edita CE Master por rota mesmo sem batch de manifesto (#322)', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(
@@ -78,11 +79,11 @@ describe('PolScheduleModal', () => {
       />,
     )
 
-    expect(screen.getByText('Editar ETD')).toBeTruthy()
-    expect(screen.queryByLabelText('CE Master')).toBeNull()
+    expect(screen.getByText('Editar ETD e CE Master')).toBeTruthy()
+    expect((screen.getByLabelText('CE Master') as HTMLInputElement).value).toBe('25BR00481')
 
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ ceMaster: null, batchIds: [] }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ pod: 'BRSSZ', ceMaster: '25BR00481', batchIds: [] }))
   })
 })
 
