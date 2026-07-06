@@ -18,6 +18,12 @@
   do BCB bloqueados pelo proxy de egress (header mostra "INDISPONÍVEL" na
   cotação); websockets realtime falham contra o shim.
 
+> Nota editorial (2026-07-06): os achados **não corrigidos** deste relatório
+> (P1–P3) foram consolidados no plano de ação
+> [2026-07-06-design-audit-remediation](../plans/2026-07-06-design-audit-remediation.md).
+> Este documento permanece como registro da auditoria e da evidência
+> antes/depois das correções já aplicadas.
+
 ## Corrigido nesta auditoria
 
 Verificação após as correções: `npx tsc -b`, `npm run lint`, `npm test`
