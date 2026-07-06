@@ -2110,6 +2110,7 @@ textarea {
 .app-table--lineup-display td:first-child {
   white-space: normal;
   overflow-wrap: break-word;
+  text-overflow: clip;
   line-height: 1.15;
 }
 
@@ -2125,6 +2126,21 @@ textarea {
 
 .app-table--sticky-actions thead th:last-child {
   background: var(--app-thead-bg);
+}
+
+@media (max-width: 640px) {
+  .app-table-scroll--sticky::after {
+    content: "Deslize para ver mais";
+    position: sticky;
+    left: 0;
+    bottom: 0;
+    display: block;
+    padding: 6px 12px;
+    background: linear-gradient(90deg, var(--app-surface), transparent);
+    color: var(--app-muted);
+    font-size: 11px;
+    pointer-events: none;
+  }
 }
 
 /* Table headers use theme tokens; the TV line-up display keeps dedicated styles. */
@@ -2421,6 +2437,14 @@ textarea {
   background: rgba(37, 99, 235, 0.08);
 }
 
+.app-floating-menu .app-floating-menu__danger {
+  color: var(--app-red);
+}
+
+.app-floating-menu .app-floating-menu__danger:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
 .app-table__sort {
   display: inline-flex;
   align-items: center;
@@ -2621,9 +2645,9 @@ textarea {
 }
 
 .app-table--lineup-display tbody td:first-child {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .app-table--lineup-display .app-lineup-bb {
@@ -2723,7 +2747,7 @@ textarea {
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  --lineup-display-columns: 18fr 4fr 6fr 6fr 6fr 6fr 6fr 6fr 7fr 6fr 5fr 7fr 11fr 6fr;
+  --lineup-display-columns: 20fr 5fr 7fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr;
   --lineup-display-row-height: 78px;
 }
 
@@ -2815,9 +2839,13 @@ textarea {
 .app-lineup-display-board__cell--vessel {
   justify-content: center;
   color: #214b2f;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
+  line-height: 1.03;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
 }
 
 .app-lineup-display-board__cell--accent {

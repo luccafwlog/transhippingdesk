@@ -86,6 +86,14 @@ FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Realtime para atualização ao vivo do widget.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        CREATE PUBLICATION supabase_realtime;
+    END IF;
+END;
+$$;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.vessel_schedules;
 
 -- ---------------------------------------------------------------------------

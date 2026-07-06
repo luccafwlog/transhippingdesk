@@ -160,13 +160,18 @@ export function ReviewGroupBlock({
                         />
                       ) : null}
                       {item.source === 'bl' && needsWeightFix(item) ? (
-                        <InlineFieldEditor
-                          type="number"
-                          placeholder="Peso BB (ton)"
-                          initial={item.bb_weight_ton != null ? String(item.bb_weight_ton) : ''}
-                          saving={savingInlineId === item.id}
-                          onSave={(value) => onInlineField(item, 'bb_weight_ton', value)}
-                        />
+                        <div className="grid max-w-xs gap-1">
+                          <span className="text-xs font-medium text-slate-400">
+                            Informar peso BB para liberar cálculo
+                          </span>
+                          <InlineFieldEditor
+                            type="number"
+                            placeholder="Peso BB (ton)"
+                            initial={item.bb_weight_ton != null ? String(item.bb_weight_ton) : ''}
+                            saving={savingInlineId === item.id}
+                            onSave={(value) => onInlineField(item, 'bb_weight_ton', value)}
+                          />
+                        </div>
                       ) : null}
                     </div>
                   </td>

@@ -213,9 +213,9 @@ export function ChargeTablesTab({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge tone="green">{tableSummary.active} ativa(s)</Badge>
-          <Badge tone="blue">{tableSummary.items} item(ns)</Badge>
-          <Badge tone="slate">{tableSummary.manualOnly} manual(is)</Badge>
+          <Badge tone="green">{formatCountLabel(tableSummary.active, 'ativa', 'ativas')}</Badge>
+          <Badge tone="blue">{formatCountLabel(tableSummary.items, 'item', 'itens')}</Badge>
+          <Badge tone="slate">{formatCountLabel(tableSummary.manualOnly, 'manual', 'manuais')}</Badge>
         </div>
       </div>
       <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
@@ -705,4 +705,8 @@ export function ChargeTablesTab({
       </Card>
     </>
   )
+}
+
+function formatCountLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`
 }

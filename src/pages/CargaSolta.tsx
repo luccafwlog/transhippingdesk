@@ -292,8 +292,8 @@ export function CargaSolta() {
       <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <SummaryCard label="B/Ls filtrados" value={summary.totalBls} />
         <SummaryCard label="Maquinas" value={Number(summary.totalMachines).toLocaleString('pt-BR')} />
-        <SummaryCard label="Packages Total" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />
-        <SummaryCard label="Weight (Ton)" value={Number(summary.totalWeightTon).toLocaleString('pt-BR')} />
+        <SummaryCard label="Total de volumes" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />
+        <SummaryCard label="Peso (ton)" value={Number(summary.totalWeightTon).toLocaleString('pt-BR')} />
         <SummaryCard label="CBM (M3)" value={Number(summary.totalCbm).toLocaleString('pt-BR')} />
         <SummaryCard label="Taxas pendentes" value={Number(summary.chargePending).toLocaleString('pt-BR')} />
         <SummaryCard label="Faturados" value={Number(summary.chargeReady).toLocaleString('pt-BR')} />
@@ -311,9 +311,9 @@ export function CargaSolta() {
                 <th scope="col" className="px-4 py-3">CE</th>
                 <th scope="col" className="px-4 py-3">Navio/Viagem</th>
                 <th scope="col" className="px-4 py-3">Maquinas</th>
-                <th scope="col" className="px-4 py-3">Packages</th>
-                <th scope="col" className="px-4 py-3">Packages Total</th>
-                <th scope="col" className="px-4 py-3">Weight (Ton)</th>
+                <th scope="col" className="px-4 py-3">Volumes</th>
+                <th scope="col" className="px-4 py-3">Total de volumes</th>
+                <th scope="col" className="px-4 py-3">Peso (ton)</th>
                 <th scope="col" className="px-4 py-3">CBM (M3)</th>
                 <th scope="col" className="px-4 py-3">Shipper</th>
                 <th scope="col" className="px-4 py-3">Consignee</th>
@@ -459,14 +459,14 @@ export function CargaSolta() {
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)}
                 />
                 <PreviewBox
-                  label="Packages Total"
+                  label="Total de volumes"
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_packages_total ?? bl.bb_packages_qty ?? 0), 0)}
                 />
               </div>
 
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <PreviewBox
-                  label="Weight (Ton)"
+                  label="Peso (ton)"
                   value={manifest.bls.reduce(
                     (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? bl.total_weight_kg / 1000 : 0)),
                     0,
@@ -486,9 +486,9 @@ export function CargaSolta() {
                       <th scope="col" className="px-3 py-2">BL</th>
                       <th scope="col" className="px-3 py-2">CE</th>
                       <th scope="col" className="px-3 py-2">Maquinas</th>
-                      <th scope="col" className="px-3 py-2">Packages</th>
-                      <th scope="col" className="px-3 py-2">Packages Total</th>
-                      <th scope="col" className="px-3 py-2">Weight (Ton)</th>
+                      <th scope="col" className="px-3 py-2">Volumes</th>
+                      <th scope="col" className="px-3 py-2">Total de volumes</th>
+                      <th scope="col" className="px-3 py-2">Peso (ton)</th>
                       <th scope="col" className="px-3 py-2">CBM (M3)</th>
                       <th scope="col" className="px-3 py-2">Shipper</th>
                       <th scope="col" className="px-3 py-2">Consignee</th>
@@ -575,11 +575,11 @@ function InvoiceLink({
 
 function SummaryCard({ label, value }: { label: string; value: number | string }) {
   const tone =
-    label === 'Weight (Ton)'
+    label === 'Peso (ton)'
       ? 'gold'
       : label === 'CBM (M3)'
         ? 'green'
-        : label === 'Packages Total'
+        : label === 'Total de volumes'
           ? 'blue'
           : 'navy'
 

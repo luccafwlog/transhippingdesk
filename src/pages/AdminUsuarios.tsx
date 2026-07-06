@@ -14,13 +14,6 @@ type AdminTab = 'usuários' | 'logs' | 'métricas'
 const VERSION = '2.0.0'
 const COMMIT_SHA = String(import.meta.env.VITE_APP_COMMIT_SHA ?? 'unknown')
 
-function roleBadgeTone(role: UserProfileRole): 'blue' | 'green' | 'yellow' | 'slate' | 'red' {
-  if (role === 'admin' || role === 'administrativo') return 'blue'
-  if (role === 'financeiro') return 'green'
-  if (role === 'operacoes') return 'yellow'
-  return 'slate'
-}
-
 export function AdminUsuarios() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -155,34 +148,34 @@ export function AdminUsuarios() {
                   ) : null}
                   {users.map((u) => {
                     const isBusy = pendingId === u.id && mutation.isPending
+                    const normalizedRole = u.role === 'admin' ? 'administrativo' : u.role === 'operator' ? 'documentacao' : u.role
+                    const legacyRoleTitle = u.role !== normalizedRole ? `Perfil legado: ${PROFILE_LABELS[u.role] ?? u.role}` : undefined
                     return (
                       <tr key={u.id} className={!u.active ? 'opacity-60' : undefined}>
                         <td className="px-4 py-3 font-medium text-[var(--app-text-strong)]">{u.full_name}</td>
                         <td className="px-4 py-3">
-                          <Badge tone={roleBadgeTone(u.role)}>
-                            {PROFILE_LABELS[u.role] ?? u.role}
-                          </Badge>
+                          <select
+                            disabled={isBusy}
+                            value={normalizedRole}
+                            title={legacyRoleTitle}
+                            onChange={(e) => handleSetProfile(u.id, e.target.value as UserProfileRole)}
+                            className="app-input app-select w-44 text-xs disabled:opacity-40"
+                          >
+                            {MANAGED_PROFILES.map((p) => (
+                              <option key={p} value={p}>{PROFILE_LABELS[p]}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="px-4 py-3">
                           <Badge tone={u.active ? 'green' : 'red'}>{u.active ? 'Ativo' : 'Inativo'}</Badge>
                         </td>
                         <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">
                           {u.created_at
-                            ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(u.created_at))
+                            ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(u.created_at))
                             : '-'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <select
-                              disabled={isBusy}
-                              value={u.role === 'admin' ? 'administrativo' : u.role === 'operator' ? 'documentacao' : u.role}
-                              onChange={(e) => handleSetProfile(u.id, e.target.value as UserProfileRole)}
-                              className="app-input app-select w-44 text-xs disabled:opacity-40"
-                            >
-                              {MANAGED_PROFILES.map((p) => (
-                                <option key={p} value={p}>{PROFILE_LABELS[p]}</option>
-                              ))}
-                            </select>
                             <button
                               type="button"
                               disabled={isBusy}

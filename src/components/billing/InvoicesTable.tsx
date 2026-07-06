@@ -91,7 +91,9 @@ export function InvoicesTable({
                   <div className="app-table__cell-stack">
                     <div className="app-table__cell-value app-table__cell-value--financial">Total {formatBRL(invoice.total_brl)}</div>
                     <div className="app-table__cell-meta">Pago {formatBRL(invoice.total_paid_brl)}</div>
-                    <div className="app-table__cell-meta">Saldo {formatBRL(invoice.balance_brl)}</div>
+                    {invoice.status !== 'cancelled' ? (
+                      <div className="app-table__cell-meta">Saldo {formatBRL(invoice.balance_brl)}</div>
+                    ) : null}
                   </div>
                 </td>
                 <td className="px-4 py-3">{renderInvoiceStatus(invoice.status)}</td>

@@ -55,7 +55,15 @@ export function PortalLogin() {
     <main className="app-auth">
       <Card className="app-auth__card">
         <div className="app-auth__brand">
-          <img alt="Transhipping" className="app-auth__logo" src="/branding/transhipping-logo.png" />
+          <img
+            alt="Transhipping"
+            className="app-auth__logo"
+            src="/branding/transhipping-logo-cropped.png"
+            onError={(event) => {
+              event.currentTarget.onerror = null
+              event.currentTarget.src = '/branding/tr-logo.png'
+            }}
+          />
           <div>
             <h1 className="app-auth__title">Portal do cliente</h1>
             <p className="app-auth__subtitle">Consulte faturas emitidas e consolide B/Ls prontos para faturamento.</p>

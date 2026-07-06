@@ -93,7 +93,7 @@ export function Clientes() {
   const { isAdmin, user } = useAuth()
   const [deleting, setDeleting] = useState(false)
   const [actionsMenu, setActionsMenu] = useState<
-    { id: number; top: number; left: number; cnpj: string; email: string | null } | null
+    { id: number; top: number; left: number; name: string; cnpj: string; email: string | null } | null
   >(null)
   const [filters, setFilters] = useState({
     search: '',
@@ -146,14 +146,14 @@ export function Clientes() {
   }
   function openActionsMenu(
     event: ReactMouseEvent<HTMLButtonElement>,
-    row: { id: number; cnpj_cpf: string; email: string | null },
+    row: { id: number; name: string; cnpj_cpf: string; email: string | null },
   ) {
     if (actionsMenu?.id === row.id) {
       setActionsMenu(null)
       return
     }
     const rect = event.currentTarget.getBoundingClientRect()
-    setActionsMenu({ id: row.id, top: rect.bottom + 6, left: rect.right, cnpj: row.cnpj_cpf, email: row.email })
+    setActionsMenu({ id: row.id, top: rect.bottom + 6, left: rect.right, name: row.name, cnpj: row.cnpj_cpf, email: row.email })
   }
   // O menu flutua via position:fixed para escapar do recorte do container de scroll
   // da tabela; por isso precisa fechar quando o usuario rola, redimensiona ou clica fora.
@@ -283,9 +283,9 @@ export function Clientes() {
         queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
       ])
-      const linkedMsg = result.blsLinked ? ` ${result.blsLinked} B/L(s) vinculado(s) automaticamente.` : ''
+      const linkedMsg = result.blsLinked ? ` ${formatCountLabel(result.blsLinked, 'B/L vinculado', 'B/Ls vinculados')} automaticamente.` : ''
       showToast(
-        `Base importada: ${result.imported} novo(s), ${result.updated} atualizado(s), ${result.contactsCreated} contato(s).${linkedMsg}`,
+        `Base importada: ${formatCountLabel(result.imported, 'novo', 'novos')}, ${formatCountLabel(result.updated, 'atualizado', 'atualizados')}, ${formatCountLabel(result.contactsCreated, 'contato', 'contatos')}.${linkedMsg}`,
         'success',
       )
       resetImportModal()
@@ -597,7 +597,7 @@ export function Clientes() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="app-table__cell-stack">
-                        <div className="app-table__cell-value">{contactSummary.count} contato(s)</div>
+                        <div className="app-table__cell-value">{formatCountLabel(contactSummary.count, 'contato', 'contatos')}</div>
                         {contactSummary.primaryEmail ? (
                           <span className="app-table__truncate app-table__truncate--md" title={contactSummary.primaryEmail}>
                             {contactSummary.primaryEmail}
@@ -612,7 +612,7 @@ export function Clientes() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="app-table__cell-stack">
-                        <div className="app-table__cell-value">{row.bls?.length ?? 0} B/L(s) vinculados</div>
+                        <div className="app-table__cell-value">{formatCountLabel(row.bls?.length ?? 0, 'B/L vinculado', 'B/Ls vinculados')}</div>
                         {summary.pending > 0 || summary.ready > 0 || summary.exempt > 0 ? (
                           <div className="flex flex-wrap items-center gap-2">
                             {summary.pending > 0 ? <Badge tone="yellow">Pend {summary.pending}</Badge> : null}
@@ -660,23 +660,11 @@ export function Clientes() {
                           aria-haspopup="menu"
                           aria-expanded={actionsMenu?.id === row.id}
                           onClick={(event) =>
-                            openActionsMenu(event, { id: row.id, cnpj_cpf: row.cnpj_cpf, email: contactSummary.primaryEmail })
+                            openActionsMenu(event, { id: row.id, name: row.name, cnpj_cpf: row.cnpj_cpf, email: contactSummary.primaryEmail })
                           }
                         >
                           <MoreHorizontal size={15} />
                         </button>
-                        {isAdmin ? (
-                          <button
-                            type="button"
-                            onClick={() => runCustomerDelete([row.id])}
-                            disabled={deleting}
-                            className="app-table__icon-button app-table__icon-button--sm app-table__icon-button--danger"
-                            title="Excluir cliente"
-                            aria-label={`Excluir cliente ${row.name}`}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -713,6 +701,22 @@ export function Clientes() {
             <button type="button" role="menuitem" onClick={() => void copyText(actionsMenu.email!, 'E-mail principal')}>
               <Copy size={14} />
               Copiar e-mail
+            </button>
+          ) : null}
+          {isAdmin ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="app-floating-menu__danger"
+              disabled={deleting}
+              onClick={() => {
+                const id = actionsMenu.id
+                setActionsMenu(null)
+                void runCustomerDelete([id])
+              }}
+            >
+              <Trash2 size={14} />
+              Excluir cliente
             </button>
           ) : null}
         </div>
@@ -969,4 +973,8 @@ function summarizeCustomerCharges(bls: Array<{ charge_status?: string | null }>)
     ready: bls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
     exempt: bls.filter((bl) => bl.charge_status === 'exempt').length,
   }
+}
+
+function formatCountLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`
 }
