@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
+import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
@@ -519,13 +520,14 @@ function ContainerList({ containers }: { containers: BaplieContainer[] }) {
         </table>
       </div>
       {totalPages > 1 ? (
-        <div className="app-table__footer">
-          <span>Página {page} de {totalPages} · {containers.length} containers</span>
-          <div className="app-table__footer-controls">
-            <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-            <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
-          </div>
-        </div>
+        <TableFooterPagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={containers.length}
+          totalPages={totalPages}
+          countLabel={`${containers.length} containers`}
+          onPageChange={setPage}
+        />
       ) : null}
     </Card>
   )

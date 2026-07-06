@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { toNumber } from '../lib/utils'
+
 const paymentMethods = ['pix', 'ted', 'doc', 'boleto', 'outros'] as const
 const discountTypes = ['comercial', 'datas', 'cortesia', 'acordo', 'erro'] as const
 const discountModes = ['percent', 'fixed'] as const
@@ -10,14 +12,7 @@ function blankToNull(value: unknown) {
 }
 
 function parseNumberInput(value: unknown) {
-  if (typeof value === 'number') return value
-  const text = String(value ?? '').trim()
-  if (!text) return Number.NaN
-  const compact = text.replace(/\s/g, '')
-  const normalized = compact.includes(',') && compact.includes('.')
-    ? compact.replace(/\./g, '').replace(',', '.')
-    : compact.replace(',', '.')
-  return Number(normalized)
+  return toNumber(value) ?? Number.NaN
 }
 
 function isValidDateOnly(value: string) {

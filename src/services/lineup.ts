@@ -1,7 +1,8 @@
 import { buildVoyagePodEntityId, deriveAutomaticVoyagePodCeStatus, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
 import { fetchExportSchedulesByVoyageIds, type ExportCeStatus } from './voyageExportSchedules'
 import { supabase } from './supabase'
-import { isDateOnly } from '../lib/utils'
+import { chunkArray, isDateOnly } from '../lib/utils'
+import { normalizePortCode } from './portCode'
 
 type VoyageStatus = 'active' | 'completed' | 'cancelled' | null
 
@@ -283,7 +284,7 @@ async function fetchVoyages() {
 async function fetchBlsByVoyageIds(voyageIds: number[]) {
   const rows: LineUpBlRow[] = []
 
-  for (const voyageChunk of chunkNumberArray(voyageIds, 25)) {
+  for (const voyageChunk of chunkArray(voyageIds, 25)) {
     let from = 0
     while (true) {
       const { data, error } = await supabase
@@ -309,7 +310,7 @@ async function fetchBlsByVoyageIds(voyageIds: number[]) {
 async function fetchContainersByBlIds(blIds: string[]) {
   const rows: LineUpContainerRow[] = []
 
-  for (const blChunk of chunkStringArray(blIds, 250)) {
+  for (const blChunk of chunkArray(blIds, 250)) {
     let from = 0
     while (true) {
       const { data, error } = await supabase
@@ -335,7 +336,7 @@ async function fetchContainersByBlIds(blIds: string[]) {
 async function fetchVehiclesByVoyageIds(voyageIds: number[]) {
   const rows: LineUpVehicleRow[] = []
 
-  for (const voyageChunk of chunkNumberArray(voyageIds, 25)) {
+  for (const voyageChunk of chunkArray(voyageIds, 25)) {
     let from = 0
     while (true) {
       const { data, error } = await supabase
@@ -362,7 +363,7 @@ async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
   const countByVoyage = new Map<number, number>()
   if (!voyageIds.length) return countByVoyage
 
-  for (const voyageChunk of chunkNumberArray(voyageIds, 50)) {
+  for (const voyageChunk of chunkArray(voyageIds, 50)) {
     const { data: manifestRows, error: manifestError } = await supabase
       .from('vazios_importacao_manifests')
       .select('id, voyage_id')
@@ -377,7 +378,7 @@ async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
     if (!manifestToVoyage.size) continue
 
     const manifestIds = Array.from(manifestToVoyage.keys())
-    for (const manifestChunk of chunkStringArray(manifestIds, 200)) {
+    for (const manifestChunk of chunkArray(manifestIds, 200)) {
       let from = 0
       while (true) {
         const { data: containerRows, error: containerError } = await supabase
@@ -474,26 +475,8 @@ async function fetchLatestTimestamp<T extends Record<string, unknown>>(
   return typeof value === 'string' ? value : null
 }
 
-function chunkNumberArray(values: number[], chunkSize: number) {
-  if (!values.length) return []
-  const chunks: number[][] = []
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize))
-  }
-  return chunks
-}
-
-function chunkStringArray(values: string[], chunkSize: number) {
-  if (!values.length) return []
-  const chunks: string[][] = []
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize))
-  }
-  return chunks
-}
-
 function normalizePort(value: string | null | undefined) {
-  return (value ?? '').trim().toUpperCase() || '-'
+  return normalizePortCode(value) ?? '-'
 }
 
 function normalizeContainerKey(containerNumber: string | null | undefined, containerId: number) {

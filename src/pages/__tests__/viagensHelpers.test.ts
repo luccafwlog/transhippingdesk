@@ -14,17 +14,19 @@ import {
   summarizeExportByPol,
   summarizeImportByPod,
   summarizeModuleAvailability,
-  formatMetric,
-  formatPortDisplayName,
-  normalizePortName,
   normalizeVoyageStatus,
-  stripFileExtension,
   summarizeContainerTypes,
   summarizeOccurrences,
   summarizeUniqueValues,
-  tokenizeInfoValue,
   voyageCeCoverage,
-} from '../viagensHelpers'
+} from '../../services/voyageSummaries'
+import {
+  formatMetric,
+  formatPortDisplayName,
+  normalizePortName,
+  stripFileExtension,
+  tokenizeInfoValue,
+} from '../../lib/voyageFormat'
 
 describe('normalizePortName', () => {
   it('faz trim, uppercase e usa "-" como fallback', () => {

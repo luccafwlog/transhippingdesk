@@ -18,11 +18,15 @@ export function normalizePortCode(value: string | null | undefined) {
 
   if (normalized === 'BRVIT') return 'BRVIX'
   if (/^[A-Z]{5}$/.test(normalized)) return normalized
+  const embeddedLocode = normalized.match(/\b(?:BR|CN)[A-Z0-9]{3}\b/)?.[0]
+  if (embeddedLocode) return embeddedLocode === 'BRVIT' ? 'BRVIX' : embeddedLocode
 
   const text = normalizeText(normalized)
-  for (const [name, code] of PORT_NAME_TO_LOCODE) {
-    if (text.includes(name)) return code
-  }
+  const match = PORT_NAME_TO_LOCODE
+    .map(([name, code]) => ({ code, index: text.indexOf(name) }))
+    .filter((item) => item.index >= 0)
+    .sort((left, right) => left.index - right.index)[0]
+  if (match) return match.code
 
   return normalized
 }

@@ -9,6 +9,8 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { MetricCard } from '../components/ui/MetricCard'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
+import { TableFooterPagination } from '../components/ui/TableFooterPagination'
+import { PreviewBox } from '../components/ui/PreviewBox'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
@@ -684,27 +686,15 @@ export function Clientes() {
           </table>
         </div>
         {totalPages > 1 ? (
-          <div className="flex items-center justify-between border-t border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
-            <span>
-              Página {filters.page + 1} de {totalPages} ({data?.totalCount ?? 0} clientes)
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                disabled={filters.page === 0}
-                onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={filters.page >= totalPages - 1}
-                onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
-              >
-                Proxima
-              </Button>
-            </div>
-          </div>
+          <TableFooterPagination
+            page={filters.page}
+            pageBase={0}
+            pageSize={filters.pageSize}
+            totalCount={data?.totalCount ?? 0}
+            totalPages={totalPages}
+            countLabel={`${data?.totalCount ?? 0} clientes`}
+            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+          />
         ) : null}
       </Card>
 
@@ -886,8 +876,8 @@ export function Clientes() {
           {parsedBase ? (
             <div className="grid gap-4">
               <div className="grid gap-3 md:grid-cols-3">
-                <PreviewBox label="Clientes validos" value={parsedBase.rows.length} />
-                <PreviewBox label="Linhas ignoradas" value={parsedBase.rowErrors.length} />
+                <PreviewBox variant="surface" label="Clientes validos" value={parsedBase.rows.length} />
+                <PreviewBox variant="surface" label="Linhas ignoradas" value={parsedBase.rowErrors.length} />
                 <PreviewBox
                   label="Emails detectados"
                   value={parsedBase.rows.reduce((sum, row) => sum + row.emails.length, 0)}
@@ -959,15 +949,6 @@ export function Clientes() {
   )
 }
 
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
-    </div>
-  )
-}
 
 function truncateCustomerName(value: string, maxLength: number) {
   if (value.length <= maxLength) return value

@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { VoyageRailItem } from '../../../pages/viagensHelpers'
+import type { VoyageRailItem } from '../../../services/voyageSummaries'
 import { VoyageRail } from '../VoyageRail'
 
 afterEach(cleanup)

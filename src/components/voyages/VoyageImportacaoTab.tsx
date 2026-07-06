@@ -2,7 +2,8 @@ import { Info, MetricPanel, MetricSection } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
 import type { VoyageVehicleStat } from '../../hooks/useVehicles'
 import type { VoyageVaziosImportacaoStat } from '../../hooks/useVaziosImportacaoStats'
-import { formatMetric, formatPortDisplayName, summarizeImportByPod } from '../../pages/viagensHelpers'
+import { formatMetric, formatPortDisplayName } from '../../lib/voyageFormat'
+import { summarizeImportByPod } from '../../services/voyageSummaries'
 import type { Voyage } from './voyageCardTypes'
 
 export function VoyageImportacaoTab({

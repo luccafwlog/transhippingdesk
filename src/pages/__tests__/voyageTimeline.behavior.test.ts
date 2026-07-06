@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildVoyageTimeline } from '../viagensHelpers'
+import { buildVoyageTimeline } from '../../services/voyageSummaries'
 
 describe('buildVoyageTimeline (US-220 carregar timeline)', () => {
   it('humaniza importacoes, CE Master, cobertura de CE e import Baplie', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { filterVoyageRailItems } from '../viagensFilters'
-import type { VoyageRailItem } from '../../pages/viagensHelpers'
+import type { VoyageRailItem } from '../../services/voyageSummaries'
 
 const items: VoyageRailItem[] = [
   {

@@ -582,9 +582,7 @@ function cell(row: RawSheetRow, index: number) {
 }
 
 function parseNumberValue(value: unknown) {
-  const cleaned = asString(value).replace(/KGS?|CBM/gi, '').replace(/\s+/g, '').replace(',', '.')
-  const parsed = Number.parseFloat(cleaned)
-  return Number.isFinite(parsed) ? parsed : 0
+  return toNumber(value) ?? 0
 }
 
 function normalizeKey(value: string) {

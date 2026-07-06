@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
-import { sanitizeLikeTerm } from '../lib/utils'
+import { chunkArray, sanitizeLikeTerm } from '../lib/utils'
 import type { VehicleListItem } from '../types/database'
 
 export type VehiclePageFilters = {
@@ -218,7 +218,7 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
         }
       >()
 
-      for (const voyageChunk of chunkNumberArray(normalizedVoyageIds, 200)) {
+      for (const voyageChunk of chunkArray(normalizedVoyageIds, 200)) {
         let from = 0
 
         while (true) {
@@ -300,13 +300,3 @@ function summarizeCounts(source?: Map<string, number>) {
     .join(' | ')
 }
 
-function chunkNumberArray(values: number[], chunkSize: number) {
-  if (!values.length) return []
-  const chunks: number[][] = []
-
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize))
-  }
-
-  return chunks
-}

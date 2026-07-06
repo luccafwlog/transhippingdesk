@@ -8,18 +8,18 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
+import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
 import { fetchAllBls, type BlFilters, useBls, usePortOptions } from '../hooks/useBls'
+import { usePageFilters } from '../hooks/usePageFilters'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { formatDate } from '../lib/utils'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
 import type { BLListItem } from '../types/database'
-
-const pageSizes = [20, 50, 100]
 
 export function CargaSolta() {
   const [searchParams] = useSearchParams()
@@ -28,7 +28,7 @@ export function CargaSolta() {
   const { showToast } = useToast()
   const { data: portOptions } = usePortOptions()
   const initialVoyageId = searchParams.get('voyage') ?? ''
-  const [filters, setFilters] = useState<BlFilters>({
+  const { filters, setFilters, updateFilter } = usePageFilters<BlFilters>({
     search: '',
     voyageId: initialVoyageId,
     cargoMode: 'carga_solta',
@@ -115,10 +115,6 @@ export function CargaSolta() {
       chargeExempt: rows.filter((row) => row.charge_status === 'exempt').length,
     }
   }, [summaryRows])
-
-  function updateFilter<K extends keyof BlFilters>(key: K, value: BlFilters[K]) {
-    setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
-  }
 
   const activeFilterCount = (
     ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus'] as (keyof BlFilters)[]
@@ -396,34 +392,15 @@ export function CargaSolta() {
           </table>
         </div>
 
-        <div className="app-table__footer">
-          <span>
-            Página {filters.page} de {totalPages} - {data?.count ?? 0} registros
-          </span>
-          <div className="app-table__footer-controls">
-            <Select className="w-28" value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>
-              {pageSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}/pag.
-                </option>
-              ))}
-            </Select>
-            <Button
-              variant="secondary"
-              disabled={filters.page <= 1}
-              onClick={() => updateFilter('page', Math.max(1, filters.page - 1))}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={filters.page >= totalPages}
-              onClick={() => updateFilter('page', Math.min(totalPages, filters.page + 1))}
-            >
-              Proxima
-            </Button>
-          </div>
-        </div>
+        <TableFooterPagination
+          page={filters.page}
+          pageSize={filters.pageSize}
+          totalCount={data?.count ?? 0}
+          totalPages={totalPages}
+          countLabel={`${data?.count ?? 0} registros`}
+          onPageChange={(page) => updateFilter('page', page)}
+          onPageSizeChange={(pageSize) => updateFilter('pageSize', pageSize)}
+        />
       </Card>
 
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />

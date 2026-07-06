@@ -1,6 +1,7 @@
 import { Info, MetricPanel, MetricSection } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
-import { formatMetric, formatPortDisplayName, summarizeExportByPol } from '../../pages/viagensHelpers'
+import { formatMetric, formatPortDisplayName } from '../../lib/voyageFormat'
+import { summarizeExportByPol } from '../../services/voyageSummaries'
 import type { Voyage } from './voyageCardTypes'
 
 export function VoyageExportacaoTab({

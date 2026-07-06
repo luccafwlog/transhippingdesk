@@ -1,5 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
-import { asString, onlyDigits } from '../lib/utils'
+import { asString, onlyDigits, toNumber } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 
 export type BLFreightCharge = {
@@ -207,22 +207,7 @@ function parseMoney(value: string) {
 }
 
 function parseNumber(value: unknown) {
-  const cleaned = asString(value)
-    .replace(/[A-Z]+/gi, '')
-    .replace(/\s+/g, '')
-
-  if (!cleaned) return null
-
-  const lastComma = cleaned.lastIndexOf(',')
-  const lastDot = cleaned.lastIndexOf('.')
-  const decimalSeparator = lastComma > lastDot ? ',' : lastDot > -1 ? '.' : ''
-  const normalized = decimalSeparator
-    ? cleaned
-        .replace(new RegExp(`\\${decimalSeparator === ',' ? '.' : ','}`, 'g'), '')
-        .replace(decimalSeparator, '.')
-    : cleaned
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : null
+  return toNumber(value)
 }
 
 export function extractTaxId(value: string) {

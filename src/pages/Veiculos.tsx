@@ -6,7 +6,8 @@ import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { MetricCard } from '../components/ui/MetricCard'
 import { FilterBar } from '../components/ui/FilterBar'
-import { Field, Input, Select } from '../components/ui/Input'
+import { Field, Input } from '../components/ui/Input'
+import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
@@ -15,12 +16,11 @@ import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
+import { usePageFilters } from '../hooks/usePageFilters'
 import { useVehicleOptions, useVehicles, type VehiclePageFilters } from '../hooks/useVehicles'
 import { formatDate } from '../lib/utils'
 import { deleteVehicles } from '../services/vehicles'
 import { importVehicleRows, parseVehicleImportFile, type ParsedVehicleImport } from '../services/vehicleImport'
-
-const pageSizes = [20, 50, 100]
 
 export function Veiculos() {
   const [searchParams] = useSearchParams()
@@ -33,7 +33,7 @@ export function Veiculos() {
   const { data: options } = useVehicleOptions()
   const [selectedVoyageId, setSelectedVoyageId] = useState(searchParams.get('voyage') ?? '')
   const [importVoyageId, setImportVoyageId] = useState('')
-  const [filters, setFilters] = useState<VehiclePageFilters>({
+  const { filters, setFilters, updateFilter } = usePageFilters<VehiclePageFilters>({
     search: '',
     brand: '',
     model: '',
@@ -75,10 +75,6 @@ export function Veiculos() {
   const importTargetVoyageId = importVoyageId ? Number(importVoyageId) : null
   const { data, isLoading, error } = useVehicles(voyageId, filters)
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
-
-  function updateFilter<K extends keyof VehiclePageFilters>(key: K, value: VehiclePageFilters[K]) {
-    setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
-  }
 
   const activeFilterCount = (['search', 'brand', 'model', 'container', 'containerType', 'seal', 'bl'] as (keyof VehiclePageFilters)[])
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
@@ -379,34 +375,15 @@ export function Veiculos() {
           </table>
         </div>
 
-        <div className="app-table__footer">
-          <span>
-            Página {filters.page} de {totalPages} · {data?.count ?? 0} registros
-          </span>
-          <div className="app-table__footer-controls">
-            <Select className="w-28" value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>
-              {pageSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}/pag.
-                </option>
-              ))}
-            </Select>
-            <Button
-              variant="secondary"
-              disabled={filters.page <= 1}
-              onClick={() => updateFilter('page', Math.max(1, filters.page - 1))}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={filters.page >= totalPages}
-              onClick={() => updateFilter('page', Math.min(totalPages, filters.page + 1))}
-            >
-              Proxima
-            </Button>
-          </div>
-        </div>
+        <TableFooterPagination
+          page={filters.page}
+          pageSize={filters.pageSize}
+          totalCount={data?.count ?? 0}
+          totalPages={totalPages}
+          countLabel={`${data?.count ?? 0} registros`}
+          onPageChange={(page) => updateFilter('page', page)}
+          onPageSizeChange={(pageSize) => updateFilter('pageSize', pageSize)}
+        />
       </Card>
 
         </>

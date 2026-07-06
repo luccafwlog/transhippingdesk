@@ -6,12 +6,14 @@ import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
+import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
+import { usePageFilters } from '../hooks/usePageFilters'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
@@ -25,8 +27,6 @@ import {
   type ParsedContainerFlagsImport,
 } from '../services/containerFlagsImport'
 
-const pageSizes = [20, 50, 100]
-
 export function Containers() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
@@ -38,7 +38,7 @@ export function Containers() {
   const { user, isAdmin } = useAuth()
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
-  const [filters, setFilters] = useState<ContainerFilters>({
+  const { filters, setFilters, updateFilter } = usePageFilters<ContainerFilters>({
     search: searchParams.get('search') ?? '',
     voyageId: initialVoyage,
     cargoMode: 'container',
@@ -65,10 +65,6 @@ export function Containers() {
   const { data: typeOptions } = useContainerTypeOptions()
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
-
-  function updateFilter<K extends keyof ContainerFilters>(key: K, value: ContainerFilters[K]) {
-    setFilters((current) => ({ ...current, [key]: value, page: key === 'page' ? Number(value) : 1 }))
-  }
 
   const activeFilterCount = (
     ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile', 'containerType', 'vehicleContainer'] as (keyof ContainerFilters)[]
@@ -480,38 +476,15 @@ export function Containers() {
           </table>
         </div>
 
-        <div className="app-table__footer">
-          <span>
-            Página {filters.page} de {totalPages} · {data?.count ?? 0} registros · {data?.distinctCount ?? 0} containers distintos
-          </span>
-          <div className="app-table__footer-controls">
-            <Select
-              className="w-28"
-              value={filters.pageSize}
-              onChange={(event) => updateFilter('pageSize', Number(event.target.value))}
-            >
-              {pageSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}/pag.
-                </option>
-              ))}
-            </Select>
-            <Button
-              variant="secondary"
-              disabled={filters.page <= 1}
-              onClick={() => updateFilter('page', Math.max(1, filters.page - 1))}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={filters.page >= totalPages}
-              onClick={() => updateFilter('page', Math.min(totalPages, filters.page + 1))}
-            >
-              Proxima
-            </Button>
-          </div>
-        </div>
+        <TableFooterPagination
+          page={filters.page}
+          pageSize={filters.pageSize}
+          totalCount={data?.count ?? 0}
+          totalPages={totalPages}
+          countLabel={`${data?.count ?? 0} registros`}
+          onPageChange={(page) => updateFilter('page', page)}
+          onPageSizeChange={(pageSize) => updateFilter('pageSize', pageSize)}
+        />
       </Card>
 
       <ContainerDatesImportModal open={datesImportOpen} onClose={() => setDatesImportOpen(false)} />

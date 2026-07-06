@@ -5,6 +5,7 @@ import {
 } from '../lib/containerCounts'
 import { useQuery } from '@tanstack/react-query'
 import { escapeFilterTerm, normalizeText } from '../lib/utils'
+import { queryKeys } from '../services/queryKeys'
 import { supabase } from '../services/supabase'
 import type { AuditLog, BL, BLDetail, BLListItem, ContainerListItem } from '../types/database'
 
@@ -18,6 +19,14 @@ const blSelect = `
 `
 
 const exportBatchSize = 1000
+
+function supabaseRows<T>(data: unknown): T[] {
+  return Array.isArray(data) ? (data as T[]) : []
+}
+
+function supabaseValue<T>(data: unknown): T {
+  return data as T
+}
 
 export type BlFilters = {
   search: string
@@ -51,7 +60,7 @@ export type ContainerFilters = {
 
 export function useBls(filters: BlFilters) {
   return useQuery({
-    queryKey: ['bls', filters],
+    queryKey: queryKeys.bls.list(filters),
     queryFn: async () => {
       // Some legacy rows may carry charge_status with formatting drift (e.g. casing/spacing),
       // which makes PostgREST eq() return false negatives. For status/profile filters,
@@ -76,7 +85,7 @@ export function useBls(filters: BlFilters) {
       if (error) throw error
 
       return {
-        rows: (data ?? []) as unknown as BLListItem[],
+        rows: supabaseRows<BLListItem>(data),
         count: count ?? 0,
       }
     },
@@ -85,8 +94,10 @@ export function useBls(filters: BlFilters) {
 
 export function useContainers(filters: ContainerFilters) {
   return useQuery({
-    queryKey: ['containers', filters],
+    queryKey: queryKeys.bls.containers(filters),
     queryFn: async () => {
+      // ponytail: este filtro materializa todos os B/Ls/containers no cliente (O(tabela))
+      // para preservar filtros derivados; upgrade path = agregacao/filtros server-side.
       const filteredRows = await fetchAllContainers(filters)
       const from = (filters.page - 1) * filters.pageSize
       const to = from + filters.pageSize
@@ -123,7 +134,7 @@ export function useContainers(filters: ContainerFilters) {
 
 export function useBlSummary(filters: BlFilters) {
   return useQuery({
-    queryKey: ['bl-summary', toSummaryFilters(filters)],
+    queryKey: queryKeys.bls.summary(toSummaryFilters(filters)),
     queryFn: async () => {
       const rows = await fetchAllBls(filters)
 
@@ -154,7 +165,7 @@ export async function fetchAllBls(filters: BlFilters) {
     const { data, error } = await query
     if (error) throw error
 
-    const batch = (data ?? []) as unknown as BLListItem[]
+    const batch = supabaseRows<BLListItem>(data)
     rows.push(...batch)
 
     if (batch.length < exportBatchSize) {
@@ -190,7 +201,7 @@ export async function fetchAllContainers(filters: ContainerFilters) {
         ({
           ...container,
           bl,
-        }) as unknown as ContainerListItem,
+        }) as ContainerListItem,
     ),
   )
 
@@ -209,7 +220,7 @@ export async function fetchAllContainers(filters: ContainerFilters) {
 
 export function useBlDetail(blId?: string) {
   return useQuery({
-    queryKey: ['bl-detail', blId],
+    queryKey: queryKeys.bls.detail(blId),
     enabled: Boolean(blId),
     queryFn: async () => {
       const { data, error } = await supabase
@@ -229,14 +240,14 @@ export function useBlDetail(blId?: string) {
         .single()
 
       if (error) throw error
-      return data as unknown as BLDetail
+      return supabaseValue<BLDetail>(data)
     },
   })
 }
 
 export function useAuditLogs(entityType: string, entityId?: string) {
   return useQuery({
-    queryKey: ['audit-logs', entityType, entityId],
+    queryKey: queryKeys.auditLogs.detail(entityType, entityId),
     enabled: Boolean(entityId),
     queryFn: async () => {
       const { data, error } = await supabase
@@ -255,7 +266,7 @@ export function useAuditLogs(entityType: string, entityId?: string) {
 
 export function useVoyageOptions() {
   return useQuery({
-    queryKey: ['voyage-options'],
+    queryKey: queryKeys.voyages.options(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('voyages')
@@ -264,14 +275,14 @@ export function useVoyageOptions() {
         .range(0, 499)
 
       if (error) throw error
-      return (data ?? []) as unknown as { id: number; voyage_number: string; vessel?: { name: string } | null }[]
+      return supabaseRows<{ id: number; voyage_number: string; vessel?: { name: string } | null }>(data)
     },
   })
 }
 
 export function usePortOptions() {
   return useQuery({
-    queryKey: ['port-options'],
+    queryKey: queryKeys.bls.portOptions(),
     // Port codes are stable — refresh only once every 10 minutes
     staleTime: 1000 * 60 * 10,
     queryFn: async () => {
@@ -375,7 +386,7 @@ export function useVoyages() {
 
       if (error) throw error
 
-        return (data ?? []) as unknown as Array<{
+        return supabaseRows<{
           id: number
           voyage_number: string
           etd: string | null
@@ -455,7 +466,7 @@ export function useVoyages() {
             cbm?: number | null
           }> | null
         }> | null
-      }>
+      }>(data)
     },
   })
 }

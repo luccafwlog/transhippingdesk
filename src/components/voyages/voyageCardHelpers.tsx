@@ -3,7 +3,8 @@ import {
   getVoyagePodCeStatusLabel,
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
-import { formatPortDisplayName, stripFileExtension, type VoyageBl } from '../../pages/viagensHelpers'
+import { formatPortDisplayName, stripFileExtension } from '../../lib/voyageFormat'
+import type { VoyageBl } from '../../services/voyageSummaries'
 
 export function renderEscalaNumber(value: string | null) {
   if (!value) return <span className="text-[var(--app-muted-soft)]">-</span>

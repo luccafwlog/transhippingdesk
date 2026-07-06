@@ -7,6 +7,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { TabButton } from '../components/ui/TabButton'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
+import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { usePortalOperationBls } from '../hooks/usePortalOperation'
 import { formatDate } from '../lib/utils'
 import {
@@ -237,7 +238,15 @@ function BlsTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]; filte
               </tbody>
             </table>
           </div>
-          <Pagination page={safePage} pageSize={pageSize} total={filtered.length} totalPages={totalPages} onPage={setPage} />
+          <TableFooterPagination
+            page={safePage}
+            pageBase={0}
+            pageSize={pageSize}
+            totalCount={filtered.length}
+            totalPages={totalPages}
+            countLabel={`${safePage * pageSize + 1}-${Math.min((safePage + 1) * pageSize, filtered.length)} de ${filtered.length}`}
+            onPageChange={setPage}
+          />
         </>
       )}
     </Card>
@@ -362,25 +371,18 @@ function ContainersTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]
               </tbody>
             </table>
           </div>
-          <Pagination page={safePage} pageSize={pageSize} total={filtered.length} totalPages={totalPages} onPage={setPage} />
+          <TableFooterPagination
+            page={safePage}
+            pageBase={0}
+            pageSize={pageSize}
+            totalCount={filtered.length}
+            totalPages={totalPages}
+            countLabel={`${safePage * pageSize + 1}-${Math.min((safePage + 1) * pageSize, filtered.length)} de ${filtered.length}`}
+            onPageChange={setPage}
+          />
         </>
       )}
     </Card>
-  )
-}
-
-function Pagination({ page, pageSize, total, totalPages, onPage }: { page: number; pageSize: number; total: number; totalPages: number; onPage: (p: number) => void }) {
-  if (totalPages <= 1) return null
-  return (
-    <div className="flex items-center justify-between border-t border-[var(--app-border)] px-5 py-3 text-sm">
-      <div className="text-[var(--app-muted)]">
-        {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} de {total}
-      </div>
-      <div className="flex gap-1">
-        <Button variant="secondary" disabled={page === 0} onClick={() => onPage(page - 1)}>Anterior</Button>
-        <Button variant="secondary" disabled={page >= totalPages - 1} onClick={() => onPage(page + 1)}>Próxima</Button>
-      </div>
-    </div>
   )
 }
 

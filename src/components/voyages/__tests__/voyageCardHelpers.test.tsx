@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { VoyageBl } from '../../../pages/viagensHelpers'
+import type { VoyageBl } from '../../../services/voyageSummaries'
 import { collectVoyageManifestBatchRows, type VoyageImportBatch } from '../voyageCardHelpers'
 
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))

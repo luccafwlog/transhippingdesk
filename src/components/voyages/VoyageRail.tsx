@@ -1,7 +1,7 @@
 import { ArrowRight, PanelLeftClose, Pencil, Ship } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import { ESTADO_CONCILIACAO_META } from '../../lib/statusLabels'
-import type { VoyageRailItem } from '../../pages/viagensHelpers'
+import type { VoyageRailItem } from '../../services/voyageSummaries'
 
 type VoyageRailProps = {
   /** Lista já filtrada e ordenada (a filtragem vive na página / VoyageFilters). */

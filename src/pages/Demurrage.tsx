@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Clock, DollarSign, FileText, Pencil, Upload } from 'lucide-react'
-import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
@@ -13,7 +12,7 @@ import { useConfirm } from '../components/ui/ConfirmDialog'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
 import { DemurragePaymentReversalModal } from '../components/demurrage/DemurragePaymentReversalModal'
-import { calculateDemurrage } from '../services/demurrage/demurrageRates'
+import { DemurrageStatusBadge, InvoiceStatusBadge } from '../components/demurrage/DemurrageBadges'
 import { listDemurrageContainers, updateContainerDates } from '../services/demurrage/demurrageContainers'
 import {
   cancelDemurrageInvoice,
@@ -28,6 +27,15 @@ import { reverseDemurragePayment } from '../services/reconciliacao'
 import { fetchDemurrageKPIs, fetchROE, fetchLatestRecalcDate, recalculateInvoicesManual, fetchCustomerDemurrageSummary, fetchCustomerDemurrageDetail } from '../services/demurrage/demurrageKpis'
 import { CustomerSummaryReport } from '../components/demurrage/CustomerSummaryReport'
 import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
+import {
+  DISCOUNT_TYPE_LABELS,
+  DISPUTE_STATUS_LABELS,
+  EMPTY_DISCOUNT,
+  EMPTY_DISPUTE,
+  type DiscountForm,
+  type DisputeForm,
+} from '../services/demurrage/demurrageForms'
+import { effectiveDemurrage, fmtBRL, fmtUSD, groupByBl, lastBusinessDayISO } from '../services/demurrage/demurragePresentation'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters, formatResultCount } from '../lib/operationalState'
@@ -35,79 +43,7 @@ import { formatDate } from '../lib/utils'
 
 type DemurrageTab = 'containers' | 'clientes' | (typeof DEMURRAGE_INVOICE_TABS)[number]['key']
 
-type DiscountForm = {
-  discount_type: DemurrageInvoice['discount_type']
-  discount_value: string
-  discount_mode: 'percent' | 'fixed'
-  discount_justification: string
-  discount_approver: string
-}
 
-type DisputeForm = {
-  dispute_open: boolean
-  dispute_subject: string
-  dispute_reason: string
-  dispute_status: DemurrageInvoice['dispute_status']
-  dispute_notes: string
-}
-
-function fmtUSD(v: number | null | undefined) {
-  if (v == null) return '—'
-  return '$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-// Último dia útil (hoje se for dia de semana; senão a sexta anterior). O recálculo
-// do BCB só roda em dias úteis. ponytail: feriados nacionais não são considerados
-// (banner pode soar falso-positivo em feriado) — operador pode ignorar/informar manual.
-function lastBusinessDayISO(): string {
-  const d = new Date()
-  if (d.getDay() === 0) d.setDate(d.getDate() - 2)
-  else if (d.getDay() === 6) d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0, 10)
-}
-
-function fmtBRL(v: number | null | undefined) {
-  if (v == null) return '—'
-  return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function DemurrageStatusBadge({ status }: { status: string | null }) {
-  if (status === 'returned') return <Badge tone="slate">Devolvido</Badge>
-  if (status === 'overdue') return <Badge tone="red">Em atraso</Badge>
-  return <Badge tone="green">Free time</Badge>
-}
-
-function InvoiceStatusBadge({ status }: { status: DemurrageInvoice['status'] }) {
-  if (status === 'paid') return <Badge tone="green">Pago</Badge>
-  if (status === 'cancelled') return <Badge tone="slate">Cancelado</Badge>
-  return <Badge tone="blue">Faturado</Badge>
-}
-
-function groupByBl(containers: DemurrageContainerListItem[]): Map<string, DemurrageContainerListItem[]> {
-  const map = new Map<string, DemurrageContainerListItem[]>()
-  for (const c of containers) {
-    const blId = c.bl_id ?? 'unknown'
-    if (!map.has(blId)) map.set(blId, [])
-    map.get(blId)!.push(c)
-  }
-  return map
-}
-
-function containerBlRates(c: DemurrageContainerListItem) {
-  return c.bl as {
-    free_time_override?: number | null
-    demurrage_rate_override_p1_usd?: number | null
-    demurrage_rate_override_p2_usd?: number | null
-  } | null
-}
-
-// Demurrage operacional do container: usa a devolução quando existe, senão hoje
-// (container ainda fora, sobreestadia correndo). Null sem data de descarga.
-function effectiveDemurrage(c: DemurrageContainerListItem) {
-  if (!c.discharge_date) return null
-  const end = c.return_date ?? new Date().toISOString().slice(0, 10)
-  const bl = containerBlRates(c)
-  return calculateDemurrage(c.type, c.discharge_date, end, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd)
-}
 
 const TAB_LABELS: { key: DemurrageTab; label: string }[] = [
   { key: 'containers', label: 'Containers' },
@@ -118,36 +54,6 @@ const TAB_LABELS: { key: DemurrageTab; label: string }[] = [
 const TAB_TO_STATUS = Object.fromEntries(
   DEMURRAGE_INVOICE_TABS.map(({ key, status }) => [key, status]),
 ) as Record<Exclude<DemurrageTab, 'containers' | 'clientes'>, NonNullable<DemurrageInvoice['status']>>
-
-const DISCOUNT_TYPE_LABELS: Record<NonNullable<DemurrageInvoice['discount_type']>, string> = {
-  comercial: 'Comercial',
-  datas: 'Datas',
-  cortesia: 'Cortesia',
-  acordo: 'Acordo',
-  erro: 'Erro',
-}
-
-const DISPUTE_STATUS_LABELS: Record<NonNullable<DemurrageInvoice['dispute_status']>, string> = {
-  aberto: 'Aberto',
-  resolvido: 'Resolvido',
-  cancelado: 'Cancelado',
-}
-
-const EMPTY_DISCOUNT: DiscountForm = {
-  discount_type: null,
-  discount_value: '',
-  discount_mode: 'percent',
-  discount_justification: '',
-  discount_approver: '',
-}
-
-const EMPTY_DISPUTE: DisputeForm = {
-  dispute_open: false,
-  dispute_subject: '',
-  dispute_reason: '',
-  dispute_status: null,
-  dispute_notes: '',
-}
 
 export function Demurrage() {
   const queryClient = useQueryClient()
