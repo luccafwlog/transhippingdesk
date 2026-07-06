@@ -333,7 +333,7 @@ function ContainersTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]
                   <th scope="col" className="px-4 py-3">POL</th>
                   <th scope="col" className="px-4 py-3">POD</th>
                   <th scope="col" className="px-4 py-3">Descarga</th>
-                  <th scope="col" className="px-4 py-3">Devolucao</th>
+                  <th scope="col" className="px-4 py-3">Devolução</th>
                   <th scope="col" className="px-4 py-3">Dias de uso</th>
                   <th scope="col" className="px-4 py-3">Free time</th>
                   <th scope="col" className="px-4 py-3">Dias em demurrage</th>
@@ -378,7 +378,7 @@ function Pagination({ page, pageSize, total, totalPages, onPage }: { page: numbe
       </div>
       <div className="flex gap-1">
         <Button variant="secondary" disabled={page === 0} onClick={() => onPage(page - 1)}>Anterior</Button>
-        <Button variant="secondary" disabled={page >= totalPages - 1} onClick={() => onPage(page + 1)}>Proxima</Button>
+        <Button variant="secondary" disabled={page >= totalPages - 1} onClick={() => onPage(page + 1)}>Próxima</Button>
       </div>
     </div>
   )
@@ -397,7 +397,7 @@ function ContainerDetails({ row }: { row: PortalOperationBL }) {
             <th scope="col" className="px-4 py-3">Container</th>
             <th scope="col" className="px-4 py-3">Tipo</th>
             <th scope="col" className="px-4 py-3">Descarga</th>
-            <th scope="col" className="px-4 py-3">Devolucao</th>
+            <th scope="col" className="px-4 py-3">Devolução</th>
             <th scope="col" className="px-4 py-3">Dias uso</th>
             <th scope="col" className="px-4 py-3">Free time</th>
             <th scope="col" className="px-4 py-3">Demurrage</th>

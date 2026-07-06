@@ -402,7 +402,7 @@ export function Clientes() {
     <>
       <PageHeader
         title="Clientes"
-        description="Cadastro mestre de consignatarios. Importe a base antes dos manifestos para vinculo automatico por CNPJ/CPF."
+        description="Cadastro mestre de consignatários. Importe a base antes dos manifestos para vínculo automático por CNPJ/CPF."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={() => setImportOpen(true)}>
@@ -540,7 +540,7 @@ export function Clientes() {
                     {renderSortIcon(filters, 'pendingBalance')}
                   </button>
                 </th>
-                <th scope="col" className="w-[236px] px-3 py-3 text-right">Acoes</th>
+                <th scope="col" className="w-[236px] px-3 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -686,7 +686,7 @@ export function Clientes() {
         {totalPages > 1 ? (
           <div className="flex items-center justify-between border-t border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
             <span>
-              Pagina {filters.page + 1} de {totalPages} ({data?.totalCount ?? 0} clientes)
+              Página {filters.page + 1} de {totalPages} ({data?.totalCount ?? 0} clientes)
             </span>
             <div className="flex gap-2">
               <Button
@@ -743,7 +743,7 @@ export function Clientes() {
                 onChange={(event) => updateCreateField('tradeName', event.target.value)}
               />
             </Field>
-            <Field label="Endereco">
+            <Field label="Endereço">
               <Input value={createForm.address} onChange={(event) => updateCreateField('address', event.target.value)} />
             </Field>
             <Field label="Cidade">

@@ -200,7 +200,7 @@ export function VoyageVisaoTab({
               <th scope="col" className="px-3 py-2">BLs e CEs</th>
               <th scope="col" className="px-3 py-2">Nº Escala</th>
               <th scope="col" className="px-3 py-2">VINCULADA</th>
-              <th scope="col" className="px-3 py-2">Acoes</th>
+              <th scope="col" className="px-3 py-2">Ações</th>
             </tr>
           </thead>
           <tbody>

@@ -129,7 +129,7 @@ export function BlOperacionalTab({
           <Field label="Shipper">
             <Input value={form.shipper ?? ''} onChange={(event) => onFieldChange('shipper', event.target.value)} />
           </Field>
-          <Field label="Consignatario">
+          <Field label="Consignatário">
             <Input value={form.consignee ?? ''} onChange={(event) => onFieldChange('consignee', event.target.value)} />
           </Field>
           <Field label="Notify Party">
@@ -165,7 +165,7 @@ export function BlOperacionalTab({
               <option value="COLLECT">COLLECT</option>
             </Select>
           </Field>
-          <Field label="Status de revisao">
+          <Field label="Status de revisão">
             {/* Somente leitura: o status é derivado no servidor (save_bl_review →
                 compute_bl_review_pendencies). Não é editável manualmente. */}
             <Input disabled value={REVIEW_STATUS_LABELS[bl.review_status ?? 'ok'] ?? bl.review_status ?? 'ok'} />
@@ -189,7 +189,7 @@ export function BlOperacionalTab({
               <div className="text-sm text-slate-400">Nenhum NCM identificado na descrição.</div>
             )}
           </Field>
-          <Field label="Descricao da carga">
+          <Field label="Descrição da carga">
             <Textarea
               value={form.cargo_description ?? ''}
               onChange={(event) => onFieldChange('cargo_description', event.target.value)}
@@ -198,7 +198,7 @@ export function BlOperacionalTab({
           <Field label="Notas">
             <Textarea value={form.notes ?? ''} onChange={(event) => onFieldChange('notes', event.target.value)} />
           </Field>
-          <Field label="Justificativa da alteracao manual">
+          <Field label="Justificativa da alteração manual">
             <Textarea value={justification} onChange={(event) => onJustificationChange(event.target.value)} required />
           </Field>
         </div>

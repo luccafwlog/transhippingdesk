@@ -96,7 +96,7 @@ export function Alertas() {
                 <th scope="col" className="px-4 py-3">Mensagem</th>
                 <th scope="col" className="px-4 py-3">Entidade</th>
                 <th scope="col" className="px-4 py-3">Data</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>

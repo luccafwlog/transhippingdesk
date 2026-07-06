@@ -184,15 +184,15 @@ export function LineUpTVDisplay() {
         </div>
         <div className="app-lineup-display-meta">
           <div className="app-lineup-display-meta__group">
-            <span className="app-lineup-display-meta__label">Inicio do ciclo</span>
+            <span className="app-lineup-display-meta__label">Início do ciclo</span>
             <strong className="app-lineup-display-meta__value app-lineup-display-meta__value--route">{firstRouteLabel}</strong>
           </div>
           <div className="app-lineup-display-meta__group">
-            <span className="app-lineup-display-meta__label">Ultima alteracao</span>
+            <span className="app-lineup-display-meta__label">Última alteração</span>
             <strong className="app-lineup-display-meta__value">{lastUpdate}</strong>
           </div>
           <div className="app-lineup-display-meta__group">
-            <span className="app-lineup-display-meta__label">Atualizado as</span>
+            <span className="app-lineup-display-meta__label">Atualizado às</span>
             <strong
               className="app-lineup-display-meta__value"
               style={{ transition: 'color 0.4s', color: flashRefresh ? '#4ade80' : undefined }}

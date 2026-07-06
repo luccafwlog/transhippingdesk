@@ -209,7 +209,7 @@ export function ChargeTablesTab({
         <div className="app-table__cell-stack">
           <div className="app-panel__title">Cobertura das tabelas</div>
           <div className="app-table__cell-meta">
-            Refine por modo e POD antes de editar estrutura tarifaria ou publicar novos itens.
+            Refine por modo e POD antes de editar estrutura tarifária ou publicar novos itens.
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -543,10 +543,10 @@ export function ChargeTablesTab({
                 <th scope="col" className="px-4 py-3">Tabela</th>
                 <th scope="col" className="px-4 py-3">Modo</th>
                 <th scope="col" className="px-4 py-3">POD</th>
-                <th scope="col" className="px-4 py-3">Vigencia</th>
+                <th scope="col" className="px-4 py-3">Vigência</th>
                 <th scope="col" className="px-4 py-3">Status</th>
                 <th scope="col" className="px-4 py-3">Itens</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Ações</th>
                 <th scope="col" className="px-4 py-3"></th>
               </tr>
             </thead>

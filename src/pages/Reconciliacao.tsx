@@ -84,7 +84,7 @@ export function Reconciliacao() {
       void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
       setConfirmationResult(result)
       setMatches(null)
-      showToast(`Conciliacao concluida: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
+      showToast(`Conciliação concluída: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -118,8 +118,8 @@ export function Reconciliacao() {
   return (
     <>
       <PageHeader
-        title="Conciliacao PIX"
-        description="Conciliacao automatica de pagamentos PIX de todas as faturas (Container, Break Bulk, Granito e Demurrage)."
+        title="Conciliação PIX"
+        description="Conciliação automática de pagamentos PIX de todas as faturas (Container, Break Bulk, Granito e Demurrage)."
       />
 
       <div

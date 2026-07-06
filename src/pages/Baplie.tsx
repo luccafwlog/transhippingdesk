@@ -167,7 +167,7 @@ export function Baplie() {
     <>
       <PageHeader
         title="Baplie EDI"
-        description="Gestao centralizada do arquivo Baplie EDI por viagem."
+        description="Gestão centralizada do arquivo Baplie EDI por viagem."
       />
 
       <Card className="mb-5">
@@ -340,7 +340,7 @@ function VaziosSection({
 
   return (
     <Card className="mb-5">
-      <div className="text-sm font-semibold text-white mb-3">Vazios de Importacao</div>
+      <div className="text-sm font-semibold text-white mb-3">Vazios de Importação</div>
       {loadingExistingManifest ? (
         <div className="rounded-xl border border-slate-500/30 bg-slate-500/5 p-4 text-sm text-slate-300">
           Verificando manifesto de vazios existente...
@@ -520,10 +520,10 @@ function ContainerList({ containers }: { containers: BaplieContainer[] }) {
       </div>
       {totalPages > 1 ? (
         <div className="app-table__footer">
-          <span>Pagina {page} de {totalPages} · {containers.length} containers</span>
+          <span>Página {page} de {totalPages} · {containers.length} containers</span>
           <div className="app-table__footer-controls">
             <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-            <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Proxima</Button>
+            <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
           </div>
         </div>
       ) : null}

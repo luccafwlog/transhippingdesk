@@ -38,7 +38,7 @@ export function describeEmptyState({
 
   return {
     title: emptyWithoutFilters,
-    description: 'Quando houver dados para este modulo, eles aparecerao aqui.',
+    description: 'Quando houver dados para este módulo, eles aparecerão aqui.',
   }
 }
 

@@ -86,7 +86,7 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
     if (!bl || !form || !user) return
 
     if (changes.length === 0) {
-      showToast('Nenhuma alteracao detectada.', 'info')
+      showToast('Nenhuma alteração detectada.', 'info')
       return
     }
 

@@ -32,7 +32,7 @@ describe('operationalState', () => {
       emptyWithoutFilters: 'Nenhuma fatura emitida ainda.',
     })).toEqual({
       title: 'Nenhuma fatura emitida ainda.',
-      description: 'Quando houver dados para este modulo, eles aparecerao aqui.',
+      description: 'Quando houver dados para este módulo, eles aparecerão aqui.',
     })
 
     expect(describeEmptyState({

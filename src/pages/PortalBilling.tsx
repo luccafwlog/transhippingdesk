@@ -313,7 +313,7 @@ export function PortalBilling() {
                   <table className="app-table app-table--compact min-w-[680px] text-left text-sm">
                     <thead>
                       <tr>
-                        <th scope="col" className="px-3 py-2">Descricao</th>
+                        <th scope="col" className="px-3 py-2">Descrição</th>
                         <th scope="col" className="px-3 py-2">B/L</th>
                         <th scope="col" className="px-3 py-2 text-right">Qtd</th>
                         <th scope="col" className="px-3 py-2 text-right">Valor unit.</th>
@@ -432,7 +432,7 @@ export function PortalBilling() {
                           <th scope="col" className="px-3 py-2">Container</th>
                           <th scope="col" className="px-3 py-2">Tipo</th>
                           <th scope="col" className="px-3 py-2">Descarga</th>
-                          <th scope="col" className="px-3 py-2">Devolucao</th>
+                          <th scope="col" className="px-3 py-2">Devolução</th>
                           <th scope="col" className="px-3 py-2">Dias</th>
                           <th scope="col" className="px-3 py-2">USD</th>
                         </tr>
@@ -510,11 +510,11 @@ function LocalFeesTab({ invoices, loading, error, filters, onFilters, vesselOpti
               <th scope="col" className="px-4 py-3">Fatura</th>
               <th scope="col" className="px-4 py-3">Tipo</th>
               <th scope="col" className="px-4 py-3">Navio / Viagem · POD</th>
-              <th scope="col" className="px-4 py-3">Emissao</th>
+              <th scope="col" className="px-4 py-3">Emissão</th>
               <th scope="col" className="px-4 py-3">Pagamento</th>
               <th scope="col" className="px-4 py-3">Financeiro</th>
               <th scope="col" className="px-4 py-3">Status</th>
-              <th scope="col" className="px-4 py-3">Acoes</th>
+              <th scope="col" className="px-4 py-3">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -606,7 +606,7 @@ function DemurrageTab({ invoices, loading, filters, onFilters, vesselOptions, po
             <tr>
               <th scope="col" className="px-4 py-3">Documento</th>
               <th scope="col" className="px-4 py-3">BL / Trecho</th>
-              <th scope="col" className="px-4 py-3">Emissao</th>
+              <th scope="col" className="px-4 py-3">Emissão</th>
               <th scope="col" className="px-4 py-3">Atualizado em</th>
               <th scope="col" className="px-4 py-3">Total USD</th>
               <th scope="col" className="px-4 py-3">Total BRL</th>

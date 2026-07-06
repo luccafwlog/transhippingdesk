@@ -112,7 +112,7 @@ export function EmbarqueVazios() {
   return (
     <>
       <PageHeader
-        title="Vazios — Exportacao"
+        title="Vazios — Exportação"
         description="Containers vazios que embarcam (saem) pelo porto. Identificados por booking number."
         action={
           <div className="flex flex-wrap gap-2">
@@ -168,7 +168,7 @@ export function EmbarqueVazios() {
                 <th scope="col" className="px-4 py-3">Container</th>
                 <th scope="col" className="px-4 py-3">Tipo</th>
                 <th scope="col" className="px-4 py-3">Navio/Viagem</th>
-                <th scope="col" className="px-4 py-3">Data Movimentacao</th>
+                <th scope="col" className="px-4 py-3">Data Movimentação</th>
                 <th scope="col" className="px-4 py-3">Terminal Origem</th>
                 <th scope="col" className="px-4 py-3">Destino</th>
                 <th scope="col" className="px-4 py-3">Observações</th>
@@ -221,7 +221,7 @@ export function EmbarqueVazios() {
 
         <div className="app-table__footer">
           <span>
-            Pagina {filters.page} de {totalPages} - {data?.count ?? 0} registros
+            Página {filters.page} de {totalPages} - {data?.count ?? 0} registros
           </span>
           <div className="app-table__footer-controls">
             <Button
@@ -248,7 +248,7 @@ export function EmbarqueVazios() {
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
             <div className="font-semibold text-white">Formato esperado</div>
             <div className="mt-2 text-slate-400">
-              Colunas: <strong>Booking</strong> (obrigatorio), Container, Tipo, Data Movimentacao, Terminal Origem, Destino, Observações.
+              Colunas: <strong>Booking</strong> (obrigatório), Container, Tipo, Data Movimentação, Terminal Origem, Destino, Observações.
               Use o template disponivel no botao "Baixar template".
             </div>
           </div>

@@ -235,7 +235,7 @@ export function Granite() {
                 <th scope="col" className="px-4 py-3">CBM Final</th>
                 <th scope="col" className="px-4 py-3">Fase</th>
                 <th scope="col" className="px-4 py-3">Status Taxas</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -293,7 +293,7 @@ export function Granite() {
 
         <div className="app-table__footer">
           <span>
-            Pagina {filters.page} de {totalPages} - {data?.count ?? 0} registros
+            Página {filters.page} de {totalPages} - {data?.count ?? 0} registros
           </span>
           <div className="app-table__footer-controls">
             <Button

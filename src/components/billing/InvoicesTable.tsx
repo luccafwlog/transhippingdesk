@@ -102,7 +102,7 @@ export function InvoicesTable({
           </tbody>
         </table>
       </div>
-      <div className="app-table__footer"><span>Pagina {page} de {totalPages} · {totalCount} registros</span><div className="app-table__footer-controls"><Button variant="secondary" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page - 1))}>Anterior</Button><Button variant="secondary" disabled={page >= totalPages} onClick={() => onPageChange(Math.min(totalPages, page + 1))}>Proxima</Button></div></div>
+      <div className="app-table__footer"><span>Página {page} de {totalPages} · {totalCount} registros</span><div className="app-table__footer-controls"><Button variant="secondary" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page - 1))}>Anterior</Button><Button variant="secondary" disabled={page >= totalPages} onClick={() => onPageChange(Math.min(totalPages, page + 1))}>Próxima</Button></div></div>
     </Card>
   )
 }

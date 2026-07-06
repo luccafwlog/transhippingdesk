@@ -248,7 +248,7 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
         <Badge tone={resolveChargeStatusTone(bl.charge_status)}>{resolveChargeStatusLabel(bl.charge_status)}</Badge>
         <Badge tone="green">Subtotal BRL: {formatBRL(localChargeSummary.totalBrl)}</Badge>
         <Badge tone="blue">Subtotal USD: {formatUSD(localChargeSummary.totalUsd)}</Badge>
-        {localChargeSummary.hasReviewRequired ? <Badge tone="yellow">Com pendencias de revisao</Badge> : null}
+        {localChargeSummary.hasReviewRequired ? <Badge tone="yellow">Com pendências de revisão</Badge> : null}
         {bl.charge_exemption_reason ? <Badge tone="slate">{bl.charge_exemption_reason}</Badge> : null}
       </div>
 
@@ -282,7 +282,7 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
               <th scope="col" className="py-2">Unitario</th>
               <th scope="col" className="py-2">Total</th>
               <th scope="col" className="py-2">Observacao</th>
-              <th scope="col" className="py-2">Acoes</th>
+              <th scope="col" className="py-2">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#30363d]">
