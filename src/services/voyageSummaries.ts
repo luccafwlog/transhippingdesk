@@ -1,25 +1,7 @@
 // Helpers puros para rótulos, métricas e resumos da tela de Viagens.
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
-
-export function normalizePortName(value: string | null | undefined) {
-  return (value ?? '').trim().toUpperCase() || '-'
-}
-
-export function formatPortDisplayName(port: string | null | undefined) {
-  const normalized = normalizePortName(port)
-
-  const portNames: Record<string, string> = {
-    CNNBO: 'NINGBO',
-    CNNSA: 'NANSHA',
-    CNSHG: 'SHANGHAI',
-    CNTAC: 'TAICANG',
-    BRVIT: 'VITORIA',
-    VIX: 'VITORIA',
-  }
-
-  return portNames[normalized] ?? (String(port ?? '').trim() || '-')
-}
+import { formatMetric, normalizePortName, stripFileExtension } from '../lib/voyageFormat'
 
 export function summarizeContainerTypes(
   containers:
@@ -83,26 +65,6 @@ export function summarizeOccurrences<T>(
 export function normalizeVoyageStatus(status: string | null): 'active' | 'completed' | 'cancelled' {
   if (status === 'completed' || status === 'cancelled') return status
   return 'active'
-}
-
-export function formatMetric(value: number | null | undefined) {
-  const amount = Number(value ?? 0)
-  return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
-}
-
-export function tokenizeInfoValue(value: string) {
-  if (!value || value === '-') return []
-
-  const tokens = value
-    .split('|')
-    .map((token) => token.trim())
-    .filter(Boolean)
-
-  return tokens.length > 1 ? tokens : []
-}
-
-export function stripFileExtension(filename: string) {
-  return filename.replace(/\.[^.]+$/, '')
 }
 
 // Estatísticas de módulos da viagem.
@@ -432,91 +394,6 @@ export type VoyageTimelineEvent = {
   at: string
   title: string
   detail: string
-}
-
-const SCHEDULE_DATE_LABELS: Record<string, string> = { eta: 'ETA', etb: 'ETB', ata: 'ATA', atd: 'ATD' }
-
-/**
- * Monta a linha do tempo da viagem a partir de fontes já buscadas: imports de
- * manifesto, eventos de escala (datas, Nº de Escala, vínculo de manifestos) e
- * resoluções de conciliação. Ordena do mais recente para o mais antigo. Sem
- * eventos financeiros.
- */
-export function buildVoyageTimelineLegacy({
-  importBatches,
-  scheduleEvents,
-  resolutions,
-}: {
-  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null }> | null
-  scheduleEvents?: Array<{ entity_id: string; field_name: string; new_value: string | null; changed_at: string | null }> | null
-  resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
-}): VoyageTimelineEvent[] {
-  const events: VoyageTimelineEvent[] = []
-
-  for (const batch of importBatches ?? []) {
-    if (!batch.uploaded_at) continue
-    events.push({
-      id: `import-${batch.id}`,
-      kind: 'import',
-      at: batch.uploaded_at,
-      title: 'Manifesto importado',
-      detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${batch.route ?? stripFileExtension(batch.filename)}`,
-    })
-  }
-
-  ;(scheduleEvents ?? []).forEach((row, index) => {
-    const at = row.changed_at
-    if (!at) return
-    const port = row.entity_id.split('::')[1] || '-'
-    const value = (row.new_value ?? '').trim()
-    if (SCHEDULE_DATE_LABELS[row.field_name]) {
-      if (!value) return
-      events.push({
-        id: `sched-${index}`,
-        kind: 'escala-date',
-        at,
-        title: `${SCHEDULE_DATE_LABELS[row.field_name]} de ${port} registrado`,
-        detail: formatDate(value),
-      })
-    } else if (row.field_name === 'escala_number' && value) {
-      events.push({
-        id: `sched-${index}`,
-        kind: 'escala-number',
-        at,
-        title: `Escala de ${port} criada no Mercante`,
-        detail: `Nº ${value}`,
-      })
-    } else if (row.field_name === 'linked' && value === 'true') {
-      events.push({
-        id: `sched-${index}`,
-        kind: 'manifestos-linked',
-        at,
-        title: `Manifestos vinculados à escala de ${port}`,
-        detail: 'ESCALA = SIM',
-      })
-    } else if (row.field_name === 'deleted' && value === 'true') {
-      events.push({
-        id: `sched-${index}`,
-        kind: 'pod-removed',
-        at,
-        title: `Escala de ${port} removida do planejamento`,
-        detail: '',
-      })
-    }
-  })
-
-  ;(resolutions ?? []).forEach((res, index) => {
-    if (!res.resolved_at) return
-    events.push({
-      id: `res-${index}`,
-      kind: 'divergence-resolved',
-      at: res.resolved_at,
-      title: 'Divergência conciliada',
-      detail: res.field_name ? `Campo ${res.field_name}` : 'Baplie ↔ Manifesto',
-    })
-  })
-
-  return events.sort((left, right) => (left.at < right.at ? 1 : left.at > right.at ? -1 : 0))
 }
 
 type TimelineAuditEvent = {

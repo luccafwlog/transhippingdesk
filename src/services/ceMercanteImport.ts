@@ -1,5 +1,5 @@
 import { assertUploadSize } from '../lib/fileGuard'
-import { asString, chunkArray, onlyDigits } from '../lib/utils'
+import { asString, chunkArray, normalizeHeader, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { CeMercanteEdiRow } from './ceMercanteEdiParser'
 
@@ -288,14 +288,6 @@ function mapRow(row: Record<string, unknown>) {
   })
 
   return mapped
-}
-
-function normalizeHeader(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase()
 }
 
 function normalizeBlId(value: unknown) {

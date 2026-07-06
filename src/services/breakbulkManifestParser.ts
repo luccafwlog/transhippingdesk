@@ -4,8 +4,9 @@
 // (ParsedBreakbulkManifest) com erros por linha. A persistência vive em
 // breakbulkImport.ts.
 import { assertUploadSize } from '../lib/fileGuard'
-import { asString, onlyDigits } from '../lib/utils'
+import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
 import { extractNcmCodes } from '../lib/ncm'
+import { normalizePortCode } from './portCode'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -439,27 +440,15 @@ function looksLikeCarrierBreakbulk(rows: (string | number | null)[][]) {
   return hasCarrierColumns || joined.some((row) => /\b((EXPORT|CARGO)\s+)?MANIFEST\b/i.test(row))
 }
 
-function normalizePortCode(value: string) {
-  const text = normalizeHeader(value)
-  if (!text) return null
-  if (/^[A-Z]{5}$/.test(value.trim().toUpperCase())) return value.trim().toUpperCase()
-  if (text.includes('taicang')) return 'CNTAC'
-  if (text.includes('zhangjiagang')) return 'CNZJG'
-  if (text.includes('vitoria')) return 'BRVIX'
-  if (text.includes('salvador')) return 'BRSSA'
-  return value.trim().toUpperCase() || null
-}
-
 function inferPortFromText(value: string, kind: 'pol' | 'pod') {
   const text = normalizeHeader(value)
   if (kind === 'pol') {
-    if (text.includes('taicang')) return 'CNTAC'
-    if (text.includes('zhangjiagang')) return 'CNZJG'
+    if (text.includes('taicang')) return normalizePortCode('taicang')
+    if (text.includes('zhangjiagang')) return normalizePortCode('zhangjiagang')
+    return null
   }
-  if (kind === 'pod') {
-    if (text.includes('vitoria')) return 'BRVIX'
-    if (text.includes('salvador')) return 'BRSSA'
-  }
+  if (text.includes('vitoria')) return normalizePortCode('vitoria')
+  if (text.includes('salvador')) return normalizePortCode('salvador')
   return null
 }
 
@@ -559,15 +548,6 @@ export function buildBreakbulkSummaryDescription(bl: BreakbulkImportRow) {
   ].filter(Boolean)
 
   return parts.length ? parts.join(' | ') : null
-}
-
-function normalizeHeader(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
 }
 
 function looksLikeCarrierBreakbulkBl(value: string) {
@@ -824,26 +804,7 @@ function nullableKey(value: unknown) {
 }
 
 function parseNumber(value: unknown) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null
-  }
-
-  const text = asString(value)
-  if (!text) return null
-
-  if (text.includes(',') && text.includes('.')) {
-    const normalized = text.replace(/\./g, '').replace(',', '.')
-    const number = Number(normalized)
-    return Number.isFinite(number) ? number : null
-  }
-
-  if (text.includes(',')) {
-    const number = Number(text.replace(',', '.'))
-    return Number.isFinite(number) ? number : null
-  }
-
-  const number = Number(text)
-  return Number.isFinite(number) ? number : null
+  return toNumber(value)
 }
 
 function formatNullableNumber(value: number | null) {

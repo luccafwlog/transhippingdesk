@@ -1,4 +1,4 @@
-import type { VoyageRailItem } from '../pages/viagensHelpers'
+import type { VoyageRailItem } from '../services/voyageSummaries'
 
 export type StatusFilter = 'all' | 'active' | 'completed'
 export type ConciliacaoFilter = 'all' | 'conciliada' | 'pendente'

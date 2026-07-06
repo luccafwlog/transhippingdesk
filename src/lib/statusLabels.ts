@@ -1,7 +1,7 @@
 // Mapa central de códigos de status -> labels pt-BR exibidos na UI.
 // Nunca exiba o código cru (ex: PENDING_REVIEW) para o usuário; use estes
 // helpers e caia no próprio código apenas como último recurso.
-import type { EstadoConciliacao } from '../pages/viagensHelpers'
+import type { EstadoConciliacao } from '../services/voyageSummaries'
 import type { BadgeTone } from '../components/ui/Badge'
 
 export const REVIEW_STATUS_LABELS: Record<string, string> = {

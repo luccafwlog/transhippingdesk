@@ -13,7 +13,7 @@ import { useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { useVaziosImportacaoStats } from '../hooks/useVaziosImportacaoStats'
 import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
-import { buildVoyageRailItems, collectVoyagePorts, normalizeVoyageStatus } from './viagensHelpers'
+import { buildVoyageRailItems, collectVoyagePorts, normalizeVoyageStatus } from '../services/voyageSummaries'
 import { deleteVoyage } from '../services/voyages'
 import { setImportBatchCeMaster } from '../services/manifestImport'
 import {

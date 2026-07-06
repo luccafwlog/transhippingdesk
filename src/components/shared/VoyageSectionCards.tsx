@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { ArrowRight, ChevronDown, type LucideIcon } from 'lucide-react'
-import { tokenizeInfoValue } from '../../pages/viagensHelpers'
+import { tokenizeInfoValue } from '../../lib/voyageFormat'
 
 // Componentes apresentacionais da tela de Viagens: navegação, acordeões e métricas.
 

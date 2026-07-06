@@ -61,7 +61,8 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
     }
 
     const taraRaw = String(mapped['tare_kg'] ?? '').trim().replace(/[^\d.,]/g, '')
-    const tare_kg = toNumber(taraRaw)
+    const normalizedTara = /^\d{1,3}\.\d{3}$/.test(taraRaw) ? taraRaw.replace('.', '') : taraRaw
+    const tare_kg = toNumber(normalizedTara) ?? 0
 
     containers.push({
       rowNumber,

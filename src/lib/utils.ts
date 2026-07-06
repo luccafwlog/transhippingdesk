@@ -83,6 +83,15 @@ export function normalizeText(value: string) {
     .toLowerCase()
 }
 
+export function normalizeHeader(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
 export function onlyDigits(value?: string | null) {
   return (value ?? '').replace(/\D/g, '')
 }
@@ -119,9 +128,22 @@ export function asString(value: unknown) {
 }
 
 export function toNumber(value: unknown) {
-  if (typeof value === 'number') return value
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
   if (typeof value !== 'string') return null
-  const normalized = value.replace(/\./g, '').replace(',', '.')
+  const cleaned = value
+    .replace(/[A-Z]+/gi, '')
+    .replace(/\s+/g, '')
+
+  if (!cleaned) return null
+
+  const lastComma = cleaned.lastIndexOf(',')
+  const lastDot = cleaned.lastIndexOf('.')
+  const decimalSeparator = lastComma > lastDot ? ',' : lastDot > -1 ? '.' : ''
+  const normalized = decimalSeparator
+    ? cleaned
+        .replace(new RegExp(`\\${decimalSeparator === ',' ? '.' : ','}`, 'g'), '')
+        .replace(decimalSeparator, '.')
+    : cleaned
   const number = Number(normalized)
   return Number.isFinite(number) ? number : null
 }

@@ -1,8 +1,11 @@
 export const queryKeys = {
   bls: {
     all: () => ['bls'] as const,
+    list: (filters: unknown) => ['bls', filters] as const,
+    containers: (filters: unknown) => ['containers', filters] as const,
     detail: (blId?: string) => (blId === undefined ? (['bl-detail'] as const) : (['bl-detail', blId] as const)),
-    summary: () => ['bl-summary'] as const,
+    summary: (filters?: unknown) => (filters === undefined ? (['bl-summary'] as const) : (['bl-summary', filters] as const)),
+    portOptions: () => ['port-options'] as const,
     localChargeLines: (blId?: string) =>
       (blId === undefined ? (['bl-local-charge-lines'] as const) : (['bl-local-charge-lines', blId] as const)),
     manualChargeItems: (blId?: string) =>
@@ -68,6 +71,9 @@ export const queryKeys = {
   vehicles: {
     all: () => ['vehicles'] as const,
     stats: (voyageIds: number[]) => ['voyage-vehicle-stats', voyageIds] as const,
+  },
+  auditLogs: {
+    detail: (entityType: string, entityId?: string) => ['audit-logs', entityType, entityId] as const,
   },
   dashboard: () => ['dashboard'] as const,
 }

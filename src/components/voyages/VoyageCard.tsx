@@ -15,10 +15,10 @@ import {
   countPlannedPodRows,
   deriveEstadoConciliacao,
   getProximaEscala,
-  normalizePortName,
   splitVoyageBls,
   voyageCeCoverage,
-} from '../../pages/viagensHelpers'
+} from '../../services/voyageSummaries'
+import { normalizePortName } from '../../lib/voyageFormat'
 import {
   buildVoyagePodEntityId,
   deriveAutomaticVoyagePodCeStatus,

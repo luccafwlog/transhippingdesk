@@ -7,10 +7,12 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
+import { PAGE_SIZES, usePageFilters } from '../hooks/usePageFilters'
 import {
   parseVaziosManifestFile,
   importVaziosManifest,
@@ -18,8 +20,6 @@ import {
   type ParsedVaziosManifest,
 } from '../services/vaziosImport'
 import { formatDate } from '../lib/utils'
-
-const pageSizes = [20, 50, 100]
 
 type Filters = {
   search: string
@@ -35,7 +35,7 @@ export function EmbarqueVazios() {
   const { showToast } = useToast()
   const initialVoyageId = searchParams.get('voyage') ?? ''
 
-  const [filters, setFilters] = useState<Filters>({
+  const { filters, setFilters, updateFilter } = usePageFilters<Filters>({
     search: '',
     voyageId: initialVoyageId,
     page: 1,
@@ -55,10 +55,6 @@ export function EmbarqueVazios() {
   })
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
-
-  function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
-    setFilters((f) => ({ ...f, [key]: value, page: key === 'page' ? Number(value) : 1 }))
-  }
 
   const activeFilterCount = (['search', 'voyageId'] as (keyof Filters)[])
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
@@ -149,7 +145,7 @@ export function EmbarqueVazios() {
           />
           <Field label="Por página">
             <Select value={filters.pageSize} onChange={(e) => updateFilter('pageSize', Number(e.target.value))}>
-              {pageSizes.map((s) => (
+              {PAGE_SIZES.map((s) => (
                 <option key={s} value={s}>{s}/pag.</option>
               ))}
             </Select>
@@ -219,27 +215,14 @@ export function EmbarqueVazios() {
           </table>
         </div>
 
-        <div className="app-table__footer">
-          <span>
-            Página {filters.page} de {totalPages} - {data?.count ?? 0} registros
-          </span>
-          <div className="app-table__footer-controls">
-            <Button
-              variant="secondary"
-              disabled={filters.page <= 1}
-              onClick={() => updateFilter('page', Math.max(1, filters.page - 1))}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={filters.page >= totalPages}
-              onClick={() => updateFilter('page', Math.min(totalPages, filters.page + 1))}
-            >
-              Proxima
-            </Button>
-          </div>
-        </div>
+        <TableFooterPagination
+          page={filters.page}
+          pageSize={filters.pageSize}
+          totalCount={data?.count ?? 0}
+          totalPages={totalPages}
+          countLabel={`${data?.count ?? 0} registros`}
+          onPageChange={(page) => updateFilter('page', page)}
+        />
       </Card>
 
       {/* Modal de importação */}
