@@ -165,7 +165,7 @@ export function Manifestos() {
 
       const { exportManifestWorkbook } = await import('../services/exports')
       await exportManifestWorkbook(rows)
-      showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
+      showToast(`Exportação concluída com ${rows.length} B/L(s).`, 'success')
     } catch {
       showToast('Falha ao exportar manifestos.', 'error')
     } finally {
@@ -251,7 +251,7 @@ export function Manifestos() {
     <>
       <PageHeader
         title="BLs CNTR"
-        description="Consulta paginada de B/Ls de container e importação de planilhas. Cada manifesto registra seu proprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
+        description="Consulta paginada de B/Ls de container e importação de planilhas. Cada manifesto registra seu próprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Link
@@ -367,7 +367,7 @@ export function Manifestos() {
       <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <SummaryCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />
         <SummaryCard label="CNTRS" value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0} />
-        <SummaryCard label="Pendentes revisao" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />
+        <SummaryCard label="Pendentes revisão" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />
         <SummaryCard label="Sem faturamento" value={isSummaryLoading ? '...' : summary?.pendingFinancial ?? 0} />
         <SummaryCard label="Taxas pendentes" value={isSummaryLoading ? '...' : summary?.chargePending ?? 0} />
         <SummaryCard label="Faturados" value={isSummaryLoading ? '...' : summary?.chargeReady ?? 0} />
@@ -415,7 +415,7 @@ export function Manifestos() {
                 <th scope="col" className="px-4 py-3">Perfil</th>
                 <th scope="col" className="px-4 py-3">Taxas locais</th>
                 <th scope="col" className="px-4 py-3">Invoice</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -506,7 +506,7 @@ export function Manifestos() {
 
         <div className="app-table__footer">
           <span>
-            Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros
+            Página {filters.page} de {totalPages} · {data?.count ?? 0} registros
           </span>
           <div className="app-table__footer-controls">
             <Select
@@ -539,13 +539,13 @@ export function Manifestos() {
       </Card>
 
       <UploadManifestModal
-        key={`${uploadOpen ? 'open' : 'closed'}-${filters.voyageId}`}
+        key={`upload-${uploadOpen ? 'open' : 'closed'}-${filters.voyageId}`}
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         initialVoyageId={filters.voyageId}
       />
       <BlImportModal
-        key={`${blFreightOpen ? 'open' : 'closed'}-${filters.voyageId}`}
+        key={`bl-import-${blFreightOpen ? 'open' : 'closed'}-${filters.voyageId}`}
         open={blFreightOpen}
         onClose={() => setBlFreightOpen(false)}
         voyageId={filters.voyageId ? Number(filters.voyageId) : null}
@@ -568,7 +568,7 @@ function SummaryCard({ label, value }: { label: string; value: number | string }
   const tone =
     label === 'Sem faturamento'
       ? 'green'
-      : label === 'Pendentes revisao'
+      : label === 'Pendentes revisão'
         ? 'gold'
         : label === 'CNTRS'
           ? 'blue'
@@ -858,7 +858,7 @@ function UploadManifestModal({
               <PreviewBox label="B/Ls" value={totals.bls} />
               <PreviewBox label="Ocorrencias CNTR" value={totals.containerOccurrences} />
               <PreviewBox label="Containers distintos" value={totals.containers} />
-              <PreviewBox label="Pendentes revisao" value={totals.pending} />
+              <PreviewBox label="Pendentes revisão" value={totals.pending} />
             </div>
 
             {overwrites.length > 0 ? (
@@ -905,7 +905,7 @@ function UploadManifestModal({
                 <thead>
                   <tr>
                     <th scope="col" className="px-3 py-2">B/L</th>
-                    <th scope="col" className="px-3 py-2">Consignatario</th>
+                    <th scope="col" className="px-3 py-2">Consignatário</th>
                     <th scope="col" className="px-3 py-2">CNPJ</th>
                     <th scope="col" className="px-3 py-2">Containers distintos</th>
                     <th scope="col" className="px-3 py-2">Status</th>

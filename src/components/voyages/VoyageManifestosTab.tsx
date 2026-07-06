@@ -110,7 +110,7 @@ export function VoyageManifestosTab({
                   <th scope="col" className="px-3 py-2">B/Ls</th>
                   <th scope="col" className="px-3 py-2">CE Merc.</th>
                   <th scope="col" className="px-3 py-2">CE Master</th>
-                  <th scope="col" className="px-3 py-2">Acoes</th>
+                  <th scope="col" className="px-3 py-2">Ações</th>
                 </tr>
               </thead>
               <tbody>

@@ -247,7 +247,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
 
   return (
     <>
-      <Modal open={Boolean(invoiceId)} onClose={onClose} title={`Detalhe Invoice ${detailQuery.data?.invoice?.invoice_number ?? invoiceId ?? ''}`}>
+      <Modal open={Boolean(invoiceId)} onClose={onClose} title={`Detalhe da invoice ${detailQuery.data?.invoice?.invoice_number ?? invoiceId ?? ''}`}>
         <div className="grid gap-5">
           {detailQuery.isLoading ? <div className="p-4"><SkeletonTable rows={3} cols={3} /></div> : null}
           {detailQuery.error ? <div className="text-sm text-red-200">Falha ao carregar detalhe.</div> : null}
@@ -273,7 +273,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <SelectionMetric label="Cliente" value={detailQuery.data.invoice.customer_name ?? '-'} />
                   <SelectionMetric label="CNPJ" value={detailQuery.data.invoice.customer_cnpj_cpf ?? '-'} />
-                  <SelectionMetric label="Emissao" value={formatDate(detailQuery.data.invoice.issued_at)} />
+                  <SelectionMetric label="Emissão" value={formatDate(detailQuery.data.invoice.issued_at)} />
                   <SelectionMetric label="Status" value={statusLabel(detailQuery.data.invoice.status)} />
                   <SelectionMetric label="Itens" value={String(detailQuery.data.items.length)} />
                   <SelectionMetric label="Pagamentos" value={String(detailQuery.data.payments.length)} />
@@ -294,7 +294,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                   <div className="border-b border-[#30363d] px-4 py-4">
                     <div className="mb-3 text-sm font-semibold text-white">Outras cobranças (manuais)</div>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                      <Field label="Descricao">
+                      <Field label="Descrição">
                         <Input
                           value={chargeDescription}
                           onChange={(event) => setChargeDescription(event.target.value)}
@@ -304,10 +304,10 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                       <Field label="Quantidade">
                         <Input value={chargeQuantity} onChange={(event) => setChargeQuantity(event.target.value)} />
                       </Field>
-                      <Field label="Valor unitario (BRL)">
+                      <Field label="Valor unitário (BRL)">
                         <Input value={chargeUnitValue} onChange={(event) => setChargeUnitValue(event.target.value)} placeholder="0,00" />
                       </Field>
-                      <Field label="Observacao">
+                      <Field label="Observação">
                         <Input
                           value={chargeNotes}
                           onChange={(event) => setChargeNotes(event.target.value)}
@@ -316,7 +316,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                       </Field>
                       <div className="flex items-end">
                         <Button type="button" onClick={handleAddCharge} loading={addChargeMutation.isPending}>
-                          <Plus size={16} />Adicionar other charge
+                          <Plus size={16} />Adicionar cobrança manual
                         </Button>
                       </div>
                     </div>
@@ -326,12 +326,12 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                   <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th scope="col" className="px-3 py-2">Descricao</th>
+                        <th scope="col" className="px-3 py-2">Descrição</th>
                         <th scope="col" className="px-3 py-2">Qtd</th>
                         <th scope="col" className="px-3 py-2">Origem</th>
                         <th scope="col" className="px-3 py-2">Unitario</th>
                         <th scope="col" className="px-3 py-2">Total</th>
-                        <th scope="col" className="px-3 py-2">Acoes</th>
+                        <th scope="col" className="px-3 py-2">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#30363d]">
@@ -418,7 +418,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                           <th scope="col" className="px-3 py-2">Valor</th>
                           <th scope="col" className="px-3 py-2">Status</th>
                           <th scope="col" className="px-3 py-2">Efetuada</th>
-                          <th scope="col" className="px-3 py-2">Acoes</th>
+                          <th scope="col" className="px-3 py-2">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#30363d]">

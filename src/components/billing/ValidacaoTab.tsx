@@ -161,7 +161,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     try {
       const { exportLocalChargeOperationsWorkbook } = await import('../../services/exports')
       await exportLocalChargeOperationsWorkbook(rows)
-      showToast(`Exportacao concluida com ${rows.length} B/L(s).`, 'success')
+      showToast(`Exportação concluída com ${rows.length} B/L(s).`, 'success')
     } catch {
       showToast('Falha ao exportar operação de taxas locais.', 'error')
     } finally {
@@ -381,7 +381,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
               }
             >
               <option value="">Todos</option>
-              <option value="review_required">Revisao</option>
+              <option value="review_required">Revisão</option>
               <option value="ready_for_billing">Pronto faturar</option>
               <option value="exempt">Isento</option>
             </Select>
@@ -710,7 +710,7 @@ function ReviewRequiredReasons({ blId, holdReason }: { blId: string; holdReason:
 
 function renderChargeStatus(status: string | null, financialStatus?: string | null) {
   if (financialStatus === 'invoiced') return <Badge tone="blue">Faturado</Badge>
-  if (status === 'review_required') return <Badge tone="yellow">Revisao</Badge>
+  if (status === 'review_required') return <Badge tone="yellow">Revisão</Badge>
   if (status === 'ready_for_billing') return <Badge tone="green">Pronto</Badge>
   if (status === 'exempt') return <Badge tone="slate">Isento</Badge>
   return <Badge tone="slate">Pendente</Badge>

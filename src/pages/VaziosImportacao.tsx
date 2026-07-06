@@ -166,7 +166,7 @@ export function VaziosImportacao() {
   return (
     <>
       <PageHeader
-        title="Vazios — Importacao"
+        title="Vazios — Importação"
         description="Containers vazios que descarregam (chegam) ao porto. São os futuros vazios de exportação."
         action={
           <div className="flex flex-wrap gap-2">
@@ -280,7 +280,7 @@ export function VaziosImportacao() {
 
         <div className="app-table__footer">
           <span>
-            Pagina {filters.page} de {totalPages} - {data?.count ?? 0} registros
+            Página {filters.page} de {totalPages} - {data?.count ?? 0} registros
           </span>
           <div className="app-table__footer-controls">
             <Button

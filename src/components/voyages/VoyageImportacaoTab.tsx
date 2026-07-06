@@ -41,7 +41,7 @@ export function VoyageImportacaoTab({
                   <Info label="Tipos de container" value={pod.containers.types || '-'} />
                 </MetricPanel>
                 {pod.vehicles.distinctContainers ? (
-                  <MetricPanel title="Veiculos">
+                  <MetricPanel title="Veículos">
                     <Info label="Containers com veiculos" value={String(pod.vehicles.distinctContainers)} />
                     <Info label="Carga geral (CNTRs)" value={String(pod.generalCargo.distinct)} />
                   </MetricPanel>

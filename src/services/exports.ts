@@ -341,7 +341,7 @@ export async function exportBaplieWorkbook(rows: BaplieContainer[]) {
     Slot: row.slot ?? '',
     'B/L ref': row.bl_ref ?? '',
     'Destino final': row.final_dest ?? '',
-    Perfil: row.is_imo ? 'IMO' : row.is_oog ? 'OOG' : 'Padrao',
+    Perfil: row.is_imo ? 'IMO' : row.is_oog ? 'OOG' : 'Padrão',
     IMO: row.is_imo ? 'SIM' : 'NAO',
     'Classe IMO': row.imo_class ?? '',
     'UN Number': row.un_number ?? '',

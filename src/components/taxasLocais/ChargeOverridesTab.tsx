@@ -216,11 +216,11 @@ export function ChargeOverridesTab({
                 <th scope="col" className="px-4 py-3">Cliente</th>
                 <th scope="col" className="px-4 py-3">Taxa</th>
                 <th scope="col" className="px-4 py-3">Modo/POD</th>
-                <th scope="col" className="px-4 py-3">Vigencia</th>
+                <th scope="col" className="px-4 py-3">Vigência</th>
                 <th scope="col" className="px-4 py-3">Valor base</th>
                 <th scope="col" className="px-4 py-3">Override</th>
                 <th scope="col" className="px-4 py-3">Obs</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>

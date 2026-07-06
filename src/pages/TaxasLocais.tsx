@@ -20,7 +20,7 @@ export function TaxasLocais() {
     <>
       <PageHeader
         title="Taxas Locais"
-        description="Motor de calculo por POD/cargo mode, overrides por cliente e pendencias de revisao."
+        description="Motor de cálculo por POD/modo de carga, overrides por cliente e pendências de revisão."
       />
 
       <div className="mb-5 flex flex-wrap gap-2" role="tablist">

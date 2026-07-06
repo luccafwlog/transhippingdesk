@@ -153,7 +153,7 @@ export function VoyageImportActions({
 
       {activeType === 'vaziosExp' ? (
         <FileImportModal
-          title="Importar Vazios Exportacao"
+          title="Importar Vazios Exportação"
           voyageLabel={voyageLabel}
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosManifestFile}
@@ -512,7 +512,7 @@ function VehiclesImportModal({
         {parsing ? <div className="app-panel__meta">Processando...</div> : null}
         {preview ? (
           <div className="grid grid-cols-2 gap-3">
-            <Stat label="Veiculos" value={preview.rows.length} />
+            <Stat label="Veículos" value={preview.rows.length} />
             <Stat label="Erros" value={preview.rowErrors.length} />
           </div>
         ) : null}

@@ -110,7 +110,7 @@ function DemurrageInvoicesPanel({ query, onOpenDetail }: DemurrageInvoicesPanelP
                 <th scope="col" className="w-[18%] px-4 py-3">Nº Doc</th>
                 <th scope="col" className="w-[12%] px-4 py-3">B/L</th>
                 <th scope="col" className="w-[22%] px-4 py-3">Cliente</th>
-                <th scope="col" className="w-[12%] px-4 py-3">Emissao</th>
+                <th scope="col" className="w-[12%] px-4 py-3">Emissão</th>
                 <th scope="col" className="w-[12%] px-4 py-3">Vencimento</th>
                 <th scope="col" className="w-[10%] px-4 py-3">Total USD</th>
                 <th scope="col" className="w-[10%] px-4 py-3">Total BRL</th>

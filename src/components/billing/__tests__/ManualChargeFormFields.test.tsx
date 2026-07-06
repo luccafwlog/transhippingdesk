@@ -63,13 +63,13 @@ describe('ManualChargeFormFields', () => {
     const { onPatch } = setup()
     await user.type(screen.getByLabelText('Quantidade'), '2')
     expect(onPatch).toHaveBeenCalledWith({ quantity: expect.any(String) })
-    await user.type(screen.getByLabelText('Observacao'), 'x')
+    await user.type(screen.getByLabelText('Observação'), 'x')
     expect(onPatch).toHaveBeenCalledWith({ notes: expect.any(String) })
   })
 
   it('em modo de criação mostra "Adicionar" e não mostra Cancelar', () => {
     const { onSave } = setup()
-    expect(screen.getByRole('button', { name: /Adicionar other charge/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Adicionar cobrança manual/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Cancelar' })).toBeNull()
     expect(onSave).not.toHaveBeenCalled()
   })
@@ -88,7 +88,7 @@ describe('ManualChargeFormFields', () => {
   it('dispara onSave ao clicar no botão principal', async () => {
     const user = userEvent.setup()
     const { onSave } = setup()
-    await user.click(screen.getByRole('button', { name: /Adicionar other charge/ }))
+    await user.click(screen.getByRole('button', { name: /Adicionar cobrança manual/ }))
     expect(onSave).toHaveBeenCalledTimes(1)
   })
 })

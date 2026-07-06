@@ -556,7 +556,7 @@ export function Demurrage() {
                       <th scope="col" className="px-4 py-2">Container</th>
                       <th scope="col" className="py-2">Tipo</th>
                       <th scope="col" className="py-2">Descarga</th>
-                      <th scope="col" className="py-2">Devolucao</th>
+                      <th scope="col" className="py-2">Devolução</th>
                       <th scope="col" className="py-2">Free time</th>
                       <th scope="col" className="py-2">Dias excedidos</th>
                       <th scope="col" className="py-2">P1 / P2</th>
@@ -728,11 +728,11 @@ export function Demurrage() {
                       <th scope="col" className="py-2">Nº Doc</th>
                       <th scope="col" className="py-2">BL</th>
                       <th scope="col" className="py-2">Cliente</th>
-                      <th scope="col" className="py-2">Emissao</th>
+                      <th scope="col" className="py-2">Emissão</th>
                       <th scope="col" className="py-2">Total USD</th>
                       <th scope="col" className="py-2">Total BRL</th>
                       <th scope="col" className="py-2">Status</th>
-                      <th scope="col" className="py-2">Acoes</th>
+                      <th scope="col" className="py-2">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#30363d]">
@@ -856,7 +856,7 @@ export function Demurrage() {
                     <th scope="col" className="py-2">Container</th>
                     <th scope="col" className="py-2">Tipo</th>
                     <th scope="col" className="py-2">Descarga</th>
-                    <th scope="col" className="py-2">Devolucao</th>
+                    <th scope="col" className="py-2">Devolução</th>
                     <th scope="col" className="py-2">Dias</th>
                     <th scope="col" className="py-2">Free</th>
                     <th scope="col" className="py-2">P1</th>

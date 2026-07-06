@@ -149,7 +149,7 @@ export function CargaSolta() {
 
       const { exportManifestWorkbook } = await import('../services/exports')
       await exportManifestWorkbook(rows)
-      showToast(`Exportacao concluida com ${rows.length} B/L(s) BB.`, 'success')
+      showToast(`Exportação concluída com ${rows.length} B/L(s) BB.`, 'success')
     } catch {
       showToast('Falha ao exportar manifestos BB.', 'error')
     } finally {
@@ -324,7 +324,7 @@ export function CargaSolta() {
                 <th scope="col" className="px-4 py-3">Notify</th>
                 <th scope="col" className="px-4 py-3">Taxas locais</th>
                 <th scope="col" className="px-4 py-3">Invoice</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -398,7 +398,7 @@ export function CargaSolta() {
 
         <div className="app-table__footer">
           <span>
-            Pagina {filters.page} de {totalPages} - {data?.count ?? 0} registros
+            Página {filters.page} de {totalPages} - {data?.count ?? 0} registros
           </span>
           <div className="app-table__footer-controls">
             <Select className="w-28" value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>

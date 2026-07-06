@@ -85,7 +85,7 @@ export function PortalProfile() {
             />
           </Field>
 
-          <Field label="Endereco">
+          <Field label="Endereço">
             <Input
               type="text"
               value={address}

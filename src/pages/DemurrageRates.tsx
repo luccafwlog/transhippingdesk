@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth'
 import type { DemurrageRate } from '../types/database'
 import { invalidateDemurrageRatesCache } from '../services/demurrage/demurrageRates'
 import { buildDemurrageRateUpsertPayload } from './demurrageRatesHelpers'
+import { formatDate } from '../lib/utils'
 import { supabase } from '../services/supabase'
 
 type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at'>
@@ -184,7 +185,7 @@ export function DemurrageRates() {
                   <td className="px-4 py-3">{rate.p2_day_from}+</td>
                   <td className="px-4 py-3">$ {Number(rate.p2_usd).toFixed(2)}</td>
                   <td className="px-4 py-3 text-slate-400">
-                    {rate.valid_from ?? '—'} {rate.valid_to ? `→ ${rate.valid_to}` : ''}
+                    {rate.valid_from ? formatDate(rate.valid_from) : '—'} {rate.valid_to ? `→ ${formatDate(rate.valid_to)}` : ''}
                   </td>
                   <td className="px-4 py-3">
                     {isAdmin ? (

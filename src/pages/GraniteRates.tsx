@@ -113,13 +113,13 @@ export function GraniteRates() {
           <table className="app-table app-table--compact min-w-[800px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th scope="col" className="px-4 py-3">Descricao</th>
+                <th scope="col" className="px-4 py-3">Descrição</th>
                 <th scope="col" className="px-4 py-3">Tipo</th>
                 <th scope="col" className="px-4 py-3">Valor Unitario</th>
                 <th scope="col" className="px-4 py-3">Moeda</th>
-                <th scope="col" className="px-4 py-3">Vigencia</th>
+                <th scope="col" className="px-4 py-3">Vigência</th>
                 <th scope="col" className="px-4 py-3">Status</th>
-                {isAdmin ? <th scope="col" className="px-4 py-3">Acoes</th> : null}
+                {isAdmin ? <th scope="col" className="px-4 py-3">Ações</th> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -131,7 +131,7 @@ export function GraniteRates() {
               {!isLoading && !rates?.length ? (
                 <tr>
                   <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                    Nenhuma taxa cadastrada. Clique em "Nova taxa" para comecar.
+                    Nenhuma taxa cadastrada. Clique em "Nova taxa" para começar.
                   </td>
                 </tr>
               ) : null}

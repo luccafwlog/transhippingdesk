@@ -91,8 +91,8 @@ export function BlDetalhe() {
         title={`B/L ${bl.id} - ${cargoModeLabel(cargoMode)}`}
         description={
           isContainerMode
-            ? 'Edicao manual com auditoria. Esta tela exibe containers e veiculos vinculados a este B/L.'
-            : 'Edicao manual com auditoria. Esta tela exibe o resumo operacional do manifesto BB vinculado a este B/L.'
+            ? 'Edição manual com auditoria. Esta tela exibe containers e veículos vinculados a este B/L.'
+            : 'Edição manual com auditoria. Esta tela exibe o resumo operacional do manifesto BB vinculado a este B/L.'
         }
         action={
           <div className="flex flex-wrap justify-end gap-2">

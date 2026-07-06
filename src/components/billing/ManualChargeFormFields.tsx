@@ -60,7 +60,7 @@ export function ManualChargeFormFields({
             onChange={(event) => onPatch({ quantity: event.target.value })}
           />
         </Field>
-        <Field label="Observacao">
+        <Field label="Observação">
           <Input
             value={form.notes}
             onChange={(event) => onPatch({ notes: event.target.value })}
@@ -70,7 +70,7 @@ export function ManualChargeFormFields({
         <div className="flex items-end gap-2 xl:col-span-2">
           <Button type="button" onClick={onSave} loading={saving} disabled={deleting}>
             {isEditing ? <Pencil size={16} /> : <Save size={16} />}
-            {isEditing ? 'Salvar edição' : 'Adicionar other charge'}
+            {isEditing ? 'Salvar edição' : 'Adicionar cobrança manual'}
           </Button>
           {isEditing ? (
             <Button variant="ghost" type="button" onClick={onCancel}>

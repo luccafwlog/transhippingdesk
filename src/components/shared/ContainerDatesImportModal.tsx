@@ -105,7 +105,7 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
                     <th scope="col" className="px-3 py-2">BL</th>
                     <th scope="col" className="px-3 py-2">Container</th>
                     <th scope="col" className="px-3 py-2">Descarga</th>
-                    <th scope="col" className="px-3 py-2">Devolucao</th>
+                    <th scope="col" className="px-3 py-2">Devolução</th>
                   </tr>
                 </thead>
                 <tbody>

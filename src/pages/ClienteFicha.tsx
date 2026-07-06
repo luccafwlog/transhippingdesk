@@ -13,6 +13,7 @@ import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerDetail } from '../hooks/useCustomers'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
+import { FINANCIAL_STATUS_LABELS, INVOICE_STATUS_LABELS, REVIEW_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
 import {
   deleteCustomerContact,
   getCustomerPortalAccount,
@@ -198,7 +199,7 @@ export function ClienteFicha() {
       })
 
       if (!changed) {
-        showToast('Nenhuma alteracao detectada.', 'info')
+        showToast('Nenhuma alteração detectada.', 'info')
       } else {
         await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] })
         await queryClient.invalidateQueries({ queryKey: ['customers'] })
@@ -357,7 +358,7 @@ export function ClienteFicha() {
           <Field label="UF">
             <Input value={form.state} onChange={(event) => setForm((current) => (current ? { ...current, state: event.target.value.toUpperCase() } : current))} />
           </Field>
-          <Field label="Endereco">
+          <Field label="Endereço">
             <Input value={form.address} onChange={(event) => setForm((current) => (current ? { ...current, address: event.target.value } : current))} />
           </Field>
         </div>
@@ -381,7 +382,7 @@ export function ClienteFicha() {
           <div>
             <h2 className="text-lg font-semibold text-white">Portal do cliente</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Provisiona login externo por email + senha para consulta e consolidacao de invoices.
+              Provisiona login externo por email + senha para consulta e consolidação de invoices.
             </p>
           </div>
           <div className="text-sm text-slate-400">
@@ -545,14 +546,14 @@ export function ClienteFicha() {
         </Card>
 
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-white">Historico de B/Ls</h2>
+          <h2 className="mb-4 text-lg font-semibold text-white">Histórico de B/Ls</h2>
           <div className="app-table-scroll">
             <table className="app-table app-table--compact min-w-[520px] text-left text-sm">
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
                   <th scope="col" className="py-2">B/L</th>
-                  <th scope="col" className="py-2">Consignatario</th>
-                  <th scope="col" className="py-2">Revisao</th>
+                  <th scope="col" className="py-2">Consignatário</th>
+                  <th scope="col" className="py-2">Revisão</th>
                   <th scope="col" className="py-2">Financeiro</th>
                 </tr>
               </thead>
@@ -572,8 +573,8 @@ export function ClienteFicha() {
                       </Link>
                     </td>
                     <td className="py-2">{bl.consignee ?? '-'}</td>
-                    <td className="py-2">{bl.review_status ?? '-'}</td>
-                    <td className="py-2">{bl.financial_status ?? '-'}</td>
+                    <td className="py-2">{statusLabel(REVIEW_STATUS_LABELS, bl.review_status)}</td>
+                    <td className="py-2">{statusLabel(FINANCIAL_STATUS_LABELS, bl.financial_status)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -596,7 +597,7 @@ export function ClienteFicha() {
               <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
                   <th scope="col" className="py-2">Invoice</th>
-                  <th scope="col" className="py-2">Emissao</th>
+                  <th scope="col" className="py-2">Emissão</th>
                   <th scope="col" className="py-2">Vencimento</th>
                   <th scope="col" className="py-2">Total</th>
                   <th scope="col" className="py-2">Status</th>
@@ -622,7 +623,7 @@ export function ClienteFicha() {
                     <td className="py-2">{formatDate(invoice.issued_at)}</td>
                     <td className="py-2">{formatDate(invoice.due_date)}</td>
                     <td className="py-2">{formatBRL(invoice.total_brl)}</td>
-                    <td className="py-2">{invoice.status ?? '-'}</td>
+                    <td className="py-2">{statusLabel(INVOICE_STATUS_LABELS, invoice.status)}</td>
                   </tr>
                 ))}
               </tbody>

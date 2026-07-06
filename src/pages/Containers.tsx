@@ -102,7 +102,7 @@ export function Containers() {
 
       const { exportContainerWorkbook } = await import('../services/exports')
       await exportContainerWorkbook(rows)
-      showToast(`Exportacao concluida com ${rows.length} container(es).`, 'success')
+      showToast(`Exportação concluída com ${rows.length} container(es).`, 'success')
     } catch {
       showToast('Falha ao exportar containers.', 'error')
     } finally {
@@ -392,7 +392,7 @@ export function Containers() {
                 <th scope="col" className="px-4 py-3">Tipo</th>
                 <th scope="col" className="px-4 py-3">Perfil</th>
                 <th scope="col" className="px-4 py-3">Taxas locais</th>
-                <th scope="col" className="px-4 py-3">Acoes</th>
+                <th scope="col" className="px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -482,7 +482,7 @@ export function Containers() {
 
         <div className="app-table__footer">
           <span>
-            Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros · {data?.distinctCount ?? 0} containers distintos
+            Página {filters.page} de {totalPages} · {data?.count ?? 0} registros · {data?.distinctCount ?? 0} containers distintos
           </span>
           <div className="app-table__footer-controls">
             <Select

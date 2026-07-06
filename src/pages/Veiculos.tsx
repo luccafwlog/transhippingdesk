@@ -196,12 +196,12 @@ export function Veiculos() {
   return (
     <>
       <PageHeader
-        title="Veiculos"
+        title="Veículos"
         description="Gestão e importação de veículos vinculados a viagem, containers e BLs."
         action={
           <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <Upload size={16} />
-            Importar Veiculos
+            Importar Veículos
           </Button>
         }
       />
@@ -321,7 +321,7 @@ export function Veiculos() {
                 <th scope="col" className="px-4 py-3">Tipo Container</th>
                 <th scope="col" className="px-4 py-3">Lacre</th>
                 <th scope="col" className="px-4 py-3">BL</th>
-                {isAdmin ? <th scope="col" className="px-4 py-3 w-16">Acoes</th> : null}
+                {isAdmin ? <th scope="col" className="px-4 py-3 w-16">Ações</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -381,7 +381,7 @@ export function Veiculos() {
 
         <div className="app-table__footer">
           <span>
-            Pagina {filters.page} de {totalPages} · {data?.count ?? 0} registros
+            Página {filters.page} de {totalPages} · {data?.count ?? 0} registros
           </span>
           <div className="app-table__footer-controls">
             <Select className="w-28" value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}>
@@ -412,7 +412,7 @@ export function Veiculos() {
         </>
       )}
 
-      <Modal open={importOpen} onClose={resetImportState} title="Importar Veiculos">
+      <Modal open={importOpen} onClose={resetImportState} title="Importar Veículos">
         <div className="grid gap-5">
           <div className="app-panel app-panel--padded text-sm">
             <div className="app-panel__title">Estrutura obrigatoria da planilha</div>

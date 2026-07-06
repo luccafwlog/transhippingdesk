@@ -5,7 +5,7 @@ export function ChargeStatusBadge({ status }: { status: string | null }) {
     case 'calculated':
       return <Badge tone="blue">Calculado</Badge>
     case 'review_required':
-      return <Badge tone="yellow">Revisao</Badge>
+      return <Badge tone="yellow">Revisão</Badge>
     case 'reviewed':
       return <Badge tone="green">Revisado</Badge>
     case 'ready_for_billing':
@@ -28,5 +28,5 @@ function getCargoProfile(isImo: boolean, isOog: boolean) {
   if (isImo && isOog) return 'IMO/OOG'
   if (isImo) return 'IMO'
   if (isOog) return 'OOG'
-  return 'Padrao'
+  return 'Padrão'
 }

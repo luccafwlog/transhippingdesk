@@ -139,7 +139,7 @@ export function BlCargaTab({
                   <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
                     <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                       <tr>
-                        <th scope="col" className="py-2">Descricao</th>
+                        <th scope="col" className="py-2">Descrição</th>
                         <th scope="col" className="py-2">Volumes</th>
                         <th scope="col" className="py-2">Unidade</th>
                         <th scope="col" className="py-2">Peso bruto</th>
@@ -174,7 +174,7 @@ export function BlCargaTab({
       {isContainerMode ? (
         <Card>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-lg font-semibold text-white">Veiculos vinculados</h2>
+            <h2 className="text-lg font-semibold text-white">Veículos vinculados</h2>
             <div className="w-full max-w-xs">
               <Field label="Buscar por chassi">
                 <Input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} />
@@ -207,7 +207,7 @@ export function BlCargaTab({
                 ) : (
                   <tr>
                     <td className="py-3 text-slate-400" colSpan={5}>
-                      Nenhum veiculo vinculado para este B/L.
+                      Nenhum veículo vinculado para este B/L.
                     </td>
                   </tr>
                 )}
