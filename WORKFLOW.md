@@ -368,6 +368,19 @@ npm run build
 
 Execute também o teste focado durante o ciclo red-green.
 
+### Orçamento de bundle
+
+```powershell
+npm run build
+npm run size-limit
+```
+
+`npm run size-limit` valida o JS de carga inicial (entry + chunks
+pré-carregados em `dist/index.html`) contra o orçamento de 250 kB
+comprimidos, configurado na chave `size-limit` do `package.json`. Se um
+chunk novo passar a ser pré-carregado, inclua o glob correspondente na
+configuração.
+
 ### Testes de integração
 
 ```powershell

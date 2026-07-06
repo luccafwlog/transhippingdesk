@@ -12,8 +12,24 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:integration": "vitest run src/integration/supabase.integration.test.ts",
+    "size-limit": "size-limit",
     "preview": "vite preview"
   },
+  "size-limit": [
+    {
+      "name": "initial-load JS (entry + preloaded chunks, gzip)",
+      "path": [
+        "dist/assets/index-*.js",
+        "dist/assets/rolldown-runtime-*.js",
+        "dist/assets/vendor-*.js",
+        "dist/assets/supabase-*.js",
+        "dist/assets/createLucideIcon-*.js",
+        "dist/assets/Button-*.js",
+        "dist/assets/x-*.js"
+      ],
+      "limit": "250 kB"
+    }
+  ],
   "dependencies": {
     "@e965/xlsx": "^0.20.3",
     "@sentry/react": "^10.57.0",
@@ -30,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@size-limit/file": "^12.1.0",
     "@tailwindcss/vite": "^4.2.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -43,6 +60,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "jsdom": "^29.1.1",
+    "size-limit": "^12.1.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.0",
