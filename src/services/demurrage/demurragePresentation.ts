@@ -1,9 +1,10 @@
 import type { DemurrageContainerListItem } from '../../types/database'
+import { formatUSD } from '../../lib/utils'
 import { calculateDemurrage } from './demurrageRates'
 
 export function fmtUSD(value: number | null | undefined) {
   if (value == null) return '---'
-  return '$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return formatUSD(value)
 }
 
 // Ultimo dia util (hoje se for dia de semana; senao a sexta anterior). O recalculo

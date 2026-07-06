@@ -102,7 +102,7 @@ export function ChargeOverridesTab({
           <div className="app-panel__title">Overrides por cliente</div>
           <div className="app-table__cell-meta">Sobrescreva valores pontuais sem contaminar a tabela base.</div>
         </div>
-        <Badge tone="blue">{overrideRows?.length ?? 0} override(s) na visao</Badge>
+        <Badge tone="blue">{formatOverrideCount(overrideRows?.length ?? 0)} na visão</Badge>
       </div>
       <FilterBar
         activeCount={(overrideCustomerSearch.trim() ? 1 : 0) + (cargoModeFilter ? 1 : 0) + (podFilter.trim() ? 1 : 0)}
@@ -316,4 +316,8 @@ export function ChargeOverridesTab({
       </Card>
     </>
   )
+}
+
+function formatOverrideCount(count: number) {
+  return `${count} ${count === 1 ? 'override' : 'overrides'}`
 }

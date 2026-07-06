@@ -95,7 +95,7 @@ export function GraniteRates() {
     <>
       <PageHeader
         title="Tabela de Taxas — Granito"
-        description="Taxas aplicadas ao peso real (real_weight_kg) dos B/Ls de granito."
+        description="Taxas aplicadas ao peso real dos B/Ls de granito."
         action={
           isAdmin ? (
             <Button onClick={openNew}>
@@ -195,8 +195,8 @@ export function GraniteRates() {
               value={form.charge_type}
               onChange={(e) => setForm((f) => ({ ...f, charge_type: e.target.value as GraniteRate['charge_type'] }))}
             >
-              <option value="per_kg">Por kg (real_weight_kg × valor)</option>
-              <option value="per_ton">Por tonelada (real_weight_kg / 1000 × valor)</option>
+              <option value="per_kg">Por kg (peso real × valor)</option>
+              <option value="per_ton">Por tonelada (peso real / 1000 × valor)</option>
               <option value="per_bl">Por B/L (fixo por conhecimento)</option>
               <option value="fixed">Fixo global</option>
             </Select>
