@@ -1,4 +1,4 @@
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { onlyDigits, toNumber } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
@@ -76,7 +76,7 @@ export type ParsedGraniteManifest = {
 }
 
 export async function parseGraniteManifestFile(file: File): Promise<ParsedGraniteManifest> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls'])
   const buffer = await file.arrayBuffer()
   return parseGraniteManifestBuffer(buffer)
 }

@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { assertUploadSize } from '../../lib/fileGuard'
+import { assertUploadFile } from '../../lib/fileGuard'
 import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { PixTransaction, RoeSource } from '../../types/database'
 
@@ -214,7 +214,7 @@ function parsePixPaidDate(raw: unknown): string {
 }
 
 export async function parsePixExtractFile(file: File): Promise<PixTransaction[]> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls'])
   return parsePixExtract(await file.arrayBuffer())
 }
 

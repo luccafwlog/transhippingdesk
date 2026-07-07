@@ -1,4 +1,4 @@
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import { normalizePortCode } from './portCode'
 
@@ -26,7 +26,7 @@ export type ParsedBaplie = {
 }
 
 export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['edi', 'txt', 'edi2', 'bpl'])
   const text = await file.text()
   return parseBaplieText(text)
 }

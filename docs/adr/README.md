@@ -23,6 +23,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0016](./0016-migrations-nomenclatura-numerada-sequencial.md) | Migrations: nomenclatura numerada sequencial única | aceito | Estende a 0010; atualiza WORKFLOW.md §5 |
 | [0017](./0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md) | B/L como fonte de ingestão/correção; autoridade compartilhada com o manifesto | aceito | Estende a 0005 e a 0006; nota editorial 2026-07-01 eleva o B/L a fonte co-primária e exige viagem declarada |
 | [0018](./0018-selecao-viagem-busca-preditiva-combobox.md) | Seleção de viagem padronizada em busca preditiva (Combobox) | aceito | Estende a 0003; suporta a 0017 |
+| [0019](./0019-politica-de-senha-e-signup-fechado.md) | Politica de senha e signup fechado | aceito | Estende a 0004 e a 0013; exige provisionamento administrativo e piso de senha auditavel |
 
 ## Convenção
 

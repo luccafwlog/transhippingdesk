@@ -1,4 +1,4 @@
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { supabase } from './supabase'
 import { escapeFilterTerm, toNumber } from '../lib/utils'
@@ -35,7 +35,7 @@ export type ParsedVaziosImportacaoManifest = {
 }
 
 export async function parseVaziosImportacaoFile(file: File): Promise<ParsedVaziosImportacaoManifest> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
   return parseVaziosImportacaoBuffer(buffer)
 }

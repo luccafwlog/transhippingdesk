@@ -1,7 +1,7 @@
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 
 export async function parseVesselScheduleFile(file: File): Promise<Record<string, unknown>[]> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const XLSX = await import('@e965/xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { cellDates: false })

@@ -7,12 +7,13 @@
 //   Database Webhooks → tabela: invoices → evento: UPDATE
 //   Filtro: new.status = 'issued' AND old.status != 'issued'
 //   Endpoint: https://<project>.supabase.co/functions/v1/notify-invoice-issued
-//   Secret Header: Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
+//   Secret Header: Authorization: Bearer <NOTIFY_WEBHOOK_SECRET>
 //
 // Env vars necessárias:
 //   RESEND_API_KEY — chave de API Resend para envio de email
 //   FROM_EMAIL — remetente (ex: "Transhipping Desk <noreply@...>")
 //   PORTAL_URL  — URL base do portal do cliente
+//   NOTIFY_WEBHOOK_SECRET — segredo dedicado do Database Webhook
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -76,13 +77,16 @@ Deno.serve(async (req: Request) => {
   }
 
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const webhookSecret =
+    Deno.env.get('NOTIFY_WEBHOOK_SECRET') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
   // Autenticação do webhook: o Database Webhook envia
-  // `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` como secret header.
+  // `Authorization: Bearer <NOTIFY_WEBHOOK_SECRET>` como secret header.
   // Sem essa verificação, qualquer um que conheça a URL podia disparar emails
   // forjados para clientes reais (spoofing / email bombing).
   const authHeader = req.headers.get('Authorization') ?? ''
-  if (!timingSafeEqual(authHeader, `Bearer ${serviceRoleKey}`)) {
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!webhookSecret || !timingSafeEqual(bearer, webhookSecret)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -233,7 +237,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error'
     console.error('notify-invoice-issued error:', message)
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
       status: 500,
       headers: { ...headers, 'Content-Type': 'application/json' },
     })
