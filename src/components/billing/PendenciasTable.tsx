@@ -44,7 +44,7 @@ export function PendenciasTable({ rows }: { rows: LocalChargeOperationalRow[] })
                 </td>
                 <td className="px-4 py-3">
                   <div className="max-w-[360px] truncate" title={row.trail.last_event_message ?? row.billing_hold_reason ?? undefined}>
-                    {row.trail.last_event_message ?? row.billing_hold_reason ?? 'Revisao requerida'}
+                    {row.trail.last_event_message ?? row.billing_hold_reason ?? 'Revisão requerida'}
                   </div>
                 </td>
                 <td className="px-4 py-3">

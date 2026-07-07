@@ -389,7 +389,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
           <div className="app-metric-tile">
             <div className="app-metric-tile__label">Selecionados</div>
             <div className="app-metric-tile__value">{selectedOpsRows.length}</div>
-            <div className="app-panel__meta">Acoes em lote por selecao manual</div>
+            <div className="app-panel__meta">Ações em lote por seleção manual</div>
           </div>
         </div>
       </Card>

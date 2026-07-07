@@ -15,12 +15,12 @@ describe('TableFooterPagination', () => {
     )
 
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Anterior' }).disabled).toBe(true)
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Proxima' }).disabled).toBe(false)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Próxima' }).disabled).toBe(false)
 
     rerender(<TableFooterPagination page={2} pageSize={20} totalCount={20} totalPages={2} onPageChange={onPageChange} />)
 
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Anterior' }).disabled).toBe(false)
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Proxima' }).disabled).toBe(true)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Próxima' }).disabled).toBe(true)
   })
 
   it('emits page size changes', async () => {

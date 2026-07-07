@@ -212,8 +212,8 @@ export function Veiculos() {
           />
         </div>
         {!voyageId ? (
-          <div className="mt-3 text-sm text-amber-200">
-            Selecione uma viagem apenas para visualização da lista. A importação usa o seletor próprio dentro do modal.
+          <div className="mt-3 text-sm text-[var(--app-muted)]">
+            Selecione uma viagem para ver a lista de veículos.
           </div>
         ) : null}
       </Card>

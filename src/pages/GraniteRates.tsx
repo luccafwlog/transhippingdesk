@@ -115,7 +115,7 @@ export function GraniteRates() {
               <tr>
                 <th scope="col" className="px-4 py-3">Descrição</th>
                 <th scope="col" className="px-4 py-3">Tipo</th>
-                <th scope="col" className="px-4 py-3">Valor Unitario</th>
+                <th scope="col" className="px-4 py-3">Valor Unitário</th>
                 <th scope="col" className="px-4 py-3">Moeda</th>
                 <th scope="col" className="px-4 py-3">Vigência</th>
                 <th scope="col" className="px-4 py-3">Status</th>

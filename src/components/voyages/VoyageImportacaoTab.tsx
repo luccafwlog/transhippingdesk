@@ -50,7 +50,7 @@ export function VoyageImportacaoTab({
                 {pod.breakbulk.bls ? (
                   <MetricPanel title="Carga solta">
                     <Info label="B/Ls carga solta" value={String(pod.breakbulk.bls)} />
-                    <Info label="Maquinas" value={formatMetric(pod.breakbulk.machines)} />
+                    <Info label="Máquinas" value={formatMetric(pod.breakbulk.machines)} />
                     <Info label="Packages" value={formatMetric(pod.breakbulk.packages)} />
                     <Info label="Weight total" value={`${formatMetric(pod.breakbulk.weightTon)} ton`} />
                     <Info label="CBM total" value={formatMetric(pod.breakbulk.cbm)} />

@@ -267,7 +267,7 @@ export function UploadManifestModal({
               <div className="app-metric-tile__label">Trecho detectado no manifesto</div>
               <div className="mt-1 font-semibold text-[var(--app-text-strong)]">{routeSummary.label}</div>
               <div className="app-panel__meta mt-1">
-                A viagem agrupa navio e numero da viagem. O POL/POD permanece registrado nos B/Ls deste manifesto.
+                A viagem agrupa navio e número da viagem. O POL/POD permanece registrado nos B/Ls deste manifesto.
               </div>
             </div>
 

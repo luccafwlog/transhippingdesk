@@ -329,7 +329,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                         <th scope="col" className="px-3 py-2">Descrição</th>
                         <th scope="col" className="px-3 py-2">Qtd</th>
                         <th scope="col" className="px-3 py-2">Origem</th>
-                        <th scope="col" className="px-3 py-2">Unitario</th>
+                        <th scope="col" className="px-3 py-2">Unitário</th>
                         <th scope="col" className="px-3 py-2">Total</th>
                         <th scope="col" className="px-3 py-2">Ações</th>
                       </tr>

@@ -114,7 +114,7 @@ export function BlCargaTab({
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
                   <tr>
                     <th scope="col" className="py-2">CE</th>
-                    <th scope="col" className="py-2">Maquinas</th>
+                    <th scope="col" className="py-2">Máquinas</th>
                     <th scope="col" className="py-2">Volumes</th>
                     <th scope="col" className="py-2">Total de volumes</th>
                     <th scope="col" className="py-2">Peso (ton)</th>

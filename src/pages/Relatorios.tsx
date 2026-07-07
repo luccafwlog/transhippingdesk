@@ -200,7 +200,7 @@ function OperationalReportTab() {
                     {Number(row.total_cbm ?? 0).toLocaleString('pt-BR')}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge tone={row.review_status === 'reviewed' ? 'green' : 'yellow'}>
+                    <Badge tone={row.review_status === 'reviewed' || row.review_status === 'ok' ? 'green' : 'yellow'}>
                       {statusLabel(REVIEW_STATUS_LABELS, row.review_status)}
                     </Badge>
                   </td>

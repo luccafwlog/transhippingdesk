@@ -149,7 +149,7 @@ export function DemurrageRates() {
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th scope="col" className="px-4 py-3">Tipo Container</th>
-                <th scope="col" className="px-4 py-3">Free Days</th>
+                <th scope="col" className="px-4 py-3">Free time</th>
                 <th scope="col" className="px-4 py-3">P1 (dias)</th>
                 <th scope="col" className="px-4 py-3">P1 USD/dia</th>
                 <th scope="col" className="px-4 py-3">P2 (dias)</th>
@@ -236,7 +236,7 @@ export function DemurrageRates() {
             />
           </Field>
           <div className="grid grid-cols-3 gap-4">
-            <Field label="Free Days">
+            <Field label="Free time">
               <Input
                 type="number"
                 value={String(form.free_days)}

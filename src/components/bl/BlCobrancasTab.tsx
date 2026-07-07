@@ -279,7 +279,7 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
               <th scope="col" className="py-2">Status</th>
               <th scope="col" className="py-2">Qtd.</th>
               <th scope="col" className="py-2">Moeda</th>
-              <th scope="col" className="py-2">Unitario</th>
+              <th scope="col" className="py-2">Unitário</th>
               <th scope="col" className="py-2">Total</th>
               <th scope="col" className="py-2">Observacao</th>
               <th scope="col" className="py-2">Ações</th>

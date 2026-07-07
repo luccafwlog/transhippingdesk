@@ -65,6 +65,6 @@ it('filtra, pagina, seleciona e abre um B/L', () => {
   fireEvent.click(screen.getByLabelText('Selecionar B/L BL-001'))
   expect(screen.getByText('Selecionados: 1')).toBeTruthy()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Proxima' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Próxima' }))
   expect(useBlsMock.mock.calls.at(-1)?.[0]).toMatchObject({ page: 2 })
 })

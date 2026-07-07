@@ -206,7 +206,7 @@ export function Containers() {
     <>
       <PageHeader
         title="Containers"
-        description="Lista consolidada dos containers importados via manifestos. O total distinto considera o numero do container, mesmo quando ele aparece em mais de um B/L."
+        description="Lista consolidada dos containers importados via manifestos. O total distinto considera o número do container, mesmo quando ele aparece em mais de um B/L."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={() => setDatesImportOpen(true)}>

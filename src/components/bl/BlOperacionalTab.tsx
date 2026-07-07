@@ -65,7 +65,7 @@ export function BlOperacionalTab({
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <StatusBadge label="Modo" value={cargoModeLabel(cargoMode)} tone={isContainerMode ? 'blue' : 'green'} />
-          <StatusBadge label="Revisao" value={REVIEW_STATUS_LABELS[bl.review_status ?? 'ok'] ?? bl.review_status ?? 'ok'} />
+          <StatusBadge label="Revisão" value={REVIEW_STATUS_LABELS[bl.review_status ?? 'ok'] ?? bl.review_status ?? 'ok'} />
           {invoiceDiverges ? (
             <Badge tone="yellow">Taxas recalculadas — a fatura pode estar desatualizada</Badge>
           ) : null}
@@ -95,7 +95,7 @@ export function BlOperacionalTab({
           </Field>
           {!isContainerMode ? (
             <>
-              <Field label="Maquinas">
+              <Field label="Máquinas">
                 <Input
                   type="number"
                   value={form.bb_machine_qty ?? ''}

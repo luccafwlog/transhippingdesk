@@ -41,7 +41,7 @@ export async function issueOperationalInvoice(input: {
 
 export async function runGraniteBatch(ids: string[], action: 'recalculate' | 'review' | 'ready') {
   if (action === 'review') {
-    const message = 'Revisao em lote nao e suportada para Granito.'
+    const message = 'Revisão em lote não é suportada para Granito.'
     return {
       total: ids.length,
       successCount: 0,
