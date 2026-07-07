@@ -423,7 +423,7 @@ export function Clientes() {
         }
       />
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <MetricCard label="Clientes" value={String(summary?.totalCustomers ?? 0)} />
         <MetricCard label="B/Ls vinculados" value={String(summary?.totalBls ?? 0)} />
         <MetricCard label="Taxas pendentes" value={String(summary?.chargePending ?? 0)} />

@@ -289,7 +289,7 @@ export function CargaSolta() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <SummaryCard label="B/Ls filtrados" value={summary.totalBls} />
         <SummaryCard label="Maquinas" value={Number(summary.totalMachines).toLocaleString('pt-BR')} />
         <SummaryCard label="Total de volumes" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />

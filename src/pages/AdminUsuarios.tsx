@@ -325,7 +325,7 @@ export function AdminUsuarios() {
         metricsError ? (
           <InlineError message="Erro ao carregar métricas do sistema." />
         ) : (
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
           <MetricCard label="Última alteração em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
           <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
           <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />

@@ -136,7 +136,7 @@ function OperationalReportTab() {
         </div>
       </Card>
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <KpiCard label="B/Ls" value={String(data?.kpis.totalBls ?? 0)} />
         <KpiCard label="Containers distintos" value={String(data?.kpis.totalContainers ?? 0)} />
         <KpiCard label="Viagens distintas" value={String(data?.kpis.totalVoyages ?? 0)} />
@@ -295,7 +295,7 @@ function FinancialReportTab() {
         </div>
       ) : null}
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <KpiCard label="Invoices" value={String(data?.kpis.totalInvoices ?? 0)} />
         <KpiCard label="Total emitido" value={formatBRL(data?.kpis.totalIssued ?? 0)} />
         <KpiCard label="Total pago" value={formatBRL(data?.kpis.totalPaid ?? 0)} />
@@ -443,7 +443,7 @@ function CustomerReportTab() {
         </div>
       ) : null}
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <KpiCard label="Clientes ativos" value={String(data?.kpis.totalCustomers ?? 0)} />
         <KpiCard label="Top por volume (B/Ls)" value={data?.kpis.topByBls ?? '-'} />
         <KpiCard label="Top por faturamento" value={data?.kpis.topByInvoiced ?? '-'} />
@@ -560,7 +560,7 @@ function DemurrageReportTab() {
       </Card>
 
       {invoices.length > 0 && (
-        <div className="mb-4 grid gap-3 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
           <div className="app-metric-tile">
             <div className="app-metric-tile__label">Total USD</div>
             <div className="app-metric-tile__value text-amber-700">{fmtUSD(totalUSD)}</div>
