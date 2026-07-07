@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
+import { MetricCard } from '../components/ui/MetricCard'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
@@ -289,15 +290,19 @@ export function CargaSolta() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-        <SummaryCard label="B/Ls filtrados" value={summary.totalBls} />
-        <SummaryCard label="Maquinas" value={Number(summary.totalMachines).toLocaleString('pt-BR')} />
-        <SummaryCard label="Total de volumes" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />
-        <SummaryCard label="Peso (ton)" value={Number(summary.totalWeightTon).toLocaleString('pt-BR')} />
-        <SummaryCard label="CBM (M3)" value={Number(summary.totalCbm).toLocaleString('pt-BR')} />
-        <SummaryCard label="Taxas pendentes" value={Number(summary.chargePending).toLocaleString('pt-BR')} />
-        <SummaryCard label="Faturados" value={Number(summary.chargeReady).toLocaleString('pt-BR')} />
-        <SummaryCard label="Isentos" value={Number(summary.chargeExempt).toLocaleString('pt-BR')} />
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <MetricCard label="Taxas pendentes" value={Number(summary.chargePending).toLocaleString('pt-BR')} tone="primary" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+          <MetricCard label="B/Ls filtrados" value={summary.totalBls} />
+          <MetricCard label="Maquinas" value={Number(summary.totalMachines).toLocaleString('pt-BR')} />
+          <MetricCard label="Total de volumes" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />
+          <MetricCard label="Peso (ton)" value={Number(summary.totalWeightTon).toLocaleString('pt-BR')} />
+          <MetricCard label="CBM (M3)" value={Number(summary.totalCbm).toLocaleString('pt-BR')} />
+          <MetricCard label="Faturados" value={Number(summary.chargeReady).toLocaleString('pt-BR')} />
+          <MetricCard label="Isentos" value={Number(summary.chargeExempt).toLocaleString('pt-BR')} />
+        </div>
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -573,29 +578,13 @@ function InvoiceLink({
   )
 }
 
-function SummaryCard({ label, value }: { label: string; value: number | string }) {
-  const tone =
-    label === 'Peso (ton)'
-      ? 'gold'
-      : label === 'CBM (M3)'
-        ? 'green'
-        : label === 'Total de volumes'
-          ? 'blue'
-          : 'navy'
 
-  return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-    </Card>
-  )
-}
 
 function PreviewBox({ label, value }: { label: string; value: number }) {
   return (
-    <div className="app-metric-tile">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{formatBBNumber(value)}</div>
+    <div className="app-metric-strip">
+      <div className="app-metric-strip__label">{label}</div>
+      <div className="app-metric-strip__value">{formatBBNumber(value)}</div>
     </div>
   )
 }

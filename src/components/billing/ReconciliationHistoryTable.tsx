@@ -11,6 +11,7 @@ import { Combobox, type ComboOption } from '../ui/Combobox'
 import { useToast } from '../ui/Toast'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { listBillingCustomers } from '../../services/billing'
+import { TableFooterPagination } from '../ui/TableFooterPagination'
 import { listReconciliationHistory, exportReconciliationHistoryExcel, type ReconciliationFilters } from '../../services/reconciliacao'
 
 type SortField = NonNullable<ReconciliationFilters['sort']>
@@ -297,17 +298,13 @@ export function ReconciliationHistoryTable({
         </table>
       </div>
 
-      <div className="app-table__footer">
-        <span>Página {page} de {totalPages} · {totalCount} registros</span>
-        <div className="app-table__footer-controls">
-          <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(Math.max(1, page - 1))}>
-            Anterior
-          </Button>
-          <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage(Math.min(totalPages, page + 1))}>
-            Próxima
-          </Button>
-        </div>
-      </div>
+      <TableFooterPagination
+        page={page}
+        pageSize={pageSize}
+        totalCount={totalCount}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </Card>
   )
 }

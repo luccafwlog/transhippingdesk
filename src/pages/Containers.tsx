@@ -1,8 +1,9 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState, useMemo, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, CalendarDays, Download, Trash2 } from 'lucide-react'
+import { Boxes, CalendarDays, Download, Trash2, MoreVertical } from 'lucide-react'
 import { Button } from '../components/ui/Button'
+import { MetricCard } from '../components/ui/MetricCard'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -69,6 +70,38 @@ export function Containers() {
   const activeFilterCount = (
     ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus', 'cargoProfile', 'containerType', 'vehicleContainer'] as (keyof ContainerFilters)[]
   ).filter((key) => String(filters[key] ?? '').trim() !== '').length
+
+  type ActionsMenuState = {
+    id: number
+    top: number
+    left: number
+  } | null
+  const [actionsMenu, setActionsMenu] = useState<ActionsMenuState>(null)
+
+  function closeMenu() {
+    setActionsMenu(null)
+  }
+
+  useMemo(() => {
+    if (!actionsMenu) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu()
+    }
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('[data-actions-menu]')) closeMenu()
+    }
+    window.addEventListener('scroll', closeMenu, true)
+    window.addEventListener('resize', closeMenu)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('mousedown', onPointer)
+    return () => {
+      window.removeEventListener('scroll', closeMenu, true)
+      window.removeEventListener('resize', closeMenu)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('mousedown', onPointer)
+    }
+  }, [actionsMenu])
 
   function clearFilters() {
     setFilters((current) => ({
@@ -321,12 +354,16 @@ export function Containers() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-        <SummaryCard label="Registros filtrados" value={isLoading ? '...' : data?.count ?? 0} />
-        <SummaryCard label="Containers distintos" value={isLoading ? '...' : data?.distinctCount ?? 0} />
-        <SummaryCard label="B/Ls envolvidos" value={isLoading ? '...' : data?.blCount ?? 0} />
-        <SummaryCard label="OOG distintos" value={isLoading ? '...' : data?.oogDistinctCount ?? 0} />
-        <SummaryCard label="IMO distintos" value={isLoading ? '...' : data?.imoDistinctCount ?? 0} />
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <MetricCard label="Containers distintos" value={isLoading ? '...' : data?.distinctCount ?? 0} tone="primary" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+          <MetricCard label="Registros filtrados" value={isLoading ? '...' : data?.count ?? 0} />
+          <MetricCard label="B/Ls envolvidos" value={isLoading ? '...' : data?.blCount ?? 0} />
+          <MetricCard label="OOG distintos" value={isLoading ? '...' : data?.oogDistinctCount ?? 0} />
+          <MetricCard label="IMO distintos" value={isLoading ? '...' : data?.imoDistinctCount ?? 0} />
+        </div>
       </div>
 
       <Card className="mb-5">
@@ -459,13 +496,19 @@ export function Containers() {
                       </Link>
                       {isAdmin ? (
                         <button
-                          onClick={() => runContainerDelete([container.id])}
-                          disabled={deleting}
-                          className="text-red-400 hover:text-red-300 disabled:opacity-40"
-                          title="Excluir container"
-                          aria-label={`Excluir container ${container.container_number}`}
+                          type="button"
+                          className="app-btn app-btn--secondary p-1 leading-none"
+                          aria-label={`Ações para container ${container.container_number}`}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            setActionsMenu({
+                              id: container.id,
+                              top: rect.bottom + window.scrollY + 4,
+                              left: rect.right + window.scrollX - 160,
+                            })
+                          }}
                         >
-                          <Trash2 size={15} />
+                          <MoreVertical size={15} />
                         </button>
                       ) : null}
                     </div>
@@ -476,16 +519,44 @@ export function Containers() {
           </table>
         </div>
 
-        <TableFooterPagination
-          page={filters.page}
-          pageSize={filters.pageSize}
-          totalCount={data?.count ?? 0}
-          totalPages={totalPages}
-          countLabel={`${data?.count ?? 0} registros`}
-          onPageChange={(page) => updateFilter('page', page)}
-          onPageSizeChange={(pageSize) => updateFilter('pageSize', pageSize)}
-        />
+        {data && totalPages > 1 ? (
+          <TableFooterPagination
+            page={filters.page}
+            pageSize={filters.pageSize}
+            totalCount={data?.count ?? 0}
+            totalPages={totalPages}
+            countLabel={`${data?.count ?? 0} containers`}
+            onPageChange={(page) => updateFilter('page', page)}
+            onPageSizeChange={(pageSize) => updateFilter('pageSize', pageSize)}
+          />
+        ) : null}
       </Card>
+
+      {actionsMenu ? (
+        <div
+          data-actions-menu
+          className="app-floating-menu"
+          role="menu"
+          style={{ top: actionsMenu.top, left: actionsMenu.left }}
+        >
+          {isAdmin ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="app-floating-menu__danger"
+              disabled={deleting}
+              onClick={() => {
+                const id = actionsMenu.id
+                setActionsMenu(null)
+                void runContainerDelete([id])
+              }}
+            >
+              <Trash2 size={14} />
+              Excluir container
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <ContainerDatesImportModal open={datesImportOpen} onClose={() => setDatesImportOpen(false)} />
 
@@ -584,24 +655,6 @@ export function Containers() {
         </div>
       </Modal>
     </>
-  )
-}
-
-function SummaryCard({ label, value }: { label: string; value: number | string }) {
-  const tone =
-    label === 'IMO distintos'
-      ? 'gold'
-      : label === 'OOG distintos'
-        ? 'green'
-        : label === 'B/Ls envolvidos'
-          ? 'navy'
-          : 'blue'
-
-  return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`} title="Considera os filtros ativos desta tela.">
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-      </Card>
   )
 }
 

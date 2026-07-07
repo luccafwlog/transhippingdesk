@@ -2,6 +2,7 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, EmptyState, InlineError } from '../ui/Card'
 import { SkeletonTable } from '../ui/Skeleton'
+import { TableFooterPagination } from '../ui/TableFooterPagination'
 import {
   getInvoiceBls,
   getInvoicePaymentDate,
@@ -104,7 +105,13 @@ export function InvoicesTable({
           </tbody>
         </table>
       </div>
-      <div className="app-table__footer"><span>Página {page} de {totalPages} · {totalCount} registros</span><div className="app-table__footer-controls"><Button variant="secondary" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page - 1))}>Anterior</Button><Button variant="secondary" disabled={page >= totalPages} onClick={() => onPageChange(Math.min(totalPages, page + 1))}>Próxima</Button></div></div>
+      <TableFooterPagination
+        page={page}
+        pageSize={20}
+        totalCount={totalCount}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </Card>
   )
 }

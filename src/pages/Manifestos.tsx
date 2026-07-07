@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, Download, FileText, Trash2, Upload } from 'lucide-react'
+import { Boxes, Download, FileText, Trash2, Upload, MoreVertical } from 'lucide-react'
 import { Button } from '../components/ui/Button'
+import { MetricCard } from '../components/ui/MetricCard'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
@@ -125,6 +126,38 @@ export function Manifestos() {
     emptyWithoutFilters: 'Nenhum B/L importado ainda.',
     emptyWithFilters: 'Nenhum B/L encontrado.',
   })
+
+  type ActionsMenuState = {
+    id: string
+    top: number
+    left: number
+  } | null
+  const [actionsMenu, setActionsMenu] = useState<ActionsMenuState>(null)
+
+  function close() {
+    setActionsMenu(null)
+  }
+
+  useMemo(() => {
+    if (!actionsMenu) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('[data-actions-menu]')) close()
+    }
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('mousedown', onPointer)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('mousedown', onPointer)
+    }
+  }, [actionsMenu])
 
   function clearFilters() {
     setFilters((current) => ({
@@ -351,14 +384,18 @@ export function Manifestos() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-        <SummaryCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />
-        <SummaryCard label="CNTRS" value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0} />
-        <SummaryCard label="Pendentes revisão" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />
-        <SummaryCard label="Sem faturamento" value={isSummaryLoading ? '...' : summary?.pendingFinancial ?? 0} />
-        <SummaryCard label="Taxas pendentes" value={isSummaryLoading ? '...' : summary?.chargePending ?? 0} />
-        <SummaryCard label="Faturados" value={isSummaryLoading ? '...' : summary?.chargeReady ?? 0} />
-        <SummaryCard label="Isentos" value={isSummaryLoading ? '...' : summary?.chargeExempt ?? 0} />
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <MetricCard label="Pendentes revisão" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} tone="primary" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+          <MetricCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />
+          <MetricCard label="CNTRS" value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0} />
+          <MetricCard label="Sem faturamento" value={isSummaryLoading ? '...' : summary?.pendingFinancial ?? 0} />
+          <MetricCard label="Taxas pendentes" value={isSummaryLoading ? '...' : summary?.chargePending ?? 0} />
+          <MetricCard label="Faturados" value={isSummaryLoading ? '...' : summary?.chargeReady ?? 0} />
+          <MetricCard label="Isentos" value={isSummaryLoading ? '...' : summary?.chargeExempt ?? 0} />
+        </div>
       </div>
 
       {isAdmin ? (
@@ -474,13 +511,19 @@ export function Manifestos() {
                       </Link>
                       {isAdmin ? (
                         <button
-                          onClick={() => runBlDelete([bl.id])}
-                          disabled={deleting}
-                          className="text-red-400 hover:text-red-300 disabled:opacity-40"
-                          title="Excluir B/L"
-                          aria-label={`Excluir B/L ${bl.id}`}
+                          type="button"
+                          className="app-btn app-btn--secondary p-1 leading-none"
+                          aria-label={`Ações para B/L ${bl.id}`}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            setActionsMenu({
+                              id: bl.id,
+                              top: rect.bottom + window.scrollY + 4,
+                              left: rect.right + window.scrollX - 160,
+                            })
+                          }}
                         >
-                          <Trash2 size={15} />
+                          <MoreVertical size={15} />
                         </button>
                       ) : null}
                     </div>
@@ -491,16 +534,44 @@ export function Manifestos() {
           </table>
         </div>
 
-        <TableFooterPagination
-          page={filters.page}
-          pageSize={filters.pageSize}
-          totalCount={data?.count ?? 0}
-          totalPages={totalPages}
-          countLabel={`${data?.count ?? 0} registros`}
-          onPageChange={(page) => updateFilter('page', page)}
-          onPageSizeChange={(pageSize) => updateFilter('pageSize', pageSize)}
-        />
+        {data && totalPages > 1 ? (
+          <TableFooterPagination
+            page={filters.page}
+            pageSize={filters.pageSize}
+            totalCount={data?.count ?? 0}
+            totalPages={totalPages}
+            countLabel={`${data?.count ?? 0} B/Ls`}
+            onPageChange={(page) => updateFilter('page', page)}
+            onPageSizeChange={(pageSize) => updateFilter('pageSize', pageSize)}
+          />
+        ) : null}
       </Card>
+
+      {actionsMenu ? (
+        <div
+          data-actions-menu
+          className="app-floating-menu"
+          role="menu"
+          style={{ top: actionsMenu.top, left: actionsMenu.left }}
+        >
+          {isAdmin ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="app-floating-menu__danger"
+              disabled={deleting}
+              onClick={() => {
+                const id = actionsMenu.id
+                setActionsMenu(null)
+                void runBlDelete([id])
+              }}
+            >
+              <Trash2 size={14} />
+              Excluir B/L
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <UploadManifestModal
         key={`upload-${uploadOpen ? 'open' : 'closed'}-${filters.voyageId}`}
@@ -525,24 +596,6 @@ export function Manifestos() {
       />
 
     </>
-  )
-}
-
-function SummaryCard({ label, value }: { label: string; value: number | string }) {
-  const tone =
-    label === 'Sem faturamento'
-      ? 'green'
-      : label === 'Pendentes revisão'
-        ? 'gold'
-        : label === 'CNTRS'
-          ? 'blue'
-          : 'navy'
-
-  return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`} title="Considera os filtros ativos desta tela.">
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-      </Card>
   )
 }
 
