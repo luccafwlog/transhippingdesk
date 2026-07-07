@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&display=swap');
+@import "./fonts.css";
 @import "tailwindcss";
 
 :root,
@@ -971,6 +971,19 @@ textarea {
   line-height: 1.15;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.app-metric-tile--primary {
+  background: var(--app-surface-strong);
+  border-color: var(--app-border-focus);
+}
+
+.app-metric-tile--primary .app-metric-tile__label {
+  color: #58a6ff;
+}
+
+.app-metric-tile--primary .app-metric-tile__value {
+  font-size: 24px;
 }
 
 .app-action-row {

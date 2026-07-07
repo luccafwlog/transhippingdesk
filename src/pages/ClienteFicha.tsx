@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
@@ -330,15 +330,19 @@ export function ClienteFicha() {
         action={
           <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to="/clientes">
             <ArrowLeft className="mr-1 inline" size={16} />
-            Voltar para clientes
+      Voltar para clientes
           </Link>
         }
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-        <MetricCard label="CNPJ/CPF" value={formatCnpjCpf(data.cnpj_cpf)} />
-        <MetricCard label="B/Ls vinculados" value={String(data.bls?.length ?? 0)} />
-        <MetricCard label="Saldo pendente" value={data.invoices_access_denied ? 'Restrito' : formatBRL(data.pending_balance)} />
+      <div className="mb-6 flex flex-col gap-4">
+        <div>
+          <MetricCard label="Saldo pendente" value={data.invoices_access_denied ? 'Restrito' : formatBRL(data.pending_balance)} tone="primary" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <MetricCard label="CNPJ/CPF" value={formatCnpjCpf(data.cnpj_cpf)} />
+          <MetricCard label="B/Ls vinculados" value={String(data.bls?.length ?? 0)} />
+        </div>
       </div>
 
       <Card className="mb-5 grid gap-4">

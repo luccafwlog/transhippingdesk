@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { Ban, ChevronDown, ChevronUp, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, EmptyState } from '../ui/Card'
@@ -618,7 +618,7 @@ export function ChargeTablesTab({
                             title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
                             disabled={setChargeTableActiveMutation.isPending}
                           >
-                            {table.active ? <X size={13} /> : <Save size={13} />}
+                            {table.active ? <Ban size={13} /> : <Save size={13} />}
                           </button>
                         </div>
                       </td>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FileDown } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
+import { MetricCard } from '../components/ui/MetricCard'
 import { TabButton } from '../components/ui/TabButton'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -48,14 +49,6 @@ export function Relatorios() {
   )
 }
 
-function KpiCard({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
-  return (
-    <div className={`app-metric-tile ${muted ? 'opacity-75' : ''}`}>
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
-    </div>
-  )
-}
 
 // ---------- Operacional ----------
 
@@ -136,12 +129,16 @@ function OperationalReportTab() {
         </div>
       </Card>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-        <KpiCard label="B/Ls" value={String(data?.kpis.totalBls ?? 0)} />
-        <KpiCard label="Containers distintos" value={String(data?.kpis.totalContainers ?? 0)} />
-        <KpiCard label="Viagens distintas" value={String(data?.kpis.totalVoyages ?? 0)} />
-        <KpiCard label="Peso total (kg)" value={(data?.kpis.totalWeightKg ?? 0).toLocaleString('pt-BR')} />
-        <KpiCard label="CBM total" value={(data?.kpis.totalCbm ?? 0).toLocaleString('pt-BR')} />
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <MetricCard label="B/Ls" value={String(data?.kpis.totalBls ?? 0)} tone="primary" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+          <MetricCard label="Containers distintos" value={String(data?.kpis.totalContainers ?? 0)} />
+          <MetricCard label="Viagens distintas" value={String(data?.kpis.totalVoyages ?? 0)} />
+          <MetricCard label="Peso total (kg)" value={(data?.kpis.totalWeightKg ?? 0).toLocaleString('pt-BR')} />
+          <MetricCard label="CBM total" value={(data?.kpis.totalCbm ?? 0).toLocaleString('pt-BR')} />
+        </div>
       </div>
 
       {data?.kpis.truncated ? (
@@ -295,12 +292,18 @@ function FinancialReportTab() {
         </div>
       ) : null}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-        <KpiCard label="Invoices" value={String(data?.kpis.totalInvoices ?? 0)} />
-        <KpiCard label="Total emitido" value={formatBRL(data?.kpis.totalIssued ?? 0)} />
-        <KpiCard label="Total pago" value={formatBRL(data?.kpis.totalPaid ?? 0)} />
-        <KpiCard label="Saldo em aberto" value={formatBRL(data?.kpis.totalOpen ?? 0)} />
-        <KpiCard label="Canceladas" value={String(data?.kpis.totalCanceled ?? 0)} muted />
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <MetricCard label="Saldo em aberto" value={formatBRL(data?.kpis.totalOpen ?? 0)} tone="primary" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+          <MetricCard label="Invoices" value={String(data?.kpis.totalInvoices ?? 0)} />
+          <MetricCard label="Total emitido" value={formatBRL(data?.kpis.totalIssued ?? 0)} />
+          <MetricCard label="Total pago" value={formatBRL(data?.kpis.totalPaid ?? 0)} />
+          <div className="opacity-75">
+            <MetricCard label="Canceladas" value={String(data?.kpis.totalCanceled ?? 0)} />
+          </div>
+        </div>
       </div>
 
       {data?.kpis.truncated ? (
@@ -443,11 +446,15 @@ function CustomerReportTab() {
         </div>
       ) : null}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-        <KpiCard label="Clientes ativos" value={String(data?.kpis.totalCustomers ?? 0)} />
-        <KpiCard label="Top por volume (B/Ls)" value={data?.kpis.topByBls ?? '-'} />
-        <KpiCard label="Top por faturamento" value={data?.kpis.topByInvoiced ?? '-'} />
-        <KpiCard label="Total faturado" value={formatBRL(data?.kpis.totalIssued ?? 0)} />
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <MetricCard label="Total faturado" value={formatBRL(data?.kpis.totalIssued ?? 0)} tone="primary" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+          <MetricCard label="Clientes ativos" value={String(data?.kpis.totalCustomers ?? 0)} />
+          <MetricCard label="Top por volume (B/Ls)" value={data?.kpis.topByBls ?? '-'} />
+          <MetricCard label="Top por faturamento" value={data?.kpis.topByInvoiced ?? '-'} />
+        </div>
       </div>
 
       {data?.kpis.truncated ? (
