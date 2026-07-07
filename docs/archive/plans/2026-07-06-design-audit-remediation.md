@@ -2,7 +2,7 @@
 
 > Plano/snapshot de decisão, não verdade corrente. A autoridade executável é o
 > código. Base de decisão: auditoria de design full-site
-> [design-audit/2026-07-06-auditoria.md](../design-audit/2026-07-06-auditoria.md)
+> [design-audit/2026-07-06-auditoria.md](../../design-audit/2026-07-06-auditoria.md)
 > (2026-07-06). Este plano consolida os achados **não corrigidos** daquela
 > auditoria em fatias revisáveis. As correções seguras de copy/CSS/formatação
 > já foram aplicadas na PR #326 e não reaparecem aqui.
@@ -32,7 +32,7 @@ RPC + migrações versionadas).
 
 **Fontes de verdade:** `CONTEXT.md` · `docs/ARCHITECTURE.md` ·
 `docs/CONVENCOES.md` · `docs/WORKFLOW.md` ·
-[auditoria de design 2026-07-06](../design-audit/2026-07-06-auditoria.md).
+[auditoria de design 2026-07-06](../../design-audit/2026-07-06-auditoria.md).
 
 ---
 

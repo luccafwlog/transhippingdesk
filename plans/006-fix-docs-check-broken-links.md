@@ -96,6 +96,14 @@ registro histórico.
 **Verify**: `npm run docs:check` → exit 0, nenhuma linha
 "broken relative link".
 
+> **Nota de execução (2026-07-07)**: o verificador reporta em camadas — após
+> corrigir os 5 links acima, apareceram mais 3 do mesmo commit `86cb5ac`,
+> também corrigidos: `docs/archive/code-quality-audit-2026-07-06.md`
+> (`../plans/…` → `plans/…`) e
+> `docs/archive/plans/2026-07-01-bl-import-workflow-adjustments.md`
+> (`../adr/0017…`/`../adr/0018…` → `../../adr/…`). Total: 8 links em 6
+> arquivos.
+
 ## Plano de testes
 
 Sem testes de código; o gate é `docs:check` e o CI do PR.

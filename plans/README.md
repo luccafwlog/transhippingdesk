@@ -17,7 +17,7 @@ STOP e atualize sua linha na tabela ao terminar.
 
 | Plan | Título | Prioridade | Esforço | Depende de | Status |
 |------|--------|------------|---------|------------|--------|
-| 006 | **Executar primeiro:** consertar links quebrados que fazem `docs:check` falhar na main | P0 | S | — | TODO |
+| 006 | **Executar primeiro:** consertar links quebrados que fazem `docs:check` falhar na main | P0 | S | — | DONE (executado pelo advisor em 2026-07-07 para desbloquear o CI do PR destes planos; 8 links em 6 arquivos) |
 | 001 | Corrigir instrução stale de numeração de migrations (159→160) | P1 | S | 006 | TODO |
 | 002 | Impedir fatura de Demurrage ativa duplicada por B/L (índice único + RPC) | P1 | M | 001 | TODO |
 | 003 | Remover fallback estático de tarifas de Demurrage (alinhar ao CONTEXT.md) | P1 | M | — | TODO |
