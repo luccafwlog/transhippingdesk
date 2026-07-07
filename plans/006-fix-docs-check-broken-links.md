@@ -103,6 +103,14 @@ registro histórico.
 > `docs/archive/plans/2026-07-01-bl-import-workflow-adjustments.md`
 > (`../adr/0017…`/`../adr/0018…` → `../../adr/…`). Total: 8 links em 6
 > arquivos.
+>
+> **Nota de execução 2 (2026-07-07, mais tarde)**: a main quebrou o gate de
+> novo (`fdb0f2a` moveu `docs/design-audit/` para o archive apagando ~30
+> screenshots — 35 links quebrados). Com aprovação do mantenedor, a correção
+> passou a ser sistêmica: `docs/archive/` agora é isento no
+> `scripts/check-docs.mjs` (snapshots históricos não são verdade atual,
+> CLAUDE.md) e os 3 cross-links restantes foram re-apontados. Arquivamentos
+> futuros não quebram mais o gate.
 
 ## Plano de testes
 

@@ -20,7 +20,7 @@
 
 > Nota editorial (2026-07-06): os achados **não corrigidos** deste relatório
 > (P1–P3) foram consolidados no plano de ação
-> [2026-07-06-design-audit-remediation](../archive/plans/2026-07-06-design-audit-remediation.md).
+> [2026-07-06-design-audit-remediation](../plans/2026-07-06-design-audit-remediation.md).
 > Este documento permanece como registro da auditoria e da evidência
 > antes/depois das correções já aplicadas.
 
