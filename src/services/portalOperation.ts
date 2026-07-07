@@ -32,11 +32,6 @@ export type PortalOperationBL = {
   containers: PortalOperationContainer[]
 }
 
-type RpcResult = {
-  data: unknown
-  error: unknown
-}
-
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 }
@@ -109,9 +104,7 @@ export function normalizePortalOperationRows(data: unknown): PortalOperationBL[]
 }
 
 export async function portalListOperationBls(): Promise<PortalOperationBL[]> {
-  const { data, error } = await (supabasePortal as unknown as {
-    rpc(fn: 'portal_list_operation_bls'): Promise<RpcResult>
-  }).rpc('portal_list_operation_bls')
+  const { data, error } = await supabasePortal.rpc('portal_list_operation_bls')
 
   if (error) throw error
 

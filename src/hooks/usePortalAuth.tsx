@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import * as Sentry from '@sentry/react'
 import { supabasePortal } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
 import { portalResolveLogin } from '../services/portalBilling'
@@ -43,16 +45,31 @@ async function fetchOverview(): Promise<PortalSessionOverview> {
   return normalizePortalOverview((data ?? {}) as Record<string, unknown>)
 }
 
+function setPortalTelemetryUser(overview: PortalSessionOverview) {
+  Sentry.setUser({ id: String(overview.customer_id) })
+  Sentry.setTag('area', 'portal')
+}
+
 export function PortalAuthProvider({ children }: PropsWithChildren) {
+  const queryClient = useQueryClient()
   const [overview, setOverview] = useState<PortalSessionOverview | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const clearPortalQueries = useCallback(() => {
+    queryClient.removeQueries({
+      predicate: (query) => String(query.queryKey[0]).startsWith('portal-'),
+    })
+  }, [queryClient])
+
   const clearSession = useCallback(() => {
     setOverview(null)
-  }, [])
+    Sentry.setUser(null)
+    clearPortalQueries()
+  }, [clearPortalQueries])
 
   useEffect(() => {
     let mounted = true
+    let hydrating = true
 
     async function hydrate() {
       try {
@@ -60,18 +77,43 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
         if (!session) return
 
         const ov = await fetchOverview()
-        if (mounted) setOverview(ov)
+        if (mounted) {
+          setOverview(ov)
+          setPortalTelemetryUser(ov)
+        }
       } catch (error) {
         // Sessão Supabase pode existir sem perfil de portal (ex.: usuário interno);
         // nesse caso apenas não autentica no portal, sem derrubar a sessão global.
         if (isPortalSessionError(error) && mounted) clearSession()
       } finally {
         if (mounted) setLoading(false)
+        hydrating = false
       }
     }
 
     void hydrate()
-    return () => { mounted = false }
+    const { data: { subscription } } = supabasePortal.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        clearSession()
+        return
+      }
+
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && !hydrating) {
+        void fetchOverview()
+          .then((ov) => {
+            if (mounted) setOverview((current) => current ?? ov)
+            if (mounted) setPortalTelemetryUser(ov)
+          })
+          .catch((error) => {
+            if (isPortalSessionError(error) && mounted) clearSession()
+          })
+      }
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [clearSession])
 
   function isDocument(value: string): boolean {
@@ -103,6 +145,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
       if (error) throw new Error(error.message)
       const ov = await fetchOverview()
       setOverview(ov)
+      setPortalTelemetryUser(ov)
     } finally {
       setLoading(false)
     }
@@ -117,6 +160,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
     try {
       const ov = await fetchOverview()
       setOverview(ov)
+      setPortalTelemetryUser(ov)
     } catch (error) {
       if (isPortalSessionError(error)) clearSession()
       throw error

@@ -1,15 +1,12 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, PageHeader } from '../components/ui/Card'
+import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { ShipScheduleWidget } from '../components/portal/ShipScheduleWidget'
 import { usePortalInvoices, usePortalDemurrageInvoices } from '../hooks/usePortalBilling'
 import { usePortalOperationBls } from '../hooks/usePortalOperation'
 import { countContainersInDemurrage, countContainersWithoutReturn } from '../lib/portalOperationViews'
 import { formatBRL } from '../lib/utils'
-
-// Status de fatura considerados "em aberto" (ainda geram saldo pendente).
-const OPEN_INVOICE_STATUSES = ['issued', 'partially_paid', 'overdue', 'draft']
-const CLOSED_DEMURRAGE_STATUSES = ['paid', 'covered', 'cancelled', 'obsolete']
+import { CLOSED_DEMURRAGE_STATUSES, OPEN_INVOICE_STATUSES } from '../lib/portalInvoiceStatus'
 
 type PanelCard = {
   label: string
@@ -19,16 +16,16 @@ type PanelCard = {
 }
 
 export function PortalDashboard() {
-  const { data: invoices, isLoading: invLoading } = usePortalInvoices()
-  const { data: demurrage, isLoading: demLoading } = usePortalDemurrageInvoices()
-  const { data: operationBls, isLoading: opLoading } = usePortalOperationBls()
+  const { data: invoices, isLoading: invLoading, error: invoicesError } = usePortalInvoices()
+  const { data: demurrage, isLoading: demLoading, error: demurrageError } = usePortalDemurrageInvoices()
+  const { data: operationBls, isLoading: opLoading, error: operationError } = usePortalOperationBls()
   const nav = useNavigate()
 
   const cards = useMemo<PanelCard[]>(() => {
-    const openLocal = (invoices ?? []).filter((i) => OPEN_INVOICE_STATUSES.includes(i.status ?? 'issued'))
+    const openLocal = (invoices ?? []).filter((i) => (OPEN_INVOICE_STATUSES as readonly string[]).includes(i.status ?? 'issued'))
     const localTotal = openLocal.reduce((sum, i) => sum + (i.balance_brl ?? 0), 0)
 
-    const openDemurrage = (demurrage ?? []).filter((i) => !CLOSED_DEMURRAGE_STATUSES.includes(i.status ?? 'issued'))
+    const openDemurrage = (demurrage ?? []).filter((i) => !(CLOSED_DEMURRAGE_STATUSES as readonly string[]).includes(i.status ?? 'issued'))
     const demurrageTotal = openDemurrage.reduce((sum, i) => sum + (i.current_total_brl ?? 0), 0)
 
     const containersNoReturn = countContainersWithoutReturn(operationBls ?? [])
@@ -63,6 +60,8 @@ export function PortalDashboard() {
   }, [invoices, demurrage, operationBls])
 
   const loading = invLoading || demLoading || opLoading
+  const financialError = Boolean(invoicesError || demurrageError)
+  const operationLoadError = Boolean(operationError)
 
   return (
     <>
@@ -70,6 +69,10 @@ export function PortalDashboard() {
 
       {loading ? (
         <div className="text-sm text-[var(--app-muted)]">Carregando indicadores...</div>
+      ) : financialError ? (
+        <InlineError message="Falha ao carregar indicadores financeiros. Tente novamente em instantes." />
+      ) : operationLoadError ? (
+        <InlineError message="Falha ao carregar indicadores operacionais. Tente novamente em instantes." />
       ) : (
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
           {cards.map((card) => (

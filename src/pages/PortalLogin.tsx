@@ -16,6 +16,14 @@ function isCpf(value: string): boolean {
   return digits.length === 11
 }
 
+function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) return true
+  if (!error || typeof error !== 'object') return false
+  const name = String((error as { name?: unknown }).name ?? '')
+  const message = String((error as { message?: unknown }).message ?? '').toLowerCase()
+  return name === 'AuthRetryableFetchError' || message.includes('failed to fetch') || message.includes('fetch failed')
+}
+
 export function PortalLogin() {
   const navigate = useNavigate()
   const { isAuthenticated, loading, signIn } = usePortalAuth()
@@ -40,6 +48,8 @@ export function PortalLogin() {
       const code = typeof err === 'object' && err !== null ? String((err as { code?: string }).code ?? '') : ''
       if (code === 'P0429') {
         setError('Muitas tentativas de acesso. Aguarde alguns minutos antes de tentar novamente.')
+      } else if (isNetworkError(err)) {
+        setError('Nao foi possivel conectar. Verifique sua internet e tente novamente.')
       } else {
         setError('Credenciais inválidas para o portal do cliente.')
       }

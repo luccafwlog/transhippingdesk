@@ -3,7 +3,7 @@
 > Registro histórico, imutável. Snapshot da revisão de código das rotas
 > `/portal/*` feita em 2026-07-07. A autoridade executável é o código.
 > O plano de remediação derivado está em
-> [`docs/plans/2026-07-07-portal-cliente-review-remediation.md`](../plans/2026-07-07-portal-cliente-review-remediation.md).
+> [`docs/archive/superpowers/plans/2026-07-07-portal-cliente-review-remediation.md`](superpowers/plans/2026-07-07-portal-cliente-review-remediation.md).
 
 ## Resumo Executivo
 

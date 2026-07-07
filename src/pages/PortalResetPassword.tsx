@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { supabasePortal } from '../services/supabase'
+import { signOutSupabaseClient } from '../services/supabaseAuth'
+import { portalErrorMessage } from '../lib/portalErrorMessage'
 
 const INVALID_LINK_MESSAGE = 'Link de recuperacao invalido ou expirado.'
 
@@ -74,10 +76,10 @@ export function PortalResetPassword() {
     try {
       const { error: updateError } = await supabasePortal.auth.updateUser({ password })
       if (updateError) throw updateError
+      await signOutSupabaseClient(supabasePortal)
       navigate('/portal/login', { replace: true })
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Falha ao redefinir senha.'
-      setError(message)
+      setError(portalErrorMessage(err, 'Falha ao redefinir senha. Tente novamente em instantes.'))
     } finally {
       setSubmitting(false)
     }

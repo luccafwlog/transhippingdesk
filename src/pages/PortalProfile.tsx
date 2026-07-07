@@ -1,42 +1,73 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
-import { usePortalAuth } from '../hooks/usePortalAuth'
-import { portalGetProfile, portalUpdateProfile } from '../services/portalBilling'
+import { usePortalProfile } from '../hooks/usePortalProfile'
+import { portalErrorMessage } from '../lib/portalErrorMessage'
+import type { PortalProfile as PortalProfileData } from '../services/portalBilling'
 
 export function PortalProfile() {
-  const { overview, refreshOverview } = usePortalAuth()
-  const { showToast } = useToast()
+  const profile = usePortalProfile()
+  const loadError = profile.error
+    ? portalErrorMessage(profile.error, 'Falha ao carregar perfil. Tente novamente em instantes.')
+    : ''
 
-  const [contactEmail, setContactEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
-  const [city, setCity] = useState('')
-  const [state, setState] = useState('')
-  const [zip, setZip] = useState('')
+  return (
+    <>
+      <PageHeader title="Meu perfil" description="Atualize seus dados de contato e endereco." />
+
+      <Card className="max-w-xl p-5">
+        {profile.data ? (
+          <PortalProfileForm
+            profile={profile.data}
+            fallbackContactEmail={profile.fallbackContactEmail}
+            updateProfile={profile.updateProfile.mutateAsync}
+            loadError={loadError}
+            loadFailed={profile.isError}
+          />
+        ) : (
+          <div className="grid gap-4">
+            {loadError ? <InlineError message={loadError} /> : <div className="text-sm text-[var(--app-muted)]">Carregando perfil...</div>}
+            <div className="flex justify-end">
+              <Button disabled type="button">Salvar alteracoes</Button>
+            </div>
+          </div>
+        )}
+      </Card>
+    </>
+  )
+}
+
+function PortalProfileForm({
+  profile,
+  fallbackContactEmail,
+  updateProfile,
+  loadError,
+  loadFailed,
+}: {
+  profile: PortalProfileData
+  fallbackContactEmail: string
+  updateProfile: (input: {
+    contactEmail?: string | null
+    phone?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+  }) => Promise<unknown>
+  loadError: string
+  loadFailed: boolean
+}) {
+  const { showToast } = useToast()
+  const [contactEmail, setContactEmail] = useState(profile.contact_email ?? fallbackContactEmail)
+  const [phone, setPhone] = useState(profile.phone ?? '')
+  const [address, setAddress] = useState(profile.address ?? '')
+  const [city, setCity] = useState(profile.city ?? '')
+  const [state, setState] = useState(profile.state ?? '')
+  const [zip, setZip] = useState(profile.zip ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [loadFailed, setLoadFailed] = useState(false)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const profile = await portalGetProfile()
-        setContactEmail(profile.contact_email ?? overview?.contact_email ?? '')
-        setPhone(profile.phone ?? '')
-        setAddress(profile.address ?? '')
-        setCity(profile.city ?? '')
-        setState(profile.state ?? '')
-        setZip(profile.zip ?? '')
-      } catch (err: unknown) {
-        setLoadFailed(true)
-        setError(err instanceof Error ? err.message : 'Falha ao carregar perfil.')
-      }
-    }
-    void load()
-  }, [overview])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -44,7 +75,7 @@ export function PortalProfile() {
     setSubmitting(true)
 
     try {
-      await portalUpdateProfile({
+      await updateProfile({
         contactEmail: contactEmail.trim() || null,
         phone: phone.trim() || null,
         address: address.trim() || null,
@@ -52,20 +83,15 @@ export function PortalProfile() {
         state: state.trim() || null,
         zip: zip.trim() || null,
       })
-      await refreshOverview()
       showToast('Perfil atualizado com sucesso.', 'success')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Falha ao atualizar perfil.')
+      setError(portalErrorMessage(err, 'Falha ao atualizar perfil. Tente novamente em instantes.'))
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <>
-      <PageHeader title="Meu perfil" description="Atualize seus dados de contato e endereco." />
-
-      <Card className="max-w-xl p-5">
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Email de contato">
             <Input
@@ -106,13 +132,11 @@ export function PortalProfile() {
             </Field>
           </div>
 
-          {error ? <InlineError message={error} /> : null}
+          {loadError || error ? <InlineError message={error || loadError} /> : null}
 
           <div className="flex justify-end">
             <Button disabled={loadFailed} loading={submitting} type="submit">Salvar alteracoes</Button>
           </div>
         </form>
-      </Card>
-    </>
   )
 }

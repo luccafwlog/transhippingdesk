@@ -573,6 +573,58 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
+      portal_resolve_login: {
+        Args: {
+          p_login: string
+        }
+        Returns: string
+      }
+      portal_list_notifications: {
+        Args: {
+          p_limit?: number
+        }
+        Returns: Json
+      }
+      portal_notification_unread_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      portal_mark_notification_read: {
+        Args: {
+          p_notification_id: number
+        }
+        Returns: undefined
+      }
+      portal_mark_all_notifications_read: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      portal_open_demurrage_dispute: {
+        Args: {
+          p_demurrage_invoice_id: number
+          p_reason: string
+        }
+        Returns: Json
+      }
+      portal_get_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      portal_update_profile: {
+        Args: {
+          p_contact_email?: string | null
+          p_phone?: string | null
+          p_address?: string | null
+          p_city?: string | null
+          p_state?: string | null
+          p_zip?: string | null
+        }
+        Returns: Json
+      }
+      portal_list_operation_bls: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       recalculate_demurrage_invoices: {
         Args: {
           p_ptax: number

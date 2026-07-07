@@ -2,7 +2,7 @@
 
 > Plano/snapshot de decisão, não verdade corrente. A autoridade executável é o
 > código. Base de decisão: revisão de código
-> [portal-cliente-review-2026-07-07](../archive/portal-cliente-review-2026-07-07.md)
+> [portal-cliente-review-2026-07-07](../../portal-cliente-review-2026-07-07.md)
 > (registro histórico, imutável). Este plano consolida os achados daquela
 > revisão em fatias revisáveis e independentes.
 
@@ -23,7 +23,7 @@ Sentry (`@sentry/react`), Vitest.
 
 **Fontes de verdade:** `CONTEXT.md` · `docs/ARCHITECTURE.md` ·
 `docs/RASTREABILIDADE.md` · `docs/CONVENCOES.md` ·
-[revisão 2026-07-07](../archive/portal-cliente-review-2026-07-07.md) ·
+[revisão 2026-07-07](../../portal-cliente-review-2026-07-07.md) ·
 skills `react-query-pattern` e `supabase-migration`.
 
 ---
