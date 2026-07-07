@@ -15,7 +15,7 @@ function makeRows(count: number): LocalChargeOperationalRow[] {
     pod: 'SSZ',
     customer: { name: `Cliente ${i + 1}`, cnpj_cpf: '00.000.000/0001-00' },
     voyage: { voyage_number: `V${i + 1}`, vessel: { name: 'NAVIO' } },
-    trail: { last_event_message: 'Revisao requerida' },
+    trail: { last_event_message: 'Revisão requerida' },
     billing_hold_reason: null,
   })) as unknown as LocalChargeOperationalRow[]
 }
@@ -80,7 +80,7 @@ describe('PendenciasTable', () => {
     ] as unknown as LocalChargeOperationalRow[]
     renderTable(rows)
     const row = screen.getByText('CSC000099').closest('tr')!
-    expect(within(row).getByText('Revisao requerida')).toBeTruthy()
+    expect(within(row).getByText('Revisão requerida')).toBeTruthy()
     expect(within(row).getByText('Navio / -')).toBeTruthy()
   })
 })

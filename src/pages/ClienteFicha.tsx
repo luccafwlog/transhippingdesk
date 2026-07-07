@@ -532,7 +532,7 @@ export function ClienteFicha() {
                   value={contactForm.is_primary ? 'sim' : 'nao'}
                   onChange={(event) => setContactForm((current) => ({ ...current, is_primary: event.target.value === 'sim' }))}
                 >
-                  <option value="nao">Nao</option>
+                  <option value="nao">Não</option>
                   <option value="sim">Sim</option>
                 </Select>
               </Field>
