@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { ensureDemurrageRatesLoaded, calculateDemurrage } from './demurrageRates'
 import { buildTransshippingPixPayload } from '../../lib/pix'
+import { extractErrorText } from '../../lib/errors'
 import { fetchROE } from './demurrageKpis'
 import type { DemurrageInvoice, DemurrageInvoiceItem, RoeSource } from '../../types/database'
 
@@ -88,7 +89,13 @@ async function createDemurrageInvoiceWithItems(input: {
     p_roe_source: input.roeSource,
     p_items: input.items,
   } as never)
-  if (error) throw error
+  if (error) {
+    const text = extractErrorText(error).toLowerCase()
+    if (text.includes('23505')) {
+      throw new Error('Já existe fatura de Demurrage emitida ou paga para este B/L. Cancele a fatura atual antes de reemitir.')
+    }
+    throw error
+  }
 
   const invoiceId = Number((data as { invoice_id?: number } | null)?.invoice_id)
   if (!Number.isFinite(invoiceId) || invoiceId <= 0) {

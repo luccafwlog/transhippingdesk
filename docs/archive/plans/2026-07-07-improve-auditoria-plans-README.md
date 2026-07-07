@@ -18,11 +18,11 @@ STOP e atualize sua linha na tabela ao terminar.
 | Plan | Título | Prioridade | Esforço | Depende de | Status |
 |------|--------|------------|---------|------------|--------|
 | 006 | **Executar primeiro:** consertar links quebrados que fazem `docs:check` falhar na main | P0 | S | — | DONE (executado pelo advisor em 2026-07-07 para desbloquear o CI do PR destes planos; 8 links em 6 arquivos) |
-| 001 | Corrigir instrução stale de numeração de migrations (159→160) | P1 | S | 006 | TODO |
-| 002 | Impedir fatura de Demurrage ativa duplicada por B/L (índice único + RPC) | P1 | M | 001 | TODO |
-| 003 | Remover fallback estático de tarifas de Demurrage (alinhar ao CONTEXT.md) | P1 | M | — | TODO |
-| 004 | Gravar `old_value` real na auditoria de devolução e flags Baplie | P2 | S | — | TODO |
-| 005 | Adicionar script `typecheck` e gate `size-limit` no CI | P2 | S | — | TODO |
+| 001 | Corrigir instrução stale de numeração de migrations (159→160) | P1 | S | 006 | DONE (executado em 2026-07-07; docs passam a derivar o próximo número do repositório) |
+| 002 | Impedir fatura de Demurrage ativa duplicada por B/L (índice único + RPC) | P1 | M | 001 | DONE (executado em 2026-07-07; migration 169 + mapeamento de erro amigável) |
+| 003 | Remover fallback estático de tarifas de Demurrage (alinhar ao CONTEXT.md) | P1 | M | — | DONE (executado em 2026-07-07; sem fallback estático, cache last-known-good do banco) |
+| 004 | Gravar `old_value` real na auditoria de devolução e flags Baplie | P2 | S | — | DONE (executado em 2026-07-07; auditoria grava valores anteriores reais) |
+| 005 | Adicionar script `typecheck` e gate `size-limit` no CI | P2 | S | — | DONE (executado em 2026-07-07; CI roda size-limit após build) |
 
 Status: TODO | IN PROGRESS | DONE | BLOCKED (com motivo em uma linha) |
 REJECTED (com justificativa em uma linha).

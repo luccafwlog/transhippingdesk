@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const calls: { table: string; payload: unknown }[] = []
+const mocks = vi.hoisted(() => ({
+  reportBestEffortFailure: vi.fn(),
+}))
+
+vi.mock('../../../lib/telemetry', () => ({
+  reportBestEffortFailure: mocks.reportBestEffortFailure,
+}))
 
 vi.mock('../../supabase', () => ({
   supabase: {
@@ -10,7 +17,7 @@ vi.mock('../../supabase', () => ({
           update: () => ({
             eq: () => Promise.resolve({ error: null }),
           }),
-          select: () => ({
+          select: (columns: string) => ({
             eq: () => ({
               single: () => ({
                 overrideTypes: () =>
@@ -18,6 +25,7 @@ vi.mock('../../supabase', () => ({
                     data: {
                       type: '20GP',
                       discharge_date: '2026-01-01',
+                      return_date: columns === 'return_date' ? '2026-02-28' : '2026-02-20',
                       bl: null,
                     },
                     error: null,
@@ -53,6 +61,7 @@ import { updateContainerReturnDate } from '../demurrageContainers'
 describe('updateContainerReturnDate', () => {
   beforeEach(() => {
     calls.length = 0
+    mocks.reportBestEffortFailure.mockClear()
   })
 
   it('writes an audit_logs row for the return-date change', async () => {
@@ -63,6 +72,7 @@ describe('updateContainerReturnDate', () => {
       entity_type: 'bl_container',
       entity_id: '42',
       field_name: 'return_date',
+      old_value: '2026-02-20',
       new_value: '2026-03-01',
     })
   })
@@ -75,6 +85,7 @@ describe('updateContainerReturnDate', () => {
       entity_type: 'bl_container',
       entity_id: '42',
       field_name: 'return_date',
+      old_value: '2026-02-28',
       new_value: null,
     })
   })

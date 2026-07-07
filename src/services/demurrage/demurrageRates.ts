@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { DemurrageCalcResult, DemurrageRate } from '../../types/database'
 
 export type RateGroup = {
@@ -14,17 +15,8 @@ type ResolvedRate = {
   p2: { range: [number, number]; usd: number }
 }
 
-const STATIC_RATE_GROUPS: RateGroup[] = [
-  { aliases: ['20GP', '20G0', '20HC', '20HQ', '22G1', '20G1'], freeUntil: 21, p1: { range: [22, 30], usd: 30 }, p2: { range: [31, Infinity], usd: 50 } },
-  { aliases: ['40GP', '40G0', '40HC', '40HQ', '40G1', '42G1', '45G1'], freeUntil: 21, p1: { range: [22, 30], usd: 60 }, p2: { range: [31, Infinity], usd: 80 } },
-  { aliases: ['20FR', '20OT', '20FT'], freeUntil: 21, p1: { range: [22, 30], usd: 50 }, p2: { range: [31, Infinity], usd: 80 } },
-  { aliases: ['40FR', '40OT', '40FT'], freeUntil: 21, p1: { range: [22, 30], usd: 100 }, p2: { range: [31, Infinity], usd: 140 } },
-  { aliases: ['20RF', '20RQ', '20R1'], freeUntil: 10, p1: { range: [11, 19], usd: 95 }, p2: { range: [20, Infinity], usd: 110 } },
-  { aliases: ['40RF', '40RQ', '40R1', '45R1'], freeUntil: 10, p1: { range: [11, 19], usd: 190 }, p2: { range: [20, Infinity], usd: 220 } },
-]
-
-const DEFAULT_RATE: RateGroup = STATIC_RATE_GROUPS[0]
 const RATE_CACHE_TTL_MS = 5 * 60 * 1000
+const RATES_UNAVAILABLE_MESSAGE = 'Tarifas de Demurrage indisponíveis. Verifique a tabela de tarifas antes de calcular.'
 let dynamicRateGroups: RateGroup[] | null = null
 let dynamicRateGroupsLoadedAt = 0
 
@@ -37,7 +29,9 @@ function resolveActiveRateGroups(): RateGroup[] {
     void ensureDemurrageRatesLoaded(true)
     return dynamicRateGroups
   }
-  return STATIC_RATE_GROUPS
+  // A tarifa do banco é a única fonte de verdade; não existe fallback estático
+  // (CONTEXT.md, Tarifa de Demurrage).
+  throw new Error(RATES_UNAVAILABLE_MESSAGE)
 }
 
 function toRateGroups(rows: DemurrageRate[]): RateGroup[] {
@@ -82,16 +76,21 @@ export async function ensureDemurrageRatesLoaded(force = false) {
     .order('valid_from', { ascending: false })
     .order('id', { ascending: false })
 
-  if (error) {
+  const resolved = error ? [] : toRateGroups((data ?? []) as DemurrageRate[])
+  if (error || resolved.length === 0) {
+    reportBestEffortFailure(
+      'ensureDemurrageRatesLoaded: tarifas de demurrage indisponiveis',
+      error ?? new Error('demurrage_rates vazia'),
+      { rowCount: data?.length ?? 0 },
+    )
     if (!dynamicRateGroups) {
-      dynamicRateGroups = STATIC_RATE_GROUPS
+      throw new Error(RATES_UNAVAILABLE_MESSAGE)
     }
     dynamicRateGroupsLoadedAt = now
     return
   }
 
-  const resolved = toRateGroups((data ?? []) as DemurrageRate[])
-  dynamicRateGroups = resolved.length > 0 ? resolved : STATIC_RATE_GROUPS
+  dynamicRateGroups = resolved
   dynamicRateGroupsLoadedAt = now
 }
 
@@ -102,7 +101,10 @@ export function invalidateDemurrageRatesCache() {
 function getRate(containerType: string | null, freeTimeOverride?: number | null, ov1?: number | null, ov2?: number | null): ResolvedRate {
   const type = (containerType ?? '').toUpperCase().trim()
   const groups = resolveActiveRateGroups()
-  const group = groups.find((g) => g.aliases.includes(type)) ?? groups[0] ?? DEFAULT_RATE
+  const group = groups.find((g) => g.aliases.includes(type))
+  if (!group) {
+    throw new Error(`Tipo de container "${type || '(vazio)'}" sem tarifa de Demurrage cadastrada. Cadastre a tarifa em Tarifas de Demurrage antes de calcular.`)
+  }
 
   const freeUntil = freeTimeOverride != null ? freeTimeOverride : group.freeUntil
   const p1Start = freeUntil + 1
@@ -115,6 +117,11 @@ function getRate(containerType: string | null, freeTimeOverride?: number | null,
     p1: { range: p1Range, usd: ov1 != null ? ov1 : group.p1.usd },
     p2: { range: p2Range, usd: ov2 != null ? ov2 : group.p2.usd },
   }
+}
+
+export function __setDemurrageRateGroupsForTest(groups: RateGroup[] | null) {
+  dynamicRateGroups = groups
+  dynamicRateGroupsLoadedAt = groups ? Date.now() : 0
 }
 
 function noonMs(dateStr: string): number {

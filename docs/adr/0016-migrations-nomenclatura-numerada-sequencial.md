@@ -51,7 +51,8 @@ sem buracos) e o schema final batendo com o estado last-writer-wins do banco rea
 local não pôde rodar neste ambiente (a imagem `supabase/postgres` é bloqueada pela política de
 egresso), por isso o replay equivalente foi usado como prova.
 
-Daqui para frente, novas migrations seguem o próximo número sequencial disponível (`160_…`).
+Daqui para frente, novas migrations seguem o próximo número sequencial disponível,
+derivado do maior prefixo em `supabase/migrations/`.
 
 ## Consequências
 

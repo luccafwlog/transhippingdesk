@@ -31,6 +31,12 @@ type BlContainerPhysical = Pick<
 
 export type BapliePhysicalUpdate = {
   bl_container_id: number
+  previous: {
+    is_imo: boolean
+    imo_class: string | null
+    un_number: string | null
+    is_oog: boolean
+  }
   is_imo: boolean
   imo_class: string | null
   un_number: string | null
@@ -125,7 +131,19 @@ export function computeBapliePhysicalUpdates(
       normalizeVal(unNumber) !== normalizeVal(mc.un_number)
 
     if (differs) {
-      updates.push({ bl_container_id: mc.id, is_imo: isImo, imo_class: imoClass, un_number: unNumber, is_oog: isOog })
+      updates.push({
+        bl_container_id: mc.id,
+        previous: {
+          is_imo: Boolean(mc.is_imo),
+          imo_class: mc.imo_class ?? null,
+          un_number: mc.un_number ?? null,
+          is_oog: Boolean(mc.is_oog),
+        },
+        is_imo: isImo,
+        imo_class: imoClass,
+        un_number: unNumber,
+        is_oog: isOog,
+      })
     }
   }
   return updates
@@ -201,7 +219,7 @@ export async function applyBapliePhysicalFlags(voyageId: number, actorId: string
       entity_type: 'bl_container',
       entity_id: String(update.bl_container_id),
       field_name: 'baplie_physical_flags',
-      old_value: null,
+      old_value: JSON.stringify(update.previous),
       new_value: JSON.stringify({
         is_imo: update.is_imo,
         imo_class: update.imo_class,

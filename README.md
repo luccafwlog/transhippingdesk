@@ -49,7 +49,7 @@ cliente de dados.
 ### Banco de dados
 
 Não aplique um intervalo fixo de arquivos manualmente. O diretório usa um único
-esquema de nome: numerado sequencial de três dígitos (`001_…` a `159_…`; ver
+esquema de nome: numerado sequencial de três dígitos (`001_…` em diante; ver
 ADR 0016). Compare o histórico remoto com `supabase/migrations/` e aplique todas
 as pendentes por um fluxo controlado do Supabase. O CI da SPA não aplica migrations.
 
