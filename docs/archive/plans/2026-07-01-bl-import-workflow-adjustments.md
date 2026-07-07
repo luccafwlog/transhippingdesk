@@ -2,8 +2,8 @@
 
 > Plano/snapshot de decisão, não verdade corrente. A autoridade executável é o
 > código. Base de decisão: sessão de grilling 2026-07-01 (ver tabela abaixo),
-> [ADR 0017](../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md)
-> (nota editorial 2026-07-01) e [ADR 0018](../adr/0018-selecao-viagem-busca-preditiva-combobox.md).
+> [ADR 0017](../../adr/0017-bl-fonte-ingestao-correcao-autoridade-compartilhada.md)
+> (nota editorial 2026-07-01) e [ADR 0018](../../adr/0018-selecao-viagem-busca-preditiva-combobox.md).
 
 **Goal:** Transformar o import de "frete do B/L" (PR #297) num **caminho primário
 de ingestão de B/Ls** — operável **sem manifesto** — com viagem declarada por

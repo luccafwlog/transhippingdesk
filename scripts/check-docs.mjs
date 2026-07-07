@@ -3,7 +3,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
-const ignoredDirectories = new Set(['.git', 'dist', 'node_modules'])
+// 'archive': snapshots históricos não são verdade atual (CLAUDE.md); seus
+// links podem apodrecer quando assets são podados, sem quebrar o gate.
+const ignoredDirectories = new Set(['.git', 'dist', 'node_modules', 'archive'])
 const errors = []
 
 function read(relativePath) {

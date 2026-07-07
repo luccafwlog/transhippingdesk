@@ -7,7 +7,7 @@ camadas e teto de manutenibilidade — não bugs funcionais.
 
 > Nota editorial (2026-07-06): as medidas previstas por este relatório foram
 > consolidadas no plano de ação vivo
-> [2026-07-06-code-quality-audit-remediation](../plans/2026-07-06-code-quality-audit-remediation.md).
+> [2026-07-06-code-quality-audit-remediation](plans/2026-07-06-code-quality-audit-remediation.md).
 > Este arquivo permanece como registro histórico e não deve ser alterado.
 
 Escala do projeto: ~68,5 mil linhas de TypeScript/TSX em `src/`.

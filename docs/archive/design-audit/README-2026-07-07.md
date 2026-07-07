@@ -126,5 +126,5 @@ migrações aplicam limpas em Postgres vazio.
 - **2026-07-07** — segunda auditoria (este documento): rota da ficha,
   mobile, regressões de copy, portal, propostas L3.
 - **2026-07-06** — [primeira auditoria completa](2026-07-06-auditoria.md)
-  e [plano de remediação](../plans/2026-07-06-design-audit-remediation.md)
+  e [plano de remediação](../archive/plans/2026-07-06-design-audit-remediation.md)
   (fatias 1–5 verificadas como aplicadas nesta auditoria).

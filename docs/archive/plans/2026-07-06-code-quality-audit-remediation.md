@@ -2,7 +2,7 @@
 
 > Plano/snapshot de decisão, não verdade corrente. A autoridade executável é o
 > código. Base de decisão: auditoria estrutural
-> [code-quality-audit-2026-07-06](../archive/code-quality-audit-2026-07-06.md)
+> [code-quality-audit-2026-07-06](../code-quality-audit-2026-07-06.md)
 > (registro histórico, imutável). Este plano consolida as medidas previstas
 > naquele relatório em fatias revisáveis.
 
@@ -23,7 +23,7 @@ migration.
 
 **Fontes de verdade:** `CONTEXT.md` · `docs/ARCHITECTURE.md` ·
 `docs/CONVENCOES.md` · `docs/RASTREABILIDADE.md` ·
-[auditoria 2026-07-06](../archive/code-quality-audit-2026-07-06.md).
+[auditoria 2026-07-06](../code-quality-audit-2026-07-06.md).
 
 ---
 
