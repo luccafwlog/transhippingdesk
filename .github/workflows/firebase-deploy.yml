@@ -1,5 +1,8 @@
 name: Deploy to Firebase Hosting
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -31,6 +34,6 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E }}' > /tmp/firebase-sa.json
-          npx firebase-tools@latest deploy --only hosting:transhippingdesk \
+          npx firebase-tools@15.22.4 deploy --only hosting:transhippingdesk \
             --project importmanager-bda3e \
             --non-interactive

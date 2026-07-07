@@ -15,13 +15,13 @@ This index covers only this audit; the dated remediation plans directly under
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Restrict `voyage_route_ce_master` RLS to active internal users | P1 | S | — | TODO |
-| 002 | Raise the auth password floor and pin the signup posture | P1 | S | — | TODO |
-| 003 | Harden Edge Function auth secrets, error responses, config declarations | P2 | S–M | — | TODO |
-| 004 | Add a Sentry `beforeSend` scrubber (CNPJ/CPF/email) | P2 | S | — | TODO |
-| 005 | Harden GitHub Actions (least-privilege token, pinned firebase-tools) | P2 | S | — | TODO |
-| 006 | Extend the upload guard with a file-type allowlist | P3 | S–M | — | TODO |
-| 007 | Close the `.gitignore` blind spot for generated env files | P3 | S | — | TODO |
+| 001 | Restrict `voyage_route_ce_master` RLS to active internal users | P1 | S | — | DONE |
+| 002 | Raise the auth password floor and pin the signup posture | P1 | S | — | DONE |
+| 003 | Harden Edge Function auth secrets, error responses, config declarations | P2 | S–M | — | DONE |
+| 004 | Add a Sentry `beforeSend` scrubber (CNPJ/CPF/email) | P2 | S | — | DONE |
+| 005 | Harden GitHub Actions (least-privilege token, pinned firebase-tools) | P2 | S | — | DONE |
+| 006 | Extend the upload guard with a file-type allowlist | P3 | S–M | — | DONE |
+| 007 | Close the `.gitignore` blind spot for generated env files | P3 | S | — | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale).

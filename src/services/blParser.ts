@@ -1,4 +1,4 @@
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { asString, onlyDigits, toNumber } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 
@@ -61,7 +61,7 @@ export type ParsedBLDocument = {
 type RawSheetRow = unknown[]
 
 export async function parseBLFile(file: File): Promise<ParsedBLDocument> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls'])
   const buffer = await file.arrayBuffer()
   return parseBLBuffer(buffer)
 }

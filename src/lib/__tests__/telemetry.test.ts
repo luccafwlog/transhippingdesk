@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { reportBestEffortFailure } from '../telemetry'
+
+import { reportBestEffortFailure, scrubEventValue, scrubPii } from '../telemetry'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -31,5 +32,48 @@ describe('reportBestEffortFailure', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect(() => reportBestEffortFailure('ctx', 'falha textual')).not.toThrow()
     expect(warn.mock.calls[0][1]).toMatchObject({ error: 'falha textual' })
+  })
+})
+
+describe('scrubPii', () => {
+  it('redige CNPJ formatado', () => {
+    expect(scrubPii('Cliente 12.345.678/0001-95 bloqueado')).toBe('Cliente [cnpj] bloqueado')
+  })
+
+  it('redige CPF formatado', () => {
+    expect(scrubPii('Documento 123.456.789-09 duplicado')).toBe('Documento [cpf] duplicado')
+  })
+
+  it('redige email em mensagem estilo Postgres', () => {
+    const message = 'duplicate key value violates unique constraint Key (email)=(a@b.com) already exists'
+    const scrubbed = scrubPii(message)
+
+    expect(scrubbed).toContain('[email]')
+    expect(scrubbed).not.toContain('a@b.com')
+  })
+
+  it('redige sequencias nuas de 14 e 11 digitos', () => {
+    expect(scrubPii('docs 12345678000195 e 12345678909')).toBe('docs [digits14] e [digits11]')
+  })
+
+  it('preserva texto sem PII', () => {
+    const message = 'Erro no job 12345 para id 550e8400-e29b-41d4-a716-446655440000'
+    expect(scrubPii(message)).toBe(message)
+  })
+})
+
+describe('scrubEventValue', () => {
+  it('redige objetos aninhados e preserva escalares', () => {
+    expect(scrubEventValue({
+      meta: { note: 'CPF 123.456.789-09' },
+      count: 2,
+      ok: false,
+      empty: null,
+    })).toEqual({
+      meta: { note: 'CPF [cpf]' },
+      count: 2,
+      ok: false,
+      empty: null,
+    })
   })
 })

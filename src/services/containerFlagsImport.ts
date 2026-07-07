@@ -1,4 +1,4 @@
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
@@ -34,7 +34,7 @@ export type ParsedContainerFlagsImport = {
 }
 
 export async function parseContainerFlagsImportFile(file: File): Promise<ParsedContainerFlagsImport> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const XLSX = await import('@e965/xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })
@@ -295,4 +295,3 @@ function asNullableText(value: unknown) {
 function normalizeValue(value: string | null | undefined) {
   return asString(value).toUpperCase()
 }
-

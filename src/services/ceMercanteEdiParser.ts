@@ -1,4 +1,4 @@
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { onlyDigits } from '../lib/utils'
 
 // Parser do arquivo EDI de CE Mercante (layout posicional do Mercante/Siscomex
@@ -23,7 +23,7 @@ export type ParsedCeMercanteEdi = {
 const CE_MERCANTE_LENGTH = 15
 
 export async function parseCeMercanteEdiFile(file: File): Promise<ParsedCeMercanteEdi> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['edi', 'txt'])
   const text = await file.text()
   return parseCeMercanteEdiText(text)
 }

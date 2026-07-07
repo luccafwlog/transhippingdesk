@@ -1,5 +1,5 @@
 import { countDistinctContainersAcrossGroups } from '../lib/containerCounts'
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { asString, normalizeText, onlyDigits, toNumber } from '../lib/utils'
 import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC, type VoyageFormValues } from './voyageForm'
 import { normalizePortCode } from './portCode'
@@ -130,7 +130,7 @@ type ManifestLine = {
 }
 
 export async function parseManifestFile(file: File): Promise<ParsedManifest> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
   return parseManifestBuffer(buffer)
 }

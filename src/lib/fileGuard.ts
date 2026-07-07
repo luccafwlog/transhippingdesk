@@ -11,3 +11,19 @@ export function assertUploadSize(file: File, maxBytes: number = MAX_UPLOAD_BYTES
     )
   }
 }
+
+export function assertUploadFile(
+  file: File,
+  allowedExtensions: readonly string[],
+  maxBytes: number = MAX_UPLOAD_BYTES,
+): void {
+  assertUploadSize(file, maxBytes)
+
+  const extension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : ''
+  const allowed = allowedExtensions.map((item) => item.replace(/^\./, '').toLowerCase())
+  if (!extension || !allowed.includes(extension)) {
+    const received = extension ? `.${extension}` : 'sem extensão'
+    const expected = allowed.map((item) => `.${item}`).join(', ')
+    throw new Error(`Formato de arquivo não suportado (${received}). Formatos aceitos: ${expected}.`)
+  }
+}

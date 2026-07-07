@@ -3,7 +3,7 @@
 // no Supabase nem importa React: transforma a planilha em um modelo tipado
 // (ParsedBreakbulkManifest) com erros por linha. A persistência vive em
 // breakbulkImport.ts.
-import { assertUploadSize } from '../lib/fileGuard'
+import { assertUploadFile } from '../lib/fileGuard'
 import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
 import { extractNcmCodes } from '../lib/ncm'
 import { normalizePortCode } from './portCode'
@@ -68,7 +68,7 @@ export type ParsedBreakbulkManifest = {
 }
 
 export async function parseBreakbulkManifestFile(file: File): Promise<ParsedBreakbulkManifest> {
-  assertUploadSize(file)
+  assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
   return parseBreakbulkManifestBuffer(buffer)
 }

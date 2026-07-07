@@ -8,6 +8,10 @@ const sql = fs.readFileSync(
   path.resolve('supabase/migrations/167_voyage_route_ce_master.sql'),
   'utf8',
 )
+const hardeningSql = fs.readFileSync(
+  path.resolve('supabase/migrations/169_voyage_route_ce_master_rls_active.sql'),
+  'utf8',
+)
 
 describe('167 voyage_route_ce_master migration', () => {
   it('cria a tabela com unicidade por rota (voyage/pol/pod)', () => {
@@ -31,5 +35,25 @@ describe('167 voyage_route_ce_master migration', () => {
     expect(sql).toContain('ON CONFLICT (voyage_id, pol, pod)')
     expect(sql).toContain("INSERT INTO public.audit_logs")
     expect(sql).toContain("'ce_master'")
+  })
+})
+
+describe('169 voyage_route_ce_master RLS hardening', () => {
+  it('remove as policies permissivas da migration 167', () => {
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS "read voyage_route_ce_master"')
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS "insert voyage_route_ce_master"')
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS "update voyage_route_ce_master"')
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS "delete voyage_route_ce_master"')
+  })
+
+  it('limita leitura e escrita a usuarios ativos', () => {
+    expect(hardeningSql).toContain('TO authenticated USING (public.is_active_user())')
+    expect(hardeningSql).toContain('TO authenticated WITH CHECK (public.is_active_user())')
+    expect(hardeningSql).toContain('WITH CHECK (public.is_active_user())')
+  })
+
+  it('limita delete a administradores e nao reintroduz using true', () => {
+    expect(hardeningSql).toContain('TO authenticated USING (public.is_admin())')
+    expect(hardeningSql).not.toContain('USING (true)')
   })
 })

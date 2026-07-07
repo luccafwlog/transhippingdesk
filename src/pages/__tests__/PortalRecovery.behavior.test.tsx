@@ -82,3 +82,21 @@ it('US-157: atualiza a senha e volta para o login', async () => {
   expect(auth.updateUser).toHaveBeenCalledWith({ password: 'senhaSegura1' })
   expect(auth.signOut).toHaveBeenCalled()
 })
+
+it('US-157: rejeita senha sem composicao minima', async () => {
+  const user = userEvent.setup()
+  window.location.hash = '#access_token=AT&refresh_token=RT&type=recovery'
+  render(
+    <MemoryRouter>
+      <PortalResetPassword />
+    </MemoryRouter>,
+  )
+
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'Redefinir senha' })).toBeTruthy())
+  await user.type(screen.getByPlaceholderText('Minimo 8 caracteres'), 'senhafraca')
+  await user.type(screen.getByPlaceholderText('Repita a senha'), 'senhafraca')
+  await user.click(screen.getByRole('button', { name: 'Redefinir senha' }))
+
+  expect(screen.getByText('A senha deve ter no minimo 8 caracteres, com letra maiuscula, minuscula e numero.')).toBeTruthy()
+  expect(auth.updateUser).not.toHaveBeenCalled()
+})

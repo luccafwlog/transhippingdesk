@@ -16,9 +16,9 @@
 // Configuração no Supabase:
 //   Schedule (cron) → dias úteis ~14h BRT (ex.: "0 17 * * 1-5" em UTC)
 //   Endpoint: https://<project>.supabase.co/functions/v1/recalc-demurrage-ptax
-//   Header: Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
+//   Header: Authorization: Bearer <RECALC_CRON_SECRET>
 //
-// Env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RECALC_CRON_SECRET
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -59,9 +59,10 @@ async function fetchLatestPtax(): Promise<BcbQuote> {
 
 Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const cronSecret = Deno.env.get('RECALC_CRON_SECRET') ?? serviceRoleKey
   const auth = req.headers.get('authorization') ?? ''
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : ''
-  if (!serviceRoleKey || !timingSafeEqual(bearer, serviceRoleKey)) {
+  if (!cronSecret || !timingSafeEqual(bearer, cronSecret)) {
     return new Response(JSON.stringify({ error: 'unauthorized' }), {
       status: 401,
       headers: { 'content-type': 'application/json' },
@@ -73,7 +74,7 @@ Deno.serve(async (req: Request) => {
     quote = await fetchLatestPtax()
   } catch (error) {
     console.error('recalc-demurrage-ptax: PTAX indisponivel', error)
-    return new Response(JSON.stringify({ error: 'ptax_unavailable', detail: String(error) }), {
+    return new Response(JSON.stringify({ error: 'ptax_unavailable' }), {
       status: 502,
       headers: { 'content-type': 'application/json' },
     })
@@ -89,7 +90,7 @@ Deno.serve(async (req: Request) => {
   })
   if (error) {
     console.error('recalc-demurrage-ptax: RPC falhou', error)
-    return new Response(JSON.stringify({ error: 'recalc_failed', detail: error.message }), {
+    return new Response(JSON.stringify({ error: 'recalc_failed' }), {
       status: 500,
       headers: { 'content-type': 'application/json' },
     })
