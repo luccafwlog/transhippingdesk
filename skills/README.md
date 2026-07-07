@@ -1,6 +1,6 @@
 # Agent Skills
 
-A unified collection of 29 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
+A unified collection of 30 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
 
 Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) plus optional supporting files (prompts, references, scripts, tests).
 
@@ -48,6 +48,12 @@ Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) p
 | **security-audit-penetration-testing** | Complete security audit framework with 6 phases: discovery, resources, audit, plan, testing, reporting. |
 | **thermo-nuclear-code-quality-review** | Extremely strict maintainability review for abstraction quality, giant files (1k-line threshold), and spaghetti-condition growth. Biased toward ambitious "code judo" restructuring. |
 
+## Codebase Audit & Planning Skills
+
+| Skill | Description |
+|-------|-------------|
+| **improve** | Read-only senior-advisor audit of any codebase (bugs, security, perf, tests, tech debt, deps, DX, docs, direction) that produces self-contained implementation plans for other models/agents to execute. Never edits source code itself. |
+
 ## Workflow & Communication Skills
 
 | Skill | Description |
@@ -91,6 +97,12 @@ skills/
 │   └── SKILL.md
 ├── import-parser/
 │   └── SKILL.md
+├── improve/
+│   ├── SKILL.md
+│   └── references/
+│       ├── audit-playbook.md
+│       ├── plan-template.md
+│       └── closing-the-loop.md
 ├── invoice-pdf/
 │   └── SKILL.md
 ├── react-query-pattern/
@@ -164,3 +176,4 @@ The `using-superpowers/references/` directory contains tool name mappings for:
 
 Superpowers skills: see original source for licensing terms.
 Frontend Design: see `frontend-design/LICENSE.txt`.
+Improve: MIT — see `improve/SKILL.md` frontmatter (author: shadcn, source: https://github.com/shadcn/improve).
