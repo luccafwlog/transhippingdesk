@@ -206,7 +206,7 @@ export function Containers() {
     <>
       <PageHeader
         title="Containers"
-        description="Lista consolidada dos containers importados via manifestos. O total distinto considera o numero do container, mesmo quando ele aparece em mais de um B/L."
+        description="Lista consolidada dos containers importados via manifestos. O total distinto considera o número do container, mesmo quando ele aparece em mais de um B/L."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={() => setDatesImportOpen(true)}>
@@ -321,7 +321,7 @@ export function Containers() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <SummaryCard label="Registros filtrados" value={isLoading ? '...' : data?.count ?? 0} />
         <SummaryCard label="Containers distintos" value={isLoading ? '...' : data?.distinctCount ?? 0} />
         <SummaryCard label="B/Ls envolvidos" value={isLoading ? '...' : data?.blCount ?? 0} />

@@ -239,7 +239,7 @@ export function Clientes() {
       showToast('Cliente cadastrado com sucesso.', 'success')
       setCreateOpen(false)
       setCreateForm(emptyCreateForm)
-      navigate(`/clientes/${customer.cnpj_cpf}`)
+      navigate(`/clientes/${encodeURIComponent(customer.cnpj_cpf)}`)
     } catch {
       showToast('Falha ao cadastrar cliente.', 'error')
     } finally {
@@ -423,7 +423,7 @@ export function Clientes() {
         }
       />
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <MetricCard label="Clientes" value={String(summary?.totalCustomers ?? 0)} />
         <MetricCard label="B/Ls vinculados" value={String(summary?.totalBls ?? 0)} />
         <MetricCard label="Taxas pendentes" value={String(summary?.chargePending ?? 0)} />
@@ -532,7 +532,7 @@ export function Clientes() {
                 <th scope="col" className="w-[18%] px-4 py-3">Contatos</th>
                 <th scope="col" className="w-[20%] px-4 py-3">
                   <button type="button" className="app-table__sort" onClick={() => toggleSort('bls')}>
-                    Operacao
+                    Operação
                     {renderSortIcon(filters, 'bls')}
                   </button>
                 </th>
@@ -637,7 +637,7 @@ export function Clientes() {
                       <div className="app-customer-row-actions">
                         <Link
                           className="app-table__action app-table__action--compact"
-                          to={`/clientes/${row.cnpj_cpf}`}
+                          to={`/clientes/${encodeURIComponent(row.cnpj_cpf)}`}
                           title="Abrir ficha do cliente"
                         >
                           <FileText size={14} />
@@ -655,8 +655,8 @@ export function Clientes() {
                           type="button"
                           data-actions-menu
                           className="app-table__icon-button app-table__icon-button--sm"
-                          title="Mais acoes"
-                          aria-label={`Mais acoes para ${row.name}`}
+                          title="Mais ações"
+                          aria-label={`Mais ações para ${row.name}`}
                           aria-haspopup="menu"
                           aria-expanded={actionsMenu?.id === row.id}
                           onClick={(event) =>

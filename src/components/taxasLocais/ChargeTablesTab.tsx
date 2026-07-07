@@ -218,7 +218,7 @@ export function ChargeTablesTab({
           <Badge tone="slate">{formatCountLabel(tableSummary.manualOnly, 'manual', 'manuais')}</Badge>
         </div>
       </div>
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <MetricCard label="Tabelas" value={String(tableSummary.tables)} />
         <MetricCard label="Itens ativos" value={String(tableSummary.items - tableSummary.manualOnly)} />
       </div>

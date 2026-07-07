@@ -109,8 +109,8 @@ describe('Granite billing workflow', () => {
       successCount: 0,
       errorCount: 2,
       errors: [
-        { blId: 'GR-1', message: 'Revisao em lote nao e suportada para Granito.' },
-        { blId: 'GR-2', message: 'Revisao em lote nao e suportada para Granito.' },
+        { blId: 'GR-1', message: 'Revisão em lote não é suportada para Granito.' },
+        { blId: 'GR-2', message: 'Revisão em lote não é suportada para Granito.' },
       ],
     })
     expect(mocks.calculate).not.toHaveBeenCalled()

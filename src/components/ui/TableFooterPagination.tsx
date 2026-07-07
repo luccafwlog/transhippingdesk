@@ -32,7 +32,7 @@ export function TableFooterPagination({
   return (
     <div className="app-table__footer">
       <span>
-        {countLabel ?? `${totalCount} registros`} · Pagina {displayPage} de {totalPages}
+        {countLabel ?? `${totalCount} registros`} · Página {displayPage} de {totalPages}
       </span>
       <div className="app-table__footer-controls">
         {onPageSizeChange ? (
@@ -48,7 +48,7 @@ export function TableFooterPagination({
           Anterior
         </Button>
         <Button variant="secondary" disabled={page >= lastPage} onClick={() => onPageChange(Math.min(lastPage, page + 1))}>
-          Proxima
+          Próxima
         </Button>
       </div>
     </div>

@@ -1963,6 +1963,22 @@ textarea {
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Cabeçalho de marca das telas do portal (card claro, sem painel navy) */
+.app-auth__brand {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.app-auth__logo--on-light {
+  width: auto;
+  max-width: 260px;
+  height: 56px;
+  object-fit: contain;
+  object-position: left center;
+  filter: none;
+}
+
 .app-auth__form-wrap {
   background: var(--app-surface);
   padding: 48px 40px;

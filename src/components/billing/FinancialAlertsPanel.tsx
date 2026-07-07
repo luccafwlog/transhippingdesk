@@ -65,13 +65,13 @@ export function FinancialAlertsPanel({
         {alerts.slice(0, 5).map((alert) => (
           <div
             key={alert.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-amber-400/20 bg-[#0d1117]/60 px-3 py-2"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/20 bg-[#0d1117]/60 px-3 py-2 sm:gap-3"
           >
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex min-w-0 flex-1 basis-56 items-center gap-2">
               <Badge tone={alert.status === 'acknowledged' ? 'blue' : 'yellow'}>
                 {alert.status === 'acknowledged' ? 'Reconhecido' : 'Aberto'}
               </Badge>
-              <span className="truncate text-xs text-slate-200">{alert.message}</span>
+              <span className="min-w-0 break-words text-xs text-slate-200">{alert.message}</span>
             </div>
             <div className="flex shrink-0 gap-1.5">
               {alert.status === 'open' ? (

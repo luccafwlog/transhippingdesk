@@ -335,7 +335,7 @@ export function ClienteFicha() {
         }
       />
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <MetricCard label="CNPJ/CPF" value={formatCnpjCpf(data.cnpj_cpf)} />
         <MetricCard label="B/Ls vinculados" value={String(data.bls?.length ?? 0)} />
         <MetricCard label="Saldo pendente" value={data.invoices_access_denied ? 'Restrito' : formatBRL(data.pending_balance)} />
@@ -532,7 +532,7 @@ export function ClienteFicha() {
                   value={contactForm.is_primary ? 'sim' : 'nao'}
                   onChange={(event) => setContactForm((current) => ({ ...current, is_primary: event.target.value === 'sim' }))}
                 >
-                  <option value="nao">Nao</option>
+                  <option value="nao">Não</option>
                   <option value="sim">Sim</option>
                 </Select>
               </Field>

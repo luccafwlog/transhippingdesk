@@ -23,9 +23,9 @@ export function getBlPipelineCards(bl: PipelineBL): PipelineCard[] {
 
 function reviewCard(bl: PipelineBL): PipelineCard {
   const s = bl.review_status
-  if (s === 'reviewed') return { label: 'Revisao', detail: 'Revisado', state: 'green' }
-  if (s === 'ok') return { label: 'Revisao', detail: 'OK', state: 'green' }
-  return { label: 'Revisao', detail: 'Pendente', state: 'red', href: '/revisao' }
+  if (s === 'reviewed') return { label: 'Revisão', detail: 'Revisado', state: 'green' }
+  if (s === 'ok') return { label: 'Revisão', detail: 'OK', state: 'green' }
+  return { label: 'Revisão', detail: 'Pendente', state: 'red', href: '/revisao' }
 }
 
 function customerCard(bl: PipelineBL): PipelineCard {

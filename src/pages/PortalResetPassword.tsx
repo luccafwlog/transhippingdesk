@@ -101,7 +101,7 @@ export function PortalResetPassword() {
     <main className="app-auth">
       <Card className="app-auth__card">
         <div className="app-auth__brand">
-          <img alt="Transhipping" className="app-auth__logo" src="/branding/transhipping-logo.png" />
+          <img alt="Transhipping" className="app-auth__logo app-auth__logo--on-light" src="/branding/transhipping-logo.png" />
           <div>
             <h1 className="app-auth__title">Redefinir senha</h1>
             <p className="app-auth__subtitle">Escolha uma nova senha para acessar o portal.</p>

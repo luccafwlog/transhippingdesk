@@ -1,123 +1,130 @@
 # Design Audit — Transhipping Desk
 
-- **Data:** 2026-07-06
-- **Commit base:** `4d3084f` (branch `claude/design-audit-i17u7e`)
-- **Método:** app real rodando contra stack Supabase local (Postgres 16 + shim
-  PostgREST/GoTrue em `scripts/design-audit/`), migrações `001`–`151+` aplicadas
-  com `ON_ERROR_STOP=1`, seeds `validation_seed.sql` + `seed_audit.sql`.
-  Screenshots desktop 1440×900 (fullPage nas listas) e mobile 390×844 via
-  Playwright, com captura de erros de console e respostas HTTP ≥ 400 por rota.
-- **Rotas cobertas:** login (+ estado de erro), painel, viagens (+ modal Nova
-  Viagem), manifestos, containers, carga-solta, veículos, manifestos/:blId,
-  revisão, clientes, clientes/:cnpj, taxas-locais, faturamento (+ modal
-  Detalhes), alertas, relatórios, demurrage, demurrage/taxas, reconciliação,
-  granito, granito/taxas, embarquevazios, vazios-importação, baplie,
-  line-up-tv/display, admin/usuários, portal/login. Mobile: login, painel,
-  manifestos, faturamento.
-- **Artefatos de ambiente (não são bugs do produto):** Google Fonts e API PTAX
-  do BCB bloqueados pelo proxy de egress (header mostra "INDISPONÍVEL" na
-  cotação); websockets realtime falham contra o shim.
+- **Data:** 2026-07-07
+- **Commit base:** `157f07b` (branch `claude/design-audit-restructure-v2kgyy`)
+- **Método:** app real contra stack Supabase local (Postgres 16 + shim
+  PostgREST/GoTrue de `scripts/design-audit/`), migrações aplicadas com
+  `ON_ERROR_STOP=1` (todas passam limpas, incluindo a `124` com guard),
+  seeds `validation_seed.sql` + `seed_audit.sql`. Screenshots desktop
+  1440×900 (fullPage nas listas), mobile 390×844, tablet 768×1024 e TV
+  1920×1080 via Playwright, com captura de erros de console e respostas
+  HTTP ≥ 400 por rota. Prefixo `v2-` em `assets/`.
+- **Rotas cobertas:** as 23 rotas da auditoria anterior + detalhe do B/L,
+  modal de fatura, ficha do cliente, e verificação de teclado/foco/zoom.
+- **Artefatos de ambiente (não são bugs do produto):** Google Fonts e API
+  PTAX do BCB bloqueados pelo proxy de egress (tipografia cai para
+  fallback nos screenshots; cotação mostra "INDISPONÍVEL"); websockets
+  realtime falham contra o shim.
 
-> Nota editorial (2026-07-06): os achados **não corrigidos** deste relatório
-> (P1–P3) foram consolidados no plano de ação
-> [2026-07-06-design-audit-remediation](../plans/2026-07-06-design-audit-remediation.md).
-> Este documento permanece como registro da auditoria e da evidência
-> antes/depois das correções já aplicadas.
+## Linha de gosto (taste baseline)
+
+1. **Quem usa:** equipe interna de agenciamento marítimo (uso diário,
+   intenso, em desktop) e clientes externos no portal (uso esporádico).
+2. **Para quê:** levar a carga do manifesto à fatura sem erro — o fluxo
+   manifesto → revisão → taxas → fatura é o produto.
+3. **Caráter:** ferramenta operacional séria, identidade navy/laranja
+   institucional. Densidade de dados é virtude, não defeito.
+
+No seu melhor, o produto é **um balcão de operações**: tabelas densas,
+estados inequívocos, números pt-BR nos quais o operador confia sem
+tradução mental. O valor estético central é confiança — gradientes,
+glassmorphism, emoji e motion decorativo não têm lugar aqui; cada pixel
+que não ajuda a faturar é ruído. Tudo abaixo foi julgado contra essa
+régua, não contra tendências.
+
+**Estado geral:** o sistema está maduro. As correções da auditoria de
+2026-07-06 (alertas pt-BR, entidade `FAT-…`, exclusão de cliente no menu,
+papel único no Admin, label do peso BB, USD unificado) estão aplicadas e
+verificadas em tela. O que esta auditoria encontrou é de outra natureza:
+uma rota quebrada no caminho de conversão, regressões de microcopy e
+dívidas de mobile.
 
 ## Corrigido nesta auditoria
 
-Verificação após as correções: `npx tsc -b`, `npm run lint`, `npm test`
-(902 passed / 9 skipped), `npm run build`, `npm run docs:check` — tudo verde.
-Re-screenshot confirmou zero erros de console nas rotas revisitadas.
+Verificação: `npx tsc -b`, `npm run lint`, `npm test` (913 passed /
+9 skipped), `npm run build`, `npm run docs:check` — tudo verde.
+
+### P1 — caminho de conversão
 
 | # | Problema | Correção | Evidência |
 |---|----------|----------|-----------|
-| 1 | Chaves React duplicadas em `/manifestos` (`closed-` para dois modais irmãos quando `voyageId` vazio) — warning de console em toda carga da página, risco de remonte incorreto | Prefixos distintos `upload-`/`bl-import-` nas keys (`src/pages/Manifestos.tsx`) | [antes](assets/manifestos.png) · [depois](assets/after-manifestos.png) (console limpo) |
-| 2 | Ficha do cliente exibia códigos crus de máquina: Revisão "ok", Financeiro "invoiced"/"paid", status de invoice "issued"/"paid" | Reuso do mapa central `src/lib/statusLabels.ts` em `ClienteFicha.tsx` → "OK", "Faturado", "Pago", "Emitida", "Paga" | [antes](assets/cliente-detail.png) · [depois](assets/after-cliente-detail.png) |
-| 3 | Modal de detalhe da fatura misturava EN/PT: título "Detalhe Invoice", botão "Adicionar other charge", labels sem acento (Descricao, Valor unitario, Observacao, Emissao, Acoes) | Copy pt-BR: "Detalhe da invoice" (invoice é linguagem de domínio, ver CONTEXT.md), "Adicionar cobrança manual", acentos nos labels; testes atualizados | [antes](assets/faturamento-detalhes-modal.png) · [depois](assets/after-faturamento-detalhes-modal.png) |
-| 4 | Tarifas de Demurrage exibiam vigência em formato ISO `2026-07-06` em vez de pt-BR | `formatDate()` na coluna Vigência (`DemurrageRates.tsx`) → `06/07/2026` | [antes](assets/demurrage-taxas.png) · [depois](assets/after-demurrage-taxas.png) |
-| 5 | Paginação sem acento em 11 telas ("Pagina 1 de 1", botão "Proxima") | "Página"/"Próxima" em todos os rodapés de tabela | [antes](assets/manifestos.png) · [depois](assets/after-manifestos.png) |
-| 6 | Títulos de página sem acento: "Veiculos", "Vazios — Exportacao", "Vazios — Importacao", "Conciliacao PIX" (o título da aba já era acentuado — inconsistente) | Acentuação nos `PageHeader` e botões correspondentes | [antes](assets/veiculos.png) · [depois](assets/after-veiculos.png), [antes](assets/reconciliacao.png) · [depois](assets/after-reconciliacao.png) |
-| 7 | Headers de tabela sem acento espalhados pelo app: Acoes (15 telas), Revisao, Emissao, Descricao, Vigencia, Operacao, Devolucao, Consignatario, Data Movimentacao | Correção em lote nos headers visíveis | [antes](assets/embarquevazios.png) · [depois](assets/after-embarquevazios.png) |
-| 8 | Labels e textos visíveis sem acento: badge "Padrao", "Pendentes revisao" (KPI), empty state "Quando houver dados para este modulo, eles aparecerao aqui", descrições de página (Clientes, Taxas Locais, Manifestos, Baplie), labels do B/L (Consignatario, Descricao da carga, Justificativa da alteracao manual), meta da TV (Inicio do ciclo, Ultima alteracao, Atualizado as), toasts de exportação | Copy pt-BR consistente | [depois](assets/after-line-up-tv.png) |
-
-## Achados priorizados
-
-Eixos: **E** = Entendimento · **C** = Confiança · **$** = Conversão (fluxo
-manifesto → revisão → taxas → fatura).
-
-### P0 — nenhum
-
-O fluxo principal (login → painel → manifestos → revisão → taxas → faturamento
-→ fatura) completa sem erro, com dados coerentes entre telas. As migrações
-aplicam limpas em Postgres 16 vazio (exceto nota sobre `supabase_realtime`
-abaixo).
-
-### P1
-
-| Problema | Eixo | Onde | Fix recomendado |
-|----------|------|------|-----------------|
-| Alerta de fatura vencida gerado pelo banco em inglês e formato numérico US: "**Invoice** FAT-2026-0014 venceu em 26/06/2026 — saldo pendente: **R$ 1,510.00**" (vírgula de milhar + ponto decimal). Aparece em Alertas e no banner do Faturamento, exatamente onde o operador decide cobrança | C | `detect_overdue_invoices()` — migrações `024` e `151` (`to_char(..., 'FM999,999,990.00')` + literal "Invoice") | Nova migração trocando o literal para "Fatura" e o `to_char` para formato pt-BR (`FM999G999G990D00` com `lc_numeric` pt_BR, ou formatação em JS exibindo a partir de `entity_id`). Não aplicado aqui: mexe em RPC/migração (área protegida) |
-| Painel TV (`/line-up-tv/display`): colunas VOY e POD colidem visualmente ("088ECNSHA" lê como um bloco só) e nome do navio corta nas duas pontas ("OSCO SHIPPING ARII") | E | `LineUpTable.tsx` (`table-fixed` + `<col>` de 4–6% + `px-1` + fonte 17–26px) | Rebalancear larguras das `<col>` no modo display e permitir quebra do nome do navio em duas linhas; validar em 1920×1080 real. Não aplicado: layout da TV é calibrado para o monitor da operação, mudança precisa de validação in loco |
-| Alertas: coluna Entidade mistura `invoice / 205` (id interno) com `invoice / FAT-2026-0016` (número de documento) — operador não consegue correlacionar "205" com nada visível | E, C | `alerts.entity_id` gravado ora com id numérico, ora com invoice_number (migrações 024/151 vs 031) | Padronizar para invoice_number no INSERT do alerta (nova migração) e/ou resolver o número no render de Alertas |
+| 1 | **Ficha do cliente inacessível pela lista.** O link `Ficha` monta `/clientes/12.345.678/0001-90` com o CNPJ formatado; a barra extra não casa com a rota `/clientes/:cnpj` e o catch-all redireciona **silenciosamente ao painel**. A ficha é onde se decide faturar — o clique mais importante da tela de clientes não levava a lugar nenhum | `encodeURIComponent` no CNPJ dos dois pontos que montam o link (`Clientes.tsx`) | [depois](assets/v2-after-cliente-ficha.png) (URL `/clientes/23.456.789%2F0001-01` abre a ficha) |
+| 2 | **Alertas financeiros ilegíveis no mobile.** Em 390px as linhas do banner de vencidas clipavam a mensagem no meio do valor e deixavam Reconhecer/Fechar fora da tela — exatamente o gatilho de cobrança | Linhas com `flex-wrap` e mensagem com quebra em vez de `truncate` (`FinancialAlertsPanel.tsx`) | [antes](assets/v2-mobile-faturamento.png) · [depois](assets/v2-after-mobile-faturamento.png) |
 
 ### P2
 
-| Problema | Eixo | Onde | Fix recomendado |
-|----------|------|------|-----------------|
-| Formato USD inconsistente entre telas: Demurrage lista "$ 1.200,00" (pt-BR) e Tarifas de Demurrage "$ 50.00" (US `toFixed`) | C | `Demurrage.tsx` vs `DemurrageRates.tsx` | Helper único `formatUSD` pt-BR em `lib/utils.ts` |
-| Carga Solta: headers de KPI e tabela em inglês (PACKAGES TOTAL, WEIGHT (TON), SHIPPER, CONSIGNEE) enquanto o resto da tela é pt-BR | E | `CargaSolta.tsx` | Traduzir headers não-domínio (Shipper/Consignee são termos de manifesto, aceitáveis; "Weight (ton)" → "Peso (ton)") |
-| Clientes: ícone de lixeira (excluir cliente) como ação de linha com o mesmo peso visual das ações neutras (Ficha, log, "...") | C | `Clientes.tsx` | Mover exclusão para dentro do menu "..." ou confirmar com danger styling (já existe ConfirmDialog) |
-| Admin/Usuários: papel exibido como chip "ADMIN (LEGADO)" ao lado de um select com valor diferente ("Administrativo") — duas representações do mesmo dado na mesma linha | E | `AdminUsuarios` | Exibir só o select (fonte de verdade) e mover "legado" para tooltip |
-| Mobile /manifestos: coluna fixa de Ações cobre a coluna CE Mercante sem affordance clara de scroll; conteúdo "1526…" cortado | E | `.app-table--sticky-actions` em viewport estreito | Reduzir colunas visíveis no mobile ou indicador de scroll horizontal |
-| Manifesto BB (Revisão): linha com campo "Peso BB (ton)" + Salvar inline sem label do que está sendo salvo | E | `Revisao.tsx` | Label explícito "Informar peso BB para liberar cálculo" |
-| Inputs nativos de data exibem `mm/dd/yyyy` conforme locale do navegador/SO, não do app | C | `Relatorios.tsx` e demais `input[type=date]` | Aceitar (comportamento nativo) ou documentar; alternativa é datepicker custom — não recomendado só por isso |
-| Granito/Taxas: descrição vaza jargão técnico "peso real (real_weight_kg)" | E | `GraniteRates.tsx` | Remover o nome de coluna da copy |
+| # | Problema | Correção | Evidência |
+|---|----------|----------|-----------|
+| 3 | Regressão da auditoria anterior: paginação centralizada em `TableFooterPagination` reintroduziu "Pagina"/"Proxima" sem acento em ~12 telas | Acentuação no componente compartilhado (fix único) + testes | [depois](assets/v2-after-mobile-manifestos.png) (rodapé) |
+| 4 | Relatórios: revisão `ok` renderizava badge âmbar rotulado "OK" — cor de pendência com texto de aprovação, semântica de estado contraditória | Tom verde para `ok` e `reviewed` (`Relatorios.tsx`), alinhado a `blStatusService` | [antes](assets/v2-relatorios.png) |
+| 5 | Mobile: KPIs empilhados em coluna única — 7 cards de altura inteira antes de qualquer conteúdo em Manifestos (e mais 10 telas) | Grade de 2 colunas abaixo de 640px, desktop intacto (auto-fit preservado) | [antes](assets/v2-mobile-manifestos.png) · [depois](assets/v2-after-mobile-manifestos.png) |
+| 6 | Painel: chip CES "EM APROVAÇÃO" colidia com a coluna Linked em 1440px | Rebalanceio de `<col>` só no modo lista (BB 10→8%, CES 7→9%); modo TV intacto | [antes](assets/v2-painel.png) · [depois](assets/v2-after-painel.png) |
+| 7 | Portal: logo invisível — `.app-auth__logo` aplica `invert(1)` (branco para o painel navy do login interno), mas o card do portal é claro: branco sobre branco, o "espaço vazio" da auditoria anterior. O wrapper `.app-auth__brand` nem existia no CSS | Modificador `--on-light` sem filtro + grid com respiro no cabeçalho, nas 3 telas do portal | [antes](assets/v2-portal-login.png) · [depois](assets/v2-after-portal-login.png) |
+| 8 | Veículos: dica de seleção estilizada como warning âmbar e copy que explicava o sistema ("A importação usa o seletor próprio dentro do modal") em vez de orientar a ação | Tom neutro + "Selecione uma viagem para ver a lista de veículos." | [antes](assets/v2-veiculos.png) |
 
-### P3
+### P3 — copy e consistência
 
-| Problema | Eixo | Onde |
-|----------|------|------|
-| Chips de contagem "6 ATIVA(S) / 26 ITEM(NS) / 4 MANUAL(IS)" — pluralização mecânica | E | `TaxasLocais.tsx` |
-| Chips "PRONTO 2", "PEND 2" na lista de clientes sem legenda | E | `Clientes.tsx` |
-| Admin: "CRIADO EM 06/07/26" com ano de 2 dígitos vs 4 dígitos no resto do app | C | `AdminUsuarios` |
-| Manifestos: coluna Invoice parcialmente encoberta pela coluna sticky de Ações em 1440px (scroll existe, mas o corte "FAT-…" sugere dado truncado) | E | `Manifestos.tsx` |
-| Fatura CANCELADA ainda exibe "Saldo R$ 5.320,00" na lista — saldo de fatura cancelada não é cobrável | C | `InvoicesTable.tsx` |
-| Portal login: área de logo em branco acima do título (logo não renderiza) | C | `PortalLogin.tsx` |
-| Migração `124_vessel_schedules.sql` assume publication `supabase_realtime` existente — quebra bootstrap em Postgres vazio (afeta só ambientes locais/CI) | — | adicionar `create publication if not exists` guard |
+| # | Problema | Correção |
+|---|----------|----------|
+| 9 | Alertas: coluna Entidade com códigos crus `invoice / …`, `bl / …` | Mapa `Fatura`/`Container`/`B/L` no render |
+| 10 | ~25 strings visíveis sem acento: "Revisao" (cards de status do B/L, filtros), "Maquinas", "Unitario", "Operação" (header de Clientes), "pendências" (toasts do faturamento), "visíveis" (Demurrage), "número do container" (Containers), "Valor Unitário" (Granito), "Não" (ficha), subtítulo de Alertas | Lote de acentuação em componentes e serviços (apenas strings de exibição; chaves de export intactas) |
+| 11 | "Free Days" (Tarifas de Demurrage) vs "Free time" (Demurrage) para o mesmo conceito | Unificado em "Free time" |
+
+## Não corrigido — aceito ou aberto
+
+| Página | Viewport | Problema | Severidade | Decisão |
+|--------|----------|----------|------------|---------|
+| /line-up-tv/display | 1440 | "Aguardando" clipa nas bordas | P3 | Aceito: o modo display é calibrado para o monitor real; em **1920×1080 está limpo** ([evidência](assets/v2-line-up-tv-1920.png)) |
+| /manifestos | 390 | Coluna sticky de Ações ainda cobre CE Mercante (a affordance "Deslize para ver mais" existe) | P3 | Aberto: recomendo ocultar colunas de menor valor no mobile |
+| /relatorios | desktop | Inputs nativos de data em `mm/dd/yyyy` (locale do SO) | P3 | Aceito (decisão da auditoria anterior mantida) |
+| /admin/usuarios | desktop | Tab "Log De Ações" com "De" capitalizado (CSS `capitalize` sobre o rótulo) | P3 | Aberto, cosmético |
+| /reconciliacao, /baplie | desktop | Empty state do Baplie é frase solta, sem o componente `EmptyState` usado nas demais telas | P3 | Aberto |
+
+**Piso de correção verificado e limpo:** zero falhas de rede próprias nas
+23 rotas (só artefatos de ambiente); focus trap do modal segura Tab e
+devolve o foco ao fechar com Escape; skip-link presente; foco visível;
+sem scroll horizontal do body em 390px nem no proxy de zoom 200% (720px);
+migrações aplicam limpas em Postgres vazio.
+
+## L3 — propostas (não aplicadas; exigem decisão de produto)
+
+1. **Um único rodapé de paginação.** Coexistem dois: o compartilhado
+   (`N registros · Página X de Y`, botão à direita) e o do
+   Faturamento/Reconciliação (`Página X de Y · N registros`, acentuado
+   desde sempre). A regressão de acento do item 3 só foi possível porque
+   a microcopy vive em dois lugares. Fundir no componente compartilhado.
+2. **Hierarquia de KPIs.** Manifestos tem 7 cards de peso idêntico, Carga
+   Solta 8 — nenhum ponto focal; o operador varre tudo para achar
+   "Pendentes revisão". Proposta: 1 métrica primária (a que pede ação) +
+   strip secundária compacta. Muda o desenho da página; precisa de
+   validação com a operação.
+3. **Ações icon-only em Taxas Locais.** Lápis/`+`/`×`/`⌄` sem rótulo; o
+   `×` parece "fechar" mas presumivelmente desativa a tabela tarifária.
+   Rotular ou mover para menu — mesma direção já adotada em Clientes.
+4. **Lixeira por linha em Manifestos/Containers.** Excluir B/L continua a
+   um clique na lista (Clientes já moveu exclusão para o menu "…"). Há
+   ConfirmDialog, mas o padrão diverge entre telas irmãs. Alinhar.
+5. **Self-host das fontes** (Syne/DM Sans/IBM Plex Mono via pacote npm):
+   hoje toda a tipografia da marca depende do Google Fonts em runtime —
+   qualquer bloqueio de rede derruba o app para fallback (visto neste
+   sandbox). Custo: +1 dependência; por isso é proposta, não fix.
 
 ## Resumo por dimensão
 
 | Dimensão | Avaliação |
 |----------|-----------|
-| Primeira impressão | Forte: identidade visual consistente (navy/laranja), login limpo, painel Line-Up direto ao ponto |
-| Navegação | Boa: menu por domínio (Importação/Exportação/Financeiro) com badges de pendência; breadcrumbs nos detalhes |
-| Hierarquia visual | Boa nas listas (KPI cards → filtros → tabela); modal de fatura denso mas organizado |
-| Consistência de componentes | Média: paginação, badges e formatos de moeda/data variavam entre telas (parcialmente corrigido nesta auditoria) |
-| Estados loading/empty/error | Bons: skeletons, empty states com orientação de próximo passo, erro de login distingue credencial × transporte |
-| Sinais de confiança | Média→boa: auditoria com justificativa nas edições, alertas financeiros visíveis; prejudicada por alerta em inglês/formato US (P1) e códigos crus (corrigido) |
-| Caminho de conversão | Fluxo manifesto → revisão → taxas → fatura navegável sem docs; cards de status do B/L (Revisão/Cliente/Taxas/Financeiro) guiam o próximo passo |
-
-## Top 5 — impacto em conversão
-
-1. **Alerta de vencida em inglês/formato US** (P1): é o gatilho de cobrança; o
-   operador precisa confiar no número que vê.
-2. **Entidade de alerta `invoice / 205`** (P1): quebra o caminho alerta → fatura.
-3. **Códigos crus na ficha do cliente** (corrigido): a ficha é onde se decide
-   faturar; "invoiced"/"issued" exigiam tradução mental.
-4. **USD inconsistente Demurrage × Tarifas** (P2): mina confiança no módulo que
-   fatura em dólar.
-5. **Lixeira de excluir cliente exposta na lista** (P2): erro destrutivo a um
-   clique do fluxo de faturamento.
-
-## Top 5 — quick wins
-
-1. Acentuação e copy pt-BR em títulos, headers e paginação (feito, ~40 strings).
-2. Label map na ficha do cliente reusando `statusLabels.ts` (feito).
-3. "Adicionar cobrança manual" no modal de fatura (feito).
-4. Vigência de tarifas em formato pt-BR (feito).
-5. Keys únicas nos modais de Manifestos — console limpo (feito).
+| Primeira impressão | Forte e consistente com o caráter do produto (navy/laranja, login limpo, painel direto) |
+| Navegação | Boa; **a quebra da Ficha do cliente era a exceção crítica — corrigida** |
+| Hierarquia visual | Boa nas listas; KPIs sem ponto focal (proposta L3-2) |
+| Consistência de componentes | Boa e melhorando; dois rodapés de paginação restantes (L3-1) |
+| Estados | Bons (skeletons, empty states orientados a ação); Baplie fora do padrão |
+| Acessibilidade | Sólida: focus trap, skip-link, foco visível, zoom 200% sem quebra |
+| Confiança | Alta após v1+v2: alertas pt-BR, semântica de cor coerente, sem códigos crus |
 
 ## Histórico
 
-- **2026-07-06** — primeira auditoria completa (este documento).
+- **2026-07-07** — segunda auditoria (este documento): rota da ficha,
+  mobile, regressões de copy, portal, propostas L3.
+- **2026-07-06** — [primeira auditoria completa](2026-07-06-auditoria.md)
+  e [plano de remediação](../plans/2026-07-06-design-audit-remediation.md)
+  (fatias 1–5 verificadas como aplicadas nesta auditoria).

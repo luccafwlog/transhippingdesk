@@ -24,6 +24,12 @@ const TYPE_LABELS: Record<string, string> = {
   review: 'Revisão',
 }
 
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  invoice: 'Fatura',
+  container: 'Container',
+  bl: 'B/L',
+}
+
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
   { value: 'all', label: 'Todos os abertos' },
   { value: 'open', label: 'Novos' },
@@ -68,7 +74,7 @@ export function Alertas() {
     <>
       <PageHeader
         title="Alertas operacionais"
-        description="Eventos criticos e pendencias registradas automaticamente pelo sistema."
+        description="Eventos críticos e pendências registradas automaticamente pelo sistema."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -134,8 +140,8 @@ export function Alertas() {
                     <td className="px-4 py-3 text-[var(--app-muted)]">
                       {alert.entity_type ? (
                         <span className="font-mono text-xs">
-                          {alert.entity_type}
-                          {alert.entity_id ? ` / ${alert.entity_id}` : ''}
+                          {ENTITY_TYPE_LABELS[alert.entity_type] ?? alert.entity_type}
+                          {alert.entity_id ? ` ${alert.entity_id}` : ''}
                         </span>
                       ) : (
                         '-'

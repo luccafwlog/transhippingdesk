@@ -57,7 +57,7 @@ export function PortalLogin() {
         <div className="app-auth__brand">
           <img
             alt="Transhipping"
-            className="app-auth__logo"
+            className="app-auth__logo app-auth__logo--on-light"
             src="/branding/transhipping-logo-cropped.png"
             onError={(event) => {
               event.currentTarget.onerror = null

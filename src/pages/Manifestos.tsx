@@ -113,7 +113,7 @@ export function Manifestos() {
     { label: 'Viagem', value: filters.voyageId },
     { label: 'POL', value: filters.pol },
     { label: 'POD', value: filters.pod },
-    { label: 'Revisao', value: filters.reviewStatus },
+    { label: 'Revisão', value: filters.reviewStatus },
     { label: 'Financeiro', value: filters.financialStatus },
     { label: 'Taxas', value: filters.chargeStatus },
     { label: 'Perfil', value: filters.cargoProfile },
@@ -351,7 +351,7 @@ export function Manifestos() {
         </div>
       </FilterBar>
 
-      <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <SummaryCard label="B/Ls filtrados" value={isSummaryLoading ? '...' : summary?.totalBls ?? 0} />
         <SummaryCard label="CNTRS" value={isSummaryLoading ? '...' : summary?.totalDistinctContainers ?? 0} />
         <SummaryCard label="Pendentes revisão" value={isSummaryLoading ? '...' : summary?.pendingReview ?? 0} />

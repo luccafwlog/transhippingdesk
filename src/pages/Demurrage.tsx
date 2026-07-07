@@ -387,7 +387,7 @@ export function Demurrage() {
           <div className="text-2xl font-bold text-red-400">{kpis?.overdueContainers ?? '—'}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-slate-400">Total USD (visivel)</div>
+          <div className="text-xs text-slate-400">Total USD (visível)</div>
           <div className="text-2xl font-bold text-amber-400">{fmtUSD(totalOverdueUSD)}</div>
         </Card>
         <Card className="p-4">
@@ -445,7 +445,7 @@ export function Demurrage() {
           {containersError && <InlineError message="Erro ao carregar containers." />}
 
           <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-semibold text-white">{formatResultCount(filtered.length, 'container visivel', 'containers visiveis')}</span>
+            <span className="font-semibold text-white">{formatResultCount(filtered.length, 'container visível', 'containers visíveis')}</span>
             <span className="text-xs text-slate-400">{containerFilterDescription}</span>
           </div>
 
@@ -614,7 +614,7 @@ export function Demurrage() {
           {invoicesLoading && <Card>Carregando...</Card>}
           {invoicesError && <InlineError message="Erro ao carregar faturas." />}
           <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-semibold text-white">{formatResultCount(invoices?.length ?? 0, 'fatura visivel', 'faturas visiveis')}</span>
+            <span className="font-semibold text-white">{formatResultCount(invoices?.length ?? 0, 'fatura visível', 'faturas visíveis')}</span>
             <span className="text-xs text-slate-400">Filtros ativos: Status {TAB_LABELS.find((item) => item.key === tab)?.label ?? tab}</span>
           </div>
           {!invoicesLoading && !invoicesError && !invoices?.length && (

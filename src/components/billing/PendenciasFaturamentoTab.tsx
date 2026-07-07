@@ -24,7 +24,7 @@ export function PendenciasFaturamentoTab({ userId }: { userId: string | null }) 
   async function handleRecalculatePending() {
     const pendingIds = rows.map((row) => row.id)
     if (pendingIds.length === 0) {
-      showToast('Nao ha pendencias para recalcular.', 'info')
+      showToast('Não há pendências para recalcular.', 'info')
       return
     }
 
@@ -44,7 +44,7 @@ export function PendenciasFaturamentoTab({ userId }: { userId: string | null }) 
         showToast(`Recalculo concluido para ${result.successCount} B/L(s).`, 'success')
       }
     } catch {
-      showToast('Falha ao recalcular pendencias.', 'error')
+      showToast('Falha ao recalcular pendências.', 'error')
     }
   }
 
@@ -68,12 +68,12 @@ export function PendenciasFaturamentoTab({ userId }: { userId: string | null }) 
               onClick={() => void handleRecalculatePending()}
               loading={recalculateMutation.isPending}
             >
-              Recalcular pendencias
+              Recalcular pendências
             </Button>
           ) : null}
         </div>
       </div>
-      {error ? <InlineError message="Falha ao consultar pendencias de calculo." /> : null}
+      {error ? <InlineError message="Falha ao consultar pendências de cálculo." /> : null}
       {!isLoading && !error && rows.length === 0 ? (
         <EmptyState title="Nenhuma pendencia de calculo encontrada." />
       ) : null}
