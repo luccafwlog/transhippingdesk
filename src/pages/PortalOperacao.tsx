@@ -191,7 +191,7 @@ function BlsTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]; filte
         <EmptyState title="Sem B/Ls" description="Nenhum B/L encontrado para os filtros atuais." />
       ) : (
         <>
-          <div className="app-table-scroll">
+          <div className="hidden app-table-scroll md:block">
             <table className="app-table app-table--compact min-w-[1040px] text-left text-sm">
               <thead>
                 <tr>
@@ -237,6 +237,33 @@ function BlsTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]; filte
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="grid gap-3 p-4 md:hidden" data-testid="portal-operacao-bl-mobile-cards">
+            {paginated.map((row) => {
+              const noReturn = row.container_count - row.containers_returned
+              return (
+                <button
+                  key={row.bl_id}
+                  type="button"
+                  onClick={() => setOpenBl(openBl === row.bl_id ? null : row.bl_id)}
+                  className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 text-left"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">B/L {row.bl_id}</span>
+                    {row.ce_mercante ? <Badge tone="blue">CE</Badge> : <Badge>Sem CE</Badge>}
+                  </div>
+                  <div className="mt-2 text-sm text-[var(--app-muted)]">
+                    {[row.vessel_name, row.voyage_number].filter(Boolean).join(' / ') || '-'}
+                  </div>
+                  <div className="mt-1 text-sm text-[var(--app-muted)]">{row.pol ?? '-'} - {row.pod ?? '-'}</div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <span>Containers {row.container_count}</span>
+                    <span>Sem dev. {noReturn}</span>
+                    <span>Dem. {row.containers_in_demurrage}</span>
+                  </div>
+                </button>
+              )
+            })}
           </div>
           <TableFooterPagination
             page={safePage}
@@ -329,7 +356,7 @@ function ContainersTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]
         <EmptyState title="Sem containers" description="Nenhum container encontrado para os filtros atuais." />
       ) : (
         <>
-          <div className="app-table-scroll">
+          <div className="hidden app-table-scroll md:block">
             <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
               <thead>
                 <tr>
@@ -370,6 +397,29 @@ function ContainersTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="grid gap-3 p-4 md:hidden" data-testid="portal-operacao-container-mobile-cards">
+            {paginated.map((c) => (
+              <div
+                key={`${c.bl_id}-${c.id}`}
+                className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 text-left"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">Container {c.container_number}</span>
+                  {renderStatus(c.status)}
+                </div>
+                <div className="mt-2 text-sm text-[var(--app-muted)]">B/L {c.bl_id}</div>
+                <div className="mt-1 text-sm text-[var(--app-muted)]">
+                  {[c.vessel_name, c.voyage_number].filter(Boolean).join(' / ') || '-'}
+                </div>
+                <div className="mt-1 text-sm text-[var(--app-muted)]">{c.pol ?? '-'} - {c.pod ?? '-'}</div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <span>Uso {formatNumber(c.usage_days)}</span>
+                  <span>Free {formatNumber(c.free_time_days)}</span>
+                  <span>Dem. {formatNumber(c.demurrage_days)}</span>
+                </div>
+              </div>
+            ))}
           </div>
           <TableFooterPagination
             page={safePage}

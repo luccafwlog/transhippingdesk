@@ -72,3 +72,20 @@ it('US-174: marca todas como lidas pelo cabecalho', async () => {
 
   expect(mocks.markAllRead).toHaveBeenCalledTimes(1)
 })
+
+it('fecha o dropdown com Escape e expõe estado expandido', async () => {
+  const user = userEvent.setup()
+  renderBell()
+
+  const button = screen.getByRole('button', { name: 'Notificacoes (3 nao lidas)' })
+  expect(button.getAttribute('aria-haspopup')).toBe('menu')
+  expect(button.getAttribute('aria-expanded')).toBe('false')
+
+  await user.click(button)
+  expect(button.getAttribute('aria-expanded')).toBe('true')
+  expect(screen.getByText('Nova fatura')).toBeTruthy()
+
+  await user.keyboard('{Escape}')
+  expect(button.getAttribute('aria-expanded')).toBe('false')
+  expect(screen.queryByText('Nova fatura')).toBeNull()
+})

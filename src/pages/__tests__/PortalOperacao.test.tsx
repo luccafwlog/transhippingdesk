@@ -149,6 +149,17 @@ describe('PortalOperacao (BLs e Containers)', () => {
     expect(screen.getByText('IJKL1234567')).toBeTruthy()
   })
 
+  it('renderiza cards mobile nas abas BLs e Containers', async () => {
+    const user = userEvent.setup()
+    renderOperacao()
+
+    expect(screen.getByTestId('portal-operacao-bl-mobile-cards').textContent).toContain('B/L BL001')
+
+    await user.click(screen.getByRole('tab', { name: 'Containers' }))
+
+    expect(screen.getByTestId('portal-operacao-container-mobile-cards').textContent).toContain('Container ABCD1234567')
+  })
+
   it('abre a aba Containers filtrada por demurrage via query param', () => {
     renderOperacao('/portal/operacao?tab=containers&devolucao=em_demurrage')
     // Apenas EFGH (em demurrage, sem devolucao) deve aparecer

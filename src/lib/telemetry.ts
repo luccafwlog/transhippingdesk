@@ -21,8 +21,8 @@ export function initTelemetry(): void {
   })
 }
 
-export function reportCaughtException(error: unknown, context?: string): void {
-  Sentry.captureException(error, context ? { tags: { context } } : undefined)
+export function reportCaughtException(error: unknown, context?: string, extra?: Record<string, unknown>): void {
+  Sentry.captureException(error, context ? { tags: { context }, extra } : undefined)
 }
 
 function normalizeError(error: unknown) {

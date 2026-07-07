@@ -26,6 +26,15 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open])
+
   const handleMarkAllRead = useCallback(async () => {
     await markAllRead.mutateAsync()
   }, [markAllRead])
@@ -39,6 +48,8 @@ export function NotificationBell() {
         className="relative flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)]"
         onClick={() => setOpen(!open)}
         aria-label={`Notificacoes${unreadCount > 0 ? ` (${unreadCount} nao lidas)` : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <Bell size={16} />
         {unreadCount > 0 ? (
@@ -49,7 +60,7 @@ export function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg">
+        <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg">
           <div className="flex items-center justify-between border-b border-[var(--app-border)] px-4 py-3">
             <span className="text-sm font-semibold">Notificacoes</span>
             {unreadCount > 0 ? (

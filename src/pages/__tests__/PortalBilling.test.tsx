@@ -74,6 +74,7 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   obsolete: vi.fn(),
   detail: null as unknown,
+  demurrageError: null as Error | null,
 }))
 
 vi.mock('../../components/ui/Toast', () => ({
@@ -104,7 +105,7 @@ vi.mock('../../hooks/usePortalAuth', () => ({
 vi.mock('../../hooks/usePortalBilling', () => ({
   usePortalConsolidatableReceivables: () => ({ data: [] }),
   usePortalInvoices: () => ({ data: localInvoices, isLoading: false, error: null }),
-  usePortalDemurrageInvoices: () => ({ data: demurrageInvoices, isLoading: false }),
+  usePortalDemurrageInvoices: () => ({ data: mocks.demurrageError ? undefined : demurrageInvoices, isLoading: false, error: mocks.demurrageError }),
   usePortalInvoiceDetail: () => ({ data: mocks.detail, isLoading: false, error: null }),
   usePortalDemurrageInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
   usePortalObsoleteConsolidation: () => ({ isPending: false, mutateAsync: mocks.obsolete }),
@@ -132,6 +133,7 @@ afterEach(() => {
   mocks.confirm.mockReset()
   mocks.obsolete.mockReset()
   mocks.detail = null
+  mocks.demurrageError = null
 })
 
 const consolidatedDetail = {
@@ -193,6 +195,17 @@ describe('PortalBilling', () => {
     const rows = exportDemurrage.mock.calls[0]?.[0] as PortalDemurrageInvoice[]
     expect(rows).toHaveLength(1)
     expect(rows[0].doc_number).toBe('DEM-001')
+  })
+
+  it('mostra erro da aba Demurrage em vez de estado vazio', async () => {
+    const user = userEvent.setup()
+    mocks.demurrageError = new Error('rpc indisponivel')
+    renderBilling()
+
+    await user.click(screen.getByRole('tab', { name: 'Demurrage' }))
+
+    expect(screen.getByText('Falha ao consultar faturas de demurrage.')).toBeTruthy()
+    expect(screen.queryByText('Nenhuma fatura de demurrage para os filtros atuais.')).toBeNull()
   })
 
   it('Task 10: desfazer consolidada usa ConfirmDialog e so executa apos confirmar', async () => {

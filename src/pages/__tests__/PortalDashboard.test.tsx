@@ -27,13 +27,19 @@ const operationBls: PortalOperationBL[] = [
   },
 ]
 
+const hookState = vi.hoisted(() => ({
+  localError: null as Error | null,
+  demurrageError: null as Error | null,
+  operationError: null as Error | null,
+}))
+
 vi.mock('../../hooks/usePortalBilling', () => ({
-  usePortalInvoices: () => ({ data: localInvoices, isLoading: false }),
-  usePortalDemurrageInvoices: () => ({ data: demurrageInvoices, isLoading: false }),
+  usePortalInvoices: () => ({ data: hookState.localError ? undefined : localInvoices, isLoading: false, error: hookState.localError }),
+  usePortalDemurrageInvoices: () => ({ data: hookState.demurrageError ? undefined : demurrageInvoices, isLoading: false, error: hookState.demurrageError }),
 }))
 
 vi.mock('../../hooks/usePortalOperation', () => ({
-  usePortalOperationBls: () => ({ data: operationBls, isLoading: false }),
+  usePortalOperationBls: () => ({ data: hookState.operationError ? undefined : operationBls, isLoading: false, error: hookState.operationError }),
 }))
 
 vi.mock('../../hooks/useVesselSchedules', () => ({
@@ -66,6 +72,12 @@ function renderPainel() {
 afterEach(cleanup)
 
 describe('PortalDashboard (Painel)', () => {
+  afterEach(() => {
+    hookState.localError = null
+    hookState.demurrageError = null
+    hookState.operationError = null
+  })
+
   it('mostra somente os quatro cards com valores derivados', () => {
     renderPainel()
     expect(screen.getByRole('heading', { name: 'Painel' })).toBeTruthy()
@@ -92,5 +104,14 @@ describe('PortalDashboard (Painel)', () => {
     renderPainel()
     await user.click(screen.getByText('Containers em demurrage'))
     expect(screen.getByTestId('location').textContent).toBe('/portal/operacao?tab=containers&devolucao=em_demurrage')
+  })
+
+  it('mostra falha honesta em vez de R$ 0,00 quando indicadores financeiros falham', () => {
+    hookState.localError = new Error('rpc indisponivel')
+
+    renderPainel()
+
+    expect(screen.getByText('Falha ao carregar indicadores financeiros. Tente novamente em instantes.')).toBeTruthy()
+    expect(screen.queryByText('R$ 0,00')).toBeNull()
   })
 })

@@ -4,6 +4,7 @@ import { Field, Textarea } from '../ui/Input'
 import { InlineError } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { usePortalOpenDispute } from '../../hooks/usePortalDisputes'
+import { portalErrorMessage } from '../../lib/portalErrorMessage'
 
 type Props = {
   demurrageInvoiceId: number | null
@@ -12,13 +13,23 @@ type Props = {
 }
 
 export function DisputeModal({ demurrageInvoiceId, docNumber, onClose }: Props) {
+  const open = Boolean(demurrageInvoiceId)
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Disputar ${docNumber}`}>
+      {open ? (
+        <DisputeModalContent demurrageInvoiceId={demurrageInvoiceId!} docNumber={docNumber} onClose={onClose} />
+      ) : null}
+    </Modal>
+  )
+}
+
+function DisputeModalContent({ demurrageInvoiceId, docNumber, onClose }: { demurrageInvoiceId: number; docNumber: string; onClose: () => void }) {
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const openDispute = usePortalOpenDispute()
-  const open = Boolean(demurrageInvoiceId)
 
   async function handleSubmit() {
-    if (!demurrageInvoiceId) return
     if (!reason.trim()) {
       setError('Informe o motivo da disputa.')
       return
@@ -29,34 +40,32 @@ export function DisputeModal({ demurrageInvoiceId, docNumber, onClose }: Props) 
       setReason('')
       onClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Falha ao abrir disputa.')
+      setError(portalErrorMessage(err, 'Falha ao abrir disputa. Tente novamente em instantes.'))
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={`Disputar ${docNumber}`}>
-      <div className="grid gap-4">
-        <p className="text-sm text-[var(--app-muted)]">
-          Descreva o motivo da disputa para a fatura de demurrage <strong>{docNumber}</strong>.
-          Sua solicitacao sera analisada pela equipe Transhipping.
-        </p>
+    <div className="grid gap-4">
+      <p className="text-sm text-[var(--app-muted)]">
+        Descreva o motivo da disputa para a fatura de demurrage <strong>{docNumber}</strong>.
+        Sua solicitacao sera analisada pela equipe Transhipping.
+      </p>
 
-        <Field label="Motivo da disputa">
-          <Textarea
-            rows={4}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Descreva detalhadamente o motivo da disputa (dias, valores, condicoes)..."
-          />
-        </Field>
+      <Field label="Motivo da disputa">
+        <Textarea
+          rows={4}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Descreva detalhadamente o motivo da disputa (dias, valores, condicoes)..."
+        />
+      </Field>
 
-        {error ? <InlineError message={error} /> : null}
+      {error ? <InlineError message={error} /> : null}
 
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button loading={openDispute.isPending} onClick={handleSubmit}>Abrir disputa</Button>
-        </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+        <Button loading={openDispute.isPending} onClick={handleSubmit}>Abrir disputa</Button>
       </div>
-    </Modal>
+    </div>
   )
 }

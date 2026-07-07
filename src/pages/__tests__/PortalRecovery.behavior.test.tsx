@@ -9,6 +9,7 @@ const auth = vi.hoisted(() => ({
   resetPasswordForEmail: vi.fn(() => Promise.resolve({ error: null })),
   setSession: vi.fn(() => Promise.resolve({ error: null })),
   updateUser: vi.fn(() => Promise.resolve({ error: null })),
+  signOut: vi.fn(() => Promise.resolve({ error: null })),
 }))
 const portal = vi.hoisted(() => ({ resolveLogin: vi.fn(() => Promise.resolve('resolvido@cliente.com')) }))
 
@@ -79,4 +80,5 @@ it('US-157: atualiza a senha e volta para o login', async () => {
 
   await waitFor(() => expect(screen.getByText('LOGIN PLACEHOLDER')).toBeTruthy())
   expect(auth.updateUser).toHaveBeenCalledWith({ password: 'senhaSegura1' })
+  expect(auth.signOut).toHaveBeenCalled()
 })

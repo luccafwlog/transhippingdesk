@@ -63,6 +63,12 @@ por tentativas e erro genérico. RPCs de dados do Portal exigem sessão
 autenticada e resolvem o cliente por `auth.uid()`. Veja a
 [ADR 0013](./adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
 
+O `PortalAuthProvider` também assina `supabasePortal.auth.onAuthStateChange`.
+Eventos `SIGNED_OUT` limpam o overview local e removem todos os caches TanStack
+Query com chave iniciada por `portal-`, cobrindo logout em outra aba e falha de
+refresh de token. Eventos `SIGNED_IN` e `TOKEN_REFRESHED` reidratam o overview
+quando necessário, sem compartilhar estado com a sessão interna.
+
 ## Camadas do frontend
 
 ```text
@@ -224,6 +230,16 @@ um intervalo fixo documentado.
 - **Sentry:** erros do frontend em produção;
 - **Firebase Hosting:** distribuição da SPA;
 - **PIX:** payload persistido e QR renderizado nos documentos financeiros.
+
+### Telemetria do Portal
+
+Erros globais de queries e mutations TanStack Query são reportados ao Sentry via
+`reportCaughtException`, com `context=TanStack Query` e a `queryKey` ou
+`mutationKey` serializada em `extra`. O `PortalAuthProvider` define
+`Sentry.setUser({ id: customer_id })` e a tag `area=portal` quando o overview do
+cliente é carregado; no logout ou `SIGNED_OUT`, limpa o usuário com
+`Sentry.setUser(null)`. O projeto mantém `sendDefaultPii: false` e não envia
+email, nome, documento ou contato do cliente como identidade Sentry.
 
 Domínios usados pelo navegador precisam permanecer compatíveis com a CSP de
 `firebase.json`.
