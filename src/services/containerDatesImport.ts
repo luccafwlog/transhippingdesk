@@ -1,7 +1,7 @@
 import { assertUploadSize } from '../lib/fileGuard'
 import { asString, normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
-import { calculateDemurrage } from './demurrage/demurrageRates'
+import { calculateDemurrage, ensureDemurrageRatesLoaded } from './demurrage/demurrageRates'
 import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
 
 const headerMap = {
@@ -84,6 +84,7 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
   // Track BL IDs where a container was newly set to 'returned'
   const blsToCheckForInvoice = new Set<string>()
+  let demurrageRatesLoaded = false
 
   for (const row of uniqueRows) {
     const container = containersByKey.get(makeKey(row.bl_id, row.container_number))
@@ -94,6 +95,10 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     if (sameDischarge && sameReturn) { unchanged += 1; continue }
 
     const bl = blOverrides.get(row.bl_id)
+    if (!row.return_date && !demurrageRatesLoaded) {
+      await ensureDemurrageRatesLoaded()
+      demurrageRatesLoaded = true
+    }
     const newStatus = resolveStatus(
       row.discharge_date,
       row.return_date,
@@ -218,4 +223,3 @@ function mapRow(row: Record<string, unknown>) {
 function makeKey(blId: string, containerNumber: string) {
   return `${String(blId).toUpperCase()}::${String(containerNumber).toUpperCase()}`
 }
-

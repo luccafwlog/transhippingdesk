@@ -3,6 +3,7 @@ import {
   computeBapliePhysicalUpdates,
   computeExistenceDivergences,
   reconcileBaplieWithManifest,
+  applyBapliePhysicalFlags,
 } from '../baplieReconciliation'
 
 const { mockFrom } = vi.hoisted(() => ({
@@ -32,11 +33,35 @@ function createBuilder(result: QueryResult) {
   return builder
 }
 
+const mutationCalls: { table: string; method: string; payload: unknown }[] = []
+
+function createMutationBuilder(table: string, method: string, payload: unknown) {
+  const builder = {
+    eq: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    then: (resolve: (value: QueryResult) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve({ data: null, error: null }).then(resolve, reject),
+  }
+  mutationCalls.push({ table, method, payload })
+  return builder
+}
+
 function installReconcileMocks(input: { bls?: unknown[]; baplie?: unknown[]; containers?: unknown[] }) {
   mockFrom.mockImplementation((table: string) => {
     if (table === 'bls') return createBuilder({ data: input.bls ?? [], error: null })
     if (table === 'baplie_containers') return createBuilder({ data: input.baplie ?? [], error: null })
-    if (table === 'bl_containers') return createBuilder({ data: input.containers ?? [], error: null })
+    if (table === 'bl_containers') {
+      const builder = createBuilder({ data: input.containers ?? [], error: null })
+      builder.update.mockImplementation(((payload: unknown) => createMutationBuilder(table, 'update', payload)) as never)
+      return builder
+    }
+    if (table === 'audit_logs') {
+      return {
+        insert: vi.fn((payload: unknown) => {
+          mutationCalls.push({ table, method: 'insert', payload })
+          return Promise.resolve({ data: null, error: null })
+        }),
+      }
+    }
     throw new Error(`Tabela nao mockada: ${table}`)
   })
 }
@@ -104,7 +129,7 @@ describe('computeBapliePhysicalUpdates (Baplie soberano)', () => {
       blcs([{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false, is_imo: false }]),
     )
     expect(updates).toEqual([
-      { bl_container_id: 10, is_imo: false, imo_class: null, un_number: null, is_oog: true },
+      { bl_container_id: 10, previous: { is_imo: false, imo_class: null, un_number: null, is_oog: false }, is_imo: false, imo_class: null, un_number: null, is_oog: true },
     ])
   })
 
@@ -114,7 +139,7 @@ describe('computeBapliePhysicalUpdates (Baplie soberano)', () => {
       blcs([{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_imo: false, imo_class: null, un_number: null }]),
     )
     expect(updates).toEqual([
-      { bl_container_id: 10, is_imo: true, imo_class: '3', un_number: '1203', is_oog: false },
+      { bl_container_id: 10, previous: { is_imo: false, imo_class: null, un_number: null, is_oog: false }, is_imo: true, imo_class: '3', un_number: '1203', is_oog: false },
     ])
   })
 
@@ -132,7 +157,7 @@ describe('computeBapliePhysicalUpdates (Baplie soberano)', () => {
       blcs([{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_imo: true, imo_class: '3', un_number: '1203' }]),
     )
     expect(updates).toEqual([
-      { bl_container_id: 10, is_imo: false, imo_class: null, un_number: null, is_oog: false },
+      { bl_container_id: 10, previous: { is_imo: true, imo_class: '3', un_number: '1203', is_oog: false }, is_imo: false, imo_class: null, un_number: null, is_oog: false },
     ])
   })
 
@@ -151,6 +176,7 @@ describe('computeBapliePhysicalUpdates (Baplie soberano)', () => {
 describe('reconcileBaplieWithManifest', () => {
   beforeEach(() => {
     mockFrom.mockReset()
+    mutationCalls.length = 0
   })
 
   it('não gera divergência de atributo — mesmo container com IMO/OOG divergentes retorna vazio', async () => {
@@ -184,5 +210,23 @@ describe('reconcileBaplieWithManifest', () => {
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }],
     })
     await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [] })
+  })
+
+  it('audita flags Baplie com old_value real e new_value aplicado', async () => {
+    installReconcileMocks({
+      bls: [{ id: 'BL1' }],
+      baplie: [{ container_number: 'ABCD1234567', status: 'full', is_imo: true, imo_class: '3', un_number: '1203', is_oog: true }],
+      containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_imo: false, imo_class: null, un_number: null, is_oog: false }],
+    })
+
+    await expect(applyBapliePhysicalFlags(1, 'u1')).resolves.toBe(1)
+    const audit = mutationCalls.find((call) => call.table === 'audit_logs' && call.method === 'insert')
+    expect(audit?.payload).toMatchObject({
+      entity_type: 'bl_container',
+      entity_id: '10',
+      field_name: 'baplie_physical_flags',
+      old_value: JSON.stringify({ is_imo: false, imo_class: null, un_number: null, is_oog: false }),
+      new_value: JSON.stringify({ is_imo: true, imo_class: '3', un_number: '1203', is_oog: true }),
+    })
   })
 })

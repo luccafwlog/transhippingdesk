@@ -1,17 +1,43 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// calculateDemurrage só usa as tarifas estáticas quando nenhuma tarifa dinâmica
-// foi carregada do banco — então o cliente Supabase nunca é tocado aqui.
-vi.mock('../../supabase', () => ({ supabase: {} }))
+const mocks = vi.hoisted(() => ({
+  reportBestEffortFailure: vi.fn(),
+  from: vi.fn(),
+}))
 
-import { calculateDemurrage } from '../demurrageRates'
+vi.mock('../../supabase', () => ({ supabase: { from: mocks.from } }))
+vi.mock('../../../lib/telemetry', () => ({ reportBestEffortFailure: mocks.reportBestEffortFailure }))
 
-// Sem dados dinâmicos carregados, calculateDemurrage usa STATIC_RATE_GROUPS.
+import { __setDemurrageRateGroupsForTest, calculateDemurrage, ensureDemurrageRatesLoaded, type RateGroup } from '../demurrageRates'
+
 // 20GP: free 21d · P1 [22,30]@30 USD/d · P2 [31,∞]@50 USD/d
 // 40GP: free 21d · P1 [22,30]@60 USD/d · P2 [31,∞]@80 USD/d
 // 20RF: free 10d · P1 [11,19]@95 USD/d · P2 [20,∞]@110 USD/d
+const TEST_RATE_GROUPS: RateGroup[] = [
+  { aliases: ['20GP', '20G0', '20HC', '20HQ', '22G1', '20G1'], freeUntil: 21, p1: { range: [22, 30], usd: 30 }, p2: { range: [31, Infinity], usd: 50 } },
+  { aliases: ['40GP', '40G0', '40HC', '40HQ', '40G1', '42G1', '45G1'], freeUntil: 21, p1: { range: [22, 30], usd: 60 }, p2: { range: [31, Infinity], usd: 80 } },
+  { aliases: ['20RF', '20RQ', '20R1'], freeUntil: 10, p1: { range: [11, 19], usd: 95 }, p2: { range: [20, Infinity], usd: 110 } },
+]
+
+function createRatesQuery(result: unknown) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    lte: vi.fn(() => builder),
+    or: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve(result).then(resolve, reject),
+  }
+  return builder
+}
 
 describe('calculateDemurrage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    __setDemurrageRateGroupsForTest(TEST_RATE_GROUPS)
+  })
+
   it('dentro do free time não gera cobrança', () => {
     const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-15') // 14 dias
     expect(r.total_days).toBe(14)
@@ -59,9 +85,8 @@ describe('calculateDemurrage', () => {
     expect(r.total_usd).toBe(2 * 95)
   })
 
-  it('tipo desconhecido cai na tabela padrão (20GP)', () => {
-    const r = calculateDemurrage('XXX9', '2026-01-01', '2026-01-26')
-    expect(r.total_usd).toBe(4 * 30)
+  it('tipo desconhecido falha sem cair em tarifa arbitrária', () => {
+    expect(() => calculateDemurrage('XXX9', '2026-01-01', '2026-01-26')).toThrow(/sem tarifa de Demurrage cadastrada/)
   })
 
   it('override de free time recalcula P1 a partir de freeUntil+1', () => {
@@ -120,5 +145,29 @@ describe('calculateDemurrage', () => {
 
   it('rejeita devolucao anterior a descarga', () => {
     expect(() => calculateDemurrage('20GP', '2026-01-10', '2026-01-09')).toThrow(/devolucao|descarga|return|discharge/i)
+  })
+
+  it('banco indisponível e sem cache falha explicitamente', async () => {
+    __setDemurrageRateGroupsForTest(null)
+    mocks.from.mockReturnValue(createRatesQuery({ data: null, error: new Error('offline') }))
+
+    await expect(ensureDemurrageRatesLoaded()).rejects.toThrow(/Tarifas de Demurrage indisponíveis/)
+    expect(mocks.reportBestEffortFailure).toHaveBeenCalled()
+  })
+
+  it('banco indisponível com cache previamente carregado mantém last-known-good', async () => {
+    mocks.from.mockReturnValue(createRatesQuery({ data: null, error: new Error('offline') }))
+
+    await expect(ensureDemurrageRatesLoaded(true)).resolves.toBeUndefined()
+    expect(mocks.reportBestEffortFailure).toHaveBeenCalled()
+    expect(calculateDemurrage('20GP', '2026-01-01', '2026-01-26').total_usd).toBe(4 * 30)
+  })
+
+  it('resultado vazio do banco falha explicitamente sem cache', async () => {
+    __setDemurrageRateGroupsForTest(null)
+    mocks.from.mockReturnValue(createRatesQuery({ data: [], error: null }))
+
+    await expect(ensureDemurrageRatesLoaded()).rejects.toThrow(/Tarifas de Demurrage indisponíveis/)
+    expect(mocks.reportBestEffortFailure).toHaveBeenCalled()
   })
 })

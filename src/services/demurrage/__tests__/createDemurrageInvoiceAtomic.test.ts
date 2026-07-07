@@ -126,4 +126,13 @@ describe('atomic Demurrage invoice creation', () => {
     }))
     expect(invoiceId).toBe(321)
   })
+
+  it('maps database uniqueness violations to the friendly duplicate invoice message', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+    })
+
+    await expect(createInvoiceForBL('BL-1')).rejects.toThrow('Já existe fatura de Demurrage emitida ou paga para este B/L. Cancele a fatura atual antes de reemitir.')
+  })
 })

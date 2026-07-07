@@ -168,7 +168,7 @@ auditoria de design com Supabase local.
 ## 5. Migrations Supabase
 
 O diretório usa um único esquema: prefixo sequencial numerado de três dígitos
-(`001_…` a `159_…`). Migrations que nasceram com timestamp UTC foram
+(`001_…` em diante). Migrations que nasceram com timestamp UTC foram
 renumeradas uma única vez para esse padrão (ver ADR 0016); o timestamp original
 fica preservado como comentário no cabeçalho de cada arquivo afetado.
 
@@ -204,10 +204,10 @@ Supabase de produção.
 NNN_descricao_curta.sql
 ```
 
-Use o próximo número sequencial disponível (o último é `159_`, então o próximo
-é `160_`), com três dígitos e zero à esquerda. Em caso de branches paralelos,
-reconcilie os números antes do merge para preservar a ordem lexicográfica = ordem
-de aplicação.
+Use o próximo número sequencial disponível — derive-o do repositório com
+`ls supabase/migrations/ | sort | tail -1` e some 1 — com três dígitos e zero
+à esquerda. Em caso de branches paralelos, reconcilie os números antes do
+merge para preservar a ordem lexicográfica = ordem de aplicação.
 
 ### Segurança
 
@@ -361,6 +361,7 @@ impressão não consiga atender. Use o playbook
 
 ```powershell
 npm run docs:check
+npm run typecheck
 npm run lint
 npm test
 npm run build
@@ -379,7 +380,7 @@ npm run size-limit
 pré-carregados em `dist/index.html`) contra o orçamento de 250 kB
 comprimidos, configurado na chave `size-limit` do `package.json`. Se um
 chunk novo passar a ser pré-carregado, inclua o glob correspondente na
-configuração.
+configuração. O CI executa esse gate após o build em todo PR.
 
 ### Testes de integração
 

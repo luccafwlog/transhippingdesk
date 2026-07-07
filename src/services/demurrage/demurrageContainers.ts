@@ -16,6 +16,7 @@ type DemurrageContainerQueryRow = DemurrageContainerListItem & {
 type DemurrageRateSourceRow = {
   type: string | null
   discharge_date?: string | null
+  return_date?: string | null
   bl?: {
     free_time_override?: number | null
     demurrage_rate_override_p1_usd?: number | null
@@ -88,15 +89,16 @@ export async function updateContainerDates(containerId: number, dischargeDate: s
 
 export async function updateContainerReturnDate(containerId: number, returnDate: string | null): Promise<void> {
   if (!returnDate) {
+    const oldReturnDate = await fetchCurrentReturnDate(containerId)
     const { error } = await supabase.from('bl_containers').update({ return_date: null, demurrage_status: 'within_free_time' }).eq('id', containerId)
     if (error) throw error
-    await auditReturnDateChange(containerId, null)
+    await auditReturnDateChange(containerId, oldReturnDate, null)
     return
   }
 
   const { data: row, error: fetchErr } = await supabase
     .from('bl_containers')
-    .select('type, discharge_date, bl:bls(free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd)')
+    .select('type, discharge_date, return_date, bl:bls(free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd)')
     .eq('id', containerId)
     .single()
     .overrideTypes<DemurrageRateSourceRow, { merge: false }>()
@@ -111,24 +113,40 @@ export async function updateContainerReturnDate(containerId: number, returnDate:
   const { error } = await supabase.from('bl_containers').update({ return_date: returnDate, demurrage_status }).eq('id', containerId)
   if (error) throw error
 
-  await auditReturnDateChange(containerId, returnDate)
+  await auditReturnDateChange(containerId, container.return_date ?? null, returnDate)
 }
 
 // Auditoria best-effort da data de devolução — nunca quebra o fluxo do usuário.
 // Cobre tanto definir quanto limpar (null) a data, para a linha do tempo do B/L.
-async function auditReturnDateChange(containerId: number, returnDate: string | null): Promise<void> {
+async function auditReturnDateChange(containerId: number, oldReturnDate: string | null, returnDate: string | null): Promise<void> {
   try {
     const { data: userData } = await supabase.auth.getUser()
     await supabase.from('audit_logs').insert({
       entity_type: 'bl_container',
       entity_id: String(containerId),
       field_name: 'return_date',
-      old_value: null,
+      old_value: oldReturnDate,
       new_value: returnDate,
       changed_by: userData?.user?.id ?? null,
       justification: 'Data de devolução atualizada na seção Demurrage.',
     })
   } catch (auditError) {
     reportBestEffortFailure('auditar data de devolução do container', auditError, { containerId })
+  }
+}
+
+async function fetchCurrentReturnDate(containerId: number): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('bl_containers')
+      .select('return_date')
+      .eq('id', containerId)
+      .single()
+      .overrideTypes<{ return_date: string | null }, { merge: false }>()
+    if (error) throw error
+    return data?.return_date ?? null
+  } catch (error) {
+    reportBestEffortFailure('buscar return_date anterior para auditoria', error, { containerId })
+    return null
   }
 }

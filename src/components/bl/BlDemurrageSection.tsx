@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -7,7 +7,7 @@ import { Field, Input } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { saveBlDemurrageConfig } from '../../services/blDemurrageConfig'
-import { calculateDemurrage } from '../../services/demurrage/demurrageRates'
+import { calculateDemurrage, ensureDemurrageRatesLoaded } from '../../services/demurrage/demurrageRates'
 import { updateContainerReturnDate } from '../../services/demurrage/demurrageContainers'
 import { queryKeys } from '../../services/queryKeys'
 import { formatDate } from '../../lib/utils'
@@ -45,6 +45,22 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
   // --- Per-container return date state ---
   const [returnDates, setReturnDates] = useState<Record<number, string>>({})
   const [savingReturnDate, setSavingReturnDate] = useState<number | null>(null)
+  const [ratesReady, setRatesReady] = useState(false)
+  const [ratesError, setRatesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    ensureDemurrageRatesLoaded()
+      .then(() => {
+        if (active) setRatesReady(true)
+      })
+      .catch((error: unknown) => {
+        if (active) setRatesError(error instanceof Error ? error.message : 'Tarifas de Demurrage indisponíveis.')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function handleSaveDemurrageConfig() {
     if (!user) return
@@ -164,9 +180,11 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
               {bl.bl_containers?.length ? (
                 bl.bl_containers.map((container) => {
                   const returnDateVal = returnDates[container.id] ?? container.return_date ?? ''
-                  const demCalc =
-                    container.discharge_date && returnDateVal
-                      ? calculateDemurrage(
+                  let demCalc = null
+                  let demError = ratesError
+                  if (container.discharge_date && returnDateVal && ratesReady) {
+                    try {
+                      demCalc = calculateDemurrage(
                           container.type,
                           container.discharge_date,
                           returnDateVal,
@@ -174,7 +192,10 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
                           bl.demurrage_rate_override_p1_usd,
                           bl.demurrage_rate_override_p2_usd,
                         )
-                      : null
+                    } catch (error) {
+                      demError = error instanceof Error ? error.message : 'Falha ao calcular Demurrage.'
+                    }
+                  }
                   return (
                     <tr key={container.id}>
                       <td className="py-2 font-semibold text-white">{container.container_number}</td>
@@ -206,7 +227,9 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
                         </div>
                       </td>
                       <td className="py-2">
-                        {demCalc ? (
+                        {demError ? (
+                          <span className="text-xs text-red-400">{demError}</span>
+                        ) : demCalc ? (
                           demCalc.status === 'within_free_time' ? (
                             <span className="rounded bg-green-900/50 px-1.5 py-0.5 text-xs text-green-400">
                               Free time
