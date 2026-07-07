@@ -7,7 +7,7 @@
 
 > Plano/snapshot de decisão, não verdade corrente. A autoridade executável é o
 > código. Base de decisão: seção "L3 — propostas" da
-> [auditoria de design 2026-07-07](../design-audit/README.md), PR
+> [auditoria de design 2026-07-07](design-audit/README-2026-07-07.md), PR
 > [#335](https://github.com/luccafwlog/transhipping-desk2/pull/335). Aquela
 > auditoria classificou estes 5 achados como L3 — mudam padrão de componente
 > ou dependem de decisão de produto — e não os aplicou. Este plano consolida
@@ -28,7 +28,7 @@ primeiro) e dependência de validação externa (maior por último).
 
 **Fontes de verdade:** `CONTEXT.md` · `docs/ARCHITECTURE.md` ·
 `docs/CONVENCOES.md` ·
-[auditoria de design 2026-07-07](../design-audit/README.md).
+[auditoria de design 2026-07-07](design-audit/README-2026-07-07.md).
 
 ---
 

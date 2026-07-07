@@ -149,7 +149,7 @@ plano era o mesmo trabalho da auditoria de 2026-07-07 — não era: as Slices
 codex remediation changes", fora desta sessão); a Slice 2 foi reavaliada e
 aceita como não-bug na resolução real; o item do logo do portal (dentro da
 Slice 5) foi corrigido na [PR #335](https://github.com/luccafwlog/transhipping-desk2/pull/335)
-(auditoria [2026-07-07](../design-audit/README.md)).
+(auditoria [2026-07-07](design-audit/README-2026-07-07.md)).
 
 **Remanescente conhecido, não bloqueante:** os chips "Pend N"/"Pronto N" na
 coluna Operação de `Clientes.tsx` não têm `title`/tooltip explicando a
