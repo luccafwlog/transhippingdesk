@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md`.
+> in `docs/plans/security-audit-2026-07-07/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat a894c5d..HEAD -- src/lib/telemetry.ts src/lib/__tests__`
 > If any in-scope file changed since this plan was written, compare the
@@ -80,7 +80,7 @@ tracker. A `beforeSend` scrubber closes the gap at the single choke point.
 **In scope** (the only files you should modify/create):
 - `src/lib/telemetry.ts`
 - `src/lib/__tests__/telemetry.test.ts` (create)
-- `plans/README.md` (status row)
+- `docs/plans/security-audit-2026-07-07/README.md` (status row)
 
 **Out of scope** (do NOT touch):
 - Any `reportBestEffortFailure`/`reportCaughtException` call site — the fix is
@@ -165,7 +165,7 @@ Machine-checkable. ALL must hold:
 - [ ] `src/lib/__tests__/telemetry.test.ts` exists; `npm test -- telemetry` passes
 - [ ] `npm run lint`, `npm test`, `npm run build` all exit 0
 - [ ] `git status` shows no modified files outside the in-scope list
-- [ ] `plans/README.md` status row updated
+- [ ] `docs/plans/security-audit-2026-07-07/README.md` status row updated
 
 ## STOP conditions
 

@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md`.
+> in `docs/plans/security-audit-2026-07-07/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat a894c5d..HEAD -- .github/workflows`
 > If any in-scope file changed since this plan was written, compare the
@@ -71,7 +71,7 @@ CI run. Note that in your report.
 **In scope** (the only files you should modify):
 - `.github/workflows/ci.yml`
 - `.github/workflows/firebase-deploy.yml`
-- `plans/README.md` (status row)
+- `docs/plans/security-audit-2026-07-07/README.md` (status row)
 
 **Out of scope** (do NOT touch):
 - Workflow triggers, job structure, build/test steps, secret names.
@@ -129,7 +129,7 @@ Machine-checkable. ALL must hold:
 - [ ] `grep -c "@latest" .github/workflows/firebase-deploy.yml` → 0 matches (exit 1)
 - [ ] `npm run docs:check` exits 0
 - [ ] `git status` shows no modified files outside the in-scope list
-- [ ] `plans/README.md` status row updated; residual-items note in report
+- [ ] `docs/plans/security-audit-2026-07-07/README.md` status row updated; residual-items note in report
 
 ## STOP conditions
 

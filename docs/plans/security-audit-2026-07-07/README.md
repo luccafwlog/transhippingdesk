@@ -8,8 +8,8 @@ conditions, and update your row when done.
 These plans are **advisor output**: findings were produced by parallel
 read-only audits (database/RLS, edge functions, frontend, CI/config) and every
 cited excerpt was re-verified against the code by the advisor before writing.
-Historical remediation plans from other efforts live in `docs/plans/` and are
-unrelated to this index.
+This index covers only this audit; the dated remediation plans directly under
+`docs/plans/` belong to other efforts.
 
 ## Execution order & status
 

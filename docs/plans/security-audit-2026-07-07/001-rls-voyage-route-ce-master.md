@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md`.
+> in `docs/plans/security-audit-2026-07-07/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat a894c5d..HEAD -- supabase/migrations src/services/voyageRouteSchedules.ts src/services/__tests__/voyageRouteCeMasterMigration.test.ts`
 > If any in-scope file changed since this plan was written, compare the
@@ -104,7 +104,7 @@ the default-deny contract of ADR 0004/0011.
 - `src/services/__tests__/voyageRouteCeMasterMigration.test.ts` (extend)
 - `docs/RASTREABILIDADE.md` / `docs/CHANGELOG.md` only if `npm run docs:check`
   requires it (follow its error output).
-- `plans/README.md` (status row)
+- `docs/plans/security-audit-2026-07-07/README.md` (status row)
 
 **Out of scope** (do NOT touch):
 - `supabase/migrations/167_voyage_route_ce_master.sql` — existing migrations
@@ -199,7 +199,7 @@ Machine-checkable. ALL must hold:
 - [ ] `npm test` exits 0; new migration assertions pass
 - [ ] `npm run lint`, `npm run docs:check`, `npm run build` all exit 0
 - [ ] `git status` shows no modified files outside the in-scope list
-- [ ] `plans/README.md` status row updated
+- [ ] `docs/plans/security-audit-2026-07-07/README.md` status row updated
 
 ## STOP conditions
 

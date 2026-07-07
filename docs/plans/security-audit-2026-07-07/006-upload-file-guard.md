@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md`.
+> in `docs/plans/security-audit-2026-07-07/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat a894c5d..HEAD -- src/lib/fileGuard.ts src/lib/__tests__`
 > If any in-scope file changed since this plan was written, compare the
@@ -81,7 +81,7 @@ against each importer's expected set before parsing.
 - `src/lib/__tests__/fileGuard.test.ts` (create)
 - The 16 caller files — ONLY the line(s) invoking the guard (switch to the
   new function with the right extension set). No other changes in them.
-- `plans/README.md` (status row)
+- `docs/plans/security-audit-2026-07-07/README.md` (status row)
 
 **Out of scope** (do NOT touch):
 - Parser logic, import mapping, or UI components/file pickers.
@@ -162,7 +162,7 @@ Machine-checkable. ALL must hold:
 - [ ] Step 2 grep shows no unexplained `assertUploadSize` call sites
 - [ ] `npm run lint`, `npm test`, `npm run build` all exit 0
 - [ ] `git status` shows no modified files outside the in-scope list
-- [ ] `plans/README.md` status row updated
+- [ ] `docs/plans/security-audit-2026-07-07/README.md` status row updated
 
 ## STOP conditions
 

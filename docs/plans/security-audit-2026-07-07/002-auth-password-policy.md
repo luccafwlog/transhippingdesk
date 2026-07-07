@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md`.
+> in `docs/plans/security-audit-2026-07-07/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat a894c5d..HEAD -- supabase/config.toml src/pages/PortalResetPassword.tsx docs/adr`
 > If any in-scope file changed since this plan was written, compare the
@@ -79,7 +79,7 @@ production posture so it is checkable instead of assumed.
 - `src/pages/PortalResetPassword.tsx` (client validation message/rule)
 - `docs/adr/0019-politica-de-senha-e-signup-fechado.md` (create) and
   `docs/adr/README.md` (index entry)
-- `plans/README.md` (status row)
+- `docs/plans/security-audit-2026-07-07/README.md` (status row)
 
 **Out of scope** (do NOT touch):
 - The Supabase **production dashboard** — changing it is an operator action;
@@ -163,7 +163,7 @@ Machine-checkable. ALL must hold:
 - [ ] `docs/adr/0019-…` exists and is indexed in `docs/adr/README.md`
 - [ ] `npm run lint`, `npm test`, `npm run docs:check`, `npm run build` all exit 0
 - [ ] `git status` shows no modified files outside the in-scope list
-- [ ] `plans/README.md` status row updated; operator checklist included in the report
+- [ ] `docs/plans/security-audit-2026-07-07/README.md` status row updated; operator checklist included in the report
 
 ## STOP conditions
 

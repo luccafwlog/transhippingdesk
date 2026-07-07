@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md`.
+> in `docs/plans/security-audit-2026-07-07/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat a894c5d..HEAD -- .gitignore .codex`
 > If any in-scope file changed since this plan was written, compare the
@@ -62,7 +62,7 @@ through the same blind spot. Close the hole and stop tracking the file.
 - `.gitignore`
 - `.codex/environments/environment.toml` (remove from git index only — see
   Step 2; the working-tree file stays for the tool that consumes it)
-- `plans/README.md` (status row)
+- `docs/plans/security-audit-2026-07-07/README.md` (status row)
 
 **Out of scope** (do NOT touch):
 - Rotating the anon key — the key is public by design (see
@@ -121,7 +121,7 @@ Machine-checkable. ALL must hold:
 - [ ] File still present in the working tree
 - [ ] `npm run docs:check` exits 0
 - [ ] `git status` clean apart from the two intended changes
-- [ ] `plans/README.md` status row updated
+- [ ] `docs/plans/security-audit-2026-07-07/README.md` status row updated
 
 ## STOP conditions
 
