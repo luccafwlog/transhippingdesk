@@ -14,9 +14,9 @@ atualize sua linha na tabela ao terminar.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| [001](./001-bl-parser-campos-edi.md) | Parser de B/L captura descrição, volumes, telefone e DG (IMO) | P1 | M | — | TODO |
-| [002](./002-ce-mercante-gatilho-taxas.md) | CE Mercante vira o gatilho único do cálculo/emissão de taxas (ADR 0020) | P1 | M | — | TODO |
-| [003](./003-edi-i5-correcoes-mercante.md) | Corrigir I5 do EDI: IMO, NCM 8 dígitos, tipo 40FM | P1 | S | 001 (soft) | TODO |
+| [001](./001-bl-parser-campos-edi.md) | Parser de B/L captura descrição, volumes, telefone e DG (IMO) | P1 | M | — | DONE |
+| [002](./002-ce-mercante-gatilho-taxas.md) | CE Mercante vira o gatilho único do cálculo/emissão de taxas (ADR 0020) | P1 | M | — | DONE |
+| [003](./003-edi-i5-correcoes-mercante.md) | Corrigir I5 do EDI: IMO, NCM 8 dígitos, tipo 40FM | P1 | S | 001 (soft) | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (com motivo em uma linha) |
 REJECTED (com justificativa em uma linha).

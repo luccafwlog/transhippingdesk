@@ -16,6 +16,8 @@ function coscoBuffer({
   ],
   vinRows = [] as Array<Record<string, string>>,
   vinSheetName = 'VIN',
+  cargoDescription = 'BYD DOLPHIN GS 180EV, 200 UNITS\nNCM : 8703.80.00\nDG CLASS:9\nUN NCM: 3556',
+  totalPackages = '          200 UNITS',
 } = {}) {
   const rows: Array<Array<string | number>> = Array.from({ length: 60 }, () => [])
   rows[5][0] = 'SHIPPER EXPORTS LTDA\nRua A, 100'
@@ -33,6 +35,10 @@ function coscoBuffer({
   rows[34][27] = '2026-02-19'
   rows[37][0] = '2026-02-20'
   rows[37][4] = 'SHANGHAI'
+  rows[42][9] = 'Description of Goods (If Dangerous Goods, See Clause 21)'
+  rows[43][9] = cargoDescription
+  rows[45][0] = 'TOTAL:'
+  rows[45][2] = totalPackages
 
   freightRows.forEach(([description, rate, per, amount, prepaid, collect], index) => {
     const row = rows[25 + index]
@@ -82,6 +88,13 @@ describe('blParser', () => {
       ladenOnBoard: '2026-02-19',
       issueDate: '2026-02-20',
       issuePlace: 'SHANGHAI',
+    })
+    expect(parsed.cargo).toEqual({
+      description: 'BYD DOLPHIN GS 180EV, 200 UNITS\nNCM : 8703.80.00\nDG CLASS:9\nUN NCM: 3556',
+      totalPackages: 200,
+      packagesUnit: 'UNITS',
+      dgClass: '9',
+      unNumber: '3556',
     })
     expect(parsed.containers).toEqual([
       {
@@ -143,6 +156,21 @@ describe('blParser', () => {
     }))
 
     expect(parsed.freightCharges.map((charge) => charge.description)).toEqual(['OCEAN FREIGHT', 'BAF'])
+  })
+
+  it('parseia volumes sem DG quando a descricao nao declara carga perigosa', async () => {
+    const parsed = await parseBLBuffer(coscoBuffer({
+      cargoDescription: '48 PACKAGES (36 IN NUDE PACKING...)',
+      totalPackages: '          48 PACKAGES',
+    }))
+
+    expect(parsed.cargo).toEqual({
+      description: '48 PACKAGES (36 IN NUDE PACKING...)',
+      totalPackages: 48,
+      packagesUnit: 'PACKAGES',
+      dgClass: null,
+      unNumber: null,
+    })
   })
 
   it('parseia aba VIN para carga RoRo', async () => {

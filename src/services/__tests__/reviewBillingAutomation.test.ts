@@ -8,6 +8,16 @@ vi.mock('../billing', () => ({
   markBlReadyAndCreateInvoice: vi.fn(),
 }))
 
+const { mockFrom } = vi.hoisted(() => ({
+  mockFrom: vi.fn(),
+}))
+
+vi.mock('../supabase', () => ({
+  supabase: {
+    from: mockFrom,
+  },
+}))
+
 import { markBlReadyAndCreateInvoice } from '../billing'
 import { calculateBlLocalCharges } from '../charges/chargeOperationsService'
 import { tryAutoIssueInvoice } from '../reviewBillingAutomation'
@@ -17,6 +27,16 @@ const mockedCreateInvoice = vi.mocked(markBlReadyAndCreateInvoice)
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockFrom.mockImplementation(() => ({
+    select: () => ({
+      eq: () => ({
+        single: async () => ({
+          data: { ce_mercante: '122605051526081', cargo_mode: 'container' },
+          error: null,
+        }),
+      }),
+    }),
+  }))
   mockedCalculate.mockResolvedValue({
     bl_id: 'BL1',
     status: 'calculated',
@@ -32,6 +52,28 @@ beforeEach(() => {
 })
 
 describe('tryAutoIssueInvoice', () => {
+  it('bloqueia BL container sem CE Mercante antes de calcular taxas', async () => {
+    mockFrom.mockImplementationOnce(() => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { ce_mercante: null, cargo_mode: 'container' },
+            error: null,
+          }),
+        }),
+      }),
+    }))
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toEqual({
+      status: 'blocked',
+      message: 'Aguardando cadastro do CE Mercante para calcular taxas (ADR 0020).',
+    })
+    expect(mockedCalculate).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+  })
+
   it('recalcula, marca pronto e emite a fatura para BL com taxas validas', async () => {
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
@@ -116,5 +158,23 @@ describe('tryAutoIssueInvoice', () => {
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
     expect(result).toEqual({ status: 'blocked', message: 'ledger failed' })
+  })
+
+  it('nao exige CE Mercante para carga solta', async () => {
+    mockFrom.mockImplementationOnce(() => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { ce_mercante: null, cargo_mode: 'carga_solta' },
+            error: null,
+          }),
+        }),
+      }),
+    }))
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
+    expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
   })
 })

@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `docs/plans/README.md`.
+> in `docs/archive/plans/2026-07-08-transhipping-desk-edi-taxas/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat b2461da..HEAD -- src/services/blParser.ts src/services/blFreightImport.ts supabase/migrations/`
 > If any in-scope file changed since this plan was written, compare the
@@ -334,7 +334,7 @@ migration existentes (asserções sobre o SQL) e registrar a pendência.
 - [ ] `grep -c "total_packages" supabase/migrations/171_bl_import_edi_fields.sql` ≥ 4
 - [ ] `npm run docs:check` exit 0
 - [ ] `git status` sem arquivos fora do escopo
-- [ ] Linha deste plano atualizada em `docs/plans/README.md`
+- [x] Linha deste plano atualizada em `docs/archive/plans/2026-07-08-transhipping-desk-edi-taxas/README.md`
 
 ## STOP conditions
 
