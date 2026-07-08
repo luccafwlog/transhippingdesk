@@ -31,7 +31,9 @@ Também é uma **fonte de ingestão co-primária** (ao lado do manifesto): o arq
 do B/L pode criar um B/L inexistente — inclusive quando não há manifesto,
 **dispensando-o** — e corrigir dados comerciais já gravados (com auditoria e
 preview do diff), além de ser a única fonte de Frete & Despesas do BL e da data
-de emissão do B/L.
+de emissão do B/L. O documento do B/L é um **superconjunto do manifesto**: toda
+informação presente no manifesto existe também no B/L; o inverso não vale
+(ex.: frete e despesas só existem no B/L).
 
 **Manifesto**
 Arquivo do armador com dados comerciais dos B/Ls, consignatários, documentos,
@@ -92,6 +94,9 @@ Resumo de prontidão dos dados:
 **Flags Operacionais**
 Características físicas da carga, como IMO, classe, número ONU, OOG e status
 cheio/vazio. Não incluem consignatário, documento fiscal ou peso de cobrança.
+O B/L declara carga perigosa no nível do conhecimento (DG Class e número ONU na
+descrição da mercadoria), aplicando-se inicialmente a todos os containers do
+B/L; o Baplie refina depois quais containers são de fato IMO.
 
 **IMO**
 Classificação de carga perigosa segundo a International Maritime Organization.
@@ -103,7 +108,9 @@ Container com dimensões fora do padrão ISO.
 
 **CE Mercante**
 Conhecimento Eletrônico registrado por B/L no sistema Mercante. Sua ausência
-pode bloquear a visibilidade de dados e documentos no Portal do Cliente.
+pode bloquear a visibilidade de dados e documentos no Portal do Cliente. Seu
+cadastro no sistema é o gatilho do cálculo automático de Taxas Locais do B/L
+de container: nada é calculado nem faturado antes do CE Mercante existir.
 
 **CE Master**
 Conhecimento agrupador associado ao manifesto. É distinto dos CEs individuais
@@ -140,7 +147,10 @@ mas os conceitos não são equivalentes.
 
 **Taxas Locais**
 Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
-específicas do cliente.
+específicas do cliente. Para B/L de container, o cálculo automático é
+disparado pelo cadastro do CE Mercante — nunca pelo import do manifesto ou do
+B/L —, garantindo que todos os B/Ls da viagem já existam quando taxas de
+container compartilhado são divididas.
 
 **Recebível Local**
 Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
