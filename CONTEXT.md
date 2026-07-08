@@ -31,7 +31,9 @@ Também é uma **fonte de ingestão co-primária** (ao lado do manifesto): o arq
 do B/L pode criar um B/L inexistente — inclusive quando não há manifesto,
 **dispensando-o** — e corrigir dados comerciais já gravados (com auditoria e
 preview do diff), além de ser a única fonte de Frete & Despesas do BL e da data
-de emissão do B/L.
+de emissão do B/L. O documento do B/L é um **superconjunto do manifesto**: toda
+informação presente no manifesto existe também no B/L; o inverso não vale
+(ex.: frete e despesas só existem no B/L).
 
 **Manifesto**
 Arquivo do armador com dados comerciais dos B/Ls, consignatários, documentos,
