@@ -94,6 +94,9 @@ Resumo de prontidão dos dados:
 **Flags Operacionais**
 Características físicas da carga, como IMO, classe, número ONU, OOG e status
 cheio/vazio. Não incluem consignatário, documento fiscal ou peso de cobrança.
+O B/L declara carga perigosa no nível do conhecimento (DG Class e número ONU na
+descrição da mercadoria), aplicando-se inicialmente a todos os containers do
+B/L; o Baplie refina depois quais containers são de fato IMO.
 
 **IMO**
 Classificação de carga perigosa segundo a International Maritime Organization.
