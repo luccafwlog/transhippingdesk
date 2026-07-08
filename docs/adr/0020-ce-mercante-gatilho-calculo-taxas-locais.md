@@ -40,7 +40,12 @@ em que, por construção, todos os B/Ls da viagem já foram importados.
    de cliente, review gate e holds ([ADR 0006](./0006-revisao-operacional-reconciliacao-cliente-gate-faturamento.md));
    CE cadastrado com gate pendente calcula quando o gate liberar, não antes.
 
-4. **A proteção de faturamento do ADR 0017 continua como rede de segurança**
+4. **Fronteira: somente B/Ls de container.** Carga solta (breakbulk) mantém o
+   cálculo pós-commit do seu import e o Granito mantém seu fluxo próprio — o
+   problema motivador (divisão de container compartilhado) não existe nesses
+   modos. Assimetria assumida deliberadamente para minimizar o diff.
+
+5. **A proteção de faturamento do ADR 0017 continua como rede de segurança**
    para o caso residual de um B/L tardio compartilhar container com B/L já
    calculado/faturado (variável de faturamento → informar e exigir override
    auditado).
