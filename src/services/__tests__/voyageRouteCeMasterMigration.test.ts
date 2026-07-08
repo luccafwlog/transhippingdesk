@@ -9,7 +9,7 @@ const sql = fs.readFileSync(
   'utf8',
 )
 const hardeningSql = fs.readFileSync(
-  path.resolve('supabase/migrations/169_voyage_route_ce_master_rls_active.sql'),
+  path.resolve('supabase/migrations/170_voyage_route_ce_master_rls_active.sql'),
   'utf8',
 )
 
@@ -38,7 +38,7 @@ describe('167 voyage_route_ce_master migration', () => {
   })
 })
 
-describe('169 voyage_route_ce_master RLS hardening', () => {
+describe('170 voyage_route_ce_master RLS hardening', () => {
   it('remove as policies permissivas da migration 167', () => {
     expect(hardeningSql).toContain('DROP POLICY IF EXISTS "read voyage_route_ce_master"')
     expect(hardeningSql).toContain('DROP POLICY IF EXISTS "insert voyage_route_ce_master"')
