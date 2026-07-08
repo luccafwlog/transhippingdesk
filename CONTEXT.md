@@ -108,7 +108,9 @@ Container com dimensões fora do padrão ISO.
 
 **CE Mercante**
 Conhecimento Eletrônico registrado por B/L no sistema Mercante. Sua ausência
-pode bloquear a visibilidade de dados e documentos no Portal do Cliente.
+pode bloquear a visibilidade de dados e documentos no Portal do Cliente. Seu
+cadastro no sistema é o gatilho do cálculo automático de Taxas Locais do B/L
+de container: nada é calculado nem faturado antes do CE Mercante existir.
 
 **CE Master**
 Conhecimento agrupador associado ao manifesto. É distinto dos CEs individuais
@@ -145,7 +147,10 @@ mas os conceitos não são equivalentes.
 
 **Taxas Locais**
 Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
-específicas do cliente.
+específicas do cliente. Para B/L de container, o cálculo automático é
+disparado pelo cadastro do CE Mercante — nunca pelo import do manifesto ou do
+B/L —, garantindo que todos os B/Ls da viagem já existam quando taxas de
+container compartilhado são divididas.
 
 **Recebível Local**
 Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
