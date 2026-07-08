@@ -44,6 +44,10 @@ describe('169 voyage_route_ce_master RLS hardening', () => {
     expect(hardeningSql).toContain('DROP POLICY IF EXISTS "insert voyage_route_ce_master"')
     expect(hardeningSql).toContain('DROP POLICY IF EXISTS "update voyage_route_ce_master"')
     expect(hardeningSql).toContain('DROP POLICY IF EXISTS "delete voyage_route_ce_master"')
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS voyage_route_ce_master_select_active')
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS voyage_route_ce_master_insert_active')
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS voyage_route_ce_master_update_active')
+    expect(hardeningSql).toContain('DROP POLICY IF EXISTS voyage_route_ce_master_delete_admin')
   })
 
   it('limita leitura e escrita a usuarios ativos', () => {

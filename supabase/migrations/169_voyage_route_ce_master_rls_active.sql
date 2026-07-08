@@ -19,6 +19,10 @@ DROP POLICY IF EXISTS "read voyage_route_ce_master"   ON public.voyage_route_ce_
 DROP POLICY IF EXISTS "insert voyage_route_ce_master" ON public.voyage_route_ce_master;
 DROP POLICY IF EXISTS "update voyage_route_ce_master" ON public.voyage_route_ce_master;
 DROP POLICY IF EXISTS "delete voyage_route_ce_master" ON public.voyage_route_ce_master;
+DROP POLICY IF EXISTS voyage_route_ce_master_select_active ON public.voyage_route_ce_master;
+DROP POLICY IF EXISTS voyage_route_ce_master_insert_active ON public.voyage_route_ce_master;
+DROP POLICY IF EXISTS voyage_route_ce_master_update_active ON public.voyage_route_ce_master;
+DROP POLICY IF EXISTS voyage_route_ce_master_delete_admin ON public.voyage_route_ce_master;
 
 CREATE POLICY voyage_route_ce_master_select_active
   ON public.voyage_route_ce_master FOR SELECT
