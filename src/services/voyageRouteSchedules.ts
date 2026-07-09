@@ -38,6 +38,8 @@ export type VoyagePodSchedule = {
   escalaNumber: string | null
   /** POD removido do planejamento (soft-delete via audit log). */
   deleted?: boolean
+  /** Escala omitida pelo armador (carga descarregada em outro POD). */
+  omitted?: boolean
 }
 
 export function getEditableVoyagePodCeStatus(status: VoyagePodCeStatus | null | undefined): EditableVoyagePodCeStatus {
@@ -136,6 +138,7 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
     if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
     if (row.field_name === 'deleted' && !seenFields.has('deleted')) current.deleted = normalizeBooleanValue(row.new_value) ?? false
+    if (row.field_name === 'omitted' && !seenFields.has('omitted')) current.omitted = normalizeBooleanValue(row.new_value) ?? false
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
@@ -430,21 +433,29 @@ export async function listVoyageRouteCeMasters(voyageIds: number[]) {
   return result
 }
 
+/** Viagem conclui quando todo POD ativo tem ATD; POD omitido nao conta como pendente. */
+export function computeVoyageStatusFromPods(
+  pods: Array<{ atd: string | null; omitted?: boolean }>,
+): 'active' | 'completed' {
+  const relevant = pods.filter((pod) => !pod.omitted)
+  if (relevant.length === 0) return 'active'
+  return relevant.every((pod) => pod.atd) ? 'completed' : 'active'
+}
+
 async function syncVoyageStatusAfterAtdChange(voyageId: number, changedPod: string, newAtd: string | null) {
   const allPodSchedules = await listVoyagePodSchedulesByVoyageIds([voyageId])
 
-  const podAtdValues: Array<{ pod: string; atd: string | null }> = []
+  const podEntries: Array<{ atd: string | null; omitted?: boolean }> = []
   for (const [entityId, schedule] of allPodSchedules) {
     if (schedule.voyageId !== voyageId) continue
     const pod = entityId.split('::')[1] ?? '-'
     const atd = pod === changedPod ? newAtd : schedule.atd
-    podAtdValues.push({ pod, atd })
+    podEntries.push({ atd, omitted: schedule.omitted })
   }
 
-  if (podAtdValues.length === 0) return
+  if (podEntries.length === 0) return
 
-  const allAtdSet = podAtdValues.every((entry) => entry.atd)
-  const newStatus = allAtdSet ? 'completed' : 'active'
+  const newStatus = computeVoyageStatusFromPods(podEntries)
 
   const { data: voyage, error: fetchError } = await supabase
     .from('voyages')
@@ -519,6 +530,7 @@ function hydratePodSchedules(
     if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
     if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
     if (row.field_name === 'deleted' && !seenFields.has('deleted')) current.deleted = normalizeBooleanValue(row.new_value) ?? false
+    if (row.field_name === 'omitted' && !seenFields.has('omitted')) current.omitted = normalizeBooleanValue(row.new_value) ?? false
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
@@ -561,6 +573,7 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     linked: null,
     escalaNumber: null,
     deleted: false,
+    omitted: false,
   }
 }
 

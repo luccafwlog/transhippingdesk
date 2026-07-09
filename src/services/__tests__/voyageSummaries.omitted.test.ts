@@ -1,0 +1,17 @@
+import { describe, expect, it } from 'vitest'
+import { getProximaEscala } from '../voyageSummaries'
+
+describe('getProximaEscala com PODs omitidos', () => {
+  it('ignora o POD omitido ao escolher a proxima escala', () => {
+    const rows = [
+      { pod: 'SALVADOR', eta: '2026-07-10', ata: null, omitted: true },
+      { pod: 'VITORIA', eta: '2026-07-20', ata: null },
+    ]
+    expect(getProximaEscala(rows)?.pod).toBe('VITORIA')
+  })
+
+  it('retorna null quando o unico POD pendente esta omitido', () => {
+    const rows = [{ pod: 'SALVADOR', eta: '2026-07-10', ata: null, omitted: true }]
+    expect(getProximaEscala(rows)).toBeNull()
+  })
+})
