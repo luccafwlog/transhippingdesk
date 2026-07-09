@@ -26,3 +26,10 @@ export const PORTAL_SCHEDULE_LANES: readonly PortalScheduleLane[] = [
 export function portalLaneCode(lane: PortalScheduleLane): string {
   return normalizePortCode(lane.label) ?? lane.label.toUpperCase()
 }
+
+/** Exibe uma data ISO (YYYY-MM-DD) como DD/MM/AAAA sem instanciar Date. */
+export function formatScheduleDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return value
+  return `${match[3]}/${match[2]}/${match[1]}`
+}

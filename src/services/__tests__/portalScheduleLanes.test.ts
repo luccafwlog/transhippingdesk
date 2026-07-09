@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PORTAL_SCHEDULE_LANES, portalLaneCode } from '../portalScheduleLanes'
+import { PORTAL_SCHEDULE_LANES, formatScheduleDate, portalLaneCode } from '../portalScheduleLanes'
 
 describe('portas-vitrine do Portal', () => {
   it('lista os 8 portos do servico na ordem das colunas', () => {
@@ -24,5 +24,17 @@ describe('portas-vitrine do Portal', () => {
   it('deriva o code canonico via normalizePortCode', () => {
     expect(portalLaneCode(PORTAL_SCHEDULE_LANES[0])).toBe('CNTAO')
     expect(portalLaneCode(PORTAL_SCHEDULE_LANES[5])).toBe('BRSSA')
+  })
+})
+
+describe('formatScheduleDate', () => {
+  it('converte ISO em DD/MM/AAAA sem usar Date (sem bug de fuso)', () => {
+    expect(formatScheduleDate('2026-01-22')).toBe('22/01/2026')
+  })
+
+  it('mantem X e valores nao-ISO como estao', () => {
+    expect(formatScheduleDate('X')).toBe('X')
+    expect(formatScheduleDate('')).toBe('')
+    expect(formatScheduleDate('22/01/2026')).toBe('22/01/2026')
   })
 })

@@ -1,6 +1,6 @@
 import { Ship, Anchor } from 'lucide-react'
 import { usePortalScheduleVoyages } from '../../hooks/usePortalScheduleVoyages'
-import { PORTAL_SCHEDULE_LANES } from '../../services/portalScheduleLanes'
+import { PORTAL_SCHEDULE_LANES, formatScheduleDate } from '../../services/portalScheduleLanes'
 
 function parseDate(dateStr: string): Date | null {
   if (!dateStr || dateStr === 'X') return null
@@ -20,7 +20,7 @@ function DateCell({ value }: { value: string }) {
   const isPast = isDateInPast(value)
   return (
     <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isPast ? 'text-[var(--app-blue-btn)] font-semibold' : 'text-[var(--app-text)]'}`}>
-      {value}
+      {isX ? 'X' : formatScheduleDate(value)}
     </td>
   )
 }

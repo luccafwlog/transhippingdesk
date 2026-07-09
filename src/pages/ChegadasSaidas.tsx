@@ -5,7 +5,7 @@ import { Card, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { emptyScheduleForm, buildScheduleLanes, scheduleFormFromVoyage, type ScheduleForm } from './chegadasSaidasForm'
-import { PORTAL_SCHEDULE_LANES } from '../services/portalScheduleLanes'
+import { PORTAL_SCHEDULE_LANES, formatScheduleDate } from '../services/portalScheduleLanes'
 import { parseScheduleRows, scheduleTemplateColumns } from '../services/portalScheduleBulkImport'
 import { fetchPortalScheduleVoyages, type PortalScheduleVoyage } from '../services/portalScheduleVoyages'
 import { createOrAttachVoyageFromSchedule } from '../services/voyageFromSchedule'
@@ -38,7 +38,7 @@ function DateTd({ value }: { value: string }) {
   const isX = value === 'X'
   return (
     <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : info.isPast ? 'text-[var(--app-blue)] font-semibold' : ''}`}>
-      {value}
+      {isX ? 'X' : formatScheduleDate(value)}
     </td>
   )
 }
