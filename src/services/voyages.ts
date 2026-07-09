@@ -248,11 +248,12 @@ export async function findVoyageByNumberAndVessel(
   const number = voyageNumber.trim().toUpperCase()
   const imo = vesselImo.trim()
   const name = vesselName.trim().toUpperCase()
+  const numberPattern = number.replace(/[\\%_]/g, (char) => `\\${char}`)
 
   const { data, error } = await supabase
     .from('voyages')
     .select('id, voyage_number, vessel:vessels(name, imo)')
-    .ilike('voyage_number', number)
+    .ilike('voyage_number', numberPattern)
     .overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string | null; imo: string | null } | null }>, { merge: false }>()
   if (error) throw error
 
