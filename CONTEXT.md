@@ -24,8 +24,9 @@ operacional consome — manifestos e B/Ls referenciam esses mesmos portos.
 **Programação de Navios (Chegadas e Saídas)**
 Quadro de line-up exibido ao cliente no Portal, com a previsão de datas por porto
 da rota. É uma **visão voltada ao cliente**, distinta do **Line-Up (TV)**, que é o
-painel operacional derivado das viagens já cadastradas. A Programação de Navios é
-ponto de entrada do cadastro; o Line-Up (TV) é consumidor das viagens.
+painel operacional derivado das viagens já cadastradas. A ADR 0021 decide unificar
+esse cadastro ao da Viagem (a Programação passa a projetar a Viagem); enquanto não
+implementada, os dois cadastros permanecem separados.
 
 **Número de Escala do Mercante**
 Identificador criado no sistema federal Mercante para uma escala do navio. Uma
