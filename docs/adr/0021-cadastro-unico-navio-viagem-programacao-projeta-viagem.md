@@ -88,3 +88,18 @@ de teste.
   ordenação por ETA); o formulário de Chegadas e Saídas passa a exigir datas
   completas, um passo a mais para o operador; a deduplicação por VOY+IMO precisa
   tratar o fallback por nome com cuidado para não anexar à viagem errada.
+
+## Nota editorial — 2026-07-09 (implementação, PR #347)
+
+A decisão original definiu "não escala" só na criação. A implementação precisou
+resolver a **remoção**:
+
+- **Cancelamento na edição unitária** zera o ETD/ETA publicado. POD **sem âncora
+  operacional** (sem `linked`, sem ATA/ATD, sem B/L consignado) é **soft-deletado**
+  e some de Portal, Viagens e Line-Up; POD **com âncora** mantém a escala e apenas
+  perde o ETA publicado — o Portal nunca destrói realidade operacional. POL
+  cancela apenas com `etd = null` (sem soft-delete).
+- **Upload em lote** não cancela: `X`/vazio significa "não mexe". A função
+  `createOrAttachVoyageFromSchedule` distingue os dois via `mode: 'form' | 'bulk'`.
+- **Edição = só agenda.** Navio/VOY/IMO são read-only na edição do CES (dedup só
+  na criação/anexação); identidade se corrige na tela Viagens.

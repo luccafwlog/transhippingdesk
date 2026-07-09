@@ -33,6 +33,13 @@ deixa a lane sem data e, portanto, sem schedule. Ao salvar,
 cria ou anexa a viagem, liga `show_on_portal` e grava somente ETD de POL e ETA
 de POD. ATA, ATD, RTW, CE status, escala e vínculo não são sobrescritos.
 
+Na **edição**, apenas as datas da programação são editáveis — navio, VOY e IMO
+são read-only (corrigidos na tela Viagens). Marcar um porto como "não escala"
+cancela aquela escala: o ETD/ETA publicado é removido e, se a escala não tiver
+âncora operacional (manifesto vinculado, ATA/ATD ou B/L), ela é removida também
+de Viagens e do Line-Up. O upload em lote nunca cancela escalas — células vazias
+ou "X" são ignoradas.
+
 Remover uma linha do quadro chama `setVoyageShowOnPortal(id, false)`; a viagem
 operacional continua existindo e só pode ser excluída em `/viagens`.
 
