@@ -189,10 +189,13 @@ navegador via `window.print()`.
 
 ## Programação de navios
 
-`/chegadas-saidas` administra `vessel_schedules` e o histórico de navios
-encerrados. A programação alimenta o widget exibido no Dashboard do Portal. Esse
-cadastro é separado das viagens operacionais, embora compartilhe navio e número
-de viagem como linguagem de negócio.
+`/chegadas-saidas` cria ou anexa a própria `voyage` operacional e marca
+`voyages.show_on_portal` para publicar a programação no Dashboard do Portal. O
+widget não lê mais `vessel_schedules`; ele chama a RPC allowlisted
+`portal_ship_schedule`, que projeta viagens ativas e visíveis sobre a constante
+única de portos-vitrine. As tabelas legadas `vessel_schedules` e
+`ended_vessels` permanecem no histórico de schema, mas não são fonte do fluxo
+atual.
 
 ## Supabase
 

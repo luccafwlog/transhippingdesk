@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type { VoyageFormValues } from './voyageForm'
 import {
   buildVoyagePodEntityId,
+  saveVoyagePolSchedule,
   listVoyagePodSchedules,
   saveVoyagePodSchedule,
 } from './voyageRouteSchedules'
@@ -27,6 +28,7 @@ export async function createVoyage(form: VoyageFormValues, changedBy: string | n
   await insertVoyageAuditRows([
     makeVoyageAuditRow(created.id, 'created', null, form.voyageNumber.trim(), changedBy),
   ])
+  await syncLoadPortEtds(created.id, form, changedBy)
   await syncDischargePortEtas(created.id, form, changedBy)
 
   return created
@@ -60,6 +62,7 @@ export async function updateVoyage(voyageId: number, form: VoyageFormValues, cha
     makeVoyageAuditRow(voyageId, 'voyage_number', current?.voyage_number ?? null, form.voyageNumber.trim(), changedBy),
     makeVoyageAuditRow(voyageId, 'status', current?.status ?? null, form.status, changedBy),
   ])
+  await syncLoadPortEtds(voyageId, form, changedBy)
   await syncDischargePortEtas(voyageId, form, changedBy)
 
   return updated
@@ -140,6 +143,19 @@ async function syncDischargePortEtas(voyageId: number, form: VoyageFormValues, c
   )
 }
 
+async function syncLoadPortEtds(voyageId: number, form: VoyageFormValues, changedBy: string | null) {
+  if (!form.loadPortEtds.length) return
+
+  await Promise.all(
+    form.loadPortEtds.map((row) => saveVoyagePolSchedule({
+      voyageId,
+      pol: row.pol,
+      etd: row.etd,
+      changedBy,
+    })),
+  )
+}
+
 async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
   const normalizedImo = imo.trim() || null
   const { data: existing, error: existingError } = await supabase
@@ -213,4 +229,37 @@ export async function fetchVoyagesWithUnpaidBls(voyageIds: number[]): Promise<Se
 
   if (error) throw error
   return new Set((data ?? []).map((row) => Number((row as { voyage_id: number }).voyage_id)).filter(Boolean))
+}
+
+export async function setVoyageShowOnPortal(voyageId: number, show: boolean) {
+  const { error } = await supabase
+    .from('voyages')
+    .update({ show_on_portal: show })
+    .eq('id', voyageId)
+  if (error) throw error
+}
+
+/** Busca viagem por VOY + navio (IMO; fallback nome). null se nao existir. */
+export async function findVoyageByNumberAndVessel(
+  voyageNumber: string,
+  vesselImo: string,
+  vesselName: string,
+): Promise<number | null> {
+  const number = voyageNumber.trim().toUpperCase()
+  const imo = vesselImo.trim()
+  const name = vesselName.trim().toUpperCase()
+
+  const { data, error } = await supabase
+    .from('voyages')
+    .select('id, voyage_number, vessel:vessels(name, imo)')
+    .ilike('voyage_number', number)
+    .overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string | null; imo: string | null } | null }>, { merge: false }>()
+  if (error) throw error
+
+  const match = (data ?? []).find((row) => {
+    if (row.voyage_number.trim().toUpperCase() !== number) return false
+    if (imo && row.vessel?.imo) return row.vessel.imo.trim() === imo
+    return (row.vessel?.name ?? '').trim().toUpperCase() === name
+  })
+  return match?.id ?? null
 }

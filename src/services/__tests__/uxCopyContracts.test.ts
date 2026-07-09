@@ -23,12 +23,12 @@ it('exposes the audit author filter and clears it with the other filters', () =>
   expect(source).toContain('logFilters.entityType || logFilters.changedBy || logFilters.dateFrom || logFilters.dateTo')
 })
 
-it('distinguishes schedule export query failures from empty results', () => {
+it('uses the voyage-backed schedule flow instead of the legacy schedule export', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/pages/ChegadasSaidas.tsx'), 'utf8')
-  expect(source).toContain('const { data, error } = await supabase.from(\'vessel_schedules\')')
-  expect(source).toContain('Falha ao carregar os navios para gerar o modelo.')
-  expect(source).toContain('const { data, error } = await supabase.from(\'ended_vessels\')')
-  expect(source).toContain('Falha ao carregar os navios encerrados.')
+  expect(source).toContain('createOrAttachVoyageFromSchedule')
+  expect(source).toContain('setVoyageShowOnPortal')
+  expect(source).not.toContain('vessel_schedules')
+  expect(source).not.toContain('ended_vessels')
 })
 
 it('only exposes Baplie import and reimport controls to administrators', () => {

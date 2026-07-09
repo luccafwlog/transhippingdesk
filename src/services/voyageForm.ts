@@ -8,6 +8,11 @@ type VoyageDischargePortEta = {
   eta: string
 }
 
+type VoyageLoadPortEtd = {
+  pol: string
+  etd: string
+}
+
 export type VoyageFormValues = {
   carrierName: string
   carrierScac: string
@@ -15,6 +20,7 @@ export type VoyageFormValues = {
   vesselImo: string
   voyageNumber: string
   status: 'active' | 'completed' | 'cancelled'
+  loadPortEtds: VoyageLoadPortEtd[]
   dischargePortEtas: VoyageDischargePortEta[]
 }
 
@@ -25,6 +31,7 @@ export const initialVoyageFormValues: VoyageFormValues = {
   vesselImo: '',
   voyageNumber: '',
   status: 'active',
+  loadPortEtds: [],
   dischargePortEtas: [],
 }
 
@@ -35,6 +42,12 @@ export const voyageFormSchema = z.object({
   vesselImo: z.string(),
   voyageNumber: z.string().min(1, 'Numero da viagem obrigatorio'),
   status: z.enum(['active', 'completed', 'cancelled']),
+  loadPortEtds: z.array(
+    z.object({
+      pol: z.string().min(1, 'Informe o porto de carregamento'),
+      etd: z.string().min(1, 'Informe o ETD do porto de carregamento'),
+    }),
+  ),
   dischargePortEtas: z.array(
     z.object({
       pod: z.string().min(1, 'Informe o porto de descarga'),
@@ -53,8 +66,24 @@ export function normalizeVoyageFormValues(values: VoyageFormValues): VoyageFormV
     vesselName: values.vesselName.trim().toUpperCase(),
     vesselImo: values.vesselImo.trim(),
     voyageNumber: values.voyageNumber.trim().toUpperCase(),
+    loadPortEtds: normalizeLoadPortEtds(values.loadPortEtds),
     dischargePortEtas: normalizeDischargePortEtas(values.dischargePortEtas),
   }
+}
+
+function normalizeLoadPortEtds(values: VoyageLoadPortEtd[]) {
+  const normalized = new Map<string, VoyageLoadPortEtd>()
+
+  for (const value of values) {
+    const pol = value.pol.trim().toUpperCase()
+    const etd = value.etd.trim()
+
+    if (!pol && !etd) continue
+
+    normalized.set(pol || `__EMPTY__${normalized.size}`, { pol, etd })
+  }
+
+  return Array.from(normalized.values())
 }
 
 function normalizeDischargePortEtas(values: VoyageDischargePortEta[]) {

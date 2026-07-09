@@ -42,8 +42,8 @@ vi.mock('../../hooks/usePortalOperation', () => ({
   usePortalOperationBls: () => ({ data: hookState.operationError ? undefined : operationBls, isLoading: false, error: hookState.operationError }),
 }))
 
-vi.mock('../../hooks/useVesselSchedules', () => ({
-  useVesselSchedules: () => ({ data: [], isLoading: false }),
+vi.mock('../../hooks/usePortalScheduleVoyages', () => ({
+  usePortalScheduleVoyages: () => ({ data: [], isLoading: false }),
 }))
 
 vi.mock('@tanstack/react-query', async () => {

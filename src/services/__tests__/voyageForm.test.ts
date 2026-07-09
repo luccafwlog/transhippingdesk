@@ -46,6 +46,7 @@ describe('voyageFormSchema (US-214 validacao)', () => {
       vesselImo: '',
       voyageNumber: '',
       status: 'active',
+      loadPortEtds: [],
       dischargePortEtas: [],
     })
     expect(parsed.success).toBe(false)
@@ -59,6 +60,7 @@ describe('voyageFormSchema (US-214 validacao)', () => {
       vesselImo: '9876543',
       voyageNumber: '14N',
       status: 'completed',
+      loadPortEtds: [],
       dischargePortEtas: [{ pod: 'BRVIT', eta: '2026-06-01' }],
     })
     expect(parsed.success).toBe(true)

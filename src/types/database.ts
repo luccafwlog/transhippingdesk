@@ -141,6 +141,7 @@ export type Voyage = {
   eta: string | null
   ata: string | null
   status: 'active' | 'completed' | 'cancelled' | null
+  show_on_portal: boolean
   created_at: string | null
 }
 
