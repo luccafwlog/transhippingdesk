@@ -8,6 +8,14 @@ vi.mock('../billing', () => ({
   markBlReadyAndCreateInvoice: vi.fn(),
 }))
 
+const { mockLogOperationalEvent } = vi.hoisted(() => ({
+  mockLogOperationalEvent: vi.fn(),
+}))
+
+vi.mock('../operationalEvents', () => ({
+  logOperationalEvent: mockLogOperationalEvent,
+}))
+
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
 }))
@@ -20,7 +28,7 @@ vi.mock('../supabase', () => ({
 
 import { markBlReadyAndCreateInvoice } from '../billing'
 import { calculateBlLocalCharges } from '../charges/chargeOperationsService'
-import { tryAutoIssueInvoice } from '../reviewBillingAutomation'
+import { maybeAutoBillAfterCeMercante, tryAutoIssueInvoice } from '../reviewBillingAutomation'
 
 const mockedCalculate = vi.mocked(calculateBlLocalCharges)
 const mockedCreateInvoice = vi.mocked(markBlReadyAndCreateInvoice)
@@ -157,7 +165,7 @@ describe('tryAutoIssueInvoice', () => {
 
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
-    expect(result).toEqual({ status: 'blocked', message: 'ledger failed' })
+    expect(result).toEqual({ status: 'blocked', message: 'ledger failed', unexpected: true })
   })
 
   it('nao exige CE Mercante para carga solta', async () => {
@@ -176,5 +184,74 @@ describe('tryAutoIssueInvoice', () => {
 
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
     expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
+  })
+})
+
+describe('maybeAutoBillAfterCeMercante', () => {
+  function mockBl(overrides: Record<string, unknown>) {
+    mockFrom.mockImplementation(() => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: {
+              id: 'BL1',
+              customer_id: 99,
+              customer_reconciliation_status: 'matched_document',
+              cargo_mode: 'container',
+              financial_status: 'pending',
+              ce_mercante: '122605051526081',
+              ...overrides,
+            },
+            error: null,
+          }),
+        }),
+      }),
+    }))
+  }
+
+  it('registra info e nao refatura quando o B/L ja esta faturado', async () => {
+    mockBl({ financial_status: 'invoiced' })
+
+    const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
+
+    expect(result).toBeNull()
+    expect(mockedCalculate).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+    expect(mockLogOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'ce_reimport_already_invoiced', entityId: 'BL1', changedBy: 'user-1' }),
+    )
+  })
+
+  it('registra falha inesperada quando a emissao lanca erro', async () => {
+    mockBl({})
+    mockedCreateInvoice.mockRejectedValueOnce(new Error('ledger failed'))
+
+    const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
+
+    expect(result).toEqual({ status: 'blocked', message: 'ledger failed', unexpected: true })
+    expect(mockLogOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'bl_auto_billing_failed', entityId: 'BL1', changedBy: 'user-1' }),
+    )
+  })
+
+  it('nao registra evento quando o bloqueio e de negocio (sem valor faturavel)', async () => {
+    mockBl({})
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1',
+      status: 'calculated',
+      table_id: 1,
+      line_count: 1,
+      total_brl: 0,
+      total_usd: 0,
+      review_required: false,
+      exempt: false,
+      reason: '',
+    })
+
+    const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
+
+    expect(result).toMatchObject({ status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.' })
+    expect(result).not.toHaveProperty('unexpected')
+    expect(mockLogOperationalEvent).not.toHaveBeenCalled()
   })
 })

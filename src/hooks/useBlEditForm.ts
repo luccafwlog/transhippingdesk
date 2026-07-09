@@ -169,7 +169,16 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
         && !stringifyValue(baselineForm?.ce_mercante).trim()
         && Boolean(stringifyValue(form.ce_mercante).trim())
       if (ceMercanteAdded) {
-        void maybeAutoBillAfterCeMercante(bl.id, user.id).catch(() => {})
+        void maybeAutoBillAfterCeMercante(bl.id, user.id)
+          .then((result) => {
+            if (result?.status === 'blocked' && result.unexpected) {
+              showToast(
+                'CE Mercante salvo, mas o faturamento automático falhou. Verifique o Histórico do B/L.',
+                'error',
+              )
+            }
+          })
+          .catch(() => {})
       }
 
       await Promise.all([

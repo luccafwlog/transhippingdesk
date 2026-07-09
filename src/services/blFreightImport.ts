@@ -619,7 +619,7 @@ function firstLine(value: string) {
 }
 
 function extractPhone(value: string) {
-  return value.match(/TEL[.:]?\s*([+0-9()\s-]{8,25})/i)?.[1]?.trim() ?? null
+  return value.match(/TEL[.:]?\s*([+0-9() -]{8,25})/i)?.[1]?.trim() ?? null
 }
 
 // B/L cells carry Brazilian dates (DD/MM/YYYY). The previous digit-slice assumed

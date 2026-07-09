@@ -130,6 +130,15 @@ describe('blFreightImport', () => {
     expect(payload.containers[0]).toMatchObject({ is_imo: false, imo_class: null, un_number: null })
   })
 
+  it('nao captura telefone atravessando quebra de linha do bloco consignee', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeBlock = 'IMPORTADOR LTDA\nTEL:2124-1654\n3221 0000 CEP 29000-000'
+
+    const payload = buildBlFreightPayload(doc, 7)
+
+    expect(payload.consignee_phone).toBe('2124-1654')
+  })
+
   it('parses Brazilian DD/MM/YYYY emission dates instead of aborting the import', () => {
     const doc = parsedBL()
     doc.dates.issueDate = '21/04/2026'
