@@ -2,6 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { asString, chunkArray, normalizeHeader, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { CeMercanteEdiRow } from './ceMercanteEdiParser'
+import { maybeAutoBillAfterCeMercante } from './reviewBillingAutomation'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading', 'numero bl', 'n bl', 'no bl', 'no. bl'],
@@ -139,6 +140,7 @@ export async function importCeMercanteRows(
         inserted += 1
         break
     }
+    void maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy).catch(() => {})
   }
 
   return {
@@ -192,6 +194,9 @@ export async function importCeMercanteEdi(
   } | null
 
   if (result?.ok) {
+    for (const blId of new Set(rows.map((row) => row.bl_id))) {
+      void maybeAutoBillAfterCeMercante(blId, options.changedBy).catch(() => {})
+    }
     return {
       ok: true,
       batchId: Number(result.batch_id ?? 0),

@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { importCeMercanteRows, parseCeMercanteBuffer, type CeMercanteRow } from '../ceMercanteImport'
+import { importCeMercanteEdi, importCeMercanteRows, parseCeMercanteBuffer, type CeMercanteRow } from '../ceMercanteImport'
 import { jsonToBuffer } from './testWorkbook'
 
-const { mockFrom, mockRpc } = vi.hoisted(() => ({
+const { mockFrom, mockRpc, mockMaybeAutoBillAfterCeMercante } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
   mockRpc: vi.fn(),
+  mockMaybeAutoBillAfterCeMercante: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
@@ -14,10 +15,16 @@ vi.mock('../supabase', () => ({
   },
 }))
 
+vi.mock('../reviewBillingAutomation', () => ({
+  maybeAutoBillAfterCeMercante: mockMaybeAutoBillAfterCeMercante,
+}))
+
 describe('ceMercanteImport', () => {
   beforeEach(() => {
     mockFrom.mockReset()
     mockRpc.mockReset()
+    mockMaybeAutoBillAfterCeMercante.mockReset()
+    mockMaybeAutoBillAfterCeMercante.mockResolvedValue(null)
   })
 
   it('parseia a planilha e rejeita BL duplicado', async () => {
@@ -86,5 +93,38 @@ describe('ceMercanteImport', () => {
     expect(rpcName).toBe('apply_ce_mercante_update')
     expect(rpcArgs.p_bl_id).toBe('BL001')
     expect(rpcArgs.p_new_ce).toBe('122605051526081')
+    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', null)
+  })
+
+  it('nao dispara automacao quando a aplicacao do CE falha', async () => {
+    mockFrom.mockImplementation(() => ({
+      select: () => ({
+        in: async () => ({ data: [{ id: 'BL001' }], error: null }),
+      }),
+    }))
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'CE invalido' } })
+
+    const result = await importCeMercanteRows([
+      { rowNumber: 2, bl_id: 'BL001', ce_mercante: '122605051526081' },
+    ])
+
+    expect(result.errorCount).toBe(1)
+    expect(mockMaybeAutoBillAfterCeMercante).not.toHaveBeenCalled()
+  })
+
+  it('dispara automacao para cada BL apos importar CE por EDI', async () => {
+    mockRpc.mockResolvedValue({
+      data: { ok: true, batch_id: 10, processed: 2, inserted: 2, overwritten: 0, unchanged: 0 },
+      error: null,
+    })
+
+    const result = await importCeMercanteEdi([
+      { lineNumber: 1, bl_id: 'BL001', ce_mercante: '122605051526081' },
+      { lineNumber: 2, bl_id: 'BL002', ce_mercante: '122605051526082' },
+    ], { changedBy: 'user-1' })
+
+    expect(result).toMatchObject({ ok: true, batchId: 10, processed: 2 })
+    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', 'user-1')
+    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL002', 'user-1')
   })
 })

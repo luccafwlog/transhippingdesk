@@ -1,6 +1,6 @@
 # Faturamento
 
-> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/faturamento`; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
+> **Status:** ativo · **Atualizado:** 2026-07-08 · **Rotas:** `/faturamento`; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
 
 ## Propósito e escopo
 
@@ -17,6 +17,9 @@ agregada. Para taxas locais, o saldo canônico é o ledger por recebível; a tab
   `src/pages/Faturamento.tsx` não a usa como gate da rota ou das abas.
 - [Taxas Locais](taxas-locais.md) é dona do cálculo e do estado
   `ready_for_billing`.
+- Para B/Ls de container, emissão automática de taxas locais só nasce após o
+  cadastro do CE Mercante (ADR 0020) e continua respeitando reconciliação de
+  cliente, revisão e holds. Carga solta/Granito seguem fora desse gatilho.
 - [Reconciliação PIX](reconciliacao-pix.md) é dona do upload, matching,
   confirmação por TXID e estorno a partir do histórico.
 - Demurrage aparece na mesma experiência, mas permanece em

@@ -86,7 +86,7 @@ const ISO_CONTAINER_TYPE: Record<string, string> = {
   '40HC': '45G1', '40HQ': '45G1', '45HC': '45G1', '45': '45G1', '45G0': '45G1',
   '20RF': '22R1', '20RH': '22R1', '40RF': '45R1', '40RH': '45R1', '40RFHC': '45R1',
   '20OT': '22U1', '40OT': '42U1',
-  '20FR': '22P1', '40FR': '42P1',
+  '20FR': '22P1', '40FR': '42P1', '40FM': '49P0',
   '20TK': '22T1', '20TN': '22T1',
   '20PL': '22P1', '40PL': '42P1',
 }
@@ -340,21 +340,22 @@ export function generateI5Record(container: MercanteContainerData, seq: number):
   place(buf, 23, container.containerNumber, 11)
   place(buf, 34, fmtNumDec(container.tareWeightKg, 9, 3), 9)
 
-  // ponytail: IMO/UN placement unverified — the reference manifest has no
-  // dangerous cargo. UN number + class written into the reserved [447,458)
-  // slot; confirm against an IMO manifest before relying on it.
+  // IMO block verified against an accepted Mercante EDI with dangerous cargo
+  // (UN 3556/3166 class 9): UN number zero-padded to 6 digits at [448,454),
+  // DG class from 454.
   if (container.isImo) {
-    place(buf, 447, digits(container.unNumber), 4)
-    place(buf, 451, container.imoClass, 4)
+    place(buf, 448, digits(container.unNumber).padStart(6, '0').slice(-6), 6)
+    place(buf, 454, container.imoClass, 4)
   }
 
   place(buf, 458, fmtNumDec(container.totalCbm ?? 0, 13, 3), 13)
   // Seals may be alphanumeric (e.g. SEL123) — keep the text, don't strip letters.
   place(buf, 471, (container.sealNumber ?? '').replace(/\s+/g, ''), 6)
 
-  // NCM codes: 4-digit code every 8 chars from offset 531.
+  // NCM codes: up to 8 digits every 8 chars from offset 531 (verified: the
+  // accepted EDI writes the full 8-digit code, e.g. 87038000).
   container.ncmCodes.slice(0, 6).forEach((ncm, i) => {
-    place(buf, 531 + i * 8, digits(ncm), 4)
+    place(buf, 531 + i * 8, digits(ncm), 8)
   })
 
   return buf.join('')

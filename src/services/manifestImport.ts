@@ -21,7 +21,7 @@ export type ImportManifestArgs = {
 
 /**
  * Importa um manifesto CNTR de forma transacional, incluindo schedules,
- * billing inicial, flags de limbo e contatos financeiros vindos do manifesto.
+ * flags de limbo e contatos financeiros vindos do manifesto.
  */
 export async function importManifest({
   filename,
@@ -180,20 +180,7 @@ export async function importManifest({
     throw rpcError
   }
 
-  const batchIdNum = batchId as number
-  queueImportBilling(batchIdNum, uploadedBy)
-
-  return batchIdNum
-}
-
-function queueImportBilling(batchId: number, uploadedBy: string) {
-  setTimeout(() => {
-    supabase.rpc('run_billing_for_import_batch', {
-      p_batch_id: batchId,
-      p_actor: uploadedBy,
-      p_recalculate: true,
-    }).then(() => undefined, () => undefined)
-  }, 0)
+  return batchId as number
 }
 
 export class DuplicateManifestImportError extends Error {

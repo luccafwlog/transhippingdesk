@@ -5,7 +5,6 @@ import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
 import { applyBapliePhysicalFlags } from './baplieReconciliation'
 import { normalizePortCode } from './portCode'
-import { tryAutoIssueInvoice } from './reviewBillingAutomation'
 import { supabase } from './supabase'
 
 export type BlFreightImportDiff = {
@@ -60,6 +59,10 @@ export type BlFreightRpcPayload = {
   notify_block: string | null
   notify2_block: string | null
   notify_cnpj_cpf: string | null
+  cargo_description: string | null
+  total_packages: number | null
+  packages_unit: string | null
+  consignee_phone: string | null
   pol: string | null
   pod: string | null
   place_of_delivery: string | null
@@ -122,6 +125,10 @@ type ExistingBl = Pick<
   | 'manifest_customer_cnpj_cpf'
   | 'manifest_customer_name'
 > & {
+  cargo_description?: string | null
+  total_packages?: number | null
+  packages_unit?: string | null
+  consignee_phone?: string | null
   bl_containers?: Pick<BLContainer, 'container_number' | 'seal_number' | 'type' | 'tare_weight_kg' | 'gross_weight_kg' | 'cbm' | 'is_imo' | 'is_oog' | 'imo_class' | 'un_number'>[] | null
   bl_freight_lines?: Pick<BlFreightLine, 'seq' | 'description' | 'category' | 'mercante_code' | 'currency' | 'amount' | 'payment'>[] | null
 }
@@ -295,11 +302,11 @@ export async function confirmBlFreightImport(
     void applyBapliePhysicalFlags(voyageId, changedBy).catch(() => {})
   }
 
-  void triggerAutoBillingForImportedBls(payload, changedBy)
   return data
 }
 
 export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | null): BlFreightRpcPayload {
+  const isImoFromBl = Boolean(doc.cargo.dgClass || doc.cargo.unNumber)
   const containers = doc.containers.flatMap((container) => {
     const containerNumber = normalizeIsoContainerNumber(container.containerNumber)
     if (!containerNumber) return []
@@ -311,9 +318,9 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
       gross_weight_kg: container.grossWeightKg,
       cbm: container.cbm,
       is_oog: false,
-      is_imo: false,
-      imo_class: null,
-      un_number: null,
+      is_imo: isImoFromBl,
+      imo_class: doc.cargo.dgClass,
+      un_number: doc.cargo.unNumber,
     }]
   })
   const oceanFreight = doc.freightCharges.find((line) => normalizeFreightCategory(line.description) === 'OCEAN_FREIGHT')
@@ -337,6 +344,10 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     notify_block: doc.parties.notifyBlock || null,
     notify2_block: doc.parties.alsoNotifyBlock || null,
     notify_cnpj_cpf: extractTaxId(doc.parties.notifyBlock) || null,
+    cargo_description: doc.cargo.description || null,
+    total_packages: doc.cargo.totalPackages,
+    packages_unit: doc.cargo.packagesUnit,
+    consignee_phone: extractPhone(doc.parties.consigneeBlock),
     pol: normalizePortCode(doc.route.pol),
     pod: normalizePortCode(doc.route.pod),
     place_of_delivery: normalizePortCode(doc.route.delivery),
@@ -410,17 +421,6 @@ function preserveExistingContainerPhysicalAttributes(payload: BlFreightRpcPayloa
   }
 }
 
-async function triggerAutoBillingForImportedBls(payloads: BlFreightRpcPayload[], changedBy: string) {
-  for (const payload of payloads) {
-    if (!payload.customer_id || payload.customer_reconciliation_status !== 'matched_document') continue
-    try {
-      await tryAutoIssueInvoice({ blId: payload.id, customerId: payload.customer_id, actorId: changedBy })
-    } catch {
-      // Best-effort post-commit automation: import success must not be rolled back by billing.
-    }
-  }
-}
-
 // Billing variables (chargeTableService): container count/TEU, shared containers
 // (container_distinct_voyage), IMO/OOG profile, weight for carga_solta, and the
 // billed CNPJ. Everything else is freely correctable.
@@ -483,6 +483,10 @@ function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, impa
   addDiff(diffs, 'shipper', existing.shipper, payload.shipper, false)
   addDiff(diffs, 'consignee', existing.consignee, payload.consignee, false)
   addDiff(diffs, 'notify_party', existing.notify_party, payload.notify_party, false)
+  addDiff(diffs, 'cargo_description', existing.cargo_description, payload.cargo_description, false)
+  addDiff(diffs, 'total_packages', existing.total_packages, payload.total_packages, false)
+  addDiff(diffs, 'packages_unit', existing.packages_unit, payload.packages_unit, false)
+  addDiff(diffs, 'consignee_phone', existing.consignee_phone, payload.consignee_phone, false)
   addDiff(diffs, 'pol', existing.pol, payload.pol, false)
   addDiff(diffs, 'pod', existing.pod, payload.pod, false)
   addDiff(diffs, 'place_of_delivery', existing.place_of_delivery, payload.place_of_delivery, false)
@@ -523,6 +527,7 @@ async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
     .from('bls')
     .select(`
       id, voyage_id, cargo_mode, shipper, consignee, notify_party, pol, pod, place_of_delivery,
+      cargo_description, total_packages, packages_unit, consignee_phone,
       total_weight_kg, total_cbm, payment_type, bl_emission_date,
       manifest_customer_cnpj_cpf, manifest_customer_name,
       bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_imo, is_oog, imo_class, un_number),
@@ -611,6 +616,10 @@ function normalizeFreightCategory(value: string) {
 
 function firstLine(value: string) {
   return value.split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? null
+}
+
+function extractPhone(value: string) {
+  return value.match(/TEL[.:]?\s*([+0-9()\s-]{8,25})/i)?.[1]?.trim() ?? null
 }
 
 // B/L cells carry Brazilian dates (DD/MM/YYYY). The previous digit-slice assumed

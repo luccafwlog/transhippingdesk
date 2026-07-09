@@ -101,6 +101,7 @@ describe('helpers', () => {
   it('maps carrier container types to ISO 6346 codes', () => {
     expect(toIsoContainerType('20GP')).toBe('22G1')
     expect(toIsoContainerType('40HC')).toBe('45G1')
+    expect(toIsoContainerType('40FM')).toBe('49P0')
     expect(toIsoContainerType('22G1')).toBe('22G1') // already ISO -> pass through
   })
 })
@@ -205,7 +206,34 @@ describe('generateI5Record (FWL parity)', () => {
   })
 
   it('NCM at pos 531', () => {
-    expect(i5.substring(531, 535)).toBe('2923')
+    expect(i5.substring(531, 539)).toBe('2923    ')
+  })
+
+  it('places IMO UN and class in the accepted Mercante offsets', () => {
+    const imo = generateI5Record({
+      ...FLOPAM_BL.containers[0],
+      containerType: '40FM',
+      ncmCodes: ['87038000'],
+      isImo: true,
+      unNumber: '3556',
+      imoClass: '9',
+    }, 1)
+
+    expect(imo.substring(19, 23)).toBe('49P0')
+    expect(imo.substring(447, 458)).toBe(' 0035569   ')
+    expect(imo.substring(531, 539)).toBe('87038000')
+  })
+
+  it('keeps six-digit UN padding idempotent and leaves non-IMO block blank', () => {
+    const imo = generateI5Record({
+      ...FLOPAM_BL.containers[0],
+      isImo: true,
+      unNumber: '003166',
+      imoClass: '9',
+    }, 1)
+
+    expect(imo.substring(447, 458)).toBe(' 0031669   ')
+    expect(i5.substring(447, 458)).toBe(' '.repeat(11))
   })
 
   it('preserves alphanumeric seal values (no digit stripping)', () => {
@@ -215,11 +243,11 @@ describe('generateI5Record (FWL parity)', () => {
 
   it('places multiple NCM codes on an 8-char stride', () => {
     const multi = generateI5Record(
-      { ...FLOPAM_BL.containers[0], ncmCodes: ['2923', '8708'] },
+      { ...FLOPAM_BL.containers[0], ncmCodes: ['5514', '87038000'] },
       1,
     )
-    expect(multi.substring(531, 535)).toBe('2923')
-    expect(multi.substring(539, 543)).toBe('8708')
+    expect(multi.substring(531, 539)).toBe('5514    ')
+    expect(multi.substring(539, 547)).toBe('87038000')
   })
 })
 

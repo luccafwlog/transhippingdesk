@@ -4,7 +4,7 @@
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `docs/plans/README.md`.
+> in `docs/archive/plans/2026-07-08-transhipping-desk-edi-taxas/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat b2461da..HEAD -- src/services/mercanteEdiGenerator.ts src/services/__tests__/mercanteEdiGenerator.test.ts`
 > If any in-scope file changed since this plan was written, compare the
@@ -215,7 +215,7 @@ fatia por offset já existentes no arquivo):
 - [ ] `grep -n "'40FM': '49P0'" src/services/mercanteEdiGenerator.ts` → 1 ocorrência
 - [ ] `npm test`, `npm run lint`, `npm run build`, `npm run docs:check` → exit 0
 - [ ] `git status` sem arquivos fora do escopo
-- [ ] Linha deste plano atualizada em `docs/plans/README.md`
+- [x] Linha deste plano atualizada em `docs/archive/plans/2026-07-08-transhipping-desk-edi-taxas/README.md`
 
 ## STOP conditions
 

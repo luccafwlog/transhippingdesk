@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useToast } from '../components/ui/Toast'
 import { logOperationalEvent } from '../services/operationalEvents'
+import { maybeAutoBillAfterCeMercante } from '../services/reviewBillingAutomation'
 import { supabase } from '../services/supabase'
 import type { BL, BLDetail } from '../types/database'
 import { useAuth } from './useAuth'
@@ -162,6 +163,13 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
           return
         }
         throw rpcError
+      }
+
+      const ceMercanteAdded = changes.includes('ce_mercante')
+        && !stringifyValue(baselineForm?.ce_mercante).trim()
+        && Boolean(stringifyValue(form.ce_mercante).trim())
+      if (ceMercanteAdded) {
+        void maybeAutoBillAfterCeMercante(bl.id, user.id).catch(() => {})
       }
 
       await Promise.all([

@@ -53,6 +53,13 @@ export type ParsedBLDocument = {
     issueDate: string
     issuePlace: string
   }
+  cargo: {
+    description: string
+    totalPackages: number | null
+    packagesUnit: string | null
+    dgClass: string | null
+    unNumber: string | null
+  }
   containers: ParsedBLContainer[]
   vehicles: ParsedBLVehicle[]
   freightCharges: BLFreightCharge[]
@@ -73,6 +80,8 @@ export async function parseBLBuffer(buffer: ArrayBuffer): Promise<ParsedBLDocume
   const page1 = workbook.Sheets['Page 1'] ?? workbook.Sheets[workbook.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<RawSheetRow>(page1, { header: 1, defval: '' })
   const vesselVoyage = parseVesselVoyage(cell(rows, 18, 'A'))
+  const cargoDescription = parseCargoDescription(rows)
+  const packages = parseTotalPackages(rows)
 
   return {
     blNumber: cell(rows, 6, 'AC'),
@@ -98,10 +107,49 @@ export async function parseBLBuffer(buffer: ArrayBuffer): Promise<ParsedBLDocume
       issueDate: cell(rows, 38, 'A'),
       issuePlace: cell(rows, 38, 'E'),
     },
+    cargo: {
+      description: cargoDescription,
+      totalPackages: packages.totalPackages,
+      packagesUnit: packages.packagesUnit,
+      dgClass: extractDgClass(cargoDescription),
+      unNumber: extractUnNumber(cargoDescription),
+    },
     containers: parseContainers(rows),
     vehicles: parseVehicles(workbook, XLSX.utils),
     freightCharges: parseFreightCharges(rows),
   }
+}
+
+const DG_CLASS_PATTERN = /DG\s*CLASS\s*[:.]?\s*([0-9](?:\.[0-9])?)/i
+const UN_NUMBER_PATTERN = /UN\s*(?:NCM|NO\.?|NUMBER)?\s*[:.]?\s*(\d{4})\b/i
+
+function parseCargoDescription(rows: RawSheetRow[]) {
+  for (let rowNumber = 40; rowNumber <= 50; rowNumber += 1) {
+    if (/Description of Goods/i.test(cell(rows, rowNumber, 'J'))) {
+      return cell(rows, rowNumber + 1, 'J')
+    }
+  }
+  return cell(rows, 44, 'J')
+}
+
+function parseTotalPackages(rows: RawSheetRow[]) {
+  for (let rowNumber = 44; rowNumber <= 60; rowNumber += 1) {
+    if (cell(rows, rowNumber, 'A').trim() !== 'TOTAL:') continue
+    const match = cell(rows, rowNumber, 'C').match(/^\s*(\d[\d.,]*)\s+([A-Z]+)\s*$/i)
+    return {
+      totalPackages: match ? parseNumber(match[1]) : null,
+      packagesUnit: match ? match[2].toUpperCase() : null,
+    }
+  }
+  return { totalPackages: null, packagesUnit: null }
+}
+
+function extractDgClass(value: string) {
+  return value.match(DG_CLASS_PATTERN)?.[1] ?? null
+}
+
+function extractUnNumber(value: string) {
+  return value.match(UN_NUMBER_PATTERN)?.[1] ?? null
 }
 
 function parseFreightCharges(rows: RawSheetRow[]): BLFreightCharge[] {

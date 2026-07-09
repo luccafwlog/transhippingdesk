@@ -48,6 +48,13 @@ function parsedBL(): ParsedBLDocument {
       issueDate: '2026-02-20',
       issuePlace: 'SHANGHAI',
     },
+    cargo: {
+      description: 'BYD DOLPHIN GS 180EV, 200 UNITS\nNCM : 8703.80.00\nDG CLASS:9\nUN NCM: 3556',
+      totalPackages: 200,
+      packagesUnit: 'UNITS',
+      dgClass: '9',
+      unNumber: '3556',
+    },
     containers: [
       {
         containerNumber: 'TCLU1234567',
@@ -89,6 +96,10 @@ describe('blFreightImport', () => {
       place_of_delivery: 'SANTOS',
       total_weight_kg: 28000,
       total_cbm: 68.5,
+      cargo_description: 'BYD DOLPHIN GS 180EV, 200 UNITS\nNCM : 8703.80.00\nDG CLASS:9\nUN NCM: 3556',
+      total_packages: 200,
+      packages_unit: 'UNITS',
+      consignee_phone: null,
       payment_type: 'PREPAID',
       bl_emission_date: '2026-02-20',
     })
@@ -97,8 +108,26 @@ describe('blFreightImport', () => {
       { seq: 2, description: 'THD', category: 'THD', mercante_code: null, currency: 'BRL', amount: 1717, payment: 'COLLECT' },
       { seq: 3, description: 'BAF', category: 'BAF', mercante_code: null, currency: 'USD', amount: 172, payment: 'PREPAID' },
     ])
-    expect(payload.containers[0]).toMatchObject({ container_number: 'TCLU1234567', type: '40HC' })
+    expect(payload.containers[0]).toMatchObject({
+      container_number: 'TCLU1234567',
+      type: '40HC',
+      is_imo: true,
+      imo_class: '9',
+      un_number: '3556',
+    })
     expect(payload.vehicles[0]).toMatchObject({ chassis: '9BWZZZ377VT004251', container_number: 'TCLU1234567' })
+  })
+
+  it('extracts consignee phone and leaves non-DG containers as non-IMO', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeBlock = 'IMPORTADOR LTDA\nTEL:+55 27 2124-1654'
+    doc.cargo.dgClass = null
+    doc.cargo.unNumber = null
+
+    const payload = buildBlFreightPayload(doc, 7)
+
+    expect(payload.consignee_phone).toBe('+55 27 2124-1654')
+    expect(payload.containers[0]).toMatchObject({ is_imo: false, imo_class: null, un_number: null })
   })
 
   it('parses Brazilian DD/MM/YYYY emission dates instead of aborting the import', () => {
@@ -447,7 +476,7 @@ describe('blFreightImport', () => {
     expect(mockTryAutoIssueInvoice).not.toHaveBeenCalled()
   })
 
-  it('triggers automatic billing only after document-level customer reconciliation', async () => {
+  it('does not trigger automatic billing during BL import after ADR 0020', async () => {
     mockRpc.mockResolvedValue({ data: { bls_received: 2 }, error: null })
     mockTryAutoIssueInvoice.mockResolvedValue({ status: 'blocked', message: 'Sem tabela vigente.' })
     const documentMatched = {
@@ -497,8 +526,7 @@ describe('blFreightImport', () => {
     }
 
     await confirmBlFreightImport(preview, 'user-1')
-    expect(mockTryAutoIssueInvoice).toHaveBeenCalledTimes(1)
-    expect(mockTryAutoIssueInvoice).toHaveBeenCalledWith({ blId: 'DOCMATCH', customerId: 42, actorId: 'user-1' })
+    expect(mockTryAutoIssueInvoice).not.toHaveBeenCalled()
   })
 
   it('applies the operator override flag only to billing-impacting rows', async () => {
