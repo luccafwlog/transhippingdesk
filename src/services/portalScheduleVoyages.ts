@@ -1,0 +1,59 @@
+import { PORTAL_SCHEDULE_LANES, portalLaneCode } from './portalScheduleLanes'
+import { supabasePortal } from './supabase'
+
+export type PortalScheduleRpcRow = {
+  voyage_id: number
+  vessel_name: string
+  voyage: string
+  imo_number: string | null
+  port_code: string
+  kind: 'pol' | 'pod'
+  date_value: string | null
+}
+
+export type PortalScheduleVoyage = {
+  voyageId: number
+  vesselName: string
+  voyage: string
+  imoNumber: string | null
+  datesByLabel: Record<string, string>
+  earliestEta: string | null
+}
+
+const LABEL_BY_CODE = new Map(PORTAL_SCHEDULE_LANES.map((lane) => [portalLaneCode(lane), lane.label]))
+
+export function projectPortalScheduleRows(rows: PortalScheduleRpcRow[]): PortalScheduleVoyage[] {
+  const byVoyage = new Map<number, PortalScheduleVoyage>()
+
+  for (const row of rows) {
+    const voyage = byVoyage.get(row.voyage_id) ?? {
+      voyageId: row.voyage_id,
+      vesselName: row.vessel_name,
+      voyage: row.voyage,
+      imoNumber: row.imo_number,
+      datesByLabel: {},
+      earliestEta: null,
+    }
+    const label = LABEL_BY_CODE.get(row.port_code)
+    if (label && row.date_value) {
+      voyage.datesByLabel[label] = row.date_value
+      if (row.kind === 'pod' && (voyage.earliestEta === null || row.date_value < voyage.earliestEta)) {
+        voyage.earliestEta = row.date_value
+      }
+    }
+    byVoyage.set(row.voyage_id, voyage)
+  }
+
+  return Array.from(byVoyage.values()).sort((left, right) => {
+    if (left.earliestEta && right.earliestEta) return left.earliestEta.localeCompare(right.earliestEta)
+    if (left.earliestEta) return -1
+    if (right.earliestEta) return 1
+    return left.voyage.localeCompare(right.voyage, 'pt-BR')
+  })
+}
+
+export async function fetchPortalScheduleVoyages(): Promise<PortalScheduleVoyage[]> {
+  const { data, error } = await (supabasePortal.rpc as unknown as (fn: string) => Promise<{ data: unknown[] | null; error: Error | null }>)('portal_ship_schedule')
+  if (error) throw error
+  return projectPortalScheduleRows((data ?? []) as PortalScheduleRpcRow[])
+}

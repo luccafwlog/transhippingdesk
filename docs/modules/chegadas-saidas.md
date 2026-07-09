@@ -1,197 +1,97 @@
 # Chegadas e Saídas
 
-> **Status:** ativo · **Cartografia verificada:** 2026-06-20 · **Rota interna:** `/chegadas-saidas` · **Consumidor:** widget do Dashboard do Portal
+> **Status:** ativo · **Atualizado:** 2026-07-09 · **Rota interna:** `/chegadas-saidas` · **Consumidor:** widget do Dashboard do Portal
 
 ## Propósito e escopo
 
-Este módulo mantém a programação comercial de navios exibida no Portal do Cliente. A rota interna `/chegadas-saidas` administra linhas ativas em `vessel_schedules`, permite encerrar linhas em `ended_vessels`, importar/baixar planilhas e abrir o MarineTraffic por IMO. O widget `ShipScheduleWidget` lê a mesma programação com a sessão isolada do Portal e invalida sua query por Realtime.
+Este módulo publica a programação comercial de navios no Portal do Cliente a
+partir da própria **Viagem**. Conforme ADR 0021, cadastrar em
+`/chegadas-saidas` cria ou anexa uma viagem operacional e grava POL/ETD e
+POD/ETA em `audit_logs` pelos mesmos serviços de rota usados por `/viagens`.
 
-O cadastro é independente das viagens operacionais, manifestos e EDI. Ele compartilha navio, viagem, ETD e ETA como linguagem de negócio, mas não referencia `voyages` nem participa do Line-Up operacional de `src/services/lineup.ts`.
+`vessel_schedules` e `ended_vessels` permanecem no histórico de schema, mas a
+tela atual não escreve mais nelas. Não houve migração de dados legados.
 
-Rótulos de evidência:
-
-- **Código**: comportamento demonstrado pelos arquivos executáveis atuais;
-- **Teste**: teste automatizado focado existente; nenhum foi localizado para este módulo;
-- **Teste de contrato SQL**: teste que lê migration; nenhum foi localizado para estas tabelas;
-- **Suspeita**: estado de schema/deploy que o repositório sozinho não confirma;
-- **Runtime** não é usado, pois o fluxo não foi executado nesta passagem.
-
-Fontes principais: `src/App.tsx`, `src/pages/ChegadasSaidas.tsx`, `src/services/vesselSchedules.ts`, `src/hooks/useVesselSchedules.ts`, `src/components/portal/ShipScheduleWidget.tsx`, `src/types/database.ts` e `supabase/migrations/124_vessel_schedules.sql`.
+Fontes principais: `src/pages/ChegadasSaidas.tsx`,
+`src/pages/chegadasSaidasForm.ts`, `src/services/voyageFromSchedule.ts`,
+`src/services/portalScheduleVoyages.ts`, `src/services/portalScheduleLanes.ts`,
+`src/services/portalScheduleBulkImport.ts`,
+`src/components/portal/ShipScheduleWidget.tsx` e migrations `172`/`173`.
 
 ## Anatomia das telas
 
 ### Rota interna `/chegadas-saidas`
 
-`src/App.tsx` coloca a página sob `ProtectedRoute` e `AppLayout`. A página `src/pages/ChegadasSaidas.tsx` concentra UI, parsing XLSX e CRUD direto no Supabase; não há service/RPC específico para as escritas internas.
+A página lista viagens com `show_on_portal = true` por
+`fetchPortalScheduleVoyages()`, projetando cada viagem na grade fixa de lanes
+`PORTAL_SCHEDULE_LANES`: Qingdao, Shanghai, Taicang, Ningbo, Nansha, Salvador,
+Vitória e Pecém.
 
-A tela possui:
+O modal pede navio, VOY, IMO e uma data ISO por lane. Checkbox "não escala"
+deixa a lane sem data e, portanto, sem schedule. Ao salvar,
+`createOrAttachVoyageFromSchedule` deduplica por VOY + IMO (fallback nome),
+cria ou anexa a viagem, liga `show_on_portal` e grava somente ETD de POL e ETA
+de POD. ATA, ATD, RTW, CE status, escala e vínculo não são sobrescritos.
 
-- cabeçalho com “Exportar Encerrados” e “Adicionar Navio”;
-- modal `VesselForm` para nome, viagem, IMO, cinco ETDs e três ETAs;
-- tabela de ativos ordenada por `display_order`;
-- botões de subir/descer, editar, encerrar e excluir;
-- painel `SpreadsheetUpload` para baixar modelo e importar `.xlsx`, `.xls` ou `.csv`.
+Remover uma linha do quadro chama `setVoyageShowOnPortal(id, false)`; a viagem
+operacional continua existindo e só pode ser excluída em `/viagens`.
 
-Datas são strings livres. `parseDate` aceita `DD/MM` ou `DD/MM/AAAA` apenas para estilo visual; não valida calendário nem normaliza antes de persistir. `'X'` representa porto não programado.
+O upload em lote baixa um template gerado da mesma constante de lanes. Cada
+linha da planilha (`VESSEL NAME`, `VOY`, `IMO`, lanes ETD/ETA) vira uma chamada
+ao mesmo `createOrAttachVoyageFromSchedule`. Datas aceitas: ISO ou
+`DD/MM/AAAA`; vazio/`X` significa "não escala".
 
 ### Widget do Portal
 
-`src/hooks/useVesselSchedules.ts` habilita `['portal-vessel-schedules']` somente com sessão do Portal autenticada. `src/services/vesselSchedules.ts` consulta `vessel_schedules` por `supabasePortal`, ordena por `display_order` e normaliza valores ausentes.
-
-`src/components/portal/ShipScheduleWidget.tsx`:
-
-- renderiza a grade ECSA com os mesmos ETDs/ETAs;
-- mostra Pecém somente quando alguma linha tem valor diferente de `'X'`;
-- transforma o nome em link MarineTraffic quando há IMO;
-- assina `postgres_changes` de `vessel_schedules`;
-- invalida `['portal-vessel-schedules']` em qualquer insert/update/delete.
-
-### Persistência e acesso
-
-`supabase/migrations/124_vessel_schedules.sql` cria:
-
-- `vessel_schedules`: ativos, `display_order`, timestamps e trigger de `updated_at`;
-- `ended_vessels`: snapshot do encerramento com `original_id` e `ended_at`;
-- publicação Realtime de `vessel_schedules`;
-- RLS com leitura para `authenticated`, insert/update para `is_active_user()` e delete para `is_admin()`.
-
-Assim, a UI pode mostrar botões destrutivos a qualquer usuário interno, mas o banco decide se o delete é permitido.
+`ShipScheduleWidget` usa `usePortalScheduleVoyages` com query key
+`['portal-schedule-voyages']`. O serviço chama a RPC `portal_ship_schedule`,
+que é `SECURITY DEFINER` e allowlisted para `anon`, retornando somente viagens
+ativas com `show_on_portal = true`. O widget renderiza as colunas pela constante
+de lanes e ordena pela menor ETA de POD.
 
 ## Catálogo de ações
 
-| Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
-|---|---|---|---|---|---|---|---|
-| Carregar ativos | Sessão interna e perfil ativo | Montagem de `/chegadas-saidas` | `useQuery(['admin-vessel-schedules'])` faz select ordenado | Leitura de `vessel_schedules` | Preenche tabela na ordem manual | Erro é lançado pela query, mas a página não renderiza estado de erro dedicado | **Código:** `src/pages/ChegadasSaidas.tsx` |
-| Adicionar navio | Nome e viagem preenchidos; RLS `is_active_user()` | Modal “Adicionar Navio” | Calcula `max(display_order) + 1` no cliente e faz insert | Insere `vessel_schedules` | Invalida `['admin-vessel-schedules']` e fecha modal | Concorrência pode gerar ordens iguais; coluna inexistente/schema drift retorna erro PostgREST | **Código:** `src/pages/ChegadasSaidas.tsx`, `supabase/migrations/124_vessel_schedules.sql` |
-| Editar navio | Linha existente; RLS `is_active_user()` | Botão Editar/modal | Update do objeto completo do formulário por `id` | Atualiza `vessel_schedules`; trigger muda `updated_at` | Invalida cache interno e fecha modal | Sem lock otimista; edição concorrente usa last write wins | **Código:** `src/pages/ChegadasSaidas.tsx` |
-| Reordenar | Lista carregada; posição permite movimento; RLS de update | Botões Subir/Descer | Reordena o array e envia toda a ordem para `reorder_vessel_schedules` | RPC bloqueia e regrava `display_order` de todos os ativos na mesma transação | Invalida `['admin-vessel-schedules']`; Realtime atualiza Portal | Qualquer erro reverte a ordem inteira e mostra toast | **Código:** `src/pages/ChegadasSaidas.tsx`, `src/services/vesselScheduleAdmin.ts`, `supabase/migrations/135_atomic_vessel_schedule_operations.sql` · **Teste:** `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx` |
-| Encerrar/arquivar | Confirmação; insert ativo e delete admin | Botão Encerrar | Chama `archive_vessel_schedule` | RPC bloqueia o ativo, cria snapshot em `ended_vessels` e remove `vessel_schedules` atomicamente | Invalida cache interno; delete gera evento Realtime para o Portal | Qualquer erro reverte snapshot e remoção e mostra toast | **Código:** `src/pages/ChegadasSaidas.tsx`, `src/services/vesselScheduleAdmin.ts`, `supabase/migrations/135_atomic_vessel_schedule_operations.sql` · **Teste:** `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx` |
-| Excluir permanentemente | Confirmação e `is_admin()` | Botão Excluir | Delete direto por `id` | Remove de `vessel_schedules`; não arquiva | Invalida cache interno; Realtime invalida Portal | Não admin recebe erro RLS; não há auditoria específica no fluxo | **Código:** `src/pages/ChegadasSaidas.tsx`, `supabase/migrations/124_vessel_schedules.sql` |
-| Baixar planilha modelo | Sessão ativa; leitura permitida | “Baixar Planilha Modelo” | Lê ativos, prepende `EXEMPLO NAVIO`, gera workbook | Nenhuma escrita; arquivo `modelo_navios.xlsx` | Não altera cache | Erro da leitura não é verificado antes de gerar o arquivo | **Código:** `src/pages/ChegadasSaidas.tsx` |
-| Importar planilha | Arquivo aceito pelo input; navios já cadastrados; update permitido | “Fazer Upload” | `@e965/xlsx` lê primeira aba; casa nome case-insensitive; mapeia cabeçalhos e atualiza linha a linha | Updates em `vessel_schedules`; nunca cria navio | Invalida cache se ao menos uma linha foi atualizada; Realtime propaga ao Portal | Sem limite de upload/preview; linhas desconhecidas vão para `notFound`; updates podem ser parciais; erros ficam no resumo | **Código:** `src/pages/ChegadasSaidas.tsx` |
-| Carregar/exportar encerrados | Sessão autenticada com SELECT | “Exportar Encerrados” | Select de `ended_vessels` por `ended_at desc`; gera workbook | Somente leitura; arquivo `navios_encerrados.xlsx` | Não altera cache | Erro da consulta não é distinguido de lista vazia; não há tela de histórico | **Código:** `src/pages/ChegadasSaidas.tsx` |
-| Abrir MarineTraffic | `imo_number` presente | Clique no nome do navio, interno ou Portal | Monta URL `https://www.marinetraffic.com/en/ais/details/ships/imo:<IMO>` | Nenhuma | Abre nova aba com `noopener noreferrer` | IMO inválido leva a URL externa sem validação local | **Código:** `src/pages/ChegadasSaidas.tsx`, `src/components/portal/ShipScheduleWidget.tsx` |
-| Consultar programação no Portal | Sessão do Portal autenticada; policy SELECT para `authenticated` | Montagem do Dashboard/widget | `useVesselSchedules` → `listVesselSchedules` via `supabasePortal` | Leitura de `vessel_schedules` | Cache `['portal-vessel-schedules']` | Service registra erro no console e retorna `[]`, tornando falha indistinguível de vazio na UI | **Código:** `src/hooks/useVesselSchedules.ts`, `src/services/vesselSchedules.ts`, `src/components/portal/ShipScheduleWidget.tsx` |
-| Atualizar Portal por Realtime | Widget montado; tabela na publicação; conexão ativa | Evento `postgres_changes` | Channel `vessel_schedules_widget` escuta `*` | Nenhuma escrita adicional | Invalida `['portal-vessel-schedules']` e refaz a leitura | Falha/subscription status não é exibido nem monitorado pelo componente | **Código:** `src/components/portal/ShipScheduleWidget.tsx`, `supabase/migrations/124_vessel_schedules.sql` |
-
-## Estado e dados
-
-### Modelo
-
-Campos compartilhados por ativo e encerrado:
-
-- identidade: `vessel_name`, `voyage`, `imo_number`;
-- ETD: `qingdao_etd`, `shanghai_etd`, `taicang_etd`, `ningbo_etd`, `nansha_etd`;
-- ETA: `salvador_eta`, `vitoria_eta`, `pecem_eta`;
-- valores de programação: `text`, default `'X'` na migration;
-- ativos: `display_order`, `created_at`, `updated_at`;
-- encerrados: `original_id`, `ended_at`, `created_at`.
-
-`src/types/database.ts` tipa `taicang_etd` como obrigatório e `pecem_eta` como nullable. `src/services/vesselSchedules.ts` normaliza campos ausentes para `'X'`, exceto `pecem_eta`, preservado como `null`.
-
-### Caches
-
-| Consumidor | Query key | Cliente Supabase | Invalidação |
-|---|---|---|---|
-| Rota interna | `['admin-vessel-schedules']` | `supabase` | explícita após mutations/import |
-| Portal | `['portal-vessel-schedules']` | `supabasePortal` | Realtime no widget |
-
-Não há invalidação cruzada direta entre as duas keys. A sincronização do Portal depende do evento Realtime ou de um refetch posterior.
-
-### Matriz RLS declarada
-
-| Tabela | SELECT | INSERT | UPDATE | DELETE |
-|---|---|---|---|---|
-| `vessel_schedules` | `authenticated` | `is_active_user()` | `is_active_user()` | `is_admin()` |
-| `ended_vessels` | `authenticated` | `is_active_user()` | sem policy declarada | `is_admin()` |
-
-O fluxo “Encerrar” exige simultaneamente permissão de insert no histórico e delete no ativo. Na prática, isso o torna administrativo mesmo que o botão apareça para outros perfis.
+| Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Evidência |
+|---|---|---|---|---|---|---|
+| Carregar publicados | Sessão interna | Montagem de `/chegadas-saidas` | `useQuery(['portal-schedule-voyages'])` | RPC `portal_ship_schedule` projetada em linhas | Preenche tabela por ETA | **Código**, **Teste** |
+| Adicionar/anexar viagem | Navio, VOY e ao menos um POD com data | Modal | `buildScheduleLanes` + `createOrAttachVoyageFromSchedule` | `voyages.show_on_portal`, `audit_logs` POL/POD | Invalida `['portal-schedule-voyages']` e `['voyages']` | **Código**, **Teste** |
+| Editar publicação | Viagem já visível | Botão Editar/modal | Pré-preenche datas projetadas e salva pelo mesmo serviço | Atualiza somente ETD/ETA informados | Last write wins em ETD/ETA digitados | **Código**, **Teste** |
+| Remover do Portal | Confirmação | Botão Remover do Portal | `setVoyageShowOnPortal(id, false)` | Atualiza `voyages.show_on_portal` | Remove do quadro sem excluir viagem | **Código**, **Teste** |
+| Importar planilha | Arquivo `.xlsx/.xls/.csv` | `SpreadsheetUpload` | `parseScheduleRows` + `createOrAttachVoyageFromSchedule` por linha | Mesma persistência do modal | Resumo de sucesso/erro por linha; invalida caches | **Código**, **Teste** |
+| Consultar no Portal | Sessão do Portal | `ShipScheduleWidget` | `usePortalScheduleVoyages` | RPC `portal_ship_schedule` | Cache `['portal-schedule-voyages']` | **Código**, **Teste**, **Teste de contrato SQL** |
 
 ## Fluxos e invariantes
 
-```mermaid
-flowchart LR
-    Internal["/chegadas-saidas<br/>supabase interno"]
-    Active[("vessel_schedules")]
-    Ended[("ended_vessels")]
-    PortalService["listVesselSchedules<br/>supabasePortal"]
-    Widget["ShipScheduleWidget"]
-    Realtime["postgres_changes"]
-    XLSX["Modelo / import / export XLSX"]
-    Marine["MarineTraffic"]
+- A lista de portos-vitrine é única em `PORTAL_SCHEDULE_LANES`.
+- `show_on_portal` controla visibilidade; viagens manuais começam ocultas.
+- Viagens `completed` não aparecem na RPC do Portal.
+- "Não escala" não cria schedule para a lane.
+- Chegadas e Saídas nunca grava ATA/ATD/RTW/CE/linked.
+- A ordenação do quadro é automática pela menor ETA; não há setas manuais nem
+  arquivamento em `ended_vessels` no fluxo atual.
 
-    Internal -->|select / insert / update / delete| Active
-    Internal -->|encerrar: insert snapshot| Ended
-    Internal -->|modelo e import| XLSX
-    Ended -->|exportar encerrados| XLSX
-    Active --> PortalService
-    PortalService --> Widget
-    Active --> Realtime
-    Realtime -->|invalidate portal-vessel-schedules| Widget
-    Internal -->|IMO| Marine
-    Widget -->|IMO| Marine
-```
+## Estado e dados
 
-Invariantes observáveis:
-
-- `'X'` significa porto não programado;
-- a persistência aceita texto livre; formato de data é convenção de UI, não constraint SQL;
-- `display_order` define a ordem interna e do Portal;
-- encerrar copia e depois remove; excluir remove sem histórico;
-- importação só atualiza navios existentes e ignora `EXEMPLO NAVIO`;
-- matching da importação é por `vessel_name` case-insensitive e trim, embora a dica diga “exatamente igual”;
-- Pecém só aparece no Portal quando ao menos uma linha possui ETA não vazia e diferente de `'X'`;
-- datas coloridas são calculadas comparando texto parseável com o dia atual; não existe campo persistido de “evento confirmado”;
-- Portal lê com a sessão isolada `supabasePortal`; clientes não ganham permissão de escrita por esse widget.
+| Dado | Fonte atual |
+|---|---|
+| Visibilidade no Portal | `voyages.show_on_portal` |
+| POL/ETD | `audit_logs` com `entity_type='voyage_pol_schedule'` |
+| POD/ETA | `audit_logs` com `entity_type='voyage_pod_schedule'` |
+| Portos-vitrine | `PORTAL_SCHEDULE_LANES` |
+| Leitura do Portal | RPC `portal_ship_schedule` |
 
 ## Testes e validação
 
-Não foi localizado teste focado para:
-
-- `src/pages/ChegadasSaidas.tsx`;
-- `src/services/vesselSchedules.ts`;
-- `src/hooks/useVesselSchedules.ts`;
-- `src/components/portal/ShipScheduleWidget.tsx`;
-- contrato SQL de `vessel_schedules`/`ended_vessels`.
-
-`src/pages/__tests__/ChegadasSaidas.behavior.test.tsx` cobre inclusão, edição, exclusão confirmada, link MarineTraffic e o uso das RPCs atômicas de reordenação/arquivamento. `src/components/portal/__tests__/ShipScheduleWidget.test.tsx` cobre invalidação e remoção do channel Realtime. As permissões e transações são validadas por `src/services/__tests__/vesselScheduleAdmin.test.ts`.
-
-Cenários runtime necessários em ambiente controlado:
-
-1. usuário interno ativo lista, adiciona e edita; confirmar `updated_at` e ordem;
-2. perfil não admin tenta hard delete e “Encerrar”; confirmar bloqueio RLS e verificar se o insert no histórico ocorreu antes do delete negado;
-3. admin encerra com sucesso; confirmar uma linha em `ended_vessels`, ausência no ativo e atualização do Portal;
-4. reordenar várias linhas; confirmar sequência consistente após reload e no Portal;
-5. baixar modelo, alterar cada coluna, importar e confirmar round-trip, incluindo cabeçalhos acentuados/não acentuados;
-6. importar nome inexistente, `EXEMPLO NAVIO`, arquivo grande e lote com erro parcial;
-7. abrir Portal autenticado, alterar um ativo internamente e confirmar invalidação/refetch Realtime;
-8. validar link MarineTraffic com IMO presente e ausência de link sem IMO;
-9. confirmar RLS/grants diretamente para sessão interna, Portal autenticado e admin;
-10. confirmar `taicang_etd` nas duas tabelas pelo schema controlado.
-
-Consulta sugerida para a confirmação de schema:
-
-```sql
-select table_name, column_name, data_type, column_default
-from information_schema.columns
-where table_schema = 'public'
-  and table_name in ('vessel_schedules', 'ended_vessels')
-  and column_name = 'taicang_etd'
-order by table_name;
-```
-
-Resultado esperado pelo código atual: duas linhas, ambas `text`, com default equivalente a `'X'`.
-
-Por instrução de coordenação, nenhuma suíte Vitest foi executada nesta cartografia. Nenhum cenário acima recebe evidência Runtime.
+- `src/pages/__tests__/chegadasSaidasForm.test.ts`
+- `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx`
+- `src/services/__tests__/portalScheduleBulkImport.test.ts`
+- `src/services/__tests__/portalScheduleVoyages.test.ts`
+- `src/services/__tests__/portalShipScheduleMigration.test.ts`
+- `src/components/portal/__tests__/ShipScheduleWidget.test.tsx`
 
 ## Notas e divergências
 
-- **`taicang_etd` — Suspeita de alinhamento de ambiente, não defeito confirmado no repositório.** O código usa a coluna no formulário, tabela, template, importação, encerramento, exportação, service do Portal e tipos (`src/pages/ChegadasSaidas.tsx`, `src/services/vesselSchedules.ts`, `src/types/database.ts`). A migration atual também declara `taicang_etd` nas duas tabelas (`supabase/migrations/124_vessel_schedules.sql`). Entretanto, a própria migration afirma consolidar seis migrations Lovable anteriores; a inspeção do repositório não prova que o schema de cada ambiente controlado aplicou essa versão. Confirmar com `information_schema.columns` antes de encerrar a suspeita.
-- **Impacto se `taicang_etd` estiver ausente — Suspeita.** Inserts/updates/import/encerramento podem falhar por coluna desconhecida; a leitura interna por `select('*')` pode produzir valor `undefined`; o service do Portal normaliza ausência para `'X'`, potencialmente mascarando drift; exportações podem emitir `'X'` sem revelar a coluna faltante.
-- **Comentário da migration versus policies — Código.** O cabeçalho diz “escrita só admin”, mas as policies permitem INSERT/UPDATE a qualquer `is_active_user()` e reservam DELETE ao admin.
-- **Encerramento não transacional — Código.** Insert no histórico e delete no ativo são chamadas separadas; uma falha intermediária deixa estado duplicado.
-- **Reordenação não transacional — Código.** Um update é enviado por linha; erro parcial não faz rollback.
-- **Erro do Portal mascarado como vazio — Código.** `listVesselSchedules` retorna `[]` quando a consulta falha.
-- **Sem upload guard — Código.** O arquivo é convertido por `arrayBuffer()` e parseado sem `assertUploadSize`, preview ou validação de schema antes das mutations.
-- **“Datas em azul = Evento confirmado” — Código/UI divergentes.** A cor indica apenas data parseável anterior a hoje; não há confirmação persistida.
-- **“Atualização diária às 09:00” — Código/UI sem orquestração correspondente.** O widget exibe esse texto, mas o código observado atualiza por query e Realtime, sem scheduler de 09:00 neste módulo.
+- As tabelas `vessel_schedules` e `ended_vessels` seguem versionadas porque
+  ambientes antigos podem tê-las, mas não são usadas pelo fluxo atual.
+- A RPC `portal_ship_schedule` ainda precisa ser aplicada no ambiente Supabase
+  alvo antes do Portal consumir dados reais.

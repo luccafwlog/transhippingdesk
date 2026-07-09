@@ -22,6 +22,7 @@ import {
   saveVoyagePodSchedule,
   setVoyageRouteCeMaster,
 } from '../services/voyageRouteSchedules'
+import { PORTAL_SCHEDULE_LANES, portalLaneCode } from '../services/portalScheduleLanes'
 import { saveVoyageExportSchedule } from '../services/voyageExportSchedules'
 import {
   VoyageCard,
@@ -89,7 +90,10 @@ export function Viagens() {
       Array.from(
         new Set(
           voyages.flatMap((voyage) =>
-            collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null).map((pol) => buildVoyagePolEntityId(voyage.id, pol)),
+            [
+              ...collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null),
+              ...PORTAL_SCHEDULE_LANES.filter((lane) => lane.kind === 'pol').map(portalLaneCode),
+            ].map((pol) => buildVoyagePolEntityId(voyage.id, pol)),
           ),
         ),
       ),
@@ -246,6 +250,12 @@ export function Viagens() {
         title="Editar Viagem"
         initialValues={makeVoyageInitialValues(
           voyages.find((voyage) => voyage.id === editingVoyageId),
+          Array.from((polSchedules ?? new Map()).values())
+            .filter((schedule) => schedule.voyageId === editingVoyageId && Boolean(schedule.etd))
+            .map((schedule) => ({
+              pol: schedule.pol,
+              etd: schedule.etd ?? '',
+            })),
           (podSchedulesByVoyage.get(editingVoyageId ?? -1) ?? [])
             .filter((schedule) => Boolean(schedule.eta))
             .map((schedule) => ({
@@ -443,6 +453,7 @@ function makeVoyageInitialValues(
         } | null
       }
     | undefined,
+  loadPortEtds: Array<{ pol: string; etd: string }> = [],
   dischargePortEtas: Array<{ pod: string; eta: string }> = [],
 ) {
   if (!voyage) return undefined
@@ -454,6 +465,7 @@ function makeVoyageInitialValues(
     vesselImo: voyage.vessel?.imo ?? '',
     voyageNumber: voyage.voyage_number,
     status: normalizeVoyageStatus(voyage.status),
+    loadPortEtds,
     dischargePortEtas,
   }
 }

@@ -46,12 +46,12 @@ deixa de ter fonte própria e **projeta a Viagem**. Resumo das decisões travada
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| [01](./01-portas-vitrine-constante.md) | Constante única de portos-vitrine + LOCODEs canônicos | P1 | S | — | TODO |
-| [02](./02-create-or-attach-voyage-flag.md) | `show_on_portal` + `createOrAttachVoyageFromSchedule` (serviço + migração) | P1 | M | 01 | TODO |
-| [03](./03-chegadas-saidas-cria-viagem.md) | Formulário Chegadas e Saídas cria/anexa a Viagem | P1 | M | 02 | TODO |
-| [04](./04-portal-projeta-viagem.md) | Portal projeta a Viagem (RPC `portal_ship_schedule` + widget) | P1 | M | 01, 02 | TODO |
-| [05](./05-viagens-campos-pol-etd.md) | Tela Viagens ganha campos POL/ETD no cadastro | P2 | S | 01 | TODO |
-| [06](./06-upload-lote-sobre-viagens.md) | Upload em lote reescrito sobre viagens | P2 | M | 01, 02 | TODO |
+| [01](./01-portas-vitrine-constante.md) | Constante única de portos-vitrine + LOCODEs canônicos | P1 | S | — | DONE |
+| [02](./02-create-or-attach-voyage-flag.md) | `show_on_portal` + `createOrAttachVoyageFromSchedule` (serviço + migração) | P1 | M | 01 | DONE |
+| [03](./03-chegadas-saidas-cria-viagem.md) | Formulário Chegadas e Saídas cria/anexa a Viagem | P1 | M | 02 | DONE |
+| [04](./04-portal-projeta-viagem.md) | Portal projeta a Viagem (RPC `portal_ship_schedule` + widget) | P1 | M | 01, 02 | DONE |
+| [05](./05-viagens-campos-pol-etd.md) | Tela Viagens ganha campos POL/ETD no cadastro | P2 | S | 01 | DONE |
+| [06](./06-upload-lote-sobre-viagens.md) | Upload em lote reescrito sobre viagens | P2 | M | 01, 02 | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (motivo em uma linha) |
 REJECTED (justificativa em uma linha).

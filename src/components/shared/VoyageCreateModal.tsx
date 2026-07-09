@@ -48,6 +48,7 @@ export function VoyageCreateModal({
       setForm({
         ...initialVoyageFormValues,
         ...initialValues,
+        loadPortEtds: initialValues?.loadPortEtds ?? initialVoyageFormValues.loadPortEtds,
         dischargePortEtas: initialValues?.dischargePortEtas ?? initialVoyageFormValues.dischargePortEtas,
       })
       setErrors({})
@@ -108,6 +109,29 @@ export function VoyageCreateModal({
       dischargePortEtas: current.dischargePortEtas.map((row, rowIndex) =>
         rowIndex === index ? { ...row, [field]: field === 'pod' ? value.toUpperCase() : value } : row,
       ),
+    }))
+  }
+
+  function updateLoadPort(index: number, field: 'pol' | 'etd', value: string) {
+    setForm((current) => ({
+      ...current,
+      loadPortEtds: current.loadPortEtds.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, [field]: field === 'pol' ? value.toUpperCase() : value } : row,
+      ),
+    }))
+  }
+
+  function addLoadPort() {
+    setForm((current) => ({
+      ...current,
+      loadPortEtds: [...current.loadPortEtds, { pol: '', etd: '' }],
+    }))
+  }
+
+  function removeLoadPort(index: number) {
+    setForm((current) => ({
+      ...current,
+      loadPortEtds: current.loadPortEtds.filter((_, rowIndex) => rowIndex !== index),
     }))
   }
 
@@ -176,6 +200,60 @@ export function VoyageCreateModal({
               <option value="cancelled">Cancelada</option>
             </Select>
           </Field>
+        </div>
+
+        <div className="app-panel app-panel--padded grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="app-panel__title">Portos de carregamento (POL)</div>
+              <div className="app-panel__meta">
+                Informe ETDs para rotas que devem nascer manualmente antes dos manifestos.
+              </div>
+            </div>
+            <Button variant="secondary" type="button" onClick={addLoadPort}>
+              <Plus size={15} />
+              Adicionar porto
+            </Button>
+          </div>
+
+          {errors.loadPortEtds ? (
+            <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {errors.loadPortEtds}
+            </div>
+          ) : null}
+
+          {form.loadPortEtds.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-[var(--app-border-strong)] px-3 py-4 text-sm text-[var(--app-muted)]">
+              Nenhum porto de carregamento planejado. Adicione linhas se precisar informar ETD manualmente.
+            </div>
+          ) : null}
+
+          <div className="grid gap-3">
+            {form.loadPortEtds.map((row, index) => (
+              <div key={`load-port-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+                <Field label={`Porto de carregamento ${index + 1}`}>
+                  <Input
+                    value={row.pol}
+                    placeholder="Ex.: CNTAO"
+                    onChange={(event) => updateLoadPort(index, 'pol', event.target.value)}
+                  />
+                </Field>
+                <Field label="ETD">
+                  <Input
+                    type="date"
+                    value={row.etd}
+                    onChange={(event) => updateLoadPort(index, 'etd', event.target.value)}
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <Button variant="danger" type="button" onClick={() => removeLoadPort(index)}>
+                    <Trash2 size={15} />
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="app-panel app-panel--padded grid gap-3">

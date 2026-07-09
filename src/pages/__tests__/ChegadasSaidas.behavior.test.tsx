@@ -7,45 +7,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   showToast: vi.fn(),
-  archive: vi.fn(),
-  reorder: vi.fn(),
-  from: vi.fn(),
+  createOrAttach: vi.fn(),
+  setShow: vi.fn(),
 }))
 
 const vessels = [
   {
-    id: 'vessel-1',
-    vessel_name: 'ALPHA',
+    voyageId: 1,
+    vesselName: 'ALPHA',
     voyage: '001',
-    imo_number: '9876543',
-    qingdao_etd: 'X',
-    shanghai_etd: 'X',
-    taicang_etd: 'X',
-    ningbo_etd: 'X',
-    nansha_etd: 'X',
-    salvador_eta: 'X',
-    vitoria_eta: 'X',
-    pecem_eta: 'X',
-    display_order: 0,
-    created_at: '',
-    updated_at: '',
+    imoNumber: '9876543',
+    datesByLabel: { SALVADOR: '2026-01-22' },
+    earliestEta: '2026-01-22',
   },
   {
-    id: 'vessel-2',
-    vessel_name: 'BETA',
+    voyageId: 2,
+    vesselName: 'BETA',
     voyage: '002',
-    imo_number: null,
-    qingdao_etd: 'X',
-    shanghai_etd: 'X',
-    taicang_etd: 'X',
-    ningbo_etd: 'X',
-    nansha_etd: 'X',
-    salvador_eta: 'X',
-    vitoria_eta: 'X',
-    pecem_eta: 'X',
-    display_order: 1,
-    created_at: '',
-    updated_at: '',
+    imoNumber: null,
+    datesByLabel: {},
+    earliestEta: null,
   },
 ]
 
@@ -53,107 +34,74 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: vessels, isLoading: false }),
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }))
+vi.mock('../../hooks/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'user-1' } }),
+}))
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: mocks.showToast }),
 }))
-vi.mock('../../services/vesselScheduleAdmin', () => ({
-  archiveVesselSchedule: mocks.archive,
-  reorderVesselSchedules: mocks.reorder,
+vi.mock('../../services/voyageFromSchedule', () => ({
+  createOrAttachVoyageFromSchedule: mocks.createOrAttach,
 }))
-vi.mock('../../services/supabase', () => ({
-  supabase: { from: mocks.from },
+vi.mock('../../services/voyages', () => ({
+  setVoyageShowOnPortal: mocks.setShow,
+}))
+vi.mock('../../services/portalScheduleVoyages', () => ({
+  fetchPortalScheduleVoyages: vi.fn(),
 }))
 
 import { ChegadasSaidas } from '../ChegadasSaidas'
-
-function mutationBuilder() {
-  return {
-    insert: vi.fn().mockResolvedValue({ error: null }),
-    update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-    delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-  }
-}
 
 describe('ChegadasSaidas user behaviours', () => {
   afterEach(cleanup)
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.from.mockImplementation(() => mutationBuilder())
-    mocks.archive.mockResolvedValue(undefined)
-    mocks.reorder.mockResolvedValue(undefined)
+    mocks.createOrAttach.mockResolvedValue({ voyageId: 3, created: true })
+    mocks.setShow.mockResolvedValue(undefined)
     vi.stubGlobal('confirm', vi.fn(() => true))
   })
 
-  it('adds a vessel after the current last display order', async () => {
-    const builder = mutationBuilder()
-    mocks.from.mockReturnValue(builder)
+  it('cadastra viagem publicada no Portal via createOrAttachVoyageFromSchedule', async () => {
     const user = userEvent.setup()
     render(<ChegadasSaidas />)
 
     await user.click(screen.getByRole('button', { name: /Adicionar Navio/ }))
     await user.type(screen.getByLabelText('Nome do Navio'), 'GAMMA')
     await user.type(screen.getByLabelText('Viagem (VOY)'), '003')
+    await user.click(screen.getAllByLabelText('Não escala')[5])
     await user.click(screen.getByRole('button', { name: 'Adicionar' }))
 
-    expect(builder.insert).toHaveBeenCalledWith([
-      expect.objectContaining({ vessel_name: 'GAMMA', voyage: '003', display_order: 2 }),
-    ])
+    expect(mocks.createOrAttach).toHaveBeenCalledWith(expect.objectContaining({
+      vesselName: 'GAMMA',
+      voyageNumber: '003',
+    }), 'user-1')
   })
 
-  it('edits an existing vessel', async () => {
-    const builder = mutationBuilder()
-    mocks.from.mockReturnValue(builder)
+  it('preenche edição a partir da viagem projetada', async () => {
     const user = userEvent.setup()
     render(<ChegadasSaidas />)
 
     await user.click(screen.getAllByTitle('Editar')[0])
-    const voyage = screen.getByLabelText('Viagem (VOY)')
-    await user.clear(voyage)
-    await user.type(voyage, '009')
-    await user.click(screen.getByRole('button', { name: /Salvar/ }))
-
-    expect(builder.update).toHaveBeenCalledWith(expect.objectContaining({ voyage: '009' }))
+    expect((screen.getByLabelText('Nome do Navio') as HTMLInputElement).value).toBe('ALPHA')
+    expect((screen.getByLabelText('Viagem (VOY)') as HTMLInputElement).value).toBe('001')
   })
 
-  it('deletes a vessel only after confirmation', async () => {
-    const builder = mutationBuilder()
-    mocks.from.mockReturnValue(builder)
+  it('remove apenas a publicação do Portal', async () => {
     const user = userEvent.setup()
     render(<ChegadasSaidas />)
 
-    await user.click(screen.getAllByTitle('Excluir')[0])
+    await user.click(screen.getAllByTitle('Remover do Portal')[0])
 
     expect(confirm).toHaveBeenCalled()
-    expect(builder.delete).toHaveBeenCalled()
+    expect(mocks.setShow).toHaveBeenCalledWith(1, false)
   })
 
-  it('opens MarineTraffic with the vessel IMO', () => {
+  it('abre MarineTraffic com IMO da viagem', () => {
     render(<ChegadasSaidas />)
 
-    expect(screen.getAllByRole('link', { name: 'ALPHA' })[0].getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'ALPHA' }).getAttribute('href')).toBe(
       'https://www.marinetraffic.com/en/ais/details/ships/imo:9876543',
     )
-  })
-
-  it('reorders the complete list through the atomic service', async () => {
-    const user = userEvent.setup()
-    render(<ChegadasSaidas />)
-
-    await user.click(screen.getAllByTitle('Descer')[0])
-
-    expect(mocks.reorder).toHaveBeenCalledWith([
-      { id: 'vessel-2', displayOrder: 0 },
-      { id: 'vessel-1', displayOrder: 1 },
-    ])
-  })
-
-  it('archives through the atomic service', async () => {
-    const user = userEvent.setup()
-    render(<ChegadasSaidas />)
-
-    await user.click(screen.getAllByTitle('Encerrar')[0])
-
-    expect(mocks.archive).toHaveBeenCalledWith('vessel-1')
   })
 })

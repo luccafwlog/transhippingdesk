@@ -1,24 +1,10 @@
-import { useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { Ship, Anchor } from 'lucide-react'
-import { useVesselSchedules } from '../../hooks/useVesselSchedules'
-import { supabasePortal } from '../../services/supabase'
+import { usePortalScheduleVoyages } from '../../hooks/usePortalScheduleVoyages'
+import { PORTAL_SCHEDULE_LANES } from '../../services/portalScheduleLanes'
 
 function parseDate(dateStr: string): Date | null {
   if (!dateStr || dateStr === 'X') return null
-  const parts = dateStr.split('/')
-  if (parts.length === 3) {
-    const day = parseInt(parts[0], 10)
-    const month = parseInt(parts[1], 10) - 1
-    const year = parseInt(parts[2], 10)
-    return new Date(year, month, day)
-  }
-  if (parts.length === 2) {
-    const day = parseInt(parts[0], 10)
-    const month = parseInt(parts[1], 10) - 1
-    return new Date(new Date().getFullYear(), month, day)
-  }
-  return null
+  return new Date(`${dateStr}T00:00:00`)
 }
 
 function isDateInPast(dateStr: string): boolean {
@@ -40,17 +26,7 @@ function DateCell({ value }: { value: string }) {
 }
 
 export function ShipScheduleWidget() {
-  const { data: vessels, isLoading } = useVesselSchedules()
-  const queryClient = useQueryClient()
-
-  useEffect(() => {
-    const channel = supabasePortal.channel('vessel_schedules_widget')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vessel_schedules' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['portal-vessel-schedules'] })
-      })
-      .subscribe()
-    return () => { supabasePortal.removeChannel(channel) }
-  }, [queryClient])
+  const { data: vessels, isLoading } = usePortalScheduleVoyages()
 
   if (isLoading) {
     return (
@@ -59,8 +35,6 @@ export function ShipScheduleWidget() {
       </div>
     )
   }
-
-  const showPecem = (vessels ?? []).some((v) => v.pecem_eta && v.pecem_eta !== 'X')
 
   return (
     <div className="w-full overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[var(--app-shadow)]">
@@ -88,82 +62,39 @@ export function ShipScheduleWidget() {
                   <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)] w-14">
                     VOY
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
-                    <div>QINGDAO</div>
-                    <div className="text-[10px] font-normal opacity-80">ETD</div>
-                  </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
-                    <div>SHANGHAI</div>
-                    <div className="text-[10px] font-normal opacity-80">ETD</div>
-                  </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
-                    <div>TAICANG</div>
-                    <div className="text-[10px] font-normal opacity-80">ETD</div>
-                  </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
-                    <div>NINGBO</div>
-                    <div className="text-[10px] font-normal opacity-80">ETD</div>
-                  </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
-                    <div>NANSHA</div>
-                    <div className="text-[10px] font-normal opacity-80">ETD</div>
-                  </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
-                    <div>SALVADOR</div>
-                    <div className="text-[10px] font-normal opacity-80">ETA</div>
-                  </th>
-                  <th className={`px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider ${showPecem ? 'border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]' : ''}`}>
-                    <div>VITÓRIA</div>
-                    <div className="text-[10px] font-normal opacity-80">ETA</div>
-                  </th>
-                  {showPecem && (
-                    <th className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider">
-                      <div>PECÉM</div>
-                      <div className="text-[10px] font-normal opacity-80">ETA</div>
+                  {PORTAL_SCHEDULE_LANES.map((lane) => (
+                    <th key={lane.label} className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
+                      <div>{lane.label}</div>
+                      <div className="text-[10px] font-normal opacity-80">{lane.kind === 'pol' ? 'ETD' : 'ETA'}</div>
                     </th>
-                  )}
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {vessels.map((vessel, index) => {
                   const rowBg = index % 2 === 0 ? 'bg-[var(--app-surface)]' : 'bg-[var(--app-surface-muted)]'
                   return (
-                    <tr key={vessel.id} className={`${rowBg} hover:bg-[var(--app-blue-soft)] transition-colors duration-150 border-b border-[var(--app-border)] last:border-b-0`}>
+                    <tr key={vessel.voyageId} className={`${rowBg} hover:bg-[var(--app-blue-soft)] transition-colors duration-150 border-b border-[var(--app-border)] last:border-b-0`}>
                       <td className="px-3 py-2.5 text-center border-r border-[var(--app-border)] text-sm font-semibold text-[var(--app-blue-btn)]">
-                        {vessel.imo_number ? (
+                        {vessel.imoNumber ? (
                           <a
-                            href={`https://www.marinetraffic.com/en/ais/details/ships/imo:${vessel.imo_number}`}
+                            href={`https://www.marinetraffic.com/en/ais/details/ships/imo:${vessel.imoNumber}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline hover:opacity-80"
                           >
-                            {vessel.vessel_name}
+                            {vessel.vesselName}
                           </a>
                         ) : (
-                          vessel.vessel_name
+                          vessel.vesselName
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-center border-r border-[var(--app-border)] text-sm font-medium text-[var(--app-text)]">
                         {vessel.voyage}
                       </td>
-                      <DateCell value={vessel.qingdao_etd} />
-                      <DateCell value={vessel.shanghai_etd} />
-                      <DateCell value={vessel.taicang_etd} />
-                      <DateCell value={vessel.ningbo_etd} />
-                      <DateCell value={vessel.nansha_etd} />
-                      <DateCell value={vessel.salvador_eta} />
-                      {showPecem ? (
-                        <>
-                          <DateCell value={vessel.vitoria_eta} />
-                          <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isDateInPast(vessel.pecem_eta || '') ? 'text-[var(--app-blue-btn)] font-semibold' : (!vessel.pecem_eta || vessel.pecem_eta === 'X') ? 'text-[var(--app-muted-soft)]' : 'text-[var(--app-text)]'}`}>
-                            {vessel.pecem_eta || 'X'}
-                          </td>
-                        </>
-                      ) : (
-                        <td className={`px-3 py-2.5 text-center text-sm ${isDateInPast(vessel.vitoria_eta || '') ? 'text-[var(--app-blue-btn)] font-semibold' : 'text-[var(--app-text)]'}`}>
-                          {vessel.vitoria_eta}
-                        </td>
-                      )}
+                      {PORTAL_SCHEDULE_LANES.map((lane) => (
+                        <DateCell key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} />
+                      ))}
                     </tr>
                   )
                 })}
