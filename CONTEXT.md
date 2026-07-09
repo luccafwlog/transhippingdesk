@@ -16,6 +16,18 @@ acompanhado em suas escalas, agendas e cargas.
 Passagem de uma viagem por um porto ou terminal, com datas operacionais,
 identificadores e vínculos documentais próprios.
 
+**Rota da Viagem**
+Sequência de portos de uma viagem: portos de carregamento (POL) com seus ETDs e
+portos de descarga (POD) com seus ETA/ETB/ATA/ATD. É o dado que o sistema
+operacional consome — manifestos e B/Ls referenciam esses mesmos portos.
+
+**Programação de Navios (Chegadas e Saídas)**
+Quadro de line-up exibido ao cliente no Portal, com a previsão de datas por porto
+da rota. É uma **visão voltada ao cliente**, distinta do **Line-Up (TV)**, que é o
+painel operacional derivado das viagens já cadastradas. A ADR 0021 decide unificar
+esse cadastro ao da Viagem (a Programação passa a projetar a Viagem); enquanto não
+implementada, os dois cadastros permanecem separados.
+
 **Número de Escala do Mercante**
 Identificador criado no sistema federal Mercante para uma escala do navio. Uma
 viagem com múltiplos terminais pode ter mais de um número de escala.
