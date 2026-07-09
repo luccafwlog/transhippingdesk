@@ -23,4 +23,25 @@ describe('parseScheduleRows', () => {
     expect(row.lanes.find((lane) => lane.code === 'CNSHA')?.date).toBe(null)
     expect(row.lanes.find((lane) => lane.code === 'BRSSA')?.date).toBe('2026-01-22')
   })
+
+  it('aceita celula Date (Excel auto-formatado) convertendo para ISO', () => {
+    const [row] = parseScheduleRows([{
+      'VESSEL NAME': 'GREEN PECEM',
+      VOY: '6',
+      IMO: '9976501',
+      'QINGDAO ETD': new Date('2026-01-04T00:00:00'),
+    }])
+    expect(row.lanes.find((lane) => lane.code === 'CNTAO')?.date).toBe('2026-01-04')
+  })
+
+  it('reporta celula nao-vazia e nao-parseavel como aviso, sem sumir', () => {
+    const [row] = parseScheduleRows([{
+      'VESSEL NAME': 'GREEN PECEM',
+      VOY: '6',
+      IMO: '9976501',
+      'SALVADOR ETA': 'quarta-feira',
+    }])
+    expect(row.lanes.find((lane) => lane.code === 'BRSSA')?.date).toBe(null)
+    expect(row.invalidCells).toContain('SALVADOR ETA')
+  })
 })

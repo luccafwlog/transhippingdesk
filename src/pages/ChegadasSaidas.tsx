@@ -110,7 +110,7 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
 
 function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
   const [uploading, setUploading] = useState(false)
-  const [result, setResult] = useState<{ updated: string[]; errors: string[] } | null>(null)
+  const [result, setResult] = useState<{ updated: string[]; errors: string[]; warnings: string[] } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { showToast } = useToast()
   const { user } = useAuth()
@@ -141,12 +141,15 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
     try {
       const XLSX = await import('@e965/xlsx')
       const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { cellDates: false })
+      const wb = XLSX.read(buf, { cellDates: true })
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { raw: true })
       const parsed = parseScheduleRows(rows)
-      const next = { updated: [] as string[], errors: [] as string[] }
+      const next = { updated: [] as string[], errors: [] as string[], warnings: [] as string[] }
 
       for (const row of parsed) {
+        if (row.invalidCells.length > 0) {
+          next.warnings.push(`${row.vesselName} / ${row.voyageNumber}: datas ilegíveis em ${row.invalidCells.join(', ')}`)
+        }
         try {
           await createOrAttachVoyageFromSchedule(row, user?.id ?? null, { mode: 'bulk' })
           next.updated.push(`${row.vesselName} / ${row.voyageNumber}`)
@@ -191,6 +194,7 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
       {result && (
         <div className="space-y-2 mt-4 pt-4 border-t border-[var(--app-border)] text-sm">
           {result.updated.length > 0 && <div className="text-[var(--app-green)] font-medium">{result.updated.length} atualizada(s)</div>}
+          {result.warnings.length > 0 && <div className="text-[var(--app-gold)]">{result.warnings.length} com datas ilegíveis (ignoradas)</div>}
           {result.errors.length > 0 && <div className="text-[var(--app-red)]">{result.errors.length} erro(s)</div>}
         </div>
       )}
