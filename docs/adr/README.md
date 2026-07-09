@@ -26,6 +26,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0019](./0019-politica-de-senha-e-signup-fechado.md) | Politica de senha e signup fechado | aceito | Estende a 0004 e a 0013; exige provisionamento administrativo e piso de senha auditavel |
 | [0020](./0020-ce-mercante-gatilho-calculo-taxas-locais.md) | CE Mercante como gatilho do cálculo automático de Taxas Locais | aceito | Supersede parcialmente a 0005/0006 (billing no import) e a 0017 (cálculo pós-commit do Importar B/L) |
 | [0021](./0021-cadastro-unico-navio-viagem-programacao-projeta-viagem.md) | Cadastro único de navio/viagem: Programação de Navios projeta a Viagem | aceito | Estende a 0012 e a 0002; Chegadas e Saídas passa a criar a Viagem e o Portal projeta os schedules |
+| [0022](./0022-omissao-escala-transbordo-cod-registro-operacional.md) | Omissao de escala, transbordo e COD como registro operacional | aceito | Estende a 0012 e a 0021; financeiro permanece manual |
 
 ## Convenção
 
