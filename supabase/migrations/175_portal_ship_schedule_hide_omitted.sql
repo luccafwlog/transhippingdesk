@@ -1,4 +1,6 @@
 -- Exclui PODs omitidos da programacao do Portal.
+-- ponytail: a projecao varre audit_logs (voyage_pol_schedule/voyage_pod_schedule);
+-- upgrade = tabela materializada/indexada de programacao quando o volume crescer.
 CREATE OR REPLACE FUNCTION public.portal_ship_schedule()
 RETURNS TABLE (
   voyage_id bigint,

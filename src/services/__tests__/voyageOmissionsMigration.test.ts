@@ -31,3 +31,9 @@ it('define as RPCs auditadas de omissao, transbordo e COD', () => {
   expect(sql).toMatch(/INSERT INTO public\.portal_notifications[\s\S]*'transshipment'/i)
   expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.omit_voyage_escala[\s\S]*TO authenticated/i)
 })
+
+it('audita o POD anterior ao reverter COD para transbordo', () => {
+  expect(sql).toMatch(/DECLARE[\s\S]*v_old_pod TEXT/i)
+  expect(sql).toMatch(/IF v_was = 'cod' THEN[\s\S]*SELECT pod INTO v_old_pod FROM public\.bls WHERE id = p_bl_id[\s\S]*UPDATE public\.bls SET pod = v_original_pod/i)
+  expect(sql).toMatch(/VALUES \('bls', p_bl_id, 'pod', v_old_pod, v_original_pod, p_changed_by, 'Reversao de COD para transbordo'\)/i)
+})
