@@ -135,6 +135,10 @@ function parseCargoDescription(rows: RawSheetRow[]) {
 function parseTotalPackages(rows: RawSheetRow[]) {
   for (let rowNumber = 44; rowNumber <= 60; rowNumber += 1) {
     if (cell(rows, rowNumber, 'A').trim() !== 'TOTAL:') continue
+    // ponytail: reconhece apenas unidade de palavra unica (UNITS, PACKAGES) e
+    // milhar no formato que toNumber entende. Unidade composta ("BIG BAGS") cai
+    // para null. Campo comercial/exibicao, sem impacto em faturamento; estender
+    // a classe para [A-Z ]+ e normalizar milhar se surgir B/L multi-palavra.
     const match = cell(rows, rowNumber, 'C').match(/^\s*(\d[\d.,]*)\s+([A-Z]+)\s*$/i)
     return {
       totalPackages: match ? parseNumber(match[1]) : null,

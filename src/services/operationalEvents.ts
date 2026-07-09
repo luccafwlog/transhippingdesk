@@ -8,6 +8,8 @@ type OperationalEventCode =
   | 'invoice_create_conflict'
   | 'invoice_payment_invalid'
   | 'invoice_cancel_blocked'
+  | 'bl_auto_billing_failed'
+  | 'ce_reimport_already_invoiced'
 
 type LogOperationalEventInput = {
   code: OperationalEventCode
@@ -39,4 +41,3 @@ export async function logOperationalEvent(input: LogOperationalEventInput) {
     reportBestEffortFailure('registrar evento operacional', error, { code: input.code })
   }
 }
-
