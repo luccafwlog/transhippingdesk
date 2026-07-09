@@ -6,6 +6,8 @@ export type BulkScheduleRow = {
   vesselImo: string
   voyageNumber: string
   lanes: ScheduleLaneInput[]
+  /** Colunas com conteudo que nao pode ser lido como data (aviso ao operador). */
+  invalidCells: string[]
 }
 
 function stripAccents(value: string) {
@@ -25,6 +27,9 @@ export function scheduleTemplateColumns(): string[] {
 }
 
 export function parseCellDate(raw: unknown): string | null {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return raw.toISOString().slice(0, 10)
+  }
   const value = String(raw ?? '').trim()
   if (!value || value.toUpperCase() === 'X') return null
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
@@ -33,18 +38,27 @@ export function parseCellDate(raw: unknown): string | null {
   return null
 }
 
+function isBlankCell(raw: unknown): boolean {
+  if (raw == null) return true
+  const value = String(raw).trim()
+  return value === '' || value.toUpperCase() === 'X'
+}
+
 export function parseScheduleRows(rows: Array<Record<string, unknown>>): BulkScheduleRow[] {
   return rows
     .map((row) => {
       const vesselName = String(row['VESSEL NAME'] ?? row['Vessel Name'] ?? '').trim()
       const voyageNumber = String(row.VOY ?? '').trim()
       const vesselImo = String(row.IMO ?? '').trim()
-      const lanes = PORTAL_SCHEDULE_LANES.map((lane) => ({
-        code: portalLaneCode(lane),
-        kind: lane.kind,
-        date: parseCellDate(readCell(row, laneColumn(lane.label, lane.kind)) ?? row[lane.label]),
-      }))
-      return { vesselName, vesselImo, voyageNumber, lanes }
+      const invalidCells: string[] = []
+      const lanes = PORTAL_SCHEDULE_LANES.map((lane) => {
+        const column = laneColumn(lane.label, lane.kind)
+        const raw = readCell(row, column) ?? row[lane.label]
+        const date = parseCellDate(raw)
+        if (date === null && !isBlankCell(raw)) invalidCells.push(column)
+        return { code: portalLaneCode(lane), kind: lane.kind, date }
+      })
+      return { vesselName, vesselImo, voyageNumber, lanes, invalidCells }
     })
     .filter((row) => row.vesselName && row.voyageNumber && row.vesselName !== 'EXEMPLO NAVIO')
 }

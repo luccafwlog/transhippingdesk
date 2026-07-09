@@ -75,7 +75,7 @@ describe('ChegadasSaidas user behaviours', () => {
     expect(mocks.createOrAttach).toHaveBeenCalledWith(expect.objectContaining({
       vesselName: 'GAMMA',
       voyageNumber: '003',
-    }), 'user-1')
+    }), 'user-1', expect.objectContaining({ mode: 'form', voyageId: undefined }))
   })
 
   it('preenche edição a partir da viagem projetada', async () => {
@@ -85,6 +85,30 @@ describe('ChegadasSaidas user behaviours', () => {
     await user.click(screen.getAllByTitle('Editar')[0])
     expect((screen.getByLabelText('Nome do Navio') as HTMLInputElement).value).toBe('ALPHA')
     expect((screen.getByLabelText('Viagem (VOY)') as HTMLInputElement).value).toBe('001')
+  })
+
+  it('edicao salva com mode form e o voyageId conhecido (sem re-dedup)', async () => {
+    const user = userEvent.setup()
+    render(<ChegadasSaidas />)
+
+    await user.click(screen.getAllByTitle('Editar')[0])
+    await user.click(screen.getByRole('button', { name: /Salvar/ }))
+
+    expect(mocks.createOrAttach).toHaveBeenCalledWith(
+      expect.objectContaining({ vesselName: 'ALPHA', voyageNumber: '001' }),
+      'user-1',
+      expect.objectContaining({ mode: 'form', voyageId: 1 }),
+    )
+  })
+
+  it('campos de identidade ficam read-only na edicao', async () => {
+    const user = userEvent.setup()
+    render(<ChegadasSaidas />)
+
+    await user.click(screen.getAllByTitle('Editar')[0])
+    expect((screen.getByLabelText('Nome do Navio') as HTMLInputElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Viagem (VOY)') as HTMLInputElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Número IMO') as HTMLInputElement).disabled).toBe(true)
   })
 
   it('remove apenas a publicação do Portal', async () => {

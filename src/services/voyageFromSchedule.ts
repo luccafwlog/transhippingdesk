@@ -1,4 +1,5 @@
 import { DEFAULT_CARRIER_NAME, DEFAULT_CARRIER_SCAC } from './voyageForm'
+import { supabase } from './supabase'
 import {
   createVoyage,
   findVoyageByNumberAndVessel,
@@ -6,9 +7,13 @@ import {
 } from './voyages'
 import {
   buildVoyagePodEntityId,
+  buildVoyagePolEntityId,
+  deleteVoyagePodSchedule,
   listVoyagePodSchedules,
+  listVoyagePolSchedules,
   saveVoyagePodSchedule,
   saveVoyagePolSchedule,
+  type VoyagePodSchedule,
 } from './voyageRouteSchedules'
 
 export type ScheduleLaneInput = {
@@ -26,6 +31,14 @@ export type VoyageScheduleInput = {
   lanes: ScheduleLaneInput[]
 }
 
+export type ScheduleWriteMode = 'form' | 'bulk'
+
+export type ScheduleWriteOptions = {
+  mode?: ScheduleWriteMode
+  /** Viagem alvo conhecida (edicao): pula a deduplicacao por VOY+navio. */
+  voyageId?: number
+}
+
 export function partitionScheduleLanes(lanes: ScheduleLaneInput[]) {
   const pols: Array<{ code: string; etd: string }> = []
   const pods: Array<{ pod: string; eta: string }> = []
@@ -38,9 +51,83 @@ export function partitionScheduleLanes(lanes: ScheduleLaneInput[]) {
   return { pols, pods }
 }
 
-export async function createOrAttachVoyageFromSchedule(input: VoyageScheduleInput, changedBy: string | null) {
+function collectClearedLanes(lanes: ScheduleLaneInput[]) {
+  const pols: string[] = []
+  const pods: string[] = []
+  for (const lane of lanes) {
+    if ((lane.date ?? '').trim()) continue
+    if (lane.kind === 'pol') pols.push(lane.code)
+    else pods.push(lane.code)
+  }
+  return { pols, pods }
+}
+
+async function podHasOperationalAnchor(
+  voyageId: number,
+  podCode: string,
+  current: VoyagePodSchedule | undefined,
+): Promise<boolean> {
+  if (current?.linked || current?.ata || current?.atd) return true
+  const { data, error } = await supabase
+    .from('bls')
+    .select('id')
+    .eq('voyage_id', voyageId)
+    .eq('pod', podCode)
+    .limit(1)
+  if (error) throw error
+  return (data ?? []).length > 0
+}
+
+async function cancelClearedLanes(
+  voyageId: number,
+  lanes: ScheduleLaneInput[],
+  changedBy: string | null,
+) {
+  const cleared = collectClearedLanes(lanes)
+
+  const clearedPolIds = cleared.pols.map((code) => buildVoyagePolEntityId(voyageId, code))
+  const currentPols = await listVoyagePolSchedules(clearedPolIds)
+  await Promise.all(cleared.pols.map((code) => {
+    const current = currentPols.get(buildVoyagePolEntityId(voyageId, code))
+    if (!current?.etd) return Promise.resolve()
+    return saveVoyagePolSchedule({ voyageId, pol: code, etd: null, changedBy })
+  }))
+
+  const clearedPodIds = cleared.pods.map((code) => buildVoyagePodEntityId(voyageId, code))
+  const currentPods = await listVoyagePodSchedules(clearedPodIds)
+  await Promise.all(cleared.pods.map(async (code) => {
+    const current = currentPods.get(buildVoyagePodEntityId(voyageId, code))
+    if (!current) return
+    const anchored = await podHasOperationalAnchor(voyageId, code, current)
+    if (anchored) {
+      if (current.eta === null) return
+      await saveVoyagePodSchedule({
+        voyageId,
+        pod: code,
+        eta: null,
+        etb: current.etb ?? null,
+        ata: current.ata ?? null,
+        atd: current.atd ?? null,
+        rtw: current.rtw ?? null,
+        ceStatus: current.ceStatus ?? null,
+        linked: current.linked ?? false,
+        changedBy,
+      })
+      return
+    }
+    await deleteVoyagePodSchedule({ voyageId, pod: code, changedBy })
+  }))
+}
+
+export async function createOrAttachVoyageFromSchedule(
+  input: VoyageScheduleInput,
+  changedBy: string | null,
+  options: ScheduleWriteOptions = {},
+) {
+  const mode = options.mode ?? 'bulk'
   const { pols, pods } = partitionScheduleLanes(input.lanes)
-  const existingId = await findVoyageByNumberAndVessel(input.voyageNumber, input.vesselImo, input.vesselName)
+  const existingId = options.voyageId
+    ?? await findVoyageByNumberAndVessel(input.voyageNumber, input.vesselImo, input.vesselName)
   const voyageId = existingId ?? (await createVoyage({
     carrierName: DEFAULT_CARRIER_NAME,
     carrierScac: DEFAULT_CARRIER_SCAC,
@@ -79,6 +166,10 @@ export async function createOrAttachVoyageFromSchedule(input: VoyageScheduleInpu
       changedBy,
     })
   }))
+
+  if (mode === 'form') {
+    await cancelClearedLanes(voyageId, input.lanes, changedBy)
+  }
 
   return { voyageId, created: existingId === null }
 }

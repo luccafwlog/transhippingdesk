@@ -1,6 +1,11 @@
 -- ADR 0021: o Portal projeta as viagens visiveis em vez de ler vessel_schedules.
 -- Definer + allowlist a anon (ADR 0004/0011/0013): nenhuma tabela nova e
 -- concedida ao Portal; so esta funcao.
+-- ponytail: a projecao varre audit_logs (voyage_pol_schedule/voyage_pod_schedule)
+-- e faz DISTINCT ON ordenado por changed_at a cada leitura. OK no volume atual +
+-- cache do cliente (React Query). Teto: cresce ~7 linhas por edicao de POD.
+-- Upgrade = indice coberto (entity_type, entity_id, field_name, changed_at DESC)
+-- ou tabela materializada de "ultimo valor" se a leitura virar hot.
 CREATE OR REPLACE FUNCTION public.portal_ship_schedule()
 RETURNS TABLE (
   voyage_id bigint,

@@ -25,7 +25,7 @@ it('renderiza a programação projetada das viagens visíveis', () => {
   expect(screen.getByRole('link', { name: 'ALPHA' }).getAttribute('href')).toBe(
     'https://www.marinetraffic.com/en/ais/details/ships/imo:9876543',
   )
-  expect(screen.getByText('2026-01-04')).toBeTruthy()
-  expect(screen.getByText('2026-01-22')).toBeTruthy()
+  expect(screen.getByText('04/01/2026')).toBeTruthy()
+  expect(screen.getByText('22/01/2026')).toBeTruthy()
   expect(screen.getByText('PECÉM')).toBeTruthy()
 })

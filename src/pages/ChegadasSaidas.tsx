@@ -5,7 +5,7 @@ import { Card, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { emptyScheduleForm, buildScheduleLanes, scheduleFormFromVoyage, type ScheduleForm } from './chegadasSaidasForm'
-import { PORTAL_SCHEDULE_LANES } from '../services/portalScheduleLanes'
+import { PORTAL_SCHEDULE_LANES, formatScheduleDate } from '../services/portalScheduleLanes'
 import { parseScheduleRows, scheduleTemplateColumns } from '../services/portalScheduleBulkImport'
 import { fetchPortalScheduleVoyages, type PortalScheduleVoyage } from '../services/portalScheduleVoyages'
 import { createOrAttachVoyageFromSchedule } from '../services/voyageFromSchedule'
@@ -38,7 +38,7 @@ function DateTd({ value }: { value: string }) {
   const isX = value === 'X'
   return (
     <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : info.isPast ? 'text-[var(--app-blue)] font-semibold' : ''}`}>
-      {value}
+      {isX ? 'X' : formatScheduleDate(value)}
     </td>
   )
 }
@@ -59,19 +59,24 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
       <div className="grid grid-cols-2 gap-4">
         <div className="app-field">
           <label className="app-field__label" htmlFor="vessel_name">Nome do Navio</label>
-          <input id="vessel_name" className="app-input app-input--full" value={formData.vesselName}
+          <input id="vessel_name" className="app-input app-input--full" value={formData.vesselName} disabled={isEditing}
             onChange={(event) => onChange({ ...formData, vesselName: event.target.value })} placeholder="GREEN PECEM" required />
         </div>
         <div className="app-field">
           <label className="app-field__label" htmlFor="voyage">Viagem (VOY)</label>
-          <input id="voyage" className="app-input app-input--full" value={formData.voyageNumber}
+          <input id="voyage" className="app-input app-input--full" value={formData.voyageNumber} disabled={isEditing}
             onChange={(event) => onChange({ ...formData, voyageNumber: event.target.value })} placeholder="6" required />
         </div>
       </div>
       <div className="app-field">
         <label className="app-field__label" htmlFor="imo_number">Número IMO</label>
-        <input id="imo_number" className="app-input app-input--full" value={formData.vesselImo}
+        <input id="imo_number" className="app-input app-input--full" value={formData.vesselImo} disabled={isEditing}
           onChange={(event) => onChange({ ...formData, vesselImo: event.target.value })} placeholder="9976501" />
+        {isEditing ? (
+          <div className="mt-1 text-xs text-[var(--app-muted)]">
+            Navio, VOY e IMO se editam na tela Viagens. Aqui você ajusta apenas as datas da programação.
+          </div>
+        ) : null}
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {PORTAL_SCHEDULE_LANES.map((lane) => {
@@ -105,7 +110,7 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
 
 function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
   const [uploading, setUploading] = useState(false)
-  const [result, setResult] = useState<{ updated: string[]; errors: string[] } | null>(null)
+  const [result, setResult] = useState<{ updated: string[]; errors: string[]; warnings: string[] } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { showToast } = useToast()
   const { user } = useAuth()
@@ -136,14 +141,17 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
     try {
       const XLSX = await import('@e965/xlsx')
       const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { cellDates: false })
+      const wb = XLSX.read(buf, { cellDates: true })
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { raw: true })
       const parsed = parseScheduleRows(rows)
-      const next = { updated: [] as string[], errors: [] as string[] }
+      const next = { updated: [] as string[], errors: [] as string[], warnings: [] as string[] }
 
       for (const row of parsed) {
+        if (row.invalidCells.length > 0) {
+          next.warnings.push(`${row.vesselName} / ${row.voyageNumber}: datas ilegíveis em ${row.invalidCells.join(', ')}`)
+        }
         try {
-          await createOrAttachVoyageFromSchedule(row, user?.id ?? null)
+          await createOrAttachVoyageFromSchedule(row, user?.id ?? null, { mode: 'bulk' })
           next.updated.push(`${row.vesselName} / ${row.voyageNumber}`)
         } catch (error) {
           next.errors.push(`${row.vesselName}: ${error instanceof Error ? error.message : 'falha inesperada'}`)
@@ -186,6 +194,7 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
       {result && (
         <div className="space-y-2 mt-4 pt-4 border-t border-[var(--app-border)] text-sm">
           {result.updated.length > 0 && <div className="text-[var(--app-green)] font-medium">{result.updated.length} atualizada(s)</div>}
+          {result.warnings.length > 0 && <div className="text-[var(--app-gold)]">{result.warnings.length} com datas ilegíveis (ignoradas)</div>}
           {result.errors.length > 0 && <div className="text-[var(--app-red)]">{result.errors.length} erro(s)</div>}
         </div>
       )}
@@ -249,7 +258,7 @@ export function ChegadasSaidas() {
         vesselImo: formData.vesselImo,
         voyageNumber: formData.voyageNumber,
         lanes,
-      }, user?.id ?? null)
+      }, user?.id ?? null, { mode: 'form', voyageId: editingId ?? undefined })
       showToast('Viagem cadastrada e publicada no Portal.', 'success')
       invalidateSchedules()
       closeDialog()
