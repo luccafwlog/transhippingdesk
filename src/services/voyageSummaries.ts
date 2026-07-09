@@ -338,9 +338,11 @@ type PodScheduleRow = { pod: string; eta: string | null; ata: string | null; omi
 export function buildVoyageRailItems(
   voyages: VoyageRailSource[] | null | undefined,
   podRowsByVoyageId: ReadonlyMap<number, PodScheduleRow[]>,
+  polPortsByVoyageId?: ReadonlyMap<number, string[]>,
 ): VoyageRailItem[] {
   return (voyages ?? []).map((voyage) => {
     const podRows = podRowsByVoyageId.get(voyage.id) ?? []
+    const scheduledPolPorts = polPortsByVoyageId?.get(voyage.id) ?? []
     const { containerBls } = splitVoyageBls(voyage.bls)
     const { filled, total } = voyageCeCoverage(voyage.bls)
 
@@ -350,7 +352,7 @@ export function buildVoyageRailItems(
       vesselName: voyage.vessel?.name ?? 'Navio',
       voyageNumber: voyage.voyage_number,
       status: normalizeVoyageStatus(voyage.status),
-      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null),
+      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, scheduledPolPorts),
       destinationPorts: collectVoyagePorts(
         voyage.bls,
         'pod',

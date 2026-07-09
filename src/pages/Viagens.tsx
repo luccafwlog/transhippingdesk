@@ -108,9 +108,26 @@ export function Viagens() {
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
 
+  const polPortsByVoyageId = useMemo(() => {
+    const map = new Map<number, string[]>()
+    if (!polSchedules) return map
+    for (const key of polSchedules.keys()) {
+      const [voyageIdStr, pol] = key.split('::')
+      const voyageId = Number(voyageIdStr)
+      if (!voyageId || !pol) continue
+      const existing = map.get(voyageId)
+      if (existing) {
+        existing.push(pol)
+      } else {
+        map.set(voyageId, [pol])
+      }
+    }
+    return map
+  }, [polSchedules])
+
   const railItems = useMemo(
-    () => buildVoyageRailItems(voyages, podSchedulesByVoyage),
-    [voyages, podSchedulesByVoyage],
+    () => buildVoyageRailItems(voyages, podSchedulesByVoyage, polPortsByVoyageId),
+    [voyages, podSchedulesByVoyage, polPortsByVoyageId],
   )
 
   const visibleRailItems = useMemo(

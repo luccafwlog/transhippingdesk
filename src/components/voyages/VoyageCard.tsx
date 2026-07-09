@@ -134,7 +134,15 @@ export function VoyageCard({
   const totalContainers = countDistinctContainerNumbers(flatContainers)
   const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
-  const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null)
+  const scheduledPolPorts = useMemo(
+    () =>
+      Array.from(polSchedules?.keys() ?? [])
+        .filter((key) => key.startsWith(`${voyage.id}::`))
+        .map((key) => key.split('::')[1])
+        .filter(Boolean),
+    [polSchedules, voyage.id],
+  )
+  const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, scheduledPolPorts)
   const destinationPorts = collectVoyagePorts(
     voyage.bls,
     'pod',
