@@ -349,7 +349,7 @@ export function VoyageCard({
           onClose={() => setOmitTarget(null)}
           voyageId={voyage.id}
           omittedPod={omitTarget}
-          candidateDischargePods={activePods.filter((pod) => pod !== omitTarget)}
+          candidateDischargePods={activePods.length > 1 ? activePods.filter((pod) => pod !== omitTarget) : activePods}
         />
       ) : null}
       <TransshipmentPanel voyageId={voyage.id} />

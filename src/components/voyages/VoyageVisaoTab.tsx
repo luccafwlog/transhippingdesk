@@ -243,7 +243,7 @@ export function VoyageVisaoTab({
                       </Button>
                       {isAdmin ? (
                         <>
-                          {!row.omitted && activePods.filter((pod) => normalizePortName(pod) !== normalizePortName(row.pod)).length > 0 ? (
+                          {!row.omitted ? (
                             <Button
                               variant="secondary"
                               className="app-voyage-icon-btn"
