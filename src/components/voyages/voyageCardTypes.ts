@@ -15,6 +15,7 @@ export type EditingPodPayload = {
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber: string | null
+  omitted?: boolean
 }
 
 export type EditingPolPayload = {

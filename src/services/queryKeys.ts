@@ -62,6 +62,9 @@ export const queryKeys = {
     routeCeMasters: (voyageIds: number[]) => ['voyage-route-ce-masters', voyageIds] as const,
     exportSchedules: (voyageIds: number[]) => ['voyage-export-schedules', voyageIds] as const,
   },
+  transshipments: {
+    byVoyage: (voyageId: number) => ['transshipments', 'voyage', voyageId] as const,
+  },
   customers: {
     all: () => ['customers'] as const,
     detail: (cnpj?: string) =>
