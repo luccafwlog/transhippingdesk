@@ -46,4 +46,5 @@ export type VoyagePodRow = {
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber: string | null
+  omitted?: boolean
 }

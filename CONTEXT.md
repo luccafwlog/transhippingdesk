@@ -16,6 +16,24 @@ acompanhado em suas escalas, agendas e cargas.
 Passagem de uma viagem por um porto ou terminal, com datas operacionais,
 identificadores e vínculos documentais próprios.
 
+**Omissao de Escala**
+Evento operacional em que o armador nao realiza a escala prevista em um POD. A
+carga afetada e descarregada em outro porto da mesma viagem para seguir em
+transbordo ou ser convertida em COD. Nao calcula nem automatiza financeiro.
+
+**Porto de Descarga**
+Porto onde a carga de uma escala omitida e efetivamente descarregada. Pode ser
+diferente do POD original do B/L.
+
+**Transbordo**
+Seguimento da carga em navio de terceiro apos omissao de escala. No sistema, o
+navio/armador/viagem de transbordo sao referencia operacional leve por B/L, nao
+uma nova Viagem.
+
+**COD (Change of Destination)**
+Alteracao operacional do destino final do B/L para o Porto de Descarga apos
+omissao de escala. E uma excecao por B/L e mantem efeitos financeiros manuais.
+
 **Rota da Viagem**
 Sequência de portos de uma viagem: portos de carregamento (POL) com seus ETDs e
 portos de descarga (POD) com seus ETA/ETB/ATA/ATD. É o dado que o sistema

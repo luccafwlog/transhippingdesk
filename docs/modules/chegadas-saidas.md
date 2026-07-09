@@ -72,6 +72,8 @@ de lanes e ordena pela menor ETA de POD.
 - A lista de portos-vitrine é única em `PORTAL_SCHEDULE_LANES`.
 - `show_on_portal` controla visibilidade; viagens manuais começam ocultas.
 - Viagens `completed` não aparecem na RPC do Portal.
+- PODs omitidos pelo armador (`audit_logs.field_name='omitted'`) nao aparecem
+  na projecao do Portal, ainda que permanecam rastreaveis em Viagens.
 - "Não escala" não cria schedule para a lane.
 - Chegadas e Saídas nunca grava ATA/ATD/RTW/CE/linked.
 - A ordenação do quadro é automática pela menor ETA; não há setas manuais nem

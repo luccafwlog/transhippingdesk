@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, ChevronDown, ChevronUp, Clock, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Boxes, ChevronDown, ChevronUp, Clock, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
 import { useToast } from '../ui/Toast'
@@ -40,6 +40,7 @@ export function VoyageVisaoTab({
   ceCoverage,
   onAddPod,
   onEditPod,
+  onOmitPod,
   onEditExport,
 }: {
   voyage: Voyage
@@ -52,6 +53,7 @@ export function VoyageVisaoTab({
   ceCoverage: { filled: number; total: number }
   onAddPod: (payload: AddingPodPayload) => void
   onEditPod: (payload: EditingPodPayload) => void
+  onOmitPod: (pod: string) => void
   onEditExport: (payload: EditingExportPayload) => void
 }) {
   const navigate = useNavigate()
@@ -239,14 +241,27 @@ export function VoyageVisaoTab({
                         <Pencil size={15} />
                       </Button>
                       {isAdmin ? (
-                        <Button
-                          variant="danger"
-                          className="app-voyage-icon-btn"
-                          aria-label={`Excluir planejamento do POD ${row.pod}`}
-                          onClick={() => handleDeletePod(row)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
+                        <>
+                          {!row.omitted ? (
+                            <Button
+                              variant="secondary"
+                              className="app-voyage-icon-btn"
+                              aria-label={`Omitir escala do POD ${row.pod}`}
+                              title={`Omitir escala do POD ${row.pod}`}
+                              onClick={() => onOmitPod(row.pod)}
+                            >
+                              <AlertTriangle size={15} />
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="danger"
+                            className="app-voyage-icon-btn"
+                            aria-label={`Excluir planejamento do POD ${row.pod}`}
+                            onClick={() => handleDeletePod(row)}
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </>
                       ) : null}
                     </div>
                   </td>

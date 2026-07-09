@@ -32,6 +32,8 @@ import { VoyageVisaoTab } from './VoyageVisaoTab'
 import { VoyageImportacaoTab } from './VoyageImportacaoTab'
 import { VoyageExportacaoTab } from './VoyageExportacaoTab'
 import { VoyageManifestosTab } from './VoyageManifestosTab'
+import { OmitEscalaModal } from './OmitEscalaModal'
+import { TransshipmentPanel } from './TransshipmentPanel'
 import type {
   AddingPodPayload,
   EditingExportPayload,
@@ -114,6 +116,7 @@ export function VoyageCard({
   onEditExport,
 }: VoyageCardProps) {
   const [activeTab, setActiveTab] = useState<VoyageTabKey>('visao')
+  const [omitTarget, setOmitTarget] = useState<string | null>(null)
   const { isAdmin, user } = useAuth()
 
   const vehicleStats = vehicleStatsProp ?? DEFAULT_VEHICLE_STATS
@@ -153,8 +156,10 @@ export function VoyageCard({
       ceStatus: schedule?.ceStatus ?? autoCeStatus,
       linked: schedule?.linked ?? false,
       escalaNumber: schedule?.escalaNumber ?? null,
+      omitted: schedule?.omitted ?? false,
     }
   })
+  const activePods = podRows.filter((row) => !row.omitted).map((row) => row.pod)
   const plannedPodCount = countPlannedPodRows(podRows)
 
   // Estado de Conciliação: divergências da viagem aberta (uma consulta) +
@@ -299,6 +304,7 @@ export function VoyageCard({
               ceCoverage={ceCoverage}
               onAddPod={onAddPod}
               onEditPod={onEditPod}
+              onOmitPod={(pod) => setOmitTarget(pod)}
               onEditExport={onEditExport}
             />
           ) : null}
@@ -329,6 +335,16 @@ export function VoyageCard({
           ) : null}
         </div>
       </section>
+      {omitTarget ? (
+        <OmitEscalaModal
+          open
+          onClose={() => setOmitTarget(null)}
+          voyageId={voyage.id}
+          omittedPod={omitTarget}
+          candidateDischargePods={activePods.filter((pod) => pod !== omitTarget)}
+        />
+      ) : null}
+      <TransshipmentPanel voyageId={voyage.id} />
     </Card>
   )
 }
