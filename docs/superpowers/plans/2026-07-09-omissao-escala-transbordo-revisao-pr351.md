@@ -7,6 +7,15 @@ vale corrigir antes ou logo após integrar. Financeiro segue **manual** (fora de
 Contexto de fontes: `docs/superpowers/specs/2026-07-09-omissao-escala-transbordo-design.md`
 e `docs/superpowers/plans/2026-07-09-omissao-escala-transbordo.md`.
 
+> **Base de execução (importante):** este documento foi commitado sobre `main`, onde os arquivos
+> do PR #351 ainda **não existem**. Todos os alvos abaixo (`174_voyage_omissions_transshipments.sql`,
+> `src/services/transshipments.ts`, `src/hooks/useTransshipments.ts`,
+> `src/components/voyages/OmitEscalaModal.tsx`/`TransshipmentPanel.tsx`, os specs/planos citados)
+> vivem na branch do PR #351: `claude/ship-omission-transshipment-flow-efaqs1`. Antes de executar,
+> faça checkout dessa branch (ou espere o #351 mergear e parta de `main` atualizada) e aplique as
+> correções **lá** — não nesta branch. Rode um `git ls-files | rg 'transshipment|omissao'` para
+> confirmar que os arquivos-alvo estão presentes antes de começar.
+
 Convenção: cada tarefa tem alvo → mudança → verificar. Marque simplificações intencionais com
 `ponytail:` (CLAUDE.md §2). Rode a verificação estreita de cada tarefa e, ao final,
 `npm run lint && npm test && npm run build` e `npm run docs:check` se tocar Markdown.
