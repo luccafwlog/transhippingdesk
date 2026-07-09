@@ -2242,6 +2242,7 @@ textarea {
 }
 
 .app-table--lineup tbody td {
+  font-size: 14px;
   vertical-align: middle;
 }
 
