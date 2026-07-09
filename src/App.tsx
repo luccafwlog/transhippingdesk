@@ -29,7 +29,6 @@ const TaxasLocais = lazyPage(() => import('./pages/TaxasLocais'), 'TaxasLocais')
 const Faturamento = lazyPage(() => import('./pages/Faturamento'), 'Faturamento')
 const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
 const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
-const LineUpTV = lazyPage(() => import('./pages/LineUpTV'), 'LineUpTV')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
 const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
 const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
@@ -101,7 +100,6 @@ export default function App() {
           <Route path="/faturamento" element={withSuspense(<Faturamento />)} />
           <Route path="/alertas" element={withSuspense(<Alertas />)} />
           <Route path="/relatorios" element={withSuspense(<Relatorios />)} />
-          <Route path="/line-up-tv" element={withSuspense(<LineUpTV />)} />
           <Route path="/demurrage" element={withSuspense(<Demurrage />)} />
           <Route path="/demurrage/invoices" element={<Navigate to="/demurrage" replace />} />
           <Route path="/demurrage/reconciliacao" element={<Navigate to="/reconciliacao" replace />} />
