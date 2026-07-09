@@ -106,19 +106,24 @@ com carga redirecionada". São semânticas distintas e disparam fluxos distintos
 
 ## 4. Integração com derivações existentes (crítico)
 
-Uma escala omitida **nunca recebe ATA/ATD**. Duas funções em
-`src/services/voyageRouteSchedules.ts` precisam ignorar PODs omitidos:
+Uma escala omitida **nunca recebe ATA/ATD**. Três pontos de leitura de schedule
+precisam ignorar PODs omitidos (todos hoje já filtram `deleted`):
 
-1. `getProximaEscala` (menor ETA entre PODs sem ATA) — sem tratamento,
-   apontaria eternamente para o porto omitido. Deve **excluir** PODs `omitted`.
+1. `getProximaEscala` (menor ETA entre PODs sem ATA), em
+   **`src/services/voyageSummaries.ts`** — sem tratamento, apontaria eternamente
+   para o porto omitido. Deve **excluir** PODs `omitted`. Os filtros de
+   rail/período (`src/lib/viagensFilters.ts`) herdam o comportamento por aqui.
 2. `syncVoyageStatusAfterAtdChange` (marca `completed` só quando **todos** os
-   PODs ativos têm ATD) — sem tratamento, a viagem nunca concluiria. Deve
-   tratar POD `omitted` como **não pendente** (equivalente a ter ATD para fins
-   de conclusão).
-
-Ambas já ignoram PODs `deleted`; o mesmo ponto de leitura passa a ignorar
-`omitted`. Os filtros de rail/período (`src/lib/viagensFilters.ts`) herdam o
-comportamento via `getProximaEscala`.
+   PODs ativos têm ATD), em **`src/services/voyageRouteSchedules.ts`** — sem
+   tratamento, a viagem nunca concluiria. Deve tratar POD `omitted` como **não
+   pendente** (equivalente a ter ATD para fins de conclusão).
+3. **RPC `portal_ship_schedule`** (`supabase/migrations/173_portal_ship_schedule.sql`,
+   consumido por `src/services/portalScheduleVoyages.ts` → `ShipScheduleWidget`)
+   — projeta as escalas no **cronograma do Portal (Chegadas e Saídas)**. Hoje o
+   RPC só exclui PODs com marcador `deleted`; um POD **omitido** continuaria
+   sendo publicado ao cliente com porto/ETA cancelados. É preciso adicionar um
+   CTE `omitted_pods` (espelhando `deleted_pods`, `field_name='omitted'`) e
+   excluir esses PODs da projeção.
 
 ## 5. Fluxo operacional
 
@@ -162,6 +167,11 @@ com mensagens distintas:
 
 Sem badge no B/L e sem nova ETA no Portal nesta entrega (decisão de escopo).
 
+**Cronograma (Chegadas e Saídas):** além da notificação, o POD omitido deve
+**sumir** do cronograma projetado ao cliente — ver o ponto 3 da Seção 4 (RPC
+`portal_ship_schedule`). Caso contrário o cliente veria a escala cancelada como
+se ainda fosse ocorrer.
+
 ## 8. Auditoria e timeline interna
 
 - **Histórico do B/L:** eventos de omissão, definição de transbordo, mudança de
@@ -179,8 +189,9 @@ Sem badge no B/L e sem nova ETA no Portal nesta entrega (decisão de escopo).
    um `bl_transshipments` para aquela omissão.
 3. `disposition='cod'` ⇒ `onward_*` nulos **e** `bls.pod = discharge_pod`.
 4. `disposition='transshipment'` ⇒ `bls.pod` permanece o destino original.
-5. POD `omitted` é excluído de `getProximaEscala` e tratado como não pendente na
-   conclusão da viagem.
+5. POD `omitted` é excluído de `getProximaEscala`, tratado como não pendente na
+   conclusão da viagem, e **não aparece** no cronograma do Portal
+   (`portal_ship_schedule`).
 6. Registrar o evento **não** altera CE Mercante, taxas locais nem demurrage
    (financeiro manual).
 
@@ -192,6 +203,8 @@ Sem badge no B/L e sem nova ETA no Portal nesta entrega (decisão de escopo).
 - Unit: alternar disposição transbordo↔COD reescreve/restaura `bls.pod` e mantém
   invariantes 3–4.
 - Contrato SQL: RLS/grants das tabelas novas; unicidade e CHECKs.
+- Contrato SQL: `portal_ship_schedule` **omite** PODs `omitted` (espelhando o
+  teste existente `src/services/__tests__/portalShipScheduleMigration.test.ts`).
 - Verificação em runtime do fluxo 1–5 quando a implementação existir.
 
 ## 11. Impacto em documentação viva (contrato)
@@ -202,7 +215,10 @@ Atualizar na mesma mudança de implementação:
   de Descarga**.
 - `docs/modules/viagens.md`: catálogo de ações (omitir escala, definir
   transbordo, marcar COD) e invariantes; nota sobre `getProximaEscala`/conclusão.
-- `docs/modules/portal-cliente.md`: novo `type` de `portal_notifications`.
+- `docs/modules/portal-cliente.md`: novo `type` de `portal_notifications` e
+  exclusão de PODs omitidos no cronograma (`portal_ship_schedule`).
+- `docs/modules/chegadas-saidas.md`: nota de que PODs omitidos somem da
+  projeção do cronograma do Portal.
 - `docs/RASTREABILIDADE.md`: rota/ação → componentes/serviços/tabelas novas.
 - Novo **ADR**: decisão de registro operacional com financeiro manual, navio de
   transbordo como referência leve, e omissão distinta de exclusão de POD.
