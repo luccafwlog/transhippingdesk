@@ -166,6 +166,7 @@ AS $function$
 DECLARE
   v_was TEXT;
   v_original_pod TEXT;
+  v_old_pod TEXT;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() OR p_changed_by IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'Usuario sem permissao ativa.' USING ERRCODE = '42501';
@@ -192,9 +193,10 @@ BEGIN
   WHERE bl_id = p_bl_id AND omission_id = p_omission_id;
 
   IF v_was = 'cod' THEN
+    SELECT pod INTO v_old_pod FROM public.bls WHERE id = p_bl_id;
     UPDATE public.bls SET pod = v_original_pod, updated_at = now() WHERE id = p_bl_id;
     INSERT INTO public.audit_logs(entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
-    VALUES ('bls', p_bl_id, 'pod', NULL, v_original_pod, p_changed_by, 'Reversao de COD para transbordo');
+    VALUES ('bls', p_bl_id, 'pod', v_old_pod, v_original_pod, p_changed_by, 'Reversao de COD para transbordo');
   END IF;
 
   INSERT INTO public.audit_logs(entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)

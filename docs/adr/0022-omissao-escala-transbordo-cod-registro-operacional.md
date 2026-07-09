@@ -25,6 +25,8 @@ CE Mercante, taxas, demurrage ou outros efeitos financeiros.
   e da RPC `portal_ship_schedule`.
 - Expor o evento ao Portal por `portal_notifications.type='transshipment'`, sem
   dar acesso direto do Portal as tabelas internas.
+- Notificar a omissao da escala no primeiro momento para todos os B/Ls afetados;
+  se um B/L virar COD depois, ele recebe nova notificacao especifica de destino.
 
 ## Consequencias
 

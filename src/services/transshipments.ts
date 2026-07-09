@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 
 const normPod = (value: string) => value.trim().toUpperCase()
 
+// ponytail: database.ts ainda nao inclui voyage_omissions/bl_transshipments/RPCs; manter casts locais ate regenerar tipos com autorizacao.
 export type BlDisposition = 'transshipment' | 'cod'
 
 export interface BlTransshipment {

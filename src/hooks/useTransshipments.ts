@@ -16,6 +16,7 @@ export function useVoyageTransshipments(voyageId: number | null) {
     enabled: voyageId != null,
     queryFn: async (): Promise<{ omissions: VoyageOmission[]; transshipments: BlTransshipment[] }> => {
       const omissions = await listVoyageOmissions(voyageId as number)
+      // ponytail: 1 query de omissoes + N de transbordos por viagem aberta; ok no volume atual (0-1 omissao/viagem). Upgrade = SELECT unico por omission_id in (...).
       const transshipments = (await Promise.all(omissions.map((omission) => listBlTransshipments(omission.id)))).flat()
       return { omissions, transshipments }
     },

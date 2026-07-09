@@ -74,6 +74,7 @@ export function VoyageVisaoTab({
   )
   const graniteStats = getGraniteModuleStats(voyage.granite_manifests)
   const vaziosStats = getVaziosModuleStats(voyage.vazios_manifests)
+  const activePods = podRows.filter((row) => !row.omitted).map((row) => row.pod)
 
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
   // identificar o import na linha do tempo pela rota em vez do nome do arquivo.
@@ -242,7 +243,7 @@ export function VoyageVisaoTab({
                       </Button>
                       {isAdmin ? (
                         <>
-                          {!row.omitted ? (
+                          {!row.omitted && activePods.filter((pod) => normalizePortName(pod) !== normalizePortName(row.pod)).length > 0 ? (
                             <Button
                               variant="secondary"
                               className="app-voyage-icon-btn"
