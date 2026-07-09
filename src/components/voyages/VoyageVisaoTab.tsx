@@ -74,8 +74,6 @@ export function VoyageVisaoTab({
   )
   const graniteStats = getGraniteModuleStats(voyage.granite_manifests)
   const vaziosStats = getVaziosModuleStats(voyage.vazios_manifests)
-  const activePods = podRows.filter((row) => !row.omitted).map((row) => row.pod)
-
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
   // identificar o import na linha do tempo pela rota em vez do nome do arquivo.
   const routeByBatchId = useMemo(() => {
