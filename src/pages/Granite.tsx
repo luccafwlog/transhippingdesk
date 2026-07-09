@@ -300,7 +300,7 @@ export function Granite() {
       {/* Modal de taxas calculadas */}
       <Modal open={chargeBlId !== null} onClose={() => { setChargeBlId(null); setChargeLines([]) }} title="Taxas do B/L">
         {chargeLines.length === 0 ? (
-          <p className="app-panel__meta">Nenhuma taxa ativa cadastrada. Acesse Granito &gt; Taxas para cadastrar.</p>
+          <p className="app-panel__meta">Nenhuma taxa ativa cadastrada. <a href="/granito/taxas">Acesse Granito &gt; Taxas</a> para cadastrar.</p>
         ) : (
           <div className="app-table-scroll">
             <table className="app-table app-table--compact w-full text-sm">
