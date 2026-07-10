@@ -463,7 +463,7 @@ async function syncVoyageStatusAfterAtdChange(voyageId: number, changedPod: stri
     .eq('id', voyageId)
     .single()
 
-  if (fetchError || !voyage || voyage.status === newStatus) return
+  if (fetchError || !voyage || voyage.status === 'cancelled' || voyage.status === newStatus) return
 
   const { error: updateError } = await supabase
     .from('voyages')

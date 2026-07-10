@@ -96,7 +96,7 @@ POL/POD e exportação têm contratos diferentes:
 1. **Seleção e deep-link.** A viagem selecionada pertence à URL; as quatro abas internas pertencem apenas ao estado de `VoyageCard`.
 2. **Próxima escala.** `getProximaEscala` escolhe o menor ETA entre PODs sem ATA e sem `omitted=true`. O rail usa esse valor para ordenação e filtros de período.
 3. **POD removido.** “Excluir” não apaga histórico: grava `deleted=true`. Reincluir o mesmo POD por `saveVoyagePodSchedule` grava `deleted=false`.
-4. **Conclusão da viagem.** Ao alterar ATD, `syncVoyageStatusAfterAtdChange` marca `completed` apenas quando todos os PODs ativos e nao omitidos têm ATD; caso contrário, volta a `active`.
+4. **Ciclo de status.** Ao alterar ATD, `syncVoyageStatusAfterAtdChange` marca `completed` apenas quando todos os PODs ativos e nao omitidos têm ATD; caso contrário, volta a `active`. Uma viagem `cancelled` é estado retido e o guard impede que uma alteração de ATD a reverta automaticamente. Exclusão de viagem continua sendo hard delete controlado, não um status.
 5. **Número de Escala ≠ VINCULADA.** `escala_number` identifica a escala criada no Mercante; `linked=true` confirma que manifestos foram vinculados à escala.
 6. **CE Master ≠ CE Mercante.** CE Master é um agrupador por rota: com batch de manifesto vive em `import_batches.ce_master`; em viagem só-B/L (sem batch) vive em `voyage_route_ce_master` por `(voyage_id, pol, pod)` (#322). CE Mercante vive em cada B/L. Nenhum dos dois entra no EDI Mercante — só registro/agrupamento.
 7. **Escalas & Manifestos é B/L-first.** A tabela agrupa primeiro os B/Ls por rota POL/POD. Batches e nomes de arquivo são metadados opcionais; B/Ls importados sem batch continuam aparecendo como rota, com edição de ETD e de CE Master por rota.
@@ -110,10 +110,11 @@ POL/POD e exportação têm contratos diferentes:
 
 Evidência estática localizada:
 
-- `src/lib/__tests__/viagensFilters.test.ts`: busca, status, conciliação, período e ordenação por próxima escala.
+- `src/lib/__tests__/viagensFilters.test.ts`: busca, status (inclusive `cancelled`), conciliação, período e ordenação por próxima escala.
 - `src/pages/__tests__/viagensHelpers.test.ts`: métricas, estado de conciliação, próxima escala, timeline e agrupamentos por POD/POL.
 - `src/components/voyages/__tests__/voyageCardHelpers.test.tsx`: linhas de Escalas & Manifestos derivadas por rota de B/L, inclusive sem batch.
-- `src/services/__tests__/voyageRouteSchedules.test.ts`: fallback automático do status de B/Ls e CEs por POD, preservando `Aprovado` como estado manual.
+- `src/services/__tests__/voyageRouteSchedules.test.ts`: fallback automático do status de B/Ls e CEs por POD, preservando `Aprovado` como estado manual, e guard que impede ATD de reverter viagem cancelada.
+- `src/pages/__tests__/Painel.behavior.test.tsx` e `src/pages/__tests__/Viagens.behavior.test.tsx`: filtros `cancelled` no Line-Up e no rail de viagens.
 - `src/components/shared/__tests__/VoyageScheduleModals.test.tsx`: normalização e payload dos modais POL, POD, inclusão de POD e export schedule.
 - `src/components/shared/__tests__/VoyageSectionCards.test.tsx`: navegação, estado desabilitado e componentes de métricas.
 - `src/components/shared/__tests__/VoyageCombobox.test.tsx`: filtro local, seleção obrigatória/limpável e hidratação por `selectedVoyageId`.

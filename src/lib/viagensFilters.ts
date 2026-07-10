@@ -1,6 +1,6 @@
 import type { VoyageRailItem } from '../services/voyageSummaries'
 
-export type StatusFilter = 'all' | 'active' | 'completed'
+export type StatusFilter = 'all' | 'active' | 'completed' | 'cancelled'
 export type ConciliacaoFilter = 'all' | 'conciliada' | 'pendente'
 export type PeriodoFilter = 'all' | 'hoje' | '7d' | '30d' | 'custom'
 

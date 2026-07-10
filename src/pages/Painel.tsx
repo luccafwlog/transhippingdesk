@@ -13,7 +13,7 @@ import { SkeletonTable } from '../components/ui/Skeleton'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 
-type FilterStatus = 'all' | 'active' | 'completed'
+type FilterStatus = 'all' | 'active' | 'completed' | 'cancelled'
 
 async function exportLineUpToExcel(rows: LineUpRow[]) {
   const XLSX = await import('@e965/xlsx')
@@ -21,7 +21,7 @@ async function exportLineUpToExcel(rows: LineUpRow[]) {
     Navio: row.vesselName,
     Viagem: row.voyageNumber,
     POD: row.pod,
-    Status: row.voyageStatus === 'completed' ? 'Concluída' : row.voyageStatus === 'active' ? 'Ativa' : row.voyageStatus ?? '',
+    Status: row.voyageStatus === 'completed' ? 'Concluída' : row.voyageStatus === 'cancelled' ? 'Cancelada' : row.voyageStatus === 'active' ? 'Ativa' : row.voyageStatus ?? '',
     ETA: row.eta ?? '',
     ETB: row.etb ?? '',
     VIN: row.vin,
@@ -122,14 +122,14 @@ export function Painel() {
       <Card className="mb-5 mt-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
-            {(['active', 'completed', 'all'] as FilterStatus[]).map((filter) => (
+            {(['active', 'completed', 'cancelled', 'all'] as FilterStatus[]).map((filter) => (
               <button
                 key={filter}
                 type="button"
                 onClick={() => setStatusFilter(filter)}
                 className={`app-tab ${statusFilter === filter ? 'app-tab--active' : ''}`}
               >
-                {filter === 'all' ? 'Todas as escalas' : filter === 'active' ? 'Escalas ativas' : 'Escalas concluidas'}
+                {filter === 'all' ? 'Todas as escalas' : filter === 'active' ? 'Escalas ativas' : filter === 'completed' ? 'Escalas concluidas' : 'Escalas canceladas'}
               </button>
             ))}
           </div>

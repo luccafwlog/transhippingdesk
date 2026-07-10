@@ -47,8 +47,35 @@ vi.mock('@tanstack/react-query', () => ({
           voyageId: 1,
           voyageNumber: 'V1',
           voyageStatus: 'active',
-          vesselName: 'Navio',
+          vesselName: 'Navio ativo',
           pod: 'SSZ',
+          eta: null,
+          etb: null,
+          rowType: 'import',
+          vin: 0,
+          car: 0,
+          cg: 1,
+          total: 1,
+          mty: 0,
+          rtw: null,
+          bbMachines: 0,
+          bbPackages: 0,
+          bbTotal: 0,
+          atd: null,
+          ceStatus: 'waiting',
+          linked: false,
+          exportHasGranite: null,
+          exportContainersQty: null,
+          exportMovementsQty: null,
+          exportCeStatus: null,
+          exportLinked: null,
+        }, {
+          id: '2::RIO',
+          voyageId: 2,
+          voyageNumber: 'V2',
+          voyageStatus: 'cancelled',
+          vesselName: 'Navio cancelado',
+          pod: 'RIO',
           eta: null,
           etb: null,
           rowType: 'import',
@@ -117,14 +144,14 @@ it('US-120: as celulas do Line-Up navegam para os destinos corretos', () => {
 
   // Os KPI cards do dashboard foram removidos; a navegacao migrou para as celulas
   // do Line-Up (commit "transform Painel table cells into navigation links").
-  const vesselLink = screen.getAllByText('Navio')[0].closest('a')
+  const vesselLink = screen.getAllByText('Navio ativo')[0].closest('a')
   expect(vesselLink?.getAttribute('href')).toBe('/viagens/1')
 })
 
 it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizacao', () => {
   renderPainel()
 
-  expect(screen.getAllByText('Navio').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Navio ativo').length).toBeGreaterThan(0)
   expect(screen.getByText(/Atualizado:/)).toBeTruthy()
 })
 
@@ -137,14 +164,23 @@ it('US-121: exibe escala aguardando com status vermelho', () => {
 it('US-122: filtra o Line-Up por status de escala', () => {
   renderPainel()
 
-  expect(screen.getAllByText('Navio').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Navio ativo').length).toBeGreaterThan(0)
 
   fireEvent.click(screen.getByRole('button', { name: 'Escalas concluidas' }))
-  expect(screen.queryAllByText('Navio').length).toBe(0)
+  expect(screen.queryAllByText('Navio ativo').length).toBe(0)
   expect(screen.getAllByText('Nenhuma escala encontrada.').length).toBeGreaterThan(0)
 
   fireEvent.click(screen.getByRole('button', { name: 'Escalas ativas' }))
-  expect(screen.getAllByText('Navio').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Navio ativo').length).toBeGreaterThan(0)
+})
+
+it('filtra o Line-Up por escalas canceladas', () => {
+  renderPainel()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Escalas canceladas' }))
+
+  expect(screen.getAllByText('Navio cancelado')).toHaveLength(1)
+  expect(screen.queryAllByText('Navio ativo')).toHaveLength(0)
 })
 
 it('US-123: oferece os atalhos para Chegadas/Saidas e para a tela TV', () => {
