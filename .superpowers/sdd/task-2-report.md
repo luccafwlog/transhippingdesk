@@ -77,3 +77,44 @@ completed successfully.
 None. ETB and ETA are ISO date strings in this contract, so lexical ordering
 matches chronological ordering and preserves the rail's prior ETA comparison
 strategy.
+
+## Review follow-up — vessel and voyage keys
+
+### RED
+
+Command:
+
+```powershell
+npm test -- src/lib/__tests__/viagensFilters.test.ts
+```
+
+Output: exit 1; 14 tests run, 13 passed and 1 failed. The new prefix-name
+regression expected `[7, 8]` (`ALPHA` before `ALPHA A`) but received `[8, 7]`.
+This proved that comparing the concatenated `vesselName voyageNumber` string
+allowed the first voyage number to change vessel-name order.
+
+### GREEN
+
+Command:
+
+```powershell
+npm test -- src/lib/__tests__/viagensFilters.test.ts
+```
+
+Exact result summary: exit 0; `Test Files 1 passed (1)` and
+`Tests 14 passed (14)`.
+
+### Files
+
+- `src/lib/viagensFilters.ts`: compares vessel names first and voyage numbers
+  only when vessel names are equal.
+- `src/lib/__tests__/viagensFilters.test.ts`: adds the prefix vessel-name
+  regression test.
+- `.superpowers/sdd/task-2-report.md`: records this review follow-up.
+
+### Self-review
+
+- The ordering is now explicitly `ETA -> ETB -> vessel -> voyage`; no string
+  concatenation remains at the vessel/voyage boundary.
+- The focused regression test exercises the prior failure with real filter
+  behavior, not a comparator mock.

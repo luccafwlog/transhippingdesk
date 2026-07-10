@@ -73,10 +73,9 @@ export function filterVoyageRailItems(
       if (byEscala !== 0) return byEscala
       const byEtb = nextEscalaEtbSortKey(left).localeCompare(nextEscalaEtbSortKey(right))
       if (byEtb !== 0) return byEtb
-      return `${left.vesselName} ${left.voyageNumber}`.localeCompare(
-        `${right.vesselName} ${right.voyageNumber}`,
-        'pt-BR',
-      )
+      const byVessel = left.vesselName.localeCompare(right.vesselName, 'pt-BR')
+      if (byVessel !== 0) return byVessel
+      return left.voyageNumber.localeCompare(right.voyageNumber, 'pt-BR')
     })
 }
 

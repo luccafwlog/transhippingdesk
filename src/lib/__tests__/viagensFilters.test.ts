@@ -112,6 +112,29 @@ describe('filterVoyageRailItems', () => {
     expect(result.map((item) => item.id)).toEqual([6, 5])
   })
 
+  it('desempata navio antes da viagem quando um nome é prefixo do outro', () => {
+    const sameSchedule = [
+      {
+        ...items[0],
+        id: 7,
+        vesselName: 'ALPHA',
+        voyageNumber: 'Z',
+        proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: '2026-06-21' },
+      },
+      {
+        ...items[1],
+        id: 8,
+        vesselName: 'ALPHA A',
+        voyageNumber: 'A',
+        proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: '2026-06-21' },
+      },
+    ]
+
+    const result = filterVoyageRailItems(sameSchedule, { search: '', status: 'all', conciliacao: 'all', periodo: 'all' })
+
+    expect(result.map((item) => item.id)).toEqual([7, 8])
+  })
+
   it('filtro de período "hoje" inclui só escalas com ETA >= hoje', () => {
     // Como o "hoje" varia, validamos apenas que a função não quebra e respeita o tipo.
     const result = filterVoyageRailItems(items, { search: '', status: 'all', conciliacao: 'all', periodo: 'hoje' })
