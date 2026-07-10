@@ -18,6 +18,10 @@ function nextEscalaSortKey(item: VoyageRailItem) {
   return item.proximaEscala?.eta ?? '￿'
 }
 
+function nextEscalaEtbSortKey(item: VoyageRailItem) {
+  return item.proximaEscala?.etb ?? '￿'
+}
+
 function periodoMinEta(periodo: 'hoje' | '7d' | '30d'): string {
   const now = new Date()
   const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -67,6 +71,8 @@ export function filterVoyageRailItems(
     .sort((left, right) => {
       const byEscala = nextEscalaSortKey(left).localeCompare(nextEscalaSortKey(right))
       if (byEscala !== 0) return byEscala
+      const byEtb = nextEscalaEtbSortKey(left).localeCompare(nextEscalaEtbSortKey(right))
+      if (byEtb !== 0) return byEtb
       return `${left.vesselName} ${left.voyageNumber}`.localeCompare(
         `${right.vesselName} ${right.voyageNumber}`,
         'pt-BR',

@@ -283,11 +283,11 @@ describe('deriveEstadoConciliacao', () => {
 describe('getProximaEscala', () => {
   it('escolhe o menor ETA entre PODs sem ATA', () => {
     const rows = [
-      { pod: 'BRSSA', eta: '2026-06-12', ata: null },
-      { pod: 'BRVIX', eta: '2026-06-09', ata: null },
-      { pod: 'CNSHA', eta: '2026-06-01', ata: '2026-06-01' }, // já chegou → ignora
+      { pod: 'BRSSA', eta: '2026-06-12', etb: '2026-06-13', ata: null },
+      { pod: 'BRVIX', eta: '2026-06-09', etb: '2026-06-10', ata: null },
+      { pod: 'CNSHA', eta: '2026-06-01', etb: '2026-06-02', ata: '2026-06-01' }, // já chegou → ignora
     ]
-    expect(getProximaEscala(rows)).toEqual({ pod: 'BRVIX', eta: '2026-06-09' })
+    expect(getProximaEscala(rows)).toEqual({ pod: 'BRVIX', eta: '2026-06-09', etb: '2026-06-10' })
   })
   it('nulo quando todas têm ATA ou não há ETA', () => {
     expect(getProximaEscala([{ pod: 'X', eta: null, ata: null }])).toBeNull()
@@ -360,8 +360,8 @@ describe('buildVoyageRailItems', () => {
   it('monta item com estado, rota, contagens e próxima escala', () => {
     const podRows = new Map([
       [1, [
-        { pod: 'BRSSA', eta: '2026-06-12', ata: null },
-        { pod: 'BRVIX', eta: '2026-06-09', ata: null },
+        { pod: 'BRSSA', eta: '2026-06-12', etb: '2026-06-13', ata: null },
+        { pod: 'BRVIX', eta: '2026-06-09', etb: '2026-06-10', ata: null },
       ]],
     ])
     const [item] = buildVoyageRailItems(voyages, podRows)
@@ -372,7 +372,7 @@ describe('buildVoyageRailItems', () => {
     expect(item.containerCount).toBe(2)
     // 1 de 2 B/Ls com CE → incompleto
     expect(item.estado).toBe('incompleto')
-    expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-09' })
+    expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-09', etb: '2026-06-10' })
     expect(item.destinationPorts).toContain('BRSSA')
     expect(item.destinationPorts).toContain('BRVIX')
   })

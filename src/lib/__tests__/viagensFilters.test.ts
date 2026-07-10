@@ -14,7 +14,7 @@ const items: VoyageRailItem[] = [
     containerCount: 40,
     status: 'active',
     estado: 'conciliado',
-    proximaEscala: { pod: 'Santos', eta: '2026-06-20' },
+    proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: null },
   },
   {
     id: 2,
@@ -27,7 +27,7 @@ const items: VoyageRailItem[] = [
     containerCount: 42,
     status: 'active',
     estado: 'incompleto',
-    proximaEscala: { pod: 'Santos', eta: '2026-06-18' },
+    proximaEscala: { pod: 'Santos', eta: '2026-06-18', etb: null },
   },
 ]
 
@@ -66,6 +66,50 @@ describe('filterVoyageRailItems', () => {
   it('ordena por próxima escala (ETA) ascendente, depois por navio/viagem', () => {
     const result = filterVoyageRailItems(items, { search: '', status: 'all', conciliacao: 'all', periodo: 'all' })
     expect(result[0].id).toBe(2) // ETA 2026-06-18 vem antes de 2026-06-20
+  })
+
+  it('desempata ETAs pela ETB antes de navio e viagem', () => {
+    const sameEta = [
+      {
+        ...items[0],
+        id: 3,
+        vesselName: 'ALPHA',
+        voyageNumber: '003E',
+        proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: '2026-06-22' },
+      },
+      {
+        ...items[1],
+        id: 4,
+        vesselName: 'ZULU',
+        voyageNumber: '004E',
+        proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: '2026-06-21' },
+      },
+    ]
+
+    const result = filterVoyageRailItems(sameEta, { search: '', status: 'all', conciliacao: 'all', periodo: 'all' })
+
+    expect(result.map((item) => item.id)).toEqual([4, 3])
+  })
+
+  it('coloca ETB nula após ETBs definidas quando a ETA é igual', () => {
+    const sameEta = [
+      {
+        ...items[0],
+        id: 5,
+        vesselName: 'ALPHA',
+        proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: null },
+      },
+      {
+        ...items[1],
+        id: 6,
+        vesselName: 'ZULU',
+        proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: '2026-06-21' },
+      },
+    ]
+
+    const result = filterVoyageRailItems(sameEta, { search: '', status: 'all', conciliacao: 'all', periodo: 'all' })
+
+    expect(result.map((item) => item.id)).toEqual([6, 5])
   })
 
   it('filtro de período "hoje" inclui só escalas com ETA >= hoje', () => {
