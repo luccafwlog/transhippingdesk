@@ -39,3 +39,9 @@
 - Escopo limitado aos filtros client-side solicitados; sem alteração de serviço, schema ou queries.
 - Não houve exercício manual no app autenticado nesta execução. O comportamento é coberto por helper e teste de integração jsdom.
 - O recorte de 60 viagens é intencional e documentado; histórico maior requer paginação ou ampliação da query.
+
+## Correções pós-revisão
+
+- MTY agora identifica a viagem a partir de qualquer linha creditada, inclusive uma exportação ordenada antes das rotas importadas; `Possui MTY` preserva as rotas de importação da mesma viagem.
+- A exportação XLSX agora usa `exportCeStatus` e `exportLinked` para linhas de exportação, como a tabela.
+- RED: o cenário exportação-primeiro perdia a rota importada em MTY e o XLSX emitia `missing`/`Não` apesar de `approved`/`Sim` na programação. GREEN: `npm test -- lineup Painel.behavior` passou com 22 testes em 3 arquivos; `npm run typecheck` e `git diff --check` também passaram.

@@ -33,8 +33,8 @@ async function exportLineUpToExcel(rows: LineUpRow[]) {
     'BB Máquinas': row.bbMachines,
     'BB Pacotes': row.bbPackages,
     'BB Total': row.bbTotal,
-    CEs: row.ceStatus,
-    Linked: row.linked ? 'Sim' : 'Não',
+    CEs: row.rowType === 'export' ? row.exportCeStatus ?? 'waiting' : row.ceStatus,
+    Linked: (row.rowType === 'export' ? row.exportLinked : row.linked) ? 'Sim' : 'Não',
   }))
   const ws = XLSX.utils.json_to_sheet(exportRows)
   const wb = XLSX.utils.book_new()

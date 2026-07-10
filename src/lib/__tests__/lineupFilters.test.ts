@@ -23,6 +23,15 @@ describe('filterLineUpRows', () => {
     expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), mty: true }).map((item) => item.id)).toEqual(['1::SSZ', '1::RIO', 'exp::3'])
   })
 
+  it('mantém as rotas de importação quando a exportação recebe primeiro o crédito MTY', () => {
+    const voyageRows = [
+      row({ id: 'exp::4', voyageId: 4, rowType: 'export', mty: 2 }),
+      row({ id: '4::SSZ', voyageId: 4, rowType: 'import', mty: 0 }),
+    ]
+
+    expect(filterLineUpRows(voyageRows, { ...emptyLineUpFilters(), mty: true }).map((item) => item.id)).toEqual(['exp::4', '4::SSZ'])
+  })
+
   it('não considera RTW nulo ou zero como presente', () => {
     expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), rtw: true }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
   })

@@ -20,7 +20,7 @@ export type LineUpFilters = {
 }
 
 export function filterLineUpRows(rows: LineUpRow[], filters: LineUpFilters): LineUpRow[] {
-  const voyagesWithMty = new Set(rows.filter((row) => row.rowType === 'import' && row.mty > 0).map((row) => row.voyageId))
+  const voyagesWithMty = new Set(rows.filter((row) => row.mty > 0).map((row) => row.voyageId))
 
   return rows.filter((row) => {
     // Exportações representam uma programação distinta e não somem com filtros operacionais do Line Up.

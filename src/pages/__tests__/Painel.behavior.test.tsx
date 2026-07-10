@@ -4,15 +4,16 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Painel } from '../Painel'
 
-const { showToast, writeFileMock } = vi.hoisted(() => ({
+const { showToast, writeFileMock, jsonToSheetMock } = vi.hoisted(() => ({
   showToast: vi.fn(),
   writeFileMock: vi.fn(),
+  jsonToSheetMock: vi.fn(() => ({})),
 }))
 
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast }) }))
 vi.mock('@e965/xlsx', () => ({
   utils: {
-    json_to_sheet: vi.fn(() => ({})),
+    json_to_sheet: jsonToSheetMock,
     book_new: vi.fn(() => ({})),
     book_append_sheet: vi.fn(),
   },
@@ -96,6 +97,33 @@ vi.mock('@tanstack/react-query', () => ({
           exportMovementsQty: null,
           exportCeStatus: null,
           exportLinked: null,
+        }, {
+          id: 'exp::3',
+          voyageId: 3,
+          voyageNumber: 'V3',
+          voyageStatus: 'active',
+          vesselName: 'Navio exportação',
+          pod: 'SSZ',
+          eta: null,
+          etb: null,
+          rowType: 'export',
+          vin: 0,
+          car: 0,
+          cg: 0,
+          total: 0,
+          mty: 0,
+          rtw: null,
+          bbMachines: 0,
+          bbPackages: 0,
+          bbTotal: 0,
+          atd: null,
+          ceStatus: 'missing',
+          linked: false,
+          exportHasGranite: null,
+          exportContainersQty: null,
+          exportMovementsQty: null,
+          exportCeStatus: 'approved',
+          exportLinked: true,
         }],
         lastChangedAt: '2026-06-23T00:00:00Z',
       },
@@ -110,6 +138,7 @@ vi.mock('@tanstack/react-query', () => ({
 beforeEach(() => {
   showToast.mockReset()
   writeFileMock.mockReset()
+  jsonToSheetMock.mockClear()
 })
 
 afterEach(cleanup)
@@ -129,6 +158,21 @@ it('informa falha e encerra loading quando a exportacao do Line-Up falha', async
 
   await waitFor(() => expect(showToast).toHaveBeenCalledWith('Falha ao exportar o Line Up.', 'error'))
   expect(screen.getByRole('button', { name: 'Exportar Excel' }).hasAttribute('disabled')).toBe(false)
+})
+
+it('exporta CEs e Linked da programação de exportação', async () => {
+  render(
+    <MemoryRouter>
+      <Painel />
+    </MemoryRouter>,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Exportar Excel' }))
+
+  await waitFor(() => expect(writeFileMock).toHaveBeenCalled())
+  expect(jsonToSheetMock).toHaveBeenCalledWith(expect.arrayContaining([
+    expect.objectContaining({ Navio: 'Navio exportação', CEs: 'approved', Linked: 'Sim' }),
+  ]))
 })
 
 function renderPainel() {
@@ -167,7 +211,7 @@ it('US-122: filtra o Line-Up por status de escala', () => {
 
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'completed' } })
   expect(screen.queryByRole('link', { name: 'Navio ativo' })).toBeNull()
-  expect(screen.getAllByText('Nenhuma escala encontrada.').length).toBeGreaterThan(0)
+  expect(screen.getByRole('link', { name: 'Navio exportação' })).toBeTruthy()
 
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } })
   expect(screen.getByRole('link', { name: 'Navio ativo' })).toBeTruthy()
