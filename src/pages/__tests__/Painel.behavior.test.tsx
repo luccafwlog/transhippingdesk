@@ -52,7 +52,7 @@ vi.mock('@tanstack/react-query', () => ({
           eta: null,
           etb: null,
           rowType: 'import',
-          vin: 0,
+          vin: 1,
           car: 0,
           cg: 1,
           total: 1,
@@ -144,8 +144,7 @@ it('US-120: as celulas do Line-Up navegam para os destinos corretos', () => {
 
   // Os KPI cards do dashboard foram removidos; a navegacao migrou para as celulas
   // do Line-Up (commit "transform Painel table cells into navigation links").
-  const vesselLink = screen.getAllByText('Navio ativo')[0].closest('a')
-  expect(vesselLink?.getAttribute('href')).toBe('/viagens/1')
+  expect(screen.getByRole('link', { name: 'Navio ativo' }).getAttribute('href')).toBe('/viagens/1')
 })
 
 it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizacao', () => {
@@ -158,29 +157,41 @@ it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizaca
 it('US-121: exibe escala aguardando com status vermelho', () => {
   renderPainel()
 
-  expect(screen.getByText('Aguardando').classList.contains('app-badge--red')).toBe(true)
+  expect(screen.getAllByText('Aguardando').some((element) => element.classList.contains('app-badge--red'))).toBe(true)
 })
 
 it('US-122: filtra o Line-Up por status de escala', () => {
   renderPainel()
 
-  expect(screen.getAllByText('Navio ativo').length).toBeGreaterThan(0)
+  expect(screen.getByRole('link', { name: 'Navio ativo' })).toBeTruthy()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Escalas concluidas' }))
-  expect(screen.queryAllByText('Navio ativo').length).toBe(0)
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'completed' } })
+  expect(screen.queryByRole('link', { name: 'Navio ativo' })).toBeNull()
   expect(screen.getAllByText('Nenhuma escala encontrada.').length).toBeGreaterThan(0)
 
-  fireEvent.click(screen.getByRole('button', { name: 'Escalas ativas' }))
-  expect(screen.getAllByText('Navio ativo').length).toBeGreaterThan(0)
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } })
+  expect(screen.getByRole('link', { name: 'Navio ativo' })).toBeTruthy()
 })
 
 it('filtra o Line-Up por escalas canceladas', () => {
   renderPainel()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Escalas canceladas' }))
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } })
 
-  expect(screen.getAllByText('Navio cancelado')).toHaveLength(1)
-  expect(screen.queryAllByText('Navio ativo')).toHaveLength(0)
+  expect(screen.getByRole('link', { name: 'Navio cancelado' })).toBeTruthy()
+  expect(screen.queryByRole('link', { name: 'Navio ativo' })).toBeNull()
+})
+
+it('combina filtros de navio e possui veículos no Line-Up', () => {
+  renderPainel()
+
+  const navios = screen.getByLabelText('Navios') as HTMLSelectElement
+  navios.options[0].selected = true
+  fireEvent.change(navios)
+  fireEvent.click(screen.getByLabelText('Possui veículos'))
+
+  expect(screen.getByRole('link', { name: 'Navio ativo' })).toBeTruthy()
+  expect(screen.queryByRole('link', { name: 'Navio cancelado' })).toBeNull()
 })
 
 it('US-123: oferece os atalhos para Chegadas/Saidas e para a tela TV', () => {

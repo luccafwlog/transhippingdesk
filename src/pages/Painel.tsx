@@ -11,9 +11,9 @@ import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { LineUpTable } from '../components/lineup/LineUpTable'
+import { LineUpFilters } from '../components/lineup/LineUpFilters'
+import { countActiveLineUpFilters, emptyLineUpFilters, filterLineUpRows, type LineUpFilters as LineUpFiltersState } from '../lib/lineupFilters'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
-
-type FilterStatus = 'all' | 'active' | 'completed' | 'cancelled'
 
 async function exportLineUpToExcel(rows: LineUpRow[]) {
   const XLSX = await import('@e965/xlsx')
@@ -44,7 +44,7 @@ async function exportLineUpToExcel(rows: LineUpRow[]) {
 
 export function Painel() {
   const { showToast } = useToast()
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('active')
+  const [filters, setFilters] = useState<LineUpFiltersState>(emptyLineUpFilters)
   const [isExporting, setIsExporting] = useState(false)
   // Relógio para destacar quando o quadro está sem atualização há muito tempo.
   const [now, setNow] = useState(() => Date.now())
@@ -66,10 +66,10 @@ export function Painel() {
   })
 
   const rows = useMemo(() => {
-    const current = lineup?.rows ?? []
-    if (statusFilter === 'all') return current
-    return current.filter((row) => row.voyageStatus === statusFilter)
-  }, [lineup, statusFilter])
+    // ponytail: o snapshot cobre só as 60 viagens mais recentes; paginar ou ampliar a query quando o painel precisar de histórico maior.
+    return filterLineUpRows(lineup?.rows ?? [], filters)
+  }, [lineup, filters])
+  const activeFilterCount = countActiveLineUpFilters(filters)
 
   const lastUpdate = lineup?.lastChangedAt
     ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
@@ -121,18 +121,15 @@ export function Painel() {
 
       <Card className="mb-5 mt-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap gap-2">
-            {(['active', 'completed', 'cancelled', 'all'] as FilterStatus[]).map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => setStatusFilter(filter)}
-                className={`app-tab ${statusFilter === filter ? 'app-tab--active' : ''}`}
-              >
-                {filter === 'all' ? 'Todas as escalas' : filter === 'active' ? 'Escalas ativas' : filter === 'completed' ? 'Escalas concluidas' : 'Escalas canceladas'}
-              </button>
-            ))}
-          </div>
+          <LineUpFilters
+            rows={lineup?.rows ?? []}
+            filters={filters}
+            onChange={setFilters}
+            onClear={() => setFilters(emptyLineUpFilters())}
+            activeCount={activeFilterCount}
+            visibleCount={rows.length}
+            loading={isLineUpLoading}
+          />
           <button
             type="button"
             onClick={() => void handleExport()}
@@ -156,7 +153,7 @@ export function Painel() {
           <LineUpTable
             rows={rows}
             emptyTitle="Nenhuma escala encontrada."
-            emptyDescription="Ajuste o filtro de status ou aguarde o proximo ciclo de atualizacao."
+            emptyDescription="Ajuste os filtros ou aguarde o próximo ciclo de atualização."
           />
           <p className="border-t border-[var(--app-border)] px-4 py-2 text-[11px] text-[var(--app-muted)]">
             VIN = veículos · VIN CNTR = containers com veículos · CG = carga geral · MTY = vazios · RTW = restow ·
