@@ -13,9 +13,9 @@ registrada ao cancelar.
 
 ## Decisão
 
-- Tratar `cancelled` como estado retido de `voyages`, visível somente quando o
-  usuário seleciona o filtro de canceladas; os filtros padrão permanecem em
-  viagens ativas.
+- Tratar `cancelled` como estado retido de `voyages`. No Painel, o filtro
+  padrão permanece em viagens ativas e canceladas aparecem em `Canceladas` ou
+  `Todas`; em Viagens, o filtro padrão `Todas` também inclui canceladas.
 - Impedir que a sincronização automática após alteração de ATD modifique uma
   viagem já cancelada.
 - Manter exclusão como hard delete controlado, sujeito aos bloqueios de

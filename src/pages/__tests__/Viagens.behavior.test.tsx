@@ -7,15 +7,26 @@ import { afterEach, expect, it, vi } from 'vitest'
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }))
 vi.mock('../../hooks/useBls', () => ({
   useVoyages: () => ({
-    data: [{
-      id: 42,
-      voyage_number: 'CANCEL-42',
-      status: 'cancelled',
-      vessel: { name: 'Navio cancelado', carrier: null },
-      pol: null,
-      pod: null,
-      bls: [],
-    }],
+    data: [
+      {
+        id: 41,
+        voyage_number: 'ACTIVE-41',
+        status: 'active',
+        vessel: { name: 'Navio ativo', carrier: null },
+        pol: null,
+        pod: null,
+        bls: [],
+      },
+      {
+        id: 42,
+        voyage_number: 'CANCEL-42',
+        status: 'cancelled',
+        vessel: { name: 'Navio cancelado', carrier: null },
+        pol: null,
+        pod: null,
+        bls: [],
+      },
+    ],
     isLoading: false,
     error: null,
   }),
@@ -56,6 +67,7 @@ it('filtra o rail por viagens canceladas', () => {
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } })
 
   expect(screen.getByText('Navio cancelado / CANCEL-42')).toBeTruthy()
+  expect(screen.queryByText('Navio ativo / ACTIVE-41')).toBeNull()
 })
 
 it('US-213: sem selecao mostra "Selecione uma viagem"', () => {

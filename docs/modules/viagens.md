@@ -110,7 +110,7 @@ POL/POD e exportação têm contratos diferentes:
 
 Evidência estática localizada:
 
-- `src/lib/__tests__/viagensFilters.test.ts`: busca, status (inclusive `cancelled`), conciliação, período e ordenação por próxima escala.
+- `src/lib/__tests__/viagensFilters.test.ts`: busca, status, conciliação, período e ordenação por próxima escala.
 - `src/pages/__tests__/viagensHelpers.test.ts`: métricas, estado de conciliação, próxima escala, timeline e agrupamentos por POD/POL.
 - `src/components/voyages/__tests__/voyageCardHelpers.test.tsx`: linhas de Escalas & Manifestos derivadas por rota de B/L, inclusive sem batch.
 - `src/services/__tests__/voyageRouteSchedules.test.ts`: fallback automático do status de B/Ls e CEs por POD, preservando `Aprovado` como estado manual, e guard que impede ATD de reverter viagem cancelada.

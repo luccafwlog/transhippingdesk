@@ -69,3 +69,24 @@ estado retido e proibisse sua reversão automática; por isso foi criada a ADR
   explícito ou em “Todas”.
 - Sem preocupações funcionais conhecidas. A validação manual em navegador com
   dados reais não foi executada neste ambiente.
+
+## Correções de revisão (2026-07-10)
+
+- O teste de comportamento de Viagens agora fornece uma viagem `active` e uma
+  `cancelled`; após selecionar `Canceladas`, confirma a presença da cancelada e
+  a ausência da ativa. Isso prova a exclusão do rail, não somente a presença
+  de uma única fixture.
+- A lista de testes em `docs/modules/viagens.md` não atribui mais cobertura
+  `cancelled` ao teste unitário genérico de filtros; a cobertura real está nos
+  testes de comportamento Painel e Viagens listados logo abaixo.
+- A ADR 0023 diferencia os defaults: Painel inicia em ativas e expõe
+  canceladas em `Canceladas`/`Todas`; Viagens inicia em `Todas`, que inclui
+  canceladas.
+
+Verificação desta correção:
+
+- `npm test -- src/pages/__tests__/Viagens.behavior.test.tsx src/pages/__tests__/Painel.behavior.test.tsx src/lib/__tests__/viagensFilters.test.ts`
+  — 3 arquivos, 24 testes aprovados.
+- `npm run docs:check` — 131 Markdown files, 37 routes e cobertura do índice
+  ADR aprovados.
+- `git diff --check` — aprovado.
