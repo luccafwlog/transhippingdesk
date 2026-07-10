@@ -62,7 +62,7 @@ vi.mock('@tanstack/react-query', () => ({
           bbPackages: 0,
           bbTotal: 0,
           atd: null,
-          ceStatus: 'missing',
+          ceStatus: 'waiting',
           linked: false,
           exportHasGranite: null,
           exportContainersQty: null,
@@ -126,6 +126,12 @@ it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizaca
 
   expect(screen.getAllByText('Navio').length).toBeGreaterThan(0)
   expect(screen.getByText(/Atualizado:/)).toBeTruthy()
+})
+
+it('US-121: exibe escala aguardando com status vermelho', () => {
+  renderPainel()
+
+  expect(screen.getByText('Aguardando').classList.contains('app-badge--red')).toBe(true)
 })
 
 it('US-122: filtra o Line-Up por status de escala', () => {
