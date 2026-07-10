@@ -45,7 +45,7 @@ Foram atualizados `docs/modules/viagens.md` e `docs/RASTREABILIDADE.md` com o
 ciclo de status, guard e os dois filtros. A avaliação encontrou documentação
 anterior para hard delete, mas nenhuma decisão que fixasse cancelamento como
 estado retido e proibisse sua reversão automática; por isso foi criada a ADR
-0023 e indexada em `docs/adr/README.md`.
+0024 e indexada em `docs/adr/README.md`.
 
 ## Arquivos alterados
 
@@ -60,7 +60,7 @@ estado retido e proibisse sua reversão automática; por isso foi criada a ADR
 - `docs/modules/viagens.md`
 - `docs/RASTREABILIDADE.md`
 - `docs/adr/README.md`
-- `docs/adr/0023-cancelamento-viagem-estado-retido-exclusao-hard-delete.md`
+- `docs/adr/0024-cancelamento-viagem-estado-retido-exclusao-hard-delete.md`
 
 ## Auto-revisão e preocupações
 
@@ -79,7 +79,7 @@ estado retido e proibisse sua reversão automática; por isso foi criada a ADR
 - A lista de testes em `docs/modules/viagens.md` não atribui mais cobertura
   `cancelled` ao teste unitário genérico de filtros; a cobertura real está nos
   testes de comportamento Painel e Viagens listados logo abaixo.
-- A ADR 0023 diferencia os defaults: Painel inicia em ativas e expõe
+- A ADR 0024 diferencia os defaults: Painel inicia em ativas e expõe
   canceladas em `Canceladas`/`Todas`; Viagens inicia em `Todas`, que inclui
   canceladas.
 

@@ -1,4 +1,4 @@
-# ADR 0023: Cancelamento de Viagem é Estado Retido; Exclusão é Hard Delete
+# ADR 0024: Cancelamento de Viagem é Estado Retido; Exclusão é Hard Delete
 
 Status: aceito
 

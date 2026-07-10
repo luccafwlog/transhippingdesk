@@ -27,7 +27,8 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0020](./0020-ce-mercante-gatilho-calculo-taxas-locais.md) | CE Mercante como gatilho do cálculo automático de Taxas Locais | aceito | Supersede parcialmente a 0005/0006 (billing no import) e a 0017 (cálculo pós-commit do Importar B/L) |
 | [0021](./0021-cadastro-unico-navio-viagem-programacao-projeta-viagem.md) | Cadastro único de navio/viagem: Programação de Navios projeta a Viagem | aceito | Estende a 0012 e a 0002; Chegadas e Saídas passa a criar a Viagem e o Portal projeta os schedules |
 | [0022](./0022-omissao-escala-transbordo-cod-registro-operacional.md) | Omissao de escala, transbordo e COD como registro operacional | aceito | Estende a 0012 e a 0021; financeiro permanece manual |
-| [0023](./0023-cancelamento-viagem-estado-retido-exclusao-hard-delete.md) | Cancelamento de viagem é estado retido; exclusão é hard delete | aceito | Complementa a ADR 0009 para viagens |
+| [0023](./0023-distribuicao-skills-fonte-unica-instalador-node.md) | Distribuição de skills: fonte única e instalador Node | aceito | Estende a 0010; unifica skills de Claude Code e Codex em nuvem e local |
+| [0024](./0024-cancelamento-viagem-estado-retido-exclusao-hard-delete.md) | Cancelamento de viagem é estado retido; exclusão é hard delete | aceito | Complementa a ADR 0009 para viagens |
 
 ## Convenção
 

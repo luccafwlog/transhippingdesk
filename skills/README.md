@@ -157,13 +157,38 @@ skills/
 
 ## Usage
 
-### With Claude Code
+This directory is the **single source of truth**. Both harnesses discover the
+skills at session start from their user-level skill dirs, populated from here by
+`scripts/skills/install-skills.mjs` (one Node script, same on Windows/macOS/Linux):
 
-Copy the skill directories to `~/.claude/skills/` or reference them from your project's `.claude/skills/` directory.
+| Harness | Installed into | Triggered by |
+|---------|----------------|--------------|
+| Claude Code | `~/.claude/skills/` | `.claude/hooks/session-start.sh` (cloud + local) |
+| Codex | `~/.codex/skills/` | your Codex worktree **Script de configuração** (cloud + local) |
+
+To add or edit a skill, change it here only — never hand-maintain copies in
+`~/.claude/skills`, `~/.codex/skills`, or ZIP bundles.
+
+### Claude Code
+
+Nothing to do: the `SessionStart` hook runs the installer, provisioning both
+`~/.claude/skills/` and `~/.codex/skills/` in every cloud and local session.
+
+### Codex
+
+Codex does not run the Claude hook, so add one line to your Codex environment's
+worktree setup script (all OS tabs — Node is cross-platform):
+
+```bash
+node scripts/skills/install-skills.mjs
+```
+
+Codex then discovers every skill from `~/.codex/skills/` at session start.
 
 ### With OpenCode
 
-Skills follow the agentskills.io spec. Each `SKILL.md` has YAML frontmatter with `name` and `description` fields that define when the skill should be invoked.
+Skills follow the agentskills.io spec. Each `SKILL.md` has YAML frontmatter with
+`name` and `description` fields that define when the skill should be invoked.
 
 ### With Other Harnesses
 
