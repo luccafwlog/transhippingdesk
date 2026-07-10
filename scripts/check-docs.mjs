@@ -166,10 +166,10 @@ const livingFiles = [
   'docs/ROADMAP.md',
   'docs/operations/validacao.md',
   'docs/operations/reset-ambiente.md',
-  '.claude/skills/import-parser.skill',
-  '.claude/skills/react-query-pattern.skill',
-  '.claude/skills/invoice-pdf.skill',
-  '.claude/skills/supabase-migration.skill',
+  'skills/import-parser/SKILL.md',
+  'skills/react-query-pattern/SKILL.md',
+  'skills/invoice-pdf/SKILL.md',
+  'skills/supabase-migration/SKILL.md',
 ]
 
 const staleClaims = [
