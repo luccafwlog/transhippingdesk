@@ -272,7 +272,7 @@ async function fetchVoyages() {
   const { data, error } = await supabase
     .from('voyages')
     .select('id, voyage_number, status, vessel:vessels(name), pol:ports!pol_id(name, locode)')
-    .in('status', ['active', 'completed'])
+    .in('status', ['active', 'completed', 'cancelled'])
     .order('created_at', { ascending: false })
     .limit(60)
     .overrideTypes<LineUpVoyageRow[], { merge: false }>()

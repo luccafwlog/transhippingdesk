@@ -42,12 +42,12 @@ Esses filtros de UI são ergonomia e navegação. A autoridade continua em polic
 `src/pages/Painel.tsx` tem três áreas:
 
 1. cabeçalho com última alteração do Line-Up, indicação stale após 10 minutos, refresh, atalho para `/chegadas-saidas` e abertura de `/line-up-tv/display`;
-2. snapshot do Line-Up com filtros `active | completed | all`, `LineUpTable` e exportação XLSX;
+2. snapshot do Line-Up com `LineUpFilters`, `LineUpTable` e exportação XLSX;
 3. grade de KPIs com links para os módulos responsáveis.
 
 Os KPIs vêm de leituras diretas a `bls`, `invoices`, `alerts` e `charge_tables`, mais a RPC `count_distinct_containers`. A query `['dashboard']` não possui refetch periódico próprio. O snapshot usa `['lineup-tv-v3']`, `staleTime` de 60 segundos e `refetchInterval` de 90 segundos.
 
-`src/services/lineup.ts` lê viagens ativas/concluídas, B/Ls, containers, veículos, agendas por POD, agenda de exportação, vazios de importação e `audit_logs`. Containers são deduplicados por número, MTY é creditado apenas à primeira linha ordenada de cada viagem, CE é derivado como `approved | partial | missing` quando não há override da agenda, e a última alteração é o timestamp mais recente entre as fontes consultadas.
+`src/services/lineup.ts` lê viagens ativas/concluídas/canceladas, B/Ls, containers, veículos, agendas por POD, agenda de exportação, vazios de importação e `audit_logs`. Containers são deduplicados por número, MTY é creditado apenas à primeira linha ordenada de cada viagem, CE é derivado como `approved | partial | missing` quando não há override da agenda, e a última alteração é o timestamp mais recente entre as fontes consultadas. `src/lib/lineupFilters.ts` aplica localmente navios, viagens, status, período, veículos, BB, CEs, Linked, MTY e RTW; exportações permanecem visíveis. O recorte permanece limitado às 60 viagens mais recentes, devendo ser paginado ou ampliado se o Painel precisar de histórico maior.
 
 ### `/revisao`
 
@@ -124,7 +124,7 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 |---|---|---|---|---|---|---|---|
 | Carregar KPIs | Sessão interna e perfil ativo | Montagem de `Painel` | `useQuery(['dashboard'])` chama `fetchDashboard` e `fetchDistinctContainerCount` | Leitura de `bls`, `invoices`, `alerts`, `charge_tables`; RPC `count_distinct_containers` | Preenche cards e links; invoice negada vira “Restrito” | Primeiro erro não financeiro interrompe a query; `42501` de invoices é tratado como restrição | **Código:** `src/pages/Painel.tsx` |
 | Carregar snapshot Line-Up | Sessão interna ativa | Montagem/intervalo/refresh manual | `useQuery(['lineup-tv-v3'])` → `fetchLineUpSnapshot` | Leituras de `voyages`, `bls`, `bl_containers`, `vehicles`, `vazios_importacao_*`, `audit_logs` e agendas | Cache stale 60 s, refetch 90 s; atualiza tabela, MTY e timestamp | Qualquer leitura obrigatória lança erro e exibe falha do Line-Up | **Código:** `src/pages/Painel.tsx`, `src/services/lineup.ts` |
-| Filtrar/exportar Line-Up | Snapshot carregado; export exige linhas | Abas de status e botão Exportar | Filtro local; import dinâmico de `@e965/xlsx` | Nenhuma escrita no banco; arquivo `painel-lineup-AAAA-MM-DD.xlsx` | Não altera cache | Falha de download não possui tratamento local específico | **Código:** `src/pages/Painel.tsx` |
+| Filtrar/exportar Line-Up | Snapshot carregado; export exige linhas | `LineUpFilters` e botão Exportar | `filterLineUpRows` combina filtros locais; import dinâmico de `@e965/xlsx` | Nenhuma escrita no banco; arquivo `painel-lineup-AAAA-MM-DD.xlsx` | Exporta somente linhas filtradas; não altera cache | Falha de download mostra toast | **Código:** `src/pages/Painel.tsx`, `src/lib/lineupFilters.ts`; **Teste:** `src/lib/__tests__/lineupFilters.test.ts`, `src/pages/__tests__/Painel.behavior.test.tsx` |
 | Abrir atalhos | Sessão interna ativa | Links no cabeçalho/KPIs | React Router ou nova aba | Nenhuma | Navega para `/chegadas-saidas`, `/line-up-tv/display` ou módulo do KPI | Guard pode redirecionar se a sessão deixar de ser válida | **Código:** `src/pages/Painel.tsx`, `src/App.tsx` |
 
 ### `/revisao`
@@ -276,7 +276,7 @@ Invariantes:
 
 ### Line-Up
 
-- viagens consideradas: `active` e `completed`, até 60;
+- viagens consideradas: `active`, `completed` e `cancelled`, até 60;
 - containers são deduplicados por `container_number`, com fallback por id;
 - MTY vem somente de Vazios de Importação e é creditado uma vez por viagem;
 - display exclui linhas com `atd`;

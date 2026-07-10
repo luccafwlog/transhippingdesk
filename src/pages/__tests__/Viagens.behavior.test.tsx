@@ -1,11 +1,36 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }))
-vi.mock('../../hooks/useBls', () => ({ useVoyages: () => ({ data: [], isLoading: false, error: null }) }))
+vi.mock('../../hooks/useBls', () => ({
+  useVoyages: () => ({
+    data: [
+      {
+        id: 41,
+        voyage_number: 'ACTIVE-41',
+        status: 'active',
+        vessel: { name: 'Navio ativo', carrier: null },
+        pol: null,
+        pod: null,
+        bls: [],
+      },
+      {
+        id: 42,
+        voyage_number: 'CANCEL-42',
+        status: 'cancelled',
+        vessel: { name: 'Navio cancelado', carrier: null },
+        pol: null,
+        pod: null,
+        bls: [],
+      },
+    ],
+    isLoading: false,
+    error: null,
+  }),
+}))
 vi.mock('../../hooks/useVehicles', () => ({ useVoyageVehicleStats: () => ({ data: { byVoyageId: {} } }) }))
 vi.mock('../../hooks/useVaziosImportacaoStats', () => ({ useVaziosImportacaoStats: () => ({ data: { byVoyageId: {} } }) }))
 vi.mock('../../hooks/useViagemSchedulesAndStats', () => ({
@@ -35,6 +60,15 @@ function renderAt(path: string) {
 }
 
 afterEach(cleanup)
+
+it('filtra o rail por viagens canceladas', () => {
+  renderAt('/viagens')
+
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } })
+
+  expect(screen.getByText('Navio cancelado / CANCEL-42')).toBeTruthy()
+  expect(screen.queryByText('Navio ativo / ACTIVE-41')).toBeNull()
+})
 
 it('US-213: sem selecao mostra "Selecione uma viagem"', () => {
   renderAt('/viagens')

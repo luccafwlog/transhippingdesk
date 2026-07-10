@@ -293,12 +293,12 @@ export function deriveEstadoConciliacao({
 
 /** Próxima escala: menor ETA entre PODs com ETA definido e sem ATA registrado. */
 export function getProximaEscala(
-  podRows: Array<{ pod: string; eta: string | null; ata: string | null; omitted?: boolean }> | null | undefined,
+  podRows: Array<{ pod: string; eta: string | null; etb?: string | null; ata: string | null; omitted?: boolean }> | null | undefined,
 ) {
   const pending = (podRows ?? []).filter((row) => row.eta && !row.ata && !row.omitted)
   if (!pending.length) return null
   const next = pending.reduce((earliest, row) => (String(row.eta) < String(earliest.eta) ? row : earliest))
-  return { pod: next.pod, eta: next.eta as string }
+  return { pod: next.pod, eta: next.eta as string, etb: next.etb ?? null }
 }
 
 // --- Rail (lista master-detail) ----------------------------------------------
@@ -314,7 +314,7 @@ export type VoyageRailItem = {
   blCount: number
   containerCount: number
   estado: EstadoConciliacao
-  proximaEscala: { pod: string; eta: string } | null
+  proximaEscala: { pod: string; eta: string; etb: string | null } | null
 }
 
 type VoyageRailSource = {
@@ -328,7 +328,7 @@ type VoyageRailSource = {
   import_batches?: Array<{ id: number }> | null
 }
 
-type PodScheduleRow = { pod: string; eta: string | null; ata: string | null; omitted?: boolean }
+type PodScheduleRow = { pod: string; eta: string | null; etb: string | null; ata: string | null; omitted?: boolean }
 
 /**
  * Monta os itens do rail. Estado de Conciliação usa apenas sinais baratos do

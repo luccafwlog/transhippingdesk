@@ -84,6 +84,7 @@ export function VoyageFilters({
             <option value="all">Todas</option>
             <option value="active">Ativas</option>
             <option value="completed">Concluídas</option>
+            <option value="cancelled">Canceladas</option>
           </Select>
         </label>
 

@@ -231,7 +231,6 @@ function renderCeStatus(status: LineUpRow['ceStatus']) {
   if (status === 'approved') return <Badge tone="green">{getVoyagePodCeStatusLabel(status)}</Badge>
   if (status === 'received' || status === 'approving') return <Badge tone="blue">{getVoyagePodCeStatusLabel(status)}</Badge>
   if (status === 'launching' || status === 'partial') return <Badge tone="yellow">{getVoyagePodCeStatusLabel(status)}</Badge>
-  if (status === 'waiting') return <Badge tone="slate">{getVoyagePodCeStatusLabel(status)}</Badge>
   return <Badge tone="red">{getVoyagePodCeStatusLabel(status)}</Badge>
 }
 

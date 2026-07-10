@@ -1,6 +1,6 @@
 import type { VoyageRailItem } from '../services/voyageSummaries'
 
-export type StatusFilter = 'all' | 'active' | 'completed'
+export type StatusFilter = 'all' | 'active' | 'completed' | 'cancelled'
 export type ConciliacaoFilter = 'all' | 'conciliada' | 'pendente'
 export type PeriodoFilter = 'all' | 'hoje' | '7d' | '30d' | 'custom'
 
@@ -16,6 +16,10 @@ export type VoyageFilters = {
 
 function nextEscalaSortKey(item: VoyageRailItem) {
   return item.proximaEscala?.eta ?? '￿'
+}
+
+function nextEscalaEtbSortKey(item: VoyageRailItem) {
+  return item.proximaEscala?.etb ?? '￿'
 }
 
 function periodoMinEta(periodo: 'hoje' | '7d' | '30d'): string {
@@ -67,10 +71,11 @@ export function filterVoyageRailItems(
     .sort((left, right) => {
       const byEscala = nextEscalaSortKey(left).localeCompare(nextEscalaSortKey(right))
       if (byEscala !== 0) return byEscala
-      return `${left.vesselName} ${left.voyageNumber}`.localeCompare(
-        `${right.vesselName} ${right.voyageNumber}`,
-        'pt-BR',
-      )
+      const byEtb = nextEscalaEtbSortKey(left).localeCompare(nextEscalaEtbSortKey(right))
+      if (byEtb !== 0) return byEtb
+      const byVessel = left.vesselName.localeCompare(right.vesselName, 'pt-BR')
+      if (byVessel !== 0) return byVessel
+      return left.voyageNumber.localeCompare(right.voyageNumber, 'pt-BR')
     })
 }
 
