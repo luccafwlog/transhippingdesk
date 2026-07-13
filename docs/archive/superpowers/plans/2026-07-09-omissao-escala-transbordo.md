@@ -4,6 +4,8 @@
 
 **Goal:** Registrar operacionalmente a omissão de escala pelo armador, o transbordo em navio de terceiros e o COD (Change of Destination), com rastreabilidade interna e visibilidade mínima no Portal — sem automatizar financeiro.
 
+> **Status:** concluído. Implementado nos commits `f870ce9`, `2c4257c`, `384d9db` e `268b09f`, com migrations, serviços, UI, testes e documentação correspondentes.
+
 **Architecture:** Duas tabelas novas (`voyage_omissions` no grão escala, `bl_transshipments` no grão B/L) com RPCs `SECURITY DEFINER` auditadas. A omissão de um POD é marcada no padrão insert-only de `audit_logs` (`field_name='omitted'`, igual ao `deleted`), e três leitores de schedule passam a ignorar PODs omitidos (`getProximaEscala`, `syncVoyageStatusAfterAtdChange`, RPC `portal_ship_schedule`). A UI vive no módulo Viagens; o Portal recebe uma `portal_notifications` do tipo novo `transshipment`.
 
 **Tech Stack:** Supabase Postgres (migrations SQL numeradas — ADR 0016), RLS + RPCs (ADR 0004/0011), React + TypeScript SPA, TanStack Query, Vitest (unit + testes de contrato SQL por regex sobre as migrations).

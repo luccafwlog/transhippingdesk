@@ -1,6 +1,7 @@
 # Plano — Painel e Viagens: cores, filtros, ordenação e status
 
-> **Plano ativo (pendente de execução).** Gerado em 2026-07-10 a partir do
+> **Plano concluído.** Implementado e validado no PR #369, com as quatro frentes entregues.
+> Gerado em 2026-07-10 a partir do
 > mapa de investigação [wayfinder #361](https://github.com/luccafwlog/transhippingdesk/issues/361)
 > (tickets [#362](https://github.com/luccafwlog/transhippingdesk/issues/362),
 > [#363](https://github.com/luccafwlog/transhippingdesk/issues/363),
@@ -51,10 +52,10 @@ Status: TODO | IN PROGRESS | DONE | BLOCKED | REJECTED.
 
 | Frente | Título | Esforço | Status |
 |--------|--------|---------|--------|
-| A | "Aguardando" sempre vermelho | XS | TODO |
-| D | Desempate por ETB no rail de Viagens | S | TODO |
-| C | Status "Cancelada" no filtro + guard anti-reversão | S | TODO |
-| B | Filtros do Painel | M | TODO |
+| A | "Aguardando" sempre vermelho | XS | DONE |
+| D | Desempate por ETB no rail de Viagens | S | DONE |
+| C | Status "Cancelada" no filtro + guard anti-reversão | S | DONE |
+| B | Filtros do Painel | M | DONE |
 
 ---
 

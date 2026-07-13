@@ -4,6 +4,8 @@
 
 **Goal:** Fix 5 open GitHub issues: remove dead redirect code, add missing navigation, and remove a frontend/backend restriction for POD omission.
 
+> **Status:** concluído. Implementado nos commits `e5d2a27`, `bcf5a52`, `ca7f2e6` e `6471ba6`, cobrindo as issues #355–#359.
+
 **Architecture:** Each issue is independent. Tasks 1-3 are pure deletion/cleanup. Task 4 touches frontend guard, modal logic, and requires a new Supabase migration to relax the backend constraint. Task 5 is a one-line nav entry.
 
 **Tech Stack:** React, React Router, Supabase (PostgreSQL RPC + migrations), TypeScript
