@@ -1,5 +1,7 @@
 # Renomear Repositório GitHub para transhippingdesk — Implementation Plan
 
+> **Status:** concluído em 2026-07-13. O repositório foi renomeado, o remoto local foi atualizado, as referências vivas foram corrigidas e o deploy Firebase foi validado.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task with verification checkpoints.
 
 **Goal:** Renomear `luccafwlog/transhipping-desk2` para `luccafwlog/transhippingdesk` e alinhar o checkout e as referências operacionais do projeto sem alterar os IDs ou integrações de Firebase e Supabase.
@@ -216,4 +218,3 @@ gh repo view luccafwlog/transhippingdesk --json nameWithOwner,defaultBranchRef,u
 ```
 
 Expected: clean `main`, new canonical remote, and the renamed GitHub repository visible.
-
