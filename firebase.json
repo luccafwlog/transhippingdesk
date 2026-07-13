@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "target": "transhippingdesk",
+    "target": "transhipping-desk",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [

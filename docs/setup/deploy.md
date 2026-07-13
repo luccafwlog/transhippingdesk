@@ -1,6 +1,6 @@
 # Deploy
 
-> Hospedagem: **Firebase Hosting** (projeto `importmanager-bda3e`, target `transhippingdesk`, pasta publicada `dist`). CI/CD via **GitHub Actions** (CLI direta, sem action de terceiros). Nenhum push manual é necessário.
+> Hospedagem: **Firebase Hosting** (projeto `transhipping-desk`, target `transhipping-desk`, pasta publicada `dist`). CI/CD via **GitHub Actions** (CLI direta, sem action de terceiros). Nenhum push manual é necessário.
 
 ## Workflows
 
@@ -20,7 +20,7 @@ npx firebase-tools deploy --only hosting
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E`
+- `FIREBASE_SERVICE_ACCOUNT_TRANSHIPPING_DESK`
 
 ## Migrations NÃO são aplicadas pelo CI
 

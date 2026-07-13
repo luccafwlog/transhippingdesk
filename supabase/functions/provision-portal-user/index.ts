@@ -23,11 +23,11 @@ const PASSWORD_MIN_LENGTH = 8
 const ALLOWED_ORIGINS = new Set(
   [
     Deno.env.get('APP_URL'),
-    'https://transhippingdesk.web.app',
-    'https://transhippingdesk.firebaseapp.com',
+    'https://transhipping-desk.web.app',
+    'https://transhipping-desk.firebaseapp.com',
   ].filter((value): value is string => Boolean(value)),
 )
-const DEFAULT_ORIGIN = 'https://transhippingdesk.web.app'
+const DEFAULT_ORIGIN = 'https://transhipping-desk.web.app'
 
 function corsHeadersFor(origin: string | null) {
   const allowOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : DEFAULT_ORIGIN

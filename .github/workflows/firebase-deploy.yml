@@ -33,7 +33,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_IMPORTMANAGER_BDA3E }}' > /tmp/firebase-sa.json
-          npx firebase-tools@15.22.4 deploy --only hosting:transhippingdesk \
-            --project importmanager-bda3e \
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRANSHIPPING_DESK }}' > /tmp/firebase-sa.json
+          npx firebase-tools@15.22.4 deploy --only hosting:transhipping-desk \
+            --project transhipping-desk \
             --non-interactive

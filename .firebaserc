@@ -1,12 +1,12 @@
 {
   "projects": {
-    "default": "importmanager-bda3e"
+    "default": "transhipping-desk"
   },
   "targets": {
-    "importmanager-bda3e": {
+    "transhipping-desk": {
       "hosting": {
-        "transhippingdesk": [
-          "transhippingdesk"
+        "transhipping-desk": [
+          "transhipping-desk"
         ]
       }
     }
