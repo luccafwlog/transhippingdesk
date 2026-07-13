@@ -226,13 +226,11 @@ it('filtra o Line-Up por escalas canceladas', () => {
   expect(screen.queryByRole('link', { name: 'Navio ativo' })).toBeNull()
 })
 
-it('combina filtros de navio e possui veículos no Line-Up', () => {
+it('combina busca por navio e filtro de veículos no Line-Up', () => {
   renderPainel()
 
-  const navios = screen.getByLabelText('Navios') as HTMLSelectElement
-  navios.options[0].selected = true
-  fireEvent.change(navios)
-  fireEvent.click(screen.getByLabelText('Possui veículos'))
+  fireEvent.change(screen.getByLabelText('Busca'), { target: { value: 'navio' } })
+  fireEvent.change(screen.getByLabelText('Veículos'), { target: { value: 'with' } })
 
   expect(screen.getByRole('link', { name: 'Navio ativo' })).toBeTruthy()
   expect(screen.queryByRole('link', { name: 'Navio cancelado' })).toBeNull()

@@ -10,17 +10,22 @@ const rows: LineUpRow[] = [
 ]
 
 describe('filterLineUpRows', () => {
-  it('filtra por navio, viagem e período inclusive', () => {
-    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), vessels: ['Aurora'], voyages: ['001A'], periodo: 'custom', dataInicio: '2026-07-12', dataFim: '2026-07-12' }).map((item) => item.id)).toEqual(['1::RIO', 'exp::3'])
+  it('filtra por busca de navio/viagem e período inclusive', () => {
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), search: 'aurora', periodo: 'custom', dataInicio: '2026-07-12', dataFim: '2026-07-12' }).map((item) => item.id)).toEqual(['1::RIO', 'exp::3'])
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), search: '002B' }).map((item) => item.id)).toEqual(['2::PNG', 'exp::3'])
   })
 
   it('filtra linhas de importação que possuem veículos ou BB', () => {
-    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), vehicles: true }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
-    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), bb: true }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), vehicles: 'with' }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), bb: 'with' }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
+  })
+
+  it('filtra linhas de importação sem veículos', () => {
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), vehicles: 'without' }).map((item) => item.id)).toEqual(['1::RIO', '2::PNG', 'exp::3'])
   })
 
   it('considera MTY em toda a viagem, embora seja creditado apenas na primeira rota', () => {
-    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), mty: true }).map((item) => item.id)).toEqual(['1::SSZ', '1::RIO', 'exp::3'])
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), mty: 'with' }).map((item) => item.id)).toEqual(['1::SSZ', '1::RIO', 'exp::3'])
   })
 
   it('mantém as rotas de importação quando a exportação recebe primeiro o crédito MTY', () => {
@@ -29,11 +34,11 @@ describe('filterLineUpRows', () => {
       row({ id: '4::SSZ', voyageId: 4, rowType: 'import', mty: 0 }),
     ]
 
-    expect(filterLineUpRows(voyageRows, { ...emptyLineUpFilters(), mty: true }).map((item) => item.id)).toEqual(['exp::4', '4::SSZ'])
+    expect(filterLineUpRows(voyageRows, { ...emptyLineUpFilters(), mty: 'with' }).map((item) => item.id)).toEqual(['exp::4', '4::SSZ'])
   })
 
   it('não considera RTW nulo ou zero como presente', () => {
-    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), rtw: true }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), rtw: 'with' }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
   })
 
   it('agrupa waiting e missing como CEs aguardando', () => {
@@ -41,11 +46,11 @@ describe('filterLineUpRows', () => {
   })
 
   it('usa os campos de exportação para CEs e Linked e mantém exportações visíveis', () => {
-    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), ces: 'approved', linked: true }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
+    expect(filterLineUpRows(rows, { ...emptyLineUpFilters(), ces: 'approved', linked: 'with' }).map((item) => item.id)).toEqual(['1::SSZ', 'exp::3'])
   })
 
   it('conta filtros ativos sem contar as datas isoladamente', () => {
-    expect(countActiveLineUpFilters({ ...emptyLineUpFilters(), vessels: ['Aurora'], periodo: 'custom', dataInicio: '2026-07-11', dataFim: '2026-07-12', linked: true })).toBe(3)
+    expect(countActiveLineUpFilters({ ...emptyLineUpFilters(), search: 'Aurora', periodo: 'custom', dataInicio: '2026-07-11', dataFim: '2026-07-12', linked: 'with' })).toBe(3)
   })
 })
 
