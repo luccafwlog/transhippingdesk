@@ -115,32 +115,28 @@ export function Painel() {
               <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
               Atualizar
             </button>
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              className="app-btn app-btn--secondary"
+              disabled={rows.length === 0 || isExporting}
+            >
+              <Download size={14} />
+              Exportar Excel
+            </button>
           </div>
         }
       />
 
-      <Card className="mb-5 mt-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <LineUpFilters
-            rows={lineup?.rows ?? []}
-            filters={filters}
-            onChange={setFilters}
-            onClear={() => setFilters(emptyLineUpFilters())}
-            activeCount={activeFilterCount}
-            visibleCount={rows.length}
-            loading={isLineUpLoading}
-          />
-          <button
-            type="button"
-            onClick={() => void handleExport()}
-            className="app-btn app-btn--secondary"
-            disabled={rows.length === 0 || isExporting}
-          >
-            <Download size={14} />
-            Exportar Excel
-          </button>
-        </div>
-      </Card>
+      <LineUpFilters
+        filters={filters}
+        onChange={setFilters}
+        onClear={() => setFilters(emptyLineUpFilters())}
+        activeCount={activeFilterCount}
+        visibleCount={rows.length}
+        totalCount={lineup?.rows.length ?? 0}
+        loading={isLineUpLoading}
+      />
 
       {lineUpError ? <InlineError message="Erro ao carregar o Line Up TV." /> : null}
 
