@@ -4,7 +4,7 @@
 > Execute os planos numerados na ordem abaixo, cada um com
 > superpowers:subagent-driven-development ou superpowers:executing-plans.
 
-**Fonte de verdade:** [Issue #370](https://github.com/luccafwlog/transhipping-desk2/issues/370)
+**Fonte de verdade:** [Issue #370](https://github.com/luccafwlog/transhippingdesk/issues/370)
 (ticket-mapa, label `wayfinder:map`) e `CONTEXT.md` (seção Portal do Cliente).
 Antes de executar qualquer plano, leia ambos. Vocabulário do domínio é obrigatório.
 

@@ -6,7 +6,7 @@ Convenções de rastreamento de trabalho para agentes neste repositório.
 
 A skill **wayfinder** (`/wayfinder`) cartografa um trabalho grande como um **mapa**
 de tickets no rastreador. Neste repositório o rastreador é o **GitHub Issues**
-(`luccafwlog/transhipping-desk2`), acessado pelas ferramentas `mcp__github__*`.
+(`luccafwlog/transhippingdesk`), acessado pelas ferramentas `mcp__github__*`.
 Uma sessão de wayfinder que abrir aqui **usa GitHub Issues** — não o fallback de
 markdown local.
 

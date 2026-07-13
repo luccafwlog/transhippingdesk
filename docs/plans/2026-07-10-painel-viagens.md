@@ -1,12 +1,12 @@
 # Plano — Painel e Viagens: cores, filtros, ordenação e status
 
 > **Plano ativo (pendente de execução).** Gerado em 2026-07-10 a partir do
-> mapa de investigação [wayfinder #361](https://github.com/luccafwlog/transhipping-desk2/issues/361)
-> (tickets [#362](https://github.com/luccafwlog/transhipping-desk2/issues/362),
-> [#363](https://github.com/luccafwlog/transhipping-desk2/issues/363),
-> [#364](https://github.com/luccafwlog/transhipping-desk2/issues/364),
-> [#365](https://github.com/luccafwlog/transhipping-desk2/issues/365),
-> [#366](https://github.com/luccafwlog/transhipping-desk2/issues/366)).
+> mapa de investigação [wayfinder #361](https://github.com/luccafwlog/transhippingdesk/issues/361)
+> (tickets [#362](https://github.com/luccafwlog/transhippingdesk/issues/362),
+> [#363](https://github.com/luccafwlog/transhippingdesk/issues/363),
+> [#364](https://github.com/luccafwlog/transhippingdesk/issues/364),
+> [#365](https://github.com/luccafwlog/transhippingdesk/issues/365),
+> [#366](https://github.com/luccafwlog/transhippingdesk/issues/366)).
 > Estado do produto vive em [docs/ROADMAP.md](../ROADMAP.md); quando as quatro
 > frentes forem concluídas, mover este plano para `docs/archive/plans/`.
 
