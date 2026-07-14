@@ -43,7 +43,14 @@ if (typeof Deno !== 'undefined') {
 
     const admin = createClient(url, serviceKey)
     const { data: blocked, error: rateError } = await admin.rpc('portal_login_check_rate_limit', { p_login: normalized })
-    if (rateError || blocked === true) return json(401, { error: GENERIC_ERROR }, origin)
+    if (rateError || blocked === true) {
+      const { data: blockedAccount } = await admin.from('customer_portal_accounts').select('customer_id').eq('login_cnpj', normalized).maybeSingle()
+      if (blockedAccount) {
+        const { data: existingAlert } = await admin.from('alerts').select('id').eq('type', 'portal_abuso_login').eq('entity_type', 'customer').eq('entity_id', String(blockedAccount.customer_id)).neq('status', 'closed').maybeSingle()
+        if (!existingAlert) await admin.from('alerts').insert({ type: 'portal_abuso_login', entity_type: 'customer', entity_id: String(blockedAccount.customer_id), message: 'Muitas tentativas de login no Portal. Verifique a origem e contate o Cliente se necessário.', status: 'open' })
+      }
+      return json(401, { error: GENERIC_ERROR }, origin)
+    }
 
     const { data: account } = await admin.from('customer_portal_accounts').select('auth_user_id, account_situation').eq('login_cnpj', normalized).maybeSingle()
     if (!account || account.account_situation !== 'ativo' || !account.auth_user_id) {
