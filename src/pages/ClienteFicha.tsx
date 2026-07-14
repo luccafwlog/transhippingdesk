@@ -56,6 +56,7 @@ export function ClienteFicha() {
   const { cnpj } = useParams()
   const queryClient = useQueryClient()
   const { user, isAdmin, can } = useAuth()
+  const canEditCustomer = can ? can('customers_edit') : isAdmin
   const canPortalProvision = can ? can('portal_provisioning') : isAdmin
   const { showToast } = useToast()
   const confirm = useConfirm()
@@ -162,6 +163,10 @@ export function ClienteFicha() {
 
   async function handleSaveCustomer() {
     if (!data || !form || !user) return
+    if (!canEditCustomer) {
+      showToast('Edição de clientes restrita ao perfil autorizado.', 'error')
+      return
+    }
     if (!justification.trim()) {
       showToast('Informe a justificativa para salvar o cadastro.', 'error')
       return
@@ -217,6 +222,10 @@ export function ClienteFicha() {
 
   async function handleSaveContact() {
     if (!data) return
+    if (!canEditCustomer) {
+      showToast('Edição de clientes restrita ao perfil autorizado.', 'error')
+      return
+    }
     if (!contactForm.name.trim()) {
       showToast('Informe o nome do contato.', 'error')
       return
@@ -244,6 +253,7 @@ export function ClienteFicha() {
   }
 
   async function handleDeleteContact(contactId: number) {
+    if (!canEditCustomer) return
     const ok = await confirm({
       title: 'Remover contato',
       message: 'Remover este contato do cadastro do cliente?',
@@ -376,7 +386,7 @@ export function ClienteFicha() {
         </Field>
 
         <div className="flex justify-end">
-          <Button loading={saving} onClick={handleSaveCustomer}>
+          <Button loading={saving} onClick={handleSaveCustomer} disabled={!canEditCustomer}>
             Salvar cadastro
           </Button>
         </div>
@@ -460,7 +470,7 @@ export function ClienteFicha() {
         <Card>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Contatos</h2>
-            <Button variant="secondary" onClick={() => setContactForm(emptyContact)}>
+            <Button variant="secondary" onClick={() => setContactForm(emptyContact)} disabled={!canEditCustomer}>
               <Plus size={16} />
               Novo contato
             </Button>
@@ -483,6 +493,7 @@ export function ClienteFicha() {
                   <div className="flex gap-2">
                     <Button
                       variant="secondary"
+                      disabled={!canEditCustomer}
                       onClick={() =>
                         setContactForm({
                           id: contact.id,
@@ -496,7 +507,7 @@ export function ClienteFicha() {
                     >
                       Editar
                     </Button>
-                    <Button variant="ghost" aria-label="Remover contato" onClick={() => handleDeleteContact(contact.id)}>
+                    <Button variant="ghost" aria-label="Remover contato" onClick={() => handleDeleteContact(contact.id)} disabled={!canEditCustomer}>
                       <Trash2 size={16} />
                     </Button>
                   </div>
@@ -543,7 +554,7 @@ export function ClienteFicha() {
               </Field>
             </div>
             <div className="flex justify-end">
-              <Button loading={contactSaving} onClick={handleSaveContact}>
+              <Button loading={contactSaving} onClick={handleSaveContact} disabled={!canEditCustomer}>
                 Salvar contato
               </Button>
             </div>

@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   upsertContact: vi.fn(),
   deleteContact: vi.fn(),
+  can: vi.fn(() => true),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -30,7 +31,7 @@ vi.mock('../../hooks/useCustomers', () => ({
   useCustomerDetail: () => mocks.detail,
 }))
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'admin-1' }, isAdmin: true }),
+  useAuth: () => ({ user: { id: 'admin-1' }, isAdmin: true, can: mocks.can }),
 }))
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: mocks.showToast }),
@@ -90,6 +91,7 @@ describe('ClienteFicha user behaviours', () => {
     mocks.confirm.mockResolvedValue(true)
     mocks.upsertContact.mockResolvedValue({ id: 7 })
     mocks.deleteContact.mockResolvedValue(undefined)
+    mocks.can.mockReturnValue(true)
   })
 
   afterEach(cleanup)
@@ -147,5 +149,21 @@ describe('ClienteFicha user behaviours', () => {
 
     renderPage()
     expect(screen.getByText('Falha ao consultar o cliente.')).toBeTruthy()
+  })
+
+  it('documentacao vê e opera as ações de cliente e portal', async () => {
+    mocks.can.mockReturnValue(true)
+    renderPage()
+
+    expect(screen.getByRole('button', { name: 'Salvar cadastro' })).not.toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Criar acesso portal' })).not.toHaveProperty('disabled', true)
+  })
+
+  it('financeiro vê a ficha sem ações de alteração', () => {
+    mocks.can.mockReturnValue(false)
+    renderPage()
+
+    expect(screen.getByRole('button', { name: 'Salvar cadastro' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Criar acesso portal' })).toHaveProperty('disabled', true)
   })
 })
