@@ -25,7 +25,7 @@
 **Files:**
 - Create: `supabase/migrations/178_portal_provisioning_schema.sql`
 
-- [ ] **Step 1: Escrever a migration**
+- [x] **Step 1: Escrever a migration**
 
 ```sql
 -- 178: Provisionamento do Portal do Cliente — máquina de estados e suporte a convites.

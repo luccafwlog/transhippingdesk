@@ -90,7 +90,8 @@ export function Clientes() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { isAdmin, user } = useAuth()
+  const { can, isAdmin, user } = useAuth()
+  const canEditCustomers = can ? can('customers_edit') : isAdmin
   const [deleting, setDeleting] = useState(false)
   const [actionsMenu, setActionsMenu] = useState<
     { id: number; top: number; left: number; name: string; cnpj: string; email: string | null } | null
@@ -501,7 +502,7 @@ export function Clientes() {
         </div>
       ) : null}
 
-      {isAdmin ? (
+      {canEditCustomers ? (
         <BulkActionsBar
           count={selection.count}
           onClear={selection.clear}
@@ -517,7 +518,7 @@ export function Clientes() {
           <table className="app-table app-table--compact app-table--sticky-actions min-w-[1140px] table-fixed text-left text-sm">
             <thead className="text-xs uppercase tracking-wider">
               <tr>
-                {isAdmin ? (
+                {canEditCustomers ? (
                   <th scope="col" className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
@@ -552,14 +553,14 @@ export function Clientes() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={isAdmin ? 6 : 5} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={canEditCustomers ? 6 : 5} className="px-4 py-8 text-center text-slate-400">
                     Carregando clientes...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && !data?.rows.length ? (
                 <tr>
-                  <td colSpan={isAdmin ? 6 : 5} className="p-0">
+                  <td colSpan={canEditCustomers ? 6 : 5} className="p-0">
                     <EmptyState title="Nenhum cliente encontrado." description="Importe uma base de clientes ou cadastre manualmente." />
                   </td>
                 </tr>
@@ -580,7 +581,7 @@ export function Clientes() {
                 })
                 return (
                   <tr key={row.id}>
-                    {isAdmin ? (
+                    {canEditCustomers ? (
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
@@ -707,7 +708,7 @@ export function Clientes() {
               Copiar e-mail
             </button>
           ) : null}
-          {isAdmin ? (
+          {canEditCustomers ? (
             <button
               type="button"
               role="menuitem"

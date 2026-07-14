@@ -24,7 +24,7 @@
 - Modify: `src/hooks/useAuth.tsx:8-37`
 - Test: `src/hooks/__tests__/roleHasPermission.test.ts` (novo)
 
-- [ ] **Step 1: Exportar a função e escrever o teste de contrato da matriz**
+- [x] **Step 1: Exportar a função e escrever o teste de contrato da matriz**
 
 Em `useAuth.tsx`, troque `function roleHasPermission` por
 `export function roleHasPermission` (necessário para o teste).
@@ -79,7 +79,7 @@ describe('matriz RBAC do modelo de quatro perfis (issue #370)', () => {
 Run: `npm test -- roleHasPermission`
 Expected: FAIL (permissões novas inexistentes; matriz atual diverge)
 
-- [ ] **Step 3: Corrigir a matriz**
+- [x] **Step 3: Corrigir a matriz**
 
 ```typescript
 export type Permission =
@@ -122,7 +122,7 @@ export function roleHasPermission(role: UserProfileRole | undefined, permission:
 }
 ```
 
-- [ ] **Step 4: Rodar o teste novo e a suíte inteira**
+- [x] **Step 4: Rodar o teste novo e a suíte inteira**
 
 Run: `npm test -- roleHasPermission && npm test`
 Expected: teste novo PASS. Se testes existentes fixavam a matriz antiga
@@ -146,7 +146,7 @@ git commit -m "feat(rbac): matriz de quatro perfis conforme issue #370"
 - Modify: `src/pages/Revisao.tsx` (3 usos de `isAdmin`)
 - Test: `src/pages/__tests__/ClienteFicha.behavior.test.tsx` (existente — estender)
 
-- [ ] **Step 1: Mapear cada uso de `isAdmin` nas três telas**
+- [x] **Step 1: Mapear cada uso de `isAdmin` nas três telas**
 
 Run: `grep -n "isAdmin" src/pages/ClienteFicha.tsx src/pages/Clientes.tsx src/pages/Revisao.tsx`
 
@@ -183,7 +183,7 @@ arquivo de teste — não invente infraestrutura nova.
 Run: `npm test -- ClienteFicha`
 Expected: FAIL (ações ainda atrás de `isAdmin`)
 
-- [ ] **Step 4: Substituir `isAdmin` por `can()` conforme o mapeamento do Step 1**
+- [x] **Step 4: Substituir `isAdmin` por `can()` conforme o mapeamento do Step 1**
 
 Padrão de troca (exemplo):
 
@@ -197,7 +197,7 @@ const { can } = useAuth()
 {can('portal_provisioning') && <Button onClick={openProvisionamento}>Provisionar Portal</Button>}
 ```
 
-- [ ] **Step 5: Rodar testes e lint**
+- [x] **Step 5: Rodar testes e lint**
 
 Run: `npm test -- ClienteFicha && npm test -- Clientes && npm test -- Revisao && npm run lint`
 Expected: PASS

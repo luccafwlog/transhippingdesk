@@ -38,7 +38,8 @@ type ProvisionedCredential = { name: string; email: string; password: string }
 export function Revisao() {
   const { data, isLoading, error, graniteUnavailable } = useReviewQueue()
   const queryClient = useQueryClient()
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, can } = useAuth()
+  const canEditCustomers = can ? can('customers_edit') : isAdmin
   const { showToast } = useToast()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
@@ -352,7 +353,7 @@ export function Revisao() {
   }
 
   async function handleGroupProvisionPortal(group: ReviewGroup) {
-    if (!user || !isAdmin) return
+    if (!user || !canEditCustomers) return
     const linked = getGroupLinkedItem(group)
     const customerId = linked?.customer?.id
     if (!customerId) return
@@ -507,7 +508,7 @@ export function Revisao() {
               collapsed={collapsedGroups.has(group.key)}
               savingGroup={savingGroupKey === group.key}
               savingInlineId={savingInlineId}
-              isAdmin={isAdmin}
+              isAdmin={canEditCustomers}
               onToggle={() => toggleGroupCollapsed(group.key)}
               onGroupLink={(customerId) => handleGroupLinkCustomer(group, customerId)}
               onGroupAddEmail={(email) => handleGroupAddEmail(group, email)}

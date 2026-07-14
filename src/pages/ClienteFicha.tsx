@@ -55,7 +55,8 @@ const emptyContact: ContactForm = {
 export function ClienteFicha() {
   const { cnpj } = useParams()
   const queryClient = useQueryClient()
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, can } = useAuth()
+  const canPortalProvision = can ? can('portal_provisioning') : isAdmin
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { data, isLoading, error } = useCustomerDetail(cnpj)
@@ -71,7 +72,7 @@ export function ClienteFicha() {
 
   const portalAccountQuery = useQuery({
     queryKey: ['customer-portal-account', data?.id],
-    enabled: Boolean(data?.id && isAdmin),
+    enabled: Boolean(data?.id && canPortalProvision),
     retry: false,
     queryFn: () => getCustomerPortalAccount(data!.id),
   })
@@ -262,7 +263,7 @@ export function ClienteFicha() {
 
   async function handleSavePortalAccount() {
     if (!data || !user) return
-    if (!isAdmin) {
+    if (!canPortalProvision) {
       showToast('Provisionamento do portal restrito ao perfil admin.', 'error')
       return
     }
@@ -282,7 +283,7 @@ export function ClienteFicha() {
 
   async function handleTogglePortalActive() {
     if (!data || !user) return
-    if (!isAdmin) {
+    if (!canPortalProvision) {
       showToast('Provisionamento do portal restrito ao perfil admin.', 'error')
       return
     }
@@ -394,7 +395,7 @@ export function ClienteFicha() {
           </div>
         </div>
 
-        {!isAdmin ? (
+        {!canPortalProvision ? (
           <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
             Somente admin pode criar ou alterar o acesso do portal.
           </div>
@@ -446,11 +447,11 @@ export function ClienteFicha() {
             variant="secondary"
             onClick={handleTogglePortalActive}
             loading={togglePortalActiveMutation.isPending}
-            disabled={!portalAccountQuery.data || !isAdmin}
+            disabled={!portalAccountQuery.data || !canPortalProvision}
           >
             {portalAccountQuery.data?.active ? 'Desativar portal' : 'Ativar portal'}
           </Button>
-          <Button loading={savePortalMutation.isPending} onClick={handleSavePortalAccount} disabled={!isAdmin}>
+          <Button loading={savePortalMutation.isPending} onClick={handleSavePortalAccount} disabled={!canPortalProvision}>
             {portalAccountQuery.data ? 'Salvar e resetar senha' : 'Criar acesso portal'}
           </Button>
         </div>
@@ -638,4 +639,3 @@ export function ClienteFicha() {
     </>
   )
 }
-
