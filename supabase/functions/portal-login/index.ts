@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const GENERIC_ERROR = 'CNPJ ou senha inválidos.'
 const ALLOWED_ORIGINS = new Set([
+  'https://transhippingdesk.com.br',
+  'https://portal.transhippingdesk.com.br',
   'https://transhippingdesk.web.app',
   'https://transhippingdesk.firebaseapp.com',
   'http://localhost:5173',
