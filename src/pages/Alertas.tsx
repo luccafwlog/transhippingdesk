@@ -198,6 +198,9 @@ export function Alertas() {
 function alertEntityLink(alert: { type: string; entity_type: string | null; entity_id: string | null }): string | null {
   if (!alert.entity_id) return null
   if (alert.type.startsWith('portal_')) {
+    if (alert.entity_type === 'invoice') return /^\d+$/.test(alert.entity_id)
+      ? `/faturamento?invoice=${encodeURIComponent(alert.entity_id)}`
+      : '/faturamento'
     return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
   }
   if (alert.entity_type === 'invoice') {

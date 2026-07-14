@@ -5,7 +5,7 @@ SET search_path TO 'public', 'pg_temp' AS $$
   SELECT CASE up.role WHEN 'admin' THEN 'administrativo' WHEN 'operator' THEN 'documentacao' ELSE up.role END
   FROM public.user_profiles up WHERE up.id = auth.uid() AND up.active = true;
 $$;
-REVOKE ALL ON FUNCTION public._portal_actor_role() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public._portal_actor_role() FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public._portal_log_event(
   p_customer_id BIGINT, p_account_id BIGINT, p_invite_id BIGINT,
@@ -20,7 +20,7 @@ BEGIN
           p_prev_situation, p_new_situation, p_actor_type, auth.uid(), p_reason, p_request_id);
 END;
 $$;
-REVOKE ALL ON FUNCTION public._portal_log_event(BIGINT,BIGINT,BIGINT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public._portal_log_event(BIGINT,BIGINT,BIGINT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.portal_set_exception(p_customer_id BIGINT, p_reason TEXT, p_request_id TEXT DEFAULT NULL)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $$
@@ -39,9 +39,9 @@ REVOKE ALL ON FUNCTION public.portal_set_exception(BIGINT,TEXT,TEXT) FROM anon;
 
 CREATE OR REPLACE FUNCTION public.portal_return_to_analysis(p_customer_id BIGINT, p_reason TEXT, p_actor_type TEXT DEFAULT NULL, p_request_id TEXT DEFAULT NULL)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $$
-DECLARE v_role TEXT := public._portal_actor_role(); v_actor TEXT := COALESCE(p_actor_type,v_role); v_account public.customer_portal_accounts%ROWTYPE;
+DECLARE v_role TEXT := public._portal_actor_role(); v_actor TEXT := CASE WHEN auth.role() = 'service_role' THEN 'sistema' ELSE v_role END; v_account public.customer_portal_accounts%ROWTYPE;
 BEGIN
-  IF v_actor <> 'sistema' AND v_role NOT IN ('administrativo','documentacao') THEN RAISE EXCEPTION 'permission denied' USING ERRCODE='42501'; END IF;
+  IF auth.role() <> 'service_role' AND v_role NOT IN ('administrativo','documentacao') THEN RAISE EXCEPTION 'permission denied' USING ERRCODE='42501'; END IF;
   SELECT * INTO v_account FROM public.customer_portal_accounts WHERE customer_id=p_customer_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Registro de Portal não encontrado para o Cliente.' USING ERRCODE='P0002'; END IF;
   IF v_account.provisioning_decision='aguardando_analise' THEN RETURN; END IF;

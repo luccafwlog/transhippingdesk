@@ -28,6 +28,7 @@ BEGIN
   UPDATE public.customers SET cnpj_cpf=v_normalized WHERE id=p_customer_id;
   UPDATE public.customer_portal_accounts SET login_cnpj=v_normalized WHERE id=v_account.id;
   PERFORM public._portal_log_event(p_customer_id,v_account.id,NULL,v_account.provisioning_decision,v_account.provisioning_decision,v_account.account_situation,v_account.account_situation,'administrativo',p_reason,NULL);
+  PERFORM set_config('portal.allow_cnpj_change','false',true);
 END; $$;
 GRANT EXECUTE ON FUNCTION public.portal_admin_change_cnpj(BIGINT,TEXT,TEXT) TO authenticated;
 REVOKE ALL ON FUNCTION public.portal_admin_change_cnpj(BIGINT,TEXT,TEXT) FROM anon;

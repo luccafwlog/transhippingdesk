@@ -18,4 +18,13 @@ BEGIN
   RETURN QUERY SELECT v_count;
 END; $$;
 REVOKE ALL ON FUNCTION public.portal_mark_expired_invites() FROM PUBLIC,anon,authenticated;
-SELECT cron.schedule('portal-mark-expired-invites','*/15 * * * *',$$SELECT public.portal_mark_expired_invites();$$);
+DO $do$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron') THEN
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'portal-mark-expired-invites') THEN
+      PERFORM cron.unschedule('portal-mark-expired-invites');
+    END IF;
+    PERFORM cron.schedule('portal-mark-expired-invites','*/15 * * * *',$$SELECT public.portal_mark_expired_invites();$$);
+  END IF;
+END;
+$do$;

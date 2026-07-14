@@ -3,6 +3,9 @@ import { sendPortalEmail } from '../_shared/portalEmail.ts'
 
 if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response(null, { status: 405 })
+  const expectedSecret = Deno.env.get('PORTAL_DIGEST_SECRET')
+  const providedSecret = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
+  if (!expectedSecret || providedSecret !== expectedSecret) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const [{ data: failures }, { data: events }, { data: pending }, { data: users }] = await Promise.all([
@@ -19,7 +22,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   for (const user of users ?? []) {
     const { data: authUser } = await admin.auth.admin.getUserById(user.id)
     const email = authUser.user?.email
-    if (email) await sendPortalEmail({ admin, kind: 'resumo_diario', to: email, subject: `Resumo do Portal — ${date}`, html, text, idempotencyKey: `resumo:${date}` })
+    if (email) await sendPortalEmail({ admin, kind: 'resumo_diario', to: email, subject: `Resumo do Portal — ${date}`, html, text, idempotencyKey: `resumo:${date}:${email.toLowerCase()}` })
   }
   return new Response(JSON.stringify({ sent: users?.length ?? 0 }), { status: 200 })
 })

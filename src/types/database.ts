@@ -46,6 +46,50 @@ export type CustomerContact = {
   created_at: string | null
 }
 
+export type CustomerPortalAccount = {
+  id: number
+  customer_id: number
+  auth_user_id: string | null
+  login_cnpj: string
+  password_hash: string | null
+  active: boolean
+  provisioning_decision: 'aguardando_analise' | 'aprovado_para_provisionar' | 'provisionamento_nao_necessario'
+  account_situation: 'sem_conta' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'suspenso'
+  recovery_email: string | null
+  recovery_email_source: 'candidato' | 'informado_manualmente' | null
+  pending_recovery_email: string | null
+}
+
+export type PortalInvite = {
+  id: number
+  account_id: number
+  purpose: 'convite' | 'recuperacao' | 'confirmacao_email'
+  token_hash: string
+  sent_to_email: string
+  expires_at: string
+  status: 'pendente' | 'consumido' | 'expirado' | 'cancelado' | 'invalidado_por_reenvio'
+  created_by: string | null
+  created_at: string
+  consumed_at: string | null
+  cancelled_reason: string | null
+}
+
+export type PortalProvisioningEvent = {
+  id: number
+  customer_id: number
+  account_id: number | null
+  invite_id: number | null
+  previous_decision: string | null
+  new_decision: string | null
+  previous_situation: string | null
+  new_situation: string | null
+  actor_type: 'documentacao' | 'administrativo' | 'cliente' | 'sistema'
+  actor_id: string | null
+  reason: string | null
+  request_id: string | null
+  created_at: string
+}
+
 export type CustomerRateOverride = {
   id: number
   customer_id: number | null
@@ -532,6 +576,9 @@ export type Database = {
       alerts: Row<Alert>
       customers: Row<Customer>
       customer_contacts: Row<CustomerContact>
+      customer_portal_accounts: Row<CustomerPortalAccount>
+      portal_invites: Row<PortalInvite>
+      portal_provisioning_events: Row<PortalProvisioningEvent>
       customer_rate_overrides: Row<CustomerRateOverride>
       charge_tables: Row<ChargeTable>
       charge_table_items: Row<ChargeTableItem>
@@ -574,6 +621,16 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
+      portal_set_exception: { Args: { p_customer_id: number; p_reason: string; p_request_id?: string | null }; Returns: undefined }
+      portal_return_to_analysis: { Args: { p_customer_id: number; p_reason: string; p_actor_type?: string | null; p_request_id?: string | null }; Returns: undefined }
+      portal_provisioning_preflight: { Args: Record<string, never>; Returns: Json }
+      portal_provisioning_backfill: { Args: { p_request_id?: string | null }; Returns: Json }
+      portal_current_role: { Args: Record<string, never>; Returns: string | null }
+      portal_cancel_invite: { Args: { p_customer_id: number; p_reason: string; p_request_id?: string | null }; Returns: undefined }
+      portal_recovery_check_rate_limit: { Args: { p_login: string }; Returns: boolean }
+      portal_recovery_register_failure: { Args: { p_login: string }; Returns: undefined }
+      portal_assisted_email_change: { Args: { p_customer_id: number; p_new_email: string; p_reason: string; p_request_id?: string | null }; Returns: undefined }
+      portal_admin_change_cnpj: { Args: { p_customer_id: number; p_new_cnpj: string; p_reason: string }; Returns: undefined }
       portal_resolve_login: {
         Args: {
           p_login: string

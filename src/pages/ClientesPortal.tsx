@@ -40,6 +40,13 @@ export function ClientesPortal() {
   const selected = data.find((row) => row.customer_id === selectedCustomerId)
   const count = (fn: (row: QueueRow) => boolean) => data.filter(fn).length
 
+  function exportCsv() {
+    const header = ['Cliente', 'CNPJ', 'Situação', 'Decisão', 'Email']
+    const lines = rows.map((row) => [row.customer_name, row.cnpj_cpf, row.account_situation, row.provisioning_decision, row.recovery_email ?? ''].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
+    const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'portal-clientes.csv'; link.click(); URL.revokeObjectURL(url)
+  }
+
   function selectPreset(value: Preset) {
     setPreset(value)
     setSearchParams((current) => { current.set('filtro', value); return current }, { replace: true })
@@ -58,6 +65,7 @@ export function ClientesPortal() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {presets.map((item) => <button key={item.value} type="button" className={`app-tab ${preset === item.value ? 'app-tab--active' : ''}`} onClick={() => selectPreset(item.value)}>{item.label}</button>)}
         <Input aria-label="Buscar cliente" className="ml-auto min-w-64" placeholder="Buscar razão social ou CNPJ" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <button type="button" className="app-tab" onClick={exportCsv}>Exportar CSV</button>
       </div>
       {error ? <InlineError message="Erro ao carregar a fila do Portal." /> : null}
       <Card className="overflow-hidden p-0">

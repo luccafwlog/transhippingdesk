@@ -11,8 +11,10 @@ BEGIN
   IF v_role NOT IN ('administrativo','documentacao') THEN RAISE EXCEPTION 'permission denied' USING ERRCODE='42501'; END IF;
   IF NULLIF(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'Justificativa é obrigatória.' USING ERRCODE='22023'; END IF;
   SELECT * INTO v_account FROM public.customer_portal_accounts WHERE customer_id=p_customer_id FOR UPDATE;
-  UPDATE public.portal_invites SET status='cancelado',cancelled_reason=p_reason WHERE account_id=v_account.id AND status='pendente' RETURNING id INTO v_invite;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Registro de Portal não encontrado.' USING ERRCODE='P0002'; END IF;
+  SELECT id INTO v_invite FROM public.portal_invites WHERE account_id=v_account.id AND purpose='convite' AND status='pendente' ORDER BY created_at DESC LIMIT 1 FOR UPDATE;
   IF v_invite IS NULL THEN RAISE EXCEPTION 'Não há convite pendente para cancelar.' USING ERRCODE='P0002'; END IF;
+  UPDATE public.portal_invites SET status='cancelado',cancelled_reason=p_reason WHERE id=v_invite;
   UPDATE public.customer_portal_accounts SET account_situation='sem_conta',provisioning_decision='aguardando_analise' WHERE id=v_account.id;
   PERFORM public._portal_log_event(p_customer_id,v_account.id,v_invite,v_account.provisioning_decision,'aguardando_analise',v_account.account_situation,'sem_conta',v_role,p_reason,p_request_id);
 END; $$;

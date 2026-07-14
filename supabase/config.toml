@@ -5,6 +5,39 @@
 
 project_id = "Transhipping_Desk"
 
+[functions.notify-invoice-issued]
+verify_jwt = false
+
+[functions.portal-account-suspend]
+verify_jwt = true
+
+[functions.portal-daily-digest]
+verify_jwt = false
+
+[functions.portal-email-webhook]
+verify_jwt = false
+
+[functions.portal-invite-activate]
+verify_jwt = false
+
+[functions.portal-invite-send]
+verify_jwt = true
+
+[functions.portal-login]
+verify_jwt = false
+
+[functions.portal-password-recovery]
+verify_jwt = false
+
+[functions.portal-password-reset]
+verify_jwt = false
+
+[functions.portal-recovery-email-change]
+verify_jwt = false
+
+[functions.recalc-demurrage-ptax]
+verify_jwt = true
+
 [api]
 enabled = true
 # Port to use for the API URL.

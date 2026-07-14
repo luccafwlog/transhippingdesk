@@ -7,7 +7,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response(null, { status: 405 })
   const payload = await req.text()
   const svixHeaders = { 'svix-id': req.headers.get('svix-id') ?? '', 'svix-timestamp': req.headers.get('svix-timestamp') ?? '', 'svix-signature': req.headers.get('svix-signature') ?? '' }
-  let event: { type: string; data: { email_id?: string; to?: string[] } }
+  let event: { type: string; data: { email_id?: string; to?: string[]; bounce?: { type?: string } } }
   try { event = new Webhook(Deno.env.get('RESEND_WEBHOOK_SECRET') ?? '').verify(payload, svixHeaders, { tolerance: 300 }) as typeof event } catch { return new Response(JSON.stringify({ error: 'invalid signature' }), { status: 401 }) }
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const { error: dedupError } = await admin.from('portal_email_events').insert({ provider_event_id: svixHeaders['svix-id'], event_type: event.type })
@@ -22,9 +22,13 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (status === 'bounce' || status === 'complaint') {
     const email = (event.data.to?.[0] ?? '').toLowerCase()
     if (email) {
-      await admin.from('portal_suppressed_emails').upsert({ email, reason: status === 'bounce' ? 'bounce_permanente' : 'complaint' }, { onConflict: 'email', ignoreDuplicates: true })
+      const permanentBounce = status === 'complaint' || event.data.bounce?.type === 'permanent'
+      if (permanentBounce) await admin.from('portal_suppressed_emails').upsert({ email, reason: status === 'bounce' ? 'bounce_permanente' : 'complaint' }, { onConflict: 'email', ignoreDuplicates: true })
       const { data: affected } = await admin.from('customer_portal_accounts').select('customer_id').ilike('recovery_email', email)
-      for (const account of affected ?? []) await admin.from('alerts').insert({ type: 'portal_email_suprimido', entity_type: 'customer', entity_id: String(account.customer_id), message: 'Email de Recuperação indisponível. Informe ou valide outro endereço.', status: 'open' })
+      for (const account of affected ?? []) {
+        if (permanentBounce) await admin.from('customer_portal_accounts').update({ account_situation: 'falha_no_envio' }).eq('customer_id', account.customer_id).eq('account_situation', 'convite_pendente')
+        if (permanentBounce) await admin.from('alerts').insert({ type: 'portal_email_suprimido', entity_type: 'customer', entity_id: String(account.customer_id), message: 'Email de Recuperação indisponível. Informe ou valide outro endereço.', status: 'open' })
+      }
     }
   }
   return new Response(null, { status: 200 })

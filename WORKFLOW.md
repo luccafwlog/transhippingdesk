@@ -158,7 +158,12 @@ As variáveis `SUPABASE_*` adicionais são usadas pela suíte de integração. N
 coloque service role no bundle Vite.
 
 Edge Functions de Portal usam `RESEND_API_KEY`, `PORTAL_FROM_EMAIL`,
-`PORTAL_REPLY_TO` e `RESEND_WEBHOOK_SECRET` somente em secrets do Supabase.
+`PORTAL_REPLY_TO`, `RESEND_WEBHOOK_SECRET`, `NOTIFY_WEBHOOK_SECRET` e
+`PORTAL_DIGEST_SECRET` somente em secrets do Supabase. O job `pg_cron` do
+resumo diário só é criado quando `app.settings.supabase_url` e
+`app.settings.digest_secret` estão definidos no banco; sem esses settings a
+migration é segura, mas o job não é agendado. Webhooks e cron têm
+`verify_jwt = false` em `supabase/config.toml` e validam seus próprios segredos.
 Sem `RESEND_API_KEY`, o módulo transacional opera em dry-run. O domínio do
 remetente precisa estar verificado antes de qualquer envio real.
 

@@ -8,6 +8,7 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../services/supabase'
 import type { QueueRow } from '../../services/portalProvisioning'
+import { usePortalEvents } from '../../hooks/usePortalProvisioning'
 
 type Props = {
   row: QueueRow
@@ -21,9 +22,11 @@ export function PortalReviewPanel({ row, onSaved, onClose }: Props) {
   const confirm = useConfirm()
   const { showToast } = useToast()
   const [email, setEmail] = useState(row.recovery_email ?? '')
+  const [newCnpj, setNewCnpj] = useState(row.cnpj_cpf)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const { data: events = [] } = usePortalEvents(row.customer_id)
 
   async function invoke(name: string, body: Record<string, unknown>) {
     setBusy(true); setError('')
@@ -54,6 +57,34 @@ export function PortalReviewPanel({ row, onSaved, onClose }: Props) {
     const { error: rpcError } = await portalRpc('portal_cancel_invite', { p_customer_id: row.customer_id, p_reason: reason.trim() })
     if (rpcError) { setError(rpcError.message); return }
     showToast('Convite cancelado.', 'success'); onSaved?.()
+  }
+
+  async function changeAccount(action: 'suspend' | 'reactivate') {
+    if (!reason.trim()) { setError('Informe a justificativa.'); return }
+    await invoke('portal-account-suspend', { customer_id: row.customer_id, action, reason: reason.trim() })
+  }
+
+  async function changeDecision(action: 'exception' | 'analysis') {
+    if (!reason.trim()) { setError('Informe a justificativa.'); return }
+    const { error: rpcError } = action === 'exception'
+      ? await supabase.rpc('portal_set_exception', { p_customer_id: row.customer_id, p_reason: reason.trim() })
+      : await supabase.rpc('portal_return_to_analysis', { p_customer_id: row.customer_id, p_reason: reason.trim() })
+    if (rpcError) { setError(rpcError.message); return }
+    showToast('Decisão do Portal atualizada.', 'success'); onSaved?.()
+  }
+
+  async function assistedEmailChange() {
+    if (!email.trim() || !reason.trim()) { setError('Informe email e justificativa.'); return }
+    const { error: rpcError } = await supabase.rpc('portal_assisted_email_change', { p_customer_id: row.customer_id, p_new_email: email.trim(), p_reason: reason.trim() })
+    if (rpcError) { setError(rpcError.message); return }
+    showToast('Email alterado por atendimento.', 'success'); onSaved?.()
+  }
+
+  async function adminCnpjChange() {
+    if (!newCnpj.trim() || !reason.trim()) { setError('Informe CNPJ e justificativa.'); return }
+    const { error: rpcError } = await supabase.rpc('portal_admin_change_cnpj', { p_customer_id: row.customer_id, p_new_cnpj: newCnpj.trim(), p_reason: reason.trim() })
+    if (rpcError) { setError(rpcError.message); return }
+    showToast('CNPJ alterado de forma auditada.', 'success'); onSaved?.()
   }
 
   return (
@@ -90,7 +121,10 @@ export function PortalReviewPanel({ row, onSaved, onClose }: Props) {
         {email && !row.candidates.some((candidate) => candidate.email === email) ? <p className="text-xs text-amber-200">Email informado manualmente; será usado apenas como Email de Recuperação.</p> : null}
         {error ? <InlineError message={error} /> : null}
         <Button onClick={sendInvite} disabled={!canProvision || !email.trim() || busy}>Enviar convite</Button>
+        {row.account_situation === 'ativo' ? <Button variant="secondary" onClick={() => void assistedEmailChange()} disabled={!canProvision || !email.trim() || busy}>Trocar email assistido</Button> : null}
       </div>
+
+      {isAdmin ? <div className="mt-5 grid gap-3 border-t border-[var(--app-border)] pt-5"><Field label="Novo CNPJ"><Input value={newCnpj} onChange={(event) => setNewCnpj(event.target.value)} /></Field><Button variant="secondary" onClick={() => void adminCnpjChange()} disabled={!newCnpj.trim() || newCnpj === row.cnpj_cpf || busy}>Alterar CNPJ auditado</Button></div> : null}
 
       {row.account_situation === 'convite_pendente' ? (
         <div className="mt-6 grid gap-3 border-t border-[var(--app-border)] pt-5">
@@ -98,6 +132,20 @@ export function PortalReviewPanel({ row, onSaved, onClose }: Props) {
           <Button variant="secondary" onClick={cancelInvite} disabled={!canProvision || busy}>Cancelar convite</Button>
         </div>
       ) : null}
+
+      <div className="mt-6 grid gap-3 border-t border-[var(--app-border)] pt-5">
+        <Field label="Justificativa para ações administrativas"><Textarea value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
+        <div className="flex flex-wrap gap-2">
+          {row.account_situation === 'ativo' || row.account_situation === 'suspenso' ? <Button variant="secondary" onClick={() => void changeAccount(row.account_situation === 'ativo' ? 'suspend' : 'reactivate')} disabled={!canProvision || busy}>{row.account_situation === 'ativo' ? 'Suspender conta' : 'Reativar conta'}</Button> : null}
+          {row.provisioning_decision === 'aguardando_analise' && row.account_situation === 'sem_conta' ? <Button variant="secondary" onClick={() => void changeDecision('exception')} disabled={!canProvision || busy}>Registrar exceção</Button> : null}
+          {row.provisioning_decision !== 'aguardando_analise' ? <Button variant="secondary" onClick={() => void changeDecision('analysis')} disabled={!canProvision || busy}>Retornar à análise</Button> : null}
+        </div>
+      </div>
+
+      <section className="mt-6 border-t border-[var(--app-border)] pt-5">
+        <h3 className="font-semibold">Histórico</h3>
+        {events.length ? <ol className="mt-3 grid gap-2 text-sm">{events.slice(0, 10).map((event) => <li key={event.id} className="rounded border border-[var(--app-border)] p-2"><div>{event.reason ?? 'Evento do Portal'}</div><div className="text-xs text-[var(--app-muted)]">{event.new_situation ?? '—'} · {event.created_at ? new Date(event.created_at).toLocaleString('pt-BR') : '—'}</div></li>)}</ol> : <p className="mt-2 text-sm text-[var(--app-muted)]">Nenhum evento registrado.</p>}
+      </section>
 
       <Link className="mt-6 inline-block text-sm text-cyan-300 hover:text-cyan-200" to={`/clientes/${row.cnpj_cpf}`}>Abrir ficha completa →</Link>
     </Card>

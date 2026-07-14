@@ -16,6 +16,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
     const verified = technicalEmail ? await verifier.auth.signInWithPassword({ email: technicalEmail, password: body.current_password }) : { error: new Error('invalid') }
     const email = body.new_email.toLowerCase(); const { data: suppressed } = await admin.from('portal_suppressed_emails').select('id').eq('email', email).maybeSingle()
     if (!account || !verified || verified.error || suppressed) return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 422 })
+    await admin.from('portal_invites').update({ status: 'invalidado_por_reenvio' }).eq('account_id', account.id).eq('purpose', 'confirmacao_email').eq('status', 'pendente')
     const token = generateToken(); const tokenHash = await hashToken(token)
     const { data: invite } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'confirmacao_email', token_hash: tokenHash, sent_to_email: email, expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), status: 'pendente' }).select('id').single()
     if (!invite) return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 500 })
@@ -24,6 +25,9 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
     const customer = account.customers as { name?: string } | null
     const text = `Confirme o novo Email de Recuperação para ${customer?.name ?? 'sua empresa'}: ${urlConfirm}`
     await sendPortalEmail({ admin, kind: 'alteracao_email', to: email, subject: 'Confirme seu novo Email de Recuperação', html: `<p>Confirme seu novo Email de Recuperação.</p><p><a href="${urlConfirm}">Confirmar email</a></p>`, text, idempotencyKey: `alteracao_email:${invite.id}`, accountId: account.id, inviteId: invite.id })
+    if (account.recovery_email && account.recovery_email.toLowerCase() !== email) {
+      await sendPortalEmail({ admin, kind: 'alteracao_email', to: account.recovery_email, subject: 'Solicitação de troca do Email de Recuperação', html: '<p>Foi solicitada uma troca do Email de Recuperação da sua conta. Se você não reconhece esta ação, contate o suporte imediatamente.</p>', text: 'Foi solicitada uma troca do Email de Recuperação da sua conta. Se você não reconhece esta ação, contate o suporte imediatamente.', idempotencyKey: `alteracao_email_alerta:${invite.id}`, accountId: account.id })
+    }
     return new Response(JSON.stringify({ pending: true }), { status: 200 })
   }
   if (body.action === 'confirm' && body.token) {

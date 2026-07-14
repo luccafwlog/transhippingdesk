@@ -10,7 +10,7 @@ BEGIN
          'Cliente com processo ativo sem Portal ativo ou sem Email de Recuperação.',
          'open'
   FROM public.customers c
-  JOIN public.bls b ON b.customer_id = c.id
+  JOIN public.bls b ON b.customer_id = c.id AND b.financial_status <> 'cancelled'
   LEFT JOIN public.customer_portal_accounts a ON a.customer_id = c.id
   WHERE (a.id IS NULL OR a.recovery_email IS NULL OR a.account_situation <> 'ativo')
     AND COALESCE(a.provisioning_decision, 'aguardando_analise') <> 'provisionamento_nao_necessario'
@@ -52,12 +52,17 @@ $$;
 CREATE OR REPLACE FUNCTION public.portal_reopen_on_new_process()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp' AS $$
+DECLARE v_account public.customer_portal_accounts%ROWTYPE;
 BEGIN
   IF NEW.customer_id IS NOT NULL THEN
+    SELECT * INTO v_account FROM public.customer_portal_accounts WHERE customer_id = NEW.customer_id FOR UPDATE;
     UPDATE public.customer_portal_accounts a
     SET provisioning_decision = 'aguardando_analise'
     WHERE a.customer_id = NEW.customer_id
       AND a.provisioning_decision = 'provisionamento_nao_necessario';
+    IF FOUND AND v_account.id IS NOT NULL THEN
+      PERFORM public._portal_log_event(NEW.customer_id, v_account.id, NULL, 'provisionamento_nao_necessario', 'aguardando_analise', v_account.account_situation, v_account.account_situation, 'sistema', 'Novo processo ativo reabriu a análise do Portal.', NULL);
+    END IF;
   END IF;
   RETURN NEW;
 END;

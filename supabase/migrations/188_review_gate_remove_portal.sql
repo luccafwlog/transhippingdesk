@@ -43,4 +43,3 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.compute_bl_review_pendencies(BIGINT, TEXT, NUMERIC) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.compute_bl_review_pendencies(BIGINT, TEXT, NUMERIC) TO authenticated;

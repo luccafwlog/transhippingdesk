@@ -86,11 +86,22 @@ export async function listPortalProvisioning(): Promise<PortalProvisioningRow[]>
 
 export async function listPortalProvisioningQueue(): Promise<QueueRow[]> {
   const rows = await listPortalProvisioning()
-  const enriched = await Promise.all(rows.map(async (row) => {
-    const [{ data: contacts }, { data: alerts }] = await Promise.all([
-      supabase.from('customer_contacts').select('email, purpose').eq('customer_id', row.customer_id).not('email', 'is', null),
-      supabase.from('alerts').select('type, status, entity_type, entity_id, created_at').or(`entity_id.eq.${row.customer_id},entity_id.eq.${row.customer_id}`),
-    ])
+  if (!rows.length) return []
+  const ids = rows.map((row) => row.customer_id)
+  const [{ data: contacts }, { data: alerts }] = await Promise.all([
+    supabase.from('customer_contacts').select('customer_id, email, purpose').in('customer_id', ids).not('email', 'is', null),
+    supabase.from('alerts').select('type, status, entity_type, entity_id, created_at').eq('entity_type', 'customer').in('entity_id', ids.map(String)),
+  ])
+  const contactsByCustomer = new Map<number, typeof contacts>()
+  for (const contact of contacts ?? []) if (contact.customer_id !== null) contactsByCustomer.set(contact.customer_id, [...(contactsByCustomer.get(contact.customer_id) ?? []), contact])
+  const alertsByCustomer = new Map<number, typeof alerts>()
+  for (const alert of alerts ?? []) {
+    const customerId = Number(alert.entity_id)
+    if (Number.isInteger(customerId)) alertsByCustomer.set(customerId, [...(alertsByCustomer.get(customerId) ?? []), alert])
+  }
+  const enriched = rows.map((row) => {
+    const contacts = contactsByCustomer.get(row.customer_id) ?? []
+    const alerts = alertsByCustomer.get(row.customer_id) ?? []
     const candidates = (contacts ?? []).flatMap((contact) => {
       const purpose = contact.purpose as EmailCandidate['purpose']
       return contact.email && ['geral', 'financeiro', 'operacional', 'faturamento'].includes(purpose)
@@ -107,7 +118,7 @@ export async function listPortalProvisioningQueue(): Promise<QueueRow[]> {
       candidates,
       sharedEmailCnpjs: [],
     } satisfies QueueRow
-  }))
+  })
   const byEmail = new Map<string, string[]>()
   for (const row of enriched) {
     if (!row.recovery_email) continue

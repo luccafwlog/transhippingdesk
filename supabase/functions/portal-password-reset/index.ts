@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { hashToken } from '../_shared/portalToken.ts'
+import { revokePortalSessions } from '../_shared/revokePortalSessions.ts'
 if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   const body = await req.json().catch(() => ({})) as { token?: string; password?: string }
@@ -13,7 +14,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (!account?.auth_user_id) return new Response(JSON.stringify({ error: 'Link inválido ou expirado. Solicite uma nova recuperação.' }), { status: 410 })
   const { error } = await admin.auth.admin.updateUserById(account.auth_user_id, { password: body.password })
   if (error) return new Response(JSON.stringify({ error: 'Não foi possível atualizar a senha.' }), { status: 500 })
-  await admin.auth.admin.signOut(account.auth_user_id, 'global')
+  await revokePortalSessions(account.auth_user_id)
   await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: invite.account_id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: account.provisioning_decision, p_prev_situation: account.account_situation, p_new_situation: account.account_situation, p_actor_type: 'cliente', p_reason: 'Recuperação de senha concluída pelo cliente', p_request_id: null })
   return new Response(JSON.stringify({ reset: true }), { status: 200 })
 })
