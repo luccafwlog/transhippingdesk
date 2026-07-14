@@ -129,7 +129,7 @@ Expected: teste novo PASS. Se testes existentes fixavam a matriz antiga
 (ex.: financeiro com `faturamento_edit`), atualize-os para o modelo confirmado
 — a mudança é intencional e decidida no issue #370, não um regressão.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/hooks/useAuth.tsx src/hooks/__tests__/roleHasPermission.test.ts
@@ -157,7 +157,7 @@ Classifique cada ocorrência:
 - Se alguma ocorrência for genuinamente administrativa (ex.: exclusão destrutiva
   com regra própria), mantenha `isAdmin` e anote no commit o porquê.
 
-- [ ] **Step 2: Estender o teste de comportamento da ficha**
+- [x] **Step 2: Estender o teste de comportamento da ficha**
 
 Adicione ao `ClienteFicha.behavior.test.tsx` um caso com perfil `documentacao`
 (siga o padrão de mock de auth já usado no arquivo — há casos com perfis
@@ -202,7 +202,7 @@ const { can } = useAuth()
 Run: `npm test -- ClienteFicha && npm test -- Clientes && npm test -- Revisao && npm run lint`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/pages/ClienteFicha.tsx src/pages/Clientes.tsx src/pages/Revisao.tsx src/pages/__tests__/
@@ -217,12 +217,12 @@ git commit -m "feat(rbac): telas do fluxo do portal usam can() em vez de isAdmin
 - Modify: `docs/RASTREABILIDADE.md`
 - Modify: `docs/modules/portal-cliente.md`
 
-- [ ] **Step 1: Documentar** a matriz corrigida, as duas permissões novas e o
+- [x] **Step 1: Documentar** a matriz corrigida, as duas permissões novas e o
 recorte: telas fora do fluxo do Portal continuam com `isAdmin` até a auditoria
 RBAC global (frente separada, decisão do issue #370). Listar os arquivos ainda
 pendentes (saída do grep de `isAdmin`) como referência para essa frente.
 
-- [ ] **Step 2: Verificar e commitar**
+- [x] **Step 2: Verificar e commitar**
 
 Run: `npm run docs:check`
 Expected: PASS

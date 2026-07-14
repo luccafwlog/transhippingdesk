@@ -18,6 +18,12 @@ análise humana.
 `portal_mark_expired_invites`. A leitura do serviço também converte convite
 vencido em `convite_expirado` quando o job periódico está atrasado.
 
+No recorte RBAC do provisionamento, `administrativo` mantém todas as ações,
+`documentacao` pode operar Clientes e Portal, `financeiro` permanece somente
+leitura nesta frente e `operacoes` não recebe ações de Portal. As telas
+`ClienteFicha`, `Clientes` e `Revisao` usam `can()` para esse recorte; as demais
+ocorrências legadas de `isAdmin` pertencem à auditoria RBAC global futura.
+
 ## Propósito e escopo
 
 O Portal é a superfície externa para autenticação, consulta financeira e operacional, consolidação de recebíveis, disputas de demurrage, notificações e atualização limitada de perfil. Não existe cadastro público nem sessão alternativa por token próprio: CNPJ, CPF e email são **identificadores de entrada**; Supabase Auth com email técnico e senha é o único **mecanismo de autenticação e sessão**.

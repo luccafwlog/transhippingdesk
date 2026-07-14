@@ -371,3 +371,8 @@ migration `20260619190144` permanecem para inspeção controlada (ADR 0011/0013)
 | Exceção e retorno à análise | `useSetProvisioningException`, `useReturnToAnalysis` | `portal_set_exception`, `portal_return_to_analysis` | migrations `179`/`180` |
 | Pré-voo e backfill | `runPreflight`, `runBackfill` | `portal_provisioning_preflight`, `portal_provisioning_backfill` | migration `180` |
 | Expiração | job SQL | `portal_mark_expired_invites`, `alerts` | migration `181` |
+
+O recorte RBAC usa `roleHasPermission`/`can()` em `ClienteFicha`, `Clientes` e
+`Revisao`, com `customers_edit` e `portal_provisioning`. Usos de `isAdmin` fora
+dessas telas permanecem deliberadamente fora deste plano e devem ser tratados
+na auditoria global.
