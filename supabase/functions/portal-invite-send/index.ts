@@ -2,9 +2,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateToken, hashToken } from '../_shared/portalToken.ts'
 import { inviteTemplate, resendTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
-const origins = new Set(['https://transhippingdesk.web.app', 'http://localhost:5173', 'http://127.0.0.1:5173'])
-const json = (status: number, body: unknown, origin: string | null) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': origin && origins.has(origin) ? origin : 'null', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' } })
+const json = (status: number, body: unknown, origin: string | null) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } })
 const maskCnpj = (value: string) => { const d = value.replace(/\D/g, ''); return d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***' }
 
 if (typeof Deno !== 'undefined') Deno.serve(async (req) => {

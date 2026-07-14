@@ -2,9 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateToken, hashToken } from '../_shared/portalToken.ts'
 import { recoveryTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
+import { withCors } from '../_shared/cors.ts'
 
 const MESSAGE = 'Se houver uma conta ativa para este CNPJ, enviaremos instruções de recuperação.'
-if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
+if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   const body = await req.json().catch(() => ({})) as { cnpj?: string }
   const cnpj = body.cnpj?.replace(/\D/g, '') ?? ''
@@ -27,4 +28,4 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   const template = recoveryTemplate({ companyName: customer?.name ?? 'sua empresa', cnpjMasked: d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***', recoveryUrl: `${Deno.env.get('PORTAL_URL') ?? ''}/portal/recuperar-senha?token=${encodeURIComponent(token)}`, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' })
   await sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })
   return response()
-})
+}))

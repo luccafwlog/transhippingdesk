@@ -1,14 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { ALLOWED_ORIGINS } from '../_shared/cors.ts'
 
 const GENERIC_ERROR = 'CNPJ ou senha inválidos.'
-const ALLOWED_ORIGINS = new Set([
-  'https://transhippingdesk.com.br',
-  'https://portal.transhippingdesk.com.br',
-  'https://transhippingdesk.web.app',
-  'https://transhippingdesk.firebaseapp.com',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-])
 
 export function normalizeCnpj(input: string): string | null {
   const digits = (input ?? '').replace(/\D/g, '')
