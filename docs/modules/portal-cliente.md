@@ -1,6 +1,6 @@
 # Portal do Cliente
 
-> **Status:** ativo · **Atualizado:** 2026-07-07 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
+> **Status:** ativo · **Atualizado:** 2026-07-14 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
 
 ## Provisionamento operacional
 
@@ -17,6 +17,20 @@ análise humana.
 `portal_set_exception`, `portal_return_to_analysis`, o pré-voo/backfill e o job
 `portal_mark_expired_invites`. A leitura do serviço também converte convite
 vencido em `convite_expirado` quando o job periódico está atrasado.
+
+Autorização das RPCs de provisionamento (migration `192`): o EXECUTE default do
+`PUBLIC` foi revogado e as guardas passaram a ser NULL-safe
+(`v_role IS DISTINCT FROM 'administrativo'` / `v_role IS NULL OR v_role NOT IN (...)`).
+Antes, `REVOKE ... FROM anon` deixava o EXECUTE do `PUBLIC` e a comparação com
+role NULL falhava em aberto, permitindo que `anon` ou um cliente do Portal
+(também role `authenticated`) alcançasse `portal_admin_change_cnpj` e afins. O
+teste de isolamento por CNPJ contra produção confirmou negação em todas as
+camadas após a correção.
+
+**Estado operacional (produção, 2026-07-14):** backfill executado — 309 registros
+de Portal em `aguardando_analise`/`sem_conta`, sem identidade Auth, com evento de
+auditoria por cliente. A Edge Function legada `provision-portal-user` (senha
+definida pelo operador) foi aposentada; o fluxo vigente é convite de uso único.
 
 No recorte RBAC do provisionamento, `administrativo` mantém todas as ações,
 `documentacao` pode operar Clientes e Portal, `financeiro` permanece somente
