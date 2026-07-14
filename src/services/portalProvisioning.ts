@@ -1,10 +1,5 @@
 import { supabase } from './supabase'
 
-const portalRpc = supabase.rpc as unknown as (
-  name: string,
-  args?: Record<string, unknown>,
-) => Promise<{ data: unknown; error: Error | null }>
-
 export type ProvisioningDecision = 'aguardando_analise' | 'aprovado_para_provisionar' | 'provisionamento_nao_necessario'
 export type AccountSituation = 'sem_conta' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'suspenso'
 
@@ -65,8 +60,10 @@ export function comparePriority(a: QueueRow, b: QueueRow): number {
   return (b.lastActivityAt ?? '').localeCompare(a.lastActivityAt ?? '')
 }
 
-export async function listPortalProvisioning(): Promise<PortalProvisioningRow[]> {
-  const { data, error } = await supabase.from('customer_portal_accounts').select(`id, customer_id, provisioning_decision, account_situation, recovery_email, recovery_email_source, customers(name, cnpj_cpf), portal_invites(expires_at, status, purpose)`).order('customer_id')
+export async function listPortalProvisioning(customerId?: number): Promise<PortalProvisioningRow[]> {
+  let query = supabase.from('customer_portal_accounts').select(`id, customer_id, provisioning_decision, account_situation, recovery_email, recovery_email_source, customers(name, cnpj_cpf), portal_invites(expires_at, status, purpose)`).order('customer_id')
+  if (customerId !== undefined) query = query.eq('customer_id', customerId)
+  const { data, error } = await query
   if (error) throw error
   return ((data ?? []) as unknown as ProvisioningQueryRow[]).map((row) => {
     const pending = (row.portal_invites ?? []).find((invite) => invite.status === 'pendente' && invite.purpose === 'convite')
@@ -132,23 +129,23 @@ export async function listPortalProvisioningQueue(): Promise<QueueRow[]> {
 }
 
 export async function runPreflight() {
-  const { data, error } = await portalRpc('portal_provisioning_preflight')
+  const { data, error } = await supabase.rpc('portal_provisioning_preflight')
   if (error) throw error
   return data
 }
 
 export async function runBackfill(requestId: string) {
-  const { data, error } = await portalRpc('portal_provisioning_backfill', { p_request_id: requestId })
+  const { data, error } = await supabase.rpc('portal_provisioning_backfill', { p_request_id: requestId })
   if (error) throw error
   return data
 }
 
 export async function setProvisioningException(customerId: number, reason: string) {
-  const { error } = await portalRpc('portal_set_exception', { p_customer_id: customerId, p_reason: reason })
+  const { error } = await supabase.rpc('portal_set_exception', { p_customer_id: customerId, p_reason: reason })
   if (error) throw error
 }
 
 export async function returnToAnalysis(customerId: number, reason: string) {
-  const { error } = await portalRpc('portal_return_to_analysis', { p_customer_id: customerId, p_reason: reason })
+  const { error } = await supabase.rpc('portal_return_to_analysis', { p_customer_id: customerId, p_reason: reason })
   if (error) throw error
 }

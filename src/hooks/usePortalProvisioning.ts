@@ -1,10 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listPortalProvisioningQueue, returnToAnalysis, setProvisioningException } from '../services/portalProvisioning'
+import { listPortalProvisioning, listPortalProvisioningQueue, returnToAnalysis, setProvisioningException } from '../services/portalProvisioning'
 
 export const PORTAL_PROVISIONING_QUERY_KEY = ['portal-provisioning'] as const
 
 export function usePortalProvisioning() {
   return useQuery({ queryKey: PORTAL_PROVISIONING_QUERY_KEY, queryFn: listPortalProvisioningQueue })
+}
+
+export function usePortalProvisioningForCustomer(customerId: number | null) {
+  return useQuery({
+    queryKey: [...PORTAL_PROVISIONING_QUERY_KEY, 'customer', customerId],
+    enabled: customerId !== null,
+    queryFn: () => listPortalProvisioning(customerId!),
+    select: (rows) => rows[0],
+  })
 }
 
 export function usePortalEvents(customerId: number | null) {

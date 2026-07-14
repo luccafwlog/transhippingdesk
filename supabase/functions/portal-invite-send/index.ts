@@ -36,8 +36,11 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   const template = resend ? resendTemplate(templateInput) : inviteTemplate(templateInput)
   const sent = await sendPortalEmail({ admin, kind: resend ? 'reenvio' : 'convite', to: email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `convite:${invite.id}`, accountId: account.id, inviteId: invite.id })
   await admin.from('customer_portal_accounts').update({ recovery_email: email, recovery_email_source: body.recovery_email_source === 'informado_manualmente' ? 'informado_manualmente' : 'candidato', provisioning_decision: 'aprovado_para_provisionar', account_situation: sent.ok ? 'convite_pendente' : 'falha_no_envio' }).eq('id', account.id)
-  const auditAdmin = createClient(url, service, { global: { headers: { Authorization: jwt } } })
-  await auditAdmin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: 'aprovado_para_provisionar', p_prev_situation: account.account_situation, p_new_situation: sent.ok ? 'convite_pendente' : 'falha_no_envio', p_actor_type: String(role), p_reason: body.reason ?? (resend ? 'Reenvio de convite autorizado.' : 'Convite autorizado.'), p_request_id: null })
+  const { error: auditError } = await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: 'aprovado_para_provisionar', p_prev_situation: account.account_situation, p_new_situation: sent.ok ? 'convite_pendente' : 'falha_no_envio', p_actor_type: String(role), p_reason: body.reason ?? (resend ? 'Reenvio de convite autorizado.' : 'Convite autorizado.'), p_request_id: null })
+  if (auditError) {
+    console.error('portal invite audit failed', auditError)
+    return json(500, { error: 'Não foi possível registrar a auditoria do convite.' }, origin)
+  }
   if (!sent.ok) await admin.from('alerts').insert({ type: 'portal_falha_envio', entity_type: 'customer', entity_id: String(body.customer_id), message: 'Falha no envio do convite do Portal.', status: 'open' })
   return json(200, { situation: sent.ok ? 'convite_pendente' : 'falha_no_envio', invite_id: invite.id }, origin)
 })

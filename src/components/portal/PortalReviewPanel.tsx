@@ -53,8 +53,7 @@ export function PortalReviewPanel({ row, onSaved, onClose }: Props) {
 
   async function cancelInvite() {
     if (!reason.trim()) { setError('Informe a justificativa.'); return }
-    const portalRpc = supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ error: Error | null }>
-    const { error: rpcError } = await portalRpc('portal_cancel_invite', { p_customer_id: row.customer_id, p_reason: reason.trim() })
+    const { error: rpcError } = await supabase.rpc('portal_cancel_invite', { p_customer_id: row.customer_id, p_reason: reason.trim() })
     if (rpcError) { setError(rpcError.message); return }
     showToast('Convite cancelado.', 'success'); onSaved?.()
   }
