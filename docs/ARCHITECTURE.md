@@ -69,6 +69,14 @@ Query com chave iniciada por `portal-`, cobrindo logout em outra aba e falha de
 refresh de token. Eventos `SIGNED_IN` e `TOKEN_REFRESHED` reidratam o overview
 quando necessário, sem compartilhar estado com a sessão interna.
 
+O provisionamento operacional mantém decisão e situação da conta em eixos
+separados em `customer_portal_accounts`. Convites, tentativas/eventos de email,
+supressões e histórico append-only vivem respectivamente em
+`portal_invites`, `portal_email_attempts`, `portal_email_events`,
+`portal_suppressed_emails` e `portal_provisioning_events`. RPCs internos
+autorizam transições, pré-voo/backfill e expiração idempotente; nenhum token ou
+senha em claro é persistido.
+
 ## Camadas do frontend
 
 ```text

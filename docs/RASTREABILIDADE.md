@@ -363,3 +363,11 @@ um emulador parcial de PostgREST/GoTrue (`scripts/design-audit/sb-shim.cjs`) com
 **contrato definido pelas migrations**, não o projeto **remoto**. Grants/RLS/jobs
 de produção, webhook de email, deploy das Edge Functions e alinhamento remoto da
 migration `20260619190144` permanecem para inspeção controlada (ADR 0011/0013).
+# Provisionamento do Portal
+
+| Rota/ação | Serviço/hook | Contrato de dados | Teste/evidência |
+|---|---|---|---|
+| Fila de provisionamento | `listPortalProvisioning`, `usePortalProvisioning` | `customer_portal_accounts`, `portal_invites` | `src/services/__tests__/portalProvisioning.test.ts` |
+| Exceção e retorno à análise | `useSetProvisioningException`, `useReturnToAnalysis` | `portal_set_exception`, `portal_return_to_analysis` | migrations `179`/`180` |
+| Pré-voo e backfill | `runPreflight`, `runBackfill` | `portal_provisioning_preflight`, `portal_provisioning_backfill` | migration `180` |
+| Expiração | job SQL | `portal_mark_expired_invites`, `alerts` | migration `181` |

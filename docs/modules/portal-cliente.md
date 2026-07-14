@@ -2,6 +2,22 @@
 
 > **Status:** ativo · **Atualizado:** 2026-07-07 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
 
+## Provisionamento operacional
+
+O registro interno de Portal possui dois eixos independentes: `provisioning_decision`
+(`aguardando_analise`, `aprovado_para_provisionar` ou
+`provisionamento_nao_necessario`) e `account_situation` (`sem_conta`, convite,
+falha, `ativo` ou `suspenso`). `recovery_email` é um contato operacional separado
+da identidade técnica do Supabase Auth e pode ser compartilhado entre CNPJs após
+análise humana.
+
+`portal_invites` armazena somente hash de token; `portal_email_attempts`,
+`portal_email_events` e `portal_suppressed_emails` registram entrega e supressão;
+`portal_provisioning_events` é histórico append-only. As transições passam por
+`portal_set_exception`, `portal_return_to_analysis`, o pré-voo/backfill e o job
+`portal_mark_expired_invites`. A leitura do serviço também converte convite
+vencido em `convite_expirado` quando o job periódico está atrasado.
+
 ## Propósito e escopo
 
 O Portal é a superfície externa para autenticação, consulta financeira e operacional, consolidação de recebíveis, disputas de demurrage, notificações e atualização limitada de perfil. Não existe cadastro público nem sessão alternativa por token próprio: CNPJ, CPF e email são **identificadores de entrada**; Supabase Auth com email técnico e senha é o único **mecanismo de autenticação e sessão**.

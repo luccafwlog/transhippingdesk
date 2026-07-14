@@ -236,7 +236,7 @@ git commit -m "feat(portal): schema da máquina de estados do provisionamento"
 **Files:**
 - Create: `supabase/migrations/179_portal_provisioning_rpcs.sql`
 
-- [ ] **Step 1: Escrever a migration com o helper de evento e as transições**
+- [x] **Step 1: Escrever a migration com o helper de evento e as transições**
 
 ```sql
 -- 179: RPCs da máquina de estados do provisionamento do Portal.
@@ -387,7 +387,7 @@ git commit -m "feat(portal): RPCs de transição da máquina de estados"
 **Files:**
 - Create: `supabase/migrations/180_portal_backfill.sql`
 
-- [ ] **Step 1: Escrever pré-voo (somente leitura) e backfill**
+- [x] **Step 1: Escrever pré-voo (somente leitura) e backfill**
 
 ```sql
 -- 180: Pré-voo e backfill inicial do Portal.
@@ -479,7 +479,7 @@ e só então rodar o backfill. Divergência cancela até confirmação do Admini
 **Files:**
 - Create: `supabase/migrations/181_portal_invite_expiry.sql`
 
-- [ ] **Step 1: Escrever job de expiração + agendamento**
+- [x] **Step 1: Escrever job de expiração + agendamento**
 
 ```sql
 -- 181: Expiração idempotente de convites vencidos.
@@ -565,7 +565,7 @@ git commit -m "feat(portal): expiração idempotente de convites com alerta"
 
 Siga a skill `react-query-pattern` para chaves de cache e invalidation.
 
-- [ ] **Step 1: Escrever o teste que fixa a regra de vencimento na leitura**
+- [x] **Step 1: Escrever o teste que fixa a regra de vencimento na leitura**
 
 ```typescript
 import { describe, expect, it } from 'vitest'
@@ -594,7 +594,7 @@ describe('effectiveSituation', () => {
 Run: `npm test -- portalProvisioning`
 Expected: FAIL (módulo inexistente)
 
-- [ ] **Step 3: Implementar serviço**
+- [x] **Step 3: Implementar serviço**
 
 ```typescript
 import { supabase } from './supabase'
@@ -699,7 +699,7 @@ Ajuste os nomes dos RPCs no client tipado conforme os tipos regenerados na
 Task 1; se o select aninhado divergir do schema real, alinhe com o padrão dos
 serviços existentes (`src/services/customers.ts`).
 
-- [ ] **Step 4: Implementar hook**
+- [x] **Step 4: Implementar hook**
 
 ```typescript
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -732,7 +732,7 @@ export function useReturnToAnalysis() {
 }
 ```
 
-- [ ] **Step 5: Rodar testes e lint**
+- [x] **Step 5: Rodar testes e lint**
 
 Run: `npm test -- portalProvisioning && npm run lint`
 Expected: PASS
@@ -753,13 +753,13 @@ git commit -m "feat(portal): serviço e hook do provisionamento com vencimento n
 - Modify: `docs/RASTREABILIDADE.md` (novas entradas serviço/hook/RPC)
 - Modify: `docs/modules/portal-cliente.md` (máquina de estados)
 
-- [ ] **Step 1: Atualizar os três documentos** descrevendo: os dois eixos de
+- [x] **Step 1: Atualizar os três documentos** descrevendo: os dois eixos de
 estado, `recovery_email` separado da identidade Auth, tabelas novas
 (`portal_invites`, `portal_email_attempts`, `portal_email_events`,
 `portal_suppressed_emails`, `portal_provisioning_events`), RPCs criados e o
 job de expiração. Seguir `docs/CONVENCOES.md`.
 
-- [ ] **Step 2: Verificar**
+- [x] **Step 2: Verificar**
 
 Run: `npm run docs:check`
 Expected: PASS
