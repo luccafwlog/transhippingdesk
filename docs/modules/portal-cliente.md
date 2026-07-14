@@ -18,6 +18,16 @@ análise humana.
 `portal_mark_expired_invites`. A leitura do serviço também converte convite
 vencido em `convite_expirado` quando o job periódico está atrasado.
 
+Ao inserir qualquer Cliente em `public.customers`, a migration `193` cria
+automaticamente seu registro em `customer_portal_accounts` com
+`active=false`, `provisioning_decision='aguardando_analise'`,
+`account_situation='sem_conta'` e `login_cnpj` normalizado. A operação é
+idempotente, registra evento de sistema e também repara Clientes existentes que
+estavam sem registro. Isso coloca o Cliente na fila administrativa imediatamente;
+não cria usuário Auth, senha, convite, email de recuperação ou email transacional.
+Processo/B/L pode alterar prioridade e pendências operacionais, mas não é
+pré-requisito para a existência da linha na fila.
+
 Autorização das RPCs de provisionamento (migration `192`): o EXECUTE default do
 `PUBLIC` foi revogado e as guardas passaram a ser NULL-safe
 (`v_role IS DISTINCT FROM 'administrativo'` / `v_role IS NULL OR v_role NOT IN (...)`).
@@ -29,7 +39,9 @@ camadas após a correção.
 
 **Estado operacional (produção, 2026-07-14):** backfill executado — 309 registros
 de Portal em `aguardando_analise`/`sem_conta`, sem identidade Auth, com evento de
-auditoria por cliente. A Edge Function legada `provision-portal-user` (senha
+auditoria por cliente. A migration `193` mantém essa fila sincronizada para
+novos Clientes e reparou eventuais registros ausentes. A Edge Function legada
+`provision-portal-user` (senha
 definida pelo operador) foi aposentada; o fluxo vigente é convite de uso único.
 
 No recorte RBAC do provisionamento, `administrativo` mantém todas as ações,
