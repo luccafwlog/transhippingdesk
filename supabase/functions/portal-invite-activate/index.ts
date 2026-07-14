@@ -25,7 +25,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (!valid) return cors(410, { error: GENERIC_INVALID })
   const { data: consumed } = await admin.from('portal_invites').update({ status: 'consumido', consumed_at: new Date().toISOString() }).eq('id', invite.id).eq('status', 'pendente').gt('expires_at', new Date().toISOString()).select('id').maybeSingle()
   if (!consumed) return cors(410, { error: GENERIC_INVALID })
-  const technicalEmail = `p-${crypto.randomUUID()}@${Deno.env.get('PORTAL_TECH_EMAIL_DOMAIN') ?? 'portal-interno.transhipping.invalid'}`
+  const technicalEmail = `p-${crypto.randomUUID()}@${Deno.env.get('PORTAL_TECH_EMAIL_DOMAIN') ?? 'portal-interno.transhippingdesk.invalid'}`
   const { data: created, error: createError } = await admin.auth.admin.createUser({ email: technicalEmail, password: body.password, email_confirm: true })
   if (createError || !created.user) {
     await admin.from('portal_invites').update({ status: 'pendente', consumed_at: null }).eq('id', invite.id)

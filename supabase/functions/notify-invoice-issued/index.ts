@@ -241,7 +241,7 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`
 
-    const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'noreply@transhipping.app'
+    const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'noreply@transhippingdesk.com.br'
     const resendKey = Deno.env.get('RESEND_API_KEY')
 
     if (!resendKey) {
