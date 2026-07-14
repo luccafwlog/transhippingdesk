@@ -227,6 +227,11 @@ um intervalo fixo documentado.
 
 - `provision-portal-user`: cria ou atualiza o usuário Auth do Portal;
 - `notify-invoice-issued`: implementada para buscar a invoice e enviar email
+  crítico interno quando a emissão encontra falta de prontidão do Portal;
+
+O Portal não participa do gate financeiro de revisão/faturamento. As migrations
+188–190 criam alertas preventivos e exceções críticas por fatura, mantendo a
+pendência geral separada do ciclo da fatura.
   pelo Resend, mas **não está ativa**. Não há Database Webhook configurado, o
   `RESEND_API_KEY` não está provisionado e, por decisão atual, o projeto não
   dispara email para clientes. A notificação ao cliente acontece in-app
@@ -267,6 +272,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/portal/login` | Login do Portal |
 | `/portal/esqueci-senha` | Solicitação de recuperação |
 | `/portal/recuperar-senha` | Definição de nova senha |
+| `/portal/ativar` | Ativação de convite sem login automático |
 
 ### Portal autenticado
 

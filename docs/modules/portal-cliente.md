@@ -144,6 +144,12 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 
 Persistência principal: `customer_portal_accounts`, `portal_login_resolution_attempts`, `portal_rate_limits`, `portal_notifications`, `customers`, `customer_contacts`, `invoices`, `invoice_bls`, `invoice_receivable_links`, `bl_receivables`, `payments`, `demurrage_invoices`, `demurrage_invoice_items`, `bls`, `bl_containers`, `vessel_schedules`, `alerts` e `invoice_lifecycle_events`.
 
+A falta de Portal ou Email de Recuperação não bloqueia revisão nem faturamento.
+Ela gera `portal_pendencia_geral` para Documentação e, na emissão de uma
+fatura, `portal_excecao_critica_fatura` vinculada à fatura. A exceção é fechada
+quando a fatura é paga, coberta, cancelada ou obsoleta; a pendência geral só é
+fechada por conta ativa ou exceção formal.
+
 ## Fluxos e invariantes
 
 ```mermaid

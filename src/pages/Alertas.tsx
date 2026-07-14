@@ -22,6 +22,12 @@ const TYPE_LABELS: Record<string, string> = {
   demurrage: 'Demurrage',
   billing: 'Faturamento',
   review: 'Revisão',
+  portal_pendencia_geral: 'Portal do Cliente — pendência geral',
+  portal_excecao_critica_fatura: 'Portal do Cliente — exceção de fatura',
+  portal_convite_expirado: 'Portal do Cliente — convite expirado',
+  portal_falha_envio: 'Portal do Cliente — falha de envio',
+  portal_email_suprimido: 'Portal do Cliente — email suprimido',
+  portal_abuso_login: 'Portal do Cliente — abuso de login',
 }
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -191,6 +197,9 @@ export function Alertas() {
 // Leva o usuário direto à entidade do alerta em vez de obrigar navegação manual.
 function alertEntityLink(alert: { type: string; entity_type: string | null; entity_id: string | null }): string | null {
   if (!alert.entity_id) return null
+  if (alert.type.startsWith('portal_')) {
+    return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
+  }
   if (alert.entity_type === 'invoice') {
     // entity_id pode ser o id numérico (abre o detalhe via ?invoice=) ou o
     // número da fatura (ex: FAT-2026-0016) — nesse caso só leva à página.

@@ -17,6 +17,12 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendPortalEmail } from '../_shared/portalEmail.ts'
+
+function maskCnpj(value: string | null): string {
+  const digits = (value ?? '').replace(/\D/g, '')
+  return digits.length === 14 ? `${digits.slice(0, 2)}.***.***/${digits.slice(8, 12)}-${digits.slice(12)}` : '***'
+}
 
 // Webhook interno: não há origem de browser legítima.
 // Aceita apenas requisições sem Origin (server-to-server) ou do próprio projeto.
@@ -141,6 +147,39 @@ Deno.serve(async (req: Request) => {
       .select('id, name, cnpj_cpf')
       .eq('id', invoice.customer_id)
       .single()
+
+    const { data: portalAccount } = await supabase
+      .from('customer_portal_accounts')
+      .select('account_situation, recovery_email')
+      .eq('customer_id', invoice.customer_id)
+      .maybeSingle()
+
+    if (!portalAccount || portalAccount.account_situation !== 'ativo' || !portalAccount.recovery_email) {
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('id, role, active')
+        .in('role', ['admin', 'administrativo', 'documentacao'])
+        .eq('active', true)
+      const users = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const internalEmails = (profiles ?? [])
+        .map((profile) => users.data.users.find((user) => user.id === profile.id)?.email)
+        .filter((email): email is string => Boolean(email))
+      const safeName = escapeHtml(customer?.name ?? '—')
+      const safeInvoice = escapeHtml(String(invoice.invoice_number ?? invoice.id))
+      const consoleUrl = `${Deno.env.get('PORTAL_URL') ?? ''}/clientes/portal?cliente=${invoice.customer_id}`
+      const criticalHtml = `<p>Fatura <strong>${safeInvoice}</strong> emitida para <strong>${safeName}</strong> sem Portal ativo ou Email de Recuperação.</p><p><a href="${consoleUrl}">Abrir Console de Provisionamento</a></p>`
+      for (const email of [...new Set(internalEmails)]) {
+        await sendPortalEmail({
+          admin: supabase,
+          kind: 'alerta_critico',
+          to: email,
+          subject: `Ação necessária: fatura ${safeInvoice} sem prontidão do Portal`,
+          html: criticalHtml,
+          text: `Fatura ${invoice.invoice_number ?? invoice.id} emitida para ${customer?.name ?? 'cliente'} sem Portal ativo ou Email de Recuperação. CNPJ: ${maskCnpj(customer?.cnpj_cpf ?? null)}. Abra ${consoleUrl}`,
+          idempotencyKey: `critico:fatura:${invoice.id}:${email.toLowerCase()}`,
+        })
+      }
+    }
 
     const { data: contacts } = await supabase
       .from('customer_contacts')
