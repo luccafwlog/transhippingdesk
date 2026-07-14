@@ -20,7 +20,7 @@
 - Create: `supabase/functions/portal-login/index.ts`
 - Test: `supabase/functions/portal-login/index.test.ts` (unit dos helpers puros, via `deno test`, se o projeto já testa functions; caso contrário, teste os helpers espelhados em `src/lib/` com vitest — ver Task 3)
 
-- [ ] **Step 1: Implementar a função**
+- [x] **Step 1: Implementar a função**
 
 ```typescript
 // Edge Function: portal-login
@@ -145,7 +145,7 @@ Ajustes obrigatórios durante a execução:
    (Firebase `transhippingdesk.web.app` + localhost), seguindo o padrão das
    functions existentes.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/functions/portal-login/
@@ -159,7 +159,7 @@ git commit -m "feat(portal): edge function de login por CNPJ com resposta genér
 **Files:**
 - Create: `supabase/migrations/182_portal_login_lockdown.sql`
 
-- [ ] **Step 1: Escrever a migration**
+- [x] **Step 1: Escrever a migration**
 
 ```sql
 -- 182: Login do Portal passa a ser exclusivo da Edge Function portal-login.
@@ -196,7 +196,7 @@ git commit -m "feat(portal): revoga resolução de login no cliente (anti-enumer
 - Create: `src/lib/cnpj.ts` (normalização/máscara compartilhada)
 - Test: `src/lib/__tests__/cnpj.test.ts`
 
-- [ ] **Step 1: Teste dos helpers de CNPJ**
+- [x] **Step 1: Teste dos helpers de CNPJ**
 
 ```typescript
 import { describe, expect, it } from 'vitest'
@@ -225,7 +225,7 @@ describe('maskCnpj (exibição parcial: 2 primeiros dígitos + filial + DV)', ()
 Run: `npm test -- cnpj`
 Expected: FAIL (módulo inexistente)
 
-- [ ] **Step 3: Implementar `src/lib/cnpj.ts`**
+- [x] **Step 3: Implementar `src/lib/cnpj.ts`**
 
 ```typescript
 export function normalizeCnpj(input: string): string | null {
@@ -242,12 +242,12 @@ export function maskCnpj(cnpj14: string): string {
 }
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `npm test -- cnpj`
 Expected: PASS
 
-- [ ] **Step 5: Trocar o fluxo de login do Portal**
+- [x] **Step 5: Trocar o fluxo de login do Portal**
 
 Em `usePortalAuth.tsx`, substitua a resolução via `portal_resolve_login` +
 `signInWithPassword` por chamada à Edge Function e `setSession`:
@@ -281,7 +281,7 @@ Em `PortalLogin.tsx`:
 - remover qualquer menção a email/CPF no label, placeholder e texto de ajuda;
 - erro sempre com a mensagem genérica retornada.
 
-- [ ] **Step 6: Rodar suíte, lint e build**
+- [x] **Step 6: Rodar suíte, lint e build**
 
 Run: `npm test && npm run lint && npm run build`
 Expected: PASS. Testes existentes de `PortalLogin`/`usePortalAuth` que fixavam
@@ -302,7 +302,7 @@ git commit -m "feat(portal): login exclusivo por CNPJ via edge function"
 **Files:**
 - Create: `supabase/migrations/18x_portal_cnpj_protection.sql` (numere na sequência real do momento da execução)
 
-- [ ] **Step 1: Escrever a migration**
+- [x] **Step 1: Escrever a migration**
 
 Decisão do mapa (Modelo de identidade): antes de existir convite ou conta, a
 correção cadastral de CNPJ segue o fluxo normal; DEPOIS, o CNPJ fica protegido
@@ -415,11 +415,11 @@ git commit -m "feat(portal): proteção e alteração auditada de CNPJ"
 - Modify: `WORKFLOW.md` (linha 73 menciona `portal_resolve_login` antes de `signInWithPassword` — atualizar)
 - Modify: `docs/CHANGELOG.md` (entrada: login por email/CPF removido, supera o comportamento anterior)
 
-- [ ] **Step 1: Atualizar os quatro documentos.** O login por email registrado
+- [x] **Step 1: Atualizar os quatro documentos.** O login por email registrado
 no CHANGELOG é comportamento superado — registre a superação sem apagar o
 histórico (convenção `docs/CONVENCOES.md`).
 
-- [ ] **Step 2: Verificar e commitar**
+- [x] **Step 2: Verificar e commitar**
 
 Run: `npm run docs:check`
 Expected: PASS

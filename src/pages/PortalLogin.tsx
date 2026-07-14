@@ -6,16 +6,6 @@ import { Field, Input } from '../components/ui/Input'
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import { isSupabaseConfigured } from '../services/supabase'
 
-function isCnpj(value: string): boolean {
-  const digits = value.replace(/\D/g, '')
-  return digits.length === 14
-}
-
-function isCpf(value: string): boolean {
-  const digits = value.replace(/\D/g, '')
-  return digits.length === 11
-}
-
 function isNetworkError(error: unknown): boolean {
   if (error instanceof TypeError) return true
   if (!error || typeof error !== 'object') return false
@@ -27,7 +17,7 @@ function isNetworkError(error: unknown): boolean {
 export function PortalLogin() {
   const navigate = useNavigate()
   const { isAuthenticated, loading, signIn } = usePortalAuth()
-  const [login, setLogin] = useState('')
+  const [cnpj, setCnpj] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -42,7 +32,7 @@ export function PortalLogin() {
     setSubmitting(true)
 
     try {
-      await signIn(login, password)
+      await signIn(cnpj, password)
       navigate('/portal', { replace: true })
     } catch (err: unknown) {
       const code = typeof err === 'object' && err !== null ? String((err as { code?: string }).code ?? '') : ''
@@ -57,9 +47,6 @@ export function PortalLogin() {
       setSubmitting(false)
     }
   }
-
-  const isCnpjInput = isCnpj(login)
-  const isCpfInput = isCpf(login)
 
   return (
     <main className="app-auth">
@@ -87,15 +74,15 @@ export function PortalLogin() {
         ) : null}
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <Field label={isCnpjInput ? 'CNPJ' : isCpfInput ? 'CPF' : 'Login'}>
+          <Field label="CNPJ">
             <Input
               required
               type="text"
-              inputMode="email"
+              inputMode="numeric"
               autoComplete="username"
-              value={login}
-              onChange={(event) => setLogin(event.target.value)}
-              placeholder="CNPJ ou email cadastrado"
+              value={cnpj}
+              onChange={(event) => setCnpj(event.target.value)}
+              placeholder="00.000.000/0000-00"
             />
           </Field>
 

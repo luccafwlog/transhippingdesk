@@ -4,14 +4,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import * as Sentry from '@sentry/react'
 import { supabasePortal } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
-import { portalResolveLogin } from '../services/portalBilling'
+import { normalizeCnpj } from '../lib/cnpj'
 import type { PortalSessionOverview } from '../services/portalBilling'
 
 type PortalAuthContextValue = {
   overview: PortalSessionOverview | null
   loading: boolean
   isAuthenticated: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (cnpj: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   refreshOverview: () => Promise<void>
 }
@@ -22,10 +22,6 @@ function isPortalSessionError(error: unknown) {
   const code = typeof error === 'object' && error ? String((error as { code?: string }).code ?? '') : ''
   const message = typeof error === 'object' && error ? String((error as { message?: string }).message ?? '') : ''
   return code === '28000' || message.toLowerCase().includes('sessao do portal')
-}
-
-function errorCode(error: unknown) {
-  return typeof error === 'object' && error ? String((error as { code?: string }).code ?? '') : ''
 }
 
 function normalizePortalOverview(payload: Record<string, unknown>) {
@@ -116,33 +112,15 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
     }
   }, [clearSession])
 
-  function isDocument(value: string): boolean {
-    const digits = value.replace(/\D/g, '')
-    return digits.length === 11 || digits.length === 14
-  }
-
-  const signIn = useCallback(async (login: string, password: string) => {
+  const signIn = useCallback(async (cnpj: string, password: string) => {
     setLoading(true)
     try {
-      let email = login.trim()
-
-      // Se não parece um email, tenta resolver como CNPJ/CPF
-      if (!email.includes('@')) {
-        if (isDocument(email)) {
-          try {
-            email = await portalResolveLogin(email)
-          } catch (error) {
-            if (errorCode(error) === 'P0429') throw error
-            throw new Error('Credenciais invalidas para o portal do cliente.', { cause: error })
-          }
-        }
-      }
-
-      const { error } = await supabasePortal.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw new Error(error.message)
+      const normalized = normalizeCnpj(cnpj)
+      if (!normalized) throw new Error('CNPJ ou senha inválidos.')
+      const { data, error } = await supabasePortal.functions.invoke('portal-login', { body: { cnpj: normalized, password } })
+      if (error || !data?.access_token) throw new Error('CNPJ ou senha inválidos.')
+      const { error: sessionError } = await supabasePortal.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token })
+      if (sessionError) throw new Error('CNPJ ou senha inválidos.')
       const ov = await fetchOverview()
       setOverview(ov)
       setPortalTelemetryUser(ov)

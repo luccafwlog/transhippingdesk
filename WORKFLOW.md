@@ -69,8 +69,9 @@ uma chamada direta à API.
 ### Sessão do Portal
 
 O Portal usa Supabase Auth com cliente e chave de storage próprios. A tela aceita
-CNPJ, CPF ou email. Documentos são resolvidos para o email técnico por
-`portal_resolve_login(text)` antes de `signInWithPassword`.
+CNPJ e senha. A Edge Function `portal-login` resolve a identidade técnica no
+servidor e devolve somente os tokens de sessão; `portal_resolve_login(text)`
+não é um contrato de frontend.
 
 Não existe sessão alternativa por senha armazenada em tabela. A exceção
 pré-autenticação para o resolver está documentada na

@@ -37,7 +37,7 @@ it('mostra erro de conexao quando o login falha por rede', async () => {
     </MemoryRouter>,
   )
 
-  await user.type(screen.getByPlaceholderText('CNPJ ou email cadastrado'), 'cliente@example.com')
+  await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
   await user.type(screen.getByLabelText('Senha'), 'senha-secreta')
   await user.click(screen.getByRole('button', { name: 'Entrar no portal' }))
 

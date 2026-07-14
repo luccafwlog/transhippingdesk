@@ -53,10 +53,10 @@ continuam responsáveis pela autorização.
 
 ### Portal do Cliente
 
-O Portal usa exclusivamente sessão do Supabase Auth. CNPJ, CPF e email são
-identificadores aceitos na tela. Quando o identificador é um documento,
-`portal_resolve_login(text)` resolve o email técnico antes de
-`signInWithPassword`.
+O Portal usa exclusivamente sessão do Supabase Auth. O login visível aceita
+somente CNPJ e senha; a Edge Function `portal-login` resolve a identidade
+técnica no servidor e devolve apenas a sessão. `portal_resolve_login(text)` não
+é executável por `anon`/`authenticated`.
 
 Essa resolução é a exceção pré-autenticação documentada para `anon`, limitada
 por tentativas e erro genérico. RPCs de dados do Portal exigem sessão
