@@ -376,3 +376,9 @@ O recorte RBAC usa `roleHasPermission`/`can()` em `ClienteFicha`, `Clientes` e
 `Revisao`, com `customers_edit` e `portal_provisioning`. Usos de `isAdmin` fora
 dessas telas permanecem deliberadamente fora deste plano e devem ser tratados
 na auditoria global.
+
+Email transacional: `sendPortalEmail` é o dono de idempotência, retry e
+supressão; `portal-email-webhook` atualiza entrega/deduplica eventos; e
+`portal-daily-digest` consolida a atividade diária. Evidência versionada nas
+Edge Functions e migrations `182`–`185`; runtime remoto ainda requer secrets e
+domínio verificado.

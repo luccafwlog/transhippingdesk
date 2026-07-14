@@ -319,6 +319,13 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 
 Rotas desconhecidas redirecionam para `/painel`.
 
+Emails transacionais passam por `portalEmail.ts` e seus templates, com
+idempotência, retries de falhas transitórias e supressão. As Edge Functions
+`portal-email-webhook` e `portal-daily-digest` usam `RESEND_WEBHOOK_SECRET`,
+`RESEND_API_KEY`, `PORTAL_FROM_EMAIL` e `PORTAL_REPLY_TO`; sem chave Resend o
+envio fica em dry-run. Domínio próprio verificado continua sendo gate para
+envio real.
+
 ## Fontes relacionadas
 
 - [`docs/README.md`](./README.md): mapa e autoridade documental;

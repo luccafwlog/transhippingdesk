@@ -24,6 +24,17 @@ leitura nesta frente e `operacoes` não recebe ações de Portal. As telas
 `ClienteFicha`, `Clientes` e `Revisao` usam `can()` para esse recorte; as demais
 ocorrências legadas de `isAdmin` pertencem à auditoria RBAC global futura.
 
+### Email transacional
+
+`_shared/portalEmail.ts` registra cada tentativa por chave idempotente, não
+envia para endereços suprimidos e repete somente respostas transitórias do
+Resend (máximo de três tentativas). `portal-email-webhook` valida assinatura
+Svix, janela de cinco minutos e deduplicação por evento. `portal-daily-digest`
+consolida atividade às 08:00 de Brasília. As variáveis
+`RESEND_API_KEY`, `PORTAL_FROM_EMAIL`, `PORTAL_REPLY_TO` e
+`RESEND_WEBHOOK_SECRET` ficam apenas nas Edge Functions; sem a chave de Resend o
+ambiente opera em dry-run e nenhum email real é enviado.
+
 ## Propósito e escopo
 
 O Portal é a superfície externa para autenticação, consulta financeira e operacional, consolidação de recebíveis, disputas de demurrage, notificações e atualização limitada de perfil. Não existe cadastro público nem sessão alternativa por token próprio: CNPJ e senha são os **dados visíveis de entrada**; a Edge Function `portal-login` resolve a identidade técnica no servidor e o Supabase Auth continua sendo o único **mecanismo de autenticação e sessão**.

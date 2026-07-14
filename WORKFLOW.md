@@ -157,6 +157,11 @@ VITE_SUPABASE_ANON_KEY=sua-chave-publica
 As variáveis `SUPABASE_*` adicionais são usadas pela suíte de integração. Não
 coloque service role no bundle Vite.
 
+Edge Functions de Portal usam `RESEND_API_KEY`, `PORTAL_FROM_EMAIL`,
+`PORTAL_REPLY_TO` e `RESEND_WEBHOOK_SECRET` somente em secrets do Supabase.
+Sem `RESEND_API_KEY`, o módulo transacional opera em dry-run. O domínio do
+remetente precisa estar verificado antes de qualquer envio real.
+
 ### Execução
 
 ```powershell
