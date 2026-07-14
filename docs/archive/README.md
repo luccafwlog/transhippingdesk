@@ -17,7 +17,7 @@ Conteúdo **histórico e não-vivo**: snapshots de auditoria datados e planos/sp
 | Pasta | O que é |
 |---|---|
 | `plans/` | Sprint de manutenção (2026-06-15), redesign de Viagens, auditorias e cadastro único navio/viagem (ADR 0021) — todos concluídos |
-| `superpowers/plans/` | Logs de execução de features (2026-06-01 → 2026-07-09) |
+| `superpowers/plans/` | Logs de execução de features (2026-06-01 → 2026-07-14) |
 | `superpowers/specs/` | Specs de design aprovadas que originaram os planos acima |
 
 O que essas entregas produziram está resumido no [CHANGELOG](../CHANGELOG.md).

@@ -4,9 +4,9 @@
 > do evento (rastreabilidade, timeline, visibilidade no Portal). Financeiro
 > permanece manual nesta entrega.
 
-Termos de domínio seguem [`CONTEXT.md`](../../../CONTEXT.md); arquitetura segue
-[`docs/ARCHITECTURE.md`](../../ARCHITECTURE.md); o módulo afetado é
-[Viagens](../../modules/viagens.md).
+Termos de domínio seguem [`CONTEXT.md`](../../../../CONTEXT.md); arquitetura segue
+[`docs/ARCHITECTURE.md`](../../../ARCHITECTURE.md); o módulo afetado é
+[Viagens](../../../modules/viagens.md).
 
 ## 1. Problema
 
