@@ -188,6 +188,18 @@ histórico remoto; a renumeração de ADR 0016 foi uma padronização pontual,
 validada por replay completo das migrations e só segura em banco descartável
 (o `db reset` reaplica do zero e ressincroniza `schema_migrations`).
 
+### Aplicação no remoto
+
+Migrations chegam ao projeto remoto pela **integração GitHub do Supabase no merge
+para `main`**, que registra a versão com o **prefixo numérico** do arquivo
+(`192_…` → versão `192`). Não aplique migrations ao remoto por ferramentas que
+geram versão **timestamp** (ex.: `apply_migration` do MCP Supabase): elas gravam
+em `supabase_migrations.schema_migrations` uma versão sem arquivo local
+correspondente, e a checagem de branching falha com *“Remote migration versions
+not found in local migrations directory”* (`MIGRATIONS_FAILED`). Se acontecer,
+reconcilie renomeando a versão remota para o prefixo do arquivo:
+`update supabase_migrations.schema_migrations set version='NNN' where version='<timestamp>';`.
+
 ### Antes de criar
 
 1. declare o problema de negócio;
