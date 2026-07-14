@@ -25,7 +25,7 @@
 | **Interna** | `src/hooks/useAuth.tsx` | Supabase Auth + perfil em `user_profiles`; timeout de inatividade de **8 horas**; role → permissões. |
 | **Portal** | `src/hooks/usePortalAuth.tsx` | Supabase Auth. Login exclusivo por CNPJ normalizado via Edge Function `portal-login`. |
 
-> **Portal login:** o navegador envia apenas CNPJ e senha para `portal-login`; a identidade técnica e o email técnico permanecem no servidor. O CORS de `portal-login` restringe a origem à allowlist (`transhippingdesk.com.br`, `portal.transhippingdesk.com.br`, `transhippingdesk.web.app` e localhost de dev).
+> **Portal login:** o navegador envia apenas CNPJ e senha para `portal-login`; a identidade técnica e o email técnico permanecem no servidor. As Edge Functions do Portal chamadas pelo navegador compartilham uma allowlist de origens em `supabase/functions/_shared/cors.ts` (`transhippingdesk.com.br`, `portal.transhippingdesk.com.br`, `transhippingdesk.web.app`, `firebaseapp.com` e localhost de dev); `withCors` trata o preflight e injeta os headers em toda resposta.
 
 ## Rate limiting
 

@@ -1,8 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateToken, hashToken } from '../_shared/portalToken.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
+import { withCors } from '../_shared/cors.ts'
 
-if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
+if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   const body = await req.json().catch(() => ({})) as { action?: string; current_password?: string; new_email?: string; token?: string }
   const url = Deno.env.get('SUPABASE_URL')!; const jwt = req.headers.get('Authorization') ?? ''; const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -42,4 +43,4 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
     return new Response(JSON.stringify({ confirmed: true }), { status: 200 })
   }
   return new Response(JSON.stringify({ error: 'Dados inválidos.' }), { status: 422 })
-})
+}))

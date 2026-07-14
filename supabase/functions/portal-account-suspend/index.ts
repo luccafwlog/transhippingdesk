@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { revokePortalSessions } from '../_shared/revokePortalSessions.ts'
+import { withCors } from '../_shared/cors.ts'
 
-if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
+if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   const body = await req.json().catch(() => ({})) as { customer_id?: number; action?: string; reason?: string }
   if (!body.customer_id || !['suspend', 'reactivate'].includes(body.action ?? '') || !body.reason?.trim()) return new Response(JSON.stringify({ error: 'Dados inválidos.' }), { status: 422 })
@@ -22,4 +23,4 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
     await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: null, p_prev_decision: account.provisioning_decision, p_new_decision: 'aguardando_analise', p_prev_situation: account.account_situation, p_new_situation: 'sem_conta', p_actor_type: role, p_reason: body.reason, p_request_id: null })
   }
   return new Response(JSON.stringify({ situation: body.action === 'suspend' ? 'suspenso' : 'sem_conta' }), { status: 200 })
-})
+}))
