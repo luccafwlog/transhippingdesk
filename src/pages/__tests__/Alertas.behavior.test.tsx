@@ -6,11 +6,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const open = { id: 1, status: 'open', type: 'demurrage', message: 'Container vencendo', entity_type: 'container', entity_id: 'CNTR1', created_at: '2026-06-20T00:00:00Z' }
 const ack = { id: 2, status: 'acknowledged', type: 'invoice_overdue', message: 'Fatura vencida 123', entity_type: 'invoice', entity_id: '123', created_at: '2026-06-19T00:00:00Z' }
+const portalInvoice = { id: 3, status: 'open', type: 'portal_excecao_critica_fatura', message: 'Portal sem email para fatura', entity_type: 'invoice', entity_id: '456', created_at: '2026-06-18T00:00:00Z' }
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
     const filter = queryKey[1] as string
-    const data = filter === 'open' ? [open] : filter === 'acknowledged' ? [ack] : [open, ack]
+    const data = filter === 'open' ? [open, portalInvoice] : filter === 'acknowledged' ? [ack] : [open, portalInvoice, ack]
     return { data, isLoading: false, error: null }
   },
   useMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -58,5 +59,6 @@ it('US-138: oferece link direto para a entidade do alerta', () => {
   // container alert -> /demurrage?busca=CNTR1
   expect(screen.getByRole('link', { name: /Ver Demurrage/ }).getAttribute('href')).toBe('/demurrage?busca=CNTR1')
   // invoice alert with numeric id -> /faturamento?invoice=123
-  expect(screen.getByRole('link', { name: /Ver Fatura/ }).getAttribute('href')).toBe('/faturamento?invoice=123')
+  expect(screen.getAllByRole('link', { name: /Ver Fatura/ })[0].getAttribute('href')).toBe('/faturamento?invoice=456')
+  expect(screen.getAllByRole('link', { name: /Ver Fatura/ })[1].getAttribute('href')).toBe('/faturamento?invoice=123')
 })

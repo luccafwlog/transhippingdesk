@@ -5,6 +5,39 @@
 
 project_id = "Transhipping_Desk"
 
+[functions.notify-invoice-issued]
+verify_jwt = false
+
+[functions.portal-account-suspend]
+verify_jwt = true
+
+[functions.portal-daily-digest]
+verify_jwt = false
+
+[functions.portal-email-webhook]
+verify_jwt = false
+
+[functions.portal-invite-activate]
+verify_jwt = false
+
+[functions.portal-invite-send]
+verify_jwt = true
+
+[functions.portal-login]
+verify_jwt = false
+
+[functions.portal-password-recovery]
+verify_jwt = false
+
+[functions.portal-password-reset]
+verify_jwt = false
+
+[functions.portal-recovery-email-change]
+verify_jwt = false
+
+[functions.recalc-demurrage-ptax]
+verify_jwt = true
+
 [api]
 enabled = true
 # Port to use for the API URL.
@@ -378,19 +411,6 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
-
-# Cria/atualiza o usuário Supabase Auth de uma conta de portal (provisionamento
-# interno). Declarada aqui para ser deployada pela integração Git do Supabase.
-[functions.provision-portal-user]
-verify_jwt = true
-
-# Envia notificacao de fatura emitida via webhook autenticado por segredo.
-[functions.notify-invoice-issued]
-verify_jwt = true
-
-# Recalcula PTAX de demurrage via agenda autenticada por segredo.
-[functions.recalc-demurrage-ptax]
-verify_jwt = true
 
 [analytics]
 enabled = true

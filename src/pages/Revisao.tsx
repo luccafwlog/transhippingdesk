@@ -5,7 +5,6 @@ import { AlertTriangle, Search, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
-import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
@@ -20,7 +19,7 @@ import { invalidateReviewQueueCaches } from '../components/review/reviewCaches'
 import { ReviewGroupBlock } from '../components/review/ReviewGroupBlock'
 import { ReviewDrawer } from '../components/review/ReviewDrawer'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
-import { addCustomerEmail, provisionPortalForCustomer } from '../services/customers'
+import { addCustomerEmail } from '../services/customers'
 import { calculateBlLocalCharges } from '../services/charges/chargeOperationsService'
 import { queryKeys } from '../services/queryKeys'
 import {
@@ -33,19 +32,17 @@ import {
 import { tryAutoIssueInvoice } from '../services/reviewBillingAutomation'
 
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
-type ProvisionedCredential = { name: string; email: string; password: string }
 
 export function Revisao() {
   const { data, isLoading, error, graniteUnavailable } = useReviewQueue()
   const queryClient = useQueryClient()
-  const { user, isAdmin } = useAuth()
+  const { user } = useAuth()
   const { showToast } = useToast()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [savingGroupKey, setSavingGroupKey] = useState<string | null>(null)
-  const [provisionedCredential, setProvisionedCredential] = useState<ProvisionedCredential | null>(null)
   const [savingInlineId, setSavingInlineId] = useState<string | null>(null)
   const [recalcQueue, setRecalcQueue] = useState<RecalcNotice[]>([])
   const [recalcingId, setRecalcingId] = useState<string | null>(null)
@@ -351,38 +348,6 @@ export function Revisao() {
     }
   }
 
-  async function handleGroupProvisionPortal(group: ReviewGroup) {
-    if (!user || !isAdmin) return
-    const linked = getGroupLinkedItem(group)
-    const customerId = linked?.customer?.id
-    if (!customerId) return
-    const email = linked?.customer?.customer_contacts?.find((contact) => (contact.email ?? '').trim())?.email?.trim()
-    if (!email) {
-      showToast('Adicione um e-mail ao cliente antes de provisionar o portal.', 'error')
-      return
-    }
-    setSavingGroupKey(group.key)
-    try {
-      const { password } = await provisionPortalForCustomer({
-        customerId,
-        portalEmail: email,
-        loginCnpj: group.cnpj,
-        actorId: user.id,
-      })
-      await queryClient.invalidateQueries({ queryKey: ['customer-portal-account', customerId] })
-      const invoiceCount = await refreshGroupGate(group)
-      setProvisionedCredential({ name: group.displayName, email, password })
-      showToast(
-        `Portal provisionado para ${group.displayName}.${invoiceCount ? ` ${invoiceCount} fatura(s) emitida(s).` : ''}`,
-        'success',
-      )
-    } catch (err) {
-      showToast(`Falha ao provisionar o portal. ${extractErrorText(err)}`.trim(), 'error')
-    } finally {
-      setSavingGroupKey(null)
-    }
-  }
-
   return (
     <>
       <PageHeader
@@ -507,11 +472,9 @@ export function Revisao() {
               collapsed={collapsedGroups.has(group.key)}
               savingGroup={savingGroupKey === group.key}
               savingInlineId={savingInlineId}
-              isAdmin={isAdmin}
               onToggle={() => toggleGroupCollapsed(group.key)}
               onGroupLink={(customerId) => handleGroupLinkCustomer(group, customerId)}
               onGroupAddEmail={(email) => handleGroupAddEmail(group, email)}
-              onGroupProvisionPortal={() => handleGroupProvisionPortal(group)}
               onCorrect={(id) => setSelectedId(id)}
               onInlineField={handleInlineField}
             />
@@ -530,49 +493,6 @@ export function Revisao() {
         siblingIds={filteredData.map((item) => item.id)}
       />
 
-      <Modal
-        open={Boolean(provisionedCredential)}
-        onClose={() => setProvisionedCredential(null)}
-        title="Acesso ao portal provisionado"
-      >
-        {provisionedCredential ? (
-          <div className="grid gap-4">
-            <p className="text-sm text-slate-300">
-              Credencial gerada para <span className="font-semibold text-white">{provisionedCredential.name}</span>.
-              Copie e repasse ao cliente — <span className="text-amber-300">ela não será exibida novamente</span>.
-            </p>
-            <div className="grid gap-2">
-              <CredentialRow label="Login (e-mail)" value={provisionedCredential.email} />
-              <CredentialRow label="Senha" value={provisionedCredential.password} />
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={() => setProvisionedCredential(null)}>Concluir</Button>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
     </>
-  )
-}
-
-function CredentialRow({ label, value }: { label: string; value: string }) {
-  const { showToast } = useToast()
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2">
-      <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
-        <div className="truncate font-mono text-sm text-white">{value}</div>
-      </div>
-      <Button
-        variant="secondary"
-        className="px-2.5 py-1 text-xs"
-        onClick={() => {
-          void navigator.clipboard?.writeText(value)
-          showToast('Copiado.', 'success')
-        }}
-      >
-        Copiar
-      </Button>
-    </div>
   )
 }

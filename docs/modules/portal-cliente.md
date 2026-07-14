@@ -2,9 +2,42 @@
 
 > **Status:** ativo · **Atualizado:** 2026-07-07 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
 
+## Provisionamento operacional
+
+O registro interno de Portal possui dois eixos independentes: `provisioning_decision`
+(`aguardando_analise`, `aprovado_para_provisionar` ou
+`provisionamento_nao_necessario`) e `account_situation` (`sem_conta`, convite,
+falha, `ativo` ou `suspenso`). `recovery_email` é um contato operacional separado
+da identidade técnica do Supabase Auth e pode ser compartilhado entre CNPJs após
+análise humana.
+
+`portal_invites` armazena somente hash de token; `portal_email_attempts`,
+`portal_email_events` e `portal_suppressed_emails` registram entrega e supressão;
+`portal_provisioning_events` é histórico append-only. As transições passam por
+`portal_set_exception`, `portal_return_to_analysis`, o pré-voo/backfill e o job
+`portal_mark_expired_invites`. A leitura do serviço também converte convite
+vencido em `convite_expirado` quando o job periódico está atrasado.
+
+No recorte RBAC do provisionamento, `administrativo` mantém todas as ações,
+`documentacao` pode operar Clientes e Portal, `financeiro` permanece somente
+leitura nesta frente e `operacoes` não recebe ações de Portal. As telas
+`ClienteFicha`, `Clientes` e `Revisao` usam `can()` para esse recorte; as demais
+ocorrências legadas de `isAdmin` pertencem à auditoria RBAC global futura.
+
+### Email transacional
+
+`_shared/portalEmail.ts` registra cada tentativa por chave idempotente, não
+envia para endereços suprimidos e repete somente respostas transitórias do
+Resend (máximo de três tentativas). `portal-email-webhook` valida assinatura
+Svix, janela de cinco minutos e deduplicação por evento. `portal-daily-digest`
+consolida atividade às 08:00 de Brasília. As variáveis
+`RESEND_API_KEY`, `PORTAL_FROM_EMAIL`, `PORTAL_REPLY_TO` e
+`RESEND_WEBHOOK_SECRET` ficam apenas nas Edge Functions; sem a chave de Resend o
+ambiente opera em dry-run e nenhum email real é enviado.
+
 ## Propósito e escopo
 
-O Portal é a superfície externa para autenticação, consulta financeira e operacional, consolidação de recebíveis, disputas de demurrage, notificações e atualização limitada de perfil. Não existe cadastro público nem sessão alternativa por token próprio: CNPJ, CPF e email são **identificadores de entrada**; Supabase Auth com email técnico e senha é o único **mecanismo de autenticação e sessão**.
+O Portal é a superfície externa para autenticação, consulta financeira e operacional, consolidação de recebíveis, disputas de demurrage, notificações e atualização limitada de perfil. Não existe cadastro público nem sessão alternativa por token próprio: CNPJ e senha são os **dados visíveis de entrada**; a Edge Function `portal-login` resolve a identidade técnica no servidor e o Supabase Auth continua sendo o único **mecanismo de autenticação e sessão**.
 
 As três rotas de autenticação são públicas. `/portal`, `/portal/billing`, `/portal/operacao` e `/portal/perfil` ficam sob `PortalProtectedRoute` e `PortalLayout` em `src/App.tsx`. O navegador usa `supabasePortal`, com `storageKey: 'td-portal-auth'` e `detectSessionInUrl:false`, separado da sessão interna (`src/services/supabase.ts`).
 
@@ -14,7 +47,7 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 
 ### `/portal/login`
 
-`src/pages/PortalLogin.tsx` aceita CNPJ, CPF ou email e senha. Se a sessão já foi hidratada, redireciona para `/portal`; durante submit chama `usePortalAuth.signIn`, preserva mensagem específica apenas para `P0429` e converte as demais falhas em erro genérico de credenciais.
+`src/pages/PortalLogin.tsx` aceita CNPJ e senha. Se a sessão já foi hidratada, redireciona para `/portal`; durante submit chama `usePortalAuth.signIn`, que invoca `portal-login` e converte falhas em mensagem genérica de credenciais.
 
 ### `/portal/esqueci-senha`
 
@@ -46,11 +79,11 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| `/portal/login` — resolver CNPJ/CPF | Valor sem `@`, com 11 ou 14 dígitos | `PortalLogin` → `usePortalAuth.signIn` | `portalResolveLogin(login)` antes do Auth | RPC `portal_resolve_login`; lê conta ativa por `login_cnpj`; registra hash em `portal_login_resolution_attempts` | Substitui o identificador pelo `portal_email`; nenhuma query React Query | 8 tentativas/10 min geram `P0429`; vazio/desconhecido gera `28000` genérico | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`; **Teste de contrato SQL:** `src/services/__tests__/portalResolveLoginHardeningMigration.test.ts` |
+| `/portal/login` — autenticar por CNPJ | CNPJ normalizado e senha preenchidos | `PortalLogin` → `usePortalAuth.signIn` | Edge Function `portal-login` → Auth técnico → `setSession` | `customer_portal_accounts.login_cnpj`; rate limit hash em `portal_login_attempts` | O navegador recebe somente tokens de sessão | CNPJ desconhecido, conta inativa, senha errada e bloqueio usam a mesma mensagem | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`, `src/lib/__tests__/cnpj.test.ts` |
 | `/portal/login` — usar email e autenticar senha | Identificador com `@` ou valor que não foi reconhecido como documento | `usePortalAuth.signIn` | Chama diretamente `supabasePortal.auth.signInWithPassword({ email, password })` | Supabase Auth; sessão persistida pelo cliente `supabasePortal` | Sessão em storage isolado `td-portal-auth`; depois carrega overview | Erro de Auth é convertido pela página em credencial genérica | **Código:** `src/hooks/usePortalAuth.tsx`, `src/services/supabase.ts`; **Runtime não executado** |
 | Inicialização — hidratar sessão e overview | Aplicação montada; sessão Portal persistida opcional | `PortalAuthProvider` | `getSession()` → `fetchOverview()`; listener `onAuthStateChange` reidrata em `SIGNED_IN`/`TOKEN_REFRESHED` quando necessário | Supabase Auth; RPC `portal_get_session_overview_v2`; UPDATE de `last_login_at` | Define `overview`, `isAuthenticated=Boolean(overview)` e identidade Sentry `{ id: customer_id }` com tag `area=portal` | Sessão sem Conta de Portal ativa gera `28000` e limpa overview; outras falhas não são exibidas | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx` |
 | Layout — sair | Sessão/overview presente | Botão “Sair” em `PortalLayout` ou evento `SIGNED_OUT` do Supabase Auth | Limpa overview e caches `portal-*` antes de `signOutSupabaseClient`; chamadas concorrentes compartilham uma Promise | Supabase Auth `signOut` | Guard passa a considerar a sessão não autenticada e queries do Portal são removidas | Ignora apenas erro conhecido de lock roubado; demais erros propagam | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`; `src/services/__tests__/supabaseAuth.test.ts` |
-| `/portal/esqueci-senha` — solicitar recuperação | CNPJ/CPF ou email preenchido | `PortalForgotPassword.handleSubmit` | Documento → resolver; email → direto; `resetPasswordForEmail` com redirect | RPC resolver quando necessário; Supabase Auth recovery | Troca para tela de resposta genérica | `P0429` explícito; demais falhas preservam mensagem não enumerável | **Código:** `src/pages/PortalForgotPassword.tsx`; **Runtime não executado** |
+| `/portal/esqueci-senha` — solicitar recuperação | Fluxo legado em transição para o plano 5 | `PortalForgotPassword.handleSubmit` | Será substituído pelas Edge Functions de recuperação | O RPC resolver foi revogado para o navegador | Mantém resposta não enumerável | Completar no plano 5 | **Código:** `src/pages/PortalForgotPassword.tsx` |
 | `/portal/recuperar-senha` — estabelecer sessão de recovery | Hash com `type=recovery`, access e refresh tokens | `parseRecoveryTokens`/`useEffect` | `supabasePortal.auth.setSession`; remove hash com `history.replaceState` | Supabase Auth; storage isolado | Habilita formulário somente após sessão válida | Link ausente, expirado ou `setSession` falho mostra mensagem única | **Código:** `src/pages/PortalResetPassword.tsx`; **Runtime não executado** |
 | `/portal/recuperar-senha` — atualizar senha | Sessão recovery pronta; senha 8+; confirmação igual | `handleSubmit` | `supabasePortal.auth.updateUser({ password })` e `signOutSupabaseClient(supabasePortal)` | Supabase Auth | Encerra a sessão de recovery e navega para `/portal/login` | Validação local ou mensagem retornada pelo Auth | **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
 | Rotas protegidas — redirecionar | `PortalAuthProvider` terminou loading | `PortalProtectedRoute` | Loading ocupa shell; ausência de overview retorna `<Navigate replace>` | Nenhuma chamada própria | Redireciona para `/portal/login` | O guard é UX, não autorização de dados | **Código:** `src/components/layout/PortalProtectedRoute.tsx` |
@@ -111,26 +144,27 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 
 Persistência principal: `customer_portal_accounts`, `portal_login_resolution_attempts`, `portal_rate_limits`, `portal_notifications`, `customers`, `customer_contacts`, `invoices`, `invoice_bls`, `invoice_receivable_links`, `bl_receivables`, `payments`, `demurrage_invoices`, `demurrage_invoice_items`, `bls`, `bl_containers`, `vessel_schedules`, `alerts` e `invoice_lifecycle_events`.
 
+A falta de Portal ou Email de Recuperação não bloqueia revisão nem faturamento.
+Ela gera `portal_pendencia_geral` para Documentação e, na emissão de uma
+fatura, `portal_excecao_critica_fatura` vinculada à fatura. A exceção é fechada
+quando a fatura é paga, coberta, cancelada ou obsoleta; a pendência geral só é
+fechada por conta ativa ou exceção formal.
+
 ## Fluxos e invariantes
 
 ```mermaid
 sequenceDiagram
     actor Identifier as identifier
     participant Login as PortalLogin/usePortalAuth
-    participant Resolver as portal_resolve_login
-    participant Auth as signInWithPassword
+    participant LoginFn as portal-login
+    participant Auth as Supabase Auth
     participant Storage as sessão isolada td-portal-auth
     participant Overview as portal_get_session_overview_v2
     participant Guard as PortalProtectedRoute
 
-    Identifier->>Login: CNPJ/CPF ou email + senha
-    alt identificador é documento com 11/14 dígitos
-        Login->>Resolver: p_login normalizado
-        Resolver-->>Login: portal_email ou erro genérico/P0429
-    else identificador contém @
-        Login->>Login: usa email diretamente
-    end
-    Login->>Auth: email técnico + senha
+    Identifier->>Login: CNPJ + senha
+    Login->>LoginFn: CNPJ normalizado + senha
+    LoginFn->>Auth: email técnico + senha
     Auth-->>Storage: persiste sessão Supabase Auth
     Login->>Overview: RPC com auth.uid()
     Overview-->>Login: cliente ativo e resumo
@@ -138,7 +172,7 @@ sequenceDiagram
     Guard-->>Identifier: libera /portal/*
 ```
 
-- **Identificador ≠ mecanismo:** o resolver só traduz documento para email técnico. A senha e a sessão são sempre verificadas pelo Supabase Auth.
+- **Identificador ≠ mecanismo:** a Edge Function traduz o CNPJ para a identidade técnica sem expor o email. A senha e a sessão são sempre verificadas pelo Supabase Auth.
 - **Erros genéricos:** resolver desconhecido/vazio usa `28000` sem revelar existência; a UI de login esconde todos os erros exceto `P0429`. Recuperação também responde de forma não enumerável.
 - **Escopo por identidade:** `current_portal_customer_id()` exige `auth.uid()`, localiza `customer_portal_accounts.auth_user_id` e exige `active=true`. Cada RPC de dados usa esse customer ID; filtros React nunca autorizam.
 - **Sessões isoladas:** `supabase` e `supabasePortal` têm storages distintos. Logout do Portal não deve derrubar o usuário interno.
@@ -183,3 +217,7 @@ Não há teste focado para `PortalLogin`, `PortalForgotPassword`, `PortalResetPa
 - **Código — falha do cronograma vira vazio.** `listVesselSchedules` registra no console e retorna `[]`, sem distinguir indisponibilidade de ausência de navios.
 - `portal_list_disputes()` existe em `supabase/migrations/116_portal_fase2_notifications_disputes_profile.sql`, mas não tem consumidor no frontend atual.
 - [ADR 0001](../adr/0001-portal-login-supabase-auth.md) continua válida para Supabase Auth e fim do token legado, mas foi parcialmente superada pela [ADR 0013](../adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md) quanto aos identificadores aceitos.
+A operação interna do Portal está disponível em `/clientes/portal`, com fila
+inicial em “Aguardando análise”, prioridade visual, candidatos de email e
+painel individual. `/admin/portal-backfill` concentra o pré-voo e o backfill
+com confirmação dos totais; não existem ações em lote de provisionamento.

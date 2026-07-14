@@ -27,7 +27,7 @@
 - Modify: `src/services/portalProvisioning.ts`
 - Test: `src/services/__tests__/portalProvisioning.test.ts` (estender)
 
-- [ ] **Step 1: Teste da ordenação de prioridade**
+- [x] **Step 1: Teste da ordenação de prioridade**
 
 ```typescript
 import { comparePriority, type QueueRow } from '../portalProvisioning'
@@ -61,7 +61,7 @@ describe('comparePriority (ordem do issue #370)', () => {
 Run: `npm test -- portalProvisioning`
 Expected: FAIL (`comparePriority` inexistente)
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 ```typescript
 export type QueueRow = PortalProvisioningRow & {
@@ -109,7 +109,7 @@ Enriquecimento dos dados (dentro de `listPortalProvisioningQueue()`):
   produção), os campos ficam falsos/null e a fila ordena pelos critérios
   seguintes — comportamento decidido no mapa.
 
-- [ ] **Step 4: Rodar e ver passar; commit**
+- [x] **Step 4: Rodar e ver passar; commit**
 
 Run: `npm test -- portalProvisioning && npm run lint`
 Expected: PASS
@@ -129,7 +129,7 @@ git commit -m "feat(portal): fila do console com prioridade e candidatos"
 - Modify: `src/components/layout/AppLayout.tsx` (item de menu Clientes → Portal do Cliente)
 - Test: `src/pages/__tests__/ClientesPortal.behavior.test.tsx`
 
-- [ ] **Step 1: Teste de comportamento (padrão dos behavior tests existentes)**
+- [x] **Step 1: Teste de comportamento (padrão dos behavior tests existentes)**
 
 Casos mínimos:
 
@@ -144,7 +144,7 @@ Casos mínimos:
 //    (é o link usado pelos alertas — plano 6)
 ```
 
-- [ ] **Step 2: Implementar a página**
+- [x] **Step 2: Implementar a página**
 
 Estrutura (siga o padrão visual/técnico de `Painel.tsx` + FilterBar):
 - Indicadores clicáveis no topo (cards com contagem; derivar da fila carregada).
@@ -163,7 +163,7 @@ Estrutura (siga o padrão visual/técnico de `Painel.tsx` + FilterBar):
 - Estado do filtro na URL (`usePageFilters` se aplicável) para suportar o
   deep-link dos alertas.
 
-- [ ] **Step 3: Rodar, lint, commit**
+- [x] **Step 3: Rodar, lint, commit**
 
 Run: `npm test -- ClientesPortal && npm run lint`
 Expected: PASS
@@ -181,7 +181,7 @@ git commit -m "feat(portal): console operacional com fila, filtros e indicadores
 - Create: `src/components/portal/PortalReviewPanel.tsx`
 - Test: `src/components/portal/__tests__/PortalReviewPanel.test.tsx`
 
-- [ ] **Step 1: Teste de comportamento**
+- [x] **Step 1: Teste de comportamento**
 
 ```typescript
 // 1. mostra CNPJ, candidatos (com finalidade e origem), email selecionado,
@@ -199,7 +199,7 @@ git commit -m "feat(portal): console operacional com fila, filtros e indicadores
 // 7. link "Abrir ficha completa" para /clientes/:cnpj
 ```
 
-- [ ] **Step 2: Implementar o painel**
+- [x] **Step 2: Implementar o painel**
 
 Drawer/painel lateral (siga o componente de painel/modal lateral já usado no
 projeto — grep `Drawer\|SidePanel` em `src/components/`; se não houver,
@@ -209,7 +209,7 @@ Mutations via hooks do plano 1 + chamadas às Edge Functions do plano 5
 Após cada ação: invalidar a query da fila e avançar o foco para o próximo
 Cliente da fila (decisão do mapa: revisão contínua).
 
-- [ ] **Step 3: Rodar, lint, commit**
+- [x] **Step 3: Rodar, lint, commit**
 
 Run: `npm test -- PortalReviewPanel && npm run lint`
 Expected: PASS
@@ -227,7 +227,7 @@ git commit -m "feat(portal): painel lateral de revisão individual"
 - Modify: `src/pages/ClienteFicha.tsx`
 - Test: `src/pages/__tests__/ClienteFicha.behavior.test.tsx` (estender)
 
-- [ ] **Step 1: Teste**
+- [x] **Step 1: Teste**
 
 ```typescript
 // A ficha exibe seção 'Portal do Cliente' com: Email de Recuperação
@@ -237,12 +237,12 @@ git commit -m "feat(portal): painel lateral de revisão individual"
 // mais recente primeiro). Ações reutilizam o PortalReviewPanel.
 ```
 
-- [ ] **Step 2: Implementar** reutilizando `PortalReviewPanel` (mesmo
+- [x] **Step 2: Implementar** reutilizando `PortalReviewPanel` (mesmo
 componente embutido na ficha — evita referências divergentes, decisão do mapa)
 e um hook `usePortalEvents(customerId)` novo em
 `src/hooks/usePortalProvisioning.ts` que lê `portal_provisioning_events`.
 
-- [ ] **Step 3: Rodar, lint, commit**
+- [x] **Step 3: Rodar, lint, commit**
 
 Run: `npm test -- ClienteFicha && npm run lint && npm test && npm run build`
 Expected: PASS
@@ -259,14 +259,14 @@ git commit -m "feat(portal): seção portal do cliente na ficha"
 **Files:**
 - Modify: `src/pages/AdminUsuarios.tsx` OU criar `src/pages/AdminPortalBackfill.tsx` (rota nova sob `/admin` — escolha conforme a estrutura de subabas existente em `/admin`)
 
-- [ ] **Step 1: Implementar** a tela exclusiva do Administrativo: botão
+- [x] **Step 1: Implementar** a tela exclusiva do Administrativo: botão
 "Executar pré-voo" mostra os totais de `portal_provisioning_preflight()`
 lado a lado com os valores esperados; o botão "Executar backfill" só habilita
 após o pré-voo ser exibido e o Administrador confirmar num diálogo que os
 totais conferem (divergência = não prosseguir — decisão do mapa). Resultado
 exibe `created_records`.
 
-- [ ] **Step 2: Rodar, lint, commit**
+- [x] **Step 2: Rodar, lint, commit**
 
 Run: `npm test && npm run lint`
 Expected: PASS
@@ -283,12 +283,12 @@ git commit -m "feat(portal): pré-voo e backfill no admin"
 - Modify: `docs/ARCHITECTURE.md` (rota nova), `docs/RASTREABILIDADE.md`
   (rota→componentes→hooks→serviços→RPCs→testes), `docs/modules/portal-cliente.md`.
 
-- [ ] **Step 1: Atualizar e verificar**
+- [x] **Step 1: Atualizar e verificar**
 
 Run: `npm run docs:check`
 Expected: PASS
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/

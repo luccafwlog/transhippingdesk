@@ -27,7 +27,7 @@
 - Create: `supabase/functions/_shared/portalEmailTemplates.ts`
 - Test: `src/lib/__tests__/maskEmail.test.ts` (helper espelhado testável em vitest — ver Step 1)
 
-- [ ] **Step 1: Helper de mascaramento (compartilhado front/back) com teste**
+- [x] **Step 1: Helper de mascaramento (compartilhado front/back) com teste**
 
 Create `src/lib/maskEmail.ts`:
 
@@ -65,7 +65,7 @@ A Edge Function importa a MESMA lógica: copie a função para
 `_shared/portalEmail.ts` com comentário apontando `src/lib/maskEmail.ts`
 como fonte (Deno não importa do src do Vite).
 
-- [ ] **Step 2: Implementar `_shared/portalEmail.ts`**
+- [x] **Step 2: Implementar `_shared/portalEmail.ts`**
 
 ```typescript
 // Envio transacional do Portal do Cliente (issue #370).
@@ -181,7 +181,7 @@ export async function sendPortalEmail(input: SendPortalEmailInput): Promise<{ ok
 }
 ```
 
-- [ ] **Step 3: Implementar `_shared/portalEmailTemplates.ts`**
+- [x] **Step 3: Implementar `_shared/portalEmailTemplates.ts`**
 
 Templates com HTML responsivo + texto puro equivalente, sem pixel/rastreio.
 Assuntos exatos decididos no mapa:
@@ -251,7 +251,7 @@ export function recoveryTemplate(i: Omit<InviteTemplateInput, 'activationUrl'> &
 Escreva o HTML completo de cada template na execução (o comentário descreve o
 contrato); mantenha texto e HTML com o MESMO conteúdo informacional.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/functions/_shared/ src/lib/maskEmail.ts src/lib/__tests__/maskEmail.test.ts
@@ -265,7 +265,7 @@ git commit -m "feat(portal): módulo de email transacional com idempotência e s
 **Files:**
 - Create: `supabase/functions/portal-email-webhook/index.ts`
 
-- [ ] **Step 1: Implementar**
+- [x] **Step 1: Implementar**
 
 ```typescript
 // Edge Function: portal-email-webhook
@@ -373,7 +373,7 @@ de eventos (`data.email_id`, `data.to`) e ajuste. Bounce transitório vs
 permanente: se o payload distinguir (`bounce.type`), suprima apenas o
 permanente; o transitório conta como `falha_transitoria`.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/functions/portal-email-webhook/
@@ -388,7 +388,7 @@ git commit -m "feat(portal): webhook resend com assinatura, janela e dedup"
 - Create: `supabase/functions/portal-daily-digest/index.ts`
 - Create: `supabase/migrations/183_portal_daily_digest_schedule.sql`
 
-- [ ] **Step 1: Implementar a função**
+- [x] **Step 1: Implementar a função**
 
 Consulta consolidada: falhas de envio, bounces, complaints, expirações,
 pendências de ativação (Aguardando ativação) e contagens de
@@ -399,7 +399,7 @@ usuários internos ativos de Documentação e Administrativo
 via `sendPortalEmail` com `kind: 'resumo_diario'` e
 `idempotencyKey: 'resumo:' + dataISO` (garante 1 envio/dia mesmo com retrigger).
 
-- [ ] **Step 2: Agendar**
+- [x] **Step 2: Agendar**
 
 ```sql
 -- 183: Resumo diário do Portal às 08:00 America/Sao_Paulo (11:00 UTC).
@@ -419,7 +419,7 @@ Se `pg_net`/settings não estiverem disponíveis no projeto, use o agendador de
 Edge Functions do Dashboard do Supabase e registre isso no runbook — o
 resultado exigido é: 1 invocação diária às 08:00 de Brasília.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/functions/portal-daily-digest/ supabase/migrations/183_portal_daily_digest_schedule.sql
@@ -434,13 +434,13 @@ git commit -m "feat(portal): resumo diário consolidado das 08:00"
 - Modify: `docs/ARCHITECTURE.md`, `docs/modules/portal-cliente.md`, `docs/RASTREABILIDADE.md`
 - Modify: `WORKFLOW.md` (novas env vars de functions)
 
-- [ ] **Step 1: Documentar** as três functions novas, o módulo compartilhado,
+- [x] **Step 1: Documentar** as três functions novas, o módulo compartilhado,
 as env vars (`RESEND_API_KEY`, `PORTAL_FROM_EMAIL`, `PORTAL_REPLY_TO`,
 `RESEND_WEBHOOK_SECRET`) e o comportamento dry-run sem chave. Deixar explícito:
 domínio próprio verificado é gate para envios reais (decisão #370, ainda
 `Not yet specified` o domínio final).
 
-- [ ] **Step 2: Verificar e commitar**
+- [x] **Step 2: Verificar e commitar**
 
 Run: `npm run docs:check`
 Expected: PASS

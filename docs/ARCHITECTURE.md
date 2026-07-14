@@ -53,10 +53,10 @@ continuam responsáveis pela autorização.
 
 ### Portal do Cliente
 
-O Portal usa exclusivamente sessão do Supabase Auth. CNPJ, CPF e email são
-identificadores aceitos na tela. Quando o identificador é um documento,
-`portal_resolve_login(text)` resolve o email técnico antes de
-`signInWithPassword`.
+O Portal usa exclusivamente sessão do Supabase Auth. O login visível aceita
+somente CNPJ e senha; a Edge Function `portal-login` resolve a identidade
+técnica no servidor e devolve apenas a sessão. `portal_resolve_login(text)` não
+é executável por `anon`/`authenticated`.
 
 Essa resolução é a exceção pré-autenticação documentada para `anon`, limitada
 por tentativas e erro genérico. RPCs de dados do Portal exigem sessão
@@ -68,6 +68,14 @@ Eventos `SIGNED_OUT` limpam o overview local e removem todos os caches TanStack
 Query com chave iniciada por `portal-`, cobrindo logout em outra aba e falha de
 refresh de token. Eventos `SIGNED_IN` e `TOKEN_REFRESHED` reidratam o overview
 quando necessário, sem compartilhar estado com a sessão interna.
+
+O provisionamento operacional mantém decisão e situação da conta em eixos
+separados em `customer_portal_accounts`. Convites, tentativas/eventos de email,
+supressões e histórico append-only vivem respectivamente em
+`portal_invites`, `portal_email_attempts`, `portal_email_events`,
+`portal_suppressed_emails` e `portal_provisioning_events`. RPCs internos
+autorizam transições, pré-voo/backfill e expiração idempotente; nenhum token ou
+senha em claro é persistido.
 
 ## Camadas do frontend
 
@@ -217,8 +225,13 @@ um intervalo fixo documentado.
 
 ### Edge Functions
 
-- `provision-portal-user`: cria ou atualiza o usuário Auth do Portal;
+- `portal-invite-activate`: cria a identidade técnica Auth somente após o cliente ativar o convite;
 - `notify-invoice-issued`: implementada para buscar a invoice e enviar email
+  crítico interno quando a emissão encontra falta de prontidão do Portal;
+
+O Portal não participa do gate financeiro de revisão/faturamento. As migrations
+188–190 criam alertas preventivos e exceções críticas por fatura, mantendo a
+pendência geral separada do ciclo da fatura.
   pelo Resend, mas **não está ativa**. Não há Database Webhook configurado, o
   `RESEND_API_KEY` não está provisionado e, por decisão atual, o projeto não
   dispara email para clientes. A notificação ao cliente acontece in-app
@@ -259,6 +272,9 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/portal/login` | Login do Portal |
 | `/portal/esqueci-senha` | Solicitação de recuperação |
 | `/portal/recuperar-senha` | Definição de nova senha |
+| `/portal/ativar` | Ativação de convite sem login automático |
+| `/clientes/portal` | Console operacional de provisionamento do Portal |
+| `/admin/portal-backfill` | Pré-voo e backfill administrativo do Portal |
 
 ### Portal autenticado
 
@@ -310,6 +326,13 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/demurrage/reconciliacao` | `/reconciliacao` |
 
 Rotas desconhecidas redirecionam para `/painel`.
+
+Emails transacionais passam por `portalEmail.ts` e seus templates, com
+idempotência, retries de falhas transitórias e supressão. As Edge Functions
+`portal-email-webhook` e `portal-daily-digest` usam `RESEND_WEBHOOK_SECRET`,
+`RESEND_API_KEY`, `PORTAL_FROM_EMAIL` e `PORTAL_REPLY_TO`; sem chave Resend o
+envio fica em dry-run. Domínio próprio verificado continua sendo gate para
+envio real.
 
 ## Fontes relacionadas
 

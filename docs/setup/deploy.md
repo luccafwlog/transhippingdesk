@@ -43,4 +43,7 @@ Ao adicionar uma integração externa nova, inclua o domínio aqui. Detalhes de 
 
 ## Edge Functions
 
-`provision-portal-user` e `notify-invoice-issued` são deployadas separadamente via Supabase CLI/console (não pelo CI de hosting). Variáveis de ambiente em [setup/development.md](development.md#5-edge-functions-opcional-no-dev-local).
+As Edge Functions do Portal (`portal-login`, convite/ativação, recuperação,
+troca de email e `notify-invoice-issued`) são deployadas separadamente via
+Supabase CLI/console (não pelo CI de hosting). Variáveis de ambiente em
+[setup/development.md](development.md#5-edge-functions-opcional-no-dev-local).

@@ -47,11 +47,13 @@ export const primaryNavItems: NavItem[] = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/clientes/portal', label: 'Portal do Cliente', icon: ShieldCheck },
   { to: '/alertas', label: 'Alertas', icon: Bell },
 ]
 
 export const adminNavItems: NavItem[] = [
   { to: '/admin/usuarios', label: 'Usuários', icon: ShieldCheck },
+  { to: '/admin/portal-backfill', label: 'Backfill do Portal', icon: ShieldCheck },
 ]
 
 export const financialNavItems: NavItem[] = [

@@ -69,8 +69,9 @@ uma chamada direta à API.
 ### Sessão do Portal
 
 O Portal usa Supabase Auth com cliente e chave de storage próprios. A tela aceita
-CNPJ, CPF ou email. Documentos são resolvidos para o email técnico por
-`portal_resolve_login(text)` antes de `signInWithPassword`.
+CNPJ e senha. A Edge Function `portal-login` resolve a identidade técnica no
+servidor e devolve somente os tokens de sessão; `portal_resolve_login(text)`
+não é um contrato de frontend.
 
 Não existe sessão alternativa por senha armazenada em tabela. A exceção
 pré-autenticação para o resolver está documentada na
@@ -155,6 +156,16 @@ VITE_SUPABASE_ANON_KEY=sua-chave-publica
 
 As variáveis `SUPABASE_*` adicionais são usadas pela suíte de integração. Não
 coloque service role no bundle Vite.
+
+Edge Functions de Portal usam `RESEND_API_KEY`, `PORTAL_FROM_EMAIL`,
+`PORTAL_REPLY_TO`, `RESEND_WEBHOOK_SECRET`, `NOTIFY_WEBHOOK_SECRET` e
+`PORTAL_DIGEST_SECRET` somente em secrets do Supabase. O job `pg_cron` do
+resumo diário só é criado quando `app.settings.supabase_url` e
+`app.settings.digest_secret` estão definidos no banco; sem esses settings a
+migration é segura, mas o job não é agendado. Webhooks e cron têm
+`verify_jwt = false` em `supabase/config.toml` e validam seus próprios segredos.
+Sem `RESEND_API_KEY`, o módulo transacional opera em dry-run. O domínio do
+remetente precisa estar verificado antes de qualquer envio real.
 
 ### Execução
 

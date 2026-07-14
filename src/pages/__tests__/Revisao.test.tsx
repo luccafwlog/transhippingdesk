@@ -14,7 +14,6 @@ vi.mock('../../services/charges/chargeOperationsService', () => ({ calculateBlLo
 vi.mock('../../services/customers', () => ({
   createCustomer: vi.fn(),
   addCustomerEmail: vi.fn().mockResolvedValue(undefined),
-  provisionPortalForCustomer: vi.fn().mockResolvedValue({ password: 'GENERATED-PASS', portalEmail: 'has@mail.com' }),
 }))
 vi.mock('../../services/operationalEvents', () => ({ logOperationalEvent: vi.fn() }))
 vi.mock('../../services/review', async () => {
@@ -34,7 +33,7 @@ vi.mock('../../services/reviewBillingAutomation', () => ({
 
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
-import { addCustomerEmail, createCustomer, provisionPortalForCustomer } from '../../services/customers'
+import { addCustomerEmail, createCustomer } from '../../services/customers'
 import { applyInlineBlReviewFix, saveBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
@@ -45,7 +44,6 @@ const mockedApplyInlineBlReviewFix = vi.mocked(applyInlineBlReviewFix)
 const mockedSaveBlReview = vi.mocked(saveBlReview)
 const mockedTryIssueInvoice = vi.mocked(tryAutoIssueInvoice)
 const mockedAddCustomerEmail = vi.mocked(addCustomerEmail)
-const mockedProvisionPortal = vi.mocked(provisionPortalForCustomer)
 
 function makeBl(id: string, consignee: string): ReviewQueueItem {
   return {
@@ -223,23 +221,4 @@ describe('Revisao', () => {
     await waitFor(() => expect(mockedAddCustomerEmail).toHaveBeenCalledWith(7, 'novo@cliente.com'))
   })
 
-  it('provisiona o portal (admin) gerando a senha e exibindo a credencial', async () => {
-    const user = userEvent.setup()
-    mockedUseReviewQueue.mockReturnValue({
-      data: [makeLinkedBl('BLY', { emails: ['has@mail.com'] })],
-      isLoading: false,
-      error: null,
-    } as never)
-    renderPage()
-
-    await user.click(screen.getByRole('button', { name: 'Provisionar portal' }))
-
-    await waitFor(() =>
-      expect(mockedProvisionPortal).toHaveBeenCalledWith(
-        expect.objectContaining({ customerId: 7, portalEmail: 'has@mail.com', loginCnpj: '11222333000181' }),
-      ),
-    )
-    expect(await screen.findByText('Acesso ao portal provisionado')).toBeTruthy()
-    expect(screen.getByText('GENERATED-PASS')).toBeTruthy()
-  })
 })

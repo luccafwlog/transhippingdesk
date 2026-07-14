@@ -1,61 +1,21 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { supabasePortal } from '../services/supabase'
-import { signOutSupabaseClient } from '../services/supabaseAuth'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
 
 const INVALID_LINK_MESSAGE = 'Link de recuperacao invalido ou expirado.'
 
-function parseRecoveryTokens() {
-  const rawHash = window.location.hash.startsWith('#')
-    ? window.location.hash.slice(1)
-    : window.location.hash
-  const params = new URLSearchParams(rawHash)
-  const accessToken = params.get('access_token')
-  const refreshToken = params.get('refresh_token')
-  const type = params.get('type')
-
-  if (type !== 'recovery' || !accessToken || !refreshToken) return null
-  return { accessToken, refreshToken }
-}
-
 export function PortalResetPassword() {
   const navigate = useNavigate()
-  // O cliente do portal usa detectSessionInUrl: false (para nao competir com a
-  // sessao do app interno no mesmo dominio), entao a sessao de recuperacao nao e
-  // estabelecida automaticamente. Com o fluxo implicito (padrao), o link de
-  // recuperacao traz os tokens no hash da URL; estabelecemos a sessao manualmente.
-  const [recoveryTokens] = useState(parseRecoveryTokens)
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState(() => (recoveryTokens ? '' : INVALID_LINK_MESSAGE))
+  const [error, setError] = useState(() => (token ? '' : INVALID_LINK_MESSAGE))
   const [submitting, setSubmitting] = useState(false)
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    if (!recoveryTokens) return
-    let active = true
-
-    supabasePortal.auth
-      .setSession({ access_token: recoveryTokens.accessToken, refresh_token: recoveryTokens.refreshToken })
-      .then(({ error: sessionError }) => {
-        if (!active) return
-        if (sessionError) {
-          setError(INVALID_LINK_MESSAGE)
-          return
-        }
-        // Remove os tokens do hash para nao reprocessar nem vazar na navegacao.
-        window.history.replaceState(null, '', window.location.pathname)
-        setReady(true)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [recoveryTokens])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -74,9 +34,9 @@ export function PortalResetPassword() {
     setSubmitting(true)
 
     try {
-      const { error: updateError } = await supabasePortal.auth.updateUser({ password })
+      if (!token) throw new Error(INVALID_LINK_MESSAGE)
+      const { error: updateError } = await supabasePortal.functions.invoke('portal-password-reset', { body: { token, password } })
       if (updateError) throw updateError
-      await signOutSupabaseClient(supabasePortal)
       navigate('/portal/login', { replace: true })
     } catch (err: unknown) {
       setError(portalErrorMessage(err, 'Falha ao redefinir senha. Tente novamente em instantes.'))
@@ -85,7 +45,7 @@ export function PortalResetPassword() {
     }
   }
 
-  if (!ready) {
+  if (!token) {
     return (
       <main className="app-auth">
         <Card className="app-auth__card">

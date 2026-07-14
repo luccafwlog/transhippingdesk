@@ -5,13 +5,15 @@ import { type ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getSession, signInWithPassword, signOut, onAuthStateChange, rpc, portalResolveLogin } = vi.hoisted(() => ({
+const { getSession, signInWithPassword, signOut, onAuthStateChange, rpc, portalResolveLogin, invoke, setSession } = vi.hoisted(() => ({
   getSession: vi.fn(),
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
   onAuthStateChange: vi.fn(),
   rpc: vi.fn(),
   portalResolveLogin: vi.fn(),
+  invoke: vi.fn(),
+  setSession: vi.fn(),
 }))
 
 const sentry = vi.hoisted(() => ({
@@ -26,7 +28,9 @@ vi.mock('../../services/supabase', () => ({
       signInWithPassword,
       signOut,
       onAuthStateChange,
+      setSession,
     },
+    functions: { invoke },
     rpc,
   },
 }))
@@ -72,31 +76,31 @@ describe('usePortalAuth', () => {
       error: null,
     })
     portalResolveLogin.mockReset()
+    invoke.mockReset()
+    setSession.mockReset()
     sentry.setUser.mockReset()
     sentry.setTag.mockReset()
   })
 
-  it('normaliza falha do resolver anonimo de CNPJ antes do login', async () => {
-    const rawError = Object.assign(new Error('Nenhuma conta de portal encontrada para este CNPJ.'), { code: '28000' })
-    portalResolveLogin.mockRejectedValue(rawError)
+  it('normaliza falha de login por CNPJ sem expor a causa', async () => {
+    invoke.mockResolvedValue({ data: null, error: new Error('invalid credentials') })
 
     const { result } = renderHook(() => usePortalAuth(), { wrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await expect(result.current.signIn('12.345.678/0001-95', 'senha-secreta')).rejects.toThrow(
-      'Credenciais invalidas para o portal do cliente.',
+      'CNPJ ou senha inválidos.',
     )
     expect(signInWithPassword).not.toHaveBeenCalled()
   })
 
-  it('preserva codigo P0429 do resolver anonimo para a tela mostrar rate limit', async () => {
-    const rateLimitError = Object.assign(new Error('Muitas tentativas.'), { code: 'P0429' })
-    portalResolveLogin.mockRejectedValue(rateLimitError)
+  it('mantém a mensagem genérica quando o rate limit bloqueia', async () => {
+    invoke.mockResolvedValue({ data: null, error: Object.assign(new Error('blocked'), { code: 'P0429' }) })
 
     const { result } = renderHook(() => usePortalAuth(), { wrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    await expect(result.current.signIn('12.345.678/0001-95', 'senha-secreta')).rejects.toMatchObject({ code: 'P0429' })
+    await expect(result.current.signIn('12.345.678/0001-95', 'senha-secreta')).rejects.toThrow('CNPJ ou senha inválidos.')
     expect(signInWithPassword).not.toHaveBeenCalled()
   })
 

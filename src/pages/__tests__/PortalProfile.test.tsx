@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 
 const getProfile = vi.hoisted(() => vi.fn())
@@ -28,7 +29,7 @@ function renderProfile() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={queryClient}>
-      <PortalProfile />
+      <MemoryRouter><PortalProfile /></MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -55,7 +56,7 @@ it('preserva edicao local quando o overview muda depois da hidratacao', async ()
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const { rerender } = render(
     <QueryClientProvider client={queryClient}>
-      <PortalProfile />
+      <MemoryRouter><PortalProfile /></MemoryRouter>
     </QueryClientProvider>,
   )
 
@@ -66,7 +67,7 @@ it('preserva edicao local quando o overview muda depois da hidratacao', async ()
   auth.overview = { contact_email: 'novo-overview@example.com' }
   rerender(
     <QueryClientProvider client={queryClient}>
-      <PortalProfile />
+      <MemoryRouter><PortalProfile /></MemoryRouter>
     </QueryClientProvider>,
   )
 

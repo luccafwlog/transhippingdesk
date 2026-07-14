@@ -60,7 +60,7 @@ Variáveis necessárias nas Edge Functions do Supabase:
 | `RESEND_API_KEY` | Chave Resend (envio de email de invoice) |
 | `FROM_EMAIL` | Remetente (ex: `Transhipping <noreply@…>`) |
 | `PORTAL_URL` | URL base do portal do cliente |
-| `APP_URL` | URL do app (restrição de CORS em `provision-portal-user`) |
+| `APP_URL` | URL do app usada pelas Edge Functions do Portal |
 
 ## 6. Rodar
 

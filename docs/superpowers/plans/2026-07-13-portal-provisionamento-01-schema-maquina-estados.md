@@ -25,7 +25,7 @@
 **Files:**
 - Create: `supabase/migrations/178_portal_provisioning_schema.sql`
 
-- [ ] **Step 1: Escrever a migration**
+- [x] **Step 1: Escrever a migration**
 
 ```sql
 -- 178: Provisionamento do Portal do Cliente — máquina de estados e suporte a convites.
@@ -222,7 +222,7 @@ com "somente inclusão".
 `src/types/database.ts` é protegido: regenere pelo fluxo oficial da skill
 `supabase-migration` (nunca edite à mão).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/migrations/178_portal_provisioning_schema.sql src/types/database.ts
@@ -236,7 +236,7 @@ git commit -m "feat(portal): schema da máquina de estados do provisionamento"
 **Files:**
 - Create: `supabase/migrations/179_portal_provisioning_rpcs.sql`
 
-- [ ] **Step 1: Escrever a migration com o helper de evento e as transições**
+- [x] **Step 1: Escrever a migration com o helper de evento e as transições**
 
 ```sql
 -- 179: RPCs da máquina de estados do provisionamento do Portal.
@@ -373,7 +373,7 @@ deve mudar a decisão e criar 1 linha em `portal_provisioning_events`.
 Sem justificativa deve falhar com "Justificativa é obrigatória".
 Com usuário sem perfil ativo deve falhar com `permission denied`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/179_portal_provisioning_rpcs.sql
@@ -387,7 +387,7 @@ git commit -m "feat(portal): RPCs de transição da máquina de estados"
 **Files:**
 - Create: `supabase/migrations/180_portal_backfill.sql`
 
-- [ ] **Step 1: Escrever pré-voo (somente leitura) e backfill**
+- [x] **Step 1: Escrever pré-voo (somente leitura) e backfill**
 
 ```sql
 -- 180: Pré-voo e backfill inicial do Portal.
@@ -460,7 +460,7 @@ REVOKE ALL ON FUNCTION public.portal_provisioning_backfill(TEXT) FROM anon;
 3. Executar de novo — cria 0 (idempotente).
 4. Executar como documentacao — `permission denied`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/180_portal_backfill.sql
@@ -479,7 +479,7 @@ e só então rodar o backfill. Divergência cancela até confirmação do Admini
 **Files:**
 - Create: `supabase/migrations/181_portal_invite_expiry.sql`
 
-- [ ] **Step 1: Escrever job de expiração + agendamento**
+- [x] **Step 1: Escrever job de expiração + agendamento**
 
 ```sql
 -- 181: Expiração idempotente de convites vencidos.
@@ -547,7 +547,7 @@ SELECT cron.schedule(
 Inserir convite com `expires_at = now() - interval '1 hour'`; rodar a função
 duas vezes; conferir: 1 transição, 1 evento, 1 alerta (não duplicados).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/181_portal_invite_expiry.sql
@@ -565,7 +565,7 @@ git commit -m "feat(portal): expiração idempotente de convites com alerta"
 
 Siga a skill `react-query-pattern` para chaves de cache e invalidation.
 
-- [ ] **Step 1: Escrever o teste que fixa a regra de vencimento na leitura**
+- [x] **Step 1: Escrever o teste que fixa a regra de vencimento na leitura**
 
 ```typescript
 import { describe, expect, it } from 'vitest'
@@ -594,7 +594,7 @@ describe('effectiveSituation', () => {
 Run: `npm test -- portalProvisioning`
 Expected: FAIL (módulo inexistente)
 
-- [ ] **Step 3: Implementar serviço**
+- [x] **Step 3: Implementar serviço**
 
 ```typescript
 import { supabase } from './supabase'
@@ -699,7 +699,7 @@ Ajuste os nomes dos RPCs no client tipado conforme os tipos regenerados na
 Task 1; se o select aninhado divergir do schema real, alinhe com o padrão dos
 serviços existentes (`src/services/customers.ts`).
 
-- [ ] **Step 4: Implementar hook**
+- [x] **Step 4: Implementar hook**
 
 ```typescript
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -732,12 +732,12 @@ export function useReturnToAnalysis() {
 }
 ```
 
-- [ ] **Step 5: Rodar testes e lint**
+- [x] **Step 5: Rodar testes e lint**
 
 Run: `npm test -- portalProvisioning && npm run lint`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/services/portalProvisioning.ts src/hooks/usePortalProvisioning.ts src/services/__tests__/portalProvisioning.test.ts
@@ -753,18 +753,18 @@ git commit -m "feat(portal): serviço e hook do provisionamento com vencimento n
 - Modify: `docs/RASTREABILIDADE.md` (novas entradas serviço/hook/RPC)
 - Modify: `docs/modules/portal-cliente.md` (máquina de estados)
 
-- [ ] **Step 1: Atualizar os três documentos** descrevendo: os dois eixos de
+- [x] **Step 1: Atualizar os três documentos** descrevendo: os dois eixos de
 estado, `recovery_email` separado da identidade Auth, tabelas novas
 (`portal_invites`, `portal_email_attempts`, `portal_email_events`,
 `portal_suppressed_emails`, `portal_provisioning_events`), RPCs criados e o
 job de expiração. Seguir `docs/CONVENCOES.md`.
 
-- [ ] **Step 2: Verificar**
+- [x] **Step 2: Verificar**
 
 Run: `npm run docs:check`
 Expected: PASS
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/ARCHITECTURE.md docs/RASTREABILIDADE.md docs/modules/portal-cliente.md

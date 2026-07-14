@@ -24,7 +24,7 @@
 **Files:**
 - Create: `supabase/migrations/185_review_gate_remove_portal.sql`
 
-- [ ] **Step 1: Ler `128` e `129` e reescrever a função do gate SEM a condição de Portal**
+- [x] **Step 1: Ler `128` e `129` e reescrever a função do gate SEM a condição de Portal**
 
 A migration recria a função canônica do gate (mesmo nome/assinatura de 129)
 copiando TODAS as condições atuais EXCETO o bloco que consulta
@@ -39,7 +39,7 @@ no cabeçalho:
 -- (mesma migration, abaixo). Nenhuma outra condição do gate foi alterada.
 ```
 
-- [ ] **Step 2: Verificação de regressão do gate**
+- [x] **Step 2: Verificação de regressão do gate**
 
 No banco local: um B/L com cliente vinculado e sem Conta de Portal deve passar
 a ser elegível (antes: bloqueado com "Acesso ao portal nao provisionado");
@@ -47,7 +47,7 @@ um B/L sem cliente vinculado deve continuar bloqueado. Se existir teste de
 contrato do gate no repo (grep `review_gate` em `src/services/__tests__/`),
 atualize o caso correspondente — a mudança é decisão do issue #370.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/185_review_gate_remove_portal.sql
@@ -62,7 +62,7 @@ git commit -m "feat(gate): portal deixa de bloquear revisão e faturamento"
 - Create: `supabase/migrations/186_portal_invoice_critical_exception.sql`
 - Modify: `supabase/functions/notify-invoice-issued/index.ts`
 
-- [ ] **Step 1: Trigger de abertura e encerramento**
+- [x] **Step 1: Trigger de abertura e encerramento**
 
 ```sql
 -- 186: Exceção crítica da fatura (issue #370).
@@ -138,7 +138,7 @@ AFTER UPDATE OF status ON public.invoices
 FOR EACH ROW EXECUTE FUNCTION public.portal_invoice_exception_on_close();
 ```
 
-- [ ] **Step 2: Email crítico imediato (estender `notify-invoice-issued`)**
+- [x] **Step 2: Email crítico imediato (estender `notify-invoice-issued`)**
 
 A function já é disparada na transição para `issued`. Adicionar: se o Cliente
 não tem `recovery_email` ou conta `ativo`, enviar email crítico interno via
@@ -155,7 +155,7 @@ pendência, referência da fatura, próxima ação e link para o Console
 2. Fatura → `paid`: alerta fechado; alerta `portal_pendencia_geral` (Task 3) permanece.
 3. Fatura de cliente com conta `ativo` e recovery_email: nenhum alerta.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/migrations/186_portal_invoice_critical_exception.sql supabase/functions/notify-invoice-issued/
@@ -169,7 +169,7 @@ git commit -m "feat(portal): exceção crítica de fatura sem portal com dedup"
 **Files:**
 - Create: `supabase/migrations/187_portal_general_pendency.sql`
 
-- [ ] **Step 1: Implementar**
+- [x] **Step 1: Implementar**
 
 ```sql
 -- 187: Pendência geral de prontidão do Portal (issue #370).
@@ -262,7 +262,7 @@ pode ser via `customer_reconciliation` e não coluna direta) e o critério de
 2. Ativar conta (update manual) → job encerra a pendência.
 3. Cliente em exceção formal + novo B/L → decisão volta a `aguardando_analise` sem convite.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/187_portal_general_pendency.sql
@@ -277,7 +277,7 @@ git commit -m "feat(portal): pendência geral e reabertura por novo processo"
 - Modify: `src/pages/Alertas.tsx` (rotular origem "Portal do Cliente" e linkar o Console)
 - Modify: `docs/ARCHITECTURE.md`, `docs/modules/portal-cliente.md`, `docs/RASTREABILIDADE.md`
 
-- [ ] **Step 1: Mapear os tipos novos** (`portal_pendencia_geral`,
+- [x] **Step 1: Mapear os tipos novos** (`portal_pendencia_geral`,
 `portal_excecao_critica_fatura`, `portal_convite_expirado`,
 `portal_falha_envio`, `portal_email_suprimido`, `portal_abuso_login`) no
 render de `Alertas.tsx`: exibir origem "Portal do Cliente" e link
@@ -285,12 +285,12 @@ render de `Alertas.tsx`: exibir origem "Portal do Cliente" e link
 apontar para a ficha). Financeiro vê; nenhum envio para Operações (alertas são
 in-app; o email crítico já filtra papéis no plano 4/6).
 
-- [ ] **Step 2: Rodar suíte e docs**
+- [x] **Step 2: Rodar suíte e docs**
 
 Run: `npm test -- Alertas && npm run lint && npm run docs:check`
 Expected: PASS
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/pages/Alertas.tsx docs/

@@ -4,6 +4,8 @@
 
 ## 2026-06
 
+- **Portal:** login visível alterado para CNPJ + senha via Edge Function `portal-login`; o navegador não resolve nem recebe o email técnico. O fluxo anterior de CNPJ/CPF/email com `portal_resolve_login` fica registrado como comportamento superado.
+
 - **Revisão/Portal/Faturamento:** correções pós-PRs 249–251: gate canônico aplicado em importação e faturamento, status/auditoria sob autoridade do banco, portal válido somente com `active + auth_user_id`, UI compatível com RLS e provisionamento em sequência segura. Sem backfill de B/Ls históricos faturados. *(ADR 0006; migration `20260619130000_review_gate_hardening`; specs/plans `2026-06-19-review-gate-pr249-251-corrections`)*
 - **Faturamento:** auto-faturamento após correção de cliente na revisão; guarda de estado `invoiceable_ready`. *(specs/plans `2026-06-18-auto-faturamento-apos-revisao`)*
 - **Clientes/Importação:** preservar o motivo de bloqueio de faturamento do cliente durante a importação (sem inferência genérica). *(`2026-06-18-preservar-bloqueio-cliente-importacao`)*

@@ -15,8 +15,10 @@ export type Permission =
   | 'reconciliacao_edit'
   | 'voyages_edit'
   | 'manifests_upload'
+  | 'customers_edit'
+  | 'portal_provisioning'
 
-function roleHasPermission(role: UserProfileRole | undefined, permission: Permission): boolean {
+export function roleHasPermission(role: UserProfileRole | undefined, permission: Permission): boolean {
   if (!role) return false
   // Legacy roles: admin = administrativo, operator = documentacao
   const effectiveRole: UserProfileRole =
@@ -26,11 +28,14 @@ function roleHasPermission(role: UserProfileRole | undefined, permission: Permis
     case 'administrativo':
       return true
     case 'financeiro':
-      return ['charge_tables', 'charge_overrides', 'demurrage_edit', 'faturamento_edit', 'reconciliacao_edit'].includes(permission)
+      return permission === 'reconciliacao_edit'
     case 'operacoes':
-      return ['voyages_edit', 'manifests_upload'].includes(permission)
+      return permission === 'voyages_edit'
     case 'documentacao':
-      return ['voyages_edit', 'manifests_upload', 'demurrage_edit', 'faturamento_edit', 'reconciliacao_edit'].includes(permission)
+      return [
+        'charge_tables', 'charge_overrides', 'demurrage_edit', 'faturamento_edit',
+        'voyages_edit', 'manifests_upload', 'customers_edit', 'portal_provisioning',
+      ].includes(permission)
     default:
       return false
   }

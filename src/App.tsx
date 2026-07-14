@@ -14,6 +14,7 @@ const PortalOperacao = lazyPage(() => import('./pages/PortalOperacao'), 'PortalO
 const PortalDashboard = lazyPage(() => import('./pages/PortalDashboard'), 'PortalDashboard')
 const PortalForgotPassword = lazyPage(() => import('./pages/PortalForgotPassword'), 'PortalForgotPassword')
 const PortalResetPassword = lazyPage(() => import('./pages/PortalResetPassword'), 'PortalResetPassword')
+const PortalAtivacao = lazyPage(() => import('./pages/PortalAtivacao'), 'PortalAtivacao')
 const PortalProfile = lazyPage(() => import('./pages/PortalProfile'), 'PortalProfile')
 const Painel = lazyPage(() => import('./pages/Painel'), 'Painel')
 const Viagens = lazyPage(() => import('./pages/Viagens'), 'Viagens')
@@ -24,6 +25,7 @@ const Veiculos = lazyPage(() => import('./pages/Veiculos'), 'Veiculos')
 const BlDetalhe = lazyPage(() => import('./pages/BlDetalhe'), 'BlDetalhe')
 const Revisao = lazyPage(() => import('./pages/Revisao'), 'Revisao')
 const Clientes = lazyPage(() => import('./pages/Clientes'), 'Clientes')
+const ClientesPortal = lazyPage(() => import('./pages/ClientesPortal'), 'ClientesPortal')
 const ClienteFicha = lazyPage(() => import('./pages/ClienteFicha'), 'ClienteFicha')
 const TaxasLocais = lazyPage(() => import('./pages/TaxasLocais'), 'TaxasLocais')
 const Faturamento = lazyPage(() => import('./pages/Faturamento'), 'Faturamento')
@@ -31,6 +33,7 @@ const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
 const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
 const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
+const AdminPortalBackfill = lazyPage(() => import('./pages/AdminPortalBackfill'), 'AdminPortalBackfill')
 const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
 const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconciliacao')
 const Granite = lazyPage(() => import('./pages/Granite'), 'Granite')
@@ -73,6 +76,7 @@ export default function App() {
       <Route path="/portal/login" element={withSuspense(<PortalLogin />)} />
       <Route path="/portal/esqueci-senha" element={withSuspense(<PortalForgotPassword />)} />
       <Route path="/portal/recuperar-senha" element={withSuspense(<PortalResetPassword />)} />
+      <Route path="/portal/ativar" element={withSuspense(<PortalAtivacao />)} />
       <Route element={<PortalProtectedRoute />}>
         <Route element={<PortalLayout />}>
           <Route path="/portal" element={withSuspense(<PortalDashboard />)} />
@@ -95,6 +99,7 @@ export default function App() {
           <Route path="/manifestos/:blId" element={withSuspense(<BlDetalhe />)} />
           <Route path="/revisao" element={withSuspense(<Revisao />)} />
           <Route path="/clientes" element={withSuspense(<Clientes />)} />
+          <Route path="/clientes/portal" element={withSuspense(<ClientesPortal />)} />
           <Route path="/clientes/:cnpj" element={withSuspense(<ClienteFicha />)} />
           <Route path="/taxas-locais" element={withSuspense(<TaxasLocais />)} />
           <Route path="/faturamento" element={withSuspense(<Faturamento />)} />
@@ -117,6 +122,7 @@ export default function App() {
       <Route element={<ProtectedRoute adminOnly />}>
         <Route element={<AppLayout />}>
           <Route path="/admin/usuarios" element={withSuspense(<AdminUsuarios />)} />
+          <Route path="/admin/portal-backfill" element={withSuspense(<AdminPortalBackfill />)} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/painel" replace />} />

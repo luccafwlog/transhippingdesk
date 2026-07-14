@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
@@ -6,9 +7,20 @@ import { useToast } from '../components/ui/Toast'
 import { usePortalProfile } from '../hooks/usePortalProfile'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
 import type { PortalProfile as PortalProfileData } from '../services/portalBilling'
+import { supabasePortal } from '../services/supabase'
 
 export function PortalProfile() {
   const profile = usePortalProfile()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [emailNotice, setEmailNotice] = useState('')
+  useEffect(() => {
+    const token = searchParams.get('confirm_email')
+    if (!token) return
+    void supabasePortal.functions.invoke('portal-recovery-email-change', { body: { action: 'confirm', token } }).then(({ error }) => {
+      setEmailNotice(error ? 'Não foi possível confirmar o novo email.' : 'Email de Recuperação atualizado com sucesso.')
+      searchParams.delete('confirm_email'); setSearchParams(searchParams, { replace: true })
+    })
+  }, [searchParams, setSearchParams])
   const loadError = profile.error
     ? portalErrorMessage(profile.error, 'Falha ao carregar perfil. Tente novamente em instantes.')
     : ''
@@ -25,6 +37,7 @@ export function PortalProfile() {
             updateProfile={profile.updateProfile.mutateAsync}
             loadError={loadError}
             loadFailed={profile.isError}
+            emailNotice={emailNotice}
           />
         ) : (
           <div className="grid gap-4">
@@ -45,6 +58,7 @@ function PortalProfileForm({
   updateProfile,
   loadError,
   loadFailed,
+  emailNotice,
 }: {
   profile: PortalProfileData
   fallbackContactEmail: string
@@ -58,6 +72,7 @@ function PortalProfileForm({
   }) => Promise<unknown>
   loadError: string
   loadFailed: boolean
+  emailNotice: string
 }) {
   const { showToast } = useToast()
   const [contactEmail, setContactEmail] = useState(profile.contact_email ?? fallbackContactEmail)
@@ -68,6 +83,10 @@ function PortalProfileForm({
   const [zip, setZip] = useState(profile.zip ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newRecoveryEmail, setNewRecoveryEmail] = useState('')
+  const [confirmRecoveryEmail, setConfirmRecoveryEmail] = useState('')
+  const [emailSubmitting, setEmailSubmitting] = useState(false)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -91,7 +110,20 @@ function PortalProfileForm({
     }
   }
 
+  async function handleRecoveryEmailChange(event: FormEvent) {
+    event.preventDefault(); setError('')
+    if (newRecoveryEmail.trim().toLowerCase() !== confirmRecoveryEmail.trim().toLowerCase()) { setError('Os emails de recuperação não conferem.'); return }
+    setEmailSubmitting(true)
+    try {
+      const { error: invokeError } = await supabasePortal.functions.invoke('portal-recovery-email-change', { body: { action: 'request', current_password: currentPassword, new_email: newRecoveryEmail.trim() } })
+      if (invokeError) throw invokeError
+      showToast('Enviamos um link para confirmar o novo email.', 'success')
+      setCurrentPassword(''); setNewRecoveryEmail(''); setConfirmRecoveryEmail('')
+    } catch (err) { setError(portalErrorMessage(err, 'Não foi possível iniciar a troca de email.')) } finally { setEmailSubmitting(false) }
+  }
+
   return (
+    <>
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field label="Email de contato">
             <Input
@@ -138,5 +170,17 @@ function PortalProfileForm({
             <Button disabled={loadFailed} loading={submitting} type="submit">Salvar alteracoes</Button>
           </div>
         </form>
+        <div className="mt-8 border-t border-[var(--app-border)] pt-5">
+          <h2 className="text-lg font-semibold">Email de Recuperação</h2>
+          <p className="mt-1 text-sm text-[var(--app-muted)]">O endereço atual permanece válido até a confirmação do novo.</p>
+          {emailNotice ? <p className="mt-2 text-sm text-emerald-400">{emailNotice}</p> : null}
+          <form className="mt-4 grid gap-4" onSubmit={handleRecoveryEmailChange}>
+            <Field label="Senha atual"><Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></Field>
+            <Field label="Novo email"><Input type="email" value={newRecoveryEmail} onChange={(e) => setNewRecoveryEmail(e.target.value)} /></Field>
+            <Field label="Confirmar novo email"><Input type="email" value={confirmRecoveryEmail} onChange={(e) => setConfirmRecoveryEmail(e.target.value)} /></Field>
+            <div className="flex justify-end"><Button loading={emailSubmitting} type="submit">Solicitar troca de email</Button></div>
+          </form>
+        </div>
+    </>
   )
 }
