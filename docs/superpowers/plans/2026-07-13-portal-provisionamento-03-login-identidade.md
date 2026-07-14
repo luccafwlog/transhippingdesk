@@ -179,7 +179,7 @@ REVOKE EXECUTE ON FUNCTION public.portal_resolve_login(TEXT) FROM anon, authenti
 No banco local: `SELECT portal_resolve_login('...')` como `anon` deve falhar
 com `permission denied`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/182_portal_login_lockdown.sql
@@ -288,7 +288,7 @@ Expected: PASS. Testes existentes de `PortalLogin`/`usePortalAuth` que fixavam
 login por email/CPF devem ser atualizados: o comportamento mudou por decisão
 do issue #370 (login visível somente CNPJ + senha).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/pages/PortalLogin.tsx src/hooks/usePortalAuth.tsx src/lib/cnpj.ts src/lib/__tests__/cnpj.test.ts
@@ -398,7 +398,7 @@ checada pelo trigger.
 2. `portal_admin_change_cnpj` como administrativo com justificativa → muda cadastro e `login_cnpj`, grava evento.
 3. Como documentacao → `permission denied`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/

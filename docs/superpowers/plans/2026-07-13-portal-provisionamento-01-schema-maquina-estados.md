@@ -222,7 +222,7 @@ com "somente inclusão".
 `src/types/database.ts` é protegido: regenere pelo fluxo oficial da skill
 `supabase-migration` (nunca edite à mão).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/migrations/178_portal_provisioning_schema.sql src/types/database.ts
@@ -373,7 +373,7 @@ deve mudar a decisão e criar 1 linha em `portal_provisioning_events`.
 Sem justificativa deve falhar com "Justificativa é obrigatória".
 Com usuário sem perfil ativo deve falhar com `permission denied`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/179_portal_provisioning_rpcs.sql
@@ -460,7 +460,7 @@ REVOKE ALL ON FUNCTION public.portal_provisioning_backfill(TEXT) FROM anon;
 3. Executar de novo — cria 0 (idempotente).
 4. Executar como documentacao — `permission denied`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/180_portal_backfill.sql
@@ -547,7 +547,7 @@ SELECT cron.schedule(
 Inserir convite com `expires_at = now() - interval '1 hour'`; rodar a função
 duas vezes; conferir: 1 transição, 1 evento, 1 alerta (não duplicados).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/181_portal_invite_expiry.sql
@@ -737,7 +737,7 @@ export function useReturnToAnalysis() {
 Run: `npm test -- portalProvisioning && npm run lint`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/services/portalProvisioning.ts src/hooks/usePortalProvisioning.ts src/services/__tests__/portalProvisioning.test.ts
@@ -764,7 +764,7 @@ job de expiração. Seguir `docs/CONVENCOES.md`.
 Run: `npm run docs:check`
 Expected: PASS
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/ARCHITECTURE.md docs/RASTREABILIDADE.md docs/modules/portal-cliente.md

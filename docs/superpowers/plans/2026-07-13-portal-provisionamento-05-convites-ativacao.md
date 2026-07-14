@@ -50,7 +50,7 @@ export async function hashToken(token: string): Promise<string> {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/functions/_shared/portalToken.ts
@@ -110,7 +110,7 @@ EXECUTE revogado de `authenticated` no plano 1 — crie na execução uma migrat
 GRANT a `authenticated`) que devolve o papel efetivo, e use-o aqui e nas demais
 functions deste plano.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/functions/portal-invite-send/ supabase/migrations/
@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
 Complete os helpers `jsonOk`/`jsonError`/CORS e a chamada real de
 `_portal_log_event` (via service_role o REVOKE não se aplica) na execução.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/functions/portal-invite-activate/
@@ -306,7 +306,7 @@ REVOKE ALL ON FUNCTION public.portal_cancel_invite(BIGINT, TEXT, TEXT) FROM anon
   `aguardando_analise` (decisão do mapa: reativação exige revisão do email,
   novo convite e nova senha); evento com justificativa.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/184_portal_invite_cancel_suspend.sql supabase/functions/portal-account-suspend/
@@ -367,7 +367,7 @@ git commit -m "feat(portal): recuperação de senha por token de uso único de 1
 - Modify: `src/App.tsx` (rota `/portal/ativar`)
 - Test: `src/pages/__tests__/PortalAtivacao.test.tsx`
 
-- [ ] **Step 1: Teste de comportamento**
+- [x] **Step 1: Teste de comportamento**
 
 ```typescript
 // Casos (mock da Edge Function via msw ou mock do client, seguindo o padrão
@@ -387,7 +387,7 @@ Fluxo: no mount chama `action:'inspect'`; render conforme resposta; submit
 chama `action:'activate'`; sucesso → confirmação + redirecionamento ao login.
 Estilo: siga os componentes das páginas Portal existentes (`PortalLogin.tsx`).
 
-- [ ] **Step 3: Rodar, lint, commit**
+- [x] **Step 3: Rodar, lint, commit**
 
 Run: `npm test -- PortalAtivacao && npm run lint`
 Expected: PASS
@@ -415,7 +415,7 @@ com senha, substituir pelo link/painel de convite. Remover a function do
 diretório e registrar no runbook que ela deve ser removida do projeto Supabase
 no deploy.
 
-- [ ] **Step 3: Rodar suíte inteira e commit**
+- [x] **Step 3: Rodar suíte inteira e commit**
 
 Run: `npm test && npm run lint && npm run build`
 Expected: PASS
@@ -531,7 +531,7 @@ pendência ("aguardando confirmação do novo endereço"). No Console/ficha
 (plano 7), ação "Trocar email assistido" com justificativa, visível para
 `can('portal_provisioning')`.
 
-- [ ] **Step 4: Rodar suíte e commit**
+- [x] **Step 4: Rodar suíte e commit**
 
 Run: `npm test && npm run lint`
 Expected: PASS
@@ -549,10 +549,10 @@ git commit -m "feat(portal): troca de email de recuperação com confirmação e
   `docs/RASTREABILIDADE.md`, `CONTEXT.md` (se algum termo ganhar nuance nova),
   `WORKFLOW.md` (env vars novas).
 
-- [ ] **Step 1: Atualizar** fluxos de convite/ativação/recuperação/suspensão
+- [x] **Step 1: Atualizar** fluxos de convite/ativação/recuperação/suspensão
 com diagramas de sequência no módulo portal-cliente.
 
-- [ ] **Step 2: Verificar e commitar**
+- [x] **Step 2: Verificar e commitar**
 
 Run: `npm run docs:check`
 Expected: PASS
