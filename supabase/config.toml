@@ -9,7 +9,7 @@ project_id = "Transhipping_Desk"
 verify_jwt = false
 
 [functions.portal-account-suspend]
-verify_jwt = true
+verify_jwt = false
 
 [functions.portal-daily-digest]
 verify_jwt = false
@@ -21,7 +21,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.portal-invite-send]
-verify_jwt = true
+verify_jwt = false
 
 [functions.portal-login]
 verify_jwt = false
