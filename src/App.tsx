@@ -14,6 +14,7 @@ const PortalOperacao = lazyPage(() => import('./pages/PortalOperacao'), 'PortalO
 const PortalDashboard = lazyPage(() => import('./pages/PortalDashboard'), 'PortalDashboard')
 const PortalForgotPassword = lazyPage(() => import('./pages/PortalForgotPassword'), 'PortalForgotPassword')
 const PortalResetPassword = lazyPage(() => import('./pages/PortalResetPassword'), 'PortalResetPassword')
+const PortalAtivacao = lazyPage(() => import('./pages/PortalAtivacao'), 'PortalAtivacao')
 const PortalProfile = lazyPage(() => import('./pages/PortalProfile'), 'PortalProfile')
 const Painel = lazyPage(() => import('./pages/Painel'), 'Painel')
 const Viagens = lazyPage(() => import('./pages/Viagens'), 'Viagens')
@@ -73,6 +74,7 @@ export default function App() {
       <Route path="/portal/login" element={withSuspense(<PortalLogin />)} />
       <Route path="/portal/esqueci-senha" element={withSuspense(<PortalForgotPassword />)} />
       <Route path="/portal/recuperar-senha" element={withSuspense(<PortalResetPassword />)} />
+      <Route path="/portal/ativar" element={withSuspense(<PortalAtivacao />)} />
       <Route element={<PortalProtectedRoute />}>
         <Route element={<PortalLayout />}>
           <Route path="/portal" element={withSuspense(<PortalDashboard />)} />

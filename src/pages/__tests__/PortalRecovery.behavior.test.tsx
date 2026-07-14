@@ -6,22 +6,16 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({
-  resetPasswordForEmail: vi.fn(() => Promise.resolve({ error: null })),
-  setSession: vi.fn(() => Promise.resolve({ error: null })),
-  updateUser: vi.fn(() => Promise.resolve({ error: null })),
-  signOut: vi.fn(() => Promise.resolve({ error: null })),
+  functions: { invoke: vi.fn(() => Promise.resolve({ data: { message: 'ok' }, error: null })) },
 }))
-const portal = vi.hoisted(() => ({ resolveLogin: vi.fn(() => Promise.resolve('resolvido@cliente.com')) }))
 
-vi.mock('../../services/supabase', () => ({ supabasePortal: { auth } }))
-vi.mock('../../services/portalBilling', () => ({ portalResolveLogin: portal.resolveLogin }))
+vi.mock('../../services/supabase', () => ({ supabasePortal: { auth, functions: auth.functions } }))
 
 import { PortalForgotPassword } from '../PortalForgotPassword'
 import { PortalResetPassword } from '../PortalResetPassword'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  window.location.hash = ''
 })
 afterEach(cleanup)
 
@@ -33,11 +27,11 @@ it('US-155: solicita recuperacao e confirma o envio do link', async () => {
     </MemoryRouter>,
   )
 
-  await user.type(screen.getByPlaceholderText('CNPJ ou email cadastrado'), 'cliente@empresa.com')
+  await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
 
   await waitFor(() => expect(screen.getByText('Email enviado')).toBeTruthy())
-  expect(auth.resetPasswordForEmail).toHaveBeenCalledWith('cliente@empresa.com', expect.any(Object))
+  expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-recovery', { body: { cnpj: '12.345.678/0001-95' } })
 })
 
 it('US-156: link invalido sem tokens mostra erro', () => {
@@ -49,23 +43,20 @@ it('US-156: link invalido sem tokens mostra erro', () => {
   expect(screen.getByText('Link de recuperacao invalido ou expirado.')).toBeTruthy()
 })
 
-it('US-156: estabelece a sessao de recovery a partir dos tokens do hash', async () => {
-  window.location.hash = '#access_token=AT&refresh_token=RT&type=recovery'
+it('US-156: aceita token de recovery na query string', async () => {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/portal/recuperar-senha?token=TOKEN']}>
       <PortalResetPassword />
     </MemoryRouter>,
   )
 
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Redefinir senha' })).toBeTruthy())
-  expect(auth.setSession).toHaveBeenCalledWith({ access_token: 'AT', refresh_token: 'RT' })
 })
 
 it('US-157: atualiza a senha e volta para o login', async () => {
   const user = userEvent.setup()
-  window.location.hash = '#access_token=AT&refresh_token=RT&type=recovery'
   render(
-    <MemoryRouter initialEntries={['/portal/recuperar-senha']}>
+    <MemoryRouter initialEntries={['/portal/recuperar-senha?token=TOKEN']}>
       <Routes>
         <Route path="/portal/recuperar-senha" element={<PortalResetPassword />} />
         <Route path="/portal/login" element={<div>LOGIN PLACEHOLDER</div>} />
@@ -79,15 +70,13 @@ it('US-157: atualiza a senha e volta para o login', async () => {
   await user.click(screen.getByRole('button', { name: 'Redefinir senha' }))
 
   await waitFor(() => expect(screen.getByText('LOGIN PLACEHOLDER')).toBeTruthy())
-  expect(auth.updateUser).toHaveBeenCalledWith({ password: 'senhaSegura1' })
-  expect(auth.signOut).toHaveBeenCalled()
+  expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-reset', { body: { token: 'TOKEN', password: 'senhaSegura1' } })
 })
 
 it('US-157: rejeita senha sem composicao minima', async () => {
   const user = userEvent.setup()
-  window.location.hash = '#access_token=AT&refresh_token=RT&type=recovery'
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/portal/recuperar-senha?token=TOKEN']}>
       <PortalResetPassword />
     </MemoryRouter>,
   )
@@ -98,5 +87,5 @@ it('US-157: rejeita senha sem composicao minima', async () => {
   await user.click(screen.getByRole('button', { name: 'Redefinir senha' }))
 
   expect(screen.getByText('A senha deve ter no minimo 8 caracteres, com letra maiuscula, minuscula e numero.')).toBeTruthy()
-  expect(auth.updateUser).not.toHaveBeenCalled()
+  expect(auth.functions.invoke).not.toHaveBeenCalledWith('portal-password-reset', expect.anything())
 })

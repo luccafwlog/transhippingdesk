@@ -27,7 +27,7 @@
 **Files:**
 - Create: `supabase/functions/_shared/portalToken.ts`
 
-- [ ] **Step 1: Implementar**
+- [x] **Step 1: Implementar**
 
 ```typescript
 // Token de Convite do Portal: aleatório, opaco, de uso único.
@@ -64,7 +64,7 @@ git commit -m "feat(portal): geração e hash de token de convite"
 **Files:**
 - Create: `supabase/functions/portal-invite-send/index.ts`
 
-- [ ] **Step 1: Implementar**
+- [x] **Step 1: Implementar**
 
 Contrato: `POST { customer_id, recovery_email, recovery_email_source, reason? }`,
 Authorization = JWT do usuário interno.
@@ -124,7 +124,7 @@ git commit -m "feat(portal): envio e reenvio de convite com aprovação auditada
 **Files:**
 - Create: `supabase/functions/portal-invite-activate/index.ts`
 
-- [ ] **Step 1: Implementar as duas operações**
+- [x] **Step 1: Implementar as duas operações**
 
 ```typescript
 // Edge Function: portal-invite-activate
@@ -245,7 +245,7 @@ git commit -m "feat(portal): ativação com consumo atômico de token"
 - Create: `supabase/migrations/184_portal_invite_cancel_suspend.sql`
 - Create: `supabase/functions/portal-account-suspend/index.ts`
 
-- [ ] **Step 1: RPC de cancelamento**
+- [x] **Step 1: RPC de cancelamento**
 
 ```sql
 -- 184: Cancelamento de convite pendente (com justificativa) e suporte à suspensão.
@@ -293,7 +293,7 @@ GRANT EXECUTE ON FUNCTION public.portal_cancel_invite(BIGINT, TEXT, TEXT) TO aut
 REVOKE ALL ON FUNCTION public.portal_cancel_invite(BIGINT, TEXT, TEXT) FROM anon;
 ```
 
-- [ ] **Step 2: Edge Function de suspensão/reativação**
+- [x] **Step 2: Edge Function de suspensão/reativação**
 
 `portal-account-suspend`: `POST { customer_id, action: 'suspend'|'reactivate', reason }`.
 - Autorização como na Task 2 (`portal_current_role()`).
@@ -323,7 +323,7 @@ git commit -m "feat(portal): cancelamento de convite e suspensão de conta"
 - Modify: `src/pages/PortalForgotPassword.tsx`
 - Modify: `src/pages/PortalResetPassword.tsx`
 
-- [ ] **Step 1: `portal-password-recovery`** — `POST { cnpj }`, SEM autenticação:
+- [x] **Step 1: `portal-password-recovery`** — `POST { cnpj }`, SEM autenticação:
 
 ```typescript
 // Sempre responde 200 com a MESMA mensagem, exista ou não a conta
@@ -336,19 +336,19 @@ git commit -m "feat(portal): cancelamento de convite e suspensão de conta"
 // Aplica o mesmo rate limit por CNPJ do portal-login.
 ```
 
-- [ ] **Step 2: `portal-password-reset`** — `POST { token, password }`:
+- [x] **Step 2: `portal-password-reset`** — `POST { token, password }`:
 
 Mesma mecânica de consumo atômico da Task 3 (purpose `'recuperacao'`,
 validade 1h). Após consumir: `admin.auth.admin.updateUserById(auth_user_id,
 { password })`, revogar TODAS as sessões anteriores (mesma API da Task 4),
 evento (ator `cliente`). Não retorna sessão; o cliente faz login de novo.
 
-- [ ] **Step 3: Frontend** — `PortalForgotPassword.tsx` passa a pedir SOMENTE
+- [x] **Step 3: Frontend** — `PortalForgotPassword.tsx` passa a pedir SOMENTE
 CNPJ e chamar `portal-password-recovery` (remove o uso de
 `portal_resolve_login` e `resetPasswordForEmail`). `PortalResetPassword.tsx`
 lê `?token=` e chama `portal-password-reset`. Mensagens não enumeráveis.
 
-- [ ] **Step 4: Rodar suíte e commit**
+- [x] **Step 4: Rodar suíte e commit**
 
 Run: `npm test && npm run lint`
 Expected: PASS (atualize testes que fixavam o fluxo antigo)
@@ -381,7 +381,7 @@ git commit -m "feat(portal): recuperação de senha por token de uso único de 1
 // 4. senha < 8 → erro de validação local, sem chamada de rede.
 ```
 
-- [ ] **Step 2: Implementar a página**
+- [x] **Step 2: Implementar a página**
 
 Fluxo: no mount chama `action:'inspect'`; render conforme resposta; submit
 chama `action:'activate'`; sucesso → confirmação + redirecionamento ao login.
@@ -405,11 +405,11 @@ git commit -m "feat(portal): tela de ativação de convite"
 - Delete: `supabase/functions/provision-portal-user/` (após confirmar que nenhuma tela ativa o chama)
 - Modify: telas que chamavam o fluxo legado (grep `provision-portal-user` e `upsert_customer_portal_account` em `src/`)
 
-- [ ] **Step 1: Mapear chamadores**
+- [x] **Step 1: Mapear chamadores**
 
 Run: `grep -rn "provision-portal-user\|upsert_customer_portal_account\|set_customer_portal_account_active" src/`
 
-- [ ] **Step 2: Remover a UI legada** de "criar senha do portal" (o novo fluxo
+- [x] **Step 2: Remover a UI legada** de "criar senha do portal" (o novo fluxo
 é o convite do plano 7/Console + ficha). Onde a ficha oferecia provisionamento
 com senha, substituir pelo link/painel de convite. Remover a function do
 diretório e registrar no runbook que ela deve ser removida do projeto Supabase
@@ -440,7 +440,7 @@ permanece vigente até a confirmação; aviso ao email anterior; troca assistida
 por Documentação/Administrativo exige validação manual, justificativa e
 auditoria; falhas deixam o cadastro inalterado; chamadas não autorizadas negadas.
 
-- [ ] **Step 1: Edge Function `portal-recovery-email-change`** (fluxo do cliente)
+- [x] **Step 1: Edge Function `portal-recovery-email-change`** (fluxo do cliente)
 
 Contrato e fluxo (implemente com o mesmo estilo das functions anteriores):
 
@@ -465,7 +465,7 @@ Contrato e fluxo (implemente com o mesmo estilo das functions anteriores):
 //   grava evento (ator 'cliente'), envia confirmação final.
 ```
 
-- [ ] **Step 2: Migration da troca assistida + colunas de apoio**
+- [x] **Step 2: Migration da troca assistida + colunas de apoio**
 
 ```sql
 -- 18x: Troca de Email de Recuperação — apoio e fluxo assistido.
@@ -525,7 +525,7 @@ Após a troca assistida, a UI (Console/ficha) envia aviso ao endereço antigo vi
 `sendPortalEmail` (kind `'alteracao_email'`, template do plano 4 — crie
 `emailChangeNoticeTemplate` lá se ainda não existir, mesmo padrão dos demais).
 
-- [ ] **Step 3: UI** — `PortalProfile.tsx`: formulário "Alterar email de
+- [x] **Step 3: UI** — `PortalProfile.tsx`: formulário "Alterar email de
 recuperação" (senha atual + novo email + confirmação do campo); estados de
 pendência ("aguardando confirmação do novo endereço"). No Console/ficha
 (plano 7), ação "Trocar email assistido" com justificativa, visível para

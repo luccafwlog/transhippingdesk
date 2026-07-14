@@ -29,7 +29,7 @@
 
 ## Rate limiting
 
-- **Provisão de portal** (`provision-portal-user`): 20/hora por usuário, persistido em banco (`provision_rate_limit_log`, RPC `check_provision_rate_limit`).
+- **Provisão de portal**: convites e recuperação usam tokens opacos de uso único, com expiração e hash persistido; o login e a recuperação aplicam rate limit por CNPJ.
 - **Login/resolução de portal:** tentativas registradas em `portal_login_attempts` / `portal_login_resolution_attempts`; limites em `portal_rate_limits` (RPC `check_portal_rate_limit`).
 
 ## Invariante de provisionamento do portal
@@ -38,7 +38,7 @@ Uma conta de `customer_portal_accounts` só pode ficar ativa quando possui `auth
 
 ## Edge Functions
 
-- **`provision-portal-user`** — cria/atualiza usuário Supabase Auth do portal. Exige caller admin ativo; rate-limited; CORS restrito a `APP_URL`.
+- **Convite/ativação e recuperação** — criam a identidade técnica somente na ativação do convite, sem expor email técnico ou senha ao operador; suspensão revoga as sessões do usuário.
 - **`notify-invoice-issued`** — disparada por Database Webhook quando `invoices.status → 'issued'`. Autenticação por bearer service-role (comparação *timing-safe*); re-busca a fatura no banco; **HTML escapado** antes do envio via Resend.
 
 ## Headers HTTP / CSP

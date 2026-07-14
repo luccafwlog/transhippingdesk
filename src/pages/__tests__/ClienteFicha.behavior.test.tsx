@@ -42,11 +42,7 @@ vi.mock('../../components/ui/ConfirmDialog', () => ({
 vi.mock('../../services/customers', () => ({
   upsertCustomerContact: mocks.upsertContact,
   deleteCustomerContact: mocks.deleteContact,
-  getCustomerPortalAccount: vi.fn(),
-  setCustomerPortalAccountActive: vi.fn(),
   updateCustomerWithAudit: vi.fn(),
-  upsertCustomerPortalAccount: vi.fn(),
-  provisionPortalAuthUser: vi.fn(),
 }))
 
 import { ClienteFicha } from '../ClienteFicha'
@@ -156,7 +152,7 @@ describe('ClienteFicha user behaviours', () => {
     renderPage()
 
     expect(screen.getByRole('button', { name: 'Salvar cadastro' })).not.toHaveProperty('disabled', true)
-    expect(screen.getByRole('button', { name: 'Criar acesso portal' })).not.toHaveProperty('disabled', true)
+    expect(screen.getByRole('link', { name: 'Abrir fila de provisionamento →' }).getAttribute('href')).toBe('/clientes/portal')
   })
 
   it('financeiro vê a ficha sem ações de alteração', () => {
@@ -164,6 +160,6 @@ describe('ClienteFicha user behaviours', () => {
     renderPage()
 
     expect(screen.getByRole('button', { name: 'Salvar cadastro' })).toHaveProperty('disabled', true)
-    expect(screen.getByRole('button', { name: 'Criar acesso portal' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('link', { name: 'Abrir fila de provisionamento →' }).getAttribute('href')).toBe('/clientes/portal')
   })
 })
