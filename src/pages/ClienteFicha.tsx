@@ -12,6 +12,7 @@ import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerDetail } from '../hooks/useCustomers'
+import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
 import { FINANCIAL_STATUS_LABELS, INVOICE_STATUS_LABELS, REVIEW_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
 import {
@@ -56,6 +57,9 @@ export function ClienteFicha() {
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { data, isLoading, error } = useCustomerDetail(cnpj)
+  const { data: portalRowsData } = usePortalProvisioning()
+  const portalRows = Array.isArray(portalRowsData) ? portalRowsData : []
+  const portalRow = data ? portalRows.find((row) => row.customer_id === data.id) : undefined
   const [form, setForm] = useState<CustomerForm | null>(null)
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
@@ -277,6 +281,11 @@ export function ClienteFicha() {
         <p className="mt-1 text-sm text-slate-400">
           Convites, ativação e suspensão são administrados na fila de provisionamento do Portal.
         </p>
+        {portalRow ? <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+          <div><div className="text-xs text-slate-500">Email de Recuperação</div><div>{portalRow.recovery_email ?? 'Não informado'}</div><div className="text-xs text-slate-500">{portalRow.recovery_email_source ?? '—'}</div></div>
+          <div><div className="text-xs text-slate-500">Situação</div><div>{portalRow.account_situation}</div></div>
+          <div><div className="text-xs text-slate-500">Decisão</div><div>{portalRow.provisioning_decision}</div></div>
+        </div> : null}
         <div className="mt-4">
           <Link to="/clientes/portal" className="text-sm font-medium text-cyan-300 hover:text-cyan-200">
             Abrir fila de provisionamento →

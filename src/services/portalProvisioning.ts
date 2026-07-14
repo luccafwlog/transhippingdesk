@@ -20,6 +20,21 @@ export type PortalProvisioningRow = {
   pending_invite_expires_at: string | null
 }
 
+export type EmailCandidate = {
+  email: string
+  purpose: 'geral' | 'financeiro' | 'operacional' | 'faturamento'
+  origin: string
+}
+
+export type QueueRow = PortalProvisioningRow & {
+  hasCriticalAlert: boolean
+  hasOpenInvoice: boolean
+  hasActiveProcess: boolean
+  lastActivityAt: string | null
+  candidates: EmailCandidate[]
+  sharedEmailCnpjs: string[]
+}
+
 type ProvisioningQueryRow = {
   id: number
   customer_id: number
@@ -34,6 +49,20 @@ type ProvisioningQueryRow = {
 export function effectiveSituation(situation: AccountSituation, pendingInviteExpiresAt: string | null): AccountSituation {
   if (situation === 'convite_pendente' && pendingInviteExpiresAt && new Date(pendingInviteExpiresAt).getTime() < Date.now()) return 'convite_expirado'
   return situation
+}
+
+export function comparePriority(a: QueueRow, b: QueueRow): number {
+  const rank = (row: QueueRow): number => {
+    if (row.provisioning_decision === 'provisionamento_nao_necessario') return 6
+    if (row.hasCriticalAlert) return 0
+    if (row.hasOpenInvoice) return 1
+    if (row.hasActiveProcess) return 2
+    if (row.lastActivityAt) return 3
+    return 4
+  }
+  const difference = rank(a) - rank(b)
+  if (difference !== 0) return difference
+  return (b.lastActivityAt ?? '').localeCompare(a.lastActivityAt ?? '')
 }
 
 export async function listPortalProvisioning(): Promise<PortalProvisioningRow[]> {
@@ -53,6 +82,42 @@ export async function listPortalProvisioning(): Promise<PortalProvisioningRow[]>
       pending_invite_expires_at: pending?.expires_at ?? null,
     }
   })
+}
+
+export async function listPortalProvisioningQueue(): Promise<QueueRow[]> {
+  const rows = await listPortalProvisioning()
+  const enriched = await Promise.all(rows.map(async (row) => {
+    const [{ data: contacts }, { data: alerts }] = await Promise.all([
+      supabase.from('customer_contacts').select('email, purpose').eq('customer_id', row.customer_id).not('email', 'is', null),
+      supabase.from('alerts').select('type, status, entity_type, entity_id, created_at').or(`entity_id.eq.${row.customer_id},entity_id.eq.${row.customer_id}`),
+    ])
+    const candidates = (contacts ?? []).flatMap((contact) => {
+      const purpose = contact.purpose as EmailCandidate['purpose']
+      return contact.email && ['geral', 'financeiro', 'operacional', 'faturamento'].includes(purpose)
+        ? [{ email: contact.email, purpose, origin: 'Contato do Cliente' }]
+        : []
+    })
+    const criticalTypes = new Set(['portal_excecao_critica_fatura', 'portal_convite_expirado', 'portal_falha_envio', 'portal_abuso_login'])
+    return {
+      ...row,
+      hasCriticalAlert: (alerts ?? []).some((alert) => alert.status !== 'closed' && criticalTypes.has(alert.type)),
+      hasOpenInvoice: (alerts ?? []).some((alert) => alert.status !== 'closed' && alert.type === 'portal_excecao_critica_fatura'),
+      hasActiveProcess: false,
+      lastActivityAt: (alerts ?? []).map((alert) => alert.created_at).filter(Boolean).sort().at(-1) ?? null,
+      candidates,
+      sharedEmailCnpjs: [],
+    } satisfies QueueRow
+  }))
+  const byEmail = new Map<string, string[]>()
+  for (const row of enriched) {
+    if (!row.recovery_email) continue
+    const key = row.recovery_email.toLowerCase()
+    byEmail.set(key, [...(byEmail.get(key) ?? []), row.cnpj_cpf])
+  }
+  return enriched.map((row) => ({
+    ...row,
+    sharedEmailCnpjs: row.recovery_email ? (byEmail.get(row.recovery_email.toLowerCase()) ?? []).filter((cnpj) => cnpj !== row.cnpj_cpf) : [],
+  })).sort(comparePriority)
 }
 
 export async function runPreflight() {

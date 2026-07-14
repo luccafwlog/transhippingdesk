@@ -225,7 +225,7 @@ um intervalo fixo documentado.
 
 ### Edge Functions
 
-- `provision-portal-user`: cria ou atualiza o usuário Auth do Portal;
+- `portal-invite-activate`: cria a identidade técnica Auth somente após o cliente ativar o convite;
 - `notify-invoice-issued`: implementada para buscar a invoice e enviar email
   crítico interno quando a emissão encontra falta de prontidão do Portal;
 
@@ -273,6 +273,8 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/portal/esqueci-senha` | Solicitação de recuperação |
 | `/portal/recuperar-senha` | Definição de nova senha |
 | `/portal/ativar` | Ativação de convite sem login automático |
+| `/clientes/portal` | Console operacional de provisionamento do Portal |
+| `/admin/portal-backfill` | Pré-voo e backfill administrativo do Portal |
 
 ### Portal autenticado
 

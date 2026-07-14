@@ -217,3 +217,7 @@ Não há teste focado para `PortalLogin`, `PortalForgotPassword`, `PortalResetPa
 - **Código — falha do cronograma vira vazio.** `listVesselSchedules` registra no console e retorna `[]`, sem distinguir indisponibilidade de ausência de navios.
 - `portal_list_disputes()` existe em `supabase/migrations/116_portal_fase2_notifications_disputes_profile.sql`, mas não tem consumidor no frontend atual.
 - [ADR 0001](../adr/0001-portal-login-supabase-auth.md) continua válida para Supabase Auth e fim do token legado, mas foi parcialmente superada pela [ADR 0013](../adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md) quanto aos identificadores aceitos.
+A operação interna do Portal está disponível em `/clientes/portal`, com fila
+inicial em “Aguardando análise”, prioridade visual, candidatos de email e
+painel individual. `/admin/portal-backfill` concentra o pré-voo e o backfill
+com confirmação dos totais; não existem ações em lote de provisionamento.

@@ -23,9 +23,9 @@
 | Fronteira | Hook | Mecanismo |
 |---|---|---|
 | **Interna** | `src/hooks/useAuth.tsx` | Supabase Auth + perfil em `user_profiles`; timeout de inatividade de **8 horas**; role → permissões. |
-| **Portal** | `src/hooks/usePortalAuth.tsx` | Supabase Auth. Login por **CNPJ (14 dígitos) OU email** resolvido via RPC `portal_resolve_login`. |
+| **Portal** | `src/hooks/usePortalAuth.tsx` | Supabase Auth. Login exclusivo por CNPJ normalizado via Edge Function `portal-login`. |
 
-> **Portal login:** o ADR 0001 originalmente definiu email-only e remoção do CNPJ. Isso foi **superado** — o login por CNPJ foi reintroduzido (migrations `…fase1_login_cnpj` e `…harden_portal_resolve_login`). A verdade vigente está em [Portal do Cliente](../modules/portal-cliente.md) e no [CONTEXT.md](../../CONTEXT.md) (termo *Login de Portal*).
+> **Portal login:** o navegador envia apenas CNPJ e senha para `portal-login`; a identidade técnica e o email técnico permanecem no servidor.
 
 ## Rate limiting
 
@@ -34,7 +34,7 @@
 
 ## Invariante de provisionamento do portal
 
-Uma conta de `customer_portal_accounts` só pode ficar ativa quando possui `auth_user_id`. Os fluxos internos gravam a conta inativa, chamam a Edge Function e ativam apenas após confirmação; `set_customer_portal_account_active` rejeita ativação sem vínculo Auth. A fila de revisão não consulta essa tabela por join direto: consome a pendência canônica calculada no banco.
+Uma conta de `customer_portal_accounts` só pode ficar ativa quando possui `auth_user_id`. A identidade é criada na ativação do convite; suspensão revoga sessões e devolve a conta à análise. A fila de revisão não usa a prontidão do Portal como bloqueio financeiro.
 
 ## Edge Functions
 

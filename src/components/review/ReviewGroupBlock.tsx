@@ -11,7 +11,6 @@ import { formatResultCount } from '../../lib/operationalState'
 import {
   getGroupLinkedItem,
   groupNeedsEmail,
-  groupNeedsPortal,
   needsCeMercante,
   needsCustomerLink,
   needsWeightFix,
@@ -23,11 +22,9 @@ export function ReviewGroupBlock({
   collapsed,
   savingGroup,
   savingInlineId,
-  isAdmin,
   onToggle,
   onGroupLink,
   onGroupAddEmail,
-  onGroupProvisionPortal,
   onCorrect,
   onInlineField,
 }: {
@@ -35,11 +32,9 @@ export function ReviewGroupBlock({
   collapsed: boolean
   savingGroup: boolean
   savingInlineId: string | null
-  isAdmin: boolean
   onToggle: () => void
   onGroupLink: (customerId: number) => void
   onGroupAddEmail: (email: string) => void
-  onGroupProvisionPortal: () => void
   onCorrect: (id: string) => void
   onInlineField: (item: ReviewQueueItem, field: 'ce_mercante' | 'bb_weight_ton', value: string) => void
 }) {
@@ -47,7 +42,6 @@ export function ReviewGroupBlock({
   const unlinkedCount = group.items.filter(needsCustomerLink).length
   const hasLinkedCustomer = getGroupLinkedItem(group) != null
   const needsEmail = groupNeedsEmail(group)
-  const needsPortal = groupNeedsPortal(group)
   const groupReasons = useMemo(() => {
     const reasons = new Set<string>()
     for (const item of group.items) {
@@ -109,22 +103,6 @@ export function ReviewGroupBlock({
                 Salvar e-mail
               </Button>
             </div>
-          ) : null}
-          {hasLinkedCustomer && needsPortal ? (
-            isAdmin ? (
-              <Button
-                variant="secondary"
-                className="px-2.5 py-1 text-xs"
-                loading={savingGroup}
-                disabled={needsEmail}
-                title={needsEmail ? 'Adicione um e-mail antes de provisionar o portal' : undefined}
-                onClick={onGroupProvisionPortal}
-              >
-                Provisionar portal
-              </Button>
-            ) : (
-              <span className="text-xs text-slate-500">Portal pendente (admin)</span>
-            )
           ) : null}
         </div>
       </div>
