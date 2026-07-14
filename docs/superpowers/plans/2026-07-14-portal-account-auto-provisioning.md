@@ -62,8 +62,8 @@ describe('Portal customer auto-provisioning migration (193)', () => {
   })
 
   it('repairs existing customers without duplicating their queue records', () => {
-    expect(sql).toMatch(/FROM public\.customers c/i)
-    expect(sql).toMatch(/FROM public\.customer_portal_accounts a/i)
+    expect(sql).toMatch(/FROM public\.customers(?: AS)? c/i)
+    expect(sql).toMatch(/FROM public\.customer_portal_accounts(?: AS)? a/i)
     expect(sql).toMatch(/WHERE NOT EXISTS\s*\([\s\S]*a\.customer_id = c\.id/i)
     expect(sql).toContain('Reparo automático da conta de Portal para Cliente existente.')
   })
