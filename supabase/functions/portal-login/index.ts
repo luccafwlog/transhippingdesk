@@ -10,7 +10,7 @@ export function normalizeCnpj(input: string): string | null {
 
 function json(status: number, body: unknown, origin: string | null) {
   const allowedOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : 'null'
-  return new Response(JSON.stringify(body), {
+  return new Response(body === null ? null : JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json',
