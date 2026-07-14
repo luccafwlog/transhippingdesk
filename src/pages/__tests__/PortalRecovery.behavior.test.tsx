@@ -69,8 +69,11 @@ it('US-157: atualiza a senha e volta para o login', async () => {
   await user.type(screen.getByPlaceholderText('Repita a senha'), 'senhaSegura1')
   await user.click(screen.getByRole('button', { name: 'Redefinir senha' }))
 
-  await waitFor(() => expect(screen.getByText('LOGIN PLACEHOLDER')).toBeTruthy())
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'Senha redefinida' })).toBeTruthy())
   expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-reset', { body: { token: 'TOKEN', password: 'senhaSegura1' } })
+
+  await user.click(screen.getByRole('button', { name: 'Ir para o login' }))
+  await waitFor(() => expect(screen.getByText('LOGIN PLACEHOLDER')).toBeTruthy())
 })
 
 it('US-157: rejeita senha sem composicao minima', async () => {

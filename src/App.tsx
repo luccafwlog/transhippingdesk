@@ -67,12 +67,16 @@ function DocumentTitle() {
   return null
 }
 
+// O app é o mesmo SPA servido em dois domínios: `portal.<dominio>` é exclusivo
+// do Portal do Cliente; qualquer outro host (raiz, web.app, localhost) é o
+// sistema interno. Em host de Portal, rotas internas e a raiz caem em /portal.
+const isPortalHost = typeof window !== 'undefined' && window.location.hostname.startsWith('portal.')
+
 export default function App() {
   return (
     <>
       <DocumentTitle />
       <Routes>
-      <Route path="/login" element={withSuspense(<Login />)} />
       <Route path="/portal/login" element={withSuspense(<PortalLogin />)} />
       <Route path="/portal/esqueci-senha" element={withSuspense(<PortalForgotPassword />)} />
       <Route path="/portal/recuperar-senha" element={withSuspense(<PortalResetPassword />)} />
@@ -85,6 +89,11 @@ export default function App() {
           <Route path="/portal/perfil" element={withSuspense(<PortalProfile />)} />
         </Route>
       </Route>
+      {isPortalHost ? (
+        <Route path="*" element={<Navigate to="/portal" replace />} />
+      ) : (
+      <>
+      <Route path="/login" element={withSuspense(<Login />)} />
       <Route element={<ProtectedRoute />}>
         <Route path="/line-up-tv/display" element={withSuspense(<LineUpTVDisplay />)} />
         <Route element={<AppLayout />}>
@@ -126,6 +135,8 @@ export default function App() {
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/painel" replace />} />
+      </>
+      )}
       </Routes>
     </>
   )

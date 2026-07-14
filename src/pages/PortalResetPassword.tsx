@@ -16,6 +16,7 @@ export function PortalResetPassword() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState(() => (token ? '' : INVALID_LINK_MESSAGE))
   const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -37,12 +38,33 @@ export function PortalResetPassword() {
       if (!token) throw new Error(INVALID_LINK_MESSAGE)
       const { error: updateError } = await supabasePortal.functions.invoke('portal-password-reset', { body: { token, password } })
       if (updateError) throw updateError
-      navigate('/portal/login', { replace: true })
+      setDone(true)
     } catch (err: unknown) {
       setError(portalErrorMessage(err, 'Falha ao redefinir senha. Tente novamente em instantes.'))
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (done) {
+    return (
+      <main className="app-auth">
+        <Card className="app-auth__card">
+          <div className="app-auth__brand">
+            <img alt="Transhipping" className="app-auth__logo app-auth__logo--on-light" src="/branding/transhipping-logo.png" />
+            <div>
+              <h1 className="app-auth__title">Senha redefinida</h1>
+            </div>
+          </div>
+          <p className="text-sm text-[var(--app-muted)]">
+            Sua senha foi alterada com sucesso e as sessoes anteriores foram encerradas. Entre novamente com a nova senha.
+          </p>
+          <div className="mt-4">
+            <Button onClick={() => navigate('/portal/login', { replace: true })}>Ir para o login</Button>
+          </div>
+        </Card>
+      </main>
+    )
   }
 
   if (!token) {
