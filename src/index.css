@@ -770,15 +770,20 @@ textarea {
 
 .page-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 22px;
+  gap: 18px 22px;
   margin-bottom: 28px;
   padding-inline: 2px;
 }
 
 .page-header__copy {
   min-width: 0;
+  /* Basis curta: em telas menores (ex.: MacBook 13"), quando as ações não
+     cabem ao lado do título, o grupo inteiro quebra para uma linha própria
+     em vez de espremer os botões em várias linhas irregulares. */
+  flex: 1 1 340px;
   display: grid;
   gap: 0;
 }
