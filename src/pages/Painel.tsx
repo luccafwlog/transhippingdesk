@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Download,
@@ -46,12 +46,6 @@ export function Painel() {
   const { showToast } = useToast()
   const [filters, setFilters] = useState<LineUpFiltersState>(emptyLineUpFilters)
   const [isExporting, setIsExporting] = useState(false)
-  // Relógio para destacar quando o quadro está sem atualização há muito tempo.
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000)
-    return () => clearInterval(id)
-  }, [])
   const {
     data: lineup,
     isLoading: isLineUpLoading,
@@ -70,16 +64,6 @@ export function Painel() {
     return filterLineUpRows(lineup?.rows ?? [], filters)
   }, [lineup, filters])
   const activeFilterCount = countActiveLineUpFilters(filters)
-
-  const lastUpdate = lineup?.lastChangedAt
-    ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
-        new Date(lineup.lastChangedAt),
-      )
-    : '-'
-  const staleMinutes = lineup?.lastChangedAt
-    ? Math.floor((now - new Date(lineup.lastChangedAt).getTime()) / 60000)
-    : null
-  const isStale = staleMinutes !== null && staleMinutes >= 10
 
   async function handleExport() {
     setIsExporting(true)
@@ -107,10 +91,6 @@ export function Painel() {
               <Monitor size={14} />
               Abrir tela TV
             </Link>
-            <span className={isStale ? 'text-xs font-semibold text-amber-500' : 'text-xs text-slate-500'}>
-              Atualizado: {lastUpdate}
-              {isStale ? ` (há ${staleMinutes} min)` : ''}
-            </span>
             <button type="button" onClick={() => void refetch()} className="app-btn app-btn--secondary">
               <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
               Atualizar

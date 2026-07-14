@@ -191,11 +191,10 @@ it('US-120: as celulas do Line-Up navegam para os destinos corretos', () => {
   expect(screen.getByRole('link', { name: 'Navio ativo' }).getAttribute('href')).toBe('/viagens/1')
 })
 
-it('US-121: carrega o snapshot do Line-Up com a escala e o horario de atualizacao', () => {
+it('US-121: carrega o snapshot do Line-Up com a escala', () => {
   renderPainel()
 
   expect(screen.getAllByText('Navio ativo').length).toBeGreaterThan(0)
-  expect(screen.getByText(/Atualizado:/)).toBeTruthy()
 })
 
 it('US-121: exibe escala aguardando com status vermelho', () => {
