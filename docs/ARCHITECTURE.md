@@ -334,6 +334,10 @@ idempotência, retries de falhas transitórias e supressão. As Edge Functions
 envio fica em dry-run. Domínio próprio verificado continua sendo gate para
 envio real.
 
+### Console de provisionamento pré-piloto
+
+`/clientes/portal` é uma fila dedicada, alimentada por `portal_list_provisioning_console` (migration `196`) e com gestão inline reutilizada na ficha de Cliente. A RPC projeta dados completos para Administrativo, Documentação e Financeiro e apenas situação resumida para Operações.
+
 ## Fontes relacionadas
 
 - [`docs/README.md`](./README.md): mapa e autoridade documental;

@@ -99,6 +99,10 @@ Os testes abaixo foram inspecionados, mas não executados nesta cartografia, con
 
 **Runtime não executado.** Validação futura precisa registrar ambiente e dados controlados para: criar cliente e contatos; importar XLSX/CSV com duplicatas, erros e B/L retroativo; editar mestre e conferir `audit_logs`; provisionar/criar/resetar/desativar usuário Auth real; tentar ativação sem `auth_user_id`; excluir lote misto e conferir bloqueios, RLS, cascatas/SET NULL e auditoria.
 
+## Provisionamento do Portal
+
+O cabeçalho desta página é o ponto de entrada para `/clientes/portal`, com badge de Clientes aguardando análise. A ficha mantém resumo, botão “Gerenciar Portal” e deep link por ID; contatos continuam candidatos e não sincronizam o Email de Recuperação.
+
 ## Notas e divergências
 
 - **Suspeita — exportação não espelha integralmente a visão.** `handleExportBase` exporta todas as páginas filtradas, mas não reaplica a ordenação ativa, omite a cláusula de documento normalizado usada por `useCustomers` e `exportCustomerBaseWorkbook` grava a coluna Email vazia. Uma busca por documento formatado ou a expectativa de round-trip pode produzir arquivo diferente da tabela.

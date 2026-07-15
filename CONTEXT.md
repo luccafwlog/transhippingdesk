@@ -648,3 +648,6 @@ demurrage.
 
 **Notificação In-App**
 Mensagem exibida no Portal em resposta a eventos financeiros ou operacionais.
+
+**Provisionamento do Portal (pré-piloto)**
+O acesso operacional entra pelo cabeçalho de Clientes e mantém `/clientes/portal` como console dedicado. O console usa expansão inline, filtro Todos, deep links `?cliente={id}` e exportação XLSX. Candidatos são apenas sugestões e nunca alteram automaticamente o Email de Recuperação.

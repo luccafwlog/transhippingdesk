@@ -4,6 +4,10 @@
 
 ## Provisionamento operacional
 
+### Gate UX pré-piloto
+
+O console interno usa `/clientes/portal`, filtro Todos, expansão inline acessível, deep links por cliente e exportação XLSX. A leitura usa o read model protegido da migration `196`; Financeiro consulta tudo, Operações vê apenas o resumo e somente Administrativo/Documentação executam ações.
+
 O registro interno de Portal possui dois eixos independentes: `provisioning_decision`
 (`aguardando_analise`, `aprovado_para_provisionar` ou
 `provisionamento_nao_necessario`) e `account_situation` (`sem_conta`, convite,
