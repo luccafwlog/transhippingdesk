@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { comparePriority, effectiveSituation, type QueueRow } from '../portalProvisioning'
+import { describe, expect, it, vi } from 'vitest'
+import { comparePriority, effectiveSituation, listPortalProvisioningQueue, type QueueRow } from '../portalProvisioning'
+
+const rpc = vi.hoisted(() => vi.fn())
+vi.mock('../supabase', () => ({ supabase: { rpc } }))
 
 function row(partial: Partial<QueueRow>): QueueRow {
   return {
@@ -47,5 +50,23 @@ describe('comparePriority', () => {
 
   it('mantém provisionamento não necessário por último', () => {
     expect(comparePriority(row({ provisioning_decision: 'provisionamento_nao_necessario', hasOpenInvoice: true }), row({}))).toBeGreaterThan(0)
+  })
+})
+
+describe('listPortalProvisioningQueue', () => {
+  it('consulta o read model RPC e mapeia a projeção resumida', async () => {
+    rpc.mockResolvedValueOnce({ data: [{
+      account_id: 1, customer_id: 7, customer_name: 'Cliente', cnpj_cpf: '12345678000195',
+      provisioning_decision: 'aguardando_analise', account_situation: 'sem_conta',
+      recovery_email: null, recovery_email_source: null, pending_invite_expires_at: null,
+      latest_delivery_status: null, exception_reason: null, last_event_at: null,
+      has_critical_alert: false, has_open_invoice: false, has_active_process: false,
+      candidates: [], shared_email_count: 0,
+    }], error: null })
+
+    const result = await listPortalProvisioningQueue()
+
+    expect(rpc).toHaveBeenCalledWith('portal_list_provisioning_console', { p_customer_id: null })
+    expect(result[0]).toMatchObject({ recovery_email: null, candidates: [], sharedEmailCount: 0 })
   })
 })

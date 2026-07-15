@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useCustomerDetail } from '../hooks/useCustomers'
 import { usePortalProvisioningForCustomer } from '../hooks/usePortalProvisioning'
 import { PortalReviewPanel } from '../components/portal/PortalReviewPanel'
+import { accountSituationLabel, provisioningDecisionLabel, recoveryEmailSourceLabel, deliveryStatusLabel } from '../lib/portalProvisioningViewModel'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
 import { FINANCIAL_STATUS_LABELS, INVOICE_STATUS_LABELS, REVIEW_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
 import {
@@ -281,10 +282,20 @@ export function ClienteFicha() {
         <p className="mt-1 text-sm text-slate-400">
           Convites, ativação e suspensão são administrados na fila de provisionamento do Portal.
         </p>
-        {portalRow ? <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+        {portalRow ? <div className="hidden mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <div><div className="text-xs text-slate-500">Email de Recuperação</div><div>{portalRow.recovery_email ?? 'Não informado'}</div><div className="text-xs text-slate-500">{portalRow.recovery_email_source ?? '—'}</div></div>
-          <div><div className="text-xs text-slate-500">Situação</div><div>{portalRow.account_situation}</div></div>
-          <div><div className="text-xs text-slate-500">Decisão</div><div>{portalRow.provisioning_decision}</div></div>
+          <div><div className="text-xs text-slate-500">Situação</div><div>{accountSituationLabel(portalRow.account_situation)}</div></div>
+          <div><div className="text-xs text-slate-500">Decisão</div><div>{provisioningDecisionLabel(portalRow.provisioning_decision)}</div></div>
+        </div> : null}
+        {portalRow ? <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+          <div><div className="text-xs text-slate-500">Email de Recuperação</div><div>{portalRow.recovery_email ?? 'Não informado'}</div><div className="text-xs text-slate-500">{recoveryEmailSourceLabel(portalRow.recovery_email_source)}</div></div>
+          <div><div className="text-xs text-slate-500">Situação</div><div>{accountSituationLabel(portalRow.account_situation)}</div></div>
+          <div><div className="text-xs text-slate-500">Decisão</div><div>{provisioningDecisionLabel(portalRow.provisioning_decision)}</div></div>
+          <div><div className="text-xs text-slate-500">Entrega</div><div>{deliveryStatusLabel(portalRow.latestDeliveryStatus)}</div></div>
+          <div><div className="text-xs text-slate-500">Último evento</div><div>{portalRow.lastActivityAt ? formatDate(portalRow.lastActivityAt) : 'Não informado'}</div></div>
+          <div><div className="text-xs text-slate-500">Alerta crítico</div><div>{portalRow.hasCriticalAlert ? 'Sim' : 'Não'}</div></div>
+          <div><div className="text-xs text-slate-500">Email compartilhado</div><div>{portalRow.sharedEmailCount > 0 ? 'Sim' : 'Não'}</div></div>
+          {portalRow.exceptionReason ? <div className="sm:col-span-2"><div className="text-xs text-slate-500">Justificativa da exceção</div><div>{portalRow.exceptionReason}</div></div> : null}
         </div> : null}
         {portalOpen && portalRow ? <div className="mt-4 border-t border-[#30363d] pt-4"><PortalReviewPanel row={portalRow} variant="embedded" onSaved={() => void queryClient.invalidateQueries({ queryKey: ['portal-provisioning', 'customer', data.id] })} /></div> : null}
         <div className="mt-4">

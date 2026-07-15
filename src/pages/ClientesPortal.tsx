@@ -3,11 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Input } from '../components/ui/Input'
+import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
 import { comparePriority, type QueueRow } from '../services/portalProvisioning'
 import { PortalReviewPanel } from '../components/portal/PortalReviewPanel'
 import { accountSituationLabel, getPortalNextAction, provisioningDecisionLabel } from '../lib/portalProvisioningViewModel'
 import { exportPortalProvisioningWorkbook } from '../services/exports'
+import { formatCnpjCpf } from '../lib/utils'
 
 type Preset = 'todos' | 'aguardando_analise' | 'criticas' | 'sem_email' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'provisionamento_nao_necessario'
 const presets: Array<{ value: Preset; label: string }> = [
@@ -29,7 +31,7 @@ export function ClientesPortal() {
   const { data = [], isLoading, error, refetch } = usePortalProvisioning()
   const [search, setSearch] = useState('')
   const selectedCustomerId = Number(searchParams.get('cliente')) || null
-  const preset = (searchParams.get('filtro') as Preset) || 'todos'
+  const preset = (searchParams.get('filtro') as Preset) || 'aguardando_analise'
   const selected = data.find((row) => row.customer_id === selectedCustomerId)
   const rowRefs = useRef(new Map<number, HTMLButtonElement>())
   const rows = useMemo(() => data.filter((row) => {
@@ -43,6 +45,7 @@ export function ClientesPortal() {
     setSearchParams((current) => { const next = new URLSearchParams(current); update(next); return next }, { replace: true })
   }
   function selectPreset(value: Preset) { updateParams((next) => next.set('filtro', value)) }
+  function returnToQueue() { updateParams((next) => { next.delete('cliente'); next.set('filtro', 'todos') }) }
   function toggleRow(row: QueueRow) {
     updateParams((next) => next.get('cliente') === String(row.customer_id) ? next.delete('cliente') : next.set('cliente', String(row.customer_id)))
   }
@@ -54,6 +57,7 @@ export function ClientesPortal() {
 
   return (
     <>
+      <Breadcrumb items={[{ label: 'Clientes', to: '/clientes' }, { label: 'Provisionamento do Portal' }]} />
       <PageHeader title="Provisionamento do Portal" description="Fila operacional de análise, convites e situações do Portal." action={<Link className="text-sm text-cyan-300" to="/clientes">← Voltar para Clientes</Link>} />
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         {[['Total', data.length, 'todos'], ['Críticas', count((row) => row.hasCriticalAlert), 'criticas'], ['Aguardando análise', count((row) => row.provisioning_decision === 'aguardando_analise'), 'aguardando_analise'], ['Sem email', count((row) => !row.recovery_email && !row.candidates.length), 'sem_email'], ['Convites pendentes', count((row) => row.account_situation === 'convite_pendente'), 'convite_pendente'], ['Expirados', count((row) => row.account_situation === 'convite_expirado'), 'convite_expirado'], ['Falhas', count((row) => row.account_situation === 'falha_no_envio'), 'falha_no_envio'], ['Ativas', count((row) => row.account_situation === 'ativo'), 'ativo']].map(([label, value, filter]) => <button key={String(label)} type="button" className="text-left" onClick={() => selectPreset(filter as Preset)}><Card className="h-full"><div className="text-xs text-[var(--app-muted)]">{label}</div><div className="mt-1 text-2xl font-semibold">{value}</div></Card></button>)}
@@ -63,7 +67,7 @@ export function ClientesPortal() {
         <Input aria-label="Buscar cliente" className="ml-auto min-w-64" placeholder="Buscar razão social ou CNPJ" value={search} onChange={(event) => setSearch(event.target.value)} />
         <button type="button" className="app-tab" onClick={() => void exportPortalProvisioningWorkbook(rows)}>Exportar XLSX</button>
       </div>
-      {selected && !rows.some((row) => row.customer_id === selected.customer_id) ? <div className="mb-3 flex items-center justify-between rounded-lg border border-cyan-400/30 bg-cyan-400/5 px-3 py-2 text-sm">Cliente selecionado fora do filtro atual.<button type="button" className="text-cyan-300 underline" onClick={() => selectPreset('todos')}>Voltar para a fila</button></div> : null}
+      {selected && !rows.some((row) => row.customer_id === selected.customer_id) ? <div className="mb-3 flex items-center justify-between rounded-lg border border-cyan-400/30 bg-cyan-400/5 px-3 py-2 text-sm">Cliente selecionado fora do filtro atual.<button type="button" className="text-cyan-300 underline" onClick={returnToQueue}>Voltar para a fila</button></div> : null}
       {error ? <InlineError message="Erro ao carregar a fila do Portal." /> : null}
       <Card className="overflow-hidden p-0">
         <div className="app-table-scroll"><table className="app-table app-table--compact min-w-[900px] text-left text-sm"><thead><tr><th>Cliente</th><th>Situação</th><th>Decisão</th><th>Email de Recuperação</th><th>Alertas</th><th>Próxima ação</th></tr></thead><tbody>
@@ -72,8 +76,8 @@ export function ClientesPortal() {
           {visibleRows.map((row) => {
             const expanded = selectedCustomerId === row.customer_id
             return <Fragment key={row.customer_id}>
-              <tr className={expanded ? 'bg-cyan-400/10' : 'cursor-pointer'}>
-                <td className="px-4 py-3"><button ref={(element) => { if (element) rowRefs.current.set(row.customer_id, element) }} type="button" className="text-left" aria-expanded={expanded} onClick={() => toggleRow(row)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleRow(row) } }}><div className="font-medium">{row.customer_name}</div><div className="font-mono text-xs text-[var(--app-muted)]">{row.cnpj_cpf}</div></button></td>
+              <tr className={expanded ? 'bg-cyan-400/10' : 'cursor-pointer'} onClick={() => toggleRow(row)}>
+                <td className="px-4 py-3"><button ref={(element) => { if (element) rowRefs.current.set(row.customer_id, element) }} type="button" className="text-left" aria-expanded={expanded} onClick={(event) => { event.stopPropagation(); toggleRow(row) }}><div className="font-medium">{row.customer_name}</div><div className="font-mono text-xs text-[var(--app-muted)]">{formatCnpjCpf(row.cnpj_cpf)}</div></button></td>
                 <td className="px-4 py-3"><Badge tone={row.account_situation === 'ativo' ? 'green' : row.account_situation === 'falha_no_envio' ? 'red' : 'yellow'}>{accountSituationLabel(row.account_situation)}</Badge></td>
                 <td className="px-4 py-3">{provisioningDecisionLabel(row.provisioning_decision)}</td><td className="px-4 py-3">{row.recovery_email ?? (row.candidates[0]?.email ?? 'Sem email')}</td>
                 <td className="px-4 py-3">{row.hasCriticalAlert ? 'Crítico' : '—'}</td><td className="px-4 py-3">{getPortalNextAction(row)}</td>

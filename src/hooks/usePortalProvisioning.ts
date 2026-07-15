@@ -17,10 +17,10 @@ export function usePortalProvisioningForCustomer(customerId: number | null) {
   })
 }
 
-export function usePortalEvents(customerId: number | null) {
+export function usePortalEvents(customerId: number | null, enabled = true) {
   return useQuery({
     queryKey: [...PORTAL_PROVISIONING_QUERY_KEY, 'events', customerId],
-    enabled: Boolean(customerId),
+    enabled: Boolean(customerId) && enabled,
     queryFn: () => listPortalProvisioningEvents(customerId!),
   })
 }

@@ -433,8 +433,8 @@ export function Clientes() {
           <div className="text-sm text-[var(--app-muted)]">Revise convites, emails e situações dos Clientes.</div>
         </div>
         <Link to="/clientes/portal" className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400">
-          Acessar
-          <span aria-label="Clientes aguardando análise" className="rounded-full bg-slate-950/20 px-2 py-0.5 text-xs">{awaitingPortalAnalysis ?? ''}</span>
+          Provisionamento do Portal
+          {awaitingPortalAnalysis !== null ? <span aria-label="Clientes aguardando análise" className="rounded-full bg-slate-950/20 px-2 py-0.5 text-xs">{awaitingPortalAnalysis}</span> : null}
         </Link>
       </div>
 
