@@ -12,15 +12,15 @@ import { supabasePortal } from '../services/supabase'
 export function PortalProfile() {
   const profile = usePortalProfile()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [emailNotice, setEmailNotice] = useState('')
+  const { showToast } = useToast()
   useEffect(() => {
     const token = searchParams.get('confirm_email')
     if (!token) return
     void supabasePortal.functions.invoke('portal-recovery-email-change', { body: { action: 'confirm', token } }).then(({ error }) => {
-      setEmailNotice(error ? 'Não foi possível confirmar o novo email.' : 'Email de Recuperação atualizado com sucesso.')
+      showToast(error ? 'Não foi possível confirmar o novo email.' : 'Email de Recuperação atualizado com sucesso.', error ? 'error' : 'success')
       searchParams.delete('confirm_email'); setSearchParams(searchParams, { replace: true })
     })
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, showToast])
   const loadError = profile.error
     ? portalErrorMessage(profile.error, 'Falha ao carregar perfil. Tente novamente em instantes.')
     : ''
@@ -37,7 +37,6 @@ export function PortalProfile() {
             updateProfile={profile.updateProfile.mutateAsync}
             loadError={loadError}
             loadFailed={profile.isError}
-            emailNotice={emailNotice}
           />
         ) : (
           <div className="grid gap-4">
@@ -58,7 +57,6 @@ function PortalProfileForm({
   updateProfile,
   loadError,
   loadFailed,
-  emailNotice,
 }: {
   profile: PortalProfileData
   fallbackContactEmail: string
@@ -72,7 +70,6 @@ function PortalProfileForm({
   }) => Promise<unknown>
   loadError: string
   loadFailed: boolean
-  emailNotice: string
 }) {
   const { showToast } = useToast()
   const [contactEmail, setContactEmail] = useState(profile.contact_email ?? fallbackContactEmail)
@@ -173,7 +170,6 @@ function PortalProfileForm({
         <div className="mt-8 border-t border-[var(--app-border)] pt-5">
           <h2 className="text-lg font-semibold">Email de Recuperação</h2>
           <p className="mt-1 text-sm text-[var(--app-muted)]">O endereço atual permanece válido até a confirmação do novo.</p>
-          {emailNotice ? <p className="mt-2 text-sm text-emerald-400">{emailNotice}</p> : null}
           <form className="mt-4 grid gap-4" onSubmit={handleRecoveryEmailChange}>
             <Field label="Senha atual"><Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></Field>
             <Field label="Novo email"><Input type="email" value={newRecoveryEmail} onChange={(e) => setNewRecoveryEmail(e.target.value)} /></Field>

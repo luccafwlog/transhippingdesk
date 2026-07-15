@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateToken, hashToken } from '../_shared/portalToken.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
+import { revokePortalSessions } from '../_shared/revokePortalSessions.ts'
 import { withCors } from '../_shared/cors.ts'
 
 if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
@@ -36,10 +37,11 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
     if (!invite || invite.status !== 'pendente' || new Date(invite.expires_at).getTime() <= Date.now()) return new Response(JSON.stringify({ error: 'Link inválido ou expirado.' }), { status: 410 })
     const { data: consumed } = await admin.from('portal_invites').update({ status: 'consumido', consumed_at: new Date().toISOString() }).eq('id', invite.id).eq('status', 'pendente').select('id').maybeSingle()
     if (!consumed) return new Response(JSON.stringify({ error: 'Link inválido ou expirado.' }), { status: 410 })
-    const { data: account } = await admin.from('customer_portal_accounts').select('id, customer_id, pending_recovery_email, provisioning_decision, account_situation').eq('id', invite.account_id).single()
+    const { data: account } = await admin.from('customer_portal_accounts').select('id, customer_id, auth_user_id, pending_recovery_email, provisioning_decision, account_situation').eq('id', invite.account_id).single()
     if (!account?.pending_recovery_email) return new Response(JSON.stringify({ error: 'Link inválido ou expirado.' }), { status: 410 })
     await admin.from('customer_portal_accounts').update({ recovery_email: account.pending_recovery_email, pending_recovery_email: null, recovery_email_source: 'informado_manualmente' }).eq('id', account.id)
-    await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: account.provisioning_decision, p_prev_situation: account.account_situation, p_new_situation: account.account_situation, p_actor_type: 'cliente', p_reason: 'Email de recuperação confirmado pelo cliente', p_request_id: null })
+    if (account.auth_user_id) await revokePortalSessions(account.auth_user_id)
+    await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: account.provisioning_decision, p_prev_situation: account.account_situation, p_new_situation: account.account_situation, p_actor_type: 'cliente', p_reason: 'Email de recuperação confirmado pelo cliente; sessões anteriores encerradas', p_request_id: null })
     return new Response(JSON.stringify({ confirmed: true }), { status: 200 })
   }
   return new Response(JSON.stringify({ error: 'Dados inválidos.' }), { status: 422 })
