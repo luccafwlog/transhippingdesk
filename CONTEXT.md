@@ -319,7 +319,9 @@ aceito como identificador de login.
 **Email de Recuperação do Portal**
 Endereço usado para convites e recuperação de acesso. É separado da identidade
 de login, pode ser compartilhado por mais de um CNPJ e pode ser alterado sob as
-regras de segurança do Portal.
+regras de segurança do Portal. A confirmação da troca — seja pelo cliente
+(Portal → Perfil) ou de forma assistida por Documentação/Administrativo —
+encerra as sessões existentes, no mesmo racional da troca de senha.
 
 **Email candidato para o Portal**
 Endereço encontrado em um contato existente do Cliente e apresentado para
