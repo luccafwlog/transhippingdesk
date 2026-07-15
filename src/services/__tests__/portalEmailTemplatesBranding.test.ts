@@ -5,7 +5,6 @@ import {
   inviteTemplate,
   recoveryTemplate,
   resendTemplate,
-  // @ts-expect-error -- módulo Deno sem imports externos, importável diretamente em teste Node.
 } from '../../../supabase/functions/_shared/portalEmailTemplates.ts'
 
 const portalUrl = 'https://portal.transhippingdesk.com.br'
