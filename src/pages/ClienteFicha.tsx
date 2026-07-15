@@ -14,7 +14,6 @@ import { useAuth } from '../hooks/useAuth'
 import { useCustomerDetail } from '../hooks/useCustomers'
 import { usePortalProvisioningForCustomer } from '../hooks/usePortalProvisioning'
 import { PortalReviewPanel } from '../components/portal/PortalReviewPanel'
-import { accountSituationLabel, provisioningDecisionLabel, recoveryEmailSourceLabel, deliveryStatusLabel } from '../lib/portalProvisioningViewModel'
 import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
 import { FINANCIAL_STATUS_LABELS, INVOICE_STATUS_LABELS, REVIEW_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
 import {

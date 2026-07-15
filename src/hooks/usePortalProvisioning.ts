@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listPortalProvisioning, listPortalProvisioningEvents, listPortalProvisioningQueue, returnToAnalysis, setProvisioningException } from '../services/portalProvisioning'
+import { listPortalProvisioningEvents, listPortalProvisioningQueue, returnToAnalysis, setProvisioningException } from '../services/portalProvisioning'
 import { supabase } from '../services/supabase'
 
 export const PORTAL_PROVISIONING_QUERY_KEY = ['portal-provisioning'] as const
 
 export function usePortalProvisioning() {
-  return useQuery({ queryKey: PORTAL_PROVISIONING_QUERY_KEY, queryFn: listPortalProvisioningQueue })
+  return useQuery({ queryKey: PORTAL_PROVISIONING_QUERY_KEY, queryFn: () => listPortalProvisioningQueue() })
 }
 
 export function usePortalProvisioningForCustomer(customerId: number | null) {
@@ -60,7 +60,7 @@ export function useSendPortalInvite() {
 export function useCancelPortalInvite() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ customerId, reason }: { customerId: number; reason: string }) => supabase.rpc('portal_cancel_invite', { p_customer_id: customerId, p_reason: reason }),
+    mutationFn: async ({ customerId, reason }: { customerId: number; reason: string }) => { const { error } = await supabase.rpc('portal_cancel_invite', { p_customer_id: customerId, p_reason: reason }); if (error) throw error },
     onSuccess: (_, variables) => invalidatePortalQueries(queryClient, variables.customerId),
   })
 }
@@ -79,7 +79,7 @@ export function useSuspendPortalAccount() {
 export function useAssistedEmailChange() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ customerId, email, reason }: { customerId: number; email: string; reason: string }) => supabase.rpc('portal_assisted_email_change', { p_customer_id: customerId, p_new_email: email, p_reason: reason }),
+    mutationFn: async ({ customerId, email, reason }: { customerId: number; email: string; reason: string }) => { const { error } = await supabase.rpc('portal_assisted_email_change', { p_customer_id: customerId, p_new_email: email, p_reason: reason }); if (error) throw error },
     onSuccess: (_, variables) => invalidatePortalQueries(queryClient, variables.customerId),
   })
 }

@@ -26,25 +26,13 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const [email, setEmail] = useState(row.recovery_email ?? '')
   const [newCnpj, setNewCnpj] = useState(row.cnpj_cpf)
   const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy] = useState(false)
   const [error, setError] = useState('')
   const { data: events = [] } = usePortalEvents(row.customer_id)
   const sendInviteMutation = useSendPortalInvite()
   const cancelInviteMutation = useCancelPortalInvite()
   const suspendMutation = useSuspendPortalAccount()
   const assistedEmailMutation = useAssistedEmailChange()
-
-  async function invoke(name: string, body: Record<string, unknown>) {
-    setBusy(true); setError('')
-    try {
-      const { error: invokeError } = await supabase.functions.invoke(name, { body })
-      if (invokeError) throw invokeError
-      showToast('Ação do Portal concluída.', 'success')
-      onSaved?.()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível concluir a ação.')
-    } finally { setBusy(false) }
-  }
 
   async function sendInvite() {
     if (!email.trim()) return
