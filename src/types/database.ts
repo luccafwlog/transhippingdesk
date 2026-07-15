@@ -630,6 +630,8 @@ export type Database = {
       portal_recovery_check_rate_limit: { Args: { p_login: string }; Returns: boolean }
       portal_recovery_register_failure: { Args: { p_login: string }; Returns: undefined }
       portal_assisted_email_change: { Args: { p_customer_id: number; p_new_email: string; p_reason: string; p_request_id?: string | null }; Returns: undefined }
+      portal_list_provisioning_console: { Args: { p_customer_id?: number | null }; Returns: Json[] }
+      portal_list_provisioning_events: { Args: { p_customer_id: number; p_limit?: number | null }; Returns: PortalProvisioningEvent[] }
       portal_admin_change_cnpj: { Args: { p_customer_id: number; p_new_cnpj: string; p_reason: string }; Returns: undefined }
       portal_resolve_login: {
         Args: {

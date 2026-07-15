@@ -2,6 +2,8 @@ import { supabase } from './supabase'
 
 export type ProvisioningDecision = 'aguardando_analise' | 'aprovado_para_provisionar' | 'provisionamento_nao_necessario'
 export type AccountSituation = 'sem_conta' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'suspenso'
+export type RecoveryEmailSource = 'candidato' | 'informado_manualmente'
+export type PortalDeliveryStatus = 'aceito' | 'entregue' | 'bounce' | 'complaint' | 'falha_transitoria' | 'falha_permanente'
 
 export type PortalProvisioningRow = {
   account_id: number
@@ -11,7 +13,7 @@ export type PortalProvisioningRow = {
   provisioning_decision: ProvisioningDecision
   account_situation: AccountSituation
   recovery_email: string | null
-  recovery_email_source: 'candidato' | 'informado_manualmente' | null
+  recovery_email_source: RecoveryEmailSource | null
   pending_invite_expires_at: string | null
 }
 
@@ -28,17 +30,29 @@ export type QueueRow = PortalProvisioningRow & {
   lastActivityAt: string | null
   candidates: EmailCandidate[]
   sharedEmailCnpjs: string[]
+  sharedEmailCount: number
+  latestDeliveryStatus: PortalDeliveryStatus | null
+  exceptionReason: string | null
 }
 
-type ProvisioningQueryRow = {
-  id: number
+export type PortalProvisioningConsolePayload = {
+  account_id: number
   customer_id: number
+  customer_name: string
+  cnpj_cpf: string
   provisioning_decision: ProvisioningDecision
   account_situation: AccountSituation
   recovery_email: string | null
-  recovery_email_source: 'candidato' | 'informado_manualmente' | null
-  customers: { name?: string; cnpj_cpf?: string } | null
-  portal_invites: Array<{ expires_at: string; status: string; purpose: string }> | null
+  recovery_email_source: RecoveryEmailSource | null
+  pending_invite_expires_at: string | null
+  latest_delivery_status: PortalDeliveryStatus | null
+  exception_reason: string | null
+  last_event_at: string | null
+  has_critical_alert: boolean
+  has_open_invoice: boolean
+  has_active_process: boolean
+  candidates: EmailCandidate[]
+  shared_email_count: number
 }
 
 export function effectiveSituation(situation: AccountSituation, pendingInviteExpiresAt: string | null): AccountSituation {
@@ -61,71 +75,46 @@ export function comparePriority(a: QueueRow, b: QueueRow): number {
 }
 
 export async function listPortalProvisioning(customerId?: number): Promise<PortalProvisioningRow[]> {
-  let query = supabase.from('customer_portal_accounts').select(`id, customer_id, provisioning_decision, account_situation, recovery_email, recovery_email_source, customers(name, cnpj_cpf), portal_invites(expires_at, status, purpose)`).order('customer_id')
-  if (customerId !== undefined) query = query.eq('customer_id', customerId)
-  const { data, error } = await query
+  const { data, error } = await supabase.rpc('portal_list_provisioning_console', { p_customer_id: customerId ?? null })
   if (error) throw error
-  return ((data ?? []) as unknown as ProvisioningQueryRow[]).map((row) => {
-    const pending = (row.portal_invites ?? []).find((invite) => invite.status === 'pendente' && invite.purpose === 'convite')
-    return {
-      account_id: row.id,
-      customer_id: row.customer_id,
-      customer_name: row.customers?.name ?? '',
-      cnpj_cpf: row.customers?.cnpj_cpf ?? '',
-      provisioning_decision: row.provisioning_decision,
-      account_situation: effectiveSituation(row.account_situation, pending?.expires_at ?? null),
-      recovery_email: row.recovery_email,
-      recovery_email_source: row.recovery_email_source,
-      pending_invite_expires_at: pending?.expires_at ?? null,
-    }
-  })
+  return ((data ?? []) as unknown as PortalProvisioningConsolePayload[]).map(toBaseRow)
 }
 
-export async function listPortalProvisioningQueue(): Promise<QueueRow[]> {
-  const rows = await listPortalProvisioning()
-  if (!rows.length) return []
-  const ids = rows.map((row) => row.customer_id)
-  const [{ data: contacts }, { data: alerts }] = await Promise.all([
-    supabase.from('customer_contacts').select('customer_id, email, purpose').in('customer_id', ids).not('email', 'is', null),
-    supabase.from('alerts').select('type, status, entity_type, entity_id, created_at').eq('entity_type', 'customer').in('entity_id', ids.map(String)),
-  ])
-  const contactsByCustomer = new Map<number, typeof contacts>()
-  for (const contact of contacts ?? []) if (contact.customer_id !== null) contactsByCustomer.set(contact.customer_id, [...(contactsByCustomer.get(contact.customer_id) ?? []), contact])
-  const alertsByCustomer = new Map<number, typeof alerts>()
-  for (const alert of alerts ?? []) {
-    const customerId = Number(alert.entity_id)
-    if (Number.isInteger(customerId)) alertsByCustomer.set(customerId, [...(alertsByCustomer.get(customerId) ?? []), alert])
+function toBaseRow(row: PortalProvisioningConsolePayload): PortalProvisioningRow {
+  return {
+    account_id: row.account_id,
+    customer_id: row.customer_id,
+    customer_name: row.customer_name,
+    cnpj_cpf: row.cnpj_cpf,
+    provisioning_decision: row.provisioning_decision,
+    account_situation: effectiveSituation(row.account_situation, row.pending_invite_expires_at),
+    recovery_email: row.recovery_email,
+    recovery_email_source: row.recovery_email_source,
+    pending_invite_expires_at: row.pending_invite_expires_at,
   }
-  const enriched = rows.map((row) => {
-    const contacts = contactsByCustomer.get(row.customer_id) ?? []
-    const alerts = alertsByCustomer.get(row.customer_id) ?? []
-    const candidates = (contacts ?? []).flatMap((contact) => {
-      const purpose = contact.purpose as EmailCandidate['purpose']
-      return contact.email && ['geral', 'financeiro', 'operacional', 'faturamento'].includes(purpose)
-        ? [{ email: contact.email, purpose, origin: 'Contato do Cliente' }]
-        : []
-    })
-    const criticalTypes = new Set(['portal_excecao_critica_fatura', 'portal_convite_expirado', 'portal_falha_envio', 'portal_abuso_login'])
-    return {
-      ...row,
-      hasCriticalAlert: (alerts ?? []).some((alert) => alert.status !== 'closed' && criticalTypes.has(alert.type)),
-      hasOpenInvoice: (alerts ?? []).some((alert) => alert.status !== 'closed' && alert.type === 'portal_excecao_critica_fatura'),
-      hasActiveProcess: false,
-      lastActivityAt: (alerts ?? []).map((alert) => alert.created_at).filter(Boolean).sort().at(-1) ?? null,
-      candidates,
-      sharedEmailCnpjs: [],
-    } satisfies QueueRow
-  })
-  const byEmail = new Map<string, string[]>()
-  for (const row of enriched) {
-    if (!row.recovery_email) continue
-    const key = row.recovery_email.toLowerCase()
-    byEmail.set(key, [...(byEmail.get(key) ?? []), row.cnpj_cpf])
-  }
-  return enriched.map((row) => ({
-    ...row,
-    sharedEmailCnpjs: row.recovery_email ? (byEmail.get(row.recovery_email.toLowerCase()) ?? []).filter((cnpj) => cnpj !== row.cnpj_cpf) : [],
+}
+
+export async function listPortalProvisioningQueue(customerId?: number): Promise<QueueRow[]> {
+  const { data, error } = await supabase.rpc('portal_list_provisioning_console', { p_customer_id: customerId ?? null })
+  if (error) throw error
+  return ((data ?? []) as unknown as PortalProvisioningConsolePayload[]).map((row) => ({
+    ...toBaseRow(row),
+    hasCriticalAlert: row.has_critical_alert,
+    hasOpenInvoice: row.has_open_invoice,
+    hasActiveProcess: row.has_active_process,
+    lastActivityAt: row.last_event_at,
+    candidates: row.candidates ?? [],
+    sharedEmailCnpjs: [],
+    sharedEmailCount: row.shared_email_count ?? 0,
+    latestDeliveryStatus: row.latest_delivery_status,
+    exceptionReason: row.exception_reason,
   })).sort(comparePriority)
+}
+
+export async function listPortalProvisioningEvents(customerId: number, limit = 10) {
+  const { data, error } = await supabase.rpc('portal_list_provisioning_events', { p_customer_id: customerId, p_limit: limit })
+  if (error) throw error
+  return data ?? []
 }
 
 export async function runPreflight() {

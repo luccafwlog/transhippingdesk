@@ -18,6 +18,9 @@ function row(partial: Partial<QueueRow>): QueueRow {
     lastActivityAt: null,
     candidates: [],
     sharedEmailCnpjs: [],
+    sharedEmailCount: 0,
+    latestDeliveryStatus: null,
+    exceptionReason: null,
     ...partial,
   }
 }
