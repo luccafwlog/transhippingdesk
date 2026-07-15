@@ -25,7 +25,8 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (!invite) return response()
   const customer = account.customers as { name?: string; cnpj_cpf?: string } | null
   const d = customer?.cnpj_cpf?.replace(/\D/g, '') ?? ''
-  const template = recoveryTemplate({ companyName: customer?.name ?? 'sua empresa', cnpjMasked: d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***', recoveryUrl: `${Deno.env.get('PORTAL_URL') ?? ''}/portal/recuperar-senha?token=${encodeURIComponent(token)}`, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' })
+  const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
+  const template = recoveryTemplate({ companyName: customer?.name ?? 'sua empresa', cnpjMasked: d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***', recoveryUrl: `${portalUrl}/portal/recuperar-senha?token=${encodeURIComponent(token)}`, portalUrl, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' })
   await sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })
   return response()
 }))

@@ -32,7 +32,8 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   const { data: invite, error } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'convite', token_hash: tokenHash, sent_to_email: email, expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), status: 'pendente', created_by: callerUser.user?.id ?? null }).select('id').single()
   if (error || !invite) return json(500, { error: 'Não foi possível criar o convite.' }, origin)
   const customer = account.customers as { name?: string; cnpj_cpf?: string } | null
-  const templateInput = { companyName: customer?.name ?? 'sua empresa', cnpjMasked: maskCnpj(customer?.cnpj_cpf ?? ''), activationUrl: `${Deno.env.get('PORTAL_URL') ?? ''}/portal/ativar?token=${encodeURIComponent(token)}`, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' }
+  const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
+  const templateInput = { companyName: customer?.name ?? 'sua empresa', cnpjMasked: maskCnpj(customer?.cnpj_cpf ?? ''), activationUrl: `${portalUrl}/portal/ativar?token=${encodeURIComponent(token)}`, portalUrl, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' }
   const template = resend ? resendTemplate(templateInput) : inviteTemplate(templateInput)
   const sent = await sendPortalEmail({ admin, kind: resend ? 'reenvio' : 'convite', to: email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `convite:${invite.id}`, accountId: account.id, inviteId: invite.id })
   await admin.from('customer_portal_accounts').update({ recovery_email: email, recovery_email_source: body.recovery_email_source === 'informado_manualmente' ? 'informado_manualmente' : 'candidato', provisioning_decision: 'aprovado_para_provisionar', account_situation: sent.ok ? 'convite_pendente' : 'falha_no_envio' }).eq('id', account.id)
