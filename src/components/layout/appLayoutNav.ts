@@ -47,7 +47,6 @@ export const primaryNavItems: NavItem[] = [
   { to: '/painel', label: 'Painel', icon: Home },
   { to: '/viagens', label: 'Viagens', icon: Ship },
   { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/clientes/portal', label: 'Portal do Cliente', icon: ShieldCheck },
   { to: '/alertas', label: 'Alertas', icon: Bell },
 ]
 
