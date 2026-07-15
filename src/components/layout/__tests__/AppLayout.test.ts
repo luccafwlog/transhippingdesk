@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildFinancialNavItemsForCounts, getNavIndicator } from '../appLayoutNav'
+import { buildFinancialNavItemsForCounts, getNavIndicator, primaryNavItems } from '../appLayoutNav'
 
 describe('financial navigation badges', () => {
   it('prioriza Faturamento e usa alerta booleano para pendencias de faturamento', () => {
@@ -17,4 +17,8 @@ describe('financial navigation badges', () => {
     expect(items.find((item) => item.to === '/taxas-locais')?.badge).toBe(3)
     expect(getNavIndicator(items)).toEqual({ type: 'alert' })
   })
+})
+
+it('não expõe Portal do Cliente na navegação superior', () => {
+  expect(primaryNavItems.some((item) => item.to === '/clientes/portal')).toBe(false)
 })

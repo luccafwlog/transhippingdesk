@@ -13,6 +13,8 @@ import { formatDate } from '../lib/utils'
 import type { PortalDemurrageInvoice, PortalInvoiceSummary } from './portalBilling'
 import type { PortalOperationBL } from './portalOperation'
 import type { PortalFlatContainer } from '../lib/portalOperationViews'
+import type { QueueRow } from './portalProvisioning'
+import { portalProvisioningExportRow } from '../lib/portalProvisioningViewModel'
 
 // Neutraliza injeção de fórmula (CSV/Excel injection). Dados de células vêm de
 // arquivos de armador importados (não confiáveis): um valor iniciado por
@@ -112,6 +114,13 @@ export async function exportManifestWorkbook(rows: BLListItem[]) {
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, containerRows), 'Containers')
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, breakbulkRows), 'CargaSolta')
   XLSX.writeFile(workbook, `manifestos-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportPortalProvisioningWorkbook(rows: QueueRow[]): Promise<void> {
+  const XLSX = await import('@e965/xlsx')
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, rows.map(portalProvisioningExportRow)), 'Provisionamento')
+  XLSX.writeFile(workbook, 'portal-clientes.xlsx')
 }
 
 export async function exportContainerWorkbook(rows: ContainerListItem[]) {

@@ -59,6 +59,10 @@ Definidos em `firebase.json`:
 - **Injeção de fórmula em planilhas:** exports passam pelo sanitizador de `src/services/exports.ts`.
 - **Segredos de servidor** ficam **apenas** em env vars de Edge Functions, nunca no bundle do cliente.
 
+### Read model do Console
+
+A migration `196_portal_provisioning_console_read_model.sql` usa `SECURITY DEFINER` com `search_path` fixo, revoga `PUBLIC/anon` e restringe a RPC por perfil. Operações recebe apenas situação resumida; eventos são bloqueados para esse perfil e limitados entre 1 e 50 registros.
+
 ## Riscos de segurança monitorados
 
 - Dependência `xlsx` (SheetJS) com vulnerabilidade conhecida sem correção no npm — mitigada por limite de tamanho e acesso restrito a usuários autenticados. Ver [ROADMAP](../ROADMAP.md).

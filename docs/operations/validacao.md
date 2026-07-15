@@ -451,6 +451,10 @@ Functions.
 
 Integração Supabase não executada: ambiente controlado não configurado.
 
+### Gate UX pré-piloto do Portal
+
+Antes do piloto, aplicar migrations numeradas com `supabase db push`, confirmar a `196` no ambiente alvo e registrar comandos e resultados. Validar em desktop, notebook, mobile e teclado com a conta FWLOG, sem registrar PII. O gate só pode ser marcado após merge, deploy e validação de runtime aprovada.
+
 ### Limpeza desta execução
 
 Nenhum ID, usuário, B/L, container, invoice, pagamento, disputa, programação ou

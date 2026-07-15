@@ -19,6 +19,7 @@ import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary } from '../hooks/useCustomers'
+import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import {
   buildCustomerBillingUrl,
@@ -190,6 +191,8 @@ export function Clientes() {
   const [importingBase, setImportingBase] = useState(false)
   const { data, isLoading, error } = useCustomers(filters)
   const { data: summary } = useCustomerSummary(filters)
+  const { data: portalRows } = usePortalProvisioning()
+  const awaitingPortalAnalysis = portalRows?.filter((row) => row.provisioning_decision === 'aguardando_analise').length ?? null
 
   const totalPages = Math.ceil((data?.totalCount ?? 0) / filters.pageSize)
 
@@ -423,6 +426,17 @@ export function Clientes() {
           </div>
         }
       />
+
+      <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-cyan-400/30 bg-cyan-400/5 px-4 py-3">
+        <div>
+          <div className="font-semibold text-white">Provisionamento do Portal</div>
+          <div className="text-sm text-[var(--app-muted)]">Revise convites, emails e situações dos Clientes.</div>
+        </div>
+        <Link to="/clientes/portal" className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400">
+          Provisionamento do Portal
+          {awaitingPortalAnalysis !== null ? <span aria-label="Clientes aguardando análise" className="rounded-full bg-slate-950/20 px-2 py-0.5 text-xs">{awaitingPortalAnalysis}</span> : null}
+        </Link>
+      </div>
 
       <div className="mb-5 flex flex-col gap-4">
         <div>
