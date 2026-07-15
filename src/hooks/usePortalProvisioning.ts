@@ -12,7 +12,7 @@ export function usePortalProvisioningForCustomer(customerId: number | null) {
   return useQuery({
     queryKey: [...PORTAL_PROVISIONING_QUERY_KEY, 'customer', customerId],
     enabled: customerId !== null,
-    queryFn: () => listPortalProvisioning(customerId!),
+    queryFn: () => listPortalProvisioningQueue(customerId!),
     select: (rows) => rows[0],
   })
 }
