@@ -72,7 +72,7 @@ function layout(input: {
           <tr>
             <td style="padding:24px 32px 28px">
               <table role="presentation" width="100%" style="border-collapse:collapse;border-top:1px solid ${BORDER}"><tr><td style="padding-top:20px">
-                <p style="margin:0;font-size:12.5px;line-height:1.6;color:${MUTED}">Transhipping — Portal do Cliente. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:${escapeHtml(input.supportEmail)}" style="color:${NAVY};text-decoration:underline">${escapeHtml(input.supportEmail)}</a>.</p>
+                <p style="margin:0;font-size:12.5px;line-height:1.6;color:${MUTED}">Portal do Cliente — Transhipping. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:${escapeHtml(input.supportEmail)}" style="color:${NAVY};text-decoration:underline">${escapeHtml(input.supportEmail)}</a>.</p>
               </td></tr></table>
             </td>
           </tr>
