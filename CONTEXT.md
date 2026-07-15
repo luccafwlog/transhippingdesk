@@ -448,9 +448,11 @@ convites ou executar o rollback escalonado quando necessário.
 
 **Remetente transacional do Portal**
 Identidade usada nos emails de convite, reenvio, recuperação e alteração de
-email: `Portal do Cliente — Transhipping <portal@dominio-proprio>`, com
-`Reply-To` em `suporte@dominio-proprio`. O domínio próprio precisa estar
-verificado e com DNS configurado antes de envios a clientes reais.
+email: `Transhipping — Portal do Cliente <portal@dominio-proprio>` (a marca
+vem primeiro para sobreviver ao truncamento do nome do remetente em clientes
+de email), com `Reply-To` em `suporte@dominio-proprio`. O domínio próprio
+precisa estar verificado e com DNS configurado antes de envios a clientes
+reais.
 
 **Email de Convite do Portal**
 Mensagem transacional sem senha, token legível ou dados financeiros. Identifica
