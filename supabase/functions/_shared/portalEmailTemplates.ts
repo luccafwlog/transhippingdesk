@@ -19,6 +19,8 @@ function layout(input: {
   paragraphs: string[]
   button?: { label: string; url: string }
   identity?: { companyName: string; cnpjMasked: string }
+  rows?: { label: string; value: string; emphasize?: boolean }[]
+  list?: string[]
   portalUrl: string
   supportEmail: string
 }) {
@@ -35,6 +37,19 @@ function layout(input: {
           </td>
         </tr>
       </table>`
+    : ''
+
+  const rowsBox = input.rows?.length
+    ? `<table role="presentation" width="100%" style="margin:4px 0 24px;border-collapse:collapse;border:1px solid ${BORDER};border-radius:6px;overflow:hidden">
+        ${input.rows.map((row, index) => `<tr>
+          <td style="padding:10px 16px;font-size:13px;color:${MUTED};width:42%;${index > 0 ? `border-top:1px solid ${BORDER}` : ''}">${escapeHtml(row.label)}</td>
+          <td style="padding:10px 16px;font-size:${row.emphasize ? '17' : '14'}px;font-weight:${row.emphasize ? '700' : '600'};color:${row.emphasize ? GOLD : NAVY};${index > 0 ? `border-top:1px solid ${BORDER}` : ''}">${escapeHtml(row.value)}</td>
+        </tr>`).join('')}
+      </table>`
+    : ''
+
+  const listBox = input.list?.length
+    ? `<ul style="margin:0 0 20px;padding-left:20px;color:${INK};font-size:15px;line-height:1.7">${input.list.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
     : ''
 
   const cta = input.button
@@ -66,6 +81,8 @@ function layout(input: {
               <h1 style="margin:0 0 20px;font-size:21px;line-height:1.35;color:${NAVY};font-weight:700">${escapeHtml(input.title)}</h1>
               ${identityBox}
               ${body}
+              ${rowsBox}
+              ${listBox}
               ${cta}
             </td>
           </tr>
@@ -155,6 +172,61 @@ export function emailChangeAlertTemplate(i: { portalUrl: string; supportEmail: s
     html: layout({
       title: 'Solicitação de troca de email',
       paragraphs: ['Foi solicitada uma troca do Email de Recuperação da sua conta no Portal do Cliente.', 'Este endereço continua válido até que a troca seja confirmada no novo email.', 'Se você não reconhece esta ação, contate o suporte imediatamente.'],
+      portalUrl: i.portalUrl,
+      supportEmail: i.supportEmail,
+    }),
+  }
+}
+
+export function invoiceIssuedTemplate(i: { companyName: string; cnpjMasked: string; invoiceNumber: string; totalFormatted: string; dueDateFormatted: string; notes?: string | null; portalUrl: string; supportEmail: string }) {
+  const rows = [
+    { label: 'Fatura nº', value: i.invoiceNumber },
+    { label: 'Valor total', value: i.totalFormatted, emphasize: true },
+    { label: 'Vencimento', value: i.dueDateFormatted },
+    ...(i.notes ? [{ label: 'Observações', value: i.notes }] : []),
+  ]
+  const text = [`Nova fatura emitida para ${i.companyName} (CNPJ ${i.cnpjMasked}).`, `Fatura nº ${i.invoiceNumber} — ${i.totalFormatted}, vencimento ${i.dueDateFormatted}.`, '', `Acesse o Portal para consultar e pagar: ${i.portalUrl}`].join('\n')
+  return {
+    subject: `Fatura ${i.invoiceNumber} emitida — ${i.totalFormatted}`,
+    text,
+    html: layout({
+      title: 'Nova fatura emitida',
+      identity: { companyName: i.companyName, cnpjMasked: i.cnpjMasked },
+      paragraphs: ['Uma nova fatura foi emitida e já está disponível no Portal do Cliente.'],
+      rows,
+      button: { label: 'Acessar Portal e pagar com PIX', url: i.portalUrl },
+      portalUrl: i.portalUrl,
+      supportEmail: i.supportEmail,
+    }),
+  }
+}
+
+export function invoiceCriticalPendencyTemplate(i: { companyName: string; cnpjMasked: string; invoiceNumber: string; consoleUrl: string; portalUrl: string; supportEmail: string }) {
+  const text = [`Fatura ${i.invoiceNumber} emitida para ${i.companyName} (CNPJ ${i.cnpjMasked}) sem Portal ativo ou Email de Recuperação.`, `Abra o Console de Provisionamento: ${i.consoleUrl}`].join('\n')
+  return {
+    subject: `Ação necessária: fatura ${i.invoiceNumber} sem prontidão do Portal`,
+    text,
+    html: layout({
+      title: 'Pendência crítica de provisionamento',
+      identity: { companyName: i.companyName, cnpjMasked: i.cnpjMasked },
+      paragraphs: [`A fatura ${i.invoiceNumber} foi emitida, mas o Cliente não possui Portal ativo ou Email de Recuperação cadastrado.`, 'Revise e resolva a pendência no Console de Provisionamento.'],
+      button: { label: 'Abrir Console de Provisionamento', url: i.consoleUrl },
+      portalUrl: i.portalUrl,
+      supportEmail: i.supportEmail,
+    }),
+  }
+}
+
+export function dailyDigestTemplate(i: { date: string; failures: number; activity: number; pending: number; portalUrl: string; supportEmail: string }) {
+  const list = [`Falhas/supressões: ${i.failures}`, `Atividade de provisionamento: ${i.activity}`, `Convites pendentes: ${i.pending}`]
+  const text = [`Resumo do Portal — ${i.date}`, '', ...list].join('\n')
+  return {
+    subject: `Resumo do Portal — ${i.date}`,
+    text,
+    html: layout({
+      title: `Resumo do Portal — ${i.date}`,
+      paragraphs: ['Consolidado das últimas 24 horas de provisionamento do Portal do Cliente.'],
+      list,
       portalUrl: i.portalUrl,
       supportEmail: i.supportEmail,
     }),

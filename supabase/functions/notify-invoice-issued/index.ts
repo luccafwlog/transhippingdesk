@@ -17,6 +17,7 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { invoiceCriticalPendencyTemplate, invoiceIssuedTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 
 function maskCnpj(value: string | null): string {
@@ -34,15 +35,6 @@ function corsHeaders(origin: string | null): Record<string, string> {
     'Access-Control-Allow-Origin': allowed ? (origin ?? '') : '',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   }
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
 }
 
 type WebhookPayload = {
@@ -148,6 +140,12 @@ Deno.serve(async (req: Request) => {
       .eq('id', invoice.customer_id)
       .single()
 
+    const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
+    const supportEmail = Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br'
+    const companyName = customer?.name ?? 'cliente'
+    const cnpjMasked = maskCnpj(customer?.cnpj_cpf ?? null)
+    const invoiceNumber = String(invoice.invoice_number ?? invoice.id)
+
     const { data: portalAccount } = await supabase
       .from('customer_portal_accounts')
       .select('account_situation, recovery_email')
@@ -164,18 +162,16 @@ Deno.serve(async (req: Request) => {
       const internalEmails = (profiles ?? [])
         .map((profile) => users.data.users.find((user) => user.id === profile.id)?.email)
         .filter((email): email is string => Boolean(email))
-      const safeName = escapeHtml(customer?.name ?? '—')
-      const safeInvoice = escapeHtml(String(invoice.invoice_number ?? invoice.id))
-      const consoleUrl = `${Deno.env.get('PORTAL_URL') ?? ''}/clientes/portal?cliente=${invoice.customer_id}`
-      const criticalHtml = `<p>Fatura <strong>${safeInvoice}</strong> emitida para <strong>${safeName}</strong> sem Portal ativo ou Email de Recuperação.</p><p><a href="${consoleUrl}">Abrir Console de Provisionamento</a></p>`
+      const consoleUrl = `${portalUrl}/clientes/portal?cliente=${invoice.customer_id}`
+      const criticalTemplate = invoiceCriticalPendencyTemplate({ companyName, cnpjMasked, invoiceNumber, consoleUrl, portalUrl, supportEmail })
       for (const email of [...new Set(internalEmails)]) {
         await sendPortalEmail({
           admin: supabase,
           kind: 'alerta_critico',
           to: email,
-          subject: `Ação necessária: fatura ${safeInvoice} sem prontidão do Portal`,
-          html: criticalHtml,
-          text: `Fatura ${invoice.invoice_number ?? invoice.id} emitida para ${customer?.name ?? 'cliente'} sem Portal ativo ou Email de Recuperação. CNPJ: ${maskCnpj(customer?.cnpj_cpf ?? null)}. Abra ${consoleUrl}`,
+          subject: criticalTemplate.subject,
+          html: criticalTemplate.html,
+          text: criticalTemplate.text,
           idempotencyKey: `critico:fatura:${invoice.id}:${email.toLowerCase()}`,
         })
       }
@@ -198,48 +194,21 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
     const fmtBRL = (val: number | null) =>
       val != null ? val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
     const fmtDate = (d: string | null) =>
       d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
 
-    // Todos os campos de BD são escapados antes de serem inseridos no HTML
-    const safeCustomerName = escapeHtml(customer?.name ?? '—')
-    const safeInvoiceNumber = escapeHtml(String(invoice.invoice_number ?? invoice.id))
-    const safeNotes = invoice.notes ? escapeHtml(invoice.notes) : null
-
-    const htmlBody = `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family:sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:32px;">
-  <div style="max-width:560px;margin:0 auto;background:#1e293b;border-radius:12px;padding:32px;">
-    <h1 style="color:#38bdf8;margin:0 0 8px">Nova Fatura Emitida</h1>
-    <p style="color:#94a3b8;margin:0 0 24px">Transhipping Desk</p>
-
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-      <tr><td style="padding:8px 0;color:#94a3b8;width:40%">Cliente</td><td style="padding:8px 0;font-weight:600">${safeCustomerName}</td></tr>
-      <tr><td style="padding:8px 0;color:#94a3b8">Fatura nº</td><td style="padding:8px 0;font-weight:600;font-family:monospace">${safeInvoiceNumber}</td></tr>
-      <tr><td style="padding:8px 0;color:#94a3b8">Valor total</td><td style="padding:8px 0;font-weight:700;color:#4ade80;font-size:1.2em">${fmtBRL(invoice.total_brl)}</td></tr>
-      <tr><td style="padding:8px 0;color:#94a3b8">Vencimento</td><td style="padding:8px 0">${fmtDate(invoice.due_date)}</td></tr>
-      ${safeNotes ? `<tr><td style="padding:8px 0;color:#94a3b8">Observações</td><td style="padding:8px 0">${safeNotes}</td></tr>` : ''}
-    </table>
-
-    ${portalUrl ? `
-    <div style="text-align:center;margin:24px 0;">
-      <a href="${portalUrl}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;">
-        Acessar Portal e Pagar com PIX
-      </a>
-    </div>
-    ` : ''}
-
-    <p style="color:#64748b;font-size:0.85em;margin-top:24px;">
-      Este é um email automático do Transhipping Desk. Em caso de dúvidas, entre em contato com nossa equipe.
-    </p>
-  </div>
-</body>
-</html>`
+    const invoiceTemplate = invoiceIssuedTemplate({
+      companyName,
+      cnpjMasked,
+      invoiceNumber,
+      totalFormatted: fmtBRL(invoice.total_brl),
+      dueDateFormatted: fmtDate(invoice.due_date),
+      notes: invoice.notes,
+      portalUrl,
+      supportEmail,
+    })
 
     const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'noreply@transhippingdesk.com.br'
     const resendKey = Deno.env.get('RESEND_API_KEY')
@@ -260,8 +229,9 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         from: fromEmail,
         to: recipients,
-        subject: `Fatura ${invoice.invoice_number ?? invoice.id} emitida — ${fmtBRL(invoice.total_brl)}`,
-        html: htmlBody,
+        subject: invoiceTemplate.subject,
+        html: invoiceTemplate.html,
+        text: invoiceTemplate.text,
       }),
     })
 

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { dailyDigestTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 
 if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
@@ -17,12 +18,13 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   const counts = { failures: failures?.length ?? 0, activity: events?.length ?? 0, pending: pending?.length ?? 0 }
   if (counts.failures + counts.activity + counts.pending === 0) return new Response(JSON.stringify({ sent: 0 }), { status: 200 })
   const date = new Date().toISOString().slice(0, 10)
-  const text = `Resumo do Portal — ${date}\n\nFalhas/supressões: ${counts.failures}\nAtividade de provisionamento: ${counts.activity}\nConvites pendentes: ${counts.pending}`
-  const html = `<p>Resumo do Portal — ${date}</p><ul><li>Falhas/supressões: ${counts.failures}</li><li>Atividade: ${counts.activity}</li><li>Convites pendentes: ${counts.pending}</li></ul>`
+  const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
+  const supportEmail = Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br'
+  const template = dailyDigestTemplate({ date, failures: counts.failures, activity: counts.activity, pending: counts.pending, portalUrl, supportEmail })
   for (const user of users ?? []) {
     const { data: authUser } = await admin.auth.admin.getUserById(user.id)
     const email = authUser.user?.email
-    if (email) await sendPortalEmail({ admin, kind: 'resumo_diario', to: email, subject: `Resumo do Portal — ${date}`, html, text, idempotencyKey: `resumo:${date}:${email.toLowerCase()}` })
+    if (email) await sendPortalEmail({ admin, kind: 'resumo_diario', to: email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `resumo:${date}:${email.toLowerCase()}` })
   }
   return new Response(JSON.stringify({ sent: users?.length ?? 0 }), { status: 200 })
 })
