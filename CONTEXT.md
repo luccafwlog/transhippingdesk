@@ -303,6 +303,19 @@ auditoria é um evento do Histórico; nem todo evento do Histórico é uma audit
 Interface externa onde o cliente consulta painel, faturas, B/Ls, containers,
 notificações, disputas e perfil.
 
+**Provisionamento do Portal**
+Processo interno de analisar o Cliente, validar o Email de Recuperação do Portal,
+autorizar e enviar o Convite do Portal e acompanhar a ativação da Conta de
+Portal. Autorizar ou enviar o convite não torna o Cliente provisionado; o
+provisionamento só se conclui quando a Conta de Portal fica Ativa após a pessoa
+autorizada definir a senha.
+
+**Provisionamento autorizado**
+Decisão auditada de Documentação ou Administrativo que confirma o Email de
+Recuperação do Portal e inicia o envio do Convite do Portal na mesma operação.
+Pode coexistir com Ativação pendente, Convite expirado ou Falha no envio, pois a
+decisão da equipe e a situação da conta são dimensões diferentes.
+
 **Conta de Portal**
 Vínculo entre um Cliente e um usuário do Supabase Auth. Um cliente possui no
 máximo uma conta ativa provisionada internamente.
@@ -341,6 +354,13 @@ autorizada defina a senha da Conta de Portal. É de uso único, expira em 48 hor
 e não torna a conta ativa antes da definição da senha. Abrir o link apenas exibe
 a tela de ativação; o token só é consumido quando o cliente envia uma senha
 válida e a ativação conclui com sucesso.
+
+**Ativação pendente**
+Situação em que o envio do Convite do Portal foi aceito e existe um token válido,
+mas a pessoa autorizada ainda não concluiu a ativação definindo a senha. Não
+significa necessariamente que o email foi entregue ou aberto; entrega,
+bounce/rejeição e ativação são acompanhados separadamente. No armazenamento,
+essa situação mantém o código técnico `convite_pendente`.
 
 Na tela de ativação, a empresa é identificada pelo nome e por um CNPJ
 parcialmente mascarado, preservando os dois primeiros dígitos, a filial e os
@@ -556,7 +576,7 @@ sem Portal ativo.
 A pendência geral só é encerrada quando a Conta de Portal fica ativa após o
 cliente definir a senha ou quando a equipe registra a exceção formal
 Provisionamento não necessário no momento, sempre com justificativa. Convite
-enviado ou entregue continua como Aguardando ativação; expiração, bounce e
+enviado ou entregue continua como Ativação pendente; expiração, bounce e
 complaint permanecem críticos.
 
 O encerramento automático de uma exceção crítica não envia email unitário de
@@ -597,10 +617,6 @@ criar identidade Auth ou disparar qualquer email. A contagem de identidades Auth
 premissa operacional. Antes da escrita, um pré-voo somente leitura apresenta os
 totais encontrados de Clientes, registros de Portal, vínculos Auth e emails
 selecionados; divergência cancela a execução até confirmação do Administrador.
-
-**Convite pendente**
-Estado em que um convite foi enviado e ainda pode ser usado. A Conta de Portal
-continua inativa até o cliente concluir a ativação.
 
 **Convite expirado**
 Estado de um convite cujo prazo terminou sem ativação. Exige alerta para a
