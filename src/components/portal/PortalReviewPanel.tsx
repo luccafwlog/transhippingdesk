@@ -146,7 +146,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         <div className="mt-4 grid gap-3">
         <Field label="Justificativa para ações administrativas"><Textarea value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
         {row.account_situation === 'ativo' ? <p className="text-sm text-[var(--app-muted)]">Suspender encerra as sessões ativas do Cliente.</p> : null}
-        {row.account_situation === 'suspenso' ? <p className="text-sm text-[var(--app-muted)]">Reativar exige email, gera novo link e define nova senha para o Cliente.</p> : null}
+        {row.account_situation === 'suspenso' ? <p className="text-sm text-[var(--app-muted)]">Reativar devolve o cliente à fila de análise para um novo convite.</p> : null}
         {row.provisioning_decision === 'aguardando_analise' && row.account_situation === 'sem_conta' ? <p className="text-sm text-[var(--app-muted)]">A exceção exige confirmação e justificativa não vazia.</p> : null}
         <div className="flex flex-wrap gap-2">
           {row.account_situation === 'ativo' || row.account_situation === 'suspenso' ? <Button variant="secondary" onClick={() => void changeAccount(row.account_situation === 'ativo' ? 'suspend' : 'reactivate')} disabled={!canProvision || busy}>{row.account_situation === 'ativo' ? 'Suspender conta' : 'Reativar conta'}</Button> : null}
