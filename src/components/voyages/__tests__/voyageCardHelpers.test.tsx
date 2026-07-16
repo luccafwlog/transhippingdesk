@@ -8,8 +8,6 @@ import { collectVoyageManifestBatchRows, formatPolDeparture, type VoyageImportBa
 import type { Voyage } from '../voyageCardTypes'
 
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))
-vi.mock('../../shared/MercanteEdiModal', () => ({ MercanteEdiModal: () => null }))
-
 function makeBl(overrides: Partial<VoyageBl> = {}): VoyageBl {
   return {
     id: 'BL-001',
@@ -151,5 +149,6 @@ describe('VoyageManifestosTab', () => {
     expect(html).toContain('16/07/2026')
     expect(html).toContain('text-green-600')
     expect(html).toContain('font-medium')
+    expect(html).not.toContain('Gerar EDI Mercante')
   })
 })

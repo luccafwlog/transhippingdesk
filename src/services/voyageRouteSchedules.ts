@@ -1,4 +1,3 @@
-import type { ParsedManifest } from './manifestParser'
 import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
@@ -158,76 +157,6 @@ export async function listVoyagePodSchedulesByVoyageIds(voyageIds: number[]) {
 
   const data = await listScheduleAuditRowsByVoyageIds(POD_ENTITY_TYPE, voyageIds)
   return hydratePodSchedules(data)
-}
-
-export async function syncManifestPolEtdSchedules({
-  voyageId,
-  manifest,
-  changedBy,
-}: {
-  voyageId: number
-  manifest: ParsedManifest
-  changedBy: string
-}) {
-  if (!manifest.manifest_etd) return
-
-  const entityIds = Array.from(new Set(manifest.bls.map((bl) => buildVoyagePolEntityId(voyageId, bl.pol))))
-  const currentSchedules = await listVoyagePolSchedules(entityIds)
-
-  const inserts = entityIds
-    .map((entityId) => {
-      const currentEtd = currentSchedules.get(entityId)?.etd ?? null
-      if (currentEtd === manifest.manifest_etd) return null
-
-      return {
-        entity_type: POL_ENTITY_TYPE,
-        entity_id: entityId,
-        field_name: 'etd',
-        old_value: currentEtd,
-        new_value: manifest.manifest_etd,
-        changed_by: changedBy,
-        justification: 'ETD importado do manifesto por POL',
-      }
-    })
-    .filter(Boolean)
-
-  if (!inserts.length) return
-
-  const { error } = await supabase.from('audit_logs').insert(inserts)
-  if (error) throw error
-}
-
-export async function syncManifestPodLinked({
-  voyageId,
-  manifest,
-  changedBy,
-}: {
-  voyageId: number
-  manifest: ParsedManifest
-  changedBy: string
-}) {
-  const distinctPods = Array.from(new Set(manifest.bls.map((bl) => bl.pod).filter(Boolean))) as string[]
-  if (!distinctPods.length) return
-
-  const entityIds = distinctPods.map((pod) => buildVoyagePodEntityId(voyageId, pod))
-  const existingSchedules = await listVoyagePodSchedules(entityIds)
-
-  const inserts = entityIds
-    .filter((entityId) => existingSchedules.has(entityId) && existingSchedules.get(entityId)?.linked !== true)
-    .map((entityId) => ({
-      entity_type: POD_ENTITY_TYPE,
-      entity_id: entityId,
-      field_name: 'linked',
-      old_value: null,
-      new_value: 'true',
-      changed_by: changedBy,
-      justification: 'POD reconciliado automaticamente ao importar manifesto',
-    }))
-
-  if (!inserts.length) return
-
-  const { error } = await supabase.from('audit_logs').insert(inserts)
-  if (error) throw error
 }
 
 export async function saveVoyagePolSchedule({

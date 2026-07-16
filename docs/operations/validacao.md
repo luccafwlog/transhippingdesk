@@ -156,8 +156,9 @@ Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md
   POL resultam automaticamente na mais antiga, conforme a ADR 0025;
 - reconciliação com Baplie expõe divergências.
 
-O cenário legado de Manifesto CNTR permanece na suíte somente enquanto o código
-condenado pela ADR 0025 não for removido; não integra a ordem operacional vigente.
+As ações removidas de Manifesto CNTR e geração local de EDI Mercante permanecem
+cobertas por testes de ausência nas superfícies de Manifestos e Viagens. A RPC
+histórica do importador só será removida pela migration específica da Task 9.
 
 ### Carga solta
 

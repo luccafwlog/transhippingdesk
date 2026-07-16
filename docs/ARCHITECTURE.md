@@ -158,8 +158,8 @@ flowchart LR
 
 - Baplie entra em staging por viagem e pode alimentar Vazios de Importação.
 - Arquivos de B/L alimentam os B/Ls e cargas de container; Manifestos BB mantêm
-  seu fluxo próprio. A importação de Manifesto CNTR será removida conforme a
-  ADR 0025; enquanto o código legado existir, ele não é uma segunda autoridade.
+  seu fluxo próprio. A importação de Manifesto CNTR e a geração local de EDI
+  Mercante foram removidas conforme a ADR 0025.
 - Granito mantém tabelas próprias, integradas downstream.
 - Veículos são importados por planilha e vinculados a B/L/container.
 - CE Mercante e datas operacionais têm importadores específicos.

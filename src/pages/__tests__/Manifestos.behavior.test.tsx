@@ -68,3 +68,17 @@ it('filtra, pagina, seleciona e abre um B/L', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Próxima' }))
   expect(useBlsMock.mock.calls.at(-1)?.[0]).toMatchObject({ page: 2 })
 })
+
+it('nao oferece importacao de Manifesto CNTR nem geracao de EDI Mercante', () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <Manifestos />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  expect(screen.queryAllByRole('button', { name: 'Importar Manifesto CNTR' })).toHaveLength(0)
+  expect(screen.queryAllByRole('button', { name: 'Gerar EDI Mercante' })).toHaveLength(0)
+})

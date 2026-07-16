@@ -44,7 +44,7 @@ Cobranças em moeda estrangeira usam a cotação ROE obtida do Banco Central (`o
 
 ## Reconciliação de cliente (fuzzy matching)
 
-Na importação documental de container, o consignatário do B/L é casado contra a base de `customers` por CNPJ e por similaridade de nome. Match incerto entra em `customer_reconciliation_queue` em vez de vincular automaticamente. Ver [Clientes](../modules/clientes.md). O fluxo legado de Manifesto CNTR ainda existe no código, mas está condenado pela ADR 0025.
+Na importação documental de container, o consignatário do B/L é casado contra a base de `customers` por CNPJ e por similaridade de nome. Match incerto entra em `customer_reconciliation_queue` em vez de vincular automaticamente. Ver [Clientes](../modules/clientes.md). Conforme a ADR 0025, o arquivo de B/L é a fonte documental da carga de container; o importador de Manifesto CNTR foi removido do frontend.
 
 ## Confirmação de exclusões persistidas
 

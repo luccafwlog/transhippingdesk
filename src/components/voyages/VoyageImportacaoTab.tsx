@@ -84,7 +84,7 @@ export function VoyageImportacaoTab({
             voyageId={voyage.id}
             voyageLabel={voyageLabel}
             userId={userId}
-            types={['cntr', 'bb', 'vaziosImp', 'vehicles', 'baplie', 'blFreight']}
+            types={['bb', 'vaziosImp', 'vehicles', 'baplie', 'blFreight']}
           />
         </MetricSection>
       ) : null}

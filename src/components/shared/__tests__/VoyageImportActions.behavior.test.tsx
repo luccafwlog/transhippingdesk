@@ -35,7 +35,7 @@ function renderActions() {
       voyageId={7}
       voyageLabel="GREEN SANTOS / 14N"
       userId="user-1"
-      types={['cntr', 'bb', 'granite', 'baplie']}
+      types={['bb', 'granite', 'baplie']}
     />,
   )
 }
@@ -43,7 +43,7 @@ function renderActions() {
 it('US-223: renderiza as acoes de importacao rapida escopadas na viagem', () => {
   renderActions()
 
-  expect(screen.getByRole('button', { name: /Manifesto CNTR/ })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Manifesto CNTR/ })).toBeNull()
   expect(screen.getByRole('button', { name: /Manifesto BB/ })).toBeTruthy()
   expect(screen.getByRole('button', { name: /Manifesto Granito/ })).toBeTruthy()
   expect(screen.getByRole('button', { name: /Baplie EDI/ })).toBeTruthy()
