@@ -4,7 +4,7 @@ import { AlertTriangle, Download, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { formatDate } from '../../lib/utils'
 import type { VoyagePolSchedule } from '../../services/voyageRouteSchedules'
-import { collectVoyageManifestBatchRows, renderCeCoverage, type VoyageImportBatch } from './voyageCardHelpers'
+import { collectVoyageManifestBatchRows, formatPolDeparture, renderCeCoverage, type VoyageImportBatch } from './voyageCardHelpers'
 import type { EditingPolPayload, Voyage } from './voyageCardTypes'
 import { MercanteEdiModal } from '../shared/MercanteEdiModal'
 
@@ -115,7 +115,9 @@ export function VoyageManifestosTab({
               </thead>
               <tbody>
                 {manifestRows.length ? (
-                  manifestRows.map((row) => (
+                  manifestRows.map((row) => {
+                    const departure = formatPolDeparture(row.etd, row.atd)
+                    return (
                     <tr key={`${voyage.id}-manifest-${row.routeKey}`}>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
@@ -126,7 +128,7 @@ export function VoyageManifestosTab({
                         </div>
                         <div className="mt-0.5 text-xs text-[var(--app-muted)]">{row.filenames.join(' · ')}</div>
                       </td>
-                      <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                      <td className={`px-3 py-2${departure.isActual ? ' text-green-600 font-medium' : ''}`}>{formatDate(departure.value)}</td>
                       <td className="px-3 py-2">{row.blCount}</td>
                       <td className="px-3 py-2">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
                       <td className="px-3 py-2">
@@ -172,7 +174,8 @@ export function VoyageManifestosTab({
                         </div>
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-3 py-3 text-[var(--app-muted)]">

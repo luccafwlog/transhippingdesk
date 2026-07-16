@@ -1,8 +1,14 @@
+import { MemoryRouter } from 'react-router-dom'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { VoyageBl } from '../../../services/voyageSummaries'
-import { collectVoyageManifestBatchRows, type VoyageImportBatch } from '../voyageCardHelpers'
+import { buildVoyagePolEntityId } from '../../../services/voyageRouteSchedules'
+import { VoyageManifestosTab } from '../VoyageManifestosTab'
+import { collectVoyageManifestBatchRows, formatPolDeparture, type VoyageImportBatch } from '../voyageCardHelpers'
+import type { Voyage } from '../voyageCardTypes'
 
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))
+vi.mock('../../shared/MercanteEdiModal', () => ({ MercanteEdiModal: () => null }))
 
 function makeBl(overrides: Partial<VoyageBl> = {}): VoyageBl {
   return {
@@ -99,5 +105,51 @@ describe('collectVoyageManifestBatchRows', () => {
       ceTotal: 2,
       ceMaster: '25BR00481',
     })
+  })
+})
+
+describe('formatPolDeparture', () => {
+  it('retorna ATD como data real quando existe', () => {
+    expect(formatPolDeparture('2026-07-15', '2026-07-16')).toEqual({ value: '2026-07-16', isActual: true })
+  })
+
+  it('retorna ETD quando ATD nao existe sem quebrar com nulos', () => {
+    expect(formatPolDeparture('2026-07-15', null)).toEqual({ value: '2026-07-15', isActual: false })
+    expect(formatPolDeparture(null, null)).toEqual({ value: null, isActual: false })
+  })
+})
+
+describe('VoyageManifestosTab', () => {
+  it('mantem o titulo ETD e destaca ATD em verde quando conhecido', () => {
+    const voyage = {
+      id: 14,
+      voyage_number: '001',
+      vessel: { name: 'ALPHA' },
+      bls: [makeBl({ id: 'BL-001', ce_mercante: 'CE-001' })],
+    } as Voyage
+
+    const html = renderToStaticMarkup(
+      <MemoryRouter>
+        <VoyageManifestosTab
+          voyage={voyage}
+          voyageLabel="ALPHA / 001"
+          importBatches={[]}
+          polSchedules={new Map([
+            [buildVoyagePolEntityId(14, 'CNTAC'), { entityId: '14::CNTAC', voyageId: 14, pol: 'CNTAC', etd: '2026-07-15', atd: '2026-07-16', escalaNumber: null }],
+          ])}
+          routeCeMasters={undefined}
+          divergenceCount={0}
+          ceCoverage={{ filled: 1, total: 1 }}
+          estadoMeta={{ color: '#1f7a4d', bg: '#eef8f1', label: 'OK' }}
+          onEditPol={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(html).toContain('<th scope="col" class="px-3 py-2">ETD</th>')
+    expect(html).not.toContain('15/07/2026')
+    expect(html).toContain('16/07/2026')
+    expect(html).toContain('text-green-600')
+    expect(html).toContain('font-medium')
   })
 })
