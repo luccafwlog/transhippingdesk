@@ -28,7 +28,6 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const [email, setEmail] = useState(row.recovery_email ?? '')
   const [newCnpj, setNewCnpj] = useState(row.cnpj_cpf)
   const [reason, setReason] = useState('')
-  const [busy] = useState(false)
   const [error, setError] = useState('')
   const { data: events = [] } = usePortalEvents(row.customer_id, !isOperations)
   const sendInviteMutation = useSendPortalInvite()
@@ -37,6 +36,8 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const assistedEmailMutation = useAssistedEmailChange()
   const exceptionMutation = useSetProvisioningException()
   const returnToAnalysisMutation = useReturnToAnalysis()
+  const busy = sendInviteMutation.isPending || cancelInviteMutation.isPending || suspendMutation.isPending
+    || assistedEmailMutation.isPending || exceptionMutation.isPending || returnToAnalysisMutation.isPending
 
   async function sendInvite() {
     if (!email.trim()) return
@@ -60,7 +61,6 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
 
   async function changeAccount(action: 'suspend' | 'reactivate') {
     if (!reason.trim()) { setError('Informe a justificativa.'); return }
-    if (action === 'reactivate' && !email.trim()) { setError('Informe o email para gerar um novo link de ativação.'); return }
     try { await suspendMutation.mutateAsync({ customerId: row.customer_id, action, reason: reason.trim() }); showToast('Situação da conta atualizada.', 'success'); onSaved?.() }
     catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar a conta.') }
   }
@@ -71,9 +71,11 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
       const authorized = await confirm({ title: 'Confirmar exceção de provisionamento', message: 'Esta ação registra que o provisionamento não é necessário no momento. Confirme a justificativa para continuar.', confirmLabel: 'Registrar exceção' })
       if (!authorized) return
     }
-    if (action === 'exception') await exceptionMutation.mutateAsync({ customerId: row.customer_id, reason: reason.trim() })
-    else await returnToAnalysisMutation.mutateAsync({ customerId: row.customer_id, reason: reason.trim() })
-    showToast('Decisão do Portal atualizada.', 'success'); onSaved?.()
+    try {
+      if (action === 'exception') await exceptionMutation.mutateAsync({ customerId: row.customer_id, reason: reason.trim() })
+      else await returnToAnalysisMutation.mutateAsync({ customerId: row.customer_id, reason: reason.trim() })
+      showToast('Decisão do Portal atualizada.', 'success'); onSaved?.()
+    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar a decisão.') }
   }
 
   async function assistedEmailChange() {
