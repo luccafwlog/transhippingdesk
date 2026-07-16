@@ -4,8 +4,8 @@ import { supabase } from '../services/supabase'
 
 export const PORTAL_PROVISIONING_QUERY_KEY = ['portal-provisioning'] as const
 
-export function usePortalProvisioning() {
-  return useQuery({ queryKey: PORTAL_PROVISIONING_QUERY_KEY, queryFn: () => listPortalProvisioningQueue() })
+export function usePortalProvisioning(enabled = true) {
+  return useQuery({ queryKey: PORTAL_PROVISIONING_QUERY_KEY, queryFn: () => listPortalProvisioningQueue(), enabled })
 }
 
 export function usePortalProvisioningForCustomer(customerId: number | null) {
