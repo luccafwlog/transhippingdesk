@@ -121,6 +121,10 @@ change can affect them. Never execute the suspended reset script.
   protected; do not bypass the guard without explicit authorization.
 - Read `docs/README.md` before broad documentation or architecture changes.
 - Run `npm run docs:check` after changing Markdown, routes, ADRs, or playbooks.
+- After creating a pull request, do not auto-subscribe to its activity or
+  schedule recurring check-ins. Report that the PR was opened and stop. Only
+  watch/babysit a PR (webhook subscription + hourly check-ins) when the user
+  explicitly asks to monitor, watch, babysit, or autofix it.
 
 The executable repository is authoritative when a historical document differs
 from current behavior. Correct the living document and preserve the historical
