@@ -60,3 +60,8 @@
 - A regra de menor data impede que reimportacao posterior sobrescreva ATD canonico anterior.
 - O fluxo fica restrito ao Importar B/L e nao implementa Task 7 nem remove Manifesto CNTR.
 - Nao encontrei ambiguidade que exigisse `NEEDS_CONTEXT`.
+
+## Follow-up da revisao WS1 Task 6
+
+- Ajustada a rastreabilidade de `Importar B/L` em `docs/RASTREABILIDADE.md` para refletir o comportamento vigente do pos-confirmacao em `BlImportModal`: apos `confirmBlFreightImport`, o fluxo preserva `tryAutoIssueInvoice`, chama `ladenOnBoardAtd/applyLadenOnBoardAtd` para aplicar o menor ATD por Viagem+POL a partir de `Laden on Board` e invalida `voyage-pol-schedules` e `voyage-timeline`.
+- Nenhum codigo de producao foi alterado nesta correcao documental.
