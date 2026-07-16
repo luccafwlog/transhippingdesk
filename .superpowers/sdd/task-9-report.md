@@ -78,7 +78,7 @@ foi o teste de contrato SQL e a bateria local solicitada.
 ## Verificação
 
 - Focal: 1 arquivo, 2 testes aprovados.
-- `npm run docs:check`: aprovado — 148 Markdown files, 40 rotas e cobertura do
+- `npm run docs:check`: aprovado — 149 Markdown files, 40 rotas e cobertura do
   índice de ADRs verificados.
 - `npm run lint`: aprovado.
 - `npm test`: 246 arquivos aprovados, 1 ignorado; 1.035 testes aprovados, 9
