@@ -7,8 +7,8 @@
 
 ## Scope delivered
 
-- Added [`src/lib/consigneeName.ts`](/C:/Users/Lucca/Downloads/transhipping-desk2/src/lib/consigneeName.ts) with the short-name extractor for consignee blocks.
-- Added [`src/lib/__tests__/consigneeName.test.ts`](/C:/Users/Lucca/Downloads/transhipping-desk2/src/lib/__tests__/consigneeName.test.ts) covering the Task 3 contract.
+- Added [`src/lib/consigneeName.ts`](../../src/lib/consigneeName.ts) with the short-name extractor for consignee blocks.
+- Added [`src/lib/__tests__/consigneeName.test.ts`](../../src/lib/__tests__/consigneeName.test.ts) covering the Task 3 contract.
 
 ## TDD log
 

@@ -87,3 +87,8 @@ npm run docs:check
 - Confirmed reconciliation-by-name now receives the short consignee name through the existing preview flow.
 - Confirmed `consignee_block` still stores the full block and existing document fields remain unchanged.
 - Confirmed no unrelated files were edited for this task.
+
+## Follow-up after review
+
+- Cleared the WS1 Task 4 documentation gate by fixing the two repository-relative links in `.superpowers/sdd/task-3-report.md`.
+- No production code changed in this follow-up; the update was documentation-only.
