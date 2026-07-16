@@ -7,7 +7,12 @@ const { fromMock, updateMock } = vi.hoisted(() => ({
 
 vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
 
-import { deriveAutomaticVoyagePodCeStatus, saveVoyagePodSchedule } from '../voyageRouteSchedules'
+import {
+  deriveAutomaticVoyagePodCeStatus,
+  listVoyagePolSchedules,
+  saveVoyagePodSchedule,
+  saveVoyagePolSchedule,
+} from '../voyageRouteSchedules'
 
 beforeEach(() => {
   fromMock.mockReset()
@@ -74,4 +79,88 @@ it('nao reverte uma viagem cancelada quando o ATD muda', async () => {
   })
 
   expect(updateMock).not.toHaveBeenCalled()
+})
+
+it('hidrata o ATD mais recente ao listar schedules de POL', async () => {
+  const auditLogs = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        in: vi.fn(() => ({
+          order: vi.fn(() => ({
+            range: vi.fn(async () => ({
+              data: [
+                { entity_id: '12::CNSHA', field_name: 'atd', new_value: '2026-07-10', changed_at: '2026-07-10T12:00:00Z' },
+                { entity_id: '12::CNSHA', field_name: 'atd', new_value: '2026-07-09', changed_at: '2026-07-09T12:00:00Z' },
+                { entity_id: '12::CNSHA', field_name: 'etd', new_value: '2026-07-08', changed_at: '2026-07-08T12:00:00Z' },
+                { entity_id: '12::CNSHA', field_name: 'escala_number', new_value: '001', changed_at: '2026-07-07T12:00:00Z' },
+              ],
+              error: null,
+            })),
+          })),
+        })),
+      })),
+    })),
+  }
+
+  fromMock.mockImplementation((table: string) => {
+    expect(table).toBe('audit_logs')
+    return auditLogs
+  })
+
+  const schedules = await listVoyagePolSchedules(['12::CNSHA'])
+
+  expect(schedules.get('12::CNSHA')).toEqual({
+    entityId: '12::CNSHA',
+    voyageId: 12,
+    pol: 'CNSHA',
+    atd: '2026-07-10',
+    etd: '2026-07-08',
+    escalaNumber: '001',
+  })
+})
+
+it('grava audit row de ATD por POL sem quebrar callers antigos', async () => {
+  const insertMock = vi.fn(async () => ({ error: null }))
+  const auditLogs = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        in: vi.fn(() => ({
+          order: vi.fn(() => ({
+            range: vi.fn(async () => ({
+              data: [
+                { entity_id: '12::CNSHA', field_name: 'etd', new_value: '2026-07-08', changed_at: '2026-07-08T12:00:00Z' },
+              ],
+              error: null,
+            })),
+          })),
+        })),
+      })),
+    })),
+    insert: insertMock,
+  }
+
+  fromMock.mockImplementation((table: string) => {
+    expect(table).toBe('audit_logs')
+    return auditLogs
+  })
+
+  await saveVoyagePolSchedule({
+    voyageId: 12,
+    pol: 'CNSHA',
+    etd: '2026-07-08',
+    atd: '2026-07-10',
+    changedBy: 'user-1',
+  })
+
+  expect(insertMock).toHaveBeenCalledWith([
+    {
+      entity_type: 'voyage_pol_schedule',
+      entity_id: '12::CNSHA',
+      field_name: 'atd',
+      old_value: null,
+      new_value: '2026-07-10',
+      changed_by: 'user-1',
+      justification: 'Atualizacao manual de ATD por POL',
+    },
+  ])
 })

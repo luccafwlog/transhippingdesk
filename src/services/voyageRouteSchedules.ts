@@ -20,6 +20,7 @@ export type VoyagePolSchedule = {
   entityId: string
   voyageId: number
   pol: string
+  atd: string | null
   etd: string | null
   escalaNumber: string | null
 }
@@ -89,11 +90,14 @@ export async function listVoyagePolSchedules(entityIds: string[]) {
   const seenFieldsByEntity = new Map<string, Set<string>>()
 
   for (const row of data ?? []) {
-    if (row.field_name !== 'etd' && row.field_name !== 'escala_number') continue
+    if (row.field_name !== 'etd' && row.field_name !== 'escala_number' && row.field_name !== 'atd') continue
 
     const entityId = row.entity_id
     const current = schedules.get(entityId) ?? makeEmptyPolSchedule(entityId)
     const seenFields = seenFieldsByEntity.get(entityId) ?? new Set<string>()
+    if (row.field_name === 'atd' && !seenFields.has('atd')) {
+      current.atd = normalizeDateValue(row.new_value)
+    }
     if (row.field_name === 'etd' && !seenFields.has('etd')) {
       current.etd = normalizeDateValue(row.new_value)
     }
@@ -230,12 +234,14 @@ export async function saveVoyagePolSchedule({
   voyageId,
   pol,
   etd,
+  atd,
   escalaNumber,
   changedBy,
 }: {
   voyageId: number
   pol: string
   etd: string | null
+  atd?: string | null
   escalaNumber?: string | null
   changedBy: string | null
 }) {
@@ -243,6 +249,9 @@ export async function saveVoyagePolSchedule({
   const current = (await listVoyagePolSchedules([entityId])).get(entityId) ?? makeEmptyPolSchedule(entityId)
 
   const changes = [
+    atd === undefined
+      ? null
+      : makeAuditRow(POL_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, 'Atualizacao manual de ATD por POL'),
     makeAuditRow(POL_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POL'),
     escalaNumber === undefined
       ? null
@@ -553,6 +562,7 @@ function makeEmptyPolSchedule(entityId: string): VoyagePolSchedule {
     entityId,
     voyageId: Number(voyageId),
     pol: pol ?? '-',
+    atd: null,
     etd: null,
     escalaNumber: null,
   }
