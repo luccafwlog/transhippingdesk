@@ -368,7 +368,7 @@ de produção, webhook de email, deploy das Edge Functions e alinhamento remoto 
 migration `20260619190144` permanecem para inspeção controlada (ADR 0011/0013).
 # Provisionamento do Portal
 
-O gate pré-piloto adiciona a entrada no cabeçalho de Clientes, a expansão inline e o deep link `?cliente={id}`. A fila usa `portal_list_provisioning_console` (migrations `196` e `197`), eventos usam RPC dedicada e a planilha é produzida por `exportPortalProvisioningWorkbook`.
+O gate pré-piloto adiciona a entrada no cabeçalho de Clientes, a expansão inline e o deep link `?cliente={id}`. A fila usa `portal_list_provisioning_console` (migrations `196`, `197` e `198`); a `198` executa `portal_repair_missing_accounts()` antes da leitura. Eventos usam RPC dedicada e a planilha é produzida por `exportPortalProvisioningWorkbook`.
 
 | Rota/ação | Serviço/hook | Contrato de dados | Teste/evidência |
 |---|---|---|---|

@@ -6,7 +6,7 @@
 
 ### Gate UX pré-piloto
 
-O console interno usa `/clientes/portal`, filtro Todos, expansão inline acessível, deep links por cliente e exportação XLSX. A leitura usa o read model protegido pelas migrations `196` e `197`; Financeiro consulta tudo, Operações recebe a situação resumida e os booleanos `has_open_invoice`/`has_active_process`, e somente Administrativo/Documentação executam ações.
+O console interno usa `/clientes/portal`, filtro Todos, expansão inline acessível, deep links por cliente e exportação XLSX. A leitura usa o read model protegido pelas migrations `196`, `197` e `198`; antes da projeção, a migration `198` repara de forma idempotente Clientes sem `customer_portal_accounts` e registra evento de sistema. Financeiro consulta tudo, Operações recebe a situação resumida e os booleanos `has_open_invoice`/`has_active_process`, e somente Administrativo/Documentação executam ações.
 
 O registro interno de Portal possui dois eixos independentes: `provisioning_decision`
 (`aguardando_analise`, `aprovado_para_provisionar` ou
@@ -21,6 +21,12 @@ análise humana.
 `portal_set_exception`, `portal_return_to_analysis`, o pré-voo/backfill e o job
 `portal_mark_expired_invites`. A leitura do serviço também converte convite
 vencido em `convite_expirado` quando o job periódico está atrasado.
+
+`portal_repair_missing_accounts()` é uma função interna da migration `198`:
+cria apenas a linha inicial da fila para Clientes sem registro, sem Auth, convite,
+Email de Recuperação ou email transacional. A função não possui execução direta
+para `PUBLIC`, `anon` ou `authenticated`; o read model protegido a chama antes de
+retornar a fila.
 
 Ao inserir qualquer Cliente em `public.customers`, a migration `193` cria
 automaticamente seu registro em `customer_portal_accounts` com

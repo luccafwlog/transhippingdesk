@@ -61,7 +61,7 @@ Definidos em `firebase.json`:
 
 ### Read model do Console
 
-A migration `196_portal_provisioning_console_read_model.sql` usa `SECURITY DEFINER` com `search_path` fixo, revoga `PUBLIC/anon` e restringe a RPC por perfil. A migration corretiva `197_portal_provisioning_console_fixes.sql` torna o vínculo de alertas de invoice seguro para identificadores textuais e inclui `financial_status` nulo em `has_active_process`. Operações recebe a situação resumida e os booleanos `has_open_invoice`/`has_active_process`; eventos são bloqueados para esse perfil e limitados entre 1 e 50 registros.
+A migration `196_portal_provisioning_console_read_model.sql` usa `SECURITY DEFINER` com `search_path` fixo, revoga `PUBLIC/anon` e restringe a RPC por perfil. A migration corretiva `197_portal_provisioning_console_fixes.sql` torna o vínculo de alertas de invoice seguro para identificadores textuais e inclui `financial_status` nulo em `has_active_process`. A migration `198_portal_provisioning_queue_self_heal.sql` adiciona reparo idempotente antes da leitura, sem grants diretos e sem criação de credenciais. Operações recebe a situação resumida e os booleanos `has_open_invoice`/`has_active_process`; eventos são bloqueados para esse perfil e limitados entre 1 e 50 registros.
 
 ## Riscos de segurança monitorados
 

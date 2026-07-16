@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync('supabase/migrations/193_portal_account_on_customer_insert.sql', 'utf8')
+const sql198 = readFileSync('supabase/migrations/198_portal_provisioning_queue_self_heal.sql', 'utf8')
 
 describe('Portal customer auto-provisioning migration (193)', () => {
   it('creates the queue record securely after every customer insert', () => {
@@ -30,5 +31,17 @@ describe('Portal customer auto-provisioning migration (193)', () => {
     expect(sql).toMatch(/FROM public\.customer_portal_accounts(?: AS)? a/i)
     expect(sql).toMatch(/WHERE NOT EXISTS\s*\([\s\S]*a\.customer_id = c\.id/i)
     expect(sql).toContain('Reparo automático da conta de Portal para Cliente existente.')
+  })
+})
+
+describe('Portal queue self-healing migration (198)', () => {
+  it('repairs missing queue rows before reading the provisioning console', () => {
+    expect(sql198).toMatch(/CREATE OR REPLACE FUNCTION public\.portal_repair_missing_accounts\(\)/i)
+    expect(sql198).toMatch(/ON CONFLICT \(customer_id\) DO NOTHING/i)
+    expect(sql198).toContain("false, 'aguardando_analise', 'sem_conta'")
+    expect(sql198).toContain('Reparo automático da fila do Portal durante a leitura.')
+    expect(sql198).toMatch(/PERFORM public\.portal_repair_missing_accounts\(\);[\s\S]*RETURN QUERY/i)
+    expect(sql198).not.toMatch(/LANGUAGE plpgsql STABLE SECURITY DEFINER/i)
+    expect(sql198).toMatch(/REVOKE ALL ON FUNCTION public\.portal_repair_missing_accounts\(\)\s+FROM PUBLIC, anon, authenticated/i)
   })
 })

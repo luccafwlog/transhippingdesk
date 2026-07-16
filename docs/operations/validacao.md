@@ -455,7 +455,13 @@ Integração Supabase não executada: ambiente controlado não configurado.
 
 Antes do piloto, aplicar migrations numeradas pelo fluxo controlado do projeto, confirmar as migrations `196` e `197` no ambiente alvo e registrar comandos e resultados. Validar em desktop, notebook, mobile e teclado com a conta FWLOG, sem registrar PII. O gate só pode ser marcado após merge, deploy e validação de runtime aprovada.
 
-Confirmado via `mcp__Supabase__list_migrations` (projeto `fgmkhbzhaeebrsizwccx`, "Transhipping Desk") em 2026-07-16: a migration `197_portal_provisioning_console_fixes` está aplicada no ambiente, logo após a `196`.
+Confirmado via `mcp__Supabase__list_migrations` (projeto `fgmkhbzhaeebrsizwccx`, "Transhipping Desk") em 2026-07-16: as migrations `196_portal_provisioning_console_read_model` e `197_portal_provisioning_console_fixes` estão aplicadas no ambiente. A migration `198_portal_provisioning_queue_self_heal` preparada nesta execução repara lacunas antes da leitura e registra o evento de sistema sem criar Auth, convite ou email; após o deploy, registrar aqui a confirmação de aplicação.
+
+Para validar a integridade da fila, executar o pré-voo, confirmar os totais agregados,
+aplicar migrations com `supabase db push`, repetir o pré-voo e executar o backfill
+idempotente somente se ainda houver Clientes sem registro. A aceitação exige zero
+`customers_missing_record` e a fila `Todos` populada; nenhum CNPJ ou email deve ser
+registrado nas evidências.
 
 ### Limpeza desta execução
 
