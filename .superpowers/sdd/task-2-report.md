@@ -72,4 +72,4 @@
 ## Commit
 
 - `754ee85` — `feat: validacao navio/viagem do Importar B/L aceita aliases de prefixo`
-- `fc24642` — `test: cover voyage mismatch regression for vessel aliases`
+- `0b97f3a` — `test: cover voyage mismatch regression for vessel aliases`
