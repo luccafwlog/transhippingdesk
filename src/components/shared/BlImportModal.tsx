@@ -9,6 +9,7 @@ import {
   type BlFreightImportPreview,
   type BlFreightImportRow,
 } from '../../services/blFreightImport'
+import { applyLadenOnBoardAtd } from '../../services/ladenOnBoardAtd'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
@@ -115,10 +116,13 @@ export function BlImportModal({
     setSubmitting(true)
     try {
       await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling)
+      await applyLadenOnBoardAtd({ rows: preview.rows, changedBy: user?.id ?? null })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
       ])
       showToast(
         `Importacao de B/L concluida: ${importableCount} B/L(s), ${preview.summary.blockedCount} bloqueado(s).`,
@@ -207,12 +211,13 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
       </div>
 
       <div className="app-table-scroll max-h-80 rounded-xl border border-[var(--app-border)]">
-        <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
+        <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
           <thead>
             <tr>
               <th scope="col" className="px-3 py-2">B/L</th>
               <th scope="col" className="px-3 py-2">Status</th>
               <th scope="col" className="px-3 py-2">Viagem</th>
+              <th scope="col" className="px-3 py-2">Laden on Board</th>
               <th scope="col" className="px-3 py-2">Diferencas</th>
               <th scope="col" className="px-3 py-2">Bloqueios / Faturamento</th>
             </tr>
@@ -225,6 +230,7 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
                   <StatusPill status={row.status} />
                 </td>
                 <td className="px-3 py-2">{row.voyageId ?? '-'}</td>
+                <td className="px-3 py-2">{row.ladenOnBoard ?? '-'}</td>
                 <td className="px-3 py-2">
                   <DiffList row={row} />
                 </td>

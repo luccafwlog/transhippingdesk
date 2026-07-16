@@ -153,6 +153,20 @@ describe('blFreightImport', () => {
     expect(buildBlFreightPayload(invalid, 7).bl_emission_date).toBeNull()
   })
 
+  it('exposes normalized Laden on Board on preview rows without changing the RPC payload', () => {
+    const doc = parsedBL()
+    doc.dates.ladenOnBoard = '19/02/2026'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+    })
+
+    expect(preview.rows[0].ladenOnBoard).toBe('2026-02-19')
+    expect(preview.rows[0].payload).not.toHaveProperty('ladenOnBoard')
+    expect(preview.rows[0].payload).not.toHaveProperty('laden_on_board')
+  })
+
   it('normalizes port city names to UN/LOCODEs, keeping codes untouched', () => {
     const doc = parsedBL()
     doc.route.pol = 'CNSHA'
@@ -526,6 +540,7 @@ describe('blFreightImport', () => {
           status: 'new',
           existing: false,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: null,
           blockedReasons: [],
           billingImpacts: [],
@@ -538,6 +553,7 @@ describe('blFreightImport', () => {
           status: 'blocked',
           existing: true,
           voyageId: 7,
+          ladenOnBoard: null,
           consigneeDocumentMatches: null,
           blockedReasons: ['bloqueado'],
           billingImpacts: [],
@@ -583,6 +599,7 @@ describe('blFreightImport', () => {
           status: 'new',
           existing: false,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: null,
           blockedReasons: [],
           billingImpacts: [],
@@ -595,6 +612,7 @@ describe('blFreightImport', () => {
           status: 'new',
           existing: false,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: null,
           blockedReasons: [],
           billingImpacts: [],
@@ -621,6 +639,7 @@ describe('blFreightImport', () => {
           status: 'updated',
           existing: true,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: true,
           blockedReasons: [],
           billingImpacts: ['Quantidade de containers: 1 -> 2'],
@@ -633,6 +652,7 @@ describe('blFreightImport', () => {
           status: 'updated',
           existing: true,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: true,
           blockedReasons: [],
           billingImpacts: [],

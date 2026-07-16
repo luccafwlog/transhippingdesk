@@ -22,6 +22,8 @@ export type BlFreightImportRow = {
   status: 'new' | 'updated' | 'unchanged' | 'blocked'
   existing: boolean
   voyageId: number | null
+  /** Laden on Board normalizado para alimentar ATD do POL no pos-commit; nao vai no payload documental. */
+  ladenOnBoard: string | null
   consigneeDocumentMatches: boolean | null
   /** hard blocks that prevent importing the row at all (wrong file, missing voyage) */
   blockedReasons: string[]
@@ -254,6 +256,7 @@ export function buildBlFreightPreview({
       status,
       existing: Boolean(existing),
       voyageId,
+      ladenOnBoard: normalizeDate(doc.dates.ladenOnBoard),
       consigneeDocumentMatches,
       blockedReasons,
       billingImpacts: impact.messages,
