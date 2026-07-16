@@ -148,6 +148,8 @@ Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md
 
 - preview informa B/Ls, containers, alterações e erros;
 - importação transacional não deixa lote parcial;
+- reimportação do mesmo número de B/L é reconhecida como atualização (`existing`
+  + diff), não como duplicidade bloqueante;
 - cliente incerto entra em reconciliação;
 - bloqueio de cliente não é sobrescrito por “sem tabela”;
 - `Laden on Board` alimenta o ATD do POL e datas diferentes na mesma Viagem e

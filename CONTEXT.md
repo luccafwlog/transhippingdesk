@@ -4,7 +4,7 @@ Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
 negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
 aos ADRs.
 
-Verificado em 2026-06-24.
+Verificado em 2026-07-16.
 
 ## Operação marítima
 

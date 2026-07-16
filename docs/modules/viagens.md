@@ -108,8 +108,8 @@ POL/POD e exportação têm contratos diferentes:
 13. **Estado da escala é derivado.** ATB preenchido sem ATD significa escala `Atracada`; o preenchimento de ATD a marca automaticamente como `Concluída`. No Painel e no Line-Up TV, a linha atracada usa fonte verde, exceto os campos CEs e Linked, que preservam badges e cores próprios. Uma escala concluída deixa de receber esse destaque.
 14. **ETA é a coluna de chegada exibida.** Sem ATA, mostra ETA normalmente; com ATA, mostra a data real em verde na mesma coluna, ainda intitulada ETA. O indicador `Início do ciclo` do Line-Up TV segue a mesma precedência ATA sobre ETA.
 15. **A fronteira do ciclo acompanha a primeira escala.** No Line-Up TV, uma borda horizontal separa permanentemente a última escala da primeira na ordem, mesmo enquanto o carrossel se desloca. No mobile, aparece antes do card inicial; não é uma borda fixa no topo da viewport.
-11. **`billingStatus` é um proxy.** Apesar do nome `fetchVoyagesWithUnpaidBls`, a consulta atual identifica viagens com B/L cujo `charge_status != 'exempt'`; não comprova pagamento de invoice.
-12. **Omissao e distinta de exclusao.** `deleted=true` remove um POD do planejamento; `omitted=true` preserva a escala como evento operacional rastreavel, exclui a escala das derivacoes internas e do Portal, e abre disposicao por B/L (`transshipment` padrao ou `cod` excecao).
+16. **`billingStatus` é um proxy.** Apesar do nome `fetchVoyagesWithUnpaidBls`, a consulta atual identifica viagens com B/L cujo `charge_status != 'exempt'`; não comprova pagamento de invoice.
+17. **Omissao e distinta de exclusao.** `deleted=true` remove um POD do planejamento; `omitted=true` preserva a escala como evento operacional rastreavel, exclui a escala das derivacoes internas e do Portal, e abre disposicao por B/L (`transshipment` padrao ou `cod` excecao).
 
 ## Testes e validação
 
