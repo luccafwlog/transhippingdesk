@@ -126,9 +126,9 @@ shell; eventos aparecem em ordem coerente.
 ### Ordem integrada recomendada
 
 1. criar viagem;
-2. importar Baplie;
-3. importar manifesto CNTR;
-4. resolver divergências Baplie × Manifesto;
+2. importar B/L;
+3. importar Baplie;
+4. resolver divergências Baplie × B/L;
 5. importar veículos;
 6. importar CE Mercante e datas quando aplicável;
 7. revisar B/Ls;
@@ -144,14 +144,20 @@ Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md
 - vazios de importação são criados quando aplicável;
 - arquivo vazio, inválido ou grande demais falha antes de persistir.
 
-### Manifesto CNTR
+### B/L CNTR
 
-- preview informa B/Ls, containers e erros;
+- preview informa B/Ls, containers, alterações e erros;
 - importação transacional não deixa lote parcial;
-- duplicidade e hash seguem o contrato;
+- reimportação do mesmo número de B/L é reconhecida como atualização (`existing`
+  + diff), não como duplicidade bloqueante;
 - cliente incerto entra em reconciliação;
 - bloqueio de cliente não é sobrescrito por “sem tabela”;
+- `Laden on Board` alimenta o ATD do POL e datas diferentes na mesma Viagem e
+  POL resultam automaticamente na mais antiga, conforme a ADR 0025;
 - reconciliação com Baplie expõe divergências.
+
+O cenário legado de Manifesto CNTR permanece na suíte somente enquanto o código
+condenado pela ADR 0025 não for removido; não integra a ordem operacional vigente.
 
 ### Carga solta
 

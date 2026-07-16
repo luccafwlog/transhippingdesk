@@ -44,14 +44,22 @@ Cobranças em moeda estrangeira usam a cotação ROE obtida do Banco Central (`o
 
 ## Reconciliação de cliente (fuzzy matching)
 
-Na importação, o consignatário do manifesto é casado contra a base de `customers` por CNPJ e por similaridade de nome (`loadCustomerMaps` / `findMatchedCustomer`). Match incerto → entra em `customer_reconciliation_queue` em vez de vincular automaticamente. Ver [Clientes](../modules/clientes.md).
+Na importação documental de container, o consignatário do B/L é casado contra a base de `customers` por CNPJ e por similaridade de nome. Match incerto entra em `customer_reconciliation_queue` em vez de vincular automaticamente. Ver [Clientes](../modules/clientes.md). O fluxo legado de Manifesto CNTR ainda existe no código, mas está condenado pela ADR 0025.
 
-## Conciliação Baplie ↔ Manifesto
+## Confirmação de exclusões persistidas
+
+Toda ação que apaga ou remove um registro já persistido exige diálogo explícito
+de confirmação, mesmo sem B/Ls ou outras dependências. O diálogo identifica o
+objeto, informa consequências conhecidas e usa uma ação nominal como `Excluir`.
+Remover linha ainda não salva, limpar filtro, desfazer seleção ou cancelar edição
+não pertence a esse contrato.
+
+## Conciliação Baplie ↔ B/L
 
 - Match key: `container_number` + `voyage_id`. `bl_ref` do Baplie é sinal secundário, não critério de bloqueio.
-- **Divergência de existência** (container no Baplie sem B/L no manifesto) → aviso, sem bloqueio.
+- **Divergência de existência** (container no Baplie sem correspondência nos B/Ls) → aviso, sem bloqueio.
 - **Divergência de atributo** (status full/empty, IMO, OOG conflitantes) → aviso, com opção de aceitar valor do Baplie por linha.
-- O Baplie pode sobrescrever flags operacionais (`is_imo`, `imo_class`, `un_number`, `is_oog`, `status`); **dados financeiros** (consignatário, peso para billing) são protegidos e só o manifesto os define.
+- O Baplie pode sobrescrever flags operacionais (`is_imo`, `imo_class`, `un_number`, `is_oog`, `status`); dados documentais e financeiros vêm do B/L e permanecem protegidos.
 
 Detalhes em [Manifestos & EDI](../modules/manifesto-edi.md). Definições em [CONTEXT.md](../../CONTEXT.md).
 

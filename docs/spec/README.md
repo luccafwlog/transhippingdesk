@@ -16,6 +16,10 @@ the newest is canonical and older ones are historical snapshots.
 
 Current edition: **`2026-07-02-behavioral-spec.{csv,xlsx}`**.
 
+## Specs funcionais aprovadas
+
+- [Refinamento operacional de Viagens, Importações, Line-Up e Portal](refinamento-operacional-viagens-importacoes-lineup-portal.md)
+
 The CSV is edited by hand; the `.xlsx` is generated from it by
 [`../../scripts/build-behavioral-spec.mjs`](../../scripts/build-behavioral-spec.mjs).
 Regenerate the workbook after editing the CSV:

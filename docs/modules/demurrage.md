@@ -149,10 +149,12 @@ excluir para admin, conforme
   `recalculate_demurrage_invoices_manual` (autenticada). Um banner de staleness
   aparece quando há faturas aguardando pagamento e o último recálculo é anterior ao
   último dia útil.
-- **Câmbio de display é outro contrato:** o header usa
+- **Câmbio de display — divergência a remover:** o header ainda usa
   [`src/hooks/useExchangeRates.ts`](../../src/hooks/useExchangeRates.ts),
-  cache `header_ptax_display`, PTAX sem markup e derivação CNY. Esse valor não é
-  o ROE de emissão.
+  cache local, PTAX sem markup e derivação CNY. O desenho aprovado remove CNY e
+  faz o header interno apresentar PTAX Venda, ROE, data efetiva e atualização,
+  consumindo a mesma referência autoritativa do recálculo de demurrage. Não há
+  entrada manual no header; ela permanece em `/demurrage`.
 - **PIX:** o payload é montado por
   [`src/lib/pix.ts`](../../src/lib/pix.ts) com valor BRL e `doc_number` como
   TXID. A baixa de demurrage não cria `bl_receivables`,

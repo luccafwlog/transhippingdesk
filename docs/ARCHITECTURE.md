@@ -120,11 +120,11 @@ do módulo proprietário.
 flowchart LR
     Voyage["Viagem e escalas"]
     Baplie["Baplie EDI<br/>staging físico"]
-    Manifest["Manifestos<br/>CNTR e BB"]
+    Manifest["Documentos de carga<br/>B/L CNTR e Manifesto BB"]
     Granite["Granito"]
     Vehicles["Veículos"]
     Empty["Vazios"]
-    Reconcile["Conciliação<br/>Baplie × Manifesto"]
+    Reconcile["Conciliação<br/>Baplie × B/L"]
     Review["Revisão e<br/>cliente"]
     Charges["Taxas locais"]
     Ledger["Ledger local"]
@@ -157,8 +157,9 @@ flowchart LR
 ### Importações
 
 - Baplie entra em staging por viagem e pode alimentar Vazios de Importação.
-- Manifestos CNTR e BB alimentam B/Ls e suas cargas; o gate canônico de revisão
-  é aplicado aos IDs do novo lote antes do cálculo/faturamento.
+- Arquivos de B/L alimentam os B/Ls e cargas de container; Manifestos BB mantêm
+  seu fluxo próprio. A importação de Manifesto CNTR será removida conforme a
+  ADR 0025; enquanto o código legado existir, ele não é uma segunda autoridade.
 - Granito mantém tabelas próprias, integradas downstream.
 - Veículos são importados por planilha e vinculados a B/L/container.
 - CE Mercante e datas operacionais têm importadores específicos.
@@ -274,7 +275,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/portal/recuperar-senha` | Definição de nova senha |
 | `/portal/ativar` | Ativação de convite sem login automático |
 | `/clientes/portal` | Console operacional de provisionamento do Portal |
-| `/admin/portal-backfill` | Pré-voo e backfill administrativo do Portal |
+| `/admin/portal-backfill` | **Rota condenada:** backfill inicial concluído; remover interface e RPCs ativas, preservando apenas o histórico de migrations e o reparo interno vigente |
 
 ### Portal autenticado
 
@@ -293,7 +294,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/viagens` | Lista e seleção de viagens |
 | `/viagens/:voyageId` | Detalhe master-detail deep-linkável |
 | `/baplie` | Importação e conciliação Baplie |
-| `/manifestos` | Manifestos CNTR |
+| `/manifestos` | Lista de B/Ls CNTR; importação documental por arquivo de B/L |
 | `/manifestos/:blId` | Detalhe do B/L |
 | `/carga-solta` | Manifestos breakbulk |
 | `/containers` | Containers |

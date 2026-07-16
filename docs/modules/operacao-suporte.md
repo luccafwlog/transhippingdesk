@@ -35,6 +35,16 @@ Fontes de linguagem e arquitetura: `CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/a
 
 `src/components/layout/ProtectedRoute.tsx` trata loading, ausência de sessão, falta de perfil ativo e redirecionamento de não admin. `src/components/layout/AppLayout.tsx` monta badges com `useOperationalCounts`, mostra o menu Admin somente quando `isAdmin`, executa logout e navega para `/login`. `src/components/layout/HeaderInfoBar.tsx` repete o logout no menu do usuário, exibe role, câmbio e alertas resumidos de demurrage/Granite.
 
+O CNY não tem uso no sistema e deve ser removido do header, do tipo retornado
+por `useExchangeRates`, do cache e do cálculo aproximado baseado na constante
+`CNY_PER_USD = 7.25`. Como referência visual e funcional para o substituto, foi
+apresentado o header do Demurrage Manager: PTAX Venda, fórmula
+`PTAX × 1,065 = ROE`, valor calculado, data efetiva da cotação e ação de
+atualização. O header é informativo, não permite entrada manual e deve consumir
+a mesma referência cambial autoritativa do recálculo de demurrage, em vez de
+manter uma implementação paralela no navegador. A entrada manual permanece no
+módulo Demurrage.
+
 Esses filtros de UI são ergonomia e navegação. A autoridade continua em policies, triggers, grants, Edge Functions e RPCs; chamadas diretas à API não podem depender de menu oculto ou redirect. Evidências: `supabase/migrations/040_portal_login_rate_limit.sql`, `supabase/migrations/077_fix_user_profile_privilege_escalation.sql`, `supabase/migrations/014_lock_down_financial_reads_and_audit_writes.sql` e as migrations específicas do gate.
 
 ### `/painel`
@@ -48,6 +58,19 @@ Esses filtros de UI são ergonomia e navegação. A autoridade continua em polic
 Os KPIs vêm de leituras diretas a `bls`, `invoices`, `alerts` e `charge_tables`, mais a RPC `count_distinct_containers`. A query `['dashboard']` não possui refetch periódico próprio. O snapshot usa `['lineup-tv-v3']`, `staleTime` de 60 segundos e `refetchInterval` de 90 segundos.
 
 `src/services/lineup.ts` lê viagens ativas/concluídas/canceladas, B/Ls, containers, veículos, agendas por POD, agenda de exportação, vazios de importação e `audit_logs`. Containers são deduplicados por número, MTY é creditado apenas à primeira linha ordenada de cada viagem, CE é derivado como `approved | partial | missing` quando não há override da agenda, e a última alteração é o timestamp mais recente entre as fontes consultadas. `src/lib/lineupFilters.ts` aplica localmente busca por navio/viagem, status, período, CEs e filtros de presença com/sem (veículos, BB, Linked, MTY, RTW); exportações permanecem visíveis. O recorte permanece limitado às 60 viagens mais recentes, devendo ser paginado ou ampliado se o Painel precisar de histórico maior.
+
+O estado visual aprovado para uma linha de escala é derivado das datas reais:
+ATB sem ATD significa `Atracada` e deixa a fonte verde no Painel e no Line-Up
+TV; CEs e Linked preservam seus badges e cores próprios. Com ATD, a escala passa
+automaticamente a `Concluída` e perde o destaque de atracação. O código atual
+ainda não transporta ATB no snapshot nem aplica essa regra visual.
+
+Na coluna intitulada `ETA`, a apresentação aprovada usa ATA quando houver e,
+na ausência dela, ETA. ATA é exibida em verde sem mudar o título da coluna; se
+for removida por correção, a célula volta ao ETA. A mesma precedência `ATA → ETA`
+vale para a data do indicador `Início do ciclo` no Line-Up TV. Esse verde da
+data indica chegada efetiva e independe do verde da linha inteira, que exige
+ATB sem ATD. O código atual ainda lê apenas `row.eta` nesses pontos.
 
 ### `/revisao`
 
@@ -101,6 +124,14 @@ Há exportação XLSX para operacional, financeiro e clientes. A aba demurrage a
 - em desktop, dimensiona oito linhas visíveis e anima um carrossel quando há mais de nove linhas;
 - em touch/mobile, renderiza cards estáticos;
 - mantém placeholders quando há menos de oito linhas.
+
+No carrossel, a fronteira do ciclo deve permanecer visualmente presa à
+identidade da primeira escala ordenada: uma borda horizontal destacada aparece
+entre a última e a primeira escala, acompanhando ambas durante a animação. Ela
+não pertence a uma posição fixa da tela. No mobile, a borda equivalente aparece
+antes do card da primeira escala. A referência visual aprovada é a separação
+mostrada entre `GREEN SANTOS / 16` e `ZYHY JIN QU / 39`, mantendo também o texto
+`Início do ciclo` no cabeçalho.
 
 O display compartilha `fetchLineUpSnapshot` com o Painel, mas não compartilha a mesma cache key.
 
