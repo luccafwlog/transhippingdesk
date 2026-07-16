@@ -14,6 +14,10 @@ describe('extractConsigneeShortName', () => {
   it('reconhece EIRELI, EI, MEI, SLU, EPP, ME', () => {
     expect(extractConsigneeShortName('JOAO SILVA MEI TEL 27 99999')).toBe('JOAO SILVA MEI')
     expect(extractConsigneeShortName('BETA TRADE EIRELI\nBRASIL')).toBe('BETA TRADE EIRELI')
+    expect(extractConsigneeShortName('OMEGA IMPORTACAO EI AV BEIRA MAR 200')).toBe('OMEGA IMPORTACAO EI')
+    expect(extractConsigneeShortName('SIGMA LOGISTICA SLU\nVITORIA ES')).toBe('SIGMA LOGISTICA SLU')
+    expect(extractConsigneeShortName('ALFA TRADING EPP CEP 29000-000')).toBe('ALFA TRADING EPP')
+    expect(extractConsigneeShortName('BRAVO COMERCIAL ME TEL 27 3333-4444')).toBe('BRAVO COMERCIAL ME')
   })
 
   it('sem natureza juridica reconhecida usa a primeira linha nao vazia', () => {
