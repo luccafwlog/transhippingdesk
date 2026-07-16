@@ -218,7 +218,7 @@ export function invoiceCriticalPendencyTemplate(i: { companyName: string; cnpjMa
 }
 
 export function dailyDigestTemplate(i: { date: string; failures: number; activity: number; pending: number; portalUrl: string; supportEmail: string }) {
-  const list = [`Falhas/supressões: ${i.failures}`, `Atividade de provisionamento: ${i.activity}`, `Convites pendentes: ${i.pending}`]
+  const list = [`Falhas/supressões: ${i.failures}`, `Atividade de provisionamento: ${i.activity}`, `Ativação pendente: ${i.pending}`]
   const text = [`Resumo do Portal — ${i.date}`, '', ...list].join('\n')
   return {
     subject: `Resumo do Portal — ${i.date}`,

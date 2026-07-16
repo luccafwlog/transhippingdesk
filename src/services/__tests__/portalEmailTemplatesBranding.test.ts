@@ -92,7 +92,7 @@ describe('Identidade visual dos emails do Portal', () => {
     const { html, text } = dailyDigestTemplate({ date: '2026-07-15', failures: 2, activity: 14, pending: 5, portalUrl, supportEmail })
     expect(html).toContain('Falhas/supressões: 2')
     expect(html).toContain('Atividade de provisionamento: 14')
-    expect(html).toContain('Convites pendentes: 5')
+    expect(html).toContain('Ativação pendente: 5')
     expect(html).not.toContain('CNPJ')
     expect(text).toContain('Resumo do Portal — 2026-07-15')
   })

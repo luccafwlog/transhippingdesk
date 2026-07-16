@@ -26,4 +26,8 @@ describe('ClientesPortal', () => {
     expect(screen.getByRole('button', { name: 'Aguardando análise' })).toBeTruthy()
     expect(screen.getByText('Cliente Portal')).toBeTruthy()
   })
+  it('usa Ativação pendente no filtro e no indicador da fila', () => {
+    render(<MemoryRouter><ClientesPortal /></MemoryRouter>)
+    expect(screen.getAllByRole('button', { name: 'Ativação pendente' })).toHaveLength(2)
+  })
 })
