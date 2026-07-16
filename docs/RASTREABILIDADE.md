@@ -368,11 +368,11 @@ de produção, webhook de email, deploy das Edge Functions e alinhamento remoto 
 migration `20260619190144` permanecem para inspeção controlada (ADR 0011/0013).
 # Provisionamento do Portal
 
-O gate pré-piloto adiciona a entrada no cabeçalho de Clientes, a expansão inline e o deep link `?cliente={id}`. A fila usa `portal_list_provisioning_console` (migration `196`), eventos usam RPC dedicada e a planilha é produzida por `exportPortalProvisioningWorkbook`.
+O gate pré-piloto adiciona a entrada no cabeçalho de Clientes, a expansão inline e o deep link `?cliente={id}`. A fila usa `portal_list_provisioning_console` (migrations `196` e `197`), eventos usam RPC dedicada e a planilha é produzida por `exportPortalProvisioningWorkbook`.
 
 | Rota/ação | Serviço/hook | Contrato de dados | Teste/evidência |
 |---|---|---|---|
-| Fila de provisionamento | `listPortalProvisioning`, `usePortalProvisioning` | `customer_portal_accounts`, `portal_invites` | `src/services/__tests__/portalProvisioning.test.ts` |
+| Fila de provisionamento | `listPortalProvisioningQueue`, `usePortalProvisioning` | `customer_portal_accounts`, `portal_invites` | `src/services/__tests__/portalProvisioning.test.ts` |
 | Pendência geral/exceção crítica do Portal | triggers `portal_refresh_general_pendencies`, `portal_invoice_exception_on_issue/close` | `alerts`, `bls`, `invoices`, `customer_portal_accounts` | migrations 188–190; `reviewGatePortalDecouplingMigration.test.ts` |
 | Exceção e retorno à análise | `useSetProvisioningException`, `useReturnToAnalysis` | `portal_set_exception`, `portal_return_to_analysis` | migrations `179`/`180` |
 | Pré-voo e backfill | `runPreflight`, `runBackfill` | `portal_provisioning_preflight`, `portal_provisioning_backfill` | migration `180` |

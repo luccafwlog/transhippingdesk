@@ -453,7 +453,7 @@ Integração Supabase não executada: ambiente controlado não configurado.
 
 ### Gate UX pré-piloto do Portal
 
-Antes do piloto, aplicar migrations numeradas com `supabase db push`, confirmar a `196` no ambiente alvo e registrar comandos e resultados. Validar em desktop, notebook, mobile e teclado com a conta FWLOG, sem registrar PII. O gate só pode ser marcado após merge, deploy e validação de runtime aprovada.
+Antes do piloto, aplicar migrations numeradas pelo fluxo controlado do projeto, confirmar as migrations `196` e `197` no ambiente alvo e registrar comandos e resultados. Validar em desktop, notebook, mobile e teclado com a conta FWLOG, sem registrar PII. O gate só pode ser marcado após merge, deploy e validação de runtime aprovada.
 
 ### Limpeza desta execução
 
