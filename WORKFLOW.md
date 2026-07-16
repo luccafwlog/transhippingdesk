@@ -323,7 +323,7 @@ Regras mínimas:
 
 Parsers existentes são referências, não contratos universais:
 
-- `manifestParser.ts` e `manifestImport.ts`: manifesto CNTR;
+- `manifestParser.ts` e `manifestImport.ts`: legado de manifesto CNTR, condenado pela ADR 0025 e mantido na matriz somente até sua remoção;
 - `breakbulkImport.ts`: carga solta;
 - `baplieParser.ts` e `baplieImport.ts`: EDI e staging;
 - `vehicleImport.ts`: veículos;

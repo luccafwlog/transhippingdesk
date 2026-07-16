@@ -12,32 +12,96 @@ Verificado em 2026-06-24.
 Unidade principal da operação: um navio identificado por número de viagem e
 acompanhado em suas escalas, agendas e cargas.
 
+**Viagem Cancelada**
+Viagem que não será mais realizada pelo armador, embora tenha sido cadastrada
+ou programada. O cancelamento preserva seus registros e vínculos para
+rastreabilidade; não é conclusão nem exclusão.
+
+**Alias de Nome de Navio**
+Prefixo abreviado reconhecido como equivalente ao prefixo canônico do nome do
+navio, sem alterar o nome exibido ou cadastrado. `ZYHY` equivale a
+`ZHONG YUAN HAI YUN`; `CS` e `C.S.` equivalem a `COSCO SHIPPING`. A equivalência
+é bidirecional, exige o alias como prefixo completo separado do restante do nome
+e não dispensa a igualdade do número da viagem.
+
 **Escala portuária**
 Passagem de uma viagem por um porto ou terminal, com datas operacionais,
 identificadores e vínculos documentais próprios.
+
+**Próxima Escala**
+POD não omitido, com ETA informado e ainda sem ATA, que possui o menor ETA entre
+as escalas pendentes da Viagem. Um ETA já vencido não retira a escala dessa
+posição; ela permanece como Próxima Escala com a indicação “ETA vencido — ATA
+pendente”.
+
+**Linha do Tempo da Viagem**
+Histórico operacional dos acontecimentos da Viagem, sem eventos financeiros.
+Importações de B/L são consolidadas por rota, com quantidade, POL e POD; omissões
+de escala informam o POD omitido, o Porto de Transbordo e o motivo quando houver.
+Alterações editoriais de terminologia não são acontecimentos da Viagem e não
+integram sua linha do tempo.
 
 **Omissao de Escala**
 Evento operacional em que o armador nao realiza a escala prevista em um POD. A
 carga afetada e descarregada em outro porto da mesma viagem para seguir em
 transbordo ou ser convertida em COD. Nao calcula nem automatiza financeiro.
 
-**Porto de Descarga**
-Porto onde a carga de uma escala omitida e efetivamente descarregada. Pode ser
-diferente do POD original do B/L.
+**Porto de Transbordo**
+Porto onde a carga de uma escala omitida é efetivamente descarregada para seguir
+em transbordo ou receber COD. Pode ser diferente do POD original do B/L.
 
 **Transbordo**
-Seguimento da carga em navio de terceiro apos omissao de escala. No sistema, o
-navio/armador/viagem de transbordo sao referencia operacional leve por B/L, nao
-uma nova Viagem.
+Seguimento da carga em navio de terceiro apos omissao de escala. Porto, navio,
+armador, viagem, ETD e ETA de transbordo formam um registro global da omissao,
+compartilhado pelos B/Ls afetados e complementado progressivamente conforme as
+informacoes se tornam conhecidas. Esses dados sao referencia operacional leve,
+nao uma nova Viagem; COD permanece uma excecao individual por B/L.
+
+O registro global e mantido na Viagem. Cada B/L afetado exibe os dados herdados
+para consulta e conserva apenas sua acao individual de COD. Alteracoes do
+registro global integram a Linha do Tempo da Viagem e o Historico dos B/Ls
+afetados.
+
+No Portal, a omissao gera uma notificacao e o COD gera outra para o B/L
+especifico. Os dados globais vigentes permanecem visiveis em Informacoes de
+Transbordo; complementos posteriores atualizam esse card sem criar uma nova
+notificacao a cada edicao.
 
 **COD (Change of Destination)**
-Alteracao operacional do destino final do B/L para o Porto de Descarga apos
+Alteracao operacional do destino final do B/L para o Porto de Transbordo apos
 omissao de escala. E uma excecao por B/L e mantem efeitos financeiros manuais.
 
 **Rota da Viagem**
-Sequência de portos de uma viagem: portos de carregamento (POL) com seus ETDs e
-portos de descarga (POD) com seus ETA/ETB/ATA/ATD. É o dado que o sistema
-operacional consome — manifestos e B/Ls referenciam esses mesmos portos.
+Sequência de portos de uma viagem. Cada escala pode registrar o ciclo completo:
+ETA/ATA para chegada, ETB/ATB para atracação e ETD/ATD para saída. É o dado que o sistema
+operacional consome — B/Ls e demais documentos de carga referenciam esses
+mesmos portos.
+
+**ATB (Actual Time of Berthing)**
+Data e hora efetivas em que a embarcação atracou na escala. É distinta de ATA,
+que registra a chegada, e de ETB, que registra a previsão de atracação.
+
+**ATD (Actual Time of Departure)**
+Data e hora efetivas em que a embarcação saiu da escala. É distinta de ETD,
+que permanece a previsão de saída.
+
+**Estado da Escala**
+Estado operacional derivado das datas reais, não um status manual independente.
+Com ATB e sem ATD, a escala está `Atracada`; ao receber ATD, passa
+automaticamente a `Concluída`. A conclusão de uma escala não implica, sozinha,
+a conclusão da Viagem.
+
+**ETD do POL**
+Data estimada de saída da viagem no porto de carregamento. Permanece como a
+previsão da rota mesmo quando uma saída efetiva é posteriormente conhecida.
+
+**ATD do POL**
+Data efetiva de saída da viagem no porto de carregamento. Para carga de
+container, a data `Laden on Board` informada pelo B/L é sua fonte documental.
+Quando B/Ls da mesma Viagem e POL informam datas diferentes, a data mais antiga
+é o ATD canônico do POL.
+Em superfícies sem coluna própria de ATD, substitui visualmente o ETD e é
+destacada em verde, sem transformar conceitualmente ATD em ETD.
 
 **Programação de Navios (Chegadas e Saídas)**
 Quadro de line-up exibido ao cliente no Portal, com a previsão de datas por porto
@@ -57,23 +121,22 @@ sinônimo de o Número de Escala existir.
 **B/L (Bill of Lading / Conhecimento de Embarque)**
 Documento de transporte que agrupa carga sob um consignatário. É a unidade
 operacional usada para revisão, cobrança de taxas locais e vínculo com cliente.
-Também é uma **fonte de ingestão co-primária** (ao lado do manifesto): o arquivo
-do B/L pode criar um B/L inexistente — inclusive quando não há manifesto,
-**dispensando-o** — e corrigir dados comerciais já gravados (com auditoria e
-preview do diff), além de ser a única fonte de Frete & Despesas do BL e da data
-de emissão do B/L. O documento do B/L é um **superconjunto do manifesto**: toda
-informação presente no manifesto existe também no B/L; o inverso não vale
-(ex.: frete e despesas só existem no B/L).
+O arquivo do B/L é a fonte documental de ingestão da carga de container: pode
+criar um B/L inexistente e corrigir dados comerciais já gravados, além de ser a
+fonte de Frete & Despesas do BL, da data de emissão e da data de embarque na
+origem. A operação de container não depende da importação de Manifesto.
+
+**Razão Social do Consignatário**
+Nome empresarial curto exibido em tabelas e usado na reconciliação por nome. É
+extraído até a natureza jurídica, incluindo combinações como `LTDA EPP`, e não
+inclui endereço, telefone, CEP, cidade ou país. Quando nenhuma natureza jurídica
+é reconhecida, corresponde à primeira linha não vazia do bloco do consignatário.
+É distinta do bloco completo do consignatário, preservado para EDI e auditoria.
 
 **Manifesto**
-Arquivo do armador com dados comerciais dos B/Ls, consignatários, documentos,
-pesos, cargas e containers. É uma **fonte de ingestão co-primária** dos dados
-comerciais e financeiros da carga, **ao lado do B/L**. Quando presente, costuma
-ser a primeira a chegar e criar os B/Ls; mas a operação pode prosseguir **só com
-B/Ls, sem manifesto**. Nenhuma fonte é autoridade por decreto: a precedência é
-temporal (quem cria primeiro) mais o gate de faturamento, e toda sobrescrita
-entre fontes é precedida de preview do diff e auditada. O manifesto **não**
-carrega frete; e nenhuma correção via B/L altera variáveis de faturamento.
+Documento que agrupa B/Ls de uma operação marítima. Para carga de container,
+não é fonte de ingestão do sistema: os dados documentais entram pelos próprios
+arquivos de B/L.
 
 **CNTR**
 Abreviação de domínio para container.
@@ -100,9 +163,9 @@ containers, posição a bordo e flags operacionais.
 Estado intermediário dos containers importados do Baplie antes da reconciliação
 com o manifesto. Uma reimportação substitui o staging anterior da viagem.
 
-**Conciliação Baplie × Manifesto**
+**Conciliação Baplie × B/L**
 Comparação, dentro da mesma viagem, entre a carga física do Baplie e os dados
-comerciais do manifesto.
+documentais dos B/Ls.
 
 **Divergência de Existência**
 Container presente numa fonte e ausente na outra. Exige visibilidade para o
@@ -237,6 +300,12 @@ paga, o ROE é recalculado a cada nova PTAX divulgada pelo BCB (dias úteis). O
 congelamento real do valor ocorre apenas no momento do pagamento, registrado de
 forma imutável no histórico da invoice. As colunas que guardam o último valor
 recalculado chamam-se `current_roe` e `current_total_brl`.
+
+No cabeçalho interno, CNY não é indicador de negócio e não deve ser exibido ou
+estimado. A referência cambial útil é a composição explícita PTAX Venda × 1,065
+= ROE, acompanhada da data efetiva da cotação. O Portal não exibe essa composição:
+na aba Demurrage informa apenas o ROE vigente e sua data de atualização; cada
+invoice paga preserva o ROE que foi congelado no pagamento.
 
 - **Related:** PTAX, Markup, Recálculo Diário
 

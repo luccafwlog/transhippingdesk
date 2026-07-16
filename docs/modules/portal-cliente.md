@@ -255,5 +255,16 @@ Não há teste focado para `PortalLogin`, `PortalForgotPassword`, `PortalResetPa
 - [ADR 0001](../adr/0001-portal-login-supabase-auth.md) continua válida para Supabase Auth e fim do token legado, mas foi parcialmente superada pela [ADR 0013](../adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md) quanto aos identificadores aceitos.
 A operação interna do Portal está disponível em `/clientes/portal`, com fila
 inicial em “Aguardando análise”, prioridade visual, candidatos de email e
-painel individual. `/admin/portal-backfill` concentra o pré-voo e o backfill
-com confirmação dos totais; não existem ações em lote de provisionamento.
+painel individual. O backfill inicial já cumpriu sua finalidade e a funcionalidade
+`/admin/portal-backfill` deve ser integralmente retirada: menu, rota, página,
+chamadores frontend, tipos e RPCs ativas `portal_provisioning_preflight` e
+`portal_provisioning_backfill`. As migrations históricas permanecem preservadas;
+o mecanismo interno vigente de criação/reparo de registros ausentes continua.
+Não existem ações em lote de provisionamento.
+
+O Portal não replica o header cambial interno. Somente na aba
+`Faturas → Demurrage`, acima da listagem, apresenta o ROE vigente e sua data de
+atualização, sem expor PTAX, fórmula ou botão de atualização. Exemplo:
+`ROE vigente: R$ 5,4288 · atualizado em 16/07/2026`. O valor vem da mesma
+referência autoritativa usada no recálculo global; o detalhe da invoice continua
+mostrando o ROE efetivamente aplicado e preserva o valor congelado após pagamento.

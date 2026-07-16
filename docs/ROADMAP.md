@@ -13,7 +13,7 @@ substituem este baseline.
 - viagens em layout master-detail, com deep link por viagem;
 - planejamento POL/POD, escalas do Mercante, CE Master e linha do tempo;
 - importação e reconciliação de Baplie EDI;
-- manifestos CNTR e breakbulk;
+- B/Ls de container e manifestos breakbulk;
 - containers, veículos RoRo e CE Mercante;
 - Vazios de Importação por Baplie ou planilha;
 - bookings de Vazios de Exportação;

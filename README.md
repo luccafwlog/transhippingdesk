@@ -6,7 +6,7 @@ Plataforma operacional interna da **Transhipping Agenciamento Marítimo Ltda.** 
 
 ## Capacidades
 
-- **Operação:** viagens, escalas, Baplie EDI, manifestos CNTR e breakbulk,
+- **Operação:** viagens, escalas, Baplie EDI, B/Ls CNTR e manifestos breakbulk,
   containers, veículos RoRo e revisão operacional.
 - **Exportação e cargas especiais:** Granito, vazios de importação e bookings de
   vazios de exportação.
