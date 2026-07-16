@@ -455,6 +455,8 @@ Integração Supabase não executada: ambiente controlado não configurado.
 
 Antes do piloto, aplicar migrations numeradas pelo fluxo controlado do projeto, confirmar as migrations `196` e `197` no ambiente alvo e registrar comandos e resultados. Validar em desktop, notebook, mobile e teclado com a conta FWLOG, sem registrar PII. O gate só pode ser marcado após merge, deploy e validação de runtime aprovada.
 
+Confirmado via `mcp__Supabase__list_migrations` (projeto `fgmkhbzhaeebrsizwccx`, "Transhipping Desk") em 2026-07-16: a migration `197_portal_provisioning_console_fixes` está aplicada no ambiente, logo após a `196`.
+
 ### Limpeza desta execução
 
 Nenhum ID, usuário, B/L, container, invoice, pagamento, disputa, programação ou
