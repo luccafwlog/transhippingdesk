@@ -159,7 +159,7 @@ flowchart LR
     BLRPC --> BLData["bls + bl_freight_lines<br/>cliente + review gate"]
 ```
 
-1. **Manifesto CNTR não possui caller executável.** A UI, o parser, o serviço e o gerador EDI local foram removidos pela ADR 0025. A RPC histórica permanece no schema até a migration específica da Task 9; migrations históricas não são alteradas nesta etapa.
+1. **O B/L é a fonte documental vigente da carga de container.** A superfície `/manifestos` oferece importação de B/L e CE Mercante; a migration 199 remove as assinaturas da RPC legada, enquanto migrations históricas permanecem preservadas.
 2. **A ausência das ações é comportamento testado.** Testes de `/manifestos`, da aba de manifestos da viagem e das ações rápidas garantem que os atalhos removidos não reapareçam.
 3. **Código pós-PR prevalece.** PR `#254` e seus planos descrevem a sequência; os merges `#255`–`#258` definem a tela atual.
 4. **Três abas exatas.** `detalhes`, `faturamento`, `historico`. `BlFinanceiroTab` foi removido; cliente e demurrage foram consolidados em `BlFaturamentoTab`.

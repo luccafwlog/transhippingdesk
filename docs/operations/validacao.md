@@ -156,10 +156,6 @@ Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md
   POL resultam automaticamente na mais antiga, conforme a ADR 0025;
 - reconciliação com Baplie expõe divergências.
 
-As ações removidas de Manifesto CNTR e geração local de EDI Mercante permanecem
-cobertas por testes de ausência nas superfícies de Manifestos e Viagens. A RPC
-histórica do importador só será removida pela migration específica da Task 9.
-
 ### Carga solta
 
 - itens, peso, volume e B/L são importados;
