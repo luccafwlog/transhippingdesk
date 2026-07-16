@@ -20,7 +20,6 @@ function row(partial: Partial<QueueRow>): QueueRow {
     hasActiveProcess: false,
     lastActivityAt: null,
     candidates: [],
-    sharedEmailCnpjs: [],
     sharedEmailCount: 0,
     latestDeliveryStatus: null,
     exceptionReason: null,

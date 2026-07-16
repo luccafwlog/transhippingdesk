@@ -14,7 +14,7 @@ import { formatCnpjCpf } from '../lib/utils'
 type Preset = 'todos' | 'aguardando_analise' | 'criticas' | 'sem_email' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'provisionamento_nao_necessario'
 const presets: Array<{ value: Preset; label: string }> = [
   { value: 'todos', label: 'Todos' }, { value: 'criticas', label: 'Pendências críticas' }, { value: 'aguardando_analise', label: 'Aguardando análise' },
-  { value: 'sem_email', label: 'Sem email' }, { value: 'convite_expirado', label: 'Convites expirados' }, { value: 'falha_no_envio', label: 'Falhas de envio' },
+  { value: 'sem_email', label: 'Sem email' }, { value: 'convite_pendente', label: 'Convites pendentes' }, { value: 'convite_expirado', label: 'Convites expirados' }, { value: 'falha_no_envio', label: 'Falhas de envio' },
   { value: 'ativo', label: 'Contas ativas' }, { value: 'provisionamento_nao_necessario', label: 'Provisionamento não necessário' },
 ]
 
@@ -77,7 +77,7 @@ export function ClientesPortal() {
             const expanded = selectedCustomerId === row.customer_id
             return <Fragment key={row.customer_id}>
               <tr className={expanded ? 'bg-cyan-400/10' : 'cursor-pointer'} onClick={() => toggleRow(row)}>
-                <td className="px-4 py-3"><button ref={(element) => { if (element) rowRefs.current.set(row.customer_id, element) }} type="button" className="text-left" aria-expanded={expanded} onClick={(event) => { event.stopPropagation(); toggleRow(row) }}><div className="font-medium">{row.customer_name}</div><div className="font-mono text-xs text-[var(--app-muted)]">{formatCnpjCpf(row.cnpj_cpf)}</div></button></td>
+                <td className="px-4 py-3"><button ref={(element) => { if (element) rowRefs.current.set(row.customer_id, element); else rowRefs.current.delete(row.customer_id) }} type="button" className="text-left" aria-expanded={expanded} onClick={(event) => { event.stopPropagation(); toggleRow(row) }}><div className="font-medium">{row.customer_name}</div><div className="font-mono text-xs text-[var(--app-muted)]">{formatCnpjCpf(row.cnpj_cpf)}</div></button></td>
                 <td className="px-4 py-3"><Badge tone={row.account_situation === 'ativo' ? 'green' : row.account_situation === 'falha_no_envio' ? 'red' : 'yellow'}>{accountSituationLabel(row.account_situation)}</Badge></td>
                 <td className="px-4 py-3">{provisioningDecisionLabel(row.provisioning_decision)}</td><td className="px-4 py-3">{row.recovery_email ?? (row.candidates[0]?.email ?? 'Sem email')}</td>
                 <td className="px-4 py-3">{row.hasCriticalAlert ? 'Crítico' : '—'}</td><td className="px-4 py-3">{getPortalNextAction(row)}</td>

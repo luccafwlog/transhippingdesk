@@ -282,11 +282,6 @@ export function ClienteFicha() {
         <p className="mt-1 text-sm text-slate-400">
           Convites, ativação e suspensão são administrados na fila de provisionamento do Portal.
         </p>
-        {portalRow ? <div className="hidden mt-4 grid gap-3 text-sm sm:grid-cols-3">
-          <div><div className="text-xs text-slate-500">Email de Recuperação</div><div>{portalRow.recovery_email ?? 'Não informado'}</div><div className="text-xs text-slate-500">{portalRow.recovery_email_source ?? '—'}</div></div>
-          <div><div className="text-xs text-slate-500">Situação</div><div>{accountSituationLabel(portalRow.account_situation)}</div></div>
-          <div><div className="text-xs text-slate-500">Decisão</div><div>{provisioningDecisionLabel(portalRow.provisioning_decision)}</div></div>
-        </div> : null}
         {portalRow ? <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <div><div className="text-xs text-slate-500">Email de Recuperação</div><div>{portalRow.recovery_email ?? 'Não informado'}</div><div className="text-xs text-slate-500">{recoveryEmailSourceLabel(portalRow.recovery_email_source)}</div></div>
           <div><div className="text-xs text-slate-500">Situação</div><div>{accountSituationLabel(portalRow.account_situation)}</div></div>

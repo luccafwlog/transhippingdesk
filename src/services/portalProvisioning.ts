@@ -29,7 +29,6 @@ export type QueueRow = PortalProvisioningRow & {
   hasActiveProcess: boolean
   lastActivityAt: string | null
   candidates: EmailCandidate[]
-  sharedEmailCnpjs: string[]
   sharedEmailCount: number
   latestDeliveryStatus: PortalDeliveryStatus | null
   exceptionReason: string | null
@@ -74,14 +73,10 @@ export function comparePriority(a: QueueRow, b: QueueRow): number {
   return (b.lastActivityAt ?? '').localeCompare(a.lastActivityAt ?? '')
 }
 
-export async function listPortalProvisioning(customerId?: number): Promise<PortalProvisioningRow[]> {
+export async function listPortalProvisioningQueue(customerId?: number): Promise<QueueRow[]> {
   const { data, error } = await supabase.rpc('portal_list_provisioning_console', { p_customer_id: customerId ?? null })
   if (error) throw error
-  return ((data ?? []) as unknown as PortalProvisioningConsolePayload[]).map(toBaseRow)
-}
-
-function toBaseRow(row: PortalProvisioningConsolePayload): PortalProvisioningRow {
-  return {
+  return ((data ?? []) as unknown as PortalProvisioningConsolePayload[]).map((row) => ({
     account_id: row.account_id,
     customer_id: row.customer_id,
     customer_name: row.customer_name,
@@ -91,20 +86,11 @@ function toBaseRow(row: PortalProvisioningConsolePayload): PortalProvisioningRow
     recovery_email: row.recovery_email,
     recovery_email_source: row.recovery_email_source,
     pending_invite_expires_at: row.pending_invite_expires_at,
-  }
-}
-
-export async function listPortalProvisioningQueue(customerId?: number): Promise<QueueRow[]> {
-  const { data, error } = await supabase.rpc('portal_list_provisioning_console', { p_customer_id: customerId ?? null })
-  if (error) throw error
-  return ((data ?? []) as unknown as PortalProvisioningConsolePayload[]).map((row) => ({
-    ...toBaseRow(row),
     hasCriticalAlert: row.has_critical_alert,
     hasOpenInvoice: row.has_open_invoice,
     hasActiveProcess: row.has_active_process,
     lastActivityAt: row.last_event_at,
     candidates: row.candidates ?? [],
-    sharedEmailCnpjs: [],
     sharedEmailCount: row.shared_email_count ?? 0,
     latestDeliveryStatus: row.latest_delivery_status,
     exceptionReason: row.exception_reason,

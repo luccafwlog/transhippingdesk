@@ -336,7 +336,7 @@ envio real.
 
 ### Console de provisionamento pré-piloto
 
-`/clientes/portal` é uma fila dedicada, alimentada por `portal_list_provisioning_console` (migration `196`) e com gestão inline reutilizada na ficha de Cliente. A RPC projeta dados completos para Administrativo, Documentação e Financeiro e apenas situação resumida para Operações.
+`/clientes/portal` é uma fila dedicada, alimentada por `portal_list_provisioning_console` (migrations `196` e `197`) e com gestão inline reutilizada na ficha de Cliente. A RPC projeta dados completos para Administrativo, Documentação e Financeiro; Operações recebe situação resumida e os booleanos `has_open_invoice`/`has_active_process`.
 
 ## Fontes relacionadas
 

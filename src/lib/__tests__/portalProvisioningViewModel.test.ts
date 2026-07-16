@@ -7,7 +7,7 @@ const row = (partial: Partial<QueueRow> = {}): QueueRow => ({
   provisioning_decision: 'aguardando_analise', account_situation: 'sem_conta', recovery_email: null,
   recovery_email_source: null, pending_invite_expires_at: null, hasCriticalAlert: false,
   hasOpenInvoice: false, hasActiveProcess: false, lastActivityAt: null, candidates: [],
-  sharedEmailCnpjs: [], sharedEmailCount: 0, latestDeliveryStatus: null, exceptionReason: null, ...partial,
+  sharedEmailCount: 0, latestDeliveryStatus: null, exceptionReason: null, ...partial,
 })
 
 describe('portalProvisioningViewModel', () => {

@@ -120,7 +120,7 @@ export async function exportPortalProvisioningWorkbook(rows: QueueRow[]): Promis
   const XLSX = await import('@e965/xlsx')
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, rows.map(portalProvisioningExportRow)), 'Provisionamento')
-  XLSX.writeFile(workbook, 'portal-clientes.xlsx')
+  XLSX.writeFile(workbook, `portal-clientes-${makeTimestamp()}.xlsx`)
 }
 
 export async function exportContainerWorkbook(rows: ContainerListItem[]) {

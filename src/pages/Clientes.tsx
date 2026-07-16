@@ -91,7 +91,7 @@ export function Clientes() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { can, isAdmin, user } = useAuth()
+  const { can, isAdmin, user, effectiveRole } = useAuth()
   const canEditCustomers = can ? can('customers_edit') : isAdmin
   const [deleting, setDeleting] = useState(false)
   const [actionsMenu, setActionsMenu] = useState<
@@ -191,8 +191,11 @@ export function Clientes() {
   const [importingBase, setImportingBase] = useState(false)
   const { data, isLoading, error } = useCustomers(filters)
   const { data: summary } = useCustomerSummary(filters)
-  const { data: portalRows } = usePortalProvisioning()
-  const awaitingPortalAnalysis = portalRows?.filter((row) => row.provisioning_decision === 'aguardando_analise').length ?? null
+  const canSeePortalQueue = ['administrativo', 'documentacao', 'financeiro', 'operacoes'].includes(effectiveRole ?? '')
+  const { data: portalRows } = usePortalProvisioning(canSeePortalQueue)
+  const awaitingPortalAnalysis = canSeePortalQueue
+    ? (portalRows?.filter((row) => row.provisioning_decision === 'aguardando_analise').length ?? null)
+    : null
 
   const totalPages = Math.ceil((data?.totalCount ?? 0) / filters.pageSize)
 
