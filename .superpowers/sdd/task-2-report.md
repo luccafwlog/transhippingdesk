@@ -43,10 +43,33 @@
 - Concatenated/mid-token alias remains blocked by regression coverage.
 - Displayed/persisted vessel names remain unchanged; only comparison canonicalizes.
 
+## Review follow-up (WS1 Task 2)
+
+- Added explicit regression coverage proving an accepted vessel alias still stays blocked when the declared voyage number diverges after `normalizeText`.
+- No production change was needed: the current implementation already keeps voyage-number validation separate from vessel alias canonicalization.
+
+### Focused test
+
+- Command: `npm test -- src/services/__tests__/blFreightImport.test.ts`
+- Output:
+
+```text
+> transhipping-desk@0.0.0 test
+> vitest run src/services/__tests__/blFreightImport.test.ts
+
+ RUN  v4.1.9 C:/Users/Lucca/Downloads/transhipping-desk2
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  16:04:44
+   Duration  529ms (transform 84ms, setup 0ms, import 368ms, tests 11ms, environment 0ms)
+```
+
 ## Concerns
 
 - None identified for this task scope.
 
 ## Commit
 
-- `466daaa` — `feat: validacao navio/viagem do Importar B/L aceita aliases de prefixo`
+- `754ee85` — `feat: validacao navio/viagem do Importar B/L aceita aliases de prefixo`
+- `fc24642` — `test: cover voyage mismatch regression for vessel aliases`

@@ -476,6 +476,22 @@ describe('blFreightImport', () => {
     expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem CSALGOL / 14, mas voce apontou COSCO SHIPPING ALGOL / 14.')
   })
 
+  it('keeps accepted vessel aliases blocked when the declared voyage number diverges after normalizeText', () => {
+    const document = parsedBL()
+    document.route.vessel = 'ZYHY JIN QU'
+    document.route.voyage = ' 14-w '
+
+    const preview = buildBlFreightPreview({
+      documents: [document],
+      selectedVoyage: { id: 7, vesselName: 'ZHONG YUAN HAI YUN JIN QU', voyageNumber: '14/W' },
+    })
+
+    const row = preview.rows[0]
+    expect(row?.status).toBe('blocked')
+    expect(row?.payload).toBeNull()
+    expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem ZYHY JIN QU / 14-w, mas voce apontou ZHONG YUAN HAI YUN JIN QU / 14/W.')
+  })
+
   it('calls the transactional RPC only with unblocked payloads', async () => {
     mockRpc.mockResolvedValue({ data: { bls_received: 1 }, error: null })
     const preview: BlFreightImportPreview = {
