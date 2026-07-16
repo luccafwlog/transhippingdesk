@@ -455,13 +455,19 @@ Integração Supabase não executada: ambiente controlado não configurado.
 
 Antes do piloto, aplicar migrations numeradas pelo fluxo controlado do projeto, confirmar as migrations `196` e `197` no ambiente alvo e registrar comandos e resultados. Validar em desktop, notebook, mobile e teclado com a conta FWLOG, sem registrar PII. O gate só pode ser marcado após merge, deploy e validação de runtime aprovada.
 
-Confirmado via `mcp__Supabase__list_migrations` (projeto `fgmkhbzhaeebrsizwccx`, "Transhipping Desk") em 2026-07-16: as migrations `196_portal_provisioning_console_read_model` e `197_portal_provisioning_console_fixes` estão aplicadas no ambiente. A migration `198_portal_provisioning_queue_self_heal` preparada nesta execução repara lacunas antes da leitura e registra o evento de sistema sem criar Auth, convite ou email; após o deploy, registrar aqui a confirmação de aplicação.
+Confirmado via `mcp__Supabase__list_migrations` (projeto `fgmkhbzhaeebrsizwccx`, "Transhipping Desk") em 2026-07-16: as migrations `196_portal_provisioning_console_read_model`, `197_portal_provisioning_console_fixes` e `198_portal_provisioning_queue_self_heal` estão aplicadas no ambiente. A `198` repara lacunas antes da leitura e registra o evento de sistema sem criar Auth, convite ou email.
 
 Para validar a integridade da fila, executar o pré-voo, confirmar os totais agregados,
 aplicar migrations com `supabase db push`, repetir o pré-voo e executar o backfill
 idempotente somente se ainda houver Clientes sem registro. A aceitação exige zero
 `customers_missing_record` e a fila `Todos` populada; nenhum CNPJ ou email deve ser
 registrado nas evidências.
+
+Runtime confirmado em 2026-07-16 após a aplicação da `198` e o backfill autorizado:
+pré-voo final com `total_customers=310`, `existing_portal_records=310`,
+`existing_auth_links=0`, `existing_recovery_emails=0` e
+`customers_missing_record=0`; `/clientes/portal?filtro=todos` exibiu Total 310 e
+Aguardando análise 310; o badge de Clientes também exibiu 310.
 
 ### Limpeza desta execução
 
