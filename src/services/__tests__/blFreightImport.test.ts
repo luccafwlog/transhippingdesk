@@ -225,6 +225,31 @@ describe('blFreightImport', () => {
     })
   })
 
+  it('uses the short consignee name in preview payload and name reconciliation while preserving the full block', () => {
+    const customer = { id: 44, name: 'QA IMPORTADORA LTDA' }
+    const doc = parsedBL()
+    doc.parties.consigneeBlock = 'QA IMPORTADORA LTDA RUA X, 100\nSANTOS - SP'
+    doc.parties.consigneeTaxId = '00999999000100'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      customerMaps: {
+        customersByDocument: new Map(),
+        customersByName: new Map([['qa importadora ltda', customer]]),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+    })
+
+    expect(preview.rows[0].payload).toMatchObject({
+      consignee: 'QA IMPORTADORA LTDA',
+      consignee_block: 'QA IMPORTADORA LTDA RUA X, 100\nSANTOS - SP',
+      customer_id: 44,
+      customer_reconciliation_status: 'matched_name',
+    })
+  })
+
   it('flags container-set changes as override-required without dropping the payload', () => {
     const preview = buildBlFreightPreview({
       documents: [parsedBL()],
