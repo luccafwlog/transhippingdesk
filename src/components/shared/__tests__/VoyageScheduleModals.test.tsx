@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-// voyageRouteSchedules importa o cliente Supabase no topo do módulo; os modais
-// só usam helpers puros dele (POD_CE_STATUS_OPTIONS, getEditableVoyagePodCeStatus).
+// voyageRouteSchedules importa o cliente Supabase no topo do modulo; os modais
+// so usam helpers puros dele (POD_CE_STATUS_OPTIONS, getEditableVoyagePodCeStatus).
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))
 
 import {
@@ -23,39 +23,58 @@ describe('PolScheduleModal', () => {
     pol: 'CNNBO',
     pod: 'BRSSZ',
     etd: '2026-02-10',
+    atd: '2026-02-12',
     ceMaster: null,
     batchIds: [11, 12],
   }
 
-  it('não renderiza conteúdo quando fechado', () => {
+  it('nao renderiza conteudo quando fechado', () => {
     render(<PolScheduleModal open={false} polSchedule={base} onClose={() => {}} onSaved={async () => {}} />)
-    expect(screen.queryByText('Editar ETD e CE Master')).toBeNull()
+    expect(screen.queryByText('Editar ETD + ATD e CE Master')).toBeNull()
   })
 
-  it('pré-preenche o ETD e envia o payload correto', async () => {
+  it('pre-preenche ETD/ATD e envia o payload correto', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(<PolScheduleModal open polSchedule={base} onClose={() => {}} onSaved={onSaved} />)
 
-    // contexto exibido: rota POL -> POD
     expect(screen.getByText('NAVIO 123N')).toBeTruthy()
     expect(screen.getByText('Rota: CNNBO -> BRSSZ')).toBeTruthy()
+    expect((screen.getByLabelText('ETD') as HTMLInputElement).value).toBe('2026-02-10')
+    expect((screen.getByLabelText('ATD') as HTMLInputElement).value).toBe('2026-02-12')
 
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', pod: 'BRSSZ', etd: '2026-02-10', ceMaster: null, batchIds: [11, 12] })
+    expect(onSaved).toHaveBeenCalledWith({
+      voyageId: 7,
+      pol: 'CNNBO',
+      pod: 'BRSSZ',
+      etd: '2026-02-10',
+      atd: '2026-02-12',
+      ceMaster: null,
+      batchIds: [11, 12],
+    })
   })
 
-  it('envia etd null quando o campo é limpo', async () => {
+  it('envia etd/atd null quando os campos sao limpos', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(<PolScheduleModal open polSchedule={base} onClose={() => {}} onSaved={onSaved} />)
 
     await user.clear(screen.getByLabelText('ETD'))
+    await user.clear(screen.getByLabelText('ATD'))
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
-    expect(onSaved).toHaveBeenCalledWith({ voyageId: 7, pol: 'CNNBO', pod: 'BRSSZ', etd: null, ceMaster: null, batchIds: [11, 12] })
+    expect(onSaved).toHaveBeenCalledWith({
+      voyageId: 7,
+      pol: 'CNNBO',
+      pod: 'BRSSZ',
+      etd: null,
+      atd: null,
+      ceMaster: null,
+      batchIds: [11, 12],
+    })
   })
 
-  it('pré-preenche e envia o CE Master para os batches do manifesto', async () => {
+  it('pre-preenche e envia o CE Master para os batches do manifesto', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(
@@ -79,7 +98,7 @@ describe('PolScheduleModal', () => {
       />,
     )
 
-    expect(screen.getByText('Editar ETD e CE Master')).toBeTruthy()
+    expect(screen.getByText('Editar ETD + ATD e CE Master')).toBeTruthy()
     expect((screen.getByLabelText('CE Master') as HTMLInputElement).value).toBe('25BR00481')
 
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -102,7 +121,7 @@ describe('PodScheduleModal', () => {
     escalaNumber: null,
   }
 
-  it('pré-preenche datas/restow/escala e envia o payload tipado', async () => {
+  it('pre-preenche datas/restow/escala e envia o payload tipado', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(<PodScheduleModal open podSchedule={base} onClose={() => {}} onSaved={onSaved} />)
@@ -144,12 +163,12 @@ describe('PodScheduleModal', () => {
 describe('AddPodToVoyageModal', () => {
   const voyage = { voyageId: 5, voyageLabel: 'NAVIO X 10N' }
 
-  it('mantém o botão desabilitado enquanto o POD está vazio', () => {
+  it('mantem o botao desabilitado enquanto o POD esta vazio', () => {
     render(<AddPodToVoyageModal open voyage={voyage} onClose={() => {}} onSaved={async () => {}} />)
     expect((screen.getByRole('button', { name: 'Adicionar POD' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('normaliza o POD para maiúsculas e envia o payload de criação', async () => {
+  it('normaliza o POD para maiusculas e envia o payload de criacao', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(<AddPodToVoyageModal open voyage={voyage} onClose={() => {}} onSaved={onSaved} />)
@@ -188,14 +207,14 @@ describe('ExportScheduleModal', () => {
     },
   }
 
-  it('pré-preenche a partir do registro existente', () => {
+  it('pre-preenche a partir do registro existente', () => {
     render(<ExportScheduleModal open exportData={exportData as never} onClose={() => {}} onSaved={async () => {}} />)
     expect((screen.getByLabelText('POL (Porto de Embarque)') as HTMLInputElement).value).toBe('brvix')
     expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('10')
     expect((screen.getByLabelText('Movimentos') as HTMLInputElement).value).toBe('')
   })
 
-  it('envia POL em maiúsculas e converte quantidades vazias para null', async () => {
+  it('envia POL em maiusculas e converte quantidades vazias para null', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(<ExportScheduleModal open exportData={exportData as never} onClose={() => {}} onSaved={onSaved} />)

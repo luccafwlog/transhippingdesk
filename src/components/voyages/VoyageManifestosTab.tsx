@@ -151,8 +151,8 @@ export function VoyageManifestosTab({
                           <Button
                             variant="secondary"
                             className="app-voyage-icon-btn"
-                            aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
-                            title="Editar ETD e CE Master"
+                            aria-label={`Editar ETD + ATD e CE Master de ${row.routeLabel}`}
+                            title="Editar ETD + ATD e CE Master"
                             onClick={() =>
                               onEditPol({
                                 voyageId: voyage.id,
@@ -160,6 +160,7 @@ export function VoyageManifestosTab({
                                 pol: row.pol,
                                 pod: row.pod,
                                 etd: row.etd,
+                                atd: row.atd,
                                 ceMaster: row.ceMaster,
                                 batchIds: row.batchIds,
                               })

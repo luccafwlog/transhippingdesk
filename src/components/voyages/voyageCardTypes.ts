@@ -23,6 +23,7 @@ export type EditingPolPayload = {
   pol: string
   pod: string
   etd: string | null
+  atd: string | null
   ceMaster: string | null
   batchIds: number[]
 }

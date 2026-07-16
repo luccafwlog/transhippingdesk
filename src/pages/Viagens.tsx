@@ -371,7 +371,7 @@ export function Viagens() {
         open={editingPol !== null}
         polSchedule={editingPol}
         onClose={() => setEditingPol(null)}
-        onSaved={async ({ voyageId, pol, pod, etd, ceMaster, batchIds }) => {
+        onSaved={async ({ voyageId, pol, pod, etd, atd, ceMaster, batchIds }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -382,6 +382,7 @@ export function Viagens() {
               voyageId,
               pol,
               etd,
+              atd,
               changedBy: user.id,
             })
             if (batchIds?.length) {

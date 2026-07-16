@@ -50,7 +50,7 @@ export function collectVoyageManifestBatchRows({
   voyageId: number
   batches: VoyageImportBatch[] | null | undefined
   bls: VoyageBl[] | null | undefined
-  polSchedules?: Map<string, { etd: string | null; escalaNumber?: string | null }> | undefined
+  polSchedules?: Map<string, { etd: string | null; atd?: string | null; escalaNumber?: string | null }> | undefined
   /** CE Master por rota (#322): fallback para viagens só-B/L sem batch. Chave `${voyageId}::${POL}__${POD}`. */
   routeCeMasters?: Map<string, string> | undefined
 }) {
@@ -78,6 +78,7 @@ export function collectVoyageManifestBatchRows({
     filenames: string[]
     modes: Set<'container' | 'carga_solta'>
     etd: string | null
+    atd: string | null
     blCount: number
     ceFilled: number
     ceTotal: number
@@ -109,6 +110,7 @@ export function collectVoyageManifestBatchRows({
       filenames: [],
       modes: new Set(),
       etd: polEntity?.etd ?? null,
+      atd: polEntity?.atd ?? null,
       blCount: 0,
       ceFilled: 0,
       ceTotal: 0,
@@ -173,6 +175,7 @@ export function collectVoyageManifestBatchRows({
       filenames: group.filenames.length ? group.filenames : ['Rota derivada dos B/Ls'],
       batchIds: group.batchIds,
       etd: group.etd,
+      atd: group.atd,
       blCount: group.blCount,
       ceFilled: group.ceFilled,
       ceTotal: group.ceTotal,
