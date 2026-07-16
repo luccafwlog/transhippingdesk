@@ -1,5 +1,6 @@
 import { onlyDigits } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
+import { canonicalizeVesselName } from '../lib/vesselAlias'
 import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
@@ -593,7 +594,7 @@ function getDeclaredVoyageMismatchReason(doc: ParsedBLDocument, selectedVoyage: 
   const vesselMismatch = Boolean(
     doc.route.vessel
     && selectedVoyage.vesselName
-    && normalizeText(doc.route.vessel) !== normalizeText(selectedVoyage.vesselName),
+    && canonicalizeVesselName(doc.route.vessel) !== canonicalizeVesselName(selectedVoyage.vesselName),
   )
   const voyageMismatch = Boolean(
     doc.route.voyage

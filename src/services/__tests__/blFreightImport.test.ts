@@ -445,6 +445,37 @@ describe('blFreightImport', () => {
     expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem OTHER VESSEL / 99W, mas voce apontou GREEN SANTOS / 14.')
   })
 
+  it('accepts prefix vessel aliases while still requiring the same voyage number', () => {
+    const document = parsedBL()
+    document.route.vessel = 'ZYHY JIN QU'
+
+    const preview = buildBlFreightPreview({
+      documents: [document],
+      selectedVoyage: { id: 7, vesselName: 'ZHONG YUAN HAI YUN JIN QU', voyageNumber: '14' },
+    })
+
+    const row = preview.rows[0]
+    expect(row?.status).not.toBe('blocked')
+    expect(row?.blockedReasons).not.toContain('Arquivo e da viagem ZYHY JIN QU / 14, mas voce apontou ZHONG YUAN HAI YUN JIN QU / 14.')
+    expect(row?.payload).not.toBeNull()
+  })
+
+  it('keeps concatenated vessel aliases blocked during declared voyage validation', () => {
+    const document = parsedBL()
+    document.route.vessel = 'CSALGOL'
+    document.route.voyage = '14'
+
+    const preview = buildBlFreightPreview({
+      documents: [document],
+      selectedVoyage: { id: 7, vesselName: 'COSCO SHIPPING ALGOL', voyageNumber: '14' },
+    })
+
+    const row = preview.rows[0]
+    expect(row?.status).toBe('blocked')
+    expect(row?.payload).toBeNull()
+    expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem CSALGOL / 14, mas voce apontou COSCO SHIPPING ALGOL / 14.')
+  })
+
   it('calls the transactional RPC only with unblocked payloads', async () => {
     mockRpc.mockResolvedValue({ data: { bls_received: 1 }, error: null })
     const preview: BlFreightImportPreview = {
