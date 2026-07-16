@@ -63,5 +63,5 @@
 
 ## Follow-up da revisao WS1 Task 6
 
-- Ajustada a rastreabilidade de `Importar B/L` em `docs/RASTREABILIDADE.md` para refletir o comportamento vigente do pos-confirmacao em `BlImportModal`: apos `confirmBlFreightImport`, o fluxo preserva `tryAutoIssueInvoice`, chama `ladenOnBoardAtd/applyLadenOnBoardAtd` para aplicar o menor ATD por Viagem+POL a partir de `Laden on Board` e invalida `voyage-pol-schedules` e `voyage-timeline`.
+- Ajustada a rastreabilidade de `Importar B/L` em `docs/RASTREABILIDADE.md` para refletir o comportamento vigente do pos-confirmacao em `BlImportModal`: apos `confirmBlFreightImport`, o fluxo nao dispara faturamento automatico, chama `ladenOnBoardAtd/applyLadenOnBoardAtd` para aplicar o menor ATD por Viagem+POL a partir de `Laden on Board` e invalida `voyage-pol-schedules` e `voyage-timeline`; o faturamento automatico e disparado pelo cadastro do CE Mercante, conforme `docs/modules/manifesto-edi.md`.
 - Nenhum codigo de producao foi alterado nesta correcao documental.
