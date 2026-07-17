@@ -3,10 +3,17 @@ import { beforeEach, expect, it, vi } from 'vitest'
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
 vi.mock('../supabase', () => ({ supabasePortal: { rpc: rpcMock } }))
 
-import { portalObsoleteConsolidation, portalOpenDemurrageDispute, portalUpdateProfile } from '../portalBilling'
+import { portalGetCurrentRoe, portalObsoleteConsolidation, portalOpenDemurrageDispute, portalUpdateProfile } from '../portalBilling'
 
 beforeEach(() => {
   rpcMock.mockReset()
+})
+
+it('consulta a referencia ROE vigente pelo RPC seguro do Portal', async () => {
+  rpcMock.mockResolvedValue({ data: [{ roe: '5.4288', updated_at: '2026-07-16T12:00:00Z' }], error: null })
+
+  await expect(portalGetCurrentRoe()).resolves.toEqual({ roe: 5.4288, updatedAt: '2026-07-16T12:00:00Z' })
+  expect(rpcMock).toHaveBeenCalledWith('portal_get_current_roe')
 })
 
 it('US-167: desfaz a consolidada chamando o RPC e retornando o resultado', async () => {

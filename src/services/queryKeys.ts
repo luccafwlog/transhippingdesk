@@ -78,5 +78,8 @@ export const queryKeys = {
   auditLogs: {
     detail: (entityType: string, entityId?: string) => ['audit-logs', entityType, entityId] as const,
   },
+  portal: {
+    currentRoe: () => ['portal-current-roe'] as const,
+  },
   dashboard: () => ['dashboard'] as const,
 }
