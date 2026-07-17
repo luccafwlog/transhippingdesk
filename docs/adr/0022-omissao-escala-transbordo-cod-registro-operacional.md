@@ -34,3 +34,13 @@ Financeiro, CE Mercante, taxas e demurrage seguem manuais. COD atualiza
 `bls.pod` por RPC auditada; reverter para transbordo restaura o POD original da
 omissao. O fluxo depende de RPCs `SECURITY DEFINER` com `auth.uid()`,
 `is_active_user()` e `changed_by=auth.uid()`.
+
+## Nota editorial — evolução do registro global
+
+A implementação da spec aprovada de 2026-07-16 evoluiu o cabeçalho da omissão:
+porto, motivo, navio, armador, viagem, ETD e ETA passaram a formar um registro
+global em `voyage_omissions`, complementável pela RPC auditada
+`update_voyage_omission`. `bl_transshipments` conserva a disposição individual
+(`transshipment` ou `cod`). O Portal projeta os dados globais vigentes no card
+`Informações de Transbordo`; somente a omissão inicial e o COD individual criam
+notificações.

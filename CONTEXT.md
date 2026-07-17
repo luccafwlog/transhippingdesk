@@ -61,6 +61,8 @@ O registro global e mantido na Viagem. Cada B/L afetado exibe os dados herdados
 para consulta e conserva apenas sua acao individual de COD. Alteracoes do
 registro global integram a Linha do Tempo da Viagem e o Historico dos B/Ls
 afetados.
+Cada complementacao e auditada pela RPC `update_voyage_omission`; a disposicao
+`transshipment` ou `cod` continua no grao individual do B/L.
 
 No Portal, a omissao gera uma notificacao e o COD gera outra para o B/L
 especifico. Os dados globais vigentes permanecem visiveis em Informacoes de
