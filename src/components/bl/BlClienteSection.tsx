@@ -9,8 +9,8 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useOverrideCustomers } from '../../hooks/useLocalCharges'
 import { formatBRL } from '../../lib/utils'
-import { createCustomer } from '../../services/customers'
-import { supabase } from '../../services/supabase'
+import { createCustomer, findCustomerIdByDocument } from '../../services/customers'
+import { linkBlCustomer } from '../../services/review'
 import { queryKeys } from '../../services/queryKeys'
 import type { BLDetail } from '../../types/database'
 
@@ -28,23 +28,13 @@ export function BlClienteSection({ bl }: { bl: BLDetail }) {
     if (!bl || !user) return
     setSavingCustomer(true)
     try {
-      const { error: rpcError } = await supabase.rpc('save_bl_review', {
-        p_bl_id: bl.id,
-        p_expected_updated_at: bl.updated_at ?? null,
-        p_update_payload: { customer_id: customerId != null ? String(customerId) : '' },
-        p_audit_rows: [
-          {
-            entity_type: 'bl',
-            entity_id: bl.id,
-            field_name: 'customer_id',
-            old_value: bl.customer_id != null ? String(bl.customer_id) : null,
-            new_value: customerId != null ? String(customerId) : null,
-            justification: customerId != null ? 'Vinculacao manual de cliente na ficha do B/L.' : 'Desvinculacao manual de cliente na ficha do B/L.',
-          },
-        ],
-        p_changed_by: user.id,
+      await linkBlCustomer({
+        blId: bl.id,
+        customerId,
+        previousCustomerId: bl.customer_id != null ? Number(bl.customer_id) : null,
+        changedBy: user.id,
+        expectedUpdatedAt: bl.updated_at ?? null,
       })
-      if (rpcError) throw rpcError
       await queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) })
       showToast(customerId != null ? 'Cliente vinculado com sucesso.' : 'Cliente desvinculado.', 'success')
       setCustomerSearch('')
@@ -71,13 +61,9 @@ export function BlClienteSection({ bl }: { bl: BLDetail }) {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase()
       if (msg.includes('duplicate key') || msg.includes('customers_cnpj_cpf_key')) {
-        const { data: existing } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('cnpj_cpf', cnpj.replace(/\D/g, ''))
-          .maybeSingle()
-        if (existing) {
-          await handleLinkCustomer(existing.id)
+        const existingId = await findCustomerIdByDocument(cnpj)
+        if (existingId != null) {
+          await handleLinkCustomer(existingId)
           return
         }
       }

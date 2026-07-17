@@ -83,3 +83,11 @@ export function useAssistedEmailChange() {
     onSuccess: () => invalidatePortalQueries(queryClient),
   })
 }
+
+export function useAdminChangeCnpj() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ customerId, cnpj, reason }: { customerId: number; cnpj: string; reason: string }) => { const { error } = await supabase.rpc('portal_admin_change_cnpj', { p_customer_id: customerId, p_new_cnpj: cnpj, p_reason: reason }); if (error) throw error },
+    onSuccess: () => invalidatePortalQueries(queryClient),
+  })
+}

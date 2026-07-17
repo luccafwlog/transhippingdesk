@@ -250,3 +250,44 @@ function normalizeBlValue(field: keyof ReviewEditableFields, value: unknown): un
 function stringifyValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
 }
+
+/**
+ * Vincula/desvincula manualmente o cliente de um B/L pela mesma RPC
+ * `save_bl_review` (update + audit em uma transacao, optimistic lock).
+ * Mantem o contrato historico da ficha do B/L: customer_id trafega como
+ * string e desvinculo como string vazia.
+ */
+export async function linkBlCustomer({
+  blId,
+  customerId,
+  previousCustomerId,
+  changedBy,
+  expectedUpdatedAt,
+}: {
+  blId: string
+  customerId: number | null
+  previousCustomerId: number | null
+  changedBy: string
+  expectedUpdatedAt: string | null
+}) {
+  const { error } = await supabase.rpc('save_bl_review', {
+    p_bl_id: blId,
+    p_expected_updated_at: expectedUpdatedAt,
+    p_update_payload: { customer_id: customerId != null ? String(customerId) : '' },
+    p_audit_rows: [
+      {
+        entity_type: 'bl',
+        entity_id: blId,
+        field_name: 'customer_id',
+        old_value: previousCustomerId != null ? String(previousCustomerId) : null,
+        new_value: customerId != null ? String(customerId) : null,
+        justification:
+          customerId != null
+            ? 'Vinculacao manual de cliente na ficha do B/L.'
+            : 'Desvinculacao manual de cliente na ficha do B/L.',
+      },
+    ],
+    p_changed_by: changedBy,
+  })
+  if (error) throw error
+}
