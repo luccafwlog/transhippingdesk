@@ -103,6 +103,11 @@ export async function fetchLatestRecalcDate(): Promise<string | null> {
 export async function recalculateInvoicesManual(ptax: number): Promise<{ updated: number }> {
   const { data, error } = await supabase.rpc('recalculate_demurrage_invoices_manual', { p_ptax: ptax })
   if (error) throw error
+  await persistExchangeRateReference({
+    ptax,
+    roe: parseFloat((ptax * DEMURRAGE_ROE_MARKUP).toFixed(4)),
+    effectiveDate: new Date().toISOString().slice(0, 10),
+  })
   const updated = Number((data as { updated?: number } | null)?.updated ?? 0)
   return { updated }
 }
@@ -253,6 +258,19 @@ function saveROECache(roe: number, ptax: number, effectiveDate: string) {
   }
 }
 
+async function persistExchangeRateReference(input: { ptax: number; roe: number; effectiveDate: string }) {
+  try {
+    const { error } = await supabase.rpc('save_exchange_rate_reference', {
+      p_ptax: input.ptax,
+      p_roe: input.roe,
+      p_effective_date: input.effectiveDate,
+    })
+    if (error) throw error
+  } catch (error) {
+    reportBestEffortFailure('exchange rate reference persistence failed', error)
+  }
+}
+
 export type FetchROEResult = {
   roe: number
   ptax: number
@@ -278,6 +296,7 @@ export async function fetchROE(): Promise<FetchROEResult> {
     const roe = parseFloat((ptax * DEMURRAGE_ROE_MARKUP).toFixed(4))
     const effectiveDate = String(json.value[0].dataHoraCotacao).slice(0, 10)
     saveROECache(roe, ptax, effectiveDate)
+    await persistExchangeRateReference({ ptax, roe, effectiveDate })
     return { roe, ptax, effectiveDate, offline: false, cachedAt: null, source: 'bcb_live' }
   } catch (error) {
     const cached = loadCachedROE()

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { reportBestEffortFailure } = vi.hoisted(() => ({ reportBestEffortFailure: vi.fn() }))
+const { reportBestEffortFailure, rpc } = vi.hoisted(() => ({ reportBestEffortFailure: vi.fn(), rpc: vi.fn() }))
 vi.mock('../../lib/telemetry', () => ({ reportBestEffortFailure }))
+vi.mock('../supabase', () => ({ supabase: { rpc } }))
 
 import { fetchROE } from '../demurrage/demurrageKpis'
 
@@ -18,11 +19,15 @@ function okResponse(cotacaoVenda: string, dataHoraCotacao = '2026-07-16T13:04:05
 afterEach(() => {
   vi.restoreAllMocks()
   reportBestEffortFailure.mockClear()
+  rpc.mockClear()
   localStorage.clear()
 })
 
 describe('fetchROE', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    rpc.mockResolvedValue({ error: null })
+  })
 
   it('não registra falha best-effort quando o BCB responde', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(okResponse('5.0000'))))
@@ -34,6 +39,11 @@ describe('fetchROE', () => {
     expect(result.ptax).toBe(5)
     expect(result.roe).toBe(5.325)
     expect(result.effectiveDate).toBe('2026-07-16')
+    expect(rpc).toHaveBeenCalledWith('save_exchange_rate_reference', {
+      p_ptax: 5,
+      p_roe: 5.325,
+      p_effective_date: '2026-07-16',
+    })
     expect(reportBestEffortFailure).not.toHaveBeenCalled()
   })
 
