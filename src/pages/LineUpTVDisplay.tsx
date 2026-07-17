@@ -4,16 +4,13 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { formatDateOnlyToBRShort, formatShortDateSafe } from '../lib/utils'
 import { arrivalDisplay, deriveEscalaState } from '../lib/escalaState'
+import { isCycleStartRow } from '../lib/lineupCycle'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
 const DISPLAY_ROW_TRAVEL_MS = 3000
 const DISPLAY_GRID_TEMPLATE = '20fr 5fr 7fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr'
 const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'VIN CNTR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
-
-export function isCycleStartRow(renderedRowId: string, firstRowId: string | null | undefined) {
-  return Boolean(firstRowId && (renderedRowId === firstRowId || renderedRowId.startsWith(`${firstRowId}::display-track-`)))
-}
 
 const isTouchDevice = () => {
   if (typeof window === 'undefined') return false

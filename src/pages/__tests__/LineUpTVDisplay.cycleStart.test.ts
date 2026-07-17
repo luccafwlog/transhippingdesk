@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { isCycleStartRow } from '../LineUpTVDisplay'
+import { isCycleStartRow } from '../../lib/lineupCycle'
 
 it('identifica toda ocorrência renderizada da primeira escala pelo id de origem', () => {
   expect(isCycleStartRow('1::SSZ', '1::SSZ')).toBe(true)
