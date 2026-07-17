@@ -19,6 +19,7 @@ type Props<T> = {
   canImport: (preview: T) => boolean
   renderPreview: (preview: T, file: File) => ReactNode
   renderBatchSummary?: (entries: FilePreviewEntry<T>[]) => ReactNode
+  helper?: ReactNode
   onClose: () => void
 }
 
@@ -32,6 +33,7 @@ export function FileImportModal<T>({
   canImport,
   renderPreview,
   renderBatchSummary,
+  helper,
   onClose,
 }: Props<T>) {
   const { showToast } = useToast()
@@ -82,6 +84,7 @@ export function FileImportModal<T>({
         <div className="app-panel app-panel--padded text-sm">
           Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
         </div>
+        {helper}
         <Field label={`Arquivo ${accept}`}>
           <Input accept={accept} multiple={multiple} type="file" onChange={handleFile} />
         </Field>

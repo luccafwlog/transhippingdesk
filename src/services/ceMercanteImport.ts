@@ -44,6 +44,31 @@ export type CeMercanteImportResult = {
   }>
 }
 
+export async function partitionRowsByVoyage<T extends { bl_id: string; rowNumber?: number; lineNumber?: number }>(
+  rows: T[],
+  voyageId: number,
+): Promise<{ rows: T[]; blocked: Array<{ row: number; bl_id: string; message: string }> }> {
+  const voyageByBl = new Map<string, number | null>()
+  for (const chunk of chunkArray(Array.from(new Set(rows.map((row) => row.bl_id))), 400)) {
+    const { data, error } = await supabase.from('bls').select('id, voyage_id').in('id', chunk)
+    if (error) throw error
+    for (const bl of data ?? []) voyageByBl.set(String(bl.id), bl.voyage_id)
+  }
+
+  const blocked: Array<{ row: number; bl_id: string; message: string }> = []
+  const validRows = rows.filter((row) => {
+    const rowVoyageId = voyageByBl.get(row.bl_id)
+    if (rowVoyageId === undefined || rowVoyageId === voyageId) return true
+    blocked.push({
+      row: row.rowNumber ?? row.lineNumber ?? 0,
+      bl_id: row.bl_id,
+      message: `B/L ${row.bl_id} pertence a outra viagem`,
+    })
+    return false
+  })
+  return { rows: validRows, blocked }
+}
+
 const CE_MERCANTE_LENGTH = 15
 
 export async function parseCeMercanteFile(file: File): Promise<ParsedCeMercanteFile> {

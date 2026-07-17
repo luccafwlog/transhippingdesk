@@ -301,6 +301,11 @@ export function getProximaEscala(
   return { pod: next.pod, eta: next.eta as string, etb: next.etb ?? null }
 }
 
+export function isEtaOverdue(eta: string | null, now: Date = new Date()): boolean {
+  if (!eta) return false
+  return new Date(`${eta}T23:59:59`) < now
+}
+
 // --- Rail (lista master-detail) ----------------------------------------------
 
 export type VoyageRailItem = {
@@ -389,6 +394,8 @@ export type VoyageTimelineEventKind =
   | 'ce-master'
   | 'voyage-data'
   | 'ce-coverage'
+  | 'omission'
+  | 'transshipment-info'
 
 export type VoyageTimelineEvent = {
   id: string
@@ -406,6 +413,7 @@ type TimelineAuditEvent = {
   new_value: string | null
   changed_by?: string | null
   changed_at: string | null
+  justification?: string | null
 }
 
 const TIMELINE_SCHEDULE_DATE_LABELS: Record<string, string> = { etd: 'ETD', eta: 'ETA', etb: 'ETB', ata: 'ATA', atd: 'ATD' }
@@ -440,6 +448,8 @@ const TIMELINE_KIND_ORDER: Record<VoyageTimelineEventKind, number> = {
   'divergence-resolved': 12,
   'voyage-data': 13,
   'pod-removed': 14,
+  omission: 15,
+  'transshipment-info': 16,
 }
 
 export function buildVoyageTimeline({
@@ -453,7 +463,7 @@ export function buildVoyageTimeline({
   ceCoverage,
   actorNames,
 }: {
-  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; ce_master?: string | null }> | null
+  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; ce_master?: string | null }> | null
   scheduleEvents?: TimelineAuditEvent[] | null
   auditEvents?: TimelineAuditEvent[] | null
   resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
@@ -483,13 +493,32 @@ export function buildVoyageTimeline({
       })
     }
 
-    events.push({
-      id: `import-${batch.id}`,
-      kind: 'import',
-      at: batch.uploaded_at,
-      title: 'Manifesto importado',
-      detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${batch.route ?? stripFileExtension(batch.filename)}`,
-    })
+    if (batch.routes?.length) {
+      const grouped = new Map<string, { pol: string; pod: string; count: number }>()
+      for (const route of batch.routes) {
+        const key = `${route.pol}\u0000${route.pod}`
+        const current = grouped.get(key)
+        grouped.set(key, { pol: route.pol, pod: route.pod, count: (current?.count ?? 0) + route.blCount })
+      }
+      for (const [key, route] of grouped) {
+        const plural = route.count === 1 ? '' : 's'
+        events.push({
+          id: `import-${batch.id}-${key}`,
+          kind: 'import',
+          at: batch.uploaded_at,
+          title: `${route.count} B/L${plural} importado${plural} · ${route.pol} → ${route.pod}`,
+          detail: batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR',
+        })
+      }
+    } else {
+      events.push({
+        id: `import-${batch.id}`,
+        kind: 'import',
+        at: batch.uploaded_at,
+        title: 'Manifesto importado',
+        detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${batch.route ?? stripFileExtension(batch.filename)}`,
+      })
+    }
   }
 
   if (ceCoverage && ceCoverage.total > 0 && ceCoverage.filled >= ceCoverage.total && latestImportAt) {
@@ -626,6 +655,32 @@ export function buildVoyageTimeline({
         at,
         title: oldValue ? 'CE Master alterado' : 'CE Master definido',
         detail: appendActor(oldValue ? `${oldValue} -> ${value}` : value, row.changed_by),
+      })
+      return
+    }
+
+    if (row.field_name === 'escala_omitida') {
+      const omittedPod = oldValue || '—'
+      const dischargePod = value
+      const reason = String(row.justification ?? '').trim()
+      const suffix = reason && reason !== 'Omissao de escala' ? ` · motivo: ${reason}` : ''
+      events.push({
+        id: `audit-omission-${index}`,
+        kind: 'omission',
+        at,
+        title: `Escala de ${omittedPod} omitida · Porto de Transbordo — ${dischargePod}${suffix}`,
+        detail: appendActor('Omissão registrada', row.changed_by),
+      })
+      return
+    }
+
+    if (row.field_name === 'transshipment_info') {
+      events.push({
+        id: `audit-transshipment-${index}`,
+        kind: 'transshipment-info',
+        at,
+        title: 'Informações de Transbordo complementadas',
+        detail: appendActor('Registro global atualizado', row.changed_by),
       })
       return
     }

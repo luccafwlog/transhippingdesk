@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Boxes, Download, FileText, Trash2, Upload, MoreVertical } from 'lucide-react'
+import { Boxes, Download, Trash2, Upload, MoreVertical } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -9,10 +9,8 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { BlImportModal } from '../components/shared/BlImportModal'
-import { MercanteEdiModal } from '../components/shared/MercanteEdiModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
-import { UploadManifestModal } from '../components/shared/UploadManifestModal'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
@@ -50,52 +48,8 @@ export function Manifestos() {
     page: 1,
     pageSize: 20,
   })
-  const [uploadOpen, setUploadOpen] = useState(false)
   const [blFreightOpen, setBlFreightOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
-  const [ediModalOpen, setEdiModalOpen] = useState(false)
-  const [ediModalVoyage, setEdiModalVoyage] = useState<{
-    voyage_number: string
-    vessel?: { name?: string | null; imo?: string | null; carrier?: { scac?: string | null } | null } | null
-    pol?: { locode?: string | null; name?: string | null } | null
-    pod?: { locode?: string | null; name?: string | null } | null
-  } | null>(null)
-  const [ediModalBls, setEdiModalBls] = useState<Array<{
-    id: string
-    shipper?: string | null
-    consignee?: string | null
-    pol?: string | null
-    pod?: string | null
-    cargo_description?: string | null
-    total_weight_kg?: number | null
-    total_cbm?: number | null
-    manifest_customer_cnpj_cpf?: string | null
-    manifest_customer_name?: string | null
-    bl_containers?: Array<{
-      id: number
-      container_number: string
-      seal_number?: string | null
-      type?: string | null
-      tare_weight_kg?: number | null
-      gross_weight_kg?: number | null
-      cbm?: number | null
-      is_imo?: boolean | null
-      imo_class?: string | null
-      un_number?: string | null
-    }> | null
-    bl_freight_lines?: Array<{
-      bl_id: string
-      seq: number
-      description: string | null
-      category: string | null
-      mercante_code: string | null
-      currency: string | null
-      amount: number | null
-      payment: string | null
-    }> | null
-  }>>([])
-  const [ediModalPol, setEdiModalPol] = useState<string>('')
-  const [ediModalPod, setEdiModalPod] = useState<string>('')
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
   const { data, isLoading, error } = useBls(filters)
@@ -228,41 +182,6 @@ export function Manifestos() {
     }
   }
 
-  function handleOpenEdiModal() {
-    const selectedIds = [...selection.selected]
-    if (!selectedIds.length) return
-    const selectedBls = (data?.rows ?? []).filter((row) => selection.isSelected(row.id))
-    if (!selectedBls.length) return
-
-    const groups = new Map<string, { pol: string; pod: string; bls: typeof selectedBls }>()
-    for (const bl of selectedBls) {
-      const key = `${bl.pol?.trim() ?? ''}__${bl.pod?.trim() ?? ''}`
-      if (!groups.has(key)) {
-        groups.set(key, { pol: bl.pol?.trim() ?? '', pod: bl.pod?.trim() ?? '', bls: [] })
-      }
-      groups.get(key)!.bls.push(bl)
-    }
-
-    const first = [...groups.values()][0]!
-    const firstBl = first.bls[0]
-    setEdiModalVoyage({
-      voyage_number: firstBl.voyage?.voyage_number ?? '',
-      vessel: firstBl.voyage?.vessel
-        ? { name: firstBl.voyage.vessel.name, imo: firstBl.voyage.vessel.imo ?? '', carrier: firstBl.voyage.vessel.carrier }
-        : null,
-      pol: { locode: first.pol || null, name: null },
-      pod: { locode: first.pod || null, name: null },
-    })
-    setEdiModalBls(first.bls as typeof ediModalBls)
-    setEdiModalPol(first.pol)
-    setEdiModalPod(first.pod)
-    setEdiModalOpen(true)
-
-    if (groups.size > 1) {
-      showToast(`Agrupado em ${groups.size} rota(s). Selecionar um grupo por vez.`, 'info')
-    }
-  }
-
   const pageBlIds = (data?.rows ?? []).map((row) => row.id)
   const allPageSelected = pageBlIds.length > 0 && pageBlIds.every((id) => selection.isSelected(id))
   const blColumnCount = isAdmin ? 12 : 11
@@ -271,7 +190,7 @@ export function Manifestos() {
     <>
       <PageHeader
         title="BLs CNTR"
-        description="Consulta paginada de B/Ls de container e importação de planilhas. Cada manifesto registra seu próprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
+        description="Consulta paginada de B/Ls de container e importação de planilhas. Cada B/L registra seu próprio trecho POL/POD dentro da viagem e vincula clientes pela base cadastral."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Link
@@ -281,15 +200,6 @@ export function Manifestos() {
               <Boxes size={16} />
               Containers
             </Link>
-            <Button
-              variant="secondary"
-              onClick={handleOpenEdiModal}
-              disabled={!selection.count}
-              title={!selection.count ? 'Selecione B/Ls para gerar EDI Mercante' : 'Gerar EDI Mercante dos B/Ls selecionados'}
-            >
-              <FileText size={16} />
-              Gerar EDI Mercante
-            </Button>
             <Button variant="secondary" loading={exporting} onClick={handleExport}>
               <Download size={16} />
               Exportar
@@ -301,10 +211,6 @@ export function Manifestos() {
             <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
               <Upload size={16} />
               Importar B/L
-            </Button>
-            <Button onClick={() => setUploadOpen(true)}>
-              <Upload size={16} />
-              Importar Manifesto CNTR
             </Button>
           </div>
         }
@@ -573,12 +479,6 @@ export function Manifestos() {
         </div>
       ) : null}
 
-      <UploadManifestModal
-        key={`upload-${uploadOpen ? 'open' : 'closed'}-${filters.voyageId}`}
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        initialVoyageId={filters.voyageId}
-      />
       <BlImportModal
         key={`bl-import-${blFreightOpen ? 'open' : 'closed'}-${filters.voyageId}`}
         open={blFreightOpen}
@@ -586,15 +486,6 @@ export function Manifestos() {
         voyageId={filters.voyageId ? Number(filters.voyageId) : null}
       />
       <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
-      <MercanteEdiModal
-        open={ediModalOpen}
-        onClose={() => setEdiModalOpen(false)}
-        voyage={ediModalVoyage ?? { voyage_number: '', pol: { locode: '', name: '' }, pod: { locode: '', name: '' } }}
-        bls={ediModalBls}
-        prefilledPol={ediModalPol}
-        prefilledPod={ediModalPod}
-      />
-
     </>
   )
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowRight, Pencil, Trash2 } from 'lucide-react'
+import { ArrowRight, Ban, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Badge } from '../ui/Badge'
@@ -15,6 +15,7 @@ import {
   countPlannedPodRows,
   deriveEstadoConciliacao,
   getProximaEscala,
+  isEtaOverdue,
   splitVoyageBls,
   voyageCeCoverage,
 } from '../../services/voyageSummaries'
@@ -53,7 +54,19 @@ export type {
 
 type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos'
 
-function KpiTile({ label, value, sub, valueColor }: { label: string; value: string; sub?: string; valueColor?: string }) {
+function KpiTile({
+  label,
+  value,
+  sub,
+  alert,
+  valueColor,
+}: {
+  label: string
+  value: string
+  sub?: string
+  alert?: string
+  valueColor?: string
+}) {
   return (
     <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
       <div className="text-lg font-bold text-[var(--app-text-strong)]" style={valueColor ? { color: valueColor } : undefined}>
@@ -61,6 +74,11 @@ function KpiTile({ label, value, sub, valueColor }: { label: string; value: stri
       </div>
       <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
       {sub ? <div className="text-[11px] text-[var(--app-muted-soft)]">{sub}</div> : null}
+      {alert ? (
+        <div className="mt-1 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+          {alert}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -92,6 +110,7 @@ type VoyageCardProps = {
   exportSchedule: VoyageExportSchedule | null
   onEditVoyage: (voyageId: number) => void
   onDeleteVoyage: (voyageId: number) => void
+  onCancelVoyage: (voyageId: number) => void
   onEditPod: (payload: EditingPodPayload) => void
   onEditPol: (payload: EditingPolPayload) => void
   onAddPod: (payload: AddingPodPayload) => void
@@ -110,6 +129,7 @@ export function VoyageCard({
   exportSchedule,
   onEditVoyage,
   onDeleteVoyage,
+  onCancelVoyage,
   onEditPod,
   onEditPol,
   onAddPod,
@@ -159,6 +179,8 @@ export function VoyageCard({
       eta: schedule?.eta ?? null,
       etb: schedule?.etb ?? null,
       ata: schedule?.ata ?? null,
+      atb: schedule?.atb ?? null,
+      etd: schedule?.etd ?? null,
       atd: schedule?.atd ?? null,
       rtw: schedule?.rtw ?? null,
       ceStatus: schedule?.ceStatus ?? autoCeStatus,
@@ -253,6 +275,15 @@ export function VoyageCard({
               <Button
                 variant="ghost"
                 className="app-voyage-action-icon app-voyage-action-icon--danger"
+                onClick={() => onCancelVoyage(voyage.id)}
+                disabled={voyage.status === 'cancelled'}
+              >
+                <Ban size={15} />
+                Cancelar viagem
+              </Button>
+              <Button
+                variant="ghost"
+                className="app-voyage-action-icon app-voyage-action-icon--danger"
                 onClick={() => onDeleteVoyage(voyage.id)}
                 aria-label="Excluir viagem"
                 title="Excluir viagem"
@@ -271,6 +302,7 @@ export function VoyageCard({
           label="Próxima escala"
           value={proximaEscala ? proximaEscala.pod : '—'}
           sub={proximaEscala ? formatDate(proximaEscala.eta) : `${plannedPodCount} escala${plannedPodCount === 1 ? '' : 's'} planejada${plannedPodCount === 1 ? '' : 's'}`}
+          alert={proximaEscala && isEtaOverdue(proximaEscala.eta) ? 'ETA vencido — ATA pendente' : undefined}
         />
         <KpiTile
           label="Conciliação"

@@ -126,6 +126,19 @@ export type PortalDemurrageInvoiceDetail = {
   items: DemurrageInvoiceItem[]
 }
 
+export type PortalCurrentRoe = {
+  roe: number
+  updatedAt: string
+}
+
+export async function portalGetCurrentRoe(): Promise<PortalCurrentRoe | null> {
+  const { data, error } = await supabasePortal.rpc('portal_get_current_roe')
+  if (error) throw error
+  const row = (Array.isArray(data) ? data[0] : data) as { roe?: number | string; updated_at?: string } | null
+  if (row?.roe == null || !row.updated_at) return null
+  return { roe: Number(row.roe), updatedAt: row.updated_at }
+}
+
 export async function portalListDemurrageInvoices(): Promise<PortalDemurrageInvoice[]> {
   const { data, error } = await supabasePortal.rpc('portal_list_demurrage_invoices')
   if (error) throw error

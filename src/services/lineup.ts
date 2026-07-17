@@ -47,6 +47,8 @@ export type LineUpRow = {
   pod: string
   eta: string | null
   etb: string | null
+  ata: string | null
+  atb: string | null
   rowType: 'import' | 'export'
   vin: number
   car: number
@@ -70,6 +72,14 @@ export type LineUpRow = {
 export type LineUpSnapshot = {
   rows: LineUpRow[]
   lastChangedAt: string | null
+}
+
+export function lineUpScheduleDates(schedule: { ata?: string | null; atb?: string | null; atd?: string | null } | undefined) {
+  return {
+    ata: schedule?.ata ?? null,
+    atb: schedule?.atb ?? null,
+    atd: schedule?.atd ?? null,
+  }
 }
 
 export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
@@ -170,6 +180,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         pod,
         eta: schedule?.eta ?? null,
         etb: schedule?.etb ?? null,
+        ...lineUpScheduleDates(schedule),
         rowType: 'import',
         vin: routeVehicles.length,
         car: carContainers,
@@ -182,7 +193,6 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         bbTotal: bbMachines + bbPackages,
         ceStatus: schedule?.ceStatus ?? autoCeStatus,
         linked: schedule?.linked ?? false,
-        atd: schedule?.atd ?? null,
         exportHasGranite: null,
         exportContainersQty: null,
         exportMovementsQty: null,
@@ -204,6 +214,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       pod: exportSchedule.pol ?? voyage.pol?.locode ?? voyage.pol?.name ?? 'EXP',
       eta: exportSchedule.eta,
       etb: exportSchedule.etb,
+      ...lineUpScheduleDates(undefined),
       rowType: 'export',
       vin: 0,
       car: 0,
@@ -216,7 +227,6 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       bbTotal: 0,
       ceStatus: 'missing',
       linked: false,
-      atd: null,
       exportHasGranite: exportSchedule.hasGranite,
       exportContainersQty: exportSchedule.containersQty,
       exportMovementsQty: exportSchedule.movementsQty,
@@ -256,12 +266,14 @@ function hasActivePodScheduleData(schedule: {
   eta?: string | null
   etb?: string | null
   ata?: string | null
+  atb?: string | null
+  etd?: string | null
   atd?: string | null
   rtw?: number | null
   ceStatus?: VoyagePodCeStatus | null
   linked?: boolean | null
 }) {
-  if (schedule.eta || schedule.etb || schedule.ata || schedule.atd) return true
+  if (schedule.eta || schedule.etb || schedule.ata || schedule.atb || schedule.etd || schedule.atd) return true
   if (schedule.rtw !== null) return true
   if (schedule.linked === true) return true
   if (schedule.ceStatus && schedule.ceStatus !== 'waiting' && schedule.ceStatus !== 'missing') return true

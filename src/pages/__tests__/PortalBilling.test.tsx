@@ -75,6 +75,7 @@ const mocks = vi.hoisted(() => ({
   obsolete: vi.fn(),
   detail: null as unknown,
   demurrageError: null as Error | null,
+  currentRoe: { roe: 5.4288, updatedAt: '2026-07-16T12:00:00Z' } as { roe: number; updatedAt: string } | null,
 }))
 
 vi.mock('../../components/ui/Toast', () => ({
@@ -106,6 +107,7 @@ vi.mock('../../hooks/usePortalBilling', () => ({
   usePortalConsolidatableReceivables: () => ({ data: [] }),
   usePortalInvoices: () => ({ data: localInvoices, isLoading: false, error: null }),
   usePortalDemurrageInvoices: () => ({ data: mocks.demurrageError ? undefined : demurrageInvoices, isLoading: false, error: mocks.demurrageError }),
+  usePortalCurrentRoe: () => ({ data: mocks.currentRoe }),
   usePortalInvoiceDetail: () => ({ data: mocks.detail, isLoading: false, error: null }),
   usePortalDemurrageInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
   usePortalObsoleteConsolidation: () => ({ isPending: false, mutateAsync: mocks.obsolete }),
@@ -134,6 +136,7 @@ afterEach(() => {
   mocks.obsolete.mockReset()
   mocks.detail = null
   mocks.demurrageError = null
+  mocks.currentRoe = { roe: 5.4288, updatedAt: '2026-07-16T12:00:00Z' }
 })
 
 const consolidatedDetail = {
@@ -195,6 +198,24 @@ describe('PortalBilling', () => {
     const rows = exportDemurrage.mock.calls[0]?.[0] as PortalDemurrageInvoice[]
     expect(rows).toHaveLength(1)
     expect(rows[0].doc_number).toBe('DEM-001')
+  })
+
+  it('exibe apenas na aba Demurrage o ROE vigente persistido', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    expect(screen.queryByText('ROE vigente: R$ 5,4288 · atualizado em 16/07/2026')).toBeNull()
+    await user.click(screen.getByRole('tab', { name: 'Demurrage' }))
+    expect(screen.getByText('ROE vigente: R$ 5,4288 · atualizado em 16/07/2026')).toBeTruthy()
+  })
+
+  it('nao exibe erro cambial ao cliente quando o ROE vigente esta indisponivel', async () => {
+    const user = userEvent.setup()
+    mocks.currentRoe = null
+    renderBilling()
+
+    await user.click(screen.getByRole('tab', { name: 'Demurrage' }))
+    expect(screen.queryByText(/ROE vigente/)).toBeNull()
   })
 
   it('mostra erro da aba Demurrage em vez de estado vazio', async () => {

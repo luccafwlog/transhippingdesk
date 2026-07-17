@@ -7,6 +7,8 @@ import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
 import { AddPodToVoyageModal, ExportScheduleModal, PodScheduleModal, PolScheduleModal } from '../components/shared/VoyageScheduleModals'
 import { Modal } from '../components/ui/Modal'
+import { Field, Input } from '../components/ui/Input'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
@@ -14,7 +16,7 @@ import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { useVaziosImportacaoStats } from '../hooks/useVaziosImportacaoStats'
 import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
 import { buildVoyageRailItems, collectVoyagePorts, normalizeVoyageStatus } from '../services/voyageSummaries'
-import { deleteVoyage } from '../services/voyages'
+import { cancelVoyage, deleteVoyage } from '../services/voyages'
 import { setImportBatchCeMaster } from '../services/manifestImport'
 import {
   buildVoyagePolEntityId,
@@ -48,11 +50,15 @@ export function Viagens() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { isAdmin, user } = useAuth()
+  const confirm = useConfirm()
   const { data, isLoading, error } = useVoyages()
   const [open, setOpen] = useState(false)
   const [editingVoyageId, setEditingVoyageId] = useState<number | null>(null)
   const [deletingVoyageId, setDeletingVoyageId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [cancellingVoyageId, setCancellingVoyageId] = useState<number | null>(null)
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
   const [editingPod, setEditingPod] = useState<EditingPodPayload | null>(null)
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
   const [addingPodVoyage, setAddingPodVoyage] = useState<AddingPodPayload | null>(null)
@@ -167,6 +173,34 @@ export function Viagens() {
     }
   }
 
+  async function handleCancelVoyage() {
+    if (!cancellingVoyageId || !user?.id || !cancellationReason.trim()) return
+    const accepted = await confirm({
+      title: 'Confirmar cancelamento',
+      message: 'A viagem será mantida para rastreabilidade e ficará com status Cancelada.',
+      confirmLabel: 'Cancelar viagem',
+      tone: 'danger',
+    })
+    if (!accepted) return
+
+    setCancelling(true)
+    try {
+      await cancelVoyage({ voyageId: cancellingVoyageId, reason: cancellationReason, changedBy: user.id })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
+        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
+      ])
+      showToast('Viagem cancelada com sucesso.', 'success')
+      setCancellingVoyageId(null)
+      setCancellationReason('')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao cancelar viagem.', 'error')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -239,6 +273,7 @@ export function Viagens() {
               exportSchedule={exportSchedulesData?.get(selectedVoyage.id) ?? null}
               onEditVoyage={setEditingVoyageId}
               onDeleteVoyage={setDeletingVoyageId}
+              onCancelVoyage={setCancellingVoyageId}
               onEditPod={setEditingPod}
               onEditPol={setEditingPol}
               onAddPod={setAddingPodVoyage}
@@ -310,6 +345,30 @@ export function Viagens() {
         </div>
       </Modal>
 
+      <Modal
+        open={cancellingVoyageId !== null}
+        onClose={() => {
+          setCancellingVoyageId(null)
+          setCancellationReason('')
+        }}
+        title="Cancelar viagem"
+      >
+        <div className="grid gap-4">
+          <p className="text-sm text-[var(--app-text)]">
+            O cancelamento preserva a viagem e seus vínculos para rastreabilidade.
+          </p>
+          <Field label="Motivo do cancelamento">
+            <Input value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} />
+          </Field>
+          <div className="app-modal__actions">
+            <Button variant="secondary" onClick={() => setCancellingVoyageId(null)}>Voltar</Button>
+            <Button variant="danger" loading={cancelling} disabled={!cancellationReason.trim()} onClick={handleCancelVoyage}>
+              Continuar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <ExportScheduleModal
         open={editingExport !== null}
         exportData={editingExport}
@@ -334,7 +393,7 @@ export function Viagens() {
         open={editingPod !== null}
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked, escalaNumber }) => {
+        onSaved={async ({ voyageId, pod, eta, etb, ata, atb, etd, atd, rtw, ceStatus, linked, escalaNumber }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -346,6 +405,8 @@ export function Viagens() {
               eta,
               etb,
               ata,
+              atb,
+              etd,
               atd,
               rtw,
               ceStatus,
@@ -371,7 +432,7 @@ export function Viagens() {
         open={editingPol !== null}
         polSchedule={editingPol}
         onClose={() => setEditingPol(null)}
-        onSaved={async ({ voyageId, pol, pod, etd, ceMaster, batchIds }) => {
+        onSaved={async ({ voyageId, pol, pod, etd, atd, ceMaster, batchIds }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -382,6 +443,7 @@ export function Viagens() {
               voyageId,
               pol,
               etd,
+              atd,
               changedBy: user.id,
             })
             if (batchIds?.length) {

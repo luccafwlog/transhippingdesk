@@ -10,6 +10,8 @@ export type EditingPodPayload = {
   eta: string | null
   etb: string | null
   ata: string | null
+  atb: string | null
+  etd: string | null
   atd: string | null
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
@@ -23,6 +25,7 @@ export type EditingPolPayload = {
   pol: string
   pod: string
   etd: string | null
+  atd: string | null
   ceMaster: string | null
   batchIds: number[]
 }
@@ -41,6 +44,8 @@ export type VoyagePodRow = {
   eta: string | null
   etb: string | null
   ata: string | null
+  atb: string | null
+  etd: string | null
   atd: string | null
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null

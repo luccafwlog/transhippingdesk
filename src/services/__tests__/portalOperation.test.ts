@@ -26,6 +26,11 @@ describe('portalOperation', () => {
         voyage_id: '10',
         voyage_number: '001W',
         vessel_name: 'NAVIO TESTE',
+        transshipment: {
+          omission_id: '9', disposition: 'transshipment', omitted_pod: 'VITÓRIA', discharge_pod: 'SANTOS',
+          reason: null, onward_vessel_name: 'COSCO STAR', onward_carrier: 'COSCO', onward_voyage_number: 'T-1',
+          onward_etd: '2026-07-20', onward_eta: null,
+        },
         container_count: '2',
         containers_in_demurrage: '1',
         containers_returned: '1',
@@ -54,6 +59,11 @@ describe('portalOperation', () => {
         voyage_id: 10,
         voyage_number: '001W',
         vessel_name: 'NAVIO TESTE',
+        transshipment: {
+          omission_id: 9, disposition: 'transshipment', omitted_pod: 'VITÓRIA', discharge_pod: 'SANTOS',
+          reason: null, onward_vessel_name: 'COSCO STAR', onward_carrier: 'COSCO', onward_voyage_number: 'T-1',
+          onward_etd: '2026-07-20', onward_eta: null,
+        },
         container_count: 2,
         containers_in_demurrage: 1,
         containers_returned: 1,

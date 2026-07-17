@@ -28,13 +28,15 @@ export function PolScheduleModal({
     pol: string
     pod: string
     etd: string | null
+    atd: string | null
     ceMaster: string | null
     batchIds: number[]
   } | null
   onClose: () => void
-  onSaved: (payload: { voyageId: number; pol: string; pod: string; etd: string | null; ceMaster: string | null; batchIds: number[] }) => Promise<void>
+  onSaved: (payload: { voyageId: number; pol: string; pod: string; etd: string | null; atd: string | null; ceMaster: string | null; batchIds: number[] }) => Promise<void>
 }) {
   const [etd, setEtd] = useState('')
+  const [atd, setAtd] = useState('')
   const [ceMaster, setCeMaster] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -44,6 +46,7 @@ export function PolScheduleModal({
   if (open && polSchedule && polSchedule !== prevSchedule) {
     setPrevSchedule(polSchedule)
     setEtd(polSchedule.etd ?? '')
+    setAtd(polSchedule.atd ?? '')
     setCeMaster(polSchedule.ceMaster ?? '')
   }
 
@@ -58,6 +61,7 @@ export function PolScheduleModal({
         pol: polSchedule.pol,
         pod: polSchedule.pod,
         etd: etd || null,
+        atd: atd || null,
         ceMaster: ceMaster.trim() || null,
         batchIds: polSchedule.batchIds,
       })
@@ -67,7 +71,7 @@ export function PolScheduleModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar ETD e CE Master">
+    <Modal open={open} onClose={onClose} title="Editar ETD + ATD e CE Master">
       {polSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="app-panel app-panel--padded text-sm">
@@ -75,9 +79,12 @@ export function PolScheduleModal({
             <div className="mt-1">Rota: {polSchedule.pol} -&gt; {polSchedule.pod}</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="ETD">
               <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
+            </Field>
+            <Field label="ATD">
+              <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
             </Field>
             <Field label="CE Master">
               <Input value={ceMaster} onChange={(event) => setCeMaster(event.target.value)} placeholder="Ex.: 25BR00481" />
@@ -112,6 +119,8 @@ export function PodScheduleModal({
     eta: string | null
     etb: string | null
     ata: string | null
+    atb: string | null
+    etd: string | null
     atd: string | null
     rtw: number | null
     ceStatus: VoyagePodCeStatus | null
@@ -125,6 +134,8 @@ export function PodScheduleModal({
     eta: string | null
     etb: string | null
     ata: string | null
+    atb: string | null
+    etd: string | null
     atd: string | null
     rtw: number | null
     ceStatus: EditableVoyagePodCeStatus
@@ -135,6 +146,8 @@ export function PodScheduleModal({
   const [eta, setEta] = useState('')
   const [etb, setEtb] = useState('')
   const [ata, setAta] = useState('')
+  const [atb, setAtb] = useState('')
+  const [etd, setEtd] = useState('')
   const [atd, setAtd] = useState('')
   const [rtw, setRtw] = useState('')
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
@@ -150,6 +163,8 @@ export function PodScheduleModal({
     setEta(podSchedule.eta ?? '')
     setEtb(podSchedule.etb ?? '')
     setAta(podSchedule.ata ?? '')
+    setAtb(podSchedule.atb ?? '')
+    setEtd(podSchedule.etd ?? '')
     setAtd(podSchedule.atd ?? '')
     setRtw(podSchedule.rtw === null ? '' : String(podSchedule.rtw))
     setCeStatus(getEditableVoyagePodCeStatus(podSchedule.ceStatus))
@@ -169,6 +184,8 @@ export function PodScheduleModal({
         eta: eta || null,
         etb: etb || null,
         ata: ata || null,
+        atb: atb || null,
+        etd: etd || null,
         atd: atd || null,
         rtw: rtw.trim() ? Number(rtw) : null,
         ceStatus,
@@ -189,15 +206,21 @@ export function PodScheduleModal({
             <div className="mt-1">POD: {podSchedule.pod}</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="ETA">
               <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
+            </Field>
+            <Field label="ATA">
+              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
             </Field>
             <Field label="ETB">
               <Input type="date" value={etb} onChange={(event) => setEtb(event.target.value)} />
             </Field>
-            <Field label="ATA">
-              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
+            <Field label="ATB">
+              <Input type="date" value={atb} onChange={(event) => setAtb(event.target.value)} />
+            </Field>
+            <Field label="ETD">
+              <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
             </Field>
             <Field label="ATD">
               <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />

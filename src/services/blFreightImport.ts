@@ -1,5 +1,7 @@
 import { onlyDigits } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
+import { canonicalizeVesselName } from '../lib/vesselAlias'
+import { extractConsigneeShortName } from '../lib/consigneeName'
 import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
@@ -20,6 +22,8 @@ export type BlFreightImportRow = {
   status: 'new' | 'updated' | 'unchanged' | 'blocked'
   existing: boolean
   voyageId: number | null
+  /** Laden on Board normalizado para alimentar ATD do POL no pos-commit; nao vai no payload documental. */
+  ladenOnBoard: string | null
   consigneeDocumentMatches: boolean | null
   /** hard blocks that prevent importing the row at all (wrong file, missing voyage) */
   blockedReasons: string[]
@@ -252,6 +256,7 @@ export function buildBlFreightPreview({
       status,
       existing: Boolean(existing),
       voyageId,
+      ladenOnBoard: normalizeDate(doc.dates.ladenOnBoard),
       consigneeDocumentMatches,
       blockedReasons,
       billingImpacts: impact.messages,
@@ -335,7 +340,7 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     billing_hold_reason: CUSTOMER_RECONCILIATION_HOLD_REASON,
     cargo_mode: 'container',
     shipper: doc.parties.shipperBlock || null,
-    consignee: firstLine(doc.parties.consigneeBlock),
+    consignee: doc.parties.consigneeBlock ? extractConsigneeShortName(doc.parties.consigneeBlock) : null,
     notify_party: doc.parties.notifyBlock || null,
     // Blocos estruturados de partes p/ o C5 do EDI não sair degradado em
     // viagem só-B/L (#321). Persistidos por import_bl_freight_transactional (166).
@@ -593,7 +598,7 @@ function getDeclaredVoyageMismatchReason(doc: ParsedBLDocument, selectedVoyage: 
   const vesselMismatch = Boolean(
     doc.route.vessel
     && selectedVoyage.vesselName
-    && normalizeText(doc.route.vessel) !== normalizeText(selectedVoyage.vesselName),
+    && canonicalizeVesselName(doc.route.vessel) !== canonicalizeVesselName(selectedVoyage.vesselName),
   )
   const voyageMismatch = Boolean(
     doc.route.voyage

@@ -1,12 +1,10 @@
-import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Download, Pencil } from 'lucide-react'
+import { AlertTriangle, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { formatDate } from '../../lib/utils'
 import type { VoyagePolSchedule } from '../../services/voyageRouteSchedules'
-import { collectVoyageManifestBatchRows, renderCeCoverage, type VoyageImportBatch } from './voyageCardHelpers'
+import { collectVoyageManifestBatchRows, formatPolDeparture, renderCeCoverage, type VoyageImportBatch } from './voyageCardHelpers'
 import type { EditingPolPayload, Voyage } from './voyageCardTypes'
-import { MercanteEdiModal } from '../shared/MercanteEdiModal'
 
 type EstadoMeta = { color: string; bg: string; label: string }
 
@@ -32,10 +30,6 @@ export function VoyageManifestosTab({
   onEditPol: (payload: EditingPolPayload) => void
 }) {
   const navigate = useNavigate()
-  const [ediModalOpen, setEdiModalOpen] = useState(false)
-  const [ediModalPol, setEdiModalPol] = useState<string>('')
-  const [ediModalPod, setEdiModalPod] = useState<string>('')
-
   const manifestRows = collectVoyageManifestBatchRows({
     voyageId: voyage.id,
     batches: importBatches,
@@ -43,20 +37,6 @@ export function VoyageManifestosTab({
     polSchedules,
     routeCeMasters,
   })
-
-  const ediModalBls = useMemo(() => {
-    if (!ediModalOpen) return []
-    return (voyage.bls ?? []).filter(
-      (bl) => bl.pol?.trim() === ediModalPol && bl.pod?.trim() === ediModalPod,
-    )
-  }, [voyage.bls, ediModalPol, ediModalPod, ediModalOpen])
-
-  function handleOpenEdiModal(routeKey: string) {
-    const [pol, pod] = routeKey.split('__')
-    setEdiModalPol(pol ?? '')
-    setEdiModalPod(pod ?? '')
-    setEdiModalOpen(true)
-  }
 
   return (
     <>
@@ -115,7 +95,9 @@ export function VoyageManifestosTab({
               </thead>
               <tbody>
                 {manifestRows.length ? (
-                  manifestRows.map((row) => (
+                  manifestRows.map((row) => {
+                    const departure = formatPolDeparture(row.etd, row.atd)
+                    return (
                     <tr key={`${voyage.id}-manifest-${row.routeKey}`}>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
@@ -126,7 +108,7 @@ export function VoyageManifestosTab({
                         </div>
                         <div className="mt-0.5 text-xs text-[var(--app-muted)]">{row.filenames.join(' · ')}</div>
                       </td>
-                      <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                      <td className={`px-3 py-2${departure.isActual ? ' text-green-600 font-medium' : ''}`}>{formatDate(departure.value)}</td>
                       <td className="px-3 py-2">{row.blCount}</td>
                       <td className="px-3 py-2">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
                       <td className="px-3 py-2">
@@ -141,18 +123,8 @@ export function VoyageManifestosTab({
                           <Button
                             variant="secondary"
                             className="app-voyage-icon-btn"
-                            aria-label={`Gerar EDI Mercante de ${row.routeLabel}`}
-                            title="Gerar EDI Mercante"
-                            onClick={() => handleOpenEdiModal(row.routeKey)}
-                            disabled={!row.pol || row.pol === '-'}
-                          >
-                            <Download size={15} />
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            className="app-voyage-icon-btn"
-                            aria-label={`Editar ETD e CE Master de ${row.routeLabel}`}
-                            title="Editar ETD e CE Master"
+                            aria-label={`Editar ETD + ATD e CE Master de ${row.routeLabel}`}
+                            title="Editar ETD + ATD e CE Master"
                             onClick={() =>
                               onEditPol({
                                 voyageId: voyage.id,
@@ -160,6 +132,7 @@ export function VoyageManifestosTab({
                                 pol: row.pol,
                                 pod: row.pod,
                                 etd: row.etd,
+                                atd: row.atd,
                                 ceMaster: row.ceMaster,
                                 batchIds: row.batchIds,
                               })
@@ -171,7 +144,8 @@ export function VoyageManifestosTab({
                         </div>
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-3 py-3 text-[var(--app-muted)]">
@@ -185,15 +159,6 @@ export function VoyageManifestosTab({
         </div>
       </div>
 
-      <MercanteEdiModal
-        open={ediModalOpen}
-        onClose={() => setEdiModalOpen(false)}
-        voyage={voyage}
-        voyageId={voyage.id}
-        bls={ediModalBls}
-        prefilledPol={ediModalPol}
-        prefilledPod={ediModalPod}
-      />
     </>
   )
 }

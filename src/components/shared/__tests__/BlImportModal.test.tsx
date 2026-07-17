@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   parseBLFile: vi.fn(),
   previewBlFreightImport: vi.fn(),
   confirmBlFreightImport: vi.fn(() => Promise.resolve({ imported: 1 })),
+  applyLadenOnBoardAtd: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -20,6 +21,9 @@ vi.mock('../../../services/blParser', () => ({ parseBLFile: mocks.parseBLFile })
 vi.mock('../../../services/blFreightImport', () => ({
   previewBlFreightImport: mocks.previewBlFreightImport,
   confirmBlFreightImport: mocks.confirmBlFreightImport,
+}))
+vi.mock('../../../services/ladenOnBoardAtd', () => ({
+  applyLadenOnBoardAtd: mocks.applyLadenOnBoardAtd,
 }))
 vi.mock('../VoyageCombobox', () => ({
   VoyageCombobox: ({
@@ -43,6 +47,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.invalidateQueries.mockResolvedValue(undefined)
   mocks.confirmBlFreightImport.mockResolvedValue({ imported: 1 })
+  mocks.applyLadenOnBoardAtd.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
 
@@ -92,6 +97,7 @@ const previewWithDiff = {
       status: 'new',
       existing: false,
       voyageId: 7,
+      ladenOnBoard: '2026-02-19',
       consigneeDocumentMatches: null,
       blockedReasons: [],
       billingImpacts: [],
@@ -104,6 +110,7 @@ const previewWithDiff = {
       status: 'updated',
       existing: true,
       voyageId: 7,
+      ladenOnBoard: '2026-02-20',
       consigneeDocumentMatches: true,
       blockedReasons: [],
       billingImpacts: [],
@@ -148,6 +155,8 @@ it('mostra preview consolidado e tabela de diferencas depois do upload', async (
   expect(screen.getByText('GREEN / 14N')).toBeTruthy()
   expect(screen.getByText('COSU123')).toBeTruthy()
   expect(screen.getByText('COSU456')).toBeTruthy()
+  expect(screen.getByText('2026-02-19')).toBeTruthy()
+  expect(screen.getByText('2026-02-20')).toBeTruthy()
   expect(screen.getByText('bl_freight_lines')).toBeTruthy()
   expect(screen.getByText('USD 10')).toBeTruthy()
   expect(screen.getByText('USD 12')).toBeTruthy()
@@ -161,6 +170,7 @@ it('bloqueia confirmacao quando todos os B/Ls estao bloqueados', async () => {
       status: 'blocked',
       existing: true,
       voyageId: null,
+      ladenOnBoard: null,
       consigneeDocumentMatches: null,
       blockedReasons: ['Viagem nao encontrada para criar o B/L.'],
       billingImpacts: [],
@@ -228,11 +238,38 @@ it('confirma importacao, invalida caches e fecha modal', async () => {
   fireEvent.click(confirm)
 
   await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithDiff, 'user-1', false))
+  expect(mocks.applyLadenOnBoardAtd).toHaveBeenCalledWith({ rows: previewWithDiff.rows, changedBy: 'user-1' })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bls'] })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bl-detail'] })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyages'] })
+  expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyage-pol-schedules'] })
+  expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyage-timeline'] })
   expect(mocks.showToast).toHaveBeenCalledWith('Importacao de B/L concluida: 2 B/L(s), 0 bloqueado(s).', 'success')
   expect(onClose).toHaveBeenCalled()
+})
+
+it('avisa sobre falha do ATD sem mascarar importacao ja concluida', async () => {
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU123'))
+  mocks.previewBlFreightImport.mockResolvedValue(previewWithDiff)
+  mocks.applyLadenOnBoardAtd.mockRejectedValueOnce(new Error('RLS bloqueou ATD'))
+  const { container, onClose } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  const confirm = await screen.findByRole('button', { name: /Confirmar importacao/ })
+  await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
+  fireEvent.click(confirm)
+
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+  expect(mocks.showToast).toHaveBeenCalledWith(
+    'B/Ls importados; ATD do POL não pôde ser atualizado — edite manualmente.',
+    'info',
+  )
+  expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bls'] })
+  expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyage-pol-schedules'] })
+  expect(mocks.showToast).toHaveBeenCalledWith('Importacao de B/L concluida: 2 B/L(s), 0 bloqueado(s).', 'success')
 })
 
 it('exibe impacto de faturamento e envia override quando o operador marca', async () => {
@@ -242,6 +279,7 @@ it('exibe impacto de faturamento e envia override quando o operador marca', asyn
       status: 'updated',
       existing: true,
       voyageId: 7,
+      ladenOnBoard: '2026-02-19',
       consigneeDocumentMatches: true,
       blockedReasons: [],
       billingImpacts: ['Quantidade de containers: 1 -> 2'],

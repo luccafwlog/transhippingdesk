@@ -1,4 +1,3 @@
-import type { ParsedManifest } from './manifestParser'
 import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
@@ -20,6 +19,7 @@ export type VoyagePolSchedule = {
   entityId: string
   voyageId: number
   pol: string
+  atd: string | null
   etd: string | null
   escalaNumber: string | null
 }
@@ -31,6 +31,8 @@ export type VoyagePodSchedule = {
   eta: string | null
   etb: string | null
   ata: string | null
+  atb: string | null
+  etd: string | null
   atd: string | null
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
@@ -89,11 +91,14 @@ export async function listVoyagePolSchedules(entityIds: string[]) {
   const seenFieldsByEntity = new Map<string, Set<string>>()
 
   for (const row of data ?? []) {
-    if (row.field_name !== 'etd' && row.field_name !== 'escala_number') continue
+    if (row.field_name !== 'etd' && row.field_name !== 'escala_number' && row.field_name !== 'atd') continue
 
     const entityId = row.entity_id
     const current = schedules.get(entityId) ?? makeEmptyPolSchedule(entityId)
     const seenFields = seenFieldsByEntity.get(entityId) ?? new Set<string>()
+    if (row.field_name === 'atd' && !seenFields.has('atd')) {
+      current.atd = normalizeDateValue(row.new_value)
+    }
     if (row.field_name === 'etd' && !seenFields.has('etd')) {
       current.etd = normalizeDateValue(row.new_value)
     }
@@ -132,6 +137,8 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     if (row.field_name === 'eta' && !seenFields.has('eta')) current.eta = normalizeDateValue(row.new_value)
     if (row.field_name === 'etb' && !seenFields.has('etb')) current.etb = normalizeDateValue(row.new_value)
     if (row.field_name === 'ata' && !seenFields.has('ata')) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atb' && !seenFields.has('atb')) current.atb = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etd' && !seenFields.has('etd')) current.etd = normalizeDateValue(row.new_value)
     if (row.field_name === 'atd' && !seenFields.has('atd')) current.atd = normalizeDateValue(row.new_value)
     if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
@@ -156,93 +163,30 @@ export async function listVoyagePodSchedulesByVoyageIds(voyageIds: number[]) {
   return hydratePodSchedules(data)
 }
 
-export async function syncManifestPolEtdSchedules({
-  voyageId,
-  manifest,
-  changedBy,
-}: {
-  voyageId: number
-  manifest: ParsedManifest
-  changedBy: string
-}) {
-  if (!manifest.manifest_etd) return
-
-  const entityIds = Array.from(new Set(manifest.bls.map((bl) => buildVoyagePolEntityId(voyageId, bl.pol))))
-  const currentSchedules = await listVoyagePolSchedules(entityIds)
-
-  const inserts = entityIds
-    .map((entityId) => {
-      const currentEtd = currentSchedules.get(entityId)?.etd ?? null
-      if (currentEtd === manifest.manifest_etd) return null
-
-      return {
-        entity_type: POL_ENTITY_TYPE,
-        entity_id: entityId,
-        field_name: 'etd',
-        old_value: currentEtd,
-        new_value: manifest.manifest_etd,
-        changed_by: changedBy,
-        justification: 'ETD importado do manifesto por POL',
-      }
-    })
-    .filter(Boolean)
-
-  if (!inserts.length) return
-
-  const { error } = await supabase.from('audit_logs').insert(inserts)
-  if (error) throw error
-}
-
-export async function syncManifestPodLinked({
-  voyageId,
-  manifest,
-  changedBy,
-}: {
-  voyageId: number
-  manifest: ParsedManifest
-  changedBy: string
-}) {
-  const distinctPods = Array.from(new Set(manifest.bls.map((bl) => bl.pod).filter(Boolean))) as string[]
-  if (!distinctPods.length) return
-
-  const entityIds = distinctPods.map((pod) => buildVoyagePodEntityId(voyageId, pod))
-  const existingSchedules = await listVoyagePodSchedules(entityIds)
-
-  const inserts = entityIds
-    .filter((entityId) => existingSchedules.has(entityId) && existingSchedules.get(entityId)?.linked !== true)
-    .map((entityId) => ({
-      entity_type: POD_ENTITY_TYPE,
-      entity_id: entityId,
-      field_name: 'linked',
-      old_value: null,
-      new_value: 'true',
-      changed_by: changedBy,
-      justification: 'POD reconciliado automaticamente ao importar manifesto',
-    }))
-
-  if (!inserts.length) return
-
-  const { error } = await supabase.from('audit_logs').insert(inserts)
-  if (error) throw error
-}
-
 export async function saveVoyagePolSchedule({
   voyageId,
   pol,
   etd,
+  atd,
   escalaNumber,
   changedBy,
+  justification,
 }: {
   voyageId: number
   pol: string
   etd: string | null
+  atd?: string | null
   escalaNumber?: string | null
   changedBy: string | null
+  justification?: string
 }) {
   const entityId = buildVoyagePolEntityId(voyageId, pol)
   const current = (await listVoyagePolSchedules([entityId])).get(entityId) ?? makeEmptyPolSchedule(entityId)
 
   const changes = [
+    atd === undefined
+      ? null
+      : makeAuditRow(POL_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, justification ?? 'Atualizacao manual de ATD por POL'),
     makeAuditRow(POL_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POL'),
     escalaNumber === undefined
       ? null
@@ -261,6 +205,8 @@ export async function saveVoyagePodSchedule({
   eta,
   etb,
   ata,
+  atb,
+  etd,
   atd,
   rtw,
   ceStatus,
@@ -273,6 +219,8 @@ export async function saveVoyagePodSchedule({
   eta: string | null
   etb: string | null
   ata: string | null
+  atb?: string | null
+  etd?: string | null
   atd: string | null
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
@@ -287,6 +235,12 @@ export async function saveVoyagePodSchedule({
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'eta', current.eta, eta, changedBy, 'Atualizacao manual de ETA por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'etb', current.etb, etb, changedBy, 'Atualizacao manual de ETB por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'ata', current.ata, ata, changedBy, 'Atualizacao manual de ATA por POD'),
+    atb === undefined
+      ? null
+      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'atb', current.atb, atb, changedBy, 'Atualizacao manual de ATB por POD'),
+    etd === undefined
+      ? null
+      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, 'Atualizacao manual de ATD por POD'),
     makeAuditRow(
       POD_ENTITY_TYPE,
@@ -524,6 +478,8 @@ function hydratePodSchedules(
     if (row.field_name === 'eta' && !seenFields.has('eta')) current.eta = normalizeDateValue(row.new_value)
     if (row.field_name === 'etb' && !seenFields.has('etb')) current.etb = normalizeDateValue(row.new_value)
     if (row.field_name === 'ata' && !seenFields.has('ata')) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atb' && !seenFields.has('atb')) current.atb = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etd' && !seenFields.has('etd')) current.etd = normalizeDateValue(row.new_value)
     if (row.field_name === 'atd' && !seenFields.has('atd')) current.atd = normalizeDateValue(row.new_value)
     if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
@@ -553,6 +509,7 @@ function makeEmptyPolSchedule(entityId: string): VoyagePolSchedule {
     entityId,
     voyageId: Number(voyageId),
     pol: pol ?? '-',
+    atd: null,
     etd: null,
     escalaNumber: null,
   }
@@ -567,6 +524,8 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     eta: null,
     etb: null,
     ata: null,
+    atb: null,
+    etd: null,
     atd: null,
     rtw: null,
     ceStatus: null,
@@ -580,7 +539,7 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
 function makeAuditRow(
   entityType: string,
   entityId: string,
-  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number' | 'deleted',
+  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atb' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number' | 'deleted',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,

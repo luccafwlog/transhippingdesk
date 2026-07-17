@@ -11,6 +11,7 @@ import { SkeletonTable } from '../ui/Skeleton'
 import { Field, Input, Select, Textarea } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/ConfirmDialog'
 import { useAuth } from '../../hooks/useAuth'
 import {
   useAddManualInvoiceCharge,
@@ -55,6 +56,7 @@ type InvoiceDetailModalProps = {
 export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, paymentId }: InvoiceDetailModalProps) {
   const { user, isAdmin } = useAuth()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const queryClient = useQueryClient()
 
   const [printOpen, setPrintOpen] = useState(false)
@@ -183,7 +185,14 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     }
   }
 
-  async function handleDeleteCharge(itemId: number) {
+  async function handleDeleteCharge(itemId: number, description: string) {
+    const confirmed = await confirm({
+      title: 'Remover cobrança manual',
+      message: `Excluir a cobrança manual “${description}”? O total da fatura será recalculado.`,
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     try {
       await deleteChargeMutation.mutateAsync({ itemId, actorId: user?.id ?? null })
       showToast('Item removido da fatura.', 'success')
@@ -354,7 +363,8 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                                 <Button
                                   variant="ghost"
                                   type="button"
-                                  onClick={() => handleDeleteCharge(item.id)}
+                              aria-label={`Remover ${item.description}`}
+                              onClick={() => handleDeleteCharge(item.id, item.description)}
                                   loading={deleteChargeMutation.isPending && deleteChargeMutation.variables?.itemId === item.id}
                                 >
                                   <Trash2 size={15} />Remover

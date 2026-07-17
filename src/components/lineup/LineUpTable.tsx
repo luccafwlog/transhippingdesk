@@ -6,6 +6,7 @@ import { EmptyState } from '../ui/Card'
 import type { LineUpRow } from '../../services/lineup'
 import { getVoyagePodCeStatusLabel } from '../../services/voyageRouteSchedules'
 import { formatShortDateSafe } from '../../lib/utils'
+import { arrivalDisplay, deriveEscalaState } from '../../lib/escalaState'
 
 export function LineUpTable({
   rows,
@@ -85,10 +86,12 @@ export function LineUpTable({
 
           {rows.map((row, index) => {
             const isExport = row.rowType === 'export'
+            const arrival = arrivalDisplay({ eta: row.eta, ata: row.ata })
+            const isBerthed = deriveEscalaState({ atb: row.atb, atd: row.atd }) === 'atracada'
             return (
               <tr
                 key={getRowKey ? getRowKey(row, index) : row.id}
-                className={isExport ? (isDisplay ? 'app-lineup-export-row--display' : 'app-lineup-export-row') : undefined}
+                className={`${isExport ? (isDisplay ? 'app-lineup-export-row--display' : 'app-lineup-export-row') : ''} ${isBerthed ? 'app-lineup-row--berthed' : ''}`.trim() || undefined}
               >
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-2 py-2 text-center font-semibold text-white'}>
                   {isDisplay ? row.vesselName : (
@@ -104,7 +107,9 @@ export function LineUpTable({
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
                   {row.pod}
                 </td>
-                <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.eta)}</td>
+                <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
+                  <span className={arrival.isActual ? 'text-green-600' : undefined}>{formatShortDate(arrival.value)}</span>
+                </td>
                 <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>{formatShortDate(row.etb)}</td>
                 {isExport ? (
                   <>

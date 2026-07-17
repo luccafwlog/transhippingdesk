@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
 
-import { createVoyage, deleteVoyage } from '../voyages'
+import { cancelVoyage, createVoyage, deleteVoyage } from '../voyages'
 import { deleteVoyagePodSchedule } from '../voyageRouteSchedules'
 
 function countResult(count: number) {
@@ -19,6 +19,39 @@ function countResult(count: number) {
 
 beforeEach(() => {
   fromMock.mockReset()
+})
+
+it('cancela a viagem e audita o motivo', async () => {
+  const updateEq = vi.fn(async () => ({ error: null }))
+  const update = vi.fn(() => ({ eq: updateEq }))
+  const auditInsert = vi.fn(async () => ({ error: null }))
+
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'voyages') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ single: vi.fn(async () => ({ data: { status: 'active' }, error: null })) })),
+        })),
+        update,
+      }
+    }
+    if (table === 'audit_logs') return { insert: auditInsert }
+    throw new Error(`Tabela nao mockada: ${table}`)
+  })
+
+  await cancelVoyage({ voyageId: 7, reason: 'Escala retirada pelo armador', changedBy: 'user-1' })
+
+  expect(update).toHaveBeenCalledWith({ status: 'cancelled' })
+  expect(updateEq).toHaveBeenCalledWith('id', 7)
+  expect(auditInsert).toHaveBeenCalledWith([expect.objectContaining({
+    entity_type: 'voyages',
+    entity_id: '7',
+    field_name: 'status',
+    old_value: 'active',
+    new_value: 'cancelled',
+    changed_by: 'user-1',
+    justification: expect.stringContaining('Escala retirada pelo armador'),
+  })])
 })
 
 it('US-215: exclui a viagem quando nao ha dependencias', async () => {

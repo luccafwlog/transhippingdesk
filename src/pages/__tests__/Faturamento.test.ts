@@ -30,6 +30,10 @@ vi.mock('../../components/ui/Toast', async () => {
   }
 })
 
+vi.mock('../../components/ui/ConfirmDialog', () => ({
+  useConfirm: () => vi.fn(),
+}))
+
 vi.mock('../../hooks/useBls', () => ({
   useVoyageOptions: () => ({ data: [] }),
 }))

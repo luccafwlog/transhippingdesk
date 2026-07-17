@@ -1,15 +1,13 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Download, Upload } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
-import { FileImportModal, type FilePreviewEntry } from './FileImportModal'
+import { FileImportModal } from './FileImportModal'
 import { BlImportModal } from './BlImportModal'
-import { computeFileHash, importManifest } from '../../services/manifestImport'
-import { supabase } from '../../services/supabase'
-import { countDistinctManifestContainers, parseManifestFile } from '../../services/manifestParser'
+import { CeMercanteImportModal } from './CeMercanteImportModal'
 import { importBreakbulkManifest, parseBreakbulkManifestFile } from '../../services/breakbulkImport'
 import { importGraniteManifest, parseGraniteManifestFile } from '../../services/graniteImport'
 import { importVaziosManifest, parseVaziosManifestFile } from '../../services/vaziosImport'
@@ -17,20 +15,21 @@ import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../..
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
-import { buildCntrManifestImportSummary } from './voyageImportSummary'
 
-type ImportType = 'cntr' | 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight'
+type ImportType = 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'ceMercante'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
-  cntr: 'Manifesto CNTR',
   bb: 'Manifesto BB',
   granite: 'Manifesto Granito',
-  vaziosImp: 'Manifesto Vazios Imp.',
+  vaziosImp: 'Vazios IMP',
   vaziosExp: 'Vazios Exp',
-  vehicles: 'Planilha Veiculos',
+  vehicles: 'Veículos',
   baplie: 'Baplie EDI',
   blFreight: 'B/L',
+  ceMercante: 'CE Mercante',
 }
+
+const IMPORT_ORDER: ImportType[] = ['baplie', 'blFreight', 'ceMercante', 'bb', 'vehicles', 'vaziosImp', 'granite', 'vaziosExp']
 
 export function VoyageImportActions({
   voyageId,
@@ -59,7 +58,7 @@ export function VoyageImportActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {types.map((type) => (
+        {IMPORT_ORDER.filter((type) => types.includes(type)).map((type) => (
           <Button key={type} variant="secondary" className="text-xs" onClick={() => setActiveType(type)}>
             <Upload size={13} />
             {IMPORT_LABELS[type]}
@@ -67,22 +66,13 @@ export function VoyageImportActions({
         ))}
       </div>
 
-      {activeType === 'cntr' ? (
-        <CntrImportModal
-          voyageId={voyageId}
-          voyageLabel={voyageLabel}
-          userId={userId}
-          onClose={() => setActiveType(null)}
-          onImported={invalidateAfterBLImport}
-        />
-      ) : null}
-
       {activeType === 'bb' ? (
         <FileImportModal
           title="Importar Manifesto BB (Break Bulk)"
           voyageLabel={voyageLabel}
           accept=".xlsx,.xls,.csv"
           parser={parseBreakbulkManifestFile}
+          helper={<TemplateLinks baseName="manifesto-bb-modelo" />}
           canImport={(p) => p.bls.length > 0}
           importer={async (preview, file) => {
             await importBreakbulkManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
@@ -198,133 +188,9 @@ export function VoyageImportActions({
           onClose={() => setActiveType(null)}
         />
       ) : null}
-    </>
-  )
-}
 
-function CntrImportModal({
-  voyageId,
-  voyageLabel,
-  userId,
-  onClose,
-  onImported,
-}: {
-  voyageId: number
-  voyageLabel: string
-  userId: string
-  onClose: () => void
-  onImported: () => Promise<void>
-}) {
-  const { showToast } = useToast()
-  return (
-    <FileImportModal
-      title="Importar Manifesto CNTR"
-      voyageLabel={voyageLabel}
-      accept=".xlsx,.xls"
-      multiple
-      parser={parseManifestFile}
-      canImport={(p) => p.bls.length > 0}
-      importer={async (preview, file) => {
-        const fileHash = await file.arrayBuffer().then((buf) => computeFileHash(buf))
-        if (!fileHash) throw new Error('Nao foi possivel calcular o hash do arquivo para deduplicacao.')
-        await importManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, fileHash })
-        await onImported()
-        showToast(`Manifesto CNTR importado: ${preview.bls.length} B/L(s), ${countDistinctManifestContainers(preview)} container(s).`, 'success')
-      }}
-      renderBatchSummary={(entries) => <CntrConsolidatedSummary entries={entries} />}
-      renderPreview={(preview) => <CntrPreview preview={preview} voyageId={voyageId} />}
-      onClose={onClose}
-    />
-  )
-}
-
-type ManifestPreview = Awaited<ReturnType<typeof parseManifestFile>>
-
-function CntrConsolidatedSummary({ entries }: { entries: FilePreviewEntry<ManifestPreview>[] }) {
-  const summary = buildCntrManifestImportSummary(entries.map((entry) => ({ filename: entry.file.name, preview: entry.preview })))
-
-  return (
-    <div className="rounded-xl border border-[#30363d] bg-[#0d1117]">
-      <div className="border-b border-[#30363d] px-3 py-2 text-sm font-semibold text-white">
-        Manifestos selecionados
-      </div>
-      <div className="app-table-scroll">
-        <table className="app-table app-table--compact min-w-[620px] text-left text-sm">
-          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-            <tr>
-              <th scope="col" className="px-3 py-2">Arquivo</th>
-              <th scope="col" className="px-3 py-2">POL</th>
-              <th scope="col" className="px-3 py-2">POD</th>
-              <th scope="col" className="px-3 py-2">B/Ls</th>
-              <th scope="col" className="px-3 py-2">Containers distintos</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#30363d]">
-            {summary.rows.map((row) => (
-              <tr key={row.filename}>
-                <td className="px-3 py-2 font-semibold text-white">{row.filename}</td>
-                <td className="px-3 py-2">{row.pol}</td>
-                <td className="px-3 py-2">{row.pod}</td>
-                <td className="px-3 py-2">{row.blCount}</td>
-                <td className="px-3 py-2">{row.containerCount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="border-t border-[#30363d] px-3 py-2 text-sm text-slate-300">
-        Total consolidado de containers distintos: <span className="font-semibold text-white">{summary.totalDistinctContainers}</span>
-      </div>
-    </div>
-  )
-}
-
-function CntrPreview({ preview, voyageId }: { preview: ManifestPreview; voyageId: number }) {
-  const [existingBlIds, setExistingBlIds] = useState<Set<string>>(new Set())
-
-  // Reset síncrono sai do effect e vira ajuste durante o render; o fetch
-  // assíncrono (abaixo) continua no useEffect, onde é permitido.
-  const [prevInput, setPrevInput] = useState<{ preview: ManifestPreview; voyageId: number } | null>(null)
-  if (preview !== prevInput?.preview || voyageId !== prevInput?.voyageId) {
-    setPrevInput({ preview, voyageId })
-    if (!preview.bls.length || !voyageId) {
-      setExistingBlIds(new Set())
-    }
-  }
-
-  useEffect(() => {
-    if (!preview.bls.length || !voyageId) return
-    const blNumbers = preview.bls.map((bl) => bl.id).filter(Boolean)
-    if (!blNumbers.length) return
-
-    supabase
-      .from('bls')
-      .select('id')
-      .eq('voyage_id', voyageId)
-      .in('id', blNumbers)
-      .then(({ data }) => {
-        setExistingBlIds(new Set((data ?? []).map((r) => String(r.id ?? ''))))
-      })
-  }, [preview, voyageId])
-
-  const newBls = preview.bls.filter((bl) => !existingBlIds.has(bl.id ?? '')).length
-  const updatedBls = preview.bls.filter((bl) => existingBlIds.has(bl.id ?? '')).length
-
-  return (
-    <>
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="B/Ls" value={preview.bls.length} />
-        <Stat label="Containers" value={countDistinctManifestContainers(preview)} />
-        <Stat label="Erros" value={preview.rowErrors.length} />
-      </div>
-      {(newBls > 0 || updatedBls > 0) ? (
-        <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-sm">
-          <span className="text-green-400 font-semibold">{newBls} novo(s)</span>
-          {updatedBls > 0 && (
-            <span className="ml-3 text-amber-400 font-semibold">{updatedBls} será(ão) atualizado(s)</span>
-          )}
-          <span className="ml-2 text-[var(--app-muted)] text-xs">— revisão de impacto antes de confirmar</span>
-        </div>
+      {activeType === 'ceMercante' ? (
+        <CeMercanteImportModal open lockedVoyageId={voyageId} onClose={() => setActiveType(null)} />
       ) : null}
     </>
   )
@@ -449,6 +315,19 @@ function BaplieImportModal({
   )
 }
 
+function TemplateLinks({ baseName }: { baseName: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {['xlsx', 'csv'].map((extension) => (
+        <a key={extension} className="app-btn app-btn--secondary" href={`/templates/${baseName}.${extension}`} download={`${baseName}.${extension}`}>
+          <Download size={16} />
+          Baixar modelo .{extension}
+        </a>
+      ))}
+    </div>
+  )
+}
+
 function VehiclesImportModal({
   voyageId,
   voyageLabel,
@@ -506,6 +385,7 @@ function VehiclesImportModal({
         <div className="app-panel app-panel--padded text-sm">
           Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
         </div>
+        <TemplateLinks baseName="veiculos-modelo" />
         <Field label="Arquivo .xlsx / .xls / .csv">
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
         </Field>

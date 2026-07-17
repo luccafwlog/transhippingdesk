@@ -68,6 +68,44 @@ export async function updateVoyage(voyageId: number, form: VoyageFormValues, cha
   return updated
 }
 
+export async function cancelVoyage({
+  voyageId,
+  reason,
+  changedBy,
+}: {
+  voyageId: number
+  reason: string
+  changedBy: string
+}) {
+  const normalizedReason = reason.trim()
+  if (!normalizedReason) throw new Error('Informe o motivo do cancelamento.')
+
+  const { data: current, error: currentError } = await supabase
+    .from('voyages')
+    .select('status')
+    .eq('id', voyageId)
+    .single()
+  if (currentError || !current) throw currentError
+  if (current.status === 'cancelled') return
+
+  const { error: updateError } = await supabase
+    .from('voyages')
+    .update({ status: 'cancelled' })
+    .eq('id', voyageId)
+  if (updateError) throw updateError
+
+  const { error: auditError } = await supabase.from('audit_logs').insert([{
+    entity_type: 'voyages',
+    entity_id: String(voyageId),
+    field_name: 'status',
+    old_value: current.status ?? null,
+    new_value: 'cancelled',
+    changed_by: changedBy,
+    justification: `Cancelamento de viagem: ${normalizedReason}`,
+  }])
+  if (auditError) throw auditError
+}
+
 export async function deleteVoyage(voyageId: number) {
   const [bls, batches, graniteManifests, vaziosManifests] = await Promise.all([
     supabase.from('bls').select('id', { count: 'exact', head: true }).eq('voyage_id', voyageId).range(0, 0),

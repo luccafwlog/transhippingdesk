@@ -16,7 +16,7 @@ terms in `CONTEXT.md`.
 
 | Shape | Reference |
 |---|---|
-| Header-mapped CSV/XLSX | `manifestParser.ts`, `manifestImport.ts` |
+| Header-mapped CSV/XLSX | `blParser.ts`, `blFreightImport.ts` |
 | Breakbulk | `breakbulkImport.ts` |
 | EDI/EDIFACT | `baplieParser.ts`, `baplieImport.ts` |
 | Focused upsert | `vehicleImport.ts`, `ceMercanteImport.ts` |

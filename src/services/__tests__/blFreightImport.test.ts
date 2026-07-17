@@ -153,6 +153,20 @@ describe('blFreightImport', () => {
     expect(buildBlFreightPayload(invalid, 7).bl_emission_date).toBeNull()
   })
 
+  it('exposes normalized Laden on Board on preview rows without changing the RPC payload', () => {
+    const doc = parsedBL()
+    doc.dates.ladenOnBoard = '19/02/2026'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+    })
+
+    expect(preview.rows[0].ladenOnBoard).toBe('2026-02-19')
+    expect(preview.rows[0].payload).not.toHaveProperty('ladenOnBoard')
+    expect(preview.rows[0].payload).not.toHaveProperty('laden_on_board')
+  })
+
   it('normalizes port city names to UN/LOCODEs, keeping codes untouched', () => {
     const doc = parsedBL()
     doc.route.pol = 'CNSHA'
@@ -222,6 +236,31 @@ describe('blFreightImport', () => {
       customer_reconciliation_status: 'matched_name',
       customer_reconciliation_notes: 'Cliente sugerido por nome; validar documento.',
       billing_hold_reason: 'Aguardando reconciliacao de cliente antes do faturamento.',
+    })
+  })
+
+  it('uses the short consignee name in preview payload and name reconciliation while preserving the full block', () => {
+    const customer = { id: 44, name: 'QA IMPORTADORA LTDA' }
+    const doc = parsedBL()
+    doc.parties.consigneeBlock = 'QA IMPORTADORA LTDA RUA X, 100\nSANTOS - SP'
+    doc.parties.consigneeTaxId = '00999999000100'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      customerMaps: {
+        customersByDocument: new Map(),
+        customersByName: new Map([['qa importadora ltda', customer]]),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+    })
+
+    expect(preview.rows[0].payload).toMatchObject({
+      consignee: 'QA IMPORTADORA LTDA',
+      consignee_block: 'QA IMPORTADORA LTDA RUA X, 100\nSANTOS - SP',
+      customer_id: 44,
+      customer_reconciliation_status: 'matched_name',
     })
   })
 
@@ -445,6 +484,53 @@ describe('blFreightImport', () => {
     expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem OTHER VESSEL / 99W, mas voce apontou GREEN SANTOS / 14.')
   })
 
+  it('accepts prefix vessel aliases while still requiring the same voyage number', () => {
+    const document = parsedBL()
+    document.route.vessel = 'ZYHY JIN QU'
+
+    const preview = buildBlFreightPreview({
+      documents: [document],
+      selectedVoyage: { id: 7, vesselName: 'ZHONG YUAN HAI YUN JIN QU', voyageNumber: '14' },
+    })
+
+    const row = preview.rows[0]
+    expect(row?.status).not.toBe('blocked')
+    expect(row?.blockedReasons).not.toContain('Arquivo e da viagem ZYHY JIN QU / 14, mas voce apontou ZHONG YUAN HAI YUN JIN QU / 14.')
+    expect(row?.payload).not.toBeNull()
+  })
+
+  it('keeps concatenated vessel aliases blocked during declared voyage validation', () => {
+    const document = parsedBL()
+    document.route.vessel = 'CSALGOL'
+    document.route.voyage = '14'
+
+    const preview = buildBlFreightPreview({
+      documents: [document],
+      selectedVoyage: { id: 7, vesselName: 'COSCO SHIPPING ALGOL', voyageNumber: '14' },
+    })
+
+    const row = preview.rows[0]
+    expect(row?.status).toBe('blocked')
+    expect(row?.payload).toBeNull()
+    expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem CSALGOL / 14, mas voce apontou COSCO SHIPPING ALGOL / 14.')
+  })
+
+  it('keeps accepted vessel aliases blocked when the declared voyage number diverges after normalizeText', () => {
+    const document = parsedBL()
+    document.route.vessel = 'ZYHY JIN QU'
+    document.route.voyage = ' 14-w '
+
+    const preview = buildBlFreightPreview({
+      documents: [document],
+      selectedVoyage: { id: 7, vesselName: 'ZHONG YUAN HAI YUN JIN QU', voyageNumber: '14/W' },
+    })
+
+    const row = preview.rows[0]
+    expect(row?.status).toBe('blocked')
+    expect(row?.payload).toBeNull()
+    expect(row?.blockedReasons[0]).toBe('Arquivo e da viagem ZYHY JIN QU / 14-w, mas voce apontou ZHONG YUAN HAI YUN JIN QU / 14/W.')
+  })
+
   it('calls the transactional RPC only with unblocked payloads', async () => {
     mockRpc.mockResolvedValue({ data: { bls_received: 1 }, error: null })
     const preview: BlFreightImportPreview = {
@@ -454,6 +540,7 @@ describe('blFreightImport', () => {
           status: 'new',
           existing: false,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: null,
           blockedReasons: [],
           billingImpacts: [],
@@ -466,6 +553,7 @@ describe('blFreightImport', () => {
           status: 'blocked',
           existing: true,
           voyageId: 7,
+          ladenOnBoard: null,
           consigneeDocumentMatches: null,
           blockedReasons: ['bloqueado'],
           billingImpacts: [],
@@ -511,6 +599,7 @@ describe('blFreightImport', () => {
           status: 'new',
           existing: false,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: null,
           blockedReasons: [],
           billingImpacts: [],
@@ -523,6 +612,7 @@ describe('blFreightImport', () => {
           status: 'new',
           existing: false,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: null,
           blockedReasons: [],
           billingImpacts: [],
@@ -549,6 +639,7 @@ describe('blFreightImport', () => {
           status: 'updated',
           existing: true,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: true,
           blockedReasons: [],
           billingImpacts: ['Quantidade de containers: 1 -> 2'],
@@ -561,6 +652,7 @@ describe('blFreightImport', () => {
           status: 'updated',
           existing: true,
           voyageId: 7,
+          ladenOnBoard: '2026-02-19',
           consigneeDocumentMatches: true,
           blockedReasons: [],
           billingImpacts: [],

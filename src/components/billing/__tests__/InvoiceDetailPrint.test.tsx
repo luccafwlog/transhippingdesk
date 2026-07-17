@@ -5,10 +5,14 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 
+const deleteCharge = vi.fn()
+const confirm = vi.fn()
+
 vi.mock('../../../hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'admin-1' }, isAdmin: true }),
 }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
+vi.mock('../../ui/ConfirmDialog', () => ({ useConfirm: () => confirm }))
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
@@ -27,7 +31,7 @@ vi.mock('../../../hooks/useBilling', () => ({
         issued_at: '2026-06-23',
       },
       bls: [],
-      items: [],
+      items: [{ id: 31, description: 'Taxa manual', quantity: 1, unit_value_brl: 25, total_brl: 25, source: 'manual' }],
       payments: [],
     },
     isLoading: false,
@@ -36,7 +40,7 @@ vi.mock('../../../hooks/useBilling', () => ({
   useRegisterInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCancelInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useAddManualInvoiceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeleteManualInvoiceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteManualInvoiceCharge: () => ({ mutateAsync: deleteCharge, isPending: false }),
 }))
 vi.mock('../../../hooks/useBillingLedger', () => ({
   useInvoiceRefunds: () => ({ data: [] }),
@@ -60,4 +64,15 @@ it('opens the printable invoice only after the user requests printing', async ()
   expect(screen.queryByTestId('print-document')).toBeNull()
   await user.click(screen.getByRole('button', { name: /Imprimir PDF/ }))
   expect(screen.getByTestId('print-document')).toBeTruthy()
+})
+
+it('pede confirmação antes de excluir uma cobrança manual', async () => {
+  confirm.mockResolvedValueOnce(false)
+  const user = userEvent.setup()
+  render(<MemoryRouter><InvoiceDetailModal invoiceId={9} onClose={vi.fn()} /></MemoryRouter>)
+
+  await user.click(screen.getByRole('button', { name: /Remover Taxa manual/ }))
+
+  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ tone: 'danger' }))
+  expect(deleteCharge).not.toHaveBeenCalled()
 })

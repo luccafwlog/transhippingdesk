@@ -103,7 +103,7 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 
 ### `/portal/operacao`
 
-`src/pages/PortalOperacao.tsx` alterna B/Ls e Containers, com filtros, paginacao local, tabelas desktop, cards mobile, expansao dos containers do B/L e exportacao XLSX. A aba Containers e derivada por `flattenContainers`; `tab` e o filtro inicial `devolucao` podem vir da URL.
+`src/pages/PortalOperacao.tsx` alterna B/Ls e Containers, com filtros, paginacao local, tabelas desktop, cards mobile, expansao dos containers do B/L e exportacao XLSX. A ficha expandida mantém o card persistente `Informações de Transbordo`, alimentado pelo registro global vigente da omissão. A aba Containers e derivada por `flattenContainers`; `tab` e o filtro inicial `devolucao` podem vir da URL.
 
 ### `/portal/perfil`
 
@@ -149,6 +149,7 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
 | `/portal/operacao` — carregar B/Ls e containers | Sessão autenticada | `usePortalOperationBls` | `portalListOperationBls` → `normalizePortalOperationRows` | RPC `portal_list_operation_bls`; B/Ls, viagens, navios, containers e tarifas de demurrage | Query `['portal-operation-bls']` | Erro propaga ao hook e vira `InlineError` | **Teste:** `src/services/__tests__/portalOperation.test.ts`; **Teste de contrato SQL:** `src/services/__tests__/portalCeMercanteGateMigration.test.ts` |
+| `/portal/operacao` — consultar Informações de Transbordo | B/L liberado pelo gate de CE e vinculado a uma omissão | Expansão do B/L em `PortalOperacao` | `portal_list_operation_bls` acrescenta o último registro global e `normalizePortalOperationRows` normaliza o objeto | Leitura indireta de `bl_transshipments` e `voyage_omissions` pela RPC; sem acesso direto do Portal | Card reflete complementações na próxima atualização da query; complementações não notificam | Campo ainda desconhecido aparece como `—`; ausência de omissão não renderiza card | **Teste:** `src/pages/__tests__/PortalOperacao.test.tsx`, `src/services/__tests__/portalOperation.test.ts`; **Teste de contrato SQL:** `portalTransshipmentMigration.test.ts` |
 | `/portal/operacao` - alternar, buscar, filtrar e paginar | Dados carregados | `PortalOperacao`, `BlsTab`, `ContainersTab` | Filtros locais; `flattenContainers`; paginas 10/25/50/100; tabelas desktop e cards mobile | Nenhuma nova leitura | `tab` na URL; `devolucao` so inicializa filtro de Containers; filtros resetam pagina | Sem resultado mostra vazio; filtros nao autorizam nem ampliam o escopo RPC | **Teste:** `src/pages/__tests__/PortalOperacao.test.tsx`, `src/lib/__tests__/portalOperationViews.test.ts` |
 | `/portal/operacao` — derivar devolução/demurrage | Descarga, devolução, free time e tarifa disponíveis | SQL do RPC; helpers de view para filtros/KPIs | SQL calcula `usage_days`, `free_time_days`, `demurrage_days` e status; cliente deriva contagens/filtros | Somente leitura | Estados: `sem_descarga`, `dentro_free_time`, `em_demurrage`, `devolvido` | Ausência de descarga/free time produz nulos/status conservador; status desconhecido normaliza para `sem_descarga` | **Teste:** `src/services/__tests__/portalOperation.test.ts`, `src/lib/__tests__/portalOperationViews.test.ts` |
 | `/portal/operacao` — exportar B/Ls/containers | Resultado filtrado não vazio | Botões “Exportar Excel” | `exportPortalBlsWorkbook`/`exportPortalContainersWorkbook` | Download XLSX local | Exporta todas as linhas filtradas, não só a página | Sem feedback dedicado de falha | **Código:** `src/pages/PortalOperacao.tsx`, `src/services/exports.ts` |
@@ -255,11 +256,11 @@ Não há teste focado para `PortalLogin`, `PortalForgotPassword`, `PortalResetPa
 - [ADR 0001](../adr/0001-portal-login-supabase-auth.md) continua válida para Supabase Auth e fim do token legado, mas foi parcialmente superada pela [ADR 0013](../adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md) quanto aos identificadores aceitos.
 A operação interna do Portal está disponível em `/clientes/portal`, com fila
 inicial em “Aguardando análise”, prioridade visual, candidatos de email e
-painel individual. O backfill inicial já cumpriu sua finalidade e a funcionalidade
-`/admin/portal-backfill` deve ser integralmente retirada: menu, rota, página,
-chamadores frontend, tipos e RPCs ativas `portal_provisioning_preflight` e
-`portal_provisioning_backfill`. As migrations históricas permanecem preservadas;
-o mecanismo interno vigente de criação/reparo de registros ausentes continua.
+painel individual. O backfill inicial já cumpriu sua finalidade. A antiga
+funcionalidade administrativa foi retirada do menu, das rotas, do frontend e
+dos tipos; a migration `201` revoga e remove as RPCs temporárias de pré-voo e
+backfill. As migrations históricas permanecem preservadas e o mecanismo interno
+vigente de criação/reparo de registros ausentes continua.
 Não existem ações em lote de provisionamento.
 
 O Portal não replica o header cambial interno. Somente na aba

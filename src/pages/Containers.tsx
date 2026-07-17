@@ -1,4 +1,4 @@
-import { useState, useMemo, type ChangeEvent } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, CalendarDays, Download, Trash2, MoreVertical } from 'lucide-react'
@@ -8,9 +8,7 @@ import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
-import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
-import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
@@ -22,11 +20,6 @@ import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { checkContainerDependencies, deleteContainers } from '../services/containers'
 import { formatBlockedSummary } from '../services/deleteDependencies'
 import { type ContainerFilters, fetchAllContainers, useContainers, usePortOptions, useContainerTypeOptions } from '../hooks/useBls'
-import {
-  importContainerFlagsRows,
-  parseContainerFlagsImportFile,
-  type ParsedContainerFlagsImport,
-} from '../services/containerFlagsImport'
 
 export function Containers() {
   const queryClient = useQueryClient()
@@ -56,11 +49,6 @@ export function Containers() {
   })
   const [exporting, setExporting] = useState(false)
   const [datesImportOpen, setDatesImportOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [flagsFileName, setFlagsFileName] = useState('')
-  const [parsedFlags, setParsedFlags] = useState<ParsedContainerFlagsImport | null>(null)
-  const [parsingFlags, setParsingFlags] = useState(false)
-  const [importingFlags, setImportingFlags] = useState(false)
   const { data, isLoading, error } = useContainers(filters)
   const { data: portOptions } = usePortOptions()
   const { data: typeOptions } = useContainerTypeOptions()
@@ -139,65 +127,6 @@ export function Containers() {
     }
   }
 
-  async function handleFlagsFile(event: ChangeEvent<HTMLInputElement>) {
-    const nextFile = event.target.files?.[0] ?? null
-    setFlagsFileName(nextFile?.name ?? '')
-    setParsedFlags(null)
-
-    if (!nextFile) return
-
-    setParsingFlags(true)
-    try {
-      const parsed = await parseContainerFlagsImportFile(nextFile)
-      setParsedFlags(parsed)
-      showToast(
-        parsed.rowErrors.length
-          ? `Planilha lida com ${parsed.rows.length} linha(s) valida(s) e ${parsed.rowErrors.length} ignorada(s).`
-          : `Planilha lida com ${parsed.rows.length} linha(s) valida(s).`,
-        parsed.rowErrors.length ? 'info' : 'success',
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível ler a planilha.'
-      showToast(message, 'error')
-    } finally {
-      setParsingFlags(false)
-    }
-  }
-
-  async function handleImportFlags() {
-    if (!parsedFlags?.rows.length) return
-
-    setImportingFlags(true)
-    try {
-      const result = await importContainerFlagsRows(parsedFlags.rows, user?.id)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['containers'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['bl-summary'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-      ])
-
-      showToast(
-        `Atualizacao concluida: ${result.updated} linha(s) aplicada(s), ${result.unchanged} sem mudanca e ${result.missing} sem match no sistema.`,
-        'success',
-      )
-      resetImportModal()
-    } catch {
-      showToast('Falha ao atualizar flags de IMO/OOG.', 'error')
-    } finally {
-      setImportingFlags(false)
-    }
-  }
-
-  function resetImportModal() {
-    setImportOpen(false)
-    setFlagsFileName('')
-    setParsedFlags(null)
-    setParsingFlags(false)
-    setImportingFlags(false)
-  }
-
   async function runContainerDelete(ids: number[]) {
     setDeleting(true)
     try {
@@ -244,10 +173,7 @@ export function Containers() {
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={() => setDatesImportOpen(true)}>
               <CalendarDays size={16} />
-              Importar Datas Demurrage
-            </Button>
-            <Button variant="secondary" onClick={() => setImportOpen(true)}>
-              Importar IMO/OOG
+              Importar Datas de Descarga e Devolução
             </Button>
             <Button variant="secondary" loading={exporting} onClick={handleExport}>
               <Download size={16} />
@@ -559,110 +485,6 @@ export function Containers() {
       ) : null}
 
       <ContainerDatesImportModal open={datesImportOpen} onClose={() => setDatesImportOpen(false)} />
-
-      <Modal open={importOpen} onClose={resetImportModal} title="Importar Flags de IMO/OOG">
-        <div className="grid gap-5">
-          <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
-            <div className="font-semibold text-white">Uso do arquivo</div>
-            <div className="mt-2">
-              Esta planilha atualiza containers existentes com base na combinacao <span className="font-semibold text-white">B/L + Container</span>.
-            </div>
-            <div className="mt-2">
-              As colunas obrigatorias sao <span className="font-semibold text-white">Container</span>, <span className="font-semibold text-white">BL</span>, <span className="font-semibold text-white">IMO</span> e <span className="font-semibold text-white">OOG</span>.
-            </div>
-            <div className="mt-2 text-slate-400">
-              Em <span className="font-semibold text-white">IMO</span>, informe a classe ou o texto completo do IMO. Se deixar em branco, o sistema entende que o container não é IMO. Em <span className="font-semibold text-white">OOG</span>, use apenas Sim ou Não.
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <a
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
-                href="/templates/imo-oog-modelo.xlsx"
-                download="imo-oog-modelo.xlsx"
-              >
-                <Download size={16} />
-                Baixar modelo .xlsx
-              </a>
-              <a
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
-                href="/templates/imo-oog-modelo.csv"
-                download="imo-oog-modelo.csv"
-              >
-                <Download size={16} />
-                Baixar modelo .csv
-              </a>
-            </div>
-          </div>
-
-          <Field label="Arquivo .xlsx, .xls ou .csv">
-            <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFlagsFile} />
-          </Field>
-
-          {flagsFileName ? <div className="text-sm text-slate-400">Arquivo selecionado: {flagsFileName}</div> : null}
-          {parsingFlags ? <div className="text-sm text-slate-400">Lendo planilha com SheetJS...</div> : null}
-
-          {parsedFlags ? (
-            <div className="grid gap-4">
-              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="Linhas validas" value={parsedFlags.rows.length} />
-                <PreviewBox label="Linhas ignoradas" value={parsedFlags.rowErrors.length} />
-                <PreviewBox label="Atualizações previstas" value={parsedFlags.rows.length} />
-              </div>
-
-              <div className="app-table-scroll max-h-72 rounded-xl border border-[#30363d]">
-                <table className="app-table app-table--compact min-w-[680px] text-left text-sm">
-                  <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-                    <tr>
-                      <th scope="col" className="px-3 py-2">BL</th>
-                      <th scope="col" className="px-3 py-2">Container</th>
-                      <th scope="col" className="px-3 py-2">IMO</th>
-                      <th scope="col" className="px-3 py-2">OOG</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#30363d]">
-                    {parsedFlags.rows.slice(0, 20).map((row) => (
-                      <tr key={`${row.bl_id}-${row.container_number}`}>
-                        <td className="px-3 py-2 font-semibold text-white">{row.bl_id}</td>
-                        <td className="px-3 py-2">{row.container_number}</td>
-                        <td className="px-3 py-2">{row.imo_value ?? '-'}</td>
-                        <td className="px-3 py-2">{row.is_oog ? 'Sim' : 'Nao'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <TruncationNote shown={20} total={parsedFlags.rows.length} noun="linha" nounPlural="linhas" />
-
-              {parsedFlags.rowErrors.length ? (
-                <div className="grid gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
-                  {parsedFlags.rowErrors.slice(0, 8).map((rowError) => (
-                    <div key={`${rowError.row}-${rowError.message}`}>
-                      Linha {rowError.row}: {rowError.message}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={resetImportModal}>
-              Cancelar
-            </Button>
-            <Button disabled={!parsedFlags?.rows.length} loading={importingFlags} onClick={handleImportFlags}>
-              Atualizar containers
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </>
-  )
-}
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-white">{value}</div>
-    </div>
   )
 }

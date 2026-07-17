@@ -23,6 +23,11 @@ export interface VoyageOmission {
   omittedPod: string
   dischargePod: string
   reason: string | null
+  onwardVesselName: string | null
+  onwardCarrier: string | null
+  onwardVoyageNumber: string | null
+  onwardEtd: string | null
+  onwardEta: string | null
 }
 
 export async function omitVoyageEscala(input: {
@@ -30,6 +35,11 @@ export async function omitVoyageEscala(input: {
   omittedPod: string
   dischargePod: string
   reason: string | null
+  onwardVesselName?: string | null
+  onwardCarrier?: string | null
+  onwardVoyageNumber?: string | null
+  onwardEtd?: string | null
+  onwardEta?: string | null
   changedBy: string
 }): Promise<number> {
   const { data, error } = await (supabase.rpc as unknown as (
@@ -40,6 +50,11 @@ export async function omitVoyageEscala(input: {
     p_omitted_pod: normPod(input.omittedPod),
     p_discharge_pod: normPod(input.dischargePod),
     p_reason: input.reason,
+    p_onward_vessel_name: input.onwardVesselName ?? null,
+    p_onward_carrier: input.onwardCarrier ?? null,
+    p_onward_voyage_number: input.onwardVoyageNumber ?? null,
+    p_onward_etd: input.onwardEtd ?? null,
+    p_onward_eta: input.onwardEta ?? null,
     p_changed_by: input.changedBy,
   })
   if (error) throw error
@@ -49,11 +64,6 @@ export async function omitVoyageEscala(input: {
 export async function setBlTransshipment(input: {
   blId: string
   omissionId: number
-  onwardVesselName: string | null
-  onwardCarrier: string | null
-  onwardVoyageNumber: string | null
-  onwardEtd: string | null
-  onwardEta: string | null
   changedBy: string
 }): Promise<void> {
   const { error } = await (supabase.rpc as unknown as (
@@ -62,11 +72,37 @@ export async function setBlTransshipment(input: {
   ) => Promise<{ error: Error | null }>)('set_bl_transshipment', {
     p_bl_id: input.blId,
     p_omission_id: input.omissionId,
+    p_onward_vessel_name: null,
+    p_onward_carrier: null,
+    p_onward_voyage_number: null,
+    p_onward_etd: null,
+    p_onward_eta: null,
+    p_changed_by: input.changedBy,
+  })
+  if (error) throw error
+}
+
+export async function updateVoyageOmission(input: {
+  omissionId: number
+  onwardVesselName: string | null
+  onwardCarrier: string | null
+  onwardVoyageNumber: string | null
+  onwardEtd: string | null
+  onwardEta: string | null
+  reason: string | null
+  changedBy: string
+}): Promise<void> {
+  const { error } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ error: Error | null }>)('update_voyage_omission', {
+    p_omission_id: input.omissionId,
     p_onward_vessel_name: input.onwardVesselName,
     p_onward_carrier: input.onwardCarrier,
     p_onward_voyage_number: input.onwardVoyageNumber,
     p_onward_etd: input.onwardEtd,
     p_onward_eta: input.onwardEta,
+    p_reason: input.reason,
     p_changed_by: input.changedBy,
   })
   if (error) throw error
@@ -94,7 +130,7 @@ export async function listVoyageOmissions(voyageId: number): Promise<VoyageOmiss
       eq: (key: string, value: number) => Promise<{ data: unknown[] | null; error: Error | null }>
     }
   })('voyage_omissions')
-    .select('id, voyage_id, omitted_pod, discharge_pod, reason')
+    .select('id, voyage_id, omitted_pod, discharge_pod, reason, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
     .eq('voyage_id', voyageId)
   if (error) throw error
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
@@ -103,6 +139,11 @@ export async function listVoyageOmissions(voyageId: number): Promise<VoyageOmiss
     omittedPod: String(row.omitted_pod),
     dischargePod: String(row.discharge_pod),
     reason: (row.reason as string) ?? null,
+    onwardVesselName: (row.onward_vessel_name as string) ?? null,
+    onwardCarrier: (row.onward_carrier as string) ?? null,
+    onwardVoyageNumber: (row.onward_voyage_number as string) ?? null,
+    onwardEtd: (row.onward_etd as string) ?? null,
+    onwardEta: (row.onward_eta as string) ?? null,
   }))
 }
 

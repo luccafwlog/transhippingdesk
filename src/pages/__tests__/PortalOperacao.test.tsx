@@ -14,6 +14,18 @@ const rows: PortalOperationBL[] = [
     voyage_id: 10,
     voyage_number: '001W',
     vessel_name: 'NAVIO TESTE',
+    transshipment: {
+      omission_id: 9,
+      disposition: 'transshipment',
+      omitted_pod: 'BRVIX',
+      discharge_pod: 'BRSSZ',
+      reason: null,
+      onward_vessel_name: 'COSCO STAR',
+      onward_carrier: null,
+      onward_voyage_number: 'T-1',
+      onward_etd: null,
+      onward_eta: null,
+    },
     container_count: 2,
     containers_in_demurrage: 1,
     containers_returned: 1,
@@ -136,6 +148,17 @@ describe('PortalOperacao (BLs e Containers)', () => {
 
     expect(screen.getByText('BL001')).toBeTruthy()
     expect(screen.queryByText('BL003')).toBeNull()
+  })
+
+  it('exibe o card persistente de Informações de Transbordo na ficha do B/L', async () => {
+    const user = userEvent.setup()
+    renderOperacao()
+
+    await user.click(screen.getByText('BL001'))
+
+    expect(screen.getByRole('heading', { name: 'Informações de Transbordo' })).toBeTruthy()
+    expect(screen.getByText('COSCO STAR')).toBeTruthy()
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
   it('deriva a aba Containers dos containers dos B/Ls', async () => {

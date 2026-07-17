@@ -103,18 +103,6 @@ export async function listPortalProvisioningEvents(customerId: number, limit = 1
   return data ?? []
 }
 
-export async function runPreflight() {
-  const { data, error } = await supabase.rpc('portal_provisioning_preflight')
-  if (error) throw error
-  return data
-}
-
-export async function runBackfill(requestId: string) {
-  const { data, error } = await supabase.rpc('portal_provisioning_backfill', { p_request_id: requestId })
-  if (error) throw error
-  return data
-}
-
 export async function setProvisioningException(customerId: number, reason: string) {
   const { error } = await supabase.rpc('portal_set_exception', { p_customer_id: customerId, p_reason: reason })
   if (error) throw error

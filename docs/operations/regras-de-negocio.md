@@ -40,11 +40,11 @@ O cliente pode ter um motivo de bloqueio de faturamento persistido. A migration 
 
 ## Câmbio (ROE / PTAX)
 
-Cobranças em moeda estrangeira usam a cotação ROE obtida do Banco Central (`olinda.bcb.gov.br`) via `src/hooks/useExchangeRates.ts`. Sem ROE/dados fiscais suficientes, a emissão da invoice é bloqueada. Aplica-se a Faturamento e Demurrage.
+Cobranças em moeda estrangeira usam o ROE obtido da PTAX Venda do Banco Central (`olinda.bcb.gov.br`) pelo serviço compartilhado `fetchROE`, com markup canônico de `1,065`. O header interno consome esse contrato por `useRoeHeaderRate`; sem ROE/dados fiscais suficientes, a emissão da invoice é bloqueada. Aplica-se a Faturamento e Demurrage.
 
 ## Reconciliação de cliente (fuzzy matching)
 
-Na importação documental de container, o consignatário do B/L é casado contra a base de `customers` por CNPJ e por similaridade de nome. Match incerto entra em `customer_reconciliation_queue` em vez de vincular automaticamente. Ver [Clientes](../modules/clientes.md). O fluxo legado de Manifesto CNTR ainda existe no código, mas está condenado pela ADR 0025.
+Na importação documental de container, o consignatário do B/L é casado contra a base de `customers` por CNPJ e por similaridade de nome. Match incerto entra em `customer_reconciliation_queue` em vez de vincular automaticamente. Ver [Clientes](../modules/clientes.md). Conforme a ADR 0025, o arquivo de B/L é a fonte documental da carga de container; o importador de Manifesto CNTR foi removido do frontend.
 
 ## Confirmação de exclusões persistidas
 

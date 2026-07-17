@@ -17,6 +17,7 @@ import { DemurrageTab, LocalFeesTab } from '../components/portal/PortalBillingTa
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import {
   usePortalConsolidatableReceivables,
+  usePortalCurrentRoe,
   usePortalDemurrageInvoiceDetail,
   usePortalDemurrageInvoices,
   usePortalInvoiceDetail,
@@ -61,6 +62,7 @@ export function PortalBilling() {
   const { data: receivables } = usePortalConsolidatableReceivables()
   const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = usePortalInvoices()
   const { data: demurrageInvoices, isLoading: demurrageLoading, error: demurrageError } = usePortalDemurrageInvoices()
+  const { data: currentRoe } = usePortalCurrentRoe()
   const obsoleteMutation = usePortalObsoleteConsolidation()
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -212,17 +214,26 @@ export function PortalBilling() {
           onOpenDetail={setSelectedInvoiceId}
         />
       ) : (
-        <DemurrageTab
-          invoices={filteredDemurrage}
-          loading={demurrageLoading}
-          error={Boolean(demurrageError)}
-          filters={demFilters}
-          onFilters={setDemFilters}
-          vesselOptions={demVesselOptions}
-          pods={demPods}
-          onOpenDetail={setSelectedDemurrageId}
-          onDispute={(id, doc) => { setDisputeInvoiceId(id); setDisputeDocNumber(doc) }}
-        />
+        <>
+          {currentRoe ? (
+            <div className="mb-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm font-semibold text-[var(--app-text-strong)]">
+              ROE vigente: R$ {currentRoe.roe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+              {' · atualizado em '}
+              {new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(currentRoe.updatedAt))}
+            </div>
+          ) : null}
+          <DemurrageTab
+            invoices={filteredDemurrage}
+            loading={demurrageLoading}
+            error={Boolean(demurrageError)}
+            filters={demFilters}
+            onFilters={setDemFilters}
+            vesselOptions={demVesselOptions}
+            pods={demPods}
+            onOpenDetail={setSelectedDemurrageId}
+            onDispute={(id, doc) => { setDisputeInvoiceId(id); setDisputeDocNumber(doc) }}
+          />
+        </>
       )}
 
       <PortalConsolidatedModal

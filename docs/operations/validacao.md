@@ -156,9 +156,6 @@ Fixtures relacionadas: [`test-fixtures/README.md`](../../test-fixtures/README.md
   POL resultam automaticamente na mais antiga, conforme a ADR 0025;
 - reconciliação com Baplie expõe divergências.
 
-O cenário legado de Manifesto CNTR permanece na suíte somente enquanto o código
-condenado pela ADR 0025 não for removido; não integra a ordem operacional vigente.
-
 ### Carga solta
 
 - itens, peso, volume e B/L são importados;

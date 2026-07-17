@@ -4,6 +4,7 @@ import { usePortalAuth } from './usePortalAuth'
 import { supabasePortal } from '../services/supabase'
 import {
   portalCreateConsolidation,
+  portalGetCurrentRoe,
   portalGetDemurrageInvoiceDetail,
   portalInvoiceDetails,
   portalListConsolidatableReceivables,
@@ -11,6 +12,17 @@ import {
   portalListInvoices,
   portalObsoleteConsolidation,
 } from '../services/portalBilling'
+import { queryKeys } from '../services/queryKeys'
+
+export function usePortalCurrentRoe() {
+  const { isAuthenticated } = usePortalAuth()
+  return useQuery({
+    queryKey: queryKeys.portal.currentRoe(),
+    enabled: isAuthenticated,
+    queryFn: portalGetCurrentRoe,
+    staleTime: 60 * 60 * 1000,
+  })
+}
 
 export function usePortalConsolidatableReceivables() {
   const { isAuthenticated } = usePortalAuth()

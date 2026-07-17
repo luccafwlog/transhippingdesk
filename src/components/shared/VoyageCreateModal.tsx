@@ -197,7 +197,7 @@ export function VoyageCreateModal({
             >
               <option value="active">Ativa</option>
               <option value="completed">Concluida</option>
-              <option value="cancelled">Cancelada</option>
+              {form.status === 'cancelled' ? <option value="cancelled" disabled>Cancelada</option> : null}
             </Select>
           </Field>
         </div>

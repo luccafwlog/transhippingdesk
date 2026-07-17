@@ -103,6 +103,11 @@ export async function fetchLatestRecalcDate(): Promise<string | null> {
 export async function recalculateInvoicesManual(ptax: number): Promise<{ updated: number }> {
   const { data, error } = await supabase.rpc('recalculate_demurrage_invoices_manual', { p_ptax: ptax })
   if (error) throw error
+  await persistExchangeRateReference({
+    ptax,
+    roe: parseFloat((ptax * DEMURRAGE_ROE_MARKUP).toFixed(4)),
+    effectiveDate: new Date().toISOString().slice(0, 10),
+  })
   const updated = Number((data as { updated?: number } | null)?.updated ?? 0)
   return { updated }
 }
@@ -220,13 +225,15 @@ export async function parsePixExtractFile(file: File): Promise<PixTransaction[]>
 
 const ROE_CACHE_KEY = 'demurrage_roe_cache'
 
-type RoeCache = { roe: number; fetchedAt: string }
+type RoeCache = { roe: number; ptax: number; effectiveDate: string; fetchedAt: string }
 
 function isRoeCache(v: unknown): v is RoeCache {
   return (
     typeof v === 'object' &&
     v !== null &&
     typeof (v as Record<string, unknown>).roe === 'number' &&
+    typeof (v as Record<string, unknown>).ptax === 'number' &&
+    typeof (v as Record<string, unknown>).effectiveDate === 'string' &&
     typeof (v as Record<string, unknown>).fetchedAt === 'string'
   )
 }
@@ -242,16 +249,36 @@ function loadCachedROE(): RoeCache | null {
   }
 }
 
-function saveROECache(roe: number) {
+function saveROECache(roe: number, ptax: number, effectiveDate: string) {
   try {
-    const payload: RoeCache = { roe, fetchedAt: new Date().toISOString() }
+    const payload: RoeCache = { roe, ptax, effectiveDate, fetchedAt: new Date().toISOString() }
     localStorage.setItem(ROE_CACHE_KEY, JSON.stringify(payload))
   } catch {
     // localStorage unavailable — ignore
   }
 }
 
-export type FetchROEResult = { roe: number; offline: boolean; cachedAt: string | null; source: RoeSource }
+async function persistExchangeRateReference(input: { ptax: number; roe: number; effectiveDate: string }) {
+  try {
+    const { error } = await supabase.rpc('save_exchange_rate_reference', {
+      p_ptax: input.ptax,
+      p_roe: input.roe,
+      p_effective_date: input.effectiveDate,
+    })
+    if (error) throw error
+  } catch (error) {
+    reportBestEffortFailure('exchange rate reference persistence failed', error)
+  }
+}
+
+export type FetchROEResult = {
+  roe: number
+  ptax: number
+  effectiveDate: string
+  offline: boolean
+  cachedAt: string | null
+  source: RoeSource
+}
 
 export async function fetchROE(): Promise<FetchROEResult> {
   const today = new Date()
@@ -265,9 +292,12 @@ export async function fetchROE(): Promise<FetchROEResult> {
     if (!resp.ok) throw new Error(`BCB HTTP ${resp.status}`)
     const json = await resp.json()
     if (!json.value?.length || !json.value[0].cotacaoVenda) throw new Error('Sem cotações no BCB')
-    const roe = parseFloat((parseFloat(json.value[0].cotacaoVenda) * DEMURRAGE_ROE_MARKUP).toFixed(4))
-    saveROECache(roe)
-    return { roe, offline: false, cachedAt: null, source: 'bcb_live' }
+    const ptax = parseFloat(parseFloat(json.value[0].cotacaoVenda).toFixed(4))
+    const roe = parseFloat((ptax * DEMURRAGE_ROE_MARKUP).toFixed(4))
+    const effectiveDate = String(json.value[0].dataHoraCotacao).slice(0, 10)
+    saveROECache(roe, ptax, effectiveDate)
+    await persistExchangeRateReference({ ptax, roe, effectiveDate })
+    return { roe, ptax, effectiveDate, offline: false, cachedAt: null, source: 'bcb_live' }
   } catch (error) {
     const cached = loadCachedROE()
     // PTAX alimenta a conversão da cobrança de demurrage: a queda do BCB precisa
@@ -275,7 +305,7 @@ export async function fetchROE(): Promise<FetchROEResult> {
     reportBestEffortFailure('fetchROE: BCB PTAX indisponivel', error, {
       fellBackToCache: cached != null,
     })
-    if (cached) return { roe: cached.roe, offline: true, cachedAt: cached.fetchedAt, source: 'cached' }
+    if (cached) return { roe: cached.roe, ptax: cached.ptax, effectiveDate: cached.effectiveDate, offline: true, cachedAt: cached.fetchedAt, source: 'cached' }
     throw new Error('BCB offline e sem cache de PTAX disponivel. Informe a taxa manualmente.', { cause: error })
   }
 }

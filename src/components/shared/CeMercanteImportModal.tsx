@@ -10,6 +10,7 @@ import {
   importCeMercanteEdi,
   importCeMercanteRows,
   parseCeMercanteFile,
+  partitionRowsByVoyage,
   type CeMercanteEdiImportResult,
   type CeMercanteImportResult,
   type ParsedCeMercanteFile,
@@ -24,9 +25,11 @@ const SHEET_EXTENSIONS = /\.(xlsx|xls|csv)$/i
 export function CeMercanteImportModal({
   open,
   onClose,
+  lockedVoyageId,
 }: {
   open: boolean
   onClose: () => void
+  lockedVoyageId?: number
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -63,10 +66,33 @@ export function CeMercanteImportModal({
     try {
       if (SHEET_EXTENSIONS.test(nextFile.name)) {
         const parsed = await parseCeMercanteFile(nextFile)
-        setPreview(parsed)
+        if (lockedVoyageId == null) {
+          setPreview(parsed)
+        } else {
+          const partition = await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+          setPreview({
+            rows: partition.rows,
+            rowErrors: [
+              ...parsed.rowErrors,
+              ...partition.blocked.map((item) => ({ row: item.row, message: item.message, raw: item.bl_id })),
+            ],
+          })
+        }
       } else {
         const parsed = await parseCeMercanteEdiFile(nextFile)
-        setEdiPreview(parsed)
+        if (lockedVoyageId == null) {
+          setEdiPreview(parsed)
+        } else {
+          const partition = await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+          setEdiPreview({
+            ...parsed,
+            rows: partition.rows,
+            rowErrors: [
+              ...parsed.rowErrors,
+              ...partition.blocked.map((item) => ({ line: item.row, message: item.message, raw: item.bl_id })),
+            ],
+          })
+        }
       }
       showToast('Preview de CE Mercante carregado.', 'success')
     } catch (error) {

@@ -15,7 +15,7 @@ npm run build               # tsc -b + vite build (tipos + bundle)
 
 Ficam em `src/**/__tests__/*.test.ts` e `src/pages/__tests__/`. Cobrem, entre outros:
 
-- **Parsers de import:** `manifestImport`, `manifestParser`, `breakbulkImport`, fixtures reais (`*Fixtures.real.test.ts`).
+- **Parsers de import:** `blParser`, `breakbulkImport`, `baplieParser` e fixtures reais (`*Fixtures.real.test.ts`).
 - **Financeiro:** `localCharges`, `Faturamento`, `TaxasLocais`, `reconciliacao`.
 - **Demurrage:** `src/services/demurrage/__tests__/calculateDemurrage.test.ts`.
 - **B/L status / review:** `blStatusService`.
