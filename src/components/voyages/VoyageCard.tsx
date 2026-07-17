@@ -159,6 +159,8 @@ export function VoyageCard({
       eta: schedule?.eta ?? null,
       etb: schedule?.etb ?? null,
       ata: schedule?.ata ?? null,
+      atb: schedule?.atb ?? null,
+      etd: schedule?.etd ?? null,
       atd: schedule?.atd ?? null,
       rtw: schedule?.rtw ?? null,
       ceStatus: schedule?.ceStatus ?? autoCeStatus,

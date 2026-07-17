@@ -106,7 +106,7 @@ export function VoyageVisaoTab({
 
   async function handleDeletePod(row: VoyagePodRow) {
     const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(row.pod))
-    const hasScheduleData = Boolean(row.eta || row.etb || row.ata || row.atd || row.rtw !== null)
+    const hasScheduleData = Boolean(row.eta || row.etb || row.ata || row.atb || row.etd || row.atd || row.rtw !== null)
     if (routeBls.length > 0) {
       showToast('Não é possível excluir este POD: existem B/Ls vinculados.', 'error')
       return
@@ -182,6 +182,8 @@ export function VoyageVisaoTab({
               <col className="min-w-[80px]" />
               <col className="min-w-[80px]" />
               <col className="min-w-[80px]" />
+              <col className="min-w-[80px]" />
+              <col className="min-w-[80px]" />
               <col className="min-w-[70px]" />
               <col className="min-w-[90px]" />
               <col className="min-w-[100px]" />
@@ -194,6 +196,8 @@ export function VoyageVisaoTab({
               <th scope="col" className="px-3 py-2">ETA</th>
               <th scope="col" className="px-3 py-2">ETB</th>
               <th scope="col" className="px-3 py-2">ATA</th>
+              <th scope="col" className="px-3 py-2">ATB</th>
+              <th scope="col" className="px-3 py-2">ETD</th>
               <th scope="col" className="px-3 py-2">ATD</th>
               <th scope="col" className="px-3 py-2">RESTOW</th>
               <th scope="col" className="px-3 py-2">BLs e CEs</th>
@@ -210,6 +214,8 @@ export function VoyageVisaoTab({
                   <td className="px-3 py-2">{formatDate(row.eta)}</td>
                   <td className="px-3 py-2">{formatDate(row.etb)}</td>
                   <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                  <td className="px-3 py-2">{formatDate(row.atb)}</td>
+                  <td className="px-3 py-2">{formatDate(row.etd)}</td>
                   <td className="px-3 py-2">{formatDate(row.atd)}</td>
                   <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
                   <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
@@ -229,6 +235,8 @@ export function VoyageVisaoTab({
                             eta: row.eta,
                             etb: row.etb,
                             ata: row.ata,
+                            atb: row.atb,
+                            etd: row.etd,
                             atd: row.atd,
                             rtw: row.rtw,
                             ceStatus: row.ceStatus,
@@ -268,7 +276,7 @@ export function VoyageVisaoTab({
               ))
             ) : (
               <tr>
-                <td colSpan={10} className="px-3 py-3 text-[var(--app-muted)]">
+                <td colSpan={12} className="px-3 py-3 text-[var(--app-muted)]">
                   Nenhum POD planejado para esta viagem.
                 </td>
               </tr>

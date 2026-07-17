@@ -114,6 +114,8 @@ describe('PodScheduleModal', () => {
     eta: '2026-03-01',
     etb: null,
     ata: null,
+    atb: '2026-03-02',
+    etd: '2026-03-03',
     atd: null,
     rtw: 3,
     ceStatus: 'waiting' as const,
@@ -128,6 +130,8 @@ describe('PodScheduleModal', () => {
 
     expect(screen.getByText('POD: BRSSZ')).toBeTruthy()
     expect((screen.getByLabelText('ETA') as HTMLInputElement).value).toBe('2026-03-01')
+    expect((screen.getByLabelText('ATB') as HTMLInputElement).value).toBe('2026-03-02')
+    expect((screen.getByLabelText('ETD') as HTMLInputElement).value).toBe('2026-03-03')
     expect((screen.getByLabelText('RESTOW') as HTMLInputElement).value).toBe('3')
 
     await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
@@ -137,6 +141,8 @@ describe('PodScheduleModal', () => {
         pod: 'BRSSZ',
         eta: '2026-03-01',
         etb: null,
+        atb: '2026-03-02',
+        etd: '2026-03-03',
         rtw: 3,
         linked: true,
       }),
@@ -157,6 +163,18 @@ describe('PodScheduleModal', () => {
 
     await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ rtw: null, linked: false }))
+  })
+
+  it('converte ATB e ETD vazios para null', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    render(<PodScheduleModal open podSchedule={base} onClose={() => {}} onSaved={onSaved} />)
+
+    await user.clear(screen.getByLabelText('ATB'))
+    await user.clear(screen.getByLabelText('ETD'))
+    await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ atb: null, etd: null }))
   })
 })
 

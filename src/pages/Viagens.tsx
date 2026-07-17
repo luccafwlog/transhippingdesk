@@ -334,7 +334,7 @@ export function Viagens() {
         open={editingPod !== null}
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked, escalaNumber }) => {
+        onSaved={async ({ voyageId, pod, eta, etb, ata, atb, etd, atd, rtw, ceStatus, linked, escalaNumber }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -346,6 +346,8 @@ export function Viagens() {
               eta,
               etb,
               ata,
+              atb,
+              etd,
               atd,
               rtw,
               ceStatus,
