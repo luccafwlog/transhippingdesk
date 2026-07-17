@@ -303,9 +303,8 @@ congelamento real do valor ocorre apenas no momento do pagamento, registrado de
 forma imutável no histórico da invoice. As colunas que guardam o último valor
 recalculado chamam-se `current_roe` e `current_total_brl`.
 
-No cabeçalho interno, CNY não é indicador de negócio e não deve ser exibido ou
-estimado. A referência cambial útil é a composição explícita PTAX Venda × 1,065
-= ROE, acompanhada da data efetiva da cotação. O Portal não exibe essa composição:
+No cabeçalho interno, a referência cambial é a composição explícita PTAX Venda
+× 1,065 = ROE, acompanhada da data efetiva da cotação. O Portal não exibe essa composição:
 na aba Demurrage informa apenas o ROE vigente e sua data de atualização; cada
 invoice paga preserva o ROE que foi congelado no pagamento.
 

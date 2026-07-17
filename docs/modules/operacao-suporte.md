@@ -35,15 +35,12 @@ Fontes de linguagem e arquitetura: `CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/a
 
 `src/components/layout/ProtectedRoute.tsx` trata loading, ausência de sessão, falta de perfil ativo e redirecionamento de não admin. `src/components/layout/AppLayout.tsx` monta badges com `useOperationalCounts`, mostra o menu Admin somente quando `isAdmin`, executa logout e navega para `/login`. `src/components/layout/HeaderInfoBar.tsx` repete o logout no menu do usuário, exibe role, câmbio e alertas resumidos de demurrage/Granite.
 
-O CNY não tem uso no sistema e deve ser removido do header, do tipo retornado
-por `useExchangeRates`, do cache e do cálculo aproximado baseado na constante
-`CNY_PER_USD = 7.25`. Como referência visual e funcional para o substituto, foi
-apresentado o header do Demurrage Manager: PTAX Venda, fórmula
-`PTAX × 1,065 = ROE`, valor calculado, data efetiva da cotação e ação de
-atualização. O header é informativo, não permite entrada manual e deve consumir
-a mesma referência cambial autoritativa do recálculo de demurrage, em vez de
-manter uma implementação paralela no navegador. A entrada manual permanece no
-módulo Demurrage.
+`HeaderInfoBar` usa `useRoeHeaderRate`, que delega a `fetchROE`, para exibir PTAX
+Venda, a fórmula `PTAX × 1,065 = ROE`, o valor calculado, a data efetiva da
+cotação e uma ação de atualização. O header é informativo, não permite entrada
+manual e compartilha a referência cambial e o cache canônicos do recálculo de
+demurrage. CNY e o antigo contrato `useExchangeRates` não integram mais a
+aplicação; a entrada manual permanece no módulo Demurrage.
 
 Esses filtros de UI são ergonomia e navegação. A autoridade continua em policies, triggers, grants, Edge Functions e RPCs; chamadas diretas à API não podem depender de menu oculto ou redirect. Evidências: `supabase/migrations/040_portal_login_rate_limit.sql`, `supabase/migrations/077_fix_user_profile_privilege_escalation.sql`, `supabase/migrations/014_lock_down_financial_reads_and_audit_writes.sql` e as migrations específicas do gate.
 

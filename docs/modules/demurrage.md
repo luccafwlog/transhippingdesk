@@ -115,7 +115,7 @@ excluir para admin, conforme
 | `/demurrage/taxas` · listar | Usuário interno ativo | Query da página | `listDemurrageRates` | SELECT em `demurrage_rates` | Query `['demurrage-rates']` | Erro mostra `InlineError` | **Código:** [`DemurrageRates.tsx`](../../src/pages/DemurrageRates.tsx) |
 | `/demurrage/taxas` · criar/editar | Admin; tipo de container preenchido | `handleSave` | `upsertDemurrageRate` | UPSERT em `demurrage_rates` | Limpa cache em memória e invalida `['demurrage-rates']` | Validação mínima na UI; policy bloqueia não-admin | **Código:** [`DemurrageRates.tsx`](../../src/pages/DemurrageRates.tsx), [`demurrageRates.ts`](../../src/services/demurrage/demurrageRates.ts) |
 | `/demurrage/taxas` · ativar/desativar | Admin | `handleToggleActive` | `toggleDemurrageRateActive` | UPDATE de `active` | Limpa cache em memória e invalida `['demurrage-rates']` | Erro mostra toast | **Código:** [`DemurrageRates.tsx`](../../src/pages/DemurrageRates.tsx) |
-| `/demurrage/taxas` · excluir | Admin | `handleDelete` | `deleteDemurrageRate` | DELETE em `demurrage_rates` | Limpa cache em memória e invalida `['demurrage-rates']` | Erro mostra toast; não há confirmação na página atual | **Código:** [`DemurrageRates.tsx`](../../src/pages/DemurrageRates.tsx) |
+| `/demurrage/taxas` · excluir | Admin; confirmação destrutiva aceita | `handleDelete` | `deleteDemurrageRate` | DELETE em `demurrage_rates` | Limpa cache em memória e invalida `['demurrage-rates']` | Erro mostra toast; cancelar a confirmação não escreve | **Código:** [`DemurrageRates.tsx`](../../src/pages/DemurrageRates.tsx) |
 
 ## Estado e dados
 
@@ -149,12 +149,12 @@ excluir para admin, conforme
   `recalculate_demurrage_invoices_manual` (autenticada). Um banner de staleness
   aparece quando há faturas aguardando pagamento e o último recálculo é anterior ao
   último dia útil.
-- **Câmbio de display — divergência a remover:** o header ainda usa
-  [`src/hooks/useExchangeRates.ts`](../../src/hooks/useExchangeRates.ts),
-  cache local, PTAX sem markup e derivação CNY. O desenho aprovado remove CNY e
-  faz o header interno apresentar PTAX Venda, ROE, data efetiva e atualização,
-  consumindo a mesma referência autoritativa do recálculo de demurrage. Não há
-  entrada manual no header; ela permanece em `/demurrage`.
+- **Câmbio de display:** o header interno usa
+  [`src/hooks/useRoeHeaderRate.ts`](../../src/hooks/useRoeHeaderRate.ts) e o
+  `fetchROE` compartilhado para apresentar PTAX Venda, a fórmula
+  `PTAX × 1,065 = ROE`, a data efetiva e uma ação de atualização. Não há CNY nem
+  contrato cambial paralelo; a entrada manual permanece exclusiva de
+  `/demurrage`.
 - **PIX:** o payload é montado por
   [`src/lib/pix.ts`](../../src/lib/pix.ts) com valor BRL e `doc_number` como
   TXID. A baixa de demurrage não cria `bl_receivables`,

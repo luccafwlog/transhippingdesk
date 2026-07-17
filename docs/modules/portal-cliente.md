@@ -256,11 +256,11 @@ Não há teste focado para `PortalLogin`, `PortalForgotPassword`, `PortalResetPa
 - [ADR 0001](../adr/0001-portal-login-supabase-auth.md) continua válida para Supabase Auth e fim do token legado, mas foi parcialmente superada pela [ADR 0013](../adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md) quanto aos identificadores aceitos.
 A operação interna do Portal está disponível em `/clientes/portal`, com fila
 inicial em “Aguardando análise”, prioridade visual, candidatos de email e
-painel individual. O backfill inicial já cumpriu sua finalidade e a funcionalidade
-`/admin/portal-backfill` deve ser integralmente retirada: menu, rota, página,
-chamadores frontend, tipos e RPCs ativas `portal_provisioning_preflight` e
-`portal_provisioning_backfill`. As migrations históricas permanecem preservadas;
-o mecanismo interno vigente de criação/reparo de registros ausentes continua.
+painel individual. O backfill inicial já cumpriu sua finalidade. A antiga
+funcionalidade administrativa foi retirada do menu, das rotas, do frontend e
+dos tipos; a migration `201` revoga e remove as RPCs temporárias de pré-voo e
+backfill. As migrations históricas permanecem preservadas e o mecanismo interno
+vigente de criação/reparo de registros ausentes continua.
 Não existem ações em lote de provisionamento.
 
 O Portal não replica o header cambial interno. Somente na aba

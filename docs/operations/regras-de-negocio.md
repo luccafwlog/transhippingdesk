@@ -40,7 +40,7 @@ O cliente pode ter um motivo de bloqueio de faturamento persistido. A migration 
 
 ## Câmbio (ROE / PTAX)
 
-Cobranças em moeda estrangeira usam a cotação ROE obtida do Banco Central (`olinda.bcb.gov.br`) via `src/hooks/useExchangeRates.ts`. Sem ROE/dados fiscais suficientes, a emissão da invoice é bloqueada. Aplica-se a Faturamento e Demurrage.
+Cobranças em moeda estrangeira usam o ROE obtido da PTAX Venda do Banco Central (`olinda.bcb.gov.br`) pelo serviço compartilhado `fetchROE`, com markup canônico de `1,065`. O header interno consome esse contrato por `useRoeHeaderRate`; sem ROE/dados fiscais suficientes, a emissão da invoice é bloqueada. Aplica-se a Faturamento e Demurrage.
 
 ## Reconciliação de cliente (fuzzy matching)
 

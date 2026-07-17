@@ -275,7 +275,6 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/portal/recuperar-senha` | Definição de nova senha |
 | `/portal/ativar` | Ativação de convite sem login automático |
 | `/clientes/portal` | Console operacional de provisionamento do Portal |
-| `/admin/portal-backfill` | **Rota condenada:** backfill inicial concluído; remover interface e RPCs ativas, preservando apenas o histórico de migrations e o reparo interno vigente |
 
 ### Portal autenticado
 
