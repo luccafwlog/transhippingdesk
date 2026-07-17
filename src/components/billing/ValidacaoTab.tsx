@@ -23,7 +23,7 @@ import { queryKeys } from '../../services/queryKeys'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { createInvoiceFromBls } from '../../services/billing'
-import { isCustomerReconciliationResolved } from '../../services/customerReconciliationStatus'
+import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import { getBillingBlockReason, isPendingBillingReview } from './validacaoPipeline'
 
 type OpsFilters = {
