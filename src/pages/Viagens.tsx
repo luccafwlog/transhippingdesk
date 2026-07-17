@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -68,24 +68,20 @@ export function Viagens() {
     ...emptyFilters(),
     search: initialVessel,
   })
-  const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('viagens:rail-collapsed') === '1'
-    } catch {
-      return false
-    }
-  })
-  const toggleRail = useCallback(() => {
-    setRailCollapsed((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem('viagens:rail-collapsed', next ? '1' : '0')
-      } catch {
-        /* storage indisponível — ignora */
-      }
-      return next
-    })
+  // Rail fica recolhido por padrão no desktop e expande em overlay ao passar o
+  // mouse (sem clique). No mobile permanece sempre expandido — não há hover.
+  const [isDesktop, setIsDesktop] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const sync = () => setIsDesktop(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
   }, [])
+  const [railHovered, setRailHovered] = useState(false)
+  const railCollapsed = isDesktop && !railHovered
 
   const selectedVoyageId = voyageId ? Number(voyageId) : null
 
@@ -228,21 +224,26 @@ export function Viagens() {
         loading={isLoading}
       />
 
-      <div className={`viagens-grid lg:grid lg:gap-4 ${railCollapsed ? 'lg:grid-cols-[64px_1fr]' : 'lg:grid-cols-[300px_1fr]'}`}>
-        <div className={selectedVoyageId ? 'hidden lg:block' : 'block'}>
+      <div className="viagens-grid lg:grid lg:gap-4 lg:grid-cols-[64px_1fr]">
+        <div
+          className={`relative ${selectedVoyageId ? 'hidden lg:block' : 'block'}`}
+          onMouseEnter={() => setRailHovered(true)}
+          onMouseLeave={() => setRailHovered(false)}
+        >
           {isLoading ? (
             <div className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)]">
               <SkeletonList />
             </div>
           ) : (
-            <VoyageRail
-              items={visibleRailItems}
-              selectedId={selectedVoyageId}
-              onSelect={(id) => navigate(`/viagens/${id}`)}
-              onEdit={setEditingVoyageId}
-              collapsed={railCollapsed}
-              onToggleCollapse={toggleRail}
-            />
+            <div className={railCollapsed ? '' : 'lg:absolute lg:left-0 lg:top-0 lg:z-30 lg:w-[300px] lg:shadow-2xl'}>
+              <VoyageRail
+                items={visibleRailItems}
+                selectedId={selectedVoyageId}
+                onSelect={(id) => navigate(`/viagens/${id}`)}
+                onEdit={setEditingVoyageId}
+                collapsed={railCollapsed}
+              />
+            </div>
           )}
         </div>
 

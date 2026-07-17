@@ -18,16 +18,22 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit, collapsed = fa
   if (collapsed) {
     return (
       <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
-        <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="flex w-full items-center justify-center rounded-lg p-1.5 text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface)] hover:text-[var(--app-text)]"
-            aria-label="Expandir barra lateral"
-            title="Expandir barra lateral"
-          >
-            <Ship size={18} />
-          </button>
+        <div className="flex items-center justify-center border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2 text-[var(--app-muted)]">
+          {onToggleCollapse ? (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex w-full items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-[var(--app-surface)] hover:text-[var(--app-text)]"
+              aria-label="Expandir barra lateral"
+              title="Expandir barra lateral"
+            >
+              <Ship size={18} />
+            </button>
+          ) : (
+            <span className="p-1.5" title="Passe o mouse para expandir">
+              <Ship size={18} />
+            </span>
+          )}
         </div>
         <div className="max-h-[calc(100vh-13rem)] overflow-y-auto">
           {items.length === 0 ? (
@@ -68,15 +74,17 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit, collapsed = fa
     <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
       <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2">
         <span className="text-[11px] text-[var(--app-muted-soft)]">Ordenado por próxima escala</span>
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-          aria-label="Recolher barra lateral"
-          title="Recolher barra lateral"
-        >
-          <PanelLeftClose size={15} />
-        </button>
+        {onToggleCollapse ? (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+            aria-label="Recolher barra lateral"
+            title="Recolher barra lateral"
+          >
+            <PanelLeftClose size={15} />
+          </button>
+        ) : null}
       </div>
 
       <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
