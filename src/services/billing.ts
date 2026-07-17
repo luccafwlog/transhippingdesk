@@ -360,7 +360,9 @@ async function suggestDistinctColumn(
   if (opts.orderBy) query = query.order(opts.orderBy, { ascending: false })
   const { data, error } = await query.limit(opts.fetchLimit ?? 10)
   if (error) throw error
-  const values = (data ?? []).map((row) => String((row as Record<string, unknown>)[column])).filter(Boolean)
+  const values = ((data ?? []) as unknown as Array<Record<string, unknown>>)
+    .map((row) => String(row[column] ?? ''))
+    .filter(Boolean)
   return Array.from(new Set(values)).slice(0, 10)
 }
 

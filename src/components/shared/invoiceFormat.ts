@@ -38,5 +38,5 @@ export function buildInvoiceFileBaseName(detail: InvoiceDetail): string {
     .filter((part) => part && part.trim().length > 0)
     .join(' - ')
   // Remove caracteres invalidos em nomes de arquivo e normaliza espacos.
-  return base.replace(/[\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+  return base.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
 }
