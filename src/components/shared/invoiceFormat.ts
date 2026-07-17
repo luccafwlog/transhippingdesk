@@ -1,3 +1,4 @@
+import type { InvoiceDetail } from '../../services/billing'
 import type React from 'react'
 
 // Helpers de formatação e estilos compartilhados pelos documentos imprimíveis
@@ -24,3 +25,18 @@ export const cell: React.CSSProperties = { padding: '8px 10px', borderBottom: '1
 export const labelCell: React.CSSProperties = { ...cell, fontWeight: 700, width: 130, whiteSpace: 'nowrap' }
 
 export const documentRoot: React.CSSProperties = { fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#111', background: 'white' }
+
+// Nome padronizado do arquivo de fatura de taxas locais (sem extensao):
+// "NumeroFatura - FATURA TAXAS LOCAIS - PrimeiroNomeCliente - BL(s)".
+// Ex.: "INV-2026-0127 - FATURA TAXAS LOCAIS - GOLDEN - CSC45630201C00".
+export function buildInvoiceFileBaseName(detail: InvoiceDetail): string {
+  const invoice = detail.invoice
+  const invoiceNumber = invoice?.invoice_number ?? (invoice ? `INV-${invoice.id}` : 'Fatura')
+  const firstName = (invoice?.customer_name ?? '').trim().split(/\s+/)[0] ?? ''
+  const blPart = detail.bls.map((b) => b.bl_id).filter(Boolean).join(', ')
+  const base = [invoiceNumber, 'FATURA TAXAS LOCAIS', firstName, blPart]
+    .filter((part) => part && part.trim().length > 0)
+    .join(' - ')
+  // Remove caracteres invalidos em nomes de arquivo e normaliza espacos.
+  return base.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+}

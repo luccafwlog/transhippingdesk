@@ -30,6 +30,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0023](./0023-distribuicao-skills-fonte-unica-instalador-node.md) | Distribuição de skills: fonte única e instalador Node | aceito | Estende a 0010; unifica skills de Claude Code e Codex em nuvem e local |
 | [0024](./0024-cancelamento-viagem-estado-retido-exclusao-hard-delete.md) | Cancelamento de viagem é estado retido; exclusão é hard delete | aceito | Complementa a ADR 0009 para viagens |
 | [0025](./0025-bl-fonte-documental-unica-container-atd-pol.md) | B/L como fonte documental única da carga de container e do ATD do POL | aceito | Supersede parcialmente 0005 e 0017; Implementada em 2026-07-16 |
+| [0026](./0026-demurrage-validacao-item-rpc-veto.md) | Validação por item na RPC de emissão de Demurrage (autoridade de veto) | aceito | Complementa a 0008/0014; migration 204 |
 
 ## Convenção
 

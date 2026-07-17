@@ -13,7 +13,6 @@ vi.mock('../../lib/pix', () => ({ buildTransshippingPixPayload: supabaseMocks.bu
 
 import {
   addManualInvoiceCharge,
-  buildInvoiceFileBaseName,
   cancelInvoice,
   createInvoiceFromBls,
   createInvoiceFromGraniteBls,
@@ -24,6 +23,7 @@ import {
   listInvoices,
   registerInvoicePayment,
 } from '../billing'
+import { buildInvoiceFileBaseName } from '../../components/shared/invoiceFormat'
 import type { InvoiceDetail, InvoiceFilters } from '../billing'
 
 beforeEach(() => {

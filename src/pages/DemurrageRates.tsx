@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -10,10 +9,13 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import type { DemurrageRate } from '../types/database'
-import { invalidateDemurrageRatesCache } from '../services/demurrage/demurrageRates'
-import { buildDemurrageRateUpsertPayload } from './demurrageRatesHelpers'
+import {
+  useDeleteDemurrageRate,
+  useDemurrageRates,
+  useSaveDemurrageRate,
+  useToggleDemurrageRateActive,
+} from '../hooks/useDemurrageRates'
 import { formatDate, formatUSD } from '../lib/utils'
-import { supabase } from '../services/supabase'
 
 type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at'>
 
@@ -31,44 +33,17 @@ const EMPTY_FORM: DemurrageRateForm = {
   notes: null,
 }
 
-async function listDemurrageRates(): Promise<DemurrageRate[]> {
-  const { data, error } = await supabase
-    .from('demurrage_rates')
-    .select('*')
-    .order('container_type', { ascending: true })
-  if (error) throw error
-  return (data ?? []) as DemurrageRate[]
-}
-
-async function upsertDemurrageRate(rate: Partial<DemurrageRate> & { container_type: string }) {
-  const { error } = await supabase.from('demurrage_rates').upsert(buildDemurrageRateUpsertPayload(rate))
-  if (error) throw error
-}
-
-async function deleteDemurrageRate(id: number) {
-  const { error } = await supabase.from('demurrage_rates').delete().eq('id', id)
-  if (error) throw error
-}
-
-async function toggleDemurrageRateActive(id: number, active: boolean) {
-  const { error } = await supabase.from('demurrage_rates').update({ active }).eq('id', id)
-  if (error) throw error
-}
-
 export function DemurrageRates() {
-  const queryClient = useQueryClient()
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<DemurrageRateForm & { id?: number }>(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
 
-  const { data: rates, isLoading, error } = useQuery({
-    queryKey: ['demurrage-rates'],
-    queryFn: listDemurrageRates,
-  })
+  const { data: rates, isLoading, error } = useDemurrageRates()
+  const saveMutation = useSaveDemurrageRate()
+  const deleteMutation = useDeleteDemurrageRate()
+  const toggleMutation = useToggleDemurrageRateActive()
 
   function openNew() {
     setForm({ ...EMPTY_FORM })
@@ -84,48 +59,33 @@ export function DemurrageRates() {
     return (value: DemurrageRateForm[K]) => setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!form.container_type) {
       showToast('Informe o tipo de container.', 'error')
       return
     }
-    setSaving(true)
-    try {
-      await upsertDemurrageRate(form)
-      invalidateDemurrageRatesCache()
-      await queryClient.invalidateQueries({ queryKey: ['demurrage-rates'] })
-      showToast(form.id ? 'Tarifa atualizada.' : 'Tarifa criada.', 'success')
-      setModalOpen(false)
-    } catch {
-      showToast('Falha ao salvar tarifa.', 'error')
-    } finally {
-      setSaving(false)
-    }
+    saveMutation.mutate(form, {
+      onSuccess: () => {
+        showToast(form.id ? 'Tarifa atualizada.' : 'Tarifa criada.', 'success')
+        setModalOpen(false)
+      },
+      onError: () => showToast('Falha ao salvar tarifa.', 'error'),
+    })
   }
 
   async function handleDelete(id: number) {
     if (!(await confirm({ message: 'Excluir esta tarifa?', tone: 'danger', confirmLabel: 'Excluir' }))) return
-    setDeletingId(id)
-    try {
-      await deleteDemurrageRate(id)
-      invalidateDemurrageRatesCache()
-      await queryClient.invalidateQueries({ queryKey: ['demurrage-rates'] })
-      showToast('Tarifa removida.', 'success')
-    } catch {
-      showToast('Falha ao remover tarifa.', 'error')
-    } finally {
-      setDeletingId(null)
-    }
+    deleteMutation.mutate(id, {
+      onSuccess: () => showToast('Tarifa removida.', 'success'),
+      onError: () => showToast('Falha ao remover tarifa.', 'error'),
+    })
   }
 
-  async function handleToggleActive(rate: DemurrageRate) {
-    try {
-      await toggleDemurrageRateActive(rate.id, !rate.active)
-      invalidateDemurrageRatesCache()
-      await queryClient.invalidateQueries({ queryKey: ['demurrage-rates'] })
-    } catch {
-      showToast('Falha ao alterar status.', 'error')
-    }
+  function handleToggleActive(rate: DemurrageRate) {
+    toggleMutation.mutate(
+      { id: rate.id, active: !rate.active },
+      { onError: () => showToast('Falha ao alterar status.', 'error') },
+    )
   }
 
   return (
@@ -209,7 +169,7 @@ export function DemurrageRates() {
                         </button>
                         <button
                           onClick={() => handleDelete(rate.id)}
-                          disabled={deletingId === rate.id}
+                          disabled={deleteMutation.isPending && deleteMutation.variables === rate.id}
                           className="app-table__icon-button app-table__icon-button--danger app-table__icon-button--sm"
                           title="Excluir"
                           aria-label="Excluir tarifa"
@@ -308,7 +268,7 @@ export function DemurrageRates() {
             <Button variant="ghost" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} loading={saving}>
+            <Button onClick={handleSave} loading={saveMutation.isPending}>
               Salvar
             </Button>
           </div>

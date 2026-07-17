@@ -26,13 +26,14 @@ import {
   useRegisterLedgerInvoicePayment,
   useSettleInvoiceRefund,
 } from '../../hooks/useBillingLedger'
-import { buildInvoiceFileBaseName, isConsolidatedInvoice } from '../../services/billing'
+import { isConsolidatedInvoice } from '../../services/billing'
+import { buildInvoiceFileBaseName } from '../shared/invoiceFormat'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
 import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { formatBRL, formatDate, formatUSD, stripBlPrefix } from '../../lib/utils'
 import { isLedgerInvoicePayable } from '../../pages/faturamentoLedgerPayment'
-import { invoiceStatusLabel } from '../../pages/faturamentoInvoiceStatus'
+import { invoiceStatusLabel, isOpenInvoiceStatus } from '../../pages/faturamentoInvoiceStatus'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -93,7 +94,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const canEditCharges = Boolean(
     detailInvoice &&
       !isConsolidatedInvoice(detailInvoice) &&
-      ['issued', 'overdue', 'draft'].includes(detailInvoice.status ?? 'issued') &&
+      isOpenInvoiceStatus(detailInvoice.status) &&
       (detailQuery.data?.payments.length ?? 0) === 0,
   )
 

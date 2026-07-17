@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildDemurrageRateUpsertPayload } from '../demurrageRatesHelpers'
+import { buildDemurrageRateUpsertPayload } from '../demurrageRateUpsertPayload'
 
 // DEF-003: criar uma tarifa de demurrage sem informar "Válido de" enviava
 // valid_from=null explícito e violava o NOT NULL (23502) do banco, em vez de

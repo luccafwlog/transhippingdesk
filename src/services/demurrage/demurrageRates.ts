@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { buildDemurrageRateUpsertPayload, type DemurrageRateUpsertInput } from './demurrageRateUpsertPayload'
 import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { DemurrageCalcResult, DemurrageRate } from '../../types/database'
 
@@ -96,6 +97,35 @@ export async function ensureDemurrageRatesLoaded(force = false) {
 
 export function invalidateDemurrageRatesCache() {
   dynamicRateGroupsLoadedAt = 0
+}
+
+// CRUD administrativo das tarifas. Toda escrita invalida o cache em memoria
+// usado pelo calculo, para a proxima resolucao de tarifa ler o banco.
+export async function listDemurrageRates(): Promise<DemurrageRate[]> {
+  const { data, error } = await supabase
+    .from('demurrage_rates')
+    .select('*')
+    .order('container_type', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as DemurrageRate[]
+}
+
+export async function upsertDemurrageRate(rate: DemurrageRateUpsertInput) {
+  const { error } = await supabase.from('demurrage_rates').upsert(buildDemurrageRateUpsertPayload(rate))
+  if (error) throw error
+  invalidateDemurrageRatesCache()
+}
+
+export async function deleteDemurrageRate(id: number) {
+  const { error } = await supabase.from('demurrage_rates').delete().eq('id', id)
+  if (error) throw error
+  invalidateDemurrageRatesCache()
+}
+
+export async function toggleDemurrageRateActive(id: number, active: boolean) {
+  const { error } = await supabase.from('demurrage_rates').update({ active }).eq('id', id)
+  if (error) throw error
+  invalidateDemurrageRatesCache()
 }
 
 function getRate(containerType: string | null, freeTimeOverride?: number | null, ov1?: number | null, ov2?: number | null): ResolvedRate {

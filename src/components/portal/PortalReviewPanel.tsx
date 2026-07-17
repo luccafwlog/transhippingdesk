@@ -6,9 +6,8 @@ import { Field, Input, Textarea } from '../ui/Input'
 import { useConfirm } from '../ui/ConfirmDialog'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
-import { supabase } from '../../services/supabase'
 import type { QueueRow } from '../../services/portalProvisioning'
-import { useAssistedEmailChange, useCancelPortalInvite, usePortalEvents, useReturnToAnalysis, useSendPortalInvite, useSetProvisioningException, useSuspendPortalAccount } from '../../hooks/usePortalProvisioning'
+import { useAdminChangeCnpj, useAssistedEmailChange, useCancelPortalInvite, usePortalEvents, useReturnToAnalysis, useSendPortalInvite, useSetProvisioningException, useSuspendPortalAccount } from '../../hooks/usePortalProvisioning'
 import { accountSituationLabel, contactPurposeLabel, deliveryStatusLabel, provisioningDecisionLabel, recoveryEmailSourceLabel } from '../../lib/portalProvisioningViewModel'
 import { formatCnpjCpf } from '../../lib/utils'
 
@@ -34,6 +33,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const cancelInviteMutation = useCancelPortalInvite()
   const suspendMutation = useSuspendPortalAccount()
   const assistedEmailMutation = useAssistedEmailChange()
+  const adminCnpjMutation = useAdminChangeCnpj()
   const exceptionMutation = useSetProvisioningException()
   const returnToAnalysisMutation = useReturnToAnalysis()
   const busy = sendInviteMutation.isPending || cancelInviteMutation.isPending || suspendMutation.isPending
@@ -86,8 +86,8 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
 
   async function adminCnpjChange() {
     if (!newCnpj.trim() || !reason.trim()) { setError('Informe CNPJ e justificativa.'); return }
-    const { error: rpcError } = await supabase.rpc('portal_admin_change_cnpj', { p_customer_id: row.customer_id, p_new_cnpj: newCnpj.trim(), p_reason: reason.trim() })
-    if (rpcError) { setError(rpcError.message); return }
+    try { await adminCnpjMutation.mutateAsync({ customerId: row.customer_id, cnpj: newCnpj.trim(), reason: reason.trim() }) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível alterar o CNPJ.'); return }
     showToast('CNPJ alterado de forma auditada.', 'success'); onSaved?.()
   }
 

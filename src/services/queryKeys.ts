@@ -81,5 +81,8 @@ export const queryKeys = {
   portal: {
     currentRoe: () => ['portal-current-roe'] as const,
   },
+  demurrage: {
+    rates: () => ['demurrage-rates'] as const,
+  },
   dashboard: () => ['dashboard'] as const,
 }

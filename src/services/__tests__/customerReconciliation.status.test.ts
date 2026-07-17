@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { isCustomerReconciliationResolved } from '../customerReconciliationStatus'
+import { isCustomerReconciliationResolved } from '../customerReconciliation'
 
 it('only treats document match and explicit reconciliation as billing-safe', () => {
   expect(isCustomerReconciliationResolved('matched_document')).toBe(true)

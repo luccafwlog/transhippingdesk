@@ -21,8 +21,9 @@ import {
 import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
 import { queryKeys } from '../../services/queryKeys'
 import { formatBRL, formatDate } from '../../lib/utils'
+import { isChargeReady } from '../../lib/chargeStatus'
 import { createInvoiceFromBls } from '../../services/billing'
-import { isCustomerReconciliationResolved } from '../../services/customerReconciliationStatus'
+import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import { getBillingBlockReason, isPendingBillingReview } from './validacaoPipeline'
 
 type OpsFilters = {
@@ -70,7 +71,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
 
   const operationsSummary = useMemo(() => {
     const rows = operationsRows ?? []
-    const readyRows = rows.filter((row) => row.charge_status === 'ready_for_billing')
+    const readyRows = rows.filter((row) => isChargeReady(row.charge_status))
     const readyInvoiced = readyRows.filter((row) => row.financial_status === 'invoiced').length
     return {
       total: rows.length,
@@ -516,7 +517,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
                 const reconciliationPending = !isCustomerReconciliationResolved(row.customer_reconciliation_status)
                 const queueItem = reconciliationPending ? (reconciliationQueue?.find((q) => q.bl_id === row.id) ?? null) : null
                 const blockReason = getBillingBlockReason(row)
-                const canIssueSingleInvoice = row.charge_status === 'ready_for_billing' && row.financial_status !== 'invoiced' && Boolean(row.customer?.id)
+                const canIssueSingleInvoice = isChargeReady(row.charge_status) && row.financial_status !== 'invoiced' && Boolean(row.customer?.id)
                 return (
                   <Fragment key={row.id}>
                     <tr className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>

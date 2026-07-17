@@ -160,3 +160,9 @@ export function findMatchedCustomer(
 
   return null
 }
+
+// Status que encerram a fila de reconciliação de cliente (decisão tomada,
+// automática por documento ou humana).
+export function isCustomerReconciliationResolved(status: string | null | undefined) {
+  return status === 'matched_document' || status === 'reconciled'
+}

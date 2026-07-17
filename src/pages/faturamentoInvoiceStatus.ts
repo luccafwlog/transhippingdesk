@@ -28,6 +28,14 @@ export function invoiceStatusTone(status: string | null) {
   return 'blue'
 }
 
+// Fatura em aberto: ainda nao quitada (direta ou via consolidada) nem cancelada.
+// E o unico conjunto que aceita edicao de itens manuais (Other Charges).
+const OPEN_STATUSES = new Set(['issued', 'overdue', 'draft', 'partially_paid'])
+
+export function isOpenInvoiceStatus(status: string | null | undefined) {
+  return OPEN_STATUSES.has(status ?? 'issued')
+}
+
 // Opcoes para o filtro de status na aba Faturas.
 export const INVOICE_STATUS_FILTER_OPTIONS: Array<{ value: InvoiceDisplayStatus; label: string }> = [
   { value: 'issued', label: 'Emitida' },

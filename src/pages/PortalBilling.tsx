@@ -24,7 +24,7 @@ import {
   usePortalInvoices,
   usePortalObsoleteConsolidation,
 } from '../hooks/usePortalBilling'
-import { buildInvoiceFileBaseName } from '../services/billing'
+import { buildInvoiceFileBaseName } from '../components/shared/invoiceFormat'
 import { exportPortalDemurrageWorkbook, exportPortalLocalInvoicesWorkbook } from '../services/exports'
 import { EMPTY_PORTAL_BILLING_FILTERS, type PortalBillingFilters } from '../lib/portalBillingFilters'
 import { formatBRL } from '../lib/utils'

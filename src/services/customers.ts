@@ -243,3 +243,13 @@ function normalizeZip(value?: string | null) {
   const digits = onlyDigits(value)
   return digits || null
 }
+
+/** Busca cliente existente por CNPJ/CPF (fallback de cadastro duplicado). */
+export async function findCustomerIdByDocument(cnpjCpf: string): Promise<number | null> {
+  const { data } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('cnpj_cpf', cnpjCpf.replace(/\D/g, ''))
+    .maybeSingle()
+  return data?.id ?? null
+}

@@ -1,4 +1,4 @@
-import { isCustomerReconciliationResolved } from '../../services/customerReconciliationStatus'
+import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import { extractReviewReasons } from '../../hooks/useReview'
 
 // B/L reconciliado que ainda não é faturável: preso entre a conciliação de cliente
