@@ -9,6 +9,7 @@ vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
 
 import {
   deriveAutomaticVoyagePodCeStatus,
+  listVoyagePodSchedules,
   listVoyagePolSchedules,
   saveVoyagePodSchedule,
   saveVoyagePolSchedule,
@@ -164,4 +165,87 @@ it('grava audit row de ATD por POL sem quebrar callers antigos', async () => {
       justification: 'ATD documental',
     },
   ])
+})
+
+it('hidrata ATB e ETD mais recentes ao listar schedules de POD', async () => {
+  const auditLogs = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        in: vi.fn(() => ({
+          order: vi.fn(() => ({
+            range: vi.fn(async () => ({
+              data: [
+                { entity_id: '12::BRSSZ', field_name: 'atb', new_value: '2026-07-10T08:00', changed_at: '2026-07-10T08:00:00Z' },
+                { entity_id: '12::BRSSZ', field_name: 'atb', new_value: '2026-07-09T08:00', changed_at: '2026-07-09T08:00:00Z' },
+                { entity_id: '12::BRSSZ', field_name: 'etd', new_value: '2026-07-12', changed_at: '2026-07-08T12:00:00Z' },
+              ],
+              error: null,
+            })),
+          })),
+        })),
+      })),
+    })),
+  }
+  fromMock.mockReturnValue(auditLogs)
+
+  const schedules = await listVoyagePodSchedules(['12::BRSSZ'])
+
+  expect(schedules.get('12::BRSSZ')).toMatchObject({
+    atb: '2026-07-10T08:00',
+    etd: '2026-07-12',
+  })
+})
+
+it('grava audit rows de ATB e ETD por POD', async () => {
+  const insertMock = vi.fn(async () => ({ error: null }))
+  let selectCalls = 0
+  const auditLogs = {
+    select: vi.fn(() => {
+      selectCalls += 1
+      if (selectCalls === 1) {
+        return {
+          eq: vi.fn(() => ({
+            in: vi.fn(() => ({
+              order: vi.fn(() => ({ range: vi.fn(async () => ({ data: [], error: null })) })),
+            })),
+          })),
+        }
+      }
+      return {
+        eq: vi.fn(() => ({
+          order: vi.fn(() => ({ range: vi.fn(async () => ({ data: [], error: null })) })),
+        })),
+      }
+    }),
+    insert: insertMock,
+  }
+  fromMock.mockReturnValue(auditLogs)
+
+  await saveVoyagePodSchedule({
+    voyageId: 12,
+    pod: 'BRSSZ',
+    eta: null,
+    etb: null,
+    ata: null,
+    atb: '2026-07-10T08:00',
+    etd: '2026-07-12',
+    atd: null,
+    rtw: null,
+    ceStatus: null,
+    linked: null,
+    changedBy: 'user-1',
+  })
+
+  expect(insertMock).toHaveBeenCalledWith(expect.arrayContaining([
+    expect.objectContaining({
+      field_name: 'atb',
+      new_value: '2026-07-10T08:00',
+      justification: 'Atualizacao manual de ATB por POD',
+    }),
+    expect.objectContaining({
+      field_name: 'etd',
+      new_value: '2026-07-12',
+      justification: 'Atualizacao manual de ETD por POD',
+    }),
+  ]))
 })

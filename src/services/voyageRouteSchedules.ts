@@ -31,6 +31,8 @@ export type VoyagePodSchedule = {
   eta: string | null
   etb: string | null
   ata: string | null
+  atb: string | null
+  etd: string | null
   atd: string | null
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
@@ -135,6 +137,8 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     if (row.field_name === 'eta' && !seenFields.has('eta')) current.eta = normalizeDateValue(row.new_value)
     if (row.field_name === 'etb' && !seenFields.has('etb')) current.etb = normalizeDateValue(row.new_value)
     if (row.field_name === 'ata' && !seenFields.has('ata')) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atb' && !seenFields.has('atb')) current.atb = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etd' && !seenFields.has('etd')) current.etd = normalizeDateValue(row.new_value)
     if (row.field_name === 'atd' && !seenFields.has('atd')) current.atd = normalizeDateValue(row.new_value)
     if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
@@ -201,6 +205,8 @@ export async function saveVoyagePodSchedule({
   eta,
   etb,
   ata,
+  atb,
+  etd,
   atd,
   rtw,
   ceStatus,
@@ -213,6 +219,8 @@ export async function saveVoyagePodSchedule({
   eta: string | null
   etb: string | null
   ata: string | null
+  atb?: string | null
+  etd?: string | null
   atd: string | null
   rtw: number | null
   ceStatus: VoyagePodCeStatus | null
@@ -227,6 +235,12 @@ export async function saveVoyagePodSchedule({
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'eta', current.eta, eta, changedBy, 'Atualizacao manual de ETA por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'etb', current.etb, etb, changedBy, 'Atualizacao manual de ETB por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'ata', current.ata, ata, changedBy, 'Atualizacao manual de ATA por POD'),
+    atb === undefined
+      ? null
+      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'atb', current.atb, atb, changedBy, 'Atualizacao manual de ATB por POD'),
+    etd === undefined
+      ? null
+      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, 'Atualizacao manual de ATD por POD'),
     makeAuditRow(
       POD_ENTITY_TYPE,
@@ -464,6 +478,8 @@ function hydratePodSchedules(
     if (row.field_name === 'eta' && !seenFields.has('eta')) current.eta = normalizeDateValue(row.new_value)
     if (row.field_name === 'etb' && !seenFields.has('etb')) current.etb = normalizeDateValue(row.new_value)
     if (row.field_name === 'ata' && !seenFields.has('ata')) current.ata = normalizeDateValue(row.new_value)
+    if (row.field_name === 'atb' && !seenFields.has('atb')) current.atb = normalizeDateValue(row.new_value)
+    if (row.field_name === 'etd' && !seenFields.has('etd')) current.etd = normalizeDateValue(row.new_value)
     if (row.field_name === 'atd' && !seenFields.has('atd')) current.atd = normalizeDateValue(row.new_value)
     if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
     if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
@@ -508,6 +524,8 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     eta: null,
     etb: null,
     ata: null,
+    atb: null,
+    etd: null,
     atd: null,
     rtw: null,
     ceStatus: null,
@@ -521,7 +539,7 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
 function makeAuditRow(
   entityType: string,
   entityId: string,
-  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number' | 'deleted',
+  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atb' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number' | 'deleted',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,
