@@ -26,10 +26,24 @@ export type PortalOperationBL = {
   voyage_id: number | null
   voyage_number: string | null
   vessel_name: string | null
+  transshipment?: PortalOperationTransshipment | null
   container_count: number
   containers_in_demurrage: number
   containers_returned: number
   containers: PortalOperationContainer[]
+}
+
+export type PortalOperationTransshipment = {
+  omission_id: number
+  disposition: 'transshipment' | 'cod'
+  omitted_pod: string | null
+  discharge_pod: string | null
+  reason: string | null
+  onward_vessel_name: string | null
+  onward_carrier: string | null
+  onward_voyage_number: string | null
+  onward_etd: string | null
+  onward_eta: string | null
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -80,6 +94,24 @@ function normalizeContainer(value: unknown): PortalOperationContainer {
   }
 }
 
+function normalizeTransshipment(value: unknown): PortalOperationTransshipment | null {
+  const row = asRecord(value)
+  const omissionId = asNumberOrNull(row.omission_id)
+  if (omissionId == null) return null
+  return {
+    omission_id: omissionId,
+    disposition: row.disposition === 'cod' ? 'cod' : 'transshipment',
+    omitted_pod: asStringOrNull(row.omitted_pod),
+    discharge_pod: asStringOrNull(row.discharge_pod),
+    reason: asStringOrNull(row.reason),
+    onward_vessel_name: asStringOrNull(row.onward_vessel_name),
+    onward_carrier: asStringOrNull(row.onward_carrier),
+    onward_voyage_number: asStringOrNull(row.onward_voyage_number),
+    onward_etd: asStringOrNull(row.onward_etd),
+    onward_eta: asStringOrNull(row.onward_eta),
+  }
+}
+
 export function normalizePortalOperationRows(data: unknown): PortalOperationBL[] {
   const rows = Array.isArray(data) ? data : []
 
@@ -95,6 +127,7 @@ export function normalizePortalOperationRows(data: unknown): PortalOperationBL[]
       voyage_id: asNumberOrNull(row.voyage_id),
       voyage_number: asStringOrNull(row.voyage_number),
       vessel_name: asStringOrNull(row.vessel_name),
+      transshipment: normalizeTransshipment(row.transshipment),
       container_count: asCount(row.container_count),
       containers_in_demurrage: asCount(row.containers_in_demurrage),
       containers_returned: asCount(row.containers_returned),

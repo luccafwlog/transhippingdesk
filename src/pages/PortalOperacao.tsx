@@ -437,12 +437,12 @@ function ContainersTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]
 }
 
 function ContainerDetails({ row }: { row: PortalOperationBL }) {
-  if (row.containers.length === 0) {
-    return <div className="px-5 pb-5 text-sm text-[var(--app-muted)]">Nenhum container vinculado a este B/L.</div>
-  }
-
   return (
-    <div className="app-table-scroll border-t border-[var(--app-border)]">
+    <div className="border-t border-[var(--app-border)]">
+      {row.transshipment ? <PortalTransshipmentCard transshipment={row.transshipment} /> : null}
+      {row.containers.length === 0 ? (
+        <div className="px-5 pb-5 text-sm text-[var(--app-muted)]">Nenhum container vinculado a este B/L.</div>
+      ) : <div className="app-table-scroll">
       <table aria-label={`Containers do BL ${row.bl_id}`} className="app-table app-table--compact min-w-[860px] text-left text-sm">
         <thead>
           <tr>
@@ -471,7 +471,30 @@ function ContainerDetails({ row }: { row: PortalOperationBL }) {
           ))}
         </tbody>
       </table>
+      </div>}
     </div>
+  )
+}
+
+function PortalTransshipmentCard({ transshipment }: { transshipment: NonNullable<PortalOperationBL['transshipment']> }) {
+  const value = (text: string | null) => text || '—'
+  return (
+    <section className="m-4 grid gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+      <h3 className="text-sm font-semibold text-[var(--app-text-strong)]">Informações de Transbordo</h3>
+      <p className="text-sm">Escala de {value(transshipment.omitted_pod)} omitida · Porto de Transbordo — {value(transshipment.discharge_pod)}</p>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          ['Navio', transshipment.onward_vessel_name],
+          ['Armador', transshipment.onward_carrier],
+          ['Viagem', transshipment.onward_voyage_number],
+          ['ETD', transshipment.onward_etd],
+          ['ETA', transshipment.onward_eta],
+          ['Motivo', transshipment.reason],
+        ].map(([label, text]) => (
+          <div key={label}><dt className="text-xs text-[var(--app-muted)]">{label}</dt><dd>{value(text)}</dd></div>
+        ))}
+      </dl>
+    </section>
   )
 }
 
