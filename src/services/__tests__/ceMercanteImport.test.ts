@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { importCeMercanteEdi, importCeMercanteRows, parseCeMercanteBuffer, type CeMercanteRow } from '../ceMercanteImport'
+import { importCeMercanteEdi, importCeMercanteRows, parseCeMercanteBuffer, partitionRowsByVoyage, type CeMercanteRow } from '../ceMercanteImport'
 import { jsonToBuffer } from './testWorkbook'
 
 const { mockFrom, mockRpc, mockMaybeAutoBillAfterCeMercante } = vi.hoisted(() => ({
@@ -94,6 +94,30 @@ describe('ceMercanteImport', () => {
     expect(rpcArgs.p_bl_id).toBe('BL001')
     expect(rpcArgs.p_new_ce).toBe('122605051526081')
     expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', null)
+  })
+
+  it('separa BLs de outra viagem sem antecipar o erro de BL inexistente', async () => {
+    mockFrom.mockImplementation(() => ({
+      select: () => ({
+        in: async () => ({
+          data: [
+            { id: 'BL001', voyage_id: 7 },
+            { id: 'BL002', voyage_id: 8 },
+          ],
+          error: null,
+        }),
+      }),
+    }))
+    const rows: CeMercanteRow[] = [
+      { rowNumber: 2, bl_id: 'BL001', ce_mercante: '122605051526081' },
+      { rowNumber: 3, bl_id: 'BL002', ce_mercante: '122605051526082' },
+      { rowNumber: 4, bl_id: 'BL999', ce_mercante: '122605051526083' },
+    ]
+
+    await expect(partitionRowsByVoyage(rows, 7)).resolves.toEqual({
+      rows: [rows[0], rows[2]],
+      blocked: [{ row: 3, bl_id: 'BL002', message: 'B/L BL002 pertence a outra viagem' }],
+    })
   })
 
   it('nao dispara automacao quando a aplicacao do CE falha', async () => {

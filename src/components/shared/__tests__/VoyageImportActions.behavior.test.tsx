@@ -19,6 +19,9 @@ vi.mock('../../../services/breakbulkImport', () => ({
   parseBreakbulkManifestFile: mocks.parseBreakbulkManifestFile,
   importBreakbulkManifest: mocks.importBreakbulkManifest,
 }))
+vi.mock('../CeMercanteImportModal', () => ({
+  CeMercanteImportModal: ({ lockedVoyageId }: { lockedVoyageId?: number }) => <div>CE travado: {lockedVoyageId}</div>,
+}))
 
 import { VoyageImportActions } from '../VoyageImportActions'
 
@@ -96,4 +99,21 @@ it('US-223: confirmar a importacao conecta o importador ao voyageId travado', as
   expect(mocks.importBreakbulkManifest).toHaveBeenCalledWith(
     expect.objectContaining({ voyageId: 7, filename: 'manifesto-bb.xlsx', uploadedBy: 'user-1' }),
   )
+})
+
+it('ordena as importacoes e abre CE Mercante travado na viagem', () => {
+  render(
+    <VoyageImportActions
+      voyageId={7}
+      voyageLabel="GREEN SANTOS / 14N"
+      userId="user-1"
+      types={['vaziosImp', 'vehicles', 'bb', 'ceMercante', 'blFreight', 'baplie']}
+    />,
+  )
+
+  expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
+    'Baplie EDI', 'B/L', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP',
+  ])
+  fireEvent.click(screen.getByRole('button', { name: /CE Mercante/ }))
+  expect(screen.getByText('CE travado: 7')).toBeTruthy()
 })

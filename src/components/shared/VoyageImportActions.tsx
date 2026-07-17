@@ -1,12 +1,13 @@
 import { useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Download, Upload } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { FileImportModal } from './FileImportModal'
 import { BlImportModal } from './BlImportModal'
+import { CeMercanteImportModal } from './CeMercanteImportModal'
 import { importBreakbulkManifest, parseBreakbulkManifestFile } from '../../services/breakbulkImport'
 import { importGraniteManifest, parseGraniteManifestFile } from '../../services/graniteImport'
 import { importVaziosManifest, parseVaziosManifestFile } from '../../services/vaziosImport'
@@ -15,17 +16,20 @@ import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicl
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
 
-type ImportType = 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight'
+type ImportType = 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'ceMercante'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
   bb: 'Manifesto BB',
   granite: 'Manifesto Granito',
-  vaziosImp: 'Manifesto Vazios Imp.',
+  vaziosImp: 'Vazios IMP',
   vaziosExp: 'Vazios Exp',
-  vehicles: 'Planilha Veiculos',
+  vehicles: 'Veículos',
   baplie: 'Baplie EDI',
   blFreight: 'B/L',
+  ceMercante: 'CE Mercante',
 }
+
+const IMPORT_ORDER: ImportType[] = ['baplie', 'blFreight', 'ceMercante', 'bb', 'vehicles', 'vaziosImp', 'granite', 'vaziosExp']
 
 export function VoyageImportActions({
   voyageId,
@@ -54,7 +58,7 @@ export function VoyageImportActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {types.map((type) => (
+        {IMPORT_ORDER.filter((type) => types.includes(type)).map((type) => (
           <Button key={type} variant="secondary" className="text-xs" onClick={() => setActiveType(type)}>
             <Upload size={13} />
             {IMPORT_LABELS[type]}
@@ -68,6 +72,7 @@ export function VoyageImportActions({
           voyageLabel={voyageLabel}
           accept=".xlsx,.xls,.csv"
           parser={parseBreakbulkManifestFile}
+          helper={<TemplateLinks baseName="manifesto-bb-modelo" />}
           canImport={(p) => p.bls.length > 0}
           importer={async (preview, file) => {
             await importBreakbulkManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
@@ -182,6 +187,10 @@ export function VoyageImportActions({
           voyageLabel={voyageLabel}
           onClose={() => setActiveType(null)}
         />
+      ) : null}
+
+      {activeType === 'ceMercante' ? (
+        <CeMercanteImportModal open lockedVoyageId={voyageId} onClose={() => setActiveType(null)} />
       ) : null}
     </>
   )
@@ -306,6 +315,19 @@ function BaplieImportModal({
   )
 }
 
+function TemplateLinks({ baseName }: { baseName: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {['xlsx', 'csv'].map((extension) => (
+        <a key={extension} className="app-btn app-btn--secondary" href={`/templates/${baseName}.${extension}`} download={`${baseName}.${extension}`}>
+          <Download size={16} />
+          Baixar modelo .{extension}
+        </a>
+      ))}
+    </div>
+  )
+}
+
 function VehiclesImportModal({
   voyageId,
   voyageLabel,
@@ -363,6 +385,7 @@ function VehiclesImportModal({
         <div className="app-panel app-panel--padded text-sm">
           Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
         </div>
+        <TemplateLinks baseName="veiculos-modelo" />
         <Field label="Arquivo .xlsx / .xls / .csv">
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
         </Field>
