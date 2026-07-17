@@ -11,7 +11,7 @@ describe('migration do registro global de transbordo', () => {
     expect(migration).toMatch(/UPDATE public\.voyage_omissions vo SET[\s\S]*array_agg\(onward_vessel_name ORDER BY id\)[\s\S]*FROM public\.bl_transshipments/i)
   })
 
-  it('atualiza o registro global com guarda ativa e audita viagem e B\/Ls', () => {
+  it('atualiza o registro global com guarda ativa e audita viagem e B/Ls', () => {
     expect(migration).toMatch(/CREATE OR REPLACE FUNCTION public\.update_voyage_omission/i)
     expect(migration).toMatch(/auth\.uid\(\) IS NULL OR NOT public\.is_active_user\(\)[\s\S]*p_changed_by IS DISTINCT FROM auth\.uid\(\)/i)
     expect(migration).toMatch(/UPDATE public\.voyage_omissions SET[\s\S]*onward_vessel_name[\s\S]*reason/i)

@@ -24,12 +24,22 @@ export function OmitEscalaModal({
   const omit = useOmitEscala(voyageId)
   const [dischargePod, setDischargePod] = useState(candidateDischargePods[0] ?? '')
   const [reason, setReason] = useState('')
+  const [onwardVesselName, setOnwardVesselName] = useState('')
+  const [onwardCarrier, setOnwardCarrier] = useState('')
+  const [onwardVoyageNumber, setOnwardVoyageNumber] = useState('')
+  const [onwardEtd, setOnwardEtd] = useState('')
+  const [onwardEta, setOnwardEta] = useState('')
   const [prevTarget, setPrevTarget] = useState<string | null>(null)
 
   if (open && omittedPod !== prevTarget) {
     setPrevTarget(omittedPod)
     setDischargePod(candidateDischargePods[0] ?? '')
     setReason('')
+    setOnwardVesselName('')
+    setOnwardCarrier('')
+    setOnwardVoyageNumber('')
+    setOnwardEtd('')
+    setOnwardEta('')
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -40,6 +50,11 @@ export function OmitEscalaModal({
       omittedPod,
       dischargePod,
       reason: reason.trim() || null,
+      onwardVesselName: onwardVesselName.trim() || null,
+      onwardCarrier: onwardCarrier.trim() || null,
+      onwardVoyageNumber: onwardVoyageNumber.trim() || null,
+      onwardEtd: onwardEtd || null,
+      onwardEta: onwardEta || null,
       changedBy: user.id,
     })
     onClose()
@@ -51,7 +66,7 @@ export function OmitEscalaModal({
         <div className="app-panel app-panel--padded text-sm">
           A carga de {omittedPod} sera descarregada no porto escolhido e entrara em transbordo por B/L.
         </div>
-        <Field label="Porto de descarga">
+        <Field label="Porto de Transbordo">
           <select className="app-input" value={dischargePod} onChange={(event) => setDischargePod(event.target.value)} required>
             {candidateDischargePods.map((pod) => (
               <option key={pod} value={pod}>
@@ -60,6 +75,30 @@ export function OmitEscalaModal({
             ))}
           </select>
         </Field>
+        <fieldset className="grid gap-3 rounded-xl border border-[var(--app-border)] p-3">
+          <legend className="px-1 text-sm font-semibold text-[var(--app-text-strong)]">
+            Dados de transbordo (complete quando conhecidos)
+          </legend>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Navio de Transbordo">
+              <Input value={onwardVesselName} onChange={(event) => setOnwardVesselName(event.target.value)} />
+            </Field>
+            <Field label="Armador de Transbordo">
+              <Input value={onwardCarrier} onChange={(event) => setOnwardCarrier(event.target.value)} />
+            </Field>
+            <Field label="Viagem de Transbordo">
+              <Input value={onwardVoyageNumber} onChange={(event) => setOnwardVoyageNumber(event.target.value)} />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="ETD de Transbordo">
+                <Input type="date" value={onwardEtd} onChange={(event) => setOnwardEtd(event.target.value)} />
+              </Field>
+              <Field label="ETA de Transbordo">
+                <Input type="date" value={onwardEta} onChange={(event) => setOnwardEta(event.target.value)} />
+              </Field>
+            </div>
+          </div>
+        </fieldset>
         <Field label="Motivo (opcional)">
           <Input value={reason} onChange={(event) => setReason(event.target.value)} />
         </Field>

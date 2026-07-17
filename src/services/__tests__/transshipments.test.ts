@@ -6,7 +6,7 @@ const { from, rpc } = vi.hoisted(() => ({
 }))
 vi.mock('../supabase', () => ({ supabase: { from, rpc } }))
 
-import { listBlTransshipments, listVoyageOmissions, omitVoyageEscala, setBlCod, setBlTransshipment } from '../transshipments'
+import { listBlTransshipments, listVoyageOmissions, omitVoyageEscala, setBlCod, setBlTransshipment, updateVoyageOmission } from '../transshipments'
 
 describe('transshipments service', () => {
   beforeEach(() => {
@@ -22,6 +22,11 @@ describe('transshipments service', () => {
       omittedPod: ' salvador ',
       dischargePod: 'vitoria',
       reason: 'omissao',
+      onwardVesselName: ' COSCO STAR ',
+      onwardCarrier: 'COSCO',
+      onwardVoyageNumber: 'T-1',
+      onwardEtd: '2026-07-20',
+      onwardEta: '2026-07-25',
       changedBy: 'user-1',
     })
 
@@ -31,6 +36,11 @@ describe('transshipments service', () => {
       p_omitted_pod: 'SALVADOR',
       p_discharge_pod: 'VITORIA',
       p_reason: 'omissao',
+      p_onward_vessel_name: ' COSCO STAR ',
+      p_onward_carrier: 'COSCO',
+      p_onward_voyage_number: 'T-1',
+      p_onward_etd: '2026-07-20',
+      p_onward_eta: '2026-07-25',
       p_changed_by: 'user-1',
     })
   })
@@ -55,11 +65,6 @@ describe('transshipments service', () => {
     await setBlTransshipment({
       blId: 'BL-1',
       omissionId: 9,
-      onwardVesselName: 'THIRD VESSEL',
-      onwardCarrier: 'THIRD',
-      onwardVoyageNumber: 'T-1',
-      onwardEtd: '2026-07-11',
-      onwardEta: '2026-07-15',
       changedBy: 'user-1',
     })
     await setBlCod({ blId: 'BL-1', omissionId: 9, changedBy: 'user-1' })
@@ -67,11 +72,11 @@ describe('transshipments service', () => {
     expect(rpc).toHaveBeenNthCalledWith(1, 'set_bl_transshipment', {
       p_bl_id: 'BL-1',
       p_omission_id: 9,
-      p_onward_vessel_name: 'THIRD VESSEL',
-      p_onward_carrier: 'THIRD',
-      p_onward_voyage_number: 'T-1',
-      p_onward_etd: '2026-07-11',
-      p_onward_eta: '2026-07-15',
+      p_onward_vessel_name: null,
+      p_onward_carrier: null,
+      p_onward_voyage_number: null,
+      p_onward_etd: null,
+      p_onward_eta: null,
       p_changed_by: 'user-1',
     })
     expect(rpc).toHaveBeenNthCalledWith(2, 'set_bl_cod', {
@@ -81,10 +86,36 @@ describe('transshipments service', () => {
     })
   })
 
+  it('complementa o registro global com parametros nomeados', async () => {
+    rpc.mockResolvedValue({ error: null })
+
+    await updateVoyageOmission({
+      omissionId: 9,
+      onwardVesselName: 'COSCO STAR',
+      onwardCarrier: 'COSCO',
+      onwardVoyageNumber: 'T-1',
+      onwardEtd: '2026-07-20',
+      onwardEta: '2026-07-25',
+      reason: 'congestionamento',
+      changedBy: 'user-1',
+    })
+
+    expect(rpc).toHaveBeenCalledWith('update_voyage_omission', {
+      p_omission_id: 9,
+      p_onward_vessel_name: 'COSCO STAR',
+      p_onward_carrier: 'COSCO',
+      p_onward_voyage_number: 'T-1',
+      p_onward_etd: '2026-07-20',
+      p_onward_eta: '2026-07-25',
+      p_reason: 'congestionamento',
+      p_changed_by: 'user-1',
+    })
+  })
+
   it('mapeia leituras das tabelas novas', async () => {
     const omissionsEq = vi.fn(() =>
       Promise.resolve({
-        data: [{ id: 1, voyage_id: 2, omitted_pod: 'BRSSA', discharge_pod: 'BRVIT', reason: null }],
+        data: [{ id: 1, voyage_id: 2, omitted_pod: 'BRSSA', discharge_pod: 'BRVIT', reason: null, onward_vessel_name: 'THIRD', onward_carrier: null, onward_voyage_number: null, onward_etd: null, onward_eta: '2026-07-15' }],
         error: null,
       }),
     )
@@ -114,7 +145,7 @@ describe('transshipments service', () => {
     })
 
     await expect(listVoyageOmissions(2)).resolves.toEqual([
-      { id: 1, voyageId: 2, omittedPod: 'BRSSA', dischargePod: 'BRVIT', reason: null },
+      { id: 1, voyageId: 2, omittedPod: 'BRSSA', dischargePod: 'BRVIT', reason: null, onwardVesselName: 'THIRD', onwardCarrier: null, onwardVoyageNumber: null, onwardEtd: null, onwardEta: '2026-07-15' },
     ])
     await expect(listBlTransshipments(1)).resolves.toEqual([
       {
