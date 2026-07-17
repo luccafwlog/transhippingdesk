@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const migrationPath = resolve(process.cwd(), 'supabase/migrations/201_drop_portal_backfill_rpcs.sql')
+const migrationPath = resolve(process.cwd(), 'supabase/migrations/203_drop_portal_backfill_rpcs.sql')
 
 describe('migration 201 drop Portal backfill RPCs', () => {
   it('remove exatamente as assinaturas ativas de preflight e backfill', () => {
