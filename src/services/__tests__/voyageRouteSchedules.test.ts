@@ -150,6 +150,7 @@ it('grava audit row de ATD por POL sem quebrar callers antigos', async () => {
     etd: '2026-07-08',
     atd: '2026-07-10',
     changedBy: 'user-1',
+    justification: 'ATD documental',
   })
 
   expect(insertMock).toHaveBeenCalledWith([
@@ -160,7 +161,7 @@ it('grava audit row de ATD por POL sem quebrar callers antigos', async () => {
       old_value: null,
       new_value: '2026-07-10',
       changed_by: 'user-1',
-      justification: 'Atualizacao manual de ATD por POL',
+      justification: 'ATD documental',
     },
   ])
 })

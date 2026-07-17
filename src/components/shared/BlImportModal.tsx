@@ -116,7 +116,11 @@ export function BlImportModal({
     setSubmitting(true)
     try {
       await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling)
-      await applyLadenOnBoardAtd({ rows: preview.rows, changedBy: user?.id ?? null })
+      try {
+        await applyLadenOnBoardAtd({ rows: preview.rows, changedBy: user?.id ?? null })
+      } catch {
+        showToast('B/Ls importados; ATD do POL não pôde ser atualizado — edite manualmente.', 'info')
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),

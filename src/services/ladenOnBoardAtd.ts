@@ -38,6 +38,7 @@ export async function applyLadenOnBoardAtd(input: {
 
   const currentSchedules = await listVoyagePolSchedules([...groups.keys()])
 
+  // ponytail: o loop sequencial favorece consistencia da auditoria na escala atual; paralelizar por POL se o lote crescer.
   for (const [entityId, group] of groups) {
     const current = currentSchedules.get(entityId)
     const currentAtd = current?.atd ?? null
@@ -50,6 +51,7 @@ export async function applyLadenOnBoardAtd(input: {
       etd: current?.etd ?? null,
       atd: nextAtd,
       changedBy: input.changedBy,
+      justification: 'ATD derivado do Laden on Board do B/L (ADR 0025)',
     })
   }
 }

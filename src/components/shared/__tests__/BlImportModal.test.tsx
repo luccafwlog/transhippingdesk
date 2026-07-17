@@ -47,6 +47,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.invalidateQueries.mockResolvedValue(undefined)
   mocks.confirmBlFreightImport.mockResolvedValue({ imported: 1 })
+  mocks.applyLadenOnBoardAtd.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
 
@@ -245,6 +246,30 @@ it('confirma importacao, invalida caches e fecha modal', async () => {
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyage-timeline'] })
   expect(mocks.showToast).toHaveBeenCalledWith('Importacao de B/L concluida: 2 B/L(s), 0 bloqueado(s).', 'success')
   expect(onClose).toHaveBeenCalled()
+})
+
+it('avisa sobre falha do ATD sem mascarar importacao ja concluida', async () => {
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU123'))
+  mocks.previewBlFreightImport.mockResolvedValue(previewWithDiff)
+  mocks.applyLadenOnBoardAtd.mockRejectedValueOnce(new Error('RLS bloqueou ATD'))
+  const { container, onClose } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  const confirm = await screen.findByRole('button', { name: /Confirmar importacao/ })
+  await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
+  fireEvent.click(confirm)
+
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+  expect(mocks.showToast).toHaveBeenCalledWith(
+    'B/Ls importados; ATD do POL não pôde ser atualizado — edite manualmente.',
+    'info',
+  )
+  expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bls'] })
+  expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyage-pol-schedules'] })
+  expect(mocks.showToast).toHaveBeenCalledWith('Importacao de B/L concluida: 2 B/L(s), 0 bloqueado(s).', 'success')
 })
 
 it('exibe impacto de faturamento e envia override quando o operador marca', async () => {

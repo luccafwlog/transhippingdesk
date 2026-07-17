@@ -1,4 +1,4 @@
-const LEGAL_SUFFIX = /\b(LTDA|S[./]?A\.?|EIRELI|EI|MEI|SLU|EPP|ME)\b\.?/g
+const LEGAL_SUFFIX = /(?:\b(?:LTDA|S\.A|S\/A|SA(?=\s*$)|EIRELI|EI|MEI|SLU|EPP|ME)\b\.?)/g
 
 export function extractConsigneeShortName(block: string): string {
   const firstLine = block
@@ -10,6 +10,8 @@ export function extractConsigneeShortName(block: string): string {
   LEGAL_SUFFIX.lastIndex = 0
 
   for (let match = LEGAL_SUFFIX.exec(firstLine); match; match = LEGAL_SUFFIX.exec(firstLine)) {
+    if (match.index === 0) continue
+
     if (lastEnd === -1 || firstLine.slice(lastEnd, match.index).trim() === '') {
       lastEnd = match.index + match[0].length
       continue

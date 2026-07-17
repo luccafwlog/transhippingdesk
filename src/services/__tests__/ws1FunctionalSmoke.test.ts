@@ -93,6 +93,7 @@ describe('WS1 functional smoke', () => {
       etd: '2026-07-15',
       atd: '2026-07-08',
       changedBy: 'ws1-smoke',
+      justification: 'ATD derivado do Laden on Board do B/L (ADR 0025)',
     })
     expect(formatPolDeparture('2026-07-15', '2026-07-08')).toEqual({
       value: '2026-07-08',

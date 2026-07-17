@@ -20,6 +20,17 @@ describe('extractConsigneeShortName', () => {
     expect(extractConsigneeShortName('BRAVO COMERCIAL ME TEL 27 3333-4444')).toBe('BRAVO COMERCIAL ME')
   })
 
+  it('nao confunde o primeiro token da razao social com sufixo juridico', () => {
+    expect(extractConsigneeShortName('ME GUSTA ALIMENTOS LTDA')).toBe('ME GUSTA ALIMENTOS LTDA')
+    expect(extractConsigneeShortName('EI TRANSPORTES BRASIL LTDA')).toBe('EI TRANSPORTES BRASIL LTDA')
+    expect(extractConsigneeShortName('SA COMERCIO IMPORTACAO LTDA')).toBe('SA COMERCIO IMPORTACAO LTDA')
+  })
+
+  it('aceita SA cru apenas como ultimo token da linha', () => {
+    expect(extractConsigneeShortName('ACME COMERCIO SA')).toBe('ACME COMERCIO SA')
+    expect(extractConsigneeShortName('ACME SA COMERCIO AV BRASIL 1')).toBe('ACME SA COMERCIO AV BRASIL 1')
+  })
+
   it('sem natureza juridica reconhecida usa a primeira linha nao vazia', () => {
     expect(extractConsigneeShortName('\n  \nGAMMA GLOBAL TRADING\nRUA Y')).toBe('GAMMA GLOBAL TRADING')
   })

@@ -60,6 +60,7 @@ describe('applyLadenOnBoardAtd', () => {
       etd: '2026-07-07',
       atd: '2026-07-08',
       changedBy: 'user-1',
+      justification: 'ATD derivado do Laden on Board do B/L (ADR 0025)',
     })
   })
 

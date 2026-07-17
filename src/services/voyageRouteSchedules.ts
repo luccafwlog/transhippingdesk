@@ -166,6 +166,7 @@ export async function saveVoyagePolSchedule({
   atd,
   escalaNumber,
   changedBy,
+  justification,
 }: {
   voyageId: number
   pol: string
@@ -173,6 +174,7 @@ export async function saveVoyagePolSchedule({
   atd?: string | null
   escalaNumber?: string | null
   changedBy: string | null
+  justification?: string
 }) {
   const entityId = buildVoyagePolEntityId(voyageId, pol)
   const current = (await listVoyagePolSchedules([entityId])).get(entityId) ?? makeEmptyPolSchedule(entityId)
@@ -180,7 +182,7 @@ export async function saveVoyagePolSchedule({
   const changes = [
     atd === undefined
       ? null
-      : makeAuditRow(POL_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, 'Atualizacao manual de ATD por POL'),
+      : makeAuditRow(POL_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, justification ?? 'Atualizacao manual de ATD por POL'),
     makeAuditRow(POL_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POL'),
     escalaNumber === undefined
       ? null
