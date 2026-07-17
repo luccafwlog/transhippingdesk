@@ -1,9 +1,7 @@
-import { useState } from 'react'
 import { Button } from '../ui/Button'
-import { Field, Input } from '../ui/Input'
 import { useAuth } from '../../hooks/useAuth'
 import { useSetBlDisposition, useVoyageTransshipments } from '../../hooks/useTransshipments'
-import type { BlTransshipment } from '../../services/transshipments'
+import type { BlTransshipment, VoyageOmission } from '../../services/transshipments'
 
 export function TransshipmentPanel({ voyageId }: { voyageId: number }) {
   const { user } = useAuth()
@@ -26,16 +24,16 @@ export function TransshipmentPanel({ voyageId }: { voyageId: number }) {
                 <BlRow
                   key={transshipment.id}
                   transshipment={transshipment}
+                  omission={omission}
                   dischargePod={omission.dischargePod}
                   saving={setTransshipment.isPending || setCod.isPending}
                   onCod={() => user?.id && setCod.mutate({ blId: transshipment.blId, omissionId: omission.id, changedBy: user.id })}
-                  onSave={(fields) =>
+                  onRestore={() =>
                     user?.id &&
                     setTransshipment.mutate({
                       blId: transshipment.blId,
                       omissionId: omission.id,
                       changedBy: user.id,
-                      ...fields,
                     })
                   }
                 />
@@ -49,29 +47,19 @@ export function TransshipmentPanel({ voyageId }: { voyageId: number }) {
 
 function BlRow({
   transshipment,
+  omission,
   dischargePod,
   saving,
   onCod,
-  onSave,
+  onRestore,
 }: {
   transshipment: BlTransshipment
+  omission: VoyageOmission
   dischargePod: string
   saving: boolean
   onCod: () => void
-  onSave: (fields: {
-    onwardVesselName: string | null
-    onwardCarrier: string | null
-    onwardVoyageNumber: string | null
-    onwardEtd: string | null
-    onwardEta: string | null
-  }) => void
+  onRestore: () => void
 }) {
-  const [vessel, setVessel] = useState(transshipment.onwardVesselName ?? '')
-  const [carrier, setCarrier] = useState(transshipment.onwardCarrier ?? '')
-  const [voyageNumber, setVoyageNumber] = useState(transshipment.onwardVoyageNumber ?? '')
-  const [etd, setEtd] = useState(transshipment.onwardEtd?.slice(0, 10) ?? '')
-  const [eta, setEta] = useState(transshipment.onwardEta?.slice(0, 10) ?? '')
-
   return (
     <div className="grid gap-3 rounded-lg border border-[var(--app-border)] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -81,59 +69,27 @@ function BlRow({
         </span>
       </div>
       {transshipment.disposition === 'transshipment' ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Navio terceiro">
-            <Input value={vessel} onChange={(event) => setVessel(event.target.value)} />
-          </Field>
-          <Field label="Armador terceiro">
-            <Input value={carrier} onChange={(event) => setCarrier(event.target.value)} />
-          </Field>
-          <Field label="Viagem">
-            <Input value={voyageNumber} onChange={(event) => setVoyageNumber(event.target.value)} />
-          </Field>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="ETD">
-              <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
-            </Field>
-            <Field label="ETA">
-              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
-            </Field>
-          </div>
-          <div className="flex flex-wrap gap-2 md:col-span-2">
-            <Button
-              className="app-btn--sm"
-              loading={saving}
-              onClick={() =>
-                onSave({
-                  onwardVesselName: vessel.trim() || null,
-                  onwardCarrier: carrier.trim() || null,
-                  onwardVoyageNumber: voyageNumber.trim() || null,
-                  onwardEtd: etd || null,
-                  onwardEta: eta || null,
-                })
-              }
-            >
-              Salvar transbordo
-            </Button>
-            <Button variant="secondary" className="app-btn--sm" disabled={saving} onClick={onCod}>
-              Marcar COD
-            </Button>
-          </div>
+        <div className="grid gap-2">
+          <p className="text-xs text-[var(--app-muted)]">Os dados de transbordo são herdados do registro global da omissão.</p>
+          <p className="text-sm text-[var(--app-text-strong)]">
+            {[
+              omission.onwardVesselName,
+              omission.onwardCarrier,
+              omission.onwardVoyageNumber,
+              omission.onwardEtd?.slice(0, 10),
+              omission.onwardEta?.slice(0, 10),
+            ].map((value) => value || '—').join(' · ')}
+          </p>
+          <Button variant="secondary" className="app-btn--sm justify-self-start" disabled={saving} onClick={onCod}>
+            Marcar COD
+          </Button>
         </div>
       ) : (
         <Button
           variant="secondary"
           className="app-btn--sm justify-self-start"
           loading={saving}
-          onClick={() =>
-            onSave({
-              onwardVesselName: null,
-              onwardCarrier: null,
-              onwardVoyageNumber: null,
-              onwardEtd: null,
-              onwardEta: null,
-            })
-          }
+          onClick={onRestore}
         >
           Reverter para transbordo
         </Button>

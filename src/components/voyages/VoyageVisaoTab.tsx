@@ -28,6 +28,7 @@ import {
   type VoyageImportBatch,
 } from './voyageCardHelpers'
 import type { AddingPodPayload, EditingExportPayload, EditingPodPayload, Voyage, VoyagePodRow } from './voyageCardTypes'
+import { TransshipmentInfoCard } from './TransshipmentInfoCard'
 
 export function VoyageVisaoTab({
   voyage,
@@ -369,6 +370,7 @@ export function VoyageVisaoTab({
   return (
     <div className={`grid gap-4 ${timelineOpen ? 'min-[1800px]:grid-cols-[1fr_300px]' : ''}`}>
       <div className="grid gap-4">
+        <TransshipmentInfoCard voyageId={voyage.id} />
         {planningContent}
         {navCardsContent}
       </div>

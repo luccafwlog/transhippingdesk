@@ -6,6 +6,7 @@ import {
   omitVoyageEscala,
   setBlCod,
   setBlTransshipment,
+  updateVoyageOmission,
   type BlTransshipment,
   type VoyageOmission,
 } from '../services/transshipments'
@@ -19,6 +20,19 @@ export function useVoyageTransshipments(voyageId: number | null) {
       // ponytail: 1 query de omissoes + N de transbordos por viagem aberta; ok no volume atual (0-1 omissao/viagem). Upgrade = SELECT unico por omission_id in (...).
       const transshipments = (await Promise.all(omissions.map((omission) => listBlTransshipments(omission.id)))).flat()
       return { omissions, transshipments }
+    },
+  })
+}
+
+export function useUpdateVoyageOmission(voyageId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateVoyageOmission,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
+      queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] })
+      queryClient.invalidateQueries({ queryKey: ['bls'] })
+      queryClient.invalidateQueries({ queryKey: ['bl-detail'] })
     },
   })
 }
