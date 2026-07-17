@@ -100,21 +100,6 @@ type InvoiceLinkInfo = {
 
 type InvoiceLinksByBl = Record<string, InvoiceLinkInfo[]>
 
-// Nome padronizado do arquivo de fatura de taxas locais (sem extensao):
-// "NumeroFatura - FATURA TAXAS LOCAIS - PrimeiroNomeCliente - BL(s)".
-// Ex.: "INV-2026-0127 - FATURA TAXAS LOCAIS - GOLDEN - CSC45630201C00".
-export function buildInvoiceFileBaseName(detail: InvoiceDetail): string {
-  const invoice = detail.invoice
-  const invoiceNumber = invoice?.invoice_number ?? (invoice ? `INV-${invoice.id}` : 'Fatura')
-  const firstName = (invoice?.customer_name ?? '').trim().split(/\s+/)[0] ?? ''
-  const blPart = detail.bls.map((b) => b.bl_id).filter(Boolean).join(', ')
-  const base = [invoiceNumber, 'FATURA TAXAS LOCAIS', firstName, blPart]
-    .filter((part) => part && part.trim().length > 0)
-    .join(' - ')
-  // Remove caracteres invalidos em nomes de arquivo e normaliza espacos.
-  return base.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
-}
-
 
 type BillingCustomerOption = {
   id: number
@@ -361,43 +346,37 @@ export async function listInvoicesForExport(filters: InvoiceFilters): Promise<In
 
 // ---- Sugestoes para os campos de busca preditiva (combobox) ----
 
-export async function listInvoiceNumberSuggestions(search: string): Promise<string[]> {
-  const term = sanitizeLikeTerm(search)
+// Sugestao de valores distintos de uma coluna por ilike. Interface unica dos
+// tres comboboxes de texto; a busca de viagens (abaixo) tem forma propria.
+async function suggestDistinctColumn(
+  table: 'invoices' | 'bls',
+  column: string,
+  term: string,
+  opts: { notNull?: boolean; orderBy?: string; fetchLimit?: number } = {},
+): Promise<string[]> {
   if (!term) return []
-  const { data, error } = await supabase
-    .from('invoices')
-    .select('invoice_number')
-    .ilike('invoice_number', `%${term}%`)
-    .not('invoice_number', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(10)
+  let query = supabase.from(table).select(column).ilike(column, `%${term}%`)
+  if (opts.notNull) query = query.not(column, 'is', null)
+  if (opts.orderBy) query = query.order(opts.orderBy, { ascending: false })
+  const { data, error } = await query.limit(opts.fetchLimit ?? 10)
   if (error) throw error
-  return Array.from(new Set((data ?? []).map((row) => String(row.invoice_number)).filter(Boolean)))
+  const values = (data ?? []).map((row) => String((row as Record<string, unknown>)[column])).filter(Boolean)
+  return Array.from(new Set(values)).slice(0, 10)
 }
 
-export async function listBlSuggestions(search: string): Promise<string[]> {
-  const term = sanitizeLikeTerm(normalizeText(search).toUpperCase())
-  if (!term) return []
-  const { data, error } = await supabase
-    .from('bls')
-    .select('id')
-    .ilike('id', `%${term}%`)
-    .limit(10)
-  if (error) throw error
-  return Array.from(new Set((data ?? []).map((row) => String(row.id)).filter(Boolean)))
+export function listInvoiceNumberSuggestions(search: string): Promise<string[]> {
+  return suggestDistinctColumn('invoices', 'invoice_number', sanitizeLikeTerm(search), {
+    notNull: true,
+    orderBy: 'created_at',
+  })
 }
 
-export async function listPodSuggestions(search: string): Promise<string[]> {
-  const term = sanitizeLikeTerm(search)
-  if (!term) return []
-  const { data, error } = await supabase
-    .from('bls')
-    .select('pod')
-    .ilike('pod', `%${term}%`)
-    .not('pod', 'is', null)
-    .limit(50)
-  if (error) throw error
-  return Array.from(new Set((data ?? []).map((row) => String(row.pod)).filter(Boolean))).slice(0, 10)
+export function listBlSuggestions(search: string): Promise<string[]> {
+  return suggestDistinctColumn('bls', 'id', sanitizeLikeTerm(normalizeText(search).toUpperCase()))
+}
+
+export function listPodSuggestions(search: string): Promise<string[]> {
+  return suggestDistinctColumn('bls', 'pod', sanitizeLikeTerm(search), { notNull: true, fetchLimit: 50 })
 }
 
 export async function listVoyageSuggestions(search: string): Promise<Array<{ label: string; voyageNumber: string }>> {

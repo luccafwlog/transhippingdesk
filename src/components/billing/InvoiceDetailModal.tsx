@@ -26,7 +26,8 @@ import {
   useRegisterLedgerInvoicePayment,
   useSettleInvoiceRefund,
 } from '../../hooks/useBillingLedger'
-import { buildInvoiceFileBaseName, isConsolidatedInvoice } from '../../services/billing'
+import { isConsolidatedInvoice } from '../../services/billing'
+import { buildInvoiceFileBaseName } from '../shared/invoiceFormat'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
 import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
