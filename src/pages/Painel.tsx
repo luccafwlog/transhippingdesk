@@ -14,6 +14,7 @@ import { LineUpTable } from '../components/lineup/LineUpTable'
 import { LineUpFilters } from '../components/lineup/LineUpFilters'
 import { countActiveLineUpFilters, emptyLineUpFilters, filterLineUpRows, type LineUpFilters as LineUpFiltersState } from '../lib/lineupFilters'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
+import { arrivalDisplay } from '../lib/escalaState'
 
 async function exportLineUpToExcel(rows: LineUpRow[]) {
   const XLSX = await import('@e965/xlsx')
@@ -22,7 +23,7 @@ async function exportLineUpToExcel(rows: LineUpRow[]) {
     Viagem: row.voyageNumber,
     POD: row.pod,
     Status: row.voyageStatus === 'completed' ? 'Concluída' : row.voyageStatus === 'cancelled' ? 'Cancelada' : row.voyageStatus === 'active' ? 'Ativa' : row.voyageStatus ?? '',
-    ETA: row.eta ?? '',
+    ETA: arrivalDisplay({ eta: row.eta, ata: row.ata }).value ?? '',
     ETB: row.etb ?? '',
     VIN: row.vin,
     'VIN CNTR': row.car,

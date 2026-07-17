@@ -50,8 +50,10 @@ vi.mock('@tanstack/react-query', () => ({
           voyageStatus: 'active',
           vesselName: 'Navio ativo',
           pod: 'SSZ',
-          eta: null,
+          eta: '2026-07-09',
           etb: null,
+          ata: '2026-07-10',
+          atb: '2026-07-10',
           rowType: 'import',
           vin: 1,
           car: 0,
@@ -79,6 +81,8 @@ vi.mock('@tanstack/react-query', () => ({
           pod: 'RIO',
           eta: null,
           etb: null,
+          ata: null,
+          atb: '2026-07-10',
           rowType: 'import',
           vin: 0,
           car: 0,
@@ -89,7 +93,7 @@ vi.mock('@tanstack/react-query', () => ({
           bbMachines: 0,
           bbPackages: 0,
           bbTotal: 0,
-          atd: null,
+          atd: '2026-07-11',
           ceStatus: 'waiting',
           linked: false,
           exportHasGranite: null,
@@ -106,6 +110,8 @@ vi.mock('@tanstack/react-query', () => ({
           pod: 'SSZ',
           eta: null,
           etb: null,
+          ata: null,
+          atb: null,
           rowType: 'export',
           vin: 0,
           car: 0,
@@ -201,6 +207,19 @@ it('US-121: exibe escala aguardando com status vermelho', () => {
   renderPainel()
 
   expect(screen.getAllByText('Aguardando').some((element) => element.classList.contains('app-badge--red'))).toBe(true)
+})
+
+it('usa ATA na coluna ETA e destaca somente a escala atracada', () => {
+  renderPainel()
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'all' } })
+
+  const actualArrival = screen.getByText('10/07')
+  expect(actualArrival.classList.contains('text-green-600')).toBe(true)
+
+  const berthedRow = screen.getByRole('link', { name: 'Navio ativo' }).closest('tr')
+  const completedRow = screen.getByRole('link', { name: 'Navio cancelado' }).closest('tr')
+  expect(berthedRow?.classList.contains('app-lineup-row--berthed')).toBe(true)
+  expect(completedRow?.classList.contains('app-lineup-row--berthed')).toBe(false)
 })
 
 it('US-122: filtra o Line-Up por status de escala', () => {

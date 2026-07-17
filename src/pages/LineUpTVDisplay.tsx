@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
 import { formatDateOnlyToBRShort, formatShortDateSafe } from '../lib/utils'
+import { arrivalDisplay, deriveEscalaState } from '../lib/escalaState'
 
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
@@ -233,16 +234,19 @@ export function LineUpTVDisplay() {
 
               <div ref={viewportRef} className="app-lineup-display-board__viewport">
                 <div className="app-lineup-display-board__track">
-                  {displayRows.map((row, slotIndex) => (
+                  {displayRows.map((row, slotIndex) => {
+                    const arrival = arrivalDisplay({ eta: row.eta, ata: row.ata })
+                    const isBerthed = deriveEscalaState({ atb: row.atb, atd: row.atd }) === 'atracada'
+                    return (
                     <article
                       key={row.id}
-                      className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''} ${row.rowType === 'export' ? 'app-lineup-display-board__row--export' : ''}`}
+                      className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''} ${row.rowType === 'export' ? 'app-lineup-display-board__row--export' : ''} ${isBerthed ? 'app-lineup-display-board__row--berthed' : ''}`}
                       style={{ top: `${slotIndex * rowHeight}px` }}
                     >
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
-                      <div className="app-lineup-display-board__cell">{formatShortDate(row.eta)}</div>
+                      <div className={`app-lineup-display-board__cell ${arrival.isActual ? 'text-green-600' : ''}`}>{formatShortDate(arrival.value)}</div>
                       <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
                       {row.rowType === 'export' ? (
                         <>
@@ -287,7 +291,8 @@ export function LineUpTVDisplay() {
                         </>
                       )}
                     </article>
-                  ))}
+                    )
+                  })}
 
                   {Array.from({ length: placeholderCount }).map((_, index) => (
                     <article
@@ -331,11 +336,11 @@ function ceStatusColorClass(status: LineUpRow['ceStatus']) {
   return 'app-lineup-card__field-value--red'
 }
 
-function CardField({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function CardField({ label, value, accent, actual }: { label: string; value: string; accent?: boolean; actual?: boolean }) {
   return (
     <div className="app-lineup-card__field">
       <span className="app-lineup-card__field-label">{label}</span>
-      <span className={`app-lineup-card__field-value ${accent ? 'app-lineup-card__field-value--accent' : ''}`}>
+      <span className={`app-lineup-card__field-value ${accent ? 'app-lineup-card__field-value--accent' : ''} ${actual ? 'text-green-600' : ''}`}>
         {value}
       </span>
     </div>
@@ -343,8 +348,10 @@ function CardField({ label, value, accent }: { label: string; value: string; acc
 }
 
 function LineUpMobileCard({ row }: { row: LineUpRow }) {
+  const arrival = arrivalDisplay({ eta: row.eta, ata: row.ata })
+  const isBerthed = deriveEscalaState({ atb: row.atb, atd: row.atd }) === 'atracada'
   return (
-    <article className="app-lineup-card">
+    <article className={`app-lineup-card ${isBerthed ? 'app-lineup-card--berthed' : ''}`}>
       <div className="app-lineup-card__head">
         <span className="app-lineup-card__vessel">{row.vesselName}</span>
         <span className="app-lineup-card__voy">Voy {row.voyageNumber}</span>
@@ -354,7 +361,7 @@ function LineUpMobileCard({ row }: { row: LineUpRow }) {
         <span>{row.pod}</span>
       </div>
       <div className="app-lineup-card__grid">
-        <CardField label="ETA" value={formatShortDate(row.eta)} />
+        <CardField label="ETA" value={formatShortDate(arrival.value)} actual={arrival.isActual} />
         <CardField label="ETB" value={formatShortDate(row.etb)} />
         <CardField label="VIN" value={formatInteger(row.vin)} />
         <CardField label="VIN CNTR" value={formatInteger(row.car)} />
@@ -399,7 +406,7 @@ function buildExportLabel(row: LineUpRow) {
 }
 
 function buildDisplayLeadLabel(row: LineUpRow) {
-  const etaLabel = formatDisplayLeadDate('ETA', row.eta)
+  const etaLabel = formatDisplayLeadDate('ETA', arrivalDisplay({ eta: row.eta, ata: row.ata }).value)
   if (etaLabel) return `${etaLabel} | ${row.vesselName} | ${row.pod}`
 
   const etbLabel = formatDisplayLeadDate('ETB', row.etb)

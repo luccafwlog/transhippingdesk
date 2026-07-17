@@ -3859,3 +3859,11 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+.app-lineup-row--berthed > td:not(:nth-last-child(-n + 2)) {
+  color: #16a34a;
+}
+
+.app-lineup-display-board__row--berthed .app-lineup-display-board__cell:not(.app-lineup-display-board__cell--status),
+.app-lineup-card--berthed {
+  color: #16a34a;
+}
