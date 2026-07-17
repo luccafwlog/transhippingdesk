@@ -3867,3 +3867,7 @@ textarea {
 .app-lineup-card--berthed {
   color: #16a34a;
 }
+
+.app-lineup-display-board__row--cycle-start {
+  border-top: 2px solid var(--app-accent, #f59e0b);
+}

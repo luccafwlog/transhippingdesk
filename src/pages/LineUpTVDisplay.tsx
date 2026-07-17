@@ -11,6 +11,10 @@ const DISPLAY_ROW_TRAVEL_MS = 3000
 const DISPLAY_GRID_TEMPLATE = '20fr 5fr 7fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr'
 const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'VIN CNTR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
+export function isCycleStartRow(renderedRowId: string, firstRowId: string | null | undefined) {
+  return Boolean(firstRowId && (renderedRowId === firstRowId || renderedRowId.startsWith(`${firstRowId}::display-track-`)))
+}
+
 const isTouchDevice = () => {
   if (typeof window === 'undefined') return false
   return (
@@ -218,7 +222,7 @@ export function LineUpTVDisplay() {
         ) : isMobile ? (
           <div className="app-lineup-mobile">
             {rows.map((row) => (
-              <LineUpMobileCard key={row.id} row={row} />
+              <LineUpMobileCard key={row.id} row={row} cycleStart={isCycleStartRow(row.id, firstRoute?.id)} />
             ))}
           </div>
         ) : (
@@ -237,10 +241,11 @@ export function LineUpTVDisplay() {
                   {displayRows.map((row, slotIndex) => {
                     const arrival = arrivalDisplay({ eta: row.eta, ata: row.ata })
                     const isBerthed = deriveEscalaState({ atb: row.atb, atd: row.atd }) === 'atracada'
+                    const isCycleStart = isCycleStartRow(row.id, firstRoute?.id)
                     return (
                     <article
                       key={row.id}
-                      className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''} ${row.rowType === 'export' ? 'app-lineup-display-board__row--export' : ''} ${isBerthed ? 'app-lineup-display-board__row--berthed' : ''}`}
+                      className={`app-lineup-display-board__row ${isSliding ? 'app-lineup-display-board__row--sliding' : ''} ${row.rowType === 'export' ? 'app-lineup-display-board__row--export' : ''} ${isBerthed ? 'app-lineup-display-board__row--berthed' : ''} ${isCycleStart ? 'app-lineup-display-board__row--cycle-start' : ''}`}
                       style={{ top: `${slotIndex * rowHeight}px` }}
                     >
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
@@ -347,11 +352,11 @@ function CardField({ label, value, accent, actual }: { label: string; value: str
   )
 }
 
-function LineUpMobileCard({ row }: { row: LineUpRow }) {
+function LineUpMobileCard({ row, cycleStart }: { row: LineUpRow; cycleStart: boolean }) {
   const arrival = arrivalDisplay({ eta: row.eta, ata: row.ata })
   const isBerthed = deriveEscalaState({ atb: row.atb, atd: row.atd }) === 'atracada'
   return (
-    <article className={`app-lineup-card ${isBerthed ? 'app-lineup-card--berthed' : ''}`}>
+    <article className={`app-lineup-card ${isBerthed ? 'app-lineup-card--berthed' : ''} ${cycleStart ? 'app-lineup-display-board__row--cycle-start' : ''}`}>
       <div className="app-lineup-card__head">
         <span className="app-lineup-card__vessel">{row.vesselName}</span>
         <span className="app-lineup-card__voy">Voy {row.voyageNumber}</span>
