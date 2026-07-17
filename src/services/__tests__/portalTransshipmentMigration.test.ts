@@ -6,7 +6,7 @@ const migrations = fs.readdirSync(path.resolve(process.cwd(), 'supabase/migratio
   .filter((file) => file.endsWith('.sql'))
   .map((file) => fs.readFileSync(path.resolve(process.cwd(), 'supabase/migrations', file), 'utf8'))
   .join('\n')
-const portalMigrationPath = path.resolve(process.cwd(), 'supabase/migrations/201_portal_global_transshipment.sql')
+const portalMigrationPath = path.resolve(process.cwd(), 'supabase/migrations/202_portal_global_transshipment.sql')
 const portalMigration = fs.existsSync(portalMigrationPath) ? fs.readFileSync(portalMigrationPath, 'utf8') : ''
 
 describe('contrato Portal do transbordo global', () => {

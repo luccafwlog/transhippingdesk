@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const migrationPath = path.resolve(process.cwd(), 'supabase/migrations/200_voyage_omission_global_transshipment.sql')
+const migrationPath = path.resolve(process.cwd(), 'supabase/migrations/201_voyage_omission_global_transshipment.sql')
 const migration = fs.existsSync(migrationPath) ? fs.readFileSync(migrationPath, 'utf8') : ''
 
 describe('migration do registro global de transbordo', () => {

@@ -1,4 +1,4 @@
--- Portal: estende o read model operacional com o registro global vigente.
+-- 202: Portal estende o read model operacional com o registro global vigente.
 -- A implementacao anterior permanece privada para preservar o contrato de
 -- containers sem duplicar sua consulta extensa nesta migration.
 ALTER FUNCTION public.portal_list_operation_bls()

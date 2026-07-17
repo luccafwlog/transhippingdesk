@@ -1,4 +1,4 @@
--- Spec §§5-6 / ADR 0022: transbordo e registro global da omissao.
+-- 201: Spec §§5-6 / ADR 0022: transbordo e registro global da omissao.
 ALTER TABLE public.voyage_omissions
   ADD COLUMN IF NOT EXISTS onward_vessel_name TEXT,
   ADD COLUMN IF NOT EXISTS onward_carrier TEXT,
