@@ -17,6 +17,7 @@ import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
 import { fetchAllBls, type BlFilters, useBls, usePortOptions } from '../hooks/useBls'
 import { usePageFilters } from '../hooks/usePageFilters'
+import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { formatDate } from '../lib/utils'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
@@ -105,15 +106,16 @@ export function CargaSolta() {
       0,
     )
     const totalCbm = rows.reduce((sum, row) => sum + Number(row.total_cbm ?? 0), 0)
+    const charges = summarizeChargeStatuses(rows)
     return {
       totalBls: rows.length,
       totalMachines,
       totalPackages,
       totalWeightTon,
       totalCbm,
-      chargePending: rows.filter((row) => row.charge_status === 'review_required' || row.charge_status === 'not_calculated').length,
-      chargeReady: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
-      chargeExempt: rows.filter((row) => row.charge_status === 'exempt').length,
+      chargePending: charges.pending,
+      chargeReady: charges.ready,
+      chargeExempt: charges.exempt,
     }
   }, [summaryRows])
 
@@ -284,7 +286,7 @@ export function CargaSolta() {
               <option value="">Todos</option>
               <option value="review_required">Revisão</option>
               <option value="exempt">Isento</option>
-              <option value="ready_for_billing">Faturado</option>
+              <option value="ready_for_billing">Pronto para faturar</option>
             </Select>
           </Field>
         </div>
@@ -300,7 +302,7 @@ export function CargaSolta() {
           <MetricCard label="Total de volumes" value={Number(summary.totalPackages).toLocaleString('pt-BR')} />
           <MetricCard label="Peso (ton)" value={Number(summary.totalWeightTon).toLocaleString('pt-BR')} />
           <MetricCard label="CBM (M3)" value={Number(summary.totalCbm).toLocaleString('pt-BR')} />
-          <MetricCard label="Faturados" value={Number(summary.chargeReady).toLocaleString('pt-BR')} />
+          <MetricCard label="Prontos para faturar" value={Number(summary.chargeReady).toLocaleString('pt-BR')} />
           <MetricCard label="Isentos" value={Number(summary.chargeExempt).toLocaleString('pt-BR')} />
         </div>
       </div>

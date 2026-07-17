@@ -21,6 +21,7 @@ import { useRowSelection } from '../hooks/useRowSelection'
 import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
 import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
+import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import {
   buildCustomerBillingUrl,
   getCustomerFilterChips,
@@ -583,7 +584,7 @@ export function Clientes() {
                 </tr>
               ) : null}
               {data?.rows.map((row) => {
-                const summary = summarizeCustomerCharges(row.bls ?? [])
+                const summary = summarizeChargeStatuses(row.bls ?? [])
                 const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
                 const customerComplement = [
                   row.trade_name,
@@ -989,13 +990,6 @@ function renderSortIcon(
   return filters.sortDirection === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
 }
 
-function summarizeCustomerCharges(bls: Array<{ charge_status?: string | null }>) {
-  return {
-    pending: bls.filter((bl) => bl.charge_status === 'review_required' || bl.charge_status === 'not_calculated').length,
-    ready: bls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
-    exempt: bls.filter((bl) => bl.charge_status === 'exempt').length,
-  }
-}
 
 function formatCountLabel(count: number, singular: string, plural: string) {
   return `${count} ${count === 1 ? singular : plural}`
