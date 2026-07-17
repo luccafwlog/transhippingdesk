@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, LogOut, UserCircle } from 'lucide-react'
+import { AlertTriangle, LogOut, RefreshCw, UserCircle } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { useExchangeRates } from '../../hooks/useExchangeRates'
 import { useOperationalAlerts } from '../../hooks/useOperationalAlerts'
+import { useRoeHeaderRate } from '../../hooks/useRoeHeaderRate'
 import type { UserProfileRole } from '../../types/database'
 
 function formatRate(value: number | null): string {
@@ -12,6 +12,12 @@ function formatRate(value: number | null): string {
     minimumFractionDigits: 4,
     maximumFractionDigits: 4,
   })
+}
+
+function formatEffectiveDate(value: string | null): string {
+  if (!value) return '—'
+  const [year, month, day] = value.split('-')
+  return year && month && day ? `${day}/${month}/${year}` : value
 }
 
 function roleLabel(role: UserProfileRole | null | undefined): string {
@@ -34,7 +40,7 @@ function roleLabel(role: UserProfileRole | null | undefined): string {
 export function HeaderInfoBar() {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
-  const rates = useExchangeRates()
+  const rates = useRoeHeaderRate()
   const alerts = useOperationalAlerts()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userZoneRef = useRef<HTMLDivElement>(null)
@@ -64,21 +70,11 @@ export function HeaderInfoBar() {
     ? String(import.meta.env.VITE_APP_COMMIT_SHA).substring(0, 7)
     : 'unknown'
 
-  // Sinaliza cotação indisponível ou desatualizada em vez de falhar em silêncio:
-  // valores de demurrage dependem da PTAX e o operador precisa saber.
-  const ratesFromToday = rates.fetchedAt
-    ? new Date(rates.fetchedAt).toDateString() === new Date().toDateString()
-    : false
-  const ratesWarning = !rates.loading && rates.usd === null
-    ? 'indisponível'
-    : !rates.loading && !ratesFromToday && rates.fetchedAt
-      ? `de ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(rates.fetchedAt))}`
-      : null
-  const ratesHint = rates.usd === null
-    ? 'Cotação PTAX indisponível no momento — tente recarregar mais tarde.'
-    : ratesFromToday
-      ? 'Cotação PTAX do dia (Banco Central)'
-      : 'Cotação PTAX desatualizada — exibindo a última disponível.'
+  const ratesHint = rates.unavailable
+    ? 'Cotação PTAX indisponível no momento — tente atualizar mais tarde.'
+    : rates.offline && rates.cachedAt
+      ? `Cotação em cache de ${new Intl.DateTimeFormat('pt-BR').format(new Date(rates.cachedAt))}.`
+      : 'Cotação PTAX Venda mais recente do Banco Central e ROE com spread fixo de 1,065.'
 
   return (
     <div className="app-market-strip">
@@ -112,14 +108,30 @@ export function HeaderInfoBar() {
 
         {/* Zona central — câmbio do dia (oculta em mobile) */}
         <div className="app-market-strip__center" title={ratesHint}>
-          <span className="hib-currency-label">USD</span>
-          <span className="hib-currency-value">R$ {formatRate(rates.usd)}</span>
-          <span className="hib-sep" aria-hidden="true">·</span>
-          <span className="hib-currency-label">CNY</span>
-          <span className="hib-currency-value">R$ {formatRate(rates.cny)}</span>
-          {ratesWarning ? (
-            <span className="hib-currency-label" style={{ color: '#f0b429' }}>{ratesWarning}</span>
-          ) : null}
+          {rates.loading ? (
+            <span className="hib-currency-label">Carregando câmbio…</span>
+          ) : rates.unavailable ? (
+            <span className="hib-currency-label" style={{ color: '#f0b429' }}>Câmbio indisponível</span>
+          ) : (
+            <>
+              <span className="hib-currency-label">PTAX Venda</span>
+              <span className="hib-currency-value">R$ {formatRate(rates.ptax)}</span>
+              <span className="hib-sep" aria-hidden="true">→</span>
+              <span className="hib-currency-label">PTAX × 1,065 = ROE</span>
+              <span className="hib-currency-value">R$ {formatRate(rates.roe)} ({formatEffectiveDate(rates.effectiveDate)})</span>
+              {rates.offline ? (
+                <span className="hib-currency-label" style={{ color: '#f0b429' }}>em cache</span>
+              ) : null}
+            </>
+          )}
+          <button
+            type="button"
+            className="hib-alert-btn"
+            aria-label="Atualizar cotação PTAX"
+            onClick={() => void rates.refresh()}
+          >
+            <RefreshCw size={11} aria-hidden="true" />
+          </button>
         </div>
 
         {/* Zona direita — usuário logado */}
