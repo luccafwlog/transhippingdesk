@@ -71,9 +71,11 @@ export function Viagens() {
   // Rail fica recolhido por padrão no desktop e expande em overlay ao passar o
   // mouse (sem clique). No mobile permanece sempre expandido — não há hover.
   const [isDesktop, setIsDesktop] = useState<boolean>(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+    () => typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(min-width: 1024px)').matches,
   )
   useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
     const mq = window.matchMedia('(min-width: 1024px)')
     const sync = () => setIsDesktop(mq.matches)
     sync()
