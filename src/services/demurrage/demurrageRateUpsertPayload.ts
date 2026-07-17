@@ -1,4 +1,4 @@
-import type { DemurrageRate } from '../types/database'
+import type { DemurrageRate } from '../../types/database'
 
 export type DemurrageRateUpsertInput = Partial<DemurrageRate> & { container_type: string }
 
