@@ -62,15 +62,16 @@ Os KPIs vêm de leituras diretas a `bls`, `invoices`, `alerts` e `charge_tables`
 O estado visual aprovado para uma linha de escala é derivado das datas reais:
 ATB sem ATD significa `Atracada` e deixa a fonte verde no Painel e no Line-Up
 TV; CEs e Linked preservam seus badges e cores próprios. Com ATD, a escala passa
-automaticamente a `Concluída` e perde o destaque de atracação. O código atual
-ainda não transporta ATB no snapshot nem aplica essa regra visual.
+automaticamente a `Concluída` e perde o destaque de atracação. O snapshot
+transporta ATB/ATD por escala e as duas superfícies aplicam essa regra.
 
 Na coluna intitulada `ETA`, a apresentação aprovada usa ATA quando houver e,
 na ausência dela, ETA. ATA é exibida em verde sem mudar o título da coluna; se
 for removida por correção, a célula volta ao ETA. A mesma precedência `ATA → ETA`
 vale para a data do indicador `Início do ciclo` no Line-Up TV. Esse verde da
 data indica chegada efetiva e independe do verde da linha inteira, que exige
-ATB sem ATD. O código atual ainda lê apenas `row.eta` nesses pontos.
+ATB sem ATD. Painel, exportação XLSX, cards mobile, quadro desktop e o indicador
+de início do ciclo usam a mesma precedência.
 
 ### `/revisao`
 
@@ -133,7 +134,7 @@ antes do card da primeira escala. A referência visual aprovada é a separação
 mostrada entre `GREEN SANTOS / 16` e `ZYHY JIN QU / 39`, mantendo também o texto
 `Início do ciclo` no cabeçalho.
 
-O display compartilha `fetchLineUpSnapshot` com o Painel, mas não compartilha a mesma cache key.
+O display compartilha `fetchLineUpSnapshot` com o Painel, mas não compartilha a mesma cache key. A classe `app-lineup-display-board__row--cycle-start` pertence à ocorrência renderizada da primeira escala, inclusive no track animado e no card mobile, portanto a borda acompanha o ciclo.
 
 ### `/admin/usuarios`
 

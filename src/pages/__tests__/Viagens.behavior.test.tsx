@@ -47,14 +47,17 @@ vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.f
 vi.mock('../../services/supabase', () => ({ supabase: { from: vi.fn() } }))
 
 import { Viagens } from '../Viagens'
+import { ConfirmDialogProvider } from '../../components/ui/ConfirmDialog'
 
 function renderAt(path: string) {
   render(
     <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/viagens" element={<Viagens />} />
-        <Route path="/viagens/:voyageId" element={<Viagens />} />
-      </Routes>
+      <ConfirmDialogProvider>
+        <Routes>
+          <Route path="/viagens" element={<Viagens />} />
+          <Route path="/viagens/:voyageId" element={<Viagens />} />
+        </Routes>
+      </ConfirmDialogProvider>
     </MemoryRouter>,
   )
 }
