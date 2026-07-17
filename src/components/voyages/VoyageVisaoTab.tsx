@@ -77,22 +77,28 @@ export function VoyageVisaoTab({
   const vaziosStats = getVaziosModuleStats(voyage.vazios_manifests)
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
   // identificar o import na linha do tempo pela rota em vez do nome do arquivo.
-  const routeByBatchId = useMemo(() => {
-    const map = new Map<number, string>()
+  const routesByBatchId = useMemo(() => {
+    const grouped = new Map<number, Map<string, { pol: string; pod: string; blCount: number }>>()
     for (const bl of voyage.bls ?? []) {
-      if (bl.batch_id == null || map.has(bl.batch_id)) continue
+      if (bl.batch_id == null) continue
       const pol = bl.pol?.trim() || '-'
       const pod = bl.pod?.trim() || '-'
-      map.set(bl.batch_id, `${formatPortDisplayName(pol)} → ${formatPortDisplayName(pod)}`)
+      const routes = grouped.get(bl.batch_id) ?? new Map()
+      const displayPol = formatPortDisplayName(pol)
+      const displayPod = formatPortDisplayName(pod)
+      const key = `${displayPol}\u0000${displayPod}`
+      const current = routes.get(key)
+      routes.set(key, { pol: displayPol, pod: displayPod, blCount: (current?.blCount ?? 0) + 1 })
+      grouped.set(bl.batch_id, routes)
     }
-    return map
+    return new Map(Array.from(grouped, ([batchId, routes]) => [batchId, Array.from(routes.values())]))
   }, [voyage.bls])
 
   const { data: timelineSources } = useVoyageTimeline(voyage.id)
   const timelineEvents = useMemo(
     () =>
       buildVoyageTimeline({
-        importBatches: importBatches.map((batch) => ({ ...batch, route: routeByBatchId.get(batch.id) ?? null })),
+        importBatches: importBatches.map((batch) => ({ ...batch, routes: routesByBatchId.get(batch.id) })),
         scheduleEvents: timelineSources?.scheduleEvents,
         auditEvents: timelineSources?.auditEvents,
         resolutions: timelineSources?.resolutions,
@@ -102,7 +108,7 @@ export function VoyageVisaoTab({
         ceCoverage,
         actorNames: timelineSources?.actorNames,
       }),
-    [ceCoverage, divergenceCount, importBatches, routeByBatchId, timelineSources, voyage.status],
+    [ceCoverage, divergenceCount, importBatches, routesByBatchId, timelineSources, voyage.status],
   )
 
   async function handleDeletePod(row: VoyagePodRow) {
@@ -395,6 +401,8 @@ const TIMELINE_DOT: Record<VoyageTimelineEvent['kind'], string> = {
   'ce-master': '#5b5fc7',
   'voyage-data': '#64748b',
   'ce-coverage': '#15803d',
+  omission: '#dc2626',
+  'transshipment-info': '#0f766e',
 }
 
 function formatTimelineMoment(value: string) {

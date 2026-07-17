@@ -7,6 +7,7 @@ export type VoyageScheduleEvent = {
   old_value?: string | null
   new_value: string | null
   changed_by?: string | null
+  justification?: string | null
   changed_at: string | null
 }
 
@@ -39,14 +40,14 @@ export async function fetchVoyageTimelineSources(
   const [scheduleRes, auditRes, resolutionRes, baplieRes] = await Promise.all([
     supabase
       .from('audit_logs')
-      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at')
+      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, justification, changed_at')
       .in('entity_type', ['voyage_pod_schedule', 'voyage_pol_schedule'])
       .like('entity_id', `${voyageId}::%`)
       .order('changed_at', { ascending: false })
       .range(0, 499),
     supabase
       .from('audit_logs')
-      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at')
+      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, justification, changed_at')
       .in('entity_type', ['voyages', 'voyage', 'import_batches', 'import_batch'])
       .eq('entity_id', String(voyageId))
       .order('changed_at', { ascending: false })
