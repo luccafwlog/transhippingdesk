@@ -52,7 +52,6 @@ export const primaryNavItems: NavItem[] = [
 
 export const adminNavItems: NavItem[] = [
   { to: '/admin/usuarios', label: 'Usuários', icon: ShieldCheck },
-  { to: '/admin/portal-backfill', label: 'Backfill do Portal', icon: ShieldCheck },
 ]
 
 export const financialNavItems: NavItem[] = [

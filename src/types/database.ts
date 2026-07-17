@@ -621,10 +621,16 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
+      save_exchange_rate_reference: {
+        Args: { p_ptax: number; p_roe: number; p_effective_date: string }
+        Returns: undefined
+      }
+      portal_get_current_roe: {
+        Args: Record<PropertyKey, never>
+        Returns: Array<{ roe: number; updated_at: string }>
+      }
       portal_set_exception: { Args: { p_customer_id: number; p_reason: string; p_request_id?: string | null }; Returns: undefined }
       portal_return_to_analysis: { Args: { p_customer_id: number; p_reason: string; p_actor_type?: string | null; p_request_id?: string | null }; Returns: undefined }
-      portal_provisioning_preflight: { Args: Record<string, never>; Returns: Json }
-      portal_provisioning_backfill: { Args: { p_request_id?: string | null }; Returns: Json }
       portal_current_role: { Args: Record<string, never>; Returns: string | null }
       portal_cancel_invite: { Args: { p_customer_id: number; p_reason: string; p_request_id?: string | null }; Returns: undefined }
       portal_recovery_check_rate_limit: { Args: { p_login: string }; Returns: boolean }

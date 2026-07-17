@@ -33,7 +33,6 @@ const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
 const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
 const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
-const AdminPortalBackfill = lazyPage(() => import('./pages/AdminPortalBackfill'), 'AdminPortalBackfill')
 const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
 const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconciliacao')
 const Granite = lazyPage(() => import('./pages/Granite'), 'Granite')
@@ -131,7 +130,6 @@ export default function App() {
       <Route element={<ProtectedRoute adminOnly />}>
         <Route element={<AppLayout />}>
           <Route path="/admin/usuarios" element={withSuspense(<AdminUsuarios />)} />
-          <Route path="/admin/portal-backfill" element={withSuspense(<AdminPortalBackfill />)} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/painel" replace />} />
