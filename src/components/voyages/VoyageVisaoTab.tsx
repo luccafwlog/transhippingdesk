@@ -390,12 +390,10 @@ export function VoyageVisaoTab({
   )
 
   return (
-    <div className={`grid gap-4 ${timelineOpen ? 'min-[1800px]:grid-cols-[1fr_300px]' : ''}`}>
-      <div className="grid gap-4">
-        <TransshipmentInfoCard voyageId={voyage.id} />
-        {planningContent}
-        {navCardsContent}
-      </div>
+    <div className="grid gap-4">
+      <TransshipmentInfoCard voyageId={voyage.id} />
+      {planningContent}
+      {navCardsContent}
       <VoyageTimeline events={timelineEvents} open={timelineOpen} onToggle={() => setTimelineOpen((value) => !value)} />
     </div>
   )
@@ -443,45 +441,45 @@ function VoyageTimeline({
   onToggle: () => void
 }) {
   return (
-    <aside className="h-max rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
+    <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
-        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">
-          <Clock size={14} />
+        <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
+          <Clock size={16} />
           Linha do tempo
         </span>
         {open ? (
-          <ChevronUp size={16} className="text-[var(--app-muted)]" />
+          <ChevronUp size={18} className="text-[var(--app-muted)]" />
         ) : (
-          <ChevronDown size={16} className="text-[var(--app-muted)]" />
+          <ChevronDown size={18} className="text-[var(--app-muted)]" />
         )}
       </button>
       {open ? (
         events.length ? (
-          <ol className="mt-3 max-h-[420px] overflow-y-auto pr-1">
+          <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {events.map((event) => (
               <li
                 key={event.id}
-                className="relative border-l-2 border-[var(--app-border)] pb-3 pl-4 last:border-l-transparent last:pb-0"
+                className="relative overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 pl-4"
               >
                 <span
-                  className="absolute -left-[5px] top-1 h-2 w-2 rounded-full"
+                  className="absolute left-0 top-0 h-full w-1"
                   style={{ backgroundColor: TIMELINE_DOT[event.kind] }}
                 />
-                <div className="text-[10px] text-[var(--app-muted-soft)]">{formatTimelineMoment(event.at)}</div>
-                <div className="text-xs font-semibold text-[var(--app-text)]">{event.title}</div>
-                <div className="text-[11px] text-[var(--app-muted)]">{event.detail}</div>
+                <div className="text-xs text-[var(--app-muted-soft)]">{formatTimelineMoment(event.at)}</div>
+                <div className="mt-0.5 text-sm font-semibold text-[var(--app-text)]">{event.title}</div>
+                <div className="mt-0.5 text-sm leading-snug text-[var(--app-muted)]">{event.detail}</div>
               </li>
             ))}
           </ol>
         ) : (
-          <div className="mt-3 text-xs text-[var(--app-muted)]">Sem eventos registrados ainda.</div>
+          <div className="mt-3 text-sm text-[var(--app-muted)]">Sem eventos registrados ainda.</div>
         )
       ) : null}
-    </aside>
+    </section>
   )
 }
