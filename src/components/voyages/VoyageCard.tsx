@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowRight, Pencil, Trash2 } from 'lucide-react'
+import { ArrowRight, Ban, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Badge } from '../ui/Badge'
@@ -110,6 +110,7 @@ type VoyageCardProps = {
   exportSchedule: VoyageExportSchedule | null
   onEditVoyage: (voyageId: number) => void
   onDeleteVoyage: (voyageId: number) => void
+  onCancelVoyage: (voyageId: number) => void
   onEditPod: (payload: EditingPodPayload) => void
   onEditPol: (payload: EditingPolPayload) => void
   onAddPod: (payload: AddingPodPayload) => void
@@ -128,6 +129,7 @@ export function VoyageCard({
   exportSchedule,
   onEditVoyage,
   onDeleteVoyage,
+  onCancelVoyage,
   onEditPod,
   onEditPol,
   onAddPod,
@@ -269,6 +271,15 @@ export function VoyageCard({
               <Button variant="ghost" className="app-voyage-action-icon" onClick={() => onEditVoyage(voyage.id)}>
                 <Pencil size={15} />
                 Editar
+              </Button>
+              <Button
+                variant="ghost"
+                className="app-voyage-action-icon app-voyage-action-icon--danger"
+                onClick={() => onCancelVoyage(voyage.id)}
+                disabled={voyage.status === 'cancelled'}
+              >
+                <Ban size={15} />
+                Cancelar viagem
               </Button>
               <Button
                 variant="ghost"
