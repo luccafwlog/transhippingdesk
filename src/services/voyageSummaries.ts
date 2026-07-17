@@ -301,6 +301,11 @@ export function getProximaEscala(
   return { pod: next.pod, eta: next.eta as string, etb: next.etb ?? null }
 }
 
+export function isEtaOverdue(eta: string | null, now: Date = new Date()): boolean {
+  if (!eta) return false
+  return new Date(`${eta}T23:59:59`) < now
+}
+
 // --- Rail (lista master-detail) ----------------------------------------------
 
 export type VoyageRailItem = {
