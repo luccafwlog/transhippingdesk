@@ -5,6 +5,7 @@ import { AlertTriangle, Boxes, ChevronDown, ChevronUp, Clock, FileText, Gem, Pac
 import { Button } from '../ui/Button'
 import { MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/ConfirmDialog'
 import { useAuth } from '../../hooks/useAuth'
 import { useVoyageTimeline } from '../../hooks/useVoyageTimeline'
 import { countDistinctContainerNumbers } from '../../lib/containerCounts'
@@ -60,6 +61,7 @@ export function VoyageVisaoTab({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const { user } = useAuth()
   const [timelineOpen, setTimelineOpen] = useState(true)
 
@@ -126,6 +128,13 @@ export function VoyageVisaoTab({
       showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
       return
     }
+    const confirmed = await confirm({
+      title: 'Excluir planejamento do POD',
+      message: `Excluir o planejamento do POD ${row.pod}? As datas e o vínculo operacional serão removidos.`,
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     try {
       await deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.pod, changedBy: user.id })
       await Promise.all([
@@ -146,6 +155,13 @@ export function VoyageVisaoTab({
   }
 
   async function handleDeleteExport(schedule: VoyageExportSchedule) {
+    const confirmed = await confirm({
+      title: 'Excluir planejamento do POL',
+      message: `Excluir o planejamento de exportação do POL ${schedule.pol ?? '-'}?`,
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     try {
       await deleteVoyageExportSchedule(schedule.id)
       await Promise.all([
