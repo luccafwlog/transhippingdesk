@@ -29,7 +29,7 @@
 
 ```
 supabase/migrations/
-  205_drop_customer_commercial_fields.sql   (create) drop das 3 colunas + recria RPC
+  207_drop_customer_commercial_fields.sql   (create) drop das 3 colunas + recria RPC
 
 src/types/database.ts                       (modify) remove 3 campos de Customer
 src/services/customers.ts                   (modify) CustomerEditableFields sem os 3 campos
@@ -64,8 +64,14 @@ Convenções a seguir: componentes de card/tabela copiam o estilo dos existentes
 
 Os campos `payment_terms_days`, `discount_pct`, `commercial_notes` de `customers` nunca tiveram UI (confirmado na sessão: mortos por decisão). A RPC `update_customer_with_audit` (migration `134`) os referencia no whitelist e no UPDATE — precisa ser recriada sem eles ANTES do drop das colunas.
 
+Número `207`: as migrations `205` e `206` estão reservadas pelo plano
+`2026-07-18-bl-cockpit-360.md` (campos documentais do B/L e
+`portal_notifications.bl_id`). Se aquele plano for cancelado ou renumerado,
+este número pode ser revisto na execução — vale sempre o primeiro livre em
+`supabase/migrations/` no momento de criar o arquivo.
+
 **Files:**
-- Create: `supabase/migrations/205_drop_customer_commercial_fields.sql`
+- Create: `supabase/migrations/207_drop_customer_commercial_fields.sql`
 
 - [ ] **Step 1: Escrever a migration**
 
@@ -105,7 +111,7 @@ A 134 tem ~130 linhas; a parte de auditoria compara `v_before`/`v_after` campo a
 
 - [ ] **Step 2: Aplicar no banco**
 
-Seguir `WORKFLOW.md` para aplicação de migrations (via MCP Supabase `apply_migration` com o mesmo nome do arquivo). Verificar com `list_migrations` que `205` consta.
+Seguir `WORKFLOW.md` para aplicação de migrations (via MCP Supabase `apply_migration` com o mesmo nome do arquivo). Verificar com `list_migrations` que `207` consta.
 
 - [ ] **Step 3: Verificar que a RPC recusa os campos removidos**
 
@@ -120,7 +126,7 @@ Esperado: erro `Campo de cliente nao editavel: payment_terms_days.` (Se o ambien
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/205_drop_customer_commercial_fields.sql
+git add supabase/migrations/207_drop_customer_commercial_fields.sql
 git commit -m "feat(db): drop campos comerciais mortos de customers e recria RPC de auditoria"
 ```
 
