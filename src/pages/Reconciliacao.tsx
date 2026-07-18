@@ -133,7 +133,7 @@ export function Reconciliacao() {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click() }}
       >
         <Upload className="mx-auto mb-3 text-slate-500" size={32} />
-        <div className="text-sm text-slate-400">Arraste ou clique para selecionar o extrato PIX do Itau</div>
+        <div className="text-sm text-slate-400">Arraste ou clique para selecionar o extrato PIX do Itaú</div>
         <div className="mt-1 text-xs text-slate-500">Arquivo "QR Codes recebidos" .xlsx</div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void processFile(f) }} />
       </div>
