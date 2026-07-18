@@ -26,7 +26,7 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - Para listagens e reconciliação por nome, o consignatário curto termina na natureza jurídica (`LTDA`, `S.A.`, `EIRELI`, `EI`, `MEI`, `SLU`, `EPP`, `ME`, incluindo combinações); sem marcador reconhecido, usa a primeira linha não vazia. O bloco completo permanece intacto como dado documental e para auditoria.
 - Pela ADR 0025, `Laden on Board` persiste o ATD do POL. Entre B/Ls da mesma Viagem e POL prevalece automaticamente a data mais antiga. ETD e ATD permanecem distintos; telas sem coluna própria mostram ATD em verde na célula de ETD.
 - Admin pode excluir B/Ls elegíveis, individualmente ou em lote, após pré-checagem fiscal.
-- CE Master pertence ao manifesto (`import_batches.ce_master`), mas a edição atual está na ficha `/viagens/:voyageId`, não nesta lista.
+- CE Master é agrupado por rota: com batch de manifesto vive em `import_batches.ce_master`; em viagem só-B/L vive em `voyage_route_ce_master`. A edição atual está na ficha `/viagens/:voyageId`, não nesta lista.
 
 ### `/manifestos/:blId`
 
@@ -141,7 +141,7 @@ Dados e fronteiras:
 - **Financeiro derivado:** `charge_calculations`, `invoices`, `invoice_bls`, recebíveis e tabelas próprias de demurrage.
 - **Histórico:** `audit_logs`, consultado por `bl_timeline`.
 
-Campos físicos que a conciliação Baplie pode alterar: `bl_containers.is_imo`, `imo_class` e `un_number`. O parser também lê peso, OOG, slot, status e portos para staging, mas `applyBaplieAttribute` não oferece caminho para sobrescrever peso, consignatário, cliente, pricing, rota comercial ou cobrança. Esses dados permanecem sob autoridade do manifesto e dos fluxos financeiros.
+Campos físicos que a conciliação Baplie pode alterar: `bl_containers.is_imo`, `imo_class` e `un_number`. O parser também lê peso, OOG, slot, status e portos para staging, mas `applyBaplieAttribute` não oferece caminho para sobrescrever peso, consignatário, cliente, pricing, rota comercial ou cobrança. Esses dados permanecem sob autoridade da fonte documental — o arquivo de B/L para container (ADR 0025), o Manifesto BB para carga solta — e dos fluxos financeiros.
 
 `bl_containers.container_number` e `baplie_containers.container_number` aceitam apenas numeração ISO (`AAAA9999999`). A migration `164_guard_iso_container_numbers.sql` normaliza espaços, remove linhas inválidas sem dependências fiscais/veículos e adiciona constraints `NOT VALID`, que bloqueiam novas gravações inválidas sem travar histórico dependente.
 

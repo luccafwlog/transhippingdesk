@@ -226,18 +226,27 @@ um intervalo fixo documentado.
 
 ### Edge Functions
 
-- `portal-invite-activate`: cria a identidade técnica Auth somente após o cliente ativar o convite;
-- `notify-invoice-issued`: implementada para buscar a invoice e enviar email
-  crítico interno quando a emissão encontra falta de prontidão do Portal;
+- `portal-login`: resolve CNPJ para a identidade técnica e devolve a sessão;
+- `portal-invite-send` e `portal-invite-activate`: enviam o convite de uso
+  único e criam a identidade técnica Auth somente na ativação;
+- `portal-password-recovery` e `portal-password-reset`: recuperação de senha
+  por link de uso único;
+- `portal-recovery-email-change`: troca do email de recuperação com
+  confirmação;
+- `portal-account-suspend`: suspensão/reativação de conta do Portal;
+- `portal-email-webhook` e `portal-daily-digest`: eventos de entrega do Resend
+  e resumo diário interno;
+- `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage;
+- `notify-invoice-issued`: implementada para enviar email via Resend na
+  emissão de invoice, mas **não está ativa**. Não há Database Webhook
+  configurado, o `RESEND_API_KEY` não está provisionado e, por decisão atual,
+  o projeto não dispara email para clientes. A notificação ao cliente acontece
+  in-app (gatilho `trg_notify_invoice_issued`). Reativar é trabalho futuro,
+  fora do escopo atual.
 
 O Portal não participa do gate financeiro de revisão/faturamento. As migrations
 188–190 criam alertas preventivos e exceções críticas por fatura, mantendo a
 pendência geral separada do ciclo da fatura.
-  pelo Resend, mas **não está ativa**. Não há Database Webhook configurado, o
-  `RESEND_API_KEY` não está provisionado e, por decisão atual, o projeto não
-  dispara email para clientes. A notificação ao cliente acontece in-app
-  (gatilho `trg_notify_invoice_issued`). Reativar é trabalho futuro, fora do
-  escopo atual.
 
 ## Integrações externas
 

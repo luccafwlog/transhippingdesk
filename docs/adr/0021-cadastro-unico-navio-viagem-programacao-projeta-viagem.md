@@ -1,6 +1,6 @@
 # 0021 — Cadastro único de navio/viagem: Programação de Navios projeta a Viagem
 
-Status: aceito — 2026-07-09 · **proposto** (a implementar)
+Status: aceito — 2026-07-09 · **implementado** (Chegadas e Saídas cria/anexa a Viagem; ver [modules/chegadas-saidas.md](../modules/chegadas-saidas.md))
 
 ## Contexto
 

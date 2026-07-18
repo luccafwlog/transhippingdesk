@@ -175,11 +175,11 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 | `['portal-demurrage-invoices']` | `portal_list_demurrage_invoices` | Abertura de disputa. |
 | `['portal-demurrage-invoice-detail', id]` | `portal_get_demurrage_invoice_detail` | Sem invalidação explícita. |
 | `['portal-operation-bls']` | `portal_list_operation_bls` | Sem Realtime/refetch específico. |
-| `['portal-vessel-schedules']` | SELECT `vessel_schedules` | Invalidação por subscription Realtime. |
+| `['portal-schedule-voyages']` | RPC `portal_ship_schedule` (projeção de `voyages.show_on_portal`) | Sem invalidação específica no Portal; a fonte é atualizada pela tela interna `/chegadas-saidas`. |
 | `['portal-notifications']`, `['portal-unread-count']` | RPCs de notificação | Polling 30 s e invalidação após marcar lida. |
 | Filtros, seleção e modais | Estado local de cada página | Não persistem, salvo `tab` e parte do filtro de operação na query string. |
 
-Persistência principal: `customer_portal_accounts`, `portal_login_resolution_attempts`, `portal_rate_limits`, `portal_notifications`, `customers`, `customer_contacts`, `invoices`, `invoice_bls`, `invoice_receivable_links`, `bl_receivables`, `payments`, `demurrage_invoices`, `demurrage_invoice_items`, `bls`, `bl_containers`, `vessel_schedules`, `alerts` e `invoice_lifecycle_events`.
+Persistência principal: `customer_portal_accounts`, `portal_login_resolution_attempts`, `portal_rate_limits`, `portal_notifications`, `customers`, `customer_contacts`, `invoices`, `invoice_bls`, `invoice_receivable_links`, `bl_receivables`, `payments`, `demurrage_invoices`, `demurrage_invoice_items`, `bls`, `bl_containers`, `voyages` (projeção da programação), `alerts` e `invoice_lifecycle_events`.
 
 A falta de Portal ou Email de Recuperação não bloqueia revisão nem faturamento.
 Ela gera `portal_pendencia_geral` para Documentação e, na emissão de uma
