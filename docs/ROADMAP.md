@@ -34,7 +34,7 @@ substituem este baseline.
 
 ### Portal do Cliente
 
-- login por CNPJ, CPF ou email usando sessão Supabase Auth;
+- login por CNPJ e senha usando sessão Supabase Auth;
 - recuperação de senha;
 - dashboard financeiro e operacional;
 - faturas locais e de Demurrage;
@@ -100,7 +100,7 @@ substituem este baseline.
 | Risco | Impacto | Mitigação atual | Próximo passo |
 |---|---|---|---|
 | Migrations não são aplicadas pelo CI da SPA | Alto | Coordenação manual e testes de contrato | Automatizar detecção de drift e ambiente de validação |
-| E2E completo ainda depende de execução manual | Alto | `docs/VALIDACAO.md`, fixtures e testes unitários | Smoke automatizado dos fluxos financeiro e Portal |
+| E2E completo ainda depende de execução manual | Alto | `docs/operations/validacao.md`, fixtures e testes unitários | Smoke automatizado dos fluxos financeiro e Portal |
 | Reset amplo está desatualizado | Alto | Script e procedimento marcados como suspensos | Reconstruir e provar em banco descartável |
 | Layout novo de armador pode quebrar parser | Médio | Parsers isolados, limite de upload e fixtures | Fixture real antes de cada novo layout |
 | Resolução pré-login pode sofrer enumeração/abuso | Médio | Hash, janela de tentativas e erro genérico | Métricas e revisão periódica do limite |

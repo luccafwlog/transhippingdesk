@@ -4,7 +4,7 @@ Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
 negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
 aos ADRs.
 
-Verificado em 2026-07-16.
+Verificado em 2026-07-18.
 
 ## Operação marítima
 
@@ -108,9 +108,10 @@ destacada em verde, sem transformar conceitualmente ATD em ETD.
 **Programação de Navios (Chegadas e Saídas)**
 Quadro de line-up exibido ao cliente no Portal, com a previsão de datas por porto
 da rota. É uma **visão voltada ao cliente**, distinta do **Line-Up (TV)**, que é o
-painel operacional derivado das viagens já cadastradas. A ADR 0021 decide unificar
-esse cadastro ao da Viagem (a Programação passa a projetar a Viagem); enquanto não
-implementada, os dois cadastros permanecem separados.
+painel operacional derivado das viagens já cadastradas. Conforme a ADR 0021,
+não há cadastro próprio: cadastrar em Chegadas e Saídas cria ou anexa a própria
+Viagem, e a Programação exibida no Portal é uma projeção das viagens marcadas
+como visíveis.
 
 **Número de Escala do Mercante**
 Identificador criado no sistema federal Mercante para uma escala do navio. Uma
@@ -162,8 +163,8 @@ Arquivo EDIFACT do plano de estiva. É a autoridade para a presença física de
 containers, posição a bordo e flags operacionais.
 
 **Staging Baplie**
-Estado intermediário dos containers importados do Baplie antes da reconciliação
-com o manifesto. Uma reimportação substitui o staging anterior da viagem.
+Estado intermediário dos containers importados do Baplie antes da conciliação
+com os B/Ls. Uma reimportação substitui o staging anterior da viagem.
 
 **Conciliação Baplie × B/L**
 Comparação, dentro da mesma viagem, entre a carga física do Baplie e os dados
@@ -208,8 +209,9 @@ cadastro no sistema é o gatilho do cálculo automático de Taxas Locais do B/L
 de container: nada é calculado nem faturado antes do CE Mercante existir.
 
 **CE Master**
-Conhecimento agrupador associado ao manifesto. É distinto dos CEs individuais
-dos B/Ls.
+Conhecimento agrupador por rota da viagem (POL/POD). Quando existe batch de
+manifesto, vive no batch; em viagem só-B/L, é registrado por rota. É distinto
+dos CEs individuais dos B/Ls e não entra no EDI.
 
 **Frete & Despesas do BL**
 Linhas da seção "Freight & Charges" do conhecimento de embarque (B/L): frete
