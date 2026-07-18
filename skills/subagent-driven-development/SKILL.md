@@ -82,9 +82,14 @@ digraph process {
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
+    "Dispatch final code reviewer subagent for entire implementation" -> "Archive the executed plan (git mv docs/plans/<plan>.md docs/archive/plans/, update READMEs, move spec to docs/archive/specs/ if applicable)";
+    "Archive the executed plan (git mv docs/plans/<plan>.md docs/archive/plans/, update READMEs, move spec to docs/archive/specs/ if applicable)" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
+
+**Archiving is mandatory** once every task is complete: the plan moves from
+`docs/plans/` to `docs/archive/plans/` in the same change that finishes the
+work (lifecycle rule: `docs/CONVENCOES.md` → "Ciclo de vida de planos e specs").
 
 ## Model Selection
 
@@ -130,7 +135,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/superpowers/plans/feature-plan.md]
+[Read plan file once: docs/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
 [Create TodoWrite with all tasks]
 

@@ -44,5 +44,18 @@ Toda ação catalogada num módulo deve expor esta estrutura de tabela:
 ## Histórico vs arquivo
 
 - Arquivos em `docs/` são **documentação viva** — devem refletir o estado atual do sistema.
-- Arquivos em `docs/archive/` são **registros históricos** — não devem ser alterados, apenas consultados.
-- Plans e specs concluídos vão para `docs/archive/superpowers/plans/` e `docs/archive/superpowers/specs/`.
+- Arquivos em `docs/archive/` são **registros históricos** — não devem ser alterados, apenas consultados. Links internos do archive podem apontar para caminhos da época; isso é intencional e o `docs:check` não os verifica.
+
+## Ciclo de vida de planos e specs
+
+Existem exatamente dois destinos para cada tipo de documento, definidos pelo estado de execução:
+
+| Documento | Vivo (pendente) | Concluído |
+|---|---|---|
+| Plano de implementação | `docs/plans/` | `docs/archive/plans/` |
+| Spec / design doc | `docs/spec/` | `docs/archive/specs/` |
+
+- Um **plano é vivo** enquanto não foi totalmente executado. Ao concluir a execução (última task mergeada), mover o arquivo para `docs/archive/plans/` **no mesmo change** e atualizar `docs/plans/README.md`.
+- Uma **spec é viva** enquanto nenhum plano foi derivado dela (ou o plano derivado ainda não foi executado e a spec segue sendo consultada). Quando o plano derivado é concluído, a spec acompanha: mover para `docs/archive/specs/`.
+- Nomenclatura: `YYYY-MM-DD-<tema>.md` (planos) e `YYYY-MM-DD-<tema>-design.md` (specs). Skills e agentes gravam **diretamente** em `docs/plans/` e `docs/spec/` — nunca em subpastas por ferramenta (ex.: `docs/superpowers/` foi aposentado em 2026-07-18).
+- Auditorias, reviews e relatórios de execução datados nascem históricos: gravar direto em `docs/archive/audits/` (auditorias/reviews) ou `docs/archive/reports/` (relatórios de execução).

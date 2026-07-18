@@ -2,7 +2,7 @@
 
 > Plano vivo, não verdade corrente. A autoridade executável é o código. Base de
 > decisão: auditoria estrutural
-> [code-quality-audit-thermo-nuclear-2026-07-18](../archive/code-quality-audit-thermo-nuclear-2026-07-18.md)
+> [code-quality-audit-thermo-nuclear-2026-07-18](../archive/audits/code-quality-audit-thermo-nuclear-2026-07-18.md)
 > (registro histórico, imutável). Este plano consolida as medidas previstas
 > naquele relatório em fatias revisáveis e **carrega adiante** o item ainda em
 > aberto do plano anterior
@@ -29,7 +29,7 @@ migration.
 [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) ·
 [`docs/CONVENCOES.md`](../CONVENCOES.md) ·
 [`docs/RASTREABILIDADE.md`](../RASTREABILIDADE.md) ·
-[auditoria 2026-07-18](../archive/code-quality-audit-thermo-nuclear-2026-07-18.md).
+[auditoria 2026-07-18](../archive/audits/code-quality-audit-thermo-nuclear-2026-07-18.md).
 
 ---
 

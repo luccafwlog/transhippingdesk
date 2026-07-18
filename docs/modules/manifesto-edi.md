@@ -13,7 +13,7 @@ Manifesto BB e Veículos oferecem planilhas-modelo no próprio modal.
 
 As rotas são registradas em `src/App.tsx`. Os donos executáveis são as páginas em `src/pages/`, os parsers/importadores em `src/services/`, as RPCs e policies em `supabase/migrations/` e as chaves em `src/services/queryKeys.ts`. `docs/adr/0005-pipeline-importacao-viagem-staging-reconciliacao.md` define a separação entre fontes; `docs/adr/0009-hard-delete-controlado-bloqueios-fiscais-auditoria.md` define exclusões controladas.
 
-Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spec e os três planos de `docs/superpowers/` preservam intenção e sequência histórica, mas não prevalecem sobre `src/pages/BlDetalhe.tsx`, `src/components/bl/` e `supabase/migrations/130_bl_timeline_rpc.sql`.
+Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spec e os três planos arquivados em `docs/archive/` preservam intenção e sequência histórica, mas não prevalecem sobre `src/pages/BlDetalhe.tsx`, `src/components/bl/` e `supabase/migrations/130_bl_timeline_rpc.sql`.
 
 ## Anatomia das telas
 

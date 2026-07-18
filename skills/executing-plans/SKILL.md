@@ -32,6 +32,11 @@ For each task:
 ### Step 3: Complete Development
 
 After all tasks complete and verified:
+- **Archive the plan (mandatory):** `git mv docs/plans/<plan>.md docs/archive/plans/`,
+  remove its row from `docs/plans/README.md`, and if the spec that produced it
+  lives in `docs/spec/`, move it to `docs/archive/specs/` and update
+  `docs/spec/README.md`. Include these moves in the final commit.
+  (Lifecycle rule: `docs/CONVENCOES.md` → "Ciclo de vida de planos e specs".)
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."
 - **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
 - Follow that skill to verify tests, present options, execute choice

@@ -104,6 +104,19 @@ architectural decisions. Follow `docs/CONVENCOES.md` for documentation style,
 evidence labels, and module structure. Preserve historical records; use a new
 ADR or an editorial note for later decisions.
 
+Plan/spec lifecycle (full rule in `docs/CONVENCOES.md`, "Ciclo de vida de
+planos e specs"):
+
+- Live plans go in `docs/plans/`; live specs go in `docs/spec/`. These are the
+  ONLY locations — never create plans or specs under any other path (e.g.
+  `docs/superpowers/` is retired).
+- When a plan finishes executing, move it to `docs/archive/plans/` in the SAME
+  change that completes the work, and remove its row from
+  `docs/plans/README.md`. If the spec that produced it is in `docs/spec/`,
+  move it to `docs/archive/specs/` too.
+- Dated audits, reviews, and execution reports are born historical: write them
+  directly to `docs/archive/audits/` or `docs/archive/reports/`.
+
 ## 7. Verification
 
 Run the narrowest relevant checks while working. Before completion, run
