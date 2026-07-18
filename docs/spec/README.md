@@ -14,8 +14,9 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 ## Specs funcionais vivas
 
-Nenhuma no momento. (A última — refinamento operacional de Viagens/Line-Up/
-Portal — teve seus planos WS1–WS4 executados e foi arquivada em 2026-07-18.)
+| Spec | Plano derivado | Status |
+|------|----------------|--------|
+| [2026-07-18-bl-cockpit-design](2026-07-18-bl-cockpit-design.md) | [plano bl-cockpit-360](../plans/2026-07-18-bl-cockpit-360.md) | Aguardando execução |
 
 ## Behavioral Specification
 
