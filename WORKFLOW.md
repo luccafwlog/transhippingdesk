@@ -119,9 +119,9 @@ docs/
   setup/                  desenvolvimento, testes e deploy
   modules/                documentação por módulo
   CONVENCOES.md           convenções de documentação
-  spec/                   matriz de verificação comportamental (canônica)
-  superpowers/            planos e specs (vivos e archive)
-  archive/                snapshots históricos
+  spec/                   specs vivas + matriz de verificação comportamental (canônica)
+  plans/                  planos de implementação vivos
+  archive/                histórico: planos executados, specs concluídas, auditorias, relatórios
 ```
 
 Para obter contagens atuais, derive-as do repositório. Exemplo:

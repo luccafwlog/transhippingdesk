@@ -2,6 +2,12 @@
 
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
+## 2026-07
+
+- **Refinamento operacional (WS1–WS4):** ingestão documental de B/L com alias de navio (`canonicalizeVesselName`), ciclo completo de datas por escala com estado derivado (`deriveEscalaState`) no Painel/Line-Up TV, registro global de transbordo com timeline consolidada no Portal (migrations `201`–`202`), e câmbio PTAX/ROE com data efetiva (migration `200`). *(spec `refinamento-operacional-viagens-importacoes-lineup-portal`; plans `2026-07-16-ws1`–`ws4`)*
+- **Portal:** fila de provisionamento autorrecuperável (migration `198_portal_provisioning_queue_self_heal`). *(spec/plan `2026-07-16-portal-fila-autorrecuperavel`)*
+- **Docs:** reorganização de `docs/` — planos vivos só em `plans/`, specs vivas só em `spec/`, archive achatado (`plans/`, `specs/`, `audits/`, `reports/`); pastas `superpowers/` aposentadas. Ciclo de vida documentado em `CONVENCOES.md`.
+
 ## 2026-06
 
 - **Portal:** login visível alterado para CNPJ + senha via Edge Function `portal-login`; o navegador não resolve nem recebe o email técnico. O fluxo anterior de CNPJ/CPF/email com `portal_resolve_login` fica registrado como comportamento superado.
@@ -30,4 +36,4 @@
 - Export CSV do billing do portal respeitando filtros ativos.
 - Alertas de vencimento do dashboard por dias de calendário.
 
-> Planos e specs completos em [archive/plans/](archive/plans/) e [archive/superpowers/](archive/superpowers/).
+> Planos e specs completos em [archive/plans/](archive/plans/) e [archive/specs/](archive/specs/).

@@ -1,4 +1,23 @@
-# Behavioral Specification
+# Specs (vivas)
+
+Este é o **único** diretório de specs vivas do projeto. Ele contém:
+
+1. A **spec comportamental canônica** derivada do código (planilha CSV/XLSX,
+   detalhada abaixo) — permanente, nunca arquivada.
+2. **Specs funcionais / design docs** aprovadas que ainda não tiveram seu plano
+   derivado executado. Skills e agentes (incluindo o plugin Superpowers) gravam
+   specs novas aqui, com o nome `YYYY-MM-DD-<tema>-design.md`.
+
+Quando o plano derivado de uma spec é concluído, a spec é movida para
+[`../archive/specs/`](../archive/README.md). Regra completa em
+[`../CONVENCOES.md`](../CONVENCOES.md#ciclo-de-vida-de-planos-e-specs).
+
+## Specs funcionais vivas
+
+Nenhuma no momento. (A última — refinamento operacional de Viagens/Line-Up/
+Portal — teve seus planos WS1–WS4 executados e foi arquivada em 2026-07-18.)
+
+## Behavioral Specification
 
 This directory holds the **single canonical, code-derived behavioral
 specification** for Transhipping Desk. It tracks every feature from
@@ -15,10 +34,6 @@ the newest is canonical and older ones are historical snapshots.
 | `<date>-behavioral-spec.xlsx` | View layer (filters + summary sheet), generated from the CSV |
 
 Current edition: **`2026-07-02-behavioral-spec.{csv,xlsx}`**.
-
-## Specs funcionais aprovadas
-
-- [Refinamento operacional de Viagens, Importações, Line-Up e Portal](refinamento-operacional-viagens-importacoes-lineup-portal.md)
 
 The CSV is edited by hand; the `.xlsx` is generated from it by
 [`../../scripts/build-behavioral-spec.mjs`](../../scripts/build-behavioral-spec.mjs).
