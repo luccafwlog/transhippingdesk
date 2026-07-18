@@ -51,7 +51,7 @@ export function LineUpTable({
           <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[5%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[7%]' : 'w-[8%]'} />
-          <col className={isDisplay ? 'w-[6%]' : 'w-[9%]'} />
+          <col className={isDisplay ? 'w-[8%]' : 'w-[9%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
         </colgroup>
         <thead className={isDisplay ? 'bg-[#16325f] text-[13px] uppercase tracking-[0.18em] text-white' : 'bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500'}>

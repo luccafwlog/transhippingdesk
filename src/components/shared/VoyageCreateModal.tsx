@@ -154,7 +154,7 @@ export function VoyageCreateModal({
       <form className="grid gap-4" onSubmit={handleSubmit}>
         <div className="app-panel app-panel--padded text-sm">
           {note ??
-            'Cadastre a viagem e, se desejar antecipar a exibicao no Line-Up, informe os portos de descarga com seus ETAs antes da chegada dos manifestos.'}
+            'Cadastre a viagem e, se desejar antecipar a exibição no Line-Up, informe os portos de descarga com seus ETAs antes da chegada dos manifestos.'}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">

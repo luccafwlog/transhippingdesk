@@ -326,7 +326,7 @@ export function Manifestos() {
             <thead>
               <tr>
                 {isAdmin ? (
-                  <th scope="col" className="w-10 px-4 py-3">
+                  <th scope="col" className="w-10 px-3 py-3">
                     <input
                       type="checkbox"
                       aria-label="Selecionar todos os B/Ls da pagina"
@@ -335,17 +335,17 @@ export function Manifestos() {
                     />
                   </th>
                 ) : null}
-                <th scope="col" className="px-4 py-3">No. B/L</th>
-                <th scope="col" className="px-4 py-3">CE Mercante</th>
-                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
-                <th scope="col" className="w-[168px] px-4 py-3">CNEE</th>
-                <th scope="col" className="px-4 py-3">POL</th>
-                <th scope="col" className="px-4 py-3">POD</th>
-                <th scope="col" className="px-4 py-3">CNTRS</th>
-                <th scope="col" className="px-4 py-3">Perfil</th>
-                <th scope="col" className="px-4 py-3">Taxas locais</th>
-                <th scope="col" className="px-4 py-3">Invoice</th>
-                <th scope="col" className="px-4 py-3">Ações</th>
+                <th scope="col" className="px-3 py-3">No. B/L</th>
+                <th scope="col" className="px-3 py-3">CE Mercante</th>
+                <th scope="col" className="px-3 py-3">Navio/Viagem</th>
+                <th scope="col" className="px-3 py-3">CNEE</th>
+                <th scope="col" className="px-3 py-3">POL</th>
+                <th scope="col" className="px-3 py-3">POD</th>
+                <th scope="col" className="px-3 py-3">CNTRS</th>
+                <th scope="col" className="px-3 py-3">Perfil</th>
+                <th scope="col" className="px-3 py-3">Taxas locais</th>
+                <th scope="col" className="px-3 py-3">Invoice</th>
+                <th scope="col" className="px-3 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -366,7 +366,7 @@ export function Manifestos() {
               {data?.rows.map((bl) => (
                 <tr key={bl.id} className="hover:bg-[#21262d]/60">
                   {isAdmin ? (
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <input
                         type="checkbox"
                         aria-label={`Selecionar B/L ${bl.id}`}
@@ -375,40 +375,45 @@ export function Manifestos() {
                       />
                     </td>
                   ) : null}
-                  <td className="px-4 py-3 font-semibold">
+                  <td className="px-3 py-3 font-semibold">
                     <Link className="text-[#58a6ff] hover:underline" to={`/manifestos/${bl.id}`}>
                       {bl.id}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{bl.ce_mercante ?? '-'}</td>
-                  <td className="px-4 py-3">
-                    {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
-                  </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">{bl.ce_mercante ?? '-'}</td>
+                  <td className="px-3 py-3">
                     <span
-                      className="app-table__truncate app-table__truncate--md"
+                      className="app-table__truncate app-table__truncate--sm"
+                      title={`${bl.voyage?.vessel?.name ?? '-'} / ${bl.voyage?.voyage_number ?? '-'}`}
+                    >
+                      {bl.voyage?.vessel?.name ?? '-'} / {bl.voyage?.voyage_number ?? '-'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span
+                      className="app-table__truncate app-table__truncate--sm"
                       title={bl.customer?.name ?? bl.consignee ?? '-'}
                     >
                       {bl.customer?.name ?? bl.consignee ?? '-'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{bl.pol ?? '-'}</td>
-                  <td className="px-4 py-3">{bl.pod ?? '-'}</td>
-                  <td className="px-4 py-3">{countDistinctContainerNumbers(bl.bl_containers)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">{bl.pol ?? '-'}</td>
+                  <td className="px-3 py-3">{bl.pod ?? '-'}</td>
+                  <td className="px-3 py-3">{countDistinctContainerNumbers(bl.bl_containers)}</td>
+                  <td className="px-3 py-3">
                     <CargoProfileBadge
                       isImo={Boolean(bl.bl_containers?.some((container) => container.is_imo))}
                       isOog={Boolean(bl.bl_containers?.some((container) => container.is_oog))}
                     />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
                     <ChargeStatusBadge status={bl.charge_status} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
                     <InvoiceLink links={invoiceLinksByBl?.[bl.id] ?? []} />
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2">
                       <Link
                         className="app-table__action"
                         to={`/manifestos/${bl.id}`}

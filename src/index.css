@@ -2928,7 +2928,9 @@ textarea {
 
 .app-lineup-display-status {
   display: inline-block;
-  font-size: 24px;
+  /* 20px: "Aguardando" precisa caber na coluna CEs (8%) sem clipar, inclusive
+     no preview 1440; 24px estourava e o texto era cortado nas bordas. */
+  font-size: 20px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
@@ -3503,6 +3505,13 @@ textarea {
   .page-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  /* Em coluna, o flex-basis de 340px do copy vira altura mínima e estica o
+     header com espaço vazio no mobile; aqui a base volta ao tamanho do
+     conteúdo. */
+  .page-header__copy {
+    flex-basis: auto;
   }
 
   .page-header__actions {
