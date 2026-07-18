@@ -134,10 +134,13 @@ change can affect them. Never execute the suspended reset script.
   protected; do not bypass the guard without explicit authorization.
 - Read `docs/README.md` before broad documentation or architecture changes.
 - Run `npm run docs:check` after changing Markdown, routes, ADRs, or playbooks.
-- After creating a pull request, do not auto-subscribe to its activity or
-  schedule recurring check-ins. Report that the PR was opened and stop. Only
-  watch/babysit a PR (webhook subscription + hourly check-ins) when the user
-  explicitly asks to monitor, watch, babysit, or autofix it.
+- After creating a pull request, monitor it ONLY until CI finishes for the
+  pushed commit: stay subscribed, fix CI failures and push, and once every
+  check completes green, report the green status, unsubscribe, and stop.
+  Do NOT keep watching until merge, and do NOT schedule recurring check-ins
+  (send_later/hourly polling) — that burns credits silently. Full babysitting
+  until merge is allowed only when the user explicitly asks to monitor,
+  watch, babysit, or autofix the PR.
 
 The executable repository is authoritative when a historical document differs
 from current behavior. Correct the living document and preserve the historical
