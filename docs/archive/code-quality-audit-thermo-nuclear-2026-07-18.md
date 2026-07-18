@@ -12,8 +12,10 @@ em bugs funcionais.
 > gerou o plano vivo
 > [`2026-07-06-code-quality-audit-remediation`](plans/2026-07-06-code-quality-audit-remediation.md),
 > cujos checkboxes nunca foram marcados **mas cuja maior parte foi de fato
-> executada** (ver "Progresso desde 2026-07-06"). Este arquivo permanece como
-> registro histórico e não deve ser alterado.
+> executada** (ver "Progresso desde 2026-07-06"). As medidas previstas por esta
+> auditoria foram consolidadas no plano vivo
+> [2026-07-18-code-quality-audit-remediation](../plans/2026-07-18-code-quality-audit-remediation.md).
+> Este arquivo permanece como registro histórico e não deve ser alterado.
 
 Escala em `src/`: ~48,7 mil linhas de TypeScript/TSX (excluindo testes e o
 `src/types/database.ts` gerado). Migrations SQL e o tipo gerado ficam **fora do
