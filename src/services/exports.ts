@@ -10,36 +10,20 @@ import type {
 import { getInvoiceBls, getInvoicePaymentDate, isConsolidatedInvoice, type InvoiceListRow } from './billing'
 import { invoiceStatusLabel } from '../pages/faturamentoInvoiceStatus'
 import { formatDate } from '../lib/utils'
+import { arrivalDisplay } from '../lib/escalaState'
+import { sanitizeSheetRows } from '../lib/spreadsheetSafe'
+import type { LineUpRow } from './lineup'
 import type { PortalDemurrageInvoice, PortalInvoiceSummary } from './portalBilling'
 import type { PortalOperationBL } from './portalOperation'
 import type { PortalFlatContainer } from '../lib/portalOperationViews'
 import type { QueueRow } from './portalProvisioning'
 import { portalProvisioningExportRow } from '../lib/portalProvisioningViewModel'
 
-// Neutraliza injeção de fórmula (CSV/Excel injection). Dados de células vêm de
-// arquivos de armador importados (não confiáveis): um valor iniciado por
-// = + - @ ou tab/CR é interpretado como fórmula ao abrir no Excel/Sheets.
-// Prefixar com aspa simples força o tratamento como texto literal.
-const FORMULA_INJECTION_PREFIX = /^[=+\-@\t\r]/
-
-function sanitizeCellValue<T>(value: T): T | string {
-  if (typeof value === 'string' && FORMULA_INJECTION_PREFIX.test(value)) {
-    return `'${value}`
-  }
-  return value
-}
-
 function toSheet<T extends Record<string, unknown>>(
   XLSX: typeof import('@e965/xlsx'),
   rows: T[],
 ) {
-  const safeRows = rows.map((row) => {
-    const out: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(row)) {
-      out[key] = sanitizeCellValue(value)
-    }
-    return out
-  })
+  const safeRows = sanitizeSheetRows(rows)
   return XLSX.utils.json_to_sheet(safeRows)
 }
 
@@ -451,6 +435,32 @@ export async function exportPortalContainersWorkbook(rows: PortalFlatContainer[]
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Containers')
   XLSX.writeFile(workbook, `containers-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportLineUpWorkbook(rows: LineUpRow[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    Navio: row.vesselName,
+    Viagem: row.voyageNumber,
+    POD: row.pod,
+    Status: row.voyageStatus === 'completed' ? 'Concluída' : row.voyageStatus === 'cancelled' ? 'Cancelada' : row.voyageStatus === 'active' ? 'Ativa' : row.voyageStatus ?? '',
+    ETA: arrivalDisplay({ eta: row.eta, ata: row.ata }).value ?? '',
+    ETB: row.etb ?? '',
+    VIN: row.vin,
+    'VIN CNTR': row.car,
+    CG: row.cg,
+    Total: row.total,
+    MTY: row.mty,
+    RTW: row.rtw ?? '',
+    'BB Máquinas': row.bbMachines,
+    'BB Pacotes': row.bbPackages,
+    'BB Total': row.bbTotal,
+    CEs: row.rowType === 'export' ? row.exportCeStatus ?? 'waiting' : row.ceStatus,
+    Linked: (row.rowType === 'export' ? row.exportLinked : row.linked) ? 'Sim' : 'Não',
+  }))
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Line Up')
+  XLSX.writeFile(workbook, `painel-lineup-${makeTimestamp()}.xlsx`)
 }
 
 function makeTimestamp() {

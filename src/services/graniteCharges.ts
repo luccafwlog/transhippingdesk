@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { escapeFilterTerm } from '../lib/utils'
 import type { GraniteBlCharge, GraniteRate } from '../types/database'
 
 export async function listGraniteRates(): Promise<GraniteRate[]> {
@@ -117,9 +118,12 @@ export async function listGraniteBls(filters: {
     .order('created_at', { ascending: false })
 
   if (filters.search) {
-    query = query.or(
-      `bl_number.ilike.%${filters.search}%,shipper_name.ilike.%${filters.search}%,shipper_cnpj.ilike.%${filters.search}%`,
-    )
+    const search = escapeFilterTerm(filters.search)
+    if (search) {
+      query = query.or(
+        `bl_number.ilike.%${search}%,shipper_name.ilike.%${search}%,shipper_cnpj.ilike.%${search}%`,
+      )
+    }
   }
 
   if (filters.dischargePort) {
@@ -140,4 +144,3 @@ export async function listGraniteBls(filters: {
   if (error) throw error
   return { rows: data ?? [], count: count ?? 0 }
 }
-

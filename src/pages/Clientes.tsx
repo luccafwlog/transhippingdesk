@@ -25,7 +25,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary, type CustomerFilters } from '../hooks/useCustomers'
 import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
-import { formatBRL, formatCountLabel, onlyDigits } from '../lib/utils'
+import { escapeFilterTerm, formatBRL, formatCountLabel, onlyDigits } from '../lib/utils'
 import { getCustomerFilterChips, type CustomerSortKey } from '../lib/customerTableViewModel'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
 import { checkCustomerDependencies, createCustomer, deleteCustomers, fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
@@ -268,9 +268,12 @@ export function Clientes() {
         .order('name', { ascending: true })
 
       if (filters.search) {
-        query = query.or(
-          `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%`,
-        )
+        const search = escapeFilterTerm(filters.search)
+        if (search) {
+          query = query.or(
+            `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`,
+          )
+        }
       }
 
       const { data, error } = await query

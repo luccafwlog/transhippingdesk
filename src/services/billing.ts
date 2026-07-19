@@ -964,7 +964,7 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
 
 export async function listBillingCustomers(search = '') {
   const normalizedSearch = String(search ?? '').trim()
-  const safeSearch = normalizedSearch.replace(/[(),]/g, ' ')
+  const safeSearch = escapeFilterTerm(normalizedSearch)
   const digitSearch = normalizedSearch.replace(/\D/g, '')
 
   let query = supabase
@@ -974,9 +974,9 @@ export async function listBillingCustomers(search = '') {
     .limit(normalizedSearch.length >= 2 ? 100 : 200)
 
   if (normalizedSearch.length >= 2) {
-    const terms = [`name.ilike.%${safeSearch}%,cnpj_cpf.ilike.%${safeSearch}%`]
+    const terms = safeSearch ? [`name.ilike.%${safeSearch}%,cnpj_cpf.ilike.%${safeSearch}%`] : []
     if (digitSearch.length >= 2) terms.push(`cnpj_cpf.ilike.%${digitSearch}%`)
-    query = query.or(terms.join(','))
+    if (terms.length) query = query.or(terms.join(','))
   }
 
   const { data, error } = await query

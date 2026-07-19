@@ -1,4 +1,5 @@
 import { formatDate, onlyDigits } from '../lib/utils'
+import { sanitizeSheetRows } from '../lib/spreadsheetSafe'
 import { supabase } from './supabase'
 import type { PixTransaction } from '../types/database'
 
@@ -520,17 +521,7 @@ export async function exportReconciliationHistoryExcel(filters: Partial<Reconcil
     Status: r.status === 'paid' ? 'Paga' : r.status === 'covered' ? 'Coberta' : r.status === 'partially_paid' ? 'Parcial' : r.status,
   }))
 
-  const safeRows = data.map((row) => {
-    const out: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(row)) {
-      if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
-        out[key] = `'${value}`
-      } else {
-        out[key] = value
-      }
-    }
-    return out
-  })
+  const safeRows = sanitizeSheetRows(data)
 
   const workbook = XLSX.utils.book_new()
   const sheet = XLSX.utils.json_to_sheet(safeRows)
