@@ -31,7 +31,8 @@ type Filters = {
 export function EmbarqueVazios() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  const { user } = useAuth()
+  const { can, user } = useAuth()
+  const canEditVazios = can('vazios_edit')
   const { showToast } = useToast()
   const initialVoyageId = searchParams.get('voyage') ?? ''
 
@@ -120,10 +121,12 @@ export function EmbarqueVazios() {
               <Download size={16} />
               Baixar template
             </a>
-            <Button onClick={() => setUploadOpen(true)}>
-              <Upload size={16} />
-              Importar Planilha
-            </Button>
+            {canEditVazios ? (
+              <Button onClick={() => setUploadOpen(true)}>
+                <Upload size={16} />
+                Importar Planilha
+              </Button>
+            ) : null}
           </div>
         }
       />
@@ -226,7 +229,7 @@ export function EmbarqueVazios() {
       </Card>
 
       {/* Modal de importação */}
-      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="Importar Planilha de Vazios">
+      <Modal open={uploadOpen && canEditVazios} onClose={() => setUploadOpen(false)} title="Importar Planilha de Vazios">
         <div className="grid gap-5">
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
             <div className="font-semibold text-white">Formato esperado</div>

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
+import { useAuth } from '../../hooks/useAuth'
 import { FileImportModal } from './FileImportModal'
 import { BlImportModal } from './BlImportModal'
 import { CeMercanteImportModal } from './CeMercanteImportModal'
@@ -45,6 +46,16 @@ export function VoyageImportActions({
   const [activeType, setActiveType] = useState<ImportType | null>(null)
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const { can } = useAuth()
+  const canEditVazios = can('vazios_edit')
+  const canEditVehicles = can('veiculos_edit')
+
+  const allowedTypes = IMPORT_ORDER.filter((type) => {
+    if (!types.includes(type)) return false
+    if (type === 'vaziosExp') return canEditVazios
+    if (type === 'vehicles') return canEditVehicles
+    return true
+  })
 
   const invalidateAfterBLImport = async () => {
     await Promise.all([
@@ -58,7 +69,7 @@ export function VoyageImportActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {IMPORT_ORDER.filter((type) => types.includes(type)).map((type) => (
+        {allowedTypes.map((type) => (
           <Button key={type} variant="secondary" className="text-xs" onClick={() => setActiveType(type)}>
             <Upload size={13} />
             {IMPORT_LABELS[type]}
@@ -141,7 +152,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'vaziosExp' ? (
+      {activeType === 'vaziosExp' && canEditVazios ? (
         <FileImportModal
           title="Importar Vazios Exportação"
           voyageLabel={voyageLabel}
@@ -176,7 +187,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'vehicles' ? (
+      {activeType === 'vehicles' && canEditVehicles ? (
         <VehiclesImportModal voyageId={voyageId} voyageLabel={voyageLabel} onClose={() => setActiveType(null)} />
       ) : null}
 

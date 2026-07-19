@@ -8,12 +8,14 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   parseBreakbulkManifestFile: vi.fn(),
   importBreakbulkManifest: vi.fn(() => Promise.resolve()),
+  can: vi.fn<(permission: string) => boolean>(() => true),
 }))
 
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
+vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ can: mocks.can }) }))
 vi.mock('../../../services/supabase', () => ({ supabase: { from: vi.fn() } }))
 vi.mock('../../../services/breakbulkImport', () => ({
   parseBreakbulkManifestFile: mocks.parseBreakbulkManifestFile,
@@ -27,6 +29,7 @@ import { VoyageImportActions } from '../VoyageImportActions'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.can.mockReturnValue(true)
   mocks.invalidateQueries.mockResolvedValue(undefined)
   mocks.importBreakbulkManifest.mockResolvedValue(undefined)
 })
@@ -116,4 +119,21 @@ it('ordena as importacoes e abre CE Mercante travado na viagem', () => {
   ])
   fireEvent.click(screen.getByRole('button', { name: /CE Mercante/ }))
   expect(screen.getByText('CE travado: 7')).toBeTruthy()
+})
+
+it('filtra Veiculos e Vazios Exp pelas permissoes especificas sem afetar outras importacoes', () => {
+  mocks.can.mockImplementation((permission) => permission === 'veiculos_edit')
+
+  render(
+    <VoyageImportActions
+      voyageId={7}
+      voyageLabel="GREEN SANTOS / 14N"
+      userId="user-1"
+      types={['bb', 'vehicles', 'vaziosExp']}
+    />,
+  )
+
+  expect(screen.getByRole('button', { name: /Manifesto BB/ })).toBeTruthy()
+  expect(screen.getByRole('button', { name: /Veículos/ })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Vazios Exp/ })).toBeNull()
 })

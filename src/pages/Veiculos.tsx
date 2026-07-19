@@ -28,7 +28,8 @@ export function Veiculos() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { isAdmin, user } = useAuth()
+  const { can, user } = useAuth()
+  const canEditVehicles = can('veiculos_edit')
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const { data: options } = useVehicleOptions()
@@ -188,19 +189,19 @@ export function Veiculos() {
 
   const pageRowIds = (data?.rows ?? []).map((row) => row.id)
   const allPageSelected = pageRowIds.length > 0 && pageRowIds.every((id) => selection.isSelected(id))
-  const columnCount = isAdmin ? 11 : 9
+  const columnCount = canEditVehicles ? 11 : 9
 
   return (
     <>
       <PageHeader
         title="Veículos"
         description="Gestão e importação de veículos vinculados a viagem, containers e BLs."
-        action={
+        action={canEditVehicles ? (
           <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <Upload size={16} />
             Importar Veículos
           </Button>
-        }
+        ) : null}
       />
 
       <Card className="mb-5">
@@ -283,7 +284,7 @@ export function Veiculos() {
         </div>
       </FilterBar>
 
-      {isAdmin ? (
+      {canEditVehicles ? (
         <BulkActionsBar
           count={selection.count}
           onClear={selection.clear}
@@ -299,7 +300,7 @@ export function Veiculos() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead>
               <tr>
-                {isAdmin ? (
+                {canEditVehicles ? (
                   <th scope="col" className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
@@ -318,7 +319,7 @@ export function Veiculos() {
                 <th scope="col" className="px-4 py-3">Tipo Container</th>
                 <th scope="col" className="px-4 py-3">Lacre</th>
                 <th scope="col" className="px-4 py-3">BL</th>
-                {isAdmin ? <th scope="col" className="px-4 py-3 w-16">Ações</th> : null}
+                {canEditVehicles ? <th scope="col" className="px-4 py-3 w-16">Ações</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -338,7 +339,7 @@ export function Veiculos() {
               ) : null}
               {data?.rows.map((row) => (
                 <tr key={row.id} className="hover:bg-[#21262d]/60">
-                  {isAdmin ? (
+                  {canEditVehicles ? (
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -357,7 +358,7 @@ export function Veiculos() {
                   <td className="px-4 py-3">{row.container?.type ?? '-'}</td>
                   <td className="px-4 py-3">{row.container?.seal_number ?? '-'}</td>
                   <td className="px-4 py-3">{row.bl?.id ?? '-'}</td>
-                  {isAdmin ? (
+                  {canEditVehicles ? (
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleDeleteOne(row.id, row.chassis)}
@@ -390,7 +391,7 @@ export function Veiculos() {
         </>
       )}
 
-      <Modal open={importOpen} onClose={resetImportState} title="Importar Veículos">
+      <Modal open={importOpen && canEditVehicles} onClose={resetImportState} title="Importar Veículos">
         <div className="grid gap-5">
           <div className="app-panel app-panel--padded text-sm">
             <div className="app-panel__title">Estrutura obrigatoria da planilha</div>
