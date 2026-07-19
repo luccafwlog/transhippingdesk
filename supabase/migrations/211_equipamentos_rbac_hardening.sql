@@ -138,32 +138,27 @@ DO $$
 DECLARE
   t TEXT;
   p RECORD;
-  policy_suffix TEXT;
+  allowlisted_tables TEXT[] := ARRAY[
+    'vehicles', 'vazios_manifests', 'vazios_bookings',
+    'vazios_export_operations', 'vazios_export_overtime_depots',
+    'vazios_reorg_services'
+  ];
 BEGIN
-  FOREACH t IN ARRAY ARRAY['vehicles'] LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_active', t);
-    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert_active', t);
-    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update_active', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.is_active_read_user())', t || '_select_active', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_insert_active', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.is_active_user() OR public.is_equipamentos_user()) WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_update_active', t);
-  END LOOP;
-
-  FOREACH t IN ARRAY ARRAY['vazios_manifests', 'vazios_bookings'] LOOP
-    FOREACH policy_suffix IN ARRAY ARRAY[
-      'select', 'insert', 'update', 'delete',
-      'select_active', 'insert_active', 'update_active', 'delete_active'
-    ] LOOP
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_' || policy_suffix, t);
-    END LOOP;
-  END LOOP;
-
+  -- Remove inclusive policies legadas de 004 e as criadas por esta migration;
+  -- uma nova aplicacao nao pode falhar nem combinar permissivamente por OR.
   FOR p IN
     SELECT policyname, tablename
     FROM pg_policies
-    WHERE schemaname = 'public' AND tablename IN ('vazios_manifests', 'vazios_bookings')
+    WHERE schemaname = 'public' AND tablename = ANY (allowlisted_tables)
   LOOP
     EXECUTE format('DROP POLICY %I ON public.%I', p.policyname, p.tablename);
+  END LOOP;
+
+  FOREACH t IN ARRAY ARRAY['vehicles'] LOOP
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.is_active_read_user())', t || '_select_active', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_insert_active', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.is_active_user() OR public.is_equipamentos_user()) WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_update_active', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.is_admin())', t || '_delete_admin', t);
   END LOOP;
 
   FOREACH t IN ARRAY ARRAY['vazios_manifests', 'vazios_bookings'] LOOP
