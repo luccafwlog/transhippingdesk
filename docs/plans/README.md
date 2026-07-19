@@ -15,7 +15,6 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
-| [2026-07-18-ficha-do-cliente-hub](2026-07-18-ficha-do-cliente-hub.md) | sessão de design (grilling) 2026-07-18 | TODO |
 | [2026-07-18-security-audit-injection-remediation](2026-07-18-security-audit-injection-remediation.md) | auditoria de segurança 2026-07-18 | TODO |
 | [2026-07-19-agency-departure-report](2026-07-19-agency-departure-report.md) | [spec de design 2026-07-19](../spec/2026-07-19-agency-departure-report-design.md) · [ADR 0027](../adr/0027-agency-departure-report-agregado-escala-snapshot.md) | TODO |
 

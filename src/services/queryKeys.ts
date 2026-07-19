@@ -72,6 +72,16 @@ export const queryKeys = {
       (cnpj === undefined ? (['customer-detail'] as const) : (['customer-detail', cnpj] as const)),
     summary: () => ['customers-summary'] as const,
   },
+  customerFicha: {
+    demurrageInvoices: (customerId: number) => ['customer-ficha', 'demurrage-invoices', customerId] as const,
+    receivables: (customerId: number) => ['customer-ficha', 'receivables', customerId] as const,
+    payments: (customerId: number) => ['customer-ficha', 'payments', customerId] as const,
+    rateOverrides: (customerId: number) => ['customer-ficha', 'rate-overrides', customerId] as const,
+    manualChargeBls: (customerId: number) => ['customer-ficha', 'manual-charge-bls', customerId] as const,
+    pendingReconciliation: (customerId: number) => ['customer-ficha', 'pending-reconciliation', customerId] as const,
+    runningDemurrage: (customerId: number) => ['customer-ficha', 'running-demurrage', customerId] as const,
+    timeline: (customerId: number) => ['customer-ficha', 'timeline', customerId] as const,
+  },
   vehicles: {
     all: () => ['vehicles'] as const,
     stats: (voyageIds: number[]) => ['voyage-vehicle-stats', voyageIds] as const,

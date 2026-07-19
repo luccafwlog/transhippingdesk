@@ -23,9 +23,6 @@ const original = {
   state: 'SP',
   zip: null,
   notes: null,
-  payment_terms_days: 10,
-  discount_pct: 0,
-  commercial_notes: null,
 }
 
 describe('atomic customer update with audit', () => {
@@ -40,7 +37,7 @@ describe('atomic customer update with audit', () => {
     await expect(updateCustomerWithAudit({
       customerId: 42,
       original,
-      values: { ...original, name: 'Cliente Novo', payment_terms_days: 20 },
+      values: { ...original, name: 'Cliente Novo' },
       changedBy: '11111111-1111-1111-1111-111111111111',
       justification: 'Atualizacao cadastral',
     })).resolves.toBe(true)
@@ -49,7 +46,6 @@ describe('atomic customer update with audit', () => {
       p_customer_id: 42,
       p_updates: {
         name: 'Cliente Novo',
-        payment_terms_days: 20,
       },
       p_changed_by: '11111111-1111-1111-1111-111111111111',
       p_justification: 'Atualizacao cadastral',

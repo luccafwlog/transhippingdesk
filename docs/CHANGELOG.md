@@ -4,6 +4,7 @@
 
 ## 2026-07
 
+- **Ficha do Cliente:** `/clientes/:cnpj` foi reestruturada como hub em cinco abas, com saldo pendente consolidado, demurrage, recebíveis, pagamentos, tarifas, histórico, pendências e deep link para Overrides de Taxas Locais; campos comerciais mortos foram removidos do código e do banco pela migration `207_drop_customer_commercial_fields.sql`.
 - **B/L Cockpit 360°:** ficha `/manifestos/:blId` ganhou Visão Geral padrão, trilhos operacional/financeiro com próxima ação, réplica documental com Frete & Despesas, operação de Transbordo/COD no B/L, visibilidade do Portal e divergências Baplie; migrations `205` e `206` são forward-only. *(plano/spec `2026-07-18-bl-cockpit-360`)*
 - **Qualidade de código:** formatadores e `PreviewBox` consolidados; serviços de billing/timeline e páginas/abas de Clientes, Demurrage, Taxas Locais e Validação de Faturamento decompostos sem mudança de contrato, com testes comportamentais nos componentes-página. *(plan `2026-07-18-code-quality-audit-remediation`)*
 - **Refinamento operacional (WS1–WS4):** ingestão documental de B/L com alias de navio (`canonicalizeVesselName`), ciclo completo de datas por escala com estado derivado (`deriveEscalaState`) no Painel/Line-Up TV, registro global de transbordo com timeline consolidada no Portal (migrations `201`–`202`), e câmbio PTAX/ROE com data efetiva (migration `200`). *(spec `refinamento-operacional-viagens-importacoes-lineup-portal`; plans `2026-07-16-ws1`–`ws4`)*

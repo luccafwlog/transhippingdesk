@@ -28,9 +28,6 @@ export type Customer = {
   zip: string | null
   notes: string | null
   pending_balance: number | null
-  payment_terms_days: number | null
-  discount_pct: number | null
-  commercial_notes: string | null
   created_at: string | null
   updated_at: string | null
 }

@@ -57,9 +57,6 @@ const customer = {
   state: 'ES',
   zip: null,
   notes: null,
-  payment_terms_days: 10,
-  discount_pct: 0,
-  commercial_notes: null,
   customer_contacts: [{
     id: 7,
     customer_id: 42,
@@ -76,8 +73,8 @@ const customer = {
   invoices_access_denied: false,
 }
 
-function renderPage() {
-  return render(<MemoryRouter><ClienteFicha /></MemoryRouter>)
+function renderPage(initialEntry = '/clientes/12345678000195?tab=cadastro') {
+  return render(<MemoryRouter initialEntries={[initialEntry]}><ClienteFicha /></MemoryRouter>)
 }
 
 describe('ClienteFicha user behaviours', () => {
@@ -91,6 +88,14 @@ describe('ClienteFicha user behaviours', () => {
   })
 
   afterEach(cleanup)
+
+  it('abre na Visão Geral por padrão e troca de aba via clique', async () => {
+    const user = userEvent.setup()
+    renderPage('/clientes/12345678000195')
+    expect(screen.getByRole('tab', { name: 'Visão Geral' }).getAttribute('aria-selected')).toBe('true')
+    await user.click(screen.getByRole('tab', { name: 'Cadastro & Contatos' }))
+    expect(screen.getByRole('button', { name: 'Salvar cadastro' })).toBeTruthy()
+  })
 
   it('creates or edits a contact and refreshes the customer detail', async () => {
     const user = userEvent.setup()
