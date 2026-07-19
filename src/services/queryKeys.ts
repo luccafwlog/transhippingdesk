@@ -4,6 +4,7 @@ export const queryKeys = {
     list: (filters: unknown) => ['bls', filters] as const,
     containers: (filters: unknown) => ['containers', filters] as const,
     detail: (blId?: string) => (blId === undefined ? (['bl-detail'] as const) : (['bl-detail', blId] as const)),
+    cockpit: (blId?: string) => (blId === undefined ? (['bl-cockpit'] as const) : (['bl-cockpit', blId] as const)),
     summary: (filters?: unknown) => (filters === undefined ? (['bl-summary'] as const) : (['bl-summary', filters] as const)),
     portOptions: () => ['port-options'] as const,
     localChargeLines: (blId?: string) =>

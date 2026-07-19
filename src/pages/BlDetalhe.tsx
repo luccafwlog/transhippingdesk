@@ -1,31 +1,38 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Upload } from 'lucide-react'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { Card, PageHeader } from '../components/ui/Card'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { SkeletonCard } from '../components/ui/Skeleton'
-import { BLPipeline } from '../components/shared/BLPipeline'
 import { BlImportModal } from '../components/shared/BlImportModal'
 import { BlDetalhesTab } from '../components/bl/BlDetalhesTab'
 import { BlFaturamentoTab } from '../components/bl/BlFaturamentoTab'
 import { BlHistoricoTab } from '../components/bl/BlHistoricoTab'
+import { BlVisaoGeralTab } from '../components/bl/BlVisaoGeralTab'
+import { BlRailsPipeline } from '../components/bl/BlRailsPipeline'
 import { Button } from '../components/ui/Button'
 import { useBlDetail } from '../hooks/useBls'
 import { useBlEditForm } from '../hooks/useBlEditForm'
+import { useBlCockpit } from '../hooks/useBlCockpit'
+import { useInvoiceLinks } from '../hooks/useBilling'
+import { listDemurrageInvoices } from '../services/demurrage/demurrageInvoices'
+import { buildFinancialRail, buildOperationalRail, pickNextAction } from '../services/blRails'
 import { cargoModeLabel, resolveCargoMode } from './blDetalheHelpers'
 
-export type BlTab = 'detalhes' | 'faturamento' | 'historico'
+export type BlTab = 'visao-geral' | 'detalhes' | 'faturamento' | 'historico'
 
 export const BL_TABS: { key: BlTab; label: string }[] = [
+  { key: 'visao-geral', label: 'Visão Geral' },
   { key: 'detalhes', label: 'Detalhes do B/L' },
   { key: 'faturamento', label: 'Faturamento' },
   { key: 'historico', label: 'Histórico' },
 ]
 
 export function isBlTab(value: string | null): value is BlTab {
-  return value === 'detalhes' || value === 'faturamento' || value === 'historico'
+  return value === 'visao-geral' || value === 'detalhes' || value === 'faturamento' || value === 'historico'
 }
 
 export function BlDetalhe() {
@@ -33,8 +40,15 @@ export function BlDetalhe() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [blFreightOpen, setBlFreightOpen] = useState(false)
   const tabParam = searchParams.get('tab')
-  const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'detalhes'
+  const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'visao-geral'
   const { data: bl, isLoading, error } = useBlDetail(blId)
+  const cockpitQuery = useBlCockpit(bl)
+  const { data: invoiceLinksByBl } = useInvoiceLinks(bl?.id ? [bl.id] : [])
+  const { data: demurrageInvoices } = useQuery({
+    queryKey: ['demurrage-invoices', { blId: bl?.id }],
+    enabled: Boolean(bl?.id),
+    queryFn: () => listDemurrageInvoices({ blId: bl!.id }),
+  })
 
   const cargoMode = useMemo(() => resolveCargoMode(bl), [bl])
   const isContainerMode = cargoMode === 'container'
@@ -43,6 +57,15 @@ export function BlDetalhe() {
   const voyageLabel = [bl?.voyage?.vessel?.name, bl?.voyage?.voyage_number].filter(Boolean).join(' / ')
 
   const { form, setField, justification, setJustification, saving, changes, handleSubmit } = useBlEditForm(bl, isContainerMode)
+
+  const railContainers = useMemo(() => (bl?.bl_containers ?? []).map((container) => ({
+    container_number: container.container_number,
+    discharge_date: container.discharge_date,
+    return_date: container.return_date,
+  })), [bl?.bl_containers])
+  const operational = useMemo(() => bl ? buildOperationalRail({ bl, polSchedule: cockpitQuery.data?.polSchedule ?? null, podSchedule: cockpitQuery.data?.podSchedule ?? null, containers: railContainers, omission: cockpitQuery.data?.omission ?? null }) : [], [bl, cockpitQuery.data, railContainers])
+  const latestInvoice = bl ? invoiceLinksByBl?.[bl.id]?.[0] ?? null : null
+  const financial = useMemo(() => bl ? buildFinancialRail({ bl, latestInvoice: latestInvoice ? { id: latestInvoice.id, status: latestInvoice.status, total_brl: latestInvoice.total_brl } : null, demurrageInvoices: (demurrageInvoices ?? []).map((invoice) => ({ id: invoice.id, status: invoice.status })) }) : [], [bl, demurrageInvoices, latestInvoice])
 
   const containerSummary = useMemo(
     () => ({
@@ -111,7 +134,7 @@ export function BlDetalhe() {
       />
 
       <div className="mb-5">
-        <BLPipeline bl={bl} />
+        <BlRailsPipeline operational={operational} financial={financial} nextAction={pickNextAction(financial)} />
       </div>
 
       <div className="mb-5 flex flex-wrap gap-1 border-b border-[#30363d]">
@@ -123,7 +146,7 @@ export function BlDetalhe() {
               type="button"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
-                if (tab.key === 'detalhes') next.delete('tab')
+                if (tab.key === 'visao-geral') next.delete('tab')
                 else next.set('tab', tab.key)
                 setSearchParams(next, { replace: true })
               }}
@@ -140,6 +163,14 @@ export function BlDetalhe() {
       </div>
 
       {/* Abas montadas incondicionalmente (prop `active`) para preservar estado de formulários ao trocar de aba. */}
+      <BlVisaoGeralTab
+        active={activeTab === 'visao-geral'}
+        bl={bl}
+        cockpit={cockpitQuery.data}
+        isContainerMode={isContainerMode}
+        containerSummary={containerSummary}
+        breakbulkSummary={breakbulkSummary}
+      />
       <BlDetalhesTab
         active={activeTab === 'detalhes'}
         bl={bl}
