@@ -16,7 +16,7 @@ import {
   useLocalChargeTables,
 } from '../../hooks/useLocalCharges'
 import { describeActiveFilters, describeEmptyState } from '../../lib/operationalState'
-import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
+import { formatBRL, formatCountLabel, formatDate, formatUSD } from '../../lib/utils'
 import { validateTableInput, validateTableItemInput } from '../../pages/taxasLocaisHelpers'
 import {
   EMPTY_TABLE_FORM,
@@ -705,8 +705,4 @@ export function ChargeTablesTab({
       </Card>
     </>
   )
-}
-
-function formatCountLabel(count: number, singular: string, plural: string) {
-  return `${count} ${count === 1 ? singular : plural}`
 }

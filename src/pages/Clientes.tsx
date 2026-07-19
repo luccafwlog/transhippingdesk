@@ -20,7 +20,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
-import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
+import { formatBRL, formatCnpjCpf, formatCountLabel, onlyDigits } from '../lib/utils'
 import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import {
   buildCustomerBillingUrl,
@@ -976,7 +976,6 @@ export function Clientes() {
   )
 }
 
-
 function truncateCustomerName(value: string, maxLength: number) {
   if (value.length <= maxLength) return value
   return `${value.slice(0, maxLength).trimEnd()}...`
@@ -988,9 +987,4 @@ function renderSortIcon(
 ) {
   if (filters.sortKey !== key) return <ArrowUpDown size={13} className="opacity-50" />
   return filters.sortDirection === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
-}
-
-
-function formatCountLabel(count: number, singular: string, plural: string) {
-  return `${count} ${count === 1 ? singular : plural}`
 }
