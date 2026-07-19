@@ -67,15 +67,21 @@ GRANT EXECUTE ON FUNCTION public.is_active_read_user() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_equipamentos_user() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_active_non_equipamentos_user() TO authenticated;
 
--- Policies permissivas sao combinadas por OR. Recria qualquer policy vigente
--- que use o gate amplo para que Equipamentos nao herde escrita fora da
--- allowlist, sem mudar o resultado para os demais perfis ativos.
+-- Policies permissivas sao combinadas por OR. Recria apenas as que usam o
+-- gate amplo, o predicado legado exato de authenticated ou true em escrita,
+-- para que Equipamentos nao herde escrita fora da allowlist. Policies
+-- restritivas e predicados compostos permanecem intactos.
 DO $$
 DECLARE
   p RECORD;
   v_roles TEXT;
   v_qual TEXT;
   v_check TEXT;
+  v_read_qual TEXT;
+  v_write_qual TEXT;
+  v_write_check TEXT;
+  v_qual_normalized TEXT;
+  v_check_normalized TEXT;
   v_as_clause TEXT;
   v_name TEXT;
   allowed_tables TEXT[] := ARRAY[
@@ -91,15 +97,47 @@ BEGIN
     WHERE schemaname = 'public'
       AND tablename <> ALL (allowed_tables)
       AND cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL')
+      AND p.permissive = 'PERMISSIVE'
       AND (
         COALESCE(qual, '') LIKE '%is_active_user()%' OR
-        COALESCE(with_check, '') LIKE '%is_active_user()%'
+        COALESCE(with_check, '') LIKE '%is_active_user()%' OR
+        lower(regexp_replace(COALESCE(qual, ''), '[[:space:]()]', '', 'g')) IN (
+          'auth.role()=''authenticated''',
+          'auth.role()=''authenticated''::text',
+          'selectauth.role()=''authenticated''',
+          'selectauth.role()=''authenticated''::text'
+        ) OR
+        lower(regexp_replace(COALESCE(with_check, ''), '[[:space:]()]', '', 'g')) IN (
+          'auth.role()=''authenticated''',
+          'auth.role()=''authenticated''::text',
+          'selectauth.role()=''authenticated''',
+          'selectauth.role()=''authenticated''::text'
+        ) OR (
+          p.cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL') AND (
+            lower(regexp_replace(COALESCE(qual, ''), '[[:space:]()]', '', 'g')) = 'true' OR
+            lower(regexp_replace(COALESCE(with_check, ''), '[[:space:]()]', '', 'g')) = 'true'
+          )
+        )
       )
   LOOP
     v_roles := array_to_string(p.roles, ', ');
-    v_qual := replace(COALESCE(p.qual, 'true'), 'is_active_user()', 'is_active_non_equipamentos_user()');
-    v_check := replace(COALESCE(p.with_check, 'true'), 'is_active_user()', 'is_active_non_equipamentos_user()');
-    v_as_clause := CASE WHEN p.permissive = 'PERMISSIVE' THEN '' ELSE ' AS RESTRICTIVE' END;
+    v_qual := COALESCE(p.qual, 'true');
+    v_check := COALESCE(p.with_check, 'true');
+    v_qual_normalized := lower(regexp_replace(v_qual, '[[:space:]()]', '', 'g'));
+    v_check_normalized := lower(regexp_replace(v_check, '[[:space:]()]', '', 'g'));
+    v_read_qual := CASE
+      WHEN v_qual_normalized IN ('auth.role()=''authenticated''', 'auth.role()=''authenticated''::text', 'selectauth.role()=''authenticated''', 'selectauth.role()=''authenticated''::text') THEN 'public.is_active_read_user()'
+      ELSE replace(v_qual, 'is_active_user()', 'is_active_read_user()')
+    END;
+    v_write_qual := CASE
+      WHEN v_qual_normalized IN ('auth.role()=''authenticated''', 'auth.role()=''authenticated''::text', 'selectauth.role()=''authenticated''', 'selectauth.role()=''authenticated''::text') OR (p.cmd IN ('UPDATE', 'DELETE', 'ALL') AND v_qual_normalized = 'true') THEN 'public.is_active_non_equipamentos_user()'
+      ELSE replace(v_qual, 'is_active_user()', 'is_active_non_equipamentos_user()')
+    END;
+    v_write_check := CASE
+      WHEN v_check_normalized IN ('auth.role()=''authenticated''', 'auth.role()=''authenticated''::text', 'selectauth.role()=''authenticated''', 'selectauth.role()=''authenticated''::text') OR (p.cmd IN ('INSERT', 'UPDATE', 'ALL') AND v_check_normalized = 'true') THEN 'public.is_active_non_equipamentos_user()'
+      ELSE replace(v_check, 'is_active_user()', 'is_active_non_equipamentos_user()')
+    END;
+    v_as_clause := '';
 
     EXECUTE format('DROP POLICY %I ON public.%I', p.policyname, p.tablename);
 
@@ -107,26 +145,26 @@ BEGIN
       v_name := left(p.policyname, 48);
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR SELECT TO %s USING (%s)',
         v_name || '_equip_read', p.tablename, v_as_clause, v_roles,
-        replace(COALESCE(p.qual, 'true'), 'is_active_user()', 'is_active_read_user()'));
+        v_read_qual);
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR INSERT TO %s WITH CHECK (%s)',
-        v_name || '_equip_insert', p.tablename, v_as_clause, v_roles, v_check);
+        v_name || '_equip_insert', p.tablename, v_as_clause, v_roles, v_write_check);
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR UPDATE TO %s USING (%s) WITH CHECK (%s)',
-        v_name || '_equip_update', p.tablename, v_as_clause, v_roles, v_qual, v_check);
+        v_name || '_equip_update', p.tablename, v_as_clause, v_roles, v_write_qual, v_write_check);
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR DELETE TO %s USING (%s)',
-        v_name || '_equip_delete', p.tablename, v_as_clause, v_roles, v_qual);
+        v_name || '_equip_delete', p.tablename, v_as_clause, v_roles, v_write_qual);
     ELSIF p.cmd = 'SELECT' THEN
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR SELECT TO %s USING (%s)',
         p.policyname, p.tablename, v_as_clause, v_roles,
-        replace(COALESCE(p.qual, 'true'), 'is_active_user()', 'is_active_read_user()'));
+        v_read_qual);
     ELSIF p.cmd = 'INSERT' THEN
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR INSERT TO %s WITH CHECK (%s)',
-        p.policyname, p.tablename, v_as_clause, v_roles, v_check);
+        p.policyname, p.tablename, v_as_clause, v_roles, v_write_check);
     ELSIF p.cmd = 'UPDATE' THEN
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR UPDATE TO %s USING (%s) WITH CHECK (%s)',
-        p.policyname, p.tablename, v_as_clause, v_roles, v_qual, v_check);
+        p.policyname, p.tablename, v_as_clause, v_roles, v_write_qual, v_write_check);
     ELSIF p.cmd = 'DELETE' THEN
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR DELETE TO %s USING (%s)',
-        p.policyname, p.tablename, v_as_clause, v_roles, v_qual);
+        p.policyname, p.tablename, v_as_clause, v_roles, v_write_qual);
     END IF;
   END LOOP;
 END $$;

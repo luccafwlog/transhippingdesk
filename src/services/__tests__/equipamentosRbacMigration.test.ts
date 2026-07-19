@@ -38,15 +38,7 @@ describe('migration 211 — RBAC de Equipamentos', () => {
   })
 
   it('substitui todas as policies permissivas legadas de VAZIOS EXP', () => {
-    for (const suffix of [
-      'select', 'insert', 'update', 'delete',
-      'select_active', 'insert_active', 'update_active', 'delete_active',
-    ]) {
-      expect(sql).toContain(`'${suffix}'`)
-    }
-
-    expect(sql).toContain("t || '_' || policy_suffix")
-    expect(sql).toContain("WHERE schemaname = 'public' AND tablename IN ('vazios_manifests', 'vazios_bookings')")
+    expect(sql).toContain("tablename = ANY (allowlisted_tables)")
     expect(sql).toContain("CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.is_active_read_user())")
     expect(sql).toContain("CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())")
     expect(sql).toContain("CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.is_active_user() OR public.is_equipamentos_user()) WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())")
@@ -55,8 +47,31 @@ describe('migration 211 — RBAC de Equipamentos', () => {
 
   it('preserva policies DELETE existentes fora da allowlist com o gate restrito', () => {
     expect(sql).toMatch(
-      /ELSIF p\.cmd = 'DELETE' THEN[\s\S]*?CREATE POLICY %I ON public\.%I%s FOR DELETE TO %s USING \(%s\)[\s\S]*?p\.policyname, p\.tablename, v_as_clause, v_roles, v_qual/,
+      /ELSIF p\.cmd = 'DELETE' THEN[\s\S]*?CREATE POLICY %I ON public\.%I%s FOR DELETE TO %s USING \(%s\)[\s\S]*?p\.policyname, p\.tablename, v_as_clause, v_roles, v_write_qual/,
     )
+  })
+
+  it('remove a escrita legada autenticada de VAZIOS IMP sem perder SELECT', () => {
+    const legacyVaziosImportacao = readFileSync(
+      resolve(process.cwd(), 'supabase/migrations/096_rls_initplan_performance_pass.sql'),
+      'utf8',
+    )
+
+    expect(legacyVaziosImportacao).toContain("ALTER POLICY vazios_imp_containers_update")
+    expect(legacyVaziosImportacao).toContain("(SELECT auth.role()) = 'authenticated'")
+    expect(sql).toContain("p.permissive = 'PERMISSIVE'")
+    expect(sql).toContain("auth.role()=''authenticated''")
+    expect(sql).toContain("public.is_active_read_user()")
+    expect(sql).toContain("public.is_active_non_equipamentos_user()")
+    expect(sql).toContain("p.cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL')")
+  })
+
+  it('so reinterpreta predicates exatos em policies permissivas fora da allowlist', () => {
+    expect(sql).toContain("tablename <> ALL (allowed_tables)")
+    expect(sql).toContain("p.permissive = 'PERMISSIVE'")
+    expect(sql).toContain("regexp_replace(COALESCE(qual, ''), '[[:space:]()]', '', 'g')")
+    expect(sql).toContain("v_qual_normalized = 'true'")
+    expect(sql).toContain("v_check_normalized = 'true'")
   })
 
   it('permite apenas imports de Veiculos e VAZIOS EXP para Equipamentos', () => {
