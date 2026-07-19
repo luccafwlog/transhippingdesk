@@ -113,6 +113,67 @@ não há cadastro próprio: cadastrar em Chegadas e Saídas cria ou anexa a pró
 Viagem, e a Programação exibida no Portal é uma projeção das viagens marcadas
 como visíveis.
 
+**ADR (Agency Departure Report)**
+Relatório de escala do navio: cada escala brasileira de uma viagem gera um ADR
+(duas escalas, dois ADRs); portos de origem estrangeiros não geram ADR.
+Documenta tudo que aconteceu na escala — datas confirmadas, carga descarregada
+e carregada, embarque e descarga de vazios, granito, carga solta, veículos,
+armazenagem e depot dos vazios, overtime e ocorrências. É a fonte confiável
+usada pelo Financeiro para aprovar pagamentos de faturas.
+
+O ADR é uma **exibição consolidada** de dados construídos nos módulos de
+origem, não uma redigitação: carga, veículos, vazios, depot e overtime nascem
+nos seus módulos; apenas ocorrências e sign-offs nascem no próprio ADR. Existe
+desde que a escala existe; suas pendências só alertam após o ATD da escala.
+
+- **Related:** Seção do ADR, Sign-off de Seção do ADR, Fechamento do ADR
+
+- **Distinto de:** Architecture Decision Record (`docs/adr/`), que é documento
+  de engenharia deste repositório. Em código e schema, usar sempre
+  `agency_departure_report`, nunca `adr` solto.
+
+**Seção do ADR**
+Bloco temático do ADR com um departamento dono e um sign-off explícito.
+O conteúdo derivado do sistema é exibido, não redigitado; apenas ocorrências e
+o próprio sign-off nascem no ADR. Divisão de donos: Operações — datas
+confirmadas e ocorrências; Equipamentos — vazios embarcados (bookings, depot,
+overtime) e veículos; Documentação — carga descarregada, carga carregada e
+vazios descarregados.
+
+**Sign-off de Seção do ADR**
+Confirmação departamental de que a seção reflete a realidade da escala. Estados:
+Pendente → Confirmado ou Nada a declarar. Ausência de dado não é conclusão:
+zero overtime sem sign-off é seção Pendente, não escala sem overtime. Alertas
+de informação faltante são as seções Pendentes, direcionadas ao departamento
+dono.
+
+**Equipamentos**
+Departamento responsável pelo embarque de vazios de exportação (VAZIOS EXP) e
+pelos veículos. Vazios descarregados (importação) pertencem à Documentação.
+
+**Overtime (de escala)**
+Movimentação realizada fora do horário normal, registrada por
+container/movimento nos vazios embarcados, em dois tipos: overtime de handling
+e overtime de transporte. Alimenta o ADR; a conferência da fatura correspondente
+é do Financeiro.
+
+**Depot de Vazios**
+Local onde o container vazio ficou armazenado antes do embarque, registrado por
+container. Fonte para o Financeiro conferir faturas de armazenagem.
+
+**Ocorrência da Escala**
+Lançamento livre no diário da escala dentro do ADR: texto com autor,
+departamento e data/hora, em lista append-only. Cobre qualquer acontecimento
+não estruturado da escala. Não possui taxonomia fixa.
+
+**Fechamento do ADR**
+Ato explícito que encerra o ADR quando todas as seções têm sign-off. Congela um
+snapshot dos dados derivados e próprios; é esse snapshot que o Financeiro
+consulta para aprovar pagamentos — mudanças posteriores na origem não alteram o
+relatório fechado. Reabrir exige justificativa auditada e novo fechamento. O
+Financeiro não possui ato próprio de aprovação do ADR; o fechamento é o marco.
+O ADR fechado é imprimível pelo navegador.
+
 **Número de Escala do Mercante**
 Identificador criado no sistema federal Mercante para uma escala do navio. Uma
 viagem com múltiplos terminais pode ter mais de um número de escala.
@@ -604,6 +665,11 @@ a conciliação de pagamentos.
 Perfil com ações completas em Viagens e leitura operacional de B/Ls, containers,
 veículos e manifestos vinculados. Não pode subir, editar ou excluir B/Ls, nem
 alterar Clientes, Portal ou Financeiro.
+
+**Escopo de Equipamentos**
+Perfil com ações completas em Vazios de Exportação (VAZIOS EXP) e Veículos,
+além do sign-off das suas seções do ADR (vazios embarcados e veículos).
+Leitura no restante do sistema. Não altera Clientes, Portal ou Financeiro.
 
 **Escopo de Documentação**
 Perfil com todas as ações de negócio, incluindo Clientes, Portal, B/Ls, Viagens,

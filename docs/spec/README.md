@@ -17,6 +17,7 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 | Spec | Plano derivado | Status |
 |------|----------------|--------|
 | [2026-07-18-bl-cockpit-design](2026-07-18-bl-cockpit-design.md) | [plano bl-cockpit-360](../plans/2026-07-18-bl-cockpit-360.md) | Aguardando execução |
+| [2026-07-19-agency-departure-report-design](2026-07-19-agency-departure-report-design.md) | — | Aguardando plano |
 
 ## Behavioral Specification
 
