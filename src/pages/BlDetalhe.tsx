@@ -22,6 +22,8 @@ import { useSetBlDisposition } from '../hooks/useTransshipments'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { listDemurrageInvoices } from '../services/demurrage/demurrageInvoices'
 import { buildFinancialRail, buildOperationalRail, pickNextAction } from '../services/blRails'
+import { getBlPortalStatus } from '../services/blPortalStatus'
+import { useVoyageReconciliation } from '../hooks/useVoyageReconciliation'
 import { cargoModeLabel, resolveCargoMode } from './blDetalheHelpers'
 
 export type BlTab = 'visao-geral' | 'detalhes' | 'faturamento' | 'historico'
@@ -53,9 +55,14 @@ export function BlDetalhe() {
     enabled: Boolean(bl?.id),
     queryFn: () => listDemurrageInvoices({ blId: bl!.id }),
   })
-
+  const { data: portalStatus } = useQuery({
+    queryKey: ['bl-portal-status', bl?.id],
+    enabled: Boolean(bl?.id),
+    queryFn: () => getBlPortalStatus({ blId: bl!.id, ceMercante: bl!.ce_mercante, customerId: bl!.customer_id }),
+  })
   const cargoMode = useMemo(() => resolveCargoMode(bl), [bl])
   const isContainerMode = cargoMode === 'container'
+  const { data: reconciliation } = useVoyageReconciliation(isContainerMode ? bl?.voyage_id : null)
   const backHref = isContainerMode ? '/manifestos' : '/carga-solta'
   const backLabel = isContainerMode ? 'Voltar aos manifestos CNTR' : 'Voltar aos manifestos BB'
   const voyageLabel = [bl?.voyage?.vessel?.name, bl?.voyage?.voyage_number].filter(Boolean).join(' / ')
@@ -70,6 +77,11 @@ export function BlDetalhe() {
   const operational = useMemo(() => bl ? buildOperationalRail({ bl, polSchedule: cockpitQuery.data?.polSchedule ?? null, podSchedule: cockpitQuery.data?.podSchedule ?? null, containers: railContainers, omission: cockpitQuery.data?.omission ?? null }) : [], [bl, cockpitQuery.data, railContainers])
   const latestInvoice = bl ? invoiceLinksByBl?.[bl.id]?.[0] ?? null : null
   const financial = useMemo(() => bl ? buildFinancialRail({ bl, latestInvoice: latestInvoice ? { id: latestInvoice.id, status: latestInvoice.status, total_brl: latestInvoice.total_brl } : null, demurrageInvoices: (demurrageInvoices ?? []).map((invoice) => ({ id: invoice.id, status: invoice.status })) }) : [], [bl, demurrageInvoices, latestInvoice])
+  const blDivergenceCount = useMemo(() => {
+    if (!reconciliation || !bl) return 0
+    const numbers = new Set((bl.bl_containers ?? []).map((container) => container.container_number))
+    return reconciliation.items.filter((item) => item.kind === 'missing_in_baplie' ? item.bl_number === bl.id : item.baplie_bl_ref === bl.id || numbers.has(item.container_number)).length
+  }, [reconciliation, bl])
 
   const containerSummary = useMemo(
     () => ({
@@ -183,6 +195,8 @@ export function BlDetalhe() {
         onRestore={() => {
           if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setTransshipment.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, changedBy: user.id })
         }}
+        portalStatus={portalStatus}
+        blDivergenceCount={blDivergenceCount}
       />
       <BlDetalhesTab
         active={activeTab === 'detalhes'}

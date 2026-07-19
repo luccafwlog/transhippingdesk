@@ -3,7 +3,7 @@
 **Data:** 2026-07-18
 **Status:** Aprovado em sessão grill-me-with-docs (usuário confirmou o entendimento)
 **Tela:** `src/pages/BlDetalhe.tsx` + `src/components/bl/*` (detalhe de B/L)
-**Plano derivado:** `docs/plans/2026-07-18-bl-cockpit-360.md`
+**Plano derivado:** `docs/archive/plans/2026-07-18-bl-cockpit-360.md`
 
 ## Problema
 
