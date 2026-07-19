@@ -124,6 +124,9 @@ BEGIN
     ELSIF p.cmd = 'UPDATE' THEN
       EXECUTE format('CREATE POLICY %I ON public.%I%s FOR UPDATE TO %s USING (%s) WITH CHECK (%s)',
         p.policyname, p.tablename, v_as_clause, v_roles, v_qual, v_check);
+    ELSIF p.cmd = 'DELETE' THEN
+      EXECUTE format('CREATE POLICY %I ON public.%I%s FOR DELETE TO %s USING (%s)',
+        p.policyname, p.tablename, v_as_clause, v_roles, v_qual);
     END IF;
   END LOOP;
 END $$;

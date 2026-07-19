@@ -37,6 +37,12 @@ describe('migration 211 — RBAC de Equipamentos', () => {
     expect(allowlist).not.toContain('vazios_reorg_rates')
   })
 
+  it('preserva policies DELETE existentes fora da allowlist com o gate restrito', () => {
+    expect(sql).toMatch(
+      /ELSIF p\.cmd = 'DELETE' THEN[\s\S]*?CREATE POLICY %I ON public\.%I%s FOR DELETE TO %s USING \(%s\)[\s\S]*?p\.policyname, p\.tablename, v_as_clause, v_roles, v_qual/,
+    )
+  })
+
   it('permite apenas imports de Veiculos e VAZIOS EXP para Equipamentos', () => {
     expect(sql).toMatch(/FUNCTION public\.import_vehicle_rows_transactional[\s\S]*?is_equipamentos_user\(\)/)
     expect(sql).toMatch(/FUNCTION public\.import_vazios_bookings_transactional[\s\S]*?is_equipamentos_user\(\)/)
