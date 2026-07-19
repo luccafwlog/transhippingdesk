@@ -435,9 +435,9 @@ export function Veiculos() {
           {parsedImport ? (
             <div className="grid gap-4">
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="Linhas validas" value={parsedImport.rows.length} />
-                <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} />
-                <PreviewBox label="Viagem selecionada" value={formatImportVoyageLabel(allVoyageOptions, importVoyageId)} />
+                <PreviewBox label="Linhas validas" value={parsedImport.rows.length} variant="kpi" />
+                <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} variant="kpi" />
+                <PreviewBox label="Viagem selecionada" value={formatImportVoyageLabel(allVoyageOptions, importVoyageId)} variant="kpi" />
               </div>
 
               <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
@@ -485,9 +485,9 @@ export function Veiculos() {
           {importReport ? (
             <div className="app-panel app-panel--padded grid gap-4">
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="Processados" value={importReport.processed} />
-                <PreviewBox label="Sucesso" value={importReport.successCount} />
-                <PreviewBox label="Erros" value={importReport.errorCount} />
+                <PreviewBox label="Processados" value={importReport.processed} variant="kpi" />
+                <PreviewBox label="Sucesso" value={importReport.successCount} variant="kpi" />
+                <PreviewBox label="Erros" value={importReport.errorCount} variant="kpi" />
               </div>
               {importReport.errors.length ? (
                 <div className="max-h-48 overflow-auto rounded-xl border border-[var(--app-border)] p-3 text-sm text-[var(--app-text)]">

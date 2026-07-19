@@ -461,14 +461,16 @@ export function CargaSolta() {
           {manifest ? (
             <div className="grid gap-4">
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="B/Ls validos" value={manifest.bls.length} />
+                <PreviewBox label="B/Ls validos" value={manifest.bls.length} variant="metric-strip" />
                 <PreviewBox
                   label="Maquinas"
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)}
+                  variant="metric-strip"
                 />
                 <PreviewBox
                   label="Total de volumes"
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_packages_total ?? bl.bb_packages_qty ?? 0), 0)}
+                  variant="metric-strip"
                 />
               </div>
 
@@ -479,12 +481,14 @@ export function CargaSolta() {
                     (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? bl.total_weight_kg / 1000 : 0)),
                     0,
                   )}
+                  variant="metric-strip"
                 />
                 <PreviewBox
                   label="CBM (M3)"
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)}
+                  variant="metric-strip"
                 />
-                <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} />
+                <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} variant="metric-strip" />
               </div>
 
               <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">

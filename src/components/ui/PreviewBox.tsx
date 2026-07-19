@@ -1,8 +1,10 @@
+import { Card } from './Card'
+
 type PreviewBoxProps = {
   label: string
   value: number | string
   decimals?: number
-  variant?: 'metric' | 'surface'
+  variant?: 'metric' | 'metric-centered' | 'metric-strip' | 'surface' | 'kpi'
 }
 
 export function PreviewBox({ label, value, decimals, variant = 'metric' }: PreviewBoxProps) {
@@ -22,8 +24,28 @@ export function PreviewBox({ label, value, decimals, variant = 'metric' }: Previ
     )
   }
 
+  if (variant === 'metric-strip') {
+    return (
+      <div className="app-metric-strip">
+        <div className="app-metric-strip__label">{label}</div>
+        <div className="app-metric-strip__value">{displayValue}</div>
+      </div>
+    )
+  }
+
+  if (variant === 'kpi') {
+    const tone = label === 'Erros' ? 'gold' : label === 'Sucesso' ? 'green' : label === 'Processados' ? 'blue' : 'navy'
+
+    return (
+      <Card className={`app-kpi-card app-kpi-card--${tone}`}>
+        <div className="app-kpi-card__label">{label}</div>
+        <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{displayValue}</div>
+      </Card>
+    )
+  }
+
   return (
-    <div className="app-metric-tile">
+    <div className={`app-metric-tile${variant === 'metric-centered' ? ' text-center' : ''}`}>
       <div className="app-metric-tile__label">{label}</div>
       <div className="app-metric-tile__value">{displayValue}</div>
     </div>
