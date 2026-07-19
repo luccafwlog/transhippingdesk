@@ -7,7 +7,7 @@ type Row<T> = {
   Relationships: []
 }
 
-export type UserProfileRole = 'admin' | 'operator' | 'administrativo' | 'financeiro' | 'operacoes' | 'documentacao'
+export type UserProfileRole = 'admin' | 'operator' | 'administrativo' | 'financeiro' | 'operacoes' | 'documentacao' | 'equipamentos'
 
 export type UserProfile = {
   id: string

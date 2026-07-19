@@ -17,6 +17,8 @@ export type Permission =
   | 'manifests_upload'
   | 'customers_edit'
   | 'portal_provisioning'
+  | 'vazios_edit'
+  | 'veiculos_edit'
 
 export function roleHasPermission(role: UserProfileRole | undefined, permission: Permission): boolean {
   if (!role) return false
@@ -35,7 +37,10 @@ export function roleHasPermission(role: UserProfileRole | undefined, permission:
       return [
         'charge_tables', 'charge_overrides', 'demurrage_edit', 'faturamento_edit',
         'voyages_edit', 'manifests_upload', 'customers_edit', 'portal_provisioning',
+        'vazios_edit', 'veiculos_edit',
       ].includes(permission)
+    case 'equipamentos':
+      return permission === 'vazios_edit' || permission === 'veiculos_edit'
     default:
       return false
   }
