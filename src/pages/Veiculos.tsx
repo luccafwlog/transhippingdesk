@@ -9,6 +9,7 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
+import { PreviewBox } from '../components/ui/PreviewBox'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -434,9 +435,9 @@ export function Veiculos() {
           {parsedImport ? (
             <div className="grid gap-4">
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="Linhas validas" value={parsedImport.rows.length} />
-                <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} />
-                <PreviewBox label="Viagem selecionada" value={formatImportVoyageLabel(allVoyageOptions, importVoyageId)} />
+                <PreviewBox label="Linhas validas" value={parsedImport.rows.length} variant="kpi" tone="navy" />
+                <PreviewBox label="Erros de estrutura" value={parsedImport.rowErrors.length} variant="kpi" tone="navy" />
+                <PreviewBox label="Viagem selecionada" value={formatImportVoyageLabel(allVoyageOptions, importVoyageId)} variant="kpi" tone="navy" />
               </div>
 
               <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
@@ -484,9 +485,9 @@ export function Veiculos() {
           {importReport ? (
             <div className="app-panel app-panel--padded grid gap-4">
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="Processados" value={importReport.processed} />
-                <PreviewBox label="Sucesso" value={importReport.successCount} />
-                <PreviewBox label="Erros" value={importReport.errorCount} />
+                <PreviewBox label="Processados" value={importReport.processed} variant="kpi" tone="blue" />
+                <PreviewBox label="Sucesso" value={importReport.successCount} variant="kpi" tone="green" />
+                <PreviewBox label="Erros" value={importReport.errorCount} variant="kpi" tone="gold" />
               </div>
               {importReport.errors.length ? (
                 <div className="max-h-48 overflow-auto rounded-xl border border-[var(--app-border)] p-3 text-sm text-[var(--app-text)]">
@@ -517,18 +518,6 @@ export function Veiculos() {
   )
 }
 
-
-function PreviewBox({ label, value }: { label: string; value: number | string }) {
-  const tone =
-    label === 'Erros' ? 'gold' : label === 'Sucesso' ? 'green' : label === 'Processados' ? 'blue' : 'navy'
-
-  return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-    </Card>
-  )
-}
 
 function formatImportVoyageLabel(
   voyages: Array<{ id: number; voyage_number: string | null; vessel?: { name?: string | null } | null }>,

@@ -1,6 +1,6 @@
 # Taxas Locais
 
-> **Status:** ativo · **Atualizado:** 2026-07-08 · **Rotas:** `/taxas-locais`; ações operacionais também partem de `/revisao`, `/manifestos/:blId` e `/faturamento`
+> **Status:** ativo · **Atualizado:** 2026-07-19 · **Rotas:** `/taxas-locais`; ações operacionais também partem de `/revisao`, `/manifestos/:blId` e `/faturamento`
 
 ## Propósito e escopo
 
@@ -33,12 +33,16 @@ operações do mesmo domínio disparadas por outras telas.
 ### Aba Tabelas em `/taxas-locais`
 
 `src/components/taxasLocais/ChargeTablesTab.tsx` recebe da página os filtros
-compartilhados de modo de carga e POD. A superfície contém:
+compartilhados de modo de carga e POD, mantém queries, mutations, validação e
+estado local. A renderização é dividida em:
 
 - métricas de tabelas, tabelas ativas, itens e itens somente manuais;
 - filtros por `cargo_mode` e POD;
-- formulários recolhíveis de tabela e item;
-- lista de `charge_tables`, com expansão dos `charge_table_items`;
+- `src/components/taxasLocais/ChargeTableFormCard.tsx` e
+  `src/components/taxasLocais/ChargeTableItemFormCard.tsx`: formulários
+  recolhíveis de tabela e item;
+- `src/components/taxasLocais/ChargeTablesList.tsx`: lista de
+  `charge_tables`, com expansão dos `charge_table_items`;
 - edição, ativação/inativação, criação e exclusão de item;
 - estados de carregamento, erro e vazio produzidos por
   `useLocalChargeTables`.
@@ -80,11 +84,11 @@ Os formulários e defaults vivem em
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| `/taxas-locais` · filtrar/listar tabelas | Capacidade `charge_tables`; filtros opcionais | `TaxasLocais` → `ChargeTablesTab` | `useLocalChargeTables` → `listLocalChargeTables` | `SELECT charge_tables` com `charge_table_items` | Query `queryKeys.charges.tables(filters)`; itens são ordenados por `sort_order` e nome | Erro Supabase vira estado de erro da aba | **Código:** `src/pages/TaxasLocais.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` |
-| `/taxas-locais` · criar/editar tabela | Nome, POD e `valid_from`; vigência final não anterior à inicial | `handleSaveTable` | `validateTableInput` → `useSaveChargeTable` → `saveChargeTable` | `INSERT` ou `UPDATE charge_tables` | Invalida `queryKeys.charges.tables()` | Toast “Falha ao salvar tabela”; erro de constraint/RLS é propagado | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/pages/taxasLocaisHelpers.ts`, `src/hooks/useLocalCharges.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
-| `/taxas-locais` · ativar/inativar tabela | Tabela existente | `handleToggleTableActive` | `useSetChargeTableActive` → `setChargeTableActive` | `UPDATE charge_tables.active` | Invalida `queryKeys.charges.tables()` | Toast de falha; não recalcula B/Ls já existentes | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` |
-| `/taxas-locais` · adicionar/editar item | Tabela, nome, valor não negativo e `sort_order` inteiro não negativo | `handleSaveTableItem` | `validateTableItemInput` → `useSaveChargeTableItem` → `saveChargeTableItem` | `INSERT` ou `UPDATE charge_table_items` | Invalida `charges.tables()`, `bls.manualChargeItems('')` e `charges.overrideItems()` | Toast de falha; constraints de moeda/base/perfil podem rejeitar | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
-| `/taxas-locais` · excluir item | Confirmação; item sem bloqueio referencial | `handleDeleteTableItem` | `useDeleteChargeTableItem` → `deleteChargeTableItem` | `DELETE charge_table_items` | Mesmas invalidações do save de item | Mensagem informa possível vínculo com cálculos | **Código:** `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/hooks/useLocalCharges.ts` |
+| `/taxas-locais` · filtrar/listar tabelas | Capacidade `charge_tables`; filtros opcionais | `TaxasLocais` → `ChargeTablesTab` → `ChargeTablesList` | `useLocalChargeTables` → `listLocalChargeTables` | `SELECT charge_tables` com `charge_table_items` | Query `queryKeys.charges.tables(filters)`; itens são ordenados por `sort_order` e nome | Erro Supabase vira estado de erro da lista | **Código:** `src/pages/TaxasLocais.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/components/taxasLocais/ChargeTablesList.tsx`, `src/services/charges/chargeTableService.ts` |
+| `/taxas-locais` · criar/editar tabela | Nome, POD e `valid_from`; vigência final não anterior à inicial | `ChargeTableFormCard` → `handleSaveTable` | `validateTableInput` → `useSaveChargeTable` → `saveChargeTable` | `INSERT` ou `UPDATE charge_tables` | Invalida `queryKeys.charges.tables()` | Toast “Falha ao salvar tabela”; erro de constraint/RLS é propagado | **Código:** `src/components/taxasLocais/ChargeTableFormCard.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/pages/taxasLocaisHelpers.ts`, `src/hooks/useLocalCharges.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
+| `/taxas-locais` · ativar/inativar tabela | Tabela existente | `ChargeTablesList` → `handleToggleTableActive` | `useSetChargeTableActive` → `setChargeTableActive` | `UPDATE charge_tables.active` | Invalida `queryKeys.charges.tables()` | Toast de falha; não recalcula B/Ls já existentes | **Código:** `src/components/taxasLocais/ChargeTablesList.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` |
+| `/taxas-locais` · adicionar/editar item | Tabela, nome, valor não negativo e `sort_order` inteiro não negativo | `ChargeTableItemFormCard` → `handleSaveTableItem` | `validateTableItemInput` → `useSaveChargeTableItem` → `saveChargeTableItem` | `INSERT` ou `UPDATE charge_table_items` | Invalida `charges.tables()`, `bls.manualChargeItems('')` e `charges.overrideItems()` | Toast de falha; constraints de moeda/base/perfil podem rejeitar | **Código:** `src/components/taxasLocais/ChargeTableItemFormCard.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
+| `/taxas-locais` · excluir item | Confirmação; item sem bloqueio referencial | `ChargeTablesList` → `handleDeleteTableItem` | `useDeleteChargeTableItem` → `deleteChargeTableItem` | `DELETE charge_table_items` | Mesmas invalidações do save de item | Mensagem informa possível vínculo com cálculos | **Código:** `src/components/taxasLocais/ChargeTablesList.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/hooks/useLocalCharges.ts` |
 | `/taxas-locais` · filtrar/listar overrides | Capacidade `charge_overrides`; limite entre 20 e 500 | `ChargeOverridesTab` | `useCustomerRateOverrides` → `listCustomerRateOverrides` | `SELECT customer_rate_overrides` com `customers`, itens e tabelas | Query `queryKeys.charges.overrides(filters)`; filtros de cliente/modo/POD são aplicados no cliente após a leitura limitada | Erro Supabase vira erro da lista | **Código:** `src/components/taxasLocais/ChargeOverridesTab.tsx`, `src/services/charges/chargeRateService.ts` |
 | `/taxas-locais` · buscar cliente/item de override | Busca de cliente vazia ou com pelo menos dois caracteres para filtro remoto; itens ativos e não manuais | Selects do formulário | `useOverrideCustomers` / `useOverrideChargeItems` | `SELECT customers`; `SELECT charge_table_items` + `charge_tables` | Queries `charges.overrideCustomers(search)` e `charges.overrideItems()` | Erro da query impede opções; a tela não cria opção livre | **Código:** `src/components/taxasLocais/ChargeOverridesTab.tsx`, `src/services/charges/chargeRateService.ts` |
 | `/taxas-locais` · criar/editar override | Cliente e item válidos; valor maior que zero; vigência coerente | `handleSaveOverride` | `validateOverrideInput` → `useSaveCustomerRateOverride` → `saveCustomerRateOverride` | `INSERT` ou `UPDATE customer_rate_overrides` | Invalida `charges.overrides()` e `bls.localChargeLines('')` | Toast de falha; erro de validação é exibido antes da chamada | **Código:** `src/components/taxasLocais/ChargeOverridesTab.tsx`, `src/pages/taxasLocaisHelpers.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |

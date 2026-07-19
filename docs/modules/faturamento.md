@@ -45,9 +45,11 @@ sucesso.
 
 ### Validação e pendências
 
-- `src/components/billing/ValidacaoTab.tsx` lista a fila operacional de taxas
-  locais e Granito, filtros, seleção, pipeline de reconciliação/revisão/pronto,
-  ações em lote, emissão individual e exportação da fila.
+- `src/components/billing/ValidacaoTab.tsx` orquestra consultas, mutações,
+  invalidações e estado da fila operacional de taxas locais e Granito.
+  `src/components/billing/ValidacaoControls.tsx` contém filtros, pipeline e
+  ações em lote; `src/components/billing/ValidacaoOperationsTable.tsx` renderiza
+  seleção, detalhes, conciliação e emissão individual.
 - `src/components/billing/PendenciasFaturamentoTab.tsx` mostra B/Ls
   `review_required` e recalcula toda a lista carregada.
 - `src/components/billing/PendenciasTable.tsx` renderiza inicialmente 100 linhas
@@ -227,6 +229,7 @@ Os testes não foram executados nesta cartografia, por instrução do coordenado
 - `src/components/billing/__tests__/ConsolidatedInvoiceSelection.test.ts`
 - `src/components/billing/__tests__/ManualChargeFormFields.test.tsx`
 - `src/components/billing/__tests__/PendenciasTable.test.tsx`
+- `src/components/billing/__tests__/ValidacaoOperationsTable.test.tsx`
 
 Esses arquivos sustentam filtros, emissão, RPCs de pagamento/cancelamento,
 seleção de consolidadas, helpers de status, paginação de exportação e estados
