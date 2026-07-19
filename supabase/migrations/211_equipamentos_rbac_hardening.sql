@@ -143,6 +143,63 @@ BEGIN
   END LOOP;
 END $$;
 
+-- A migration 205 deixa a ultima versao da importacao de B/L protegida apenas
+-- por is_active_user(). Renomeia a implementacao e expoe a assinatura publica
+-- com o mesmo contrato, agora com a barreira final de Equipamentos.
+ALTER FUNCTION public.import_bl_freight_transactional(JSONB, UUID)
+  RENAME TO import_bl_freight_transactional_internal;
+
+CREATE FUNCTION public.import_bl_freight_transactional(p_bls JSONB, p_changed_by UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT public.is_active_non_equipamentos_user()
+     OR p_changed_by IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Credenciais invalidas para importar frete do BL.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN public.import_bl_freight_transactional_internal(p_bls, p_changed_by);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.import_bl_freight_transactional_internal(JSONB, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.import_bl_freight_transactional(JSONB, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.import_bl_freight_transactional(JSONB, UUID) TO authenticated;
+
+-- Tarifas de reorganizacao sao configuracao administrativa. Remove todas as
+-- policies anteriores para que uma policy permissiva residual nao reabra
+-- INSERT, UPDATE ou DELETE por combinacao OR.
+DO $$
+DECLARE
+  p RECORD;
+BEGIN
+  FOR p IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'vazios_reorg_rates'
+  LOOP
+    EXECUTE format('DROP POLICY %I ON public.vazios_reorg_rates', p.policyname);
+  END LOOP;
+
+  CREATE POLICY vazios_reorg_rates_select_active
+    ON public.vazios_reorg_rates FOR SELECT TO authenticated
+    USING (public.is_active_read_user());
+  CREATE POLICY vazios_reorg_rates_insert_admin
+    ON public.vazios_reorg_rates FOR INSERT TO authenticated
+    WITH CHECK (public.is_admin());
+  CREATE POLICY vazios_reorg_rates_update_admin
+    ON public.vazios_reorg_rates FOR UPDATE TO authenticated
+    USING (public.is_admin()) WITH CHECK (public.is_admin());
+  CREATE POLICY vazios_reorg_rates_delete_admin
+    ON public.vazios_reorg_rates FOR DELETE TO authenticated
+    USING (public.is_admin());
+END $$;
+
 CREATE OR REPLACE FUNCTION public.import_vehicle_rows_transactional(p_rows JSONB)
 RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_count INTEGER := COALESCE(jsonb_array_length(p_rows), 0);

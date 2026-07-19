@@ -54,6 +54,21 @@ describe('migration 211 — RBAC de Equipamentos', () => {
     expect((sql.match(/GRANT EXECUTE ON FUNCTION/g) ?? []).length).toBeGreaterThanOrEqual(6)
   })
 
+  it('nega a importacao transacional de B/L para Equipamentos no override final', () => {
+    const start = sql.indexOf('FUNCTION public.import_bl_freight_transactional')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(sql.indexOf('NOT public.is_active_non_equipamentos_user()', start)).toBeGreaterThan(start)
+  })
+
+  it('mantem tarifas de reorganizacao como configuracao exclusiva de admin', () => {
+    expect(sql).toContain("WHERE schemaname = 'public' AND tablename = 'vazios_reorg_rates'")
+    expect(sql).toContain('CREATE POLICY vazios_reorg_rates_insert_admin')
+    expect(sql).toContain('CREATE POLICY vazios_reorg_rates_update_admin')
+    expect(sql).toContain('CREATE POLICY vazios_reorg_rates_delete_admin')
+    expect(sql).toContain('WITH CHECK (public.is_admin())')
+    expect(sql).toContain('FOR DELETE TO authenticated USING (public.is_admin())')
+  })
+
   it('preserva os demais perfis ativos fora das excecoes', () => {
     expect(sql).toContain("role <> 'equipamentos'")
     expect(sql).toContain('active = true')
