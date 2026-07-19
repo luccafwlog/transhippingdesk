@@ -67,9 +67,15 @@ O ADR fechado é imprimível pelo padrão existente de documentos React +
 
 - A UI vive como aba no detalhe da Viagem (`/viagens/:voyageId`), com seletor
   de escala e deep-link; não há rota top-level nova nesta fase.
-- `vazios_bookings` ganha porto de embarque, depot e flags de overtime por
-  container/booking, alimentados por colunas novas na planilha modelo e edição
-  inline na tela — o modelo existente é estendido, não recriado.
+- `vazios_bookings` ganha porto de embarque, depot, material, bundle,
+  transporte, hand-in/hand-out e flags de overtime por container/booking,
+  alimentados por colunas novas na planilha modelo e edição inline na tela —
+  o modelo existente é estendido, não recriado. A operação de vazios da
+  escala (OS, % de overtime por depot) e os serviços extra de reorganização
+  (qty × tarifa configurável) ganham tabelas próprias no módulo de vazios.
+  O detalhamento vive na spec
+  `docs/spec/2026-07-19-agency-departure-report-design.md`, validada contra o
+  modelo real de ADR da empresa.
 - Novo papel `Equipamentos` em `user_profiles`, com RLS/RPCs próprios; o mapa
   de escopos em CONTEXT.md ganha o Escopo de Equipamentos.
 - O snapshot duplica dados por design no fechamento — é o custo aceito para a

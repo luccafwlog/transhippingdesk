@@ -126,6 +126,10 @@ origem, não uma redigitação: carga, veículos, vazios, depot e overtime nasce
 nos seus módulos; apenas ocorrências e sign-offs nascem no próprio ADR. Existe
 desde que a escala existe; suas pendências só alertam após o ATD da escala.
 
+A identidade do ADR é (viagem, porto): uma escala que opera em dois terminais
+mantém um único ADR, com o terminal como atributo do cabeçalho. O armador
+exibido no cabeçalho deriva do navio da viagem.
+
 - **Related:** Seção do ADR, Sign-off de Seção do ADR, Fechamento do ADR
 
 - **Distinto de:** Architecture Decision Record (`docs/adr/`), que é documento
@@ -154,12 +158,47 @@ pelos veículos. Vazios descarregados (importação) pertencem à Documentação
 **Overtime (de escala)**
 Movimentação realizada fora do horário normal, registrada por
 container/movimento nos vazios embarcados, em dois tipos: overtime de handling
-e overtime de transporte. Alimenta o ADR; a conferência da fatura correspondente
-é do Financeiro.
+e overtime de transporte. É cobrado como acréscimo percentual sobre a tarifa
+do depot; o percentual é registrado por depot na operação de vazios da escala.
+Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 
 **Depot de Vazios**
 Local onde o container vazio ficou armazenado antes do embarque, registrado por
-container. Fonte para o Financeiro conferir faturas de armazenagem.
+container. Container sem depot é Embarque Direto. Fonte para o Financeiro
+conferir faturas de armazenagem.
+
+**Embarque Direto**
+Container vazio embarcado direto do terminal, sem passar por depot.
+
+**Hand-in / Hand-out**
+Movimentos de gate do container vazio no depot: hand-in é a entrada, hand-out é
+a saída, cada um com data por container. Os dias de storage (armazenagem)
+derivam da diferença entre as duas datas; o ADR exibe o total de containers e
+de dias.
+
+**Material do Armador**
+Marcação de container vazio embarcado com material do armador em seu interior.
+
+**Serviço Extra de Reorganização**
+Serviço executado sobre os vazios (bundle, desova, visual check), registrado
+por quantidade e tipo de container e valorado por quantidade × tarifa
+configurável. Pertence ao módulo de vazios de exportação, sob Equipamentos.
+
+**OS da Operação de Vazios**
+Número da ordem de serviço da operação de vazios de uma escala: um por
+(viagem, porto), registrado no módulo de vazios de exportação.
+
+**Natureza do Vazio Descarregado**
+Classificação do container vazio descarregado: **cama** (base de estiva para
+cargas OOG) ou **cover plate** (tampas para porões do navio).
+
+**Restow**
+Container descarregado e reembarcado por reestiva na mesma escala. A contagem
+é registrada na edição da escala (planejamento por POD, campo RTW).
+
+**Local de Desova**
+Local onde um container com veículo foi desovado. Atributo do container,
+agregado por marca no ADR.
 
 **Ocorrência da Escala**
 Lançamento livre no diário da escala dentro do ADR: texto com autor,
@@ -214,8 +253,10 @@ Carga rolante, especialmente veículos importados e vinculados a B/L e, quando
 aplicável, ao container físico.
 
 **Granito**
-Fluxo especializado de importação e cobrança baseado em planilhas COSCO. É
-integrado à revisão e ao faturamento, mas mantém regras e registros próprios.
+Carga de exportação: blocos de granito embarcados nas escalas brasileiras.
+"Importação" no fluxo de Granito refere-se à ingestão das planilhas COSCO
+(entrada de dados), não ao sentido da carga. É integrado à revisão e ao
+faturamento, mas mantém regras e registros próprios.
 
 ## Baplie e reconciliação
 
