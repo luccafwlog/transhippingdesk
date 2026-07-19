@@ -416,6 +416,32 @@ type TimelineAuditEvent = {
   justification?: string | null
 }
 
+type TimelineImportBatch = {
+  id: number
+  filename: string
+  cargo_mode: 'container' | 'carga_solta' | null
+  uploaded_at: string | null
+  route?: string | null
+  routes?: Array<{ pol: string; pod: string; blCount: number }>
+  ce_master?: string | null
+}
+type TimelineBaplieImport = {
+  imported_at?: string | null
+  created_at?: string | null
+  container_count?: number | null
+}
+type VoyageTimelineInput = {
+  importBatches?: TimelineImportBatch[] | null
+  scheduleEvents?: TimelineAuditEvent[] | null
+  auditEvents?: TimelineAuditEvent[] | null
+  resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
+  baplieImports?: TimelineBaplieImport[] | null
+  openDivergenceCount?: number | null
+  voyageStatus?: string | null
+  ceCoverage?: { filled: number; total: number } | null
+  actorNames?: Record<string, string> | null
+}
+
 const TIMELINE_SCHEDULE_DATE_LABELS: Record<string, string> = { etd: 'ETD', eta: 'ETA', etb: 'ETB', ata: 'ATA', atd: 'ATD' }
 const TIMELINE_CE_STATUS_LABELS: Record<string, string> = {
   waiting: 'Aguardando',
@@ -473,10 +499,32 @@ export function buildVoyageTimeline({
   ceCoverage?: { filled: number; total: number } | null
   actorNames?: Record<string, string> | null
 }): VoyageTimelineEvent[] {
-  const events: VoyageTimelineEvent[] = []
-  let latestImportAt: string | null = null
+  const imports = buildImportTimeline(importBatches)
+  const events = [...imports.events]
   const appendActor = (detail: string, changedBy: string | null | undefined) =>
     appendTimelineActor(detail, changedBy, actorNames)
+  events.push(...buildCeCoverageTimeline(ceCoverage, imports.latestImportAt))
+
+  events.push(...buildBaplieTimeline(baplieImports, openDivergenceCount))
+
+  events.push(...buildScheduleTimeline(scheduleEvents, appendActor))
+
+  events.push(...buildVoyageCompletionTimeline(voyageStatus, events))
+
+  events.push(...buildAuditTimeline(auditEvents, appendActor))
+
+  events.push(...buildResolutionTimeline(resolutions))
+
+  return events.sort((left, right) => {
+    if (left.at < right.at) return 1
+    if (left.at > right.at) return -1
+    return TIMELINE_KIND_ORDER[left.kind] - TIMELINE_KIND_ORDER[right.kind]
+  })
+}
+
+function buildImportTimeline(importBatches: TimelineImportBatch[] | null | undefined) {
+  const events: VoyageTimelineEvent[] = []
+  let latestImportAt: string | null = null
 
   for (const batch of importBatches ?? []) {
     if (!batch.uploaded_at) continue
@@ -521,16 +569,27 @@ export function buildVoyageTimeline({
     }
   }
 
-  if (ceCoverage && ceCoverage.total > 0 && ceCoverage.filled >= ceCoverage.total && latestImportAt) {
-    events.push({
-      id: 'ce-coverage-complete',
-      kind: 'ce-coverage',
-      at: latestImportAt,
-      title: 'Cobertura de CE Mercante completa',
-      detail: `${ceCoverage.filled}/${ceCoverage.total} B/Ls com CE`,
-    })
-  }
+  return { events, latestImportAt }
+}
 
+function buildCeCoverageTimeline(
+  ceCoverage: VoyageTimelineInput['ceCoverage'],
+  latestImportAt: string | null,
+): VoyageTimelineEvent[] {
+  if (!ceCoverage || ceCoverage.total <= 0 || ceCoverage.filled < ceCoverage.total || !latestImportAt) return []
+  return [{
+    id: 'ce-coverage-complete',
+    kind: 'ce-coverage',
+    at: latestImportAt,
+    title: 'Cobertura de CE Mercante completa',
+    detail: `${ceCoverage.filled}/${ceCoverage.total} B/Ls com CE`,
+  }]
+}
+
+function buildBaplieTimeline(
+  baplieImports: TimelineBaplieImport[] | null | undefined,
+  openDivergenceCount: number | null | undefined,
+): VoyageTimelineEvent[] {
   const firstBaplieImport = (baplieImports ?? [])
     .map((row) => ({
       at: row.imported_at ?? row.created_at ?? null,
@@ -539,34 +598,41 @@ export function buildVoyageTimeline({
     .filter((row): row is { at: string; count: number } => Boolean(row.at))
     .sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0))[0]
 
-  if (firstBaplieImport) {
-    events.push({
-      id: 'baplie-import',
-      kind: 'baplie-import',
-      at: firstBaplieImport.at,
-      title: 'Baplie EDI importado',
-      detail: firstBaplieImport.count > 0 ? `${formatMetric(firstBaplieImport.count)} containers` : 'Staging Baplie',
-    })
-    if (Number(openDivergenceCount ?? 0) > 0) {
-      events.push({
-        id: 'divergence-opened',
-        kind: 'divergence-opened',
-        at: firstBaplieImport.at,
-        title: 'Divergência detectada',
-        detail: `${formatMetric(openDivergenceCount)} divergência${openDivergenceCount === 1 ? '' : 's'} aberta${openDivergenceCount === 1 ? '' : 's'}`,
-      })
-    }
-  }
+  if (!firstBaplieImport) return []
 
-  ;(scheduleEvents ?? []).forEach((row, index) => {
+  const events: VoyageTimelineEvent[] = [{
+    id: 'baplie-import',
+    kind: 'baplie-import',
+    at: firstBaplieImport.at,
+    title: 'Baplie EDI importado',
+    detail: firstBaplieImport.count > 0 ? `${formatMetric(firstBaplieImport.count)} containers` : 'Staging Baplie',
+  }]
+  if (Number(openDivergenceCount ?? 0) > 0) {
+    events.push({
+      id: 'divergence-opened',
+      kind: 'divergence-opened',
+      at: firstBaplieImport.at,
+      title: 'Divergência detectada',
+      detail: `${formatMetric(openDivergenceCount)} divergência${openDivergenceCount === 1 ? '' : 's'} aberta${openDivergenceCount === 1 ? '' : 's'}`,
+    })
+  }
+  return events
+}
+
+function buildScheduleTimeline(
+  scheduleEvents: TimelineAuditEvent[] | null | undefined,
+  appendActor: (detail: string, changedBy: string | null | undefined) => string,
+): VoyageTimelineEvent[] {
+  const events: VoyageTimelineEvent[] = []
+  for (const [index, row] of (scheduleEvents ?? []).entries()) {
     const at = row.changed_at
-    if (!at) return
+    if (!at) continue
     const port = row.entity_id.split('::')[1] || '-'
     const value = (row.new_value ?? '').trim()
     const oldValue = (row.old_value ?? '').trim()
 
     if (TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]) {
-      if (!value) return
+      if (!value) continue
       const changed = Boolean(oldValue && oldValue !== value)
       events.push({
         id: `sched-${index}`,
@@ -624,28 +690,38 @@ export function buildVoyageTimeline({
         detail: appendActor('Planejamento removido', row.changed_by),
       })
     }
-  })
-
-  if (voyageStatus === 'completed') {
-    const latestAtd = events
-      .filter((event) => event.kind === 'escala-date' && event.title.startsWith('ATD de '))
-      .map((event) => event.at)
-      .sort((left, right) => (left < right ? 1 : left > right ? -1 : 0))[0]
-    if (latestAtd) {
-      events.push({
-        id: 'voyage-completed',
-        kind: 'voyage-completed',
-        at: latestAtd,
-        title: 'Viagem concluída',
-        detail: 'Todos os PODs com ATD',
-      })
-    }
   }
+  return events
+}
 
-  ;(auditEvents ?? []).forEach((row, index) => {
+function buildVoyageCompletionTimeline(
+  voyageStatus: string | null | undefined,
+  events: VoyageTimelineEvent[],
+): VoyageTimelineEvent[] {
+  if (voyageStatus !== 'completed') return []
+  const latestAtd = events
+    .filter((event) => event.kind === 'escala-date' && event.title.startsWith('ATD de '))
+    .map((event) => event.at)
+    .sort((left, right) => (left < right ? 1 : left > right ? -1 : 0))[0]
+  if (!latestAtd) return []
+  return [{
+    id: 'voyage-completed',
+    kind: 'voyage-completed',
+    at: latestAtd,
+    title: 'Viagem concluída',
+    detail: 'Todos os PODs com ATD',
+  }]
+}
+
+function buildAuditTimeline(
+  auditEvents: TimelineAuditEvent[] | null | undefined,
+  appendActor: (detail: string, changedBy: string | null | undefined) => string,
+): VoyageTimelineEvent[] {
+  const events: VoyageTimelineEvent[] = []
+  for (const [index, row] of (auditEvents ?? []).entries()) {
     const at = row.changed_at
     const value = (row.new_value ?? '').trim()
-    if (!at || !value) return
+    if (!at || !value) continue
     const oldValue = (row.old_value ?? '').trim()
 
     if (row.field_name === 'ce_master') {
@@ -656,22 +732,21 @@ export function buildVoyageTimeline({
         title: oldValue ? 'CE Master alterado' : 'CE Master definido',
         detail: appendActor(oldValue ? `${oldValue} -> ${value}` : value, row.changed_by),
       })
-      return
+      continue
     }
 
     if (row.field_name === 'escala_omitida') {
       const omittedPod = oldValue || '—'
-      const dischargePod = value
       const reason = String(row.justification ?? '').trim()
       const suffix = reason && reason !== 'Omissao de escala' ? ` · motivo: ${reason}` : ''
       events.push({
         id: `audit-omission-${index}`,
         kind: 'omission',
         at,
-        title: `Escala de ${omittedPod} omitida · Porto de Transbordo — ${dischargePod}${suffix}`,
+        title: `Escala de ${omittedPod} omitida · Porto de Transbordo — ${value}${suffix}`,
         detail: appendActor('Omissão registrada', row.changed_by),
       })
-      return
+      continue
     }
 
     if (row.field_name === 'transshipment_info') {
@@ -682,7 +757,7 @@ export function buildVoyageTimeline({
         title: 'Informações de Transbordo complementadas',
         detail: appendActor('Registro global atualizado', row.changed_by),
       })
-      return
+      continue
     }
 
     if (row.entity_type === 'voyages' || row.entity_type === 'voyage') {
@@ -695,23 +770,20 @@ export function buildVoyageTimeline({
         detail: appendActor(oldValue ? `${label}: ${oldValue} -> ${value}` : `${label}: ${value}`, row.changed_by),
       })
     }
-  })
+  }
+  return events
+}
 
-  ;(resolutions ?? []).forEach((res, index) => {
-    if (!res.resolved_at) return
-    events.push({
+function buildResolutionTimeline(resolutions: VoyageTimelineInput['resolutions']): VoyageTimelineEvent[] {
+  return (resolutions ?? []).flatMap((resolution, index) => {
+    if (!resolution.resolved_at) return []
+    return [{
       id: `res-${index}`,
-      kind: 'divergence-resolved',
-      at: res.resolved_at,
+      kind: 'divergence-resolved' as const,
+      at: resolution.resolved_at,
       title: 'Divergência conciliada',
-      detail: res.field_name ? `Campo ${res.field_name}` : 'Baplie -> Manifesto',
-    })
-  })
-
-  return events.sort((left, right) => {
-    if (left.at < right.at) return 1
-    if (left.at > right.at) return -1
-    return TIMELINE_KIND_ORDER[left.kind] - TIMELINE_KIND_ORDER[right.kind]
+      detail: resolution.field_name ? `Campo ${resolution.field_name}` : 'Baplie -> Manifesto',
+    }]
   })
 }
 
