@@ -26,14 +26,23 @@ export function buildConsolidatedBalance(
   localInvoices: Array<{ status: string | null; balance_brl: number | null }>,
   demurrageInvoices: Array<{ status: string | null; current_total_brl: number | null }>,
 ): ConsolidatedBalance {
-  const localBrl = localInvoices.filter((row) => row.status === 'issued' || row.status === 'overdue').reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
+  // Local pending_balance historically counts only issued invoices; overdue is surfaced separately as a pendency.
+  const localBrl = localInvoices.filter((row) => row.status === 'issued').reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
   const demurrageBrl = demurrageInvoices.filter((row) => UNPAID_DEMURRAGE_STATUSES.has(row.status ?? '')).reduce((sum, row) => sum + Number(row.current_total_brl ?? 0), 0)
   return { localBrl, demurrageBrl, totalBrl: localBrl + demurrageBrl }
 }
 
-export type CustomerTimelineEvent = { kind: string; at: string; label: string; detail?: string | null; link?: string }
+export type CustomerTimelineEvent = {
+  kind: 'cadastro_audit' | 'portal_event' | 'contact_created' | 'local_invoice_issued' | 'demurrage_invoice_issued' | 'demurrage_invoice_paid' | 'bl_created'
+  sourceId: string
+  at: string
+  label: string
+  detail: string | null
+  link: string | null
+}
 type TimelineSources = {
-  auditLogs: Array<{ id: number; field_name: string; old_value: string | null; new_value: string | null; changed_at: string; justification: string | null; changed_by: string | null }>
+  customerId?: number
+  auditLogs: Array<{ id: number; field_name: string; old_value: string | null; new_value: string | null; changed_at: string | null; justification: string | null; changed_by: string | null }>
   portalEvents: Array<{ id: number; new_decision: string | null; new_situation: string | null; reason: string | null; created_at: string }>
   contacts: Array<Pick<CustomerContact, 'id' | 'name' | 'created_at'>>
   localInvoices: Array<{ id: number; invoice_number: string | null; issued_at: string | null; status: string | null }>
@@ -43,12 +52,15 @@ type TimelineSources = {
 
 export function buildCustomerTimeline(sources: TimelineSources): CustomerTimelineEvent[] {
   const events: CustomerTimelineEvent[] = [
-    ...sources.auditLogs.map((row) => ({ kind: 'cadastro_audit', at: row.changed_at, label: `Cadastro alterado: ${row.field_name}`, detail: row.justification })),
-    ...sources.portalEvents.map((row) => ({ kind: 'portal_event', at: row.created_at, label: `Portal: ${row.new_situation ?? row.new_decision ?? 'evento'}`, detail: row.reason })),
-    ...sources.contacts.filter((row) => row.created_at).map((row) => ({ kind: 'contact_created', at: row.created_at!, label: `Contato criado: ${row.name ?? 'sem nome'}` })),
-    ...sources.localInvoices.filter((row) => row.issued_at).map((row) => ({ kind: 'local_invoice_issued', at: row.issued_at!, label: `Invoice local emitida: ${row.invoice_number ?? `INV-${row.id}`}`, link: `/faturamento?customer=${row.id}&invoice=${row.id}` })),
-    ...sources.demurrageInvoices.filter((row) => row.billed_at).map((row) => ({ kind: 'demurrage_invoice_issued', at: row.billed_at!, label: `Invoice de demurrage emitida: ${row.doc_number}`, link: '/demurrage' })),
-    ...sources.bls.filter((row) => row.created_at).map((row) => ({ kind: 'bl_created', at: row.created_at!, label: `B/L criado: ${row.id}`, link: `/manifestos/${row.id}` })),
+    ...sources.auditLogs.filter((row) => row.changed_at).map((row) => ({ kind: 'cadastro_audit' as const, sourceId: String(row.id), at: row.changed_at!, label: `Cadastro alterado: ${row.field_name}`, detail: `${row.old_value ?? '—'} → ${row.new_value ?? '—'}${row.justification ? ` · ${row.justification}` : ''}`, link: null })),
+    ...sources.portalEvents.map((row) => ({ kind: 'portal_event' as const, sourceId: String(row.id), at: row.created_at, label: `Portal: ${row.new_decision ?? row.new_situation ?? 'evento'}`, detail: row.reason, link: null })),
+    ...sources.contacts.filter((row) => row.created_at).map((row) => ({ kind: 'contact_created' as const, sourceId: String(row.id), at: row.created_at!, label: `Contato criado: ${row.name ?? '—'}`, detail: null, link: null })),
+    ...sources.localInvoices.filter((row) => row.issued_at).map((row) => ({ kind: 'local_invoice_issued' as const, sourceId: String(row.id), at: row.issued_at!, label: `Invoice emitida: ${row.invoice_number ?? `INV-${row.id}`}`, detail: null, link: `/faturamento?${sources.customerId ? `customer=${sources.customerId}&` : ''}invoice=${row.id}` })),
+    ...sources.demurrageInvoices.flatMap((row) => [
+      ...(row.billed_at ? [{ kind: 'demurrage_invoice_issued' as const, sourceId: `${row.id}:issued`, at: row.billed_at, label: `Demurrage emitida: ${row.doc_number}`, detail: null, link: '/demurrage' }] : []),
+      ...(row.paid_at ? [{ kind: 'demurrage_invoice_paid' as const, sourceId: `${row.id}:paid`, at: row.paid_at, label: `Demurrage paga: ${row.doc_number}`, detail: null, link: '/demurrage' }] : []),
+    ]),
+    ...sources.bls.filter((row) => row.created_at).map((row) => ({ kind: 'bl_created' as const, sourceId: row.id, at: row.created_at!, label: `B/L vinculado: ${row.id}`, detail: null, link: `/manifestos/${row.id}` })),
   ]
   return events.sort((a, b) => b.at.localeCompare(a.at))
 }
@@ -57,6 +69,8 @@ function isPermissionError(error: { code?: string | null; message?: string | nul
   return error.code === '42501' || String(error.message ?? '').toLowerCase().includes('permission denied')
 }
 
+export type Restrictable<T> = { rows: T[]; denied: boolean }
+
 export async function fetchCustomerDemurrageInvoices(customerId: number) {
   const { data, error } = await supabase.from('demurrage_invoices').select('id, doc_number, bl_id, due_date, billed_at, paid_at, total_usd, current_total_brl, status, dispute_open, dispute_status, dispute_subject').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(0, 199).overrideTypes<FichaDemurrageInvoiceRow[], { merge: false }>()
   if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
@@ -64,7 +78,7 @@ export async function fetchCustomerDemurrageInvoices(customerId: number) {
 }
 
 export async function fetchCustomerReceivables(customerId: number) {
-  const { data, error } = await supabase.from('bl_receivables').select('id, bl_id, original_amount_brl, settled_amount_brl, balance_brl, status').eq('customer_id', customerId).order('created_at', { ascending: false }).range(0, 199).overrideTypes<FichaReceivableRow[], { merge: false }>()
+  const { data, error } = await supabase.from('bl_receivables').select('id, bl_id, original_amount_brl, settled_amount_brl, balance_brl, status').eq('customer_id', customerId).order('updated_at', { ascending: false }).range(0, 199).overrideTypes<FichaReceivableRow[], { merge: false }>()
   if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
   return { rows: data ?? [], denied: false }
 }
@@ -82,7 +96,7 @@ export async function fetchCustomerRateOverrides(customerId: number) {
 }
 
 export async function fetchCustomerManualChargeBls(customerId: number) {
-  const { data, error } = await supabase.from('charge_calculations').select('bl_id, bls!inner(customer_id)').eq('bls.customer_id', customerId).eq('source', 'manual').range(0, 499)
+  const { data, error } = await supabase.from('charge_calculations').select('bl_id, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).eq('source', 'manual').range(0, 499)
   if (error) throw error
   const counts = new Map<string, number>()
   for (const row of data ?? []) if (row.bl_id) counts.set(row.bl_id, (counts.get(row.bl_id) ?? 0) + 1)
@@ -96,7 +110,7 @@ export async function fetchCustomerPendingReconciliation(customerId: number) {
 }
 
 export async function fetchCustomerRunningDemurrage(customerId: number) {
-  const { data, error } = await supabase.from('bl_containers').select('id, container_number, bl_id, discharge_date, bls!inner(customer_id)').eq('bls.customer_id', customerId).eq('demurrage_status', 'overdue').not('discharge_date', 'is', null).is('return_date', null).range(0, 199).overrideTypes<Array<{ id: number; container_number: string | null; bl_id: string; discharge_date: string }>, { merge: false }>()
+  const { data, error } = await supabase.from('bl_containers').select('id, container_number, bl_id, discharge_date, return_date, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).not('discharge_date', 'is', null).is('return_date', null).range(0, 199).overrideTypes<Array<{ id: number; container_number: string | null; bl_id: string; discharge_date: string }>, { merge: false }>()
   if (error) throw error
   return (data ?? []).map((row) => ({ container_id: row.id, container_number: row.container_number, bl_id: row.bl_id, discharge_date: row.discharge_date }))
 }
@@ -112,6 +126,7 @@ export async function fetchCustomerTimelineSources(customerId: number, contacts:
   const localRows = localInvoices.error && !isPermissionError(localInvoices.error) ? (() => { throw localInvoices.error })() : (localInvoices.data ?? [])
   const demurrageRows = demurrage.error && !isPermissionError(demurrage.error) ? (() => { throw demurrage.error })() : (demurrage.data ?? [])
   return buildCustomerTimeline({
+    customerId,
     auditLogs: (auditLogs.data ?? []).filter((row) => row.changed_at).map((row) => ({ ...row, changed_at: row.changed_at! })),
     portalEvents: portalEvents.data ?? [],
     contacts,

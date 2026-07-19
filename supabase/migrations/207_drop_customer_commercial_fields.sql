@@ -1,5 +1,6 @@
--- Remove campos comerciais mortos de customers. A RPC é recriada antes do
--- drop para nunca referenciar colunas inexistentes.
+-- Remove os campos comerciais mortos payment_terms_days, discount_pct e
+-- commercial_notes de customers. A RPC é recriada antes do drop para nunca
+-- referenciar colunas inexistentes; esses campos não têm UI de edição.
 
 CREATE OR REPLACE FUNCTION public.update_customer_with_audit(
   p_customer_id BIGINT,
