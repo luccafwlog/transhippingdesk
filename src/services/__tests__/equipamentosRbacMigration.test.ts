@@ -37,6 +37,22 @@ describe('migration 211 — RBAC de Equipamentos', () => {
     expect(allowlist).not.toContain('vazios_reorg_rates')
   })
 
+  it('substitui todas as policies permissivas legadas de VAZIOS EXP', () => {
+    for (const suffix of [
+      'select', 'insert', 'update', 'delete',
+      'select_active', 'insert_active', 'update_active', 'delete_active',
+    ]) {
+      expect(sql).toContain(`'${suffix}'`)
+    }
+
+    expect(sql).toContain("t || '_' || policy_suffix")
+    expect(sql).toContain("WHERE schemaname = 'public' AND tablename IN ('vazios_manifests', 'vazios_bookings')")
+    expect(sql).toContain("CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.is_active_read_user())")
+    expect(sql).toContain("CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())")
+    expect(sql).toContain("CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.is_active_user() OR public.is_equipamentos_user()) WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())")
+    expect(sql).toContain("CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.is_admin())")
+  })
+
   it('preserva policies DELETE existentes fora da allowlist com o gate restrito', () => {
     expect(sql).toMatch(
       /ELSIF p\.cmd = 'DELETE' THEN[\s\S]*?CREATE POLICY %I ON public\.%I%s FOR DELETE TO %s USING \(%s\)[\s\S]*?p\.policyname, p\.tablename, v_as_clause, v_roles, v_qual/,

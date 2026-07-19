@@ -131,19 +131,46 @@ BEGIN
   END LOOP;
 END $$;
 
--- A allowlist e deliberadamente pequena. Leitura segue o helper proprio;
--- delete continua admin em todos os recursos operacionais.
+-- A allowlist e deliberadamente pequena. As policies permissivas se combinam
+-- por OR, portanto Vazios EXP precisa remover tambem as policies abertas da
+-- migration 035 e qualquer variante autenticada que tenha sobrevivido.
 DO $$
 DECLARE
   t TEXT;
+  p RECORD;
+  policy_suffix TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['vehicles', 'vazios_manifests', 'vazios_bookings'] LOOP
+  FOREACH t IN ARRAY ARRAY['vehicles'] LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_active', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert_active', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update_active', t);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.is_active_read_user())', t || '_select_active', t);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_insert_active', t);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.is_active_user() OR public.is_equipamentos_user()) WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_update_active', t);
+  END LOOP;
+
+  FOREACH t IN ARRAY ARRAY['vazios_manifests', 'vazios_bookings'] LOOP
+    FOREACH policy_suffix IN ARRAY ARRAY[
+      'select', 'insert', 'update', 'delete',
+      'select_active', 'insert_active', 'update_active', 'delete_active'
+    ] LOOP
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_' || policy_suffix, t);
+    END LOOP;
+  END LOOP;
+
+  FOR p IN
+    SELECT policyname, tablename
+    FROM pg_policies
+    WHERE schemaname = 'public' AND tablename IN ('vazios_manifests', 'vazios_bookings')
+  LOOP
+    EXECUTE format('DROP POLICY %I ON public.%I', p.policyname, p.tablename);
+  END LOOP;
+
+  FOREACH t IN ARRAY ARRAY['vazios_manifests', 'vazios_bookings'] LOOP
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.is_active_read_user())', t || '_select_active', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_insert_active', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.is_active_user() OR public.is_equipamentos_user()) WITH CHECK (public.is_active_user() OR public.is_equipamentos_user())', t || '_update_active', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.is_admin())', t || '_delete_admin', t);
   END LOOP;
 
   FOREACH t IN ARRAY ARRAY['vazios_export_operations', 'vazios_export_overtime_depots', 'vazios_reorg_services'] LOOP
