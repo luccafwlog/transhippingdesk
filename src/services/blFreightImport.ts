@@ -74,10 +74,6 @@ export type BlFreightRpcPayload = {
   pol: string | null
   pod: string | null
   place_of_delivery: string | null
-  place_of_receipt: string | null
-  movement_from: string | null
-  movement_to: string | null
-  issue_place: string | null
   total_weight_kg: number | null
   total_cbm: number | null
   payment_type: 'PREPAID' | 'COLLECT' | null
@@ -130,14 +126,6 @@ type ExistingBl = Pick<
   | 'pol'
   | 'pod'
   | 'place_of_delivery'
-  | 'place_of_receipt'
-  | 'movement_from'
-  | 'movement_to'
-  | 'issue_place'
-  | 'place_of_receipt'
-  | 'movement_from'
-  | 'movement_to'
-  | 'issue_place'
   | 'total_weight_kg'
   | 'total_cbm'
   | 'payment_type'
@@ -146,10 +134,6 @@ type ExistingBl = Pick<
   | 'manifest_customer_name'
 > & {
   cargo_description?: string | null
-  place_of_receipt?: string | null
-  movement_from?: string | null
-  movement_to?: string | null
-  issue_place?: string | null
   place_of_receipt?: string | null
   movement_from?: string | null
   movement_to?: string | null
@@ -380,10 +364,6 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     pol: normalizePortCode(doc.route.pol),
     pod: normalizePortCode(doc.route.pod),
     place_of_delivery: normalizePortCode(doc.route.delivery),
-    place_of_receipt: normalizePortCode(doc.route.receipt),
-    movement_from: doc.route.movementFrom?.trim() || null,
-    movement_to: doc.route.movementTo?.trim() || null,
-    issue_place: doc.dates.issuePlace?.trim() || null,
     place_of_receipt: normalizePortCode(doc.route.receipt),
     movement_from: doc.route.movementFrom?.trim() || null,
     movement_to: doc.route.movementTo?.trim() || null,

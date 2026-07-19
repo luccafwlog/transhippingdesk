@@ -58,6 +58,8 @@ export function BlOperacionalTab({
   }, [latestInvoice, currentCalcTotal])
 
   const ncms = useMemo(() => listBlNcms(form.cargo_description), [form.cargo_description])
+  // ponytail: these imported document fields are not in generated database.ts yet.
+  const documentBl = bl as BLDetail & { notify2_block?: string | null; consignee_phone?: string | null }
 
   if (!active) return null
 
@@ -159,10 +161,10 @@ export function BlOperacionalTab({
             />
           </Field>
           <Field label="Notify 2">
-            <Input disabled value={bl.notify2_block ?? ''} />
+            <Input disabled value={documentBl.notify2_block ?? ''} />
           </Field>
           <Field label="Telefone do consignatario">
-            <Input disabled value={bl.consignee_phone ?? ''} />
+            <Input disabled value={documentBl.consignee_phone ?? ''} />
           </Field>
           {isContainerMode ? (
             <Field label="Peso total (kg)">
