@@ -178,7 +178,27 @@ node scripts/skills/install-skills.mjs
 
 ---
 
-## 8. Portão de segurança do Git (`no-mistakes/setup`)
+## 8. Baixar as fontes do site (`download-fonts`)
+
+**O que faz:** baixa do Google Fonts as fontes usadas pelo site (IBM Plex Mono,
+Syne e DM Sans) e as salva em `public/fonts/`, para o site servi-las localmente
+sem depender do Google.
+
+**Quando usar:** raramente — só se as fontes mudarem ou os arquivos em
+`public/fonts/` forem perdidos. Rode a partir da pasta raiz do projeto.
+
+```powershell
+# Windows (PowerShell)
+node scripts\download-fonts.mjs
+```
+```bash
+# macOS (Terminal)
+node scripts/download-fonts.mjs
+```
+
+---
+
+## 9. Portão de segurança do Git (`no-mistakes/setup`)
 
 **O que faz:** instala uma proteção que verifica os comandos de Git antes de
 executá-los, para evitar erros perigosos (como apagar coisas sem querer). Ele
@@ -209,4 +229,5 @@ sh scripts/no-mistakes/setup.sh
 | `perf/measure-page-load` | Medir a leveza/velocidade das telas |
 | `build-behavioral-spec` | Gerar a planilha Excel da especificação |
 | `skills/install-skills` | Instalar as skills do assistente de IA |
+| `download-fonts` | Rebaixar as fontes do site para `public/fonts/` |
 | `no-mistakes/setup` | Ligar a proteção contra erros de Git |
