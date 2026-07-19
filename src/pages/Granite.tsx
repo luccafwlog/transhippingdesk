@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { PreviewBox } from '../components/ui/PreviewBox'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
@@ -462,15 +463,4 @@ function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
     case 'missing_cnpj': return <span className="app-badge app-badge--yellow">⚠ CNPJ</span>
     case 'not_found': return <span className="app-badge app-badge--red">✗ Não cad.</span>
   }
-}
-
-function PreviewBox({ label, value, decimals = 0 }: { label: string; value: number; decimals?: number }) {
-  return (
-    <div className="app-metric-tile">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">
-        {Number(value).toLocaleString('pt-BR', decimals ? { minimumFractionDigits: decimals, maximumFractionDigits: decimals } : {})}
-      </div>
-    </div>
-  )
 }

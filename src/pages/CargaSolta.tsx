@@ -11,6 +11,7 @@ import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
+import { PreviewBox } from '../components/ui/PreviewBox'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
@@ -460,14 +461,16 @@ export function CargaSolta() {
           {manifest ? (
             <div className="grid gap-4">
               <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="B/Ls validos" value={manifest.bls.length} />
+                <PreviewBox label="B/Ls validos" value={manifest.bls.length} variant="metric-strip" />
                 <PreviewBox
                   label="Maquinas"
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)}
+                  variant="metric-strip"
                 />
                 <PreviewBox
                   label="Total de volumes"
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_packages_total ?? bl.bb_packages_qty ?? 0), 0)}
+                  variant="metric-strip"
                 />
               </div>
 
@@ -478,12 +481,14 @@ export function CargaSolta() {
                     (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? bl.total_weight_kg / 1000 : 0)),
                     0,
                   )}
+                  variant="metric-strip"
                 />
                 <PreviewBox
                   label="CBM (M3)"
                   value={manifest.bls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)}
+                  variant="metric-strip"
                 />
-                <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} />
+                <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} variant="metric-strip" />
               </div>
 
               <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
@@ -581,15 +586,6 @@ function InvoiceLink({
 }
 
 
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="app-metric-strip">
-      <div className="app-metric-strip__label">{label}</div>
-      <div className="app-metric-strip__value">{formatBBNumber(value)}</div>
-    </div>
-  )
-}
 
 function formatBBNumber(value: number | null | undefined) {
   if (value === null || value === undefined) return '-'

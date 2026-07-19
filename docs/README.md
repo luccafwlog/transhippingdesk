@@ -56,10 +56,12 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#fluxo-ope
 - [adr/](adr/) — decisões arquiteturais numeradas.
 - [operations/](operations/regras-de-negocio.md) — regras de negócio, segurança, validação, reset.
 - [setup/](setup/development.md) — desenvolvimento, deploy, testes.
-- [plans/](plans/README.md) — planos de implementação vivos (ativos).
-- [archive/](archive/README.md) — auditorias e planos históricos (não-vivos).
-- [qa/](archive/qa/2026-06-23-feature-story-qa-loop-summary.md) — resultado do loop de QA por história (223/223 histórias, 62 defeitos corrigidos).
-- [qa/ (2026-06-26)](archive/qa/2026-06-26-continuous-qa-loop/README.md) — snapshot do loop de QA contínua (45 features/38 rotas, 6 defeitos corrigidos, runtime de browser + RLS + integração local).
+- [plans/](plans/README.md) — planos de implementação vivos (ainda não executados).
+- [spec/](spec/README.md) — specs vivas: a spec comportamental canônica e specs funcionais ainda sem plano executado.
+- [archive/](archive/README.md) — histórico: planos executados, specs concluídas, auditorias, QA e relatórios.
+
+O ciclo de vida plano/spec → archive está definido em
+[CONVENCOES.md](CONVENCOES.md#ciclo-de-vida-de-planos-e-specs).
 
 ## Convenções da documentação
 

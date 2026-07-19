@@ -430,31 +430,214 @@ const consolidatedBreakdownRowSchema = z.object({
   charge_name: z.string().nullable(),
 })
 
-export async function listInvoiceDetails(invoiceId: number) {
-  const { data, error } = await supabase.rpc('list_invoice_details', {
-    p_invoice_id: invoiceId,
-  })
+type InvoiceDetailPayload = Partial<InvoiceDetail>
+type GraniteInvoiceLink = {
+  id: number
+  granite_bl_id: string
+  subtotal_brl: number
+  granite_bl: {
+    bl_number: string
+    loading_port: string | null
+    discharge_port: string | null
+    manifest: {
+      voyage: {
+        voyage_number: string | null
+        vessel: { name: string | null } | null
+      } | null
+    } | null
+  } | null
+}
+type ConsolidatedInvoiceLink = {
+  id: number
+  bl_id: string
+  subtotal_brl: number | null
+  bl_snapshot: Json | null
+}
+type ConsolidatedVoyage = {
+  id: number
+  voyage_number: string | null
+  vessel: { name: string | null } | null
+}
+type ConsolidatedBreakdown = z.infer<typeof consolidatedBreakdownRowSchema>
+type ConsolidatedCharge = Omit<ConsolidatedBreakdown, 'bl_id' | 'charge_calculation_id'> & {
+  charge_calculation_id: number
+}
 
-  if (error) throw error
-
-  const payload = (data ?? {}) as {
-    invoice?: InvoiceDetail['invoice']
-    bls?: InvoiceDetail['bls']
-    items?: InvoiceDetail['items']
-    payments?: InvoiceDetail['payments']
-  }
-
-  const result: InvoiceDetail = {
+function createInvoiceDetail(payload: InvoiceDetailPayload): InvoiceDetail {
+  return {
     invoice: payload.invoice ?? null,
     bls: payload.bls ?? [],
     items: payload.items ?? [],
     payments: payload.payments ?? [],
   }
+}
 
-  if (result.invoice?.invoice_type === 'granite' && result.bls.length === 0) {
-    const { data: graniteLinks, error: graniteLinksError } = await supabase
-      .from('invoice_granite_bls')
-      .select(`
+function mapGraniteInvoiceBls(invoiceId: number, links: GraniteInvoiceLink[]): InvoiceDetail['bls'] {
+  return links.map((link) => ({
+    id: Number(link.id),
+    invoice_id: invoiceId,
+    bl_id: link.granite_bl?.bl_number ?? link.granite_bl_id,
+    charge_status_snapshot: null,
+    financial_status_snapshot: null,
+    subtotal_brl: Number(link.subtotal_brl ?? 0),
+    subtotal_usd: 0,
+    created_at: null,
+    pol: link.granite_bl?.loading_port ?? null,
+    pod: link.granite_bl?.discharge_port ?? null,
+    voyage_number: link.granite_bl?.manifest?.voyage?.voyage_number ?? null,
+    vessel_name: link.granite_bl?.manifest?.voyage?.vessel?.name ?? null,
+  }))
+}
+
+function extractConsolidatedVoyageIds(links: ConsolidatedInvoiceLink[]): number[] {
+  return Array.from(
+    new Set(
+      links
+        .map((link) => {
+          const snapshot = (link.bl_snapshot ?? {}) as { voyage_id?: number | null }
+          return snapshot.voyage_id == null ? null : Number(snapshot.voyage_id)
+        })
+        .filter((voyageId): voyageId is number => voyageId != null),
+    ),
+  )
+}
+
+function createConsolidatedVoyageMap(voyages: ConsolidatedVoyage[]): Map<number, { voyage_number: string | null; vessel_name: string | null }> {
+  const voyageMap = new Map<number, { voyage_number: string | null; vessel_name: string | null }>()
+  for (const voyage of voyages) {
+    voyageMap.set(Number(voyage.id), {
+      voyage_number: voyage.voyage_number ?? null,
+      vessel_name: voyage.vessel?.name ?? null,
+    })
+  }
+  return voyageMap
+}
+
+function mapConsolidatedInvoiceBls(
+  invoiceId: number,
+  links: ConsolidatedInvoiceLink[],
+  voyageMap: Map<number, { voyage_number: string | null; vessel_name: string | null }>,
+): InvoiceDetail['bls'] {
+  return links.map((link) => {
+    const snapshot = (link.bl_snapshot ?? {}) as { voyage_id?: number | null; pol?: string | null; pod?: string | null }
+    const voyage = snapshot.voyage_id == null ? undefined : voyageMap.get(Number(snapshot.voyage_id))
+    return {
+      id: Number(link.id),
+      invoice_id: invoiceId,
+      bl_id: link.bl_id,
+      charge_status_snapshot: null,
+      financial_status_snapshot: null,
+      subtotal_brl: Number(link.subtotal_brl ?? 0),
+      subtotal_usd: 0,
+      created_at: null,
+      pol: snapshot.pol ?? null,
+      pod: snapshot.pod ?? null,
+      voyage_number: voyage?.voyage_number ?? null,
+      vessel_name: voyage?.vessel_name ?? null,
+    }
+  })
+}
+
+function groupConsolidatedBreakdown(rows: ConsolidatedBreakdown[]): Map<string, ConsolidatedCharge[]> {
+  const chargesByBl = new Map<string, ConsolidatedCharge[]>()
+  for (const row of rows) {
+    const charges = chargesByBl.get(row.bl_id) ?? []
+    charges.push({
+      charge_calculation_id: Number(row.charge_calculation_id),
+      charge_table_id: row.charge_table_id ?? null,
+      charge_item_id: row.charge_item_id ?? null,
+      quantity: row.quantity ?? null,
+      unit_value_brl: row.unit_value_brl ?? null,
+      total_value_brl: row.total_value_brl ?? null,
+      currency: row.currency ?? null,
+      unit_value_usd: row.unit_value_usd ?? null,
+      total_value_usd: row.total_value_usd ?? null,
+      calculation_key: row.calculation_key ?? null,
+      charge_name: row.charge_name ?? null,
+    })
+    chargesByBl.set(row.bl_id, charges)
+  }
+  return chargesByBl
+}
+
+function buildConsolidatedInvoiceItems(
+  invoiceId: number,
+  links: ConsolidatedInvoiceLink[],
+  chargesByBl: Map<string, ConsolidatedCharge[]>,
+): InvoiceItem[] {
+  return links.flatMap<InvoiceItem>((link) => {
+    const subtotal = Number(link.subtotal_brl ?? 0)
+    const charges = chargesByBl.get(link.bl_id) ?? []
+    const detailedSum = charges.reduce((sum, charge) => sum + Number(charge.total_value_brl ?? 0), 0)
+    const reconciles = charges.length > 0 && Math.abs(detailedSum - subtotal) < 0.01
+
+    if (!reconciles) {
+      return [{
+        id: Number(link.id),
+        invoice_id: invoiceId,
+        charge_calculation_id: null,
+        description: `BL ${link.bl_id} - Taxas locais`,
+        quantity: 1,
+        unit_value_brl: subtotal,
+        total_value_brl: subtotal,
+        bl_id: link.bl_id,
+        manifest_id: null,
+        charge_table_id: null,
+        charge_item_id: null,
+        source: 'ledger',
+        currency: 'BRL',
+        unit_value_usd: null,
+        total_value_usd: null,
+        pricing_rule_version_id: null,
+        billing_run_id: null,
+        calculation_key: null,
+        snapshot_payload: null,
+      }]
+    }
+
+    return charges.map((charge) => ({
+      id: charge.charge_calculation_id,
+      invoice_id: invoiceId,
+      charge_calculation_id: charge.charge_calculation_id,
+      description: `BL ${link.bl_id} - ${charge.charge_name ?? charge.calculation_key ?? 'Linha de taxa'}`,
+      quantity: charge.quantity ?? 1,
+      unit_value_brl: charge.unit_value_brl == null ? null : Number(charge.unit_value_brl),
+      total_value_brl: Number(charge.total_value_brl ?? 0),
+      bl_id: link.bl_id,
+      manifest_id: null,
+      charge_table_id: charge.charge_table_id,
+      charge_item_id: charge.charge_item_id,
+      source: 'ledger',
+      currency: charge.currency ?? 'BRL',
+      unit_value_usd: charge.unit_value_usd,
+      total_value_usd: charge.total_value_usd,
+      pricing_rule_version_id: null,
+      billing_run_id: null,
+      calculation_key: charge.calculation_key,
+      snapshot_payload: null,
+    }))
+  })
+}
+
+function shouldBackfillPixPayload(
+  invoice: InvoiceDetail['invoice'],
+): invoice is NonNullable<InvoiceDetail['invoice']> & { invoice_number: string; total_brl: number } {
+  return Boolean(
+    invoice &&
+    !invoice.pix_payload &&
+    invoice.invoice_number &&
+    invoice.total_brl &&
+    Number(invoice.total_brl) > 0 &&
+    ['issued', 'partially_paid', 'overdue', 'paid'].includes(invoice.status ?? ''),
+  )
+}
+
+async function hydrateGraniteInvoiceBls(result: InvoiceDetail, invoiceId: number): Promise<void> {
+  if (result.invoice?.invoice_type !== 'granite' || result.bls.length > 0) return
+
+  const { data: graniteLinks, error: graniteLinksError } = await supabase
+    .from('invoice_granite_bls')
+    .select(`
         id,
         granite_bl_id,
         subtotal_brl,
@@ -470,220 +653,84 @@ export async function listInvoiceDetails(invoiceId: number) {
           )
         )
       `)
-      .eq('invoice_id', invoiceId)
+    .eq('invoice_id', invoiceId)
 
-    if (graniteLinksError) throw graniteLinksError
+  if (graniteLinksError) throw graniteLinksError
+  result.bls = mapGraniteInvoiceBls(invoiceId, (graniteLinks ?? []) as unknown as GraniteInvoiceLink[])
+}
 
-    type GraniteInvoiceLink = {
-      id: number
-      granite_bl_id: string
-      subtotal_brl: number
-      granite_bl: {
-        bl_number: string
-        loading_port: string | null
-        discharge_port: string | null
-        manifest: {
-          voyage: {
-            voyage_number: string | null
-            vessel: { name: string | null } | null
-          } | null
-        } | null
-      } | null
-    }
+// Consolidated ledger invoices have no invoice_items/invoice_bls; render them
+// from invoice_receivable_links so the existing PDF/print path works unchanged.
+async function hydrateConsolidatedInvoiceDetails(result: InvoiceDetail, invoiceId: number): Promise<void> {
+  if (!result.invoice || result.items.length !== 0) return
 
-    result.bls = ((graniteLinks ?? []) as unknown as GraniteInvoiceLink[]).map((link) => ({
-      id: Number(link.id),
-      invoice_id: invoiceId,
-      bl_id: link.granite_bl?.bl_number ?? link.granite_bl_id,
-      charge_status_snapshot: null,
-      financial_status_snapshot: null,
-      subtotal_brl: Number(link.subtotal_brl ?? 0),
-      subtotal_usd: 0,
-      created_at: null,
-      pol: link.granite_bl?.loading_port ?? null,
-      pod: link.granite_bl?.discharge_port ?? null,
-      voyage_number: link.granite_bl?.manifest?.voyage?.voyage_number ?? null,
-      vessel_name: link.granite_bl?.manifest?.voyage?.vessel?.name ?? null,
-    }))
+  const { data: links, error: linksError } = await supabase
+    .from('invoice_receivable_links')
+    .select('id, bl_id, subtotal_brl, bl_snapshot')
+    .eq('invoice_id', invoiceId)
+
+  if (linksError || !links || links.length === 0) return
+
+  const consolidatedLinks = links as ConsolidatedInvoiceLink[]
+  const voyageIds = extractConsolidatedVoyageIds(consolidatedLinks)
+  let voyageMap = new Map<number, { voyage_number: string | null; vessel_name: string | null }>()
+  if (voyageIds.length > 0) {
+    const { data: voyages } = await supabase
+      .from('voyages')
+      .select('id, voyage_number, vessel:vessels(name)')
+      .in('id', voyageIds)
+      .overrideTypes<ConsolidatedVoyage[], { merge: false }>()
+    voyageMap = createConsolidatedVoyageMap(voyages ?? [])
   }
 
-  // Consolidated ledger invoices have no invoice_items/invoice_bls; render them
-  // from invoice_receivable_links so the existing PDF/print path works unchanged.
-  if (result.invoice && result.items.length === 0) {
-    const { data: links, error: linksError } = await supabase
-      .from('invoice_receivable_links')
-      .select('id, bl_id, subtotal_brl, bl_snapshot')
-      .eq('invoice_id', invoiceId)
+  result.bls = mapConsolidatedInvoiceBls(invoiceId, consolidatedLinks, voyageMap)
 
-    if (!linksError && links && links.length > 0) {
-      const voyageIds = Array.from(
-        new Set(
-          links
-            .map((l) => {
-              const snap = (l.bl_snapshot ?? {}) as { voyage_id?: number | null }
-              return snap.voyage_id == null ? null : Number(snap.voyage_id)
-            })
-            .filter((v): v is number => v != null),
-        ),
-      )
+  // Detail each BL with its individual charges (THD, Drop-Off, etc.) reconstructed
+  // from charge_calculations at read-time. charge_calculations/charge_table_items are
+  // admin-only under RLS, so we go through a SECURITY DEFINER function scoped to this
+  // invoice. The ledger subtotal_brl remains the source of truth for the invoice total,
+  // so we only show the breakdown when it reconciles with the subtotal; otherwise
+  // (e.g. partial settlement) we fall back to a single aggregated line for that BL.
+  const { data: breakdown } = await supabase.rpc(
+    'get_consolidated_invoice_item_breakdown' as never,
+    { p_invoice_id: invoiceId } as never,
+  )
 
-      const voyageMap = new Map<number, { voyage_number: string | null; vessel_name: string | null }>()
-      if (voyageIds.length > 0) {
-        const { data: voyages } = await supabase
-          .from('voyages')
-          .select('id, voyage_number, vessel:vessels(name)')
-          .in('id', voyageIds)
-          .overrideTypes<
-            Array<{ id: number; voyage_number: string | null; vessel: { name: string | null } | null }>,
-            { merge: false }
-          >()
-        for (const v of voyages ?? []) {
-          voyageMap.set(Number(v.id), { voyage_number: v.voyage_number ?? null, vessel_name: v.vessel?.name ?? null })
-        }
-      }
-
-      result.bls = links.map((l) => {
-        const snap = (l.bl_snapshot ?? {}) as { voyage_id?: number | null; pol?: string | null; pod?: string | null }
-        const voy = snap.voyage_id == null ? undefined : voyageMap.get(Number(snap.voyage_id))
-        return {
-          id: Number(l.id),
-          invoice_id: invoiceId,
-          bl_id: l.bl_id,
-          charge_status_snapshot: null,
-          financial_status_snapshot: null,
-          subtotal_brl: Number(l.subtotal_brl ?? 0),
-          subtotal_usd: 0,
-          created_at: null,
-          pol: snap.pol ?? null,
-          pod: snap.pod ?? null,
-          voyage_number: voy?.voyage_number ?? null,
-          vessel_name: voy?.vessel_name ?? null,
-        }
-      })
-
-      // Detail each BL with its individual charges (THD, Drop-Off, etc.) reconstructed
-      // from charge_calculations at read-time. charge_calculations/charge_table_items are
-      // admin-only under RLS, so we go through a SECURITY DEFINER function scoped to this
-      // invoice. The ledger subtotal_brl remains the source of truth for the invoice total,
-      // so we only show the breakdown when it reconciles with the subtotal; otherwise
-      // (e.g. partial settlement) we fall back to a single aggregated line for that BL.
-      const calcsByBl = new Map<string, Array<{
-        charge_calculation_id: number
-        charge_table_id: number | null
-        charge_item_id: number | null
-        quantity: number | null
-        unit_value_brl: number | null
-        total_value_brl: number | null
-        currency: string | null
-        unit_value_usd: number | null
-        total_value_usd: number | null
-        calculation_key: string | null
-        charge_name: string | null
-      }>>()
-
-      const { data: breakdown } = await supabase.rpc(
-        'get_consolidated_invoice_item_breakdown' as never,
-        { p_invoice_id: invoiceId } as never,
-      )
-
-      const parsedBreakdown = z.array(consolidatedBreakdownRowSchema).safeParse(breakdown ?? [])
-      if (!parsedBreakdown.success) {
-        reportBestEffortFailure('listInvoiceDetails breakdown parse', parsedBreakdown.error, { invoiceId })
-      }
-
-      for (const c of parsedBreakdown.success ? parsedBreakdown.data : []) {
-        const arr = calcsByBl.get(c.bl_id) ?? []
-        arr.push({
-          charge_calculation_id: Number(c.charge_calculation_id),
-          charge_table_id: c.charge_table_id ?? null,
-          charge_item_id: c.charge_item_id ?? null,
-          quantity: c.quantity ?? null,
-          unit_value_brl: c.unit_value_brl ?? null,
-          total_value_brl: c.total_value_brl ?? null,
-          currency: c.currency ?? null,
-          unit_value_usd: c.unit_value_usd ?? null,
-          total_value_usd: c.total_value_usd ?? null,
-          calculation_key: c.calculation_key ?? null,
-          charge_name: c.charge_name ?? null,
-        })
-        calcsByBl.set(c.bl_id, arr)
-      }
-
-      result.items = links.flatMap<InvoiceItem>((l) => {
-        const subtotal = Number(l.subtotal_brl ?? 0)
-        const calcs = calcsByBl.get(l.bl_id) ?? []
-        const detailedSum = calcs.reduce((s, c) => s + Number(c.total_value_brl ?? 0), 0)
-        const reconciles = calcs.length > 0 && Math.abs(detailedSum - subtotal) < 0.01
-
-        if (!reconciles) {
-          return [{
-            id: Number(l.id),
-            invoice_id: invoiceId,
-            charge_calculation_id: null,
-            description: `BL ${l.bl_id} - Taxas locais`,
-            quantity: 1,
-            unit_value_brl: subtotal,
-            total_value_brl: subtotal,
-            bl_id: l.bl_id,
-            manifest_id: null,
-            charge_table_id: null,
-            charge_item_id: null,
-            source: 'ledger',
-            currency: 'BRL',
-            unit_value_usd: null,
-            total_value_usd: null,
-            pricing_rule_version_id: null,
-            billing_run_id: null,
-            calculation_key: null,
-            snapshot_payload: null,
-          }]
-        }
-
-        return calcs.map((c) => ({
-          id: c.charge_calculation_id,
-          invoice_id: invoiceId,
-          charge_calculation_id: c.charge_calculation_id,
-          description: `BL ${l.bl_id} - ${c.charge_name ?? c.calculation_key ?? 'Linha de taxa'}`,
-          quantity: c.quantity ?? 1,
-          unit_value_brl: c.unit_value_brl == null ? null : Number(c.unit_value_brl),
-          total_value_brl: Number(c.total_value_brl ?? 0),
-          bl_id: l.bl_id,
-          manifest_id: null,
-          charge_table_id: c.charge_table_id,
-          charge_item_id: c.charge_item_id,
-          source: 'ledger',
-          currency: c.currency ?? 'BRL',
-          unit_value_usd: c.unit_value_usd,
-          total_value_usd: c.total_value_usd,
-          pricing_rule_version_id: null,
-          billing_run_id: null,
-          calculation_key: c.calculation_key,
-          snapshot_payload: null,
-        }))
-      })
-    }
+  const parsedBreakdown = z.array(consolidatedBreakdownRowSchema).safeParse(breakdown ?? [])
+  if (!parsedBreakdown.success) {
+    reportBestEffortFailure('listInvoiceDetails breakdown parse', parsedBreakdown.error, { invoiceId })
   }
 
-  // Lazy backfill: generate pix_payload for existing invoices that don't have one
-  const inv = result.invoice
-  const activeStatuses = ['issued', 'partially_paid', 'overdue', 'paid']
-  if (
-    inv &&
-    !inv.pix_payload &&
-    inv.invoice_number &&
-    inv.total_brl &&
-    Number(inv.total_brl) > 0 &&
-    activeStatuses.includes(inv.status ?? '')
-  ) {
-    const pix_payload = buildTransshippingPixPayload(
-      parseFloat(Number(inv.total_brl).toFixed(2)),
-      inv.invoice_number,
-    )
-    const { error: backfillError } = await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
-    if (!backfillError) {
-      result.invoice = { ...inv, pix_payload } as typeof inv
-    }
-  }
+  result.items = buildConsolidatedInvoiceItems(
+    invoiceId,
+    consolidatedLinks,
+    groupConsolidatedBreakdown(parsedBreakdown.success ? parsedBreakdown.data : []),
+  )
+}
+
+async function backfillInvoicePixPayload(result: InvoiceDetail, invoiceId: number): Promise<void> {
+  const invoice = result.invoice
+  if (!shouldBackfillPixPayload(invoice)) return
+
+  const pix_payload = buildTransshippingPixPayload(
+    parseFloat(Number(invoice.total_brl).toFixed(2)),
+    invoice.invoice_number,
+  )
+  const { error } = await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
+  if (!error) result.invoice = { ...invoice, pix_payload } as typeof invoice
+}
+
+export async function listInvoiceDetails(invoiceId: number) {
+  const { data, error } = await supabase.rpc('list_invoice_details', {
+    p_invoice_id: invoiceId,
+  })
+
+  if (error) throw error
+
+  const result = createInvoiceDetail((data ?? {}) as InvoiceDetailPayload)
+  await hydrateGraniteInvoiceBls(result, invoiceId)
+  await hydrateConsolidatedInvoiceDetails(result, invoiceId)
+  await backfillInvoicePixPayload(result, invoiceId)
 
   return result
 }

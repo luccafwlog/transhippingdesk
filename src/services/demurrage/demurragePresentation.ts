@@ -1,5 +1,5 @@
 import type { DemurrageContainerListItem } from '../../types/database'
-import { formatUSD } from '../../lib/utils'
+import { formatBRL, formatUSD } from '../../lib/utils'
 import { calculateDemurrage } from './demurrageRates'
 
 export function fmtUSD(value: number | null | undefined) {
@@ -18,8 +18,8 @@ export function lastBusinessDayISO(): string {
 }
 
 export function fmtBRL(value: number | null | undefined) {
-  if (value == null) return '---'
-  return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  // ponytail: canonical Intl currency spacing may differ from the former print formatter.
+  return value == null ? '---' : formatBRL(value)
 }
 
 export function groupByBl(containers: DemurrageContainerListItem[]): Map<string, DemurrageContainerListItem[]> {

@@ -12,12 +12,14 @@ default_ref="$(git symbolic-ref --short "refs/remotes/$remote/HEAD")"
 [[ -n "$default_ref" ]] || { echo "Branch padrão remota não encontrada." >&2; exit 1; }
 default_branch="${default_ref#*/}"
 
-mapfile -t remote_branches < <(
+remote_branches=()
+while IFS= read -r b; do remote_branches+=("$b"); done < <(
   git for-each-ref --format="%(refname:strip=3)" "refs/remotes/$remote" \
     | grep -v '^HEAD$'
 )
 
-mapfile -t local_branches < <(
+local_branches=()
+while IFS= read -r b; do local_branches+=("$b"); done < <(
   git for-each-ref --format="%(refname:strip=2)" "refs/heads"
 )
 

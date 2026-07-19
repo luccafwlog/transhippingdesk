@@ -113,6 +113,106 @@ não há cadastro próprio: cadastrar em Chegadas e Saídas cria ou anexa a pró
 Viagem, e a Programação exibida no Portal é uma projeção das viagens marcadas
 como visíveis.
 
+**ADR (Agency Departure Report)**
+Relatório de escala do navio: cada escala brasileira de uma viagem gera um ADR
+(duas escalas, dois ADRs); portos de origem estrangeiros não geram ADR.
+Documenta tudo que aconteceu na escala — datas confirmadas, carga descarregada
+e carregada, embarque e descarga de vazios, granito, carga solta, veículos,
+armazenagem e depot dos vazios, overtime e ocorrências. É a fonte confiável
+usada pelo Financeiro para aprovar pagamentos de faturas.
+
+O ADR é uma **exibição consolidada** de dados construídos nos módulos de
+origem, não uma redigitação: carga, veículos, vazios, depot e overtime nascem
+nos seus módulos; apenas ocorrências e sign-offs nascem no próprio ADR. Existe
+desde que a escala existe; suas pendências só alertam após o ATD da escala.
+
+A identidade do ADR é (viagem, porto): uma escala que opera em dois terminais
+mantém um único ADR, com o terminal como atributo do cabeçalho. O armador
+exibido no cabeçalho deriva do navio da viagem.
+
+- **Related:** Seção do ADR, Sign-off de Seção do ADR, Fechamento do ADR
+
+- **Distinto de:** Architecture Decision Record (`docs/adr/`), que é documento
+  de engenharia deste repositório. Em código e schema, usar sempre
+  `agency_departure_report`, nunca `adr` solto.
+
+**Seção do ADR**
+Bloco temático do ADR com um departamento dono e um sign-off explícito.
+O conteúdo derivado do sistema é exibido, não redigitado; apenas ocorrências e
+o próprio sign-off nascem no ADR. Divisão de donos: Operações — datas
+confirmadas e ocorrências; Equipamentos — vazios embarcados (bookings, depot,
+overtime) e veículos; Documentação — carga descarregada, carga carregada e
+vazios descarregados.
+
+**Sign-off de Seção do ADR**
+Confirmação departamental de que a seção reflete a realidade da escala. Estados:
+Pendente → Confirmado ou Nada a declarar. Ausência de dado não é conclusão:
+zero overtime sem sign-off é seção Pendente, não escala sem overtime. Alertas
+de informação faltante são as seções Pendentes, direcionadas ao departamento
+dono.
+
+**Equipamentos**
+Departamento responsável pelo embarque de vazios de exportação (VAZIOS EXP) e
+pelos veículos. Vazios descarregados (importação) pertencem à Documentação.
+
+**Overtime (de escala)**
+Movimentação realizada fora do horário normal, registrada por
+container/movimento nos vazios embarcados, em dois tipos: overtime de handling
+e overtime de transporte. É cobrado como acréscimo percentual sobre a tarifa
+do depot; o percentual é registrado por depot na operação de vazios da escala.
+Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
+
+**Depot de Vazios**
+Local onde o container vazio ficou armazenado antes do embarque, registrado por
+container. Container sem depot é Embarque Direto. Fonte para o Financeiro
+conferir faturas de armazenagem.
+
+**Embarque Direto**
+Container vazio embarcado direto do terminal, sem passar por depot.
+
+**Hand-in / Hand-out**
+Movimentos de gate do container vazio no depot: hand-in é a entrada, hand-out é
+a saída, cada um com data por container. Os dias de storage (armazenagem)
+derivam da diferença entre as duas datas; o ADR exibe o total de containers e
+de dias.
+
+**Material do Armador**
+Marcação de container vazio embarcado com material do armador em seu interior.
+
+**Serviço Extra de Reorganização**
+Serviço executado sobre os vazios (bundle, desova, visual check), registrado
+por quantidade e tipo de container e valorado por quantidade × tarifa
+configurável. Pertence ao módulo de vazios de exportação, sob Equipamentos.
+
+**OS da Operação de Vazios**
+Número da ordem de serviço da operação de vazios de uma escala: um por
+(viagem, porto), registrado no módulo de vazios de exportação.
+
+**Natureza do Vazio Descarregado**
+Classificação do container vazio descarregado: **cama** (base de estiva para
+cargas OOG) ou **cover plate** (tampas para porões do navio).
+
+**Restow**
+Container descarregado e reembarcado por reestiva na mesma escala. A contagem
+é registrada na edição da escala (planejamento por POD, campo RTW).
+
+**Local de Desova**
+Local onde um container com veículo foi desovado. Atributo do container,
+agregado por marca no ADR.
+
+**Ocorrência da Escala**
+Lançamento livre no diário da escala dentro do ADR: texto com autor,
+departamento e data/hora, em lista append-only. Cobre qualquer acontecimento
+não estruturado da escala. Não possui taxonomia fixa.
+
+**Fechamento do ADR**
+Ato explícito que encerra o ADR quando todas as seções têm sign-off. Congela um
+snapshot dos dados derivados e próprios; é esse snapshot que o Financeiro
+consulta para aprovar pagamentos — mudanças posteriores na origem não alteram o
+relatório fechado. Reabrir exige justificativa auditada e novo fechamento. O
+Financeiro não possui ato próprio de aprovação do ADR; o fechamento é o marco.
+O ADR fechado é imprimível pelo navegador.
+
 **Número de Escala do Mercante**
 Identificador criado no sistema federal Mercante para uma escala do navio. Uma
 viagem com múltiplos terminais pode ter mais de um número de escala.
@@ -153,8 +253,10 @@ Carga rolante, especialmente veículos importados e vinculados a B/L e, quando
 aplicável, ao container físico.
 
 **Granito**
-Fluxo especializado de importação e cobrança baseado em planilhas COSCO. É
-integrado à revisão e ao faturamento, mas mantém regras e registros próprios.
+Carga de exportação: blocos de granito embarcados nas escalas brasileiras.
+"Importação" no fluxo de Granito refere-se à ingestão das planilhas COSCO
+(entrada de dados), não ao sentido da carga. É integrado à revisão e ao
+faturamento, mas mantém regras e registros próprios.
 
 ## Baplie e reconciliação
 
@@ -604,6 +706,11 @@ a conciliação de pagamentos.
 Perfil com ações completas em Viagens e leitura operacional de B/Ls, containers,
 veículos e manifestos vinculados. Não pode subir, editar ou excluir B/Ls, nem
 alterar Clientes, Portal ou Financeiro.
+
+**Escopo de Equipamentos**
+Perfil com ações completas em Vazios de Exportação (VAZIOS EXP) e Veículos,
+além do sign-off das suas seções do ADR (vazios embarcados e veículos).
+Leitura no restante do sistema. Não altera Clientes, Portal ou Financeiro.
 
 **Escopo de Documentação**
 Perfil com todas as ações de negócio, incluindo Clientes, Portal, B/Ls, Viagens,

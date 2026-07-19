@@ -29,6 +29,10 @@ export function formatBRL(value?: number | string | null) {
   }).format(Number.isFinite(amount) ? amount : 0)
 }
 
+export function formatCountLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
 export function formatUSD(value?: number | string | null) {
   const amount = Number(value ?? 0)
   return new Intl.NumberFormat('pt-BR', {

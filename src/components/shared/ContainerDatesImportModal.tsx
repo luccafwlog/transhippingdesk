@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { PreviewBox } from '../ui/PreviewBox'
 import { useToast } from '../ui/Toast'
 import {
   importContainerDates,
@@ -93,9 +94,9 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
         {preview ? (
           <div className="grid gap-4">
             <div className="grid gap-3 md:grid-cols-3">
-              <PreviewBox label="Linhas validas" value={preview.rows.length} />
-              <PreviewBox label="Erros de estrutura" value={preview.rowErrors.length} />
-              {report ? <PreviewBox label="Não encontrados" value={report.missing} /> : null}
+              <PreviewBox label="Linhas validas" value={preview.rows.length} variant="metric-centered" />
+              <PreviewBox label="Erros de estrutura" value={preview.rowErrors.length} variant="metric-centered" />
+              {report ? <PreviewBox label="Não encontrados" value={report.missing} variant="metric-centered" /> : null}
             </div>
 
             <div className="app-table-scroll max-h-64 rounded-xl border border-[var(--app-border)]">
@@ -139,14 +140,5 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
         </div>
       </div>
     </Modal>
-  )
-}
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="app-metric-tile text-center">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
-    </div>
   )
 }

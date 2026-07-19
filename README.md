@@ -139,6 +139,27 @@ do frontend não as aplica.
 - O reset operacional amplo está suspenso; consulte
   [`docs/operations/reset-ambiente.md`](./docs/operations/reset-ambiente.md).
 
+## Estrutura do repositório
+
+| Caminho | O que é |
+|---|---|
+| [`src/`](./src/) | Código da SPA (React + TypeScript) |
+| [`public/`](./public/) | Assets estáticos servidos como estão (favicons, fontes, branding, templates de importação) |
+| [`supabase/`](./supabase/) | Migrations, Edge Functions e configuração do Supabase |
+| [`scripts/`](./scripts/README.md) | Comandos auxiliares (sync, docs:check, banco local, perf, fontes…) |
+| [`docs/`](./docs/README.md) | Documentação viva (arquitetura, módulos, ADRs) e arquivo histórico |
+| [`test-fixtures/`](./test-fixtures/README.md) | Fixtures técnicas para validação E2E de importações |
+| [`skills/`](./skills/README.md) | Coleção de skills de agente (vendoradas + do projeto), instaladas via `scripts/skills/` |
+| [`.claude/`](./.claude/) | Hooks, settings e skills lidos pelo Claude Code |
+| [`.github/`](./.github/) | Workflows de CI/CD |
+| [`CONTEXT.md`](./CONTEXT.md) | Glossário de domínio — fonte de verdade da linguagem |
+| [`WORKFLOW.md`](./WORKFLOW.md) | Desenvolvimento, migrations, testes e deploy |
+| [`CLAUDE.md`](./CLAUDE.md) / [`AGENTS.md`](./AGENTS.md) | Diretrizes de comportamento para agentes de IA (AGENTS.md aponta para CLAUDE.md) |
+
+Arquivos de configuração na raiz (`vite.config.ts`, `tsconfig*.json`,
+`eslint.config.js`, `firebase.json`, `.firebaserc`, `.mcp.json`,
+`opencode.json`) precisam ficar lá — as ferramentas os procuram na raiz.
+
 ## Documentação
 
 A documentação completa vive em **[`docs/`](docs/README.md)**. Atalhos:

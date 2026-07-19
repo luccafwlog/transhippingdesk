@@ -45,4 +45,18 @@ describe('timeline operacional de transbordo', () => {
 
     expect(events[0].title).toBe('Informações de Transbordo complementadas')
   })
+
+  it('não emite cobertura de CE para valores numéricos não comparáveis', () => {
+    const events = buildVoyageTimeline({
+      ceCoverage: { filled: Number.NaN, total: Number.NaN },
+      importBatches: [{
+        id: 1,
+        filename: 'manifesto.edi',
+        cargo_mode: 'container',
+        uploaded_at: '2026-07-16T10:00:00Z',
+      }],
+    })
+
+    expect(events.some((event) => event.kind === 'ce-coverage')).toBe(false)
+  })
 })

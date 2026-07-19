@@ -2,7 +2,7 @@
 
 > Plano vivo, não verdade corrente. A autoridade executável é o código. Base de
 > decisão: auditoria estrutural
-> [code-quality-audit-thermo-nuclear-2026-07-18](../archive/code-quality-audit-thermo-nuclear-2026-07-18.md)
+> [code-quality-audit-thermo-nuclear-2026-07-18](../archive/audits/code-quality-audit-thermo-nuclear-2026-07-18.md)
 > (registro histórico, imutável). Este plano consolida as medidas previstas
 > naquele relatório em fatias revisáveis e **carrega adiante** o item ainda em
 > aberto do plano anterior
@@ -29,7 +29,7 @@ migration.
 [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) ·
 [`docs/CONVENCOES.md`](../CONVENCOES.md) ·
 [`docs/RASTREABILIDADE.md`](../RASTREABILIDADE.md) ·
-[auditoria 2026-07-18](../archive/code-quality-audit-thermo-nuclear-2026-07-18.md).
+[auditoria 2026-07-18](../archive/audits/code-quality-audit-thermo-nuclear-2026-07-18.md).
 
 ---
 
@@ -50,7 +50,7 @@ migration.
 
 Maior risco eliminado por menor esforço; diff mínimo, behavior-preserving.
 
-- [ ] **B1.** Em `src/services/demurrage/demurragePresentation.ts`, trocar o
+- [x] **B1.** Em `src/services/demurrage/demurragePresentation.ts`, trocar o
   corpo à mão de `fmtBRL` por delegação ao canônico:
   `value == null ? '---' : formatBRL(value)` — espelhando o irmão `fmtUSD` que
   já delega a `formatUSD` (`src/lib/utils.ts`).
@@ -58,7 +58,7 @@ Maior risco eliminado por menor esforço; diff mínimo, behavior-preserving.
     chamada de `fmtBRL` muda de contrato. Se a divergência de espaço
     (não-quebrável vs. comum) for intencional em algum ponto de impressão,
     documentar com `ponytail:` em vez de duplicar.
-- [ ] **B2.** Mover `formatCountLabel` para `src/lib/utils.ts` e importar em
+- [x] **B2.** Mover `formatCountLabel` para `src/lib/utils.ts` e importar em
   `src/pages/Clientes.tsx` e `src/components/taxasLocais/ChargeTablesTab.tsx`;
   deletar as duas cópias locais.
   - **verify:** `npm run lint` + `npm test` verdes.
@@ -68,10 +68,10 @@ Maior risco eliminado por menor esforço; diff mínimo, behavior-preserving.
 Subtração líquida de código. Fecha a Slice 4 do plano de 2026-07-06, que criou o
 canônico mas não migrou os chamadores.
 
-- [ ] Estender `src/components/ui/PreviewBox.tsx` para aceitar
+- [x] Estender `src/components/ui/PreviewBox.tsx` para aceitar
   `value: number | string` e uma prop opcional `decimals` (formatação só quando
   `value` é número), preservando as variantes `metric`/`surface`.
-- [ ] Deletar as 6 cópias locais e importar do canônico:
+- [x] Deletar as 6 cópias locais e importar do canônico:
   - `src/components/shared/ContainerDatesImportModal.tsx:145`
   - `src/components/shared/CeMercanteImportModal.tsx:330`
   - `src/components/shared/BlImportModal.tsx:304`
@@ -86,9 +86,9 @@ canônico mas não migrou os chamadores.
 
 Refactor puro dentro do arquivo; não move de camada.
 
-- [ ] `src/services/billing.ts` — extrair as sub-etapas de `listInvoiceDetails`
+- [x] `src/services/billing.ts` — extrair as sub-etapas de `listInvoiceDetails`
   (`:433`→`:689`) em funções puras nomeadas (por seção do detalhe da fatura).
-- [ ] `src/services/voyageSummaries.ts` — extrair as sub-etapas de
+- [x] `src/services/voyageSummaries.ts` — extrair as sub-etapas de
   `buildVoyageTimeline` (`:455`→~`:740`), naturalmente por tipo de evento da
   timeline.
   - **verify:** testes existentes de `billing` e `voyageSummaries` verdes antes
@@ -101,11 +101,11 @@ página, se possível. Modelo de referência: `src/pages/Baplie.tsx` (container 
 subcomponentes focados) e a decomposição já feita de `Manifestos.tsx`
 (1089 → 514).
 
-- [ ] `src/pages/Clientes.tsx` (996): extrair `CustomerTable`,
+- [x] `src/pages/Clientes.tsx` (996): extrair `CustomerTable`,
   `CreateCustomerModal` (dono do `ContactForm`) e `ImportBaseModal` para
   `src/components/` (ao lado dos pares existentes). `Clientes()` restante = só
   composição + estado de tela.
-- [ ] `src/pages/Demurrage.tsx` (978): extrair um componente por aba
+- [x] `src/pages/Demurrage.tsx` (978): extrair um componente por aba
   (`containers` / status de fatura / `clientes`) e um modal por fluxo
   (`DiscountModal`, `DisputeModal`, `PtaxModal`, pagamento, relatório por
   cliente) para `src/components/demurrage/`; serviços correlatos para
@@ -118,10 +118,10 @@ subcomponentes focados) e a decomposição já feita de `Manifestos.tsx`
 
 Menor prioridade; incremental. Não bloqueia as fatias acima.
 
-- [ ] `src/components/taxasLocais/ChargeTablesTab.tsx` (712, componente único
+- [x] `src/components/taxasLocais/ChargeTablesTab.tsx` (712, componente único
   `:29`→`:710`): extrair a(s) tabela(s) e blocos de formulário em
   subcomponentes.
-- [ ] `src/components/billing/ValidacaoTab.tsx` (788, corpo `:37`→`:679`):
+- [x] `src/components/billing/ValidacaoTab.tsx` (788, corpo `:37`→`:679`):
   idem.
   - **verify:** behavior tests verdes; arquivos claramente menores.
 
@@ -129,10 +129,10 @@ Menor prioridade; incremental. Não bloqueia as fatias acima.
 
 ## Gates de verificação (antes de fechar cada slice)
 
-- [ ] `npm run docs:check`
-- [ ] `npm run lint`
-- [ ] `npm test`
-- [ ] `npm run build`
+- [x] `npm run docs:check`
+- [x] `npm run lint`
+- [x] `npm test`
+- [x] `npm run build`
 
 ## Fora de escopo / notas
 
