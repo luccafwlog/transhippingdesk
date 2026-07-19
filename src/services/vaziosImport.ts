@@ -1,6 +1,7 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { supabase } from './supabase'
+import { escapeFilterTerm } from '../lib/utils'
 
 const HEADER_MAP: Record<string, string> = {
   'booking': 'booking_number',
@@ -146,8 +147,9 @@ export async function listVaziosBookings(filters: {
     .order('created_at', { ascending: false })
 
   if (filters.search) {
+    const search = escapeFilterTerm(filters.search)
     query = query.or(
-      `booking_number.ilike.%${filters.search}%,container_number.ilike.%${filters.search}%`,
+      `booking_number.ilike.%${search}%,container_number.ilike.%${search}%`,
     )
   }
 

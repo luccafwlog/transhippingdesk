@@ -83,7 +83,7 @@ export function useCustomers(filters: CustomerFilters) {
   })
 }
 
-async function fetchCustomerRows(filters: CustomerFilters, paginate: boolean) {
+export async function fetchCustomerRows(filters: CustomerFilters, paginate: boolean) {
   const from = filters.page * filters.pageSize
   const to = from + filters.pageSize - 1
 
@@ -110,10 +110,11 @@ async function fetchCustomerRows(filters: CustomerFilters, paginate: boolean) {
   }
 
   if (filters.search) {
+    const search = escapeFilterTerm(filters.search)
     const normalizedDocument = onlyDigits(filters.search)
     const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
     query = query.or(
-      `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%${documentClause}`,
+      `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%${documentClause}`,
     )
   }
 

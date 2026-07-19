@@ -13,35 +13,8 @@ import { SkeletonTable } from '../components/ui/Skeleton'
 import { LineUpTable } from '../components/lineup/LineUpTable'
 import { LineUpFilters } from '../components/lineup/LineUpFilters'
 import { countActiveLineUpFilters, emptyLineUpFilters, filterLineUpRows, type LineUpFilters as LineUpFiltersState } from '../lib/lineupFilters'
-import { fetchLineUpSnapshot, type LineUpRow } from '../services/lineup'
-import { arrivalDisplay } from '../lib/escalaState'
-
-async function exportLineUpToExcel(rows: LineUpRow[]) {
-  const XLSX = await import('@e965/xlsx')
-  const exportRows = rows.map((row) => ({
-    Navio: row.vesselName,
-    Viagem: row.voyageNumber,
-    POD: row.pod,
-    Status: row.voyageStatus === 'completed' ? 'Concluída' : row.voyageStatus === 'cancelled' ? 'Cancelada' : row.voyageStatus === 'active' ? 'Ativa' : row.voyageStatus ?? '',
-    ETA: arrivalDisplay({ eta: row.eta, ata: row.ata }).value ?? '',
-    ETB: row.etb ?? '',
-    VIN: row.vin,
-    'VIN CNTR': row.car,
-    CG: row.cg,
-    Total: row.total,
-    MTY: row.mty,
-    RTW: row.rtw ?? '',
-    'BB Máquinas': row.bbMachines,
-    'BB Pacotes': row.bbPackages,
-    'BB Total': row.bbTotal,
-    CEs: row.rowType === 'export' ? row.exportCeStatus ?? 'waiting' : row.ceStatus,
-    Linked: (row.rowType === 'export' ? row.exportLinked : row.linked) ? 'Sim' : 'Não',
-  }))
-  const ws = XLSX.utils.json_to_sheet(exportRows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Line Up')
-  XLSX.writeFile(wb, `painel-lineup-${new Date().toISOString().slice(0, 10)}.xlsx`)
-}
+import { fetchLineUpSnapshot } from '../services/lineup'
+import { exportLineUpWorkbook } from '../services/exports'
 
 export function Painel() {
   const { showToast } = useToast()
@@ -69,7 +42,7 @@ export function Painel() {
   async function handleExport() {
     setIsExporting(true)
     try {
-      await exportLineUpToExcel(rows)
+      await exportLineUpWorkbook(rows)
     } catch {
       showToast('Falha ao exportar o Line Up.', 'error')
     } finally {

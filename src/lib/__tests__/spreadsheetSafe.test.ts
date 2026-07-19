@@ -1,0 +1,22 @@
+import { describe, expect, it } from 'vitest'
+import { sanitizeCellValue, sanitizeSheetRows } from '../spreadsheetSafe'
+
+describe('sanitizeCellValue', () => {
+  it('prefixa aspa simples em valores que começam com metacaractere de fórmula', () => {
+    expect(sanitizeCellValue('=SUM(A1)')).toBe("'=SUM(A1)")
+    expect(sanitizeCellValue('+1')).toBe("'+1")
+    expect(sanitizeCellValue('-1')).toBe("'-1")
+    expect(sanitizeCellValue('@x')).toBe("'@x")
+  })
+  it('preserva strings normais e não-strings', () => {
+    expect(sanitizeCellValue('NAVIO A')).toBe('NAVIO A')
+    expect(sanitizeCellValue(42)).toBe(42)
+    expect(sanitizeCellValue(null)).toBe(null)
+  })
+})
+
+describe('sanitizeSheetRows', () => {
+  it('sanitiza cada célula de string de cada linha', () => {
+    expect(sanitizeSheetRows([{ a: '=1+1', b: 2, c: 'ok' }])).toEqual([{ a: "'=1+1", b: 2, c: 'ok' }])
+  })
+})

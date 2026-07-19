@@ -917,7 +917,7 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
 
 export async function listBillingCustomers(search = '') {
   const normalizedSearch = String(search ?? '').trim()
-  const safeSearch = normalizedSearch.replace(/[(),]/g, ' ')
+  const safeSearch = escapeFilterTerm(normalizedSearch)
   const digitSearch = normalizedSearch.replace(/\D/g, '')
 
   let query = supabase
