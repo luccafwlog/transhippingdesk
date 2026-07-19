@@ -10,7 +10,7 @@
 
 **Regras transversais:**
 
-- Migrations numeradas sequenciais (ADR 0016). Este plano usa 205–209; se outro trabalho ocupar um número, use o próximo livre e ajuste as referências.
+- Migrations numeradas sequenciais (ADR 0016). Este plano usa 210–214; se outro trabalho ocupar um número, use o próximo livre e ajuste as referências.
 - `src/types/database.ts` é arquivo **protegido** (CLAUDE.md): as tasks que o alteram exigem autorização explícita do usuário antes do edit — peça antes de executar.
 - Nunca usar `adr` em schema/código: prefixo completo `agency_departure_report_` (CONTEXT.md).
 - Cada task termina com commit. Rodar `npm test` (Vitest) no escopo indicado; antes do push final: `npm run docs:check && npm run lint && npm test && npm run build`.
@@ -19,10 +19,10 @@
 
 ## Parte 1 — Fundações: Vazios EXP estendido + papel Equipamentos
 
-### Task 1: Migration 205 — colunas novas por container
+### Task 1: Migration 208 — colunas novas por container
 
 **Files:**
-- Create: `supabase/migrations/205_vazios_adr_container_fields.sql`
+- Create: `supabase/migrations/208_vazios_adr_container_fields.sql`
 - Test: `src/services/__tests__/vaziosAdrFieldsMigration.test.ts`
 
 - [ ] **Step 1: Escrever a migration**
@@ -130,11 +130,11 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(
-  resolve(__dirname, '../../../supabase/migrations/205_vazios_adr_container_fields.sql'),
+  resolve(__dirname, '../../../supabase/migrations/208_vazios_adr_container_fields.sql'),
   'utf-8',
 )
 
-describe('migration 205 — campos ADR por container', () => {
+describe('migration 208 — campos ADR por container', () => {
   it('adiciona os campos novos de vazios_bookings', () => {
     for (const col of [
       'embark_port', 'depot', 'material', 'bundle', 'transporte',
@@ -163,14 +163,14 @@ Expected: PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/205_vazios_adr_container_fields.sql src/services/__tests__/vaziosAdrFieldsMigration.test.ts
-git commit -m "feat(vazios): campos por container para o ADR (migration 205)"
+git add supabase/migrations/208_vazios_adr_container_fields.sql src/services/__tests__/vaziosAdrFieldsMigration.test.ts
+git commit -m "feat(vazios): campos por container para o ADR (migration 208)"
 ```
 
-### Task 2: Migration 206 — operação de vazios da escala, overtime por depot e serviços de reorganização
+### Task 2: Migration 209 — operação de vazios da escala, overtime por depot e serviços de reorganização
 
 **Files:**
-- Create: `supabase/migrations/206_vazios_export_operations.sql`
+- Create: `supabase/migrations/209_vazios_export_operations.sql`
 - Test: `src/services/__tests__/vaziosExportOperationsMigration.test.ts`
 
 - [ ] **Step 1: Escrever a migration**
@@ -180,7 +180,7 @@ git commit -m "feat(vazios): campos por container para o ADR (migration 205)"
 -- extra de reorganizacao (spec 2026-07-19, blocos EMBARQUE CONTAINER VAZIO,
 -- OVER TIME e SERVICO EXTRA do modelo real).
 -- Intent: OS por (viagem, porto); % de overtime aplicado por depot (as
---   quantidades derivam das flags por container da migration 205); servicos
+--   quantidades derivam das flags por container da migration 208); servicos
 --   bundle/desova/visual_check com qty por tipo x tarifa configuravel
 --   (mesmo padrao de granite_rates — tarifas nunca fixas em codigo).
 -- Rollback: DROP TABLE das quatro tabelas.
@@ -254,11 +254,11 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(
-  resolve(__dirname, '../../../supabase/migrations/206_vazios_export_operations.sql'),
+  resolve(__dirname, '../../../supabase/migrations/209_vazios_export_operations.sql'),
   'utf-8',
 )
 
-describe('migration 206 — operacao de vazios da escala', () => {
+describe('migration 209 — operacao de vazios da escala', () => {
   it('cria as quatro tabelas com RLS', () => {
     for (const t of [
       'vazios_export_operations', 'vazios_export_overtime_depots',
@@ -288,14 +288,14 @@ Expected: PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/206_vazios_export_operations.sql src/services/__tests__/vaziosExportOperationsMigration.test.ts
-git commit -m "feat(vazios): operacao da escala, overtime por depot e reorganizacao (migration 206)"
+git add supabase/migrations/209_vazios_export_operations.sql src/services/__tests__/vaziosExportOperationsMigration.test.ts
+git commit -m "feat(vazios): operacao da escala, overtime por depot e reorganizacao (migration 209)"
 ```
 
-### Task 3: Migration 207 — papel `equipamentos`
+### Task 3: Migration 210 — papel `equipamentos`
 
 **Files:**
-- Create: `supabase/migrations/207_role_equipamentos.sql`
+- Create: `supabase/migrations/210_role_equipamentos.sql`
 
 - [ ] **Step 1: Escrever a migration**
 
@@ -305,7 +305,7 @@ O constraint atual vem da migration `040_portal_login_rate_limit.sql`.
 -- RBAC: papel Equipamentos (spec ADR 2026-07-19; CONTEXT.md "Escopo de
 -- Equipamentos" — escrita em VAZIOS EXP e Veiculos, sign-off das suas secoes).
 -- Intent: o sign-off departamental do Agency Departure Report exige o papel;
---   a autoridade fina por secao fica nas RPCs da migration 208.
+--   a autoridade fina por secao fica nas RPCs da migration 211.
 -- Rollback: reaplicar o constraint de 040 sem 'equipamentos' (apenas se nao
 --   houver usuarios com o papel).
 
@@ -392,16 +392,16 @@ incluir `equipamentos`.
 > **Nota de enforcement (alinhada à spec):** o escopo de escrita do papel
 > (vazios/veículos) é aplicado na UI via `can('vazios_edit')`/
 > `can('veiculos_edit')` e, no servidor, apenas nos sign-offs (RPC da
-> migration 208 valida o departamento dono). As policies RLS das tabelas de
+> migration 211 valida o departamento dono). As policies RLS das tabelas de
 > vazios/veículos seguem o padrão vigente do repositório
-> (`is_active_user()` amplo — migrations 035/042/206); hardening de RLS por
+> (`is_active_user()` amplo — migrations 035/042/209); hardening de RLS por
 > papel é evolução futura, fora deste plano.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add supabase/migrations/207_role_equipamentos.sql src/types/database.ts src/hooks/useAuth.tsx src/hooks/__tests__/roleHasPermission.test.ts src/services/adminUsers.ts src/components/layout/HeaderInfoBar.tsx
-git commit -m "feat(rbac): papel equipamentos com escopo de vazios e veiculos (migration 207)"
+git add supabase/migrations/210_role_equipamentos.sql src/types/database.ts src/hooks/useAuth.tsx src/hooks/__tests__/roleHasPermission.test.ts src/services/adminUsers.ts src/components/layout/HeaderInfoBar.tsx
+git commit -m "feat(rbac): papel equipamentos com escopo de vazios e veiculos (migration 210)"
 ```
 
 ### Task 4: Tipos das tabelas novas e colunas estendidas
@@ -1155,10 +1155,10 @@ git commit -m "feat(adr-report): aba ADR derivada no detalhe da viagem"
 
 ## Parte 3 — Sign-offs, ocorrências e alertas
 
-### Task 10: Migration 208 — agregado do ADR e RPCs de sign-off/ocorrência
+### Task 10: Migration 211 — agregado do ADR e RPCs de sign-off/ocorrência
 
 **Files:**
-- Create: `supabase/migrations/208_agency_departure_reports.sql`
+- Create: `supabase/migrations/211_agency_departure_reports.sql`
 - Test: `src/services/__tests__/agencyReportMigration.test.ts`
 
 - [ ] **Step 1: Escrever a migration**
@@ -1405,11 +1405,11 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(
-  resolve(__dirname, '../../../supabase/migrations/208_agency_departure_reports.sql'),
+  resolve(__dirname, '../../../supabase/migrations/211_agency_departure_reports.sql'),
   'utf-8',
 )
 
-describe('migration 208 — agregado do Agency Departure Report', () => {
+describe('migration 211 — agregado do Agency Departure Report', () => {
   it('ancora em (voyage_id, port) com unicidade', () => {
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.agency_departure_reports')
     expect(sql).toContain('UNIQUE (voyage_id, port)')
@@ -1486,8 +1486,8 @@ E no mapa `Tables`:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/208_agency_departure_reports.sql src/services/__tests__/agencyReportMigration.test.ts src/types/database.ts
-git commit -m "feat(adr-report): agregado, sign-offs e ocorrencias (migration 208)"
+git add supabase/migrations/211_agency_departure_reports.sql src/services/__tests__/agencyReportMigration.test.ts src/types/database.ts
+git commit -m "feat(adr-report): agregado, sign-offs e ocorrencias (migration 211)"
 ```
 
 ### Task 11: Sign-offs e ocorrências na aba
@@ -1564,10 +1564,10 @@ git commit -m "feat(adr-report): sign-offs por secao e diario de ocorrencias"
 ### Task 12: Alertas de pendência pós-ATD
 
 **Files:**
-- Create: `supabase/migrations/209_agency_report_pending_alerts.sql` *(RPC de detecção; o fechamento entra na Task 13, mesma migration)*
+- Create: `supabase/migrations/212_agency_report_pending_alerts.sql` *(RPC de detecção; o fechamento entra na Task 13, mesma migration)*
 - Modify: `src/pages/Alertas.tsx`
 
-- [ ] **Step 1: RPC de detecção (parte 1 da migration 209)**
+- [ ] **Step 1: RPC de detecção (parte 1 da migration 212)**
 
 ```sql
 -- Agency Departure Report: deteccao de pendencias pos-ATD e fechamento com
@@ -1671,11 +1671,11 @@ Adicionar ao `src/services/__tests__/agencyReportMigration.test.ts`:
 
 ```ts
 const sql209 = readFileSync(
-  resolve(__dirname, '../../../supabase/migrations/209_agency_report_pending_alerts.sql'),
+  resolve(__dirname, '../../../supabase/migrations/212_agency_report_pending_alerts.sql'),
   'utf-8',
 )
 
-describe('migration 209 — pendencias pos-ATD', () => {
+describe('migration 212 — pendencias pos-ATD', () => {
   it('so alerta escala com ATD vigente e secao pendente de ADR aberto', () => {
     expect(sql209).toContain("field_name = 'atd'")
     expect(sql209).toContain("COALESCE(r.status, 'open') = 'open'")
@@ -1699,7 +1699,7 @@ Expected: PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/209_agency_report_pending_alerts.sql src/services/alerts.ts src/pages/Alertas.tsx src/services/__tests__/agencyReportMigration.test.ts
+git add supabase/migrations/212_agency_report_pending_alerts.sql src/services/alerts.ts src/pages/Alertas.tsx src/services/__tests__/agencyReportMigration.test.ts
 git commit -m "feat(adr-report): alertas de secao pendente pos-ATD"
 ```
 
@@ -1707,10 +1707,10 @@ git commit -m "feat(adr-report): alertas de secao pendente pos-ATD"
 
 ## Parte 4 — Fechamento com snapshot e impressão
 
-### Task 13: RPCs de fechamento e reabertura (continuação da migration 209)
+### Task 13: RPCs de fechamento e reabertura (continuação da migration 212)
 
 **Files:**
-- Modify: `supabase/migrations/209_agency_report_pending_alerts.sql` *(se a 209 já tiver sido aplicada em ambiente remoto, criar `210_agency_report_close.sql` com o mesmo conteúdo abaixo)*
+- Modify: `supabase/migrations/212_agency_report_pending_alerts.sql` *(se a 212 já tiver sido aplicada em ambiente remoto, criar `213_agency_report_close.sql` com o mesmo conteúdo abaixo)*
 
 - [ ] **Step 1: Acrescentar as funções**
 
@@ -1827,7 +1827,7 @@ GRANT EXECUTE ON FUNCTION public.reopen_agency_departure_report(BIGINT, TEXT, TE
 
 - [ ] **Step 2: Teste de contrato**
 
-Adicionar ao describe da 209 em `agencyReportMigration.test.ts`:
+Adicionar ao describe da 212 em `agencyReportMigration.test.ts`:
 
 ```ts
   it('fechamento veta secoes pendentes e reabertura exige justificativa auditada', () => {
@@ -1848,7 +1848,7 @@ Expected: PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add supabase/migrations/209_agency_report_pending_alerts.sql src/services/__tests__/agencyReportMigration.test.ts
+git add supabase/migrations/212_agency_report_pending_alerts.sql src/services/__tests__/agencyReportMigration.test.ts
 git commit -m "feat(adr-report): fechamento com snapshot e reabertura auditada"
 ```
 
@@ -1914,7 +1914,7 @@ git commit -m "feat(adr-report): fechamento com snapshot congelado e impressao"
 
 - [ ] **Step 1: Atualizar documentação viva**
 
-- `docs/ARCHITECTURE.md`: fluxo operacional ganha o nó do Agency Departure Report; seção de migrations menciona 205–209; nenhuma rota nova (aba em `/viagens/:voyageId`).
+- `docs/ARCHITECTURE.md`: fluxo operacional ganha o nó do Agency Departure Report; seção de migrations menciona 210–214; nenhuma rota nova (aba em `/viagens/:voyageId`).
 - `docs/RASTREABILIDADE.md`: linhas novas para a aba ADR (componente `VoyageAgencyReportTab`, hook `useAgencyReport`, serviço `agencyDepartureReport.ts`, RPCs `set_agency_report_signoff`/`add_agency_report_occurrence`/`close_agency_departure_report`/`reopen_agency_departure_report`/`detect_agency_report_pending`, testes) e para as extensões de VAZIOS EXP.
 
 - [ ] **Step 2: Ciclo de vida de plano/spec (docs/CONVENCOES.md)**
