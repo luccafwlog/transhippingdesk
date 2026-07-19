@@ -576,7 +576,7 @@ function buildCeCoverageTimeline(
   ceCoverage: VoyageTimelineInput['ceCoverage'],
   latestImportAt: string | null,
 ): VoyageTimelineEvent[] {
-  if (!ceCoverage || ceCoverage.total <= 0 || ceCoverage.filled < ceCoverage.total || !latestImportAt) return []
+  if (!ceCoverage || !(ceCoverage.total > 0 && ceCoverage.filled >= ceCoverage.total) || !latestImportAt) return []
   return [{
     id: 'ce-coverage-complete',
     kind: 'ce-coverage',
