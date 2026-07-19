@@ -12,22 +12,22 @@ export function computeBlPortalVisibility(input: { ceMercante: string | null; cu
 
 export type BlPortalNotification = { id: number; type: string; title: string; created_at: string; read_at: string | null }
 
-// ponytail: database.ts nao tipa portal_notifications/customer_portal_accounts;
-// casts locais ate regenerar tipos com autorizacao.
 export async function getBlPortalStatus(input: { blId: string; ceMercante: string | null; customerId: number | null }) {
-  const [accountRes, notificationsRes, disputesRes] = await Promise.all([
-    input.customerId == null
-      ? Promise.resolve({ data: null, error: null })
-      : (supabase.from as unknown as (t: string) => { select: (c: string) => { eq: (k: string, v: number) => { maybeSingle: () => Promise<{ data: { account_situation: string } | null; error: Error | null }> } } })('customer_portal_accounts').select('account_situation').eq('customer_id', input.customerId).maybeSingle(),
-    (supabase.from as unknown as (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { order: (k: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: unknown[] | null; error: Error | null }> } } } })('portal_notifications').select('id, type, title, created_at, read_at').eq('bl_id', input.blId).order('created_at', { ascending: false }).limit(10),
-    supabase.from('demurrage_invoices').select('id, doc_number, dispute_open, dispute_status').eq('bl_id', input.blId).eq('dispute_open', true),
-  ])
-  if (accountRes.error) throw accountRes.error
-  if (notificationsRes.error) throw notificationsRes.error
-  if (disputesRes.error) throw disputesRes.error
+  // O Portal mantém notifications/accounts protegidas por RLS; a leitura interna
+  // passa pelo RPC SECURITY DEFINER, que valida o usuário e escopa pelo B/L.
+  const rpc = supabase.rpc as unknown as (name: string, args: { p_bl_id: string }) => Promise<{ data: unknown; error: Error | null }>
+  const { data, error } = await rpc('get_bl_portal_status', { p_bl_id: input.blId })
+  if (error) throw error
+  const result = data as {
+    ce_mercante: string | null
+    customer_id: number | null
+    account_situation: string | null
+    notifications: BlPortalNotification[]
+    open_disputes: Array<{ id: number; doc_number: string | null; dispute_status: string | null }>
+  }
   return {
-    visibility: computeBlPortalVisibility({ ceMercante: input.ceMercante, customerId: input.customerId, accountSituation: accountRes.data?.account_situation ?? null }),
-    notifications: (notificationsRes.data ?? []) as BlPortalNotification[],
-    openDisputes: (disputesRes.data ?? []) as Array<{ id: number; doc_number: string | null; dispute_status: string | null }>,
+    visibility: computeBlPortalVisibility({ ceMercante: result.ce_mercante, customerId: result.customer_id, accountSituation: result.account_situation }),
+    notifications: result.notifications ?? [],
+    openDisputes: result.open_disputes ?? [],
   }
 }

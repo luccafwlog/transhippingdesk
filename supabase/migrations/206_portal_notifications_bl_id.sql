@@ -153,3 +153,69 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.get_bl_portal_status(p_bl_id TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_customer_id BIGINT;
+  v_ce_mercante TEXT;
+  v_account_situation TEXT;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
+    RAISE EXCEPTION 'Usuario sem permissao ativa.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT b.customer_id, b.ce_mercante
+  INTO v_customer_id, v_ce_mercante
+  FROM public.bls b
+  WHERE b.id = p_bl_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'B/L % nao encontrado', p_bl_id USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT a.account_situation
+  INTO v_account_situation
+  FROM public.customer_portal_accounts a
+  WHERE a.customer_id = v_customer_id;
+
+  RETURN jsonb_build_object(
+    'customer_id', v_customer_id,
+    'ce_mercante', v_ce_mercante,
+    'account_situation', v_account_situation,
+    'notifications', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', n.id,
+        'type', n.type,
+        'title', n.title,
+        'created_at', n.created_at,
+        'read_at', n.read_at
+      ) ORDER BY n.created_at DESC)
+      FROM (
+        SELECT id, type, title, created_at, read_at
+        FROM public.portal_notifications
+        WHERE bl_id = p_bl_id
+        ORDER BY created_at DESC
+        LIMIT 10
+      ) n
+    ), '[]'::JSONB),
+    'open_disputes', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', d.id,
+        'doc_number', d.doc_number,
+        'dispute_status', d.dispute_status
+      ) ORDER BY d.id DESC)
+      FROM public.demurrage_invoices d
+      WHERE d.bl_id = p_bl_id
+        AND d.dispute_open = true
+    ), '[]'::JSONB)
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_bl_portal_status(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_bl_portal_status(TEXT) TO authenticated;

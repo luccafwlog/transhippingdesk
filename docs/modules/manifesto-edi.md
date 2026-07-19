@@ -32,7 +32,8 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 
 - `src/pages/BlDetalhe.tsx` resolve o modo container/BB e monta as abas `visao-geral`, `detalhes`, `faturamento` e `historico`.
 - A aba padrão `visao-geral` remove `tab` da query; `detalhes`, `faturamento` e `historico` sincronizam suas respectivas chaves. Chaves antigas, como `operacional`, não são aceitas.
-- **Visão Geral:** consolida Viagem & Escala, Carga, Cliente e Financeiro; o pipeline abaixo da página mostra trilhos operacional/financeiro e a próxima ação pendente escopada ao B/L.
+- **Visão Geral:** consolida Viagem & Escala, Carga, Cliente e Financeiro; o pipeline abaixo da página mostra trilhos operacional/financeiro e a próxima ação pendente escopada ao B/L. A mesma aba exibe Transbordo/COD, divergências de existência do Baplie e o card de Portal (visibilidade, notificações vinculadas ao B/L e disputas abertas).
+- A leitura interna do card de Portal usa `get_bl_portal_status` (migration 206), RPC `SECURITY DEFINER` que valida `is_active_user()` e faz a leitura mínima necessária por B/L, pois `portal_notifications` e `customer_portal_accounts` permanecem protegidas por RLS.
 - **Detalhes do B/L:** `BlDetalhesTab` compõe `BlOperacionalTab` e `BlCargaTab`.
   - Formulário auditado: POL, POD, CE Mercante, shipper, consignee, `notify_party`, descrição, pesos/CBM, campos BB, pagamento, notas e justificativa.
   - NCM é somente leitura, derivado de `cargo_description` por `listBlNcms`/`extractNcmCodes` em `src/lib/ncm.ts`, deduplicado e sem ocorrências `UN NCM`.
