@@ -109,10 +109,16 @@ CONTEXT.md).
 - `vazios_importacao_containers`: + `natureza` (`cama` | `cover_plate`).
 - `bl_containers`: + `unpacking_location text` (local de desova; preenchido
   na tela de Veículos para containers com veículo).
-- `user_profiles`: novo papel `equipamentos` + policies/RPCs de escopo
-  (escrita em `vazios_manifests`/`vazios_bookings`/`vazios_export_*`/
-  `vazios_reorg_*`/`vehicles` e no `unpacking_location`; sign-off das seções
-  próprias; leitura no restante).
+- `user_profiles`: novo papel `equipamentos` (escrita em
+  `vazios_manifests`/`vazios_bookings`/`vazios_export_*`/`vazios_reorg_*`/
+  `vehicles` e no `unpacking_location`; sign-off das seções próprias; leitura
+  no restante). Enforcement: o escopo de escrita é aplicado na UI
+  (`can('vazios_edit')`/`can('veiculos_edit')`) e, no servidor, nas RPCs de
+  sign-off (validam o departamento dono). As policies RLS das tabelas seguem
+  o padrão vigente (`is_active_user()` amplo); RLS por papel é hardening
+  futuro, fora deste escopo. As RPCs do console de provisionamento do Portal
+  (196–198) continuam negando o papel — Portal está fora do escopo de
+  Equipamentos.
 
 ### Snapshot de fechamento
 
@@ -121,7 +127,8 @@ fechamento (cabeçalho, matrizes por tipo, contagens, listas, ocorrências,
 sign-offs, valores de serviços extra). Depois de fechado, a aba e a impressão
 leem o snapshot; o modo aberto lê as fontes vivas. Reabertura exige
 justificativa, grava auditoria (padrão `audit_logs`), limpa `closed_*` e
-retorna a Pendente as seções indicadas.
+retorna **todas** as seções a Pendente — cada departamento revalida a sua
+antes do novo fechamento.
 
 ## Blocos do relatório e fontes de derivação
 
@@ -148,6 +155,8 @@ Espelham o modelo real da empresa:
   dono, exibida em `/alertas` e no Painel (mesmo padrão dos alertas internos
   existentes; sem email).
 - ADR fechado encerra as pendências da escala.
+- Baseline: escalas com ATD anterior ao deploy da funcionalidade não geram
+  pendência retroativa (corte temporal na RPC de detecção).
 
 ## Fluxo da aba
 

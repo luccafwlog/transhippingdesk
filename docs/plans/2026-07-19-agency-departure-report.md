@@ -369,10 +369,38 @@ E incluir `'vazios_edit', 'veiculos_edit'` no array do case `documentacao`.
 Run: `npx vitest run src/hooks/__tests__/roleHasPermission.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Expor o papel na administração de usuários**
+
+Sem isto o papel não é atribuível:
+
+- `src/services/adminUsers.ts`: adicionar `'equipamentos'` a `MANAGED_PROFILES`
+  (linha 30) e o rótulo `equipamentos: 'Equipamentos'` a `PROFILE_LABELS`
+  (linha 21).
+- `src/components/layout/HeaderInfoBar.tsx`: novo `case 'equipamentos'` no
+  switch de rótulo de perfil (linha ~25).
+
+- [ ] **Step 7: Decisão registrada — RPCs que enumeram papéis**
+
+As RPCs do console de provisionamento do Portal (migrations 196–198) fazem
+`v_role NOT IN ('administrativo','documentacao','financeiro','operacoes')` e
+portanto **negam** o papel `equipamentos`. Decisão: manter — o Portal está fora
+do Escopo de Equipamentos (CONTEXT.md). Não alterar essas RPCs; nenhuma outra
+RPC do repositório enumera papéis (verificado por grep em
+`supabase/migrations`). Se uma futura RPC de leitura geral enumerar papéis,
+incluir `equipamentos`.
+
+> **Nota de enforcement (alinhada à spec):** o escopo de escrita do papel
+> (vazios/veículos) é aplicado na UI via `can('vazios_edit')`/
+> `can('veiculos_edit')` e, no servidor, apenas nos sign-offs (RPC da
+> migration 208 valida o departamento dono). As policies RLS das tabelas de
+> vazios/veículos seguem o padrão vigente do repositório
+> (`is_active_user()` amplo — migrations 035/042/206); hardening de RLS por
+> papel é evolução futura, fora deste plano.
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add supabase/migrations/207_role_equipamentos.sql src/types/database.ts src/hooks/useAuth.tsx src/hooks/__tests__/roleHasPermission.test.ts
+git add supabase/migrations/207_role_equipamentos.sql src/types/database.ts src/hooks/useAuth.tsx src/hooks/__tests__/roleHasPermission.test.ts src/services/adminUsers.ts src/components/layout/HeaderInfoBar.tsx
 git commit -m "feat(rbac): papel equipamentos com escopo de vazios e veiculos (migration 207)"
 ```
 
@@ -780,7 +808,24 @@ Expected: PASS
 
 - [ ] **Step 4: Edição inline em `src/pages/EmbarqueVazios.tsx`**
 
-Na tabela existente, adicionar colunas: Porto, Depot, Material, Bundle, Transp., Hand-in, Hand-out, OT Hand., OT Transp. Cada célula editável abre em foco (padrão input/checkbox controlado) e salva no blur/change via `updateVaziosBooking`, invalidando `['vazios-bookings']`. Gate de escrita: `can('vazios_edit')` — sem a permissão as células são somente leitura. Acima da tabela, quando o filtro de viagem está ativo, renderizar um card "Operação da escala" com: select de porto (portos distintos de `embark_port` dos bookings + entrada livre), input OS (salva via `upsertVaziosExportOperation`), lista de overtime por depot (depot + % — `upsertOvertimeDepot`) e grade de serviços de reorganização (service × tipo × qty — `upsertReorgService`), exibindo valor = qty × tarifa de `listActiveReorgRates()`.
+**Decisão de layout:** a tabela existente já tem 8 colunas; somar 9 novas
+inline resultaria em 17 colunas ilegíveis. Não adicionar as 9 colunas à grade
+principal. Em vez disso:
+
+- Manter a tabela principal com as 8 colunas atuais + 1 coluna nova de resumo
+  "ADR" (badges compactos: porto, depot ou "Direto", e ícones para
+  material/bundle/transporte/OT quando marcados).
+- Cada linha ganha um botão de expansão (accordion, mesmo padrão de linhas
+  expansíveis já usado no app) que abre um painel com os 9 campos editáveis em
+  grade 3×3: Porto Embarque (select + entrada livre), Depot (input; vazio =
+  Embarque Direto), Hand-in/Hand-out (date inputs), e os 5 booleanos como
+  checkboxes rotulados (Material, Bundle, Transporte, OT Handling,
+  OT Transporte).
+- Salvar no blur/change via `updateVaziosBooking`, invalidando
+  `['vazios-bookings']`. Gate de escrita: `can('vazios_edit')` — sem a
+  permissão o painel abre somente leitura.
+- Em telas estreitas o painel expansível já resolve a responsividade; a tabela
+  principal permanece dentro do contêiner com `overflow-x-auto` existente. Acima da tabela, quando o filtro de viagem está ativo, renderizar um card "Operação da escala" com: select de porto (portos distintos de `embark_port` dos bookings + entrada livre), input OS (salva via `upsertVaziosExportOperation`), lista de overtime por depot (depot + % — `upsertOvertimeDepot`) e grade de serviços de reorganização (service × tipo × qty — `upsertReorgService`), exibindo valor = qty × tarifa de `listActiveReorgRates()`.
 
 - [ ] **Step 5: Verificar manualmente e commitar**
 
@@ -830,6 +875,13 @@ export async function setContainerUnpackingLocation(
 - [ ] **Step 2: UI**
 
 Em `VaziosImportacao.tsx`: coluna "Natureza" com `Select` inline (`—`, `Cama`, `Cover plate`) chamando `setVazioImportacaoNatureza` e invalidando a query da lista. Em `Veiculos.tsx`: coluna "Local desova" com input inline por linha (o veículo referencia `container_id`) chamando `setContainerUnpackingLocation`; gate `can('veiculos_edit')`.
+
+**Atenção — atributo do container, não do veículo:** vários veículos
+compartilham o mesmo container; editar o local de desova numa linha altera
+todas as linhas irmãs. A UI deve deixar isso visível: ao focar o input, exibir
+`title`/hint "Aplica a todos os N veículos do container XXXX"; após salvar,
+invalidar a query da lista para que as linhas irmãs reflitam o valor
+imediatamente.
 
 - [ ] **Step 3: Lint, teste e commit**
 
@@ -1056,6 +1108,23 @@ export function useAgencyReportDerived(voyageId: number, port: string | null) {
 
 `VoyageAgencyReportTab.tsx` recebe `{ voyageId, voyageLabel, pods }` (pods = escalas ativas não omitidas, mesmas do planejamento). Renderiza: seletor de escala (botões-chip por POD, estado em `useState` iniciado pelo primeiro POD ou pelo query param `escala`); cabeçalho (armador via vessel/carrier já presente no card, porto, ATA/ATB/ATD da projeção, restow = `rtw`); blocos por seção usando `buildContainerTypeMatrix`/`groupVehiclesByBrand`/`computeStorageTotals` sobre `useAgencyReportDerived`. Sem persistência própria nesta task.
 
+**Ordem e hierarquia dos blocos na aba** — mesma ordem do documento impresso
+(modelo real da empresa), para que tela e impressão contem a mesma história:
+
+1. Cabeçalho (armador, navio/viagem, porto, terminal, ATA/ATB/ATD, restow)
+2. Carga solta
+3. Granito (carga carregada)
+4. Matriz de descarga (tipo × categoria)
+5. Vazios descarregados (cama / cover plate)
+6. Container com veículo (marca × BLs × VINs × local desova)
+7. Embarque de vazios (matriz + OS + embarque direto + depots), seguido de
+   Serviço extra, Storage e Overtime como sub-blocos
+8. Ocorrências
+
+Cada bloco é um card com título de seção + (a partir da Task 11) o chip de
+sign-off no canto do título. Manter os cards em coluna única — a aba prioriza
+leitura de conferência, não dashboard.
+
 - [ ] **Step 3: Registrar a aba em `VoyageCard.tsx`**
 
 ```ts
@@ -1070,7 +1139,7 @@ No array de tabs (linha 209): `{ key: 'adr', label: 'ADR' }`. No corpo (após `m
 ) : null}
 ```
 
-*(`activePods` = mesma lista de PODs já usada pela aba Escalas & Manifestos; `voyageLabel` idem às outras abas.)* Suporte a deep-link: em `Viagens.tsx`, propagar `?tab=adr&escala=XXX` para o estado inicial do card, seguindo o mecanismo existente de seleção de viagem.
+*(`activePods` = mesma lista de PODs já usada pela aba Escalas & Manifestos; `voyageLabel` idem às outras abas.)* Suporte a deep-link: `Viagens.tsx` já lê query params via `useSearchParams` (param `vessel`, linha ~48/66) — **estender esse mecanismo existente** lendo também `tab` e `escala` e repassando-os como props iniciais ao `VoyageCard` (`initialTab?: VoyageTabKey`, `initialEscala?: string`), que os usa apenas como estado inicial (sem sincronização contínua de URL nesta fase).
 
 - [ ] **Step 4: Lint, testes e commit**
 
@@ -1521,7 +1590,7 @@ BEGIN
   END IF;
 
   WITH latest_atd AS (
-    SELECT DISTINCT ON (entity_id) entity_id, new_value
+    SELECT DISTINCT ON (entity_id) entity_id, new_value, changed_at
     FROM public.audit_logs
     WHERE entity_type = 'voyage_pod_schedule' AND field_name = 'atd'
     ORDER BY entity_id, changed_at DESC
@@ -1529,9 +1598,14 @@ BEGIN
   departed AS (
     SELECT
       split_part(entity_id, '::', 1)::BIGINT AS voyage_id,
-      split_part(entity_id, '::', 2) AS port
+      upper(trim(split_part(entity_id, '::', 2))) AS port
     FROM latest_atd
     WHERE COALESCE(trim(new_value), '') <> ''
+      -- Baseline: escalas encerradas antes do deploy do ADR nao geram
+      -- pendencia retroativa (sem isto, a primeira execucao inundaria os
+      -- alertas com ate 7 pendencias por escala historica). Ajustar a data
+      -- para a data real do deploy da migration.
+      AND changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00'
   ),
   sections AS (
     SELECT unnest(ARRAY[
@@ -1611,6 +1685,11 @@ describe('migration 209 — pendencias pos-ATD', () => {
   it('deduplica por alerta aberto do mesmo entity_id', () => {
     expect(sql209).toMatch(/NOT EXISTS[\s\S]*agency_report_section_pending/)
   })
+
+  it('tem baseline temporal e normaliza o porto (sem alerta retroativo)', () => {
+    expect(sql209).toMatch(/changed_at >= TIMESTAMPTZ/)
+    expect(sql209).toMatch(/upper\(trim\(split_part/)
+  })
 })
 ```
 
@@ -1653,18 +1732,27 @@ BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
     RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
   END IF;
-  IF p_snapshot IS NULL OR p_snapshot = 'null'::JSONB THEN
-    RAISE EXCEPTION 'Snapshot obrigatorio no fechamento.' USING ERRCODE = '22023';
+  IF p_snapshot IS NULL OR jsonb_typeof(p_snapshot) <> 'object'
+     OR NOT (p_snapshot ? 'sections') THEN
+    -- ponytail: snapshot montado no cliente (payload que a aba renderizou);
+    -- validacao minima de shape aqui. Ceiling: o registro estavel e o que o
+    -- navegador enviou. Upgrade path: montar o snapshot server-side numa RPC
+    -- de agregacao quando a escala virar entidade propria.
+    RAISE EXCEPTION 'Snapshot obrigatorio (objeto com "sections") no fechamento.' USING ERRCODE = '22023';
   END IF;
 
   v_report_id := public.ensure_agency_departure_report(p_voyage_id, p_port);
 
-  SELECT 7 - COUNT(*) INTO v_pending
+  -- Total de secoes derivado da mesma lista canonica (sem numero magico).
+  SELECT (SELECT COUNT(*) FROM unnest(ARRAY[
+      'datas', 'carga_descarregada', 'carga_carregada', 'veiculos',
+      'vazios_embarcados', 'vazios_descarregados', 'ocorrencias'
+    ])) - COUNT(*) INTO v_pending
   FROM public.agency_departure_report_signoffs
   WHERE report_id = v_report_id AND state <> 'pending';
 
   IF v_pending > 0 THEN
-    RAISE EXCEPTION 'Fechamento exige as 7 secoes confirmadas (% pendentes).', v_pending
+    RAISE EXCEPTION 'Fechamento exige todas as secoes confirmadas (% pendentes).', v_pending
       USING ERRCODE = '23514';
   END IF;
 
@@ -1717,6 +1805,12 @@ BEGIN
   SET status = 'open', closed_at = NULL, closed_by = NULL, closed_snapshot = NULL
   WHERE id = v_report_id;
 
+  -- Reabrir devolve TODAS as secoes a Pendente: cada departamento revalida
+  -- sua secao antes do novo fechamento (spec, decisao 8).
+  UPDATE public.agency_departure_report_signoffs
+  SET state = 'pending', signed_by = NULL, signed_at = NULL
+  WHERE report_id = v_report_id;
+
   INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
   VALUES ('agency_departure_report', p_voyage_id || '::' || upper(trim(p_port)),
           'status', 'closed', 'open', auth.uid(), trim(p_justification));
@@ -1737,9 +1831,14 @@ Adicionar ao describe da 209 em `agencyReportMigration.test.ts`:
 
 ```ts
   it('fechamento veta secoes pendentes e reabertura exige justificativa auditada', () => {
-    expect(sql209).toMatch(/7 - COUNT\(\*\)/)
+    expect(sql209).toMatch(/state <> 'pending'/)
     expect(sql209).toContain('Reabertura exige justificativa')
     expect(sql209).toMatch(/INSERT INTO public\.audit_logs[\s\S]*'agency_departure_report'/)
+  })
+
+  it('reabertura devolve as secoes a pendente e o snapshot exige shape minimo', () => {
+    expect(sql209).toMatch(/SET state = 'pending', signed_by = NULL, signed_at = NULL/)
+    expect(sql209).toMatch(/p_snapshot \? 'sections'/)
   })
 ```
 
@@ -1791,7 +1890,7 @@ export async function reopenReport(input: {
 
 - [ ] **Step 2: Snapshot e modos da aba**
 
-Na aba: o botão **Fechar ADR** (habilitado com 7/7 seções não-pendentes) monta o snapshot como o objeto completo já renderizado (cabeçalho, matrizes, veículos, vazios, storage, overtime, serviços com valores, ocorrências, sign-offs) e chama `closeReport`. Quando `report.status === 'closed'`, a aba renderiza a partir de `closed_snapshot` (não das queries derivadas) com selo "Fechado em {data} por {autor}", botão **Imprimir** e ação **Reabrir** (modal com justificativa obrigatória → `reopenReport`).
+Na aba: o botão **Fechar ADR** (habilitado com 7/7 seções não-pendentes) monta o snapshot como objeto `{ header, sections, occurrences, signoffs }` — a chave `sections` é obrigatória (a RPC valida `p_snapshot ? 'sections'`) e agrupa os blocos renderizados (matrizes, veículos, vazios, storage, overtime, serviços com valores) — e chama `closeReport`. Após reabertura, todos os sign-offs voltam a Pendente (a RPC reseta); a aba deve refletir isso invalidando `['agency-report-own']`. Quando `report.status === 'closed'`, a aba renderiza a partir de `closed_snapshot` (não das queries derivadas) com selo "Fechado em {data} por {autor}", botão **Imprimir** e ação **Reabrir** (modal com justificativa obrigatória → `reopenReport`).
 
 - [ ] **Step 3: Documento imprimível**
 
@@ -1856,3 +1955,11 @@ git commit -m "docs: rastreabilidade e arquitetura do Agency Departure Report; a
 | Restow derivado de `rtw` | 9 |
 | Storage derivado de hand-in/hand-out | 6, 8 |
 | Docs vivas + ciclo plano/spec | 15 |
+| Papel atribuível na administração (MANAGED_PROFILES/labels) | 3 |
+| Layout: painel expansível no VAZIOS EXP (sem tabela de 17 colunas) | 6 |
+| Local de desova: aviso de container compartilhado | 7 |
+| Ordem dos blocos da aba = ordem do documento impresso | 9 |
+| Deep-link via useSearchParams existente de Viagens.tsx | 9 |
+| Baseline temporal dos alertas (sem pendência retroativa) | 12 |
+| Reabertura reseta todas as seções a Pendente | 13, 14 |
+| Validação mínima de shape do snapshot na RPC | 13, 14 |
