@@ -81,6 +81,7 @@ export function ChargeTablesList({
             ) : null}
             {tables.map((table) => {
               const isExpanded = expandedTableId === table.id
+              const panelId = `charge-table-items-${table.id}`
               const autoCount = table.charge_table_items.filter((item) => !item.manual_only).length
               const manualCount = table.charge_table_items.filter((item) => item.manual_only).length
               return (
@@ -125,13 +126,20 @@ export function ChargeTablesList({
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <button className="app-table__icon-button" type="button" onClick={() => setExpandedTableId(isExpanded ? null : table.id)} title={isExpanded ? 'Recolher itens' : 'Ver itens'}>
+                      <button
+                        className="app-table__icon-button"
+                        type="button"
+                        onClick={() => setExpandedTableId(isExpanded ? null : table.id)}
+                        title={isExpanded ? 'Recolher itens' : 'Ver itens'}
+                        aria-expanded={isExpanded}
+                        aria-controls={panelId}
+                      >
                         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
                     </td>
                   </tr>
                   {isExpanded ? (
-                    <tr key={`${table.id}-items`} className="bg-[var(--app-surface-muted)]">
+                    <tr id={panelId} key={`${table.id}-items`} className="bg-[var(--app-surface-muted)]">
                       <td colSpan={8} className="px-6 py-3">
                         {table.charge_table_items.length === 0 ? (
                           <div className="py-4 text-center text-sm text-[var(--app-muted)]">Nenhum item cadastrado nesta tabela.</div>

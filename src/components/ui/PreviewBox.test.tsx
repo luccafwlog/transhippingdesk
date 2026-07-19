@@ -26,15 +26,18 @@ describe('PreviewBox', () => {
     expect(screen.getByText('Peso (ton)').parentElement?.classList.contains('app-metric-strip')).toBe(true)
     expect(screen.getByText('12,5')).toBeTruthy()
 
-    rerender(<PreviewBox label="Erros" value={2} variant="kpi" />)
+    rerender(<PreviewBox label="Erros" value={2} variant="kpi" tone="gold" />)
     expect(screen.getByText('Erros').parentElement?.classList.contains('app-kpi-card')).toBe(true)
     expect(screen.getByText('Erros').parentElement?.classList.contains('app-kpi-card--gold')).toBe(true)
     expect(screen.getByText('2').classList.contains('app-kpi-card__value')).toBe(true)
     expect(screen.getByText('2').classList.contains('app-kpi-card__value--gold')).toBe(true)
 
     for (const [label, tone] of [['Processados', 'blue'], ['Sucesso', 'green'], ['Viagem selecionada', 'navy']] as const) {
-      rerender(<PreviewBox label={label} value={2} variant="kpi" />)
+      rerender(<PreviewBox label={label} value={2} variant="kpi" tone={tone} />)
       expect(screen.getByText(label).parentElement?.classList.contains(`app-kpi-card--${tone}`)).toBe(true)
     }
+
+    rerender(<PreviewBox label="Erros" value={2} variant="kpi" />)
+    expect(screen.getByText('Erros').parentElement?.classList.contains('app-kpi-card--navy')).toBe(true)
   })
 })

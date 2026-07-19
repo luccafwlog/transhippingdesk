@@ -5,9 +5,10 @@ type PreviewBoxProps = {
   value: number | string
   decimals?: number
   variant?: 'metric' | 'metric-centered' | 'metric-strip' | 'surface' | 'kpi'
+  tone?: 'navy' | 'blue' | 'green' | 'gold'
 }
 
-export function PreviewBox({ label, value, decimals, variant = 'metric' }: PreviewBoxProps) {
+export function PreviewBox({ label, value, decimals, variant = 'metric', tone = 'navy' }: PreviewBoxProps) {
   const displayValue = typeof value === 'number'
     ? value.toLocaleString('pt-BR', decimals === undefined ? undefined : {
         minimumFractionDigits: decimals,
@@ -34,8 +35,6 @@ export function PreviewBox({ label, value, decimals, variant = 'metric' }: Previ
   }
 
   if (variant === 'kpi') {
-    const tone = label === 'Erros' ? 'gold' : label === 'Sucesso' ? 'green' : label === 'Processados' ? 'blue' : 'navy'
-
     return (
       <Card className={`app-kpi-card app-kpi-card--${tone}`}>
         <div className="app-kpi-card__label">{label}</div>

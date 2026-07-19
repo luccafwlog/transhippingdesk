@@ -9,8 +9,11 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
 ## Conteúdo
 
 - **Planos datados** (`YYYY-MM-DD-<tema>.md`) — features e correções de
-  2026-06-01 a 2026-07-16, na maioria gerados pelas skills
+  2026-06-01 a 2026-07-18, na maioria gerados pelas skills
   brainstorming/writing-plans.
+- [`2026-07-18-code-quality-audit-remediation`](2026-07-18-code-quality-audit-remediation.md)
+  — consolidação de formatadores e `PreviewBox`, decomposição de serviços,
+  páginas e abas monolíticas, com cobertura comportamental dos pais.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.
