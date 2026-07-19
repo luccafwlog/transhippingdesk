@@ -21,7 +21,7 @@ não verifica este diretório.
 | `reports/sdd/` | Relatórios de execução por task (subagent-driven development), agrupados por plano |
 | `qa/` | Loops de QA por história e QA contínua (2026-06) |
 | `design-audit/` | Auditoria UX/UI (README + `assets/` com screenshots) |
-| `assets/` | Screenshots referenciados pelas auditorias de QA |
+| `assets/` | Screenshots referenciados pelas auditorias de QA e o bundle de handoff do design system (`2026-06-12-design-system-handoff.zip`, movido da raiz em 2026-07-19) |
 
 > Muitos itens dessas auditorias já foram remediados. Use-as como contexto
 > histórico, não como TODO atual. O que os planos entregaram está resumido no
