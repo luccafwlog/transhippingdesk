@@ -30,12 +30,13 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 
 ### `/manifestos/:blId`
 
-- `src/pages/BlDetalhe.tsx` resolve o modo container/BB e monta exatamente três abas: `detalhes`, `faturamento`, `historico`.
+- `src/pages/BlDetalhe.tsx` resolve o modo container/BB e monta as abas `visao-geral`, `detalhes`, `faturamento` e `historico`.
 - A aba padrão `detalhes` remove `tab` da query; as demais sincronizam `?tab=faturamento` ou `?tab=historico`. Chaves antigas, como `operacional`, não são aceitas.
 - **Detalhes do B/L:** `BlDetalhesTab` compõe `BlOperacionalTab` e `BlCargaTab`.
   - Formulário auditado: POL, POD, CE Mercante, shipper, consignee, `notify_party`, descrição, pesos/CBM, campos BB, pagamento, notas e justificativa.
   - NCM é somente leitura, derivado de `cargo_description` por `listBlNcms`/`extractNcmCodes` em `src/lib/ncm.ts`, deduplicado e sem ocorrências `UN NCM`.
 - `notify_party` importado do B/L continua editável; B/Ls históricos preservam o valor já gravado.
+  - O import também persiste, de forma forward-only, `place_of_receipt`, `movement_from`, `movement_to` e `issue_place`; registros históricos sem reimport permanecem nulos.
   - Composição física: containers/veículos ou resumo e itens legados de carga solta.
   - Atalho "Importar B/L" abre o modal compartilhado filtrado para o B/L da ficha, evitando aplicar arquivo de outro conhecimento.
 - **Faturamento:** `BlFaturamentoTab` compõe `BlClienteSection`, `BlCobrancasSection`, `BlDemurrageSection` e o status/link da invoice ativa.
