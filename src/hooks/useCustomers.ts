@@ -212,20 +212,40 @@ function isPermissionError(error: { code?: string | null; message?: string | nul
 }
 
 export function useCustomerLookup(search: string) {
+  const filter = buildCustomerLookupFilter(search)
   return useQuery({
     queryKey: ['customer-lookup', search],
-    enabled: search.trim().length >= 2,
-    queryFn: async () => {
-      const term = escapeFilterTerm(search)
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, cnpj_cpf, name, city, state')
-        .or(`name.ilike.%${term}%,cnpj_cpf.ilike.%${term}%`)
-        .order('name', { ascending: true })
-        .range(0, 24)
-
-      if (error) throw error
-      return (data ?? []) as Pick<Customer, 'id' | 'cnpj_cpf' | 'name' | 'city' | 'state'>[]
-    },
+    enabled: Boolean(filter),
+    queryFn: () => fetchCustomerLookup(search),
   })
+}
+
+function buildCustomerLookupFilter(search: string) {
+  const term = escapeFilterTerm(search)
+  const document = onlyDigits(search)
+  const clauses: string[] = []
+
+  if (term.length >= 2) {
+    clauses.push(`name.ilike.%${term}%`, `cnpj_cpf.ilike.%${term}%`)
+  }
+  if (document.length >= 2 && document !== term) {
+    clauses.push(`cnpj_cpf.ilike.%${document}%`)
+  }
+
+  return clauses.join(',')
+}
+
+export async function fetchCustomerLookup(search: string) {
+  const filter = buildCustomerLookupFilter(search)
+  if (!filter) return []
+
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, cnpj_cpf, name, city, state')
+    .or(filter)
+    .order('name', { ascending: true })
+    .range(0, 24)
+
+  if (error) throw error
+  return (data ?? []) as Pick<Customer, 'id' | 'cnpj_cpf' | 'name' | 'city' | 'state'>[]
 }

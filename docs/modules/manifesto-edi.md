@@ -120,6 +120,8 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 
 ## Estado e dados
 
+Os previews de importação usam a primitiva compartilhada `src/components/ui/PreviewBox.tsx`. Valores numéricos são apresentados com agrupamento `pt-BR` (por exemplo, `1234` como `1.234`), inclusive nos previews de B/L, CE Mercante, datas de container e Veículos; strings permanecem sem transformação. **Código:** `src/components/ui/PreviewBox.tsx`. **Teste:** `src/components/ui/PreviewBox.test.tsx`.
+
 Principais famílias de cache:
 
 | Superfície | Chaves atuais |
