@@ -8,7 +8,7 @@ import type { LocalChargeOperationalRow } from '../../../services/charges/charge
 
 afterEach(cleanup)
 
-const row = {
+const row: LocalChargeOperationalRow = {
   id: 'BL-001',
   cargo_mode: 'container',
   pol: 'BRVIX',
@@ -29,7 +29,7 @@ const row = {
   customer: { id: 1, name: 'Cliente', cnpj_cpf: null },
   totals: { total_brl: 100, total_usd: 0, line_count: 1, review_required_count: 0 },
   trail: { last_event_at: null, last_event_by: null, last_event_field: null, last_event_message: null },
-} as unknown as LocalChargeOperationalRow
+}
 
 function renderTable(overrides: Partial<React.ComponentProps<typeof ValidacaoOperationsTable>> = {}) {
   const callbacks = {

@@ -17,6 +17,12 @@ describe('PreviewBox', () => {
     expect(screen.getByText('12,500')).toBeTruthy()
   })
 
+  it('rounds to an integer when decimals is zero', () => {
+    render(<PreviewBox label="Quantidade" value={12.5} decimals={0} />)
+
+    expect(screen.getByText('13')).toBeTruthy()
+  })
+
   it('renders the caller-specific visual variants through the canonical component', () => {
     const { rerender } = render(<PreviewBox label="Linhas válidas" value={1} variant="metric-centered" />)
     expect(screen.getByText('Linhas válidas').parentElement?.classList.contains('app-metric-tile')).toBe(true)

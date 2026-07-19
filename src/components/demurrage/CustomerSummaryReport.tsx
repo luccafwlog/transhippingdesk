@@ -1,5 +1,5 @@
 import { COMPANY } from '../../config/company'
-import { documentRoot } from '../shared/invoiceFormat'
+import { documentRoot, fmtBRL } from '../shared/invoiceFormat'
 import { InvoiceDocHeader } from '../shared/InvoiceDocumentKit'
 import type { CustomerDemurrageSummary } from '../../services/demurrage/demurrageKpis'
 
@@ -10,10 +10,6 @@ type Props = {
 function fmtUSD(v: number) {
   return '$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
-function fmtBRL(v: number) {
-  return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
 const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #111', fontSize: 12 }
 const td: React.CSSProperties = { padding: '6px 8px', borderBottom: '1px solid #e5e7eb', fontSize: 12 }
 const num: React.CSSProperties = { ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
