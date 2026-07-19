@@ -19,6 +19,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 | [2026-07-18-code-quality-audit-remediation](2026-07-18-code-quality-audit-remediation.md) | [auditoria 2026-07-18](../archive/audits/code-quality-audit-thermo-nuclear-2026-07-18.md) | TODO |
 | [2026-07-18-ficha-do-cliente-hub](2026-07-18-ficha-do-cliente-hub.md) | sessão de design (grilling) 2026-07-18 | TODO |
 | [2026-07-18-security-audit-injection-remediation](2026-07-18-security-audit-injection-remediation.md) | auditoria de segurança 2026-07-18 | TODO |
+| [2026-07-19-agency-departure-report](2026-07-19-agency-departure-report.md) | [spec de design 2026-07-19](../spec/2026-07-19-agency-departure-report-design.md) · [ADR 0027](../adr/0027-agency-departure-report-agregado-escala-snapshot.md) | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
