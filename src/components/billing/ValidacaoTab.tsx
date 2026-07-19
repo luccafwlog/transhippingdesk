@@ -1,18 +1,10 @@
-import { Fragment, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CheckCircle, CheckSquare, ChevronDown, ChevronUp, Download, RefreshCw, Square } from 'lucide-react'
-import { Badge } from '../ui/Badge'
-import { Button } from '../ui/Button'
-import { Card, EmptyState, InlineError } from '../ui/Card'
-import { Field, Input, Select } from '../ui/Input'
 import { useToast } from '../ui/Toast'
-import { VoyageCombobox } from '../shared/VoyageCombobox'
 import {
   useBatchCalculateLocalCharges,
   useBatchMarkLocalChargesReady,
   useBatchMarkLocalChargesReviewed,
-  useBlLocalChargeLines,
   useCustomerReconciliationQueue,
   useApproveCustomerReconciliation,
   useRejectCustomerReconciliation,
@@ -20,19 +12,13 @@ import {
 } from '../../hooks/useLocalCharges'
 import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
 import { queryKeys } from '../../services/queryKeys'
-import { formatBRL, formatDate } from '../../lib/utils'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { createInvoiceFromBls } from '../../services/billing'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
-import { getBillingBlockReason, isPendingBillingReview } from './validacaoPipeline'
-
-type OpsFilters = {
-  search: string
-  cargoMode: '' | 'container' | 'carga_solta' | 'granito'
-  pod: string
-  voyageId: string
-  chargeStatus: '' | 'review_required' | 'ready_for_billing' | 'exempt'
-}
+import { isPendingBillingReview } from './validacaoPipeline'
+import { ValidacaoControls } from './ValidacaoControls'
+import { ValidacaoOperationsTable } from './ValidacaoOperationsTable'
+import type { BatchOperation, OpsFilters, PipelineStep } from './validacaoTypes'
 
 export function ValidacaoTab({ userId }: { userId: string | null }) {
   const { showToast } = useToast()
@@ -97,7 +83,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     return rows
   }, [operationsRows, reconciliationFilter, reviewFilter])
 
-  const pipelineBottleneck = useMemo(() => {
+  const pipelineBottleneck = useMemo<PipelineStep | null>(() => {
     if (operationsSummary.reconciliationPending > 0) return 'reconciliation'
     if (operationsSummary.reviewPending > 0) return 'review'
     if (operationsSummary.ready > 0) return 'ready_for_billing'
@@ -116,7 +102,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     setReviewFilter(false)
   }
 
-  function handlePipelineStep(step: 'reconciliation' | 'review' | 'ready_for_billing') {
+  function handlePipelineStep(step: PipelineStep) {
     // Passo funciona como toggle: clicar no passo já ativo limpa o filtro. Um
     // único filtro por vez — os três mecanismos convergem aqui (#317).
     const isActive =
@@ -170,7 +156,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     }
   }
 
-  async function runBatchOperation(action: 'recalculate' | 'review' | 'ready') {
+  async function runBatchOperation(action: BatchOperation) {
     const allIds = selectedOpsRows
     if (allIds.length === 0) {
       showToast('Selecione ao menos um B/L para executar acao em lote.', 'error')
@@ -335,454 +321,44 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
 
   return (
     <>
-      <Card className="mb-5">
-        <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
-          <div className="app-table__cell-stack">
-            <div className="app-panel__title">Filtro operacional</div>
-            <div className="app-table__cell-meta">Trabalhe bloqueios, conciliação e prontidão de faturamento sobre a mesma base filtrada.</div>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <Field label="Texto livre">
-            <Input
-              value={opsFilters.search}
-              onChange={(event) => updateOpsFilter('search', event.target.value)}
-              placeholder="B/L ou cliente"
-            />
-          </Field>
-          <Field label="Modo">
-            <Select
-              value={opsFilters.cargoMode}
-              onChange={(event) => updateOpsFilter('cargoMode', event.target.value as OpsFilters['cargoMode'])}
-            >
-              <option value="">Todos</option>
-              <option value="container">Container</option>
-              <option value="carga_solta">Carga Solta</option>
-              <option value="granito">Granito</option>
-            </Select>
-          </Field>
-          <VoyageCombobox
-            clearable
-            label="Viagem"
-            selectedVoyageId={opsFilters.voyageId}
-            onSelect={(id) => updateOpsFilter('voyageId', id == null ? '' : String(id))}
-          />
-          <Field label="POD">
-            <Input
-              value={opsFilters.pod}
-              onChange={(event) => updateOpsFilter('pod', event.target.value.toUpperCase())}
-              placeholder="BRVIT / BRSSA"
-            />
-          </Field>
-          <Field label="Status taxas">
-            <Select
-              value={opsFilters.chargeStatus}
-              onChange={(event) =>
-                updateOpsFilter('chargeStatus', event.target.value as OpsFilters['chargeStatus'])
-              }
-            >
-              <option value="">Todos</option>
-              <option value="review_required">Revisão</option>
-              <option value="ready_for_billing">Pronto faturar</option>
-              <option value="exempt">Isento</option>
-            </Select>
-          </Field>
-          <div className="app-metric-tile">
-            <div className="app-metric-tile__label">Selecionados</div>
-            <div className="app-metric-tile__value">{selectedOpsRows.length}</div>
-            <div className="app-panel__meta">Ações em lote por seleção manual</div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="mb-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <div className="app-panel__title">Fila de prioridades</div>
-            <div className="app-panel__meta">Clique em um passo para filtrar a grade abaixo.</div>
-          </div>
-          {pipelineBottleneck === null && !operationsLoading ? (
-            <div className="flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2">
-              <CheckCircle size={16} className="text-green-700" />
-              <span className="text-sm font-medium text-green-800">Tudo em dia</span>
-            </div>
-          ) : null}
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          <PipelineStep
-            number={1}
-            label="Conciliação"
-            count={operationsSummary.reconciliationPending}
-            isBottleneck={pipelineBottleneck === 'reconciliation'}
-            active={reconciliationFilter}
-            onClick={() => handlePipelineStep('reconciliation')}
-          />
-          <PipelineStep
-            number={2}
-            label="Em revisao"
-            count={operationsSummary.reviewPending}
-            isBottleneck={pipelineBottleneck === 'review'}
-            active={reviewFilter}
-            onClick={() => handlePipelineStep('review')}
-          />
-          <PipelineStep
-            number={3}
-            label="Pronto faturar"
-            count={operationsSummary.ready}
-            isBottleneck={pipelineBottleneck === 'ready_for_billing'}
-            active={opsFilters.chargeStatus === 'ready_for_billing' && !reconciliationFilter && !reviewFilter}
-            onClick={() => handlePipelineStep('ready_for_billing')}
-          />
-        </div>
-        <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Pronto faturar: {operationsSummary.ready} | Faturado automatico: {operationsSummary.readyInvoiced} | Diferenca: {operationsSummary.readyPendingInvoice}
-        </div>
-      </Card>
-
-      <Card className="mb-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => runBatchOperation('recalculate')}
-            loading={batchCalculateMutation.isPending}
-            disabled={batchReviewedMutation.isPending || batchReadyMutation.isPending}
-          >
-            <RefreshCw size={15} />
-            Recalcular selecionados
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => runBatchOperation('review')}
-            loading={batchReviewedMutation.isPending}
-            disabled={batchCalculateMutation.isPending || batchReadyMutation.isPending}
-          >
-            <CheckSquare size={15} />
-            Aprovar revisao
-          </Button>
-          <Button
-            onClick={() => runBatchOperation('ready')}
-            loading={batchReadyMutation.isPending}
-            disabled={batchCalculateMutation.isPending || batchReviewedMutation.isPending}
-          >
-            <CheckSquare size={15} />
-            Marcar pronto faturar
-          </Button>
-          <Button variant="secondary" onClick={handleExportOperations} loading={exportingOps}>
-            <Download size={15} />
-            Exportar visao
-          </Button>
-          <span className="text-xs text-[var(--app-muted)]">{selectedOpsRows.length} B/L(s) selecionado(s)</span>
-        </div>
-      </Card>
-
-      <Card className="overflow-hidden p-0">
-        {operationsError ? <InlineError message="Falha ao carregar operação de taxas locais." /> : null}
-        <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[1100px] text-left text-sm whitespace-nowrap">
-            <thead>
-              <tr>
-                <th scope="col" className="px-4 py-3">
-                  <button className="app-table__icon-button" type="button" onClick={toggleAllOpsRows} title="Selecionar todos" aria-label="Selecionar todos os B/Ls">
-                    {areAllOpsRowsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                  </button>
-                </th>
-                <th scope="col" className="px-4 py-3">B/L</th>
-                <th scope="col" className="px-4 py-3">Modo</th>
-                <th scope="col" className="px-4 py-3">Navio/Viagem</th>
-                <th scope="col" className="px-4 py-3">Status</th>
-                <th scope="col" className="px-4 py-3">Cliente</th>
-                <th scope="col" className="px-4 py-3">Reconcil.</th>
-                <th scope="col" className="px-4 py-3">Subtotal BRL</th>
-                <th scope="col" className="px-4 py-3">Por que nao fatura?</th>
-                <th scope="col" className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {operationsLoading ? (
-                <tr>
-                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={10}>
-                    Carregando operação...
-                  </td>
-                </tr>
-              ) : null}
-              {!operationsLoading && displayedRows.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="p-0">
-                    <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
-                  </td>
-                </tr>
-              ) : null}
-              {displayedRows.map((row) => {
-                const isExpanded = expandedBlId === row.id
-                const reconciliationPending = !isCustomerReconciliationResolved(row.customer_reconciliation_status)
-                const queueItem = reconciliationPending ? (reconciliationQueue?.find((q) => q.bl_id === row.id) ?? null) : null
-                const blockReason = getBillingBlockReason(row)
-                const canIssueSingleInvoice = isChargeReady(row.charge_status) && row.financial_status !== 'invoiced' && Boolean(row.customer?.id)
-                return (
-                  <Fragment key={row.id}>
-                    <tr className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>
-                      <td className="px-4 py-3">
-                        <button
-                          className="app-table__icon-button"
-                          type="button"
-                          onClick={() => toggleOpsRow(row.id)}
-                          title="Selecionar B/L"
-                          aria-label={`Selecionar B/L ${row.id}`}
-                        >
-                          {selectedOpsRows.includes(row.id) ? <CheckSquare size={14} /> : <Square size={14} />}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.id}</td>
-                      <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
-                      <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
-                      <td className="px-4 py-3">{renderChargeStatus(row.charge_status, row.financial_status)}</td>
-                      <td className="px-4 py-3"><span className="app-table__truncate app-table__truncate--lg" title={row.customer?.name ?? '-'}>{row.customer?.name ?? '-'}</span></td>
-                      <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
-                      <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
-                      <td className="px-4 py-3">
-                        <div className="max-w-[420px] whitespace-normal text-sm leading-snug text-[var(--app-text-strong)]">
-                          {blockReason}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {canIssueSingleInvoice ? (
-                            <Button variant="secondary" onClick={() => void handleIssueSingleInvoice(row)}>
-                              Emitir
-                            </Button>
-                          ) : null}
-                          <button
-                            className="app-table__icon-button"
-                            type="button"
-                            onClick={() => setExpandedBlId(isExpanded ? null : row.id)}
-                            title={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
-                            aria-label={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
-                            aria-expanded={isExpanded}
-                          >
-                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {isExpanded ? (
-                      <tr key={`${row.id}-detail`} className="bg-[var(--app-surface-muted)]">
-                        <td colSpan={10} className="px-6 py-4">
-                          <div className="grid gap-4 xl:grid-cols-2">
-                            <div className="grid gap-3">
-                              {blockReason ? (
-                                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">Por que não fatura?</div>
-                                  <div className="mt-0.5">{blockReason}</div>
-                                </div>
-                              ) : null}
-                              <div className="app-metric-tile__label">Detalhes</div>
-                              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Trecho</div>
-                                  <div className="text-[var(--app-text-strong)]">{row.pol ?? '-'} → {row.pod ?? '-'}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Linhas</div>
-                                  <div className="text-[var(--app-text-strong)]">
-                                    {Number(row.totals.line_count).toLocaleString('pt-BR')}
-                                    {row.totals.review_required_count > 0 ? (
-                                      <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Ult. calculo</div>
-                                  <div className="text-[var(--app-text-strong)]">{formatDate(row.charges_calculated_at)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Ult. revisao</div>
-                                  <div className="text-[var(--app-text-strong)]">{formatDate(row.charges_reviewed_at)}</div>
-                                </div>
-                                <div className="col-span-2">
-                                  <div className="text-[var(--app-muted)]">Ult. evento</div>
-                                  <div className="text-[var(--app-text-strong)]">{row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}</div>
-                                </div>
-                              </div>
-                              {row.charge_status === 'review_required' ? (
-                                <ReviewRequiredReasons blId={row.id} holdReason={row.billing_hold_reason} />
-                              ) : null}
-                              <div className="mt-1">
-                                <Link
-                                  className="app-table__action"
-                                  to={row.cargo_mode === 'granito' ? '/granito' : `/manifestos/${row.id}`}
-                                >
-                                  Abrir B/L →
-                                </Link>
-                              </div>
-                            </div>
-                            {reconciliationPending && queueItem ? (
-                              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-                                <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-700">Conciliação pendente</div>
-                                <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                  <div>
-                                    <div className="text-[var(--app-muted)]">Cliente no manifesto</div>
-                                    <div className="text-[var(--app-text-strong)]">{queueItem.manifest_customer_name ?? '-'}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[var(--app-muted)]">CNPJ/CPF</div>
-                                    <div className="text-[var(--app-text-strong)]">{queueItem.cnpj_cpf ?? '-'}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[var(--app-muted)]">Cliente sugerido</div>
-                                    <div className="text-[var(--app-text-strong)]">{queueItem.current_customer_name ?? '-'}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[var(--app-muted)]">Deteccao</div>
-                                    <div>{renderDetectionType(queueItem.detection_type)}</div>
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="secondary"
-                                    onClick={() => handleApproveQueueItem(queueItem.id, queueItem.customer_id)}
-                                    loading={approveReconciliationMutation.isPending}
-                                    disabled={!queueItem.customer_id || rejectReconciliationMutation.isPending}
-                                  >
-                                    Aprovar
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    onClick={() => handleRejectQueueItem(queueItem.id)}
-                                    loading={rejectReconciliationMutation.isPending}
-                                    disabled={approveReconciliationMutation.isPending}
-                                  >
-                                    Rejeitar
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : reconciliationPending ? (
-                              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-                                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700">Conciliação pendente</div>
-                                <div className="text-sm text-[var(--app-muted)]">Nenhum item de conciliação encontrado na fila para este B/L.</div>
-                              </div>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null}
-                  </Fragment>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <ValidacaoControls
+        filters={opsFilters}
+        selectedCount={selectedOpsRows.length}
+        operationsLoading={operationsLoading}
+        reconciliationPending={operationsSummary.reconciliationPending}
+        reviewPending={operationsSummary.reviewPending}
+        ready={operationsSummary.ready}
+        readyInvoiced={operationsSummary.readyInvoiced}
+        readyPendingInvoice={operationsSummary.readyPendingInvoice}
+        pipelineBottleneck={pipelineBottleneck}
+        reconciliationFilter={reconciliationFilter}
+        reviewFilter={reviewFilter}
+        calculatePending={batchCalculateMutation.isPending}
+        reviewPendingMutation={batchReviewedMutation.isPending}
+        readyPendingMutation={batchReadyMutation.isPending}
+        exporting={exportingOps}
+        onUpdateFilter={updateOpsFilter}
+        onPipelineStep={handlePipelineStep}
+        onRunBatchOperation={(action) => void runBatchOperation(action)}
+        onExport={() => void handleExportOperations()}
+      />
+      <ValidacaoOperationsTable
+        rows={displayedRows}
+        isLoading={operationsLoading}
+        hasError={Boolean(operationsError)}
+        selectedRowIds={selectedOpsRows}
+        areAllRowsSelected={areAllOpsRowsSelected}
+        expandedBlId={expandedBlId}
+        reconciliationQueue={reconciliationQueue ?? []}
+        approvePending={approveReconciliationMutation.isPending}
+        rejectPending={rejectReconciliationMutation.isPending}
+        onToggleAllRows={toggleAllOpsRows}
+        onToggleRow={toggleOpsRow}
+        onToggleExpandedRow={(blId) => setExpandedBlId((current) => (current === blId ? null : blId))}
+        onIssueSingleInvoice={(row) => void handleIssueSingleInvoice(row)}
+        onApproveQueueItem={(queueId, customerId) => void handleApproveQueueItem(queueId, customerId)}
+        onRejectQueueItem={(queueId) => void handleRejectQueueItem(queueId)}
+      />
     </>
-  )
-}
-
-function ReviewRequiredReasons({ blId, holdReason }: { blId: string; holdReason: string | null }) {
-  const { data, isLoading } = useBlLocalChargeLines(blId)
-  const pendingLines = (data ?? []).filter(
-    (line) => line.status === 'review_required' && (line.review_reason ?? '').trim().length > 0,
-  )
-
-  return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
-        Pendências de revisão das taxas
-      </div>
-      {holdReason ? (
-        <div className="mb-2 text-sm text-amber-900">
-          <span className="font-medium">Bloqueio:</span> {holdReason}
-        </div>
-      ) : null}
-      {isLoading ? (
-        <div className="text-sm text-amber-800">Carregando motivos...</div>
-      ) : pendingLines.length > 0 ? (
-        <ul className="list-disc space-y-1 pl-5 text-sm text-amber-900">
-          {pendingLines.map((line) => (
-            <li key={line.id}>
-              <span className="font-medium">{line.charge_name}:</span> {line.review_reason}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="text-sm text-amber-800">Nenhum motivo detalhado encontrado nas linhas de cálculo.</div>
-      )}
-    </div>
-  )
-}
-
-function renderChargeStatus(status: string | null, financialStatus?: string | null) {
-  if (financialStatus === 'invoiced') return <Badge tone="blue">Faturado</Badge>
-  if (status === 'review_required') return <Badge tone="yellow">Revisão</Badge>
-  if (status === 'ready_for_billing') return <Badge tone="green">Pronto</Badge>
-  if (status === 'exempt') return <Badge tone="slate">Isento</Badge>
-  return <Badge tone="slate">Pendente</Badge>
-}
-
-function renderReconciliationStatus(status: string | null) {
-  if (status === 'reconciled') return <Badge tone="green">Reconciliado</Badge>
-  if (status === 'matched_document') return <Badge tone="blue">Match CNPJ</Badge>
-  if (status === 'matched_name') return <Badge tone="yellow">Match nome</Badge>
-  if (status === 'rejected') return <Badge tone="red">Rejeitado</Badge>
-  return <Badge tone="yellow">Pendente</Badge>
-}
-
-function renderDetectionType(type: string | null) {
-  if (type === 'document') return <Badge tone="blue">Documento</Badge>
-  if (type === 'name') return <Badge tone="yellow">Nome</Badge>
-  if (type === 'manual') return <Badge tone="green">Manual</Badge>
-  return <Badge tone="red">Ausente</Badge>
-}
-
-function PipelineStep({
-  number,
-  label,
-  count,
-  isBottleneck,
-  active,
-  onClick,
-}: {
-  number: number
-  label: string
-  count: number
-  isBottleneck: boolean
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={count === 0}
-      className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors ${
-        active
-          ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-soft)]'
-          : isBottleneck && count > 0
-            ? 'border-amber-500 bg-amber-50 hover:border-amber-600'
-            : count === 0
-              ? 'cursor-default border-[var(--app-border)] bg-[var(--app-surface-muted)] opacity-50'
-              : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-blue-btn)]'
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
-            active
-              ? 'bg-[var(--app-blue-btn)] text-white'
-              : isBottleneck && count > 0
-                ? 'bg-amber-500 text-white'
-                : 'bg-[var(--app-panel-strong)] text-[var(--app-muted)]'
-          }`}
-        >
-          {number}
-        </span>
-        <span className="text-xs font-medium text-[var(--app-muted)]">{label}</span>
-      </div>
-      <div
-        className={`text-2xl font-bold ${
-          active ? 'text-[var(--app-blue-btn)]' : isBottleneck && count > 0 ? 'text-amber-700' : count === 0 ? 'text-[var(--app-muted-soft)]' : 'text-[var(--app-text-strong)]'
-        }`}
-      >
-        {count}
-      </div>
-    </button>
   )
 }
