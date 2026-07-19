@@ -6,12 +6,28 @@ import { maybeAutoBillAfterCeMercante } from '../services/reviewBillingAutomatio
 import { supabase } from '../services/supabase'
 import type { BL, BLDetail } from '../types/database'
 import { useAuth } from './useAuth'
+import { queryKeys } from '../services/queryKeys'
+
+type BlDocumentFields = {
+  place_of_receipt: string | null
+  movement_from: string | null
+  movement_to: string | null
+  issue_place: string | null
+}
+
+type EditableBl = BL & BlDocumentFields
 
 const editableFields: (keyof Pick<
-  BL,
+  EditableBl,
   | 'shipper'
   | 'consignee'
   | 'notify_party'
+  | 'place_of_receipt'
+  | 'movement_from'
+  | 'movement_to'
+  | 'place_of_delivery'
+  | 'issue_place'
+  | 'bl_emission_date'
   | 'ce_mercante'
   | 'bb_machine_qty'
   | 'bb_packages_qty'
@@ -29,6 +45,12 @@ const editableFields: (keyof Pick<
   'shipper',
   'consignee',
   'notify_party',
+  'place_of_receipt',
+  'movement_from',
+  'movement_to',
+  'place_of_delivery',
+  'issue_place',
+  'bl_emission_date',
   'ce_mercante',
   'bb_machine_qty',
   'bb_packages_qty',
@@ -48,7 +70,9 @@ const editableFields: (keyof Pick<
 // pelo cliente (além de descartar a linha de auditoria correspondente). Mantê-lo
 // como campo editável criava "alterações" e sucesso fantasmas que nunca persistiam.
 
-export type BlForm = Pick<BL, (typeof editableFields)[number]>
+export const BL_EDITABLE_FIELDS = editableFields
+
+export type BlForm = Pick<EditableBl, (typeof editableFields)[number]>
 
 const INVALID_NUMERIC_VALUE = Symbol('INVALID_NUMERIC_VALUE')
 
@@ -182,7 +206,9 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
       }
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus(bl.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.demurrage.invoices({ blId: bl.id }) }),
         queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', bl.id] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
@@ -201,10 +227,19 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
 }
 
 function makeForm(bl: BLDetail): BlForm {
+  // ponytail: fields from migration 205 are absent from generated database.ts;
+  // keep the cast local until the generated types are authorized for regeneration.
+  const documentBl = bl as BLDetail & BlDocumentFields
   return {
     shipper: bl.shipper,
     consignee: bl.consignee,
     notify_party: bl.notify_party,
+    place_of_receipt: documentBl.place_of_receipt ?? null,
+    movement_from: documentBl.movement_from ?? null,
+    movement_to: documentBl.movement_to ?? null,
+    place_of_delivery: bl.place_of_delivery,
+    issue_place: documentBl.issue_place ?? null,
+    bl_emission_date: bl.bl_emission_date,
     ce_mercante: bl.ce_mercante,
     bb_machine_qty: bl.bb_machine_qty,
     bb_packages_qty: bl.bb_packages_qty,

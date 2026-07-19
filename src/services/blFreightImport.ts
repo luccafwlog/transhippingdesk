@@ -64,6 +64,10 @@ export type BlFreightRpcPayload = {
   notify2_block: string | null
   notify_cnpj_cpf: string | null
   cargo_description: string | null
+  place_of_receipt: string | null
+  movement_from: string | null
+  movement_to: string | null
+  issue_place: string | null
   total_packages: number | null
   packages_unit: string | null
   consignee_phone: string | null
@@ -130,6 +134,10 @@ type ExistingBl = Pick<
   | 'manifest_customer_name'
 > & {
   cargo_description?: string | null
+  place_of_receipt?: string | null
+  movement_from?: string | null
+  movement_to?: string | null
+  issue_place?: string | null
   total_packages?: number | null
   packages_unit?: string | null
   consignee_phone?: string | null
@@ -356,6 +364,10 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     pol: normalizePortCode(doc.route.pol),
     pod: normalizePortCode(doc.route.pod),
     place_of_delivery: normalizePortCode(doc.route.delivery),
+    place_of_receipt: normalizePortCode(doc.route.receipt),
+    movement_from: doc.route.movementFrom?.trim() || null,
+    movement_to: doc.route.movementTo?.trim() || null,
+    issue_place: doc.dates.issuePlace?.trim() || null,
     total_weight_kg: sumNumbers(containers.map((container) => container.gross_weight_kg)),
     total_cbm: sumNumbers(containers.map((container) => container.cbm)),
     payment_type: oceanFreight?.payment ?? null,
@@ -495,6 +507,10 @@ function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, impa
   addDiff(diffs, 'pol', existing.pol, payload.pol, false)
   addDiff(diffs, 'pod', existing.pod, payload.pod, false)
   addDiff(diffs, 'place_of_delivery', existing.place_of_delivery, payload.place_of_delivery, false)
+  addDiff(diffs, 'place_of_receipt', existing.place_of_receipt, payload.place_of_receipt, false)
+  addDiff(diffs, 'movement_from', existing.movement_from, payload.movement_from, false)
+  addDiff(diffs, 'movement_to', existing.movement_to, payload.movement_to, false)
+  addDiff(diffs, 'issue_place', existing.issue_place, payload.issue_place, false)
   addDiff(diffs, 'payment_type', existing.payment_type, payload.payment_type, false)
   addDiff(diffs, 'bl_emission_date', existing.bl_emission_date, payload.bl_emission_date, false)
   addDiff(diffs, 'manifest_customer_cnpj_cpf', existing.manifest_customer_cnpj_cpf, payload.manifest_customer_cnpj_cpf, impact.cnpj)

@@ -35,7 +35,10 @@ export function BlClienteSection({ bl }: { bl: BLDetail }) {
         changedBy: user.id,
         expectedUpdatedAt: bl.updated_at ?? null,
       })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus(bl.id) }),
+      ])
       showToast(customerId != null ? 'Cliente vinculado com sucesso.' : 'Cliente desvinculado.', 'success')
       setCustomerSearch('')
       setSelectedCustomerId(null)

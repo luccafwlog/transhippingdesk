@@ -64,6 +64,9 @@ afetados.
 Cada complementacao e auditada pela RPC `update_voyage_omission`; a disposicao
 `transshipment` ou `cod` continua no grao individual do B/L.
 
+A disposicao individual (`transshipment`/`cod`) e operada na ficha do B/L; a
+Viagem edita apenas o registro global e lista os B/Ls afetados para consulta.
+
 No Portal, a omissao gera uma notificacao e o COD gera outra para o B/L
 especifico. Os dados globais vigentes permanecem visiveis em Informacoes de
 Transbordo; complementos posteriores atualizam esse card sem criar uma nova
@@ -72,6 +75,11 @@ notificacao a cada edicao.
 **COD (Change of Destination)**
 Alteracao operacional do destino final do B/L para o Porto de Transbordo apos
 omissao de escala. E uma excecao por B/L e mantem efeitos financeiros manuais.
+
+**Visao Geral do B/L**
+Informa a aba padrao da ficha do B/L que consolida viagem e escalas,
+transbordo/COD, carga, cliente, Portal e financeiro, com os trilhos operacional
+e financeiro e a proxima acao.
 
 **Rota da Viagem**
 Sequência de portos de uma viagem. Cada escala pode registrar o ciclo completo:

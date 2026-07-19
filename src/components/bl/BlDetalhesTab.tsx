@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { BlOperacionalTab } from './BlOperacionalTab'
 import { BlCargaTab, type ContainerSummary, type BreakbulkSummary } from './BlCargaTab'
+import { BlFreightSection, type BlFreightLine } from './BlFreightSection'
 import type { BlForm } from '../../hooks/useBlEditForm'
 import type { CargoMode } from '../../pages/blDetalheHelpers'
 import type { BLDetail } from '../../types/database'
@@ -45,6 +46,9 @@ export function BlDetalhesTab(props: {
         containerSummary={props.containerSummary}
         breakbulkSummary={props.breakbulkSummary}
       />
+      {props.isContainerMode ? (
+        <BlFreightSection freightLines={(props.bl.bl_freight_lines ?? []) as BlFreightLine[]} />
+      ) : null}
     </div>
   )
 }

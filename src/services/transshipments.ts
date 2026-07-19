@@ -156,7 +156,24 @@ export async function listBlTransshipments(omissionId: number): Promise<BlTranss
     .select('id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
     .eq('omission_id', omissionId)
   if (error) throw error
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+  return ((data ?? []) as Array<Record<string, unknown>>).map(mapBlTransshipment)
+}
+
+export async function listBlTransshipmentByBlId(blId: string): Promise<BlTransshipment | null> {
+  const { data, error } = await (supabase.from as unknown as (table: string) => {
+    select: (columns: string) => {
+      eq: (key: string, value: string) => Promise<{ data: unknown[] | null; error: Error | null }>
+    }
+  })('bl_transshipments')
+    .select('id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
+    .eq('bl_id', blId)
+  if (error) throw error
+  const row = (data ?? [])[0] as Record<string, unknown> | undefined
+  return row ? mapBlTransshipment(row) : null
+}
+
+function mapBlTransshipment(row: Record<string, unknown>): BlTransshipment {
+  return {
     id: Number(row.id),
     blId: String(row.bl_id),
     omissionId: Number(row.omission_id),
@@ -166,5 +183,5 @@ export async function listBlTransshipments(omissionId: number): Promise<BlTranss
     onwardVoyageNumber: (row.onward_voyage_number as string) ?? null,
     onwardEtd: (row.onward_etd as string) ?? null,
     onwardEta: (row.onward_eta as string) ?? null,
-  }))
+  }
 }

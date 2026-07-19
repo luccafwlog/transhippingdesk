@@ -4,6 +4,7 @@
 
 ## 2026-07
 
+- **B/L Cockpit 360°:** ficha `/manifestos/:blId` ganhou Visão Geral padrão, trilhos operacional/financeiro com próxima ação, réplica documental com Frete & Despesas, operação de Transbordo/COD no B/L, visibilidade do Portal e divergências Baplie; migrations `205` e `206` são forward-only. *(plano/spec `2026-07-18-bl-cockpit-360`)*
 - **Qualidade de código:** formatadores e `PreviewBox` consolidados; serviços de billing/timeline e páginas/abas de Clientes, Demurrage, Taxas Locais e Validação de Faturamento decompostos sem mudança de contrato, com testes comportamentais nos componentes-página. *(plan `2026-07-18-code-quality-audit-remediation`)*
 - **Refinamento operacional (WS1–WS4):** ingestão documental de B/L com alias de navio (`canonicalizeVesselName`), ciclo completo de datas por escala com estado derivado (`deriveEscalaState`) no Painel/Line-Up TV, registro global de transbordo com timeline consolidada no Portal (migrations `201`–`202`), e câmbio PTAX/ROE com data efetiva (migration `200`). *(spec `refinamento-operacional-viagens-importacoes-lineup-portal`; plans `2026-07-16-ws1`–`ws4`)*
 - **Portal:** fila de provisionamento autorrecuperável (migration `198_portal_provisioning_queue_self_heal`). *(spec/plan `2026-07-16-portal-fila-autorrecuperavel`)*

@@ -6,7 +6,7 @@ const { from, rpc } = vi.hoisted(() => ({
 }))
 vi.mock('../supabase', () => ({ supabase: { from, rpc } }))
 
-import { listBlTransshipments, listVoyageOmissions, omitVoyageEscala, setBlCod, setBlTransshipment, updateVoyageOmission } from '../transshipments'
+import { listBlTransshipments, listBlTransshipmentByBlId, listVoyageOmissions, omitVoyageEscala, setBlCod, setBlTransshipment, updateVoyageOmission } from '../transshipments'
 
 describe('transshipments service', () => {
   beforeEach(() => {
@@ -160,5 +160,26 @@ describe('transshipments service', () => {
         onwardEta: '2026-07-15',
       },
     ])
+  })
+
+  it('localiza a disposição do B/L pelo bl_id', async () => {
+    const eq = vi.fn(() => Promise.resolve({
+      data: [{ id: 3, bl_id: 'BL-1', omission_id: 9, disposition: 'cod', onward_vessel_name: null, onward_carrier: null, onward_voyage_number: null, onward_etd: null, onward_eta: null }],
+      error: null,
+    }))
+    from.mockReturnValue({ select: () => ({ eq }) })
+
+    await expect(listBlTransshipmentByBlId('BL-1')).resolves.toEqual({
+      id: 3,
+      blId: 'BL-1',
+      omissionId: 9,
+      disposition: 'cod',
+      onwardVesselName: null,
+      onwardCarrier: null,
+      onwardVoyageNumber: null,
+      onwardEtd: null,
+      onwardEta: null,
+    })
+    expect(eq).toHaveBeenCalledWith('bl_id', 'BL-1')
   })
 })

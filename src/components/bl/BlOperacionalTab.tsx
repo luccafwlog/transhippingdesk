@@ -1,4 +1,5 @@
 import { useMemo, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Save } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -57,6 +58,8 @@ export function BlOperacionalTab({
   }, [latestInvoice, currentCalcTotal])
 
   const ncms = useMemo(() => listBlNcms(form.cargo_description), [form.cargo_description])
+  // ponytail: these imported document fields are not in generated database.ts yet.
+  const documentBl = bl as BLDetail & { notify2_block?: string | null; consignee_phone?: string | null }
 
   if (!active) return null
 
@@ -73,19 +76,38 @@ export function BlOperacionalTab({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="col-span-full border-b border-[var(--app-border)] pb-1 text-sm font-semibold text-[var(--app-text-strong)]">Partes</div>
           <Field label="Armador / Navio / Viagem">
-            <Input
-              disabled
-              value={`${bl.voyage?.vessel?.carrier?.name ?? '-'} / ${bl.voyage?.vessel?.name ?? '-'} / ${
-                bl.voyage?.voyage_number ?? '-'
-              }`}
-            />
+            {bl.voyage_id ? (
+              <Link className="block rounded-md border border-[var(--app-border)] px-3 py-2 text-sm font-semibold text-[#58a6ff] hover:underline" to={`/viagens/${bl.voyage_id}`}>
+                {`${bl.voyage?.vessel?.carrier?.name ?? '-'} / ${bl.voyage?.vessel?.name ?? '-'} / ${bl.voyage?.voyage_number ?? '-'}`}
+              </Link>
+            ) : <Input disabled value="-" />}
+          </Field>
+          <div className="col-span-full border-b border-[var(--app-border)] pb-1 text-sm font-semibold text-[var(--app-text-strong)]">Rota e datas</div>
+          <Field label="Place of Receipt">
+            <Input value={form.place_of_receipt ?? ''} onChange={(event) => onFieldChange('place_of_receipt', event.target.value)} />
           </Field>
           <Field label="POL">
             <Input value={form.pol ?? ''} onChange={(event) => onFieldChange('pol', event.target.value)} />
           </Field>
           <Field label="POD">
             <Input value={form.pod ?? ''} onChange={(event) => onFieldChange('pod', event.target.value)} />
+          </Field>
+          <Field label="Place of Delivery">
+            <Input value={form.place_of_delivery ?? ''} onChange={(event) => onFieldChange('place_of_delivery', event.target.value)} />
+          </Field>
+          <Field label="Movement From">
+            <Input value={form.movement_from ?? ''} onChange={(event) => onFieldChange('movement_from', event.target.value)} />
+          </Field>
+          <Field label="Movement To">
+            <Input value={form.movement_to ?? ''} onChange={(event) => onFieldChange('movement_to', event.target.value)} />
+          </Field>
+          <Field label="Data de emissao">
+            <Input type="date" value={(form.bl_emission_date ?? '').slice(0, 10)} onChange={(event) => onFieldChange('bl_emission_date', event.target.value)} />
+          </Field>
+          <Field label="Local de emissao">
+            <Input value={form.issue_place ?? ''} onChange={(event) => onFieldChange('issue_place', event.target.value)} />
           </Field>
           <Field label="CE Mercante">
             <Input
@@ -137,6 +159,12 @@ export function BlOperacionalTab({
               value={form.notify_party ?? ''}
               onChange={(event) => onFieldChange('notify_party', event.target.value)}
             />
+          </Field>
+          <Field label="Notify 2">
+            <Input disabled value={documentBl.notify2_block ?? ''} />
+          </Field>
+          <Field label="Telefone do consignatario">
+            <Input disabled value={documentBl.consignee_phone ?? ''} />
           </Field>
           {isContainerMode ? (
             <Field label="Peso total (kg)">
