@@ -110,7 +110,7 @@ export async function fetchCustomerPendingReconciliation(customerId: number) {
 }
 
 export async function fetchCustomerRunningDemurrage(customerId: number) {
-  const { data, error } = await supabase.from('bl_containers').select('id, container_number, bl_id, discharge_date, return_date, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).not('discharge_date', 'is', null).is('return_date', null).range(0, 199).overrideTypes<Array<{ id: number; container_number: string | null; bl_id: string; discharge_date: string }>, { merge: false }>()
+  const { data, error } = await supabase.from('bl_containers').select('id, container_number, bl_id, discharge_date, return_date, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).eq('demurrage_status', 'overdue').not('discharge_date', 'is', null).is('return_date', null).range(0, 199).overrideTypes<Array<{ id: number; container_number: string | null; bl_id: string; discharge_date: string }>, { merge: false }>()
   if (error) throw error
   return (data ?? []).map((row) => ({ container_id: row.id, container_number: row.container_number, bl_id: row.bl_id, discharge_date: row.discharge_date }))
 }
