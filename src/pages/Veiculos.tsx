@@ -28,8 +28,9 @@ export function Veiculos() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { can, user } = useAuth()
+  const { can, isAdmin, user } = useAuth()
   const canEditVehicles = can('veiculos_edit')
+  const canDeleteVehicles = isAdmin
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const { data: options } = useVehicleOptions()
@@ -189,7 +190,7 @@ export function Veiculos() {
 
   const pageRowIds = (data?.rows ?? []).map((row) => row.id)
   const allPageSelected = pageRowIds.length > 0 && pageRowIds.every((id) => selection.isSelected(id))
-  const columnCount = canEditVehicles ? 11 : 9
+  const columnCount = canDeleteVehicles ? 11 : 9
 
   return (
     <>
@@ -284,7 +285,7 @@ export function Veiculos() {
         </div>
       </FilterBar>
 
-      {canEditVehicles ? (
+      {canDeleteVehicles ? (
         <BulkActionsBar
           count={selection.count}
           onClear={selection.clear}
@@ -300,7 +301,7 @@ export function Veiculos() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead>
               <tr>
-                {canEditVehicles ? (
+                {canDeleteVehicles ? (
                   <th scope="col" className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
@@ -319,7 +320,7 @@ export function Veiculos() {
                 <th scope="col" className="px-4 py-3">Tipo Container</th>
                 <th scope="col" className="px-4 py-3">Lacre</th>
                 <th scope="col" className="px-4 py-3">BL</th>
-                {canEditVehicles ? <th scope="col" className="px-4 py-3 w-16">Ações</th> : null}
+                {canDeleteVehicles ? <th scope="col" className="px-4 py-3 w-16">Ações</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -339,7 +340,7 @@ export function Veiculos() {
               ) : null}
               {data?.rows.map((row) => (
                 <tr key={row.id} className="hover:bg-[#21262d]/60">
-                  {canEditVehicles ? (
+                  {canDeleteVehicles ? (
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -358,7 +359,7 @@ export function Veiculos() {
                   <td className="px-4 py-3">{row.container?.type ?? '-'}</td>
                   <td className="px-4 py-3">{row.container?.seal_number ?? '-'}</td>
                   <td className="px-4 py-3">{row.bl?.id ?? '-'}</td>
-                  {canEditVehicles ? (
+                  {canDeleteVehicles ? (
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleDeleteOne(row.id, row.chassis)}

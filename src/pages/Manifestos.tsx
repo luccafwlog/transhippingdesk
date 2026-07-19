@@ -32,7 +32,8 @@ export function Manifestos() {
   const initialPod = searchParams.get('pod') ?? ''
   const queryClient = useQueryClient()
   const confirm = useConfirm()
-  const { isAdmin, user } = useAuth()
+  const { effectiveRole, isAdmin, user } = useAuth()
+  const canImport = effectiveRole !== 'equipamentos'
   const selection = useRowSelection<string>()
   const [deleting, setDeleting] = useState(false)
   const { filters, setFilters, updateFilter } = usePageFilters<BlFilters>({
@@ -204,14 +205,18 @@ export function Manifestos() {
               <Download size={16} />
               Exportar
             </Button>
-            <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
-              <Upload size={16} />
-              Importar CE Mercante
-            </Button>
-            <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
-              <Upload size={16} />
-              Importar B/L
-            </Button>
+            {canImport ? (
+              <>
+                <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
+                  <Upload size={16} />
+                  Importar CE Mercante
+                </Button>
+                <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
+                  <Upload size={16} />
+                  Importar B/L
+                </Button>
+              </>
+            ) : null}
           </div>
         }
       />
@@ -486,11 +491,11 @@ export function Manifestos() {
 
       <BlImportModal
         key={`bl-import-${blFreightOpen ? 'open' : 'closed'}-${filters.voyageId}`}
-        open={blFreightOpen}
+        open={blFreightOpen && canImport}
         onClose={() => setBlFreightOpen(false)}
         voyageId={filters.voyageId ? Number(filters.voyageId) : null}
       />
-      <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
+      <CeMercanteImportModal open={ceMercanteOpen && canImport} onClose={() => setCeMercanteOpen(false)} />
     </>
   )
 }

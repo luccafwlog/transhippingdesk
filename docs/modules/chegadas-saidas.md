@@ -61,10 +61,10 @@ de lanes e ordena pela menor ETA de POD.
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Evidência |
 |---|---|---|---|---|---|---|
 | Carregar publicados | Sessão interna | Montagem de `/chegadas-saidas` | `useQuery(['portal-schedule-voyages'])` | RPC `portal_ship_schedule` projetada em linhas | Preenche tabela por ETA | **Código**, **Teste** |
-| Adicionar/anexar viagem | Navio, VOY e ao menos um POD com data | Modal | `buildScheduleLanes` + `createOrAttachVoyageFromSchedule` | `voyages.show_on_portal`, `audit_logs` POL/POD | Invalida `['portal-schedule-voyages']` e `['voyages']` | **Código**, **Teste** |
-| Editar publicação | Viagem já visível | Botão Editar/modal | Pré-preenche datas projetadas e salva pelo mesmo serviço | Atualiza somente ETD/ETA informados | Last write wins em ETD/ETA digitados | **Código**, **Teste** |
-| Remover do Portal | Confirmação | Botão Remover do Portal | `setVoyageShowOnPortal(id, false)` | Atualiza `voyages.show_on_portal` | Remove do quadro sem excluir viagem | **Código**, **Teste** |
-| Importar planilha | Arquivo `.xlsx/.xls/.csv` | `SpreadsheetUpload` | `parseScheduleRows` + `createOrAttachVoyageFromSchedule` por linha | Mesma persistência do modal | Resumo de sucesso/erro por linha; invalida caches | **Código**, **Teste** |
+| Adicionar/anexar viagem | Papel diferente de Equipamentos; navio, VOY e ao menos um POD com data | Modal | `buildScheduleLanes` + `createOrAttachVoyageFromSchedule` | `voyages.show_on_portal`, `audit_logs` POL/POD | Invalida `['portal-schedule-voyages']` e `['voyages']` | **Código**, **Teste** |
+| Editar publicação | Papel diferente de Equipamentos; viagem já visível | Botão Editar/modal | Pré-preenche datas projetadas e salva pelo mesmo serviço | Atualiza somente ETD/ETA informados | Last write wins em ETD/ETA digitados | **Código**, **Teste** |
+| Remover do Portal | Papel diferente de Equipamentos; confirmação | Botão Remover do Portal | `setVoyageShowOnPortal(id, false)` | Atualiza `voyages.show_on_portal` | Remove do quadro sem excluir viagem | **Código**, **Teste** |
+| Importar planilha | Papel diferente de Equipamentos; arquivo `.xlsx/.xls/.csv` | `SpreadsheetUpload` | `parseScheduleRows` + `createOrAttachVoyageFromSchedule` por linha | Mesma persistência do modal | Resumo de sucesso/erro por linha; invalida caches | **Código**, **Teste** |
 | Consultar no Portal | Sessão do Portal | `ShipScheduleWidget` | `usePortalScheduleVoyages` | RPC `portal_ship_schedule` | Cache `['portal-schedule-voyages']` | **Código**, **Teste**, **Teste de contrato SQL** |
 
 ## Fluxos e invariantes

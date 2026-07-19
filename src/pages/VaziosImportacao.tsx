@@ -38,7 +38,8 @@ type Filters = {
 export function VaziosImportacao() {
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { effectiveRole, user } = useAuth()
+  const canImport = effectiveRole !== 'equipamentos'
   const { showToast } = useToast()
 
   const { filters, setFilters, updateFilter } = usePageFilters<Filters>({
@@ -171,10 +172,12 @@ export function VaziosImportacao() {
               <Download size={16} />
               Exportar
             </Button>
-            <Button onClick={() => setUploadOpen(true)}>
-              <Upload size={16} />
-              Importar Planilha
-            </Button>
+            {canImport ? (
+              <Button onClick={() => setUploadOpen(true)}>
+                <Upload size={16} />
+                Importar Planilha
+              </Button>
+            ) : null}
           </div>
         }
       />
@@ -285,7 +288,7 @@ export function VaziosImportacao() {
         />
       </Card>
 
-      <Modal open={uploadOpen} onClose={resetUpload} title="Importar Planilha de Vazios (Importacao)">
+      <Modal open={uploadOpen && canImport} onClose={resetUpload} title="Importar Planilha de Vazios (Importacao)">
         <div className="grid gap-5">
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
             <div className="font-semibold text-white">Formato esperado</div>

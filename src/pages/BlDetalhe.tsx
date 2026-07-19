@@ -47,7 +47,8 @@ export function BlDetalhe() {
   const tabParam = searchParams.get('tab')
   const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'visao-geral'
   const { data: bl, isLoading, error } = useBlDetail(blId)
-  const { user } = useAuth()
+  const { effectiveRole, user } = useAuth()
+  const canImport = effectiveRole !== 'equipamentos'
   const { setTransshipment, setCod } = useSetBlDisposition(bl?.voyage_id ?? 0)
   const cockpitQuery = useBlCockpit(bl)
   const { data: invoiceLinksByBl } = useInvoiceLinks(bl?.id ? [bl.id] : [])
@@ -136,7 +137,7 @@ export function BlDetalhe() {
         }
         action={
           <div className="flex flex-wrap justify-end gap-2">
-            {isContainerMode ? (
+            {isContainerMode && canImport ? (
               <Button variant="secondary" onClick={() => setBlFreightOpen(true)}>
                 <Upload size={16} />
                 Importar B/L
@@ -222,7 +223,7 @@ export function BlDetalhe() {
 
       <BlImportModal
         key={`${blFreightOpen ? 'open' : 'closed'}-${bl.voyage_id ?? 'none'}-${bl.id}`}
-        open={blFreightOpen}
+        open={blFreightOpen && canImport}
         onClose={() => setBlFreightOpen(false)}
         voyageId={bl.voyage_id}
         voyageLabel={voyageLabel || undefined}

@@ -33,8 +33,10 @@ it('uses the voyage-backed schedule flow instead of the legacy schedule export',
 
 it('only exposes Baplie import and reimport controls to administrators', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/pages/Baplie.tsx'), 'utf8')
-  expect(source).toContain('const { user, isAdmin } = useAuth()')
+  expect(source).toMatch(/const \{[^}]*user[^}]*isAdmin[^}]*\} = useAuth\(\)/)
   expect(source).toContain('<StateA canImport={isAdmin}')
   expect(source).toContain('{isAdmin ? (')
   expect(source).toContain('A importacao Baplie exige perfil administrativo.')
+  expect(source).toContain("const canImportVazios = effectiveRole !== 'equipamentos'")
+  expect(source).toContain('canWrite={canImportVazios}')
 })
