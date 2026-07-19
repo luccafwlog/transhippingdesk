@@ -18,9 +18,16 @@ describe('205_bl_document_fields', () => {
   })
 
   it('reaplica save_bl_review aceitando os novos campos editaveis', () => {
-    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.save_bl_review[\s\S]*?\$\$;/i)?.[0] ?? ''
+    const fn = sql.match(/CREATE(?: OR REPLACE)? FUNCTION public\.save_bl_review[\s\S]*?(?:\$\$|\$function\$);/i)?.[0] ?? ''
     for (const col of ['place_of_receipt', 'movement_from', 'movement_to', 'issue_place', 'place_of_delivery', 'bl_emission_date']) {
       expect(fn).toMatch(new RegExp(`p_update_payload \\? '${col}'`))
     }
+  })
+
+  it('preserva o contrato canonico JSONB do review gate', () => {
+    expect(sql).toMatch(/DROP FUNCTION IF EXISTS public\.save_bl_review\(TEXT, TIMESTAMPTZ, JSONB, JSONB, UUID\)/i)
+    expect(sql).toMatch(/CREATE FUNCTION public\.save_bl_review[\s\S]*?RETURNS JSONB/i)
+    expect(sql).toMatch(/CREATE FUNCTION public\.save_bl_review[\s\S]*?SECURITY DEFINER/i)
+    expect(sql).toMatch(/CREATE FUNCTION public\.save_bl_review[\s\S]*?compute_bl_review_pendencies/i)
   })
 })
