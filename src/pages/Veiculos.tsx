@@ -9,6 +9,7 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
+import { PreviewBox } from '../components/ui/PreviewBox'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -517,18 +518,6 @@ export function Veiculos() {
   )
 }
 
-
-function PreviewBox({ label, value }: { label: string; value: number | string }) {
-  const tone =
-    label === 'Erros' ? 'gold' : label === 'Sucesso' ? 'green' : label === 'Processados' ? 'blue' : 'navy'
-
-  return (
-    <Card className={`app-kpi-card app-kpi-card--${tone}`}>
-      <div className="app-kpi-card__label">{label}</div>
-      <div className={`app-kpi-card__value app-kpi-card__value--${tone}`}>{value}</div>
-    </Card>
-  )
-}
 
 function formatImportVoyageLabel(
   voyages: Array<{ id: number; voyage_number: string | null; vessel?: { name?: string | null } | null }>,

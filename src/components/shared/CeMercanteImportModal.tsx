@@ -4,6 +4,7 @@ import { Download, Upload } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { PreviewBox } from '../ui/PreviewBox'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import {
@@ -323,15 +324,6 @@ function PreviewTable({
           ))}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="app-metric-tile">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { PreviewBox } from '../ui/PreviewBox'
 import { useToast } from '../ui/Toast'
 import {
   importContainerDates,
@@ -139,14 +140,5 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
         </div>
       </div>
     </Modal>
-  )
-}
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="app-metric-tile text-center">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
-    </div>
   )
 }

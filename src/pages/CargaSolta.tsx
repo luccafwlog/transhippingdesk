@@ -11,6 +11,7 @@ import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
+import { PreviewBox } from '../components/ui/PreviewBox'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
@@ -581,15 +582,6 @@ function InvoiceLink({
 }
 
 
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="app-metric-strip">
-      <div className="app-metric-strip__label">{label}</div>
-      <div className="app-metric-strip__value">{formatBBNumber(value)}</div>
-    </div>
-  )
-}
 
 function formatBBNumber(value: number | null | undefined) {
   if (value === null || value === undefined) return '-'

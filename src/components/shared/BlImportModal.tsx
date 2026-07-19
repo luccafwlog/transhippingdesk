@@ -13,6 +13,7 @@ import { applyLadenOnBoardAtd } from '../../services/ladenOnBoardAtd'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { PreviewBox } from '../ui/PreviewBox'
 import { useToast } from '../ui/Toast'
 import { VoyageCombobox } from './VoyageCombobox'
 
@@ -298,15 +299,6 @@ function StatusPill({ status }: { status: BlFreightImportRow['status'] }) {
     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${tone}`}>
       {labels[status]}
     </span>
-  )
-}
-
-function PreviewBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="app-metric-tile">
-      <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
-    </div>
   )
 }
 
