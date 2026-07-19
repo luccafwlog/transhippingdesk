@@ -119,9 +119,11 @@ export async function listGraniteBls(filters: {
 
   if (filters.search) {
     const search = escapeFilterTerm(filters.search)
-    query = query.or(
-      `bl_number.ilike.%${search}%,shipper_name.ilike.%${search}%,shipper_cnpj.ilike.%${search}%`,
-    )
+    if (search) {
+      query = query.or(
+        `bl_number.ilike.%${search}%,shipper_name.ilike.%${search}%,shipper_cnpj.ilike.%${search}%`,
+      )
+    }
   }
 
   if (filters.dischargePort) {

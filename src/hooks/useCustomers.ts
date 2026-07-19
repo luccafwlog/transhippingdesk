@@ -113,9 +113,11 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
     const search = escapeFilterTerm(filters.search)
     const normalizedDocument = onlyDigits(filters.search)
     const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
-    query = query.or(
-      `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%${documentClause}`,
-    )
+    const terms = search
+      ? `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`
+      : ''
+    const filter = [terms, documentClause.slice(1)].filter(Boolean).join(',')
+    if (filter) query = query.or(filter)
   }
 
   const { data, error, count } = await query

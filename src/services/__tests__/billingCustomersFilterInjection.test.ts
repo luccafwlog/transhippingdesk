@@ -20,4 +20,8 @@ describe('listBillingCustomers - injeção de filtro PostgREST', () => {
     await listBillingCustomers('AB,%_')
     expect(calls.or).toHaveBeenCalledWith('name.ilike.%AB%,cnpj_cpf.ilike.%AB%')
   })
+  it('não adiciona filtro quando o termo escapado e o fallback ficam vazios', async () => {
+    await listBillingCustomers('%%')
+    expect(calls.or).not.toHaveBeenCalled()
+  })
 })

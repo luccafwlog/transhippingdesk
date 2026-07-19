@@ -20,4 +20,8 @@ describe('listGraniteBls - injeção de filtro PostgREST', () => {
     await listGraniteBls({ search: 'ACME,ME' })
     expect(calls.or).toHaveBeenCalledWith('bl_number.ilike.%ACME ME%,shipper_name.ilike.%ACME ME%,shipper_cnpj.ilike.%ACME ME%')
   })
+  it('não adiciona filtro quando o termo vira vazio', async () => {
+    await listGraniteBls({ search: '%%' })
+    expect(calls.or).not.toHaveBeenCalled()
+  })
 })

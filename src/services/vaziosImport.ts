@@ -148,9 +148,11 @@ export async function listVaziosBookings(filters: {
 
   if (filters.search) {
     const search = escapeFilterTerm(filters.search)
-    query = query.or(
-      `booking_number.ilike.%${search}%,container_number.ilike.%${search}%`,
-    )
+    if (search) {
+      query = query.or(
+        `booking_number.ilike.%${search}%,container_number.ilike.%${search}%`,
+      )
+    }
   }
 
   if (filters.voyageId) {

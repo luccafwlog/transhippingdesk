@@ -22,4 +22,8 @@ describe('fetchCustomerRows - injeção de filtro PostgREST', () => {
     await fetchCustomerRows(baseFilters, true)
     expect(calls.or).toHaveBeenCalledWith('name.ilike.%ACME ME%,trade_name.ilike.%ACME ME%,cnpj_cpf.ilike.%ACME ME%')
   })
+  it('não adiciona filtro quando o termo vira vazio', async () => {
+    await fetchCustomerRows({ ...baseFilters, search: '%%' }, true)
+    expect(calls.or).not.toHaveBeenCalled()
+  })
 })

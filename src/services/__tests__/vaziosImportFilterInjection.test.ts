@@ -20,4 +20,8 @@ describe('listVaziosBookings - injeção de filtro PostgREST', () => {
     await listVaziosBookings({ search: 'ACME,ME' })
     expect(calls.or).toHaveBeenCalledWith('booking_number.ilike.%ACME ME%,container_number.ilike.%ACME ME%')
   })
+  it('não adiciona filtro quando o termo vira vazio', async () => {
+    await listVaziosBookings({ search: '%%' })
+    expect(calls.or).not.toHaveBeenCalled()
+  })
 })

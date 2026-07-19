@@ -20,7 +20,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary } from '../hooks/useCustomers'
 import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
-import { formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
+import { escapeFilterTerm, formatBRL, formatCnpjCpf, onlyDigits } from '../lib/utils'
 import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import {
   buildCustomerBillingUrl,
@@ -312,9 +312,12 @@ export function Clientes() {
         .order('name', { ascending: true })
 
       if (filters.search) {
-        query = query.or(
-          `name.ilike.%${filters.search}%,trade_name.ilike.%${filters.search}%,cnpj_cpf.ilike.%${filters.search}%`,
-        )
+        const search = escapeFilterTerm(filters.search)
+        if (search) {
+          query = query.or(
+            `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`,
+          )
+        }
       }
 
       const { data, error } = await query
