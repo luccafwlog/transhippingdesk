@@ -23,10 +23,11 @@ export function ChargeOverridesTab({
   setCargoModeFilter,
   podFilter,
   setPodFilter,
-}: ChargeFilterProps) {
+  initialCustomerSearch = '',
+}: ChargeFilterProps & { initialCustomerSearch?: string }) {
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const [overrideCustomerSearch, setOverrideCustomerSearch] = useState('')
+  const [overrideCustomerSearch, setOverrideCustomerSearch] = useState(initialCustomerSearch)
   const [overrideForm, setOverrideForm] = useState<OverrideForm>(EMPTY_OVERRIDE_FORM)
   const [overrideSaving, setOverrideSaving] = useState(false)
   const [overrideDeletingId, setOverrideDeletingId] = useState<number | null>(null)

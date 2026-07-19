@@ -30,6 +30,16 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('../../hooks/useCustomers', () => ({
   useCustomerDetail: () => mocks.detail,
 }))
+vi.mock('../../hooks/useCustomerFicha', () => ({
+  useCustomerDemurrageInvoices: () => ({ data: { rows: [], denied: false } }),
+  useCustomerPendingReconciliation: () => ({ data: [{ id: 'BL1', consignee: 'Consignatário', customer_reconciliation_status: 'matched_name' }] }),
+  useCustomerRunningDemurrage: () => ({ data: [] }),
+  useCustomerTimeline: () => ({ data: [] }),
+  useCustomerReceivables: () => ({ data: { rows: [], denied: false } }),
+  useCustomerPayments: () => ({ data: { rows: [], denied: false } }),
+  useCustomerRateOverrides: () => ({ data: [] }),
+  useCustomerManualChargeBls: () => ({ data: [] }),
+}))
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'admin-1' }, isAdmin: true, can: mocks.can }),
 }))
@@ -57,9 +67,6 @@ const customer = {
   state: 'ES',
   zip: null,
   notes: null,
-  payment_terms_days: 10,
-  discount_pct: 0,
-  commercial_notes: null,
   customer_contacts: [{
     id: 7,
     customer_id: 42,
@@ -76,8 +83,8 @@ const customer = {
   invoices_access_denied: false,
 }
 
-function renderPage() {
-  return render(<MemoryRouter><ClienteFicha /></MemoryRouter>)
+function renderPage(initialEntry = '/clientes/12345678000195?tab=cadastro') {
+  return render(<MemoryRouter initialEntries={[initialEntry]}><ClienteFicha /></MemoryRouter>)
 }
 
 describe('ClienteFicha user behaviours', () => {
@@ -91,6 +98,23 @@ describe('ClienteFicha user behaviours', () => {
   })
 
   afterEach(cleanup)
+
+  it('abre na Visão Geral por padrão e troca de aba via clique', async () => {
+    const user = userEvent.setup()
+    renderPage('/clientes/12345678000195')
+    expect(screen.getByRole('tab', { name: 'Visão Geral' }).getAttribute('aria-selected')).toBe('true')
+    await user.click(screen.getByRole('tab', { name: 'Cadastro & Contatos' }))
+    expect(screen.getByRole('button', { name: 'Salvar cadastro' })).toBeTruthy()
+  })
+
+  it('Visão Geral mostra saldo consolidado e pendência de reconciliação navegável', async () => {
+    const user = userEvent.setup()
+    renderPage('/clientes/12345678000195')
+
+    expect(screen.getByText('Saldo pendente (local + demurrage)')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: /reconciliação de cliente pendente/i }))
+    expect(screen.getByRole('tab', { name: 'Operacional' }).getAttribute('aria-selected')).toBe('true')
+  })
 
   it('creates or edits a contact and refreshes the customer detail', async () => {
     const user = userEvent.setup()

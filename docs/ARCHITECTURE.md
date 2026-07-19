@@ -313,7 +313,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/granito/taxas` | Tarifas de Granito |
 | `/revisao` | Revisão operacional |
 | `/clientes` | Clientes |
-| `/clientes/:cnpj` | Ficha do cliente |
+| `/clientes/:cnpj` | Ficha do cliente (hub em abas via `?tab=`) |
 | `/taxas-locais` | Tabelas e overrides |
 | `/faturamento` | Validação, invoices e ledger |
 | `/demurrage` | Operação e invoices de demurrage |

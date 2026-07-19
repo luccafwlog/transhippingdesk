@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { TabButton } from '../components/ui/TabButton'
 import { PageHeader } from '../components/ui/Card'
 import { useAuth } from '../hooks/useAuth'
@@ -10,7 +11,9 @@ export function TaxasLocais() {
   const { can } = useAuth()
   const canManageTables = can('charge_tables')
   const canManageOverrides = can('charge_overrides')
-  const [tab, setTab] = useState<LocalChargeTab>('tabelas')
+  const [searchParams] = useSearchParams()
+  const initialCustomerSearch = searchParams.get('cliente') ?? ''
+  const [tab, setTab] = useState<LocalChargeTab>(searchParams.get('tab') === 'overrides' ? 'overrides' : 'tabelas')
   const [cargoModeFilter, setCargoModeFilter] = useState<CargoModeFilter>('')
   const [podFilter, setPodFilter] = useState('')
   const activeTab: LocalChargeTab =
@@ -43,6 +46,7 @@ export function TaxasLocais() {
           setCargoModeFilter={setCargoModeFilter}
           podFilter={podFilter}
           setPodFilter={setPodFilter}
+          initialCustomerSearch={initialCustomerSearch}
         />
       ) : null}
     </>

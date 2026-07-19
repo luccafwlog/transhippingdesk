@@ -350,6 +350,20 @@ Pessoa jurídica ou física responsável por cargas e cobranças no sistema.
 Canal de comunicação do cliente. Pode coincidir com o email técnico do Portal,
 mas os conceitos não são equivalentes.
 
+**Ficha do Cliente**
+Hub de consulta do Cliente em `/clientes/:cnpj`, organizado em abas (Visão
+Geral, Cadastro & Contatos, Operacional, Financeiro, Histórico). Consolida a
+visão de cadastro, operação e financeiro com deep links para agir nas telas
+onde cada fluxo já existe; não duplica fluxos de ação. As únicas operações
+executadas na própria ficha são a edição auditada do cadastro, a gestão de
+contatos e o provisionamento embutido do Portal.
+
+**Saldo Pendente do Cliente**
+Soma do saldo das invoices locais emitidas e das invoices de Demurrage não
+pagas do Cliente, exibida com a decomposição entre as duas origens. É leitura
+consolidada para a Ficha do Cliente, não um novo conceito contábil: cada
+origem mantém seu ciclo de vida próprio.
+
 ## Faturamento
 
 **Taxas Locais**

@@ -30,15 +30,15 @@ insert into public.voyages (id, vessel_id, voyage_number, pol_id, pod_id, etd, e
   (11, 11, '012S', 10, (select id from ports where locode='BRSSZ'), now() - interval '75 days', now() - interval '41 days', 'completed');
 select setval('voyages_id_seq', 20);
 
-insert into public.customers (id, cnpj_cpf, name, trade_name, city, state, payment_terms_days) values
-  (101,'12.345.678/0001-90','Importadora Atlântico Ltda','Atlântico Imports','Santos','SP',30),
-  (102,'23.456.789/0001-01','Comercial Pacífico S.A.','Pacífico Trade','São Paulo','SP',15),
-  (103,'34.567.890/0001-12','Logística Horizonte Eireli','Horizonte Log','Campinas','SP',30),
-  (104,'45.678.901/0001-23','Grupo Meridiano Comércio Exterior','Meridiano Comex','Itajaí','SC',45),
-  (105,'56.789.012/0001-34','Têxtil Nova Era Ltda','Nova Era','Blumenau','SC',30),
-  (106,'67.890.123/0001-45','Eletro Importados do Brasil','EletroBras Imports','Guarulhos','SP',30),
-  (107,'78.901.234/0001-56','Máquinas Pesadas Sul Ltda','MaqSul','Porto Alegre','RS',60),
-  (108,'89.012.345/0001-67','Distribuidora Estrela do Mar','Estrela do Mar','Santos','SP',30);
+insert into public.customers (id, cnpj_cpf, name, trade_name, city, state) values
+  (101,'12.345.678/0001-90','Importadora Atlântico Ltda','Atlântico Imports','Santos','SP'),
+  (102,'23.456.789/0001-01','Comercial Pacífico S.A.','Pacífico Trade','São Paulo','SP'),
+  (103,'34.567.890/0001-12','Logística Horizonte Eireli','Horizonte Log','Campinas','SP'),
+  (104,'45.678.901/0001-23','Grupo Meridiano Comércio Exterior','Meridiano Comex','Itajaí','SC'),
+  (105,'56.789.012/0001-34','Têxtil Nova Era Ltda','Nova Era','Blumenau','SC'),
+  (106,'67.890.123/0001-45','Eletro Importados do Brasil','EletroBras Imports','Guarulhos','SP'),
+  (107,'78.901.234/0001-56','Máquinas Pesadas Sul Ltda','MaqSul','Porto Alegre','RS'),
+  (108,'89.012.345/0001-67','Distribuidora Estrela do Mar','Estrela do Mar','Santos','SP');
 select setval('customers_id_seq', 200);
 
 insert into public.customer_contacts (customer_id, name, email, phone, is_primary) values
