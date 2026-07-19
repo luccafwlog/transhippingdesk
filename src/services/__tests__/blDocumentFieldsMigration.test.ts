@@ -17,6 +17,17 @@ describe('205_bl_document_fields', () => {
     }
   })
 
+  it('persiste os novos campos no branch de INSERT de B/L novo', () => {
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.import_bl_freight_transactional[\s\S]*?\$function\$;/i)?.[0] ?? ''
+    const insert = fn.match(/INSERT INTO public\.bls \((?<columns>[\s\S]*?)\)\s+SELECT\s+(?<values>[\s\S]*?)\s+FROM pg_temp\.tmp_bl_freight_import/i)
+    expect(insert?.groups?.columns).toBeTruthy()
+    expect(insert?.groups?.values).toBeTruthy()
+    for (const col of ['place_of_receipt', 'movement_from', 'movement_to', 'issue_place']) {
+      expect(insert?.groups?.columns).toMatch(new RegExp(`\\b${col}\\b`))
+      expect(insert?.groups?.values).toMatch(new RegExp(`\\b${col}\\b`))
+    }
+  })
+
   it('reaplica save_bl_review aceitando os novos campos editaveis', () => {
     const fn = sql.match(/CREATE(?: OR REPLACE)? FUNCTION public\.save_bl_review[\s\S]*?(?:\$\$|\$function\$);/i)?.[0] ?? ''
     for (const col of ['place_of_receipt', 'movement_from', 'movement_to', 'issue_place', 'place_of_delivery', 'bl_emission_date']) {

@@ -24,6 +24,11 @@ describe('B/L rails', () => {
     expect(rail[2].detail).toBe('2/2 descarregados')
     expect(rail[3].detail).toBe('1/2 devolvidos')
   })
+  it('não deixa etapas sem containers pendentes como 0/0', () => {
+    const rail = buildOperationalRail({ bl: baseBl, polSchedule: null, podSchedule: null, containers: [], omission: null })
+    expect(rail[2]).toMatchObject({ detail: 'Sem containers', state: 'done' })
+    expect(rail[3]).toMatchObject({ detail: 'Sem containers', state: 'done' })
+  })
   it('seleciona o primeiro pendente financeiro como proxima acao', () => {
     const rail = buildFinancialRail({ bl: baseBl, latestInvoice: null, demurrageInvoices: [] })
     expect(rail[0]).toMatchObject({ key: 'ce', state: 'pending' })

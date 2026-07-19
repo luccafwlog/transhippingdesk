@@ -6,6 +6,7 @@ import { maybeAutoBillAfterCeMercante } from '../services/reviewBillingAutomatio
 import { supabase } from '../services/supabase'
 import type { BL, BLDetail } from '../types/database'
 import { useAuth } from './useAuth'
+import { queryKeys } from '../services/queryKeys'
 
 type BlDocumentFields = {
   place_of_receipt: string | null
@@ -205,7 +206,9 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
       }
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bl-detail', bl.id] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail(bl.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus(bl.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.demurrage.invoices({ blId: bl.id }) }),
         queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', bl.id] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),

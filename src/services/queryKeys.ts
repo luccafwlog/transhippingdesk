@@ -81,9 +81,11 @@ export const queryKeys = {
   },
   portal: {
     currentRoe: () => ['portal-current-roe'] as const,
+    blStatus: (blId?: string) => (blId === undefined ? (['bl-portal-status'] as const) : (['bl-portal-status', blId] as const)),
   },
   demurrage: {
     rates: () => ['demurrage-rates'] as const,
+    invoices: (filters?: unknown) => (filters === undefined ? (['demurrage-invoices'] as const) : (['demurrage-invoices', filters] as const)),
   },
   dashboard: () => ['dashboard'] as const,
 }

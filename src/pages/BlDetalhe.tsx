@@ -23,6 +23,7 @@ import { useInvoiceLinks } from '../hooks/useBilling'
 import { listDemurrageInvoices } from '../services/demurrage/demurrageInvoices'
 import { buildFinancialRail, buildOperationalRail, pickNextAction } from '../services/blRails'
 import { getBlPortalStatus } from '../services/blPortalStatus'
+import { queryKeys } from '../services/queryKeys'
 import { useVoyageReconciliation } from '../hooks/useVoyageReconciliation'
 import { cargoModeLabel, resolveCargoMode } from './blDetalheHelpers'
 
@@ -51,12 +52,12 @@ export function BlDetalhe() {
   const cockpitQuery = useBlCockpit(bl)
   const { data: invoiceLinksByBl } = useInvoiceLinks(bl?.id ? [bl.id] : [])
   const { data: demurrageInvoices } = useQuery({
-    queryKey: ['demurrage-invoices', { blId: bl?.id }],
+    queryKey: queryKeys.demurrage.invoices({ blId: bl?.id }),
     enabled: Boolean(bl?.id),
     queryFn: () => listDemurrageInvoices({ blId: bl!.id }),
   })
   const { data: portalStatus } = useQuery({
-    queryKey: ['bl-portal-status', bl?.id],
+    queryKey: queryKeys.portal.blStatus(bl?.id),
     enabled: Boolean(bl?.id),
     queryFn: () => getBlPortalStatus({ blId: bl!.id, ceMercante: bl!.ce_mercante, customerId: bl!.customer_id }),
   })

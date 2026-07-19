@@ -55,8 +55,8 @@ export function buildOperationalRail(input: {
   return [
     pol,
     pod,
-    { key: 'discharge', label: 'Descarga', detail: `${discharge.done}/${discharge.total} descarregados`, state: discharge.total > 0 && discharge.done === discharge.total ? 'done' : 'pending', href: '/containers' },
-    { key: 'return', label: 'Devolucao', detail: `${returned.done}/${returned.total} devolvidos`, state: returned.total > 0 && returned.done === returned.total ? 'done' : 'pending', href: `/manifestos/${bl.id}?tab=faturamento` },
+    { key: 'discharge', label: 'Descarga', detail: discharge.total === 0 ? 'Sem containers' : `${discharge.done}/${discharge.total} descarregados`, state: discharge.total === 0 || discharge.done === discharge.total ? 'done' : 'pending', href: '/containers' },
+    { key: 'return', label: 'Devolucao', detail: returned.total === 0 ? 'Sem containers' : `${returned.done}/${returned.total} devolvidos`, state: returned.total === 0 || returned.done === returned.total ? 'done' : 'pending', href: `/manifestos/${bl.id}?tab=faturamento` },
   ]
 }
 
