@@ -1,12 +1,9 @@
-import { Button } from '../ui/Button'
-import { useAuth } from '../../hooks/useAuth'
-import { useSetBlDisposition, useVoyageTransshipments } from '../../hooks/useTransshipments'
+import { Link } from 'react-router-dom'
+import { useVoyageTransshipments } from '../../hooks/useTransshipments'
 import type { BlTransshipment, VoyageOmission } from '../../services/transshipments'
 
 export function TransshipmentPanel({ voyageId }: { voyageId: number }) {
-  const { user } = useAuth()
   const { data } = useVoyageTransshipments(voyageId)
-  const { setTransshipment, setCod } = useSetBlDisposition(voyageId)
   if (!data || data.omissions.length === 0) return null
 
   return (
@@ -26,16 +23,6 @@ export function TransshipmentPanel({ voyageId }: { voyageId: number }) {
                   transshipment={transshipment}
                   omission={omission}
                   dischargePod={omission.dischargePod}
-                  saving={setTransshipment.isPending || setCod.isPending}
-                  onCod={() => user?.id && setCod.mutate({ blId: transshipment.blId, omissionId: omission.id, changedBy: user.id })}
-                  onRestore={() =>
-                    user?.id &&
-                    setTransshipment.mutate({
-                      blId: transshipment.blId,
-                      omissionId: omission.id,
-                      changedBy: user.id,
-                    })
-                  }
                 />
               ))}
           </div>
@@ -49,21 +36,15 @@ function BlRow({
   transshipment,
   omission,
   dischargePod,
-  saving,
-  onCod,
-  onRestore,
 }: {
   transshipment: BlTransshipment
   omission: VoyageOmission
   dischargePod: string
-  saving: boolean
-  onCod: () => void
-  onRestore: () => void
 }) {
   return (
     <div className="grid gap-3 rounded-lg border border-[var(--app-border)] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-mono text-sm text-[var(--app-text-strong)]">{transshipment.blId}</span>
+        <Link className="font-mono text-sm font-semibold text-[#58a6ff] hover:underline" to={`/manifestos/${transshipment.blId}`}>{transshipment.blId}</Link>
         <span className="rounded-full bg-[var(--app-surface-muted)] px-2 py-1 text-xs font-semibold uppercase text-[var(--app-muted)]">
           {transshipment.disposition === 'cod' ? `COD ${dischargePod}` : 'Transbordo'}
         </span>
@@ -80,19 +61,10 @@ function BlRow({
               omission.onwardEta?.slice(0, 10),
             ].map((value) => value || '—').join(' · ')}
           </p>
-          <Button variant="secondary" className="app-btn--sm justify-self-start" disabled={saving} onClick={onCod}>
-            Marcar COD
-          </Button>
+          <p className="text-xs text-[var(--app-muted)]">A disposição (transbordo/COD) é operada na ficha do B/L.</p>
         </div>
       ) : (
-        <Button
-          variant="secondary"
-          className="app-btn--sm justify-self-start"
-          loading={saving}
-          onClick={onRestore}
-        >
-          Reverter para transbordo
-        </Button>
+        <p className="text-xs text-[var(--app-muted)]">A disposição (transbordo/COD) é operada na ficha do B/L.</p>
       )}
     </div>
   )

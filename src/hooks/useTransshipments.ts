@@ -59,6 +59,8 @@ export function useSetBlDisposition(voyageId: number) {
     queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
     queryClient.invalidateQueries({ queryKey: ['bls'] })
     queryClient.invalidateQueries({ queryKey: ['voyages'] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.bls.cockpit() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail() })
   }
   return {
     setTransshipment: useMutation({ mutationFn: setBlTransshipment, onSuccess: invalidate }),

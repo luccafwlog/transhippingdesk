@@ -17,6 +17,8 @@ import { Button } from '../components/ui/Button'
 import { useBlDetail } from '../hooks/useBls'
 import { useBlEditForm } from '../hooks/useBlEditForm'
 import { useBlCockpit } from '../hooks/useBlCockpit'
+import { useAuth } from '../hooks/useAuth'
+import { useSetBlDisposition } from '../hooks/useTransshipments'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { listDemurrageInvoices } from '../services/demurrage/demurrageInvoices'
 import { buildFinancialRail, buildOperationalRail, pickNextAction } from '../services/blRails'
@@ -42,6 +44,8 @@ export function BlDetalhe() {
   const tabParam = searchParams.get('tab')
   const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'visao-geral'
   const { data: bl, isLoading, error } = useBlDetail(blId)
+  const { user } = useAuth()
+  const { setTransshipment, setCod } = useSetBlDisposition(bl?.voyage_id ?? 0)
   const cockpitQuery = useBlCockpit(bl)
   const { data: invoiceLinksByBl } = useInvoiceLinks(bl?.id ? [bl.id] : [])
   const { data: demurrageInvoices } = useQuery({
@@ -170,6 +174,15 @@ export function BlDetalhe() {
         isContainerMode={isContainerMode}
         containerSummary={containerSummary}
         breakbulkSummary={breakbulkSummary}
+        omission={cockpitQuery.data?.omission}
+        disposition={cockpitQuery.data?.transshipment?.disposition}
+        savingDisposition={setTransshipment.isPending || setCod.isPending}
+        onCod={() => {
+          if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setCod.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, changedBy: user.id })
+        }}
+        onRestore={() => {
+          if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setTransshipment.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, changedBy: user.id })
+        }}
       />
       <BlDetalhesTab
         active={activeTab === 'detalhes'}
