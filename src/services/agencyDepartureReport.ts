@@ -37,6 +37,7 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
 export type AgencyReportOwnData = AgencyDepartureReport & {
   signoffs: AgencyReportSignoff[]
   occurrences: AgencyReportOccurrence[]
+  closed_by_name?: string | null
 }
 
 export async function getAgencyReportOwnData(voyageId: number, port: string) {
@@ -47,7 +48,21 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
     .eq('port', port)
     .maybeSingle()
   if (error) throw error
-  return data as AgencyReportOwnData | null
+  if (!data) return null
+  const report = data as unknown as AgencyReportOwnData
+
+  let closedByName: string | null = null
+  if (report.closed_by) {
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('full_name')
+      .eq('id', report.closed_by)
+      .maybeSingle()
+    if (profileError) throw profileError
+    closedByName = profile?.full_name ?? null
+  }
+
+  return { ...report, closed_by_name: closedByName }
 }
 
 export async function setSignoff(input: {

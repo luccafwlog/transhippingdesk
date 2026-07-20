@@ -128,3 +128,65 @@ it('exibe a carga solta derivada e a congela sob cargaSolta no snapshot', () => 
     }),
   }))
 })
+
+it('congela locais de desova, depots e embarques diretos no snapshot', () => {
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      schedule: { ata: '2026-07-19', atb: '2026-07-19', atd: '2026-07-20', rtw: 2 },
+      cargaSolta: { bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 },
+      containers: [], vaziosImp: [], granite: [], storage: { containers: 1, days: 2 },
+      vehicles: [{ brand: 'BYD', bl_id: 'bl-1', chassis: 'vin-1', container: { unpacking_location: 'Pátio Alfa' } }],
+      vaziosExp: [
+        { container_type: '40HC', depot: 'VBR', overtime_handling: false, overtime_transport: false },
+        { container_type: '40HC', depot: null, overtime_handling: false, overtime_transport: false },
+      ],
+      operation: { os_number: 'OS-42', reorg: [], overtime: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados', 'ocorrencias']
+        .map((section) => ({ id: section, section, state: 'confirmed' })),
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
+  expect(closeMutateMock).toHaveBeenCalledWith(expect.objectContaining({
+    snapshot: expect.objectContaining({
+      header: expect.objectContaining({ schedule: expect.objectContaining({ atb: '2026-07-19', rtw: 2 }) }),
+      sections: expect.objectContaining({
+        vehicleLocations: { BYD: ['Pátio Alfa'] },
+        directEmbarkCount: 1,
+        depots: ['VBR'],
+      }),
+    }),
+  }))
+})
+
+it('exibe o autor resolvido e o documento estruturado quando o ADR está fechado', () => {
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_at: '2026-07-20T10:00:00Z',
+      closed_by_name: 'Lucca F.',
+      closed_snapshot: {
+        header: { schedule: {} },
+        sections: { cargaDescarregada: { rows: { '40HC': { carga_geral: 1 } }, totals: { carga_geral: 1 } } },
+      },
+      signoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  expect(screen.getByRole('status').textContent).toContain('Fechado em')
+  expect(screen.getByRole('status').textContent).toContain('Lucca F.')
+  expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
+})

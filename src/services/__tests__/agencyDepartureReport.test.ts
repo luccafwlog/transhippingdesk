@@ -4,6 +4,7 @@ import {
   buildContainerTypeMatrix,
   groupVehiclesByBrand,
   getAgencyReportDerivedData,
+  getAgencyReportOwnData,
   setSignoff,
 } from '../agencyDepartureReport'
 
@@ -30,6 +31,15 @@ function queryBuilder(data: unknown[] = []) {
     maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
       Promise.resolve({ data, error: null }).then(resolve),
+  }
+  return builder
+}
+
+function singleQueryBuilder(data: unknown) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    maybeSingle: vi.fn(() => Promise.resolve({ data, error: null })),
   }
   return builder
 }
@@ -116,6 +126,19 @@ describe('getAgencyReportDerivedData', () => {
     await getAgencyReportDerivedData(7, 'BRSSZ')
 
     expect(vehiclesQuery.select).toHaveBeenCalledWith(expect.stringContaining('unpacking_location'))
+  })
+})
+
+describe('getAgencyReportOwnData', () => {
+  it('resolve closed_by para o nome exibido no fechamento', async () => {
+    const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'user-1' })
+    const profileQuery = singleQueryBuilder({ full_name: 'Lucca F.' })
+    fromMock.mockImplementation((table: string) => table === 'agency_departure_reports' ? reportQuery : profileQuery)
+
+    await expect(getAgencyReportOwnData(7, 'BRVIX')).resolves.toMatchObject({ closed_by_name: 'Lucca F.' })
+
+    expect(profileQuery.select).toHaveBeenCalledWith('full_name')
+    expect(profileQuery.eq).toHaveBeenCalledWith('id', 'user-1')
   })
 })
 
