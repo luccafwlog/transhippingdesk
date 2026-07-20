@@ -23,6 +23,7 @@ import {
   type ParsedVaziosImportacaoManifest,
 } from '../services/vaziosImportacaoImport'
 import { exportVaziosImportacaoWorkbook } from '../services/exports'
+import { setVazioImportacaoNatureza } from '../services/vaziosNatureza'
 
 const exportPageSize = 200
 
@@ -58,6 +59,7 @@ export function VaziosImportacao() {
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [updatingNaturezaId, setUpdatingNaturezaId] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vazios-importacao-containers', filters],
@@ -161,6 +163,19 @@ export function VaziosImportacao() {
     }
   }
 
+  async function handleNaturezaChange(id: string, natureza: 'cama' | 'cover_plate' | null) {
+    setUpdatingNaturezaId(id)
+    try {
+      await setVazioImportacaoNatureza(id, natureza)
+      await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-containers'] })
+      showToast('Natureza atualizada.', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao atualizar natureza.', 'error')
+    } finally {
+      setUpdatingNaturezaId(null)
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -233,6 +248,7 @@ export function VaziosImportacao() {
                 <th scope="col" className="px-4 py-3">Tipo</th>
                 <th scope="col" className="px-4 py-3">Tara (kg)</th>
                 <th scope="col" className="px-4 py-3">POD</th>
+                <th scope="col" className="px-4 py-3">Natureza</th>
                 <th scope="col" className="px-4 py-3">Navio / Viagem</th>
                 <th scope="col" className="px-4 py-3">Manifesto</th>
                 <th scope="col" className="px-4 py-3">Importado em</th>
@@ -241,12 +257,12 @@ export function VaziosImportacao() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>Carregando...</td>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>Carregando...</td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-0">
+                  <td colSpan={8} className="p-0">
                     <EmptyState
                       title={emptyState.title}
                       description={emptyState.description}
@@ -264,6 +280,22 @@ export function VaziosImportacao() {
                     <td className="px-4 py-3">{row.container_type ?? '-'}</td>
                     <td className="px-4 py-3">{row.tare_kg != null ? String(row.tare_kg) : '-'}</td>
                     <td className="px-4 py-3">{row.pod ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      <Select
+                        aria-label={`Natureza do container ${row.container_number}`}
+                        className="min-w-32"
+                        disabled={!canImport || updatingNaturezaId === row.id}
+                        value={row.natureza ?? ''}
+                        onChange={(event) => handleNaturezaChange(
+                          row.id,
+                          event.target.value === '' ? null : event.target.value as 'cama' | 'cover_plate',
+                        )}
+                      >
+                        <option value="">—</option>
+                        <option value="cama">Cama</option>
+                        <option value="cover_plate">Cover plate</option>
+                      </Select>
+                    </td>
                     <td className="px-4 py-3">
                       {row.manifest?.voyage
                         ? `${row.manifest.voyage.vessel?.name ?? '-'} / ${row.manifest.voyage.voyage_number}`
