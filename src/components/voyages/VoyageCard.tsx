@@ -33,6 +33,7 @@ import { VoyageVisaoTab } from './VoyageVisaoTab'
 import { VoyageImportacaoTab } from './VoyageImportacaoTab'
 import { VoyageExportacaoTab } from './VoyageExportacaoTab'
 import { VoyageManifestosTab } from './VoyageManifestosTab'
+import { VoyageAgencyReportTab } from './VoyageAgencyReportTab'
 import { OmitEscalaModal } from './OmitEscalaModal'
 import { TransshipmentPanel } from './TransshipmentPanel'
 import type {
@@ -52,7 +53,7 @@ export type {
   AddingPodPayload,
 } from './voyageCardTypes'
 
-type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos'
+export type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos' | 'adr'
 
 function KpiTile({
   label,
@@ -115,6 +116,8 @@ type VoyageCardProps = {
   onEditPol: (payload: EditingPolPayload) => void
   onAddPod: (payload: AddingPodPayload) => void
   onEditExport: (payload: EditingExportPayload) => void
+  initialTab?: VoyageTabKey
+  initialEscala?: string
 }
 
 export function VoyageCard({
@@ -134,8 +137,10 @@ export function VoyageCard({
   onEditPol,
   onAddPod,
   onEditExport,
+  initialTab = 'visao',
+  initialEscala,
 }: VoyageCardProps) {
-  const [activeTab, setActiveTab] = useState<VoyageTabKey>('visao')
+  const [activeTab, setActiveTab] = useState<VoyageTabKey>(initialTab)
   const [omitTarget, setOmitTarget] = useState<string | null>(null)
   const { isAdmin, user } = useAuth()
 
@@ -210,6 +215,7 @@ export function VoyageCard({
     { key: 'importacao', label: 'Importação' },
     { key: 'exportacao', label: 'Exportação' },
     { key: 'manifestos', label: 'Escalas & Manifestos' },
+    { key: 'adr', label: 'ADR' },
   ]
 
   return (
@@ -371,6 +377,15 @@ export function VoyageCard({
               ceCoverage={ceCoverage}
               estadoMeta={estadoMeta}
               onEditPol={onEditPol}
+            />
+          ) : null}
+          {activeTab === 'adr' ? (
+            <VoyageAgencyReportTab
+              voyageId={voyage.id}
+              voyageLabel={voyageLabel}
+              carrierName={voyage.vessel?.carrier?.name ?? 'Armador não informado'}
+              pods={activePods}
+              initialEscala={initialEscala}
             />
           ) : null}
         </div>

@@ -24,6 +24,7 @@ function queryBuilder(data: unknown[] = []) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
       Promise.resolve({ data, error: null }).then(resolve),
   }
@@ -85,5 +86,15 @@ describe('getAgencyReportDerivedData', () => {
 
     expect(vehiclesQuery.eq).toHaveBeenCalledWith('bl.voyage_id', 7)
     expect(vehiclesQuery.eq).toHaveBeenCalledWith('bl.pod', 'BRSSZ')
+  })
+
+  it('busca o local de desova do container para o bloco de veículos', async () => {
+    const vehiclesQuery = queryBuilder()
+    fromMock.mockImplementation((table: string) => table === 'vehicles' ? vehiclesQuery : queryBuilder())
+    schedulesMock.mockResolvedValue(new Map())
+
+    await getAgencyReportDerivedData(7, 'BRSSZ')
+
+    expect(vehiclesQuery.select).toHaveBeenCalledWith(expect.stringContaining('unpacking_location'))
   })
 })

@@ -3,6 +3,9 @@ import type {
   GraniteBl,
   UserProfileRole,
   VaziosBooking,
+  VaziosExportOperation,
+  VaziosExportOvertimeDepot,
+  VaziosReorgService,
   VaziosImportacaoContainer,
   Vehicle,
 } from '../types/database'
@@ -72,11 +75,11 @@ export function groupVehiclesByBrand(
 
 export async function getAgencyReportDerivedData(voyageId: number, port: string) {
   const entityId = buildVoyagePodEntityId(voyageId, port)
-  const [schedules, vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes] = await Promise.all([
+  const [schedules, vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes] = await Promise.all([
     listVoyagePodSchedules([entityId]),
     supabase
       .from('vehicles')
-      .select('brand, bl_id, chassis, container_id, bl:bls!inner(voyage_id, pod)')
+      .select('brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location), bl:bls!inner(voyage_id, pod)')
       .eq('bl.voyage_id', voyageId)
       .eq('bl.pod', port),
     supabase
@@ -99,17 +102,29 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .select('container_number, size_type, status, is_imo, pod')
       .eq('voyage_id', voyageId)
       .eq('pod', port),
+    supabase
+      .from('vazios_export_operations')
+      .select('*, overtime:vazios_export_overtime_depots(*), reorg:vazios_reorg_services(*)')
+      .eq('voyage_id', voyageId)
+      .eq('embark_port', port)
+      .maybeSingle(),
   ])
 
-  for (const result of [vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes]) {
+  for (const result of [vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes]) {
     if (result.error) throw result.error
   }
 
-  const vehicles = (vehiclesRes.data ?? []) as Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'>[]
+  const vehicles = (vehiclesRes.data ?? []) as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
+    container: { unpacking_location: string | null } | null
+  }>
   const vaziosExp = (vaziosExpRes.data ?? []) as VaziosBooking[]
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
+  const operation = operationRes.data as (VaziosExportOperation & {
+    overtime: VaziosExportOvertimeDepot[]
+    reorg: VaziosReorgService[]
+  }) | null
 
   return {
     schedule: schedules.get(entityId) ?? null,
@@ -118,6 +133,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     vaziosImp,
     granite,
     containers,
+    operation,
     storage: computeStorageTotals(vaziosExp),
   }
 }
