@@ -58,6 +58,11 @@ function reorgDraftKey(service: VaziosReorgServiceType, containerType: string) {
   return `${service}:${containerType}`
 }
 
+function parseReorgServiceType(value: string): VaziosReorgServiceType {
+  if (value === 'bundle' || value === 'desova' || value === 'visual_check') return value
+  throw new Error(`Tipo de serviço de reorganização inválido: ${value}`)
+}
+
 export function EmbarqueVazios() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
@@ -169,9 +174,8 @@ export function EmbarqueVazios() {
       .filter((rate) => rate.valid_from <= today && (!rate.valid_to || rate.valid_to >= today))
       .sort((left, right) => right.valid_from.localeCompare(left.valid_from))
     for (const rate of rates) {
-      if (rate.service === 'bundle' || rate.service === 'desova' || rate.service === 'visual_check') {
-        if (!reorgRates.has(rate.service)) reorgRates.set(rate.service, Number(rate.rate_brl))
-      }
+      const service = parseReorgServiceType(rate.service)
+      if (!reorgRates.has(service)) reorgRates.set(service, Number(rate.rate_brl))
     }
   }
 

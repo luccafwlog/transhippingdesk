@@ -55,7 +55,7 @@ const reconcileByTxidResultSchema: z.ZodType<ReconcileByTxidResult> = z.union([
 
 function parseRpcResult<T>(schema: z.ZodType<T>, data: unknown, rpcName: string): T {
   const parsed = schema.safeParse(data)
-  if (!parsed.success) throw new Error(`Resposta inválida de ${rpcName}.`)
+  if (!parsed.success) throw new Error(`Resposta inválida de ${rpcName}: ${parsed.error.message}`)
   return parsed.data
 }
 
