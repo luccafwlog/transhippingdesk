@@ -59,3 +59,24 @@ describe('migration 214 — fechamento do Agency Departure Report', () => {
     expect(closeSql).toMatch(/INSERT INTO public\.audit_logs[\s\S]*'agency_departure_report'/)
   })
 })
+
+describe('migration 218 — contrato do snapshot fechado', () => {
+  const sql218 = readFileSync(
+    resolve(__dirname, '../../../supabase/migrations/218_agency_report_reopen_admin.sql'),
+    'utf-8',
+  )
+
+  it('exige as quatro coleções canônicas e limita o payload', () => {
+    expect(sql218).toMatch(/jsonb_typeof\(p_snapshot->'header'\) <> 'object'/)
+    expect(sql218).toMatch(/jsonb_typeof\(p_snapshot->'occurrences'\) <> 'array'/)
+    expect(sql218).toMatch(/jsonb_typeof\(p_snapshot->'signoffs'\) <> 'array'/)
+    expect(sql218).toContain('octet_length(p_snapshot::text) > 1048576')
+  })
+
+  it('rejeita chaves de topo e seções fora do contrato', () => {
+    expect(sql218).toContain("key NOT IN ('header', 'sections', 'occurrences', 'signoffs')")
+    expect(sql218).toContain("'cargaDescarregada', 'cargaSolta', 'vaziosDescarregados'")
+    expect(sql218).toContain("'overtimeTransportCount'")
+    expect(sql218).toContain('Snapshot possui secoes desconhecidas')
+  })
+})
