@@ -136,13 +136,19 @@ a exceção.
 **Fix:**
 
 - [ ] Nova migration (próximo número livre, hoje `217`): exigir
-      `public.is_admin()` na reabertura e restringir o fechamento a
-      `administrativo`/`operacoes` (mesmo padrão de
-      `add_agency_report_occurrence`). Não editar a `214`.
-- [ ] Esconder o botão “Fechar ADR” de papéis sem permissão de fechamento.
+      `public.is_admin()` na reabertura, alinhando o servidor à intenção já
+      expressa pela UI. Não editar a `214`.
+- [ ] **Fechamento fica como está**: a spec define que “Fechar ADR” habilita
+      com 7/7 sign-offs, sem restrição de papel — o usuário `documentacao`
+      que completa o último sign-off pode fechar hoje, e restringir o
+      fechamento a `administrativo`/`operacoes` mudaria esse contrato
+      (apontado em review do Codex no PR #409). Se o time quiser restringir,
+      atualizar primeiro a ADR 0027/spec com nota editorial e só então criar
+      a migration.
 - [ ] Teste de contrato SQL da nova migration (padrão dos existentes).
 
-**Verify:** RPC direta com papel não autorizado recebe `42501`; testes verdes.
+**Verify:** reabertura via RPC direta sem admin recebe `42501`; fechamento
+continua acessível a qualquer papel interno ativo; testes verdes.
 
 ## Task 5 — P2 · Snapshot aceito do cliente sem validação de forma
 
