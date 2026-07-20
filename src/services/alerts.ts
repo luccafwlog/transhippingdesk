@@ -82,3 +82,8 @@ export async function listFinancialAlerts(): Promise<Alert[]> {
 export async function detectOverdueInvoices(): Promise<void> {
   await supabase.rpc('detect_overdue_invoices')
 }
+
+export async function detectAgencyReportPending(): Promise<void> {
+  const { error } = await supabase.rpc('detect_agency_report_pending')
+  if (error) throw error
+}
