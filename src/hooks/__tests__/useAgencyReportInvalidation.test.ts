@@ -50,9 +50,13 @@ describe('agency report close/reopen cache invalidation', () => {
     ['reopen', useReopenAgencyReport, mocks.reopenReport],
   ] as const)('%s invalida todas as famílias derivadas sem invalidar tudo', async (_label, hook, service) => {
     const mutation = hook()
-    await mutation.mutate({ voyageId: 42, port: 'SANTOS' })
+    const input = _label === 'close'
+      ? { voyageId: 42, port: 'SANTOS', snapshot: {} }
+      : { voyageId: 42, port: 'SANTOS', justification: 'Ajuste operacional' }
+    ;(mutation as unknown as { mutate: (value: unknown) => void }).mutate(input)
+    await Promise.resolve()
 
-    expect(service).toHaveBeenCalledWith({ voyageId: 42, port: 'SANTOS' })
+    expect(service).toHaveBeenCalledWith(input)
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(expectedInvalidations.length)
     for (const queryKey of expectedInvalidations) {
       expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey })
