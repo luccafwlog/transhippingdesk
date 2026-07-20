@@ -183,15 +183,14 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </ReportSection>
 
-        <ReportSection title="Carga solta" section="carga_carregada" state={sectionState('carga_carregada')} canSignoff={canSignoff('carga_carregada')} onSignoff={updateSignoff}>
-          {data?.cargaSolta?.bls ? <MetricPanel title="Carga solta"><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></MetricPanel> : <EmptyData />}
+        <ReportSection title="Carga descarregada" section="carga_descarregada" state={sectionState('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} onSignoff={updateSignoff}>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {data?.cargaSolta?.bls ? <MetricPanel title="Carga solta"><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></MetricPanel> : <MetricPanel title="Carga solta"><EmptyData /></MetricPanel>}
+            {containers.length ? <MetricPanel title="Matriz de descarga (tipo × categoria)"><Matrix rows={dischargeMatrix.rows} /></MetricPanel> : <MetricPanel title="Matriz de descarga (tipo × categoria)"><EmptyData /></MetricPanel>}
+          </div>
         </ReportSection>
-        <ReportSection title="Granito (carga carregada)">
+        <ReportSection title="Granito (carga carregada)" section="carga_carregada" state={sectionState('carga_carregada')} canSignoff={canSignoff('carga_carregada')} onSignoff={updateSignoff}>
           {data?.granite.length ? <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel> : <EmptyData />}
-        </ReportSection>
-
-        <ReportSection title="Matriz de descarga (tipo × categoria)" section="carga_descarregada" state={sectionState('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} onSignoff={updateSignoff}>
-          {containers.length ? <Matrix rows={dischargeMatrix.rows} /> : <EmptyData />}
         </ReportSection>
         <ReportSection title="Vazios descarregados (cama / cover plate)" section="vazios_descarregados" state={sectionState('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} onSignoff={updateSignoff}>
           {data?.vaziosImp.length ? <Matrix rows={emptyDischargeMatrix.rows} /> : <EmptyData />}

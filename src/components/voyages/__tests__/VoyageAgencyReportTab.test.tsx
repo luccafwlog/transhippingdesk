@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
 
@@ -127,6 +127,41 @@ it('exibe a carga solta derivada e a congela sob cargaSolta no snapshot', () => 
       sections: expect.objectContaining({ cargaSolta }),
     }),
   }))
+})
+
+it('agrupa carga solta na seção de carga descarregada e assina granito como carga carregada', () => {
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      cargaSolta: { bls: 2, machines: 3, packages: 12, weightTon: 6, cbm: 20 },
+      containers: [], vehicles: [], vaziosImp: [],
+      granite: [{ blocks_qty: 5, real_weight_kg: 8_000 }],
+      vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, reorg: [], overtime: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [
+        { id: 'unload', section: 'carga_descarregada', state: 'confirmed' },
+        { id: 'load', section: 'carga_carregada', state: 'nothing_to_declare' },
+      ],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')
+  const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')
+
+  expect(dischargeSection).not.toBeNull()
+  expect(graniteSection).not.toBeNull()
+  expect(within(dischargeSection!).getByText('Carga solta')).toBeTruthy()
+  expect(within(dischargeSection!).getByText('Confirmado')).toBeTruthy()
+  expect(within(graniteSection!).getByText('Nada a declarar')).toBeTruthy()
 })
 
 it('congela locais de desova, depots e embarques diretos no snapshot', () => {
