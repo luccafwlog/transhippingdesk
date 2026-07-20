@@ -1,0 +1,119 @@
+import type {
+  BaplieContainer,
+  GraniteBl,
+  UserProfileRole,
+  VaziosBooking,
+  VaziosImportacaoContainer,
+  Vehicle,
+} from '../types/database'
+import { supabase } from './supabase'
+import { computeStorageTotals } from './vaziosExportOperations'
+import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
+
+export type AgencyReportSection =
+  | 'datas'
+  | 'carga_descarregada'
+  | 'carga_carregada'
+  | 'veiculos'
+  | 'vazios_embarcados'
+  | 'vazios_descarregados'
+  | 'ocorrencias'
+
+export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole> = {
+  datas: 'operacoes',
+  carga_descarregada: 'documentacao',
+  carga_carregada: 'documentacao',
+  veiculos: 'equipamentos',
+  vazios_embarcados: 'equipamentos',
+  vazios_descarregados: 'documentacao',
+  ocorrencias: 'operacoes',
+}
+
+export type MatrixCategory =
+  | 'carga_geral'
+  | 'veiculos'
+  | 'transbordo'
+  | 'imo'
+  | 'vazio_cama'
+  | 'vazio_cover_plate'
+
+export function buildContainerTypeMatrix(
+  items: Array<{ type: string; category: MatrixCategory | string }>,
+) {
+  const rows: Record<string, Record<string, number>> = {}
+  const totals: Record<string, number> = {}
+
+  for (const item of items) {
+    const type = item.type || '—'
+    rows[type] = rows[type] ?? {}
+    rows[type][item.category] = (rows[type][item.category] ?? 0) + 1
+    totals[item.category] = (totals[item.category] ?? 0) + 1
+  }
+
+  return { rows, totals }
+}
+
+export function groupVehiclesByBrand(
+  vehicles: Array<{ brand: string; bl_id: string; chassis: string }>,
+) {
+  const byBrand = new Map<string, { bls: Set<string>; vins: Set<string> }>()
+
+  for (const vehicle of vehicles) {
+    const entry = byBrand.get(vehicle.brand) ?? { bls: new Set<string>(), vins: new Set<string>() }
+    entry.bls.add(vehicle.bl_id)
+    entry.vins.add(vehicle.chassis)
+    byBrand.set(vehicle.brand, entry)
+  }
+
+  return [...byBrand.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([brand, entry]) => ({ brand, blCount: entry.bls.size, vinCount: entry.vins.size }))
+}
+
+export async function getAgencyReportDerivedData(voyageId: number, port: string) {
+  const entityId = buildVoyagePodEntityId(voyageId, port)
+  const [schedules, vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes] = await Promise.all([
+    listVoyagePodSchedules([entityId]),
+    supabase.from('vehicles').select('brand, bl_id, chassis, container_id').eq('voyage_id', voyageId),
+    supabase
+      .from('vazios_bookings')
+      .select('*, manifest:vazios_manifests!inner(voyage_id)')
+      .eq('manifest.voyage_id', voyageId)
+      .eq('embark_port', port),
+    supabase
+      .from('vazios_importacao_containers')
+      .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
+      .eq('manifest.voyage_id', voyageId)
+      .eq('pod', port),
+    supabase
+      .from('granite_bls')
+      .select('real_weight_kg, blocks_qty, loading_port, manifest:granite_manifests!inner(voyage_id)')
+      .eq('manifest.voyage_id', voyageId)
+      .eq('loading_port', port),
+    supabase
+      .from('baplie_containers' as never)
+      .select('container_number, size_type, status, is_imo, pod')
+      .eq('voyage_id', voyageId)
+      .eq('pod', port),
+  ])
+
+  for (const result of [vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes]) {
+    if (result.error) throw result.error
+  }
+
+  const vehicles = (vehiclesRes.data ?? []) as Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'>[]
+  const vaziosExp = (vaziosExpRes.data ?? []) as VaziosBooking[]
+  const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
+  const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
+  const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
+
+  return {
+    schedule: schedules.get(entityId) ?? null,
+    vehicles,
+    vaziosExp,
+    vaziosImp,
+    granite,
+    containers,
+    storage: computeStorageTotals(vaziosExp),
+  }
+}
