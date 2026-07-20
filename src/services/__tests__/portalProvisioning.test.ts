@@ -65,7 +65,7 @@ describe('listPortalProvisioningQueue', () => {
 
     const result = await listPortalProvisioningQueue()
 
-    expect(rpc).toHaveBeenCalledWith('portal_list_provisioning_console', { p_customer_id: null })
+    expect(rpc).toHaveBeenCalledWith('portal_list_provisioning_console', {})
     expect(result[0]).toMatchObject({ recovery_email: null, candidates: [], sharedEmailCount: 0 })
   })
 })

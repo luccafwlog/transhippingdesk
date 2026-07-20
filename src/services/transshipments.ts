@@ -1,9 +1,22 @@
 import { supabase } from './supabase'
+import type { Tables } from '../types/database'
 
 const normPod = (value: string) => value.trim().toUpperCase()
 
-// ponytail: database.ts ainda nao inclui voyage_omissions/bl_transshipments/RPCs; manter casts locais ate regenerar tipos com autorizacao.
 export type BlDisposition = 'transshipment' | 'cod'
+
+type BlTransshipmentRow = Pick<
+  Tables<'bl_transshipments'>,
+  | 'id'
+  | 'bl_id'
+  | 'omission_id'
+  | 'disposition'
+  | 'onward_vessel_name'
+  | 'onward_carrier'
+  | 'onward_voyage_number'
+  | 'onward_etd'
+  | 'onward_eta'
+>
 
 export interface BlTransshipment {
   id: number
@@ -42,10 +55,7 @@ export async function omitVoyageEscala(input: {
   onwardEta?: string | null
   changedBy: string
 }): Promise<number> {
-  const { data, error } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: number | null; error: Error | null }>)('omit_voyage_escala', {
+  const { data, error } = await supabase.rpc('omit_voyage_escala', {
     p_voyage_id: input.voyageId,
     p_omitted_pod: normPod(input.omittedPod),
     p_discharge_pod: normPod(input.dischargePod),
@@ -58,7 +68,8 @@ export async function omitVoyageEscala(input: {
     p_changed_by: input.changedBy,
   })
   if (error) throw error
-  return data as number
+  if (data == null) throw new Error('RPC de omissão não retornou identificador.')
+  return data
 }
 
 export async function setBlTransshipment(input: {
@@ -66,10 +77,7 @@ export async function setBlTransshipment(input: {
   omissionId: number
   changedBy: string
 }): Promise<void> {
-  const { error } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ error: Error | null }>)('set_bl_transshipment', {
+  const { error } = await supabase.rpc('set_bl_transshipment', {
     p_bl_id: input.blId,
     p_omission_id: input.omissionId,
     p_onward_vessel_name: null,
@@ -92,10 +100,7 @@ export async function updateVoyageOmission(input: {
   reason: string | null
   changedBy: string
 }): Promise<void> {
-  const { error } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ error: Error | null }>)('update_voyage_omission', {
+  const { error } = await supabase.rpc('update_voyage_omission', {
     p_omission_id: input.omissionId,
     p_onward_vessel_name: input.onwardVesselName,
     p_onward_carrier: input.onwardCarrier,
@@ -113,10 +118,7 @@ export async function setBlCod(input: {
   omissionId: number
   changedBy: string
 }): Promise<void> {
-  const { error } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ error: Error | null }>)('set_bl_cod', {
+  const { error } = await supabase.rpc('set_bl_cod', {
     p_bl_id: input.blId,
     p_omission_id: input.omissionId,
     p_changed_by: input.changedBy,
@@ -125,61 +127,40 @@ export async function setBlCod(input: {
 }
 
 export async function listVoyageOmissions(voyageId: number): Promise<VoyageOmission[]> {
-  const { data, error } = await (supabase.from as unknown as (table: string) => {
-    select: (columns: string) => {
-      eq: (key: string, value: number) => Promise<{ data: unknown[] | null; error: Error | null }>
-    }
-  })('voyage_omissions')
+  const { data, error } = await supabase
+    .from('voyage_omissions')
     .select('id, voyage_id, omitted_pod, discharge_pod, reason, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
     .eq('voyage_id', voyageId)
   if (error) throw error
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
-    id: Number(row.id),
-    voyageId: Number(row.voyage_id),
-    omittedPod: String(row.omitted_pod),
-    dischargePod: String(row.discharge_pod),
-    reason: (row.reason as string) ?? null,
-    onwardVesselName: (row.onward_vessel_name as string) ?? null,
-    onwardCarrier: (row.onward_carrier as string) ?? null,
-    onwardVoyageNumber: (row.onward_voyage_number as string) ?? null,
-    onwardEtd: (row.onward_etd as string) ?? null,
-    onwardEta: (row.onward_eta as string) ?? null,
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    voyageId: row.voyage_id,
+    omittedPod: row.omitted_pod,
+    dischargePod: row.discharge_pod,
+    reason: row.reason,
+    onwardVesselName: row.onward_vessel_name,
+    onwardCarrier: row.onward_carrier,
+    onwardVoyageNumber: row.onward_voyage_number,
+    onwardEtd: row.onward_etd,
+    onwardEta: row.onward_eta,
   }))
 }
 
 export async function listBlTransshipments(omissionId: number): Promise<BlTransshipment[]> {
-  const { data, error } = await (supabase.from as unknown as (table: string) => {
-    select: (columns: string) => {
-      eq: (key: string, value: number) => Promise<{ data: unknown[] | null; error: Error | null }>
-    }
-  })('bl_transshipments')
+  const { data, error } = await supabase
+    .from('bl_transshipments')
     .select('id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
     .eq('omission_id', omissionId)
   if (error) throw error
-  return ((data ?? []) as Array<Record<string, unknown>>).map(mapBlTransshipment)
+  return (data ?? []).map(mapBlTransshipment)
 }
 
 // Um B/L pode ter mais de uma omissao no historico (schema permite uma linha
 // por (bl_id, omission_id), nao uma por B/L); ordena pela omissao mais recente
 // para escolher a mesma disposicao vigente que o Portal (migration 202).
 export async function listBlTransshipmentByBlId(blId: string): Promise<BlTransshipment | null> {
-  const { data, error } = await (supabase.from as unknown as (table: string) => {
-    select: (columns: string) => {
-      eq: (key: string, value: string) => {
-        order: (
-          column: string,
-          opts: { foreignTable?: string; ascending?: boolean },
-        ) => {
-          order: (
-            column: string,
-            opts: { foreignTable?: string; ascending?: boolean },
-          ) => {
-            limit: (n: number) => Promise<{ data: unknown[] | null; error: Error | null }>
-          }
-        }
-      }
-    }
-  })('bl_transshipments')
+  const { data, error } = await supabase
+    .from('bl_transshipments')
     .select(
       'id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta, voyage_omissions!inner(omitted_at)',
     )
@@ -188,20 +169,25 @@ export async function listBlTransshipmentByBlId(blId: string): Promise<BlTranssh
     .order('id', { ascending: false })
     .limit(1)
   if (error) throw error
-  const row = (data ?? [])[0] as Record<string, unknown> | undefined
+  const row = (data ?? [])[0]
   return row ? mapBlTransshipment(row) : null
 }
 
-function mapBlTransshipment(row: Record<string, unknown>): BlTransshipment {
+function parseDisposition(value: string): BlDisposition {
+  if (value === 'transshipment' || value === 'cod') return value
+  throw new Error(`Disposição de transbordo inválida: ${value}`)
+}
+
+function mapBlTransshipment(row: BlTransshipmentRow): BlTransshipment {
   return {
-    id: Number(row.id),
-    blId: String(row.bl_id),
-    omissionId: Number(row.omission_id),
-    disposition: row.disposition as BlDisposition,
-    onwardVesselName: (row.onward_vessel_name as string) ?? null,
-    onwardCarrier: (row.onward_carrier as string) ?? null,
-    onwardVoyageNumber: (row.onward_voyage_number as string) ?? null,
-    onwardEtd: (row.onward_etd as string) ?? null,
-    onwardEta: (row.onward_eta as string) ?? null,
+    id: row.id,
+    blId: row.bl_id,
+    omissionId: row.omission_id,
+    disposition: parseDisposition(row.disposition),
+    onwardVesselName: row.onward_vessel_name,
+    onwardCarrier: row.onward_carrier,
+    onwardVoyageNumber: row.onward_voyage_number,
+    onwardEtd: row.onward_etd,
+    onwardEta: row.onward_eta,
   }
 }

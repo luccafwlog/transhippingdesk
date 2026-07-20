@@ -74,7 +74,10 @@ export function comparePriority(a: QueueRow, b: QueueRow): number {
 }
 
 export async function listPortalProvisioningQueue(customerId?: number): Promise<QueueRow[]> {
-  const { data, error } = await supabase.rpc('portal_list_provisioning_console', { p_customer_id: customerId ?? null })
+  const { data, error } = await supabase.rpc(
+    'portal_list_provisioning_console',
+    customerId == null ? {} : { p_customer_id: customerId },
+  )
   if (error) throw error
   return ((data ?? []) as unknown as PortalProvisioningConsolePayload[]).map((row) => ({
     account_id: row.account_id,

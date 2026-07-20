@@ -12,18 +12,30 @@ export type ConsolidatableReceivableFilters = {
   search?: string | null
 }
 
-export async function listConsolidatableReceivables(filters: ConsolidatableReceivableFilters) {
+function parseReceivableStatus(value: string): ConsolidatableReceivable['receivable_status'] {
+  if (value === 'open' || value === 'partially_settled' || value === 'settled' || value === 'void') return value
+  throw new Error(`Status de recebível inválido: ${value}`)
+}
+
+function parseEligibilityStatus(value: string): ConsolidatableReceivable['eligibility_status'] {
+  if (value === 'eligible' || value === 'paid' || value === 'no_balance' || value === 'open_consolidated') return value
+  throw new Error(`Elegibilidade de recebível inválida: ${value}`)
+}
+
+export async function listConsolidatableReceivables(
+  filters: ConsolidatableReceivableFilters,
+): Promise<ConsolidatableReceivable[]> {
   if (!filters.customerId) return [] as ConsolidatableReceivable[]
 
   const { data, error } = await supabase.rpc('list_consolidatable_receivables', {
     p_customer_id: filters.customerId,
-    p_voyage_id: filters.voyageId ?? null,
-    p_search: filters.search?.trim() || null,
+    ...(filters.voyageId == null ? {} : { p_voyage_id: filters.voyageId }),
+    ...(filters.search?.trim() ? { p_search: filters.search.trim() } : {}),
   })
 
   if (error) throw error
 
-  return ((data ?? []) as ConsolidatableReceivable[]).map((row) => ({
+  return (data ?? []).map((row) => ({
     ...row,
     receivable_id: Number(row.receivable_id),
     customer_id: Number(row.customer_id),
@@ -31,6 +43,8 @@ export async function listConsolidatableReceivables(filters: ConsolidatableRecei
     individual_invoice_id: row.individual_invoice_id == null ? null : Number(row.individual_invoice_id),
     balance_brl: Number(row.balance_brl ?? 0),
     original_amount_brl: Number(row.original_amount_brl ?? 0),
+    receivable_status: parseReceivableStatus(row.receivable_status),
+    eligibility_status: parseEligibilityStatus(row.eligibility_status),
   }))
 }
 
@@ -41,7 +55,6 @@ export async function createConsolidatedInvoice(input: {
   const { data, error } = await supabase.rpc('create_local_consolidated_invoice', {
     p_customer_id: input.customerId,
     p_receivable_ids: input.receivableIds,
-    p_actor: null,
   })
   if (error) throw error
   return data as unknown as ConsolidatedInvoiceResult
@@ -59,11 +72,10 @@ export async function registerLedgerInvoicePayment(input: {
     p_invoice_id: input.invoiceId,
     p_amount_brl: input.amountBrl,
     p_method: input.method ?? 'pix',
-    p_paid_at: input.paidAt ?? null,
-    p_pix_txid: input.pixTxid ?? null,
+    ...(input.paidAt == null ? {} : { p_paid_at: input.paidAt }),
+    ...(input.pixTxid == null ? {} : { p_pix_txid: input.pixTxid }),
     p_source: input.source ?? 'manual',
-    p_notes: input.notes?.trim() || null,
-    p_actor: null,
+    ...(input.notes?.trim() ? { p_notes: input.notes.trim() } : {}),
   })
   if (error) throw error
   return data as unknown as LedgerPaymentResult
@@ -78,9 +90,9 @@ export type InvoiceRefund = {
 }
 
 export async function listInvoiceRefunds(invoiceId: number): Promise<InvoiceRefund[]> {
-  const { data, error } = await supabase.rpc('list_invoice_refunds' as never, {
+  const { data, error } = await supabase.rpc('list_invoice_refunds', {
     p_invoice_id: invoiceId,
-  } as never)
+  })
   if (error) throw error
   return ((data ?? []) as InvoiceRefund[]).map((row) => ({
     ...row,
@@ -90,10 +102,9 @@ export async function listInvoiceRefunds(invoiceId: number): Promise<InvoiceRefu
 }
 
 export async function settleInvoiceRefund(refundId: number): Promise<void> {
-  const { error } = await supabase.rpc('settle_invoice_refund' as never, {
+  const { error } = await supabase.rpc('settle_invoice_refund', {
     p_refund_id: refundId,
-    p_actor: null,
-  } as never)
+  })
   if (error) throw error
 }
 export async function reconcileInvoicePaymentByTxid(input: {
@@ -104,7 +115,7 @@ export async function reconcileInvoicePaymentByTxid(input: {
   const { data, error } = await supabase.rpc('reconcile_invoice_payment_by_txid', {
     p_txid: input.txid,
     p_amount_brl: input.amountBrl,
-    p_paid_at: input.paidAt ?? null,
+    ...(input.paidAt == null ? {} : { p_paid_at: input.paidAt }),
   })
   if (error) throw error
   return data as unknown as ReconcileByTxidResult

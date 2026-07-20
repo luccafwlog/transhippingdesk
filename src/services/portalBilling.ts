@@ -237,12 +237,12 @@ export async function portalUpdateProfile(input: {
   zip?: string | null
 }): Promise<void> {
   const { error } = await supabasePortal.rpc('portal_update_profile', {
-    p_contact_email: input.contactEmail ?? null,
-    p_phone: input.phone ?? null,
-    p_address: input.address ?? null,
-    p_city: input.city ?? null,
-    p_state: input.state ?? null,
-    p_zip: input.zip ?? null,
+    ...(input.contactEmail == null ? {} : { p_contact_email: input.contactEmail }),
+    ...(input.phone == null ? {} : { p_phone: input.phone }),
+    ...(input.address == null ? {} : { p_address: input.address }),
+    ...(input.city == null ? {} : { p_city: input.city }),
+    ...(input.state == null ? {} : { p_state: input.state }),
+    ...(input.zip == null ? {} : { p_zip: input.zip }),
   })
   if (error) throw error
 }

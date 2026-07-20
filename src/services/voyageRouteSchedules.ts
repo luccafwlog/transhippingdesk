@@ -191,7 +191,7 @@ export async function saveVoyagePolSchedule({
     escalaNumber === undefined
       ? null
       : makeAuditRow(POL_ENTITY_TYPE, entityId, 'escala_number', current.escalaNumber, escalaNumber, changedBy, 'Atualizacao manual de Numero de Escala por POL'),
-  ].filter(Boolean)
+  ].filter((change) => change !== null)
 
   if (!changes.length) return
 
@@ -272,7 +272,7 @@ export async function saveVoyagePodSchedule({
     escalaNumber === undefined
       ? null
       : makeAuditRow(POD_ENTITY_TYPE, entityId, 'escala_number', current.escalaNumber, escalaNumber, changedBy, 'Atualizacao manual de Numero de Escala por POD'),
-  ].filter(Boolean)
+  ].filter((change) => change !== null)
 
   // Reincluir um POD que havia sido removido: limpa o soft-delete.
   if (current.deleted) {
@@ -352,13 +352,14 @@ export async function setVoyageRouteCeMaster({
   ceMaster: string | null
   changedBy: string
 }) {
-  const { error } = await supabase.rpc('set_voyage_route_ce_master' as never, {
+  const { error } = await supabase.rpc('set_voyage_route_ce_master', {
     p_voyage_id: voyageId,
     p_pol: pol,
     p_pod: pod,
-    p_ce_master: ceMaster,
+    // A função normaliza string vazia e NULL da mesma forma (NULLIF/btrim).
+    p_ce_master: ceMaster ?? '',
     p_changed_by: changedBy,
-  } as never)
+  })
   if (error) throw error
 }
 
@@ -367,18 +368,13 @@ export async function listVoyageRouteCeMasters(voyageIds: number[]) {
   if (!voyageIds.length) return result
 
   const { data, error } = await supabase
-    .from('voyage_route_ce_master' as never)
+    .from('voyage_route_ce_master')
     .select('voyage_id, pol, pod, ce_master')
     .in('voyage_id', voyageIds)
 
   if (error) throw error
 
-  for (const row of (data ?? []) as Array<{
-    voyage_id: number
-    pol: string | null
-    pod: string | null
-    ce_master: string | null
-  }>) {
+  for (const row of data ?? []) {
     const ce = normalizeTextValue(row.ce_master)
     if (!ce) continue
     result.set(buildVoyageRouteCeMasterKey(row.voyage_id, row.pol, row.pod), ce)

@@ -45,10 +45,7 @@ it('US-176: atualiza contato/endereco mapeando os parametros do RPC', async () =
   expect(rpcMock).toHaveBeenCalledWith('portal_update_profile', {
     p_contact_email: 'a@b.com',
     p_phone: '11999',
-    p_address: null,
     p_city: 'SP',
-    p_state: null,
-    p_zip: null,
   })
 })
 

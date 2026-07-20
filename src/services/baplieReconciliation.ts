@@ -161,12 +161,12 @@ async function fetchStagingAndBlContainers(voyageId: number) {
   let from = 0
   while (true) {
     const { data, error } = await supabase
-      .from('baplie_containers' as never)
+      .from('baplie_containers')
       .select('*')
       .eq('voyage_id', voyageId)
       .range(from, from + PAGE - 1)
     if (error) throw error
-    staged.push(...((data ?? []) as BaplieContainerRow[]))
+    staged.push(...(data ?? []))
     if (!data || data.length < PAGE) break
     from += PAGE
   }

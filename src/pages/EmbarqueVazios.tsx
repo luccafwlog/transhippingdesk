@@ -169,7 +169,9 @@ export function EmbarqueVazios() {
       .filter((rate) => rate.valid_from <= today && (!rate.valid_to || rate.valid_to >= today))
       .sort((left, right) => right.valid_from.localeCompare(left.valid_from))
     for (const rate of rates) {
-      if (!reorgRates.has(rate.service)) reorgRates.set(rate.service, Number(rate.rate_brl))
+      if (rate.service === 'bundle' || rate.service === 'desova' || rate.service === 'visual_check') {
+        if (!reorgRates.has(rate.service)) reorgRates.set(rate.service, Number(rate.rate_brl))
+      }
     }
   }
 

@@ -167,7 +167,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('manifest.voyage_id', voyageId)
       .eq('loading_port', port),
     supabase
-      .from('baplie_containers' as never)
+      .from('baplie_containers')
       .select('container_number, size_type, status, is_imo, pod')
       .eq('voyage_id', voyageId)
       .eq('pod', port),

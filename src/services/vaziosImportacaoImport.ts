@@ -159,7 +159,7 @@ export async function getBaplieManifestForVoyage(voyageId: number): Promise<{
     .from('vazios_importacao_manifests')
     .select('id, total_containers, imported_at')
     .eq('voyage_id', voyageId)
-    .eq('source' as never, 'baplie')
+    .eq('source', 'baplie')
     .order('imported_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -171,10 +171,9 @@ export async function getBaplieManifestForVoyage(voyageId: number): Promise<{
 // reimport de operadores passa pela RPC escopada, que apaga apenas o
 // manifesto baplie da viagem (containers caem por cascade).
 export async function deleteBaplieManifestForVoyage(voyageId: number): Promise<void> {
-  const { error } = await supabase.rpc(
-    'delete_baplie_manifest_for_voyage' as never,
-    { p_voyage_id: voyageId } as never,
-  )
+  const { error } = await supabase.rpc('delete_baplie_manifest_for_voyage', {
+    p_voyage_id: voyageId,
+  })
   if (error) throw error
 }
 

@@ -55,13 +55,13 @@ export function Baplie() {
       let from = 0
       while (true) {
         const { data, error } = await supabase
-          .from('baplie_containers' as never)
+          .from('baplie_containers')
           .select('*')
           .eq('voyage_id', Number(voyageId))
           .order('container_number')
           .range(from, from + PAGE - 1)
         if (error) throw error
-        all = all.concat((data ?? []) as BaplieContainer[])
+        all = all.concat(data ?? [])
         if (!data || data.length < PAGE) break
         from += PAGE
       }

@@ -214,18 +214,14 @@ describe('getInvoicePaymentDate', () => {
 })
 
 describe('createInvoiceFromBls', () => {
-  it('chama o RPC create_invoice_from_bls_with_ledger com defaults (issue_now true, demais null)', async () => {
+  it('chama o RPC create_invoice_from_bls_with_ledger omitindo defaults opcionais', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: null })
 
     const result = await createInvoiceFromBls({ blIds: ['BL001', 'BL002'] })
 
     expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_bls_with_ledger', {
       p_bl_ids: ['BL001', 'BL002'],
-      p_customer_id: null,
-      p_due_date: null,
-      p_notes: null,
       p_issue_now: true,
-      p_actor: null,
     })
     // data null vira objeto vazio e, sem invoice_id, nada mais é executado.
     expect(result).toEqual({})
@@ -308,10 +304,6 @@ describe('createInvoiceFromGraniteBls', () => {
 
     expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_granite_bls', {
       p_granite_bl_ids: ['GR1'],
-      p_customer_id: null,
-      p_due_date: null,
-      p_notes: null,
-      p_actor: null,
     })
     expect(supabaseMocks.buildPix).toHaveBeenCalledWith(250.5, 'INV-77')
     expect(update.eq).toHaveBeenCalledWith('id', 77)
@@ -339,7 +331,7 @@ describe('createInvoiceFromGraniteBls', () => {
 })
 
 describe('registerInvoicePayment', () => {
-  it('chama o RPC register_invoice_payment com payload exato e defaults null', async () => {
+  it('chama o RPC register_invoice_payment omitindo defaults opcionais', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: { payment_id: 1 }, error: null })
 
     const result = await registerInvoicePayment({ invoiceId: 9, amountBrl: 150.5, paymentMethod: 'pix' })
@@ -348,9 +340,6 @@ describe('registerInvoicePayment', () => {
       p_invoice_id: 9,
       p_amount_brl: 150.5,
       p_payment_method: 'pix',
-      p_paid_at: null,
-      p_notes: null,
-      p_actor: null,
     })
     expect(result).toEqual({ payment_id: 1 })
   })
@@ -400,13 +389,12 @@ describe('cancelInvoice', () => {
     expect(result).toEqual({ cancelled: true })
   })
 
-  it('usa null como default de reason/actor e propaga erro do RPC', async () => {
+  it('usa reason vazia e omite actor por default ao propagar erro do RPC', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('cancelamento falhou') })
     await expect(cancelInvoice({ invoiceId: 5 })).rejects.toThrow('cancelamento falhou')
     expect(supabaseMocks.rpc).toHaveBeenCalledWith('cancel_invoice', {
       p_invoice_id: 5,
-      p_reason: null,
-      p_actor: null,
+      p_reason: '',
     })
   })
 })
@@ -427,8 +415,6 @@ describe('addManualInvoiceCharge', () => {
       p_description: 'Taxa extra',
       p_quantity: 2,
       p_unit_value_brl: 75.25,
-      p_notes: null,
-      p_actor: null,
     })
     expect(result).toEqual({ item_id: 11 })
   })

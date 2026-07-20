@@ -248,7 +248,7 @@ function makeVoyageAuditRow(
 }
 
 async function insertVoyageAuditRows(rows: Array<ReturnType<typeof makeVoyageAuditRow>>) {
-  const payload = rows.filter(Boolean)
+  const payload = rows.filter((row): row is NonNullable<typeof row> => row !== null)
   if (!payload.length) return
 
   const { error } = await supabase.from('audit_logs').insert(payload)

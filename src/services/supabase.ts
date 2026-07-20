@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '../types/database'
+import type { AppDatabase } from '../types/database'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -15,7 +15,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-export const supabase = createClient<Database>(supabaseUrl ?? fallbackSupabaseUrl, supabaseAnonKey ?? fallbackSupabaseAnonKey, {
+export const supabase = createClient<AppDatabase>(supabaseUrl ?? fallbackSupabaseUrl, supabaseAnonKey ?? fallbackSupabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -27,7 +27,7 @@ export const supabase = createClient<Database>(supabaseUrl ?? fallbackSupabaseUr
 // projeto Supabase e no mesmo domínio; sem um storageKey próprio eles
 // compartilhariam a mesma sessão no navegador e um login derrubaria o outro.
 // storageKey distinto isola as sessões (interno x portal) por completo.
-export const supabasePortal = createClient<Database>(supabaseUrl ?? fallbackSupabaseUrl, supabaseAnonKey ?? fallbackSupabaseAnonKey, {
+export const supabasePortal = createClient<AppDatabase>(supabaseUrl ?? fallbackSupabaseUrl, supabaseAnonKey ?? fallbackSupabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,

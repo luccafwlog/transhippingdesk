@@ -27,15 +27,13 @@ describe('listConsolidatableReceivables', () => {
     expect(supabaseMocks.rpc).not.toHaveBeenCalled()
   })
 
-  it('chama o RPC list_consolidatable_receivables com defaults null', async () => {
+  it('chama o RPC list_consolidatable_receivables omitindo filtros opcionais', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: [], error: null })
 
     await listConsolidatableReceivables({ customerId: 9, search: '   ' })
 
     expect(supabaseMocks.rpc).toHaveBeenCalledWith('list_consolidatable_receivables', {
       p_customer_id: 9,
-      p_voyage_id: null,
-      p_search: null,
     })
   })
 
@@ -62,6 +60,8 @@ describe('listConsolidatableReceivables', () => {
           balance_brl: '10.5',
           original_amount_brl: null,
           bl_id: 'CSC1',
+          receivable_status: 'open',
+          eligibility_status: 'eligible',
         },
         {
           receivable_id: 6,
@@ -71,6 +71,8 @@ describe('listConsolidatableReceivables', () => {
           balance_brl: null,
           original_amount_brl: 99,
           bl_id: 'CSC2',
+          receivable_status: 'partially_settled',
+          eligibility_status: 'open_consolidated',
         },
       ],
       error: null,
@@ -87,6 +89,8 @@ describe('listConsolidatableReceivables', () => {
         balance_brl: 10.5,
         original_amount_brl: 0,
         bl_id: 'CSC1',
+        receivable_status: 'open',
+        eligibility_status: 'eligible',
       },
       {
         receivable_id: 6,
@@ -96,6 +100,8 @@ describe('listConsolidatableReceivables', () => {
         balance_brl: 0,
         original_amount_brl: 99,
         bl_id: 'CSC2',
+        receivable_status: 'partially_settled',
+        eligibility_status: 'open_consolidated',
       },
     ])
   })
@@ -106,6 +112,26 @@ describe('listConsolidatableReceivables', () => {
 
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('rpc falhou') })
     await expect(listConsolidatableReceivables({ customerId: 9 })).rejects.toThrow('rpc falhou')
+  })
+
+  it('rejeita status fora do domínio retornado pela RPC', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({
+      data: [{
+        receivable_id: 1,
+        customer_id: 9,
+        voyage_id: null,
+        individual_invoice_id: null,
+        balance_brl: 10,
+        original_amount_brl: 10,
+        receivable_status: 'unexpected',
+        eligibility_status: 'eligible',
+      }],
+      error: null,
+    })
+
+    await expect(listConsolidatableReceivables({ customerId: 9 })).rejects.toThrow(
+      'Status de recebível inválido: unexpected',
+    )
   })
 })
 
@@ -121,7 +147,6 @@ describe('createConsolidatedInvoice', () => {
     expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_local_consolidated_invoice', {
       p_customer_id: 10,
       p_receivable_ids: [1, 2],
-      p_actor: null,
     })
     expect(supabaseMocks.from).not.toHaveBeenCalled()
     expect(result).toEqual({ invoice_id: 7, invoice_number: 'INV-7', total_brl: 100 })
@@ -162,7 +187,7 @@ describe('createConsolidatedInvoice', () => {
 })
 
 describe('registerLedgerInvoicePayment', () => {
-  it('chama o RPC register_ledger_invoice_payment com defaults (pix/manual, demais null)', async () => {
+  it('chama o RPC register_ledger_invoice_payment omitindo defaults opcionais', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: { payment_id: 1 }, error: null })
 
     const result = await registerLedgerInvoicePayment({ invoiceId: 1, amountBrl: 50 })
@@ -171,11 +196,7 @@ describe('registerLedgerInvoicePayment', () => {
       p_invoice_id: 1,
       p_amount_brl: 50,
       p_method: 'pix',
-      p_paid_at: null,
-      p_pix_txid: null,
       p_source: 'manual',
-      p_notes: null,
-      p_actor: null,
     })
     expect(result).toEqual({ payment_id: 1 })
   })
@@ -200,14 +221,15 @@ describe('registerLedgerInvoicePayment', () => {
       p_pix_txid: 'TX123',
       p_source: 'pix_extract',
       p_notes: 'ok',
-      p_actor: null,
     })
 
     await registerLedgerInvoicePayment({ invoiceId: 2, amountBrl: 1, notes: '   ' })
-    expect(supabaseMocks.rpc).toHaveBeenLastCalledWith(
-      'register_ledger_invoice_payment',
-      expect.objectContaining({ p_notes: null }),
-    )
+    expect(supabaseMocks.rpc).toHaveBeenLastCalledWith('register_ledger_invoice_payment', {
+      p_invoice_id: 2,
+      p_amount_brl: 1,
+      p_method: 'pix',
+      p_source: 'manual',
+    })
   })
 
   it('propaga erro do RPC', async () => {
@@ -217,7 +239,7 @@ describe('registerLedgerInvoicePayment', () => {
 })
 
 describe('reconcileInvoicePaymentByTxid', () => {
-  it('chama o RPC reconcile_invoice_payment_by_txid com paid_at default null', async () => {
+  it('chama o RPC reconcile_invoice_payment_by_txid omitindo paid_at por default', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: { matched: true }, error: null })
 
     const result = await reconcileInvoicePaymentByTxid({ txid: 'TX1', amountBrl: 99.9 })
@@ -225,7 +247,6 @@ describe('reconcileInvoicePaymentByTxid', () => {
     expect(supabaseMocks.rpc).toHaveBeenCalledWith('reconcile_invoice_payment_by_txid', {
       p_txid: 'TX1',
       p_amount_brl: 99.9,
-      p_paid_at: null,
     })
     expect(result).toEqual({ matched: true })
   })

@@ -154,7 +154,7 @@ export function Demurrage() {
     setDiscountForm({
       discount_type: invoice.discount_type,
       discount_value: invoice.discount_value != null ? String(invoice.discount_value) : '',
-      discount_mode: invoice.discount_mode ?? 'percent',
+      discount_mode: invoice.discount_mode === 'fixed' ? 'fixed' : 'percent',
       discount_justification: invoice.discount_justification ?? '',
       discount_approver: invoice.discount_approver ?? '',
     })
