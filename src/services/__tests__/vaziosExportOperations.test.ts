@@ -1,20 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   computeStorageTotals,
+  listActiveReorgRates,
   listVaziosBookingsForOperation,
 } from '../vaziosExportOperations'
 
-const { listVaziosBookingsMock } = vi.hoisted(() => ({
+const { listVaziosBookingsMock, supabaseFromMock } = vi.hoisted(() => ({
   listVaziosBookingsMock: vi.fn(),
+  supabaseFromMock: vi.fn(),
 }))
 
 vi.mock('../vaziosImport', () => ({
   listVaziosBookings: listVaziosBookingsMock,
 }))
-vi.mock('../supabase', () => ({ supabase: {} }))
+vi.mock('../supabase', () => ({ supabase: { from: supabaseFromMock } }))
 
 beforeEach(() => {
   listVaziosBookingsMock.mockReset()
+  supabaseFromMock.mockReset()
 })
 
 describe('computeStorageTotals', () => {
@@ -26,6 +29,36 @@ describe('computeStorageTotals', () => {
     ])
 
     expect(totals).toEqual({ containers: 2, days: 4 })
+  })
+
+  it('ignora pares de datas inválidos ou em ordem negativa', () => {
+    const totals = computeStorageTotals([
+      { hand_in_date: 'data inválida', hand_out_date: '2026-07-05' },
+      { hand_in_date: '2026-07-05', hand_out_date: 'data inválida' },
+      { hand_in_date: '2026-07-05', hand_out_date: '2026-07-01' },
+      { hand_in_date: '2026-07-01', hand_out_date: '2026-07-03' },
+    ])
+
+    expect(totals).toEqual({ containers: 1, days: 2 })
+  })
+})
+
+describe('listActiveReorgRates', () => {
+  it('ordena tarifas sobrepostas por vigência, criação e ID para preservar a precedência', async () => {
+    const orderMock = vi.fn()
+    const orderChain = { order: orderMock }
+    orderMock.mockReturnValue(orderChain)
+    const eqMock = vi.fn(() => orderChain)
+    const selectMock = vi.fn(() => ({ eq: eqMock }))
+    supabaseFromMock.mockReturnValue({ select: selectMock })
+
+    await listActiveReorgRates()
+
+    expect(supabaseFromMock).toHaveBeenCalledWith('vazios_reorg_rates')
+    expect(eqMock).toHaveBeenCalledWith('active', true)
+    expect(orderMock).toHaveBeenNthCalledWith(1, 'valid_from', { ascending: false })
+    expect(orderMock).toHaveBeenNthCalledWith(2, 'created_at', { ascending: false })
+    expect(orderMock).toHaveBeenNthCalledWith(3, 'id', { ascending: false })
   })
 })
 

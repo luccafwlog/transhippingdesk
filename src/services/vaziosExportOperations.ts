@@ -38,9 +38,10 @@ export function computeStorageTotals(
 
   for (const row of rows) {
     if (!row.hand_in_date || !row.hand_out_date) continue
-    const diff = Math.round(
-      (Date.parse(row.hand_out_date) - Date.parse(row.hand_in_date)) / 86_400_000,
-    )
+    const handIn = Date.parse(row.hand_in_date)
+    const handOut = Date.parse(row.hand_out_date)
+    if (!Number.isFinite(handIn) || !Number.isFinite(handOut)) continue
+    const diff = Math.round((handOut - handIn) / 86_400_000)
     if (diff < 0) continue
     containers += 1
     days += diff
@@ -143,6 +144,9 @@ export async function listActiveReorgRates(): Promise<VaziosReorgRate[]> {
     .from('vazios_reorg_rates')
     .select('*')
     .eq('active', true)
+    .order('valid_from', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
   if (error) throw error
   return (data ?? []) as VaziosReorgRate[]
 }
