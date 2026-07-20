@@ -4,6 +4,7 @@ import {
   buildContainerTypeMatrix,
   groupVehiclesByBrand,
   getAgencyReportDerivedData,
+  setSignoff,
 } from '../agencyDepartureReport'
 
 const { fromMock, schedulesMock } = vi.hoisted(() => ({
@@ -11,7 +12,9 @@ const { fromMock, schedulesMock } = vi.hoisted(() => ({
   schedulesMock: vi.fn(),
 }))
 
-vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
+
+vi.mock('../supabase', () => ({ supabase: { from: fromMock, rpc: rpcMock } }))
 vi.mock('../voyageRouteSchedules', () => ({
   buildVoyagePodEntityId: (voyageId: number, port: string) => `${voyageId}::${port}`,
   listVoyagePodSchedules: schedulesMock,
@@ -96,5 +99,20 @@ describe('getAgencyReportDerivedData', () => {
     await getAgencyReportDerivedData(7, 'BRSSZ')
 
     expect(vehiclesQuery.select).toHaveBeenCalledWith(expect.stringContaining('unpacking_location'))
+  })
+})
+
+describe('setSignoff', () => {
+  it('chama a RPC da migration 213 com os argumentos tipados', async () => {
+    rpcMock.mockResolvedValue({ error: null })
+
+    await setSignoff({ voyageId: 7, port: 'BRVIX', section: 'datas', state: 'confirmed' })
+
+    expect(rpcMock).toHaveBeenCalledWith('set_agency_report_signoff', {
+      p_voyage_id: 7,
+      p_port: 'BRVIX',
+      p_section: 'datas',
+      p_state: 'confirmed',
+    })
   })
 })

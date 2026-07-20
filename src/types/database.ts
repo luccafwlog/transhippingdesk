@@ -630,6 +630,10 @@ export type Database = {
         Args: { p_ptax: number; p_roe: number; p_effective_date: string }
         Returns: undefined
       }
+      ensure_agency_departure_report: { Args: { p_voyage_id: number; p_port: string }; Returns: string }
+      set_agency_report_signoff: { Args: { p_voyage_id: number; p_port: string; p_section: AgencyReportSectionKey; p_state: AgencyReportSignoff['state'] }; Returns: Json }
+      add_agency_report_occurrence: { Args: { p_voyage_id: number; p_port: string; p_body: string }; Returns: Json }
+      set_agency_report_terminal: { Args: { p_voyage_id: number; p_port: string; p_terminal: string }; Returns: undefined }
       portal_get_current_roe: {
         Args: Record<PropertyKey, never>
         Returns: Array<{ roe: number; updated_at: string }>

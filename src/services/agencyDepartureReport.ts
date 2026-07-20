@@ -9,6 +9,7 @@ import type {
   VaziosImportacaoContainer,
   Vehicle,
 } from '../types/database'
+import type { AgencyDepartureReport, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
@@ -30,6 +31,55 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
   vazios_embarcados: 'equipamentos',
   vazios_descarregados: 'documentacao',
   ocorrencias: 'operacoes',
+}
+
+export type AgencyReportOwnData = AgencyDepartureReport & {
+  signoffs: AgencyReportSignoff[]
+  occurrences: AgencyReportOccurrence[]
+}
+
+export async function getAgencyReportOwnData(voyageId: number, port: string) {
+  const { data, error } = await supabase
+    .from('agency_departure_reports')
+    .select('*, signoffs:agency_departure_report_signoffs(*), occurrences:agency_departure_report_occurrences(*)')
+    .eq('voyage_id', voyageId)
+    .eq('port', port)
+    .maybeSingle()
+  if (error) throw error
+  return data as AgencyReportOwnData | null
+}
+
+export async function setSignoff(input: {
+  voyageId: number
+  port: string
+  section: AgencyReportSection
+  state: AgencyReportSignoff['state']
+}) {
+  const { error } = await supabase.rpc('set_agency_report_signoff', {
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_section: input.section,
+    p_state: input.state,
+  })
+  if (error) throw error
+}
+
+export async function addOccurrence(input: { voyageId: number; port: string; body: string }) {
+  const { error } = await supabase.rpc('add_agency_report_occurrence', {
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_body: input.body,
+  })
+  if (error) throw error
+}
+
+export async function setTerminal(input: { voyageId: number; port: string; terminal: string }) {
+  const { error } = await supabase.rpc('set_agency_report_terminal', {
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_terminal: input.terminal,
+  })
+  if (error) throw error
 }
 
 export type MatrixCategory =
@@ -114,7 +164,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     if (result.error) throw result.error
   }
 
-  const vehicles = (vehiclesRes.data ?? []) as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
+  const vehicles = (vehiclesRes.data ?? []) as unknown as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
     container: { unpacking_location: string | null } | null
   }>
   const vaziosExp = (vaziosExpRes.data ?? []) as VaziosBooking[]
