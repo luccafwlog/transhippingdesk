@@ -13,9 +13,8 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 ## Planos ativos
 
-| Plano | Base de decisão | Status |
-|-------|-----------------|--------|
-| [2026-07-19-agency-departure-report](2026-07-19-agency-departure-report.md) | [spec de design 2026-07-19](../spec/2026-07-19-agency-departure-report-design.md) · [ADR 0027](../adr/0027-agency-departure-report-agregado-escala-snapshot.md) | TODO |
+Não há planos ativos no momento. O plano do Agency Departure Report foi
+executado e preservado no [arquivo histórico](../archive/plans/).
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

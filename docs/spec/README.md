@@ -14,9 +14,8 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 ## Specs funcionais vivas
 
-| Spec | Plano derivado | Status |
-|------|----------------|--------|
-| [2026-07-19-agency-departure-report-design](2026-07-19-agency-departure-report-design.md) | [plano agency-departure-report](../plans/2026-07-19-agency-departure-report.md) | Aguardando execução |
+Não há specs funcionais vivas no momento. A spec de design do Agency Departure
+Report foi executada e preservada no [arquivo histórico](../archive/specs/).
 
 ## Behavioral Specification
 

@@ -126,6 +126,7 @@ flowchart LR
     Empty["Vazios"]
     Reconcile["Conciliação<br/>Baplie × B/L"]
     Review["Revisão e<br/>cliente"]
+    AgencyReport["Agency Departure Report<br/>por escala brasileira"]
     Charges["Taxas locais"]
     Ledger["Ledger local"]
     Invoice["Invoices"]
@@ -138,6 +139,10 @@ flowchart LR
     Voyage --> Granite
     Voyage --> Vehicles
     Voyage --> Empty
+    Voyage --> AgencyReport
+    Empty --> AgencyReport
+    Vehicles --> AgencyReport
+    Granite --> AgencyReport
     Baplie --> Reconcile
     Manifest --> Reconcile
     Reconcile --> Review
@@ -214,6 +219,13 @@ atual.
 sequenciais antigos e arquivos por timestamp. O número de arquivos não é um
 contrato. O estado de um ambiente é definido pelo histórico aplicado, não por
 um intervalo fixo documentado.
+
+As migrations `208`–`214` implementam o Agency Departure Report (ADR) e suas
+fundações: campos e operações de Vazios EXP (`208`/`209`), papel
+`equipamentos` (`210`) e o hardening do seu contrato RBAC (`211`/`212`), além
+do agregado, sign-offs, ocorrências, snapshot e alertas pós-ATD do ADR
+(`213`/`214`). A superfície continua sendo a aba `ADR` de
+`/viagens/:voyageId`; não há rota top-level adicional.
 
 ### Segurança
 
@@ -300,7 +312,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 |---|---|
 | `/painel` | Dashboard operacional |
 | `/viagens` | Lista e seleção de viagens |
-| `/viagens/:voyageId` | Detalhe master-detail deep-linkável |
+| `/viagens/:voyageId` | Detalhe master-detail deep-linkável, incluindo a aba ADR por escala brasileira |
 | `/baplie` | Importação e conciliação Baplie |
 | `/manifestos` | Lista de B/Ls CNTR; importação documental por arquivo de B/L |
 | `/manifestos/:blId` | Detalhe do B/L |
