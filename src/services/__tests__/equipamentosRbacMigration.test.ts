@@ -96,7 +96,7 @@ describe('migration 211 — RBAC de Equipamentos', () => {
     expect(sql).toContain("WHERE id = auth.uid() AND active = true AND role <> 'equipamentos'")
   })
 
-  it('mantem tarifas de reorganizacao como configuracao exclusiva de admin', () => {
+  it('registra o estado historico admin-only das tarifas que a migration corretiva precisa substituir', () => {
     expect(sql).toContain("WHERE schemaname = 'public' AND tablename = 'vazios_reorg_rates'")
     expect(sql).toContain('CREATE POLICY vazios_reorg_rates_insert_admin')
     expect(sql).toContain('CREATE POLICY vazios_reorg_rates_update_admin')
