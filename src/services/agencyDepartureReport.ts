@@ -53,13 +53,12 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
 
   let closedByName: string | null = null
   if (report.closed_by) {
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('full_name')
-      .eq('id', report.closed_by)
-      .maybeSingle()
-    if (profileError) throw profileError
-    closedByName = profile?.full_name ?? null
+    const { data: closerName, error: closerNameError } = await supabase.rpc('get_agency_report_closer_name' as never, {
+      p_voyage_id: voyageId,
+      p_port: port,
+    } as never)
+    if (closerNameError) throw closerNameError
+    closedByName = typeof closerName === 'string' ? closerName : null
   }
 
   return { ...report, closed_by_name: closedByName }

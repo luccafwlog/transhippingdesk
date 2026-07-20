@@ -130,15 +130,18 @@ describe('getAgencyReportDerivedData', () => {
 })
 
 describe('getAgencyReportOwnData', () => {
-  it('resolve closed_by para o nome exibido no fechamento', async () => {
-    const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'user-1' })
-    const profileQuery = singleQueryBuilder({ full_name: 'Lucca F.' })
-    fromMock.mockImplementation((table: string) => table === 'agency_departure_reports' ? reportQuery : profileQuery)
+  it('resolve outro autor pelo RPC autorizado no escopo do ADR', async () => {
+    const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'other-user' })
+    fromMock.mockImplementation(() => reportQuery)
+    rpcMock.mockResolvedValue({ data: 'Lucca F.', error: null })
 
     await expect(getAgencyReportOwnData(7, 'BRVIX')).resolves.toMatchObject({ closed_by_name: 'Lucca F.' })
 
-    expect(profileQuery.select).toHaveBeenCalledWith('full_name')
-    expect(profileQuery.eq).toHaveBeenCalledWith('id', 'user-1')
+    expect(rpcMock).toHaveBeenCalledWith('get_agency_report_closer_name', {
+      p_voyage_id: 7,
+      p_port: 'BRVIX',
+    })
+    expect(fromMock).not.toHaveBeenCalledWith('user_profiles')
   })
 })
 
