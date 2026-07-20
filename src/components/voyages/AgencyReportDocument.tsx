@@ -17,7 +17,7 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
   const header = snapshot.header ?? {}
   const sections = snapshot.sections ?? {}
   const documentSections: Array<[string, unknown]> = [
-    ['Carga solta', sections.cargaCarregada], ['Granito', sections.granito], ['Matriz de descarga', sections.cargaDescarregada],
+    ['Carga solta', sections.cargaSolta], ['Granito', sections.granito], ['Matriz de descarga', sections.cargaDescarregada],
     ['Vazios descarregados', sections.vaziosDescarregados], ['Container com veículo', sections.veiculos], ['Embarque de vazios', sections.vaziosEmbarcados],
     ['Serviço extra, storage e overtime', { operation: sections.operation, storage: sections.storage }],
   ]

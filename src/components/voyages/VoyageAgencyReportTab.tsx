@@ -119,6 +119,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     header: { carrierName, voyageLabel, port, terminal: ownData?.terminal ?? null, schedule: data?.schedule ?? null },
     sections: {
       cargaDescarregada: dischargeMatrix,
+      cargaSolta: data?.cargaSolta ?? null,
       vaziosDescarregados: emptyDischargeMatrix,
       veiculos: vehicles,
       vaziosEmbarcados: emptyEmbarkMatrix,
@@ -171,7 +172,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </ReportSection>
 
-        <ReportSection title="Carga solta" section="carga_carregada" state={sectionState('carga_carregada')} canSignoff={canSignoff('carga_carregada')} onSignoff={updateSignoff}><EmptyData /></ReportSection>
+        <ReportSection title="Carga solta" section="carga_carregada" state={sectionState('carga_carregada')} canSignoff={canSignoff('carga_carregada')} onSignoff={updateSignoff}>
+          {data?.cargaSolta?.bls ? <MetricPanel title="Carga solta"><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></MetricPanel> : <EmptyData />}
+        </ReportSection>
         <ReportSection title="Granito (carga carregada)">
           {data?.granite.length ? <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel> : <EmptyData />}
         </ReportSection>

@@ -80,6 +80,23 @@ describe('AGENCY_REPORT_SECTIONS', () => {
 })
 
 describe('getAgencyReportDerivedData', () => {
+  it('agrega a carga solta dos B/Ls Breakbulk apenas no porto da escala', async () => {
+    const breakbulkQuery = queryBuilder([
+      { bb_machine_qty: 2, bb_packages_qty: 8, bb_weight_ton: 3.5, total_weight_kg: 9999, total_cbm: 12.25 },
+      { bb_machine_qty: 1, bb_packages_qty: 4, bb_weight_ton: null, total_weight_kg: 2500, total_cbm: 7.75 },
+    ])
+    fromMock.mockImplementation((table: string) => table === 'bls' ? breakbulkQuery : queryBuilder())
+    schedulesMock.mockResolvedValue(new Map())
+
+    await expect(getAgencyReportDerivedData(7, 'BRSSZ')).resolves.toMatchObject({
+      cargaSolta: { bls: 2, machines: 3, packages: 12, weightTon: 6, cbm: 20 },
+    })
+
+    expect(breakbulkQuery.eq).toHaveBeenCalledWith('voyage_id', 7)
+    expect(breakbulkQuery.eq).toHaveBeenCalledWith('pod', 'BRSSZ')
+    expect(breakbulkQuery.eq).toHaveBeenCalledWith('cargo_mode', 'carga_solta')
+  })
+
   it('restringe veículos ao POD do BL, evitando misturar escalas da mesma viagem', async () => {
     const vehiclesQuery = queryBuilder([{ brand: 'BYD', bl_id: 'bl-1', chassis: '1', container_id: 10 }])
     fromMock.mockImplementation((table: string) => table === 'vehicles' ? vehiclesQuery : queryBuilder())

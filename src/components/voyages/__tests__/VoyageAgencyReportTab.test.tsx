@@ -96,3 +96,35 @@ it('fecha o ADR apenas quando todas as seções foram confirmadas e envia o snap
     snapshot: expect.objectContaining({ sections: expect.any(Object) }),
   }))
 })
+
+it('exibe a carga solta derivada e a congela sob cargaSolta no snapshot', () => {
+  const cargaSolta = { bls: 2, machines: 3, packages: 12, weightTon: 6, cbm: 20 }
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      cargaSolta,
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, reorg: [], overtime: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados', 'ocorrencias']
+        .map((section) => ({ id: section, section, state: 'confirmed' })),
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  expect(screen.getByText('Máquinas')).toBeTruthy()
+  expect(screen.getByText('3')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
+  expect(closeMutateMock).toHaveBeenCalledWith(expect.objectContaining({
+    snapshot: expect.objectContaining({
+      sections: expect.objectContaining({ cargaSolta }),
+    }),
+  }))
+})
