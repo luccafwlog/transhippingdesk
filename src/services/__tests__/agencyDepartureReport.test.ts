@@ -4,6 +4,7 @@ import {
   buildContainerTypeMatrix,
   groupVehiclesByBrand,
   getAgencyReportDerivedData,
+  getAgencyReportOwnData,
   setSignoff,
 } from '../agencyDepartureReport'
 
@@ -30,6 +31,15 @@ function queryBuilder(data: unknown[] = []) {
     maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
       Promise.resolve({ data, error: null }).then(resolve),
+  }
+  return builder
+}
+
+function singleQueryBuilder(data: unknown) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    maybeSingle: vi.fn(() => Promise.resolve({ data, error: null })),
   }
   return builder
 }
@@ -80,6 +90,23 @@ describe('AGENCY_REPORT_SECTIONS', () => {
 })
 
 describe('getAgencyReportDerivedData', () => {
+  it('agrega a carga solta dos B/Ls Breakbulk apenas no porto da escala', async () => {
+    const breakbulkQuery = queryBuilder([
+      { bb_machine_qty: 2, bb_packages_qty: 8, bb_weight_ton: 3.5, total_weight_kg: 9999, total_cbm: 12.25 },
+      { bb_machine_qty: 1, bb_packages_qty: 4, bb_weight_ton: null, total_weight_kg: 2500, total_cbm: 7.75 },
+    ])
+    fromMock.mockImplementation((table: string) => table === 'bls' ? breakbulkQuery : queryBuilder())
+    schedulesMock.mockResolvedValue(new Map())
+
+    await expect(getAgencyReportDerivedData(7, 'BRSSZ')).resolves.toMatchObject({
+      cargaSolta: { bls: 2, machines: 3, packages: 12, weightTon: 6, cbm: 20 },
+    })
+
+    expect(breakbulkQuery.eq).toHaveBeenCalledWith('voyage_id', 7)
+    expect(breakbulkQuery.eq).toHaveBeenCalledWith('pod', 'BRSSZ')
+    expect(breakbulkQuery.eq).toHaveBeenCalledWith('cargo_mode', 'carga_solta')
+  })
+
   it('restringe veículos ao POD do BL, evitando misturar escalas da mesma viagem', async () => {
     const vehiclesQuery = queryBuilder([{ brand: 'BYD', bl_id: 'bl-1', chassis: '1', container_id: 10 }])
     fromMock.mockImplementation((table: string) => table === 'vehicles' ? vehiclesQuery : queryBuilder())
@@ -99,6 +126,33 @@ describe('getAgencyReportDerivedData', () => {
     await getAgencyReportDerivedData(7, 'BRSSZ')
 
     expect(vehiclesQuery.select).toHaveBeenCalledWith(expect.stringContaining('unpacking_location'))
+  })
+})
+
+describe('getAgencyReportOwnData', () => {
+  it('resolve outro autor pelo RPC autorizado no escopo do ADR', async () => {
+    const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'other-user' })
+    fromMock.mockImplementation(() => reportQuery)
+    rpcMock.mockResolvedValue({ data: 'Lucca F.', error: null })
+
+    await expect(getAgencyReportOwnData(7, 'BRVIX')).resolves.toMatchObject({ closed_by_name: 'Lucca F.' })
+
+    expect(rpcMock).toHaveBeenCalledWith('get_agency_report_closer_name', {
+      p_voyage_id: 7,
+      p_port: 'BRVIX',
+    })
+    expect(fromMock).not.toHaveBeenCalledWith('user_profiles')
+  })
+
+  it('degrada sem autor quando a RPC de nome do fechador falha (migration ausente no remoto)', async () => {
+    const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'other-user' })
+    fromMock.mockImplementation(() => reportQuery)
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'function does not exist' } })
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(getAgencyReportOwnData(7, 'BRVIX')).resolves.toMatchObject({ closed_by_name: null })
+
+    consoleErrorSpy.mockRestore()
   })
 })
 

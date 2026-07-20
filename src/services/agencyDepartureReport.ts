@@ -37,6 +37,7 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
 export type AgencyReportOwnData = AgencyDepartureReport & {
   signoffs: AgencyReportSignoff[]
   occurrences: AgencyReportOccurrence[]
+  closed_by_name?: string | null
 }
 
 export async function getAgencyReportOwnData(voyageId: number, port: string) {
@@ -47,7 +48,25 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
     .eq('port', port)
     .maybeSingle()
   if (error) throw error
-  return data as AgencyReportOwnData | null
+  if (!data) return null
+  const report = data as unknown as AgencyReportOwnData
+
+  let closedByName: string | null = null
+  if (report.closed_by) {
+    const { data: closerName, error: closerNameError } = await supabase.rpc('get_agency_report_closer_name', {
+      p_voyage_id: voyageId,
+      p_port: port,
+    })
+    if (closerNameError) {
+      // A RPC pode estar ausente no remoto (migration 217 pendente); o ADR
+      // fechado continua legível, só sem o nome do autor resolvido.
+      console.error('[agencyDepartureReport] erro ao resolver autor do fechamento:', closerNameError.message)
+    } else {
+      closedByName = typeof closerName === 'string' ? closerName : null
+    }
+  }
+
+  return { ...report, closed_by_name: closedByName }
 }
 
 export async function setSignoff(input: {
@@ -142,9 +161,17 @@ export function groupVehiclesByBrand(
     .map(([brand, entry]) => ({ brand, blCount: entry.bls.size, vinCount: entry.vins.size }))
 }
 
+type BreakbulkAgencyReportBl = {
+  bb_machine_qty: number | null
+  bb_packages_qty: number | null
+  bb_weight_ton: number | null
+  total_weight_kg: number | null
+  total_cbm: number | null
+}
+
 export async function getAgencyReportDerivedData(voyageId: number, port: string) {
   const entityId = buildVoyagePodEntityId(voyageId, port)
-  const [schedules, vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes] = await Promise.all([
+  const [schedules, vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes] = await Promise.all([
     listVoyagePodSchedules([entityId]),
     supabase
       .from('vehicles')
@@ -177,9 +204,15 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('voyage_id', voyageId)
       .eq('embark_port', port)
       .maybeSingle(),
+    supabase
+      .from('bls')
+      .select('bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm')
+      .eq('voyage_id', voyageId)
+      .eq('pod', port)
+      .eq('cargo_mode', 'carga_solta'),
   ])
 
-  for (const result of [vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes]) {
+  for (const result of [vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes]) {
     if (result.error) throw result.error
   }
 
@@ -190,6 +223,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
+  const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const operation = operationRes.data as (VaziosExportOperation & {
     overtime: VaziosExportOvertimeDepot[]
     reorg: VaziosReorgService[]
@@ -204,5 +238,15 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     containers,
     operation,
     storage: computeStorageTotals(vaziosExp),
+    cargaSolta: {
+      bls: breakbulk.length,
+      machines: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0),
+      packages: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0),
+      weightTon: breakbulk.reduce(
+        (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
+        0,
+      ),
+      cbm: breakbulk.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0),
+    },
   }
 }
