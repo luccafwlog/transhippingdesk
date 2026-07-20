@@ -59,16 +59,17 @@ describe('migration 211 — RBAC de Equipamentos', () => {
 
     expect(legacyVaziosImportacao).toContain("ALTER POLICY vazios_imp_containers_update")
     expect(legacyVaziosImportacao).toContain("(SELECT auth.role()) = 'authenticated'")
-    expect(sql).toContain("p.permissive = 'PERMISSIVE'")
+    expect(sql).toContain("policy.permissive = 'PERMISSIVE'")
+    expect(sql).toContain("policy.cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL')")
     expect(sql).toContain("auth.role()=''authenticated''")
     expect(sql).toContain("public.is_active_read_user()")
     expect(sql).toContain("public.is_active_non_equipamentos_user()")
-    expect(sql).toContain("p.cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL')")
+    expect(sql).toContain("policy.cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL')")
   })
 
   it('so reinterpreta predicates exatos em policies permissivas fora da allowlist', () => {
     expect(sql).toContain("tablename <> ALL (allowed_tables)")
-    expect(sql).toContain("p.permissive = 'PERMISSIVE'")
+    expect(sql).toContain("policy.permissive = 'PERMISSIVE'")
     expect(sql).toContain("regexp_replace(COALESCE(qual, ''), '[[:space:]()]', '', 'g')")
     expect(sql).toContain("v_qual_normalized = 'true'")
     expect(sql).toContain("v_check_normalized = 'true'")
