@@ -143,6 +143,17 @@ describe('getAgencyReportOwnData', () => {
     })
     expect(fromMock).not.toHaveBeenCalledWith('user_profiles')
   })
+
+  it('degrada sem autor quando a RPC de nome do fechador falha (migration ausente no remoto)', async () => {
+    const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'other-user' })
+    fromMock.mockImplementation(() => reportQuery)
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'function does not exist' } })
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(getAgencyReportOwnData(7, 'BRVIX')).resolves.toMatchObject({ closed_by_name: null })
+
+    consoleErrorSpy.mockRestore()
+  })
 })
 
 describe('setSignoff', () => {

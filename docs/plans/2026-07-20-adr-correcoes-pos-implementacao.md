@@ -17,9 +17,10 @@ de vida de planos/specs estão corretos. Os achados abaixo são o que restou.
 
 - `src/types/database.ts` é arquivo protegido: tasks que o alteram exigem
   autorização explícita do usuário antes do edit.
-- Migrations numeradas sequenciais (ADR 0016); a Task 2 usa a próxima livre
-  (hoje `217`). **Não** editar `213`/`214` — após a aplicação remota da Task 0
-  elas passam a ser imutáveis.
+- Migrations numeradas sequenciais (ADR 0016); a Task 4 usa a próxima livre
+  no momento da execução (`217` foi consumida por `get_agency_report_closer_name`
+  na Task 2; a Task 4 saiu como `218`). **Não** editar `213`/`214` — após a
+  aplicação remota da Task 0 elas passam a ser imutáveis.
 - Cada task termina com commit. Antes do push final:
   `npm run docs:check && npm run lint && npm test && npm run build`.
 
@@ -61,13 +62,13 @@ original omitiu a task de derivação (gap de plano que vazou para o código).
 
 **Fix:**
 
-- [ ] Em `agencyDepartureReport.ts`, derivar carga solta dos campos BB dos
+- [x] Em `agencyDepartureReport.ts`, derivar carga solta dos campos BB dos
       B/Ls com POD = porto da escala (mesma fonte usada pelo módulo
       Breakbulk), agregando máquinas, packages, ton e cbm.
-- [ ] Renderizar o bloco na aba e incluir a agregação no snapshot com a chave
+- [x] Renderizar o bloco na aba e incluir a agregação no snapshot com a chave
       lida pelo documento (`cargaSolta` — renomear a leitura em
       `AgencyReportDocument.tsx` junto, deixando chave única e consistente).
-- [ ] Teste: agregação BB por porto + snapshot contém o bloco.
+- [x] Teste: agregação BB por porto + snapshot contém o bloco.
 
 **Verify:** aba mostra carga solta quando há B/Ls BB; snapshot fechado imprime
 os valores; Vitest do componente e do serviço verdes.
@@ -85,18 +86,20 @@ autor do fechamento (spec: “fechado mostra data/autor”).
 
 **Fix:**
 
-- [ ] Reescrever `AgencyReportDocument.tsx` no padrão `InvoiceDocumentKit`
+- [x] Reescrever `AgencyReportDocument.tsx` no padrão `InvoiceDocumentKit`
       com blocos na ordem do modelo real (cabeçalho, carga solta, granito,
       matriz de descarga, vazios descarregados, veículos com local de desova,
       embarque de vazios com OS/embarque direto/depots, serviço extra,
       storage, overtime, ocorrências), rendendo matrizes como tabelas.
-- [ ] Enriquecer o snapshot com os derivados que o documento precisa e hoje
+- [x] Enriquecer o snapshot com os derivados que o documento precisa e hoje
       ficam de fora: local de desova por marca (`vehicleLocations`), depots,
       contagem de embarque direto (todos calculados na aba mas não
       congelados).
-- [ ] Exibir autor do fechamento (`closed_by` resolvido para nome) na barra
-      “Fechado em …”.
-- [ ] Teste de componente: estado fechado renderiza documento com matrizes e
+- [x] Exibir autor do fechamento (`closed_by` resolvido para nome) na barra
+      “Fechado em …” (RPC `get_agency_report_closer_name`, migration `217`;
+      degrada para "—" sem lançar se a migration ainda não estiver no
+      remoto — ver Task 0).
+- [x] Teste de componente: estado fechado renderiza documento com matrizes e
       autor; snapshot congelado inclui os novos campos.
 
 **Verify:** impressão espelha o modelo real; teste do estado fechado verde.
@@ -112,13 +115,13 @@ carga solta assina a seção errada.
 
 **Fix:**
 
-- [ ] Mover o chip `carga_carregada` para o bloco de Granito e agrupar
+- [x] Mover o chip `carga_carregada` para o bloco de Granito e agrupar
       “Carga solta” sob o sign-off `carga_descarregada` (ou como sub-bloco do
       card de descarga), seguindo a tabela “Blocos do relatório” da spec.
-- [ ] Se preferirem manter o layout atual, registrar a exceção com nota
+- [x] Se preferirem manter o layout atual, registrar a exceção com nota
       editorial na ADR 0027 — decisão do usuário; padrão deste plano é
-      seguir a spec.
-- [ ] Ajustar teste do componente para o novo agrupamento.
+      seguir a spec. *(seguiu a spec; sem exceção necessária)*
+- [x] Ajustar teste do componente para o novo agrupamento.
 
 **Verify:** cada chip de sign-off assina a seção que a spec atribui.
 
@@ -135,17 +138,17 @@ a exceção.
 
 **Fix:**
 
-- [ ] Nova migration (próximo número livre, hoje `217`): exigir
+- [x] Nova migration (`218`, `217` já consumida pela Task 2): exigir
       `public.is_admin()` na reabertura, alinhando o servidor à intenção já
       expressa pela UI. Não editar a `214`.
-- [ ] **Fechamento fica como está**: a spec define que “Fechar ADR” habilita
+- [x] **Fechamento fica como está**: a spec define que “Fechar ADR” habilita
       com 7/7 sign-offs, sem restrição de papel — o usuário `documentacao`
       que completa o último sign-off pode fechar hoje, e restringir o
       fechamento a `administrativo`/`operacoes` mudaria esse contrato
       (apontado em review do Codex no PR #409). Se o time quiser restringir,
       atualizar primeiro a ADR 0027/spec com nota editorial e só então criar
       a migration.
-- [ ] Teste de contrato SQL da nova migration (padrão dos existentes).
+- [x] Teste de contrato SQL da nova migration (padrão dos existentes).
 
 **Verify:** reabertura via RPC direta sem admin recebe `42501`; fechamento
 continua acessível a qualquer papel interno ativo; testes verdes.
@@ -160,11 +163,11 @@ forma do payload é verificável no servidor.
 
 **Fix:**
 
-- [ ] Na migration da Task 4, validar a forma do snapshot: presença das
-      chaves de seção esperadas (`header`, `sections` com as chaves
+- [x] Na migration da Task 4 (`218`), validar a forma do snapshot: presença
+      das chaves de seção esperadas (`header`, `sections` com as chaves
       canônicas, `occurrences`, `signoffs`) e tamanho máximo razoável;
       rejeitar chaves de seção desconhecidas.
-- [ ] Registrar na ADR 0027 (nota editorial) o risco residual aceito:
+- [x] Registrar na ADR 0027 (nota editorial) o risco residual aceito:
       conteúdo interno das seções continua derivado no cliente.
 
 **Verify:** RPC rejeita snapshot sem as chaves canônicas; teste de contrato.
@@ -178,10 +181,10 @@ contagens operacionais e Painel ficam obsoletos até refetch natural.
 
 **Fix:**
 
-- [ ] No `onSuccess` do close (e do reopen), invalidar também as famílias de
+- [x] No `onSuccess` do close (e do reopen), invalidar também as famílias de
       alertas/contagens usadas por `useOperationalAlerts`/`useOperationalCounts`
       (seguir o padrão de invalidação existente nesses hooks).
-- [ ] Teste do hook cobrindo as invalidações.
+- [x] Teste do hook cobrindo as invalidações.
 
 **Verify:** fechar ADR remove pendências de /alertas sem reload manual.
 
@@ -194,8 +197,8 @@ de fechamento vivem em `agencyReportMigration.test.ts` e os de alertas em
 
 **Fix:**
 
-- [ ] Corrigir as duas citações de evidência para os arquivos reais.
-- [ ] `npm run docs:check`.
+- [x] Corrigir as duas citações de evidência para os arquivos reais.
+- [x] `npm run docs:check`.
 
 **Verify:** rastreabilidade cita apenas testes existentes.
 
@@ -207,7 +210,7 @@ teste novo cobre o clique em “Fechar ADR”.
 
 **Fix:**
 
-- [ ] Testes em `VoyageAgencyReportTab.test.tsx`: fechado renderiza
+- [x] Testes em `VoyageAgencyReportTab.test.tsx`: fechado renderiza
       documento e oculta seções editáveis; “Reabrir” só para admin;
       confirmação de reabertura exige justificativa não vazia.
 

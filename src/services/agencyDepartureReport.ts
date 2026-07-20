@@ -57,8 +57,13 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
       p_voyage_id: voyageId,
       p_port: port,
     })
-    if (closerNameError) throw closerNameError
-    closedByName = typeof closerName === 'string' ? closerName : null
+    if (closerNameError) {
+      // A RPC pode estar ausente no remoto (migration 217 pendente); o ADR
+      // fechado continua legível, só sem o nome do autor resolvido.
+      console.error('[agencyDepartureReport] erro ao resolver autor do fechamento:', closerNameError.message)
+    } else {
+      closedByName = typeof closerName === 'string' ? closerName : null
+    }
   }
 
   return { ...report, closed_by_name: closedByName }
