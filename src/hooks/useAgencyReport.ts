@@ -4,6 +4,7 @@ import {
   closeReport,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
+  reopenReport,
   setSignoff,
   setTerminal,
 } from '../services/agencyDepartureReport'
@@ -46,4 +47,8 @@ export function useSetAgencyReportTerminal() {
 
 export function useCloseAgencyReport() {
   return useAgencyReportOwnMutation(closeReport)
+}
+
+export function useReopenAgencyReport() {
+  return useAgencyReportOwnMutation(reopenReport)
 }

@@ -92,6 +92,15 @@ export async function closeReport(input: { voyageId: number; port: string; snaps
   if (error) throw error
 }
 
+export async function reopenReport(input: { voyageId: number; port: string; justification: string }) {
+  const { error } = await supabase.rpc('reopen_agency_departure_report', {
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_justification: input.justification,
+  })
+  if (error) throw error
+}
+
 export type MatrixCategory =
   | 'carga_geral'
   | 'veiculos'

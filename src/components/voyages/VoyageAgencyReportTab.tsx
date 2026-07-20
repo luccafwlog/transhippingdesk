@@ -1,10 +1,13 @@
 import { useState, type ReactNode } from 'react'
+import { Modal } from '../ui/Modal'
+import { AgencyReportDocument } from './AgencyReportDocument'
 import { Info, MetricPanel } from '../shared/VoyageSectionCards'
 import {
   useAddAgencyReportOccurrence,
   useAgencyReportDerived,
   useAgencyReportOwn,
   useCloseAgencyReport,
+  useReopenAgencyReport,
   useSetAgencyReportSignoff,
   useSetAgencyReportTerminal,
 } from '../../hooks/useAgencyReport'
@@ -72,6 +75,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const occurrenceMutation = useAddAgencyReportOccurrence()
   const terminalMutation = useSetAgencyReportTerminal()
   const closeMutation = useCloseAgencyReport()
+  const reopenMutation = useReopenAgencyReport()
+  const [printOpen, setPrintOpen] = useState(false)
+  const [reopenOpen, setReopenOpen] = useState(false)
+  const [reopenJustification, setReopenJustification] = useState('')
 
   if (!pods.length) {
     return <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Nenhuma escala ativa para compor o ADR.</div>
@@ -122,6 +129,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     occurrences: ownData?.occurrences ?? [],
     signoffs: ownData?.signoffs ?? [],
   }
+  const closedSnapshot = ownData?.closed_snapshot as typeof snapshot | null
+  const isClosed = ownData?.status === 'closed' && closedSnapshot
 
   return (
     <div className="grid gap-4">
@@ -136,6 +145,12 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       {isLoading ? <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Carregando dados do ADR…</div> : null}
       {error ? <div className="app-panel app-panel--padded text-sm text-red-400">Não foi possível carregar os dados do ADR.</div> : null}
       {!isLoading && !error ? <>
+        {isClosed ? <>
+          <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)}</span><div className="flex gap-2"><button type="button" className="rounded border border-[var(--app-border)] px-3 py-2 text-sm font-semibold" onClick={() => setPrintOpen(true)}>Imprimir</button>{isAdmin ? <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white" onClick={() => setReopenOpen(true)}>Reabrir</button> : null}</div></div>
+          <AgencyReportDocument snapshot={closedSnapshot} />
+          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><button type="button" onClick={() => window.print()}>Imprimir</button></div><AgencyReportDocument snapshot={closedSnapshot} /></Modal>
+          <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><button type="button" className="mt-3 rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</button></Modal>
+        </> : <>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm font-semibold text-[var(--app-muted)]">{confirmedCount}/7 confirmadas</div>
           <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={confirmedCount !== 7 || closeMutation.isPending || !port} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</button>
@@ -183,6 +198,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           {canEditOperations ? <div className="grid gap-2"><textarea aria-label="Nova ocorrência" value={occurrence} onChange={(event) => setOccurrence(event.target.value)} className="min-h-20 rounded border border-[var(--app-border)] bg-transparent p-2" /><button type="button" className="w-fit rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!occurrence.trim()} onClick={() => { if (port && occurrence.trim()) occurrenceMutation.mutate({ voyageId, port, body: occurrence.trim() }, { onSuccess: () => setOccurrence('') }) }}>Lançar</button></div> : null}
           {!ownData?.occurrences.length ? <EmptyData /> : null}
         </ReportSection>
+        </>}
       </> : null}
     </div>
   )

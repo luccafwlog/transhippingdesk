@@ -17,6 +17,7 @@ vi.mock('../../../hooks/useAgencyReport', () => ({
   useAddAgencyReportOccurrence: () => ({ mutate: vi.fn() }),
   useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
   useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
+  useReopenAgencyReport: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ effectiveRole: 'operacoes', isAdmin: false }) }))
 

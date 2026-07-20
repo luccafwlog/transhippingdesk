@@ -3705,7 +3705,7 @@ textarea {
 
   /* Hide modal chrome (title bar, close button, print buttons) */
   .app-modal__header,
-  .app-modal__body > *:not(.invoice-print-content) {
+  .app-modal__body > *:not(.invoice-print-content):not(.agency-report-print-content) {
     display: none !important;
   }
 
@@ -3715,7 +3715,8 @@ textarea {
     max-height: none !important;
   }
 
-  .invoice-print-content {
+  .invoice-print-content,
+  .agency-report-print-content {
     max-width: 198mm !important;
     margin: 0 auto !important;
     padding: 8mm 8mm !important;
@@ -3725,6 +3726,15 @@ textarea {
     -webkit-print-color-adjust: exact !important;
   }
 }
+
+.agency-report-document__header { display: flex; justify-content: space-between; border-bottom: 2px solid #152238; padding-bottom: 8px; color: #152238; }
+.agency-report-document__facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+.agency-report-document__facts div { border: 1px solid #cdc8bc; padding: 6px; }
+.agency-report-document__facts dt { color: #5a5549; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.agency-report-document__facts dd { margin: 2px 0 0; }
+.agency-report-document__section { break-inside: avoid; border-top: 1px solid #cdc8bc; padding: 10px 0; }
+.agency-report-document__section h2 { color: #152238; font-size: 14px; margin: 0 0 4px; }
+.agency-report-document__section p, .agency-report-document__section ul { font-size: 12px; margin: 0; }
 
 /* ─── Breadcrumb ─────────────────────────────────────────────────────────── */
 .app-breadcrumb {
