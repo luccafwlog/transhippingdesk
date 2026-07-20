@@ -4,9 +4,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
 
-const { useAgencyReportDerivedMock, useAgencyReportOwnMock } = vi.hoisted(() => ({
+const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
   useAgencyReportOwnMock: vi.fn(),
+  closeMutateMock: vi.fn(),
 }))
 
 vi.mock('../../../hooks/useAgencyReport', () => ({
@@ -15,6 +16,7 @@ vi.mock('../../../hooks/useAgencyReport', () => ({
   useSetAgencyReportSignoff: () => ({ mutate: vi.fn() }),
   useAddAgencyReportOccurrence: () => ({ mutate: vi.fn() }),
   useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
+  useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
 }))
 vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ effectiveRole: 'operacoes', isAdmin: false }) }))
 
@@ -70,4 +72,26 @@ it('exibe o progresso, sign-off da seção do usuário e ocorrências do relató
   expect(screen.getAllByText('Confirmado')).toHaveLength(2)
   expect(screen.getAllByRole('button', { name: 'Nada a declarar' })).toHaveLength(2)
   expect(screen.getByText('Atracação concluída.')).toBeTruthy()
+})
+
+it('fecha o ADR apenas quando todas as seções foram confirmadas e envia o snapshot exibido', () => {
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados', 'ocorrencias']
+        .map((section) => ({ id: section, section, state: 'confirmed' })),
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const closeButton = screen.getByRole('button', { name: 'Fechar ADR' })
+  expect((closeButton as HTMLButtonElement).disabled).toBe(false)
+  fireEvent.click(closeButton)
+  expect(closeMutateMock).toHaveBeenCalledWith(expect.objectContaining({
+    voyageId: 7,
+    port: 'BRVIX',
+    snapshot: expect.objectContaining({ sections: expect.any(Object) }),
+  }))
 })

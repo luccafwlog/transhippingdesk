@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addOccurrence,
+  closeReport,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
   setSignoff,
@@ -41,4 +42,8 @@ export function useAddAgencyReportOccurrence() {
 
 export function useSetAgencyReportTerminal() {
   return useAgencyReportOwnMutation(setTerminal)
+}
+
+export function useCloseAgencyReport() {
+  return useAgencyReportOwnMutation(closeReport)
 }

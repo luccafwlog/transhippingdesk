@@ -4,6 +4,7 @@ import {
   useAddAgencyReportOccurrence,
   useAgencyReportDerived,
   useAgencyReportOwn,
+  useCloseAgencyReport,
   useSetAgencyReportSignoff,
   useSetAgencyReportTerminal,
 } from '../../hooks/useAgencyReport'
@@ -70,6 +71,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const signoffMutation = useSetAgencyReportSignoff()
   const occurrenceMutation = useAddAgencyReportOccurrence()
   const terminalMutation = useSetAgencyReportTerminal()
+  const closeMutation = useCloseAgencyReport()
 
   if (!pods.length) {
     return <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Nenhuma escala ativa para compor o ADR.</div>
@@ -106,6 +108,20 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const updateSignoff = (section: AgencyReportSection, state: keyof typeof signoffLabels) => {
     if (port) signoffMutation.mutate({ voyageId, port, section, state })
   }
+  const snapshot = {
+    header: { carrierName, voyageLabel, port, terminal: ownData?.terminal ?? null, schedule: data?.schedule ?? null },
+    sections: {
+      cargaDescarregada: dischargeMatrix,
+      vaziosDescarregados: emptyDischargeMatrix,
+      veiculos: vehicles,
+      vaziosEmbarcados: emptyEmbarkMatrix,
+      granito: data?.granite ?? [],
+      storage: data?.storage ?? null,
+      operation: data?.operation ?? null,
+    },
+    occurrences: ownData?.occurrences ?? [],
+    signoffs: ownData?.signoffs ?? [],
+  }
 
   return (
     <div className="grid gap-4">
@@ -120,7 +136,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       {isLoading ? <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Carregando dados do ADR…</div> : null}
       {error ? <div className="app-panel app-panel--padded text-sm text-red-400">Não foi possível carregar os dados do ADR.</div> : null}
       {!isLoading && !error ? <>
-        <div className="text-sm font-semibold text-[var(--app-muted)]">{confirmedCount}/7 confirmadas</div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm font-semibold text-[var(--app-muted)]">{confirmedCount}/7 confirmadas</div>
+          <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={confirmedCount !== 7 || closeMutation.isPending || !port} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</button>
+        </div>
         <ReportSection title="Cabeçalho" section="datas" state={sectionState('datas')} canSignoff={canSignoff('datas')} onSignoff={updateSignoff}>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Info label="Armador" value={carrierName} />

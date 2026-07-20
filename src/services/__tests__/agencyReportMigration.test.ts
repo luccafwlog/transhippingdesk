@@ -6,6 +6,10 @@ const sql = readFileSync(
   resolve(__dirname, '../../../supabase/migrations/213_agency_departure_reports.sql'),
   'utf-8',
 )
+const closeSql = readFileSync(
+  resolve(__dirname, '../../../supabase/migrations/214_agency_report_pending_alerts.sql'),
+  'utf-8',
+)
 
 describe('migration 213 — agregado do Agency Departure Report', () => {
   it('ancora em (voyage_id, port) com unicidade', () => {
@@ -32,5 +36,26 @@ describe('migration 213 — agregado do Agency Departure Report', () => {
     expect(sql).toContain('SECURITY DEFINER')
     expect(sql).toContain('SET search_path = public, pg_temp')
     expect(sql).toContain('REVOKE ALL ON FUNCTION public.set_agency_report_signoff')
+  })
+})
+
+describe('migration 214 — fechamento do Agency Departure Report', () => {
+  it('exige snapshot com seções e todos os sign-offs antes do fechamento', () => {
+    expect(closeSql).toMatch(/jsonb_typeof\(p_snapshot->'sections'\) <> 'object'/)
+    expect(closeSql).toContain("state <> 'pending'")
+    expect(closeSql).toContain("status = 'closed'")
+  })
+
+  it('serializa fechamento contra alterações concorrentes das seções e ocorrências', () => {
+    expect(closeSql).toContain('FOR UPDATE')
+    expect(closeSql).toContain('agency_report_reject_closed_write')
+    expect(closeSql).toContain('BEFORE INSERT OR UPDATE ON public.agency_departure_report_signoffs')
+    expect(closeSql).toContain('BEFORE INSERT ON public.agency_departure_report_occurrences')
+  })
+
+  it('reabertura exige justificativa, audita e devolve as seções a pendente', () => {
+    expect(closeSql).toContain('Reabertura exige justificativa')
+    expect(closeSql).toMatch(/SET state = 'pending', signed_by = NULL, signed_at = NULL/)
+    expect(closeSql).toMatch(/INSERT INTO public\.audit_logs[\s\S]*'agency_departure_report'/)
   })
 })

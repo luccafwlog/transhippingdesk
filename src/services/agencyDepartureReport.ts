@@ -8,6 +8,7 @@ import type {
   VaziosReorgService,
   VaziosImportacaoContainer,
   Vehicle,
+  Json,
 } from '../types/database'
 import type { AgencyDepartureReport, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
@@ -78,6 +79,15 @@ export async function setTerminal(input: { voyageId: number; port: string; termi
     p_voyage_id: input.voyageId,
     p_port: input.port,
     p_terminal: input.terminal,
+  })
+  if (error) throw error
+}
+
+export async function closeReport(input: { voyageId: number; port: string; snapshot: Json }) {
+  const { error } = await supabase.rpc('close_agency_departure_report', {
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_snapshot: input.snapshot,
   })
   if (error) throw error
 }
