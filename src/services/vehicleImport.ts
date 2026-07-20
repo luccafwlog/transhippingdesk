@@ -322,9 +322,9 @@ export async function importVehicleRows({
   }
 
   if (rowsToInsert.length) {
-    const { error: insertError } = await supabase.rpc('import_vehicle_rows_transactional' as never, {
+    const { error: insertError } = await supabase.rpc('import_vehicle_rows_transactional', {
       p_rows: rowsToInsert,
-    } as never)
+    })
     if (insertError) throw insertError
 
     // Veiculos sao cadastrados depois dos containers/BLs: no momento do manifesto
@@ -348,7 +348,6 @@ export async function importVehicleRows({
           const { error: cancelError } = await supabase.rpc('cancel_invoice', {
             p_invoice_id: invoiceId,
             p_reason: 'Carga de veiculos: BL isento de taxas locais.',
-            p_actor: null,
           })
           if (cancelError) throw cancelError
         }

@@ -107,6 +107,12 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   }
   const bookings = data?.vaziosExp ?? []
   const depots = [...new Set(bookings.map((booking) => booking.depot).filter(Boolean))]
+  const directEmbarkCount = bookings.filter((booking) => !booking.depot).length
+  const granite = {
+    bls: data?.granite.length ?? 0,
+    blocks: (data?.granite ?? []).reduce((total, item) => total + (item.blocks_qty ?? 0), 0),
+    weightTon: (data?.granite ?? []).reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000,
+  }
   const signoffs = new Map((ownData?.signoffs ?? []).map((signoff) => [signoff.section, signoff.state]))
   const confirmedCount = [...signoffs.values()].filter((state) => state !== 'pending').length
   const sectionState = (section: AgencyReportSection) => signoffs.get(section) ?? 'pending'
@@ -119,12 +125,18 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     header: { carrierName, voyageLabel, port, terminal: ownData?.terminal ?? null, schedule: data?.schedule ?? null },
     sections: {
       cargaDescarregada: dischargeMatrix,
+      cargaSolta: data?.cargaSolta ?? null,
       vaziosDescarregados: emptyDischargeMatrix,
       veiculos: vehicles,
       vaziosEmbarcados: emptyEmbarkMatrix,
-      granito: data?.granite ?? [],
+      vehicleLocations: Object.fromEntries(vehicleLocations),
+      depots,
+      directEmbarkCount,
+      granito: granite,
       storage: data?.storage ?? null,
       operation: data?.operation ?? null,
+      overtimeHandlingCount: bookings.filter((booking) => booking.overtime_handling).length,
+      overtimeTransportCount: bookings.filter((booking) => booking.overtime_transport).length,
     },
     occurrences: ownData?.occurrences ?? [],
     signoffs: ownData?.signoffs ?? [],
@@ -146,7 +158,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       {error ? <div className="app-panel app-panel--padded text-sm text-red-400">Não foi possível carregar os dados do ADR.</div> : null}
       {!isLoading && !error ? <>
         {isClosed ? <>
-          <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)}</span><div className="flex gap-2"><button type="button" className="rounded border border-[var(--app-border)] px-3 py-2 text-sm font-semibold" onClick={() => setPrintOpen(true)}>Imprimir</button>{isAdmin ? <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white" onClick={() => setReopenOpen(true)}>Reabrir</button> : null}</div></div>
+          <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)} por {ownData?.closed_by_name ?? ownData?.closed_by ?? '—'}</span><div className="flex gap-2"><button type="button" className="rounded border border-[var(--app-border)] px-3 py-2 text-sm font-semibold" onClick={() => setPrintOpen(true)}>Imprimir</button>{isAdmin ? <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white" onClick={() => setReopenOpen(true)}>Reabrir</button> : null}</div></div>
           <AgencyReportDocument snapshot={closedSnapshot} />
           <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><button type="button" onClick={() => window.print()}>Imprimir</button></div><AgencyReportDocument snapshot={closedSnapshot} /></Modal>
           <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><button type="button" className="mt-3 rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</button></Modal>
@@ -171,13 +183,14 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </ReportSection>
 
-        <ReportSection title="Carga solta" section="carga_carregada" state={sectionState('carga_carregada')} canSignoff={canSignoff('carga_carregada')} onSignoff={updateSignoff}><EmptyData /></ReportSection>
-        <ReportSection title="Granito (carga carregada)">
-          {data?.granite.length ? <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel> : <EmptyData />}
+        <ReportSection title="Carga descarregada" section="carga_descarregada" state={sectionState('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} onSignoff={updateSignoff}>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {data?.cargaSolta?.bls ? <MetricPanel title="Carga solta"><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></MetricPanel> : <MetricPanel title="Carga solta"><EmptyData /></MetricPanel>}
+            {containers.length ? <MetricPanel title="Matriz de descarga (tipo × categoria)"><Matrix rows={dischargeMatrix.rows} /></MetricPanel> : <MetricPanel title="Matriz de descarga (tipo × categoria)"><EmptyData /></MetricPanel>}
+          </div>
         </ReportSection>
-
-        <ReportSection title="Matriz de descarga (tipo × categoria)" section="carga_descarregada" state={sectionState('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} onSignoff={updateSignoff}>
-          {containers.length ? <Matrix rows={dischargeMatrix.rows} /> : <EmptyData />}
+        <ReportSection title="Granito (carga carregada)" section="carga_carregada" state={sectionState('carga_carregada')} canSignoff={canSignoff('carga_carregada')} onSignoff={updateSignoff}>
+          {data?.granite.length ? <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel> : <EmptyData />}
         </ReportSection>
         <ReportSection title="Vazios descarregados (cama / cover plate)" section="vazios_descarregados" state={sectionState('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} onSignoff={updateSignoff}>
           {data?.vaziosImp.length ? <Matrix rows={emptyDischargeMatrix.rows} /> : <EmptyData />}

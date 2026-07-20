@@ -80,5 +80,10 @@ O ADR fechado é imprimível pelo padrão existente de documentos React +
   de escopos em CONTEXT.md ganha o Escopo de Equipamentos.
 - O snapshot duplica dados por design no fechamento — é o custo aceito para a
   estabilidade exigida pelo Financeiro; antes do fechamento nada é duplicado.
+- O conteúdo interno do snapshot continua sendo derivado no cliente no momento
+  do fechamento. A RPC valida a forma, as chaves canônicas e um limite de
+  tamanho, mas não reconstitui cada métrica a partir das tabelas de origem;
+  esse risco residual de integridade é editorialmente aceito enquanto a UI
+  permanecer a única autora do fechamento e o registro for imutável depois.
 - Se a escala um dia virar entidade própria, `agency_departure_reports` migra
   de chave natural para FK — mudança contida numa tabela e seus consumidores.

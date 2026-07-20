@@ -23,7 +23,7 @@ type CustomerReconciliationQueueRow = {
 
 export async function listCustomerReconciliationQueue(status?: '' | 'pending' | 'approved' | 'rejected', limit = 200) {
   const { data, error } = await supabase.rpc('list_customer_reconciliation_queue', {
-    p_status: status || null,
+    ...(status ? { p_status: status } : {}),
     p_limit: limit,
   })
 
@@ -41,9 +41,9 @@ export async function approveCustomerReconciliation(
 ) {
   const { data, error } = await supabase.rpc('approve_customer_reconciliation', {
     p_queue_id: queueId,
-    p_customer_id: input?.customerId ?? null,
-    p_notes: input?.notes ?? null,
-    p_actor: input?.actorId ?? null,
+    ...(input?.customerId == null ? {} : { p_customer_id: input.customerId }),
+    ...(input?.notes == null ? {} : { p_notes: input.notes }),
+    ...(input?.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -59,8 +59,8 @@ export async function rejectCustomerReconciliation(
 ) {
   const { data, error } = await supabase.rpc('reject_customer_reconciliation', {
     p_queue_id: queueId,
-    p_notes: input?.notes ?? null,
-    p_actor: input?.actorId ?? null,
+    ...(input?.notes == null ? {} : { p_notes: input.notes }),
+    ...(input?.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error

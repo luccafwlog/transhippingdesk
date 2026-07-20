@@ -435,6 +435,7 @@ type GraniteInvoiceLink = {
   id: number
   granite_bl_id: string
   subtotal_brl: number
+  created_at: string
   granite_bl: {
     bl_number: string
     loading_port: string | null
@@ -452,6 +453,7 @@ type ConsolidatedInvoiceLink = {
   bl_id: string
   subtotal_brl: number | null
   bl_snapshot: Json | null
+  created_at: string
 }
 type ConsolidatedVoyage = {
   id: number
@@ -481,7 +483,7 @@ function mapGraniteInvoiceBls(invoiceId: number, links: GraniteInvoiceLink[]): I
     financial_status_snapshot: null,
     subtotal_brl: Number(link.subtotal_brl ?? 0),
     subtotal_usd: 0,
-    created_at: null,
+    created_at: link.created_at,
     pol: link.granite_bl?.loading_port ?? null,
     pod: link.granite_bl?.discharge_port ?? null,
     voyage_number: link.granite_bl?.manifest?.voyage?.voyage_number ?? null,
@@ -529,7 +531,7 @@ function mapConsolidatedInvoiceBls(
       financial_status_snapshot: null,
       subtotal_brl: Number(link.subtotal_brl ?? 0),
       subtotal_usd: 0,
-      created_at: null,
+      created_at: link.created_at,
       pol: snapshot.pol ?? null,
       pod: snapshot.pod ?? null,
       voyage_number: voyage?.voyage_number ?? null,
@@ -639,6 +641,7 @@ async function hydrateGraniteInvoiceBls(result: InvoiceDetail, invoiceId: number
     .from('invoice_granite_bls')
     .select(`
         id,
+        created_at,
         granite_bl_id,
         subtotal_brl,
         granite_bl:granite_bls(
@@ -656,7 +659,7 @@ async function hydrateGraniteInvoiceBls(result: InvoiceDetail, invoiceId: number
     .eq('invoice_id', invoiceId)
 
   if (graniteLinksError) throw graniteLinksError
-  result.bls = mapGraniteInvoiceBls(invoiceId, (graniteLinks ?? []) as unknown as GraniteInvoiceLink[])
+  result.bls = mapGraniteInvoiceBls(invoiceId, graniteLinks ?? [])
 }
 
 // Consolidated ledger invoices have no invoice_items/invoice_bls; render them
@@ -666,12 +669,13 @@ async function hydrateConsolidatedInvoiceDetails(result: InvoiceDetail, invoiceI
 
   const { data: links, error: linksError } = await supabase
     .from('invoice_receivable_links')
-    .select('id, bl_id, subtotal_brl, bl_snapshot')
+    .select('id, bl_id, subtotal_brl, bl_snapshot, created_at')
     .eq('invoice_id', invoiceId)
+    .overrideTypes<ConsolidatedInvoiceLink[], { merge: false }>()
 
   if (linksError || !links || links.length === 0) return
 
-  const consolidatedLinks = links as ConsolidatedInvoiceLink[]
+  const consolidatedLinks = links
   const voyageIds = extractConsolidatedVoyageIds(consolidatedLinks)
   let voyageMap = new Map<number, { voyage_number: string | null; vessel_name: string | null }>()
   if (voyageIds.length > 0) {
@@ -691,10 +695,7 @@ async function hydrateConsolidatedInvoiceDetails(result: InvoiceDetail, invoiceI
   // invoice. The ledger subtotal_brl remains the source of truth for the invoice total,
   // so we only show the breakdown when it reconciles with the subtotal; otherwise
   // (e.g. partial settlement) we fall back to a single aggregated line for that BL.
-  const { data: breakdown } = await supabase.rpc(
-    'get_consolidated_invoice_item_breakdown' as never,
-    { p_invoice_id: invoiceId } as never,
-  )
+  const { data: breakdown } = await supabase.rpc('get_consolidated_invoice_item_breakdown', { p_invoice_id: invoiceId })
 
   const parsedBreakdown = z.array(consolidatedBreakdownRowSchema).safeParse(breakdown ?? [])
   if (!parsedBreakdown.success) {
@@ -743,10 +744,10 @@ export async function createInvoiceFromGraniteBls(input: {
 }) {
   const { data, error } = await supabase.rpc('create_invoice_from_granite_bls', {
     p_granite_bl_ids: input.graniteBlIds,
-    p_customer_id: input.customerId ?? null,
-    p_due_date: input.dueDate ?? null,
-    p_notes: input.notes ?? null,
-    p_actor: input.actorId ?? null,
+    ...(input.customerId == null ? {} : { p_customer_id: input.customerId }),
+    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -768,14 +769,14 @@ export async function createInvoiceFromBls(input: {
   issueNow?: boolean
   actorId?: string | null
 }) {
-  const { data, error } = await supabase.rpc('create_invoice_from_bls_with_ledger' as never, {
+  const { data, error } = await supabase.rpc('create_invoice_from_bls_with_ledger', {
     p_bl_ids: input.blIds,
-    p_customer_id: input.customerId ?? null,
-    p_due_date: input.dueDate ?? null,
-    p_notes: input.notes ?? null,
+    ...(input.customerId == null ? {} : { p_customer_id: input.customerId }),
+    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
     p_issue_now: input.issueNow ?? true,
-    p_actor: input.actorId ?? null,
-  } as never)
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
+  })
 
   if (error) throw error
 
@@ -795,13 +796,13 @@ export async function markBlReadyAndCreateInvoice(input: {
   notes?: string | null
   actorId?: string | null
 }) {
-  const { data, error } = await supabase.rpc('mark_bl_ready_and_create_invoice' as never, {
+  const { data, error } = await supabase.rpc('mark_bl_ready_and_create_invoice', {
     p_bl_id: input.blId,
-    p_customer_id: input.customerId ?? null,
-    p_due_date: input.dueDate ?? null,
-    p_notes: input.notes ?? null,
-    p_actor: input.actorId ?? null,
-  } as never)
+    ...(input.customerId == null ? {} : { p_customer_id: input.customerId }),
+    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
+  })
 
   if (error) throw error
 
@@ -824,9 +825,9 @@ export async function markBlsReadyAndCreateInvoice(input: {
   const { data, error } = await supabase.rpc('mark_bls_ready_and_create_invoice', {
     p_bl_ids: input.blIds,
     p_customer_id: input.customerId,
-    p_due_date: input.dueDate ?? null,
-    p_notes: input.notes ?? null,
-    p_actor: input.actorId ?? null,
+    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -852,9 +853,9 @@ export async function registerInvoicePayment(input: {
     p_invoice_id: input.invoiceId,
     p_amount_brl: input.amountBrl,
     p_payment_method: input.paymentMethod,
-    p_paid_at: input.paidAt ?? null,
-    p_notes: input.notes ?? null,
-    p_actor: input.actorId ?? null,
+    ...(input.paidAt == null ? {} : { p_paid_at: input.paidAt }),
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -868,8 +869,8 @@ export async function cancelInvoice(input: {
 }) {
   const { data, error } = await supabase.rpc('cancel_invoice', {
     p_invoice_id: input.invoiceId,
-    p_reason: input.reason ?? null,
-    p_actor: input.actorId ?? null,
+    p_reason: input.reason ?? '',
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -889,8 +890,8 @@ export async function addManualInvoiceCharge(input: {
     p_description: input.description,
     p_quantity: input.quantity,
     p_unit_value_brl: input.unitValueBrl,
-    p_notes: input.notes ?? null,
-    p_actor: input.actorId ?? null,
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -903,7 +904,7 @@ export async function deleteManualInvoiceCharge(input: {
 }) {
   const { data, error } = await supabase.rpc('delete_manual_invoice_charge', {
     p_item_id: input.itemId,
-    p_actor: input.actorId ?? null,
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error

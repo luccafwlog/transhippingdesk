@@ -4,7 +4,7 @@ import { useToast } from '../components/ui/Toast'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { maybeAutoBillAfterCeMercante } from '../services/reviewBillingAutomation'
 import { supabase } from '../services/supabase'
-import type { BL, BLDetail } from '../types/database'
+import type { BL, BLDetail, Json } from '../types/database'
 import { useAuth } from './useAuth'
 import { queryKeys } from '../services/queryKeys'
 
@@ -16,6 +16,7 @@ type BlDocumentFields = {
 }
 
 type EditableBl = BL & BlDocumentFields
+type JsonObject = { [key: string]: Json | undefined }
 
 const editableFields: (keyof Pick<
   EditableBl,
@@ -122,7 +123,7 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
 
     setSaving(true)
     try {
-      const updatePayload: Record<string, unknown> = {}
+      const updatePayload: JsonObject = {}
 
       for (const field of changes) {
         const normalized = normalizeFormValue(field, form[field])
@@ -130,7 +131,7 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
           showToast(`Valor invalido para ${field}. Informe um numero valido antes de salvar.`, 'error')
           return
         }
-        updatePayload[field] = normalized
+        updatePayload[field] = toJsonValue(normalized)
       }
 
       if (!isContainerMode) {
@@ -142,7 +143,7 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
         updatePayload.total_weight_kg = weightTon === null ? null : Number(weightTon) * 1000
       }
 
-      const auditRows = changes.map((field) => ({
+      const auditRows: Json[] = changes.map((field) => ({
         entity_type: 'bl',
         entity_id: bl.id,
         field_name: field,
@@ -258,6 +259,11 @@ function makeForm(bl: BLDetail): BlForm {
 
 function stringifyValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
+}
+
+function toJsonValue(value: unknown): Json {
+  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+  throw new Error('Valor inválido para salvar revisão de B/L.')
 }
 
 function normalizeFormValue(field: keyof BlForm, value: unknown) {

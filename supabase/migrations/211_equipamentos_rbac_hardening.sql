@@ -93,11 +93,11 @@ DECLARE
 BEGIN
   FOR p IN
     SELECT *
-    FROM pg_policies
+    FROM pg_policies AS policy
     WHERE schemaname = 'public'
       AND tablename <> ALL (allowed_tables)
-      AND cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL')
-      AND p.permissive = 'PERMISSIVE'
+      AND policy.cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL')
+      AND policy.permissive = 'PERMISSIVE'
       AND (
         COALESCE(qual, '') LIKE '%is_active_user()%' OR
         COALESCE(with_check, '') LIKE '%is_active_user()%' OR
@@ -113,7 +113,7 @@ BEGIN
           'selectauth.role()=''authenticated''',
           'selectauth.role()=''authenticated''::text'
         ) OR (
-          p.cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL') AND (
+          policy.cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL') AND (
             lower(regexp_replace(COALESCE(qual, ''), '[[:space:]()]', '', 'g')) = 'true' OR
             lower(regexp_replace(COALESCE(with_check, ''), '[[:space:]()]', '', 'g')) = 'true'
           )

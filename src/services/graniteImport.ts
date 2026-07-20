@@ -238,7 +238,9 @@ export async function importGraniteManifest({
     p_bls: blRows,
   })
   if (error) throw error
-  if (!data?.manifest_id) throw new Error('Falha ao criar manifesto.')
+  if (data === null || typeof data !== 'object' || Array.isArray(data) || !('manifest_id' in data) || typeof data.manifest_id !== 'string') {
+    throw new Error('Falha ao criar manifesto.')
+  }
 
   const pendingCount = manifest.bls.filter((bl) => bl.reconciliationStatus !== 'matched').length
 

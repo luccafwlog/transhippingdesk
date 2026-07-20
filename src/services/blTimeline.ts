@@ -16,12 +16,17 @@ export type BlTimelineEvent = {
 
 export const BL_TIMELINE_PAGE_SIZE = 50
 
+function parseTimelineFamily(value: string): BlTimelineFamily {
+  if (value === 'edicao' || value === 'container' || value === 'taxas' || value === 'fatura' || value === 'sistema') return value
+  throw new Error(`Família inválida na timeline do B/L: ${value}`)
+}
+
 export async function fetchBlTimeline(blId: string, offset: number): Promise<BlTimelineEvent[]> {
-  const { data, error } = await supabase.rpc('bl_timeline' as never, {
+  const { data, error } = await supabase.rpc('bl_timeline', {
     p_bl_id: blId,
     p_limit: BL_TIMELINE_PAGE_SIZE,
     p_offset: offset,
-  } as never)
+  })
   if (error) throw error
-  return (data ?? []) as BlTimelineEvent[]
+  return (data ?? []).map((row) => ({ ...row, family: parseTimelineFamily(row.family) }))
 }

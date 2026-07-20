@@ -107,10 +107,7 @@ export async function fetchCustomerDemurrageInvoices(customerId: number) {
 // para quem nao e admin — indistinguivel de "sem recebiveis". A RPC levanta
 // 42501 explicito para usuario inativo, permitindo separar os dois casos.
 export async function fetchCustomerReceivables(customerId: number) {
-  const { data, error } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: FichaReceivableRow[] | null; error: { code?: string | null; message?: string | null } | null }>)('get_customer_receivables', { p_customer_id: customerId })
+  const { data, error } = await supabase.rpc('get_customer_receivables', { p_customer_id: customerId })
   if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
   return { rows: data ?? [], denied: false }
 }

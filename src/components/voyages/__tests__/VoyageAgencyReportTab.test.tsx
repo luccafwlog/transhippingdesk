@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
 
-const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock } = vi.hoisted(() => ({
+const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
   useAgencyReportOwnMock: vi.fn(),
   closeMutateMock: vi.fn(),
+  reopenMutateMock: vi.fn(),
+  useAuthMock: vi.fn(),
 }))
 
 vi.mock('../../../hooks/useAgencyReport', () => ({
@@ -17,14 +19,15 @@ vi.mock('../../../hooks/useAgencyReport', () => ({
   useAddAgencyReportOccurrence: () => ({ mutate: vi.fn() }),
   useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
   useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
-  useReopenAgencyReport: () => ({ mutate: vi.fn(), isPending: false }),
+  useReopenAgencyReport: () => ({ mutate: reopenMutateMock, isPending: false }),
 }))
-vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ effectiveRole: 'operacoes', isAdmin: false }) }))
+vi.mock('../../../hooks/useAuth', () => ({ useAuth: useAuthMock }))
 
 afterEach(cleanup)
 
 useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
 useAgencyReportOwnMock.mockReturnValue({ data: undefined })
+useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
 
 it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () => {
   render(
@@ -95,4 +98,190 @@ it('fecha o ADR apenas quando todas as seções foram confirmadas e envia o snap
     port: 'BRVIX',
     snapshot: expect.objectContaining({ sections: expect.any(Object) }),
   }))
+})
+
+it('exibe a carga solta derivada e a congela sob cargaSolta no snapshot', () => {
+  const cargaSolta = { bls: 2, machines: 3, packages: 12, weightTon: 6, cbm: 20 }
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      cargaSolta,
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, reorg: [], overtime: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados', 'ocorrencias']
+        .map((section) => ({ id: section, section, state: 'confirmed' })),
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  expect(screen.getByText('Máquinas')).toBeTruthy()
+  expect(screen.getByText('3')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
+  expect(closeMutateMock).toHaveBeenCalledWith(expect.objectContaining({
+    snapshot: expect.objectContaining({
+      sections: expect.objectContaining({ cargaSolta }),
+    }),
+  }))
+})
+
+it('agrupa carga solta na seção de carga descarregada e assina granito como carga carregada', () => {
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      cargaSolta: { bls: 2, machines: 3, packages: 12, weightTon: 6, cbm: 20 },
+      containers: [], vehicles: [], vaziosImp: [],
+      granite: [{ blocks_qty: 5, real_weight_kg: 8_000 }],
+      vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, reorg: [], overtime: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [
+        { id: 'unload', section: 'carga_descarregada', state: 'confirmed' },
+        { id: 'load', section: 'carga_carregada', state: 'nothing_to_declare' },
+      ],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')
+  const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')
+
+  expect(dischargeSection).not.toBeNull()
+  expect(graniteSection).not.toBeNull()
+  expect(within(dischargeSection!).getByText('Carga solta')).toBeTruthy()
+  expect(within(dischargeSection!).getByText('Confirmado')).toBeTruthy()
+  expect(within(graniteSection!).getByText('Nada a declarar')).toBeTruthy()
+})
+
+it('congela locais de desova, depots e embarques diretos no snapshot', () => {
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      schedule: { ata: '2026-07-19', atb: '2026-07-19', atd: '2026-07-20', rtw: 2 },
+      cargaSolta: { bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 },
+      containers: [], vaziosImp: [], granite: [], storage: { containers: 1, days: 2 },
+      vehicles: [{ brand: 'BYD', bl_id: 'bl-1', chassis: 'vin-1', container: { unpacking_location: 'Pátio Alfa' } }],
+      vaziosExp: [
+        { container_type: '40HC', depot: 'VBR', overtime_handling: false, overtime_transport: false },
+        { container_type: '40HC', depot: null, overtime_handling: false, overtime_transport: false },
+      ],
+      operation: { os_number: 'OS-42', reorg: [], overtime: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados', 'ocorrencias']
+        .map((section) => ({ id: section, section, state: 'confirmed' })),
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
+  expect(closeMutateMock).toHaveBeenCalledWith(expect.objectContaining({
+    snapshot: expect.objectContaining({
+      header: expect.objectContaining({ schedule: expect.objectContaining({ atb: '2026-07-19', rtw: 2 }) }),
+      sections: expect.objectContaining({
+        vehicleLocations: { BYD: ['Pátio Alfa'] },
+        directEmbarkCount: 1,
+        depots: ['VBR'],
+      }),
+    }),
+  }))
+})
+
+it('exibe o autor resolvido e o documento estruturado quando o ADR está fechado', () => {
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_at: '2026-07-20T10:00:00Z',
+      closed_by_name: 'Lucca F.',
+      closed_snapshot: {
+        header: { schedule: {} },
+        sections: { cargaDescarregada: { rows: { '40HC': { carga_geral: 1 } }, totals: { carga_geral: 1 } } },
+      },
+      signoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  expect(screen.getByRole('status').textContent).toContain('Fechado em')
+  expect(screen.getByRole('status').textContent).toContain('Lucca F.')
+  expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
+})
+
+it('no estado fechado renderiza o documento e oculta controles/seções editáveis', () => {
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_at: '2026-07-20T10:00:00Z',
+      closed_by_name: 'Lucca F.',
+      closed_snapshot: { header: { schedule: {} }, sections: { cargaDescarregada: { rows: {}, totals: {} } }, occurrences: [], signoffs: [] },
+      signoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  expect(screen.getByRole('heading', { name: 'Matriz de descarga' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Fechar ADR' })).toBeNull()
+  expect(screen.queryByRole('textbox')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Imprimir' })).toBeTruthy()
+})
+
+it('exibe Reabrir somente para administradores e exige justificativa não vazia', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'administrativo', isAdmin: true })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_at: '2026-07-20T10:00:00Z',
+      closed_snapshot: { header: { schedule: {} }, sections: { cargaDescarregada: { rows: {}, totals: {} } }, occurrences: [], signoffs: [] },
+      signoffs: [], occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Reabrir' }))
+  const confirm = screen.getByRole('button', { name: 'Confirmar reabertura' }) as HTMLButtonElement
+  expect(confirm.disabled).toBe(true)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: '   ' } })
+  expect(confirm.disabled).toBe(true)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Correção necessária' } })
+  expect(confirm.disabled).toBe(false)
+  fireEvent.click(confirm)
+  expect(reopenMutateMock).toHaveBeenCalledWith({ voyageId: 7, port: 'BRVIX', justification: 'Correção necessária' }, expect.any(Object))
+})
+
+it('não exibe Reabrir para usuário não administrador', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_snapshot: { header: { schedule: {} }, sections: { cargaDescarregada: { rows: {}, totals: {} } }, occurrences: [], signoffs: [] },
+      signoffs: [], occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  expect(screen.queryByRole('button', { name: 'Reabrir' })).toBeNull()
 })

@@ -3735,6 +3735,9 @@ textarea {
 .agency-report-document__section { break-inside: avoid; border-top: 1px solid #cdc8bc; padding: 10px 0; }
 .agency-report-document__section h2 { color: #152238; font-size: 14px; margin: 0 0 4px; }
 .agency-report-document__section p, .agency-report-document__section ul { font-size: 12px; margin: 0; }
+.agency-report-document__table { border-collapse: collapse; font-size: 12px; margin: 6px 0; width: 100%; }
+.agency-report-document__table th, .agency-report-document__table td { border: 1px solid #cdc8bc; padding: 5px 6px; text-align: left; }
+.agency-report-document__table thead, .agency-report-document__table tfoot { background: #eef1f5; }
 
 /* ─── Breadcrumb ─────────────────────────────────────────────────────────── */
 .app-breadcrumb {

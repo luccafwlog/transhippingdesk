@@ -77,7 +77,7 @@ async function createDemurrageInvoiceWithItems(input: {
   roeSource: RoeSource
   items: DemurrageInvoiceItemSnapshot[]
 }): Promise<number> {
-  const { data, error } = await supabase.rpc('create_demurrage_invoice_with_items' as never, {
+  const { data, error } = await supabase.rpc('create_demurrage_invoice_with_items', {
     p_doc_number: input.docNumber,
     p_bl_id: input.blId,
     p_customer_id: input.customerId,
@@ -88,7 +88,7 @@ async function createDemurrageInvoiceWithItems(input: {
     p_current_roe: input.currentRoe,
     p_roe_source: input.roeSource,
     p_items: input.items,
-  } as never)
+  })
   if (error) {
     const text = extractErrorText(error).toLowerCase()
     if (text.includes('23505')) {

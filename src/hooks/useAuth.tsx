@@ -60,7 +60,11 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-async function loadProfile(userId: string) {
+function isUserProfileRole(role: string): role is UserProfileRole {
+  return ['admin', 'operator', 'administrativo', 'financeiro', 'operacoes', 'documentacao', 'equipamentos'].includes(role)
+}
+
+async function loadProfile(userId: string): Promise<UserProfile> {
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*')
@@ -72,7 +76,8 @@ async function loadProfile(userId: string) {
     throw error
   }
 
-  return data
+  if (!data || !isUserProfileRole(data.role)) throw new Error('Perfil de usuário inválido.')
+  return { ...data, role: data.role }
 }
 
 const IDLE_TIMEOUT_MS = 8 * 60 * 60 * 1000 // 8 horas
