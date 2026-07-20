@@ -4,10 +4,12 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
 
-const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock } = vi.hoisted(() => ({
+const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
   useAgencyReportOwnMock: vi.fn(),
   closeMutateMock: vi.fn(),
+  reopenMutateMock: vi.fn(),
+  useAuthMock: vi.fn(),
 }))
 
 vi.mock('../../../hooks/useAgencyReport', () => ({
@@ -17,14 +19,15 @@ vi.mock('../../../hooks/useAgencyReport', () => ({
   useAddAgencyReportOccurrence: () => ({ mutate: vi.fn() }),
   useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
   useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
-  useReopenAgencyReport: () => ({ mutate: vi.fn(), isPending: false }),
+  useReopenAgencyReport: () => ({ mutate: reopenMutateMock, isPending: false }),
 }))
-vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ effectiveRole: 'operacoes', isAdmin: false }) }))
+vi.mock('../../../hooks/useAuth', () => ({ useAuth: useAuthMock }))
 
 afterEach(cleanup)
 
 useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
 useAgencyReportOwnMock.mockReturnValue({ data: undefined })
+useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
 
 it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () => {
   render(
@@ -224,4 +227,61 @@ it('exibe o autor resolvido e o documento estruturado quando o ADR está fechado
   expect(screen.getByRole('status').textContent).toContain('Fechado em')
   expect(screen.getByRole('status').textContent).toContain('Lucca F.')
   expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
+})
+
+it('no estado fechado renderiza o documento e oculta controles/seções editáveis', () => {
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_at: '2026-07-20T10:00:00Z',
+      closed_by_name: 'Lucca F.',
+      closed_snapshot: { header: { schedule: {} }, sections: { cargaDescarregada: { rows: {}, totals: {} } }, occurrences: [], signoffs: [] },
+      signoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  expect(screen.getByRole('heading', { name: 'Matriz de descarga' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Fechar ADR' })).toBeNull()
+  expect(screen.queryByRole('textbox')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Imprimir' })).toBeTruthy()
+})
+
+it('exibe Reabrir somente para administradores e exige justificativa não vazia', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'administrativo', isAdmin: true })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_at: '2026-07-20T10:00:00Z',
+      closed_snapshot: { header: { schedule: {} }, sections: { cargaDescarregada: { rows: {}, totals: {} } }, occurrences: [], signoffs: [] },
+      signoffs: [], occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Reabrir' }))
+  const confirm = screen.getByRole('button', { name: 'Confirmar reabertura' }) as HTMLButtonElement
+  expect(confirm.disabled).toBe(true)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: '   ' } })
+  expect(confirm.disabled).toBe(true)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Correção necessária' } })
+  expect(confirm.disabled).toBe(false)
+  fireEvent.click(confirm)
+  expect(reopenMutateMock).toHaveBeenCalledWith({ voyageId: 7, port: 'BRVIX', justification: 'Correção necessária' }, expect.any(Object))
+})
+
+it('não exibe Reabrir para usuário não administrador', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_snapshot: { header: { schedule: {} }, sections: { cargaDescarregada: { rows: {}, totals: {} } }, occurrences: [], signoffs: [] },
+      signoffs: [], occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  expect(screen.queryByRole('button', { name: 'Reabrir' })).toBeNull()
 })
