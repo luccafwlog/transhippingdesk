@@ -1,5 +1,8 @@
 # Rastreabilidade Técnica
 
+Implementação ADR validada em 2026-07-19: documentação, lint, testes e build
+foram executados na branch `codex/agency-departure-report`.
+
 Verificado contra o repositório em 2026-07-02.
 
 Este índice liga cada rota e ação relevante aos chamadores do frontend, aos
