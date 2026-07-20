@@ -615,6 +615,9 @@ export type Database = {
       vazios_export_overtime_depots: Row<VaziosExportOvertimeDepot>
       vazios_reorg_services: Row<VaziosReorgService>
       vazios_reorg_rates: Row<VaziosReorgRate>
+      agency_departure_reports: Row<AgencyDepartureReport>
+      agency_departure_report_signoffs: Row<AgencyReportSignoff>
+      agency_departure_report_occurrences: Row<AgencyReportOccurrence>
       vazios_importacao_manifests: Row<VaziosImportacaoManifest>
       vazios_importacao_containers: Row<VaziosImportacaoContainer>
       voyage_export_schedules: Row<VoyageExportSchedule>
@@ -1630,6 +1633,46 @@ export type VaziosReorgRate = {
   active: boolean
   valid_from: string
   valid_to: string | null
+  created_at: string
+}
+
+export type AgencyReportSectionKey =
+  | 'datas'
+  | 'carga_descarregada'
+  | 'carga_carregada'
+  | 'veiculos'
+  | 'vazios_embarcados'
+  | 'vazios_descarregados'
+  | 'ocorrencias'
+
+export type AgencyDepartureReport = {
+  id: string
+  voyage_id: number
+  port: string
+  terminal: string | null
+  status: 'open' | 'closed'
+  closed_at: string | null
+  closed_by: string | null
+  closed_snapshot: Json | null
+  created_at: string
+}
+
+export type AgencyReportSignoff = {
+  id: string
+  report_id: string
+  section: AgencyReportSectionKey
+  state: 'pending' | 'confirmed' | 'nothing_to_declare'
+  department: string
+  signed_by: string | null
+  signed_at: string | null
+}
+
+export type AgencyReportOccurrence = {
+  id: string
+  report_id: string
+  body: string
+  author_id: string
+  department: string
   created_at: string
 }
 
