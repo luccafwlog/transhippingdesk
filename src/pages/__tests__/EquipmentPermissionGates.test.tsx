@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,15 +9,37 @@ const mocks = vi.hoisted(() => ({
   effectiveRole: vi.fn(() => 'documentacao'),
   isAdmin: vi.fn(() => false),
   invalidateQueries: vi.fn(() => Promise.resolve()),
+  updateVaziosBooking: vi.fn(() => Promise.resolve()),
+  upsertVaziosExportOperation: vi.fn(() => Promise.resolve({ id: 'operation-1' })),
+  upsertOvertimeDepot: vi.fn(() => Promise.resolve()),
+  upsertReorgService: vi.fn(() => Promise.resolve()),
+  vaziosRows: [] as Array<Record<string, unknown>>,
+  vaziosOperation: null as Record<string, unknown> | null,
+  vaziosOperationError: null as Error | null,
+  reorgRates: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
-  useQuery: ({ queryKey }: { queryKey: unknown[] }) => ({
-    data: queryKey[0] === 'vazios-importacao-manifests' ? [] : { rows: [], count: 0 },
-    isLoading: false,
-    error: null,
-  }),
+  useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+    if (queryKey[0] === 'vazios-importacao-manifests') {
+      return { data: [], isLoading: false, error: null }
+    }
+    if (queryKey[0] === 'vazios-bookings') {
+      return {
+        data: { rows: mocks.vaziosRows, count: mocks.vaziosRows.length },
+        isLoading: false,
+        error: null,
+      }
+    }
+    if (queryKey[0] === 'vazios-export-operation') {
+      return { data: mocks.vaziosOperation, isLoading: false, error: mocks.vaziosOperationError }
+    }
+    if (queryKey[0] === 'vazios-reorg-rates') {
+      return { data: mocks.reorgRates, isLoading: false, error: null }
+    }
+    return { data: { rows: [], count: 0 }, isLoading: false, error: null }
+  },
 }))
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({
@@ -66,6 +88,15 @@ vi.mock('../../services/vaziosImport', () => ({
   listVaziosBookings: vi.fn(),
   parseVaziosManifestFile: vi.fn(),
 }))
+vi.mock('../../services/vaziosExportOperations', () => ({
+  getVaziosExportOperation: vi.fn(),
+  listActiveReorgRates: vi.fn(),
+  listVaziosBookingsForOperation: vi.fn(),
+  updateVaziosBooking: mocks.updateVaziosBooking,
+  upsertOvertimeDepot: mocks.upsertOvertimeDepot,
+  upsertReorgService: mocks.upsertReorgService,
+  upsertVaziosExportOperation: mocks.upsertVaziosExportOperation,
+}))
 
 import { EmbarqueVazios } from '../EmbarqueVazios'
 import { Granite } from '../Granite'
@@ -76,12 +107,46 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.effectiveRole.mockReturnValue('documentacao')
   mocks.isAdmin.mockReturnValue(false)
+  mocks.vaziosRows = []
+  mocks.vaziosOperation = null
+  mocks.vaziosOperationError = null
+  mocks.reorgRates = []
 })
 
 afterEach(cleanup)
 
 function renderPage(page: React.ReactNode, initialEntry = '/') {
   render(<MemoryRouter initialEntries={[initialEntry]}>{page}</MemoryRouter>)
+}
+
+function vaziosBooking(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'booking-1',
+    manifest_id: 'manifest-1',
+    booking_number: 'BK-001',
+    container_number: 'ABCD1234567',
+    container_type: '40HC',
+    movement_date: '2026-07-01',
+    origin_terminal: 'Terminal A',
+    destination: 'Destino A',
+    notes: null,
+    embark_port: 'BRSSA',
+    depot: 'VBR',
+    material: true,
+    bundle: false,
+    transporte: true,
+    hand_in_date: '2026-07-01',
+    hand_out_date: '2026-07-05',
+    overtime_handling: true,
+    overtime_transport: false,
+    created_at: '2026-07-01T10:00:00Z',
+    manifest: {
+      id: 'manifest-1',
+      voyage_id: 7,
+      voyage: { id: 7, voyage_number: '14N', vessel: { id: 1, name: 'GREEN SANTOS' } },
+    },
+    ...overrides,
+  }
 }
 
 describe('controles de Veiculos', () => {
@@ -159,5 +224,97 @@ describe('controles de Vazios EXP', () => {
     renderPage(<EmbarqueVazios />)
 
     expect(screen.queryByRole('button', { name: 'Importar Planilha' })).toBeNull()
+  })
+
+  it('mantem o accordion ADR em somente leitura sem vazios_edit', () => {
+    mocks.can.mockReturnValue(false)
+    mocks.vaziosRows = [vaziosBooking()]
+
+    renderPage(<EmbarqueVazios />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir dados ADR do booking BK-001' }))
+
+    expect(screen.getByText('Somente leitura')).toBeTruthy()
+    expect((screen.getByLabelText('Porto de embarque do booking BK-001') as HTMLInputElement).readOnly).toBe(true)
+    expect((screen.getByLabelText('Material do booking BK-001') as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('salva a edicao inline e invalida os bookings com vazios_edit', async () => {
+    mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
+    mocks.vaziosRows = [vaziosBooking()]
+
+    renderPage(<EmbarqueVazios />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir dados ADR do booking BK-001' }))
+    const depot = screen.getByLabelText('Depot do booking BK-001')
+    fireEvent.change(depot, { target: { value: 'DEPOT NOVO' } })
+    fireEvent.blur(depot)
+
+    await waitFor(() => expect(mocks.updateVaziosBooking).toHaveBeenCalledWith(
+      'booking-1',
+      { depot: 'DEPOT NOVO' },
+    ))
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['vazios-bookings'] })
+  })
+
+  it('exibe a operacao da escala e salva a OS por viagem e porto', async () => {
+    mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
+    mocks.vaziosRows = [vaziosBooking()]
+    mocks.reorgRates = [
+      {
+        id: 'rate-future',
+        service: 'bundle',
+        rate_brl: 99,
+        active: true,
+        valid_from: '2999-01-01',
+        valid_to: null,
+        created_at: '2026-07-01T10:00:00Z',
+      },
+      {
+        id: 'rate-expired',
+        service: 'bundle',
+        rate_brl: 50,
+        active: true,
+        valid_from: '2000-01-01',
+        valid_to: '2000-12-31',
+        created_at: '2000-01-01T10:00:00Z',
+      },
+      {
+        id: 'rate-current',
+        service: 'bundle',
+        rate_brl: 25,
+        active: true,
+        valid_from: '2020-01-01',
+        valid_to: null,
+        created_at: '2020-01-01T10:00:00Z',
+      },
+    ]
+
+    renderPage(<EmbarqueVazios />, '/?voyage=7')
+
+    expect(screen.getByText('Operação da escala')).toBeTruthy()
+    expect(screen.getByLabelText('Percentual de overtime do depot VBR')).toBeTruthy()
+    expect(screen.getByLabelText('Bundle 40HC quantidade')).toBeTruthy()
+    expect(screen.getByText('R$ 25,00')).toBeTruthy()
+    const os = screen.getByLabelText('OS da operação')
+    fireEvent.change(os, { target: { value: 'OS-77' } })
+    fireEvent.blur(os)
+
+    await waitFor(() => expect(mocks.upsertVaziosExportOperation).toHaveBeenCalledWith({
+      voyageId: 7,
+      embarkPort: 'BRSSA',
+      osNumber: 'OS-77',
+    }))
+  })
+
+  it('bloqueia escritas quando a operacao existente nao pode ser carregada', () => {
+    mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
+    mocks.vaziosRows = [vaziosBooking()]
+    mocks.vaziosOperationError = new Error('indisponivel')
+
+    renderPage(<EmbarqueVazios />, '/?voyage=7')
+
+    expect((screen.getByLabelText('OS da operação') as HTMLInputElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Percentual de overtime do depot VBR') as HTMLInputElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Bundle 40HC quantidade') as HTMLInputElement).disabled).toBe(true)
+    expect(mocks.upsertVaziosExportOperation).not.toHaveBeenCalled()
   })
 })
