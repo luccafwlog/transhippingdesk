@@ -162,11 +162,14 @@ describe('transshipments service', () => {
     ])
   })
 
-  it('localiza a disposição do B/L pelo bl_id', async () => {
-    const eq = vi.fn(() => Promise.resolve({
+  it('localiza a disposição do B/L pelo bl_id, ordenando pela omissao mais recente', async () => {
+    const limit = vi.fn(() => Promise.resolve({
       data: [{ id: 3, bl_id: 'BL-1', omission_id: 9, disposition: 'cod', onward_vessel_name: null, onward_carrier: null, onward_voyage_number: null, onward_etd: null, onward_eta: null }],
       error: null,
     }))
+    const orderById = vi.fn(() => ({ limit }))
+    const orderByOmittedAt = vi.fn(() => ({ order: orderById }))
+    const eq = vi.fn(() => ({ order: orderByOmittedAt }))
     from.mockReturnValue({ select: () => ({ eq }) })
 
     await expect(listBlTransshipmentByBlId('BL-1')).resolves.toEqual({
@@ -181,5 +184,15 @@ describe('transshipments service', () => {
       onwardEta: null,
     })
     expect(eq).toHaveBeenCalledWith('bl_id', 'BL-1')
+    expect(orderByOmittedAt).toHaveBeenCalledWith('omitted_at', { foreignTable: 'voyage_omissions', ascending: false })
+    expect(orderById).toHaveBeenCalledWith('id', { ascending: false })
+    expect(limit).toHaveBeenCalledWith(1)
+  })
+
+  it('retorna null quando nao ha transbordo para o B/L', async () => {
+    const limit = vi.fn(() => Promise.resolve({ data: [], error: null }))
+    from.mockReturnValue({ select: () => ({ eq: () => ({ order: () => ({ order: () => ({ limit }) }) }) }) })
+
+    await expect(listBlTransshipmentByBlId('BL-2')).resolves.toBeNull()
   })
 })

@@ -159,14 +159,34 @@ export async function listBlTransshipments(omissionId: number): Promise<BlTranss
   return ((data ?? []) as Array<Record<string, unknown>>).map(mapBlTransshipment)
 }
 
+// Um B/L pode ter mais de uma omissao no historico (schema permite uma linha
+// por (bl_id, omission_id), nao uma por B/L); ordena pela omissao mais recente
+// para escolher a mesma disposicao vigente que o Portal (migration 202).
 export async function listBlTransshipmentByBlId(blId: string): Promise<BlTransshipment | null> {
   const { data, error } = await (supabase.from as unknown as (table: string) => {
     select: (columns: string) => {
-      eq: (key: string, value: string) => Promise<{ data: unknown[] | null; error: Error | null }>
+      eq: (key: string, value: string) => {
+        order: (
+          column: string,
+          opts: { foreignTable?: string; ascending?: boolean },
+        ) => {
+          order: (
+            column: string,
+            opts: { foreignTable?: string; ascending?: boolean },
+          ) => {
+            limit: (n: number) => Promise<{ data: unknown[] | null; error: Error | null }>
+          }
+        }
+      }
     }
   })('bl_transshipments')
-    .select('id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
+    .select(
+      'id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta, voyage_omissions!inner(omitted_at)',
+    )
     .eq('bl_id', blId)
+    .order('omitted_at', { foreignTable: 'voyage_omissions', ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
   if (error) throw error
   const row = (data ?? [])[0] as Record<string, unknown> | undefined
   return row ? mapBlTransshipment(row) : null

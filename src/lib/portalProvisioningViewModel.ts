@@ -27,6 +27,14 @@ export function recoveryEmailSourceLabel(value: string | null | undefined) { ret
 export function contactPurposeLabel(value: string | null | undefined) { return value && value in PURPOSE_LABELS ? PURPOSE_LABELS[value as EmailCandidate['purpose']] : 'Não informado' }
 export function deliveryStatusLabel(value: string | null | undefined) { return value && value in DELIVERY_LABELS ? DELIVERY_LABELS[value as PortalDeliveryStatus] : 'Não informado' }
 
+// Um cliente marcado como provisionamento_nao_necessario foi analisado e
+// deliberadamente excluido do Portal — nao e uma pendencia (migration 190).
+export function hasPortalPendency(row: Pick<QueueRow, 'account_situation' | 'provisioning_decision'> | null | undefined): boolean {
+  if (!row) return false
+  if (row.provisioning_decision === 'provisionamento_nao_necessario') return false
+  return row.account_situation !== 'ativo'
+}
+
 export function getPortalNextAction(row: QueueRow): string {
   if (row.provisioning_decision === 'provisionamento_nao_necessario') return 'Reabrir análise'
   if (row.account_situation === 'convite_pendente') return 'Aguardar ativação'

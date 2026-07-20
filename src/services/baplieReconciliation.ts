@@ -22,6 +22,9 @@ export type BaplieReconciliationItem =
 
 export type BaplieReconciliationResult = {
   items: BaplieReconciliationItem[]
+  // 'not_imported': nenhuma linha de staging do Baplie para a viagem — nao e o
+  // mesmo estado que uma reconciliacao concluida com zero divergencias.
+  source: 'not_imported' | 'reconciled'
 }
 
 type BlContainerPhysical = Pick<
@@ -190,8 +193,8 @@ async function fetchStagingAndBlContainers(voyageId: number) {
 
 export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
   const { staged, blContainers } = await fetchStagingAndBlContainers(voyageId)
-  if (!staged.length) return { items: [] }
-  return { items: computeExistenceDivergences(staged, blContainers) }
+  if (!staged.length) return { items: [], source: 'not_imported' }
+  return { items: computeExistenceDivergences(staged, blContainers), source: 'reconciled' }
 }
 
 /**

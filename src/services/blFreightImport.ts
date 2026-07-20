@@ -551,6 +551,7 @@ async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
       cargo_description, total_packages, packages_unit, consignee_phone,
       total_weight_kg, total_cbm, payment_type, bl_emission_date,
       manifest_customer_cnpj_cpf, manifest_customer_name,
+      place_of_receipt, movement_from, movement_to, issue_place,
       bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_imo, is_oog, imo_class, un_number),
       bl_freight_lines(seq, description, category, mercante_code, currency, amount, payment)
     `)

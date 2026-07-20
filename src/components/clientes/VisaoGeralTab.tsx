@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Card } from '../ui/Card'
 import { MetricCard } from '../ui/MetricCard'
 import { usePortalProvisioningForCustomer } from '../../hooks/usePortalProvisioning'
-import { accountSituationLabel } from '../../lib/portalProvisioningViewModel'
+import { accountSituationLabel, hasPortalPendency } from '../../lib/portalProvisioningViewModel'
 import { useCustomerDemurrageInvoices, useCustomerPendingReconciliation, useCustomerRunningDemurrage, useCustomerTimeline } from '../../hooks/useCustomerFicha'
 import { buildConsolidatedBalance } from '../../services/customerFicha'
 import { formatBRL, formatCnpjCpf, formatDate } from '../../lib/utils'
@@ -13,11 +13,11 @@ type Data = NonNullable<ReturnType<typeof useCustomerDetail>['data']>
 type VisaoGeralTabProps = { data: Data; onNavigateTab: (tab: FichaTabId) => void }
 
 export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
-  const { data: portalRow } = usePortalProvisioningForCustomer(data.id)
-  const { data: demurrage } = useCustomerDemurrageInvoices(data.id)
-  const { data: pendingReconciliation } = useCustomerPendingReconciliation(data.id)
-  const { data: runningDemurrage } = useCustomerRunningDemurrage(data.id)
-  const { data: timeline } = useCustomerTimeline(data.id, data.customer_contacts ?? [], data.bls ?? [])
+  const { data: portalRow, isLoading: portalLoading, isError: portalError } = usePortalProvisioningForCustomer(data.id)
+  const { data: demurrage, isLoading: demurrageLoading, isError: demurrageError } = useCustomerDemurrageInvoices(data.id)
+  const { data: pendingReconciliation, isLoading: reconciliationLoading, isError: reconciliationError } = useCustomerPendingReconciliation(data.id)
+  const { data: runningDemurrage, isLoading: runningDemurrageLoading, isError: runningDemurrageError } = useCustomerRunningDemurrage(data.id)
+  const { data: timeline, isLoading: timelineLoading, isError: timelineError } = useCustomerTimeline(data.id, data.customer_contacts ?? [], data.bls ?? [])
 
   const financialDenied = data.invoices_access_denied || (demurrage?.denied ?? false)
   const balance = buildConsolidatedBalance(data.invoices ?? [], demurrage?.rows ?? [])
@@ -27,21 +27,26 @@ export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
   const overdueDemurrage = (demurrage?.rows ?? []).filter((invoice) => invoice.status === 'overdue' || (invoice.status === 'issued' && invoice.due_date && invoice.due_date < today))
   const openDisputes = (demurrage?.rows ?? []).filter((invoice) => invoice.dispute_open || invoice.dispute_status === 'aberto')
 
+  const pendenciasLoading = portalLoading || demurrageLoading || reconciliationLoading || runningDemurrageLoading
+  const pendenciasError = portalError || demurrageError || reconciliationError || runningDemurrageError
+
   const pendencias: Array<{ key: string; label: string; onClick?: () => void; to?: string }> = []
-  if ((pendingReconciliation?.length ?? 0) > 0) {
-    pendencias.push({ key: 'reconciliacao', label: `${pendingReconciliation!.length} B/L(s) com reconciliação de cliente pendente`, onClick: () => onNavigateTab('operacional') })
-  }
-  if (portalRow && portalRow.account_situation !== 'ativo') {
-    pendencias.push({ key: 'portal', label: `Portal não ativo: ${accountSituationLabel(portalRow.account_situation)}`, to: `/clientes/portal?cliente=${data.id}` })
-  }
-  if (!financialDenied && overdueLocal.length + overdueDemurrage.length > 0) {
-    pendencias.push({ key: 'vencidas', label: `${overdueLocal.length + overdueDemurrage.length} invoice(s) vencida(s)`, onClick: () => onNavigateTab('financeiro') })
-  }
-  if (!financialDenied && openDisputes.length > 0) {
-    pendencias.push({ key: 'disputas', label: `${openDisputes.length} disputa(s) de demurrage aberta(s)`, onClick: () => onNavigateTab('financeiro') })
-  }
-  if ((runningDemurrage?.length ?? 0) > 0) {
-    pendencias.push({ key: 'correndo', label: `${runningDemurrage!.length} container(s) com demurrage correndo`, to: '/demurrage' })
+  if (!pendenciasLoading && !pendenciasError) {
+    if ((pendingReconciliation?.length ?? 0) > 0) {
+      pendencias.push({ key: 'reconciliacao', label: `${pendingReconciliation!.length} B/L(s) com reconciliação de cliente pendente`, onClick: () => onNavigateTab('operacional') })
+    }
+    if (hasPortalPendency(portalRow)) {
+      pendencias.push({ key: 'portal', label: `Portal não ativo: ${accountSituationLabel(portalRow!.account_situation)}`, to: `/clientes/portal?cliente=${data.id}` })
+    }
+    if (!financialDenied && overdueLocal.length + overdueDemurrage.length > 0) {
+      pendencias.push({ key: 'vencidas', label: `${overdueLocal.length + overdueDemurrage.length} invoice(s) vencida(s)`, onClick: () => onNavigateTab('financeiro') })
+    }
+    if (!financialDenied && openDisputes.length > 0) {
+      pendencias.push({ key: 'disputas', label: `${openDisputes.length} disputa(s) de demurrage aberta(s)`, onClick: () => onNavigateTab('financeiro') })
+    }
+    if ((runningDemurrage?.length ?? 0) > 0) {
+      pendencias.push({ key: 'correndo', label: `${runningDemurrage!.length} container(s) com demurrage correndo`, to: '/demurrage' })
+    }
   }
 
   return (
@@ -64,12 +69,18 @@ export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
         </Card>
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Pendências</h2>
-          {pendencias.length === 0 ? <div className="text-sm text-slate-400">Nenhuma pendência aberta.</div> : <ul className="grid gap-2 text-sm">{pendencias.map((item) => <li key={item.key} className="rounded-xl border border-amber-400/30 bg-amber-950/30 px-3 py-2 text-amber-100">{item.to ? <Link className="hover:underline" to={item.to}>{item.label} →</Link> : <button type="button" className="text-left hover:underline" onClick={item.onClick}>{item.label} →</button>}</li>)}</ul>}
+          {pendenciasLoading ? <div className="text-sm text-slate-400">Verificando pendências…</div>
+            : pendenciasError ? <div className="text-sm text-red-300">Erro ao carregar pendências.</div>
+            : pendencias.length === 0 ? <div className="text-sm text-slate-400">Nenhuma pendência aberta.</div>
+            : <ul className="grid gap-2 text-sm">{pendencias.map((item) => <li key={item.key} className="rounded-xl border border-amber-400/30 bg-amber-950/30 px-3 py-2 text-amber-100">{item.to ? <Link className="hover:underline" to={item.to}>{item.label} →</Link> : <button type="button" className="text-left hover:underline" onClick={item.onClick}>{item.label} →</button>}</li>)}</ul>}
         </Card>
       </div>
       <Card className="mt-5">
         <h2 className="mb-4 text-lg font-semibold text-white">Atividade recente</h2>
-        {(timeline ?? []).length === 0 ? <div className="text-sm text-slate-400">Sem eventos registrados.</div> : <ul className="grid gap-2 text-sm">{timeline!.slice(0, 5).map((event) => <li key={`${event.kind}-${event.sourceId}`} className="flex items-baseline gap-3"><span className="shrink-0 text-xs text-slate-500">{formatDate(event.at)}</span><span>{event.link ? <Link className="hover:underline" to={event.link}>{event.label}</Link> : event.label}</span></li>)}</ul>}
+        {timelineLoading ? <div className="text-sm text-slate-400">Carregando atividade…</div>
+          : timelineError ? <div className="text-sm text-red-300">Erro ao carregar atividade.</div>
+          : (timeline ?? []).length === 0 ? <div className="text-sm text-slate-400">Sem eventos registrados.</div>
+          : <ul className="grid gap-2 text-sm">{timeline!.slice(0, 5).map((event) => <li key={`${event.kind}-${event.sourceId}`} className="flex items-baseline gap-3"><span className="shrink-0 text-xs text-slate-500">{formatDate(event.at)}</span><span>{event.link ? <Link className="hover:underline" to={event.link}>{event.label}</Link> : event.label}</span></li>)}</ul>}
       </Card>
     </>
   )

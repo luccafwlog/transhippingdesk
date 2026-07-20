@@ -1,4 +1,5 @@
 import type { BL } from '../types/database'
+import { isCustomerReconciliationResolved } from './customerReconciliation'
 
 export type RailState = 'done' | 'pending' | 'blocked' | 'diverted'
 
@@ -68,7 +69,7 @@ export function buildFinancialRail(input: { bl: RailBl; latestInvoice: RailInvoi
     ? { key: 'ce', label: 'CE Mercante', detail: bl.ce_mercante, state: 'done' }
     : { key: 'ce', label: 'CE Mercante', detail: 'Cadastrar CE', state: 'pending', href: fichaDet }
   const reviewOk = bl.review_status === 'reviewed' || bl.review_status === 'ok'
-  const customerOk = bl.customer_reconciliation_status === 'reconciled' && bl.customer_id != null
+  const customerOk = isCustomerReconciliationResolved(bl.customer_reconciliation_status) && bl.customer_id != null
   const review: RailStage = reviewOk && customerOk
     ? { key: 'review', label: 'Revisao & Cliente', detail: 'OK', state: 'done' }
     : { key: 'review', label: 'Revisao & Cliente', detail: reviewOk ? 'Vincular cliente' : 'Revisar B/L', state: 'pending', href: reviewOk ? fichaFat : fichaDet }
