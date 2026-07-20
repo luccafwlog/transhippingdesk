@@ -25,12 +25,11 @@ export async function importBaplieStaging(
     imported_by: actorId ?? null,
   }))
 
-  const { error } = await supabase.rpc('import_baplie_staging_transactional' as never, {
+  const { error } = await supabase.rpc('import_baplie_staging_transactional', {
     p_voyage_id: voyageId,
     p_rows: rows,
-  } as never)
+  })
   if (error) throw error
 
   return { staged: rows.length }
 }
-

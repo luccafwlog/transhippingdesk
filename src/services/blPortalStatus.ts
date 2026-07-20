@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { supabase } from './supabase'
 
 export type BlPortalVisibility = { visible: boolean; reasons: string[] }
@@ -12,19 +13,30 @@ export function computeBlPortalVisibility(input: { ceMercante: string | null; cu
 
 export type BlPortalNotification = { id: number; type: string; title: string; created_at: string; read_at: string | null }
 
+const blPortalStatusSchema = z.object({
+  ce_mercante: z.string().nullable(),
+  customer_id: z.number().nullable(),
+  account_situation: z.string().nullable(),
+  notifications: z.array(z.object({
+    id: z.number(),
+    type: z.string(),
+    title: z.string(),
+    created_at: z.string(),
+    read_at: z.string().nullable(),
+  })).default([]),
+  open_disputes: z.array(z.object({
+    id: z.number(),
+    doc_number: z.string().nullable(),
+    dispute_status: z.string().nullable(),
+  })).default([]),
+})
+
 export async function getBlPortalStatus(input: { blId: string; ceMercante: string | null; customerId: number | null }) {
   // O Portal mantém notifications/accounts protegidas por RLS; a leitura interna
   // passa pelo RPC SECURITY DEFINER, que valida o usuário e escopa pelo B/L.
-  const rpc = supabase.rpc as unknown as (name: string, args: { p_bl_id: string }) => Promise<{ data: unknown; error: Error | null }>
-  const { data, error } = await rpc('get_bl_portal_status', { p_bl_id: input.blId })
+  const { data, error } = await supabase.rpc('get_bl_portal_status', { p_bl_id: input.blId })
   if (error) throw error
-  const result = data as {
-    ce_mercante: string | null
-    customer_id: number | null
-    account_situation: string | null
-    notifications: BlPortalNotification[]
-    open_disputes: Array<{ id: number; doc_number: string | null; dispute_status: string | null }>
-  }
+  const result = blPortalStatusSchema.parse(data)
   return {
     visibility: computeBlPortalVisibility({ ceMercante: result.ce_mercante, customerId: result.customer_id, accountSituation: result.account_situation }),
     notifications: result.notifications ?? [],

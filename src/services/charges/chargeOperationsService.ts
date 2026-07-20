@@ -128,7 +128,7 @@ export async function calculateBlLocalCharges(
 ) {
   const { data, error } = await supabase.rpc('calculate_bl_local_charges', {
     p_bl_id: blId,
-    p_actor: options?.actorId ?? null,
+    ...(options?.actorId == null ? {} : { p_actor: options.actorId }),
     p_recalculate: options?.recalculate ?? true,
   })
 
@@ -488,8 +488,8 @@ export async function addManualBlCharge(
     p_bl_id: blId,
     p_charge_item_id: input.chargeItemId,
     p_quantity: input.quantity,
-    p_notes: input.notes ?? null,
-    p_actor: input.actorId ?? null,
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -507,8 +507,8 @@ export async function updateManualBlCharge(
   const { data, error } = await supabase.rpc('update_manual_bl_charge', {
     p_charge_calculation_id: chargeCalculationId,
     p_quantity: input.quantity,
-    p_notes: input.notes ?? null,
-    p_actor: input.actorId ?? null,
+    ...(input.notes == null ? {} : { p_notes: input.notes }),
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 
   if (error) throw error
@@ -518,7 +518,7 @@ export async function updateManualBlCharge(
 export async function deleteManualBlCharge(chargeCalculationId: number, actorId?: string | null) {
   const { data, error } = await supabase.rpc('delete_manual_bl_charge', {
     p_charge_calculation_id: chargeCalculationId,
-    p_actor: actorId ?? null,
+    ...(actorId == null ? {} : { p_actor: actorId }),
   })
 
   if (error) throw error
@@ -528,7 +528,7 @@ export async function deleteManualBlCharge(chargeCalculationId: number, actorId?
 export async function markBlChargesReviewed(blId: string, actorId?: string | null) {
   const { data, error } = await supabase.rpc('mark_bl_charges_reviewed', {
     p_bl_id: blId,
-    p_actor: actorId ?? null,
+    ...(actorId == null ? {} : { p_actor: actorId }),
   })
 
   if (error) throw error
@@ -538,7 +538,7 @@ export async function markBlChargesReviewed(blId: string, actorId?: string | nul
 export async function markBlReadyForBilling(blId: string, actorId?: string | null) {
   const { data, error } = await supabase.rpc('mark_bl_ready_for_billing', {
     p_bl_id: blId,
-    p_actor: actorId ?? null,
+    ...(actorId == null ? {} : { p_actor: actorId }),
   })
 
   if (error) throw error

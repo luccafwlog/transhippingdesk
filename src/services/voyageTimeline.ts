@@ -59,7 +59,7 @@ export async function fetchVoyageTimelineSources(
       .order('resolved_at', { ascending: false })
       .range(0, 499),
     supabase
-      .from('baplie_containers' as never)
+      .from('baplie_containers')
       .select('imported_at', { count: 'exact' })
       .eq('voyage_id', voyageId)
       .order('imported_at', { ascending: true })

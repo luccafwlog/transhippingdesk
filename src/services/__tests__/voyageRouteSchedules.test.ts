@@ -167,6 +167,32 @@ it('grava audit row de ATD por POL sem quebrar callers antigos', async () => {
   ])
 })
 
+it('preserva a alteração de schedule quando o caller não informa changedBy', async () => {
+  const insertMock = vi.fn(async () => ({ error: null }))
+  const auditLogs = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        in: vi.fn(() => ({
+          order: vi.fn(() => ({ range: vi.fn(async () => ({ data: [], error: null })) })),
+        })),
+      })),
+    })),
+    insert: insertMock,
+  }
+  fromMock.mockReturnValue(auditLogs)
+
+  await saveVoyagePolSchedule({
+    voyageId: 12,
+    pol: 'CNSHA',
+    etd: '2026-07-08',
+    changedBy: null,
+  })
+
+  expect(insertMock).toHaveBeenCalledWith([
+    expect.objectContaining({ field_name: 'etd', changed_by: null }),
+  ])
+})
+
 it('hidrata ATB e ETD mais recentes ao listar schedules de POD', async () => {
   const auditLogs = {
     select: vi.fn(() => ({

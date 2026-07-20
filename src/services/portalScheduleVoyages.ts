@@ -53,7 +53,10 @@ export function projectPortalScheduleRows(rows: PortalScheduleRpcRow[]): PortalS
 }
 
 export async function fetchPortalScheduleVoyages(): Promise<PortalScheduleVoyage[]> {
-  const { data, error } = await (supabasePortal.rpc as unknown as (fn: string) => Promise<{ data: unknown[] | null; error: Error | null }>)('portal_ship_schedule')
+  const { data, error } = await supabasePortal.rpc('portal_ship_schedule')
   if (error) throw error
-  return projectPortalScheduleRows((data ?? []) as PortalScheduleRpcRow[])
+  return projectPortalScheduleRows((data ?? []).map((row) => {
+    if (row.kind !== 'pol' && row.kind !== 'pod') throw new Error(`Tipo de escala inválido: ${row.kind}`)
+    return { ...row, kind: row.kind }
+  }))
 }

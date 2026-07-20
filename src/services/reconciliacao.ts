@@ -226,9 +226,9 @@ export async function confirmUnifiedPixReconciliation(matches: UnifiedPixMatch[]
       }
     })
 
-  const { data, error } = await supabase.rpc('confirm_unified_pix_matches' as never, {
+  const { data, error } = await supabase.rpc('confirm_unified_pix_matches', {
     p_matches: payload,
-  } as never)
+  })
   if (error) throw error
 
   const result = (data ?? {}) as UnifiedPixConfirmationResult
@@ -538,19 +538,17 @@ export async function exportReconciliationHistoryExcel(filters: Partial<Reconcil
 }
 
 export async function reverseLocalInvoicePayment(paymentId: number, reason?: string) {
-  const { error } = await supabase.rpc('reverse_invoice_payment' as never, {
+  const { error } = await supabase.rpc('reverse_invoice_payment', {
     p_payment_id: paymentId,
-    p_reason: reason ?? null,
-    p_actor: null,
-  } as never)
+    ...(reason == null ? {} : { p_reason: reason }),
+  })
   if (error) throw error
 }
 
 export async function reverseDemurragePayment(invoiceId: number, reason?: string) {
-  const { error } = await supabase.rpc('reverse_demurrage_payment' as never, {
+  const { error } = await supabase.rpc('reverse_demurrage_payment', {
     p_invoice_id: invoiceId,
-    p_reason: reason ?? null,
-    p_actor: null,
-  } as never)
+    ...(reason == null ? {} : { p_reason: reason }),
+  })
   if (error) throw error
 }

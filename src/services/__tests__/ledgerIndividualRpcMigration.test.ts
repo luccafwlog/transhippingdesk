@@ -22,6 +22,6 @@ describe('ledger individual invoice RPC migration', () => {
 
     expect(types).toContain('create_local_individual_invoice_from_receivable')
     expect(types).toContain('p_receivable_id: number')
-    expect(types).toContain('p_due_date: string | null')
+    expect(types).toContain('p_due_date?: string')
   })
 })

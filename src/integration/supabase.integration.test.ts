@@ -230,7 +230,6 @@ describeIntegration('supabase integration - hardening gate', () => {
 
       const createA = await client.rpc('create_invoice_from_bls', {
         p_bl_ids: blIds,
-        p_customer_id: null,
         p_due_date: dueDate,
         p_notes: 'integration create/cancel',
         p_issue_now: true,
@@ -257,7 +256,6 @@ describeIntegration('supabase integration - hardening gate', () => {
 
       const createB = await client.rpc('create_invoice_from_bls', {
         p_bl_ids: blIds,
-        p_customer_id: null,
         p_due_date: dueDate,
         p_notes: 'integration payment flow',
         p_issue_now: true,
@@ -361,7 +359,6 @@ describeIntegration('supabase integration - hardening gate', () => {
 
     const list = await client.rpc('list_consolidatable_receivables', {
       p_customer_id: customerId,
-      p_voyage_id: null,
       p_search: firstBlId,
     })
     expect(list.error).toBeNull()
@@ -375,7 +372,6 @@ describeIntegration('supabase integration - hardening gate', () => {
     const none = await client.rpc('reconcile_invoice_payment_by_txid', {
       p_txid: 'TXID-DOES-NOT-EXIST-' + Date.now(),
       p_amount_brl: 1,
-      p_paid_at: null,
     })
     expect(none.error).toBeNull()
     expect((none.data as { matched: boolean })?.matched).toBe(false)
@@ -384,7 +380,6 @@ describeIntegration('supabase integration - hardening gate', () => {
     const empty = await client.rpc('reconcile_invoice_payment_by_txid', {
       p_txid: '   ',
       p_amount_brl: 1,
-      p_paid_at: null,
     })
     expect(empty.error).toBeNull()
     expect((empty.data as { matched: boolean; reason?: string })?.matched).toBe(false)

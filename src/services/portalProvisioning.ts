@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { supabase } from './supabase'
 
 export type ProvisioningDecision = 'aguardando_analise' | 'aprovado_para_provisionar' | 'provisionamento_nao_necessario'
@@ -54,6 +55,30 @@ export type PortalProvisioningConsolePayload = {
   shared_email_count: number
 }
 
+const portalProvisioningConsolePayloadSchema: z.ZodType<PortalProvisioningConsolePayload> = z.object({
+  account_id: z.number(),
+  customer_id: z.number(),
+  customer_name: z.string(),
+  cnpj_cpf: z.string(),
+  provisioning_decision: z.enum(['aguardando_analise', 'aprovado_para_provisionar', 'provisionamento_nao_necessario']),
+  account_situation: z.enum(['sem_conta', 'convite_pendente', 'convite_expirado', 'falha_no_envio', 'ativo', 'suspenso']),
+  recovery_email: z.string().nullable(),
+  recovery_email_source: z.enum(['candidato', 'informado_manualmente']).nullable(),
+  pending_invite_expires_at: z.string().nullable(),
+  latest_delivery_status: z.enum(['aceito', 'entregue', 'bounce', 'complaint', 'falha_transitoria', 'falha_permanente']).nullable(),
+  exception_reason: z.string().nullable(),
+  last_event_at: z.string().nullable(),
+  has_critical_alert: z.boolean(),
+  has_open_invoice: z.boolean(),
+  has_active_process: z.boolean(),
+  candidates: z.array(z.object({
+    email: z.string(),
+    purpose: z.enum(['geral', 'financeiro', 'operacional', 'faturamento']),
+    origin: z.string(),
+  })),
+  shared_email_count: z.number(),
+})
+
 export function effectiveSituation(situation: AccountSituation, pendingInviteExpiresAt: string | null): AccountSituation {
   if (situation === 'convite_pendente' && pendingInviteExpiresAt && new Date(pendingInviteExpiresAt).getTime() < Date.now()) return 'convite_expirado'
   return situation
@@ -74,9 +99,14 @@ export function comparePriority(a: QueueRow, b: QueueRow): number {
 }
 
 export async function listPortalProvisioningQueue(customerId?: number): Promise<QueueRow[]> {
-  const { data, error } = await supabase.rpc('portal_list_provisioning_console', { p_customer_id: customerId ?? null })
+  const { data, error } = await supabase.rpc(
+    'portal_list_provisioning_console',
+    customerId == null ? {} : { p_customer_id: customerId },
+  )
   if (error) throw error
-  return ((data ?? []) as unknown as PortalProvisioningConsolePayload[]).map((row) => ({
+  const parsed = z.array(portalProvisioningConsolePayloadSchema).safeParse(data ?? [])
+  if (!parsed.success) throw new Error('Resposta inválida de portal_list_provisioning_console.')
+  return parsed.data.map((row) => ({
     account_id: row.account_id,
     customer_id: row.customer_id,
     customer_name: row.customer_name,

@@ -201,10 +201,10 @@ export async function importCeMercanteEdi(
 ): Promise<CeMercanteEdiImportResult> {
   const payload = rows.map((row) => ({ bl_id: row.bl_id, ce: row.ce_mercante }))
 
-  const { data, error } = await supabase.rpc('apply_ce_mercante_manifest' as never, {
+  const { data, error } = await supabase.rpc('apply_ce_mercante_manifest', {
     p_rows: payload,
     p_changed_by: options.changedBy,
-  } as never)
+  })
 
   if (error) throw error
 

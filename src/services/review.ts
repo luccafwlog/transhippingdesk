@@ -1,7 +1,8 @@
 import { supabase } from './supabase'
-import type { BL } from '../types/database'
+import type { BL, Json } from '../types/database'
 
 type ReviewEditableFields = Pick<BL, 'shipper' | 'consignee' | 'pol' | 'pod' | 'total_weight_kg' | 'total_cbm' | 'notes'>
+type JsonObject = { [key: string]: Json | undefined }
 
 /**
  * Estado recomputado pelo gate ao salvar uma revisao. `pendencias` lista os
@@ -66,21 +67,21 @@ export async function saveBlReview({
 
   const customerChanged = previousCustomerId !== customerId
 
-  const updatePayload: Record<string, unknown> = {}
+  const updatePayload: JsonObject = {}
 
   for (const [field, value] of changedEntries) {
     const normalized = normalizeBlValue(field, value)
     if (normalized instanceof InvalidNumericValue) {
       throw new Error(`Valor invalido para ${String(field)}: informe um numero valido.`)
     }
-    updatePayload[field] = normalized
+    updatePayload[field] = toJsonValue(normalized)
   }
 
   if (customerChanged) {
     updatePayload.customer_id = customerId
   }
 
-  const auditRows = [
+  const auditRows: Json[] = [
     ...changedEntries.map(([field, value]) => ({
       entity_type: 'bl',
       entity_id: blId,
@@ -144,11 +145,11 @@ export async function applyInlineBlReviewFix({
   expectedUpdatedAt: string | null
 }) {
   const justification = 'Correcao inline na fila de revisao'
-  const updatePayload: Record<string, unknown> = {
+  const updatePayload: JsonObject = {
     [field]: value,
   }
 
-  const auditRows = [
+  const auditRows: Json[] = [
     {
       entity_type: 'bl',
       entity_id: blId,
@@ -249,6 +250,11 @@ function normalizeBlValue(field: keyof ReviewEditableFields, value: unknown): un
 
 function stringifyValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
+}
+
+function toJsonValue(value: unknown): Json {
+  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+  throw new Error('Valor inválido para salvar revisão de B/L.')
 }
 
 /**

@@ -17,7 +17,9 @@ import {
 } from '../hooks/useDemurrageRates'
 import { formatDate, formatUSD } from '../lib/utils'
 
-type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at'>
+type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at' | 'valid_from'> & {
+  valid_from: string | null
+}
 
 const EMPTY_FORM: DemurrageRateForm = {
   container_type: '',
@@ -141,9 +143,9 @@ export function DemurrageRates() {
                   <td className="px-4 py-3">
                     {rate.p1_day_from}–{rate.p1_day_to}
                   </td>
-                  <td className="px-4 py-3">{formatUSD(rate.p1_usd)}</td>
+                  <td className="px-4 py-3">{formatUSD(rate.p1_usd ?? 0)}</td>
                   <td className="px-4 py-3">{rate.p2_day_from}+</td>
-                  <td className="px-4 py-3">{formatUSD(rate.p2_usd)}</td>
+                  <td className="px-4 py-3">{formatUSD(rate.p2_usd ?? 0)}</td>
                   <td className="px-4 py-3 text-slate-400">
                     {rate.valid_from ? formatDate(rate.valid_from) : '—'} {rate.valid_to ? `→ ${formatDate(rate.valid_to)}` : ''}
                   </td>
