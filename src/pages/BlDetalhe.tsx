@@ -11,7 +11,7 @@ import { BlImportModal } from '../components/shared/BlImportModal'
 import { BlDetalhesTab } from '../components/bl/BlDetalhesTab'
 import { BlFaturamentoTab } from '../components/bl/BlFaturamentoTab'
 import { BlHistoricoTab } from '../components/bl/BlHistoricoTab'
-import { BlVisaoGeralTab } from '../components/bl/BlVisaoGeralTab'
+import { BlVisaoGeralTab, type BaplieStatus } from '../components/bl/BlVisaoGeralTab'
 import { BlRailsPipeline } from '../components/bl/BlRailsPipeline'
 import { Button } from '../components/ui/Button'
 import { useBlDetail } from '../hooks/useBls'
@@ -47,7 +47,8 @@ export function BlDetalhe() {
   const tabParam = searchParams.get('tab')
   const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'visao-geral'
   const { data: bl, isLoading, error } = useBlDetail(blId)
-  const { effectiveRole, user } = useAuth()
+  const { user, can, effectiveRole } = useAuth()
+  const canEditVoyages = can('voyages_edit')
   const canImport = effectiveRole !== 'equipamentos'
   const { setTransshipment, setCod } = useSetBlDisposition(bl?.voyage_id ?? 0)
   const cockpitQuery = useBlCockpit(bl)
@@ -64,7 +65,7 @@ export function BlDetalhe() {
   })
   const cargoMode = useMemo(() => resolveCargoMode(bl), [bl])
   const isContainerMode = cargoMode === 'container'
-  const { data: reconciliation } = useVoyageReconciliation(isContainerMode ? bl?.voyage_id : null)
+  const { data: reconciliation, isLoading: reconciliationLoading, isError: reconciliationError } = useVoyageReconciliation(isContainerMode ? bl?.voyage_id : null)
   const backHref = isContainerMode ? '/manifestos' : '/carga-solta'
   const backLabel = isContainerMode ? 'Voltar aos manifestos CNTR' : 'Voltar aos manifestos BB'
   const voyageLabel = [bl?.voyage?.vessel?.name, bl?.voyage?.voyage_number].filter(Boolean).join(' / ')
@@ -84,6 +85,14 @@ export function BlDetalhe() {
     const numbers = new Set((bl.bl_containers ?? []).map((container) => container.container_number))
     return reconciliation.items.filter((item) => item.kind === 'missing_in_baplie' ? item.bl_number === bl.id : item.baplie_bl_ref === bl.id || numbers.has(item.container_number)).length
   }, [reconciliation, bl])
+
+  const baplieStatus = useMemo((): BaplieStatus => {
+    if (!isContainerMode) return { state: 'not_imported', divergenceCount: 0 }
+    if (reconciliationError) return { state: 'error', divergenceCount: 0 }
+    if (reconciliationLoading || !reconciliation) return { state: 'loading', divergenceCount: 0 }
+    if (reconciliation.source === 'not_imported') return { state: 'not_imported', divergenceCount: 0 }
+    return { state: 'reconciled', divergenceCount: blDivergenceCount }
+  }, [isContainerMode, reconciliation, reconciliationLoading, reconciliationError, blDivergenceCount])
 
   const containerSummary = useMemo(
     () => ({
@@ -191,14 +200,14 @@ export function BlDetalhe() {
         omission={cockpitQuery.data?.omission}
         disposition={cockpitQuery.data?.transshipment?.disposition}
         savingDisposition={setTransshipment.isPending || setCod.isPending}
-        onCod={() => {
+        onCod={canEditVoyages ? () => {
           if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setCod.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, changedBy: user.id })
-        }}
-        onRestore={() => {
+        } : undefined}
+        onRestore={canEditVoyages ? () => {
           if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setTransshipment.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, changedBy: user.id })
-        }}
+        } : undefined}
         portalStatus={portalStatus}
-        blDivergenceCount={blDivergenceCount}
+        baplieStatus={baplieStatus}
       />
       <BlDetalhesTab
         active={activeTab === 'detalhes'}

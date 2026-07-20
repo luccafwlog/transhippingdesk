@@ -14,6 +14,7 @@ import { PortalReviewPanel } from '../portal/PortalReviewPanel'
 import { accountSituationLabel, provisioningDecisionLabel, recoveryEmailSourceLabel, deliveryStatusLabel } from '../../lib/portalProvisioningViewModel'
 import { formatDate } from '../../lib/utils'
 import { deleteCustomerContact, updateCustomerWithAudit, upsertCustomerContact } from '../../services/customers'
+import { queryKeys } from '../../services/queryKeys'
 import type { CustomerContact } from '../../types/database'
 
 type Data = NonNullable<ReturnType<typeof useCustomerDetail>['data']>
@@ -47,11 +48,11 @@ export function CadastroContatosTab({ data, cnpj }: { data: Data; cnpj: string }
     if (!canEdit) { showToast('Edição de clientes restrita ao perfil autorizado.', 'error'); return }
     if (!contactForm.name.trim()) { showToast('Informe o nome do contato.', 'error'); return }
     setContactSaving(true)
-    try { await upsertCustomerContact(data.id, { id: contactForm.id ?? 0, name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, purpose: contactForm.purpose, is_primary: contactForm.is_primary }); await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] }); setContactForm(emptyContact); showToast('Contato salvo com sucesso.', 'success') } catch { showToast('Falha ao salvar contato.', 'error') } finally { setContactSaving(false) }
+    try { await upsertCustomerContact(data.id, { id: contactForm.id ?? 0, name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, purpose: contactForm.purpose, is_primary: contactForm.is_primary }); await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] }); await queryClient.invalidateQueries({ queryKey: queryKeys.customerFicha.timeline(data.id) }); setContactForm(emptyContact); showToast('Contato salvo com sucesso.', 'success') } catch { showToast('Falha ao salvar contato.', 'error') } finally { setContactSaving(false) }
   }
   async function deleteContact(id: number) {
     if (!canEdit || !(await confirm({ title: 'Remover contato', message: 'Remover este contato do cadastro do cliente?', confirmLabel: 'Remover', tone: 'danger' }))) return
-    try { await deleteCustomerContact(id); await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] }); showToast('Contato removido.', 'success') } catch { showToast('Falha ao remover contato.', 'error') }
+    try { await deleteCustomerContact(id); await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] }); await queryClient.invalidateQueries({ queryKey: queryKeys.customerFicha.timeline(data.id) }); showToast('Contato removido.', 'success') } catch { showToast('Falha ao remover contato.', 'error') }
   }
 
   return <div className="grid gap-5">

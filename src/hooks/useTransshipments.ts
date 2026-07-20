@@ -55,15 +55,16 @@ export function useOmitEscala(voyageId: number) {
 
 export function useSetBlDisposition(voyageId: number) {
   const queryClient = useQueryClient()
-  const invalidate = () => {
+  const invalidate = (variables: { blId: string }) => {
     queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
     queryClient.invalidateQueries({ queryKey: ['bls'] })
     queryClient.invalidateQueries({ queryKey: ['voyages'] })
     queryClient.invalidateQueries({ queryKey: queryKeys.bls.cockpit() })
     queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus(variables.blId) })
   }
   return {
-    setTransshipment: useMutation({ mutationFn: setBlTransshipment, onSuccess: invalidate }),
-    setCod: useMutation({ mutationFn: setBlCod, onSuccess: invalidate }),
+    setTransshipment: useMutation({ mutationFn: setBlTransshipment, onSuccess: (_, variables) => invalidate(variables) }),
+    setCod: useMutation({ mutationFn: setBlCod, onSuccess: (_, variables) => invalidate(variables) }),
   }
 }

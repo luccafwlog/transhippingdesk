@@ -39,4 +39,8 @@ describe('B/L rails', () => {
     expect(rail.every((s) => s.state === 'done')).toBe(true)
     expect(pickNextAction(rail)).toBeNull()
   })
+  it('trata vinculo automatico por documento (matched_document) como cliente resolvido', () => {
+    const rail = buildFinancialRail({ bl: { ...baseBl, ce_mercante: '123', review_status: 'reviewed', customer_reconciliation_status: 'matched_document', customer_id: 9, charge_status: 'ready_for_billing', financial_status: 'paid' } as never, latestInvoice: { id: 1, status: 'paid', total_brl: 100 }, demurrageInvoices: [] })
+    expect(rail.find((s) => s.key === 'review')).toMatchObject({ state: 'done' })
+  })
 })

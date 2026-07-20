@@ -11,7 +11,27 @@ import { BlPortalCard, type BlPortalStatus } from './BlPortalCard'
 
 const dt = (value: string | null | undefined) => value ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(value)) : '—'
 
-export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containerSummary, breakbulkSummary, onCod, onRestore, disposition, omission, savingDisposition, portalStatus, blDivergenceCount }: {
+export type BaplieStatus = {
+  state: 'loading' | 'error' | 'not_imported' | 'reconciled'
+  divergenceCount: number
+}
+
+function BaplieBadge({ status }: { status: BaplieStatus }) {
+  switch (status.state) {
+    case 'loading':
+      return <Badge tone="slate">Verificando Baplie…</Badge>
+    case 'error':
+      return <Badge tone="red">Erro ao verificar Baplie</Badge>
+    case 'not_imported':
+      return <Badge tone="slate">Baplie nao importado</Badge>
+    case 'reconciled':
+      return status.divergenceCount
+        ? <Badge tone="yellow">{status.divergenceCount} divergencia(s) Baplie</Badge>
+        : <Badge tone="green">Baplie sem divergencias</Badge>
+  }
+}
+
+export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containerSummary, breakbulkSummary, onCod, onRestore, disposition, omission, savingDisposition, portalStatus, baplieStatus }: {
   active: boolean
   bl: BLDetail
   cockpit: ReturnType<typeof useBlCockpit>['data']
@@ -24,12 +44,12 @@ export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containe
   omission?: VoyageOmission | null
   savingDisposition?: boolean
   portalStatus?: BlPortalStatus
-  blDivergenceCount?: number
+  baplieStatus?: BaplieStatus
 }) {
   if (!active) return null
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      {omission && disposition && onCod && onRestore ? (
+      {omission && disposition ? (
         <BlTransshipmentCard omission={omission} disposition={disposition} saving={savingDisposition ?? false} onCod={onCod} onRestore={onRestore} />
       ) : null}
       <Card>
@@ -56,9 +76,9 @@ export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containe
             <Item label="IMO">{String(containerSummary.imo)}</Item>
             <Item label="OOG">{String(containerSummary.oog)}</Item>
           </dl>
-          {bl.voyage_id ? (
+          {bl.voyage_id && baplieStatus ? (
             <Link to={`/baplie?voyage=${bl.voyage_id}`} className="mt-3 inline-block">
-              {blDivergenceCount ? <Badge tone="yellow">{blDivergenceCount} divergencia(s) Baplie</Badge> : <Badge tone="green">Baplie sem divergencias</Badge>}
+              <BaplieBadge status={baplieStatus} />
             </Link>
           ) : null}
         </>

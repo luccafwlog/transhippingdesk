@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import type { CustomerContact, CustomerRateOverride, DemurrageInvoice } from '../types/database'
+import { isCustomerReconciliationResolved } from './customerReconciliation'
+import { formatBRL } from '../lib/utils'
 
 export type FichaLocalInvoiceRow = {
   id: number
@@ -33,7 +35,7 @@ export function buildConsolidatedBalance(
 }
 
 export type CustomerTimelineEvent = {
-  kind: 'cadastro_audit' | 'portal_event' | 'contact_created' | 'local_invoice_issued' | 'demurrage_invoice_issued' | 'demurrage_invoice_paid' | 'bl_created'
+  kind: 'cadastro_audit' | 'portal_event' | 'contact_created' | 'local_invoice_issued' | 'local_payment' | 'demurrage_invoice_issued' | 'demurrage_invoice_paid' | 'bl_created'
   sourceId: string
   at: string
   label: string
@@ -46,6 +48,7 @@ type TimelineSources = {
   portalEvents: Array<{ id: number; new_decision: string | null; new_situation: string | null; reason: string | null; created_at: string }>
   contacts: Array<Pick<CustomerContact, 'id' | 'name' | 'created_at'>>
   localInvoices: Array<{ id: number; invoice_number: string | null; issued_at: string | null; status: string | null }>
+  payments: Array<{ id: number; amount_brl: number; paid_at: string | null; invoice: { id: number; invoice_number: string | null } | null }>
   demurrageInvoices: Array<{ id: number; doc_number: string; billed_at: string | null; paid_at: string | null; status: string | null }>
   bls: Array<{ id: string; created_at: string | null }>
 }
@@ -56,6 +59,7 @@ export function buildCustomerTimeline(sources: TimelineSources): CustomerTimelin
     ...sources.portalEvents.map((row) => ({ kind: 'portal_event' as const, sourceId: String(row.id), at: row.created_at, label: `Portal: ${row.new_decision ?? row.new_situation ?? 'evento'}`, detail: row.reason, link: null })),
     ...sources.contacts.filter((row) => row.created_at).map((row) => ({ kind: 'contact_created' as const, sourceId: String(row.id), at: row.created_at!, label: `Contato criado: ${row.name ?? '—'}`, detail: null, link: null })),
     ...sources.localInvoices.filter((row) => row.issued_at).map((row) => ({ kind: 'local_invoice_issued' as const, sourceId: String(row.id), at: row.issued_at!, label: `Invoice emitida: ${row.invoice_number ?? `INV-${row.id}`}`, detail: null, link: `/faturamento?${sources.customerId ? `customer=${sources.customerId}&` : ''}invoice=${row.id}` })),
+    ...(sources.payments ?? []).filter((row) => row.paid_at).map((row) => ({ kind: 'local_payment' as const, sourceId: String(row.id), at: row.paid_at!, label: `Pagamento recebido: ${row.invoice?.invoice_number ?? (row.invoice ? `INV-${row.invoice.id}` : '—')}`, detail: formatBRL(row.amount_brl), link: row.invoice ? `/faturamento?${sources.customerId ? `customer=${sources.customerId}&` : ''}invoice=${row.invoice.id}` : null })),
     ...sources.demurrageInvoices.flatMap((row) => [
       ...(row.billed_at ? [{ kind: 'demurrage_invoice_issued' as const, sourceId: `${row.id}:issued`, at: row.billed_at, label: `Demurrage emitida: ${row.doc_number}`, detail: null, link: '/demurrage' }] : []),
       ...(row.paid_at ? [{ kind: 'demurrage_invoice_paid' as const, sourceId: `${row.id}:paid`, at: row.paid_at, label: `Demurrage paga: ${row.doc_number}`, detail: null, link: '/demurrage' }] : []),
@@ -71,59 +75,101 @@ function isPermissionError(error: { code?: string | null; message?: string | nul
 
 export type Restrictable<T> = { rows: T[]; denied: boolean }
 
-export async function fetchCustomerDemurrageInvoices(customerId: number) {
-  const { data, error } = await supabase.from('demurrage_invoices').select('id, doc_number, bl_id, due_date, billed_at, paid_at, total_usd, current_total_brl, status, dispute_open, dispute_status, dispute_subject').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(0, 199).overrideTypes<FichaDemurrageInvoiceRow[], { merge: false }>()
-  if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
-  return { rows: data ?? [], denied: false }
+// Pagina ate esgotar o resultado em vez de truncar em uma janela fixa — saldos
+// e contagens de pendencia precisam do total exato, nao de uma amostra.
+const FICHA_PAGE_SIZE = 500
+async function fetchAllRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { code?: string | null; message?: string | null } | null }>,
+): Promise<{ rows: T[]; error: { code?: string | null; message?: string | null } | null }> {
+  const rows: T[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await page(from, from + FICHA_PAGE_SIZE - 1)
+    if (error) return { rows, error }
+    rows.push(...(data ?? []))
+    if (!data || data.length < FICHA_PAGE_SIZE) break
+    from += FICHA_PAGE_SIZE
+  }
+  return { rows, error: null }
 }
 
+export async function fetchCustomerDemurrageInvoices(customerId: number) {
+  const { rows, error } = await fetchAllRows<FichaDemurrageInvoiceRow>((from, to) =>
+    supabase.from('demurrage_invoices').select('id, doc_number, bl_id, due_date, billed_at, paid_at, total_usd, current_total_brl, status, dispute_open, dispute_status, dispute_subject').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(from, to).overrideTypes<FichaDemurrageInvoiceRow[], { merge: false }>(),
+  )
+  if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
+  return { rows, denied: false }
+}
+
+// Le via RPC (get_customer_receivables), nao pela tabela direto: a RLS de
+// bl_receivables e USING(is_admin()) e devolve uma lista vazia bem-sucedida
+// para quem nao e admin — indistinguivel de "sem recebiveis". A RPC levanta
+// 42501 explicito para usuario inativo, permitindo separar os dois casos.
 export async function fetchCustomerReceivables(customerId: number) {
-  const { data, error } = await supabase.from('bl_receivables').select('id, bl_id, original_amount_brl, settled_amount_brl, balance_brl, status').eq('customer_id', customerId).order('updated_at', { ascending: false }).range(0, 199).overrideTypes<FichaReceivableRow[], { merge: false }>()
+  const { data, error } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: FichaReceivableRow[] | null; error: { code?: string | null; message?: string | null } | null }>)('get_customer_receivables', { p_customer_id: customerId })
   if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
   return { rows: data ?? [], denied: false }
 }
 
 export async function fetchCustomerPayments(customerId: number) {
-  const { data, error } = await supabase.from('payments').select('id, amount_brl, payment_method, paid_at, notes, invoice:invoices!inner(id, invoice_number, customer_id)').eq('invoice.customer_id', customerId).order('paid_at', { ascending: false }).range(0, 199).overrideTypes<FichaPaymentRow[], { merge: false }>()
+  const { rows, error } = await fetchAllRows<FichaPaymentRow>((from, to) =>
+    supabase.from('payments').select('id, amount_brl, payment_method, paid_at, notes, invoice:invoices!inner(id, invoice_number, customer_id)').eq('invoice.customer_id', customerId).order('paid_at', { ascending: false }).range(from, to).overrideTypes<FichaPaymentRow[], { merge: false }>(),
+  )
   if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
-  return { rows: data ?? [], denied: false }
+  return { rows, denied: false }
 }
 
 export async function fetchCustomerRateOverrides(customerId: number) {
-  const { data, error } = await supabase.from('customer_rate_overrides').select('id, override_value, valid_from, valid_to, notes, charge_item:charge_table_items(id, name, currency, charge_table:charge_tables(id, name, pod, cargo_mode))').eq('customer_id', customerId).order('created_at', { ascending: false }).range(0, 199).overrideTypes<FichaOverrideRow[], { merge: false }>()
+  const { rows, error } = await fetchAllRows<FichaOverrideRow>((from, to) =>
+    supabase.from('customer_rate_overrides').select('id, override_value, valid_from, valid_to, notes, charge_item:charge_table_items(id, name, currency, charge_table:charge_tables(id, name, pod, cargo_mode))').eq('customer_id', customerId).order('created_at', { ascending: false }).range(from, to).overrideTypes<FichaOverrideRow[], { merge: false }>(),
+  )
   if (error) throw error
-  return data ?? []
+  return rows
 }
 
 export async function fetchCustomerManualChargeBls(customerId: number) {
-  const { data, error } = await supabase.from('charge_calculations').select('bl_id, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).eq('source', 'manual').range(0, 499)
+  const { rows, error } = await fetchAllRows<{ bl_id: string | null }>((from, to) =>
+    supabase.from('charge_calculations').select('bl_id, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).eq('source', 'manual').range(from, to),
+  )
   if (error) throw error
   const counts = new Map<string, number>()
-  for (const row of data ?? []) if (row.bl_id) counts.set(row.bl_id, (counts.get(row.bl_id) ?? 0) + 1)
+  for (const row of rows) if (row.bl_id) counts.set(row.bl_id, (counts.get(row.bl_id) ?? 0) + 1)
   return Array.from(counts, ([bl_id, manual_count]) => ({ bl_id, manual_count }))
 }
 
+// matched_document e resolvido automaticamente por CNPJ/CPF exato
+// (isCustomerReconciliationResolved) — filtra pelo mesmo predicado canonico
+// para nao listar como pendente um vinculo que ja fechou sozinho.
 export async function fetchCustomerPendingReconciliation(customerId: number) {
-  const { data, error } = await supabase.from('bls').select('id, consignee, customer_reconciliation_status').eq('customer_id', customerId).in('customer_reconciliation_status', ['matched_document', 'matched_name']).order('created_at', { ascending: false }).range(0, 199).overrideTypes<FichaPendingReconciliationRow[], { merge: false }>()
+  const { rows, error } = await fetchAllRows<FichaPendingReconciliationRow>((from, to) =>
+    supabase.from('bls').select('id, consignee, customer_reconciliation_status').eq('customer_id', customerId).in('customer_reconciliation_status', ['matched_document', 'matched_name']).order('created_at', { ascending: false }).range(from, to).overrideTypes<FichaPendingReconciliationRow[], { merge: false }>(),
+  )
   if (error) throw error
-  return data ?? []
+  return rows.filter((row) => !isCustomerReconciliationResolved(row.customer_reconciliation_status))
 }
 
 export async function fetchCustomerRunningDemurrage(customerId: number) {
-  const { data, error } = await supabase.from('bl_containers').select('id, container_number, bl_id, discharge_date, return_date, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).eq('demurrage_status', 'overdue').not('discharge_date', 'is', null).is('return_date', null).range(0, 199).overrideTypes<Array<{ id: number; container_number: string | null; bl_id: string; discharge_date: string }>, { merge: false }>()
+  const { rows: data, error } = await fetchAllRows<{ id: number; container_number: string | null; bl_id: string; discharge_date: string }>((from, to) =>
+    supabase.from('bl_containers').select('id, container_number, bl_id, discharge_date, return_date, bl:bls!inner(customer_id)').eq('bl.customer_id', customerId).eq('demurrage_status', 'overdue').not('discharge_date', 'is', null).is('return_date', null).range(from, to).overrideTypes<Array<{ id: number; container_number: string | null; bl_id: string; discharge_date: string }>, { merge: false }>(),
+  )
   if (error) throw error
   return (data ?? []).map((row) => ({ container_id: row.id, container_number: row.container_number, bl_id: row.bl_id, discharge_date: row.discharge_date }))
 }
 
 export async function fetchCustomerTimelineSources(customerId: number, contacts: Array<Pick<CustomerContact, 'id' | 'name' | 'created_at'>>, bls: Array<{ id: string; created_at: string | null }>) {
-  const [auditLogs, portalEvents, localInvoices, demurrage] = await Promise.all([
+  const [auditLogs, portalEvents, localInvoices, payments, demurrage] = await Promise.all([
     supabase.from('audit_logs').select('id, field_name, old_value, new_value, changed_at, justification, changed_by').eq('entity_type', 'customer').eq('entity_id', String(customerId)).order('changed_at', { ascending: false }).range(0, 99),
     supabase.from('portal_provisioning_events').select('id, new_decision, new_situation, reason, created_at').eq('customer_id', customerId).order('created_at', { ascending: false }).range(0, 99),
     supabase.from('invoices').select('id, invoice_number, issued_at, status').eq('customer_id', customerId).order('issued_at', { ascending: false }).range(0, 99),
+    supabase.from('payments').select('id, amount_brl, paid_at, invoice:invoices!inner(id, invoice_number, customer_id)').eq('invoice.customer_id', customerId).order('paid_at', { ascending: false }).range(0, 99),
     supabase.from('demurrage_invoices').select('id, doc_number, billed_at, paid_at, status').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(0, 99),
   ])
   for (const result of [auditLogs, portalEvents]) if (result.error) throw result.error
   const localRows = localInvoices.error && !isPermissionError(localInvoices.error) ? (() => { throw localInvoices.error })() : (localInvoices.data ?? [])
+  const paymentRows = payments.error && !isPermissionError(payments.error) ? (() => { throw payments.error })() : (payments.data ?? [])
   const demurrageRows = demurrage.error && !isPermissionError(demurrage.error) ? (() => { throw demurrage.error })() : (demurrage.data ?? [])
   return buildCustomerTimeline({
     customerId,
@@ -131,6 +177,7 @@ export async function fetchCustomerTimelineSources(customerId: number, contacts:
     portalEvents: portalEvents.data ?? [],
     contacts,
     localInvoices: (localRows ?? []).map((row) => ({ ...row, invoice_number: row.invoice_number ?? null })),
+    payments: (paymentRows ?? []) as unknown as TimelineSources['payments'],
     demurrageInvoices: demurrageRows,
     bls,
   })

@@ -185,7 +185,7 @@ describe('reconcileBaplieWithManifest', () => {
       baplie: [{ container_number: 'ABCD1234567', status: 'full', bl_ref: 'BL1', slot: null, is_oog: true }],
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }],
     })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [] })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled' })
   })
 
   it('gera divergência de existência quando o container do Baplie não está em nenhum B/L', async () => {
@@ -209,7 +209,12 @@ describe('reconcileBaplieWithManifest', () => {
       ],
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }],
     })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [] })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled' })
+  })
+
+  it('sinaliza source not_imported quando nao ha staging do Baplie para a viagem, distinto de reconciliado sem divergencias', async () => {
+    installReconcileMocks({ bls: [{ id: 'BL1' }], baplie: [], containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }] })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'not_imported' })
   })
 
   it('audita flags Baplie com old_value real e new_value aplicado', async () => {

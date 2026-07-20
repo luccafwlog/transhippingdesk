@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   importCustomerBaseRows: vi.fn(),
   checkCustomerDependencies: vi.fn(),
   deleteCustomers: vi.fn(),
+  supabaseFrom: vi.fn(),
+  supabaseOr: vi.fn(),
+  exportCustomerBaseWorkbook: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -56,8 +59,8 @@ vi.mock('../../services/customerBase', () => ({
   parseCustomerBaseFile: mocks.parseCustomerBaseFile,
   importCustomerBaseRows: mocks.importCustomerBaseRows,
 }))
-vi.mock('../../services/exports', () => ({ exportCustomerBaseWorkbook: vi.fn() }))
-vi.mock('../../services/supabase', () => ({ supabase: {} }))
+vi.mock('../../services/exports', () => ({ exportCustomerBaseWorkbook: mocks.exportCustomerBaseWorkbook }))
+vi.mock('../../services/supabase', () => ({ supabase: { from: mocks.supabaseFrom } }))
 
 import { Clientes } from '../Clientes'
 
@@ -116,6 +119,18 @@ describe('Clientes page behaviours', () => {
     mocks.checkCustomerDependencies.mockResolvedValue({ deletableIds: [42], blockedIds: [] })
     mocks.deleteCustomers.mockResolvedValue(undefined)
     mocks.confirm.mockResolvedValue(true)
+    mocks.exportCustomerBaseWorkbook.mockResolvedValue(undefined)
+    const exportResult = Promise.resolve({ data: [customer], error: null })
+    const exportQuery = {
+      select: vi.fn(),
+      order: vi.fn(),
+      or: mocks.supabaseOr,
+      then: exportResult.then.bind(exportResult),
+    }
+    exportQuery.select.mockReturnValue(exportQuery)
+    exportQuery.order.mockReturnValue(exportQuery)
+    exportQuery.or.mockReturnValue(exportQuery)
+    mocks.supabaseFrom.mockReturnValue(exportQuery)
   })
 
   afterEach(cleanup)
@@ -201,5 +216,31 @@ describe('Clientes page behaviours', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Copiar CNPJ/CPF' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('12.345.678/0001-95'))
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('escapes structural search terms when exporting the customer base', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: 'Filtros' }))
+    await user.type(screen.getByPlaceholderText('Razao social, fantasia ou documento'), 'ACME,ME')
+    await user.click(screen.getByRole('button', { name: 'Exportar base' }))
+
+    await waitFor(() => expect(mocks.exportCustomerBaseWorkbook).toHaveBeenCalled())
+    expect(mocks.supabaseOr).toHaveBeenCalledWith(
+      'name.ilike.%ACME ME%,trade_name.ilike.%ACME ME%,cnpj_cpf.ilike.%ACME ME%',
+    )
+  })
+
+  it('does not emit a match-all filter when export search sanitizes to empty', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: 'Filtros' }))
+    await user.type(screen.getByPlaceholderText('Razao social, fantasia ou documento'), '%%')
+    await user.click(screen.getByRole('button', { name: 'Exportar base' }))
+
+    await waitFor(() => expect(mocks.exportCustomerBaseWorkbook).toHaveBeenCalled())
+    expect(mocks.supabaseOr).not.toHaveBeenCalled()
   })
 })

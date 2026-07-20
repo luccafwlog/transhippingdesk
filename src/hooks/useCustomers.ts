@@ -174,23 +174,34 @@ export function useCustomerDetail(cnpj?: string) {
 
       const customer = data as unknown as CustomerDetail
 
-      const { data: invoices, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, issued_at, due_date, total_brl, balance_brl, status')
-        .eq('customer_id', customer.id)
-        .order('issued_at', { ascending: false })
-        .range(0, 199)
+      // Pagina ate esgotar: o saldo pendente e um agregado exato, nao pode
+      // ficar subestimado por um cliente com mais de uma pagina de invoices.
+      const invoices: NonNullable<CustomerDetail['invoices']>[number][] = []
+      let invoicesFrom = 0
+      const INVOICES_PAGE_SIZE = 500
+      while (true) {
+        const { data: page, error: invoiceError } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, issued_at, due_date, total_brl, balance_brl, status')
+          .eq('customer_id', customer.id)
+          .order('issued_at', { ascending: false })
+          .range(invoicesFrom, invoicesFrom + INVOICES_PAGE_SIZE - 1)
 
-      if (invoiceError) {
-        if (isPermissionError(invoiceError)) {
-          return {
-            ...customer,
-            pending_balance: 0,
-            invoices: [],
-            invoices_access_denied: true,
-          } as CustomerDetail
+        if (invoiceError) {
+          if (isPermissionError(invoiceError)) {
+            return {
+              ...customer,
+              pending_balance: 0,
+              invoices: [],
+              invoices_access_denied: true,
+            } as CustomerDetail
+          }
+          throw invoiceError
         }
-        throw invoiceError
+
+        invoices.push(...((page ?? []) as NonNullable<CustomerDetail['invoices']>))
+        if (!page || page.length < INVOICES_PAGE_SIZE) break
+        invoicesFrom += INVOICES_PAGE_SIZE
       }
 
       const pendingBalance = (invoices ?? [])
@@ -212,20 +223,40 @@ function isPermissionError(error: { code?: string | null; message?: string | nul
 }
 
 export function useCustomerLookup(search: string) {
+  const filter = buildCustomerLookupFilter(search)
   return useQuery({
     queryKey: ['customer-lookup', search],
-    enabled: search.trim().length >= 2,
-    queryFn: async () => {
-      const term = escapeFilterTerm(search)
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, cnpj_cpf, name, city, state')
-        .or(`name.ilike.%${term}%,cnpj_cpf.ilike.%${term}%`)
-        .order('name', { ascending: true })
-        .range(0, 24)
-
-      if (error) throw error
-      return (data ?? []) as Pick<Customer, 'id' | 'cnpj_cpf' | 'name' | 'city' | 'state'>[]
-    },
+    enabled: Boolean(filter),
+    queryFn: () => fetchCustomerLookup(search),
   })
+}
+
+function buildCustomerLookupFilter(search: string) {
+  const term = escapeFilterTerm(search)
+  const document = onlyDigits(search)
+  const clauses: string[] = []
+
+  if (term.length >= 2) {
+    clauses.push(`name.ilike.%${term}%`, `cnpj_cpf.ilike.%${term}%`)
+  }
+  if (document.length >= 2 && document !== term) {
+    clauses.push(`cnpj_cpf.ilike.%${document}%`)
+  }
+
+  return clauses.join(',')
+}
+
+export async function fetchCustomerLookup(search: string) {
+  const filter = buildCustomerLookupFilter(search)
+  if (!filter) return []
+
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, cnpj_cpf, name, city, state')
+    .or(filter)
+    .order('name', { ascending: true })
+    .range(0, 24)
+
+  if (error) throw error
+  return (data ?? []) as Pick<Customer, 'id' | 'cnpj_cpf' | 'name' | 'city' | 'state'>[]
 }

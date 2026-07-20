@@ -7,8 +7,8 @@ export function BlTransshipmentCard({ omission, disposition, saving, onCod, onRe
   omission: VoyageOmission
   disposition: BlDisposition
   saving: boolean
-  onCod: () => void
-  onRestore: () => void
+  onCod?: () => void
+  onRestore?: () => void
 }) {
   const values = [omission.onwardVesselName, omission.onwardCarrier, omission.onwardVoyageNumber, omission.onwardEtd?.slice(0, 10), omission.onwardEta?.slice(0, 10)]
   return (
@@ -26,13 +26,15 @@ export function BlTransshipmentCard({ omission, disposition, saving, onCod, onRe
       <Link className="mt-2 inline-block text-xs font-semibold text-[#58a6ff] hover:underline" to={`/viagens/${omission.voyageId}`}>
         Registro global da omissão →
       </Link>
-      <div className="mt-3">
-        {disposition === 'transshipment' ? (
+      {disposition === 'transshipment' && onCod ? (
+        <div className="mt-3">
           <Button variant="secondary" className="app-btn--sm" disabled={saving} onClick={onCod}>Marcar COD</Button>
-        ) : (
+        </div>
+      ) : disposition === 'cod' && onRestore ? (
+        <div className="mt-3">
           <Button variant="secondary" className="app-btn--sm" loading={saving} onClick={onRestore}>Reverter para transbordo</Button>
-        )}
-      </div>
+        </div>
+      ) : null}
     </Card>
   )
 }
