@@ -74,7 +74,11 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const entityId = buildVoyagePodEntityId(voyageId, port)
   const [schedules, vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes] = await Promise.all([
     listVoyagePodSchedules([entityId]),
-    supabase.from('vehicles').select('brand, bl_id, chassis, container_id').eq('voyage_id', voyageId),
+    supabase
+      .from('vehicles')
+      .select('brand, bl_id, chassis, container_id, bl:bls!inner(voyage_id, pod)')
+      .eq('bl.voyage_id', voyageId)
+      .eq('bl.pod', port),
     supabase
       .from('vazios_bookings')
       .select('*, manifest:vazios_manifests!inner(voyage_id)')

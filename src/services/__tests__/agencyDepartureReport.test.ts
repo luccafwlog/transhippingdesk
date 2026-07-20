@@ -1,9 +1,34 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   AGENCY_REPORT_SECTIONS,
   buildContainerTypeMatrix,
   groupVehiclesByBrand,
+  getAgencyReportDerivedData,
 } from '../agencyDepartureReport'
+
+const { fromMock, schedulesMock } = vi.hoisted(() => ({
+  fromMock: vi.fn(),
+  schedulesMock: vi.fn(),
+}))
+
+vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
+vi.mock('../voyageRouteSchedules', () => ({
+  buildVoyagePodEntityId: (voyageId: number, port: string) => `${voyageId}::${port}`,
+  listVoyagePodSchedules: schedulesMock,
+}))
+vi.mock('../vaziosExportOperations', () => ({
+  computeStorageTotals: vi.fn(() => ({ containers: 0, days: 0 })),
+}))
+
+function queryBuilder(data: unknown[] = []) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
+      Promise.resolve({ data, error: null }).then(resolve),
+  }
+  return builder
+}
 
 describe('buildContainerTypeMatrix', () => {
   it('agrupa contagens por tipo e categoria', () => {
@@ -47,5 +72,18 @@ describe('AGENCY_REPORT_SECTIONS', () => {
       vazios_descarregados: 'documentacao',
       ocorrencias: 'operacoes',
     })
+  })
+})
+
+describe('getAgencyReportDerivedData', () => {
+  it('restringe veículos ao POD do BL, evitando misturar escalas da mesma viagem', async () => {
+    const vehiclesQuery = queryBuilder([{ brand: 'BYD', bl_id: 'bl-1', chassis: '1', container_id: 10 }])
+    fromMock.mockImplementation((table: string) => table === 'vehicles' ? vehiclesQuery : queryBuilder())
+    schedulesMock.mockResolvedValue(new Map([['7::BRSSZ', null]]))
+
+    await getAgencyReportDerivedData(7, 'BRSSZ')
+
+    expect(vehiclesQuery.eq).toHaveBeenCalledWith('bl.voyage_id', 7)
+    expect(vehiclesQuery.eq).toHaveBeenCalledWith('bl.pod', 'BRSSZ')
   })
 })
