@@ -103,7 +103,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           <div className="grid gap-4 xl:grid-cols-3">
             <MetricPanel title="Serviço extra">{data?.operation?.reorg.length ? data.operation.reorg.map((service) => <Info key={service.id} label={`${service.service} · ${service.container_type}`} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
             <MetricPanel title="Storage"><Info label="Containers" value={String(data?.storage.containers ?? 0)} /><Info label="Dias" value={String(data?.storage.days ?? 0)} /></MetricPanel>
-            <MetricPanel title="Overtime"><Info label="Handling" value={String(bookings.filter((booking) => booking.overtime_handling).length)} /><Info label="Transporte" value={String(bookings.filter((booking) => booking.overtime_transport).length)} /></MetricPanel>
+            <MetricPanel title="Overtime"><Info label="Handling" value={String(bookings.filter((booking) => booking.overtime_handling).length)} /><Info label="Transporte" value={String(bookings.filter((booking) => booking.overtime_transport).length)} />{data?.operation?.overtime.map((overtime) => <Info key={overtime.id} label={overtime.depot} value={`${overtime.percent}%`} />)}</MetricPanel>
           </div>
         </ReportSection>
         <ReportSection title="Ocorrências"><EmptyData /></ReportSection>
