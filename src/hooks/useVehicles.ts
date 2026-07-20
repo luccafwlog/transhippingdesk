@@ -2,7 +2,11 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 import { chunkArray, sanitizeLikeTerm } from '../lib/utils'
-import type { VehicleListItem } from '../types/database'
+import type { BLContainer, VehicleListItem } from '../types/database'
+
+type VehicleListItemWithUnpackingLocation = Omit<VehicleListItem, 'container'> & {
+  container?: Pick<BLContainer, 'id' | 'container_number' | 'type' | 'seal_number' | 'unpacking_location'> | null
+}
 
 export type VehiclePageFilters = {
   search: string
@@ -70,7 +74,7 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
         .select(
           `
           *,
-          container:bl_containers!inner(id, container_number, type, seal_number),
+          container:bl_containers!inner(id, container_number, type, seal_number, unpacking_location),
           bl:bls(id, voyage_id, voyage:voyages(id, voyage_number, vessel:vessels(id, name)))
         `,
           { count: 'exact' },
@@ -105,7 +109,7 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
       const { data, error, count } = await q
       if (error) throw error
 
-      let rows = (data ?? []) as unknown as VehicleListItem[]
+      let rows = (data ?? []) as unknown as VehicleListItemWithUnpackingLocation[]
 
       if (filters.container) {
         const term = filters.container.toLowerCase()
@@ -182,6 +186,10 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
       containersByContainerType: Array.from(containerTypeMap.entries())
         .map(([label, numbers]) => ({ label, count: numbers.size }))
         .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'pt-BR')),
+      vehicleCountByContainerId: all.reduce<Record<number, number>>((counts, row) => {
+        if (row.container?.id != null) counts[row.container.id] = (counts[row.container.id] ?? 0) + 1
+        return counts
+      }, {}),
     }
   }, [statsQuery.data])
 
@@ -299,4 +307,3 @@ function summarizeCounts(source?: Map<string, number>) {
     .map(([label, count]) => `${label}: ${count}`)
     .join(' | ')
 }
-

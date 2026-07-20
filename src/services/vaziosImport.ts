@@ -2,6 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { supabase } from './supabase'
 import { escapeFilterTerm } from '../lib/utils'
+import { normalizePortCode } from './portCode'
 
 const HEADER_MAP: Record<string, string> = {
   'booking': 'booking_number',
@@ -21,6 +22,22 @@ const HEADER_MAP: Record<string, string> = {
   'observações': 'notes',
   'observacoes': 'notes',
   'notes': 'notes',
+  'porto embarque': 'embark_port',
+  'porto': 'embark_port',
+  'pol': 'embark_port',
+  'depot': 'depot',
+  'material': 'material',
+  'bundle': 'bundle',
+  'bundles': 'bundle',
+  'transporte': 'transporte',
+  'hand-in': 'hand_in_date',
+  'hand in': 'hand_in_date',
+  'hand-out': 'hand_out_date',
+  'hand out': 'hand_out_date',
+  'ot handling': 'overtime_handling',
+  'overtime handling': 'overtime_handling',
+  'ot transporte': 'overtime_transport',
+  'overtime transporte': 'overtime_transport',
 }
 
 type ParsedVaziosBooking = {
@@ -32,6 +49,15 @@ type ParsedVaziosBooking = {
   origin_terminal: string | null
   destination: string | null
   notes: string | null
+  embark_port: string | null
+  depot: string | null
+  material: boolean
+  bundle: boolean
+  transporte: boolean
+  hand_in_date: string | null
+  hand_out_date: string | null
+  overtime_handling: boolean
+  overtime_transport: boolean
 }
 
 export type ParsedVaziosManifest = {
@@ -45,7 +71,7 @@ export async function parseVaziosManifestFile(file: File): Promise<ParsedVaziosM
   return parseVaziosManifestBuffer(buffer)
 }
 
-async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosManifest> {
+export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosManifest> {
   const rows = await readFirstSheetRows(buffer)
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
 
@@ -76,6 +102,15 @@ async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaz
       origin_terminal: String(mapped['origin_terminal'] ?? '').trim() || null,
       destination: String(mapped['destination'] ?? '').trim() || null,
       notes: String(mapped['notes'] ?? '').trim() || null,
+      embark_port: normalizePortCode(String(mapped['embark_port'] ?? '')) ?? null,
+      depot: String(mapped['depot'] ?? '').trim() || null,
+      material: parseBoolBR(mapped['material']),
+      bundle: parseBoolBR(mapped['bundle']),
+      transporte: parseBoolBR(mapped['transporte']),
+      hand_in_date: parseDateBR(String(mapped['hand_in_date'] ?? '')),
+      hand_out_date: parseDateBR(String(mapped['hand_out_date'] ?? '')),
+      overtime_handling: parseBoolBR(mapped['overtime_handling']),
+      overtime_transport: parseBoolBR(mapped['overtime_transport']),
     })
   })
 
@@ -89,6 +124,11 @@ function parseDateBR(value: string): string | null {
   const [, d, m, y] = match
   const year = y.length === 2 ? `20${y}` : y
   return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+}
+
+function parseBoolBR(value: unknown): boolean {
+  const v = String(value ?? '').trim().toLowerCase()
+  return v === 'sim' || v === 's' || v === 'x' || v === 'true' || v === '1' || v === 'yes'
 }
 
 export type ImportVaziosArgs = {
@@ -113,6 +153,15 @@ export async function importVaziosManifest({
       origin_terminal: b.origin_terminal,
       destination: b.destination,
       notes: b.notes,
+      embark_port: b.embark_port,
+      depot: b.depot,
+      material: b.material,
+      bundle: b.bundle,
+      transporte: b.transporte,
+      hand_in_date: b.hand_in_date,
+      hand_out_date: b.hand_out_date,
+      overtime_handling: b.overtime_handling,
+      overtime_transport: b.overtime_transport,
   }))
 
   const { data, error } = await supabase.rpc('import_vazios_bookings_transactional', {

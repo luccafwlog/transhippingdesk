@@ -33,6 +33,7 @@ describe('exportVaziosImportacaoWorkbook', () => {
         container_type: '40HC',
         tare_kg: 3800,
         pod: 'SSZ',
+        natureza: null,
         created_at: '2026-06-01T10:00:00Z',
         manifest: {
           id: 'm1',

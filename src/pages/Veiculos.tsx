@@ -22,15 +22,21 @@ import { useVehicleOptions, useVehicles, type VehiclePageFilters } from '../hook
 import { formatDate } from '../lib/utils'
 import { deleteVehicles } from '../services/vehicles'
 import { importVehicleRows, parseVehicleImportFile, type ParsedVehicleImport } from '../services/vehicleImport'
+import { setContainerUnpackingLocation } from '../services/vaziosNatureza'
 
 export function Veiculos() {
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { isAdmin, user } = useAuth()
+  const { can, isAdmin, user } = useAuth()
+  const canEditVehicles = can('veiculos_edit')
+  const canDeleteVehicles = isAdmin
   const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
+  const [unpackingLocations, setUnpackingLocations] = useState<Record<number, string>>({})
+  const [savingContainerId, setSavingContainerId] = useState<number | null>(null)
+  const [focusedContainerId, setFocusedContainerId] = useState<number | null>(null)
   const { data: options } = useVehicleOptions()
   const [selectedVoyageId, setSelectedVoyageId] = useState(searchParams.get('voyage') ?? '')
   const [importVoyageId, setImportVoyageId] = useState('')
@@ -160,6 +166,24 @@ export function Veiculos() {
     ])
   }
 
+  async function handleUnpackingLocationSave(containerId: number, value: string, currentValue: string | null) {
+    const unpackingLocation = value.trim() || null
+    if (unpackingLocation === currentValue) return
+
+    setSavingContainerId(containerId)
+    try {
+      await setContainerUnpackingLocation(containerId, unpackingLocation)
+      setUnpackingLocations((current) => ({ ...current, [containerId]: unpackingLocation ?? '' }))
+      await queryClient.invalidateQueries({ queryKey: ['vehicles'] })
+      showToast('Local de desova atualizado.', 'success')
+    } catch (err) {
+      setUnpackingLocations((current) => ({ ...current, [containerId]: currentValue ?? '' }))
+      showToast(err instanceof Error ? err.message : 'Falha ao atualizar local de desova.', 'error')
+    } finally {
+      setSavingContainerId(null)
+    }
+  }
+
   async function runDelete(ids: number[], message: string) {
     const ok = await confirm({ message, tone: 'danger', confirmLabel: 'Excluir' })
     if (!ok) return
@@ -188,19 +212,19 @@ export function Veiculos() {
 
   const pageRowIds = (data?.rows ?? []).map((row) => row.id)
   const allPageSelected = pageRowIds.length > 0 && pageRowIds.every((id) => selection.isSelected(id))
-  const columnCount = isAdmin ? 11 : 9
+  const columnCount = canDeleteVehicles ? 12 : 10
 
   return (
     <>
       <PageHeader
         title="Veículos"
         description="Gestão e importação de veículos vinculados a viagem, containers e BLs."
-        action={
+        action={canEditVehicles ? (
           <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <Upload size={16} />
             Importar Veículos
           </Button>
-        }
+        ) : null}
       />
 
       <Card className="mb-5">
@@ -283,7 +307,7 @@ export function Veiculos() {
         </div>
       </FilterBar>
 
-      {isAdmin ? (
+      {canDeleteVehicles ? (
         <BulkActionsBar
           count={selection.count}
           onClear={selection.clear}
@@ -299,7 +323,7 @@ export function Veiculos() {
           <table className="app-table app-table--compact min-w-[980px] text-left text-sm whitespace-nowrap">
             <thead>
               <tr>
-                {isAdmin ? (
+                {canDeleteVehicles ? (
                   <th scope="col" className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
@@ -318,7 +342,8 @@ export function Veiculos() {
                 <th scope="col" className="px-4 py-3">Tipo Container</th>
                 <th scope="col" className="px-4 py-3">Lacre</th>
                 <th scope="col" className="px-4 py-3">BL</th>
-                {isAdmin ? <th scope="col" className="px-4 py-3 w-16">Ações</th> : null}
+                <th scope="col" className="px-4 py-3">Local desova</th>
+                {canDeleteVehicles ? <th scope="col" className="px-4 py-3 w-16">Ações</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -338,7 +363,7 @@ export function Veiculos() {
               ) : null}
               {data?.rows.map((row) => (
                 <tr key={row.id} className="hover:bg-[#21262d]/60">
-                  {isAdmin ? (
+                  {canDeleteVehicles ? (
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -357,7 +382,36 @@ export function Veiculos() {
                   <td className="px-4 py-3">{row.container?.type ?? '-'}</td>
                   <td className="px-4 py-3">{row.container?.seal_number ?? '-'}</td>
                   <td className="px-4 py-3">{row.bl?.id ?? '-'}</td>
-                  {isAdmin ? (
+                  <td className="px-4 py-3">
+                    {row.container ? (
+                      <div className="grid gap-1">
+                        <Input
+                          aria-label={`Local de desova do container ${row.container.container_number}`}
+                          disabled={!canEditVehicles || savingContainerId === row.container.id}
+                          title={`Aplica a todos os ${data?.vehicleCountByContainerId?.[row.container.id] ?? 1} veículos do container ${row.container.container_number}`}
+                          value={unpackingLocations[row.container.id] ?? row.container.unpacking_location ?? ''}
+                          onBlur={(event) => handleUnpackingLocationSave(
+                            row.container!.id,
+                            event.target.value,
+                            unpackingLocations[row.container!.id] ?? row.container!.unpacking_location,
+                          )}
+                          onChange={(event) => setUnpackingLocations((current) => ({
+                            ...current,
+                            [row.container!.id]: event.target.value,
+                          }))}
+                          onFocus={() => setFocusedContainerId(row.container!.id)}
+                          onBlurCapture={() => setFocusedContainerId(null)}
+                          placeholder="Ex.: Pátio 3"
+                        />
+                        {focusedContainerId === row.container.id ? (
+                          <span className="text-xs text-[var(--app-muted)]">
+                            Aplica a todos os {data?.vehicleCountByContainerId?.[row.container.id] ?? 1} veículos do container {row.container.container_number}.
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : '-'}
+                  </td>
+                  {canDeleteVehicles ? (
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleDeleteOne(row.id, row.chassis)}
@@ -390,7 +444,7 @@ export function Veiculos() {
         </>
       )}
 
-      <Modal open={importOpen} onClose={resetImportState} title="Importar Veículos">
+      <Modal open={importOpen && canEditVehicles} onClose={resetImportState} title="Importar Veículos">
         <div className="grid gap-5">
           <div className="app-panel app-panel--padded text-sm">
             <div className="app-panel__title">Estrutura obrigatoria da planilha</div>

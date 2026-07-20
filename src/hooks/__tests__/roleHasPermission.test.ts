@@ -38,3 +38,17 @@ describe('matriz RBAC do modelo de quatro perfis', () => {
     expect(roleHasPermission('operator', 'reconciliacao_edit')).toBe(false)
   })
 })
+
+describe('papel equipamentos', () => {
+  it('edita vazios e veiculos, mas nao faturamento nem clientes', () => {
+    expect(roleHasPermission('equipamentos', 'vazios_edit')).toBe(true)
+    expect(roleHasPermission('equipamentos', 'veiculos_edit')).toBe(true)
+    expect(roleHasPermission('equipamentos', 'faturamento_edit')).toBe(false)
+    expect(roleHasPermission('equipamentos', 'customers_edit')).toBe(false)
+  })
+
+  it('documentacao e administrativo tambem editam vazios e veiculos', () => {
+    expect(roleHasPermission('documentacao', 'vazios_edit')).toBe(true)
+    expect(roleHasPermission('administrativo', 'veiculos_edit')).toBe(true)
+  })
+})

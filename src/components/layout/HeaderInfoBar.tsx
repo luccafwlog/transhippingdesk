@@ -29,6 +29,8 @@ function roleLabel(role: UserProfileRole | null | undefined): string {
       return 'Financeiro'
     case 'operacoes':
       return 'Operações'
+    case 'equipamentos':
+      return 'Equipamentos'
     case 'operator':
     case 'documentacao':
       return 'Documentação'

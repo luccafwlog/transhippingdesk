@@ -21,6 +21,7 @@ vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.f
 vi.mock('../../services/alerts', () => ({
   acknowledgeAlert: vi.fn(),
   closeAlert: vi.fn(),
+  detectAgencyReportPending: vi.fn().mockResolvedValue(undefined),
   listAlerts: vi.fn(),
 }))
 

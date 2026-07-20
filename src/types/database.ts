@@ -7,7 +7,7 @@ type Row<T> = {
   Relationships: []
 }
 
-export type UserProfileRole = 'admin' | 'operator' | 'administrativo' | 'financeiro' | 'operacoes' | 'documentacao'
+export type UserProfileRole = 'admin' | 'operator' | 'administrativo' | 'financeiro' | 'operacoes' | 'documentacao' | 'equipamentos'
 
 export type UserProfile = {
   id: string
@@ -262,6 +262,7 @@ export type BLContainer = {
   un_number: string | null
   discharge_date: string | null
   return_date: string | null
+  unpacking_location: string | null
   demurrage_status: 'within_free_time' | 'overdue' | 'returned' | null
   created_at: string | null
 }
@@ -610,6 +611,13 @@ export type Database = {
       granite_bl_charges: Row<GraniteBlCharge>
       vazios_manifests: Row<VaziosManifest>
       vazios_bookings: Row<VaziosBooking>
+      vazios_export_operations: Row<VaziosExportOperation>
+      vazios_export_overtime_depots: Row<VaziosExportOvertimeDepot>
+      vazios_reorg_services: Row<VaziosReorgService>
+      vazios_reorg_rates: Row<VaziosReorgRate>
+      agency_departure_reports: Row<AgencyDepartureReport>
+      agency_departure_report_signoffs: Row<AgencyReportSignoff>
+      agency_departure_report_occurrences: Row<AgencyReportOccurrence>
       vazios_importacao_manifests: Row<VaziosImportacaoManifest>
       vazios_importacao_containers: Row<VaziosImportacaoContainer>
       voyage_export_schedules: Row<VoyageExportSchedule>
@@ -622,6 +630,13 @@ export type Database = {
         Args: { p_ptax: number; p_roe: number; p_effective_date: string }
         Returns: undefined
       }
+      ensure_agency_departure_report: { Args: { p_voyage_id: number; p_port: string }; Returns: string }
+      set_agency_report_signoff: { Args: { p_voyage_id: number; p_port: string; p_section: AgencyReportSectionKey; p_state: AgencyReportSignoff['state'] }; Returns: Json }
+      add_agency_report_occurrence: { Args: { p_voyage_id: number; p_port: string; p_body: string }; Returns: Json }
+      set_agency_report_terminal: { Args: { p_voyage_id: number; p_port: string; p_terminal: string }; Returns: undefined }
+      close_agency_departure_report: { Args: { p_voyage_id: number; p_port: string; p_snapshot: Json }; Returns: Json }
+      reopen_agency_departure_report: { Args: { p_voyage_id: number; p_port: string; p_justification: string }; Returns: Json }
+      detect_agency_report_pending: { Args: Record<PropertyKey, never>; Returns: number }
       portal_get_current_roe: {
         Args: Record<PropertyKey, never>
         Returns: Array<{ roe: number; updated_at: string }>
@@ -1572,6 +1587,15 @@ export type VaziosBooking = {
   origin_terminal: string | null
   destination: string | null
   notes: string | null
+  embark_port: string | null
+  depot: string | null
+  material: boolean
+  bundle: boolean
+  transporte: boolean
+  hand_in_date: string | null
+  hand_out_date: string | null
+  overtime_handling: boolean
+  overtime_transport: boolean
   created_at: string | null
 }
 
@@ -1581,6 +1605,82 @@ export type VaziosBookingListItem = VaziosBooking & {
       vessel?: Pick<Vessel, 'id' | 'name'> | null
     } | null
   } | null
+}
+
+export type VaziosExportOperation = {
+  id: string
+  voyage_id: number
+  embark_port: string
+  os_number: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type VaziosExportOvertimeDepot = {
+  id: string
+  operation_id: string
+  depot: string
+  percent: number
+}
+
+export type VaziosReorgServiceType = 'bundle' | 'desova' | 'visual_check'
+
+export type VaziosReorgService = {
+  id: string
+  operation_id: string
+  service: VaziosReorgServiceType
+  container_type: string
+  qty: number
+}
+
+export type VaziosReorgRate = {
+  id: string
+  service: VaziosReorgServiceType
+  rate_brl: number
+  active: boolean
+  valid_from: string
+  valid_to: string | null
+  created_at: string
+}
+
+export type AgencyReportSectionKey =
+  | 'datas'
+  | 'carga_descarregada'
+  | 'carga_carregada'
+  | 'veiculos'
+  | 'vazios_embarcados'
+  | 'vazios_descarregados'
+  | 'ocorrencias'
+
+export type AgencyDepartureReport = {
+  id: string
+  voyage_id: number
+  port: string
+  terminal: string | null
+  status: 'open' | 'closed'
+  closed_at: string | null
+  closed_by: string | null
+  closed_snapshot: Json | null
+  created_at: string
+}
+
+export type AgencyReportSignoff = {
+  id: string
+  report_id: string
+  section: AgencyReportSectionKey
+  state: 'pending' | 'confirmed' | 'nothing_to_declare'
+  department: string
+  signed_by: string | null
+  signed_at: string | null
+}
+
+export type AgencyReportOccurrence = {
+  id: string
+  report_id: string
+  body: string
+  author_id: string
+  department: string
+  created_at: string
 }
 
 // ---------------------------------------------------------------------------
@@ -1603,6 +1703,7 @@ export type VaziosImportacaoContainer = {
   container_type: string | null
   tare_kg: number | null
   pod: string | null
+  natureza: 'cama' | 'cover_plate' | null
   created_at: string | null
 }
 

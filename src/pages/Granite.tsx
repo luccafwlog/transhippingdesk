@@ -36,7 +36,8 @@ type Filters = {
 export function Granite() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  const { user } = useAuth()
+  const { effectiveRole, user } = useAuth()
+  const canWrite = effectiveRole !== 'equipamentos'
   const { showToast } = useToast()
   const initialVoyageId = searchParams.get('voyage') ?? ''
 
@@ -171,12 +172,12 @@ export function Granite() {
       <PageHeader
         title="Manifestos Granito"
         description="Importação do relatório de cargas COSCO (Granito)."
-        action={
+        action={canWrite ? (
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />
             Importar Planilha COSCO
           </Button>
-        }
+        ) : null}
       />
 
       <Card className="mb-5">
@@ -275,12 +276,14 @@ export function Granite() {
                     <ChargeStatusBadge status={bl.charge_status} />
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      className="app-table__action mr-2"
-                      onClick={() => handleCalculateCharges(bl.id, (bl as { client_id?: number | null }).client_id ?? null)}
-                    >
-                      Calcular taxas
-                    </button>
+                    {canWrite ? (
+                      <button
+                        className="app-table__action mr-2"
+                        onClick={() => handleCalculateCharges(bl.id, (bl as { client_id?: number | null }).client_id ?? null)}
+                      >
+                        Calcular taxas
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -346,7 +349,7 @@ export function Granite() {
       </Modal>
 
       {/* Modal de importação */}
-      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="Importar Planilha COSCO — Granito">
+      <Modal open={uploadOpen && canWrite} onClose={() => setUploadOpen(false)} title="Importar Planilha COSCO — Granito">
         <div className="grid gap-5">
           <div className="app-panel app-panel--padded text-sm">
             <div className="app-panel__title">Formato esperado</div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Bell, CheckCheck, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { acknowledgeAlert, closeAlert, listAlerts, type AlertStatusFilter } from '../services/alerts'
+import { acknowledgeAlert, closeAlert, detectAgencyReportPending, listAlerts, type AlertStatusFilter } from '../services/alerts'
 
 const STATUS_LABELS: Record<string, { label: string; tone: 'yellow' | 'blue' | 'slate' }> = {
   open: { label: 'Aberto', tone: 'yellow' },
@@ -46,6 +46,12 @@ export function Alertas() {
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>('all')
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+
+  useEffect(() => {
+    void detectAgencyReportPending()
+      .then(() => queryClient.invalidateQueries({ queryKey: ['alerts'] }))
+      .catch(() => {})
+  }, [queryClient])
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['alerts', statusFilter],

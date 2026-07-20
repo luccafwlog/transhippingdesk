@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   createOrAttach: vi.fn(),
   setShow: vi.fn(),
+  effectiveRole: vi.fn(() => 'documentacao'),
 }))
 
 const vessels = [
@@ -35,7 +36,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }))
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'user-1' } }),
+  useAuth: () => ({ user: { id: 'user-1' }, effectiveRole: mocks.effectiveRole() }),
 }))
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: mocks.showToast }),
@@ -59,6 +60,7 @@ describe('ChegadasSaidas user behaviours', () => {
     vi.clearAllMocks()
     mocks.createOrAttach.mockResolvedValue({ voyageId: 3, created: true })
     mocks.setShow.mockResolvedValue(undefined)
+    mocks.effectiveRole.mockReturnValue('documentacao')
     vi.stubGlobal('confirm', vi.fn(() => true))
   })
 
@@ -127,5 +129,16 @@ describe('ChegadasSaidas user behaviours', () => {
     expect(screen.getByRole('link', { name: 'ALPHA' }).getAttribute('href')).toBe(
       'https://www.marinetraffic.com/en/ais/details/ships/imo:9876543',
     )
+  })
+
+  it('mantem Equipamentos somente leitura', () => {
+    mocks.effectiveRole.mockReturnValue('equipamentos')
+    render(<ChegadasSaidas />)
+
+    expect(screen.queryByRole('button', { name: /Adicionar Navio/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Fazer Upload/ })).toBeNull()
+    expect(screen.queryByTitle('Editar')).toBeNull()
+    expect(screen.queryByTitle('Remover do Portal')).toBeNull()
+    expect(screen.getByRole('button', { name: /Baixar Planilha Modelo/ })).toBeTruthy()
   })
 })

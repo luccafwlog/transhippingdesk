@@ -1155,10 +1155,10 @@ git commit -m "feat(adr-report): aba ADR derivada no detalhe da viagem"
 
 ## Parte 3 — Sign-offs, ocorrências e alertas
 
-### Task 10: Migration 211 — agregado do ADR e RPCs de sign-off/ocorrência
+### Task 10: Migration 213 — agregado do ADR e RPCs de sign-off/ocorrência
 
 **Files:**
-- Create: `supabase/migrations/211_agency_departure_reports.sql`
+- Create: `supabase/migrations/213_agency_departure_reports.sql`
 - Test: `src/services/__tests__/agencyReportMigration.test.ts`
 
 - [ ] **Step 1: Escrever a migration**
@@ -1405,11 +1405,11 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(
-  resolve(__dirname, '../../../supabase/migrations/211_agency_departure_reports.sql'),
+  resolve(__dirname, '../../../supabase/migrations/213_agency_departure_reports.sql'),
   'utf-8',
 )
 
-describe('migration 211 — agregado do Agency Departure Report', () => {
+describe('migration 213 — agregado do Agency Departure Report', () => {
   it('ancora em (voyage_id, port) com unicidade', () => {
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.agency_departure_reports')
     expect(sql).toContain('UNIQUE (voyage_id, port)')
@@ -1486,8 +1486,8 @@ E no mapa `Tables`:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/211_agency_departure_reports.sql src/services/__tests__/agencyReportMigration.test.ts src/types/database.ts
-git commit -m "feat(adr-report): agregado, sign-offs e ocorrencias (migration 211)"
+git add supabase/migrations/213_agency_departure_reports.sql src/services/__tests__/agencyReportMigration.test.ts src/types/database.ts
+git commit -m "feat(adr-report): agregado, sign-offs e ocorrencias (migration 213)"
 ```
 
 ### Task 11: Sign-offs e ocorrências na aba

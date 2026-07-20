@@ -32,6 +32,7 @@ import {
   type EditingExportPayload,
   type EditingPodPayload,
   type EditingPolPayload,
+  type VoyageTabKey,
 } from '../components/voyages/VoyageCard'
 import { VoyageRail } from '../components/voyages/VoyageRail'
 import { VoyageFilters } from '../components/voyages/VoyageFilters'
@@ -64,6 +65,11 @@ export function Viagens() {
   const [addingPodVoyage, setAddingPodVoyage] = useState<AddingPodPayload | null>(null)
   const [editingExport, setEditingExport] = useState<EditingExportPayload | null>(null)
   const initialVessel = searchParams.get('vessel') ?? ''
+  const tabParam = searchParams.get('tab')
+  const initialTab: VoyageTabKey | undefined = tabParam === 'visao' || tabParam === 'importacao' || tabParam === 'exportacao' || tabParam === 'manifestos' || tabParam === 'adr'
+    ? tabParam
+    : undefined
+  const initialEscala = searchParams.get('escala') ?? undefined
   const [filters, setFilters] = useState<VoyageFiltersState>({
     ...emptyFilters(),
     search: initialVessel,
@@ -281,6 +287,8 @@ export function Viagens() {
               onEditPol={setEditingPol}
               onAddPod={setAddingPodVoyage}
               onEditExport={setEditingExport}
+              initialTab={initialTab}
+              initialEscala={initialEscala}
             />
           ) : isLoading ? (
             <SkeletonCard lines={4} />

@@ -27,7 +27,8 @@ import type { BLListItem } from '../types/database'
 export function CargaSolta() {
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { effectiveRole, user } = useAuth()
+  const canImport = effectiveRole !== 'equipamentos'
   const { showToast } = useToast()
   const { data: portOptions } = usePortOptions()
   const initialVoyageId = searchParams.get('voyage') ?? ''
@@ -218,14 +219,18 @@ export function CargaSolta() {
               <Download size={16} />
               Exportar
             </Button>
-            <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
-              <Upload size={16} />
-              Importar CE Mercante
-            </Button>
-            <Button onClick={() => setUploadOpen(true)}>
-              <Upload size={16} />
-              Importar Manifesto BB
-            </Button>
+            {canImport ? (
+              <>
+                <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
+                  <Upload size={16} />
+                  Importar CE Mercante
+                </Button>
+                <Button onClick={() => setUploadOpen(true)}>
+                  <Upload size={16} />
+                  Importar Manifesto BB
+                </Button>
+              </>
+            ) : null}
           </div>
         }
       />
@@ -411,9 +416,9 @@ export function CargaSolta() {
         />
       </Card>
 
-      <CeMercanteImportModal open={ceMercanteOpen} onClose={() => setCeMercanteOpen(false)} />
+      <CeMercanteImportModal open={ceMercanteOpen && canImport} onClose={() => setCeMercanteOpen(false)} />
 
-      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="Importar Manifesto BB">
+      <Modal open={uploadOpen && canImport} onClose={() => setUploadOpen(false)} title="Importar Manifesto BB">
         <div className="grid gap-5">
           <div className="app-panel app-panel--padded text-sm">
             <div className="app-panel__title">Estrutura obrigatoria da planilha</div>

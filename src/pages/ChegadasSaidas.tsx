@@ -108,7 +108,7 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
   )
 }
 
-function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
+function SpreadsheetUpload({ canWrite, onUpdate }: { canWrite: boolean; onUpdate: () => void }) {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<{ updated: string[]; errors: string[]; warnings: string[] } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -186,10 +186,14 @@ function SpreadsheetUpload({ onUpdate }: { onUpdate: () => void }) {
         <button type="button" className="app-btn app-btn--secondary app-btn--sm" onClick={downloadTemplate}>
           <Download size={14} /> Baixar Planilha Modelo
         </button>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} className="hidden" id="sheet-upload" />
-        <button type="button" className="app-btn app-btn--primary app-btn--sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-          <Upload size={14} /> {uploading ? 'Processando...' : 'Fazer Upload'}
-        </button>
+        {canWrite ? (
+          <>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} className="hidden" id="sheet-upload" />
+            <button type="button" className="app-btn app-btn--primary app-btn--sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              <Upload size={14} /> {uploading ? 'Processando...' : 'Fazer Upload'}
+            </button>
+          </>
+        ) : null}
       </div>
       {result && (
         <div className="space-y-2 mt-4 pt-4 border-t border-[var(--app-border)] text-sm">
@@ -211,7 +215,9 @@ export function ChegadasSaidas() {
   const [formData, setFormData] = useState<ScheduleForm>(emptyScheduleForm)
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const { user } = useAuth()
+  const { effectiveRole, user } = useAuth()
+  const canWrite = effectiveRole !== 'equipamentos'
+  const tableColumnCount = PORTAL_SCHEDULE_LANES.length + (canWrite ? 3 : 2)
 
   const { data: vessels = [], isLoading } = useQuery({
     queryKey: ['portal-schedule-voyages'],
@@ -283,14 +289,14 @@ export function ChegadasSaidas() {
       <PageHeader
         title="Chegadas e Saídas"
         description="Cadastre e publique viagens no quadro de Programação de Navios do Portal."
-        action={
+        action={canWrite ? (
           <button type="button" className="app-btn app-btn--primary app-btn--sm" onClick={openAdd}>
             <Plus size={14} /> Adicionar Navio
           </button>
-        }
+        ) : null}
       />
 
-      {dialogOpen && (
+      {dialogOpen && canWrite && (
         <div className="app-modal-backdrop" onClick={closeDialog}>
           <div className="app-modal" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 760 }}>
             <div className="app-modal__header">
@@ -316,14 +322,14 @@ export function ChegadasSaidas() {
                     {lane.label}
                   </th>
                 ))}
-                <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider">Ações</th>
+                {canWrite ? <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider">Ações</th> : null}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={PORTAL_SCHEDULE_LANES.length + 3} className="text-center py-8 text-sm text-[var(--app-muted)]">Carregando...</td></tr>
+                <tr><td colSpan={tableColumnCount} className="text-center py-8 text-sm text-[var(--app-muted)]">Carregando...</td></tr>
               ) : vessels.length === 0 ? (
-                <tr><td colSpan={PORTAL_SCHEDULE_LANES.length + 3} className="text-center py-8 text-sm text-[var(--app-muted)]">Nenhum navio publicado no Portal.</td></tr>
+                <tr><td colSpan={tableColumnCount} className="text-center py-8 text-sm text-[var(--app-muted)]">Nenhum navio publicado no Portal.</td></tr>
               ) : vessels.map((vessel, index) => (
                 <tr key={vessel.voyageId} className={`${index % 2 === 0 ? '' : 'bg-[var(--app-surface-muted)]'} hover:bg-[var(--app-blue-soft)] transition-colors border-b border-[var(--app-border)] last:border-b-0`}>
                   <td className="px-3 py-2.5 border-r border-[var(--app-border)] text-sm font-semibold text-[var(--app-blue)]">
@@ -336,14 +342,16 @@ export function ChegadasSaidas() {
                   {PORTAL_SCHEDULE_LANES.map((lane) => (
                     <DateTd key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} />
                   ))}
-                  <td className="px-2 py-2 text-center">
-                    <div className="flex justify-center gap-1">
-                      <button type="button" className="app-btn app-btn--ghost app-btn--sm" style={{ minHeight: 32, minWidth: 32, padding: 0 }}
-                        onClick={() => openEdit(vessel)} title="Editar"><Pencil size={14} /></button>
-                      <button type="button" className="app-btn app-btn--ghost app-btn--sm" style={{ minHeight: 32, minWidth: 32, padding: 0, color: 'var(--app-red)' }}
-                        onClick={() => handleRemoveFromPortal(vessel)} title="Remover do Portal"><Trash2 size={14} /></button>
-                    </div>
-                  </td>
+                  {canWrite ? (
+                    <td className="px-2 py-2 text-center">
+                      <div className="flex justify-center gap-1">
+                        <button type="button" className="app-btn app-btn--ghost app-btn--sm" style={{ minHeight: 32, minWidth: 32, padding: 0 }}
+                          onClick={() => openEdit(vessel)} title="Editar"><Pencil size={14} /></button>
+                        <button type="button" className="app-btn app-btn--ghost app-btn--sm" style={{ minHeight: 32, minWidth: 32, padding: 0, color: 'var(--app-red)' }}
+                          onClick={() => handleRemoveFromPortal(vessel)} title="Remover do Portal"><Trash2 size={14} /></button>
+                      </div>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -352,7 +360,7 @@ export function ChegadasSaidas() {
       </div>
 
       <div className="mt-6">
-        <SpreadsheetUpload onUpdate={invalidateSchedules} />
+        <SpreadsheetUpload canWrite={canWrite} onUpdate={invalidateSchedules} />
       </div>
     </>
   )

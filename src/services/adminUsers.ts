@@ -25,6 +25,7 @@ export const PROFILE_LABELS: Record<UserProfileRole, string> = {
   financeiro: 'Financeiro',
   operacoes: 'Operações',
   documentacao: 'Documentação',
+  equipamentos: 'Equipamentos',
 }
 
-export const MANAGED_PROFILES: UserProfileRole[] = ['administrativo', 'financeiro', 'operacoes', 'documentacao']
+export const MANAGED_PROFILES: UserProfileRole[] = ['administrativo', 'financeiro', 'operacoes', 'documentacao', 'equipamentos']

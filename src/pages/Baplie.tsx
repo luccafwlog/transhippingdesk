@@ -32,7 +32,8 @@ export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
   const voyageId = searchParams.get('voyage') ?? ''
   const { showToast } = useToast()
-  const { user, isAdmin } = useAuth()
+  const { effectiveRole, user, isAdmin } = useAuth()
+  const canImportVazios = effectiveRole !== 'equipamentos'
   const queryClient = useQueryClient()
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
@@ -207,6 +208,7 @@ export function Baplie() {
               existingManifest={existingVaziosManifestLoading ? null : (existingVaziosManifest ?? null)}
               loadingExistingManifest={existingVaziosManifestLoading}
               confirmedManifestId={confirmedBaplieManifestId}
+              canWrite={canImportVazios}
               onConfirmar={handleConfirmarVazios}
               onSubstituir={handleSubstituirVazios}
               onManter={handleManterVazios}
@@ -316,6 +318,7 @@ function VaziosSection({
   existingManifest,
   loadingExistingManifest,
   confirmedManifestId,
+  canWrite,
   onConfirmar,
   onSubstituir,
   onManter,
@@ -324,6 +327,7 @@ function VaziosSection({
   existingManifest: { id: string; total_containers: number; imported_at: string } | null
   loadingExistingManifest: boolean
   confirmedManifestId: string | null
+  canWrite: boolean
   onConfirmar: () => Promise<void>
   onSubstituir: () => Promise<void>
   onManter: () => void
@@ -357,19 +361,23 @@ function VaziosSection({
             <span className="font-semibold">{formatDate(existingManifest.imported_at)}</span> com{' '}
             {existingManifest.total_containers} container(s). Deseja substituir ou manter?
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" loading={loading} onClick={() => run(onSubstituir)}>
-              Substituir
-            </Button>
-            <Button variant="ghost" onClick={onManter}>Manter existente</Button>
-          </div>
+          {canWrite ? (
+            <div className="flex gap-2">
+              <Button variant="secondary" loading={loading} onClick={() => run(onSubstituir)}>
+                Substituir
+              </Button>
+              <Button variant="ghost" onClick={onManter}>Manter existente</Button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="flex items-center justify-between">
           <div className="text-sm text-slate-400">{emptyCount} container(s) vazio(s) aguardando cadastro em Vazios Importacao.</div>
-          <Button disabled={loadingExistingManifest} loading={loading} onClick={() => run(onConfirmar)}>
-            Confirmar cadastro de {emptyCount} vazio(s)
-          </Button>
+          {canWrite ? (
+            <Button disabled={loadingExistingManifest} loading={loading} onClick={() => run(onConfirmar)}>
+              Confirmar cadastro de {emptyCount} vazio(s)
+            </Button>
+          ) : null}
         </div>
       )}
     </Card>

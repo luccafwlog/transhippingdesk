@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const sql = readFileSync('supabase/migrations/208_rbac_voyages_customers_writes.sql', 'utf8')
+const sql = readFileSync('supabase/migrations/215_rbac_voyages_customers_writes.sql', 'utf8')
 
 function fnBody(name: string) {
   return sql.match(new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}[\\s\\S]*?\\$(?:function\\$|\\$);`, 'i'))?.[0] ?? ''

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const sql = readFileSync('supabase/migrations/209_customer_receivables_read_rpc.sql', 'utf8')
+const sql = readFileSync('supabase/migrations/216_customer_receivables_read_rpc.sql', 'utf8')
 
 describe('209_customer_receivables_read_rpc', () => {
   it('expõe get_customer_receivables como leitura protegida com erro explícito para usuário inativo', () => {

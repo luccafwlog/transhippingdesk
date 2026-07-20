@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
+import { useAuth } from '../../hooks/useAuth'
 import { FileImportModal } from './FileImportModal'
 import { BlImportModal } from './BlImportModal'
 import { CeMercanteImportModal } from './CeMercanteImportModal'
@@ -45,6 +46,17 @@ export function VoyageImportActions({
   const [activeType, setActiveType] = useState<ImportType | null>(null)
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const { can, effectiveRole } = useAuth()
+  const canEditVazios = can('vazios_edit')
+  const canEditVehicles = can('veiculos_edit')
+  const equipmentScoped = effectiveRole === 'equipamentos'
+
+  const allowedTypes = IMPORT_ORDER.filter((type) => {
+    if (!types.includes(type)) return false
+    if (type === 'vaziosExp') return canEditVazios
+    if (type === 'vehicles') return canEditVehicles
+    return !equipmentScoped
+  })
 
   const invalidateAfterBLImport = async () => {
     await Promise.all([
@@ -58,7 +70,7 @@ export function VoyageImportActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {IMPORT_ORDER.filter((type) => types.includes(type)).map((type) => (
+        {allowedTypes.map((type) => (
           <Button key={type} variant="secondary" className="text-xs" onClick={() => setActiveType(type)}>
             <Upload size={13} />
             {IMPORT_LABELS[type]}
@@ -66,7 +78,7 @@ export function VoyageImportActions({
         ))}
       </div>
 
-      {activeType === 'bb' ? (
+      {activeType === 'bb' && !equipmentScoped ? (
         <FileImportModal
           title="Importar Manifesto BB (Break Bulk)"
           voyageLabel={voyageLabel}
@@ -90,7 +102,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'granite' ? (
+      {activeType === 'granite' && !equipmentScoped ? (
         <FileImportModal
           title="Importar Manifesto Granito"
           voyageLabel={voyageLabel}
@@ -115,7 +127,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'vaziosImp' ? (
+      {activeType === 'vaziosImp' && !equipmentScoped ? (
         <FileImportModal
           title="Importar Manifesto Vazios Importacao"
           voyageLabel={voyageLabel}
@@ -141,7 +153,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'vaziosExp' ? (
+      {activeType === 'vaziosExp' && canEditVazios ? (
         <FileImportModal
           title="Importar Vazios Exportação"
           voyageLabel={voyageLabel}
@@ -167,7 +179,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'baplie' ? (
+      {activeType === 'baplie' && !equipmentScoped ? (
         <BaplieImportModal
           voyageId={voyageId}
           voyageLabel={voyageLabel}
@@ -176,11 +188,11 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'vehicles' ? (
+      {activeType === 'vehicles' && canEditVehicles ? (
         <VehiclesImportModal voyageId={voyageId} voyageLabel={voyageLabel} onClose={() => setActiveType(null)} />
       ) : null}
 
-      {activeType === 'blFreight' ? (
+      {activeType === 'blFreight' && !equipmentScoped ? (
         <BlImportModal
           open
           voyageId={voyageId}
@@ -189,7 +201,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'ceMercante' ? (
+      {activeType === 'ceMercante' && !equipmentScoped ? (
         <CeMercanteImportModal open lockedVoyageId={voyageId} onClose={() => setActiveType(null)} />
       ) : null}
     </>

@@ -8,12 +8,17 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   parseBreakbulkManifestFile: vi.fn(),
   importBreakbulkManifest: vi.fn(() => Promise.resolve()),
+  can: vi.fn<(permission: string) => boolean>(() => true),
+  effectiveRole: vi.fn(() => 'documentacao'),
 }))
 
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
+vi.mock('../../../hooks/useAuth', () => ({
+  useAuth: () => ({ can: mocks.can, effectiveRole: mocks.effectiveRole() }),
+}))
 vi.mock('../../../services/supabase', () => ({ supabase: { from: vi.fn() } }))
 vi.mock('../../../services/breakbulkImport', () => ({
   parseBreakbulkManifestFile: mocks.parseBreakbulkManifestFile,
@@ -27,6 +32,8 @@ import { VoyageImportActions } from '../VoyageImportActions'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.can.mockReturnValue(true)
+  mocks.effectiveRole.mockReturnValue('documentacao')
   mocks.invalidateQueries.mockResolvedValue(undefined)
   mocks.importBreakbulkManifest.mockResolvedValue(undefined)
 })
@@ -116,4 +123,40 @@ it('ordena as importacoes e abre CE Mercante travado na viagem', () => {
   ])
   fireEvent.click(screen.getByRole('button', { name: /CE Mercante/ }))
   expect(screen.getByText('CE travado: 7')).toBeTruthy()
+})
+
+it('restringe Equipamentos a Veiculos e Vazios Exp', () => {
+  mocks.effectiveRole.mockReturnValue('equipamentos')
+  mocks.can.mockImplementation((permission) => permission === 'veiculos_edit' || permission === 'vazios_edit')
+
+  render(
+    <VoyageImportActions
+      voyageId={7}
+      voyageLabel="GREEN SANTOS / 14N"
+      userId="user-1"
+      types={['bb', 'granite', 'vaziosImp', 'vaziosExp', 'vehicles', 'baplie', 'blFreight', 'ceMercante']}
+    />,
+  )
+
+  expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
+    'Veículos', 'Vazios Exp',
+  ])
+})
+
+it('preserva todas as importacoes solicitadas para os demais papeis', () => {
+  mocks.effectiveRole.mockReturnValue('documentacao')
+  mocks.can.mockReturnValue(true)
+
+  render(
+    <VoyageImportActions
+      voyageId={7}
+      voyageLabel="GREEN SANTOS / 14N"
+      userId="user-1"
+      types={['bb', 'granite', 'vaziosImp', 'vaziosExp', 'vehicles', 'baplie', 'blFreight', 'ceMercante']}
+    />,
+  )
+
+  expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
+    'Baplie EDI', 'B/L', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
+  ])
 })
