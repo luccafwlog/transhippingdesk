@@ -153,7 +153,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         </> : <>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm font-semibold text-[var(--app-muted)]">{confirmedCount}/7 confirmadas</div>
-          <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={confirmedCount !== 7 || closeMutation.isPending || !port} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</button>
+          <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={confirmedCount !== 7 || closeMutation.isPending || !port} title={confirmedCount !== 7 ? 'Confirme as 7 seções (ou marque "Nada a declarar") para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</button>
         </div>
         <ReportSection title="Cabeçalho" section="datas" state={sectionState('datas')} canSignoff={canSignoff('datas')} onSignoff={updateSignoff}>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -183,7 +183,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           {data?.vaziosImp.length ? <Matrix rows={emptyDischargeMatrix.rows} /> : <EmptyData />}
         </ReportSection>
         <ReportSection title="Container com veículo" section="veiculos" state={sectionState('veiculos')} canSignoff={canSignoff('veiculos')} onSignoff={updateSignoff}>
-          {vehicles.length ? <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} BLs · ${vehicle.vinCount} VINs · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div> : <EmptyData />}
+          {vehicles.length ? <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div> : <EmptyData />}
         </ReportSection>
         <ReportSection title="Embarque de vazios" section="vazios_embarcados" state={sectionState('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} onSignoff={updateSignoff}>
           {bookings.length ? <div className="grid gap-4 xl:grid-cols-2"><MetricPanel title="Matriz"><Matrix rows={emptyEmbarkMatrix.rows} /></MetricPanel><MetricPanel title="Operação"><Info label="OS" value={data?.operation?.os_number ?? 'Não informada'} /><Info label="Embarque direto" value={String(bookings.filter((booking) => !booking.depot).length)} /><Info label="Depots" value={depots.join(', ') || '—'} /></MetricPanel></div> : <EmptyData />}

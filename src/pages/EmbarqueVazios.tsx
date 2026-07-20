@@ -428,7 +428,7 @@ export function EmbarqueVazios() {
               <span className="text-xs text-slate-400">
                 {savingKey?.startsWith('operation:') || savingKey?.startsWith('overtime:') || savingKey?.startsWith('reorg:')
                   ? 'Salvando...'
-                  : 'Salvamento no blur'}
+                  : 'Salva automaticamente ao sair do campo'}
               </span>
             ) : (
               <Badge tone="slate">Somente leitura</Badge>
@@ -812,7 +812,7 @@ export function EmbarqueVazios() {
                                       [flag.key]: event.currentTarget.checked,
                                     })}
                                   />
-                                  Marcado
+                                  {booking[flag.key] ? 'Sim' : 'Não'}
                                 </span>
                               </label>
                             ))}

@@ -33,19 +33,19 @@ export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
   const pendencias: Array<{ key: string; label: string; onClick?: () => void; to?: string }> = []
   if (!pendenciasLoading && !pendenciasError) {
     if ((pendingReconciliation?.length ?? 0) > 0) {
-      pendencias.push({ key: 'reconciliacao', label: `${pendingReconciliation!.length} B/L(s) com reconciliação de cliente pendente`, onClick: () => onNavigateTab('operacional') })
+      pendencias.push({ key: 'reconciliacao', label: `${pendingReconciliation!.length} ${pendingReconciliation!.length === 1 ? 'B/L com reconciliação de cliente pendente' : 'B/Ls com reconciliação de cliente pendente'}`, onClick: () => onNavigateTab('operacional') })
     }
     if (hasPortalPendency(portalRow)) {
-      pendencias.push({ key: 'portal', label: `Portal não ativo: ${accountSituationLabel(portalRow!.account_situation)}`, to: `/clientes/portal?cliente=${data.id}` })
+      pendencias.push({ key: 'portal', label: `Portal não ativo${portalRow!.account_situation ? `: ${accountSituationLabel(portalRow!.account_situation)}` : ''}`, to: `/clientes/portal?cliente=${data.id}` })
     }
     if (!financialDenied && overdueLocal.length + overdueDemurrage.length > 0) {
-      pendencias.push({ key: 'vencidas', label: `${overdueLocal.length + overdueDemurrage.length} invoice(s) vencida(s)`, onClick: () => onNavigateTab('financeiro') })
+      pendencias.push({ key: 'vencidas', label: `${overdueLocal.length + overdueDemurrage.length} ${overdueLocal.length + overdueDemurrage.length === 1 ? 'invoice vencida' : 'invoices vencidas'}`, onClick: () => onNavigateTab('financeiro') })
     }
     if (!financialDenied && openDisputes.length > 0) {
-      pendencias.push({ key: 'disputas', label: `${openDisputes.length} disputa(s) de demurrage aberta(s)`, onClick: () => onNavigateTab('financeiro') })
+      pendencias.push({ key: 'disputas', label: `${openDisputes.length} ${openDisputes.length === 1 ? 'disputa de demurrage aberta' : 'disputas de demurrage abertas'}`, onClick: () => onNavigateTab('financeiro') })
     }
     if ((runningDemurrage?.length ?? 0) > 0) {
-      pendencias.push({ key: 'correndo', label: `${runningDemurrage!.length} container(s) com demurrage correndo`, to: '/demurrage' })
+      pendencias.push({ key: 'correndo', label: `${runningDemurrage!.length} ${runningDemurrage!.length === 1 ? 'container com demurrage correndo' : 'containers com demurrage correndo'}`, to: '/demurrage' })
     }
   }
 

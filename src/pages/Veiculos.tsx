@@ -393,7 +393,7 @@ export function Veiculos() {
                           onBlur={(event) => handleUnpackingLocationSave(
                             row.container!.id,
                             event.target.value,
-                            unpackingLocations[row.container!.id] ?? row.container!.unpacking_location,
+                            row.container!.unpacking_location,
                           )}
                           onChange={(event) => setUnpackingLocations((current) => ({
                             ...current,

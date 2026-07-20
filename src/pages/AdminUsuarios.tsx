@@ -202,6 +202,7 @@ export function AdminUsuarios() {
               <div><span className="font-semibold text-[var(--app-text-strong)]">Financeiro:</span> Visualização completa + edição em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliação.</div>
               <div><span className="font-semibold text-[var(--app-text-strong)]">Operações:</span> Cadastro de Viagens, upload de manifestos e planilha IMO.</div>
               <div><span className="font-semibold text-[var(--app-text-strong)]">Documentação:</span> Acesso amplo ao sistema, exceto tela Admin e configurações administrativas.</div>
+              <div><span className="font-semibold text-[var(--app-text-strong)]">Equipamentos:</span> Leitura geral + edição restrita a Vazios (EXP) e Veículos, incluindo o sign-off das suas seções no ADR.</div>
             </div>
           </div>
         </>

@@ -37,7 +37,7 @@ export function BlRailsPipeline({ operational, financial, nextAction }: { operat
     <div className="grid gap-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
       {nextAction ? (
         <Link to={nextAction.href ?? '#'} className="flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 hover:opacity-90">
-          <span className="text-xs font-semibold uppercase tracking-wider text-amber-300">Proxima acao</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-amber-300">Próxima ação</span>
           <span className="text-sm font-semibold text-[var(--app-text-strong)]">{nextAction.detail}</span>
         </Link>
       ) : null}

@@ -28,12 +28,14 @@ const TYPE_LABELS: Record<string, string> = {
   portal_falha_envio: 'Portal do Cliente — falha de envio',
   portal_email_suprimido: 'Portal do Cliente — email suprimido',
   portal_abuso_login: 'Portal do Cliente — abuso de login',
+  agency_report_section_pending: 'ADR — seção pendente',
 }
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   invoice: 'Fatura',
   container: 'Container',
   bl: 'B/L',
+  agency_departure_report: 'ADR',
 }
 
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
@@ -218,6 +220,11 @@ function alertEntityLink(alert: { type: string; entity_type: string | null; enti
   }
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
+  if (alert.entity_type === 'agency_departure_report') {
+    // entity_id no formato voyageId::porto::secao — abre a viagem dona do ADR.
+    const voyageId = alert.entity_id.split('::')[0]
+    return /^\d+$/.test(voyageId) ? `/viagens/${voyageId}` : null
+  }
   return null
 }
 
@@ -225,5 +232,6 @@ function alertEntityLinkLabel(alert: { entity_type: string | null }) {
   if (alert.entity_type === 'invoice') return 'Ver Fatura'
   if (alert.entity_type === 'container') return 'Ver Demurrage'
   if (alert.entity_type === 'bl') return 'Abrir B/L'
+  if (alert.entity_type === 'agency_departure_report') return 'Abrir Viagem'
   return 'Abrir'
 }
