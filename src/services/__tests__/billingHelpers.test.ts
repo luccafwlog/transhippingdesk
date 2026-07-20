@@ -110,13 +110,23 @@ describe('createInvoiceFromBls', () => {
 describe('createConsolidatedInvoice', () => {
   it('nao faz update client-side de PIX apos criar consolidada', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({
-      data: { invoice_id: 456, invoice_number: 'INV-456', total_brl: 250 },
+      data: {
+        invoice_id: 456,
+        invoice_number: 'INV-456',
+        status: 'issued',
+        invoice_type: 'consolidated',
+        receivable_count: 2,
+        total_brl: 250,
+      },
       error: null,
     })
 
     await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1, 2] })).resolves.toEqual({
       invoice_id: 456,
       invoice_number: 'INV-456',
+      status: 'issued',
+      invoice_type: 'consolidated',
+      receivable_count: 2,
       total_brl: 250,
     })
     expect(supabaseMocks.from).not.toHaveBeenCalled()

@@ -68,4 +68,12 @@ describe('listPortalProvisioningQueue', () => {
     expect(rpc).toHaveBeenCalledWith('portal_list_provisioning_console', {})
     expect(result[0]).toMatchObject({ recovery_email: null, candidates: [], sharedEmailCount: 0 })
   })
+
+  it('rejeita linha JSON fora do contrato do console', async () => {
+    rpc.mockResolvedValueOnce({ data: [{ account_id: 'invalid' }], error: null })
+
+    await expect(listPortalProvisioningQueue()).rejects.toThrow(
+      'Resposta inválida de portal_list_provisioning_console',
+    )
+  })
 })

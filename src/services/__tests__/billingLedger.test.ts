@@ -19,6 +19,33 @@ beforeEach(() => {
   supabaseMocks.rpc.mockReset()
 })
 
+function consolidatedPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    invoice_id: 7,
+    invoice_number: 'INV-7',
+    status: 'issued',
+    invoice_type: 'consolidated',
+    receivable_count: 2,
+    total_brl: 100,
+    ...overrides,
+  }
+}
+
+function paymentPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    invoice_id: 1,
+    payment_id: 1,
+    status: 'paid',
+    amount_brl: 50,
+    balance_brl: 0,
+    refund_due_brl: 0,
+    receivables_settled: 1,
+    individuals_covered: 0,
+    consolidated_obsoleted: 0,
+    ...overrides,
+  }
+}
+
 describe('listConsolidatableReceivables', () => {
   it('retorna vazio sem chamar o RPC quando nao ha customerId (inclusive 0)', async () => {
     expect(await listConsolidatableReceivables({})).toEqual([])
@@ -138,7 +165,7 @@ describe('listConsolidatableReceivables', () => {
 describe('createConsolidatedInvoice', () => {
   it('chama o RPC create_local_consolidated_invoice e confia o PIX ao trigger do banco', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({
-      data: { invoice_id: 7, invoice_number: 'INV-7', total_brl: 100 },
+      data: consolidatedPayload(),
       error: null,
     })
 
@@ -149,22 +176,20 @@ describe('createConsolidatedInvoice', () => {
       p_receivable_ids: [1, 2],
     })
     expect(supabaseMocks.from).not.toHaveBeenCalled()
-    expect(result).toEqual({ invoice_id: 7, invoice_number: 'INV-7', total_brl: 100 })
+    expect(result).toEqual(consolidatedPayload())
   })
 
   it('retorna o resultado sem tentar update client-side de PIX', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({
-      data: { invoice_id: 8, invoice_number: 'INV-8', total_brl: 0 },
+      data: consolidatedPayload({ invoice_id: 8, invoice_number: 'INV-8', receivable_count: 1, total_brl: 0 }),
       error: null,
     })
-    expect(await createConsolidatedInvoice({ customerId: 10, receivableIds: [1] })).toEqual({
-      invoice_id: 8,
-      invoice_number: 'INV-8',
-      total_brl: 0,
-    })
+    expect(await createConsolidatedInvoice({ customerId: 10, receivableIds: [1] })).toEqual(
+      consolidatedPayload({ invoice_id: 8, invoice_number: 'INV-8', receivable_count: 1, total_brl: 0 }),
+    )
 
     supabaseMocks.rpc.mockResolvedValueOnce({
-      data: { invoice_id: 9, invoice_number: null, total_brl: 50 },
+      data: consolidatedPayload({ invoice_id: 9, invoice_number: null, receivable_count: 1, total_brl: 50 }),
       error: null,
     })
     await createConsolidatedInvoice({ customerId: 10, receivableIds: [1] })
@@ -172,9 +197,11 @@ describe('createConsolidatedInvoice', () => {
     expect(supabaseMocks.from).not.toHaveBeenCalled()
   })
 
-  it('retorna data crua (null inclusive) sem tentar PIX', async () => {
+  it('rejeita retorno nulo sem tentar PIX', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: null })
-    expect(await createConsolidatedInvoice({ customerId: 10, receivableIds: [1] })).toBeNull()
+    await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1] })).rejects.toThrow(
+      'Resposta inválida de create_local_consolidated_invoice',
+    )
     expect(supabaseMocks.from).not.toHaveBeenCalled()
   })
 
@@ -184,11 +211,19 @@ describe('createConsolidatedInvoice', () => {
       'consolidada falhou',
     )
   })
+
+  it('rejeita retorno JSON inválido da criação consolidada', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: { invoice_id: 'invalid' }, error: null })
+
+    await expect(createConsolidatedInvoice({ customerId: 10, receivableIds: [1] })).rejects.toThrow(
+      'Resposta inválida de create_local_consolidated_invoice',
+    )
+  })
 })
 
 describe('registerLedgerInvoicePayment', () => {
   it('chama o RPC register_ledger_invoice_payment omitindo defaults opcionais', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: { payment_id: 1 }, error: null })
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: paymentPayload(), error: null })
 
     const result = await registerLedgerInvoicePayment({ invoiceId: 1, amountBrl: 50 })
 
@@ -198,11 +233,11 @@ describe('registerLedgerInvoicePayment', () => {
       p_method: 'pix',
       p_source: 'manual',
     })
-    expect(result).toEqual({ payment_id: 1 })
+    expect(result).toEqual(paymentPayload())
   })
 
   it('repassa todos os campos com notes aparado; notes so de espacos vira null', async () => {
-    supabaseMocks.rpc.mockResolvedValue({ data: null, error: null })
+    supabaseMocks.rpc.mockResolvedValue({ data: paymentPayload(), error: null })
 
     await registerLedgerInvoicePayment({
       invoiceId: 2,
@@ -236,11 +271,25 @@ describe('registerLedgerInvoicePayment', () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('pagamento falhou') })
     await expect(registerLedgerInvoicePayment({ invoiceId: 1, amountBrl: 50 })).rejects.toThrow('pagamento falhou')
   })
+
+  it('rejeita retorno JSON inválido do pagamento', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: { payment_id: 'invalid' }, error: null })
+
+    await expect(registerLedgerInvoicePayment({ invoiceId: 1, amountBrl: 50 })).rejects.toThrow(
+      'Resposta inválida de register_ledger_invoice_payment',
+    )
+  })
 })
 
 describe('reconcileInvoicePaymentByTxid', () => {
   it('chama o RPC reconcile_invoice_payment_by_txid omitindo paid_at por default', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: { matched: true }, error: null })
+    const response = {
+      matched: true,
+      invoice_id: 1,
+      settled: true,
+      payment: paymentPayload(),
+    }
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: response, error: null })
 
     const result = await reconcileInvoicePaymentByTxid({ txid: 'TX1', amountBrl: 99.9 })
 
@@ -248,11 +297,11 @@ describe('reconcileInvoicePaymentByTxid', () => {
       p_txid: 'TX1',
       p_amount_brl: 99.9,
     })
-    expect(result).toEqual({ matched: true })
+    expect(result).toEqual(response)
   })
 
   it('repassa paidAt quando informado', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: null })
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: { matched: false, reason: 'no_match' }, error: null })
 
     await reconcileInvoicePaymentByTxid({ txid: 'TX2', amountBrl: 10, paidAt: '2026-06-02T08:00:00' })
 
@@ -263,8 +312,36 @@ describe('reconcileInvoicePaymentByTxid', () => {
     })
   })
 
+  it('aceita falha de baixa com invoice e motivo', async () => {
+    const response = { matched: true, invoice_id: 2, settled: false, reason: 'saldo divergente' }
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: response, error: null })
+
+    await expect(reconcileInvoicePaymentByTxid({ txid: 'TX3', amountBrl: 10 })).resolves.toEqual(response)
+  })
+
   it('propaga erro do RPC', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('reconciliacao falhou') })
     await expect(reconcileInvoicePaymentByTxid({ txid: 'TX1', amountBrl: 1 })).rejects.toThrow('reconciliacao falhou')
+  })
+
+  it('rejeita retorno JSON inválido da conciliação', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: { matched: 'yes' }, error: null })
+
+    await expect(reconcileInvoicePaymentByTxid({ txid: 'TX1', amountBrl: 1 })).rejects.toThrow(
+      'Resposta inválida de reconcile_invoice_payment_by_txid',
+    )
+  })
+
+  it.each([
+    { matched: false },
+    { matched: true },
+    { matched: true, invoice_id: 1, settled: false },
+    { matched: true, invoice_id: 1, settled: true },
+  ])('rejeita campos dependentes ausentes em %j', async (data) => {
+    supabaseMocks.rpc.mockResolvedValueOnce({ data, error: null })
+
+    await expect(reconcileInvoicePaymentByTxid({ txid: 'TX1', amountBrl: 1 })).rejects.toThrow(
+      'Resposta inválida de reconcile_invoice_payment_by_txid',
+    )
   })
 })

@@ -46,12 +46,12 @@ else
   psql_su() { "$PG_BIN/psql" -h 127.0.0.1 -U "$LOCAL_SUPERUSER" -p "$PORT" -d postgres "$@"; }
 
   if [ "$RESET" = "--reset" ] && [ -d "$PGDATA" ]; then
-    if "$PG_BIN/pg_ctl" -D "$PGDATA" status >/dev/null 2>&1; then
-      "$PG_BIN/pg_ctl" -D "$PGDATA" stop -m fast >/dev/null
-    fi
     if ! local_pg_validate_reset_target "$PGDATA" "${TMPDIR:-/tmp}"; then
       echo "LOCAL_PGDATA deve estar sob TMPDIR para --reset: $PGDATA" >&2
       exit 1
+    fi
+    if "$PG_BIN/pg_ctl" -D "$PGDATA" status >/dev/null 2>&1; then
+      "$PG_BIN/pg_ctl" -D "$PGDATA" stop -m fast >/dev/null
     fi
     rm -rf "$PGDATA"
   fi

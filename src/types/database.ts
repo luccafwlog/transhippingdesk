@@ -5313,8 +5313,10 @@ export type ConsolidatableReceivable = Omit<
 export type LedgerPaymentResult = {
   invoice_id: number
   payment_id: number
-  status: 'paid'
+  status: 'paid' | 'partially_paid'
   amount_brl: number
+  balance_brl: number
+  refund_due_brl: number
   receivables_settled: number
   individuals_covered: number
   consolidated_obsoleted: number
@@ -5322,7 +5324,7 @@ export type LedgerPaymentResult = {
 
 export type ConsolidatedInvoiceResult = {
   invoice_id: number
-  invoice_number: string
+  invoice_number: string | null
   status: 'issued'
   invoice_type: 'consolidated'
   receivable_count: number
@@ -5342,13 +5344,10 @@ export type IndividualInvoiceResult = {
   existing: boolean
 }
 
-export type ReconcileByTxidResult = {
-  matched: boolean
-  reason?: string
-  invoice_id?: number
-  settled?: boolean
-  payment?: LedgerPaymentResult
-}
+export type ReconcileByTxidResult =
+  | { matched: false; reason: string }
+  | { matched: true; invoice_id: number; settled: false; reason: string }
+  | { matched: true; invoice_id: number; settled: true; payment: LedgerPaymentResult }
 
 export type InvoiceSummary = Invoice & {
   customer?: Pick<Customer, 'id' | 'name' | 'cnpj_cpf'> | null

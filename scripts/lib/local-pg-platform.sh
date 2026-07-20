@@ -7,10 +7,13 @@ local_pg_has_debian_cluster() {
 }
 
 local_pg_validate_reset_target() {
-  local target="$1"
-  local tmp_root="${2%/}"
-  case "$target" in
-    "$tmp_root"/*) return 0 ;;
+  local target_real
+  local tmp_root_real
+  target_real="$(CDPATH= cd -P -- "$1" 2>/dev/null && pwd -P)" || return 1
+  tmp_root_real="$(CDPATH= cd -P -- "$2" 2>/dev/null && pwd -P)" || return 1
+  [ "$target_real" != "$tmp_root_real" ] || return 1
+  case "$target_real" in
+    "$tmp_root_real"/*) return 0 ;;
     *) return 1 ;;
   esac
 }

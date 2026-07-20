@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { supabase } from './supabase'
 import type {
   ConsolidatableReceivable,
@@ -10,6 +11,52 @@ export type ConsolidatableReceivableFilters = {
   customerId?: number | null
   voyageId?: number | null
   search?: string | null
+}
+
+const consolidatedInvoiceResultSchema: z.ZodType<ConsolidatedInvoiceResult> = z.object({
+  invoice_id: z.number(),
+  invoice_number: z.string().nullable(),
+  status: z.literal('issued'),
+  invoice_type: z.literal('consolidated'),
+  receivable_count: z.number(),
+  total_brl: z.number(),
+})
+
+const ledgerPaymentResultSchema: z.ZodType<LedgerPaymentResult> = z.object({
+  invoice_id: z.number(),
+  payment_id: z.number(),
+  status: z.enum(['paid', 'partially_paid']),
+  amount_brl: z.number(),
+  balance_brl: z.number(),
+  refund_due_brl: z.number(),
+  receivables_settled: z.number(),
+  individuals_covered: z.number(),
+  consolidated_obsoleted: z.number(),
+})
+
+const reconcileByTxidResultSchema: z.ZodType<ReconcileByTxidResult> = z.union([
+  z.object({
+    matched: z.literal(false),
+    reason: z.string(),
+  }),
+  z.object({
+    matched: z.literal(true),
+    invoice_id: z.number(),
+    settled: z.literal(false),
+    reason: z.string(),
+  }),
+  z.object({
+    matched: z.literal(true),
+    invoice_id: z.number(),
+    settled: z.literal(true),
+    payment: ledgerPaymentResultSchema,
+  }),
+])
+
+function parseRpcResult<T>(schema: z.ZodType<T>, data: unknown, rpcName: string): T {
+  const parsed = schema.safeParse(data)
+  if (!parsed.success) throw new Error(`Resposta inválida de ${rpcName}.`)
+  return parsed.data
 }
 
 function parseReceivableStatus(value: string): ConsolidatableReceivable['receivable_status'] {
@@ -57,7 +104,7 @@ export async function createConsolidatedInvoice(input: {
     p_receivable_ids: input.receivableIds,
   })
   if (error) throw error
-  return data as unknown as ConsolidatedInvoiceResult
+  return parseRpcResult(consolidatedInvoiceResultSchema, data, 'create_local_consolidated_invoice')
 }
 export async function registerLedgerInvoicePayment(input: {
   invoiceId: number
@@ -78,7 +125,7 @@ export async function registerLedgerInvoicePayment(input: {
     ...(input.notes?.trim() ? { p_notes: input.notes.trim() } : {}),
   })
   if (error) throw error
-  return data as unknown as LedgerPaymentResult
+  return parseRpcResult(ledgerPaymentResultSchema, data, 'register_ledger_invoice_payment')
 }
 export type InvoiceRefund = {
   id: number
@@ -118,5 +165,5 @@ export async function reconcileInvoicePaymentByTxid(input: {
     ...(input.paidAt == null ? {} : { p_paid_at: input.paidAt }),
   })
   if (error) throw error
-  return data as unknown as ReconcileByTxidResult
+  return parseRpcResult(reconcileByTxidResultSchema, data, 'reconcile_invoice_payment_by_txid')
 }
