@@ -16,6 +16,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
 | [2026-07-20-adr-correcoes-pos-implementacao](2026-07-20-adr-correcoes-pos-implementacao.md) | Revisão pós-merge dos commits `83e2ef7`/`d976e21`/`8d722ec` · [spec arquivada](../archive/specs/2026-07-19-agency-departure-report-design.md) · [ADR 0027](../adr/0027-agency-departure-report-agregado-escala-snapshot.md) | BLOCKED (Tasks 1–8 concluídas nesta PR; Task 0 — aplicar migrations 211–216 no Supabase remoto — depende de ação fora do repositório) |
+| [2026-07-20-ux-pendencias-pos-auditoria](2026-07-20-ux-pendencias-pos-auditoria.md) | Auditoria UX de 2026-07-20 (`docs/design-audit/README.md`) · decisões do grilling registradas no `CONTEXT.md` | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
