@@ -1133,6 +1133,16 @@ textarea {
   box-shadow: none;
 }
 
+/* opacity funde fundo+texto na mesma direção (rumo ao fundo da página) e
+   derruba o contraste branco-sobre-azul; o botão primário precisa dessaturar
+   sem depender de opacity quando desabilitado (a11y A11Y-002). */
+.app-btn--primary:disabled {
+  opacity: 1;
+  background: color-mix(in srgb, var(--app-blue-btn) 55%, var(--app-muted-soft) 45%);
+  border-color: color-mix(in srgb, var(--app-blue-btn) 55%, var(--app-muted-soft) 45%);
+  color: #ffffff;
+}
+
 .app-btn--primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--app-blue-btn) 82%, #000000 18%);
   border-color: color-mix(in srgb, var(--app-blue-btn) 82%, #000000 18%);
@@ -1314,6 +1324,87 @@ textarea {
   /* Âmbar levemente mais escuro: contraste AA (>=4.5:1) sobre o gold-suave
      (antes 4.47:1 — falhava por margem; a11y A11Y-001). */
   color: #a85309;
+}
+
+/* Segmented control de 3 estados do sign-off do ADR. Concêntrico: raio
+   externo 12px = raio interno 9px + padding 3px. Reusa as cores já
+   corrigidas para AA (A11Y-001) do app-badge--green/--yellow em vez de
+   inventar um novo par cor/fundo. */
+.app-signoff {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface-muted);
+}
+
+.app-signoff__segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 44px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition-property: background-color, color, transform;
+  transition-duration: 150ms;
+}
+
+.app-signoff__segment:disabled {
+  cursor: default;
+}
+
+.app-signoff__segment:hover:not(:disabled):not([aria-pressed='true']) {
+  background: var(--app-panel);
+  color: var(--app-text);
+}
+
+.app-signoff__segment:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.app-signoff__segment:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--app-border-focus);
+}
+
+.app-signoff__segment[aria-pressed='true'].app-signoff__segment--pending {
+  background: var(--app-panel-strong);
+  color: var(--app-text);
+}
+
+.app-signoff__segment[aria-pressed='true'].app-signoff__segment--confirmed {
+  background: var(--app-green-soft);
+  color: #157a45;
+}
+
+.app-signoff__segment[aria-pressed='true'].app-signoff__segment--nothing {
+  background: var(--app-gold-soft);
+  color: #a85309;
+}
+
+.app-signoff-history {
+  display: grid;
+  gap: 10px;
+}
+
+.app-signoff-history__item {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-signoff-history__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .app-badge--slate {

@@ -157,7 +157,10 @@ Confirmação departamental de que a seção reflete a realidade da escala. Esta
 Pendente → Confirmado ou Nada a declarar. Ausência de dado não é conclusão:
 zero overtime sem sign-off é seção Pendente, não escala sem overtime. Alertas
 de informação faltante são as seções Pendentes, direcionadas ao departamento
-dono.
+dono. A primeira saída de Pendente é uma decisão que pede confirmação
+explícita; alterar uma decisão já tomada — voltar a Pendente ou trocar entre
+Confirmado e Nada a declarar — exige justificativa. Toda transição é registrada
+em histórico (autor, momento, de→para e, quando aplicável, justificativa).
 
 **Equipamentos**
 Departamento responsável pelo embarque de vazios de exportação (VAZIOS EXP) e

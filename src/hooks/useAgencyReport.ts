@@ -4,6 +4,7 @@ import {
   closeReport,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
+  listSignoffEvents,
   reopenReport,
   setSignoff,
   setTerminal,
@@ -25,31 +26,28 @@ export function useAgencyReportOwn(voyageId: number, port: string | null) {
   })
 }
 
-function useAgencyReportOwnMutation<T>(mutationFn: (input: T) => Promise<void>, invalidateRelated = false) {
+function useAgencyReportOwnMutation<T>(mutationFn: (input: T) => Promise<void>, extraKeys: string[] = []) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['agency-report-own'] })
-      if (invalidateRelated) {
-        // Fechamento/reabertura também altera alertas e os indicadores exibidos
-        // no header, no Painel e na tela de Alertas.
-        for (const queryKey of [
-          ['agency-report'],
-          ['alerts'],
-          ['op-count'],
-          ['header-alert'],
-          ['dashboard'],
-        ]) {
-          void queryClient.invalidateQueries({ queryKey })
-        }
+      for (const queryKey of [['agency-report-own'], ...extraKeys.map((key) => [key])]) {
+        void queryClient.invalidateQueries({ queryKey })
       }
     },
   })
 }
 
 export function useSetAgencyReportSignoff() {
-  return useAgencyReportOwnMutation(setSignoff)
+  return useAgencyReportOwnMutation(setSignoff, ['agency-report-signoff-events'])
+}
+
+export function useAgencyReportSignoffEvents(voyageId: number, port: string | null) {
+  return useQuery({
+    queryKey: ['agency-report-signoff-events', voyageId, port],
+    queryFn: () => listSignoffEvents(voyageId, port as string),
+    enabled: Boolean(port),
+  })
 }
 
 export function useAddAgencyReportOccurrence() {
@@ -60,10 +58,14 @@ export function useSetAgencyReportTerminal() {
   return useAgencyReportOwnMutation(setTerminal)
 }
 
+// Fechamento/reabertura também altera alertas e os indicadores exibidos no
+// header, no Painel e na tela de Alertas.
+const CLOSE_REOPEN_KEYS = ['agency-report', 'agency-report-signoff-events', 'alerts', 'op-count', 'header-alert', 'dashboard']
+
 export function useCloseAgencyReport() {
-  return useAgencyReportOwnMutation(closeReport, true)
+  return useAgencyReportOwnMutation(closeReport, CLOSE_REOPEN_KEYS)
 }
 
 export function useReopenAgencyReport() {
-  return useAgencyReportOwnMutation(reopenReport, true)
+  return useAgencyReportOwnMutation(reopenReport, CLOSE_REOPEN_KEYS)
 }

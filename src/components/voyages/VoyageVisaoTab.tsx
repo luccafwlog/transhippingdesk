@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Boxes, ChevronDown, ChevronUp, Clock, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { Badge } from '../ui/Badge'
 import { MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/ConfirmDialog'
@@ -305,14 +306,14 @@ export function VoyageVisaoTab({
               </tr>
             )}
             {exportSchedule ? (
-              <tr className="border-t border-amber-900/40 bg-amber-950/20">
-                <td className="px-3 py-2 font-semibold text-amber-400">
+              <tr className="border-t border-[var(--app-border)] bg-[var(--app-gold-soft)]">
+                <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">
                   {exportSchedule.pol ?? 'POL'}
-                  <span className="ml-1 text-xs text-amber-600">EXP</span>
+                  <Badge tone="yellow" className="ml-1 align-middle">EXP</Badge>
                 </td>
                 <td className="px-3 py-2">{formatDate(exportSchedule.eta)}</td>
                 <td className="px-3 py-2">{formatDate(exportSchedule.etb)}</td>
-                <td colSpan={3} className="px-3 py-2 text-amber-500/80 text-xs">
+                <td colSpan={3} className="px-3 py-2 text-[var(--app-muted)] text-xs">
                   {[
                     exportSchedule.hasGranite ? 'GRANITE' : null,
                     exportSchedule.containersQty !== null

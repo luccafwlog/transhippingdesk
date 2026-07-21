@@ -1,17 +1,20 @@
 import { useState, type ReactNode } from 'react'
 import { Modal } from '../ui/Modal'
+import { Button } from '../ui/Button'
 import { AgencyReportDocument } from './AgencyReportDocument'
 import { Info, MetricPanel } from '../shared/VoyageSectionCards'
+import { SignoffControl } from './SignoffControl'
 import {
   useAddAgencyReportOccurrence,
   useAgencyReportDerived,
   useAgencyReportOwn,
+  useAgencyReportSignoffEvents,
   useCloseAgencyReport,
   useReopenAgencyReport,
   useSetAgencyReportSignoff,
   useSetAgencyReportTerminal,
 } from '../../hooks/useAgencyReport'
-import { AGENCY_REPORT_SECTIONS, AGENCY_REPORT_DEPARTMENT_LABELS, buildContainerTypeMatrix, groupVehiclesByBrand, type AgencyReportSection } from '../../services/agencyDepartureReport'
+import { AGENCY_REPORT_SECTIONS, AGENCY_REPORT_DEPARTMENT_LABELS, buildContainerTypeMatrix, groupVehiclesByBrand, signoffLabels, type AgencyReportSection, type AgencyReportSignoffEvent, type SignoffState } from '../../services/agencyDepartureReport'
 import { formatDate } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -23,40 +26,45 @@ type Props = {
   initialEscala?: string
 }
 
-const signoffLabels = {
-  pending: 'Pendente',
-  confirmed: 'Confirmado',
-  nothing_to_declare: 'Nada a declarar',
-} as const
-
 function ReportSection({
   title,
   section,
   state,
   attribution,
   canSignoff,
+  events,
+  actorNames,
+  isPending,
   onSignoff,
   children,
 }: {
   title: string
   section?: AgencyReportSection
-  state?: keyof typeof signoffLabels
+  state?: SignoffState
   attribution?: string | null
   canSignoff?: boolean
-  onSignoff?: (section: AgencyReportSection, state: keyof typeof signoffLabels) => void
+  events?: AgencyReportSignoffEvent[]
+  actorNames?: Record<string, string>
+  isPending?: boolean
+  onSignoff?: (section: AgencyReportSection, state: SignoffState, justification?: string) => void
   children: ReactNode
 }) {
   return (
     <section className="app-panel app-panel--padded grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="app-panel__title text-base">{title}</h3>
-        {section && state ? <div className="flex flex-wrap items-center gap-2">
-          {attribution ? <span className="text-xs text-[var(--app-muted)]">{attribution}</span> : null}
-          <span className="rounded-full border border-[var(--app-border)] px-2 py-1 text-xs font-semibold">{signoffLabels[state]}</span>
-          {canSignoff ? (Object.entries(signoffLabels) as Array<[keyof typeof signoffLabels, string]>).filter(([next]) => next !== state).map(([next, label]) => (
-            <button key={next} type="button" className="rounded border border-[var(--app-border)] px-2 py-1 text-xs" onClick={() => onSignoff?.(section, next)}>{label}</button>
-          )) : null}
-        </div> : null}
+        {section && state ? (
+          <SignoffControl
+            section={section}
+            state={state}
+            attribution={attribution}
+            canSignoff={Boolean(canSignoff)}
+            events={events ?? []}
+            actorNames={actorNames ?? {}}
+            isPending={isPending}
+            onChange={(nextSection, nextState, justification) => onSignoff?.(nextSection, nextState, justification)}
+          />
+        ) : null}
       </div>
       {children}
     </section>
@@ -73,6 +81,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const [occurrence, setOccurrence] = useState('')
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port)
+  const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port)
   const { effectiveRole, isAdmin } = useAuth()
   const signoffMutation = useSetAgencyReportSignoff()
   const occurrenceMutation = useAddAgencyReportOccurrence()
@@ -129,9 +138,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   }
   const canEditOperations = isAdmin || effectiveRole === 'operacoes'
   const canSignoff = (section: AgencyReportSection) => isAdmin || effectiveRole === AGENCY_REPORT_SECTIONS[section]
-  const updateSignoff = (section: AgencyReportSection, state: keyof typeof signoffLabels) => {
-    if (port) signoffMutation.mutate({ voyageId, port, section, state })
+  const updateSignoff = (section: AgencyReportSection, state: SignoffState, justification?: string) => {
+    if (port) signoffMutation.mutate({ voyageId, port, section, state, justification })
   }
+  const eventsBySection = (section: AgencyReportSection) => (signoffEvents ?? []).filter((event) => event.section === section)
   const snapshot = {
     header: { carrierName, voyageLabel, port, terminal: ownData?.terminal ?? null, schedule: data?.schedule ?? null },
     sections: {
@@ -166,19 +176,19 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       </div>
 
       {isLoading ? <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Carregando dados do ADR…</div> : null}
-      {error ? <div className="app-panel app-panel--padded text-sm text-red-400">Não foi possível carregar os dados do ADR.</div> : null}
+      {error ? <div className="app-panel app-panel--padded text-sm text-[var(--app-red)]">Não foi possível carregar os dados do ADR.</div> : null}
       {!isLoading && !error ? <>
         {isClosed ? <>
-          <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)} por {ownData?.closed_by_name ?? ownData?.closed_by ?? '—'}</span><div className="flex gap-2"><button type="button" className="rounded border border-[var(--app-border)] px-3 py-2 text-sm font-semibold" onClick={() => setPrintOpen(true)}>Imprimir</button>{isAdmin ? <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white" onClick={() => setReopenOpen(true)}>Reabrir</button> : null}</div></div>
+          <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)} por {ownData?.closed_by_name ?? ownData?.closed_by ?? '—'}</span><div className="flex gap-2"><Button variant="secondary" onClick={() => setPrintOpen(true)}>Imprimir</Button>{isAdmin ? <Button variant="primary" onClick={() => setReopenOpen(true)}>Reabrir</Button> : null}</div></div>
           <AgencyReportDocument snapshot={closedSnapshot} />
-          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><button type="button" onClick={() => window.print()}>Imprimir</button></div><AgencyReportDocument snapshot={closedSnapshot} /></Modal>
-          <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><button type="button" className="mt-3 rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</button></Modal>
+          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} /></Modal>
+          <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><Button variant="primary" className="mt-3" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</Button></Modal>
         </> : <>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm font-semibold text-[var(--app-muted)]">{confirmedCount}/7 confirmadas</div>
-          <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={confirmedCount !== 7 || closeMutation.isPending || !port} title={confirmedCount !== 7 ? 'Confirme as 7 seções (ou marque "Nada a declarar") para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</button>
+          <Button variant="primary" disabled={confirmedCount !== 7 || closeMutation.isPending || !port} title={confirmedCount !== 7 ? 'Confirme as 7 seções (ou marque "Nada a declarar") para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</Button>
         </div>
-        <ReportSection title="Cabeçalho" section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} onSignoff={updateSignoff}>
+        <ReportSection title="Cabeçalho" section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             <Info label="Armador" value={carrierName} />
             <Info label="Navio / viagem" value={voyageLabel} />
@@ -194,22 +204,22 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </ReportSection>
 
-        <ReportSection title="Carga descarregada" section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} onSignoff={updateSignoff}>
+        <ReportSection title="Carga descarregada" section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} events={eventsBySection('carga_descarregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}>
           <div className="grid gap-4 xl:grid-cols-2">
             {data?.cargaSolta?.bls ? <MetricPanel title="Carga solta"><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></MetricPanel> : <MetricPanel title="Carga solta"><EmptyData /></MetricPanel>}
             {containers.length ? <MetricPanel title="Matriz de descarga (tipo × categoria)"><Matrix rows={dischargeMatrix.rows} /></MetricPanel> : <MetricPanel title="Matriz de descarga (tipo × categoria)"><EmptyData /></MetricPanel>}
           </div>
         </ReportSection>
-        <ReportSection title="Granito (carga carregada)" section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} onSignoff={updateSignoff}>
+        <ReportSection title="Granito (carga carregada)" section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}>
           {data?.granite.length ? <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel> : <EmptyData />}
         </ReportSection>
-        <ReportSection title="Vazios descarregados (cama / cover plate)" section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} onSignoff={updateSignoff}>
+        <ReportSection title="Vazios descarregados (cama / cover plate)" section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}>
           {data?.vaziosImp.length ? <Matrix rows={emptyDischargeMatrix.rows} /> : <EmptyData />}
         </ReportSection>
-        <ReportSection title="Container com veículo" section="veiculos" state={sectionState('veiculos')} attribution={sectionAttribution('veiculos')} canSignoff={canSignoff('veiculos')} onSignoff={updateSignoff}>
+        <ReportSection title="Container com veículo" section="veiculos" state={sectionState('veiculos')} attribution={sectionAttribution('veiculos')} canSignoff={canSignoff('veiculos')} events={eventsBySection('veiculos')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}>
           {vehicles.length ? <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div> : <EmptyData />}
         </ReportSection>
-        <ReportSection title="Embarque de vazios" section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} onSignoff={updateSignoff}>
+        <ReportSection title="Embarque de vazios" section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} events={eventsBySection('vazios_embarcados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}>
           {bookings.length ? <div className="grid gap-4 xl:grid-cols-2"><MetricPanel title="Matriz"><Matrix rows={emptyEmbarkMatrix.rows} /></MetricPanel><MetricPanel title="Operação"><Info label="OS" value={data?.operation?.os_number ?? 'Não informada'} /><Info label="Embarque direto" value={String(bookings.filter((booking) => !booking.depot).length)} /><Info label="Depots" value={depots.join(', ') || '—'} /></MetricPanel></div> : <EmptyData />}
           {bookings.length || data?.operation ? (
             <div className="grid gap-4 xl:grid-cols-3">
@@ -219,9 +229,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             </div>
           ) : null}
         </ReportSection>
-        <ReportSection title="Ocorrências" section="ocorrencias" state={sectionState('ocorrencias')} attribution={sectionAttribution('ocorrencias')} canSignoff={canSignoff('ocorrencias')} onSignoff={updateSignoff}>
+        <ReportSection title="Ocorrências" section="ocorrencias" state={sectionState('ocorrencias')} attribution={sectionAttribution('ocorrencias')} canSignoff={canSignoff('ocorrencias')} events={eventsBySection('ocorrencias')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}>
           {(ownData?.occurrences ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map((item) => <div key={item.id} className="grid gap-1 text-sm"><span>{item.body}</span><span className="text-xs text-[var(--app-muted)]">{(item.author_id && actorNames[item.author_id]) ? `${actorNames[item.author_id]} (${AGENCY_REPORT_DEPARTMENT_LABELS[item.department] ?? item.department})` : (AGENCY_REPORT_DEPARTMENT_LABELS[item.department] ?? item.department)} · {formatDate(item.created_at)}</span></div>)}
-          {canEditOperations ? <div className="grid gap-2"><textarea aria-label="Nova ocorrência" value={occurrence} onChange={(event) => setOccurrence(event.target.value)} className="min-h-20 rounded border border-[var(--app-border)] bg-transparent p-2" /><button type="button" className="w-fit rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!occurrence.trim()} onClick={() => { if (port && occurrence.trim()) occurrenceMutation.mutate({ voyageId, port, body: occurrence.trim() }, { onSuccess: () => setOccurrence('') }) }}>Lançar</button></div> : null}
+          {canEditOperations ? <div className="grid gap-2"><textarea aria-label="Nova ocorrência" value={occurrence} onChange={(event) => setOccurrence(event.target.value)} className="min-h-20 rounded border border-[var(--app-border)] bg-transparent p-2" /><Button variant="primary" className="w-fit" disabled={!occurrence.trim()} onClick={() => { if (port && occurrence.trim()) occurrenceMutation.mutate({ voyageId, port, body: occurrence.trim() }, { onSuccess: () => setOccurrence('') }) }}>Lançar</Button></div> : null}
           {!ownData?.occurrences.length ? <EmptyData /> : null}
         </ReportSection>
         </>}
