@@ -34,6 +34,24 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
   ocorrencias: 'operacoes',
 }
 
+// Labels pt-BR das seções e departamentos do ADR — espelham as funções SQL
+// agency_report_section_label/agency_report_department_label (migration 219).
+export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> = {
+  datas: 'Datas',
+  carga_descarregada: 'Carga descarregada',
+  carga_carregada: 'Carga carregada',
+  veiculos: 'Veículos',
+  vazios_embarcados: 'Vazios embarcados',
+  vazios_descarregados: 'Vazios descarregados',
+  ocorrencias: 'Ocorrências',
+}
+
+export const AGENCY_REPORT_DEPARTMENT_LABELS: Record<string, string> = {
+  operacoes: 'Operações',
+  documentacao: 'Documentação',
+  equipamentos: 'Equipamentos',
+}
+
 export type AgencyReportOwnData = AgencyDepartureReport & {
   signoffs: AgencyReportSignoff[]
   occurrences: AgencyReportOccurrence[]

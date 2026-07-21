@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { acknowledgeAlert, closeAlert, detectAgencyReportPending, listAlerts, type AlertStatusFilter } from '../services/alerts'
+import { acknowledgeAlert, closeAlert, detectAgencyReportPending, formatAgencyReportAlertEntity, listAlerts, type AlertStatusFilter } from '../services/alerts'
 
 const STATUS_LABELS: Record<string, { label: string; tone: 'yellow' | 'blue' | 'slate' }> = {
   open: { label: 'Aberto', tone: 'yellow' },
@@ -152,7 +152,9 @@ export function Alertas() {
                     </td>
                     <td className="px-4 py-3 max-w-sm text-[var(--app-text)]">{alert.message}</td>
                     <td className="px-4 py-3 text-[var(--app-muted)]">
-                      {alert.entity_type ? (
+                      {alert.entity_type === 'agency_departure_report' && alert.entity_id && formatAgencyReportAlertEntity(alert.entity_id) ? (
+                        <span className="text-xs">{formatAgencyReportAlertEntity(alert.entity_id)}</span>
+                      ) : alert.entity_type ? (
                         <span className="font-mono text-xs">
                           {ENTITY_TYPE_LABELS[alert.entity_type] ?? alert.entity_type}
                           {alert.entity_id ? ` ${alert.entity_id}` : ''}
