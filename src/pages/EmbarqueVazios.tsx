@@ -1,5 +1,5 @@
 import { Fragment, useState, type ChangeEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Boxes, ChevronDown, ChevronUp, Clock3, Download, Package, Truck, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
@@ -587,7 +587,7 @@ export function EmbarqueVazios() {
                                   onBlur={() => void saveReorgQty(service.value, containerType)}
                                 />
                               </td>
-                              <td className="px-3 py-2">{rate == null ? 'Sem tarifa' : formatBRL(rate)}</td>
+                              <td className="px-3 py-2">{rate == null ? <Link className="app-table__action" to="/embarquevazios/taxas">Sem tarifa</Link> : formatBRL(rate)}</td>
                               <td className="px-3 py-2 font-semibold text-white">
                                 {rate == null || !Number.isFinite(qty) ? '-' : formatBRL(qty * rate)}
                               </td>

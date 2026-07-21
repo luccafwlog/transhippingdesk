@@ -4,6 +4,7 @@ import type {
   VaziosExportOvertimeDepot,
   VaziosReorgRate,
   VaziosReorgService,
+  VaziosReorgServiceType,
 } from '../types/database'
 import { supabase } from './supabase'
 import { listVaziosBookings } from './vaziosImport'
@@ -149,4 +150,44 @@ export async function listActiveReorgRates(): Promise<VaziosReorgRate[]> {
     .order('id', { ascending: false })
   if (error) throw error
   return (data ?? []) as VaziosReorgRate[]
+}
+
+export async function listVaziosReorgRates(): Promise<VaziosReorgRate[]> {
+  const { data, error } = await supabase
+    .from('vazios_reorg_rates')
+    .select('*')
+    .order('service', { ascending: true })
+    .order('valid_from', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as VaziosReorgRate[]
+}
+
+export async function upsertVaziosReorgRate(input: {
+  id?: string
+  service: VaziosReorgServiceType
+  rate_brl: number
+  active: boolean
+  valid_from: string
+  valid_to: string | null
+}): Promise<void> {
+  if (!(input.rate_brl >= 0)) throw new Error('Tarifa deve ser um valor não negativo.')
+  if (input.valid_to && input.valid_to < input.valid_from) throw new Error('Vigência final anterior à inicial.')
+  const payload = {
+    service: input.service,
+    rate_brl: input.rate_brl,
+    active: input.active,
+    valid_from: input.valid_from,
+    valid_to: input.valid_to,
+  }
+  const query = input.id
+    ? supabase.from('vazios_reorg_rates').update(payload).eq('id', input.id)
+    : supabase.from('vazios_reorg_rates').insert(payload)
+  const { error } = await query
+  if (error) throw error
+}
+
+export async function deleteVaziosReorgRate(id: string): Promise<void> {
+  const { error } = await supabase.from('vazios_reorg_rates').delete().eq('id', id)
+  if (error) throw error
 }
