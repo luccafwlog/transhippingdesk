@@ -32,6 +32,7 @@ import { useCloseAgencyReport, useReopenAgencyReport } from '../useAgencyReport'
 const expectedInvalidations = [
   ['agency-report-own'],
   ['agency-report'],
+  ['agency-report-signoff-events'],
   ['alerts'],
   ['op-count'],
   ['header-alert'],

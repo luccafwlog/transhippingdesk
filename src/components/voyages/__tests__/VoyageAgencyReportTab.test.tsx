@@ -12,10 +12,16 @@ const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reo
   useAuthMock: vi.fn(),
 }))
 
+const { signoffMutateMock, useAgencyReportSignoffEventsMock } = vi.hoisted(() => ({
+  signoffMutateMock: vi.fn(),
+  useAgencyReportSignoffEventsMock: vi.fn(),
+}))
+
 vi.mock('../../../hooks/useAgencyReport', () => ({
   useAgencyReportDerived: useAgencyReportDerivedMock,
   useAgencyReportOwn: useAgencyReportOwnMock,
-  useSetAgencyReportSignoff: () => ({ mutate: vi.fn() }),
+  useAgencyReportSignoffEvents: useAgencyReportSignoffEventsMock,
+  useSetAgencyReportSignoff: () => ({ mutate: signoffMutateMock, isPending: false }),
   useAddAgencyReportOccurrence: () => ({ mutate: vi.fn() }),
   useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
   useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
@@ -27,6 +33,7 @@ afterEach(cleanup)
 
 useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
 useAgencyReportOwnMock.mockReturnValue({ data: undefined })
+useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
 useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
 
 it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () => {
@@ -287,4 +294,93 @@ it('não exibe Reabrir para usuário não administrador', () => {
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
   expect(screen.queryByRole('button', { name: 'Reabrir' })).toBeNull()
+})
+
+it('a primeira saída de Pendente só pede confirmação, sem justificativa', () => {
+  signoffMutateMock.mockClear()
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], occurrences: [] } })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const ocorrenciasSection = screen.getByRole('heading', { name: 'Ocorrências' }).closest('section')!
+  fireEvent.click(within(ocorrenciasSection).getByRole('button', { name: 'Confirmado' }))
+
+  expect(screen.queryByLabelText('Justificativa')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+  expect(signoffMutateMock).toHaveBeenCalledWith({
+    voyageId: 7, port: 'BRVIX', section: 'ocorrencias', state: 'confirmed', justification: undefined,
+  })
+})
+
+it('alterar uma decisão já registrada exige justificativa não vazia', () => {
+  signoffMutateMock.mockClear()
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: { terminal: 'TVV', signoffs: [{ id: 'so-1', section: 'datas', state: 'confirmed' }], occurrences: [] },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  fireEvent.click(within(datasSection).getByRole('button', { name: 'Nada a declarar' }))
+
+  const justificationField = screen.getByLabelText('Justificativa')
+  const confirmButton = screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement
+  expect(confirmButton.disabled).toBe(true)
+
+  fireEvent.change(justificationField, { target: { value: '  ' } })
+  expect(confirmButton.disabled).toBe(true)
+
+  fireEvent.change(justificationField, { target: { value: 'Correção após revisão' } })
+  expect(confirmButton.disabled).toBe(false)
+  fireEvent.click(confirmButton)
+
+  expect(signoffMutateMock).toHaveBeenCalledWith({
+    voyageId: 7, port: 'BRVIX', section: 'datas', state: 'nothing_to_declare', justification: 'Correção após revisão',
+  })
+})
+
+it('sem eventos, não exibe o ícone de histórico', () => {
+  useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], occurrences: [] } })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  expect(within(datasSection).queryByTitle('Ver histórico')).toBeNull()
+})
+
+it('com eventos, o histórico lista de→para, autor e justificativa', () => {
+  useAgencyReportSignoffEventsMock.mockReturnValue({
+    data: [{
+      id: 1,
+      section: 'datas',
+      old_value: 'confirmed',
+      new_value: 'nothing_to_declare',
+      justification: 'Correção após revisão',
+      changed_by: 'user-1',
+      changed_at: '2026-07-20T10:00:00Z',
+    }],
+  })
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [{ id: 'so-1', section: 'datas', state: 'nothing_to_declare' }],
+      occurrences: [],
+      actor_names: { 'user-1': 'Ana Ribeiro' },
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  fireEvent.click(within(datasSection).getByTitle('Ver histórico'))
+
+  expect(screen.getByText('Confirmado → Nada a declarar')).toBeTruthy()
+  expect(screen.getByText(/Ana Ribeiro/)).toBeTruthy()
+  expect(screen.getByText('Correção após revisão')).toBeTruthy()
 })

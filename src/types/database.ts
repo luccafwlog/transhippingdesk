@@ -4827,6 +4827,7 @@ export type Database = {
       }
       set_agency_report_signoff: {
         Args: {
+          p_justification?: string
           p_port: string
           p_section: string
           p_state: string

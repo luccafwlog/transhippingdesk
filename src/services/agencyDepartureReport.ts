@@ -46,6 +46,14 @@ export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> =
   ocorrencias: 'Ocorrências',
 }
 
+export type SignoffState = AgencyReportSignoff['state']
+
+export const signoffLabels: Record<SignoffState, string> = {
+  pending: 'Pendente',
+  confirmed: 'Confirmado',
+  nothing_to_declare: 'Nada a declarar',
+}
+
 export const AGENCY_REPORT_DEPARTMENT_LABELS: Record<string, string> = {
   operacoes: 'Operações',
   documentacao: 'Documentação',
@@ -102,14 +110,49 @@ export async function setSignoff(input: {
   port: string
   section: AgencyReportSection
   state: AgencyReportSignoff['state']
+  justification?: string
 }) {
   const { error } = await supabase.rpc('set_agency_report_signoff', {
     p_voyage_id: input.voyageId,
     p_port: input.port,
     p_section: input.section,
     p_state: input.state,
+    p_justification: input.justification,
   })
   if (error) throw error
+}
+
+export type AgencyReportSignoffEvent = {
+  id: number
+  section: AgencyReportSection
+  old_value: string | null
+  new_value: string | null
+  justification: string | null
+  changed_by: string | null
+  changed_at: string | null
+}
+
+// audit_logs é a trilha reutilizada para o histórico de sign-off (sem tabela
+// nova); entity_id segue o padrão "{voyageId}::{PORT}::{section}" gravado
+// pela migration 221.
+export async function listSignoffEvents(voyageId: number, port: string) {
+  const prefix = `${voyageId}::${port.toUpperCase()}::`
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')
+    .eq('entity_type', 'agency_departure_report_signoff')
+    .like('entity_id', `${prefix}%`)
+    .order('changed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row): AgencyReportSignoffEvent => ({
+    id: row.id,
+    section: row.entity_id.slice(prefix.length) as AgencyReportSection,
+    old_value: row.old_value,
+    new_value: row.new_value,
+    justification: row.justification,
+    changed_by: row.changed_by,
+    changed_at: row.changed_at,
+  }))
 }
 
 export async function addOccurrence(input: { voyageId: number; port: string; body: string }) {

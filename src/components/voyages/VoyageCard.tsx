@@ -75,11 +75,7 @@ function KpiTile({
       </div>
       <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
       {sub ? <div className="text-[11px] text-[var(--app-muted-soft)]">{sub}</div> : null}
-      {alert ? (
-        <div className="mt-1 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-          {alert}
-        </div>
-      ) : null}
+      {alert ? <Badge tone="yellow" className="mt-1 normal-case">{alert}</Badge> : null}
     </div>
   )
 }
