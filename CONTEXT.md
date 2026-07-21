@@ -191,6 +191,8 @@ Marcação de container vazio embarcado com material do armador em seu interior.
 Serviço executado sobre os vazios (bundle, desova, visual check), registrado
 por quantidade e tipo de container e valorado por quantidade × tarifa
 configurável. Pertence ao módulo de vazios de exportação, sob Equipamentos.
+A tarifa é única por serviço, com período de vigência; seu cadastro é
+configuração tarifária da administração, não operação da escala.
 
 **OS da Operação de Vazios**
 Número da ordem de serviço da operação de vazios de uma escala: um por
@@ -359,8 +361,10 @@ executadas na própria ficha são a edição auditada do cadastro, a gestão de
 contatos e o provisionamento embutido do Portal.
 
 **Saldo Pendente do Cliente**
-Soma do saldo das invoices locais emitidas e das invoices de Demurrage não
-pagas do Cliente, exibida com a decomposição entre as duas origens. É leitura
+Soma do saldo das invoices locais emitidas e ainda não pagas — incluindo as
+vencidas e as parcialmente pagas, pelo saldo restante — e das invoices de
+Demurrage não pagas do Cliente, exibida com a decomposição entre as duas
+origens. É leitura
 consolidada para a Ficha do Cliente, não um novo conceito contábil: cada
 origem mantém seu ciclo de vida próprio.
 

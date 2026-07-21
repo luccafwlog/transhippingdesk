@@ -1,5 +1,5 @@
 import { Fragment, useState, type ChangeEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Boxes, ChevronDown, ChevronUp, Clock3, Download, Package, Truck, Upload } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
@@ -421,26 +421,41 @@ export function EmbarqueVazios() {
         {operationPortOptions.map((port) => <option key={port} value={port} />)}
       </datalist>
 
-      {filters.voyageId ? (
-        <Card className="mb-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-white">Operação da escala</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                OS, overtime por depot e serviços extras dos vazios embarcados.
-              </p>
-            </div>
-            {canEditVazios ? (
+      <Card className="mb-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Operação da escala</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              OS, overtime por depot e serviços extras dos vazios embarcados.
+            </p>
+          </div>
+          {filters.voyageId ? (
+            canEditVazios ? (
               <span className="text-xs text-slate-400">
                 {savingKey?.startsWith('operation:') || savingKey?.startsWith('overtime:') || savingKey?.startsWith('reorg:')
                   ? 'Salvando...'
-                  : 'Salvamento no blur'}
+                  : 'Salva automaticamente ao sair do campo'}
               </span>
             ) : (
               <Badge tone="slate">Somente leitura</Badge>
-            )}
-          </div>
+            )
+          ) : null}
+        </div>
 
+        {!filters.voyageId ? (
+          <div className="mt-5 grid max-w-md gap-2">
+            <VoyageCombobox
+              clearable
+              label="Viagem"
+              selectedVoyageId={null}
+              onSelect={(id) => updateFilter('voyageId', id == null ? '' : String(id))}
+            />
+            <p className="text-sm text-[var(--app-muted)]">
+              Selecione a viagem para lançar OS, overtime por depot e serviços extras da escala.
+            </p>
+          </div>
+        ) : (
+        <>
           {operationError ? <div className="mt-4"><InlineError message="Erro ao carregar a operação da escala." /></div> : null}
           {reorgRatesError ? <div className="mt-4"><InlineError message="Erro ao carregar tarifas de reorganização." /></div> : null}
 
@@ -587,7 +602,7 @@ export function EmbarqueVazios() {
                                   onBlur={() => void saveReorgQty(service.value, containerType)}
                                 />
                               </td>
-                              <td className="px-3 py-2">{rate == null ? 'Sem tarifa' : formatBRL(rate)}</td>
+                              <td className="px-3 py-2">{rate == null ? <Link className="app-table__action" to="/embarquevazios/taxas">Sem tarifa</Link> : formatBRL(rate)}</td>
                               <td className="px-3 py-2 font-semibold text-white">
                                 {rate == null || !Number.isFinite(qty) ? '-' : formatBRL(qty * rate)}
                               </td>
@@ -603,8 +618,9 @@ export function EmbarqueVazios() {
               </section>
             </div>
           )}
-        </Card>
-      ) : null}
+        </>
+        )}
+      </Card>
 
       <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar bookings." /> : null}
@@ -818,7 +834,7 @@ export function EmbarqueVazios() {
                                       [flag.key]: event.currentTarget.checked,
                                     })}
                                   />
-                                  Marcado
+                                  {booking[flag.key] ? 'Sim' : 'Não'}
                                 </span>
                               </label>
                             ))}

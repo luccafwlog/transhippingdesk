@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type { CustomerContact, CustomerRateOverride, DemurrageInvoice } from '../types/database'
 import { isCustomerReconciliationResolved } from './customerReconciliation'
 import { formatBRL } from '../lib/utils'
+import { accountSituationLabel, provisioningDecisionLabel } from '../lib/portalProvisioningViewModel'
 
 export type FichaLocalInvoiceRow = {
   id: number
@@ -23,13 +24,15 @@ export type FichaRunningDemurrageRow = { container_id: number; container_number:
 
 export type ConsolidatedBalance = { localBrl: number; demurrageBrl: number; totalBrl: number }
 const UNPAID_DEMURRAGE_STATUSES = new Set(['issued', 'overdue'])
+// Glossário (CONTEXT.md, "Saldo Pendente do Cliente"): emitidas e ainda não
+// pagas — inclui vencidas e parcialmente pagas, pelo saldo restante.
+const UNPAID_LOCAL_STATUSES = new Set(['issued', 'overdue', 'partially_paid'])
 
 export function buildConsolidatedBalance(
   localInvoices: Array<{ status: string | null; balance_brl: number | null }>,
   demurrageInvoices: Array<{ status: string | null; current_total_brl: number | null }>,
 ): ConsolidatedBalance {
-  // Local pending_balance historically counts only issued invoices; overdue is surfaced separately as a pendency.
-  const localBrl = localInvoices.filter((row) => row.status === 'issued').reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
+  const localBrl = localInvoices.filter((row) => UNPAID_LOCAL_STATUSES.has(row.status ?? '')).reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
   const demurrageBrl = demurrageInvoices.filter((row) => UNPAID_DEMURRAGE_STATUSES.has(row.status ?? '')).reduce((sum, row) => sum + Number(row.current_total_brl ?? 0), 0)
   return { localBrl, demurrageBrl, totalBrl: localBrl + demurrageBrl }
 }
@@ -56,7 +59,7 @@ type TimelineSources = {
 export function buildCustomerTimeline(sources: TimelineSources): CustomerTimelineEvent[] {
   const events: CustomerTimelineEvent[] = [
     ...sources.auditLogs.filter((row) => row.changed_at).map((row) => ({ kind: 'cadastro_audit' as const, sourceId: String(row.id), at: row.changed_at!, label: `Cadastro alterado: ${row.field_name}`, detail: `${row.old_value ?? '—'} → ${row.new_value ?? '—'}${row.justification ? ` · ${row.justification}` : ''}`, link: null })),
-    ...sources.portalEvents.map((row) => ({ kind: 'portal_event' as const, sourceId: String(row.id), at: row.created_at, label: `Portal: ${row.new_decision ?? row.new_situation ?? 'evento'}`, detail: row.reason, link: null })),
+    ...sources.portalEvents.map((row) => ({ kind: 'portal_event' as const, sourceId: String(row.id), at: row.created_at, label: `Portal: ${row.new_decision ? provisioningDecisionLabel(row.new_decision) : row.new_situation ? accountSituationLabel(row.new_situation) : 'evento'}`, detail: row.reason, link: null })),
     ...sources.contacts.filter((row) => row.created_at).map((row) => ({ kind: 'contact_created' as const, sourceId: String(row.id), at: row.created_at!, label: `Contato criado: ${row.name ?? '—'}`, detail: null, link: null })),
     ...sources.localInvoices.filter((row) => row.issued_at).map((row) => ({ kind: 'local_invoice_issued' as const, sourceId: String(row.id), at: row.issued_at!, label: `Invoice emitida: ${row.invoice_number ?? `INV-${row.id}`}`, detail: null, link: `/faturamento?${sources.customerId ? `customer=${sources.customerId}&` : ''}invoice=${row.id}` })),
     ...(sources.payments ?? []).filter((row) => row.paid_at).map((row) => ({ kind: 'local_payment' as const, sourceId: String(row.id), at: row.paid_at!, label: `Pagamento recebido: ${row.invoice?.invoice_number ?? (row.invoice ? `INV-${row.invoice.id}` : '—')}`, detail: formatBRL(row.amount_brl), link: row.invoice ? `/faturamento?${sources.customerId ? `customer=${sources.customerId}&` : ''}invoice=${row.invoice.id}` : null })),

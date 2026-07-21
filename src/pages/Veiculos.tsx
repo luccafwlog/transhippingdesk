@@ -37,6 +37,9 @@ export function Veiculos() {
   const [unpackingLocations, setUnpackingLocations] = useState<Record<number, string>>({})
   const [savingContainerId, setSavingContainerId] = useState<number | null>(null)
   const [focusedContainerId, setFocusedContainerId] = useState<number | null>(null)
+  const [bulkDesovaOpen, setBulkDesovaOpen] = useState(false)
+  const [bulkDesovaValue, setBulkDesovaValue] = useState('')
+  const [bulkDesovaSaving, setBulkDesovaSaving] = useState(false)
   const { data: options } = useVehicleOptions()
   const [selectedVoyageId, setSelectedVoyageId] = useState(searchParams.get('voyage') ?? '')
   const [importVoyageId, setImportVoyageId] = useState('')
@@ -184,6 +187,36 @@ export function Veiculos() {
     }
   }
 
+  async function handleBulkUnpackingLocation() {
+    const value = bulkDesovaValue.trim() || null
+    const containerIds = [...new Set(
+      (data?.rows ?? [])
+        .filter((row) => selection.isSelected(row.id) && row.container)
+        .map((row) => row.container!.id),
+    )]
+    if (!containerIds.length) {
+      showToast('Nenhum container nas linhas selecionadas.', 'info')
+      return
+    }
+    setBulkDesovaSaving(true)
+    try {
+      await Promise.all(containerIds.map((containerId) => setContainerUnpackingLocation(containerId, value)))
+      setUnpackingLocations((current) => {
+        const next = { ...current }
+        for (const containerId of containerIds) next[containerId] = value ?? ''
+        return next
+      })
+      await queryClient.invalidateQueries({ queryKey: ['vehicles'] })
+      showToast(`Local de desova aplicado a ${containerIds.length} container(s).`, 'success')
+      setBulkDesovaOpen(false)
+      setBulkDesovaValue('')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao aplicar local de desova.', 'error')
+    } finally {
+      setBulkDesovaSaving(false)
+    }
+  }
+
   async function runDelete(ids: number[], message: string) {
     const ok = await confirm({ message, tone: 'danger', confirmLabel: 'Excluir' })
     if (!ok) return
@@ -314,6 +347,11 @@ export function Veiculos() {
           onDelete={handleDeleteSelected}
           deleting={deleting}
           noun={['veiculo', 'veiculos']}
+          extraActions={canEditVehicles ? (
+            <Button variant="secondary" onClick={() => setBulkDesovaOpen(true)} disabled={deleting}>
+              Definir local de desova
+            </Button>
+          ) : null}
         />
       ) : null}
 
@@ -393,7 +431,7 @@ export function Veiculos() {
                           onBlur={(event) => handleUnpackingLocationSave(
                             row.container!.id,
                             event.target.value,
-                            unpackingLocations[row.container!.id] ?? row.container!.unpacking_location,
+                            row.container!.unpacking_location,
                           )}
                           onChange={(event) => setUnpackingLocations((current) => ({
                             ...current,
@@ -566,6 +604,18 @@ export function Veiculos() {
               Confirmar importação
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={bulkDesovaOpen} title="Definir local de desova" onClose={() => setBulkDesovaOpen(false)}>
+        <div className="grid gap-3">
+          <p className="text-sm text-[var(--app-muted)]">
+            Aplica aos containers das linhas selecionadas. Deixe vazio para limpar o local.
+          </p>
+          <Field label="Local de desova">
+            <Input value={bulkDesovaValue} onChange={(event) => setBulkDesovaValue(event.target.value)} placeholder="Ex.: Pátio 3" />
+          </Field>
+          <Button onClick={() => void handleBulkUnpackingLocation()} loading={bulkDesovaSaving}>Aplicar</Button>
         </div>
       </Modal>
     </>

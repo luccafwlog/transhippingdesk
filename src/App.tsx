@@ -37,6 +37,7 @@ const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
 const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconciliacao')
 const Granite = lazyPage(() => import('./pages/Granite'), 'Granite')
 const GraniteRates = lazyPage(() => import('./pages/GraniteRates'), 'GraniteRates')
+const VaziosReorgRates = lazyPage(() => import('./pages/VaziosReorgRates'), 'VaziosReorgRates')
 const DemurrageRates = lazyPage(() => import('./pages/DemurrageRates'), 'DemurrageRates')
 const EmbarqueVazios = lazyPage(() => import('./pages/EmbarqueVazios'), 'EmbarqueVazios')
 const VaziosImportacao = lazyPage(() => import('./pages/VaziosImportacao'), 'VaziosImportacao')
@@ -121,6 +122,7 @@ export default function App() {
           <Route path="/granito/taxas" element={withSuspense(<GraniteRates />)} />
           <Route path="/demurrage/taxas" element={withSuspense(<DemurrageRates />)} />
           <Route path="/embarquevazios" element={withSuspense(<EmbarqueVazios />)} />
+          <Route path="/embarquevazios/taxas" element={withSuspense(<VaziosReorgRates />)} />
           <Route path="/vazios" element={<Navigate to="/embarquevazios" replace />} />
           <Route path="/vazios-importacao" element={withSuspense(<VaziosImportacao />)} />
           <Route path="/baplie" element={withSuspense(<BaplieEDI />)} />

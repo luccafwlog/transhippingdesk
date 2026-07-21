@@ -65,8 +65,9 @@ it('exibe o progresso, sign-off da seção do usuário e ocorrências do relató
   useAgencyReportOwnMock.mockReturnValue({
     data: {
       terminal: 'TVV',
-      signoffs: [{ id: 'so-1', section: 'datas', state: 'confirmed' }],
-      occurrences: [{ id: 'occ-1', body: 'Atracação concluída.', department: 'operacoes', created_at: '2026-07-19T10:00:00Z' }],
+      signoffs: [{ id: 'so-1', section: 'datas', state: 'confirmed', signed_by: 'user-1', signed_at: '2026-07-19T12:00:00Z' }],
+      occurrences: [{ id: 'occ-1', body: 'Atracação concluída.', department: 'operacoes', author_id: 'user-1', created_at: '2026-07-19T10:00:00Z' }],
+      actor_names: { 'user-1': 'Ana Ribeiro' },
     },
   })
 
@@ -76,6 +77,8 @@ it('exibe o progresso, sign-off da seção do usuário e ocorrências do relató
   expect(screen.getAllByText('Confirmado')).toHaveLength(2)
   expect(screen.getAllByRole('button', { name: 'Nada a declarar' })).toHaveLength(2)
   expect(screen.getByText('Atracação concluída.')).toBeTruthy()
+  expect(screen.getByText(/Confirmado por Ana Ribeiro em 19\/07\/2026/)).toBeTruthy()
+  expect(screen.getByText(/Ana Ribeiro \(Operações\) · 19\/07\/2026/)).toBeTruthy()
 })
 
 it('fecha o ADR apenas quando todas as seções foram confirmadas e envia o snapshot exibido', () => {

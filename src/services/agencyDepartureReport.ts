@@ -34,10 +34,29 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
   ocorrencias: 'operacoes',
 }
 
+// Labels pt-BR das seções e departamentos do ADR — espelham as funções SQL
+// agency_report_section_label/agency_report_department_label (migration 219).
+export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> = {
+  datas: 'Datas',
+  carga_descarregada: 'Carga descarregada',
+  carga_carregada: 'Carga carregada',
+  veiculos: 'Veículos',
+  vazios_embarcados: 'Vazios embarcados',
+  vazios_descarregados: 'Vazios descarregados',
+  ocorrencias: 'Ocorrências',
+}
+
+export const AGENCY_REPORT_DEPARTMENT_LABELS: Record<string, string> = {
+  operacoes: 'Operações',
+  documentacao: 'Documentação',
+  equipamentos: 'Equipamentos',
+}
+
 export type AgencyReportOwnData = AgencyDepartureReport & {
   signoffs: AgencyReportSignoff[]
   occurrences: AgencyReportOccurrence[]
   closed_by_name?: string | null
+  actor_names?: Record<string, string>
 }
 
 export async function getAgencyReportOwnData(voyageId: number, port: string) {
@@ -51,22 +70,31 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
   if (!data) return null
   const report = data as unknown as AgencyReportOwnData
 
-  let closedByName: string | null = null
-  if (report.closed_by) {
-    const { data: closerName, error: closerNameError } = await supabase.rpc('get_agency_report_closer_name', {
-      p_voyage_id: voyageId,
-      p_port: port,
-    })
-    if (closerNameError) {
-      // A RPC pode estar ausente no remoto (migration 217 pendente); o ADR
-      // fechado continua legível, só sem o nome do autor resolvido.
-      console.error('[agencyDepartureReport] erro ao resolver autor do fechamento:', closerNameError.message)
-    } else {
-      closedByName = typeof closerName === 'string' ? closerName : null
+  // Nomes de todos os atores (sign-offs, ocorrências, fechamento) em uma
+  // chamada; absorve get_agency_report_closer_name (migration 217 → 220).
+  const actorNames: Record<string, string> = {}
+  const { data: actorRows, error: actorError } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: Array<{ user_id?: string; full_name?: string | null }> | null; error: { message?: string | null } | null }>)('get_agency_report_actor_names', {
+    p_voyage_id: voyageId,
+    p_port: port,
+  })
+  if (actorError) {
+    // A RPC pode estar ausente no remoto (migration 220 pendente); o ADR
+    // continua legível, só sem os nomes resolvidos.
+    console.error('[agencyDepartureReport] erro ao resolver nomes dos atores:', actorError.message)
+  } else if (Array.isArray(actorRows)) {
+    for (const row of actorRows) {
+      if (row.user_id && row.full_name) actorNames[row.user_id] = row.full_name
     }
   }
 
-  return { ...report, closed_by_name: closedByName }
+  return {
+    ...report,
+    actor_names: actorNames,
+    closed_by_name: report.closed_by ? actorNames[report.closed_by] ?? null : null,
+  }
 }
 
 export async function setSignoff(input: {

@@ -130,21 +130,24 @@ describe('getAgencyReportDerivedData', () => {
 })
 
 describe('getAgencyReportOwnData', () => {
-  it('resolve outro autor pelo RPC autorizado no escopo do ADR', async () => {
+  it('resolve nomes dos atores pelo RPC unico, autorizado no escopo do ADR', async () => {
     const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'other-user' })
     fromMock.mockImplementation(() => reportQuery)
-    rpcMock.mockResolvedValue({ data: 'Lucca F.', error: null })
+    rpcMock.mockResolvedValue({ data: [{ user_id: 'other-user', full_name: 'Lucca F.' }], error: null })
 
-    await expect(getAgencyReportOwnData(7, 'BRVIX')).resolves.toMatchObject({ closed_by_name: 'Lucca F.' })
+    await expect(getAgencyReportOwnData(7, 'BRVIX')).resolves.toMatchObject({
+      closed_by_name: 'Lucca F.',
+      actor_names: { 'other-user': 'Lucca F.' },
+    })
 
-    expect(rpcMock).toHaveBeenCalledWith('get_agency_report_closer_name', {
+    expect(rpcMock).toHaveBeenCalledWith('get_agency_report_actor_names', {
       p_voyage_id: 7,
       p_port: 'BRVIX',
     })
     expect(fromMock).not.toHaveBeenCalledWith('user_profiles')
   })
 
-  it('degrada sem autor quando a RPC de nome do fechador falha (migration ausente no remoto)', async () => {
+  it('degrada sem autor quando a RPC de nomes dos atores falha (migration ausente no remoto)', async () => {
     const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'other-user' })
     fromMock.mockImplementation(() => reportQuery)
     rpcMock.mockResolvedValue({ data: null, error: { message: 'function does not exist' } })

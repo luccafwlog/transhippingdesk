@@ -1,85 +1,100 @@
-# Auditoria de design — Transhipping Desk
+# Auditoria de design — Transhipping Desk (novas implementações)
 
-- **Data:** 2026-07-17
-- **Commit base:** `8f141e1`
-- **Método:** app real bootada contra stack local (Postgres 16 + `scripts/design-audit/bootstrap.sql` + 204 migrations + seeds sintéticos + `sb-shim.cjs`), navegada via Playwright em 1440×900 (desktop) e 390×844 (mobile). Screenshots em [`assets/`](assets/). Login `auditor@local.test` (admin).
-- **Escopo:** todas as rotas do app interno + tela TV + logins do portal, avaliadas como um usuário de primeiro dia: dá para **entender**, **confiar** e **completar o fluxo** manifesto → revisão → taxas → fatura sem documentação?
+- **Data:** 2026-07-20
+- **Commit base:** `fca90b7`
+- **Método:** app real bootada contra stack local (Postgres 16 + `scripts/design-audit/bootstrap.sql` + 216 migrations + seeds sintéticos + dados sintéticos adicionais para os módulos novos + `sb-shim.cjs`), navegada via Playwright em 1440×900 (desktop) e 390×844 (mobile). Screenshots em [`assets/`](assets/). Login `auditor@local.test` (admin).
+- **Escopo:** revisão focada nas implementações entradas depois da auditoria de 2026-07-17 ([arquivada](../archive/audits/design-audit-2026-07-17.md)): **aba ADR** no detalhe da viagem (agregação, sign-offs, ocorrências, fechamento com snapshot e impressão), **Ficha BL** (rails + hub de abas), **Ficha do Cliente** (hub de abas), **VAZIOS EXP** (edição inline de dados ADR e operação da escala), **Vazios Importação** (natureza cama/cover plate), **Veículos** (local de desova), **alertas pós-ATD** e **papel Equipamentos**.
 
 Artefatos de ambiente que **não** são bugs do produto: Google Fonts e API PTAX
-do BCB bloqueados pelo proxy de egress (aviso "Câmbio indisponível" no topo é o
-comportamento correto), websockets realtime falham contra o shim.
+do BCB bloqueados pelo proxy de egress, websockets realtime falham contra o
+shim. Consoles limpos em todas as rotas visitadas (apenas PTAX bloqueado);
+nenhuma falha silenciosa de query no log do shim. **Runtime**.
+
+## P0 — encontrado no boot (fora da UI)
+
+| Problema | Evidência | Status |
+|---|---|---|
+| **Migration 211 (`equipamentos_rbac_hardening`) não aplicava em nenhum Postgres**: na query do `FOR p IN SELECT * FROM pg_policies ...`, as linhas `AND p.permissive = 'PERMISSIVE'` e `p.cmd IN (...)` referenciavam o alias `p` que não existia no SQL — o PL/pgSQL substituía pela record variable ainda não atribuída e abortava (`record "p" is not assigned yet`). | Reproduzido ao aplicar as migrations no stack local (`ON_ERROR_STOP=1`) na data da auditoria. | ✅ **Corrigido** — a query passou a usar `FROM pg_policies AS policy` com `policy.permissive`/`policy.cmd`, chegou ao `main` (PR #409/#410) e foi herdada nesta branch via merge. Migrations 211–220 aplicam limpo no stack local. |
 
 ## Corrigido nesta auditoria
 
 | # | Problema | Eixo | Fix | Evidência |
 |---|---|---|---|---|
-| 1 | `/manifestos`: a coluna sticky **Ações** cobria a coluna **Invoice** em 1440px (tabela 1488px num wrapper de 1382px) — o link `FAT-2026-0018` renderizava como "F" e o header como "II". O link da fatura é o elo B/L→cobrança do fluxo principal. | Conversão | Truncate com tooltip em Navio/Viagem e CNEE (`app-table__truncate--sm`) + paddings `px-4→px-3` nas colunas estreitas de `src/pages/Manifestos.tsx`. Tabela agora cabe em 1440px; telas menores mantêm o scroll com sombra/hint. | antes [`manifestos-desktop.png`](assets/manifestos-desktop.png) · depois [`manifestos-desktop-fixed.png`](assets/manifestos-desktop-fixed.png) |
-| 2 | `/line-up-tv/display`: status "Aguardando" clipava horizontalmente ("Aguardandc") na coluna CEs — inclusive na resolução alvo de TV (fonte 24px ≈ 150px numa coluna de 6% ≈ 115px em 1920px). | Entendimento | Coluna CEs de 6%→8% (folga existente no `colgroup` de `src/components/lineup/LineUpTable.tsx`) + fonte 24px→20px em `.app-lineup-display-status` (`src/index.css`). | antes [`line-up-tv-desktop.png`](assets/line-up-tv-desktop.png) · depois [`line-up-tv-desktop-fixed.png`](assets/line-up-tv-desktop-fixed.png) |
-| 3 | Mobile (≤1024px): todo `PageHeader` abria ~200px de espaço morto entre título, descrição e ações — o `flex-basis: 340px` de `.page-header__copy` vira **altura mínima** quando o header muda para `flex-direction: column`. | Entendimento | `flex-basis: auto` no breakpoint (`src/index.css`). | antes [`painel-mobile.png`](assets/painel-mobile.png) · depois [`painel-mobile-fixed.png`](assets/painel-mobile-fixed.png) |
-| 4 | Modal Nova Viagem: "exibicao" sem acento. | Confiança | Copy fix em `src/components/shared/VoyageCreateModal.tsx`. | [`viagens-nova-modal-desktop.png`](assets/viagens-nova-modal-desktop.png) |
-| 5 | `/reconciliacao`: "extrato PIX do Itau" sem acento. | Confiança | Copy fix em `src/pages/Reconciliacao.tsx`. | [`reconciliacao-desktop.png`](assets/reconciliacao-desktop.png) |
+| 1 | **`/veiculos`: "Local de desova" nunca salvava.** O `onBlur` comparava o valor do campo com `unpackingLocations[id] ?? persisted`, mas o `onChange` já tinha gravado o draft com o mesmo texto digitado — a guarda de no-op sempre disparava e o update jamais ia ao banco. Sem toast, sem erro: o usuário via o texto no campo e perdia o dado no reload (e o ADR seguia mostrando "local de desova não informado"). | Confiança | Call site passa o valor persistido (`row.container.unpacking_location`) como base de comparação (`src/pages/Veiculos.tsx`). Verificado em runtime: valor persiste em `bl_containers.unpacking_location` após blur. | [`veiculos-desova-fixed.png`](assets/veiculos-desova-fixed.png) |
+| 2 | Ficha BL, card Financeiro exibia os enums crus `ready_for_billing` / `invoiced`. | Entendimento | Reuso de `resolveChargeStatusLabel` + `FINANCIAL_STATUS_LABELS` (`src/components/bl/BlVisaoGeralTab.tsx`). | antes [`ficha-bl-desktop.png`](assets/ficha-bl-desktop.png) · depois [`ficha-bl-desktop-fixed.png`](assets/ficha-bl-desktop-fixed.png) |
+| 3 | Rails da Ficha BL sem acento ("PROXIMA ACAO", "SAIDA DO POL", "DEVOLUCAO", "REVISAO & CLIENTE", "Sem previsao", "Nao emitida") e status de fatura em inglês ("#201 issued"). | Confiança | Copy + `INVOICE_STATUS_LABELS` em `src/services/blRails.ts` e `src/components/bl/BlRailsPipeline.tsx` ("#201 Emitida"). Também "Baplie não importado", "divergência(s)", "Saída do POL" e "Máquinas" em `BlVisaoGeralTab`. | [`ficha-bl-desktop-fixed.png`](assets/ficha-bl-desktop-fixed.png) |
+| 4 | Alertas pós-ATD do ADR renderizavam o tipo cru `agency_report_section_pending`, entidade `agency_departure_report` sem label e **sem ação de navegação** (todos os outros tipos têm "Ver Fatura"/"Abrir B/L"). | Entendimento / Conversão | `TYPE_LABELS` + `ENTITY_TYPE_LABELS` + deep-link "Abrir Viagem" parseando o `entity_id` (`voyageId::porto::secao`) em `src/pages/Alertas.tsx`. | antes [`alertas-adr-pendentes.png`](assets/alertas-adr-pendentes.png) · depois [`alertas-adr-fixed.png`](assets/alertas-adr-fixed.png) |
+| 5 | `/admin/usuarios`: a legenda "Descrição dos perfis de acesso" não incluía o novo papel **Equipamentos** (presente no dropdown desde a migration 210) — quem atribui o papel não sabia o que ele concede. | Entendimento | Linha descrevendo o escopo (leitura geral + escrita em Vazios EXP/Veículos + sign-off ADR) em `src/pages/AdminUsuarios.tsx`. | antes [`admin-usuarios.png`](assets/admin-usuarios.png) · depois [`admin-usuarios-fixed.png`](assets/admin-usuarios-fixed.png) |
+| 6 | VAZIOS EXP: hint de autosave dizia "Salvamento no blur" (jargão de dev) e os 5 checkboxes do editor inline exibiam o texto fixo "Marcado" mesmo desmarcados. | Entendimento | "Salva automaticamente ao sair do campo" + texto dinâmico Sim/Não (`src/pages/EmbarqueVazios.tsx`). | antes [`vazios-exp-expandido.png`](assets/vazios-exp-expandido.png) · depois [`vazios-exp-expandido-fixed.png`](assets/vazios-exp-expandido-fixed.png) |
+| 7 | Aba ADR: "1 BLs · 3 VINs" (plural errado) e botão "Fechar ADR" desabilitado sem nenhuma explicação do que falta. | Entendimento | Pluralização correta + `title` no botão ("Confirme as 7 seções…") em `src/components/voyages/VoyageAgencyReportTab.tsx`. | [`viagem-adr-tab.png`](assets/viagem-adr-tab.png) |
+| 8 | Ficha do Cliente: recebíveis com status crus `open`/`partially_settled` na mesma tela em que invoices aparecem traduzidas; atividade recente com enum cru "Portal: aguardando_analise"; pendências com plural "(s)" ("1 invoice(s) vencida(s)"); "Email de Recuperação" com "Não informado" duplicado. | Confiança | Label map de recebíveis (`FinanceiroTab`), reuso de `provisioningDecisionLabel`/`accountSituationLabel` na timeline (`customerFicha.ts`), pluralização real das pendências (`VisaoGeralTab`) e supressão da linha de origem vazia (`CadastroContatosTab`). | antes [`ficha-cliente-visao-geral.png`](assets/ficha-cliente-visao-geral.png), [`ficha-cliente-financeiro.png`](assets/ficha-cliente-financeiro.png) · depois [`ficha-cliente-visao-geral-fixed.png`](assets/ficha-cliente-visao-geral-fixed.png), [`ficha-cliente-financeiro-fixed.png`](assets/ficha-cliente-financeiro-fixed.png) |
 
 Verificação após os fixes: `npx tsc -b`, `npm run lint`, `npm test`
-(1092 passed), `npm run docs:check`, `npm run build` — todos verdes; páginas
-re-screenshotadas (evidência "depois" acima). **Runtime**.
+(1243 passed), `npm run docs:check`, `npm run build` — todos verdes; telas
+re-verificadas em runtime (evidência "depois" acima), incluindo o persist do
+local de desova no banco. **Runtime**.
 
 ## Pendências priorizadas
 
-### P0 — bloqueia o fluxo
+### P1 — mina a confiança no fluxo core
 
-Nenhum P0 encontrado. O fluxo core (manifesto → revisão → taxas → fatura) é
-completável de ponta a ponta com a UI atual. **Runtime**.
-
-### P1 — atrito alto no fluxo core
-
-Nenhum P1 remanescente — o único achado P1 (Invoice coberta em `/manifestos`)
-foi corrigido nesta auditoria.
+| Problema | Eixo | Status |
+|---|---|---|
+| ~~Ficha do Cliente: "Saldo pendente (local + demurrage) R$ 0,00" para cliente devendo R$ 3.315.~~ | Confiança | ✅ **Corrigido** (2026-07-21). `buildConsolidatedBalance` agora soma `issued` + `overdue` + `partially_paid`, alinhado à definição de "Saldo Pendente do Cliente" em `CONTEXT.md`. |
+| ~~ADR fechado/impresso é ilegível para o destinatário.~~ | Conversão | ✅ **Corrigido** no `main` (PR #409, antes deste plano) — `AgencyReportDocument` foi reescrito com layout próprio por seção. |
+| ~~Mensagem dos alertas pós-ATD vem do banco com chave crua e sem acento.~~ | Entendimento | ✅ **Corrigido** (2026-07-21). Migration 219 reescreve `detect_agency_report_pending()` com labels pt-BR e nomeia o departamento dono, com backfill dos alertas abertos; a coluna Entidade é formatada no cliente ("Viagem 10 · BRVIX · Ocorrências"). |
 
 ### P2 — atrito moderado
 
-| Problema | Eixo | Recomendação |
+| Problema | Eixo | Status |
 |---|---|---|
-| `/viagens`: a lista master é um rail colapsado de pontos coloridos sem nomes; só expande no hover ("Passe o mouse para expandir"). No primeiro uso não se vê quais viagens existem, e o overlay expandido cobre o título do detalhe ([`viagens-desktop.png`](assets/viagens-desktop.png), [`viagens-detail-desktop.png`](assets/viagens-detail-desktop.png)). | Entendimento | Rail expandido por padrão em telas ≥1280px (há espaço), colapsável manualmente; sem hover em touch o rail é inoperável. |
-| `/relatorios`: inputs `type="date"` nativos exibem `mm/dd/yyyy` quando o navegador está em locale EN ([`relatorios-desktop.png`](assets/relatorios-desktop.png)). `lang="pt-BR"` já está no `<html>`; o formato segue o locale do navegador, não o atributo. | Confiança | Aceitável para uso interno; se incomodar, trocar por um datepicker próprio ou exibir hint `dd/mm/aaaa` ao lado. **Suspeita** (depende do navegador do usuário). |
-| Ações destrutivas em tabelas (lixeira em `/demurrage/taxas`, `/viagens` detalhe) têm o mesmo peso visual das ações neutras (lápis) ([`demurrage-taxas-desktop.png`](assets/demurrage-taxas-desktop.png)). | Confiança | Tom vermelho no ícone/hover da lixeira. Não tocado por envolver delete flows (fora do escopo seguro desta auditoria). |
+| ~~Aba ADR: sign-offs não mostram quem confirmou nem quando; ocorrências assinam com o papel em vez do nome.~~ | Confiança | ✅ **Corrigido** (2026-07-21). RPC `get_agency_report_actor_names` (migration 220) + atribuição inline "Confirmado por {nome} em {data}" nas 7 seções e "{nome} ({departamento})" nas ocorrências. |
+| Aba ADR: chip de estado ("Pendente"/"Confirmado") e botões de ação têm o mesmo peso visual — parece um grupo de 3 botões; "Fechar ADR" fecha com um clique, sem confirmação (reversível via "Reabrir", mas congela e é o gatilho de impressão). | Entendimento | Em aberto. Segmented control com estado ativo destacado; diálogo de confirmação leve no fechamento. |
+| ~~VAZIOS EXP: "Serviços de reorganização" mostra "Sem tarifa" em todas as linhas e não existe UI para cadastrar `vazios_reorg_rates`.~~ | Conversão | ✅ **Corrigido** (2026-07-21). Página `/embarquevazios/taxas` (padrão `/granito/taxas`, admin-only); "Sem tarifa" agora é link para lá. |
+| ~~VAZIOS EXP: o card "Operação da escala" só aparece depois de filtrar por viagem — invisível no primeiro uso.~~ | Conversão | ✅ **Corrigido** (2026-07-21). Card sempre visível, com `VoyageCombobox` embutido quando não há viagem selecionada. |
+| ~~`/veiculos`: sem atribuição de local de desova em massa.~~ | Conversão | ✅ **Corrigido** (2026-07-21). Ação "Definir local de desova" na barra de seleção, aplicando aos containers das linhas selecionadas. |
+| Aba ADR: "Container com veículo — local de desova não informado" não linka para `/veiculos`, onde o dado é preenchido. | Conversão | Em aberto. Link direto para `/veiculos` com a viagem pré-selecionada. |
+| ~~Ficha BL, aba Faturamento: chips "PRONTO PARA FATURAR" convivem com "Este B/L já foi faturado…" e fatura ativa — sinais de estado conflitantes.~~ | Entendimento | ✅ **Corrigido** (2026-07-21). Com fatura ativa, o chip de fase mostra "Faturado" e os CTAs "Marcar revisado"/"Pronto para faturar" somem. |
+| ~~Copy sem acento remanescente na Ficha BL/Faturamento.~~ | Confiança | ✅ **Corrigido parcialmente** (2026-07-21): "Motor Etapa A: cálculo automático…", "Este B/L já foi faturado. As taxas estão bloqueadas para edição…". "Razão social", "OBSERVAÇÃO", "DATA/LOCAL DE EMISSÃO", "TELEFONE DO CONSIGNATÁRIO" e "Conciliação: MATCH CNPJ" seguem em aberto (fora do escopo deste plano). |
 
 ### P3 — polimento
 
-| Problema | Eixo | Recomendação |
+| Problema | Eixo | Status |
 |---|---|---|
-| `/manifestos/:blId`: campos Peso total (kg) `48500` e CBM `112.5` sem formatação pt-BR, enquanto a tabela de containers logo abaixo formata certo (`24.250 kg`, `56,2`) ([`manifesto-bl-detail-desktop.png`](assets/manifesto-bl-detail-desktop.png)). | Confiança | Formatar exibição com `Intl.NumberFormat('pt-BR')` mantendo edição raw. |
-| Modal "Detalhe da invoice" mistura "invoice" (EN) com "fatura" (PT) usado na listagem ([`faturamento-detalhes-modal.png`](assets/faturamento-detalhes-modal.png)). "Invoice" é termo de domínio aceito (`CONTEXT.md`), mas o título alterna entre os dois na mesma tela. | Entendimento | Padronizar o título do modal ("Detalhe da fatura FAT-…"). |
-| `/carga-solta`: cards e headers "MAQUINAS" sem acento ([`carga-solta-desktop.png`](assets/carga-solta-desktop.png)). | Confiança | Copy fix "Máquinas". |
-| `/admin/usuarios`: card "Ambiente: Produção" exibido mesmo em stack local ([`admin-usuarios-desktop.png`](assets/admin-usuarios-desktop.png)). | Confiança | Ler o ambiente de env/config em vez de fixo. **Suspeita** (não confirmado se vem de config). |
+| Peso total `48500` / CBM `112.5` sem formatação pt-BR na Ficha BL (herdado da auditoria anterior). | Confiança | Em aberto. |
+| ~~TARA `3800` sem formatação pt-BR em `/vazios-importacao`.~~ | Confiança | ✅ **Corrigido** (2026-07-21): `Number(tare_kg).toLocaleString('pt-BR')`. |
+| ~~Cabeçalho da aba ADR: grid aperta "Navio / viagem" em 3 linhas.~~ | Entendimento | ✅ **Corrigido** (2026-07-21): grid ganhou o degrau `lg:grid-cols-3` antes do `2xl:grid-cols-4`. |
+| ~~Seção "Embarque de vazios" do ADR mostra cards zerados de Serviço extra/Storage/Overtime mesmo com "Nenhum dado informado".~~ | Entendimento | ✅ **Corrigido** (2026-07-21): cards só renderizam quando há bookings ou operação cadastrada. |
+| ~~Mobile: setas "→" dos rails da Ficha BL quebram sozinhas no início da linha.~~ | Entendimento | ✅ **Corrigido** (2026-07-21): setas ocultas abaixo do breakpoint `sm`. |
+| Ficha Cliente, aba Operacional: coluna "Financeiro: Pago" convive com recebível em aberto do mesmo B/L na aba Financeiro (dado sintético inconsistente no seed; em produção triggers mantêm). **Suspeita**. | Confiança | Em aberto. Se ocorrer em produção, derivar o status exibido dos recebíveis em vez de `bls.financial_status`. |
+| Datas `mm/dd/yyyy` nos inputs nativos com navegador em locale EN (herdado, aceito para uso interno). | Confiança | Sem ação; reavaliar se incomodar. |
 
-## Resumo por dimensão
+## Resumo por dimensão (módulos novos)
 
 | Dimensão | Avaliação |
 |---|---|
-| Primeira impressão | Forte. Login limpo, identidade consistente (navy/gold), tipografia display própria. |
-| Navegação | Boa. Navbar por domínio (Importação/Exportação/Financeiro) com badges de pendência; breadcrumbs nos detalhes. Exceção: rail de `/viagens` (P2). |
-| Hierarquia visual | Boa. KPI cards → filtros → tabela em todas as listas; padrão consistente. |
-| Consistência de componentes | Boa. Badges, filtros, paginação e empty states compartilhados. Tabelas densas com sticky actions. |
-| Loading/empty/error | Muito boa. Empty states orientados a ação em todas as telas visitadas; erro de login claro; aviso global de PTAX indisponível com retry. |
-| Sinais de confiança | Bons. Pills de estado no B/L (Revisão/Cliente/Taxas/Financeiro), aviso "taxas recalculadas — fatura pode estar desatualizada", trilha de auditoria visível. Enfraquecidos por acentos faltando e formatação numérica inconsistente (P3s). |
-| Caminho de conversão | Completo. Manifesto → revisão (fila com ações inline) → taxas (status por B/L) → fatura (link direto na tabela, agora visível) → conciliação. |
-
-Consoles limpos em todas as rotas visitadas (apenas artefatos de ambiente:
-PTAX bloqueado). Nenhuma falha silenciosa de query observada no log do shim.
-**Runtime**.
+| Primeira impressão | Boa. Os hubs (Ficha BL, Ficha Cliente) organizam muita informação com hierarquia clara; a aba ADR é densa mas navegável. |
+| Navegação | Boa. Rails clicáveis na Ficha BL levam à viagem/faturamento; pendências da Ficha Cliente são acionáveis. Lacunas de deep-link (ADR→veículos) anotadas em P2. |
+| Hierarquia visual | Boa nos hubs; cabeçalho do ADR e o trio chip+botões dos sign-offs precisam de polimento (P2/P3). |
+| Consistência de componentes | Boa base (Badges, Cards, tabelas compartilhadas), mas os módulos novos estrearam com enums crus onde o resto do app traduz — o `statusLabels.ts` existe e não estava sendo usado (corrigido nesta auditoria). |
+| Loading/empty/error | Muito boa. Empty states orientados a ação em VAZIOS EXP/IMP e Veículos; "Somente leitura" para papéis sem escrita. |
+| Sinais de confiança | O ponto fraco desta leva: bug real de persistência (desova), saldo "R$ 0,00" enganoso, snapshot de ADR ilegível, sign-off sem atribuição. Dois dos quatro corrigidos/encaminhados aqui. |
+| Caminho de conversão | O fluxo ADR (confirmar 7 seções → fechar → imprimir) completa de ponta a ponta, mas o produto final (documento impresso) não está à altura do fluxo que o gera (P1). |
 
 ## Top 5 — impacto em conversão
 
-1. ~~Coluna Invoice coberta em `/manifestos`~~ — **corrigido** (era o elo visível B/L→fatura).
-2. Rail de `/viagens` colapsado por padrão esconde o inventário de viagens (P2).
-3. Lixeiras com peso visual de ação neutra em telas de tarifas (P2).
-4. Formatação numérica inconsistente no detalhe do B/L (P3 — mina confiança em números que viram fatura).
-5. Título "Detalhe da invoice" vs "fatura" (P3 — vocabulário do fluxo de cobrança).
+1. ~~Deploy travado pela migration 211~~ — **corrigido** no `main` antes deste plano.
+2. ~~Documento ADR fechado/impresso ilegível~~ — **corrigido** no `main` (PR #409).
+3. ~~Saldo pendente R$ 0,00 com dívida em aberto na Ficha Cliente~~ — **corrigido**.
+4. ~~Local de desova nunca salvava~~ — **corrigido** (alimenta diretamente o bloco de veículos do ADR).
+5. ~~Tarifas de reorganização sem UI de cadastro~~ — **corrigido** (`/embarquevazios/taxas`).
+
+Todos os itens do top 5 de 2026-07-20 estão resolvidos. Restam do P2/P3: segmented control dos sign-offs, deep-link ADR→Veículos, e a passada de copy remanescente na Ficha BL (Detalhes do B/L).
 
 ## Top 5 — quick wins
 
-1. ~~"Aguardando" clipado na TV~~ — **corrigido**.
-2. ~~Espaço morto do PageHeader no mobile~~ — **corrigido**.
-3. ~~Acentos ("exibição", "Itaú")~~ — **corrigidos**.
-4. "MAQUINAS" → "Máquinas" em `/carga-solta` (copy de uma linha).
-5. `Intl.NumberFormat('pt-BR')` nos campos de peso/CBM do detalhe do B/L.
+1. ~~Enums crus (`ready_for_billing`, `open`, `aguardando_analise`, tipo de alerta ADR)~~ — **corrigidos** com os label maps que já existiam.
+2. ~~Acentos e inglês nos rails da Ficha BL~~ — **corrigidos**.
+3. ~~Legenda do papel Equipamentos~~ — **corrigida**.
+4. ~~Mensagem legível nos alertas pós-ATD~~ — **corrigida** (migration 219).
+5. ~~"Confirmado por {nome} em {data}" nos sign-offs do ADR~~ — **corrigido** (migration 220).

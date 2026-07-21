@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { acknowledgeAlert, closeAlert, detectAgencyReportPending, listAlerts, type AlertStatusFilter } from '../services/alerts'
+import { acknowledgeAlert, closeAlert, detectAgencyReportPending, formatAgencyReportAlertEntity, listAlerts, type AlertStatusFilter } from '../services/alerts'
 
 const STATUS_LABELS: Record<string, { label: string; tone: 'yellow' | 'blue' | 'slate' }> = {
   open: { label: 'Aberto', tone: 'yellow' },
@@ -28,12 +28,14 @@ const TYPE_LABELS: Record<string, string> = {
   portal_falha_envio: 'Portal do Cliente — falha de envio',
   portal_email_suprimido: 'Portal do Cliente — email suprimido',
   portal_abuso_login: 'Portal do Cliente — abuso de login',
+  agency_report_section_pending: 'ADR — seção pendente',
 }
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   invoice: 'Fatura',
   container: 'Container',
   bl: 'B/L',
+  agency_departure_report: 'ADR',
 }
 
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
@@ -150,7 +152,9 @@ export function Alertas() {
                     </td>
                     <td className="px-4 py-3 max-w-sm text-[var(--app-text)]">{alert.message}</td>
                     <td className="px-4 py-3 text-[var(--app-muted)]">
-                      {alert.entity_type ? (
+                      {alert.entity_type === 'agency_departure_report' && alert.entity_id && formatAgencyReportAlertEntity(alert.entity_id) ? (
+                        <span className="text-xs">{formatAgencyReportAlertEntity(alert.entity_id)}</span>
+                      ) : alert.entity_type ? (
                         <span className="font-mono text-xs">
                           {ENTITY_TYPE_LABELS[alert.entity_type] ?? alert.entity_type}
                           {alert.entity_id ? ` ${alert.entity_id}` : ''}
@@ -218,6 +222,11 @@ function alertEntityLink(alert: { type: string; entity_type: string | null; enti
   }
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
+  if (alert.entity_type === 'agency_departure_report') {
+    // entity_id no formato voyageId::porto::secao — abre a viagem dona do ADR.
+    const voyageId = alert.entity_id.split('::')[0]
+    return /^\d+$/.test(voyageId) ? `/viagens/${voyageId}` : null
+  }
   return null
 }
 
@@ -225,5 +234,6 @@ function alertEntityLinkLabel(alert: { entity_type: string | null }) {
   if (alert.entity_type === 'invoice') return 'Ver Fatura'
   if (alert.entity_type === 'container') return 'Ver Demurrage'
   if (alert.entity_type === 'bl') return 'Abrir B/L'
+  if (alert.entity_type === 'agency_departure_report') return 'Abrir Viagem'
   return 'Abrir'
 }

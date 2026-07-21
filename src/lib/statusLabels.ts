@@ -13,6 +13,7 @@ export const REVIEW_STATUS_LABELS: Record<string, string> = {
 export const FINANCIAL_STATUS_LABELS: Record<string, string> = {
   pending: 'Pendente',
   invoiced: 'Faturado',
+  partially_paid: 'Parcialmente pago',
   paid: 'Pago',
   cancelled: 'Cancelado',
 }

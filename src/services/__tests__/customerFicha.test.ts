@@ -6,11 +6,17 @@ vi.mock('../supabase', () => ({ supabase: { from: mockFrom, rpc: mockRpc } }))
 const { buildConsolidatedBalance, buildCustomerTimeline, fetchCustomerPendingReconciliation, fetchCustomerReceivables } = await import('../customerFicha')
 
 describe('buildConsolidatedBalance', () => {
-  it('soma local emitido + demurrage não pago com decomposição', () => {
+  it('soma local emitido não pago (emitida, vencida e parcial) + demurrage não pago', () => {
     expect(buildConsolidatedBalance(
-      [{ status: 'issued', balance_brl: 100 }, { status: 'overdue', balance_brl: 300 }, { status: 'paid', balance_brl: 999 }],
+      [
+        { status: 'issued', balance_brl: 100 },
+        { status: 'overdue', balance_brl: 300 },
+        { status: 'partially_paid', balance_brl: 40 },
+        { status: 'paid', balance_brl: 999 },
+        { status: 'cancelled', balance_brl: 999 },
+      ],
       [{ status: 'issued', current_total_brl: 50 }, { status: 'overdue', current_total_brl: 25 }, { status: 'paid', current_total_brl: 999 }, { status: 'cancelled', current_total_brl: 999 }],
-    )).toEqual({ localBrl: 100, demurrageBrl: 75, totalBrl: 175 })
+    )).toEqual({ localBrl: 440, demurrageBrl: 75, totalBrl: 515 })
   })
 })
 

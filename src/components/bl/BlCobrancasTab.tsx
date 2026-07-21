@@ -19,6 +19,7 @@ import {
   useUpdateManualBlCharge,
 } from '../../hooks/useLocalCharges'
 import { formatBRL, formatUSD } from '../../lib/utils'
+import { FINANCIAL_STATUS_LABELS, statusLabel } from '../../lib/statusLabels'
 import { markBlReadyAndCreateInvoice } from '../../services/billing'
 import {
   formatNumber,
@@ -189,7 +190,7 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
     } catch (error) {
       const msg = String((error as { message?: string }).message ?? '')
       if (msg.includes('pendencia de revisao')) {
-        showToast('Ainda existem linhas com pendencia de revisao.', 'error')
+        showToast('Ainda existem linhas com pendência de revisão.', 'error')
         return
       }
       if (msg.includes('não possui cliente vinculado') || msg.includes('P0003')) {
@@ -206,33 +207,35 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
         <div>
           <h2 className="text-lg font-semibold text-white">Taxas Locais</h2>
           <div className="mt-1 text-sm text-slate-400">
-            Motor Etapa A: calculo automatico por B/L com base em POD, modo de carga e perfil IMO/OOG.
+            Motor Etapa A: cálculo automático por B/L com base em POD, modo de carga e perfil IMO/OOG.
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={handleMarkChargesReviewed}
-            loading={markReviewedMutation.isPending}
-            disabled={markReviewedMutation.isPending || markReadyForBillingMutation.isPending}
-            type="button"
-          >
-            Marcar revisado
-          </Button>
-          <Button
-            onClick={handleMarkReadyForBilling}
-            loading={markReadyForBillingMutation.isPending}
-            disabled={markReadyForBillingMutation.isPending || markReviewedMutation.isPending}
-            type="button"
-          >
-            Pronto para faturar
-          </Button>
-        </div>
+        {!chargesLocked ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleMarkChargesReviewed}
+              loading={markReviewedMutation.isPending}
+              disabled={markReviewedMutation.isPending || markReadyForBillingMutation.isPending}
+              type="button"
+            >
+              Marcar revisado
+            </Button>
+            <Button
+              onClick={handleMarkReadyForBilling}
+              loading={markReadyForBillingMutation.isPending}
+              disabled={markReadyForBillingMutation.isPending || markReviewedMutation.isPending}
+              type="button"
+            >
+              Pronto para faturar
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {bl.charge_status === 'not_calculated' ? (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-          <span>As taxas deste B/L ainda nao foram calculadas.</span>
+          <span>As taxas deste B/L ainda não foram calculadas.</span>
           <Button
             variant="secondary"
             onClick={handleCalculateCharges}
@@ -245,7 +248,9 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
       ) : null}
 
       <div className="mb-4 flex flex-wrap gap-2">
-        <Badge tone={resolveChargeStatusTone(bl.charge_status)}>{resolveChargeStatusLabel(bl.charge_status)}</Badge>
+        {chargesLocked
+          ? <Badge tone="green">{statusLabel(FINANCIAL_STATUS_LABELS, bl.financial_status ?? 'invoiced')}</Badge>
+          : <Badge tone={resolveChargeStatusTone(bl.charge_status)}>{resolveChargeStatusLabel(bl.charge_status)}</Badge>}
         <Badge tone="green">Subtotal BRL: {formatBRL(localChargeSummary.totalBrl)}</Badge>
         <Badge tone="blue">Subtotal USD: {formatUSD(localChargeSummary.totalUsd)}</Badge>
         {localChargeSummary.hasReviewRequired ? <Badge tone="yellow">Com pendências de revisão</Badge> : null}
@@ -254,7 +259,7 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
 
       {chargesLocked ? (
         <div className="mb-4 rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3 text-sm text-slate-400">
-          Este B/L ja foi faturado. As taxas estao bloqueadas para edicao — para alterar,
+          Este B/L já foi faturado. As taxas estão bloqueadas para edição — para alterar,
           cancele a fatura correspondente em Faturamento.
         </div>
       ) : (

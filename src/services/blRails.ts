@@ -1,4 +1,5 @@
 import type { BL } from '../types/database'
+import { INVOICE_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
 import { isCustomerReconciliationResolved } from './customerReconciliation'
 
 export type RailState = 'done' | 'pending' | 'blocked' | 'diverted'
@@ -42,13 +43,13 @@ export function buildOperationalRail(input: {
   const { bl, polSchedule, podSchedule, containers, omission } = input
   const voyageHref = bl.voyage_id ? `/viagens/${bl.voyage_id}` : undefined
   const pol: RailStage = polSchedule?.atd
-    ? { key: 'pol', label: 'Saida do POL', detail: `ATD ${fmt(polSchedule.atd)}`, state: 'done', href: voyageHref }
-    : { key: 'pol', label: 'Saida do POL', detail: polSchedule?.etd ? `ETD ${fmt(polSchedule.etd)}` : 'Sem previsao', state: 'pending', href: voyageHref }
+    ? { key: 'pol', label: 'Saída do POL', detail: `ATD ${fmt(polSchedule.atd)}`, state: 'done', href: voyageHref }
+    : { key: 'pol', label: 'Saída do POL', detail: polSchedule?.etd ? `ETD ${fmt(polSchedule.etd)}` : 'Sem previsão', state: 'pending', href: voyageHref }
   const pod: RailStage = omission
     ? { key: 'pod', label: 'Chegada ao POD', detail: `Omitida — descarga em ${omission.dischargePod}`, state: 'diverted', href: voyageHref }
     : podSchedule?.ata
       ? { key: 'pod', label: 'Chegada ao POD', detail: `ATA ${fmt(podSchedule.ata)}`, state: 'done', href: voyageHref }
-      : { key: 'pod', label: 'Chegada ao POD', detail: podSchedule?.eta ? `ETA ${fmt(podSchedule.eta)}` : 'Sem previsao', state: 'pending', href: voyageHref }
+      : { key: 'pod', label: 'Chegada ao POD', detail: podSchedule?.eta ? `ETA ${fmt(podSchedule.eta)}` : 'Sem previsão', state: 'pending', href: voyageHref }
 
   if (bl.cargo_mode !== 'container') return [pol, pod]
   const discharge = distinct(containers, (c) => Boolean(c.discharge_date))
@@ -57,7 +58,7 @@ export function buildOperationalRail(input: {
     pol,
     pod,
     { key: 'discharge', label: 'Descarga', detail: discharge.total === 0 ? 'Sem containers' : `${discharge.done}/${discharge.total} descarregados`, state: discharge.total === 0 || discharge.done === discharge.total ? 'done' : 'pending', href: '/containers' },
-    { key: 'return', label: 'Devolucao', detail: returned.total === 0 ? 'Sem containers' : `${returned.done}/${returned.total} devolvidos`, state: returned.total === 0 || returned.done === returned.total ? 'done' : 'pending', href: `/manifestos/${bl.id}?tab=faturamento` },
+    { key: 'return', label: 'Devolução', detail: returned.total === 0 ? 'Sem containers' : `${returned.done}/${returned.total} devolvidos`, state: returned.total === 0 || returned.done === returned.total ? 'done' : 'pending', href: `/manifestos/${bl.id}?tab=faturamento` },
   ]
 }
 
@@ -71,15 +72,15 @@ export function buildFinancialRail(input: { bl: RailBl; latestInvoice: RailInvoi
   const reviewOk = bl.review_status === 'reviewed' || bl.review_status === 'ok'
   const customerOk = isCustomerReconciliationResolved(bl.customer_reconciliation_status) && bl.customer_id != null
   const review: RailStage = reviewOk && customerOk
-    ? { key: 'review', label: 'Revisao & Cliente', detail: 'OK', state: 'done' }
-    : { key: 'review', label: 'Revisao & Cliente', detail: reviewOk ? 'Vincular cliente' : 'Revisar B/L', state: 'pending', href: reviewOk ? fichaFat : fichaDet }
+    ? { key: 'review', label: 'Revisão & Cliente', detail: 'OK', state: 'done' }
+    : { key: 'review', label: 'Revisão & Cliente', detail: reviewOk ? 'Vincular cliente' : 'Revisar B/L', state: 'pending', href: reviewOk ? fichaFat : fichaDet }
   const chargesOk = bl.charge_status === 'ready_for_billing' || bl.charge_status === 'exempt'
   const charges: RailStage = chargesOk
     ? { key: 'charges', label: 'Taxas Locais', detail: bl.charge_status === 'exempt' ? 'Isento' : 'Pronto p/ faturar', state: 'done' }
     : { key: 'charges', label: 'Taxas Locais', detail: bl.charge_status === 'not_calculated' || !bl.charge_status ? 'Calcular taxas' : 'Revisar taxas', state: 'pending', href: fichaFat }
   const invoice: RailStage = latestInvoice
-    ? { key: 'invoice', label: 'Fatura', detail: `#${latestInvoice.id} ${latestInvoice.status ?? ''}`.trim(), state: latestInvoice.status === 'cancelled' ? 'blocked' : 'done', href: `/faturamento?invoice=${latestInvoice.id}` }
-    : { key: 'invoice', label: 'Fatura', detail: 'Nao emitida', state: 'pending', href: fichaFat }
+    ? { key: 'invoice', label: 'Fatura', detail: `#${latestInvoice.id} ${statusLabel(INVOICE_STATUS_LABELS, latestInvoice.status, '')}`.trim(), state: latestInvoice.status === 'cancelled' ? 'blocked' : 'done', href: `/faturamento?invoice=${latestInvoice.id}` }
+    : { key: 'invoice', label: 'Fatura', detail: 'Não emitida', state: 'pending', href: fichaFat }
   const payment: RailStage = bl.financial_status === 'paid'
     ? { key: 'payment', label: 'Pagamento', detail: 'Pago', state: 'done' }
     : { key: 'payment', label: 'Pagamento', detail: 'Pendente', state: 'pending', href: '/faturamento' }

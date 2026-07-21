@@ -8,6 +8,8 @@ import type { useBlCockpit } from '../../hooks/useBlCockpit'
 import { BlTransshipmentCard } from './BlTransshipmentCard'
 import type { BlDisposition, VoyageOmission } from '../../services/transshipments'
 import { BlPortalCard, type BlPortalStatus } from './BlPortalCard'
+import { resolveChargeStatusLabel } from '../../pages/blDetalheHelpers'
+import { FINANCIAL_STATUS_LABELS, statusLabel } from '../../lib/statusLabels'
 
 const dt = (value: string | null | undefined) => value ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(value)) : '—'
 
@@ -23,11 +25,11 @@ function BaplieBadge({ status }: { status: BaplieStatus }) {
     case 'error':
       return <Badge tone="red">Erro ao verificar Baplie</Badge>
     case 'not_imported':
-      return <Badge tone="slate">Baplie nao importado</Badge>
+      return <Badge tone="slate">Baplie não importado</Badge>
     case 'reconciled':
       return status.divergenceCount
-        ? <Badge tone="yellow">{status.divergenceCount} divergencia(s) Baplie</Badge>
-        : <Badge tone="green">Baplie sem divergencias</Badge>
+        ? <Badge tone="yellow">{status.divergenceCount} divergência(s) Baplie</Badge>
+        : <Badge tone="green">Baplie sem divergências</Badge>
   }
 }
 
@@ -63,7 +65,7 @@ export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containe
             ) : '—'}
           </Item>
           <Item label="Trecho">{`${bl.pol ?? '—'} → ${bl.pod ?? '—'}`}</Item>
-          <Item label="Saida do POL">{cockpit?.polSchedule?.atd ? `ATD ${dt(cockpit.polSchedule.atd)}` : `ETD ${dt(cockpit?.polSchedule?.etd)}`}</Item>
+          <Item label="Saída do POL">{cockpit?.polSchedule?.atd ? `ATD ${dt(cockpit.polSchedule.atd)}` : `ETD ${dt(cockpit?.polSchedule?.etd)}`}</Item>
           <Item label="Chegada ao POD">{cockpit?.podSchedule?.ata ? `ATA ${dt(cockpit.podSchedule.ata)}` : `ETA ${dt(cockpit?.podSchedule?.eta)}`}</Item>
         </dl>
       </Card>
@@ -84,7 +86,7 @@ export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containe
         </>
       ) : (
         <dl className="grid gap-2 text-sm sm:grid-cols-3">
-          <Item label="Maquinas">{String(breakbulkSummary.machines)}</Item>
+          <Item label="Máquinas">{String(breakbulkSummary.machines)}</Item>
           <Item label="Packages">{String(breakbulkSummary.packagesTotal)}</Item>
           <Item label="Peso (t)">{String(breakbulkSummary.weightTon)}</Item>
         </dl>
@@ -103,8 +105,8 @@ export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containe
       <Card>
         <h3 className="mb-3 text-sm font-semibold">Financeiro</h3>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <Item label="Taxas">{bl.charge_status ?? 'not_calculated'}</Item>
-          <Item label="Status">{bl.financial_status ?? 'pending'}</Item>
+          <Item label="Taxas">{resolveChargeStatusLabel(bl.charge_status)}</Item>
+          <Item label="Status">{statusLabel(FINANCIAL_STATUS_LABELS, bl.financial_status ?? 'pending')}</Item>
         </dl>
       </Card>
       {portalStatus ? <BlPortalCard status={portalStatus} /> : null}

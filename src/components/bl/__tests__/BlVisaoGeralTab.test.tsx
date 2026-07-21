@@ -40,28 +40,28 @@ describe('BlVisaoGeralTab — status do Baplie', () => {
   it('mostra estado de carregamento, nao verde, enquanto a reconciliacao esta pendente', () => {
     renderTab({ state: 'loading', divergenceCount: 0 })
     expect(screen.getByText('Verificando Baplie…')).toBeTruthy()
-    expect(screen.queryByText('Baplie sem divergencias')).toBeNull()
+    expect(screen.queryByText('Baplie sem divergências')).toBeNull()
   })
 
   it('mostra erro explicito quando a consulta falha, nao verde', () => {
     renderTab({ state: 'error', divergenceCount: 0 })
     expect(screen.getByText('Erro ao verificar Baplie')).toBeTruthy()
-    expect(screen.queryByText('Baplie sem divergencias')).toBeNull()
+    expect(screen.queryByText('Baplie sem divergências')).toBeNull()
   })
 
   it('mostra nao importado quando nao ha staging do Baplie, nao verde', () => {
     renderTab({ state: 'not_imported', divergenceCount: 0 })
-    expect(screen.getByText('Baplie nao importado')).toBeTruthy()
-    expect(screen.queryByText('Baplie sem divergencias')).toBeNull()
+    expect(screen.getByText('Baplie não importado')).toBeTruthy()
+    expect(screen.queryByText('Baplie sem divergências')).toBeNull()
   })
 
   it('so mostra verde apos reconciliacao concluida sem divergencias', () => {
     renderTab({ state: 'reconciled', divergenceCount: 0 })
-    expect(screen.getByText('Baplie sem divergencias')).toBeTruthy()
+    expect(screen.getByText('Baplie sem divergências')).toBeTruthy()
   })
 
   it('mostra contagem de divergencias quando reconciliado com achados', () => {
     renderTab({ state: 'reconciled', divergenceCount: 3 })
-    expect(screen.getByText('3 divergencia(s) Baplie')).toBeTruthy()
+    expect(screen.getByText('3 divergência(s) Baplie')).toBeTruthy()
   })
 })
