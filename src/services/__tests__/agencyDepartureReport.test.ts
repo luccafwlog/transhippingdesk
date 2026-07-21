@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   AGENCY_REPORT_SECTIONS,
+  addOccurrence,
   buildContainerTypeMatrix,
   groupVehiclesByBrand,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
+  setDepartmentSignoff,
   setSignoff,
 } from '../agencyDepartureReport'
 
@@ -76,7 +78,7 @@ describe('groupVehiclesByBrand', () => {
 })
 
 describe('AGENCY_REPORT_SECTIONS', () => {
-  it('mapeia as 7 secoes aos departamentos donos', () => {
+  it('mapeia as 8 secoes aos departamentos donos', () => {
     expect(AGENCY_REPORT_SECTIONS).toEqual({
       datas: 'operacoes',
       carga_descarregada: 'documentacao',
@@ -85,7 +87,9 @@ describe('AGENCY_REPORT_SECTIONS', () => {
       vazios_embarcados: 'equipamentos',
       vazios_descarregados: 'documentacao',
       ocorrencias: 'operacoes',
+      operacao_patio: 'equipamentos',
     })
+    expect(Object.keys(AGENCY_REPORT_SECTIONS)).toHaveLength(8)
   })
 })
 
@@ -170,6 +174,50 @@ describe('setSignoff', () => {
       p_port: 'BRVIX',
       p_section: 'datas',
       p_state: 'confirmed',
+    })
+  })
+})
+
+describe('addOccurrence', () => {
+  it('chama a RPC com a tag de seção opcional', async () => {
+    rpcMock.mockResolvedValue({ error: null })
+
+    await addOccurrence({ voyageId: 7, port: 'BRVIX', body: 'Atracação concluída.', section: 'operacao_patio' })
+
+    expect(rpcMock).toHaveBeenCalledWith('add_agency_report_occurrence', {
+      p_voyage_id: 7,
+      p_port: 'BRVIX',
+      p_body: 'Atracação concluída.',
+      p_section: 'operacao_patio',
+    })
+  })
+
+  it('omite a seção quando não informada', async () => {
+    rpcMock.mockResolvedValue({ error: null })
+
+    await addOccurrence({ voyageId: 7, port: 'BRVIX', body: 'Sem tag.' })
+
+    expect(rpcMock).toHaveBeenCalledWith('add_agency_report_occurrence', {
+      p_voyage_id: 7,
+      p_port: 'BRVIX',
+      p_body: 'Sem tag.',
+      p_section: undefined,
+    })
+  })
+})
+
+describe('setDepartmentSignoff', () => {
+  it('chama a RPC do sign-off departamental com os argumentos tipados', async () => {
+    rpcMock.mockResolvedValue({ error: null })
+
+    await setDepartmentSignoff({ voyageId: 7, port: 'BRVIX', department: 'equipamentos', signed: true })
+
+    expect(rpcMock).toHaveBeenCalledWith('set_agency_report_department_signoff', {
+      p_voyage_id: 7,
+      p_port: 'BRVIX',
+      p_department: 'equipamentos',
+      p_signed: true,
+      p_justification: undefined,
     })
   })
 })
