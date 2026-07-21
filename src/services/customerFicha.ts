@@ -24,13 +24,15 @@ export type FichaRunningDemurrageRow = { container_id: number; container_number:
 
 export type ConsolidatedBalance = { localBrl: number; demurrageBrl: number; totalBrl: number }
 const UNPAID_DEMURRAGE_STATUSES = new Set(['issued', 'overdue'])
+// Glossário (CONTEXT.md, "Saldo Pendente do Cliente"): emitidas e ainda não
+// pagas — inclui vencidas e parcialmente pagas, pelo saldo restante.
+const UNPAID_LOCAL_STATUSES = new Set(['issued', 'overdue', 'partially_paid'])
 
 export function buildConsolidatedBalance(
   localInvoices: Array<{ status: string | null; balance_brl: number | null }>,
   demurrageInvoices: Array<{ status: string | null; current_total_brl: number | null }>,
 ): ConsolidatedBalance {
-  // Local pending_balance historically counts only issued invoices; overdue is surfaced separately as a pendency.
-  const localBrl = localInvoices.filter((row) => row.status === 'issued').reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
+  const localBrl = localInvoices.filter((row) => UNPAID_LOCAL_STATUSES.has(row.status ?? '')).reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0)
   const demurrageBrl = demurrageInvoices.filter((row) => UNPAID_DEMURRAGE_STATUSES.has(row.status ?? '')).reduce((sum, row) => sum + Number(row.current_total_brl ?? 0), 0)
   return { localBrl, demurrageBrl, totalBrl: localBrl + demurrageBrl }
 }
