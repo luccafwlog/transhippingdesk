@@ -138,29 +138,41 @@ A identidade do ADR é (viagem, porto): uma escala que opera em dois terminais
 mantém um único ADR, com o terminal como atributo do cabeçalho. O armador
 exibido no cabeçalho deriva do navio da viagem.
 
-- **Related:** Seção do ADR, Sign-off de Seção do ADR, Fechamento do ADR
+- **Related:** Seção do ADR, Resolução de Seção, Sign-off Departamental, Fechamento do ADR
 
 - **Distinto de:** Architecture Decision Record (`docs/adr/`), que é documento
   de engenharia deste repositório. Em código e schema, usar sempre
   `agency_departure_report`, nunca `adr` solto.
 
 **Seção do ADR**
-Bloco temático do ADR com um departamento dono e um sign-off explícito.
-O conteúdo derivado do sistema é exibido, não redigitado; apenas ocorrências e
-o próprio sign-off nascem no ADR. Divisão de donos: Operações — datas
-confirmadas e ocorrências; Equipamentos — vazios embarcados (bookings, depot,
-overtime) e veículos; Documentação — carga descarregada, carga carregada e
-vazios descarregados.
+Bloco temático do ADR com um departamento dono e um estado de resolução próprio.
+São oito seções, apresentadas na ordem do ciclo da escala — datas → importação
+(carga descarregada, vazios descarregados, veículos) → operação de pátio →
+exportação (granito, vazios embarcados) → registro (ocorrências). O conteúdo
+derivado do sistema é exibido, não redigitado; apenas ocorrências e a
+resolução/sign-off nascem no ADR. Divisão de donos:
+- **Operações:** datas confirmadas; ocorrências.
+- **Documentação:** carga descarregada, carga carregada (granito) e vazios
+  descarregados.
+- **Equipamentos:** veículos, operação de pátio e vazios embarcados.
 
-**Sign-off de Seção do ADR**
-Confirmação departamental de que a seção reflete a realidade da escala. Estados:
-Pendente → Confirmado ou Nada a declarar. Ausência de dado não é conclusão:
-zero overtime sem sign-off é seção Pendente, não escala sem overtime. Alertas
-de informação faltante são as seções Pendentes, direcionadas ao departamento
-dono. A primeira saída de Pendente é uma decisão que pede confirmação
-explícita; alterar uma decisão já tomada — voltar a Pendente ou trocar entre
-Confirmado e Nada a declarar — exige justificativa. Toda transição é registrada
-em histórico (autor, momento, de→para e, quando aplicável, justificativa).
+**Resolução de Seção**
+Estado de uma seção quanto ao seu dono: Pendente → Confirmado ou Nada a declarar.
+Ausência de dado não é conclusão: zero overtime sem resolução é seção Pendente,
+não escala sem overtime. A primeira saída de Pendente é uma decisão que pede
+confirmação explícita; alterar uma decisão já tomada — voltar a Pendente ou
+trocar entre Confirmado e Nada a declarar — exige justificativa. Toda transição é
+registrada em histórico (autor, momento, de→para e, quando aplicável,
+justificativa).
+
+**Sign-off Departamental**
+Ato pelo qual um departamento assina, de uma vez, o conjunto das suas seções do
+ADR, confirmando que refletem a realidade da escala. São três — Operações,
+Documentação e Equipamentos — e o fechamento do ADR exige os três. Só é
+habilitado quando todas as seções do departamento estão resolvidas (Confirmado
+ou Nada a declarar); reabrir um sign-off já dado exige justificativa. Os alertas
+de informação faltante, disparados após o ATD da escala, são por departamento
+("Documentação pendente"), não por seção.
 
 **Equipamentos**
 Departamento responsável pelo embarque de vazios de exportação (VAZIOS EXP) e
@@ -201,6 +213,15 @@ configuração tarifária da administração, não operação da escala.
 Número da ordem de serviço da operação de vazios de uma escala: um por
 (viagem, porto), registrado no módulo de vazios de exportação.
 
+**Operação de Pátio**
+Seção do ADR, sob Equipamentos, que consolida a operação de pátio dos vazios da
+escala: storage (containers e dias), overtime (handling e transporte, com % por
+depot), depots usados e embarque direto, número da OS e serviços extra de
+reorganização. É exibição derivada do módulo de Vazios de Exportação e alimenta a
+conferência das faturas de armazenagem e overtime pelo Financeiro. Tem resolução
+própria e entra no Sign-off Departamental de Equipamentos, separada de vazios
+embarcados.
+
 **Natureza do Vazio Descarregado**
 Classificação do container vazio descarregado: **cama** (base de estiva para
 cargas OOG) ou **cover plate** (tampas para porões do navio).
@@ -215,11 +236,14 @@ agregado por marca no ADR.
 
 **Ocorrência da Escala**
 Lançamento livre no diário da escala dentro do ADR: texto com autor,
-departamento e data/hora, em lista append-only. Cobre qualquer acontecimento
+departamento e data/hora, em lista append-only. Qualquer departamento registra,
+marcado com o seu nome; a ocorrência pode, opcionalmente, referenciar uma seção
+do ADR. Operações é dona do sign-off do diário. Cobre qualquer acontecimento
 não estruturado da escala. Não possui taxonomia fixa.
 
 **Fechamento do ADR**
-Ato explícito que encerra o ADR quando todas as seções têm sign-off. Congela um
+Ato explícito que encerra o ADR quando os três departamentos assinaram (cada um
+com todas as suas seções resolvidas). Congela um
 snapshot dos dados derivados e próprios; é esse snapshot que o Financeiro
 consulta para aprovar pagamentos — mudanças posteriores na origem não alteram o
 relatório fechado. Reabrir exige justificativa auditada e novo fechamento. O
@@ -738,8 +762,9 @@ alterar Clientes, Portal ou Financeiro.
 
 **Escopo de Equipamentos**
 Perfil com ações completas em Vazios de Exportação (VAZIOS EXP) e Veículos,
-além do sign-off das suas seções do ADR (vazios embarcados e veículos).
-Leitura no restante do sistema. Não altera Clientes, Portal ou Financeiro.
+além do Sign-off Departamental das suas seções do ADR (veículos, operação de
+pátio e vazios embarcados). Leitura no restante do sistema. Não altera Clientes,
+Portal ou Financeiro.
 
 **Escopo de Documentação**
 Perfil com todas as ações de negócio, incluindo Clientes, Portal, B/Ls, Viagens,

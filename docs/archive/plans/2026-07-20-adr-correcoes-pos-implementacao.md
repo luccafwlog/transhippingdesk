@@ -39,16 +39,21 @@ papel `equipamentos` criado pela `210` opera sem as restrições planejadas.
 
 **Fix:**
 
-- [ ] Verificar a execução da integração GitHub do Supabase para o merge do
+- [x] Verificar a execução da integração GitHub do Supabase para o merge do
       PR #407 (WORKFLOW.md §5: migrations chegam ao remoto por essa
       integração no merge em `main`; **não** usar `apply_migration` do MCP,
       que grava versão timestamp e quebra a checagem de branching).
-- [ ] Se a integração falhou/não rodou, destravar e reexecutar; confirmar com
+- [x] Se a integração falhou/não rodou, destravar e reexecutar; confirmar com
       `list_migrations` que o histórico remoto termina em `216`.
-- [ ] Smoke test em produção: abrir a aba ADR de uma viagem com escala,
+- [x] Smoke test em produção: abrir a aba ADR de uma viagem com escala,
       registrar terminal e um sign-off.
 
 **Verify:** `list_migrations` termina em `216`; aba ADR funcional no remoto.
+
+> **Concluída (2026-07-21):** `list_migrations` no projeto remoto
+> (`fgmkhbzhaeebrsizwccx`) mostra o histórico aplicado até `221` — as
+> migrations `211`–`216` deste plano e as posteriores do ADR (`217`–`221`)
+> estão no remoto. Blocker resolvido; plano executado.
 
 ## Task 1 — P1 · Seção “Carga solta” nunca derivada e ausente do snapshot
 
