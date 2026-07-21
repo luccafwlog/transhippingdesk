@@ -14,7 +14,7 @@ nenhuma falha silenciosa de query no log do shim. **Runtime**.
 
 | Problema | Evidência | Status |
 |---|---|---|
-| **Migration 211 (`equipamentos_rbac_hardening`) não aplica em nenhum Postgres**: na query do `FOR p IN SELECT * FROM pg_policies ...`, as linhas `AND p.permissive = 'PERMISSIVE'` e `p.cmd IN (...)` referenciam o alias `p` que não existe no SQL — o PL/pgSQL substitui pela record variable ainda não atribuída e aborta (`record "p" is not assigned yet`). Produção está com migrations aplicadas **só até a 210** (verificado via Supabase), então o próximo deploy falha na 211 e **bloqueia 212–216** — exatamente as migrations que criam as tabelas do ADR (213/214) e a RPC de recebíveis da Ficha do Cliente (216). Sem elas, nada do escopo desta auditoria funciona em produção. | Reproduzido ao aplicar as migrations no stack local (`ON_ERROR_STOP=1`); auditoria continuou com cópia corrigida aplicada apenas localmente. | **Correção em andamento por outro agente** (informado pelo usuário durante a auditoria). Registrado aqui apenas como evidência. |
+| **Migration 211 (`equipamentos_rbac_hardening`) não aplicava em nenhum Postgres**: na query do `FOR p IN SELECT * FROM pg_policies ...`, as linhas `AND p.permissive = 'PERMISSIVE'` e `p.cmd IN (...)` referenciavam o alias `p` que não existia no SQL — o PL/pgSQL substituía pela record variable ainda não atribuída e abortava (`record "p" is not assigned yet`). | Reproduzido ao aplicar as migrations no stack local (`ON_ERROR_STOP=1`) na data da auditoria. | ✅ **Corrigido** — a query passou a usar `FROM pg_policies AS policy` com `policy.permissive`/`policy.cmd`, chegou ao `main` (PR #409/#410) e foi herdada nesta branch via merge. Migrations 211–220 aplicam limpo no stack local. |
 
 ## Corrigido nesta auditoria
 
@@ -38,34 +38,35 @@ local de desova no banco. **Runtime**.
 
 ### P1 — mina a confiança no fluxo core
 
-| Problema | Eixo | Recomendação |
+| Problema | Eixo | Status |
 |---|---|---|
-| **Ficha do Cliente: "Saldo pendente (local + demurrage) R$ 0,00" para cliente devendo R$ 3.315.** `buildConsolidatedBalance` soma só invoices `issued`; `overdue` e `partially_paid` ficam de fora (comentário no código admite o legado). Com esse título, o card afirma que o cliente não deve nada — contradizendo as próprias Pendências ("1 invoice vencida") três dedos abaixo ([`ficha-cliente-visao-geral.png`](assets/ficha-cliente-visao-geral.png)). | Confiança | Somar o `balance_brl` dos recebíveis `open`/`partially_settled` (a RPC `get_customer_receivables` já devolve exatamente isso) ou, no mínimo, renomear o card e expor "Vencidas" em separado. Decisão de produto sobre o que conta como "pendente" — por isso não corrigido on-the-spot. |
-| **ADR fechado/impresso é ilegível para o destinatário.** `AgencyReportDocument` serializa o snapshot genericamente: seções viram "rows: — · totals: —", "operation: — · storage: days: 0 · containers: 0", e "Container com veículo" vira "2 registro(s)" — perdendo marcas, VINs e locais de desova que a aba viva mostra ([`viagem-adr-fechado.png`](assets/viagem-adr-fechado.png)). Este é o documento que vai para o armador — o deliverable do módulo. | Conversão | Renderizar cada seção do snapshot com layout próprio (tabelas reais de matriz de descarga, veículos por marca/VIN, vazios embarcados), não um dumper de chaves JSON. |
-| Mensagem dos alertas pós-ATD vem do banco com chave crua e sem acento: `ADR BRVIX: secao "vazios_embarcados" pendente (equipamentos).`; a coluna Entidade ainda mostra `10::BRVIX::ocorrencias` ([`alertas-adr-fixed.png`](assets/alertas-adr-fixed.png)). | Entendimento | Migration follow-up em `detect_agency_report_pending()` gerando mensagem legível ("ADR BRVIX: seção Vazios embarcados pendente — Equipamentos"), ou formatar no cliente mapeando as 7 chaves de seção. |
+| ~~Ficha do Cliente: "Saldo pendente (local + demurrage) R$ 0,00" para cliente devendo R$ 3.315.~~ | Confiança | ✅ **Corrigido** (2026-07-21). `buildConsolidatedBalance` agora soma `issued` + `overdue` + `partially_paid`, alinhado à definição de "Saldo Pendente do Cliente" em `CONTEXT.md`. |
+| ~~ADR fechado/impresso é ilegível para o destinatário.~~ | Conversão | ✅ **Corrigido** no `main` (PR #409, antes deste plano) — `AgencyReportDocument` foi reescrito com layout próprio por seção. |
+| ~~Mensagem dos alertas pós-ATD vem do banco com chave crua e sem acento.~~ | Entendimento | ✅ **Corrigido** (2026-07-21). Migration 219 reescreve `detect_agency_report_pending()` com labels pt-BR e nomeia o departamento dono, com backfill dos alertas abertos; a coluna Entidade é formatada no cliente ("Viagem 10 · BRVIX · Ocorrências"). |
 
 ### P2 — atrito moderado
 
-| Problema | Eixo | Recomendação |
+| Problema | Eixo | Status |
 |---|---|---|
-| Aba ADR: sign-offs não mostram **quem confirmou nem quando**, apesar de `signed_by`/`signed_at` estarem no banco; o diário de ocorrências assina com o papel em código ("administrativo · 20/07/2026") em vez do nome do usuário. Para um relatório departamental com sign-off, a atribuição é o ponto ([`viagem-adr-tab.png`](assets/viagem-adr-tab.png)). | Confiança | Exibir "Confirmado por {nome} em {data}" no chip/tooltip de cada seção e nome (não papel) nas ocorrências. |
-| Aba ADR: chip de estado ("Pendente"/"Confirmado") e botões de ação têm o mesmo peso visual (diferem só em `rounded-full` vs `rounded`) — parece um grupo de 3 botões; "Fechar ADR" fecha com um clique, sem confirmação (reversível via "Reabrir", mas congela e é o gatilho de impressão). | Entendimento | Segmented control com estado ativo destacado; diálogo de confirmação leve no fechamento. |
-| VAZIOS EXP: "Serviços de reorganização" mostra "Sem tarifa" em todas as linhas e **não existe UI para cadastrar `vazios_reorg_rates`** (só leitura no código) — beco sem saída permanente ([`vazios-exp-operacao-escala.png`](assets/vazios-exp-operacao-escala.png)). | Conversão | Tela/tabela de tarifas de reorganização (padrão `/granito/taxas`) ou pelo menos hint de onde cadastrar. |
-| VAZIOS EXP: o card "Operação da escala" (OS, overtime, serviços) só aparece depois de filtrar por viagem dentro de "Filtros" — a feature principal do módulo fica invisível no primeiro uso. | Conversão | Seletor de viagem/escala promovido para fora do colapso de filtros, ou empty-state apontando o caminho. |
-| `/veiculos`: sem atribuição de local de desova em massa — a barra de seleção só oferece "Excluir selecionados"; num navio real são centenas de veículos digitados um a um (o campo já aplica por container, mas nada além disso). | Conversão | Ação em massa "Definir local de desova" para a seleção. |
-| Aba ADR: "Container com veículo — local de desova não informado" não linka para `/veiculos`, onde o dado é preenchido; o usuário precisa adivinhar o caminho. | Conversão | Link direto para `/veiculos` com a viagem pré-selecionada. |
-| Ficha BL, aba Faturamento: chips "PRONTO PARA FATURAR" + "SUBTOTAL R$ 0,00" + tabela "Nenhuma taxa calculada" convivem com "Este B/L já foi faturado…" e fatura ativa — três sinais de estado conflitantes na mesma tela ([`ficha-bl-faturamento.png`](assets/ficha-bl-faturamento.png)). Parcialmente artefato do seed, mas o chip de fase deveria refletir "Faturado". | Entendimento | Quando existe fatura ativa, o chip de fase das taxas deve dizer "Faturado" e esconder o CTA "Pronto para faturar". |
-| Copy sem acento remanescente na Ficha BL/Faturamento: "Motor Etapa A: calculo automatico…", "Este B/L ja foi faturado. As taxas estao bloqueadas para edicao", "Razao social", "OBSERVACAO", "DATA/LOCAL DE EMISSAO", "TELEFONE DO CONSIGNATARIO"; e "Conciliação: MATCH CNPJ" em código. | Confiança | Passada de copy nos componentes de Taxas/Faturamento da Ficha BL (mesmo tratamento aplicado aos rails). |
+| ~~Aba ADR: sign-offs não mostram quem confirmou nem quando; ocorrências assinam com o papel em vez do nome.~~ | Confiança | ✅ **Corrigido** (2026-07-21). RPC `get_agency_report_actor_names` (migration 220) + atribuição inline "Confirmado por {nome} em {data}" nas 7 seções e "{nome} ({departamento})" nas ocorrências. |
+| Aba ADR: chip de estado ("Pendente"/"Confirmado") e botões de ação têm o mesmo peso visual — parece um grupo de 3 botões; "Fechar ADR" fecha com um clique, sem confirmação (reversível via "Reabrir", mas congela e é o gatilho de impressão). | Entendimento | Em aberto. Segmented control com estado ativo destacado; diálogo de confirmação leve no fechamento. |
+| ~~VAZIOS EXP: "Serviços de reorganização" mostra "Sem tarifa" em todas as linhas e não existe UI para cadastrar `vazios_reorg_rates`.~~ | Conversão | ✅ **Corrigido** (2026-07-21). Página `/embarquevazios/taxas` (padrão `/granito/taxas`, admin-only); "Sem tarifa" agora é link para lá. |
+| ~~VAZIOS EXP: o card "Operação da escala" só aparece depois de filtrar por viagem — invisível no primeiro uso.~~ | Conversão | ✅ **Corrigido** (2026-07-21). Card sempre visível, com `VoyageCombobox` embutido quando não há viagem selecionada. |
+| ~~`/veiculos`: sem atribuição de local de desova em massa.~~ | Conversão | ✅ **Corrigido** (2026-07-21). Ação "Definir local de desova" na barra de seleção, aplicando aos containers das linhas selecionadas. |
+| Aba ADR: "Container com veículo — local de desova não informado" não linka para `/veiculos`, onde o dado é preenchido. | Conversão | Em aberto. Link direto para `/veiculos` com a viagem pré-selecionada. |
+| ~~Ficha BL, aba Faturamento: chips "PRONTO PARA FATURAR" convivem com "Este B/L já foi faturado…" e fatura ativa — sinais de estado conflitantes.~~ | Entendimento | ✅ **Corrigido** (2026-07-21). Com fatura ativa, o chip de fase mostra "Faturado" e os CTAs "Marcar revisado"/"Pronto para faturar" somem. |
+| ~~Copy sem acento remanescente na Ficha BL/Faturamento.~~ | Confiança | ✅ **Corrigido parcialmente** (2026-07-21): "Motor Etapa A: cálculo automático…", "Este B/L já foi faturado. As taxas estão bloqueadas para edição…". "Razão social", "OBSERVAÇÃO", "DATA/LOCAL DE EMISSÃO", "TELEFONE DO CONSIGNATÁRIO" e "Conciliação: MATCH CNPJ" seguem em aberto (fora do escopo deste plano). |
 
 ### P3 — polimento
 
-| Problema | Eixo | Recomendação |
+| Problema | Eixo | Status |
 |---|---|---|
-| Números sem formatação pt-BR em campos de exibição: Peso total `48500` / CBM `112.5` na Ficha BL (herdado da auditoria anterior), TARA `3800` em `/vazios-importacao` ([`vazios-importacao-dados.png`](assets/vazios-importacao-dados.png)). | Confiança | `Intl.NumberFormat('pt-BR')` na exibição, mantendo edição raw. |
-| Cabeçalho da aba ADR: grid aperta "Navio / viagem" em 3 linhas; campos read-only e o único editável (Terminal) têm o mesmo tratamento visual ([`viagem-adr-tab.png`](assets/viagem-adr-tab.png)). | Entendimento | Grid com min-width por célula; input com affordance distinta dos fatos read-only. |
-| Seção "Embarque de vazios" do ADR diz "Nenhum dado informado" e logo abaixo mostra cards Serviço extra/Storage/Overtime com zeros — contraditório quando tudo é zero. | Entendimento | Suprimir os cards zerados junto com o empty state. |
-| Mobile: setas "→" dos rails da Ficha BL quebram sozinhas no início da linha ([`ficha-bl-mobile.png`](assets/ficha-bl-mobile.png)). | Entendimento | Esconder as setas quando o rail quebra (media query). |
-| Ficha Cliente, aba Operacional: coluna "Financeiro: Pago" convive com recebível em aberto do mesmo B/L na aba Financeiro (dado sintético inconsistente no seed; em produção triggers mantêm). **Suspeita** ([`ficha-cliente-operacional.png`](assets/ficha-cliente-operacional.png)). | Confiança | Se ocorrer em produção, derivar o status exibido dos recebíveis em vez de `bls.financial_status`. |
+| Peso total `48500` / CBM `112.5` sem formatação pt-BR na Ficha BL (herdado da auditoria anterior). | Confiança | Em aberto. |
+| ~~TARA `3800` sem formatação pt-BR em `/vazios-importacao`.~~ | Confiança | ✅ **Corrigido** (2026-07-21): `Number(tare_kg).toLocaleString('pt-BR')`. |
+| ~~Cabeçalho da aba ADR: grid aperta "Navio / viagem" em 3 linhas.~~ | Entendimento | ✅ **Corrigido** (2026-07-21): grid ganhou o degrau `lg:grid-cols-3` antes do `2xl:grid-cols-4`. |
+| ~~Seção "Embarque de vazios" do ADR mostra cards zerados de Serviço extra/Storage/Overtime mesmo com "Nenhum dado informado".~~ | Entendimento | ✅ **Corrigido** (2026-07-21): cards só renderizam quando há bookings ou operação cadastrada. |
+| ~~Mobile: setas "→" dos rails da Ficha BL quebram sozinhas no início da linha.~~ | Entendimento | ✅ **Corrigido** (2026-07-21): setas ocultas abaixo do breakpoint `sm`. |
+| Ficha Cliente, aba Operacional: coluna "Financeiro: Pago" convive com recebível em aberto do mesmo B/L na aba Financeiro (dado sintético inconsistente no seed; em produção triggers mantêm). **Suspeita**. | Confiança | Em aberto. Se ocorrer em produção, derivar o status exibido dos recebíveis em vez de `bls.financial_status`. |
 | Datas `mm/dd/yyyy` nos inputs nativos com navegador em locale EN (herdado, aceito para uso interno). | Confiança | Sem ação; reavaliar se incomodar. |
 
 ## Resumo por dimensão (módulos novos)
@@ -82,16 +83,18 @@ local de desova no banco. **Runtime**.
 
 ## Top 5 — impacto em conversão
 
-1. **Deploy travado pela migration 211** (P0, correção em andamento por outro agente) — sem ela nenhum módulo novo existe em produção.
-2. **Documento ADR fechado/impresso ilegível** (P1) — o deliverable do módulo ADR não serve para envio ao armador.
-3. **Saldo pendente R$ 0,00 com dívida em aberto na Ficha Cliente** (P1) — decisão errada de cobrança à primeira vista.
+1. ~~Deploy travado pela migration 211~~ — **corrigido** no `main` antes deste plano.
+2. ~~Documento ADR fechado/impresso ilegível~~ — **corrigido** no `main` (PR #409).
+3. ~~Saldo pendente R$ 0,00 com dívida em aberto na Ficha Cliente~~ — **corrigido**.
 4. ~~Local de desova nunca salvava~~ — **corrigido** (alimenta diretamente o bloco de veículos do ADR).
-5. Tarifas de reorganização sem UI de cadastro (P2) — a operação da escala nunca produz valores.
+5. ~~Tarifas de reorganização sem UI de cadastro~~ — **corrigido** (`/embarquevazios/taxas`).
+
+Todos os itens do top 5 de 2026-07-20 estão resolvidos. Restam do P2/P3: segmented control dos sign-offs, deep-link ADR→Veículos, e a passada de copy remanescente na Ficha BL (Detalhes do B/L).
 
 ## Top 5 — quick wins
 
 1. ~~Enums crus (`ready_for_billing`, `open`, `aguardando_analise`, tipo de alerta ADR)~~ — **corrigidos** com os label maps que já existiam.
 2. ~~Acentos e inglês nos rails da Ficha BL~~ — **corrigidos**.
 3. ~~Legenda do papel Equipamentos~~ — **corrigida**.
-4. Mensagem legível nos alertas pós-ATD (migration de uma função).
-5. "Confirmado por {nome} em {data}" nos sign-offs do ADR (dado já existe no banco).
+4. ~~Mensagem legível nos alertas pós-ATD~~ — **corrigida** (migration 219).
+5. ~~"Confirmado por {nome} em {data}" nos sign-offs do ADR~~ — **corrigido** (migration 220).
