@@ -14,6 +14,11 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
 - [`2026-07-18-code-quality-audit-remediation`](2026-07-18-code-quality-audit-remediation.md)
   — consolidação de formatadores e `PreviewBox`, decomposição de serviços,
   páginas e abas monolíticas, com cobertura comportamental dos pais.
+- [`2026-07-20-adr-correcoes-pos-implementacao`](2026-07-20-adr-correcoes-pos-implementacao.md)
+  — correções pós-merge do Agency Departure Report (carga solta derivada,
+  documento fechado fiel ao modelo, mapeamento seção×bloco, RBAC de
+  reabertura, validação de forma do snapshot, invalidação de alertas). ADR 0027;
+  Task 0 (migrations `211`–`216` no remoto) concluída — remoto em `221`.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.
