@@ -37,4 +37,11 @@ describe('BulkActionsBar', () => {
     render(<BulkActionsBar count={2} onClear={vi.fn()} onDelete={vi.fn()} deleting noun={['container', 'containers']} />)
     expect(screen.getByRole('button', { name: /limpar/i }).hasAttribute('disabled')).toBe(true)
   })
+
+  it('renderiza acoes extras quando fornecidas', () => {
+    render(
+      <BulkActionsBar count={2} onClear={vi.fn()} onDelete={vi.fn()} noun={['veiculo', 'veiculos']} extraActions={<button type="button">Definir local de desova</button>} />,
+    )
+    expect(screen.getByRole('button', { name: 'Definir local de desova' })).toBeTruthy()
+  })
 })

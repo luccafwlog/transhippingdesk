@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Trash2, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 
@@ -8,13 +9,15 @@ type BulkActionsBarProps = {
   deleting?: boolean
   /** Singular/plural do rotulo da entidade, ex: ['veiculo', 'veiculos']. */
   noun: [string, string]
+  /** Acoes adicionais renderizadas antes do botao de exclusao. */
+  extraActions?: ReactNode
 }
 
 /**
  * Barra de acoes em massa exibida quando ha linhas selecionadas. Apenas
  * apresentacao: a pagina decide o que fazer em `onDelete`/`onClear`.
  */
-export function BulkActionsBar({ count, onClear, onDelete, deleting, noun }: BulkActionsBarProps) {
+export function BulkActionsBar({ count, onClear, onDelete, deleting, noun, extraActions }: BulkActionsBarProps) {
   if (count === 0) return null
 
   const label = `${count} ${count === 1 ? noun[0] : noun[1]} selecionado${count === 1 ? '' : 's'}`
@@ -27,6 +30,7 @@ export function BulkActionsBar({ count, onClear, onDelete, deleting, noun }: Bul
           <X size={15} />
           Limpar
         </Button>
+        {extraActions}
         <Button variant="danger" onClick={onDelete} loading={deleting}>
           <Trash2 size={15} />
           Excluir selecionados
