@@ -278,7 +278,7 @@ export function VaziosImportacao() {
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
                     <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.container_number}</td>
                     <td className="px-4 py-3">{row.container_type ?? '-'}</td>
-                    <td className="px-4 py-3">{row.tare_kg != null ? String(row.tare_kg) : '-'}</td>
+                    <td className="px-4 py-3">{row.tare_kg != null ? Number(row.tare_kg).toLocaleString('pt-BR') : '-'}</td>
                     <td className="px-4 py-3">{row.pod ?? '-'}</td>
                     <td className="px-4 py-3">
                       <Select
@@ -377,7 +377,7 @@ export function VaziosImportacao() {
                       <tr key={i}>
                         <td className="px-3 py-2 font-semibold text-white">{c.container_number}</td>
                         <td className="px-3 py-2">{c.container_type ?? '-'}</td>
-                        <td className="px-3 py-2">{c.tare_kg != null ? String(c.tare_kg) : '-'}</td>
+                        <td className="px-3 py-2">{c.tare_kg != null ? Number(c.tare_kg).toLocaleString('pt-BR') : '-'}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -23,7 +23,7 @@ function Rail({ title, stages }: { title: string; stages: RailStage[] }) {
       <div className="flex flex-wrap items-center gap-2">
         {stages.map((stage, index) => (
           <div key={stage.key} className="flex items-center gap-2">
-            {index > 0 ? <span className="text-[var(--app-muted)]">→</span> : null}
+            {index > 0 ? <span className="hidden sm:inline text-[var(--app-muted)]">→</span> : null}
             <Stage stage={stage} />
           </div>
         ))}

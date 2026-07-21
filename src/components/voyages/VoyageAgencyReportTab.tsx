@@ -179,7 +179,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           <button type="button" className="rounded bg-[var(--app-blue-btn)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={confirmedCount !== 7 || closeMutation.isPending || !port} title={confirmedCount !== 7 ? 'Confirme as 7 seções (ou marque "Nada a declarar") para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</button>
         </div>
         <ReportSection title="Cabeçalho" section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} onSignoff={updateSignoff}>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             <Info label="Armador" value={carrierName} />
             <Info label="Navio / viagem" value={voyageLabel} />
             <Info label="Porto" value={port ?? '—'} />
@@ -211,11 +211,13 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         </ReportSection>
         <ReportSection title="Embarque de vazios" section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} onSignoff={updateSignoff}>
           {bookings.length ? <div className="grid gap-4 xl:grid-cols-2"><MetricPanel title="Matriz"><Matrix rows={emptyEmbarkMatrix.rows} /></MetricPanel><MetricPanel title="Operação"><Info label="OS" value={data?.operation?.os_number ?? 'Não informada'} /><Info label="Embarque direto" value={String(bookings.filter((booking) => !booking.depot).length)} /><Info label="Depots" value={depots.join(', ') || '—'} /></MetricPanel></div> : <EmptyData />}
-          <div className="grid gap-4 xl:grid-cols-3">
-            <MetricPanel title="Serviço extra">{data?.operation?.reorg.length ? data.operation.reorg.map((service) => <Info key={service.id} label={`${service.service} · ${service.container_type}`} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
-            <MetricPanel title="Storage"><Info label="Containers" value={String(data?.storage.containers ?? 0)} /><Info label="Dias" value={String(data?.storage.days ?? 0)} /></MetricPanel>
-            <MetricPanel title="Overtime"><Info label="Handling" value={String(bookings.filter((booking) => booking.overtime_handling).length)} /><Info label="Transporte" value={String(bookings.filter((booking) => booking.overtime_transport).length)} />{data?.operation?.overtime.map((overtime) => <Info key={overtime.id} label={overtime.depot} value={`${overtime.percent}%`} />)}</MetricPanel>
-          </div>
+          {bookings.length || data?.operation ? (
+            <div className="grid gap-4 xl:grid-cols-3">
+              <MetricPanel title="Serviço extra">{data?.operation?.reorg.length ? data.operation.reorg.map((service) => <Info key={service.id} label={`${service.service} · ${service.container_type}`} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
+              <MetricPanel title="Storage"><Info label="Containers" value={String(data?.storage.containers ?? 0)} /><Info label="Dias" value={String(data?.storage.days ?? 0)} /></MetricPanel>
+              <MetricPanel title="Overtime"><Info label="Handling" value={String(bookings.filter((booking) => booking.overtime_handling).length)} /><Info label="Transporte" value={String(bookings.filter((booking) => booking.overtime_transport).length)} />{data?.operation?.overtime.map((overtime) => <Info key={overtime.id} label={overtime.depot} value={`${overtime.percent}%`} />)}</MetricPanel>
+            </div>
+          ) : null}
         </ReportSection>
         <ReportSection title="Ocorrências" section="ocorrencias" state={sectionState('ocorrencias')} attribution={sectionAttribution('ocorrencias')} canSignoff={canSignoff('ocorrencias')} onSignoff={updateSignoff}>
           {(ownData?.occurrences ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map((item) => <div key={item.id} className="grid gap-1 text-sm"><span>{item.body}</span><span className="text-xs text-[var(--app-muted)]">{(item.author_id && actorNames[item.author_id]) ? `${actorNames[item.author_id]} (${AGENCY_REPORT_DEPARTMENT_LABELS[item.department] ?? item.department})` : (AGENCY_REPORT_DEPARTMENT_LABELS[item.department] ?? item.department)} · {formatDate(item.created_at)}</span></div>)}
