@@ -87,7 +87,13 @@ continua exigindo justificativa auditada, como hoje.
 - **Migração de dados:** decisão de implementação sobre como tratar as
   ocorrências já registradas em produção (mapear para a Observação da seção
   tagueada, quando houver, ou preservar como registro histórico à parte,
-  fora da aba) fica documentada na migration correspondente.
+  fora da aba) fica documentada na migration correspondente. A mesma
+  migration também precisa tratar as linhas de
+  `agency_departure_report_signoffs` com `section = 'ocorrencias'`
+  (existentes desde a 0029, quando o gate departamental ainda incluía essa
+  seção) antes de estreitar o enum/CHECK de seções para as 7 remanescentes
+  — apagar ou arquivar essas linhas é decisão de implementação a ser
+  documentada junto com a migração das ocorrências.
 - Os ajustes de apresentação relacionados (agrupamento visual de "Vazios
   embarcados" junto de "Operação de pátio"; remoção da legenda-resumo de
   todas as seções) ficam registrados como nota editorial na ADR 0029, por
