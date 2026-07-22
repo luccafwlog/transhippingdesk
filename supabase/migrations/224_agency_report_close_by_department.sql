@@ -53,6 +53,9 @@ BEGIN
     RAISE EXCEPTION 'ADR ja fechado.' USING ERRCODE = '23505';
   END IF;
 
+  -- 'agency_report_section_pending' e obsoleto (migration 225 introduz
+  -- 'agency_report_department_pending', ja fechado por departamento no
+  -- signoff); mantido aqui so para alertas legados pre-0029.
   UPDATE public.alerts
   SET status = 'closed', closed_at = now()
   WHERE type = 'agency_report_section_pending'
@@ -77,7 +80,7 @@ AS $function$
 DECLARE
   v_report_id UUID;
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR NOT public.is_admin() THEN
     RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
   END IF;
   IF btrim(COALESCE(p_justification, '')) = '' THEN
