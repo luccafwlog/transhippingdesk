@@ -9,6 +9,37 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      agency_departure_report_department_signoffs: {
+        Row: {
+          department: string
+          id: string
+          report_id: string
+          signed_at: string | null
+          signed_by: string | null
+        }
+        Insert: {
+          department: string
+          id?: string
+          report_id: string
+          signed_at?: string | null
+          signed_by?: string | null
+        }
+        Update: {
+          department?: string
+          id?: string
+          report_id?: string
+          signed_at?: string | null
+          signed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_departure_report_department_signoffs_report_id_fkey"
+            columns: ["report_id"]
+            referencedRelation: "agency_departure_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_departure_report_occurrences: {
         Row: {
           author_id: string
@@ -17,6 +48,7 @@ export type Database = {
           department: string
           id: string
           report_id: string
+          section: string | null
         }
         Insert: {
           author_id: string
@@ -25,6 +57,7 @@ export type Database = {
           department: string
           id?: string
           report_id: string
+          section?: string | null
         }
         Update: {
           author_id?: string
@@ -33,6 +66,7 @@ export type Database = {
           department?: string
           id?: string
           report_id?: string
+          section?: string | null
         }
         Relationships: [
           {
@@ -3966,7 +4000,12 @@ export type Database = {
         Returns: undefined
       }
       add_agency_report_occurrence: {
-        Args: { p_body: string; p_port: string; p_voyage_id: number }
+        Args: {
+          p_body: string
+          p_port: string
+          p_section?: string
+          p_voyage_id: number
+        }
         Returns: Json
       }
       add_manual_bl_charge: {
@@ -4825,6 +4864,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_agency_report_department_signoff: {
+        Args: {
+          p_department: string
+          p_justification?: string
+          p_port: string
+          p_signed: boolean
+          p_voyage_id: number
+        }
+        Returns: Json
+      }
       set_agency_report_signoff: {
         Args: {
           p_justification?: string
@@ -5520,6 +5569,9 @@ export type AgencyReportSectionKey =
   | 'vazios_embarcados'
   | 'vazios_descarregados'
   | 'ocorrencias'
+  | 'operacao_patio'
+
+export type AgencyReportDepartmentKey = 'operacoes' | 'documentacao' | 'equipamentos'
 
 export type AgencyReportSignoff = Omit<
   Tables<'agency_departure_report_signoffs'>,
@@ -5527,6 +5579,13 @@ export type AgencyReportSignoff = Omit<
 > & {
   section: AgencyReportSectionKey
   state: 'pending' | 'confirmed' | 'nothing_to_declare'
+}
+
+export type AgencyReportDepartmentSignoff = Omit<
+  Tables<'agency_departure_report_department_signoffs'>,
+  'department'
+> & {
+  department: AgencyReportDepartmentKey
 }
 
 export type VaziosImportacaoContainer = Omit<

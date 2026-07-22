@@ -6,6 +6,7 @@ import {
   getAgencyReportOwnData,
   listSignoffEvents,
   reopenReport,
+  setDepartmentSignoff,
   setSignoff,
   setTerminal,
 } from '../services/agencyDepartureReport'
@@ -40,6 +41,10 @@ function useAgencyReportOwnMutation<T>(mutationFn: (input: T) => Promise<void>, 
 
 export function useSetAgencyReportSignoff() {
   return useAgencyReportOwnMutation(setSignoff, ['agency-report-signoff-events'])
+}
+
+export function useSetAgencyReportDepartmentSignoff() {
+  return useAgencyReportOwnMutation(setDepartmentSignoff)
 }
 
 export function useAgencyReportSignoffEvents(voyageId: number, port: string | null) {

@@ -33,7 +33,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0026](./0026-demurrage-validacao-item-rpc-veto.md) | Validação por item na RPC de emissão de Demurrage (autoridade de veto) | aceito | Complementa a 0008/0014; migration 204 |
 | [0027](./0027-agency-departure-report-agregado-escala-snapshot.md) | Agency Departure Report: agregado por escala, exibição derivada e fechamento com snapshot | aceito | Implementada nas migrations `208`–`214`; estende a 0012 (aba na Viagem) e a 0004 (perfil Equipamentos/RBAC); sign-off estendido pela 0028 e supersedido parcialmente pela 0029 (por departamento, operação de pátio, ocorrências) |
 | [0028](./0028-adr-signoff-historico-justificativa-audit-logs.md) | Sign-off do ADR com histórico auditável e justificativa de reversão | aceito | Estende a 0027; migration 221; reutiliza `audit_logs` (sem tabela nova); estendida pela 0029 (justificativa também na reabertura departamental) |
-| [0029](./0029-adr-signoff-departamental-fases-ciclo.md) | Sign-off do ADR por departamento, seções na ordem do ciclo e operação de pátio como seção própria | aceito | Supersede parcialmente a 0027 (granularidade, gate, alertas, seções, ocorrências) e estende a 0028; implementação pendente no plano de 2026-07-21 |
+| [0029](./0029-adr-signoff-departamental-fases-ciclo.md) | Sign-off do ADR por departamento, seções na ordem do ciclo e operação de pátio como seção própria | aceito | Supersede parcialmente a 0027 (granularidade, gate, alertas, seções, ocorrências) e estende a 0028; implementada nas migrations `222`–`226`; espelho no impresso (`AgencyReportDocument`) fica para fase seguinte |
 
 ## Convenção
 

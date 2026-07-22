@@ -15,7 +15,8 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
-| [2026-07-21-adr-signoff-departamental-ciclo](2026-07-21-adr-signoff-departamental-ciclo.md) | [ADR 0029](../adr/0029-adr-signoff-departamental-fases-ciclo.md) (supersede parcial 0027, estende 0028) | TODO |
+
+Nenhum plano ativo no momento.
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

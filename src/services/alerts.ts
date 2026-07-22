@@ -1,19 +1,22 @@
 import type { Alert } from '../types/database'
 import { supabase } from './supabase'
 import { reportBestEffortFailure } from '../lib/telemetry'
-import { AGENCY_REPORT_SECTION_LABELS } from './agencyDepartureReport'
+import { AGENCY_REPORT_DEPARTMENT_LABELS, AGENCY_REPORT_SECTION_LABELS } from './agencyDepartureReport'
 
 export type { Alert }
 
 export type AlertStatusFilter = 'all' | 'open' | 'acknowledged'
 
-// entity_id dos alertas do ADR é composto (voyageId::porto::secao) — contrato
-// de dedupe/fechamento. Este formatador é só apresentação para a página Alertas.
+// entity_id dos alertas do ADR é composto (voyageId::porto::departamento,
+// migration 225; secao em alertas legados pre-0029) — contrato de
+// dedupe/fechamento. Este formatador é só apresentação para a página Alertas.
 export function formatAgencyReportAlertEntity(entityId: string): string | null {
-  const [voyageId, port, section] = entityId.split('::')
-  if (!voyageId || !port || !section) return null
-  const sectionLabel = (AGENCY_REPORT_SECTION_LABELS as Record<string, string>)[section] ?? section
-  return `Viagem ${voyageId} · ${port} · ${sectionLabel}`
+  const [voyageId, port, key] = entityId.split('::')
+  if (!voyageId || !port || !key) return null
+  const label = (AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[key]
+    ?? (AGENCY_REPORT_SECTION_LABELS as Record<string, string>)[key]
+    ?? key
+  return `Viagem ${voyageId} · ${port} · ${label}`
 }
 
 export async function listAlerts(statusFilter: AlertStatusFilter = 'all'): Promise<Alert[]> {

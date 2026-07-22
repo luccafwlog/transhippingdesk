@@ -10,7 +10,7 @@ import type {
   Vehicle,
   Json,
 } from '../types/database'
-import type { AgencyDepartureReport, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
+import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepartmentSignoff, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
@@ -23,6 +23,7 @@ export type AgencyReportSection =
   | 'vazios_embarcados'
   | 'vazios_descarregados'
   | 'ocorrencias'
+  | 'operacao_patio'
 
 export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole> = {
   datas: 'operacoes',
@@ -32,6 +33,7 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
   vazios_embarcados: 'equipamentos',
   vazios_descarregados: 'documentacao',
   ocorrencias: 'operacoes',
+  operacao_patio: 'equipamentos',
 }
 
 // Labels pt-BR das seções e departamentos do ADR — espelham as funções SQL
@@ -44,7 +46,21 @@ export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> =
   vazios_embarcados: 'Vazios embarcados',
   vazios_descarregados: 'Vazios descarregados',
   ocorrencias: 'Ocorrências',
+  operacao_patio: 'Operação de pátio',
 }
+
+// Ordem do ciclo da escala (ADR 0029): Escala → Importação → Operação de
+// pátio → Exportação → Registro. Usada pelo layout em faixas (Task 6).
+export const AGENCY_REPORT_SECTION_ORDER: AgencyReportSection[] = [
+  'datas',
+  'carga_descarregada',
+  'vazios_descarregados',
+  'veiculos',
+  'operacao_patio',
+  'carga_carregada',
+  'vazios_embarcados',
+  'ocorrencias',
+]
 
 export type SignoffState = AgencyReportSignoff['state']
 
@@ -62,6 +78,7 @@ export const AGENCY_REPORT_DEPARTMENT_LABELS: Record<string, string> = {
 
 export type AgencyReportOwnData = AgencyDepartureReport & {
   signoffs: AgencyReportSignoff[]
+  departmentSignoffs: AgencyReportDepartmentSignoff[]
   occurrences: AgencyReportOccurrence[]
   closed_by_name?: string | null
   actor_names?: Record<string, string>
@@ -70,7 +87,7 @@ export type AgencyReportOwnData = AgencyDepartureReport & {
 export async function getAgencyReportOwnData(voyageId: number, port: string) {
   const { data, error } = await supabase
     .from('agency_departure_reports')
-    .select('*, signoffs:agency_departure_report_signoffs(*), occurrences:agency_departure_report_occurrences(*)')
+    .select('*, signoffs:agency_departure_report_signoffs(*), departmentSignoffs:agency_departure_report_department_signoffs(*), occurrences:agency_departure_report_occurrences(*)')
     .eq('voyage_id', voyageId)
     .eq('port', port)
     .maybeSingle()
@@ -122,6 +139,23 @@ export async function setSignoff(input: {
   if (error) throw error
 }
 
+export async function setDepartmentSignoff(input: {
+  voyageId: number
+  port: string
+  department: AgencyReportDepartmentKey
+  signed: boolean
+  justification?: string
+}) {
+  const { error } = await supabase.rpc('set_agency_report_department_signoff', {
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_department: input.department,
+    p_signed: input.signed,
+    p_justification: input.justification,
+  })
+  if (error) throw error
+}
+
 export type AgencyReportSignoffEvent = {
   id: number
   section: AgencyReportSection
@@ -155,11 +189,17 @@ export async function listSignoffEvents(voyageId: number, port: string) {
   }))
 }
 
-export async function addOccurrence(input: { voyageId: number; port: string; body: string }) {
+export async function addOccurrence(input: {
+  voyageId: number
+  port: string
+  body: string
+  section?: AgencyReportSection
+}) {
   const { error } = await supabase.rpc('add_agency_report_occurrence', {
     p_voyage_id: input.voyageId,
     p_port: input.port,
     p_body: input.body,
+    p_section: input.section,
   })
   if (error) throw error
 }

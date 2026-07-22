@@ -19,6 +19,12 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   documento fechado fiel ao modelo, mapeamento seção×bloco, RBAC de
   reabertura, validação de forma do snapshot, invalidação de alertas). ADR 0027;
   Task 0 (migrations `211`–`216` no remoto) concluída — remoto em `221`.
+- [`2026-07-21-adr-signoff-departamental-ciclo`](2026-07-21-adr-signoff-departamental-ciclo.md)
+  — sign-off do ADR por departamento (não por seção), operação de pátio como
+  8ª seção, fechamento por 3/3 departamentos, alertas por departamento,
+  ocorrências abertas aos 3 departamentos com tag opcional de seção, layout em
+  5 faixas do ciclo com barra-resumo, números-heróis e correções de cópia.
+  ADR 0029; migrations `222`–`226`.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.
