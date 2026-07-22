@@ -110,3 +110,25 @@ este mesmo modelo — o redesenho do impresso fica para uma fase seguinte.
 - O documento impresso (`AgencyReportDocument`) fica temporariamente
   desalinhado com a aba até o redesenho do impresso — risco editorial aceito,
   registrado como pendência no plano de implementação.
+
+## Nota editorial (2026-07-22 — sessão de revisão pós-implementação)
+
+Uma revisão de uso real, após a 0029 entrar em produção, encontrou dois
+ajustes de apresentação nesta ADR (o modelo de dados/RBAC foi revisto
+separadamente na ADR 0030):
+
+- **Agrupamento visual de "Operação de pátio" e "Vazios embarcados".**
+  Os dois blocos leem a mesma tabela de origem (`vazios_bookings`) mas
+  apareciam em fases visuais diferentes ("Operação de pátio" vs.
+  "Exportação"), escondendo que são a mesma informação vista de dois
+  ângulos. "Vazios embarcados" passa a ser renderizado dentro/ao lado da
+  fase "Operação de pátio"; a fase "Exportação" passa a conter só o bloco
+  "Granito". Seção, dono (Equipamentos) e sign-off de "Vazios embarcados"
+  não mudam — só a posição na tela.
+- **Remoção da legenda-resumo.** A legenda curta abaixo do título de cada
+  seção, decidida nesta ADR como "voltada ao Financeiro", se mostrou
+  redundante com o título da seção e com os títulos dos MetricPanels
+  internos — e, na seção "Carga descarregada", ficou incompleta (citava só
+  containers, não a carga solta que o bloco também mostra). A legenda é
+  removida de todas as seções; título de seção + títulos dos MetricPanels
+  passam a ser a única identificação de cada número exibido.
