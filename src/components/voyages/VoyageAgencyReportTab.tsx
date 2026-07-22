@@ -44,7 +44,6 @@ type Props = {
 
 function ReportSection({
   title,
-  legend,
   section,
   state,
   attribution,
@@ -56,7 +55,6 @@ function ReportSection({
   children,
 }: {
   title: string
-  legend?: string
   section?: AgencyReportSection
   state?: SignoffState
   attribution?: string | null
@@ -84,7 +82,6 @@ function ReportSection({
           />
         ) : null}
       </div>
-      {legend ? <p className="text-xs text-[var(--app-muted)]">{legend}</p> : null}
       {children}
     </section>
   )
@@ -269,7 +266,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportPhase title="Escala">
           <ReportSection
             title="Cabeçalho"
-            legend="Janela operacional da escala; dados confirmados por Operações."
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
           >
             <Hero value={`${formatDate(data?.schedule?.atb)} → ${formatDate(data?.schedule?.atd)}`} unit="ATB → ATD" />
@@ -292,7 +288,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportPhase title="Importação">
           <ReportSection
             title="Carga descarregada"
-            legend="Containers de importação descarregados nesta escala; estado do sign-off ao lado."
             section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} events={eventsBySection('carga_descarregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
           >
             <div className="flex flex-wrap items-baseline gap-4">
@@ -307,7 +302,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
 
           <ReportSection
             title="Vazios descarregados (cama / cover plate)"
-            legend="Containers vazios descarregados nesta escala, por natureza."
             section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
           >
             <Hero value={String(data?.vaziosImp.length ?? 0)} unit="vazios descarregados" />
@@ -316,7 +310,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
 
           <ReportSection
             title="Veículos"
-            legend="Veículos importados vinculados a container, agrupados por marca."
             section="veiculos" state={sectionState('veiculos')} attribution={sectionAttribution('veiculos')} canSignoff={canSignoff('veiculos')} events={eventsBySection('veiculos')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
           >
             <Hero value={String(vehicleVinTotal)} unit="VINs" />
@@ -327,7 +320,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportPhase title="Operação de pátio">
           <ReportSection
             title="Operação de pátio"
-            legend="Storage, overtime, depots e serviços extra dos vazios de exportação — base da conferência de faturas de armazenagem e overtime pelo Financeiro."
             section="operacao_patio" state={sectionState('operacao_patio')} attribution={sectionAttribution('operacao_patio')} canSignoff={canSignoff('operacao_patio')} events={eventsBySection('operacao_patio')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
           >
             <Hero value={String(data?.storage.days ?? 0)} unit="dias de storage" />
@@ -338,23 +330,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             </div>
             <MetricPanel title="Serviço extra">{data?.operation?.reorg.length ? data.operation.reorg.map((service) => <Info key={service.id} label={`${service.service} · ${service.container_type}`} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
           </ReportSection>
-        </ReportPhase>
-
-        <ReportPhase title="Exportação">
-          <ReportSection
-            title="Granito (carga carregada)"
-            legend="Carga de exportação (granito) embarcada nesta escala; estado do sign-off ao lado."
-            section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-          >
-            {data?.granite.length ? <>
-              <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
-              <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
-            </> : <EmptyData />}
-          </ReportSection>
 
           <ReportSection
             title="Vazios embarcados"
-            legend="Containers vazios embarcados nesta escala, por tipo."
             section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} events={eventsBySection('vazios_embarcados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
           >
             <Hero value={String(bookings.length)} unit="vazios embarcados" />
@@ -362,10 +340,21 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </ReportSection>
         </ReportPhase>
 
+        <ReportPhase title="Exportação">
+          <ReportSection
+            title="Granito (carga carregada)"
+            section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+          >
+            {data?.granite.length ? <>
+              <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
+              <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
+            </> : <EmptyData />}
+          </ReportSection>
+        </ReportPhase>
+
         <ReportPhase title="Registro">
           <ReportSection
             title="Ocorrências"
-            legend="Diário livre da escala; qualquer departamento lança, Operações assina."
             section="ocorrencias" state={sectionState('ocorrencias')} attribution={sectionAttribution('ocorrencias')} canSignoff={canSignoff('ocorrencias')} events={eventsBySection('ocorrencias')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
           >
             {(ownData?.occurrences ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map((item) => (

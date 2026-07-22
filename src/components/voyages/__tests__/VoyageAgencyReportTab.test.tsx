@@ -339,6 +339,28 @@ it('renderiza as 5 fases do ciclo, com Operação de pátio como seção própri
   expect(within(embarqueSection).queryByText('OS')).toBeNull()
 })
 
+it('agrupa Vazios embarcados junto de Operação de pátio; Exportação mostra só Granito; nenhuma seção mostra legenda-resumo', () => {
+  useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const patioPhase = screen.getByRole('heading', { name: 'Operação de pátio', level: 2 }).closest('div')!
+  expect(within(patioPhase).getByRole('heading', { name: 'Vazios embarcados' })).toBeTruthy()
+
+  const exportacaoPhase = screen.getByRole('heading', { name: 'Exportação', level: 2 }).closest('div')!
+  expect(within(exportacaoPhase).getByRole('heading', { name: 'Granito (carga carregada)' })).toBeTruthy()
+  expect(within(exportacaoPhase).queryByRole('heading', { name: 'Vazios embarcados' })).toBeNull()
+
+  for (const legend of [
+    'Janela operacional da escala; dados confirmados por Operações.',
+    'Storage, overtime, depots e serviços extra dos vazios de exportação — base da conferência de faturas de armazenagem e overtime pelo Financeiro.',
+    'Containers vazios embarcados nesta escala, por tipo.',
+  ]) {
+    expect(screen.queryByText(legend)).toBeNull()
+  }
+})
+
 it('congela locais de desova, depots e embarques diretos no snapshot', () => {
   useAgencyReportDerivedMock.mockReturnValue({
     data: {
