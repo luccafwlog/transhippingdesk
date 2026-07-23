@@ -6,19 +6,18 @@ import { Info, MetricPanel } from '../shared/VoyageSectionCards'
 import { SignoffControl } from './SignoffControl'
 import { DepartmentSignoffControl } from './DepartmentSignoffControl'
 import {
-  useAddAgencyReportOccurrence,
   useAgencyReportDerived,
   useAgencyReportOwn,
   useAgencyReportSignoffEvents,
   useCloseAgencyReport,
   useReopenAgencyReport,
   useSetAgencyReportDepartmentSignoff,
+  useSetAgencyReportSectionObservation,
   useSetAgencyReportSignoff,
   useSetAgencyReportTerminal,
 } from '../../hooks/useAgencyReport'
 import {
   AGENCY_REPORT_SECTIONS,
-  AGENCY_REPORT_SECTION_LABELS,
   AGENCY_REPORT_SECTION_ORDER,
   AGENCY_REPORT_DEPARTMENT_LABELS,
   buildContainerTypeMatrix,
@@ -44,7 +43,6 @@ type Props = {
 
 function ReportSection({
   title,
-  legend,
   section,
   state,
   attribution,
@@ -53,10 +51,11 @@ function ReportSection({
   actorNames,
   isPending,
   onSignoff,
+  observation,
+  onObservationChange,
   children,
 }: {
   title: string
-  legend?: string
   section?: AgencyReportSection
   state?: SignoffState
   attribution?: string | null
@@ -65,6 +64,8 @@ function ReportSection({
   actorNames?: Record<string, string>
   isPending?: boolean
   onSignoff?: (section: AgencyReportSection, state: SignoffState, justification?: string) => void
+  observation?: string | null
+  onObservationChange?: (section: AgencyReportSection, observation: string) => void
   children: ReactNode
 }) {
   return (
@@ -84,8 +85,25 @@ function ReportSection({
           />
         ) : null}
       </div>
-      {legend ? <p className="text-xs text-[var(--app-muted)]">{legend}</p> : null}
       {children}
+      {section ? (
+        <label className="grid gap-1 text-sm">
+          <span className="text-xs font-semibold text-[var(--app-muted)]">Observação (opcional)</span>
+          {canSignoff ? (
+            <textarea
+              key={`${section}:${observation ?? ''}`}
+              aria-label={`Observação — ${title}`}
+              defaultValue={observation ?? ''}
+              className="min-h-16 rounded border border-[var(--app-border)] bg-transparent p-2 text-sm"
+              onBlur={(event) => {
+                if (event.target.value !== (observation ?? '')) onObservationChange?.(section, event.target.value)
+              }}
+            />
+          ) : (
+            <p className="text-[var(--app-muted)]">{observation || '—'}</p>
+          )}
+        </label>
+      ) : null}
     </section>
   )
 }
@@ -115,15 +133,13 @@ function EmptyData() {
 export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {
   const initialPort = initialEscala && pods.includes(initialEscala) ? initialEscala : (pods[0] ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
-  const [occurrence, setOccurrence] = useState('')
-  const [occurrenceSection, setOccurrenceSection] = useState<AgencyReportSection | ''>('')
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port)
   const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port)
   const { effectiveRole, isAdmin } = useAuth()
   const signoffMutation = useSetAgencyReportSignoff()
   const departmentSignoffMutation = useSetAgencyReportDepartmentSignoff()
-  const occurrenceMutation = useAddAgencyReportOccurrence()
+  const observationMutation = useSetAgencyReportSectionObservation()
   const terminalMutation = useSetAgencyReportTerminal()
   const closeMutation = useCloseAgencyReport()
   const reopenMutation = useReopenAgencyReport()
@@ -176,11 +192,13 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     const name = (signoff.signed_by && actorNames[signoff.signed_by]) || null
     return `${signoffLabels[signoff.state]} por ${name ?? '—'} em ${formatDate(signoff.signed_at)}`
   }
-  const canLaunchOccurrence = isAdmin || DEPARTMENTS.includes(effectiveRole as AgencyReportDepartmentKey)
   const canEditOperations = isAdmin || effectiveRole === 'operacoes'
   const canSignoff = (section: AgencyReportSection) => isAdmin || effectiveRole === AGENCY_REPORT_SECTIONS[section]
   const updateSignoff = (section: AgencyReportSection, state: SignoffState, justification?: string) => {
     if (port) signoffMutation.mutate({ voyageId, port, section, state, justification })
+  }
+  const updateObservation = (section: AgencyReportSection, observation: string) => {
+    if (port) observationMutation.mutate({ voyageId, port, section, observation })
   }
   const eventsBySection = (section: AgencyReportSection) => (signoffEvents ?? []).filter((event) => event.section === section)
 
@@ -269,8 +287,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportPhase title="Escala">
           <ReportSection
             title="Cabeçalho"
-            legend="Janela operacional da escala; dados confirmados por Operações."
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation}
           >
             <Hero value={`${formatDate(data?.schedule?.atb)} → ${formatDate(data?.schedule?.atd)}`} unit="ATB → ATD" />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
@@ -292,8 +310,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportPhase title="Importação">
           <ReportSection
             title="Carga descarregada"
-            legend="Containers de importação descarregados nesta escala; estado do sign-off ao lado."
             section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} events={eventsBySection('carga_descarregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('carga_descarregada')?.observation} onObservationChange={updateObservation}
           >
             <div className="flex flex-wrap items-baseline gap-4">
               <Hero value={String(containers.length)} unit="containers descarregados" />
@@ -307,8 +325,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
 
           <ReportSection
             title="Vazios descarregados (cama / cover plate)"
-            legend="Containers vazios descarregados nesta escala, por natureza."
             section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('vazios_descarregados')?.observation} onObservationChange={updateObservation}
           >
             <Hero value={String(data?.vaziosImp.length ?? 0)} unit="vazios descarregados" />
             {data?.vaziosImp.length ? <Matrix rows={emptyDischargeMatrix.rows} /> : <EmptyData />}
@@ -316,8 +334,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
 
           <ReportSection
             title="Veículos"
-            legend="Veículos importados vinculados a container, agrupados por marca."
             section="veiculos" state={sectionState('veiculos')} attribution={sectionAttribution('veiculos')} canSignoff={canSignoff('veiculos')} events={eventsBySection('veiculos')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('veiculos')?.observation} onObservationChange={updateObservation}
           >
             <Hero value={String(vehicleVinTotal)} unit="VINs" />
             {vehicles.length ? <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div> : <EmptyData />}
@@ -327,8 +345,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportPhase title="Operação de pátio">
           <ReportSection
             title="Operação de pátio"
-            legend="Storage, overtime, depots e serviços extra dos vazios de exportação — base da conferência de faturas de armazenagem e overtime pelo Financeiro."
             section="operacao_patio" state={sectionState('operacao_patio')} attribution={sectionAttribution('operacao_patio')} canSignoff={canSignoff('operacao_patio')} events={eventsBySection('operacao_patio')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('operacao_patio')?.observation} onObservationChange={updateObservation}
           >
             <Hero value={String(data?.storage.days ?? 0)} unit="dias de storage" />
             <div className="grid gap-4 xl:grid-cols-3">
@@ -338,59 +356,27 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             </div>
             <MetricPanel title="Serviço extra">{data?.operation?.reorg.length ? data.operation.reorg.map((service) => <Info key={service.id} label={`${service.service} · ${service.container_type}`} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
           </ReportSection>
-        </ReportPhase>
-
-        <ReportPhase title="Exportação">
-          <ReportSection
-            title="Granito (carga carregada)"
-            legend="Carga de exportação (granito) embarcada nesta escala; estado do sign-off ao lado."
-            section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-          >
-            {data?.granite.length ? <>
-              <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
-              <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
-            </> : <EmptyData />}
-          </ReportSection>
 
           <ReportSection
             title="Vazios embarcados"
-            legend="Containers vazios embarcados nesta escala, por tipo."
             section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} events={eventsBySection('vazios_embarcados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('vazios_embarcados')?.observation} onObservationChange={updateObservation}
           >
             <Hero value={String(bookings.length)} unit="vazios embarcados" />
             {bookings.length ? <MetricPanel title="Matriz"><Matrix rows={emptyEmbarkMatrix.rows} /></MetricPanel> : <EmptyData />}
           </ReportSection>
         </ReportPhase>
 
-        <ReportPhase title="Registro">
+        <ReportPhase title="Exportação">
           <ReportSection
-            title="Ocorrências"
-            legend="Diário livre da escala; qualquer departamento lança, Operações assina."
-            section="ocorrencias" state={sectionState('ocorrencias')} attribution={sectionAttribution('ocorrencias')} canSignoff={canSignoff('ocorrencias')} events={eventsBySection('ocorrencias')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            title="Granito (carga carregada)"
+            section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('carga_carregada')?.observation} onObservationChange={updateObservation}
           >
-            {(ownData?.occurrences ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map((item) => (
-              <div key={item.id} className="grid gap-1 text-sm">
-                <span>{item.body}</span>
-                <span className="text-xs text-[var(--app-muted)]">
-                  {(item.author_id && actorNames[item.author_id]) ? `${actorNames[item.author_id]} (${AGENCY_REPORT_DEPARTMENT_LABELS[item.department] ?? item.department})` : (AGENCY_REPORT_DEPARTMENT_LABELS[item.department] ?? item.department)} · {formatDate(item.created_at)}
-                  {item.section ? ` · ${AGENCY_REPORT_SECTION_LABELS[item.section as AgencyReportSection] ?? item.section}` : ''}
-                </span>
-              </div>
-            ))}
-            {canLaunchOccurrence ? (
-              <div className="grid gap-2">
-                <textarea aria-label="Nova ocorrência" value={occurrence} onChange={(event) => setOccurrence(event.target.value)} className="min-h-20 rounded border border-[var(--app-border)] bg-transparent p-2" />
-                <label className="grid max-w-xs gap-1 text-sm">
-                  Seção (opcional)
-                  <select aria-label="Seção da ocorrência" value={occurrenceSection} onChange={(event) => setOccurrenceSection(event.target.value as AgencyReportSection | '')} className="rounded border border-[var(--app-border)] bg-transparent px-2 py-1">
-                    <option value="">Sem seção</option>
-                    {AGENCY_REPORT_SECTION_ORDER.map((section) => <option key={section} value={section}>{AGENCY_REPORT_SECTION_LABELS[section]}</option>)}
-                  </select>
-                </label>
-                <Button variant="primary" className="w-fit" disabled={!occurrence.trim()} onClick={() => { if (port && occurrence.trim()) occurrenceMutation.mutate({ voyageId, port, body: occurrence.trim(), section: occurrenceSection || undefined }, { onSuccess: () => { setOccurrence(''); setOccurrenceSection('') } }) }}>Lançar</Button>
-              </div>
-            ) : null}
-            {!ownData?.occurrences.length ? <EmptyData /> : null}
+            {data?.granite.length ? <>
+              <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
+              <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
+            </> : <EmptyData />}
           </ReportSection>
         </ReportPhase>
         </>}

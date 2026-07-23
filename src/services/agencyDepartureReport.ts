@@ -22,7 +22,6 @@ export type AgencyReportSection =
   | 'veiculos'
   | 'vazios_embarcados'
   | 'vazios_descarregados'
-  | 'ocorrencias'
   | 'operacao_patio'
 
 export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole> = {
@@ -32,7 +31,6 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
   veiculos: 'equipamentos',
   vazios_embarcados: 'equipamentos',
   vazios_descarregados: 'documentacao',
-  ocorrencias: 'operacoes',
   operacao_patio: 'equipamentos',
 }
 
@@ -45,12 +43,11 @@ export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> =
   veiculos: 'Veículos',
   vazios_embarcados: 'Vazios embarcados',
   vazios_descarregados: 'Vazios descarregados',
-  ocorrencias: 'Ocorrências',
   operacao_patio: 'Operação de pátio',
 }
 
-// Ordem do ciclo da escala (ADR 0029): Escala → Importação → Operação de
-// pátio → Exportação → Registro. Usada pelo layout em faixas (Task 6).
+// Ordem do ciclo da escala (ADR 0029/0030): Escala → Importação → Operação
+// de pátio → Exportação. Usada pelo layout em faixas (Task 6).
 export const AGENCY_REPORT_SECTION_ORDER: AgencyReportSection[] = [
   'datas',
   'carga_descarregada',
@@ -59,7 +56,6 @@ export const AGENCY_REPORT_SECTION_ORDER: AgencyReportSection[] = [
   'operacao_patio',
   'carga_carregada',
   'vazios_embarcados',
-  'ocorrencias',
 ]
 
 export type SignoffState = AgencyReportSignoff['state']
@@ -135,6 +131,23 @@ export async function setSignoff(input: {
     p_section: input.section,
     p_state: input.state,
     p_justification: input.justification,
+  })
+  if (error) throw error
+}
+
+// Observação por seção (ADR 0030): edição livre do dono da seção, sem
+// justificativa nem histórico em audit_logs — não é um dado formal do ADR.
+export async function setSectionObservation(input: {
+  voyageId: number
+  port: string
+  section: AgencyReportSection
+  observation: string
+}) {
+  const { error } = await supabase.rpc('set_agency_report_section_observation', {
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_section: input.section,
+    p_observation: input.observation,
   })
   if (error) throw error
 }

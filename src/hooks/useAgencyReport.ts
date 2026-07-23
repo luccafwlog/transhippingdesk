@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  addOccurrence,
   closeReport,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
   listSignoffEvents,
   reopenReport,
   setDepartmentSignoff,
+  setSectionObservation,
   setSignoff,
   setTerminal,
 } from '../services/agencyDepartureReport'
@@ -47,16 +47,16 @@ export function useSetAgencyReportDepartmentSignoff() {
   return useAgencyReportOwnMutation(setDepartmentSignoff)
 }
 
+export function useSetAgencyReportSectionObservation() {
+  return useAgencyReportOwnMutation(setSectionObservation)
+}
+
 export function useAgencyReportSignoffEvents(voyageId: number, port: string | null) {
   return useQuery({
     queryKey: ['agency-report-signoff-events', voyageId, port],
     queryFn: () => listSignoffEvents(voyageId, port as string),
     enabled: Boolean(port),
   })
-}
-
-export function useAddAgencyReportOccurrence() {
-  return useAgencyReportOwnMutation(addOccurrence)
 }
 
 export function useSetAgencyReportTerminal() {
