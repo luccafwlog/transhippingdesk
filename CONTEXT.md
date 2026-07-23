@@ -185,6 +185,19 @@ e overtime de transporte. É cobrado como acréscimo percentual sobre a tarifa
 do depot; o percentual é registrado por depot na operação de vazios da escala.
 Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 
+**Booking de Vazio (EXP)**
+Reserva do armador para embarque de containers vazios de exportação. Um booking
+agrupa um ou mais containers (1:N); o **container** — não o booking — é o grão
+operacional e a identidade de cada linha de VAZIOS EXP. Toda linha tem um
+container identificado; um booking com três containers são três linhas que
+compartilham o mesmo número de booking.
+
+São **do booking** (repetem-se entre seus containers): número do booking,
+destino e porto de embarque. São **do container** (próprios de cada linha):
+número e tipo do container, data de movimentação, depot, hand-in/hand-out,
+material do armador, bundle, transporte, overtime (handling e transporte),
+terminal de origem e observações.
+
 **Depot de Vazios**
 Local onde o container vazio ficou armazenado antes do embarque, registrado por
 container. Container sem depot é Embarque Direto. Fonte para o Financeiro
