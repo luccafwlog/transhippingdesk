@@ -3326,7 +3326,6 @@ export type Database = {
       vazios_bookings: {
         Row: {
           booking_number: string
-          bundle: boolean
           container_number: string
           container_type: string | null
           created_at: string | null
@@ -3341,20 +3340,14 @@ export type Database = {
           os_number: string | null
           depot_id: string | null
           condition: string | null
-          visual_check: boolean
-          overtime_handling_pct: number
-          overtime_transport_pct: number
           material: boolean
           movement_date: string | null
           notes: string | null
           origin_terminal: string | null
-          overtime_handling: boolean
-          overtime_transport: boolean
-          transporte: boolean
+          overtime_pct: number
         }
         Insert: {
           booking_number: string
-          bundle?: boolean
           container_number: string
           container_type?: string | null
           created_at?: string | null
@@ -3369,20 +3362,14 @@ export type Database = {
           os_number?: string | null
           depot_id?: string | null
           condition?: string | null
-          visual_check?: boolean
-          overtime_handling_pct?: number
-          overtime_transport_pct?: number
           material?: boolean
           movement_date?: string | null
           notes?: string | null
           origin_terminal?: string | null
-          overtime_handling?: boolean
-          overtime_transport?: boolean
-          transporte?: boolean
+          overtime_pct?: number
         }
         Update: {
           booking_number?: string
-          bundle?: boolean
           container_number?: string
           container_type?: string | null
           created_at?: string | null
@@ -3397,16 +3384,11 @@ export type Database = {
           os_number?: string | null
           depot_id?: string | null
           condition?: string | null
-          visual_check?: boolean
-          overtime_handling_pct?: number
-          overtime_transport_pct?: number
           material?: boolean
           movement_date?: string | null
           notes?: string | null
           origin_terminal?: string | null
-          overtime_handling?: boolean
-          overtime_transport?: boolean
-          transporte?: boolean
+          overtime_pct?: number
         }
         Relationships: [
           {
@@ -3459,34 +3441,6 @@ export type Database = {
             foreignKeyName: "vazios_export_operations_voyage_id_fkey"
             columns: ["voyage_id"]
             referencedRelation: "voyages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vazios_export_overtime_depots: {
-        Row: {
-          depot: string
-          id: string
-          operation_id: string
-          percent: number
-        }
-        Insert: {
-          depot: string
-          id?: string
-          operation_id: string
-          percent: number
-        }
-        Update: {
-          depot?: string
-          id?: string
-          operation_id?: string
-          percent?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vazios_export_overtime_depots_operation_id_fkey"
-            columns: ["operation_id"]
-            referencedRelation: "vazios_export_operations"
             referencedColumns: ["id"]
           },
         ]
@@ -3603,82 +3557,24 @@ export type Database = {
         ]
       }
       depots: {
-        Row: { id: string; code: string; name: string | null; pol_port: string | null; active: boolean; created_at: string; updated_at: string }
-        Insert: { id?: string; code: string; name?: string | null; pol_port?: string | null; active?: boolean; created_at?: string; updated_at?: string }
-        Update: { id?: string; code?: string; name?: string | null; pol_port?: string | null; active?: boolean; created_at?: string; updated_at?: string }
+        Row: { id: string; code: string; name: string | null; pol_port: string | null; active: boolean; free_time_days: number; created_at: string; updated_at: string }
+        Insert: { id?: string; code: string; name?: string | null; pol_port?: string | null; active?: boolean; free_time_days?: number; created_at?: string; updated_at?: string }
+        Update: { id?: string; code?: string; name?: string | null; pol_port?: string | null; active?: boolean; free_time_days?: number; created_at?: string; updated_at?: string }
         Relationships: []
-      }
-      depot_tariffs: {
-        Row: { id: string; depot_id: string; handling_in_brl: number; handling_out_brl: number; transporte_brl: number; storage_day_brl: number; free_time_days: number; valid_from: string; valid_to: string | null; active: boolean; created_at: string }
-        Insert: { id?: string; depot_id: string; handling_in_brl?: number; handling_out_brl?: number; transporte_brl?: number; storage_day_brl?: number; free_time_days?: number; valid_from: string; valid_to?: string | null; active?: boolean; created_at?: string }
-        Update: { id?: string; depot_id?: string; handling_in_brl?: number; handling_out_brl?: number; transporte_brl?: number; storage_day_brl?: number; free_time_days?: number; valid_from?: string; valid_to?: string | null; active?: boolean; created_at?: string }
-        Relationships: [{ foreignKeyName: 'depot_tariffs_depot_id_fkey'; columns: ['depot_id']; referencedRelation: 'depots'; referencedColumns: ['id'] }]
       }
       depot_services: {
-        Row: { id: string; depot_id: string; name: string; charge_basis: string; rate_brl: number; active: boolean; valid_from: string; valid_to: string | null; created_at: string }
-        Insert: { id?: string; depot_id: string; name: string; charge_basis: string; rate_brl?: number; active?: boolean; valid_from: string; valid_to?: string | null; created_at?: string }
-        Update: { id?: string; depot_id?: string; name?: string; charge_basis?: string; rate_brl?: number; active?: boolean; valid_from?: string; valid_to?: string | null; created_at?: string }
+        Row: { id: string; depot_id: string; name: string; calc_type: string; rate_brl: number; subject_to_overtime: boolean; active: boolean; valid_from: string; valid_to: string | null; created_at: string }
+        Insert: { id?: string; depot_id: string; name: string; calc_type: string; rate_brl?: number; subject_to_overtime?: boolean; active?: boolean; valid_from: string; valid_to?: string | null; created_at?: string }
+        Update: { id?: string; depot_id?: string; name?: string; calc_type?: string; rate_brl?: number; subject_to_overtime?: boolean; active?: boolean; valid_from?: string; valid_to?: string | null; created_at?: string }
         Relationships: [{ foreignKeyName: 'depot_services_depot_id_fkey'; columns: ['depot_id']; referencedRelation: 'depots'; referencedColumns: ['id'] }]
       }
-      vazios_reorg_rates: {
-        Row: {
-          active: boolean
-          created_at: string
-          id: string
-          rate_brl: number
-          service: string
-          valid_from: string
-          valid_to: string | null
-        }
-        Insert: {
-          active?: boolean
-          created_at?: string
-          id?: string
-          rate_brl: number
-          service: string
-          valid_from?: string
-          valid_to?: string | null
-        }
-        Update: {
-          active?: boolean
-          created_at?: string
-          id?: string
-          rate_brl?: number
-          service?: string
-          valid_from?: string
-          valid_to?: string | null
-        }
-        Relationships: []
-      }
-      vazios_reorg_services: {
-        Row: {
-          container_type: string
-          id: string
-          operation_id: string
-          qty: number
-          service: string
-        }
-        Insert: {
-          container_type: string
-          id?: string
-          operation_id: string
-          qty: number
-          service: string
-        }
-        Update: {
-          container_type?: string
-          id?: string
-          operation_id?: string
-          qty?: number
-          service?: string
-        }
+      vazios_operation_service_qty: {
+        Row: { operation_id: string; depot_service_id: string; qty: number }
+        Insert: { operation_id: string; depot_service_id: string; qty?: number }
+        Update: { operation_id?: string; depot_service_id?: string; qty?: number }
         Relationships: [
-          {
-            foreignKeyName: "vazios_reorg_services_operation_id_fkey"
-            columns: ["operation_id"]
-            referencedRelation: "vazios_export_operations"
-            referencedColumns: ["id"]
-          },
+          { foreignKeyName: 'vazios_operation_service_qty_operation_id_fkey'; columns: ['operation_id']; referencedRelation: 'vazios_export_operations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'vazios_operation_service_qty_depot_service_id_fkey'; columns: ['depot_service_id']; referencedRelation: 'depot_services'; referencedColumns: ['id'] },
         ]
       }
       vehicles: {
@@ -5371,11 +5267,8 @@ export type GraniteBlCharge = Tables<'granite_bl_charges'>
 export type VaziosManifest = Tables<'vazios_manifests'>
 export type VaziosBooking = Tables<'vazios_bookings'>
 export type VaziosExportOperation = Tables<'vazios_export_operations'>
-export type VaziosExportOvertimeDepot = Tables<'vazios_export_overtime_depots'>
-export type VaziosReorgService = Tables<'vazios_reorg_services'>
-export type VaziosReorgRate = Tables<'vazios_reorg_rates'>
+export type VaziosOperationServiceQty = Tables<'vazios_operation_service_qty'>
 export type Depot = Tables<'depots'>
-export type DepotTariff = Tables<'depot_tariffs'>
 export type DepotService = Tables<'depot_services'>
 export type AgencyDepartureReport = Tables<'agency_departure_reports'>
 export type AgencyReportOccurrence = Tables<'agency_departure_report_occurrences'>
@@ -5619,8 +5512,6 @@ export type VaziosBookingListItem = VaziosBooking & {
     } | null
   } | null
 }
-
-export type VaziosReorgServiceType = 'bundle' | 'desova' | 'visual_check'
 
 export type AgencyReportSectionKey =
   | 'datas'

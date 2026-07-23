@@ -8,10 +8,9 @@ const HEADER_MAP: Record<string, string> = {
   booking: 'booking_number', 'booking number': 'booking_number', container: 'container_number', conteiner: 'container_number',
   tipo: 'container_type', type: 'container_type', 'data movimentação': 'movement_date', 'data movimentacao': 'movement_date', data: 'movement_date',
   'terminal origem': 'origin_terminal', origem: 'origin_terminal', destino: 'destination', destination: 'destination', observações: 'notes', observacoes: 'notes', notes: 'notes', highlights: 'notes',
-  'porto embarque': 'embark_port', porto: 'embark_port', pol: 'embark_port', pod: 'embark_port', depot: 'depot', material: 'material', bundle: 'bundle', bundles: 'bundle', transporte: 'transporte',
+  'porto embarque': 'embark_port', porto: 'embark_port', pol: 'embark_port', pod: 'embark_port', depot: 'depot', material: 'material',
   'hand-in': 'hand_in_date', 'hand in': 'hand_in_date', 'hand-out': 'hand_out_date', 'hand out': 'hand_out_date', 'import empty return date': 'hand_in_date', 'empty gate out': 'hand_out_date', 'load date': 'movement_date',
-  'ot handling': 'overtime_handling', 'overtime handling': 'overtime_handling', 'ot transporte': 'overtime_transport', 'overtime transporte': 'overtime_transport',
-  'ot handling %': 'overtime_handling_pct', 'ot transporte %': 'overtime_transport_pct', 'order no.': 'os_number', 'order no': 'os_number', 'current status': 'condition', 'visual check': 'visual_check', 'visual check...': 'visual_check',
+  overtime: 'overtime_pct', ot: 'overtime_pct', 'overtime %': 'overtime_pct', 'ot %': 'overtime_pct', 'order no.': 'os_number', 'order no': 'os_number', 'current status': 'condition',
 }
 
 type ParsedVaziosBooking = {
@@ -26,17 +25,11 @@ type ParsedVaziosBooking = {
   embark_port: string | null
   depot: string | null
   material: boolean
-  bundle: boolean
-  transporte: boolean
   hand_in_date: string | null
   hand_out_date: string | null
-  overtime_handling: boolean
-  overtime_transport: boolean
   condition: 'empty' | 'damage' | 'material' | null
-  visual_check: boolean
   os_number: string | null
-  overtime_handling_pct: number
-  overtime_transport_pct: number
+  overtime_pct?: number
 }
 
 export type ParsedVaziosManifest = { bookings: ParsedVaziosBooking[]; rowErrors: RowError[] }
@@ -63,12 +56,10 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<Pa
       container_type: text(mapped.container_type), movement_date: parseDate(String(mapped.movement_date ?? '')),
       origin_terminal: text(mapped.origin_terminal), destination: text(mapped.destination), notes: text(mapped.notes),
       embark_port: normalizePortCode(String(mapped.embark_port ?? '')) ?? null, depot: text(mapped.depot),
-      material: condition === 'material' || parseBool(mapped.material), bundle: parseBool(mapped.bundle), transporte: parseBool(mapped.transporte),
+      material: condition === 'material' || parseBool(mapped.material),
       hand_in_date: parseDate(String(mapped.hand_in_date ?? '')), hand_out_date: parseDate(String(mapped.hand_out_date ?? '')),
-      overtime_handling: parseBool(mapped.overtime_handling), overtime_transport: parseBool(mapped.overtime_transport), condition,
-      visual_check: parseBool(mapped.visual_check), os_number: text(mapped.os_number),
-      overtime_handling_pct: parsePercent(mapped.overtime_handling_pct, mapped.overtime_handling),
-      overtime_transport_pct: parsePercent(mapped.overtime_transport_pct, mapped.overtime_transport),
+      condition, os_number: text(mapped.os_number),
+      overtime_pct: parsePercent(mapped.overtime_pct, undefined),
     })
   })
   const deduped = dedupeByContainer(bookings, rowErrors)
@@ -88,7 +79,7 @@ function dedupeByContainer(bookings: ParsedVaziosBooking[], rowErrors: ReturnTyp
 
 function text(value: unknown): string | null { const valueText = String(value ?? '').trim(); return valueText || null }
 function parseBool(value: unknown): boolean { return ['sim', 's', 'x', 'true', '1', 'yes'].includes(String(value ?? '').trim().toLowerCase()) }
-function parsePercent(value: unknown, flag: unknown): number { const parsed = Number(String(value ?? '').replace(',', '.').replace('%', '').trim()); return Number.isFinite(parsed) && parsed >= 0 ? parsed : (parseBool(flag) ? 100 : 0) }
+function parsePercent(value: unknown, flag: unknown): number { const parsed = Number(String(value ?? '').replace(',', '.').replace('%', '').trim()); return Number.isFinite(parsed) && parsed >= 0 ? parsed : (flag !== undefined && parseBool(flag) ? 100 : 0) }
 function parseCondition(value: unknown, material: unknown): ParsedVaziosBooking['condition'] { const normalized = String(value ?? '').trim().toLowerCase(); if (normalized.includes('material')) return 'material'; if (normalized.includes('damage') || normalized.includes('avaria')) return 'damage'; if (normalized.includes('empty') || normalized.includes('vazio')) return 'empty'; return parseBool(material) ? 'material' : null }
 function parseDate(value: string): string | null {
   if (!value) return null
