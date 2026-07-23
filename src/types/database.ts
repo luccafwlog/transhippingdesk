@@ -3572,7 +3572,10 @@ export type Database = {
         Row: { operation_id: string; depot_service_id: string; qty: number }
         Insert: { operation_id: string; depot_service_id: string; qty?: number }
         Update: { operation_id?: string; depot_service_id?: string; qty?: number }
-        Relationships: []
+        Relationships: [
+          { foreignKeyName: 'vazios_operation_service_qty_operation_id_fkey'; columns: ['operation_id']; referencedRelation: 'vazios_export_operations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'vazios_operation_service_qty_depot_service_id_fkey'; columns: ['depot_service_id']; referencedRelation: 'depot_services'; referencedColumns: ['id'] },
+        ]
       }
       vehicles: {
         Row: {
@@ -5264,6 +5267,7 @@ export type GraniteBlCharge = Tables<'granite_bl_charges'>
 export type VaziosManifest = Tables<'vazios_manifests'>
 export type VaziosBooking = Tables<'vazios_bookings'>
 export type VaziosExportOperation = Tables<'vazios_export_operations'>
+export type VaziosOperationServiceQty = Tables<'vazios_operation_service_qty'>
 export type Depot = Tables<'depots'>
 export type DepotService = Tables<'depot_services'>
 export type AgencyDepartureReport = Tables<'agency_departure_reports'>
