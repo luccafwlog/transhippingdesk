@@ -3327,7 +3327,7 @@ export type Database = {
         Row: {
           booking_number: string
           bundle: boolean
-          container_number: string | null
+          container_number: string
           container_type: string | null
           created_at: string | null
           depot: string | null
@@ -3337,6 +3337,13 @@ export type Database = {
           hand_out_date: string | null
           id: string
           manifest_id: string
+          voyage_id: number
+          os_number: string | null
+          depot_id: string | null
+          condition: string | null
+          visual_check: boolean
+          overtime_handling_pct: number
+          overtime_transport_pct: number
           material: boolean
           movement_date: string | null
           notes: string | null
@@ -3348,7 +3355,7 @@ export type Database = {
         Insert: {
           booking_number: string
           bundle?: boolean
-          container_number?: string | null
+          container_number: string
           container_type?: string | null
           created_at?: string | null
           depot?: string | null
@@ -3358,6 +3365,13 @@ export type Database = {
           hand_out_date?: string | null
           id?: string
           manifest_id: string
+          voyage_id: number
+          os_number?: string | null
+          depot_id?: string | null
+          condition?: string | null
+          visual_check?: boolean
+          overtime_handling_pct?: number
+          overtime_transport_pct?: number
           material?: boolean
           movement_date?: string | null
           notes?: string | null
@@ -3369,7 +3383,7 @@ export type Database = {
         Update: {
           booking_number?: string
           bundle?: boolean
-          container_number?: string | null
+          container_number?: string
           container_type?: string | null
           created_at?: string | null
           depot?: string | null
@@ -3379,6 +3393,13 @@ export type Database = {
           hand_out_date?: string | null
           id?: string
           manifest_id?: string
+          voyage_id?: number
+          os_number?: string | null
+          depot_id?: string | null
+          condition?: string | null
+          visual_check?: boolean
+          overtime_handling_pct?: number
+          overtime_transport_pct?: number
           material?: boolean
           movement_date?: string | null
           notes?: string | null
@@ -3392,6 +3413,18 @@ export type Database = {
             foreignKeyName: "vazios_bookings_manifest_id_fkey"
             columns: ["manifest_id"]
             referencedRelation: "vazios_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_bookings_voyage_id_fkey"
+            columns: ["voyage_id"]
+            referencedRelation: "voyages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_bookings_depot_id_fkey"
+            columns: ["depot_id"]
+            referencedRelation: "depots"
             referencedColumns: ["id"]
           },
         ]
@@ -3568,6 +3601,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      depots: {
+        Row: { id: string; code: string; name: string | null; pol_port: string | null; active: boolean; created_at: string; updated_at: string }
+        Insert: { id?: string; code: string; name?: string | null; pol_port?: string | null; active?: boolean; created_at?: string; updated_at?: string }
+        Update: { id?: string; code?: string; name?: string | null; pol_port?: string | null; active?: boolean; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
+      depot_tariffs: {
+        Row: { id: string; depot_id: string; handling_in_brl: number; handling_out_brl: number; transporte_brl: number; storage_day_brl: number; free_time_days: number; valid_from: string; valid_to: string | null; active: boolean; created_at: string }
+        Insert: { id?: string; depot_id: string; handling_in_brl?: number; handling_out_brl?: number; transporte_brl?: number; storage_day_brl?: number; free_time_days?: number; valid_from: string; valid_to?: string | null; active?: boolean; created_at?: string }
+        Update: { id?: string; depot_id?: string; handling_in_brl?: number; handling_out_brl?: number; transporte_brl?: number; storage_day_brl?: number; free_time_days?: number; valid_from?: string; valid_to?: string | null; active?: boolean; created_at?: string }
+        Relationships: [{ foreignKeyName: 'depot_tariffs_depot_id_fkey'; columns: ['depot_id']; referencedRelation: 'depots'; referencedColumns: ['id'] }]
+      }
+      depot_services: {
+        Row: { id: string; depot_id: string; name: string; charge_basis: string; rate_brl: number; active: boolean; valid_from: string; valid_to: string | null; created_at: string }
+        Insert: { id?: string; depot_id: string; name: string; charge_basis: string; rate_brl?: number; active?: boolean; valid_from: string; valid_to?: string | null; created_at?: string }
+        Update: { id?: string; depot_id?: string; name?: string; charge_basis?: string; rate_brl?: number; active?: boolean; valid_from?: string; valid_to?: string | null; created_at?: string }
+        Relationships: [{ foreignKeyName: 'depot_services_depot_id_fkey'; columns: ['depot_id']; referencedRelation: 'depots'; referencedColumns: ['id'] }]
       }
       vazios_reorg_rates: {
         Row: {
@@ -4366,7 +4417,7 @@ export type Database = {
       import_vazios_bookings_transactional: {
         Args: {
           p_bookings: Json
-          p_description: string
+          p_port: string
           p_uploaded_by: string
           p_voyage_id: number
         }
@@ -4402,6 +4453,7 @@ export type Database = {
       is_active_user: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_equipamentos_user: { Args: never; Returns: boolean }
+      can_edit_depots: { Args: never; Returns: boolean }
       link_invoice_to_ledger: {
         Args: { p_invoice_id: number }
         Returns: undefined
@@ -5166,12 +5218,6 @@ type AppFunctionOverrides = {
       p_roe: number | null
     }
   >
-  import_vazios_bookings_transactional: FunctionWithArgs<
-    'import_vazios_bookings_transactional',
-    Omit<Database['public']['Functions']['import_vazios_bookings_transactional']['Args'], 'p_description'> & {
-      p_description: string | null
-    }
-  >
   import_vazios_importacao_transactional: FunctionWithArgs<
     'import_vazios_importacao_transactional',
     Omit<Database['public']['Functions']['import_vazios_importacao_transactional']['Args'], 'p_description'> & {
@@ -5328,6 +5374,9 @@ export type VaziosExportOperation = Tables<'vazios_export_operations'>
 export type VaziosExportOvertimeDepot = Tables<'vazios_export_overtime_depots'>
 export type VaziosReorgService = Tables<'vazios_reorg_services'>
 export type VaziosReorgRate = Tables<'vazios_reorg_rates'>
+export type Depot = Tables<'depots'>
+export type DepotTariff = Tables<'depot_tariffs'>
+export type DepotService = Tables<'depot_services'>
 export type AgencyDepartureReport = Tables<'agency_departure_reports'>
 export type AgencyReportOccurrence = Tables<'agency_departure_report_occurrences'>
 export type VaziosImportacaoManifest = Tables<'vazios_importacao_manifests'>
