@@ -81,6 +81,7 @@ export type Database = {
         Row: {
           department: string
           id: string
+          observation: string | null
           report_id: string
           section: string
           signed_at: string | null
@@ -90,6 +91,7 @@ export type Database = {
         Insert: {
           department: string
           id?: string
+          observation?: string | null
           report_id: string
           section: string
           signed_at?: string | null
@@ -99,6 +101,7 @@ export type Database = {
         Update: {
           department?: string
           id?: string
+          observation?: string | null
           report_id?: string
           section?: string
           signed_at?: string | null
@@ -4874,6 +4877,15 @@ export type Database = {
         }
         Returns: Json
       }
+      set_agency_report_section_observation: {
+        Args: {
+          p_observation: string
+          p_port: string
+          p_section: string
+          p_voyage_id: number
+        }
+        Returns: Json
+      }
       set_agency_report_signoff: {
         Args: {
           p_justification?: string
@@ -5568,7 +5580,6 @@ export type AgencyReportSectionKey =
   | 'veiculos'
   | 'vazios_embarcados'
   | 'vazios_descarregados'
-  | 'ocorrencias'
   | 'operacao_patio'
 
 export type AgencyReportDepartmentKey = 'operacoes' | 'documentacao' | 'equipamentos'

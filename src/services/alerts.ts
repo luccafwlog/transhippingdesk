@@ -7,6 +7,14 @@ export type { Alert }
 
 export type AlertStatusFilter = 'all' | 'open' | 'acknowledged'
 
+// Rótulo legado: alertas 'agency_report_section_pending' anteriores à ADR
+// 0030 podem referenciar a seção 'ocorrencias', removida do modelo ativo
+// (AGENCY_REPORT_SECTION_LABELS). Mantido só para exibição histórica na
+// página Alertas — não reintroduz a seção no modelo ativo do ADR.
+const LEGACY_AGENCY_REPORT_SECTION_LABELS: Record<string, string> = {
+  ocorrencias: 'Ocorrências',
+}
+
 // entity_id dos alertas do ADR é composto (voyageId::porto::departamento,
 // migration 225; secao em alertas legados pre-0029) — contrato de
 // dedupe/fechamento. Este formatador é só apresentação para a página Alertas.
@@ -15,6 +23,7 @@ export function formatAgencyReportAlertEntity(entityId: string): string | null {
   if (!voyageId || !port || !key) return null
   const label = (AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[key]
     ?? (AGENCY_REPORT_SECTION_LABELS as Record<string, string>)[key]
+    ?? LEGACY_AGENCY_REPORT_SECTION_LABELS[key]
     ?? key
   return `Viagem ${voyageId} · ${port} · ${label}`
 }

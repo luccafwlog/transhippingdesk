@@ -7,6 +7,7 @@ import {
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
   setDepartmentSignoff,
+  setSectionObservation,
   setSignoff,
 } from '../agencyDepartureReport'
 
@@ -78,7 +79,7 @@ describe('groupVehiclesByBrand', () => {
 })
 
 describe('AGENCY_REPORT_SECTIONS', () => {
-  it('mapeia as 8 secoes aos departamentos donos', () => {
+  it('mapeia as 7 secoes aos departamentos donos (ocorrencias removida na ADR 0030)', () => {
     expect(AGENCY_REPORT_SECTIONS).toEqual({
       datas: 'operacoes',
       carga_descarregada: 'documentacao',
@@ -86,10 +87,9 @@ describe('AGENCY_REPORT_SECTIONS', () => {
       veiculos: 'equipamentos',
       vazios_embarcados: 'equipamentos',
       vazios_descarregados: 'documentacao',
-      ocorrencias: 'operacoes',
       operacao_patio: 'equipamentos',
     })
-    expect(Object.keys(AGENCY_REPORT_SECTIONS)).toHaveLength(8)
+    expect(Object.keys(AGENCY_REPORT_SECTIONS)).toHaveLength(7)
   })
 })
 
@@ -202,6 +202,21 @@ describe('addOccurrence', () => {
       p_port: 'BRVIX',
       p_body: 'Sem tag.',
       p_section: undefined,
+    })
+  })
+})
+
+describe('setSectionObservation', () => {
+  it('chama a RPC de Observação por seção (ADR 0030) com os argumentos tipados', async () => {
+    rpcMock.mockResolvedValue({ error: null })
+
+    await setSectionObservation({ voyageId: 7, port: 'BRVIX', section: 'veiculos', observation: 'Nota de apoio.' })
+
+    expect(rpcMock).toHaveBeenCalledWith('set_agency_report_section_observation', {
+      p_voyage_id: 7,
+      p_port: 'BRVIX',
+      p_section: 'veiculos',
+      p_observation: 'Nota de apoio.',
     })
   })
 })

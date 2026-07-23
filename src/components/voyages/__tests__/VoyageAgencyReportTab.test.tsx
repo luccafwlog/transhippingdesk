@@ -12,10 +12,10 @@ const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reo
   useAuthMock: vi.fn(),
 }))
 
-const { signoffMutateMock, departmentSignoffMutateMock, occurrenceMutateMock, useAgencyReportSignoffEventsMock } = vi.hoisted(() => ({
+const { signoffMutateMock, departmentSignoffMutateMock, observationMutateMock, useAgencyReportSignoffEventsMock } = vi.hoisted(() => ({
   signoffMutateMock: vi.fn(),
   departmentSignoffMutateMock: vi.fn(),
-  occurrenceMutateMock: vi.fn(),
+  observationMutateMock: vi.fn(),
   useAgencyReportSignoffEventsMock: vi.fn(),
 }))
 
@@ -25,7 +25,7 @@ vi.mock('../../../hooks/useAgencyReport', () => ({
   useAgencyReportSignoffEvents: useAgencyReportSignoffEventsMock,
   useSetAgencyReportSignoff: () => ({ mutate: signoffMutateMock, isPending: false }),
   useSetAgencyReportDepartmentSignoff: () => ({ mutate: departmentSignoffMutateMock, isPending: false }),
-  useAddAgencyReportOccurrence: () => ({ mutate: occurrenceMutateMock }),
+  useSetAgencyReportSectionObservation: () => ({ mutate: observationMutateMock }),
   useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
   useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
   useReopenAgencyReport: () => ({ mutate: reopenMutateMock, isPending: false }),
@@ -34,7 +34,7 @@ vi.mock('../../../hooks/useAuth', () => ({ useAuth: useAuthMock }))
 
 const ALL_SECTIONS = [
   'datas', 'carga_descarregada', 'carga_carregada', 'veiculos',
-  'vazios_embarcados', 'vazios_descarregados', 'ocorrencias', 'operacao_patio',
+  'vazios_embarcados', 'vazios_descarregados', 'operacao_patio',
 ]
 
 function allSectionsSignoffs(state = 'confirmed') {
@@ -107,8 +107,6 @@ it('exibe a barra-resumo dos 3 departamentos e o sign-off da seção do usuário
   expect(screen.getByText('Documentação')).toBeTruthy()
   expect(screen.getByText('Equipamentos')).toBeTruthy()
   expect(screen.getByText(/Confirmado por Ana Ribeiro em 19\/07\/2026/)).toBeTruthy()
-  expect(screen.getByText('Atracação concluída.')).toBeTruthy()
-  expect(screen.getByText(/Ana Ribeiro \(Operações\) · 19\/07\/2026/)).toBeTruthy()
 })
 
 it('assina o departamento apenas quando habilitado e chama a RPC com o payload correto', () => {
@@ -322,7 +320,7 @@ it('renomeia Container com veículo para Veículos', () => {
   expect(screen.queryByRole('heading', { name: 'Container com veículo' })).toBeNull()
 })
 
-it('renderiza as 5 fases do ciclo, com Operação de pátio como seção própria', () => {
+it('renderiza as 4 fases do ciclo, sem a fase Registro (ADR 0030)', () => {
   useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
@@ -332,7 +330,8 @@ it('renderiza as 5 fases do ciclo, com Operação de pátio como seção própri
   expect(screen.getByRole('heading', { name: 'Importação', level: 2 })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Operação de pátio', level: 2 })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Exportação', level: 2 })).toBeTruthy()
-  expect(screen.getByRole('heading', { name: 'Registro', level: 2 })).toBeTruthy()
+  expect(screen.queryByRole('heading', { name: 'Registro', level: 2 })).toBeNull()
+  expect(screen.queryByRole('heading', { name: 'Ocorrências' })).toBeNull()
 
   const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
   expect(within(embarqueSection).queryByText('Storage')).toBeNull()
@@ -484,14 +483,14 @@ it('a primeira saída de Pendente só pede confirmação, sem justificativa', ()
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
 
-  const ocorrenciasSection = screen.getByRole('heading', { name: 'Ocorrências' }).closest('section')!
-  fireEvent.click(within(ocorrenciasSection).getByRole('button', { name: 'Confirmado' }))
+  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  fireEvent.click(within(datasSection).getByRole('button', { name: 'Confirmado' }))
 
   expect(screen.queryByLabelText('Justificativa')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
 
   expect(signoffMutateMock).toHaveBeenCalledWith({
-    voyageId: 7, port: 'BRVIX', section: 'ocorrencias', state: 'confirmed', justification: undefined,
+    voyageId: 7, port: 'BRVIX', section: 'datas', state: 'confirmed', justification: undefined,
   })
 })
 
@@ -567,28 +566,73 @@ it('com eventos, o histórico lista de→para, autor e justificativa', () => {
   expect(screen.getByText('Correção após revisão')).toBeTruthy()
 })
 
-it('qualquer departamento pode lançar ocorrência, com tag opcional de seção', () => {
-  occurrenceMutateMock.mockClear()
+it('mostra o campo de Observação em cada seção, editável só pelo dono', () => {
   useAuthMock.mockReturnValue({ effectiveRole: 'equipamentos', isAdmin: false })
-  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [
+        { id: 'veiculos', section: 'veiculos', state: 'pending', observation: 'Container avariado no pátio.' },
+        { id: 'datas', section: 'datas', state: 'pending', observation: null },
+      ],
+      departmentSignoffs: [],
+      occurrences: [],
+    },
+  })
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
 
-  fireEvent.change(screen.getByLabelText('Nova ocorrência'), { target: { value: 'Container avariado no pátio.' } })
-  fireEvent.change(screen.getByLabelText('Seção da ocorrência'), { target: { value: 'operacao_patio' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Lançar' }))
+  // Dono da seção (Equipamentos → veículos): campo editável, valor preenchido.
+  const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
+  const veiculosObservation = within(veiculosSection).getByLabelText('Observação — Veículos') as HTMLTextAreaElement
+  expect(veiculosObservation.tagName).toBe('TEXTAREA')
+  expect(veiculosObservation.value).toBe('Container avariado no pátio.')
 
-  expect(occurrenceMutateMock).toHaveBeenCalledWith(
-    { voyageId: 7, port: 'BRVIX', body: 'Container avariado no pátio.', section: 'operacao_patio' },
-    expect.any(Object),
-  )
+  // Seção de outro departamento (Operações → datas): só leitura, sem valor.
+  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  expect(within(datasSection).queryByLabelText('Observação — Cabeçalho')).toBeNull()
+  expect(within(datasSection).getByText('—')).toBeTruthy()
 })
 
-it('financeiro não vê o formulário de lançamento de ocorrência', () => {
-  useAuthMock.mockReturnValue({ effectiveRole: 'financeiro', isAdmin: false })
-  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+it('sobrescrever a Observação não pede justificativa e chama a RPC de Observação', () => {
+  observationMutateMock.mockClear()
+  useAuthMock.mockReturnValue({ effectiveRole: 'equipamentos', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [{ id: 'veiculos', section: 'veiculos', state: 'confirmed', observation: 'Nota antiga' }],
+      departmentSignoffs: [],
+      occurrences: [],
+    },
+  })
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
 
-  expect(screen.queryByLabelText('Nova ocorrência')).toBeNull()
+  const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
+  const observationField = within(veiculosSection).getByLabelText('Observação — Veículos')
+  fireEvent.change(observationField, { target: { value: 'Nota atualizada' } })
+  fireEvent.blur(observationField)
+
+  expect(screen.queryByLabelText('Justificativa')).toBeNull()
+  expect(observationMutateMock).toHaveBeenCalledWith({
+    voyageId: 7, port: 'BRVIX', section: 'veiculos', observation: 'Nota atualizada',
+  })
+})
+
+it('sign-off de Operações não é mais bloqueado por Ocorrências (1 seção: datas)', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [{ id: 'datas', section: 'datas', state: 'confirmed' }],
+      departmentSignoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+
+  const operacoesCard = screen.getByText('Operações').closest('div.app-panel')! as HTMLElement
+  const signButton = within(operacoesCard).getByRole('button', { name: 'Assinar' }) as HTMLButtonElement
+  expect(signButton.disabled).toBe(false)
 })
