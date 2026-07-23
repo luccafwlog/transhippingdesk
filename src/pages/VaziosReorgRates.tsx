@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useDepots } from '../hooks/useDepots'
 import {
@@ -25,9 +26,11 @@ export function DepotCadastro() {
   const { can, isAdmin } = useAuth()
   const canEdit = can ? can('depots_edit') : isAdmin
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const depots = useDepots()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const selected = depots.data?.find((depot) => depot.id === selectedId) ?? depots.data?.[0] ?? null
+  const [creatingNew, setCreatingNew] = useState(false)
+  const selected = creatingNew ? null : (depots.data?.find((depot) => depot.id === selectedId) ?? depots.data?.[0] ?? null)
   const [depotForm, setDepotForm] = useState({ code: '', name: '', pol_port: '', active: true })
   const [tariffForm, setTariffForm] = useState({ handling_in_brl: 0, handling_out_brl: 0, transporte_brl: 0, storage_day_brl: 0, free_time_days: 0, valid_from: dateToday(), valid_to: '', active: true })
   const [serviceForm, setServiceForm] = useState({ name: '', charge_basis: 'per_operation_qty' as DepotService['charge_basis'], rate_brl: 0, valid_from: dateToday(), valid_to: '', active: true })
@@ -42,6 +45,14 @@ export function DepotCadastro() {
 
   async function saveDepot() {
     await upsertDepot({ ...depotForm, id: selected?.id })
+    setCreatingNew(false)
+    await refresh()
+  }
+
+  async function removeDepot(id: string) {
+    if (!(await confirm({ message: 'Excluir este depot? Tarifas e serviços associados também serão removidos.', tone: 'danger', confirmLabel: 'Excluir' }))) return
+    await deleteDepot(id)
+    setSelectedId(null)
     await refresh()
   }
 
@@ -60,19 +71,19 @@ export function DepotCadastro() {
 
   return (
     <div className="grid gap-5">
-      <PageHeader title="Cadastro de Depot" description="Depots, tarifas vigentes e serviços extras usados pelo fluxo VAZIOS EXP." action={canEdit ? <Button onClick={() => { setSelectedId(null); setDepotForm({ code: '', name: '', pol_port: '', active: true }) }}><Plus size={16} /> Novo depot</Button> : null} />
+      <PageHeader title="Cadastro de Depot" description="Depots, tarifas vigentes e serviços extras usados pelo fluxo VAZIOS EXP." action={canEdit ? <Button onClick={() => { setCreatingNew(true); setSelectedId(null); setDepotForm({ code: '', name: '', pol_port: '', active: true }) }}><Plus size={16} /> Novo depot</Button> : null} />
       {depots.error ? <InlineError message="Erro ao carregar depots." /> : null}
       <div className="grid gap-5 lg:grid-cols-[18rem_1fr]">
         <Card className="grid content-start gap-2">
           <h2 className="app-panel__title">Depots</h2>
-          {(depots.data ?? []).map((depot) => <button key={depot.id} type="button" onClick={() => { setSelectedId(depot.id); setDepotForm({ code: depot.code, name: depot.name ?? '', pol_port: depot.pol_port ?? '', active: depot.active }) }} className={`rounded-lg border px-3 py-2 text-left text-sm ${selected?.id === depot.id ? 'border-[var(--app-blue-btn)]' : 'border-[var(--app-border)]'}`}><span className="font-semibold">{depot.code}</span><span className="block text-xs text-[var(--app-muted)]">{depot.name || depot.pol_port || 'Sem nome'}</span></button>)}
+          {(depots.data ?? []).map((depot) => <button key={depot.id} type="button" onClick={() => { setCreatingNew(false); setSelectedId(depot.id); setDepotForm({ code: depot.code, name: depot.name ?? '', pol_port: depot.pol_port ?? '', active: depot.active }) }} className={`rounded-lg border px-3 py-2 text-left text-sm ${selected?.id === depot.id ? 'border-[var(--app-blue-btn)]' : 'border-[var(--app-border)]'}`}><span className="font-semibold">{depot.code}</span><span className="block text-xs text-[var(--app-muted)]">{depot.name || depot.pol_port || 'Sem nome'}</span></button>)}
           {!depots.data?.length ? <p className="text-sm text-[var(--app-muted)]">Nenhum depot cadastrado.</p> : null}
         </Card>
         <div className="grid gap-5">
           <Card className="grid gap-3">
             <h2 className="app-panel__title">Identificação</h2>
             <div className="grid gap-3 md:grid-cols-3"><Field label="Código"><Input value={depotForm.code} disabled={!canEdit} onChange={(event) => setDepotForm((f) => ({ ...f, code: event.target.value }))} /></Field><Field label="Nome"><Input value={depotForm.name} disabled={!canEdit} onChange={(event) => setDepotForm((f) => ({ ...f, name: event.target.value }))} /></Field><Field label="POL / porto"><Input value={depotForm.pol_port} disabled={!canEdit} onChange={(event) => setDepotForm((f) => ({ ...f, pol_port: event.target.value }))} /></Field></div>
-            {canEdit ? <div className="flex gap-2"><Button onClick={() => void saveDepot()} disabled={!depotForm.code.trim()}>Salvar depot</Button>{selected ? <Button variant="danger" onClick={() => void deleteDepot(selected.id).then(refresh)}><Trash2 size={15} /> Excluir</Button> : null}</div> : null}
+            {canEdit ? <div className="flex gap-2"><Button onClick={() => void saveDepot()} disabled={!depotForm.code.trim()}>Salvar depot</Button>{selected ? <Button variant="danger" onClick={() => void removeDepot(selected.id)}><Trash2 size={15} /> Excluir</Button> : null}</div> : null}
           </Card>
           {selected ? <>
             <Card className="grid gap-3"><h2 className="app-panel__title">Tarifas vigentes</h2><div className="grid gap-3 md:grid-cols-4"><Field label="Handling in"><Input type="number" min={0} step="0.01" disabled={!canEdit} value={tariffForm.handling_in_brl} onChange={(e) => setTariffForm((f) => ({ ...f, handling_in_brl: Number(e.target.value) }))} /></Field><Field label="Handling out"><Input type="number" min={0} step="0.01" disabled={!canEdit} value={tariffForm.handling_out_brl} onChange={(e) => setTariffForm((f) => ({ ...f, handling_out_brl: Number(e.target.value) }))} /></Field><Field label="Transporte"><Input type="number" min={0} step="0.01" disabled={!canEdit} value={tariffForm.transporte_brl} onChange={(e) => setTariffForm((f) => ({ ...f, transporte_brl: Number(e.target.value) }))} /></Field><Field label="Storage / dia"><Input type="number" min={0} step="0.01" disabled={!canEdit} value={tariffForm.storage_day_brl} onChange={(e) => setTariffForm((f) => ({ ...f, storage_day_brl: Number(e.target.value) }))} /></Field><Field label="Free time (dias)"><Input type="number" min={0} disabled={!canEdit} value={tariffForm.free_time_days} onChange={(e) => setTariffForm((f) => ({ ...f, free_time_days: Number(e.target.value) }))} /></Field><Field label="Vigência inicial"><Input type="date" disabled={!canEdit} value={tariffForm.valid_from} onChange={(e) => setTariffForm((f) => ({ ...f, valid_from: e.target.value }))} /></Field><Field label="Vigência final"><Input type="date" disabled={!canEdit} value={tariffForm.valid_to} onChange={(e) => setTariffForm((f) => ({ ...f, valid_to: e.target.value }))} /></Field></div>{canEdit ? <Button onClick={() => void saveTariff()}>Adicionar tarifa</Button> : null}<ul className="grid gap-2 text-sm">{(tariffs.data ?? []).map((tariff: DepotTariff) => <li key={tariff.id} className="rounded-lg border border-[var(--app-border)] px-3 py-2">{formatBRL(Number(tariff.handling_in_brl) + Number(tariff.handling_out_brl))} handling + {formatBRL(Number(tariff.transporte_brl))} transporte · {tariff.free_time_days} dias · {formatDate(tariff.valid_from)}{tariff.valid_to ? ` — ${formatDate(tariff.valid_to)}` : ' — vigente'}</li>)}</ul></Card>

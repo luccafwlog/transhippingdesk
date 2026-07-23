@@ -1,21 +1,25 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 
-const { listDepotsMock, listTariffsMock, listServicesMock, useAuthMock } = vi.hoisted(() => ({
+const { listDepotsMock, listTariffsMock, listServicesMock, upsertDepotMock, deleteDepotMock, useAuthMock, confirmMock } = vi.hoisted(() => ({
   listDepotsMock: vi.fn(),
   listTariffsMock: vi.fn(),
   listServicesMock: vi.fn(),
+  upsertDepotMock: vi.fn(),
+  deleteDepotMock: vi.fn(),
   useAuthMock: vi.fn(),
+  confirmMock: vi.fn(() => Promise.resolve(true)),
 }))
 
-vi.mock('../../services/depots', async (importOriginal) => ({ ...(await importOriginal<object>()), listDepots: listDepotsMock, listDepotTariffs: listTariffsMock, listDepotServices: listServicesMock, upsertDepot: vi.fn(), upsertDepotTariff: vi.fn(), upsertDepotService: vi.fn(), deleteDepot: vi.fn(), deleteDepotService: vi.fn() }))
+vi.mock('../../services/depots', async (importOriginal) => ({ ...(await importOriginal<object>()), listDepots: listDepotsMock, listDepotTariffs: listTariffsMock, listDepotServices: listServicesMock, upsertDepot: upsertDepotMock, upsertDepotTariff: vi.fn(), upsertDepotService: vi.fn(), deleteDepot: deleteDepotMock, deleteDepotService: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: useAuthMock }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
-vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => vi.fn(() => Promise.resolve(true)) }))
+vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => confirmMock }))
 
 const { VaziosReorgRates } = await import('../VaziosReorgRates')
 
@@ -53,4 +57,39 @@ it('sem admin, a página é somente leitura', async () => {
 
   expect(await screen.findByText(/Nenhum depot cadastrado/)).toBeTruthy()
   expect(screen.queryByRole('button', { name: /Novo depot/ })).toBeNull()
+})
+
+it('"Novo depot" limpa a seleção e cria (não sobrescreve) o depot existente ao salvar', async () => {
+  const user = userEvent.setup()
+  useAuthMock.mockReturnValue({ isAdmin: true, can: () => true })
+  listDepotsMock.mockResolvedValue([{ id: 'd1', code: 'D01', name: 'Depot 1', pol_port: 'BRSSZ', active: true }])
+  listTariffsMock.mockResolvedValue([])
+  listServicesMock.mockResolvedValue([])
+  upsertDepotMock.mockResolvedValue(undefined)
+
+  renderPage()
+  await screen.findByText('D01')
+
+  await user.click(screen.getByRole('button', { name: /Novo depot/ }))
+  await user.type(screen.getByLabelText('Código'), 'D02')
+  await user.click(screen.getByRole('button', { name: /Salvar depot/ }))
+
+  expect(upsertDepotMock).toHaveBeenCalledWith(expect.objectContaining({ code: 'D02', id: undefined }))
+})
+
+it('pede confirmação antes de excluir um depot', async () => {
+  const user = userEvent.setup()
+  useAuthMock.mockReturnValue({ isAdmin: true, can: () => true })
+  listDepotsMock.mockResolvedValue([{ id: 'd1', code: 'D01', name: 'Depot 1', pol_port: 'BRSSZ', active: true }])
+  listTariffsMock.mockResolvedValue([])
+  listServicesMock.mockResolvedValue([])
+  confirmMock.mockResolvedValueOnce(false)
+
+  renderPage()
+  await screen.findByText('D01')
+
+  await user.click(screen.getByRole('button', { name: /Excluir/ }))
+
+  expect(confirmMock).toHaveBeenCalled()
+  expect(deleteDepotMock).not.toHaveBeenCalled()
 })
