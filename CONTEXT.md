@@ -179,12 +179,12 @@ Departamento responsável pelo embarque de vazios de exportação (VAZIOS EXP) e
 pelos veículos. Vazios descarregados (importação) pertencem à Documentação.
 
 **Overtime (de escala)**
-Movimentação realizada fora do horário normal, registrada por
-container/movimento nos vazios embarcados, em dois tipos independentes: overtime
-de handling e overtime de transporte. É cobrado como acréscimo percentual sobre
-a tarifa unitária do depot; o percentual é registrado **por container**, em duas
-bases separadas (handling e transporte), e aplicado sobre a tarifa
-correspondente do Cadastro de Depot (valor = tarifa × (1 + percentual)).
+Movimentação realizada fora do horário normal nos vazios embarcados, cobrada
+como **acréscimo percentual**. O percentual é **por container** e vem de uma
+**coluna da planilha importada** (célula vazia ou 0 = sem overtime naquele
+container). Sobre **qual** serviço incide é atributo do **depot**: cada depot
+cobra overtime sobre handling e/ou transporte. O valor é o percentual do
+container aplicado sobre o(s) serviço(s) correspondente(s) do Cadastro de Depot.
 Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 
 **Booking de Vazio (EXP)**
@@ -197,8 +197,11 @@ compartilham o mesmo número de booking.
 São **do booking** (repetem-se entre seus containers): número do booking,
 destino e porto de embarque. São **do container** (próprios de cada linha):
 número e tipo do container, data de movimentação, depot, hand-in/hand-out,
-material do armador, bundle, transporte, overtime (handling e transporte),
-terminal de origem e observações.
+material do armador, percentual de overtime (coluna importada), terminal de
+origem e observações. Bundle, transporte e visual check deixaram de ser flags do
+container: bundle e visual check são serviços tipo Quantidade do depot,
+transporte é serviço fixo por container do depot, e o overtime vem do percentual
+importado combinado com a incidência do depot.
 
 **Depot de Vazios**
 Local onde o container vazio ficou armazenado antes do embarque, registrado por
@@ -206,14 +209,34 @@ container. Container sem depot é Embarque Direto. Fonte para o Financeiro
 conferir faturas de armazenagem.
 
 **Cadastro de Depot**
-Entidade registrada que representa um depot/terminal e concentra as tarifas
-aplicáveis a ele: handling in/out, armazenagem (storage), free time de storage,
-horários/percentuais de overtime, transporte e serviços extras personalizáveis.
-Substitui o uso atual do depot como texto livre por container. As tarifas por
-depot são a fonte para o Financeiro conferir armazenagem, overtime e serviços,
-e para o sistema calcular a armazenagem cobrável. (Os serviços de reorganização
-deixam de ser um conjunto fixo — bundle/desova/visual check — e passam a ser
-serviços configuráveis por depot.)
+Entidade registrada que representa um depot/terminal e concentra os **serviços
+precificados** aplicáveis a ele. Não é uma grade fixa de tarifas: é uma **lista
+de serviços**, cada um com um **valor unitário**, uma **vigência** e um **tipo
+de cálculo**. Substitui o uso do depot como texto livre por container e é a
+fonte para o Financeiro conferir armazenagem, overtime e serviços, e para o
+sistema calcular os custos da operação.
+
+São **atributos do depot** (não serviços): o **Free Time de Storage** (dias
+grátis, parâmetro do storage) e a **incidência de overtime** — sobre handling
+e/ou transporte, característica de cada depot.
+
+Cada serviço tem um dos três **tipos de cálculo**:
+- **Fixo por container** — valor × nº de containers do depot na escala (ex.:
+  handling in/out, transporte). Aplica a todos os containers do depot, sem gate
+  por flag.
+- **Storage por dias** — valor × dias cobráveis (`hand-out − hand-in − free time
+  do depot`, nunca negativo), somados por container.
+- **Quantidade** — valor × quantidade lançada no Vazios EXP (ex.: Reorganização,
+  Bundle Composition, Visual Check).
+
+A entidade nomeada é o **depot**, não a "taxa": é distinta da Tabela de Taxas —
+Granito, que é genuinamente uma tabela de tarifas. Na interface, a tela chama-se
+"Tabela de Depots".
+
+- **Synonyms / avoid:** "Taxas de Vazios", "tabela de taxas de depot" (a
+  entidade é o depot, não a taxa)
+- **Related:** Depot de Vazios, Free Time de Storage (Depot), Serviço Extra de
+  Reorganização, Overtime (de escala), Tabela de Taxas — Granito
 
 **Free Time de Storage (Depot)**
 Dias de armazenagem gratuita concedidos pelo depot ao container vazio antes do
@@ -244,11 +267,13 @@ Estado do vazio no momento do embarque, que afeta a tarifa aplicável: íntegro
 material). É atributo por container e fonte do flag Material do Armador.
 
 **Serviço Extra de Reorganização**
-Serviço executado sobre os vazios, valorado por tarifa do Cadastro de Depot.
-Deixa de ser um conjunto fixo (bundle/desova/visual check) e passa a ser
-configurável por depot. Bundle e desova são lançados como **quantidade por
-operação** (quantidade × tarifa); visual check é **flag por container**.
-Pertence ao módulo de vazios de exportação, sob Equipamentos.
+Serviço executado sobre os vazios, cadastrado como uma linha de serviço do
+Cadastro de Depot com **tipo de cálculo Quantidade**: a quantidade é lançada no
+módulo de Vazios de Exportação e multiplicada pelo valor unitário do serviço.
+Não é mais um conjunto fixo (bundle/desova/visual check) nem uma flag por
+container — Reorganização, Bundle Composition e Visual Check são serviços tipo
+Quantidade configuráveis por depot. Pertence ao módulo de vazios de exportação,
+sob Equipamentos.
 
 **OS da Operação de Vazios**
 Número da ordem de serviço da operação de vazios de uma escala: um por

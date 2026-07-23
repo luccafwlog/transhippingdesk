@@ -15,6 +15,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
+| [Cadastro de Depot — serviços precificados por tipo de cálculo](2026-07-23-cadastro-depot-servicos-precificados.md) | [ADR 0032](../adr/0032-cadastro-depot-servicos-precificados-por-tipo-de-calculo.md) | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
