@@ -34,7 +34,8 @@ export function computeContainerCost(container: CostContainer, tariff: DepotTari
   const storageDays = Math.max(0, daysBetween(container.hand_in_date, container.hand_out_date) - Number(tariff.free_time_days))
   const storage = storageDays * Number(tariff.storage_day_brl)
   const overtime = handling * (Number(container.overtime_handling_pct ?? 0) / 100) + transporte * (Number(container.overtime_transport_pct ?? 0) / 100)
-  const serviceTotal = container.visual_check ? services.filter((service) => service.charge_basis === 'per_container_flag' && service.name === 'visual_check').reduce((sum, service) => sum + Number(service.rate_brl), 0) : 0
+  const depotServices = services.filter((service) => service.depot_id === container.depot_id)
+  const serviceTotal = container.visual_check ? depotServices.filter((service) => service.charge_basis === 'per_container_flag' && service.name === 'visual_check').reduce((sum, service) => sum + Number(service.rate_brl), 0) : 0
   const breakdown = [
     { label: 'Handling', amount: handling }, { label: 'Storage', amount: storage }, { label: 'Transporte', amount: transporte }, { label: 'Overtime', amount: overtime }, { label: 'Serviços', amount: serviceTotal },
   ].filter((line) => line.amount !== 0)
@@ -43,6 +44,9 @@ export function computeContainerCost(container: CostContainer, tariff: DepotTari
 
 export function computeOperationTotals(containers: CostContainer[], tariffs: Map<string, DepotTariff | null>, services: DepotService[], operations: { bundle: number; desova: number }) {
   const rows = containers.map((container) => computeContainerCost(container, container.depot_id ? tariffs.get(container.depot_id) ?? null : null, services))
+  // ponytail: bundle/desova são quantidades por operação (não por container); com mais de um depot na
+  // operação a tarifa é ambígua — usamos a primeira encontrada. Upgrade: pedir o depot da operação na UI
+  // (Task 9) e filtrar por ele, como já é feito por container em computeContainerCost.
   const bundleRate = services.find((service) => service.name === 'bundle' && service.charge_basis === 'per_operation_qty')?.rate_brl ?? 0
   const desovaRate = services.find((service) => service.name === 'desova' && service.charge_basis === 'per_operation_qty')?.rate_brl ?? 0
   const bundle = operations.bundle * Number(bundleRate); const desova = operations.desova * Number(desovaRate)

@@ -33,16 +33,33 @@ BEGIN
   VALUES (p_voyage_id, p_port, v_total, p_uploaded_by)
   RETURNING id INTO v_manifest_id;
 
-  WITH incoming AS (
-    SELECT item.*, depot.id AS resolved_depot_id
-    FROM jsonb_to_recordset(COALESCE(p_bookings, '[]'::JSONB)) AS item(
-      booking_number TEXT, container_number TEXT, container_type TEXT, movement_date DATE,
-      origin_terminal TEXT, destination TEXT, notes TEXT, embark_port TEXT, depot TEXT,
-      material BOOLEAN, bundle BOOLEAN, transporte BOOLEAN, hand_in_date DATE, hand_out_date DATE,
-      overtime_handling BOOLEAN, overtime_transport BOOLEAN, os_number TEXT, condition TEXT, visual_check BOOLEAN,
-      overtime_handling_pct NUMERIC, overtime_transport_pct NUMERIC
+  WITH raw_incoming AS (
+    SELECT * FROM ROWS FROM (
+      jsonb_to_recordset(COALESCE(p_bookings, '[]'::JSONB)) AS (
+        booking_number TEXT, container_number TEXT, container_type TEXT, movement_date DATE,
+        origin_terminal TEXT, destination TEXT, notes TEXT, embark_port TEXT, depot TEXT,
+        material BOOLEAN, bundle BOOLEAN, transporte BOOLEAN, hand_in_date DATE, hand_out_date DATE,
+        overtime_handling BOOLEAN, overtime_transport BOOLEAN, os_number TEXT, condition TEXT, visual_check BOOLEAN,
+        overtime_handling_pct NUMERIC, overtime_transport_pct NUMERIC
+      )
+    ) WITH ORDINALITY AS item(
+      booking_number, container_number, container_type, movement_date,
+      origin_terminal, destination, notes, embark_port, depot,
+      material, bundle, transporte, hand_in_date, hand_out_date,
+      overtime_handling, overtime_transport, os_number, condition, visual_check,
+      overtime_handling_pct, overtime_transport_pct, row_ordinal
     )
-    LEFT JOIN public.depots depot ON lower(depot.code) = lower(item.depot) AND depot.active
+  ), deduped AS (
+    -- Um arquivo pode repetir o mesmo container (correcao manual em duas linhas do Excel); mantem a
+    -- ultima ocorrencia para nao violar a unicidade (voyage_id, container_number) dentro do proprio lote
+    -- (o parser em src/services/vaziosImport.ts ja dedupe antes de chamar a RPC; isto e defesa em profundidade).
+    SELECT DISTINCT ON (container_number) *
+    FROM raw_incoming
+    ORDER BY container_number, row_ordinal DESC
+  ), incoming AS (
+    SELECT deduped.*, depot.id AS resolved_depot_id
+    FROM deduped
+    LEFT JOIN public.depots depot ON lower(depot.code) = lower(deduped.depot) AND depot.active
   ), upserted AS (
     INSERT INTO public.vazios_bookings (
       voyage_id, manifest_id, booking_number, container_number, container_type, movement_date,

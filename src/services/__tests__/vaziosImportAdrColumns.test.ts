@@ -31,6 +31,17 @@ describe('parser de vazios — colunas do ADR', () => {
     expect(row.hand_in_date).toBe('2026-07-01')
   })
 
+  it('dedupe container repetido na planilha, mantendo a ultima ocorrencia', async () => {
+    const parsed = await parseVaziosManifestBuffer(sheetBuffer([
+      ['CONTAINER', 'POD', 'ORDER No.'],
+      ['ABCD1234567', 'BRSSZ', 'OS-1'],
+      ['ABCD1234567', 'BRSSZ', 'OS-2'],
+    ]))
+    expect(parsed.bookings).toHaveLength(1)
+    expect(parsed.bookings[0].os_number).toBe('OS-2')
+    expect(parsed.rowErrors.some((error) => /duplicado/.test(error.message))).toBe(true)
+  })
+
   it('mapeia porto, depot, flags e datas de hand-in/hand-out', async () => {
     const buffer = sheetBuffer([
       ['Booking', 'Container', 'Tipo', 'Porto Embarque', 'Depot', 'Material', 'Bundle', 'Transporte', 'Hand-in', 'Hand-out', 'OT Handling', 'OT Transporte'],

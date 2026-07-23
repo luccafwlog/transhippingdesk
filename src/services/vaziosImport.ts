@@ -71,7 +71,19 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<Pa
       overtime_transport_pct: parsePercent(mapped.overtime_transport_pct, mapped.overtime_transport),
     })
   })
-  return { bookings, rowErrors: rowErrors.errors }
+  const deduped = dedupeByContainer(bookings, rowErrors)
+  return { bookings: deduped, rowErrors: rowErrors.errors }
+}
+
+function dedupeByContainer(bookings: ParsedVaziosBooking[], rowErrors: ReturnType<typeof createRowErrorCollector>): ParsedVaziosBooking[] {
+  const lastByContainer = new Map<string, ParsedVaziosBooking>()
+  for (const booking of bookings) lastByContainer.set(booking.container_number, booking)
+  for (const booking of bookings) {
+    if (lastByContainer.get(booking.container_number) !== booking) {
+      rowErrors.add(booking.rowNumber, `Container ${booking.container_number} duplicado na planilha — mantida a última ocorrência.`, booking)
+    }
+  }
+  return [...lastByContainer.values()]
 }
 
 function text(value: unknown): string | null { const valueText = String(value ?? '').trim(); return valueText || null }

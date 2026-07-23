@@ -12,4 +12,9 @@ describe('RPC de importacao por container', () => {
     expect(sql).toContain('resolved_depot_id')
     expect(sql).toContain('vazios_manifests')
   })
+
+  it('dedupe container repetido no mesmo lote antes do upsert', () => {
+    expect(sql).toContain('DISTINCT ON (container_number)')
+    expect(sql).toContain('WITH ORDINALITY')
+  })
 })

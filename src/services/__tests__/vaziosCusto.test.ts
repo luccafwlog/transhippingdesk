@@ -18,4 +18,15 @@ describe('custo de VAZIOS EXP', () => {
     const total = computeOperationTotals([{ container_number: 'ABCD1234567', depot_id: 'd' }], new Map([['d', tariff]]), services, { bundle: 2, desova: 0 })
     expect(total.bundle).toBe(22)
   })
+  it('nao soma visual check de outro depot na mesma operacao', () => {
+    const otherDepotServices = [
+      { id: 'v2', depot_id: 'other', name: 'visual_check', charge_basis: 'per_container_flag' as const, rate_brl: 999, active: true, valid_from: '2026-01-01', valid_to: null, created_at: '2026-01-01' },
+    ]
+    const row = computeContainerCost(
+      { container_number: 'ABCD1234567', depot_id: 'd', visual_check: true },
+      tariff,
+      [...services, ...otherDepotServices],
+    )
+    expect(row.services).toBe(7)
+  })
 })
