@@ -4,8 +4,6 @@ import type {
   UserProfileRole,
   VaziosBooking,
   VaziosExportOperation,
-  VaziosExportOvertimeDepot,
-  VaziosReorgService,
   VaziosImportacaoContainer,
   Vehicle,
   Json,
@@ -13,7 +11,7 @@ import type {
 import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepartmentSignoff, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
-import { listCurrentDepotServices, resolveCurrentDepotTariff } from './depots'
+import { listCurrentDepotServices, listDepots } from './depots'
 import { computeOperationTotals } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
 
@@ -326,7 +324,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('pod', port),
     supabase
       .from('vazios_export_operations')
-      .select('*, overtime:vazios_export_overtime_depots(*), reorg:vazios_reorg_services(*)')
+      .select('*, service_qty:vazios_operation_service_qty(depot_service_id, qty)')
       .eq('voyage_id', voyageId)
       .eq('embark_port', port)
       .maybeSingle(),
@@ -350,18 +348,14 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
-  const operation = operationRes.data as (VaziosExportOperation & {
-    overtime: VaziosExportOvertimeDepot[]
-    reorg: VaziosReorgService[]
-  }) | null
+  const operation = operationRes.data as (VaziosExportOperation & { service_qty: Array<{ depot_service_id: string; qty: number }> }) | null
   const depotIds = [...new Set(vaziosExp.map((booking) => booking.depot_id).filter((id): id is string => Boolean(id)))]
-  const tariffEntries = await Promise.all(depotIds.map(async (depotId) => [depotId, await resolveCurrentDepotTariff(depotId)] as const))
+  let allDepots: Awaited<ReturnType<typeof listDepots>> = []
+  try { allDepots = await listDepots() } catch { allDepots = [] }
+  const depotEntries = depotIds.map((depotId) => [depotId, allDepots.find((depot) => depot.id === depotId) ?? null] as const)
   const depotServices = (await Promise.all(depotIds.map((depotId) => listCurrentDepotServices(depotId)))).flat()
-  const operationQuantities = {
-    bundle: operation?.reorg.filter((row) => row.service === 'bundle').reduce((sum, row) => sum + Number(row.qty), 0) ?? 0,
-    desova: operation?.reorg.filter((row) => row.service === 'desova').reduce((sum, row) => sum + Number(row.qty), 0) ?? 0,
-  }
-  const costs = computeOperationTotals(vaziosExp, new Map(tariffEntries), depotServices, operationQuantities)
+  const quantities = new Map((operation?.service_qty ?? []).map((row) => [row.depot_service_id, row.qty]))
+  const costs = computeOperationTotals(vaziosExp, new Map(depotEntries), depotServices, quantities)
 
   return {
     schedule: schedules.get(entityId) ?? null,

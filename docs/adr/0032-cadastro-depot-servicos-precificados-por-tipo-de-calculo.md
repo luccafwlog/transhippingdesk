@@ -4,7 +4,7 @@ Status: aceito — 2026-07-23
 
 ## Contexto
 
-Uma sessão de grilling sobre a página `/embarquevazios/taxas` (2026-07-23)
+Uma sessão de grilling sobre a página `/embarquevazios/depots` (2026-07-23)
 partiu de um pedido simples — tirá-la do menu superior e acessá-la por um botão
 dentro de `/embarquevazios` — e expôs que o modelo de tarifas fixado pela
 ADR 0031 não atende à operação real dos depots:
@@ -19,9 +19,8 @@ ADR 0031 não atende à operação real dos depots:
    encerramento de vigência — várias tarifas podem ficar `active` sobrepostas,
    tornando a vigente ambígua.
 3. **Overtime real vem do arquivo, não da operação.** O percentual de overtime
-   chega **por container, numa coluna da planilha importada**; e a incidência
-   (sobre handling e/ou transporte) é característica **do depot**, não uma flag
-   por booking.
+   chega **por container, numa coluna da planilha importada**; a incidência é
+   definida individualmente em cada serviço precificado.
 
 ## Decisão
 
@@ -58,13 +57,13 @@ Não há mais tarifa estruturada em colunas. Cada linha de serviço tem: **nome*
 O `free_time_days` permanece **atributo do depot** (parâmetro do storage), não é
 uma linha de serviço.
 
-### 3. Overtime: percentual por container vindo do import, incidência por depot
+### 3. Overtime: percentual por container vindo do import, incidência por serviço
 
 O overtime continua **percentual**, mas passa a ser lido de uma **coluna da
 planilha importada, por container** (célula vazia/0 = sem overtime naquele
-container). Cada depot ganha o atributo **overtime incide sobre handling e/ou
-transporte** (pode ser ambos). O valor é o percentual do container aplicado
-sobre o(s) serviço(s) correspondente(s) do depot. Isso substitui o percentual
+container). Cada serviço pode ser marcado como `subject_to_overtime`; o valor é
+o percentual do container aplicado sobre a soma dos serviços fixos marcados do
+depot. Isso substitui o percentual
 por operação (`vazios_export_overtime_depots`) e as flags
 `overtime_handling`/`overtime_transport` por booking.
 
@@ -86,8 +85,8 @@ redigitação — a regra da ADR 0027/0029 é preservada.
   preços para linhas de `depot_services`; substituir o enum `charge_basis`
   (`per_container_flag`/`per_operation_qty`) pelo `tipo_calculo`
   (`fixo_por_container`/`storage_por_dias`/`quantidade`); mover `free_time_days`
-  para `depots`; adicionar em `depots` os flags de incidência de overtime
-  (handling/transporte); adicionar coluna de overtime % por container em
+  para `depots`; adicionar em `depot_services` a incidência de overtime por
+  serviço; adicionar coluna de overtime % por container em
   `vazios_bookings`; remover as flags `bundle`/`visual_check`/`transporte`/
   `overtime_handling`/`overtime_transport`; remover `vazios_reorg_rates`
   (global) e `vazios_export_overtime_depots`. Segue a numeração sequencial de

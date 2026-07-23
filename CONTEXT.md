@@ -182,9 +182,9 @@ pelos veículos. Vazios descarregados (importação) pertencem à Documentação
 Movimentação realizada fora do horário normal nos vazios embarcados, cobrada
 como **acréscimo percentual**. O percentual é **por container** e vem de uma
 **coluna da planilha importada** (célula vazia ou 0 = sem overtime naquele
-container). Sobre **qual** serviço incide é atributo do **depot**: cada depot
-cobra overtime sobre handling e/ou transporte. O valor é o percentual do
-container aplicado sobre o(s) serviço(s) correspondente(s) do Cadastro de Depot.
+container). Sobre qual serviço incide é atributo da própria linha de serviço,
+por meio de `subject_to_overtime`. O valor é o percentual do container aplicado
+sobre os serviços fixos marcados no Cadastro de Depot.
 Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 
 **Booking de Vazio (EXP)**
@@ -216,9 +216,8 @@ de cálculo**. Substitui o uso do depot como texto livre por container e é a
 fonte para o Financeiro conferir armazenagem, overtime e serviços, e para o
 sistema calcular os custos da operação.
 
-São **atributos do depot** (não serviços): o **Free Time de Storage** (dias
-grátis, parâmetro do storage) e a **incidência de overtime** — sobre handling
-e/ou transporte, característica de cada depot.
+É atributo do depot (não serviço) o **Free Time de Storage** (dias grátis,
+parâmetro do storage). A incidência de overtime é atributo de cada serviço.
 
 Cada serviço tem um dos três **tipos de cálculo**:
 - **Fixo por container** — valor × nº de containers do depot na escala (ex.:
