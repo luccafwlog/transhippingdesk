@@ -19,6 +19,7 @@ export type Permission =
   | 'portal_provisioning'
   | 'vazios_edit'
   | 'veiculos_edit'
+  | 'depots_edit'
 
 export function roleHasPermission(role: UserProfileRole | undefined, permission: Permission): boolean {
   if (!role) return false
@@ -40,7 +41,7 @@ export function roleHasPermission(role: UserProfileRole | undefined, permission:
         'vazios_edit', 'veiculos_edit',
       ].includes(permission)
     case 'equipamentos':
-      return permission === 'vazios_edit' || permission === 'veiculos_edit'
+      return permission === 'vazios_edit' || permission === 'veiculos_edit' || permission === 'depots_edit'
     default:
       return false
   }

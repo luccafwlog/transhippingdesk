@@ -29,6 +29,8 @@ import {
   upsertReorgService,
   upsertVaziosExportOperation,
 } from '../services/vaziosExportOperations'
+import { listCurrentDepotServices, resolveCurrentDepotTariff } from '../services/depots'
+import { computeOperationTotals } from '../services/vaziosCusto'
 import { normalizePortCode } from '../services/portCode'
 import type { VaziosReorgServiceType } from '../types/database'
 import { formatBRL, formatDate } from '../lib/utils'
@@ -80,6 +82,7 @@ export function EmbarqueVazios() {
 
   const [uploadOpen, setUploadOpen] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
+  const [uploadPort, setUploadPort] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [manifest, setManifest] = useState<ParsedVaziosManifest | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -94,6 +97,8 @@ export function EmbarqueVazios() {
   const [overtimeDrafts, setOvertimeDrafts] = useState<Record<string, string>>({})
   const [reorgDrafts, setReorgDrafts] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'containers' | 'costs'>('containers')
+  const [operationQuantities, setOperationQuantities] = useState({ bundle: 0, desova: 0 })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vazios-bookings', filters],
@@ -153,6 +158,16 @@ export function EmbarqueVazios() {
   const selectedPortBookings = (operationBookingsData?.rows ?? []).filter(
     (booking) => normalizePortCode(booking.embark_port) === selectedOperationPort,
   )
+  const costCatalog = useQuery({
+    queryKey: ['vazios-cost-catalog', selectedPortBookings.map((booking) => booking.depot_id ?? '').sort()],
+    queryFn: async () => {
+      const depotIds = [...new Set(selectedPortBookings.map((booking) => booking.depot_id).filter((id): id is string => Boolean(id)))]
+      const entries = await Promise.all(depotIds.map(async (depotId) => [depotId, await resolveCurrentDepotTariff(depotId)] as const))
+      const services = (await Promise.all(depotIds.map((depotId) => listCurrentDepotServices(depotId)))).flat()
+      return { tariffs: new Map(entries), services }
+    },
+    enabled: activeTab === 'costs' && selectedPortBookings.length > 0,
+  })
   const bookingDepots = selectedPortBookings
     .map((booking) => booking.depot?.trim())
     .filter((depot): depot is string => Boolean(depot))
@@ -342,12 +357,13 @@ export function EmbarqueVazios() {
   }
 
   async function handleImport() {
-    if (!manifest || !voyageId || !user) return
+    if (!manifest || !voyageId || !uploadPort.trim() || !user) return
     setSubmitting(true)
     try {
       await importVaziosManifest({
         filename: file?.name ?? 'vazios.xlsx',
         voyageId: Number(voyageId),
+        port: normalizePortCode(uploadPort) ?? uploadPort.trim().toUpperCase(),
         manifest,
         uploadedBy: user.id,
       })
@@ -355,9 +371,10 @@ export function EmbarqueVazios() {
         queryClient.invalidateQueries({ queryKey: ['vazios-bookings'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
-      showToast(`${manifest.bookings.length} bookings importados.`, 'success')
+      showToast(`${manifest.bookings.length} containers importados ou atualizados.`, 'success')
       setUploadOpen(false)
       setVoyageId('')
+      setUploadPort('')
       setFile(null)
       setManifest(null)
     } catch (err) {
@@ -371,7 +388,7 @@ export function EmbarqueVazios() {
     <>
       <PageHeader
         title="Vazios — Exportação"
-        description="Containers vazios que embarcam (saem) pelo porto. Identificados por booking number."
+        description="Containers vazios que embarcam (saem) pelo porto. O container é a identidade da linha; booking é referência."
         action={
           <div className="flex flex-wrap gap-2">
             <a
@@ -421,6 +438,12 @@ export function EmbarqueVazios() {
         {operationPortOptions.map((port) => <option key={port} value={port} />)}
       </datalist>
 
+      <div className="mb-5 flex gap-2 border-b border-[var(--app-border)]" role="tablist" aria-label="Vazios EXP">
+        <button type="button" role="tab" aria-selected={activeTab === 'containers'} onClick={() => setActiveTab('containers')} className={`border-b-2 px-3 py-2 text-sm font-semibold ${activeTab === 'containers' ? 'border-[var(--app-blue-btn)] text-white' : 'border-transparent text-[var(--app-muted)]'}`}>Containers / dados</button>
+        <button type="button" role="tab" aria-selected={activeTab === 'costs'} onClick={() => setActiveTab('costs')} className={`border-b-2 px-3 py-2 text-sm font-semibold ${activeTab === 'costs' ? 'border-[var(--app-blue-btn)] text-white' : 'border-transparent text-[var(--app-muted)]'}`}>Custos / operação</button>
+      </div>
+
+      {activeTab === 'containers' ? <>
       <Card className="mb-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -621,8 +644,18 @@ export function EmbarqueVazios() {
         </>
         )}
       </Card>
-
-      <Card className="overflow-hidden p-0">
+      </> : (
+        <Card className="mb-5">
+          <PageHeader title="Custos da operação" description="Valores calculados por container a partir do Cadastro de Depot; Embarque Direto não gera tarifa de depot." />
+          {costCatalog.error ? <InlineError message="Erro ao carregar tarifas vigentes." /> : null}
+          {selectedPortBookings.length === 0 ? <EmptyState title="Nenhum container no porto selecionado" description="Selecione uma viagem e um porto na aba Containers / dados." /> : null}
+          {selectedPortBookings.length > 0 && costCatalog.data ? (() => {
+            const totals = computeOperationTotals(selectedPortBookings.map((booking) => ({ container_number: booking.container_number ?? '—', depot_id: booking.depot_id, hand_in_date: booking.hand_in_date, hand_out_date: booking.hand_out_date, overtime_handling_pct: booking.overtime_handling_pct, overtime_transport_pct: booking.overtime_transport_pct, visual_check: booking.visual_check })), costCatalog.data.tariffs, costCatalog.data.services, operationQuantities)
+            return <div className="grid gap-4"><div className="grid gap-3 md:grid-cols-3"><Field label="Bundle por operação"><Input type="number" min={0} value={operationQuantities.bundle} onChange={(event) => setOperationQuantities((current) => ({ ...current, bundle: Number(event.target.value) }))} /></Field><Field label="Desova por operação"><Input type="number" min={0} value={operationQuantities.desova} onChange={(event) => setOperationQuantities((current) => ({ ...current, desova: Number(event.target.value) }))} /></Field><div className="rounded-xl border border-[var(--app-border)] p-3"><div className="text-xs uppercase text-[var(--app-muted)]">Total</div><div className="mt-1 text-2xl font-bold">{formatBRL(totals.total)}</div></div></div><div className="app-table-scroll"><table className="app-table app-table--compact w-full text-left text-sm"><thead><tr><th>Container</th><th>Handling</th><th>Storage</th><th>Transporte</th><th>Overtime</th><th>Serviços</th><th>Total</th></tr></thead><tbody>{totals.rows.map((row) => <tr key={row.container_number}><td>{row.container_number}</td><td>{formatBRL(row.handling)}</td><td>{formatBRL(row.storage)}</td><td>{formatBRL(row.transporte)}</td><td>{formatBRL(row.overtime)}</td><td>{formatBRL(row.services)}</td><td className="font-semibold">{formatBRL(row.total)}</td></tr>)}</tbody></table></div></div>
+          })() : null}
+        </Card>
+      )}
+      {activeTab === 'containers' ? <Card className="overflow-hidden p-0">
         {error ? <InlineError message="Erro ao carregar bookings." /> : null}
 
         <div className="app-table-scroll app-table-scroll--sticky">
@@ -857,7 +890,7 @@ export function EmbarqueVazios() {
           countLabel={`${data?.count ?? 0} registros`}
           onPageChange={(page) => updateFilter('page', page)}
         />
-      </Card>
+      </Card> : null}
 
       {/* Modal de importação */}
       <Modal open={uploadOpen && canEditVazios} onClose={() => setUploadOpen(false)} title="Importar Planilha de Vazios">
@@ -865,7 +898,7 @@ export function EmbarqueVazios() {
           <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-4 text-sm text-slate-300">
             <div className="font-semibold text-white">Formato esperado</div>
             <div className="mt-2 text-slate-400">
-              Colunas: <strong>Booking</strong> (obrigatório), Container, Tipo, Data Movimentação, Terminal Origem, Destino, Observações.
+              Colunas: <strong>Container</strong> (obrigatório), Booking, POD, Current Status, Depot, datas, OT Handling / OT Transporte e serviços.
               Use o template disponivel no botao "Baixar template".
             </div>
           </div>
@@ -876,6 +909,10 @@ export function EmbarqueVazios() {
             selectedVoyageId={voyageId}
             onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
           />
+
+          <Field label="Porto de embarque">
+            <Input required value={uploadPort} onChange={(event) => setUploadPort(event.target.value.toUpperCase())} placeholder="BRSSZ" />
+          </Field>
 
           <Field label="Arquivo .xlsx">
             <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
@@ -932,7 +969,7 @@ export function EmbarqueVazios() {
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setUploadOpen(false)}>Cancelar</Button>
-            <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
+            <Button disabled={!manifest || !voyageId || !uploadPort.trim() || !user} loading={submitting} onClick={handleImport}>
               Confirmar importação
             </Button>
           </div>

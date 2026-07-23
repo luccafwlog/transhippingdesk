@@ -64,6 +64,10 @@ export async function updateVaziosBooking(
     | 'hand_out_date'
     | 'overtime_handling'
     | 'overtime_transport'
+    | 'condition'
+    | 'visual_check'
+    | 'overtime_handling_pct'
+    | 'overtime_transport_pct'
   >>,
 ) {
   const { error } = await supabase.from('vazios_bookings').update(patch).eq('id', id)

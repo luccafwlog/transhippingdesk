@@ -27,6 +27,7 @@ describe('imports de vazios transacionais', () => {
     await expect(importVaziosManifest({
       filename: 'bookings.xlsx',
       voyageId: 7,
+      port: 'BRSSZ',
       uploadedBy: 'user-1',
       manifest: {
         bookings: [{
@@ -47,6 +48,11 @@ describe('imports de vazios transacionais', () => {
           hand_out_date: null,
           overtime_handling: false,
           overtime_transport: false,
+          condition: 'empty',
+          visual_check: false,
+          os_number: null,
+          overtime_handling_pct: 0,
+          overtime_transport_pct: 0,
         }],
         rowErrors: [],
       },

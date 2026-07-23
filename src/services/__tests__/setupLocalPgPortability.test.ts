@@ -5,7 +5,15 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const helpers = 'scripts/lib/local-pg-platform.sh'
+const bashExecutable = process.platform === 'win32'
+  ? 'C:\\Program Files\\Git\\bin\\bash.exe'
+  : '/bin/bash'
 const tempDirs: string[] = []
+
+function shellPath(path: string) {
+  if (process.platform !== 'win32') return path
+  return execFileSync(bashExecutable, ['-lc', `cygpath -u '${path.replaceAll("'", "'\\\"'\\\"'")}'`], { encoding: 'utf8' }).trim()
+}
 
 function tempBin() {
   const dir = mkdtempSync(join(tmpdir(), 'transhipping-pg-platform-'))
@@ -14,7 +22,7 @@ function tempBin() {
 }
 
 function bash(script: string, env: NodeJS.ProcessEnv = {}) {
-  return execFileSync('/bin/bash', ['-c', `source "${helpers}"; ${script}`], {
+  return execFileSync(bashExecutable, ['-c', `source "${helpers}"; ${script}`], {
     cwd: process.cwd(),
     env: { ...process.env, ...env },
     encoding: 'utf8',
@@ -32,8 +40,8 @@ describe('setup-local-pg — seleção e segurança portáveis', () => {
     writeFileSync(pgCtlCluster, '#!/bin/sh\nexit 0\n')
     chmodSync(pgCtlCluster, 0o755)
 
-    expect(bash('local_pg_has_debian_cluster && printf debian', { PATH: bin })).toBe('debian')
-    expect(bash('local_pg_has_debian_cluster || printf macos', { PATH: tempBin() })).toBe('macos')
+    expect(bash('local_pg_has_debian_cluster && printf debian', { PATH: shellPath(bin) })).toBe('debian')
+    expect(bash('local_pg_has_debian_cluster || printf macos', { PATH: shellPath(tempBin()) })).toBe('macos')
   })
 
   it('aceita reset apenas dentro do TMPDIR informado', () => {
@@ -43,7 +51,7 @@ describe('setup-local-pg — seleção e segurança portáveis', () => {
     mkdirSync(session)
     mkdirSync(pgdata)
     expect(bash(`local_pg_validate_reset_target '${pgdata}' '${session}' && printf ok`)).toBe('ok')
-    const outside = spawnSync('/bin/bash', ['-c', `source "${helpers}"; local_pg_validate_reset_target '${sandbox}' '${session}'`], {
+    const outside = spawnSync(bashExecutable, ['-c', `source "${helpers}"; local_pg_validate_reset_target '${shellPath(sandbox)}' '${shellPath(session)}'`], {
       cwd: process.cwd(),
       encoding: 'utf8',
     })
@@ -76,14 +84,14 @@ describe('setup-local-pg — seleção e segurança portáveis', () => {
     writeFileSync(join(bin, 'pg_ctl'), `#!/bin/sh\ncase "$*" in *status*) exit 0;; *stop*) printf stop >> '${log}'; exit 0;; esac\nexit 1\n`)
     chmodSync(join(bin, 'pg_ctl'), 0o755)
 
-    const result = spawnSync('/bin/bash', ['scripts/setup-local-pg.sh', '--reset'], {
+    const result = spawnSync(bashExecutable, ['scripts/setup-local-pg.sh', '--reset'], {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        PATH: bin,
-        PG_BIN: bin,
-        TMPDIR: sessionTmp,
-        LOCAL_PGDATA: `${sessionTmp}/../../outside`,
+        PATH: shellPath(bin),
+        PG_BIN: shellPath(bin),
+        TMPDIR: shellPath(sessionTmp),
+        LOCAL_PGDATA: shellPath(join(sessionTmp, '..', '..', 'outside')),
       },
       encoding: 'utf8',
     })
