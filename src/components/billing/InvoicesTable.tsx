@@ -40,15 +40,15 @@ export function InvoicesTable({
 }: InvoicesTableProps) {
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="billing-table__head flex flex-col gap-1 border-b px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span className="font-semibold text-white">{totalCount} fatura(s) retornada(s)</span>
-        <span className="text-xs text-slate-400">{filterDescription}</span>
+        <span className="text-xs">{filterDescription || 'Ordenado por emissão (recente)'}</span>
       </div>
       {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
       <div className="app-table-scroll app-table-scroll--sticky">
         <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
-          <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-4 py-3">Número do BL</th><th scope="col" className="px-4 py-3">Fatura</th><th scope="col" className="px-4 py-3">Tipo</th><th scope="col" className="px-4 py-3">Navio / Viagem · POD</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Pagamento</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Ações</th></tr></thead>
-          <tbody className="divide-y divide-[#30363d]">
+          <thead><tr><th scope="col" className="px-4 py-3">Número do BL</th><th scope="col" className="px-4 py-3">Fatura</th><th scope="col" className="px-4 py-3">Tipo</th><th scope="col" className="px-4 py-3">Navio / Viagem · POD</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Pagamento</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Ações</th></tr></thead>
+          <tbody>
             {isLoading ? <tr><td colSpan={9} className="p-0"><SkeletonTable rows={6} cols={9} /></td></tr> : null}
             {!isLoading && invoices.length === 0 ? <tr><td colSpan={9} className="p-0"><EmptyState title={emptyState.title} description={emptyState.description} /></td></tr> : null}
             {invoices.map((invoice) => {

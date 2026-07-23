@@ -991,6 +991,78 @@ textarea {
   font-size: 24px;
 }
 
+.billing-page {
+  min-width: 0;
+}
+
+.billing-page__tabs {
+  align-items: center;
+}
+
+.billing-page .app-filter-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.billing-page .app-input,
+.billing-page .app-select {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.billing-page .app-field__label {
+  font-size: 11px;
+}
+
+.billing-page__metrics {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.4fr) repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.billing-table__head {
+  color: var(--app-text-strong);
+}
+
+.billing-table__head span:last-child {
+  color: var(--app-muted);
+}
+
+.billing-demurrage-notice {
+  border-color: color-mix(in srgb, var(--app-blue) 35%, var(--app-border));
+  background: var(--app-blue-soft);
+}
+
+.billing-demurrage-notice__eyebrow {
+  color: var(--app-blue-btn);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.billing-demurrage-notice__copy {
+  margin-top: 4px;
+  color: var(--app-text);
+}
+
+.billing-demurrage-notice a {
+  color: var(--app-blue-btn);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .billing-page__metrics {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .billing-page__metrics > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 .app-action-row {
   display: flex;
   flex-wrap: wrap;
@@ -1194,8 +1266,8 @@ textarea {
   padding: 0 14px;
   border: 1px solid var(--app-border-strong);
   border-radius: 8px;
-  background: var(--app-surface-muted);
-  color: var(--app-muted);
+  background: var(--app-surface);
+  color: var(--app-text);
   font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1205,13 +1277,18 @@ textarea {
 
 .app-tab:hover {
   color: var(--app-text);
-  border-color: color-mix(in srgb, var(--app-blue) 45%, var(--app-border-strong));
+  border-color: var(--app-navy);
 }
 
 .app-tab--active {
-  background: color-mix(in srgb, var(--app-blue-soft) 70%, var(--app-surface) 30%);
-  border-color: color-mix(in srgb, var(--app-blue) 55%, var(--app-border-strong));
-  color: color-mix(in srgb, var(--app-blue) 72%, var(--app-text));
+  background: var(--app-navy);
+  border-color: var(--app-navy);
+  box-shadow: inset 0 -2px 0 var(--app-gold);
+  color: #ffffff;
+}
+
+.app-tab--active:hover {
+  color: #ffffff;
 }
 
 .app-input {
@@ -1430,7 +1507,7 @@ textarea {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--app-border);
+  border: none;
   border-radius: 16px;
   background: linear-gradient(180deg, var(--app-surface-strong), var(--app-surface));
   box-shadow: var(--app-shadow-strong);

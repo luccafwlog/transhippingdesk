@@ -96,16 +96,18 @@ function DemurrageInvoicesPanel({ query, onOpenDetail }: DemurrageInvoicesPanelP
         <MetricCard label="Total USD" value={formatUSD(summary.totalUsd)} />
       </div>
 
-      <Card className="mb-3 border border-blue-900/40 bg-blue-950/20 p-4 text-sm text-slate-300">
-        Faturas de demurrage sao geradas e gerenciadas em <a className="text-blue-400 underline" href="/demurrage">/demurrage</a>.
-        Esta visao agrega para acompanhamento financeiro unificado.
+      <Card className="billing-demurrage-notice mb-3 p-4 text-sm">
+        <div className="billing-demurrage-notice__eyebrow">Câmbio de referência</div>
+        <div className="billing-demurrage-notice__copy">
+          Faturas de demurrage são geradas e gerenciadas em <a href="/demurrage">/demurrage</a>. Esta visão agrega o acompanhamento financeiro unificado.
+        </div>
       </Card>
 
       <Card className="overflow-hidden p-0">
         {query.error ? <InlineError message="Erro ao carregar invoices de demurrage." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[980px] table-fixed text-left text-sm">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+            <thead>
               <tr>
                 <th scope="col" className="w-[18%] px-4 py-3">Nº Doc</th>
                 <th scope="col" className="w-[12%] px-4 py-3">B/L</th>
@@ -118,7 +120,7 @@ function DemurrageInvoicesPanel({ query, onOpenDetail }: DemurrageInvoicesPanelP
                 <th scope="col" className="w-[8%] px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]">
+            <tbody>
               {query.isLoading ? <tr><td colSpan={9} className="p-0"><SkeletonTable rows={6} cols={9} /></td></tr> : null}
               {!query.isLoading && invoices.length === 0 ? (
                 <tr><td colSpan={9} className="p-0"><EmptyState title="Nenhuma fatura de demurrage." description="Gere em /demurrage quando containers ficarem em atraso." /></td></tr>

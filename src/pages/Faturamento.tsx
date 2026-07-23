@@ -125,6 +125,7 @@ export function Faturamento() {
       openBalance: open.reduce((sum, row) => sum + Number(row.balance_brl ?? 0), 0),
       paidCount: invoices.filter((row) => paidStatuses.has(row.status ?? '')).length,
       consolidatedCount: invoices.filter((row) => isConsolidatedInvoice(row)).length,
+      overdueCount: invoices.filter((row) => row.status === 'overdue').length,
     }
   }, [data?.count, invoices])
 
@@ -198,12 +199,12 @@ export function Faturamento() {
   }
 
   return (
-    <>
+    <main className="billing-page">
       <PageHeader
         title="Faturamento"
-        description="Emissão de consolidadas por cliente, com baixa integral via ledger e cancelamento."
+        description="Emissão de taxas locais, validação de cálculos e acompanhamento financeiro por B/L."
         action={
-          <Button onClick={() => setConsolidatedOpen(true)}><FilePlus2 size={16} />Nova Consolidada</Button>
+          <Button onClick={() => setConsolidatedOpen(true)}><FilePlus2 size={16} />Gerar fatura consolidada</Button>
         }
       />
 
@@ -218,7 +219,7 @@ export function Faturamento() {
         }}
       />
 
-      <div className="mb-5 flex flex-wrap gap-2" role="tablist">
+      <div className="billing-page__tabs mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Módulos de faturamento">
         <TabButton active={activeTab === 'invoices'} label="Faturas" onClick={() => setActiveTab('invoices')} />
         <TabButton active={activeTab === 'validacao'} label="Validação" onClick={() => setActiveTab('validacao')} />
         <TabButton active={activeTab === 'pendencias'} label="Pendências" onClick={() => setActiveTab('pendencias')} />
@@ -252,15 +253,12 @@ export function Faturamento() {
             updateFilter={updateFilter}
           />
 
-          <div className="mb-5 flex flex-col gap-4">
-            <div>
-              <MetricCard label="Saldo aberto" value={formatBRL(summary.openBalance)} tone="primary" />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-              <MetricCard label="Faturas filtradas" value={String(summary.count)} />
-              <MetricCard label="Pagas (página)" value={String(summary.paidCount)} />
-              <MetricCard label="Consolidadas (página)" value={String(summary.consolidatedCount)} />
-            </div>
+          <div className="billing-page__metrics mb-5">
+            <MetricCard label="Saldo aberto" value={formatBRL(summary.openBalance)} tone="primary" />
+            <MetricCard label="Faturas filtradas" value={String(summary.count)} />
+            <MetricCard label="Pagas" value={String(summary.paidCount)} />
+            <MetricCard label="Consolidadas" value={String(summary.consolidatedCount)} />
+            <MetricCard label="Vencidas" value={String(summary.overdueCount)} />
           </div>
 
           <InvoicesTable
@@ -279,6 +277,6 @@ export function Faturamento() {
       ) : null}
 
       <InvoiceDetailModal invoiceId={selectedInvoiceId} onClose={closeDetails} />
-    </>
+    </main>
   )
 }
