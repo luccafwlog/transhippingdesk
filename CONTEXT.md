@@ -223,7 +223,9 @@ depot`, distinta do Free Time de Demurrage (que se aplica à carga de importaç�
 do cliente, não ao vazio no depot).
 
 **Embarque Direto**
-Container vazio embarcado direto do terminal, sem passar por depot.
+Container vazio embarcado direto do terminal, sem passar por depot. Não incorre
+em handling in/out, transporte nem storage — esses custos são automáticos apenas
+para containers que passaram por depot.
 
 **Hand-in / Hand-out**
 Movimentos de gate do container vazio no depot: hand-in é a entrada, hand-out é
@@ -242,11 +244,11 @@ Estado do vazio no momento do embarque, que afeta a tarifa aplicável: íntegro
 material). É atributo por container e fonte do flag Material do Armador.
 
 **Serviço Extra de Reorganização**
-Serviço executado sobre os vazios (bundle, desova, visual check), registrado
-por quantidade e tipo de container e valorado por quantidade × tarifa
-configurável. Pertence ao módulo de vazios de exportação, sob Equipamentos.
-A tarifa é única por serviço, com período de vigência; seu cadastro é
-configuração tarifária da administração, não operação da escala.
+Serviço executado sobre os vazios, valorado por tarifa do Cadastro de Depot.
+Deixa de ser um conjunto fixo (bundle/desova/visual check) e passa a ser
+configurável por depot. Bundle e desova são lançados como **quantidade por
+operação** (quantidade × tarifa); visual check é **flag por container**.
+Pertence ao módulo de vazios de exportação, sob Equipamentos.
 
 **OS da Operação de Vazios**
 Número da ordem de serviço da operação de vazios de uma escala: um por
