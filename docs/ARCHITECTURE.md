@@ -321,7 +321,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/veiculos` | Veículos RoRo |
 | `/vazios-importacao` | Vazios de importação |
 | `/embarquevazios` | Bookings de vazios de exportação |
-| `/embarquevazios/taxas` | Tarifas de reorganização de vazios |
+| `/embarquevazios/taxas` | Cadastro de Depot, tarifas vigentes e serviços extras de Vazios EXP |
 | `/granito` | Operação de Granito |
 | `/granito/taxas` | Tarifas de Granito |
 | `/revisao` | Revisão operacional |

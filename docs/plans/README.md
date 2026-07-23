@@ -15,7 +15,6 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
-| [VAZIOS EXP — grão-container + Cadastro de Depot](./2026-07-23-vazios-exp-cadastro-depot.md) | ADR 0031 | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

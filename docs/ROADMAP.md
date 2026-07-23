@@ -17,6 +17,7 @@ substituem este baseline.
 - containers, veículos RoRo e CE Mercante;
 - Vazios de Importação por Baplie ou planilha;
 - bookings de Vazios de Exportação;
+- Cadastro de Depot com tarifas e serviços extras, importação por container e custos refletidos no ADR;
 - fluxo especializado de Granito;
 - fila de revisão operacional e reconciliação de cliente.
 

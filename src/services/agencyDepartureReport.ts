@@ -13,6 +13,8 @@ import type {
 import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepartmentSignoff, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
+import { listCurrentDepotServices, resolveCurrentDepotTariff } from './depots'
+import { computeOperationTotals } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
 
 export type AgencyReportSection =
@@ -352,6 +354,14 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     overtime: VaziosExportOvertimeDepot[]
     reorg: VaziosReorgService[]
   }) | null
+  const depotIds = [...new Set(vaziosExp.map((booking) => booking.depot_id).filter((id): id is string => Boolean(id)))]
+  const tariffEntries = await Promise.all(depotIds.map(async (depotId) => [depotId, await resolveCurrentDepotTariff(depotId)] as const))
+  const depotServices = (await Promise.all(depotIds.map((depotId) => listCurrentDepotServices(depotId)))).flat()
+  const operationQuantities = {
+    bundle: operation?.reorg.filter((row) => row.service === 'bundle').reduce((sum, row) => sum + Number(row.qty), 0) ?? 0,
+    desova: operation?.reorg.filter((row) => row.service === 'desova').reduce((sum, row) => sum + Number(row.qty), 0) ?? 0,
+  }
+  const costs = computeOperationTotals(vaziosExp, new Map(tariffEntries), depotServices, operationQuantities)
 
   return {
     schedule: schedules.get(entityId) ?? null,
@@ -361,6 +371,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     granite,
     containers,
     operation,
+    costs,
     storage: computeStorageTotals(vaziosExp),
     cargaSolta: {
       bls: breakbulk.length,

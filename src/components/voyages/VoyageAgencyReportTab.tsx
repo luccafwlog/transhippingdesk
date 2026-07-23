@@ -28,7 +28,7 @@ import {
   type SignoffState,
 } from '../../services/agencyDepartureReport'
 import type { AgencyReportDepartmentKey } from '../../types/database'
-import { formatDate } from '../../lib/utils'
+import { formatBRL, formatDate } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 
 const DEPARTMENTS: AgencyReportDepartmentKey[] = ['operacoes', 'documentacao', 'equipamentos']
@@ -234,6 +234,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       granito: granite,
       storage: data?.storage ?? null,
       operation: data?.operation ?? null,
+      costs: data?.costs ?? null,
       overtimeHandlingCount: bookings.filter((booking) => booking.overtime_handling).length,
       overtimeTransportCount: bookings.filter((booking) => booking.overtime_transport).length,
     },
@@ -355,6 +356,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               <MetricPanel title="Depots e OS"><Info label="OS" value={data?.operation?.os_number ?? 'Não informada'} /><Info label="Embarque direto" value={String(directEmbarkCount)} /><Info label="Depots" value={depots.join(', ') || '—'} /></MetricPanel>
             </div>
             <MetricPanel title="Serviço extra">{data?.operation?.reorg.length ? data.operation.reorg.map((service) => <Info key={service.id} label={`${service.service} · ${service.container_type}`} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
+            <MetricPanel title="Valores calculados"><Info label="Containers" value={formatBRL(data?.costs?.rows.reduce((sum, row) => sum + row.total, 0) ?? 0)} /><Info label="Bundle / desova" value={formatBRL((data?.costs?.bundle ?? 0) + (data?.costs?.desova ?? 0))} /><Info label="Total da operação" value={formatBRL(data?.costs?.total ?? 0)} /></MetricPanel>
           </ReportSection>
 
           <ReportSection
