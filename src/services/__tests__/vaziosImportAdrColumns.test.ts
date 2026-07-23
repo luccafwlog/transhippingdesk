@@ -17,6 +17,20 @@ function sheetBuffer(rows: unknown[][]): ArrayBuffer {
 }
 
 describe('parser de vazios — colunas do ADR', () => {
+  it('mapeia colunas da planilha real e datas seriais', async () => {
+    const parsed = await parseVaziosManifestBuffer(sheetBuffer([
+      ['CONTAINER', 'POD', 'Current Status', 'HIGHLIGHTS', 'VISUAL CHECK', 'IMPORT EMPTY RETURN DATE', 'EMPTY GATE OUT', 'LOAD DATE', 'ORDER No.', 'OT Handling %', 'OT Transporte %'],
+      ['ABCD1234567', 'BRSSZ', 'EMPTY w/ MATERIAL', 'ok', 'yes', 46204, 46208, 46200, 'OS-1', '12.5%', 20],
+    ]))
+    const row = parsed.bookings[0]
+    expect(row.condition).toBe('material')
+    expect(row.visual_check).toBe(true)
+    expect(row.os_number).toBe('OS-1')
+    expect(row.overtime_handling_pct).toBe(12.5)
+    expect(row.overtime_transport_pct).toBe(20)
+    expect(row.hand_in_date).toBe('2026-07-01')
+  })
+
   it('mapeia porto, depot, flags e datas de hand-in/hand-out', async () => {
     const buffer = sheetBuffer([
       ['Booking', 'Container', 'Tipo', 'Porto Embarque', 'Depot', 'Material', 'Bundle', 'Transporte', 'Hand-in', 'Hand-out', 'OT Handling', 'OT Transporte'],
@@ -56,6 +70,7 @@ describe('parser de vazios — colunas do ADR', () => {
     await importVaziosManifest({
       filename: 'vazios.xlsx',
       voyageId: 7,
+      port: 'BRSSA',
       manifest,
       uploadedBy: 'user-1',
     })

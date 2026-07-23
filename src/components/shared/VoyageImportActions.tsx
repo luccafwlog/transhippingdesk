@@ -161,7 +161,9 @@ export function VoyageImportActions({
           parser={parseVaziosManifestFile}
           canImport={(p) => p.bookings.length > 0}
           importer={async (preview, file) => {
-            await importVaziosManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, description: file.name })
+            const port = preview.bookings.find((booking) => booking.embark_port)?.embark_port ?? ''
+            if (!port) throw new Error('Informe o porto de embarque na planilha de Vazios EXP.')
+            await importVaziosManifest({ filename: file.name, voyageId, port, manifest: preview, uploadedBy: userId, description: file.name })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
               queryClient.invalidateQueries({ queryKey: ['vazios-bookings'] }),
