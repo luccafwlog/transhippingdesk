@@ -391,6 +391,13 @@ export function EmbarqueVazios() {
         description="Containers vazios que embarcam (saem) pelo porto. O container é a identidade da linha; booking é referência."
         action={
           <div className="flex flex-wrap gap-2">
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+              to="/embarquevazios/depots"
+            >
+              <Package size={16} />
+              Tabela de Depots
+            </Link>
             <a
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
               href="/templates/vazios-modelo.xlsx"
@@ -625,7 +632,7 @@ export function EmbarqueVazios() {
                                   onBlur={() => void saveReorgQty(service.value, containerType)}
                                 />
                               </td>
-                              <td className="px-3 py-2">{rate == null ? <Link className="app-table__action" to="/embarquevazios/taxas">Sem tarifa</Link> : formatBRL(rate)}</td>
+                              <td className="px-3 py-2">{rate == null ? <Link className="app-table__action" to="/embarquevazios/depots">Sem tarifa</Link> : formatBRL(rate)}</td>
                               <td className="px-3 py-2 font-semibold text-white">
                                 {rate == null || !Number.isFinite(qty) ? '-' : formatBRL(qty * rate)}
                               </td>

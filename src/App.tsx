@@ -122,7 +122,7 @@ export default function App() {
           <Route path="/granito/taxas" element={withSuspense(<GraniteRates />)} />
           <Route path="/demurrage/taxas" element={withSuspense(<DemurrageRates />)} />
           <Route path="/embarquevazios" element={withSuspense(<EmbarqueVazios />)} />
-          <Route path="/embarquevazios/taxas" element={withSuspense(<VaziosReorgRates />)} />
+          <Route path="/embarquevazios/depots" element={withSuspense(<VaziosReorgRates />)} />
           <Route path="/vazios" element={<Navigate to="/embarquevazios" replace />} />
           <Route path="/vazios-importacao" element={withSuspense(<VaziosImportacao />)} />
           <Route path="/baplie" element={withSuspense(<BaplieEDI />)} />

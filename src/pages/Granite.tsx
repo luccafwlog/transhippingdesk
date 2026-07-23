@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Mountain, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -172,12 +172,23 @@ export function Granite() {
       <PageHeader
         title="Manifestos Granito"
         description="Importação do relatório de cargas COSCO (Granito)."
-        action={canWrite ? (
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload size={16} />
-            Importar Planilha COSCO
-          </Button>
-        ) : null}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#21262d] px-4 text-sm font-semibold text-slate-100 transition hover:bg-[#30363d]"
+              to="/granito/taxas"
+            >
+              <Mountain size={16} />
+              Tabela de Taxas — Granito
+            </Link>
+            {canWrite ? (
+              <Button onClick={() => setUploadOpen(true)}>
+                <Upload size={16} />
+                Importar Planilha COSCO
+              </Button>
+            ) : null}
+          </div>
+        }
       />
 
       <Card className="mb-5">
