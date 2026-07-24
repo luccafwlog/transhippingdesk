@@ -20,4 +20,18 @@ describe('parser de vazios — novo contrato', () => {
     await importVaziosManifest({ filename: 'x.xlsx', voyageId: 7, port: 'BRSSA', uploadedBy: 'user-1', manifest: { bookings: [{ rowNumber: 2, booking_number: null, container_number: 'ABCD1234569', container_type: null, movement_date: null, origin_terminal: null, destination: null, notes: null, embark_port: 'BRSSA', depot: 'VBR', material: true, condition: 'material', hand_in_date: null, hand_out_date: null, os_number: null, overtime_pct: 15 }], rowErrors: [] } })
     expect(rpcMock).toHaveBeenCalledWith('import_vazios_bookings_transactional', expect.objectContaining({ p_bookings: [expect.objectContaining({ overtime_pct: 15 })] }))
   })
+  it('dedupe container repetido na planilha, mantendo a ultima ocorrencia', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Booking: 'B1', Container: 'ABCD1234567', Depot: 'VBR' },
+      { Booking: 'B2', Container: 'ABCD1234567', Depot: 'VIX' },
+    ]))
+    expect(parsed.bookings).toHaveLength(1)
+    expect(parsed.bookings[0].booking_number).toBe('B2')
+    expect(parsed.bookings[0].depot).toBe('VIX')
+  })
+  it('planilha antiga sem coluna de overtime continua importando com 0', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Booking: 'B1', Container: 'ABCD1234567', Depot: 'VBR' }]))
+    expect(parsed.bookings).toHaveLength(1)
+    expect(parsed.bookings[0].overtime_pct).toBe(0)
+  })
 })

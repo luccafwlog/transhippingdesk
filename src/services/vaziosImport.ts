@@ -59,7 +59,7 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<Pa
       material: condition === 'material' || parseBool(mapped.material),
       hand_in_date: parseDate(String(mapped.hand_in_date ?? '')), hand_out_date: parseDate(String(mapped.hand_out_date ?? '')),
       condition, os_number: text(mapped.os_number),
-      overtime_pct: parsePercent(mapped.overtime_pct, undefined),
+      overtime_pct: parsePercent(mapped.overtime_pct),
     })
   })
   const deduped = dedupeByContainer(bookings, rowErrors)
@@ -79,7 +79,7 @@ function dedupeByContainer(bookings: ParsedVaziosBooking[], rowErrors: ReturnTyp
 
 function text(value: unknown): string | null { const valueText = String(value ?? '').trim(); return valueText || null }
 function parseBool(value: unknown): boolean { return ['sim', 's', 'x', 'true', '1', 'yes'].includes(String(value ?? '').trim().toLowerCase()) }
-function parsePercent(value: unknown, flag: unknown): number { const parsed = Number(String(value ?? '').replace(',', '.').replace('%', '').trim()); return Number.isFinite(parsed) && parsed >= 0 ? parsed : (flag !== undefined && parseBool(flag) ? 100 : 0) }
+function parsePercent(value: unknown): number { const parsed = Number(String(value ?? '').replace(',', '.').replace('%', '').trim()); return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0 }
 function parseCondition(value: unknown, material: unknown): ParsedVaziosBooking['condition'] { const normalized = String(value ?? '').trim().toLowerCase(); if (normalized.includes('material')) return 'material'; if (normalized.includes('damage') || normalized.includes('avaria')) return 'damage'; if (normalized.includes('empty') || normalized.includes('vazio')) return 'empty'; return parseBool(material) ? 'material' : null }
 function parseDate(value: string): string | null {
   if (!value) return null
