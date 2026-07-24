@@ -350,10 +350,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             <Hero value={String(data?.storage.days ?? 0)} unit="dias de storage" />
             <div className="grid gap-4 xl:grid-cols-3">
               <MetricPanel title="Storage"><Info label="Containers" value={String(data?.storage.containers ?? 0)} /><Info label="Dias" value={String(data?.storage.days ?? 0)} /></MetricPanel>
-              <MetricPanel title="Overtime"><Info label="Containers com overtime" value={String(bookings.filter((booking) => Number(booking.overtime_pct ?? 0) > 0).length)} />{((data?.operation as unknown as { overtime?: Array<{ id: string; depot: string; percent: number }> } | null)?.overtime ?? []).map((overtime) => <Info key={overtime.id} label={overtime.depot} value={`${overtime.percent}%`} />)}</MetricPanel>
+              <MetricPanel title="Overtime"><Info label="Containers com overtime" value={String(bookings.filter((booking) => Number(booking.overtime_pct ?? 0) > 0).length)} /></MetricPanel>
               <MetricPanel title="Depots e OS"><Info label="OS" value={data?.operation?.os_number ?? 'Não informada'} /><Info label="Embarque direto" value={String(directEmbarkCount)} /><Info label="Depots" value={depots.join(', ') || '—'} /></MetricPanel>
             </div>
-            <MetricPanel title="Serviço extra">{data?.operation?.service_qty?.length ? data.operation.service_qty.map((service) => <Info key={service.depot_service_id} label={service.depot_service_id} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
+            <MetricPanel title="Serviço extra">{data?.operation?.service_qty?.length ? data.operation.service_qty.map((service) => <Info key={service.depot_service_id} label={service.service?.name ?? 'Serviço removido'} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
             <MetricPanel title="Valores calculados"><Info label="Containers" value={formatBRL(data?.costs?.rows.reduce((sum, row) => sum + row.total, 0) ?? 0)} /><Info label="Serviços por quantidade" value={formatBRL(data?.costs?.qtyTotal ?? 0)} /><Info label="Total da operação" value={formatBRL(data?.costs?.total ?? 0)} /></MetricPanel>
           </ReportSection>
 

@@ -324,7 +324,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('pod', port),
     supabase
       .from('vazios_export_operations')
-      .select('*, service_qty:vazios_operation_service_qty(depot_service_id, qty)')
+      .select('*, service_qty:vazios_operation_service_qty(depot_service_id, qty, service:depot_services(name))')
       .eq('voyage_id', voyageId)
       .eq('embark_port', port)
       .maybeSingle(),
@@ -348,7 +348,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
-  const operation = operationRes.data as (VaziosExportOperation & { service_qty: Array<{ depot_service_id: string; qty: number }> }) | null
+  const operation = operationRes.data as (VaziosExportOperation & { service_qty: Array<{ depot_service_id: string; qty: number; service: { name: string } | null }> }) | null
   const depotIds = [...new Set(vaziosExp.map((booking) => booking.depot_id).filter((id): id is string => Boolean(id)))]
   const allDepots = await listDepots()
   const depotEntries = depotIds.map((depotId) => [depotId, allDepots.find((depot) => depot.id === depotId) ?? null] as const)
