@@ -4,6 +4,8 @@
 
 ## 2026-07
 
+- **Correções pós-PR #424:** reparo do encoding da aba do ADR, reclassificação de `visual_check` como serviço de Quantidade (migration `236`), filtro de ativação e vigência no motor de custo, restauração do fluxo operacional do Vazios EXP, e recuperação da cobertura do ADR, RBAC e parser; migration `237` adiciona índice para `vazios_operation_service_qty(depot_service_id)`.
+
 - **VAZIOS EXP / ADR 0031:** Cadastro de Depot com tarifas e serviços, importação por upsert no grão `(viagem, container)`, parser da planilha real, cálculo por container/operação em duas abas e valores consolidados na Operação de Pátio do ADR; migrations `229`–`233`.
 
 - **ADR sign-off departamental:** aba do ADR reorganizada em 5 faixas na ordem do ciclo da escala (Escala → Importação → Operação de pátio → Exportação → Registro), com barra-resumo dos 3 departamentos no topo; sign-off passou a ser um ato por departamento (não por seção), habilitado só com todas as seções do departamento resolvidas, com reabertura auditada (`set_agency_report_department_signoff`, migration `223`); fechamento exige 3/3 departamentos, não 7/7 seções (migration `224`); alertas de pendência pós-ATD migraram de seção para departamento (migration `225`); Operação de pátio virou a 8ª seção, sob Equipamentos, separada de Embarque de vazios (migration `222`); ocorrências passaram a aceitar os 3 departamentos e tag opcional de seção (migration `226`); números-heróis, IMO destacado à parte e correções de cópia ("Veículos", "Descarga de importação"). Documento impresso (`AgencyReportDocument`) fica temporariamente desalinhado, redesenho em fase seguinte. *(plano arquivado `2026-07-21-adr-signoff-departamental-ciclo`; ADR 0029)*

@@ -31,6 +31,7 @@ function queryBuilder(data: unknown[] = []) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    order: vi.fn(() => builder),
     maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
       Promise.resolve({ data, error: null }).then(resolve),

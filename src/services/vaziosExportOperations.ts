@@ -35,10 +35,10 @@ export async function updateVaziosBooking(id: string, patch: Partial<Pick<Vazios
 
 export async function getVaziosExportOperation(voyageId: number, embarkPort: string) {
   const { data, error } = await supabase.from('vazios_export_operations')
-    .select('*, service_qty:vazios_operation_service_qty(depot_service_id, qty)')
+    .select('*, service_qty:vazios_operation_service_qty(depot_service_id, qty, service:depot_services(name))')
     .eq('voyage_id', voyageId).eq('embark_port', embarkPort).maybeSingle()
   if (error) throw error
-  return data as (VaziosExportOperation & { service_qty: Array<{ depot_service_id: string; qty: number }> }) | null
+  return data as (VaziosExportOperation & { service_qty: Array<{ depot_service_id: string; qty: number; service: { name: string } | null }> }) | null
 }
 
 export async function upsertVaziosExportOperation(input: { voyageId: number; embarkPort: string; osNumber: string | null }) {
