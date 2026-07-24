@@ -350,8 +350,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const operation = operationRes.data as (VaziosExportOperation & { service_qty: Array<{ depot_service_id: string; qty: number }> }) | null
   const depotIds = [...new Set(vaziosExp.map((booking) => booking.depot_id).filter((id): id is string => Boolean(id)))]
-  let allDepots: Awaited<ReturnType<typeof listDepots>> = []
-  try { allDepots = await listDepots() } catch { allDepots = [] }
+  const allDepots = await listDepots()
   const depotEntries = depotIds.map((depotId) => [depotId, allDepots.find((depot) => depot.id === depotId) ?? null] as const)
   const depotServices = (await Promise.all(depotIds.map((depotId) => listCurrentDepotServices(depotId)))).flat()
   const quantities = new Map((operation?.service_qty ?? []).map((row) => [row.depot_service_id, row.qty]))
