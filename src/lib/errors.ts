@@ -47,7 +47,10 @@ export function classifyDbError(error: unknown): ClassifiedDbError {
         : { code: '', message: '' }
   const known = ERROR_TABLE[fields.code]
   const raw = /permission denied for (?:table|view|function|relation|schema|sequence)/i.test(fields.message)
-  if (known) return { kind: known.kind, message: fields.message && !raw ? fields.message : known.message }
+  if (known) {
+    const preserve = known.kind === 'permissao' && fields.message && !raw
+    return { kind: known.kind, message: preserve ? fields.message : known.message }
+  }
   if (/permission denied/i.test(fields.message)) return ERROR_TABLE['42501']
   return { kind: 'desconhecido', message: fields.message || 'Falha inesperada. Tente novamente.' }
 }
