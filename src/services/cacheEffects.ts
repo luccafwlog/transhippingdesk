@@ -45,3 +45,16 @@ export async function afterRotaAlterada(queryClient: QueryInvalidator, options: 
 export async function afterManifestoImportado(queryClient: QueryInvalidator, options: { voyageId: number | string }): Promise<void> {
   await invalidate(queryClient, [['bls'], ['containers'], ['voyages'], ['port-options'], voyageTimelineKey(options.voyageId), ...LINEUP_KEYS])
 }
+
+export async function afterBaplieImportado(queryClient: QueryInvalidator, options: { voyageId: string }): Promise<void> {
+  await invalidateBaplieDependentQueries(queryClient, options.voyageId)
+}
+
+export async function afterBlRevisado(
+  queryClient: Parameters<typeof invalidateReviewQueueCaches>[0],
+  scope: Parameters<typeof invalidateReviewQueueCaches>[1] = {},
+): Promise<void> {
+  await invalidateReviewQueueCaches(queryClient, scope)
+}
+import { invalidateReviewQueueCaches } from '../components/review/reviewCaches'
+import { invalidateBaplieDependentQueries } from './baplieInvalidation'

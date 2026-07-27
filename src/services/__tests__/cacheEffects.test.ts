@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { afterEscalaAlterada, afterManifestoImportado, afterRotaAlterada, afterViagemAlterada } from '../cacheEffects'
+import { afterBaplieImportado, afterEscalaAlterada, afterManifestoImportado, afterRotaAlterada, afterViagemAlterada } from '../cacheEffects'
 
 function fakeQueryClient() {
   const invalidateQueries = vi.fn().mockResolvedValue(undefined)
@@ -13,7 +13,7 @@ describe('cache effects', () => {
     expect(keys()).toEqual(expect.arrayContaining([
       ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['bls'], ['containers'], ['dashboard'],
       ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
-    ].map(JSON.stringify)))
+    ].map((key) => JSON.stringify(key))))
     expect(keys()).not.toContain(JSON.stringify(['voyage-timeline', 24]))
     expect(new Set(keys()).size).toBe(keys().length)
   })
@@ -24,12 +24,12 @@ describe('cache effects', () => {
     await afterRotaAlterada(client, { voyageId: 24 })
     expect(keys()).toEqual(expect.arrayContaining([
       ['voyage-export-schedules'], ['voyage-route-ce-masters'], ['voyage-timeline', '24'], ['lineup-tv-v3'],
-    ].map(JSON.stringify)))
+    ].map((key) => JSON.stringify(key))))
   })
 
   it('preserves import keys', async () => {
     const { client, keys } = fakeQueryClient()
     await afterManifestoImportado(client, { voyageId: 24 })
-    expect(keys()).toEqual(expect.arrayContaining([['bls'], ['voyages'], ['port-options']].map(JSON.stringify)))
+    expect(keys()).toEqual(expect.arrayContaining([['bls'], ['voyages'], ['port-options']].map((key) => JSON.stringify(key))))
   })
 })
