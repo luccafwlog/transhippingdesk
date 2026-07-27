@@ -40,7 +40,7 @@ const ERROR_TABLE: Readonly<Record<string, ClassifiedDbError>> = {
 
 export function classifyDbError(error: unknown): ClassifiedDbError {
   const fields = error instanceof Error
-    ? { code: '', message: error.message }
+    ? { code: String((error as Error & { code?: unknown }).code ?? ''), message: error.message }
     : typeof error === 'string' ? { code: '', message: error }
       : error && typeof error === 'object'
         ? { code: String((error as { code?: unknown }).code ?? ''), message: String((error as { message?: unknown }).message ?? '') }
