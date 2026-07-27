@@ -1,3 +1,5 @@
+import { classifyDbError } from './errors'
+
 function errorMessage(error: unknown): string {
   return typeof error === 'object' && error ? String((error as { message?: unknown }).message ?? '') : ''
 }
@@ -13,4 +15,3 @@ export function portalErrorMessage(error: unknown, fallback: string): string {
 
   return fallback
 }
-import { classifyDbError } from './errors'

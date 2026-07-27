@@ -1,3 +1,7 @@
+import type { QueryClient } from '@tanstack/react-query'
+import { invalidateReviewQueueCaches, type ReviewCacheScope } from '../components/review/reviewCaches'
+import { invalidateBaplieDependentQueries } from './baplieInvalidation'
+
 export type QueryInvalidator = {
   invalidateQueries: (input: { queryKey: readonly unknown[] }) => Promise<unknown>
 }
@@ -24,13 +28,10 @@ async function invalidate(queryClient: QueryInvalidator, keys: readonly (readonl
   await Promise.all(unique.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
 }
 
-export async function afterViagemAlterada(
-  queryClient: QueryInvalidator,
-  options: { voyageId?: number | string } = {},
-): Promise<void> {
+export async function afterViagemAlterada(queryClient: QueryInvalidator, options: { voyageId: number | string }): Promise<void> {
   await invalidate(queryClient, [
     ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['bls'], ['containers'], ['dashboard'],
-    ...(options.voyageId === undefined ? [] : [voyageTimelineKey(options.voyageId)]), ...LINEUP_KEYS,
+    voyageTimelineKey(options.voyageId), ...LINEUP_KEYS,
   ])
 }
 
@@ -50,11 +51,6 @@ export async function afterBaplieImportado(queryClient: QueryInvalidator, option
   await invalidateBaplieDependentQueries(queryClient, options.voyageId)
 }
 
-export async function afterBlRevisado(
-  queryClient: Parameters<typeof invalidateReviewQueueCaches>[0],
-  scope: Parameters<typeof invalidateReviewQueueCaches>[1] = {},
-): Promise<void> {
+export async function afterBlRevisado(queryClient: QueryClient, scope: ReviewCacheScope = {}): Promise<void> {
   await invalidateReviewQueueCaches(queryClient, scope)
 }
-import { invalidateReviewQueueCaches } from '../components/review/reviewCaches'
-import { invalidateBaplieDependentQueries } from './baplieInvalidation'

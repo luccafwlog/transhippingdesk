@@ -6,38 +6,59 @@ function fakeQueryClient() {
   return { client: { invalidateQueries }, keys: () => invalidateQueries.mock.calls.map(([input]) => JSON.stringify(input.queryKey)) }
 }
 
+function keySet(keys: (readonly unknown[])[]): string[] {
+  return keys.map((key) => JSON.stringify(key))
+}
+
 describe('cache effects', () => {
-  it('invalidates the voyage superset and normalizes timeline id', async () => {
+  it('invalidates exactly the voyage superset and normalizes timeline id', async () => {
     const { client, keys } = fakeQueryClient()
     await afterViagemAlterada(client, { voyageId: 24 })
-    expect(keys()).toEqual(expect.arrayContaining([
+    expect(keys()).toEqual(keySet([
       ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['bls'], ['containers'], ['dashboard'],
       ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
-    ].map((key) => JSON.stringify(key))))
+    ]))
     expect(keys()).not.toContain(JSON.stringify(['voyage-timeline', 24]))
-    expect(new Set(keys()).size).toBe(keys().length)
   })
 
-  it('invalidates scale and route effects', async () => {
+  it('invalidates exactly the scale effect set', async () => {
     const { client, keys } = fakeQueryClient()
     await afterEscalaAlterada(client, { voyageId: 24 })
-    await afterRotaAlterada(client, { voyageId: 24 })
-    expect(keys()).toEqual(expect.arrayContaining([
-      ['voyage-export-schedules'], ['voyage-route-ce-masters'], ['voyage-timeline', '24'], ['lineup-tv-v3'],
-    ].map((key) => JSON.stringify(key))))
+    expect(keys()).toEqual(keySet([
+      ['voyage-pod-schedules'], ['voyage-pol-schedules'], ['voyage-export-schedules'],
+      ['voyage-timeline', '24'], ['voyages'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
+    ]))
   })
 
-  it('preserves import keys', async () => {
+  it('invalidates exactly the route effect set', async () => {
+    const { client, keys } = fakeQueryClient()
+    await afterRotaAlterada(client, { voyageId: 24 })
+    expect(keys()).toEqual(keySet([
+      ['voyage-route-ce-masters'], ['voyage-pol-schedules'], ['voyage-pod-schedules'],
+      ['voyage-timeline', '24'], ['voyages'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
+    ]))
+  })
+
+  it('invalidates exactly the manifest import set, preserving port-options', async () => {
     const { client, keys } = fakeQueryClient()
     await afterManifestoImportado(client, { voyageId: 24 })
-    expect(keys()).toEqual(expect.arrayContaining([['bls'], ['voyages'], ['port-options']].map((key) => JSON.stringify(key))))
+    expect(keys()).toEqual(keySet([
+      ['bls'], ['containers'], ['voyages'], ['port-options'],
+      ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
+    ]))
   })
 
   it('delegates Baplie invalidation through the event seam', async () => {
     const { client, keys } = fakeQueryClient()
     await afterBaplieImportado(client, { voyageId: '24' })
-    expect(keys()).toEqual([
+    expect(keys()).toEqual(keySet([
       ['baplie-reconciliation', '24'], ['bls'], ['bl-detail'], ['voyages'], ['voyage-timeline', '24'],
-    ].map((key) => JSON.stringify(key)))
+    ]))
+  })
+
+  it('deduplicates overlapping keys within a single event', async () => {
+    const { client, keys } = fakeQueryClient()
+    await afterEscalaAlterada(client, { voyageId: 24 })
+    expect(new Set(keys()).size).toBe(keys().length)
   })
 })
