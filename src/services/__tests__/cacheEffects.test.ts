@@ -32,4 +32,12 @@ describe('cache effects', () => {
     await afterManifestoImportado(client, { voyageId: 24 })
     expect(keys()).toEqual(expect.arrayContaining([['bls'], ['voyages'], ['port-options']].map((key) => JSON.stringify(key))))
   })
+
+  it('delegates Baplie invalidation through the event seam', async () => {
+    const { client, keys } = fakeQueryClient()
+    await afterBaplieImportado(client, { voyageId: '24' })
+    expect(keys()).toEqual([
+      ['baplie-reconciliation', '24'], ['bls'], ['bl-detail'], ['voyages'], ['voyage-timeline', '24'],
+    ].map((key) => JSON.stringify(key)))
+  })
 })
