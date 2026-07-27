@@ -26,6 +26,7 @@ import {
 } from '../services/voyageRouteSchedules'
 import { PORTAL_SCHEDULE_LANES, portalLaneCode } from '../services/portalScheduleLanes'
 import { saveVoyageExportSchedule } from '../services/voyageExportSchedules'
+import { afterEscalaAlterada, afterRotaAlterada, afterViagemAlterada } from '../services/cacheEffects'
 import {
   VoyageCard,
   type AddingPodPayload,
@@ -155,16 +156,7 @@ export function Viagens() {
     setDeleting(true)
     try {
       await deleteVoyage(deletingVoyageId)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyage-options'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['containers'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-      ])
+      await afterViagemAlterada(queryClient, { voyageId: deletingVoyageId })
 
       showToast('Viagem excluida com sucesso.', 'success')
       if (selectedVoyageId === deletingVoyageId) navigate('/viagens')
@@ -190,11 +182,7 @@ export function Viagens() {
     setCancelling(true)
     try {
       await cancelVoyage({ voyageId: cancellingVoyageId, reason: cancellationReason, changedBy: user.id })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-      ])
+      await afterViagemAlterada(queryClient, { voyageId: cancellingVoyageId })
       showToast('Viagem cancelada com sucesso.', 'success')
       setCancellingVoyageId(null)
       setCancellationReason('')
@@ -387,11 +375,7 @@ export function Viagens() {
         onSaved={async ({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked }) => {
           try {
             await saveVoyageExportSchedule({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked })
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
-              queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-              queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-            ])
+            await afterEscalaAlterada(queryClient, { voyageId })
             showToast('Planejamento de exportação salvo.', 'success')
             setEditingExport(null)
           } catch {
@@ -425,12 +409,7 @@ export function Viagens() {
               escalaNumber,
               changedBy: user.id,
             })
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
-              queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
-              queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-              queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-            ])
+            await afterEscalaAlterada(queryClient, { voyageId })
             showToast('Datas do POD atualizadas com sucesso.', 'success')
             setEditingPod(null)
           } catch {
@@ -464,13 +443,7 @@ export function Viagens() {
               // Viagem só-B/L: sem batch onde guardar; CE Master fica por rota (#322).
               await setVoyageRouteCeMaster({ voyageId, pol, pod, ceMaster, changedBy: user.id })
             }
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
-              queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
-              queryClient.invalidateQueries({ queryKey: ['voyage-route-ce-masters'] }),
-              queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
-              queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-            ])
+            await afterRotaAlterada(queryClient, { voyageId })
             showToast('Manifesto atualizado com sucesso.', 'success')
             setEditingPol(null)
           } catch {
@@ -502,12 +475,7 @@ export function Viagens() {
               escalaNumber,
               changedBy: user.id,
             })
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
-              queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
-              queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-              queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-            ])
+            await afterEscalaAlterada(queryClient, { voyageId })
             showToast('POD adicionado ao planejamento da viagem.', 'success')
             setAddingPodVoyage(null)
           } catch {
