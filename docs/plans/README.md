@@ -16,6 +16,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
 | [Correções da PR #424 (Cadastro de Depot)](2026-07-24-correcoes-pr-424-cadastro-depot.md) | [ADR 0032](../adr/0032-cadastro-depot-servicos-precificados-por-tipo-de-calculo.md) + revisão pós-merge da PR #424 | TODO |
+| [Aprofundamento arquitetural](2026-07-27-aprofundamento-arquitetural.md) | Revisão de arquitetura de 25 jul 2026, reconferida contra o repositório em `eab066c` | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
