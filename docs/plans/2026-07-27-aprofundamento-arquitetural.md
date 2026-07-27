@@ -148,12 +148,16 @@ describe('afterViagemAlterada', () => {
     expect(new Set(keys()).size).toBe(keys().length)
   })
 
-  it('acrescenta a linha do tempo da viagem quando o voyageId e conhecido', async () => {
+  it('acrescenta a linha do tempo da viagem com o id em STRING', async () => {
     const { client, keys } = fakeQueryClient()
 
     await afterViagemAlterada(client, { voyageId: 24 })
 
-    expect(keys()).toContain(JSON.stringify(['voyage-timeline', 24]))
+    // `useVoyageTimeline` guarda a query em ['voyage-timeline', String(voyageId)]
+    // e o React Query compara os elementos da chave por tipo: 24 !== '24'.
+    // Invalidar com numero nao casaria com query nenhuma.
+    expect(keys()).toContain(JSON.stringify(['voyage-timeline', '24']))
+    expect(keys()).not.toContain(JSON.stringify(['voyage-timeline', 24]))
   })
 })
 ```
@@ -196,6 +200,17 @@ export type QueryInvalidator = {
 /** Telas de Line-Up (TV): derivadas de qualquer mudanca de Viagem ou Escala. */
 const LINEUP_KEYS: readonly (readonly unknown[])[] = [['lineup-tv-v3'], ['lineup-tv-display-v2']]
 
+/**
+ * A Linha do Tempo e keyed por id em STRING (`useVoyageTimeline`:
+ * `['voyage-timeline', String(voyageId)]`). O React Query compara elemento a
+ * elemento por tipo — invalidar com `24` nao casa com a query guardada em
+ * `'24'`. Normalizar aqui e o motivo de esta funcao existir: e o unico ponto
+ * do app que monta essa chave para invalidacao.
+ */
+function voyageTimelineKey(voyageId: number | string): readonly unknown[] {
+  return ['voyage-timeline', String(voyageId)]
+}
+
 async function invalidate(
   queryClient: QueryInvalidator,
   keys: readonly (readonly unknown[])[],
@@ -217,7 +232,7 @@ async function invalidate(
  */
 export async function afterViagemAlterada(
   queryClient: QueryInvalidator,
-  options: { voyageId?: number } = {},
+  options: { voyageId?: number | string } = {},
 ): Promise<void> {
   await invalidate(queryClient, [
     ['voyages'],
@@ -226,7 +241,7 @@ export async function afterViagemAlterada(
     ['bls'],
     ['containers'],
     ['dashboard'],
-    ...(options.voyageId === undefined ? [] : [['voyage-timeline', options.voyageId]]),
+    ...(options.voyageId === undefined ? [] : [voyageTimelineKey(options.voyageId)]),
     ...LINEUP_KEYS,
   ])
 }
@@ -272,7 +287,7 @@ describe('afterEscalaAlterada', () => {
           ['voyage-pod-schedules'],
           ['voyage-pol-schedules'],
           ['voyage-export-schedules'],
-          ['voyage-timeline', 24],
+          ['voyage-timeline', '24'],
           ['voyages'],
           ['lineup-tv-v3'],
           ['lineup-tv-display-v2'],
@@ -286,7 +301,7 @@ describe('afterEscalaAlterada', () => {
 
     await afterEscalaAlterada(client, { voyageId: 7 })
 
-    expect(keys()).toContain(JSON.stringify(['voyage-timeline', 7]))
+    expect(keys()).toContain(JSON.stringify(['voyage-timeline', '7']))
   })
 })
 
@@ -302,7 +317,7 @@ describe('afterRotaAlterada', () => {
           ['voyage-route-ce-masters'],
           ['voyage-pol-schedules'],
           ['voyage-pod-schedules'],
-          ['voyage-timeline', 24],
+          ['voyage-timeline', '24'],
           ['voyages'],
           ['lineup-tv-v3'],
           ['lineup-tv-display-v2'],
@@ -313,10 +328,31 @@ describe('afterRotaAlterada', () => {
 })
 ```
 
+```ts
+describe('afterManifestoImportado', () => {
+  it('preserva as tres chaves que as telas de importacao ja invalidavam', async () => {
+    const { client, keys } = fakeQueryClient()
+
+    await afterManifestoImportado(client, { voyageId: 24 })
+
+    // Superconjunto do que `CargaSolta.tsx` L192-196 invalidava: um manifesto
+    // pode introduzir portos novos, dai `port-options`.
+    expect(keys()).toEqual(
+      expect.arrayContaining([['bls'], ['voyages'], ['port-options']].map((key) => JSON.stringify(key))),
+    )
+  })
+})
+```
+
 E troque a primeira linha de import do arquivo por:
 
 ```ts
-import { afterEscalaAlterada, afterRotaAlterada, afterViagemAlterada } from '../cacheEffects'
+import {
+  afterEscalaAlterada,
+  afterManifestoImportado,
+  afterRotaAlterada,
+  afterViagemAlterada,
+} from '../cacheEffects'
 ```
 
 - [ ] **Step 2: Rode para ver falhar**
@@ -349,11 +385,11 @@ const SCHEDULE_KEYS: readonly (readonly unknown[])[] = [
  */
 export async function afterEscalaAlterada(
   queryClient: QueryInvalidator,
-  options: { voyageId: number },
+  options: { voyageId: number | string },
 ): Promise<void> {
   await invalidate(queryClient, [
     ...SCHEDULE_KEYS,
-    ['voyage-timeline', options.voyageId],
+    voyageTimelineKey(options.voyageId),
     ['voyages'],
     ...LINEUP_KEYS,
   ])
@@ -365,14 +401,33 @@ export async function afterEscalaAlterada(
  */
 export async function afterRotaAlterada(
   queryClient: QueryInvalidator,
-  options: { voyageId: number },
+  options: { voyageId: number | string },
 ): Promise<void> {
   await invalidate(queryClient, [
     ['voyage-route-ce-masters'],
     ['voyage-pol-schedules'],
     ['voyage-pod-schedules'],
-    ['voyage-timeline', options.voyageId],
+    voyageTimelineKey(options.voyageId),
     ['voyages'],
+    ...LINEUP_KEYS,
+  ])
+}
+
+/**
+ * Um manifesto foi importado para a Viagem (carga solta, vazios de importacao,
+ * veiculos, granito). Alem do que muda na Viagem, a importacao pode introduzir
+ * portos novos — dai `port-options`, que as telas de filtro consomem.
+ */
+export async function afterManifestoImportado(
+  queryClient: QueryInvalidator,
+  options: { voyageId: number | string },
+): Promise<void> {
+  await invalidate(queryClient, [
+    ['bls'],
+    ['containers'],
+    ['voyages'],
+    ['port-options'],
+    voyageTimelineKey(options.voyageId),
     ...LINEUP_KEYS,
   ])
 }
@@ -1247,6 +1302,13 @@ describe('portalErrorMessage', () => {
   it('usa o fallback do chamador quando o erro e desconhecido e sem mensagem', () => {
     expect(portalErrorMessage({}, 'Falha ao entrar.')).toBe('Falha ao entrar.')
   })
+
+  it('usa o fallback tambem quando o erro desconhecido TEM mensagem em ingles', () => {
+    // Regressao a evitar: o cliente do Portal nunca ve texto cru do GoTrue.
+    expect(portalErrorMessage({ message: 'Invalid login credentials' }, 'Falha ao entrar.')).toBe(
+      'Falha ao entrar.',
+    )
+  })
 })
 ```
 
@@ -1281,7 +1343,12 @@ export function portalErrorMessage(error: unknown, fallback: string): string {
   }
 
   const classified = classifyDbError(error)
-  return classified.kind === 'desconhecido' && !message ? fallback : classified.message
+
+  // Erro nao classificado NUNCA vira texto na tela do cliente: o GoTrue e o
+  // PostgREST devolvem mensagem em ingles e, as vezes, detalhe interno. Todos
+  // os chamadores do Portal ja passam um fallback em portugues escrito para o
+  // caso deles — e ele que vale aqui.
+  return classified.kind === 'desconhecido' ? fallback : classified.message
 }
 ```
 
@@ -1673,7 +1740,7 @@ git commit -m "feat(import): HeaderSpec e matchHeaders no seam de parsing"
 
 ---
 
-### Task 13: Migrar os parsers para `readSheet`
+### Task 13: Migrar os parsers para `readSheet` e `matchHeaders`
 
 Um arquivo por vez, com os testes do parser rodando entre cada um. **Não mude o comportamento observável de nenhum parser** — só de onde a leitura vem.
 
@@ -1793,11 +1860,115 @@ Esperado: só `src/services/importCore.ts` e `src/services/blParser.ts`.
 
 `blParser.ts` fica de fora **de propósito**: ele lê a aba nomeada `'Page 1'` por posição de célula (layout COSCO), não linhas-objeto por cabeçalho — já marcado com `ponytail:` no próprio arquivo. Forçá-lo no seam distorceria a interface. Registre isso num comentário de uma linha em `importCore.ts`.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 9: Adote `matchHeaders` nos cinco parsers que copiam a checagem**
+
+Sem este step, `matchHeaders` fica sendo uma abstração sem usuário — falharia o teste da deleção que justifica o plano inteiro.
+
+Os cinco arquivos têm a **mesma** função privada `mapRow`, copiada com variações cosméticas (`normalizeHeader` vs `normalizeText`, `forEach` vs `for…of`):
+
+| Arquivo | Função | Linha |
+|---|---|---|
+| `ceMercanteImport.ts` | `mapRow` | 307–321 |
+| `containerDatesImport.ts` | `mapRow` | 211–221 |
+| `vehicleImport.ts` | `mapRow` | 477–491 |
+| `breakbulkManifestParser.ts` | `mapRow` | 527–541 |
+| `customerBase.ts` | `mapRow` | 243–257 |
+
+Em **cada um**, o corpo é este padrão:
+
+```ts
+  const mapped: Partial<Record<DestinationField, unknown>> = {}
+  Object.entries(row).forEach(([header, value]) => {
+    const normalizedHeader = normalizeText(header)
+    const destination = Object.entries(headerMap).find(([, candidates]) =>
+      candidates.some((candidate) => normalizedHeader === normalizeText(candidate)),
+    )?.[0] as DestinationField | undefined
+    if (destination && mapped[destination] === undefined) {
+      mapped[destination] = value
+    }
+  })
+  return mapped
+```
+
+Substitua-o por, mantendo o nome e a assinatura de `mapRow` (para não tocar nos chamadores):
+
+```ts
+function mapRow(row: Record<string, unknown>): Partial<Record<DestinationField, unknown>> {
+  const { columnByField } = matchHeaders(Object.keys(row), SPEC)
+  const mapped: Partial<Record<DestinationField, unknown>> = {}
+  for (const [field, column] of Object.entries(columnByField) as [DestinationField, string][]) {
+    mapped[field] = row[column]
+  }
+  return mapped
+}
+```
+
+E, acima dele, declare o `HeaderSpec` a partir do `headerMap` que o arquivo já tem:
+
+```ts
+const SPEC: HeaderSpec<DestinationField> = {
+  aliases: headerMap,
+  // Preserva o comportamento atual: `mapRow` nunca reprovou coluna ausente —
+  // quem valida obrigatoriedade e o parser, depois. Ver o step 10.
+  required: [],
+}
+```
+
+Acrescente ao import de `./importCore`: `matchHeaders, type HeaderSpec`.
+
+Depois de cada arquivo, rode o teste dele antes de passar ao próximo:
+
+```bash
+npx vitest run src/services/__tests__ -t "ceMercante"
+```
+
+**Duas diferenças de comportamento a conferir**, ambas para melhor — se um teste quebrar por causa delas, o teste é que estava fixando o bug:
+
+- `matchHeaders` normaliza **acento** além de caixa e espaço; três dos cinco parsers usavam `normalizeText`, que já removia acento, e dois usavam `normalizeHeader`, que não. Depois da troca, `CONTÊINER` passa a casar com `conteiner` nos cinco.
+- No empate (duas colunas casando o mesmo campo), o original mantinha a **primeira coluna da linha**; `matchHeaders` mantém a **primeira coluna que casa**, na ordem dos headers. É a mesma coisa para os cinco formatos, que não têm coluna repetida.
+
+- [ ] **Step 10: Mova a validação de coluna obrigatória para o `HeaderSpec`**
+
+Cada um dos cinco parsers valida colunas obrigatórias em algum ponto **depois** de `mapRow`. Localize:
+
+```bash
+grep -n "obrigat\|ausente\|faltando" src/services/ceMercanteImport.ts src/services/containerDatesImport.ts src/services/vehicleImport.ts src/services/breakbulkManifestParser.ts src/services/customerBase.ts
+```
+
+Para cada validação encontrada, mova os campos para `required` do `SPEC` daquele arquivo e substitua a checagem à mão por, no ponto onde a planilha é lida:
+
+```ts
+  const { columnByField, missing } = matchHeaders(headers, SPEC)
+  if (missing.length) {
+    throw new Error(`Colunas obrigatorias ausentes: ${missing.join(', ')}.`)
+  }
+```
+
+**Preserve a mensagem de erro original** de cada parser se ela já for específica — os testes a asseguram e o operador a conhece. Se o parser não validava nada, deixe `required: []` e siga.
+
+- [ ] **Step 11: Confirme que a cópia sumiu**
+
+```bash
+grep -rn "Object.entries(headerMap).find\|Object.entries(headerMap) as" src --include=*.ts
+```
+
+Esperado: **nenhuma saída**.
+
+- [ ] **Step 12: Rode a suíte completa**
+
+```bash
+npx vitest run src/services/__tests__
+npm run lint
+npm run typecheck
+```
+
+Esperado: PASS, sem `normalizeHeader`/`normalizeText` órfãos (o `lint` acusa se ficarem sem uso).
+
+- [ ] **Step 13: Commit**
 
 ```bash
 git add -A src/services
-git commit -m "refactor(import): parsers passam a ler planilha por readSheet"
+git commit -m "refactor(import): parsers passam a ler planilha e casar cabecalho pelo seam"
 ```
 
 ---
@@ -1967,10 +2138,15 @@ Substitua o `<Modal …>` de importação inteiro por:
           title="Importar manifesto de carga solta"
           accept=".xlsx,.xls,.csv"
           parser={parseBreakbulkManifestFile}
-          importer={async (manifest) => {
-            await importBreakbulkManifest({ voyageId: Number(voyageId), manifest })
-            await queryClient.invalidateQueries({ queryKey: ['bls'] })
-            showToast(`${manifest.bls.length} B/Ls importados com sucesso.`, 'success')
+          importer={async (manifest, file) => {
+            await importBreakbulkManifest({
+              filename: file.name,
+              voyageId: Number(voyageId),
+              manifest,
+              uploadedBy: user.id,
+            })
+            await afterManifestoImportado(queryClient, { voyageId })
+            showToast('Manifesto BB importado com sucesso.', 'success')
           }}
           canImport={(manifest) => manifest.bls.length > 0}
           ready={Boolean(voyageId)}
@@ -1995,19 +2171,22 @@ Substitua o `<Modal …>` de importação inteiro por:
       ) : null}
 ```
 
-Confira os nomes reais do parser e do importador antes de colar:
+Os argumentos de `importBreakbulkManifest` e a mensagem de sucesso vêm do `handleImport` atual (`src/pages/CargaSolta.tsx:185-199`) — confira antes de colar:
 
 ```bash
 grep -n "parseBreakbulkManifestFile\|importBreakbulkManifest" src/pages/CargaSolta.tsx
 ```
 
-Se a assinatura de `importBreakbulkManifest` for diferente, use a que o arquivo já usa no `handleSubmit` atual — copie os argumentos de lá.
+**A invalidação não pode encolher.** O `handleImport` atual invalida `bls`, `voyages` **e** `port-options` — um manifesto pode introduzir portos novos, e perder `port-options` deixaria os filtros de porto obsoletos. `afterManifestoImportado` (Task 2) cobre as três mais o que a Viagem deriva; é por isso que o `importer` acima chama o evento em vez de uma chave literal.
 
 Acrescente o import:
 
 ```tsx
 import { FileImportModal } from '../components/shared/FileImportModal'
+import { afterManifestoImportado } from '../services/cacheEffects'
 ```
+
+**Dependência:** este step usa `afterManifestoImportado`, criado na Task 2. Se estiver executando a Fase 3 isoladamente, faça a Task 2 antes.
 
 - [ ] **Step 4: Rode os testes e o build**
 
@@ -2398,11 +2577,14 @@ grep -rln "XLSX.read(" src --include=*.ts
 # Viagens.tsx e VoyageVisaoTab nao invalidam mais chave literal:
 grep -c "invalidateQueries" src/pages/Viagens.tsx src/components/voyages/VoyageVisaoTab.tsx
 
+# Nenhuma copia da checagem de cabecalho sobrou:
+grep -rn "Object.entries(headerMap)" src --include=*.ts
+
 # FileImportModal nao exige mais Viagem:
 grep -c "voyageLabel" src/components/shared/FileImportModal.tsx
 ```
 
-Esperado: primeira sem saída; segunda com `importCore.ts` e `blParser.ts`; terceira `0` nos dois arquivos; quarta `0`.
+Esperado: primeira sem saída; segunda com `importCore.ts` e `blParser.ts`; terceira `0` nos dois arquivos; quarta sem saída; quinta `0`.
 
 - [ ] **Step 3: Registre a entrega no CHANGELOG**
 
@@ -2414,9 +2596,11 @@ Em `docs/CHANGELOG.md`, no topo, acrescente:
 - **Seam de invalidação de cache** (`src/services/cacheEffects.ts`): mutações
   passam a declarar o evento de domínio (`afterViagemAlterada`,
   `afterEscalaAlterada`, `afterRotaAlterada`, `afterBaplieImportado`,
-  `afterBlRevisado`) em vez de listar query keys. Corrige três divergências
-  reais em `Viagens.tsx` (cancelamento não invalidava o dashboard, a escala de
-  exportação não invalidava a Linha do Tempo, a rota não invalidava o Line-Up).
+  `afterBlRevisado`, `afterManifestoImportado`) em vez de listar query keys.
+  Corrige três divergências reais em `Viagens.tsx` (cancelamento não invalidava
+  o dashboard, a escala de exportação não invalidava a Linha do Tempo, a rota
+  não invalidava o Line-Up) e normaliza o id da Linha do Tempo para string, que
+  é como `useVoyageTimeline` a indexa.
 - **Leitura da recusa do banco** (`classifyDbError` em `src/lib/errors.ts`):
   substitui sete cópias de `isPermissionError`, das quais só uma tratava JWT
   expirado. `details`/`hint` do Postgres deixam de poder chegar à tela.
@@ -2459,8 +2643,9 @@ git push -u origin claude/project-report-review-5g89go
 
 ## Sequenciamento e independência
 
-As três fases são independentes entre si — nenhuma importa nada de outra. Podem ser executadas em qualquer ordem, ou em paralelo por agentes diferentes, com um único ponto de atenção:
+As Fases 1, 2 e 4 são independentes entre si. Pontos de atenção:
 
+- **A Task 15 (Fase 3) depende da Task 2 (Fase 1)** — ela usa `afterManifestoImportado`. Se for executar a Fase 3 isoladamente, faça a Task 2 antes.
 - **Task 8** toca `src/services/charges/chargeOperationsService.ts` (remove `isPermissionError`) e a **Task 17** cria o teste desse arquivo. Se rodarem em paralelo, execute a Task 8 primeiro.
 - **Task 4** e **Task 7–8** ambas tocam `src/components/voyages/VoyageVisaoTab.tsx`, em blocos diferentes do mesmo handler. Execute a Task 4 primeiro.
 
