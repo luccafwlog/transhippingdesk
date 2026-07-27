@@ -23,6 +23,7 @@ import {
 } from '../../services/voyageSummaries'
 import { deleteVoyagePodSchedule } from '../../services/voyageRouteSchedules'
 import { deleteVoyageExportSchedule, type VoyageExportSchedule } from '../../services/voyageExportSchedules'
+import { afterEscalaAlterada } from '../../services/cacheEffects'
 import {
   renderCeStatusLabel,
   renderEscalaNumber,
@@ -138,12 +139,7 @@ export function VoyageVisaoTab({
     if (!confirmed) return
     try {
       await deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.pod, changedBy: user.id })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-      ])
+      await afterEscalaAlterada(queryClient, { voyageId: voyage.id })
       showToast('POD removido do planejamento.', 'success')
     } catch (error) {
       const errorText = extractErrorText(error).toLowerCase()
@@ -165,11 +161,7 @@ export function VoyageVisaoTab({
     if (!confirmed) return
     try {
       await deleteVoyageExportSchedule(schedule.id)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['voyage-export-schedules'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
-        queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
-      ])
+      await afterEscalaAlterada(queryClient, { voyageId: voyage.id })
       showToast('Planejamento de exportação removido.', 'success')
     } catch {
       showToast('Falha ao remover planejamento de exportação.', 'error')
