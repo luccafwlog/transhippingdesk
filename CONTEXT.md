@@ -281,14 +281,10 @@ Estado do vazio no momento do embarque, que afeta a tarifa aplicável: íntegro
 (empty), avariado (empty com avaria) ou com material do armador (empty com
 material). É atributo por container e fonte do flag Material do Armador.
 
-**OS da Operação de Vazios**
-Número da ordem de serviço da operação de vazios de uma escala: um por
-(viagem, porto), registrado no Embarque de Vazios.
-
 **Operação de Pátio**
 Seção do ADR, sob Equipamentos, que consolida o custo da operação de vazios da
-escala: as Linhas de Serviço do Embarque com suas quantidades e valores, a
-armazenagem (containers e dias) e o número da OS. É exibição derivada do
+escala: as Linhas de Serviço do Embarque com suas quantidades e valores, e a
+armazenagem (containers e dias). É exibição derivada do
 Embarque de Vazios e alimenta a conferência das faturas pelo Financeiro. Tem
 resolução própria e entra no Sign-off Departamental de Equipamentos, separada de
 vazios embarcados — que exibe a Lista de Unidades Embarcadas.
