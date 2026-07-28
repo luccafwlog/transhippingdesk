@@ -272,14 +272,37 @@ da diferença entre as duas datas menos o free time aplicável; o ADR exibe o
 total de containers e de dias.
 
 **Material do Armador**
-Marcação de container vazio embarcado com material do armador em seu interior.
-Deriva da Condição do Container Vazio (status "com material"), não de um campo
-independente, e implica tarifa distinta.
+Container vazio embarcado com material do armador em seu interior. Deriva da
+Condição do Container Vazio, não de um campo independente.
 
 **Condição do Container Vazio**
-Estado do vazio no momento do embarque, que afeta a tarifa aplicável: íntegro
-(empty), avariado (empty com avaria) ou com material do armador (empty com
-material). É atributo por container e fonte do flag Material do Armador.
+Estado do vazio no embarque, com dois valores: **totalmente vazio** ou **com
+material do armador**. É atributo de cada Unidade Embarcada, define qual dos dois
+free times do depot se aplica e separa as linhas de armazenagem — uma por
+(depot, condição).
+
+**Natureza do Serviço**
+Comportamento de uma Linha de Serviço do Embarque, atributo do serviço no
+Cadastro de Depot. São três, e a natureza decide quais campos a linha exige:
+
+- **`armazenagem`** — exige depot e condição; a quantidade (dias) é calculada a
+  partir da Lista de Unidades Embarcadas; não tem percentual nem tipo de
+  container; no máximo uma linha por (depot, condição).
+- **`transporte`** — exige a rota, sendo o local da linha a origem e o destino o
+  outro extremo.
+- **`geral`** — exige apenas o local.
+
+A lista de serviços é **aberta**: um serviço novo é cadastrado escolhendo sua
+natureza, sem mudança de código. Os dez iniciais são armazenagem, transporte,
+handling in, handling out, overtime handling, overtime transporte, bundle
+composition, bundle organization, visual check e remoção.
+
+**Percentual da Linha**
+Fator que multiplica o valor de uma Linha de Serviço do Embarque:
+`total = quantidade × valor unitário × percentual`. Assume **50%** ou **100%**
+(padrão 100%). É como o overtime é expresso: duas faixas do mesmo serviço são
+duas linhas, cada uma com sua quantidade. Não se aplica à natureza
+`armazenagem`.
 
 **Operação de Pátio**
 Seção do ADR, sob Equipamentos, que consolida o custo da operação de vazios da
