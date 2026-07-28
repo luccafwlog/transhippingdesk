@@ -222,6 +222,64 @@ sh scripts/no-mistakes/setup.sh
 
 ---
 
+## 10. Ensaio da migração do Demurrage Manager (`migracao-demurrage/dry-run`)
+
+**O que faz:** lê os dados do **sistema antigo** (Demurrage Manager) junto com
+duas planilhas exportadas dele, aplica todas as regras combinadas da migração e
+imprime um **relatório de conferência**: quantos clientes, viagens, containers e
+faturas atravessariam, e o que ainda está impedindo.
+
+**Ele não muda nada.** Só lê e escreve na tela — não grava no sistema antigo,
+não grava no Transhipping Desk, não cria arquivo. É um ensaio.
+
+**Quando usar:** antes da migração de verdade, e de novo no dia da virada (os
+números mudam enquanto o sistema antigo continua em uso).
+
+**O que você precisa ter em mãos:**
+
+1. O **relatório** do sistema antigo (botão "Relatório", arquivo `.xlsx`);
+2. A planilha de **reconciliação** (`.xlsx`), que traz o valor efetivamente pago;
+3. E **uma das duas** formas de ler o sistema antigo:
+   - o arquivo **JSON** exportado pelo próprio sistema (mais simples), ou
+   - o endereço e a senha de acesso ao banco dele.
+
+```powershell
+# Windows (PowerShell) — usando o export em JSON
+node scripts\migracao-demurrage\dry-run.mjs `
+  --origem-json C:\caminho\export.json `
+  --relatorio C:\caminho\relatorio.xlsx `
+  --reconciliacao C:\caminho\reconciliacao.xlsx
+```
+```bash
+# macOS (Terminal) — usando o export em JSON
+node scripts/migracao-demurrage/dry-run.mjs \
+  --origem-json ~/caminho/export.json \
+  --relatorio ~/caminho/relatorio.xlsx \
+  --reconciliacao ~/caminho/reconciliacao.xlsx
+```
+
+Para ler o banco do sistema antigo em vez do JSON, troque `--origem-json` por
+estas variáveis (o acesso do sistema antigo exige login — sem ele a leitura
+volta **vazia**, e o ensaio recusa rodar em vez de fingir que deu certo):
+
+```bash
+DEMURRAGE_LEGADO_URL=https://....supabase.co \
+DEMURRAGE_LEGADO_KEY=chave \
+DEMURRAGE_LEGADO_EMAIL=usuario@empresa.com \
+DEMURRAGE_LEGADO_SENHA=senha \
+node scripts/migracao-demurrage/dry-run.mjs --relatorio ... --reconciliacao ...
+```
+
+**Como ler o resultado:** no fim ele mostra **avisos** (coisas para olhar) e
+**bloqueios** (coisas que impedem a carga). Com qualquer bloqueio, o comando
+termina com erro de propósito — serve como portão antes da migração real.
+
+> As regras ficam separadas em `migracao-demurrage/regras.mjs`. Para conferir se
+> elas continuam corretas depois de qualquer mexida:
+> `node scripts/migracao-demurrage/regras.check.mjs`
+
+---
+
 ### Resumo rápido
 
 | Ferramenta | Para quê serve |
@@ -235,3 +293,4 @@ sh scripts/no-mistakes/setup.sh
 | `skills/install-skills` | Instalar as skills do assistente de IA |
 | `download-fonts` | Rebaixar as fontes do site para `public/fonts/` |
 | `no-mistakes/setup` | Ligar a proteção contra erros de Git |
+| `migracao-demurrage/dry-run` | Ensaiar a migração do Demurrage Manager (só lê) |
