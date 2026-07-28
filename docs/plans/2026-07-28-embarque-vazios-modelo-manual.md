@@ -68,7 +68,7 @@ npm run docs:check
 | `src/components/voyages/AgencyReportDocument.tsx` | Impresso do ADR | Modificar (anexo de unidades) |
 | `docs/ARCHITECTURE.md`, `docs/RASTREABILIDADE.md`, `docs/CHANGELOG.md`, `docs/plans/README.md` | Documentação viva | Modificar |
 
-**Fonte de referência:** o reducer puro validado no protótipo vive em `src/pages/prototypes/embarqueVazios.prototype.html`, na branch `prototype/embarque-vazios-modelo`. As funções `diasCobraveis`, `armazenagem`, `valorSugerido`, `quantidadeEfetiva`, `totalLinha` e `veto` são liftáveis quase sem mudança para as Tasks 3 e 4.
+**Fonte de referência:** o modelo foi validado num protótipo descartável, já removido. As funções que ele exercitou — `diasCobraveis`, `armazenagem`, `valorSugerido`, `quantidadeEfetiva`, `totalLinha` e `veto` — estão descritas nas Tasks 2 e 4 e na ADR 0033; implemente-as a partir dessas descrições.
 
 ---
 

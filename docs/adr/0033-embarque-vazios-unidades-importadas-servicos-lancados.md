@@ -134,8 +134,10 @@ do Equipamentos, reintroduzindo pela porta dos fundos o que esta decisão remove
   à mão e altera a quantidade das linhas de armazenagem, que derivam da lista. O
   risco oposto — unidade fantasma inflando a contagem de uma folha que aprova
   pagamento — foi julgado pior.
-- **Protótipo:** o modelo foi exercitado num demo clicável antes desta decisão,
-  preservado fora da main na branch `prototype/embarque-vazios-modelo`.
+- **Protótipo:** o modelo foi exercitado num demo clicável antes desta decisão —
+  reducer puro com as regras de veto e a conta de armazenagem, fora da main.
+  *Nota editorial 2026-07-28: o protótipo foi descartado logo após cumprir seu
+  papel; esta ADR e o `CONTEXT.md` são o registro do modelo que ele validou.*
 
 ## Alternativas consideradas
 
