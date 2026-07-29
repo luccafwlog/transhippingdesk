@@ -1,4 +1,4 @@
-# 0033 — Notificação Interna é conceito separado do Alerta: o sino entrega, `/alertas` trata
+# 0034 — Notificação Interna é conceito separado do Alerta: o sino entrega, `/alertas` trata
 
 Status: aceito — 2026-07-24
 
