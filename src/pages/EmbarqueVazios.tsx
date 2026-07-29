@@ -35,6 +35,7 @@ import {
 } from "../services/vaziosCusto";
 import type { VaziosExportServiceLine } from "../types/database";
 import { formatBRL, formatDate } from "../lib/utils";
+import { invalidateAgencyReportForVoyage } from "../services/agencyReportInvalidation";
 
 type Tab = "unidades" | "servicos";
 
@@ -134,9 +135,7 @@ export function EmbarqueVazios() {
     await Promise.all([
       units.refetch(),
       operation.refetch(),
-      queryClient.invalidateQueries({
-        queryKey: ["agency-report", selectedOperation?.voyage_id],
-      }),
+      selectedOperation ? invalidateAgencyReportForVoyage(queryClient, selectedOperation.voyage_id) : Promise.resolve(),
     ]);
   }
   async function notify(action: () => Promise<void>, success: string) {
