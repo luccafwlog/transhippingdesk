@@ -167,6 +167,38 @@ describe('getAgencyReportDerivedData', () => {
 
     expect(vehiclesQuery.select).toHaveBeenCalledWith(expect.stringContaining('unpacking_location'))
   })
+
+  it('compoe a matriz por B/L, flags do BAPLI e categorias operacionais', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bl_containers') {
+        return queryBuilder([
+          { id: 10, container_number: 'docu 1234567', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+          { id: 11, container_number: 'TRNS1234567', type: '20GP', is_imo: false, bl: { transshipments: [{ disposition: 'transshipment' }] } },
+          { id: 12, container_number: 'NOBP1234567', type: '40GP', is_imo: true, bl: { transshipments: [] } },
+        ])
+      }
+      if (table === 'baplie_containers') {
+        return queryBuilder([
+          { container_number: 'DOCU1234567', size_type: '45G1', status: 'full', is_imo: true, pod: 'BRVIX' },
+          { container_number: 'TRNS1234567', size_type: '22G1', status: 'full', is_imo: false, pod: 'BRVIX' },
+          { container_number: 'ORPH1234567', size_type: '42G1', status: 'full', is_imo: false, pod: 'BRVIX' },
+        ])
+      }
+      if (table === 'vehicles') return queryBuilder([{ brand: 'BYD', bl_id: 'bl-1', chassis: '1', container_id: 10 }])
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    await expect(getAgencyReportDerivedData(179, 'BRVIX')).resolves.toMatchObject({
+      containers: [
+        { container_number: 'docu 1234567', size_type: '40HC', is_imo: true, category: 'veiculos' },
+        { container_number: 'TRNS1234567', size_type: '20GP', is_imo: false, category: 'transbordo' },
+        { container_number: 'NOBP1234567', size_type: '40GP', is_imo: true, category: 'imo' },
+        { container_number: 'ORPH1234567', size_type: '42G1', is_imo: false, category: 'carga_geral' },
+      ],
+    })
+  })
 })
 
 describe('getAgencyReportOwnData', () => {

@@ -155,7 +155,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const imoCount = containers.filter((container) => container.is_imo).length
   const dischargeMatrix = buildContainerTypeMatrix(containers.map((container) => ({
     type: container.size_type ?? '—',
-    category: container.is_imo ? 'imo' : 'carga_geral',
+    category: container.category,
   })))
   const emptyDischargeMatrix = buildContainerTypeMatrix((data?.vaziosImp ?? []).map((container) => ({
     type: container.container_type ?? '—',

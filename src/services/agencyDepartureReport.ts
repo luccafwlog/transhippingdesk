@@ -254,6 +254,17 @@ export type MatrixCategory =
   | 'vazio_cama'
   | 'vazio_cover_plate'
 
+export type AgencyReportDischargeContainer = {
+  container_number: string
+  size_type: string | null
+  is_imo: boolean
+  category: MatrixCategory
+}
+
+function normalizeContainerNumber(containerNumber: string | null | undefined) {
+  return String(containerNumber ?? '').replace(/\s+/g, '').toUpperCase()
+}
+
 export function buildContainerTypeMatrix(
   items: Array<{ type: string; category: MatrixCategory | string }>,
 ) {
@@ -297,7 +308,7 @@ type BreakbulkAgencyReportBl = {
 
 export async function getAgencyReportDerivedData(voyageId: number, port: string) {
   const entityId = buildVoyagePodEntityId(voyageId, port)
-  const [schedules, vehiclesRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes] = await Promise.all([
+  const [schedules, vehiclesRes, vaziosImpRes, graniteRes, baplieContainersRes, blContainersRes, operationRes, breakbulkRes] = await Promise.all([
     listVoyagePodSchedules([entityId]),
     supabase
       .from('vehicles')
@@ -320,6 +331,11 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('voyage_id', voyageId)
       .eq('pod', port),
     supabase
+      .from('bl_containers')
+      .select('id, container_number, type, is_imo, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))')
+      .eq('bl.voyage_id', voyageId)
+      .eq('bl.pod', port),
+    supabase
       .from('vazios_export_operations')
       .select('*')
       .eq('voyage_id', voyageId)
@@ -333,7 +349,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('cargo_mode', 'carga_solta'),
   ])
 
-  for (const result of [vehiclesRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes]) {
+  for (const result of [vehiclesRes, vaziosImpRes, graniteRes, baplieContainersRes, blContainersRes, operationRes, breakbulkRes]) {
     if (result.error) throw result.error
   }
 
@@ -371,7 +387,39 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   }>
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
-  const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
+  const baplieContainers = (baplieContainersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
+  const blContainers = (blContainersRes.data ?? []) as Array<{
+    id: number
+    container_number: string
+    type: string | null
+    is_imo: boolean | null
+    bl: { transshipments: Array<{ disposition: string }> | null } | null
+  }>
+  const vehicleContainerIds = new Set(vehicles.flatMap((vehicle) => vehicle.container_id === null ? [] : [vehicle.container_id]))
+  const baplieByContainerNumber = new Map(baplieContainers.map((container) => [normalizeContainerNumber(container.container_number), container]))
+  const blContainerNumbers = new Set(blContainers.map((container) => normalizeContainerNumber(container.container_number)))
+  const containers: AgencyReportDischargeContainer[] = blContainers.map((container) => {
+    const baplie = baplieByContainerNumber.get(normalizeContainerNumber(container.container_number))
+    const isTransshipment = container.bl?.transshipments?.some((transshipment) => transshipment.disposition === 'transshipment') ?? false
+    const isImo = baplie ? Boolean(baplie.is_imo) : Boolean(container.is_imo)
+
+    return {
+      container_number: container.container_number,
+      size_type: container.type ?? baplie?.size_type ?? null,
+      is_imo: isImo,
+      category: isTransshipment ? 'transbordo' : vehicleContainerIds.has(container.id) ? 'veiculos' : isImo ? 'imo' : 'carga_geral',
+    }
+  })
+
+  for (const container of baplieContainers) {
+    if (blContainerNumbers.has(normalizeContainerNumber(container.container_number))) continue
+    containers.push({
+      container_number: container.container_number,
+      size_type: container.size_type,
+      is_imo: Boolean(container.is_imo),
+      category: container.is_imo ? 'imo' : 'carga_geral',
+    })
+  }
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
   const serviceLines = rawServiceLines.map((row) => {
