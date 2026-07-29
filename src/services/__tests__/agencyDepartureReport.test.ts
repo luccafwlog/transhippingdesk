@@ -31,6 +31,7 @@ function queryBuilder(data: unknown[] = []) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    in: vi.fn(() => builder),
     order: vi.fn(() => builder),
     maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
@@ -95,12 +96,25 @@ describe('AGENCY_REPORT_SECTIONS', () => {
 })
 
 describe('getAgencyReportDerivedData', () => {
+  it('não consulta unidades ou linhas de serviço quando a escala não possui operação de vazios', async () => {
+    fromMock.mockImplementation((table: string) =>
+      table === 'vazios_export_operations' ? singleQueryBuilder(null) : queryBuilder(),
+    )
+    schedulesMock.mockResolvedValue(new Map())
+
+    await getAgencyReportDerivedData(179, 'BRSSA')
+
+    expect(fromMock).not.toHaveBeenCalledWith('vazios_bookings')
+    expect(fromMock).not.toHaveBeenCalledWith('vazios_export_service_lines')
+  })
+
   it('resolve o local das unidades sem depender do relacionamento embutido do PostgREST', async () => {
     const bookingsQuery = queryBuilder([{ container_number: 'ABCD1234567', local_id: 'local-1', condition: 'vazio' }])
     const depotsQuery = queryBuilder([{ id: 'local-1', code: 'DEP', name: 'Depot teste', tipo: 'depot' }])
     fromMock.mockImplementation((table: string) => {
       if (table === 'vazios_bookings') return bookingsQuery
       if (table === 'depots') return depotsQuery
+      if (table === 'vazios_export_operations') return singleQueryBuilder({ id: 'operation-1' })
       return queryBuilder()
     })
     schedulesMock.mockResolvedValue(new Map())

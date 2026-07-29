@@ -297,18 +297,13 @@ type BreakbulkAgencyReportBl = {
 
 export async function getAgencyReportDerivedData(voyageId: number, port: string) {
   const entityId = buildVoyagePodEntityId(voyageId, port)
-  const [schedules, vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes] = await Promise.all([
+  const [schedules, vehiclesRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes] = await Promise.all([
     listVoyagePodSchedules([entityId]),
     supabase
       .from('vehicles')
       .select('brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location), bl:bls!inner(voyage_id, pod)')
       .eq('bl.voyage_id', voyageId)
       .eq('bl.pod', port),
-    supabase
-      .from('vazios_bookings')
-      .select('*, operation:vazios_export_operations!inner(voyage_id, embark_port)')
-      .eq('operation.voyage_id', voyageId)
-      .eq('operation.embark_port', port),
     supabase
       .from('vazios_importacao_containers')
       .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
@@ -326,7 +321,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('pod', port),
     supabase
       .from('vazios_export_operations')
-      .select('*, linhas:vazios_export_service_lines(*, service:depot_services(*), local:depots(*), destino:depots!vazios_export_service_lines_destino_id_fkey(*))')
+      .select('*')
       .eq('voyage_id', voyageId)
       .eq('embark_port', port)
       .maybeSingle(),
@@ -338,7 +333,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('cargo_mode', 'carga_solta'),
   ])
 
-  for (const result of [vehiclesRes, vaziosExpRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes]) {
+  for (const result of [vehiclesRes, vaziosImpRes, graniteRes, containersRes, operationRes, breakbulkRes]) {
     if (result.error) throw result.error
   }
 
@@ -346,9 +341,31 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     container: { unpacking_location: string | null } | null
   }>
   const allDepots = await listDepots()
+  const operation = operationRes.data as VaziosExportOperation | null
+  const emptyOperationResult = { data: [], error: null }
+  const vaziosExpRes = operation
+    ? await supabase.from('vazios_bookings').select('*').eq('operation_id', operation.id)
+    : emptyOperationResult
+  const serviceLinesRes = operation
+    ? await supabase.from('vazios_export_service_lines').select('*').eq('operation_id', operation.id)
+    : emptyOperationResult
+
+  for (const result of [vaziosExpRes, serviceLinesRes]) {
+    if (result.error) throw result.error
+  }
+
+  const rawServiceLines = serviceLinesRes.data as VaziosExportServiceLine[]
+  const serviceIds = [...new Set(rawServiceLines.map((line) => line.service_id))]
+  const servicesRes = serviceIds.length
+    ? await supabase.from('depot_services').select('id, name, natureza').in('id', serviceIds)
+    : emptyOperationResult
+  if (servicesRes.error) throw servicesRes.error
+  const servicesById = new Map((servicesRes.data ?? []).map((service) => [service.id, service]))
+  const depotsById = new Map(allDepots.map((depot) => [depot.id, depot]))
+
   const vaziosExp = (vaziosExpRes.data ?? []).map((booking) => ({
     ...booking,
-    local: allDepots.find((depot) => depot.id === booking.local_id) ?? null,
+    local: depotsById.get(booking.local_id) ?? null,
   })) as Array<VaziosBooking & {
     local: Pick<Depot, 'id' | 'code' | 'name' | 'tipo'> | null
   }>
@@ -356,10 +373,19 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
-  const operation = operationRes.data as (VaziosExportOperation & { linhas: Array<VaziosExportServiceLine & { service: { name: string; natureza: string } | null; local: { code: string; name: string | null } | null; destino: { code: string; name: string | null } | null }> }) | null
   const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
-  const serviceLines = (operation?.linhas ?? []).map((row) => {
-    const line = { ...row, natureza: row.service?.natureza ?? 'geral', local_id: row.local_id, quantidade: Number(row.quantidade), valor_unitario: Number(row.valor_unitario) }
+  const serviceLines = rawServiceLines.map((row) => {
+    const service = servicesById.get(row.service_id) ?? null
+    const line = {
+      ...row,
+      service,
+      local: depotsById.get(row.local_id) ?? null,
+      destino: row.destino_id ? depotsById.get(row.destino_id) ?? null : null,
+      natureza: service?.natureza ?? 'geral',
+      local_id: row.local_id,
+      quantidade: Number(row.quantidade),
+      valor_unitario: Number(row.valor_unitario),
+    }
     return { ...line, quantidade: quantidadeEfetiva(line, units, allDepots) }
   })
   const costs = { rows: [], qtyTotal: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
