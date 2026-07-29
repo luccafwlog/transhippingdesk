@@ -81,7 +81,7 @@ export function VoyageImportActions({
       {activeType === 'bb' && !equipmentScoped ? (
         <FileImportModal
           title="Importar Manifesto BB (Break Bulk)"
-          voyageLabel={voyageLabel}
+          subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls,.csv"
           parser={parseBreakbulkManifestFile}
           helper={<TemplateLinks baseName="manifesto-bb-modelo" />}
@@ -105,7 +105,7 @@ export function VoyageImportActions({
       {activeType === 'granite' && !equipmentScoped ? (
         <FileImportModal
           title="Importar Manifesto Granito"
-          voyageLabel={voyageLabel}
+          subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls"
           parser={parseGraniteManifestFile}
           canImport={(p) => p.bls.length > 0}
@@ -130,7 +130,7 @@ export function VoyageImportActions({
       {activeType === 'vaziosImp' && !equipmentScoped ? (
         <FileImportModal
           title="Importar Manifesto Vazios Importacao"
-          voyageLabel={voyageLabel}
+          subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosImportacaoFile}
           canImport={(p) => p.containers.length > 0}
@@ -156,7 +156,7 @@ export function VoyageImportActions({
       {activeType === 'vaziosExp' && canEditVazios ? (
         <FileImportModal
           title="Importar Vazios Exportação"
-          voyageLabel={voyageLabel}
+          subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosManifestFile}
           canImport={(p) => p.bookings.length > 0}

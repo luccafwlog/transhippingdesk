@@ -102,9 +102,12 @@ rota tem um orçamento de **50 ms** de parse/compile de JS, verificável por
 - `src/pages/`: composição de rotas, estado visual e fluxos de tela;
 - `src/hooks/`: queries e mutations reutilizáveis com TanStack Query;
 - `src/services/`: acesso ao Supabase, parsers, importadores e domínio;
+- `src/services/cacheEffects.ts`: seam de invalidação de cache por eventos de domínio (`afterViagemAlterada`, `afterEscalaAlterada`, `afterRotaAlterada`, `afterBaplieImportado`, `afterBlRevisado`, `afterManifestoImportado`); os adapters históricos permanecem atrás dele;
+- `src/services/importCore.ts`: leitor único de planilhas por `readSheet` e casamento de cabeçalhos por `HeaderSpec`/`matchHeaders`;
 - `src/components/ui/`: primitivas visuais;
 - `src/components/shared/`: componentes reutilizados por módulos;
 - `src/lib/`: utilitários puros, datas, status, PIX e telemetria;
+- `src/lib/errors.ts`: `extractErrorText` e `classifyDbError` (`permissao`, `sessao_expirada`, `conflito`, `limite`, `validacao`, `nao_encontrado`, `desconhecido`); `portalErrorMessage.ts` é seu adapter do Portal;
 - `src/types/database.ts`: tipos gerados e complementos tipados do banco.
 
 ### Como rastrear uma interação
@@ -320,8 +323,8 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/containers` | Containers |
 | `/veiculos` | Veículos RoRo |
 | `/vazios-importacao` | Vazios de importação |
-| `/embarquevazios` | Bookings de vazios de exportação |
-| `/embarquevazios/depots` | Cadastro de Depots e serviços precificados de Vazios EXP |
+| `/embarquevazios` | Embarques de Vazios por escala, unidades importadas e linhas de serviço manuais |
+| `/embarquevazios/depots` | Cadastro de Terminais (depots/terminais portuários) e catálogo de valores sugeridos |
 | `/granito` | Operação de Granito |
 | `/granito/taxas` | Tarifas de Granito |
 | `/revisao` | Revisão operacional |

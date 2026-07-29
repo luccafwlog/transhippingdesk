@@ -1,4 +1,4 @@
-import { formatDate } from '../../lib/utils'
+import { formatBRL, formatDate } from '../../lib/utils'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Matrix = { rows?: Record<string, Record<string, number>>; totals?: Record<string, number> }
@@ -85,9 +85,11 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
   const vehicles = Array.isArray(sections.veiculos) ? sections.veiculos.map(asRecord) : []
   const vehicleLocations = asRecord(sections.vehicleLocations)
   const operation = asRecord(sections.operation)
-  const reorg = Array.isArray(operation.reorg) ? operation.reorg.map(asRecord) : []
   const overtime = Array.isArray(operation.overtime) ? operation.overtime.map(asRecord) : []
   const depots = Array.isArray(sections.depots) ? sections.depots : []
+  const vaziosUnidades = Array.isArray(sections.vaziosUnidades) ? sections.vaziosUnidades.map(asRecord) : []
+  const costs = asRecord(sections.costs)
+  const serviceLines = Array.isArray(costs.serviceLines) ? costs.serviceLines.map(asRecord) : []
 
   return <article className="agency-report-print-content" aria-label="Agency Departure Report fechado">
     <InvoiceDocHeader logoSrc="/branding/tr-logo.png" docNumber={`ADR · ${header.port ?? '—'}`} />
@@ -122,8 +124,11 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
         ['OS', String(operation.os_number ?? 'Não informada')], ['Embarque direto', count(sections.directEmbarkCount)], ['Depots', depots.join(', ') || '—'],
       ]} />
     </Section>
-    <Section title="Serviço extra">
-      {reorg.length ? <table className="agency-report-document__table" aria-label="Serviço extra"><thead><tr><th scope="col">Serviço</th><th scope="col">Tipo</th><th scope="col">Quantidade</th></tr></thead><tbody>{reorg.map((service, index) => <tr key={String(service.id ?? index)}><th scope="row">{String(service.service ?? '—')}</th><td>{String(service.container_type ?? '—')}</td><td>{count(service.qty)}</td></tr>)}</tbody></table> : <Empty />}
+    <Section title="Linhas de serviço do embarque">
+      {serviceLines.length ? <table className="agency-report-document__table" aria-label="Linhas de serviço"><thead><tr><th>Serviço</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>%</th><th>Unitário</th><th>Total</th></tr></thead><tbody>{serviceLines.map((service, index) => <tr key={String(service.id ?? index)}><th>{String(asRecord(service.service).name ?? service.service_id ?? '—')}</th><td>{String(asRecord(service.local).name ?? service.local_id ?? '—')}</td><td>{String(asRecord(service.destino).name ?? service.destino_id ?? '—')}</td><td>{String(service.container_type ?? '—')}</td><td>{count(service.quantidade)}</td><td>{service.percentual == null ? '—' : `${count(service.percentual)}%`}</td><td>{formatBRL(number(service.valor_unitario))}</td><td>{formatBRL(number(service.quantidade) * number(service.valor_unitario) * (service.percentual == null ? 1 : number(service.percentual) / 100))}</td></tr>)}</tbody></table> : <Empty />}
+    </Section>
+    <Section title="Anexo — unidades que geraram armazenagem">
+      {vaziosUnidades.length ? <table className="agency-report-document__table" aria-label="Unidades que geraram armazenagem"><thead><tr><th>Container</th><th>Tipo</th><th>Local</th><th>Condição</th><th>Entrada</th><th>Saída</th></tr></thead><tbody>{vaziosUnidades.filter((unit) => unit.hand_in_date && unit.hand_out_date).map((unit, index) => <tr key={String(unit.id ?? index)}><th>{String(unit.container_number ?? '—')}</th><td>{String(unit.container_type ?? '—')}</td><td>{String(unit.local_id ?? '—')}</td><td>{String(unit.condition ?? '—')}</td><td>{formatDate(unit.hand_in_date as string | null)}</td><td>{formatDate(unit.hand_out_date as string | null)}</td></tr>)}</tbody></table> : <Empty />}
     </Section>
     <Section title="Storage"><MetricsTable label="Storage" metrics={[['Containers', count(asRecord(sections.storage).containers)], ['Dias', count(asRecord(sections.storage).days)]]} /></Section>
     <Section title="Overtime">
