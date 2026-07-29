@@ -210,6 +210,10 @@ saída do depot e data de embarque. A lista é **completa**: inclui as unidades 
 não geraram armazenagem — as de Terminal Portuário vêm sem datas de depot. É a
 fonte da contagem de vazios embarcados e dos dias de armazenagem exibidos no ADR.
 
+Unidade vinda de **Depot** tem obrigatoriamente as duas datas de gate; a única
+unidade sem datas é a que veio de **Terminal Portuário**. Planilha que viole isso
+não sobe: a divergência é apontada e a importação inteira é recusada.
+
 **Linha de Serviço do Embarque**
 Declaração de um serviço efetivamente performado na operação de vazios, lançada
 manualmente pelo usuário. Cada linha tem serviço, tipo de container, quantidade,

@@ -110,7 +110,8 @@ npm run docs:check
 - [ ] `vaziosImport.ts`: `HEADER_MAP` reduzido às sete colunas; remover o parse de booking, destino, terminal, observações, overtime % e OS.
 - [ ] `parseCondition` passa a devolver `vazio` | `material` apenas.
 - [ ] Reescrever `import_vazios_bookings_transactional` como **substituição total** da lista da escala (delete + insert na mesma transação), no lugar do upsert por container da ADR 0031.
-- [ ] Local obrigatório: linha sem local é **recusada** no import, com o número da linha no relatório de erros.
+- [ ] **Import tudo ou nada:** qualquer divergência aborta a importação inteira e nenhuma unidade é gravada. O relatório mostra todas as linhas problemáticas de uma vez, para o usuário corrigir a planilha e subir de novo. Isto **diverge** do padrão `importCore` (erros por linha, resto importado) — documentar a divergência no código com um comentário.
+- [ ] Validações que abortam: linha sem local; local do tipo `depot` sem data de entrada **ou** sem data de saída; data de saída anterior à entrada; container fora do formato ISO; local do tipo `terminal_portuario` **com** datas de depot preenchidas (inconsistência: terminal não armazena).
 - [ ] Local desconhecido na planilha: criar automaticamente como `depot` com free times zerados e sinalizar na tela para completar — não travar o import. Se for terminal portuário, o usuário corrige o tipo no cadastro.
 - [ ] Manter a dedupe por container dentro do arquivo (última ocorrência vence).
 

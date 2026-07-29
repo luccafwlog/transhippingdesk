@@ -57,6 +57,15 @@ ficou no terminal e está sendo reembarcada. Reimportar é **substituição tota
 da lista da escala (não upsert), e o usuário pode criar, editar e excluir
 unidades na tela depois do import.
 
+O import é **tudo ou nada**: qualquer divergência é apontada e **impede subir a
+planilha**, em vez de importar as linhas boas e listar as ruins. Unidade vinda de
+Depot exige as duas datas de gate — sem data de saída não há armazenagem
+calculável, e o único caso legítimo de unidade sem datas é o Terminal Portuário.
+Essa rigidez é deliberada e diverge do padrão dos demais imports do sistema
+(`importCore`, que coleta erros por linha e importa o resto): aqui uma unidade
+faltante subestima a armazenagem de uma folha que aprova pagamento, e o erro
+silencioso é pior do que o import recusado.
+
 Morrem, por não terem consumidor: booking, destino, terminal de origem,
 observações, percentual de overtime por container e o número da OS.
 
