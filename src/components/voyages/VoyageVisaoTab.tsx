@@ -375,7 +375,7 @@ export function VoyageVisaoTab({
       <NavigationCard
         icon={Package}
         title="Vazios"
-        metrics={[`${vaziosStats.totalBookings} bookings`, `${vaziosStats.distinctContainers} containers`, vaziosStats.destinations || 'Sem destinos']}
+        metrics={[`${vaziosStats.totalUnits} unidades`, `${vaziosStats.distinctContainers} containers`, vaziosStats.origins || 'Sem locais de origem']}
         onClick={() => navigate(`/vazios?voyage=${voyage.id}`)}
         disabled={vaziosStats.totalManifests === 0}
       />

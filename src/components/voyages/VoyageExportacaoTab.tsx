@@ -31,10 +31,10 @@ export function VoyageExportacaoTab({
                   <Info label="Faturados" value={String(pol.granite.invoiced)} />
                 </MetricPanel>
                 <MetricPanel title="Vazios">
-                  <Info label="Bookings" value={String(pol.vazios.bookings)} />
+                  <Info label="Unidades embarcadas" value={String(pol.vazios.units)} />
                   <Info label="Containers distintos" value={String(pol.vazios.distinctContainers)} />
                   <Info label="Tipos" value={pol.vazios.types || '-'} />
-                  <Info label="Destinos" value={pol.vazios.destinations || '-'} />
+                  <Info label="Local de origem" value={pol.vazios.origins || '-'} />
                 </MetricPanel>
               </div>
             </div>

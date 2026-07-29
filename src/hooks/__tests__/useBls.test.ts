@@ -144,4 +144,26 @@ describe('useVoyages', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(voyageSelect.match(/bl_containers\(([^)]*)\)/)?.[1]).toContain('cbm')
   })
+
+  it('consulta as Unidades Embarcadas pelo local atual, sem colunas aposentadas', async () => {
+    let voyageSelect = ''
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'voyages') {
+        return {
+          select: vi.fn((select: string) => {
+            voyageSelect = select
+            return createVoyageQuery([])
+          }),
+        }
+      }
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    const { result } = renderHook(() => useVoyages(), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(voyageSelect).toContain('local:depots(id, code, name, tipo)')
+    expect(voyageSelect).not.toMatch(/\b(origin_terminal|destination)\b/)
+  })
 })
