@@ -424,6 +424,8 @@ function formatTimelineMoment(value: string) {
   }).format(date)
 }
 
+const TIMELINE_COLLAPSED_COUNT = 3
+
 function VoyageTimeline({
   events,
   open,
@@ -433,6 +435,11 @@ function VoyageTimeline({
   open: boolean
   onToggle: () => void
 }) {
+  // Eventos chegam ordenados do mais recente para o mais antigo (buildVoyageTimeline).
+  const [expanded, setExpanded] = useState(false)
+  const hasMore = events.length > TIMELINE_COLLAPSED_COUNT
+  const visibleEvents = expanded ? events : events.slice(0, TIMELINE_COLLAPSED_COUNT)
+
   return (
     <section className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
       <button
@@ -453,22 +460,37 @@ function VoyageTimeline({
       </button>
       {open ? (
         events.length ? (
-          <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {events.map((event) => (
-              <li
-                key={event.id}
-                className="relative overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 pl-4"
+          <>
+            <ol className="mt-4 flex flex-col gap-2">
+              {visibleEvents.map((event) => (
+                <li
+                  key={event.id}
+                  className="relative flex flex-col gap-0.5 overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 pl-4 sm:flex-row sm:items-baseline sm:gap-3"
+                >
+                  <span
+                    className="absolute left-0 top-0 h-full w-1"
+                    style={{ backgroundColor: TIMELINE_DOT[event.kind] }}
+                  />
+                  <div className="shrink-0 text-xs text-[var(--app-muted-soft)] sm:w-36">
+                    {formatTimelineMoment(event.at)}
+                  </div>
+                  <div className="flex flex-1 flex-wrap items-baseline gap-x-2">
+                    <span className="text-sm font-semibold text-[var(--app-text)]">{event.title}</span>
+                    <span className="text-sm leading-snug text-[var(--app-muted)]">{event.detail}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={() => setExpanded((value) => !value)}
+                className="mt-3 text-sm font-medium text-[var(--app-accent,#2563a8)] hover:underline"
               >
-                <span
-                  className="absolute left-0 top-0 h-full w-1"
-                  style={{ backgroundColor: TIMELINE_DOT[event.kind] }}
-                />
-                <div className="text-xs text-[var(--app-muted-soft)]">{formatTimelineMoment(event.at)}</div>
-                <div className="mt-0.5 text-sm font-semibold text-[var(--app-text)]">{event.title}</div>
-                <div className="mt-0.5 text-sm leading-snug text-[var(--app-muted)]">{event.detail}</div>
-              </li>
-            ))}
-          </ol>
+                {expanded ? 'Mostrar menos' : `Mostrar todos os ${events.length} eventos`}
+              </button>
+            ) : null}
+          </>
         ) : (
           <div className="mt-3 text-sm text-[var(--app-muted)]">Sem eventos registrados ainda.</div>
         )
