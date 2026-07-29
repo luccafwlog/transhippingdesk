@@ -11,7 +11,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useVoyageTimeline } from '../../hooks/useVoyageTimeline'
 import { countDistinctContainerNumbers } from '../../lib/containerCounts'
 import { formatDate } from '../../lib/utils'
-import { extractErrorText } from '../../lib/errors'
+import { classifyDbError } from '../../lib/errors'
 import { formatMetric, formatPortDisplayName, normalizePortName } from '../../lib/voyageFormat'
 import {
   buildVoyageTimeline,
@@ -142,12 +142,12 @@ export function VoyageVisaoTab({
       await afterEscalaAlterada(queryClient, { voyageId: voyage.id })
       showToast('POD removido do planejamento.', 'success')
     } catch (error) {
-      const errorText = extractErrorText(error).toLowerCase()
-      if (errorText.includes('42501') || errorText.includes('permission denied')) {
+      const classified = classifyDbError(error)
+      if (classified.kind === 'permissao') {
         showToast('Sem permissão para excluir planejamento do POD. Solicite acesso administrativo.', 'error')
         return
       }
-      showToast(`Falha ao excluir planejamento do POD.${errorText ? ` Motivo: ${errorText}` : ''}`, 'error')
+      showToast(`Falha ao excluir planejamento do POD. Motivo: ${classified.message}`, 'error')
     }
   }
 

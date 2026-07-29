@@ -10,7 +10,7 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import type { ReviewQueueItem } from '../../hooks/useReview'
-import { extractErrorText } from '../../lib/errors'
+import { classifyDbError, extractErrorText } from '../../lib/errors'
 import { formatCnpjCpf, onlyDigits } from '../../lib/utils'
 import { createCustomer } from '../../services/customers'
 import { logOperationalEvent } from '../../services/operationalEvents'
@@ -120,7 +120,7 @@ export function ReviewDrawer({
         showToast('Este CNPJ/CPF já está cadastrado. Selecione o cliente na busca acima.', 'error')
         return
       }
-      if (haystack.includes('permission denied') || haystack.includes('42501')) {
+      if (classifyDbError(error).kind === 'permissao') {
         showToast('Seu usuário não tem permissão para cadastrar cliente. Solicite acesso administrativo.', 'error')
         return
       }
