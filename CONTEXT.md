@@ -297,6 +297,15 @@ natureza, sem mudança de código. Os dez iniciais são armazenagem, transporte,
 handling in, handling out, overtime handling, overtime transporte, bundle
 composition, bundle organization, visual check e remoção.
 
+A natureza **não** define como multiplicar — a conta é sempre
+`quantidade × valor unitário × percentual`. Ela define apenas quais campos a
+linha exige e se a quantidade é digitada ou calculada.
+
+- **Synonyms:** "forma de cobrança" (nome usado pela operação)
+- **Distinto de:** Tipo de Cálculo da ADR 0032 (`fixo_por_container` /
+  `storage_por_dias` / `quantidade`), que precificava automaticamente e foi
+  aposentado pela ADR 0033.
+
 **Percentual da Linha**
 Fator que multiplica o valor de uma Linha de Serviço do Embarque:
 `total = quantidade × valor unitário × percentual`. Assume **50%** ou **100%**
