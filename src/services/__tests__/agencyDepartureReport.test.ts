@@ -95,6 +95,25 @@ describe('AGENCY_REPORT_SECTIONS', () => {
 })
 
 describe('getAgencyReportDerivedData', () => {
+  it('resolve o local das unidades sem depender do relacionamento embutido do PostgREST', async () => {
+    const bookingsQuery = queryBuilder([{ container_number: 'ABCD1234567', local_id: 'local-1', condition: 'vazio' }])
+    const depotsQuery = queryBuilder([{ id: 'local-1', code: 'DEP', name: 'Depot teste', tipo: 'depot' }])
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'vazios_bookings') return bookingsQuery
+      if (table === 'depots') return depotsQuery
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(bookingsQuery.select).not.toHaveBeenCalledWith(expect.stringContaining('local:depots'))
+    expect(result.vaziosExp).toMatchObject([{
+      container_number: 'ABCD1234567',
+      local: { id: 'local-1', code: 'DEP', name: 'Depot teste', tipo: 'depot' },
+    }])
+  })
+
   it('agrega a carga solta dos B/Ls Breakbulk apenas no porto da escala', async () => {
     const breakbulkQuery = queryBuilder([
       { bb_machine_qty: 2, bb_packages_qty: 8, bb_weight_ton: 3.5, total_weight_kg: 9999, total_cbm: 12.25 },

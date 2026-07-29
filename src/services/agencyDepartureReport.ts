@@ -306,7 +306,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('bl.pod', port),
     supabase
       .from('vazios_bookings')
-      .select('*, local:depots(id, code, name, tipo), operation:vazios_export_operations!inner(voyage_id, embark_port)')
+      .select('*, operation:vazios_export_operations!inner(voyage_id, embark_port)')
       .eq('operation.voyage_id', voyageId)
       .eq('operation.embark_port', port),
     supabase
@@ -345,7 +345,11 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const vehicles = (vehiclesRes.data ?? []) as unknown as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
     container: { unpacking_location: string | null } | null
   }>
-  const vaziosExp = (vaziosExpRes.data ?? []) as Array<VaziosBooking & {
+  const allDepots = await listDepots()
+  const vaziosExp = (vaziosExpRes.data ?? []).map((booking) => ({
+    ...booking,
+    local: allDepots.find((depot) => depot.id === booking.local_id) ?? null,
+  })) as Array<VaziosBooking & {
     local: Pick<Depot, 'id' | 'code' | 'name' | 'tipo'> | null
   }>
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
@@ -353,7 +357,6 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const operation = operationRes.data as (VaziosExportOperation & { linhas: Array<VaziosExportServiceLine & { service: { name: string; natureza: string } | null; local: { code: string; name: string | null } | null; destino: { code: string; name: string | null } | null }> }) | null
-  const allDepots = await listDepots()
   const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
   const serviceLines = (operation?.linhas ?? []).map((row) => {
     const line = { ...row, natureza: row.service?.natureza ?? 'geral', local_id: row.local_id, quantidade: Number(row.quantidade), valor_unitario: Number(row.valor_unitario) }
