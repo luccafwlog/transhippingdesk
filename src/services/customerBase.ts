@@ -1,7 +1,8 @@
-import { asString, normalizeText, onlyDigits } from '../lib/utils'
+import { asString, onlyDigits } from '../lib/utils'
 import { assertUploadFile } from '../lib/fileGuard'
 import type { Customer, CustomerContact } from '../types/database'
 import { supabase } from './supabase'
+import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
 const headerMap = {
   cnpj_cpf: ['cnpj/cpf', 'cnpj', 'cpf'],
@@ -20,6 +21,10 @@ const requiredHeaders = {
 } as const
 
 type DestinationField = keyof typeof headerMap
+const SPEC: HeaderSpec<DestinationField> = {
+  aliases: headerMap,
+  required: ['cnpj_cpf', 'name'],
+}
 
 export type CustomerBaseRow = {
   cnpj_cpf: string
@@ -39,26 +44,10 @@ export type ParsedCustomerBase = {
 
 export async function parseCustomerBaseFile(file: File): Promise<ParsedCustomerBase> {
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
-  const XLSX = await import('@e965/xlsx')
   const buffer = await file.arrayBuffer()
-  const workbook = XLSX.read(buffer, { type: 'array' })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-
-  if (!firstSheet) {
-    throw new Error('Arquivo sem abas validas.')
-  }
-
-  const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(firstSheet, {
-    header: 1,
-    defval: '',
-    blankrows: false,
-  })
-
-  const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
-  validateRequiredHeaders(rawHeaders)
-
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' })
-  return parseCustomerBaseRows(objectRows)
+  const { headers, rows } = await readSheet(buffer)
+  validateRequiredHeaders(headers)
+  return parseCustomerBaseRows(rows)
 }
 
 export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
@@ -191,10 +180,8 @@ export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
 }
 
 function validateRequiredHeaders(rawHeaders: string[]) {
-  const normalizedHeaders = rawHeaders.map((header) => normalizeText(header))
-  const missing = Object.entries(requiredHeaders)
-    .filter(([, label]) => !normalizedHeaders.includes(normalizeText(label)))
-    .map(([, label]) => label)
+  const { missing: missingFields } = matchHeaders(rawHeaders, SPEC)
+  const missing = missingFields.map((field) => requiredHeaders[field as keyof typeof requiredHeaders])
 
   if (missing.length) {
     throw new Error(`Base invalida. Colunas obrigatorias: ${missing.join(', ')}.`)
@@ -241,18 +228,8 @@ function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerB
 
 function mapRow(row: Record<string, unknown>) {
   const mapped: Partial<Record<DestinationField, unknown>> = {}
-
-  Object.entries(row).forEach(([header, value]) => {
-    const normalizedHeader = normalizeText(header)
-    const destination = Object.entries(headerMap).find(([, candidates]) =>
-      candidates.some((candidate) => normalizedHeader === normalizeText(candidate)),
-    )?.[0] as DestinationField | undefined
-
-    if (destination && mapped[destination] === undefined) {
-      mapped[destination] = value
-    }
-  })
-
+  const { columnByField } = matchHeaders(Object.keys(row), SPEC)
+  for (const [field, column] of Object.entries(columnByField) as [DestinationField, string][]) mapped[field] = row[column]
   return mapped
 }
 
