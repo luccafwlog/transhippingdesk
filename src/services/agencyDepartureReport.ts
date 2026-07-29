@@ -1,5 +1,6 @@
 import type {
   BaplieContainer,
+  Depot,
   GraniteBl,
   UserProfileRole,
   VaziosBooking,
@@ -305,7 +306,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('bl.pod', port),
     supabase
       .from('vazios_bookings')
-      .select('*, operation:vazios_export_operations!inner(voyage_id, embark_port)')
+      .select('*, local:depots(id, code, name, tipo), operation:vazios_export_operations!inner(voyage_id, embark_port)')
       .eq('operation.voyage_id', voyageId)
       .eq('operation.embark_port', port),
     supabase
@@ -344,7 +345,9 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const vehicles = (vehiclesRes.data ?? []) as unknown as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
     container: { unpacking_location: string | null } | null
   }>
-  const vaziosExp = (vaziosExpRes.data ?? []) as VaziosBooking[]
+  const vaziosExp = (vaziosExpRes.data ?? []) as Array<VaziosBooking & {
+    local: Pick<Depot, 'id' | 'code' | 'name' | 'tipo'> | null
+  }>
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]

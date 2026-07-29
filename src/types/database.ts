@@ -3326,7 +3326,6 @@ export type Database = {
       }
       vazios_bookings: {
         Row: {
-          booking_number?: string
           container_number: string
           container_type: string | null
           created_at: string | null
@@ -3339,18 +3338,8 @@ export type Database = {
           operation_id: string
           voyage_id: number
           movement_date: string | null
-          depot?: string | null
-          depot_id?: string | null
-          embark_port?: string | null
-          material?: boolean
-          overtime_pct?: number
-          notes?: string | null
-          destination?: string | null
-          origin_terminal?: string | null
-          os_number?: string | null
         }
         Insert: {
-          booking_number?: string
           container_number: string
           container_type?: string | null
           created_at?: string | null
@@ -3365,7 +3354,6 @@ export type Database = {
           movement_date?: string | null
         }
         Update: {
-          booking_number?: string
           container_number?: string
           container_type?: string | null
           created_at?: string | null

@@ -377,8 +377,8 @@ it('congela locais de desova, depots e embarques diretos no snapshot', () => {
       containers: [], vaziosImp: [], granite: [], storage: { containers: 1, days: 2 },
       vehicles: [{ brand: 'BYD', bl_id: 'bl-1', chassis: 'vin-1', container: { unpacking_location: 'Pátio Alfa' } }],
       vaziosExp: [
-        { container_type: '40HC', depot: 'VBR', overtime_handling: false, overtime_transport: false },
-        { container_type: '40HC', depot: null, overtime_handling: false, overtime_transport: false },
+        { container_type: '40HC', local_id: 'vbr', condition: 'vazio', local: { id: 'vbr', code: 'VBR', name: 'VBR', tipo: 'depot' } },
+        { container_type: '40HC', local_id: 'tvv', condition: 'vazio', local: { id: 'tvv', code: 'TVV', name: 'TVV', tipo: 'terminal_portuario' } },
       ],
       operation: { os_number: 'OS-42', service_qty: [] },
     },

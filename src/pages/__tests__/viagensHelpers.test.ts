@@ -165,22 +165,22 @@ describe('getGraniteModuleStats', () => {
 })
 
 describe('getVaziosModuleStats', () => {
-  it('agrega bookings, containers distintos, tipos e destinos', () => {
+  it('agrega Unidades Embarcadas, containers distintos, tipos e locais de origem', () => {
     const manifests = [
       {
         total_bookings: 3,
         vazios_bookings: [
-          { id: '1', container_number: 'AAA1', container_type: '40HC', destination: 'RIO', origin_terminal: 'T1' },
-          { id: '2', container_number: 'AAA1', container_type: '40HC', destination: 'RIO', origin_terminal: 'T1' },
-          { id: '3', container_number: 'BBB2', container_type: '20GP', destination: 'SSA', origin_terminal: 'T2' },
+          { id: '1', container_number: 'AAA1', container_type: '40HC', local: { code: 'DEP-A', name: 'Depot A', tipo: 'depot' } },
+          { id: '2', container_number: 'AAA1', container_type: '40HC', local: { code: 'DEP-A', name: 'Depot A', tipo: 'depot' } },
+          { id: '3', container_number: 'BBB2', container_type: '20GP', local: { code: 'TVV', name: 'Terminal TVV', tipo: 'terminal_portuario' } },
         ],
       },
     ] as never
     const s = getVaziosModuleStats(manifests)
-    expect(s.totalBookings).toBe(3)
+    expect(s.totalUnits).toBe(3)
     expect(s.distinctContainers).toBe(2)
     expect(s.containerTypes).toBe('40HC: 2 | 20GP: 1')
-    expect(s.destinations).toBe('RIO | SSA')
+    expect(s.origins).toBe('Depot A | Terminal TVV')
   })
 })
 
@@ -562,8 +562,8 @@ describe('summarizeExportByPol', () => {
     const vazios = [
       {
         vazios_bookings: [
-          { id: '1', container_number: 'V1', container_type: '40HC', origin_terminal: 'CNSHA', destination: 'X' },
-          { id: '2', container_number: 'V2', container_type: '40HC', origin_terminal: 'CNNBO', destination: 'Y' },
+          { id: '1', container_number: 'V1', container_type: '40HC', local_id: 'local-sha', condition: 'vazio', local: { id: 'local-sha', code: 'CNSHA', name: 'Depot SHA', tipo: 'depot' } },
+          { id: '2', container_number: 'V2', container_type: '40HC', local_id: 'local-nbo', condition: 'vazio', local: { id: 'local-nbo', code: 'CNNBO', name: 'Depot NBO', tipo: 'depot' } },
         ],
       },
     ] as never
@@ -577,7 +577,7 @@ describe('summarizeExportByPol', () => {
     expect(sha.granite.bls).toBe(5)
     expect(sha.granite.weightTon).toBe(2)
     expect(sha.granite.invoiced).toBe(1)
-    expect(sha.vazios.bookings).toBe(1)
+    expect(sha.vazios.units).toBe(1)
     expect(nbo.granite.manifests).toBe(0)
     expect(nbo.vazios.distinctContainers).toBe(1)
   })

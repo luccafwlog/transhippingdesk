@@ -372,7 +372,14 @@ export function useVoyages() {
             voyage_id,
             description,
             total_bookings,
-            vazios_bookings(id, container_number, container_type, origin_terminal, destination)
+            vazios_bookings(
+              id,
+              container_number,
+              container_type,
+              local_id,
+              condition,
+              local:depots(id, code, name, tipo)
+            )
           ),
           bls(
             *,
@@ -424,11 +431,17 @@ export function useVoyages() {
             description: string | null
             total_bookings: number | null
             vazios_bookings?: Array<{
+            id: string
+            container_number: string | null
+            container_type: string | null
+            local_id: string
+            condition: string
+            local?: {
               id: string
-              container_number: string | null
-              container_type: string | null
-              origin_terminal: string | null
-              destination: string | null
+              code: string
+              name: string | null
+              tipo: string
+            } | null
             }> | null
           }> | null
           bls?: Array<{

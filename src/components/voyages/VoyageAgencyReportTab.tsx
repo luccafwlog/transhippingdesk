@@ -175,8 +175,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     vehicleLocations.set(vehicle.brand, locations)
   }
   const bookings = data?.vaziosExp ?? []
-  const depots = [...new Set(bookings.map((booking) => booking.depot).filter(Boolean))]
-  const directEmbarkCount = bookings.filter((booking) => !booking.depot).length
+  const depots = [...new Set(bookings
+    .filter((booking) => booking.local?.tipo === 'depot')
+    .map((booking) => booking.local?.name ?? booking.local?.code)
+    .filter(Boolean))]
+  const directEmbarkCount = bookings.filter((booking) => booking.local?.tipo === 'terminal_portuario').length
   const granite = {
     bls: data?.granite.length ?? 0,
     blocks: (data?.granite ?? []).reduce((total, item) => total + (item.blocks_qty ?? 0), 0),
