@@ -113,8 +113,10 @@ O cadastro guarda ainda um catálogo de **valores sugeridos**, chaveado por
 opcionais: a busca casa do mais específico para o mais genérico, de modo que
 serviços que não variam continuam com uma linha só. Ao lançar, o sistema
 pré-preenche o valor sugerido; o **valor efetivo mora sempre na linha**, e
-sobrescrever é livre. Divergências podem ser gravadas de volta no catálogo por
-ação explícita do usuário — nunca em silêncio.
+sobrescrever é livre. Sobrescrever **não altera o catálogo**: o cadastro só muda
+por edição deliberada na tela de Terminais. Um valor divergente é quase sempre
+correção pontual, não mudança de tabela do depot, e deixar o lançamento reescrever
+o cadastro faria um erro de digitação virar o preço oficial sem ninguém ver.
 
 Somem do cadastro: tipo de cálculo, vigência, incidência de overtime e as
 quantidades por operação. Sem vigência, o valor sugerido vale até alguém

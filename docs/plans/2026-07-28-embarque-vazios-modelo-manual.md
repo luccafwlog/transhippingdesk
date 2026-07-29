@@ -131,7 +131,7 @@ npm run docs:check
 - [ ] `/embarquevazios` lista os Embarques e cria um novo escolhendo viagem (Combobox preditivo, ADR 0018) + porto de embarque. Recusa criar um segundo Embarque na mesma escala.
 - [ ] Dentro do Embarque, duas abas: **Unidades Embarcadas** (import, edição manual, resumo por tipo, dias cobráveis por linha) e **Serviços** (linhas, com valor sugerido pré-preenchido e sobrescrevível, e totais).
 - [ ] Sobrescrever a quantidade da armazenagem mantém o calculado visível ao lado.
-- [ ] Valor divergente do sugerido oferece gravar no catálogo por **ação explícita**, nunca em silêncio.
+- [ ] Valor divergente do sugerido fica **só na linha**: a tela não oferece gravar no catálogo, e o cadastro só muda em `/embarquevazios/depots`. Exibir o sugerido ao lado do digitado para a divergência ficar visível.
 - [ ] `DepotCadastro.tsx` encolhe e passa a listar **locais dos dois tipos**: identificação + tipo + (para depot) dois free times + catálogo (nome, natureza, discriminantes, valor). Sem tipo de cálculo, sem vigência, sem `subject_to_overtime`. Terminal portuário não exibe campos de free time.
 
 **Verificação:** testes de comportamento das duas telas; `npm run lint` e `npm run typecheck`.
