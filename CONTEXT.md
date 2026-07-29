@@ -179,113 +179,159 @@ Departamento responsável pelo embarque de vazios de exportação (VAZIOS EXP) e
 pelos veículos. Vazios descarregados (importação) pertencem à Documentação.
 
 **Overtime (de escala)**
-Movimentação realizada fora do horário normal nos vazios embarcados, cobrada
-como **acréscimo percentual**. O percentual é **por container** e vem de uma
-**coluna da planilha importada** (célula vazia ou 0 = sem overtime naquele
-container). Sobre qual serviço incide é atributo da própria linha de serviço,
-por meio de `subject_to_overtime`. O valor é o percentual do container aplicado
-sobre os serviços fixos marcados no Cadastro de Depot.
+Movimentação de vazios realizada fora do horário normal, cobrada pelo depot ou
+pelo transportador. É declarada como uma **Linha de Serviço do Embarque**, igual
+a qualquer outro serviço performado — não é acréscimo percentual derivado de
+coluna importada nem de incidência configurada por serviço.
 Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 
-**Booking de Vazio (EXP)**
-Reserva do armador para embarque de containers vazios de exportação. Um booking
-agrupa um ou mais containers (1:N); o **container** — não o booking — é o grão
-operacional e a identidade de cada linha de VAZIOS EXP. Toda linha tem um
-container identificado; um booking com três containers são três linhas que
-compartilham o mesmo número de booking.
+**Embarque de Vazios (EXP)**
+Registro operacional do embarque de containers vazios de exportação de uma
+escala, criado do zero por Equipamentos no módulo VAZIOS EXP. Existe **um por
+escala**, com a mesma identidade do ADR — (viagem, porto) —, e reúne duas partes
+de naturezas distintas:
 
-São **do booking** (repetem-se entre seus containers): número do booking,
-destino e porto de embarque. São **do container** (próprios de cada linha):
-número e tipo do container, data de movimentação, depot, hand-in/hand-out,
-material do armador, percentual de overtime (coluna importada), terminal de
-origem e observações. Bundle, transporte e visual check deixaram de ser flags do
-container: bundle e visual check são serviços tipo Quantidade do depot,
-transporte é serviço fixo por container do depot, e o overtime vem do percentual
-importado combinado com a incidência do depot.
+- a **Lista de Unidades Embarcadas** — o fato: quais containers foram
+  embarcados, com suas datas; entra por planilha;
+- as **Linhas de Serviço do Embarque** — o custo: quais serviços foram
+  performados; entram manualmente.
 
-**Depot de Vazios**
-Local onde o container vazio ficou armazenado antes do embarque, registrado por
-container. Container sem depot é Embarque Direto. Fonte para o Financeiro
-conferir faturas de armazenagem.
+O grão do módulo **deixou de ser o container**: uma linha de serviço não aponta
+para containers específicos, e a lista de unidades não carrega preço. O único
+ponto onde as duas partes se tocam é a armazenagem.
 
-**Cadastro de Depot**
-Entidade registrada que representa um depot/terminal e concentra os **serviços
-precificados** aplicáveis a ele. Não é uma grade fixa de tarifas: é uma **lista
-de serviços**, cada um com um **valor unitário**, uma **vigência** e um **tipo
-de cálculo**. Substitui o uso do depot como texto livre por container e é a
-fonte para o Financeiro conferir armazenagem, overtime e serviços, e para o
-sistema calcular os custos da operação.
+- **Related:** Unidade Embarcada, Linha de Serviço do Embarque, Operação de Pátio
 
-É atributo do depot (não serviço) o **Free Time de Storage** (dias grátis,
-parâmetro do storage). A incidência de overtime é atributo de cada serviço.
+**Unidade Embarcada**
+Container vazio efetivamente embarcado na escala; item da Lista de Unidades
+Embarcadas. Tem número, tipo, **local de origem** (sempre presente — um Depot ou
+um Terminal Portuário do Cadastro de Terminais), condição, datas de entrada e
+saída do depot e data de embarque. A lista é **completa**: inclui as unidades que
+não geraram armazenagem — as de Terminal Portuário vêm sem datas de depot. É a
+fonte da contagem de vazios embarcados e dos dias de armazenagem exibidos no ADR.
 
-Cada serviço tem um dos três **tipos de cálculo**:
-- **Fixo por container** — valor × nº de containers do depot na escala (ex.:
-  handling in/out, transporte). Aplica a todos os containers do depot, sem gate
-  por flag.
-- **Storage por dias** — valor × dias cobráveis (`hand-out − hand-in − free time
-  do depot`, nunca negativo), somados por container.
-- **Quantidade** — valor × quantidade lançada no Vazios EXP (ex.: Reorganização,
-  Bundle Composition, Visual Check).
+Unidade vinda de **Depot** tem obrigatoriamente as duas datas de gate; a única
+unidade sem datas é a que veio de **Terminal Portuário**. Planilha que viole isso
+não sobe: a divergência é apontada e a importação inteira é recusada.
 
-A entidade nomeada é o **depot**, não a "taxa": é distinta da Tabela de Taxas —
-Granito, que é genuinamente uma tabela de tarifas. Na interface, a tela chama-se
-"Tabela de Depots".
+**Linha de Serviço do Embarque**
+Declaração de um serviço efetivamente performado na operação de vazios, lançada
+manualmente pelo usuário. Cada linha tem serviço, tipo de container, quantidade,
+valor unitário, local onde foi performado e — quando o serviço é transporte — a
+rota percorrida (origem → destino). O mesmo serviço com tipos de container ou
+rotas diferentes são **linhas diferentes**, porque o valor difere. O usuário
+lança quantas linhas forem necessárias; o sistema não presume nenhuma.
 
-- **Synonyms / avoid:** "Taxas de Vazios", "tabela de taxas de depot" (a
-  entidade é o depot, não a taxa)
-- **Related:** Depot de Vazios, Free Time de Storage (Depot), Serviço Extra de
-  Reorganização, Overtime (de escala), Tabela de Taxas — Granito
+Exceção única: a quantidade da linha de armazenagem é **preenchida a partir da
+Lista de Unidades Embarcadas** (dias cobráveis daquele depot), não digitada. O
+usuário pode sobrescrevê-la, e o sistema mantém o valor calculado visível ao
+lado como referência.
 
-**Free Time de Storage (Depot)**
+- **Distinto de:** Unidade Embarcada, que é fato operacional importado e não
+  carrega preço.
+
+**Cadastro de Terminais**
+Registro dos locais com que a operação de vazios trabalha e dos **valores
+sugeridos** de seus serviços. Cada local tem um **tipo**:
+
+- **Depot** — local de armazenagem do vazio antes do embarque. Tem os dois Free
+  Times de Storage e é o único tipo que gera armazenagem.
+- **Terminal Portuário** — o próprio terminal da escala (ex.: TVV). Não tem free
+  time e nunca gera armazenagem: a unidade que vem dele descarregou, ficou no
+  local e está sendo reembarcada. Cobra serviços como qualquer outro local.
+
+Não é a fonte do cálculo: ao lançar uma Linha de Serviço do Embarque, o usuário
+escolhe o local e o serviço, e o sistema **sugere** o valor unitário registrado,
+que ele pode sobrescrever naquela linha. O valor efetivo mora sempre na linha
+lançada, e o cadastro não tem vigência — o valor sugerido vale até alguém trocá-lo.
+
+A entidade nomeada é o **local**, não a "taxa": é distinta da Tabela de Taxas —
+Granito, que é genuinamente uma tabela de tarifas.
+
+- **Synonyms / avoid:** "Cadastro de Depot" (nome anterior, quando o cadastro só
+  tinha depots), "Taxas de Vazios", "tabela de taxas de depot"
+- **Distinto de:** o **porto** da escala (identidade `(viagem, porto)` do ADR,
+  ex.: BRVIX). Um Terminal Portuário fica *dentro* de um porto. O terminal do
+  cabeçalho do ADR continua sendo texto livre preenchido pelo setor responsável,
+  sem vínculo com este cadastro.
+- **Related:** Free Time de Storage, Embarque Direto, Linha de Serviço do
+  Embarque, Natureza do Serviço, Tabela de Taxas — Granito
+
+**Free Time de Storage**
 Dias de armazenagem gratuita concedidos pelo depot ao container vazio antes do
-início da cobrança. Varia por depot e é atributo do Cadastro de Depot. A
-armazenagem cobrável de um container é `hand-out − hand-in − free time do
-depot`, distinta do Free Time de Demurrage (que se aplica à carga de importação
-do cliente, não ao vazio no depot).
+início da cobrança. É atributo dos locais do tipo **Depot** e varia por depot **e
+por condição da unidade**: um free time para o container totalmente vazio, outro
+para o container com material do armador. A armazenagem cobrável de uma unidade
+é `saída do depot − entrada no depot − free time aplicável`, nunca negativa.
+Distinto do Free Time de Demurrage, que se aplica à carga de importação do
+cliente e não ao vazio no depot.
 
 **Embarque Direto**
-Container vazio embarcado direto do terminal, sem passar por depot. Não incorre
-em handling in/out, transporte nem storage — esses custos são automáticos apenas
-para containers que passaram por depot.
+Unidade Embarcada cujo local de origem é um **Terminal Portuário**, não um
+Depot: o container descarregou, permaneceu no terminal e está sendo reembarcado,
+sem passar por depot. Vem sem datas de depot e não gera armazenagem. Não implica
+ausência de custos: qualquer serviço performado sobre ele é declarado como Linha
+de Serviço, como todos os demais.
 
 **Hand-in / Hand-out**
 Movimentos de gate do container vazio no depot: hand-in é a entrada, hand-out é
-a saída, cada um com data por container. Os dias de storage (armazenagem)
-derivam da diferença entre as duas datas; o ADR exibe o total de containers e
-de dias.
+a saída, cada um com data por unidade embarcada. Os dias de armazenagem derivam
+da diferença entre as duas datas menos o free time aplicável; o ADR exibe o
+total de containers e de dias.
 
 **Material do Armador**
-Marcação de container vazio embarcado com material do armador em seu interior.
-Deriva da Condição do Container Vazio (status "com material"), não de um campo
-independente, e implica tarifa distinta.
+Container vazio embarcado com material do armador em seu interior. Deriva da
+Condição do Container Vazio, não de um campo independente.
 
 **Condição do Container Vazio**
-Estado do vazio no momento do embarque, que afeta a tarifa aplicável: íntegro
-(empty), avariado (empty com avaria) ou com material do armador (empty com
-material). É atributo por container e fonte do flag Material do Armador.
+Estado do vazio no embarque, com dois valores: **totalmente vazio** ou **com
+material do armador**. É atributo de cada Unidade Embarcada, define qual dos dois
+free times do depot se aplica e separa as linhas de armazenagem — uma por
+(depot, condição).
 
-**Serviço Extra de Reorganização**
-Serviço executado sobre os vazios, cadastrado como uma linha de serviço do
-Cadastro de Depot com **tipo de cálculo Quantidade**: a quantidade é lançada no
-módulo de Vazios de Exportação e multiplicada pelo valor unitário do serviço.
-Não é mais um conjunto fixo (bundle/desova/visual check) nem uma flag por
-container — Reorganização, Bundle Composition e Visual Check são serviços tipo
-Quantidade configuráveis por depot. Pertence ao módulo de vazios de exportação,
-sob Equipamentos.
+**Natureza do Serviço**
+Comportamento de uma Linha de Serviço do Embarque, atributo do serviço no
+Cadastro de Terminais. São três, e a natureza decide quais campos a linha exige:
 
-**OS da Operação de Vazios**
-Número da ordem de serviço da operação de vazios de uma escala: um por
-(viagem, porto), registrado no módulo de vazios de exportação.
+- **`armazenagem`** — exige um local do tipo Depot e a condição; a quantidade (dias) é calculada a
+  partir da Lista de Unidades Embarcadas; não tem percentual nem tipo de
+  container; no máximo uma linha por (depot, condição).
+- **`transporte`** — exige a rota, sendo o local da linha a origem e o destino o
+  outro extremo.
+- **`geral`** — exige apenas o local.
+
+A lista de serviços é **aberta**: um serviço novo é cadastrado escolhendo sua
+natureza, sem mudança de código. Os dez iniciais são armazenagem, transporte,
+handling in, handling out, overtime handling, overtime transporte, bundle
+composition, bundle organization, visual check e remoção.
+
+A natureza **não** define como multiplicar — a conta é sempre
+`quantidade × valor unitário × percentual`. Ela define apenas quais campos a
+linha exige e se a quantidade é digitada ou calculada.
+
+- **Synonyms:** "forma de cobrança" (nome usado pela operação)
+- **Distinto de:** Tipo de Cálculo da ADR 0032 (`fixo_por_container` /
+  `storage_por_dias` / `quantidade`), que precificava automaticamente e foi
+  aposentado pela ADR 0033.
+
+**Percentual da Linha**
+Fator que multiplica o valor de uma Linha de Serviço do Embarque:
+`total = quantidade × valor unitário × percentual`. Assume **50%** ou **100%**
+(padrão 100%). É como o overtime é expresso: duas faixas do mesmo serviço são
+duas linhas, cada uma com sua quantidade. Não se aplica à natureza
+`armazenagem`.
 
 **Operação de Pátio**
-Seção do ADR, sob Equipamentos, que consolida a operação de pátio dos vazios da
-escala: storage (containers e dias), overtime (handling e transporte, com % por
-depot), depots usados e embarque direto, número da OS e serviços extra de
-reorganização. É exibição derivada do módulo de Vazios de Exportação e alimenta a
-conferência das faturas de armazenagem e overtime pelo Financeiro. Tem resolução
-própria e entra no Sign-off Departamental de Equipamentos, separada de vazios
-embarcados.
+Seção do ADR, sob Equipamentos, que consolida o custo da operação de vazios da
+escala: as Linhas de Serviço do Embarque com suas quantidades e valores, e a
+armazenagem (containers e dias). É exibição derivada do
+Embarque de Vazios e alimenta a conferência das faturas pelo Financeiro. Tem
+resolução própria e entra no Sign-off Departamental de Equipamentos, separada de
+vazios embarcados — que exibe a Lista de Unidades Embarcadas.
+
+Serviços antes tratados como conceitos próprios (reorganização, bundle
+composition, visual check, handling, transporte, overtime) não têm mais
+existência separada no modelo: todos são Linhas de Serviço do Embarque.
 
 **Natureza do Vazio Descarregado**
 Classificação do container vazio descarregado: **cama** (base de estiva para
@@ -898,6 +944,11 @@ exigem confirmação, motivo e auditoria.
 A interface usa `can(permission)` para orientar e ocultar ações, mas a
 autoridade real está em RLS, RPCs e Edge Functions, que devem rejeitar chamadas
 indevidas feitas diretamente à API.
+
+O lado do frontend que lê essa recusa é `classifyDbError` em
+`src/lib/errors.ts`: uma tabela de códigos Postgres/PostgREST para `kind` e
+mensagem em português. É o único lugar do app que decide o que o operador vê
+quando o banco nega, sem deixar `details` ou `hint` chegarem à tela.
 
 **Teste de isolamento por CNPJ**
 Gate de segurança do piloto que tenta acessar e alterar, por chamadas diretas à

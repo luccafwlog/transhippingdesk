@@ -14,4 +14,16 @@ describe('portalErrorMessage', () => {
     )
     expect(portalErrorMessage(new Error('detalhe interno do banco'), 'Falha generica.')).toBe('Falha generica.')
   })
+
+  it('preserva a mensagem de negocio das RPCs do Portal (22023/P0002)', () => {
+    expect(
+      portalErrorMessage(Object.assign(new Error('Informe o motivo da disputa.'), { code: '22023' }), 'Falha generica.'),
+    ).toBe('Informe o motivo da disputa.')
+    expect(
+      portalErrorMessage(
+        Object.assign(new Error('Esta fatura ja possui uma disputa em aberto.'), { code: 'P0002' }),
+        'Falha generica.',
+      ),
+    ).toBe('Esta fatura ja possui uma disputa em aberto.')
+  })
 })

@@ -1,8 +1,9 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { asString, chunkArray, normalizeHeader, onlyDigits } from '../lib/utils'
+import { asString, chunkArray, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { CeMercanteEdiRow } from './ceMercanteEdiParser'
 import { maybeAutoBillAfterCeMercante } from './reviewBillingAutomation'
+import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading', 'numero bl', 'n bl', 'no bl', 'no. bl'],
@@ -15,6 +16,10 @@ const requiredHeaders = {
 } as const
 
 type DestinationField = keyof typeof headerMap
+const SPEC: HeaderSpec<DestinationField> = {
+  aliases: headerMap,
+  required: ['bl_id', 'ce_mercante'],
+}
 
 export type CeMercanteRow = {
   rowNumber: number
@@ -78,30 +83,9 @@ export async function parseCeMercanteFile(file: File): Promise<ParsedCeMercanteF
 }
 
 export async function parseCeMercanteBuffer(buffer: ArrayBuffer): Promise<ParsedCeMercanteFile> {
-  const XLSX = await import('@e965/xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-
-  if (!firstSheet) {
-    throw new Error('Arquivo sem abas validas.')
-  }
-
-  const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(firstSheet, {
-    header: 1,
-    defval: '',
-    raw: false,
-    blankrows: false,
-  })
-
-  const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
-  validateRequiredHeaders(rawHeaders)
-
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
-    defval: '',
-    raw: false,
-  })
-
-  return parseRows(objectRows)
+  const { headers, rows } = await readSheet(buffer)
+  validateRequiredHeaders(headers)
+  return parseRows(rows)
 }
 
 export async function importCeMercanteRows(
@@ -293,10 +277,8 @@ function parseRows(rows: Record<string, unknown>[]): ParsedCeMercanteFile {
 }
 
 function validateRequiredHeaders(rawHeaders: string[]) {
-  const normalizedHeaders = rawHeaders.map((header) => normalizeHeader(header))
-  const missing = Object.entries(requiredHeaders)
-    .filter(([, label]) => !normalizedHeaders.includes(normalizeHeader(label)))
-    .map(([, label]) => label)
+  const { missing: missingFields } = matchHeaders(rawHeaders, SPEC)
+  const missing = missingFields.map((field) => requiredHeaders[field])
 
   if (missing.length) {
     throw new Error(`Planilha invalida. Colunas obrigatorias: ${missing.join(', ')}.`)
@@ -305,18 +287,8 @@ function validateRequiredHeaders(rawHeaders: string[]) {
 
 function mapRow(row: Record<string, unknown>) {
   const mapped: Partial<Record<DestinationField, unknown>> = {}
-
-  Object.entries(row).forEach(([header, value]) => {
-    const normalizedHeader = normalizeHeader(header)
-    const destination = Object.entries(headerMap).find(([, candidates]) =>
-      candidates.some((candidate) => normalizedHeader === normalizeHeader(candidate)),
-    )?.[0] as DestinationField | undefined
-
-    if (destination && mapped[destination] === undefined) {
-      mapped[destination] = value
-    }
-  })
-
+  const { columnByField } = matchHeaders(Object.keys(row), SPEC)
+  for (const [field, column] of Object.entries(columnByField) as [DestinationField, string][]) mapped[field] = row[column]
   return mapped
 }
 

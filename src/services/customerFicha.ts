@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type { CustomerContact, CustomerRateOverride, DemurrageInvoice } from '../types/database'
 import { isCustomerReconciliationResolved } from './customerReconciliation'
 import { formatBRL } from '../lib/utils'
+import { classifyDbError } from '../lib/errors'
 import { accountSituationLabel, provisioningDecisionLabel } from '../lib/portalProvisioningViewModel'
 
 export type FichaLocalInvoiceRow = {
@@ -72,10 +73,6 @@ export function buildCustomerTimeline(sources: TimelineSources): CustomerTimelin
   return events.sort((a, b) => b.at.localeCompare(a.at))
 }
 
-function isPermissionError(error: { code?: string | null; message?: string | null }) {
-  return error.code === '42501' || String(error.message ?? '').toLowerCase().includes('permission denied')
-}
-
 export type Restrictable<T> = { rows: T[]; denied: boolean }
 
 // Pagina ate esgotar o resultado em vez de truncar em uma janela fixa — saldos
@@ -100,7 +97,7 @@ export async function fetchCustomerDemurrageInvoices(customerId: number) {
   const { rows, error } = await fetchAllRows<FichaDemurrageInvoiceRow>((from, to) =>
     supabase.from('demurrage_invoices').select('id, doc_number, bl_id, due_date, billed_at, paid_at, total_usd, current_total_brl, status, dispute_open, dispute_status, dispute_subject').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(from, to).overrideTypes<FichaDemurrageInvoiceRow[], { merge: false }>(),
   )
-  if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
+  if (error) { if (classifyDbError(error).kind === 'permissao') return { rows: [], denied: true }; throw error }
   return { rows, denied: false }
 }
 
@@ -110,7 +107,7 @@ export async function fetchCustomerDemurrageInvoices(customerId: number) {
 // 42501 explicito para usuario inativo, permitindo separar os dois casos.
 export async function fetchCustomerReceivables(customerId: number) {
   const { data, error } = await supabase.rpc('get_customer_receivables', { p_customer_id: customerId })
-  if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
+  if (error) { if (classifyDbError(error).kind === 'permissao') return { rows: [], denied: true }; throw error }
   return { rows: data ?? [], denied: false }
 }
 
@@ -118,7 +115,7 @@ export async function fetchCustomerPayments(customerId: number) {
   const { rows, error } = await fetchAllRows<FichaPaymentRow>((from, to) =>
     supabase.from('payments').select('id, amount_brl, payment_method, paid_at, notes, invoice:invoices!inner(id, invoice_number, customer_id)').eq('invoice.customer_id', customerId).order('paid_at', { ascending: false }).range(from, to).overrideTypes<FichaPaymentRow[], { merge: false }>(),
   )
-  if (error) { if (isPermissionError(error)) return { rows: [], denied: true }; throw error }
+  if (error) { if (classifyDbError(error).kind === 'permissao') return { rows: [], denied: true }; throw error }
   return { rows, denied: false }
 }
 
@@ -168,9 +165,9 @@ export async function fetchCustomerTimelineSources(customerId: number, contacts:
     supabase.from('demurrage_invoices').select('id, doc_number, billed_at, paid_at, status').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(0, 99),
   ])
   for (const result of [auditLogs, portalEvents]) if (result.error) throw result.error
-  const localRows = localInvoices.error && !isPermissionError(localInvoices.error) ? (() => { throw localInvoices.error })() : (localInvoices.data ?? [])
-  const paymentRows = payments.error && !isPermissionError(payments.error) ? (() => { throw payments.error })() : (payments.data ?? [])
-  const demurrageRows = demurrage.error && !isPermissionError(demurrage.error) ? (() => { throw demurrage.error })() : (demurrage.data ?? [])
+  const localRows = localInvoices.error && classifyDbError(localInvoices.error).kind !== 'permissao' ? (() => { throw localInvoices.error })() : (localInvoices.data ?? [])
+  const paymentRows = payments.error && classifyDbError(payments.error).kind !== 'permissao' ? (() => { throw payments.error })() : (payments.data ?? [])
+  const demurrageRows = demurrage.error && classifyDbError(demurrage.error).kind !== 'permissao' ? (() => { throw demurrage.error })() : (demurrage.data ?? [])
   return buildCustomerTimeline({
     customerId,
     auditLogs: (auditLogs.data ?? []).filter((row) => row.changed_at).map((row) => ({ ...row, changed_at: row.changed_at! })),

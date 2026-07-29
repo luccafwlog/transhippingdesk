@@ -1,5 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { asString, normalizeText } from '../lib/utils'
+import { asString } from '../lib/utils'
+import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 import { supabase } from './supabase'
 import { calculateDemurrage, ensureDemurrageRatesLoaded } from './demurrage/demurrageRates'
 import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
@@ -12,6 +13,10 @@ const headerMap = {
 } as const
 
 type DestinationField = keyof typeof headerMap
+const SPEC: HeaderSpec<DestinationField> = {
+  aliases: headerMap,
+  required: ['bl_id', 'container_number', 'discharge_date'],
+}
 
 export type ContainerDatesImportRow = {
   bl_id: string
@@ -27,26 +32,11 @@ export type ParsedContainerDatesImport = {
 
 export async function parseContainerDatesFile(file: File): Promise<ParsedContainerDatesImport> {
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
-  const XLSX = await import('@e965/xlsx')
   const buffer = await file.arrayBuffer()
-  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-
-  if (!firstSheet) throw new Error('Arquivo sem abas validas.')
-
-  const matrix = XLSX.utils.sheet_to_json<(unknown)[]>(firstSheet, { header: 1, defval: '', blankrows: false })
-  const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
-
-  const normalizedHeaders = rawHeaders.map((h) => normalizeText(h))
-  const missingRequired = (['bl_id', 'container_number', 'discharge_date'] as const).filter(
-    (field) => !headerMap[field].some((candidate) => normalizedHeaders.includes(normalizeText(candidate))),
-  )
-  if (missingRequired.length) {
-    throw new Error(`Colunas obrigatorias ausentes: ${missingRequired.join(', ')}.`)
-  }
-
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' })
-  return parseRows(objectRows)
+  const { headers, rows } = await readSheet(buffer, { dates: 'date' })
+  const { missing } = matchHeaders(headers, SPEC)
+  if (missing.length) throw new Error(`Colunas obrigatorias ausentes: ${missing.join(', ')}.`)
+  return parseRows(rows)
 }
 
 export async function importContainerDates(rows: ContainerDatesImportRow[]) {
@@ -210,12 +200,9 @@ function parseDate(value: unknown): string | null {
 
 function mapRow(row: Record<string, unknown>) {
   const mapped: Partial<Record<DestinationField, unknown>> = {}
-  for (const [header, value] of Object.entries(row)) {
-    const normalizedHeader = normalizeText(header)
-    const destination = (Object.entries(headerMap) as [DestinationField, readonly string[]][]).find(([, candidates]) =>
-      candidates.some((c) => normalizedHeader === normalizeText(c)),
-    )?.[0]
-    if (destination && mapped[destination] === undefined) mapped[destination] = value
+  const { columnByField } = matchHeaders(Object.keys(row), SPEC)
+  for (const [field, column] of Object.entries(columnByField) as [DestinationField, string][]) {
+    mapped[field] = row[column]
   }
   return mapped
 }

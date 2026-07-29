@@ -48,6 +48,29 @@ const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
 Adjust the guard import path to the service location. Prefer dynamic spreadsheet
 imports.
 
+### Leia a planilha pelo seam
+
+Nunca chame `XLSX.read` num parser novo. Use `readSheet` e `matchHeaders` de
+`src/services/importCore.ts`:
+
+```ts
+import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+
+const SPEC: HeaderSpec<'container' | 'tipo'> = {
+  aliases: { container: ['container', 'conteiner'], tipo: ['tipo', 'type'] },
+  required: ['container', 'tipo'],
+}
+
+const { headers, rows } = await readSheet(buffer)
+const { columnByField, missing } = matchHeaders(headers, SPEC)
+if (missing.length) throw new Error(`Colunas obrigatorias ausentes: ${missing.join(', ')}.`)
+```
+
+`readSheet` devolve datas como texto por padrão. Se o formato precisar de
+`Date` ou valor numérico cru, declare a decisão na chamada com
+`{ dates: 'date' }` ou `{ values: 'cru' }`. Passar opções do `xlsx` por fora
+recria a deriva que este seam existe para impedir.
+
 ## Parser contract
 
 - no Supabase writes or React imports;
@@ -81,6 +104,12 @@ duplicating remote state.
 
 Show selected file, preview/errors, explicit confirmation, progress, imported
 and rejected counts, and refreshed data.
+
+Não reconstrua o trio `file` / `parsing` / `importing` numa página nova. Use
+`FileImportModal` (`src/components/shared/FileImportModal.tsx`), que é dono da
+máquina arquivo → preview → confirmação, do lote e dos erros por arquivo. O
+contexto conhecido vai em `subtitle`; o passo que precisa ser resolvido antes
+do arquivo vai em `prerequisite` com `ready`.
 
 ## Schema and verification
 

@@ -25,6 +25,11 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   ocorrências abertas aos 3 departamentos com tag opcional de seção, layout em
   5 faixas do ciclo com barra-resumo, números-heróis e correções de cópia.
   ADR 0029; migrations `222`–`226`.
+- [`2026-07-24-correcoes-pr-424-cadastro-depot`](2026-07-24-correcoes-pr-424-cadastro-depot.md)
+  — correções da PR #424 sobre o Cadastro de Depot por tipo de cálculo (ADR
+  0032; migrations `236`/`237`). **Encerrado sem execução completa:** a ADR 0033
+  aposentou o modelo de tipos de cálculo que o plano preservava, e as tarefas
+  pendentes foram absorvidas pelo plano do Embarque de Vazios.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { classifyDbError } from '../lib/errors'
 
 const REPORT_ROW_LIMIT = 2000
 
@@ -145,7 +146,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
 
   const { data, error } = await query.overrideTypes<FinancialReportRow[], { merge: false }>()
   if (error) {
-    if (error.code === '42501' || error.code === 'PGRST301') {
+    if (isAccessDenied(error)) {
       return {
         rows: [],
         kpis: { totalInvoices: 0, totalIssued: 0, totalPaid: 0, totalOpen: 0, totalCanceled: 0, truncated: false },
@@ -283,7 +284,7 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
 
   const { data: invoicesData, error: invoicesError } = await invoicesQuery.overrideTypes<InvoiceRow[], { merge: false }>()
   if (invoicesError) {
-    if (invoicesError.code === '42501' || invoicesError.code === 'PGRST301') {
+    if (isAccessDenied(invoicesError)) {
       invoicesAccessDenied = true
     } else {
       throw invoicesError
@@ -420,8 +421,9 @@ function isLedgerLocalInvoice(invoice: LedgerInvoiceLike) {
   return invoice.invoice_type === 'individual' || invoice.invoice_type === 'consolidated'
 }
 
-function isAccessDenied(error: { code?: string } | null | undefined) {
-  return error?.code === '42501' || error?.code === 'PGRST301'
+function isAccessDenied(error: unknown): boolean {
+  const kind = classifyDbError(error).kind
+  return kind === 'permissao' || kind === 'sessao_expirada'
 }
 
 async function fetchReceivableLinksByInvoiceIds(invoiceIds: number[]) {
