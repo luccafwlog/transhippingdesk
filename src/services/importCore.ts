@@ -46,14 +46,71 @@ export function createHeaderMapper(
  * padrão dos parsers (import dinâmico do xlsx, `cellText`, `defval: ''`,
  * `raw: false`). Lança com as mesmas mensagens dos parsers originais.
  */
-export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<Record<string, unknown>[]> {
+export type SheetReadOptions = {
+  dates?: 'texto' | 'date'
+  values?: 'formatado' | 'cru'
+  skipBlankRows?: boolean
+  sheetIndex?: number
+}
+
+export type SheetContent = {
+  headers: string[]
+  matrix: unknown[][]
+  rows: Record<string, unknown>[]
+}
+
+export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions = {}): Promise<SheetContent> {
+  const wantDates = options.dates === 'date'
+  const raw = options.values === 'cru' || wantDates
   const XLSX = await import('@e965/xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: false })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+  const workbook = XLSX.read(buffer, {
+    type: 'array',
+    cellText: !wantDates,
+    cellDates: wantDates,
+  })
+  const firstSheet = workbook.Sheets[workbook.SheetNames[options.sheetIndex ?? 0]]
   if (!firstSheet) throw new Error('Arquivo sem abas validas.')
 
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
+    header: 1,
+    defval: '',
+    blankrows: false,
+    raw,
+  })
+  const headers = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+    defval: '',
+    raw,
+    blankrows: !(options.skipBlankRows ?? true),
+  })
   if (!rows.length) throw new Error('Planilha vazia.')
+  return { headers, matrix, rows }
+}
 
+export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<Record<string, unknown>[]> {
+  const { rows } = await readSheet(buffer)
   return rows
+}
+
+export type HeaderSpec<F extends string> = {
+  readonly aliases: Readonly<Record<F, readonly string[]>>
+  readonly required: readonly F[]
+}
+
+function normalizeHeader(value: string): string {
+  return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+export function matchHeaders<F extends string>(
+  headers: readonly string[],
+  spec: HeaderSpec<F>,
+): { columnByField: Partial<Record<F, string>>; missing: F[] } {
+  const columnByField: Partial<Record<F, string>> = {}
+  for (const field of Object.keys(spec.aliases) as F[]) {
+    const accepted = new Set(spec.aliases[field].map(normalizeHeader))
+    const found = headers.find((header) => accepted.has(normalizeHeader(header)))
+    if (found !== undefined) columnByField[field] = found
+  }
+  const missing = spec.required.filter((field) => columnByField[field] === undefined)
+  return { columnByField, missing }
 }

@@ -7,6 +7,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
 import { extractNcmCodes } from '../lib/ncm'
 import { normalizePortCode } from './portCode'
+import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -34,6 +35,14 @@ const legacyRequiredHeaders = ['BL', 'CONSIGNATARIO', 'CNPJ', 'POL', 'POD', 'DES
 
 type DestinationField = keyof typeof headerMap
 type BreakbulkLayout = 'summary' | 'legacy' | 'carrier'
+const SUMMARY_SPEC: HeaderSpec<DestinationField> = {
+  aliases: headerMap,
+  required: ['bl_id', 'ce_mercante', 'machine_qty', 'packages_qty', 'packages_total', 'gross_weight_ton', 'cbm', 'shipper', 'consignee', 'notify_party'],
+}
+const LEGACY_SPEC: HeaderSpec<DestinationField> = {
+  aliases: headerMap,
+  required: ['bl_id', 'consignee', 'cnpj_cpf', 'pol', 'pod', 'item_description', 'package_qty', 'gross_weight_kg', 'cbm'],
+}
 
 export type BreakbulkImportRow = {
   rowNumber: number
@@ -74,31 +83,15 @@ export async function parseBreakbulkManifestFile(file: File): Promise<ParsedBrea
 }
 
 export async function parseBreakbulkManifestBuffer(buffer: ArrayBuffer): Promise<ParsedBreakbulkManifest> {
-  const XLSX = await import('@e965/xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+  const { headers: rawHeaders, matrix, rows } = await readSheet(buffer)
 
-  if (!firstSheet) {
-    throw new Error('Arquivo sem abas validas.')
+  if (looksLikeCarrierBreakbulk(matrix as (string | number | null)[][])) {
+    return parseCarrierBreakbulkRows(matrix as (string | number | null)[][])
   }
 
-  const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(firstSheet, {
-    header: 1,
-    defval: '',
-    raw: false,
-    blankrows: false,
-  })
-
-  if (looksLikeCarrierBreakbulk(matrix)) {
-    return parseCarrierBreakbulkRows(matrix)
-  }
-
-  const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
   const layout = detectLayout(rawHeaders)
   validateRequiredHeaders(rawHeaders, layout)
-
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
-  return parseBreakbulkRows(objectRows, layout)
+  return parseBreakbulkRows(rows, layout)
 }
 
 function parseBreakbulkRows(rows: Record<string, unknown>[], layout: BreakbulkLayout): ParsedBreakbulkManifest {
@@ -229,7 +222,7 @@ function parseSummaryRows(rows: Record<string, unknown>[]): ParsedBreakbulkManif
   const parsedRows: BreakbulkImportRow[] = []
 
   rows.forEach((row, index) => {
-    const mapped = mapRow(row)
+    const mapped = mapRow(row, SUMMARY_SPEC)
     const rowNumber = index + 2
 
     const bl_id = normalizeKey(mapped.bl_id)
@@ -302,7 +295,7 @@ function parseLegacyRows(rows: Record<string, unknown>[]): ParsedBreakbulkManife
   }> = []
 
   rows.forEach((row, index) => {
-    const mapped = mapRow(row)
+    const mapped = mapRow(row, LEGACY_SPEC)
     const rowNumber = index + 2
 
     const bl_id = normalizeKey(mapped.bl_id)
@@ -513,30 +506,23 @@ function findNumberBeforeUnit(rows: (string | number | null)[][], unitPattern: R
 
 function validateRequiredHeaders(rawHeaders: string[], layout: BreakbulkLayout) {
   if (layout === 'carrier') return
-
-  const normalizedHeaders = rawHeaders.map((header) => normalizeHeader(header))
   const requiredHeaders = layout === 'summary' ? bbRequiredHeaders : legacyRequiredHeaders
-  const missing = requiredHeaders.filter((label) => !normalizedHeaders.includes(normalizeHeader(label)))
+  const spec = layout === 'summary' ? SUMMARY_SPEC : LEGACY_SPEC
+  const { missing: missingFields } = matchHeaders(rawHeaders, spec)
+  const missing = missingFields.map((field) => {
+    const index = (spec.required as readonly DestinationField[]).indexOf(field)
+    return requiredHeaders[index] ?? field
+  })
 
   if (missing.length) {
     throw new Error(`Planilha invalida. Colunas obrigatorias: ${missing.join(', ')}.`)
   }
 }
 
-function mapRow(row: Record<string, unknown>) {
+function mapRow(row: Record<string, unknown>, spec: HeaderSpec<DestinationField>) {
   const mapped: Partial<Record<DestinationField, unknown>> = {}
-
-  Object.entries(row).forEach(([header, value]) => {
-    const normalizedHeader = normalizeHeader(header)
-    const destination = Object.entries(headerMap).find(([, candidates]) =>
-      candidates.some((candidate) => normalizedHeader === normalizeHeader(candidate)),
-    )?.[0] as DestinationField | undefined
-
-    if (destination && mapped[destination] === undefined) {
-      mapped[destination] = value
-    }
-  })
-
+  const { columnByField } = matchHeaders(Object.keys(row), spec)
+  for (const [field, column] of Object.entries(columnByField) as [DestinationField, string][]) mapped[field] = row[column]
   return mapped
 }
 

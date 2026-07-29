@@ -4,6 +4,8 @@
 
 ## 2026-07
 
+- **Aprofundamento arquitetural:** invalidação de cache por eventos de domínio em `cacheEffects.ts`; classificação centralizada de recusas do banco em `classifyDbError`; leitura e casamento de cabeçalhos de planilha centralizados em `importCore.ts`; `FileImportModal` adotado em Carga Solta e Vazios de Importação; cobertura adicionada para Taxas Locais e Line-Up.
+
 - **Correções pós-PR #424:** reparo do encoding da aba do ADR, reclassificação de `visual_check` como serviço de Quantidade (migration `236`), filtro de ativação e vigência no motor de custo, restauração do fluxo operacional do Vazios EXP, e recuperação da cobertura do ADR, RBAC e parser; migration `237` adiciona índice para `vazios_operation_service_qty(depot_service_id)`.
 
 - **VAZIOS EXP / ADR 0031:** Cadastro de Depot com tarifas e serviços, importação por upsert no grão `(viagem, container)`, parser da planilha real, cálculo por container/operação em duas abas e valores consolidados na Operação de Pátio do ADR; migrations `229`–`233`.

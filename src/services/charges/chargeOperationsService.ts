@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../../lib/utils'
+import { classifyDbError } from '../../lib/errors'
 
 const OPERATIONAL_PAGE_SIZE = 1000
 
@@ -298,7 +299,7 @@ async function loadBlOperationalRows(
     .order('changed_at', { ascending: false })
     .limit(Math.min(blIds.length * 8, 4000))
 
-  if (auditError && !isPermissionError(auditError)) {
+  if (auditError && classifyDbError(auditError).kind !== 'permissao') {
     throw auditError
   }
 
@@ -596,9 +597,6 @@ function extractBlIdFromChargeAuditMessage(message: string, candidates: string[]
   return null
 }
 
-function isPermissionError(error: { code?: string | null; message?: string | null }) {
-  return error.code === '42501' || String(error.message ?? '').toLowerCase().includes('permission denied')
-}
 
 async function runBatch<T>(blIds: string[], worker: (blId: string) => Promise<T>) {
   const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))

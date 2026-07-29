@@ -1,7 +1,8 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { asString, chunkArray, normalizeText } from '../lib/utils'
+import { asString, chunkArray } from '../lib/utils'
 import { supabase } from './supabase'
 import { calculateBlLocalCharges } from './charges/chargeOperationsService'
+import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
 // Aliases por campo. Cobrem tres formatos de origem:
 // 1) Planilha modelo do sistema (cabecalhos em portugues: CHASSI, MARCA, ...).
@@ -64,6 +65,10 @@ function translateBrand(brand: string): string {
 }
 
 type DestinationField = keyof typeof headerMap
+const SPEC: HeaderSpec<DestinationField> = {
+  aliases: headerMap,
+  required: Object.keys(headerMap) as DestinationField[],
+}
 
 export type VehicleImportRow = {
   rowNumber: number
@@ -97,45 +102,32 @@ export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleI
 }
 
 export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<ParsedVehicleImport> {
-  const XLSX = await import('@e965/xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array', cellText: true })
-
-  if (!workbook.SheetNames.length) {
-    throw new Error('Arquivo sem abas validas.')
-  }
-
-  // O modelo do armador (COSCO Daily Report) mantem os veiculos na segunda aba;
-  // a primeira e um resumo. Selecionamos a primeira aba cujo cabecalho atende
-  // todas as colunas obrigatorias, mantendo compatibilidade com a planilha modelo.
-  let chosenSheet: (typeof workbook.Sheets)[string] | undefined
+  // O modelo do armador pode manter os veiculos na segunda aba; percorremos as
+  // abas pelo leitor compartilhado ate encontrar o cabecalho completo.
+  let chosenRows: Record<string, unknown>[] | undefined
   let lastMissing: string[] = Object.values(requiredHeaders)
 
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName]
-    if (!sheet) continue
-
-    const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
-      header: 1,
-      defval: '',
-      raw: false,
-      blankrows: false,
-    })
-
-    const rawHeaders = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
-    const missing = missingRequiredHeaders(rawHeaders)
+  for (let sheetIndex = 0; ; sheetIndex += 1) {
+    let content
+    try {
+      content = await readSheet(buffer, { sheetIndex })
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Arquivo sem abas validas.') break
+      if (error instanceof Error && error.message === 'Planilha vazia.') continue
+      throw error
+    }
+    const { missing } = matchHeaders(content.headers, SPEC)
     if (!missing.length) {
-      chosenSheet = sheet
+      chosenRows = content.rows
       break
     }
-    lastMissing = missing
+    lastMissing = missing.map((field) => requiredHeaders[field])
   }
 
-  if (!chosenSheet) {
+  if (!chosenRows) {
     throw new Error(`Planilha invalida. Colunas obrigatorias: ${lastMissing.join(', ')}.`)
   }
-
-  const objectRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(chosenSheet, { defval: '', raw: false })
-  return parseVehicleImportRows(objectRows)
+  return parseVehicleImportRows(chosenRows)
 }
 
 export async function importVehicleRows({
@@ -466,27 +458,10 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
 
 // Retorna os rotulos das colunas obrigatorias ausentes considerando os aliases
 // de cada campo (planilha modelo e modelo do armador).
-function missingRequiredHeaders(rawHeaders: string[]) {
-  const normalizedHeaders = rawHeaders.map((header) => normalizeText(header))
-  return (Object.keys(headerMap) as DestinationField[])
-    .filter((field) => !headerMap[field].some((alias) => normalizedHeaders.includes(normalizeText(alias))))
-    .map((field) => requiredHeaders[field])
-}
-
 function mapRow(row: Record<string, unknown>) {
   const mapped: Partial<Record<DestinationField, unknown>> = {}
-
-  Object.entries(row).forEach(([header, value]) => {
-    const normalizedHeader = normalizeText(header)
-    const destination = Object.entries(headerMap).find(([, candidates]) =>
-      candidates.some((candidate) => normalizedHeader === normalizeText(candidate)),
-    )?.[0] as DestinationField | undefined
-
-    if (destination && mapped[destination] === undefined) {
-      mapped[destination] = value
-    }
-  })
-
+  const { columnByField } = matchHeaders(Object.keys(row), SPEC)
+  for (const [field, column] of Object.entries(columnByField) as [DestinationField, string][]) mapped[field] = row[column]
   return mapped
 }
 
