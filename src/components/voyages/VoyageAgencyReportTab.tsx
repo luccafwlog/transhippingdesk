@@ -27,7 +27,7 @@ import {
   type AgencyReportSignoffEvent,
   type SignoffState,
 } from '../../services/agencyDepartureReport'
-import type { AgencyReportDepartmentKey } from '../../types/database'
+import type { AgencyReportDepartmentKey, Json } from '../../types/database'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -228,6 +228,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       vaziosDescarregados: emptyDischargeMatrix,
       veiculos: vehicles,
       vaziosEmbarcados: emptyEmbarkMatrix,
+      vaziosUnidades: data?.vaziosExp ?? [],
       vehicleLocations: Object.fromEntries(vehicleLocations),
       depots,
       directEmbarkCount,
@@ -264,7 +265,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <div className="app-panel app-panel--padded grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold text-[var(--app-muted)]" style={{ fontVariantNumeric: 'tabular-nums' }}>{signedDepartmentsCount}/3 departamentos assinados</div>
-            <Button variant="primary" disabled={signedDepartmentsCount !== 3 || closeMutation.isPending || !port} title={signedDepartmentsCount !== 3 ? 'Assine os 3 departamentos para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot }) }}>Fechar ADR</Button>
+            <Button variant="primary" disabled={signedDepartmentsCount !== 3 || closeMutation.isPending || !port} title={signedDepartmentsCount !== 3 ? 'Assine os 3 departamentos para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot: snapshot as unknown as Json }) }}>Fechar ADR</Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {DEPARTMENTS.map((department) => (
@@ -350,11 +351,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             <Hero value={String(data?.storage.days ?? 0)} unit="dias de storage" />
             <div className="grid gap-4 xl:grid-cols-3">
               <MetricPanel title="Storage"><Info label="Containers" value={String(data?.storage.containers ?? 0)} /><Info label="Dias" value={String(data?.storage.days ?? 0)} /></MetricPanel>
-              <MetricPanel title="Overtime"><Info label="Containers com overtime" value={String(bookings.filter((booking) => Number(booking.overtime_pct ?? 0) > 0).length)} /></MetricPanel>
-              <MetricPanel title="Depots e OS"><Info label="OS" value={data?.operation?.os_number ?? 'Não informada'} /><Info label="Embarque direto" value={String(directEmbarkCount)} /><Info label="Depots" value={depots.join(', ') || '—'} /></MetricPanel>
+              <MetricPanel title="Embarque direto"><Info label="Unidades sem armazenagem" value={String(directEmbarkCount)} /></MetricPanel>
+              <MetricPanel title="Locais"><Info label="Depots / terminais" value={depots.join(', ') || '—'} /></MetricPanel>
             </div>
-            <MetricPanel title="Serviço extra">{data?.operation?.service_qty?.length ? data.operation.service_qty.map((service) => <Info key={service.depot_service_id} label={service.service?.name ?? 'Serviço removido'} value={String(service.qty)} />) : <Info label="Registros" value="0" />}</MetricPanel>
-            <MetricPanel title="Valores calculados"><Info label="Containers" value={formatBRL(data?.costs?.rows.reduce((sum, row) => sum + row.total, 0) ?? 0)} /><Info label="Serviços por quantidade" value={formatBRL(data?.costs?.qtyTotal ?? 0)} /><Info label="Total da operação" value={formatBRL(data?.costs?.total ?? 0)} /></MetricPanel>
+            <MetricPanel title="Linhas de serviço">{data?.costs?.serviceLines?.length ? <div className="app-table-scroll"><table className="app-table min-w-[900px] text-left text-sm"><thead><tr><th>Serviço</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>%</th><th>Unitário</th><th>Total</th></tr></thead><tbody>{data.costs.serviceLines.map((service) => <tr key={service.id}><td>{service.service?.name ?? '—'}</td><td>{service.local?.name ?? service.local?.code ?? service.local_id}</td><td>{service.destino?.name ?? service.destino?.code ?? '—'}</td><td>{service.container_type ?? '—'}</td><td>{String(service.quantidade)}</td><td>{service.percentual ?? '—'}</td><td>{formatBRL(Number(service.valor_unitario))}</td><td>{formatBRL(Number(service.quantidade) * Number(service.valor_unitario) * (service.percentual == null ? 1 : Number(service.percentual) / 100))}</td></tr>)}</tbody></table></div> : <Info label="Registros" value="0" />}</MetricPanel>
+            <MetricPanel title="Totais"><Info label="Total da operação" value={formatBRL(data?.costs?.total ?? 0)} /></MetricPanel>
           </ReportSection>
 
           <ReportSection

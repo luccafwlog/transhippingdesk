@@ -72,14 +72,11 @@ it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () =>
   expect(screen.getByRole('button', { name: 'BRVIX' }).getAttribute('aria-pressed')).toBe('true')
 })
 
-it('conta os containers com overtime na fase Operacao de patio', () => {
+it('exibe unidades sem armazenagem na fase Operacao de patio', () => {
   useAgencyReportDerivedMock.mockReturnValue({
     data: {
       containers: [], vehicles: [], vaziosImp: [], granite: [],
-      vaziosExp: [
-        { container_type: '40HC', depot: 'VBR', overtime_pct: 25 },
-        { container_type: '40HC', depot: 'VBR', overtime_pct: 0 },
-      ],
+      vaziosExp: [{ container_type: '40HC', local_id: 'tvv', condition: 'vazio' }, { container_type: '40HC', local_id: 'd1', condition: 'vazio' }],
       storage: { containers: 0, days: 0 },
       operation: { os_number: null, service_qty: [] },
     },
@@ -88,13 +85,12 @@ it('conta os containers com overtime na fase Operacao de patio', () => {
   })
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
   const patioSection = screen.getByRole('heading', { name: /Opera.*o de p.*tio/, level: 3 }).closest('section')!
-  expect(within(patioSection).getByText('Containers com overtime')).toBeTruthy()
-  expect(within(patioSection).getByText('1')).toBeTruthy()
+  expect(within(patioSection).getByText('Unidades sem armazenagem')).toBeTruthy()
 })
 
-it('exibe o servico extra pelo nome, nao pelo id', () => {
+it('exibe a linha de serviço pelo nome, nao pelo id', () => {
   useAgencyReportDerivedMock.mockReturnValue({
-    data: { containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 }, operation: { os_number: null, service_qty: [{ depot_service_id: 's1', qty: 3, service: { name: 'Bundle Composition' } }] } },
+    data: { containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 }, operation: {}, costs: { total: 3, serviceLines: [{ id: 'l1', service: { name: 'Bundle Composition' }, local: { name: 'VBR' }, destino: null, local_id: 'd1', service_id: 's1', container_type: null, quantidade: 3, percentual: 100, valor_unitario: 1 }] } },
     isLoading: false,
     error: null,
   })

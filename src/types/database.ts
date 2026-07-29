@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       agency_departure_report_department_signoffs: {
         Row: {
+          booking_number?: string
           department: string
           id: string
           report_id: string
@@ -3325,70 +3326,58 @@ export type Database = {
       }
       vazios_bookings: {
         Row: {
-          booking_number: string
+          booking_number?: string
           container_number: string
           container_type: string | null
           created_at: string | null
-          depot: string | null
-          destination: string | null
-          embark_port: string | null
+          condition: string
           hand_in_date: string | null
           hand_out_date: string | null
           id: string
+          local_id: string
           manifest_id: string
+          operation_id: string
           voyage_id: number
-          os_number: string | null
-          depot_id: string | null
-          condition: string | null
-          material: boolean
           movement_date: string | null
-          notes: string | null
-          origin_terminal: string | null
-          overtime_pct: number
+          depot?: string | null
+          depot_id?: string | null
+          embark_port?: string | null
+          material?: boolean
+          overtime_pct?: number
+          notes?: string | null
+          destination?: string | null
+          origin_terminal?: string | null
+          os_number?: string | null
         }
         Insert: {
-          booking_number: string
+          booking_number?: string
           container_number: string
           container_type?: string | null
           created_at?: string | null
-          depot?: string | null
-          destination?: string | null
-          embark_port?: string | null
+          condition: string
           hand_in_date?: string | null
           hand_out_date?: string | null
           id?: string
+          local_id: string
           manifest_id: string
+          operation_id: string
           voyage_id: number
-          os_number?: string | null
-          depot_id?: string | null
-          condition?: string | null
-          material?: boolean
           movement_date?: string | null
-          notes?: string | null
-          origin_terminal?: string | null
-          overtime_pct?: number
         }
         Update: {
           booking_number?: string
           container_number?: string
           container_type?: string | null
           created_at?: string | null
-          depot?: string | null
-          destination?: string | null
-          embark_port?: string | null
+          condition?: string
           hand_in_date?: string | null
           hand_out_date?: string | null
           id?: string
+          local_id?: string
           manifest_id?: string
+          operation_id?: string
           voyage_id?: number
-          os_number?: string | null
-          depot_id?: string | null
-          condition?: string | null
-          material?: boolean
           movement_date?: string | null
-          notes?: string | null
-          origin_terminal?: string | null
-          overtime_pct?: number
         }
         Relationships: [
           {
@@ -3404,9 +3393,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "vazios_bookings_depot_id_fkey"
-            columns: ["depot_id"]
+            foreignKeyName: "vazios_bookings_local_id_fkey"
+            columns: ["local_id"]
             referencedRelation: "depots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_bookings_operation_id_fkey"
+            columns: ["operation_id"]
+            referencedRelation: "vazios_export_operations"
             referencedColumns: ["id"]
           },
         ]
@@ -3416,25 +3411,25 @@ export type Database = {
           created_at: string
           embark_port: string
           id: string
-          os_number: string | null
           updated_at: string
           voyage_id: number
+          os_number?: string | null
         }
         Insert: {
           created_at?: string
           embark_port: string
           id?: string
-          os_number?: string | null
           updated_at?: string
           voyage_id: number
+          os_number?: string | null
         }
         Update: {
           created_at?: string
           embark_port?: string
           id?: string
-          os_number?: string | null
           updated_at?: string
           voyage_id?: number
+          os_number?: string | null
         }
         Relationships: [
           {
@@ -3557,25 +3552,33 @@ export type Database = {
         ]
       }
       depots: {
-        Row: { id: string; code: string; name: string | null; pol_port: string | null; active: boolean; free_time_days: number; created_at: string; updated_at: string }
-        Insert: { id?: string; code: string; name?: string | null; pol_port?: string | null; active?: boolean; free_time_days?: number; created_at?: string; updated_at?: string }
-        Update: { id?: string; code?: string; name?: string | null; pol_port?: string | null; active?: boolean; free_time_days?: number; created_at?: string; updated_at?: string }
+        Row: { id: string; code: string; name: string | null; tipo: string; active: boolean; free_time_vazio_days: number; free_time_material_days: number; created_at: string; updated_at: string; pol_port?: string | null; free_time_days?: number }
+        Insert: { id?: string; code: string; name?: string | null; tipo?: string; active?: boolean; free_time_vazio_days?: number; free_time_material_days?: number; created_at?: string; updated_at?: string; pol_port?: string | null; free_time_days?: number }
+        Update: { id?: string; code?: string; name?: string | null; tipo?: string; active?: boolean; free_time_vazio_days?: number; free_time_material_days?: number; updated_at?: string; pol_port?: string | null; free_time_days?: number }
         Relationships: []
       }
       depot_services: {
-        Row: { id: string; depot_id: string; name: string; calc_type: string; rate_brl: number; subject_to_overtime: boolean; active: boolean; valid_from: string; valid_to: string | null; created_at: string }
-        Insert: { id?: string; depot_id: string; name: string; calc_type: string; rate_brl?: number; subject_to_overtime?: boolean; active?: boolean; valid_from: string; valid_to?: string | null; created_at?: string }
-        Update: { id?: string; depot_id?: string; name?: string; calc_type?: string; rate_brl?: number; subject_to_overtime?: boolean; active?: boolean; valid_from?: string; valid_to?: string | null; created_at?: string }
+        Row: { id: string; depot_id: string; name: string; natureza: string; container_type: string | null; route_destino_id: string | null; condition: string | null; rate_brl: number; active: boolean; created_at: string; calc_type?: string; subject_to_overtime?: boolean; valid_from?: string; valid_to?: string | null }
+        Insert: { id?: string; depot_id: string; name: string; natureza?: string; container_type?: string | null; route_destino_id?: string | null; condition?: string | null; rate_brl?: number; active?: boolean; created_at?: string; calc_type?: string; subject_to_overtime?: boolean; valid_from?: string; valid_to?: string | null }
+        Update: { id?: string; depot_id?: string; name?: string; natureza?: string; container_type?: string | null; route_destino_id?: string | null; condition?: string | null; rate_brl?: number; active?: boolean; calc_type?: string; subject_to_overtime?: boolean; valid_from?: string; valid_to?: string | null }
         Relationships: [{ foreignKeyName: 'depot_services_depot_id_fkey'; columns: ['depot_id']; referencedRelation: 'depots'; referencedColumns: ['id'] }]
+      }
+      vazios_export_service_lines: {
+        Row: { id: string; operation_id: string; service_id: string; local_id: string; destino_id: string | null; container_type: string | null; condition: string | null; quantidade: number; percentual: number | null; valor_unitario: number; valor_sugerido: number | null; quantidade_manual: boolean; created_at: string; updated_at: string }
+        Insert: { id?: string; operation_id: string; service_id: string; local_id: string; destino_id?: string | null; container_type?: string | null; condition?: string | null; quantidade?: number; percentual?: number | null; valor_unitario?: number; valor_sugerido?: number | null; quantidade_manual?: boolean; created_at?: string; updated_at?: string }
+        Update: { id?: string; operation_id?: string; service_id?: string; local_id?: string; destino_id?: string | null; container_type?: string | null; condition?: string | null; quantidade?: number; percentual?: number | null; valor_unitario?: number; valor_sugerido?: number | null; quantidade_manual?: boolean; updated_at?: string }
+        Relationships: [
+          { foreignKeyName: 'vazios_export_service_lines_operation_id_fkey'; columns: ['operation_id']; referencedRelation: 'vazios_export_operations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'vazios_export_service_lines_service_id_fkey'; columns: ['service_id']; referencedRelation: 'depot_services'; referencedColumns: ['id'] },
+          { foreignKeyName: 'vazios_export_service_lines_local_id_fkey'; columns: ['local_id']; referencedRelation: 'depots'; referencedColumns: ['id'] },
+          { foreignKeyName: 'vazios_export_service_lines_destino_id_fkey'; columns: ['destino_id']; referencedRelation: 'depots'; referencedColumns: ['id'] },
+        ]
       }
       vazios_operation_service_qty: {
         Row: { operation_id: string; depot_service_id: string; qty: number }
         Insert: { operation_id: string; depot_service_id: string; qty?: number }
         Update: { operation_id?: string; depot_service_id?: string; qty?: number }
-        Relationships: [
-          { foreignKeyName: 'vazios_operation_service_qty_operation_id_fkey'; columns: ['operation_id']; referencedRelation: 'vazios_export_operations'; referencedColumns: ['id'] },
-          { foreignKeyName: 'vazios_operation_service_qty_depot_service_id_fkey'; columns: ['depot_service_id']; referencedRelation: 'depot_services'; referencedColumns: ['id'] },
-        ]
+        Relationships: []
       }
       vehicles: {
         Row: {
@@ -5267,7 +5270,7 @@ export type GraniteBlCharge = Tables<'granite_bl_charges'>
 export type VaziosManifest = Tables<'vazios_manifests'>
 export type VaziosBooking = Tables<'vazios_bookings'>
 export type VaziosExportOperation = Tables<'vazios_export_operations'>
-export type VaziosOperationServiceQty = Tables<'vazios_operation_service_qty'>
+export type VaziosExportServiceLine = Tables<'vazios_export_service_lines'>
 export type Depot = Tables<'depots'>
 export type DepotService = Tables<'depot_services'>
 export type AgencyDepartureReport = Tables<'agency_departure_reports'>

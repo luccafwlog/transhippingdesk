@@ -2,19 +2,19 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/232_import_vazios_upsert.sql'), 'utf8')
+const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/238_embarque_vazios_unidades.sql'), 'utf8')
 
-describe('RPC de importacao por container', () => {
-  it('declara todos os campos e faz upsert pela identidade operacional', () => {
-    expect(sql).toContain('ON CONFLICT (voyage_id, container_number) DO UPDATE')
+describe('RPC de importacao por substituicao total', () => {
+  it('apaga a lista anterior e insere a nova dentro da mesma RPC', () => {
+    expect(sql).toContain('DELETE FROM public.vazios_bookings')
+    expect(sql).toContain('INSERT INTO public.vazios_bookings')
+    expect(sql).toContain('RETURNS JSONB')
     expect(sql).toContain('jsonb_to_recordset')
-    expect(sql).toContain('overtime_handling_pct')
-    expect(sql).toContain('resolved_depot_id')
+    expect(sql).toContain('local_id')
     expect(sql).toContain('vazios_manifests')
   })
 
   it('dedupe container repetido no mesmo lote antes do upsert', () => {
-    expect(sql).toContain('DISTINCT ON (container_number)')
-    expect(sql).toContain('WITH ORDINALITY')
+    expect(sql).toContain('DISTINCT ON (upper(btrim(container_number)))')
   })
 })

@@ -15,7 +15,6 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
-| [Embarque de Vazios: modelo manual](2026-07-28-embarque-vazios-modelo-manual.md) | [ADR 0033](../adr/0033-embarque-vazios-unidades-importadas-servicos-lancados.md) | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
