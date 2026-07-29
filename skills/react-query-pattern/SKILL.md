@@ -53,6 +53,24 @@ Keep form and modal state outside React Query.
 
 Prefer `src/services/queryKeys.ts`.
 
+### Invalidação: declare o evento, não a chave
+
+Para ler cache, use `queryKeys`. Para invalidar depois de uma mutação, use
+`src/services/cacheEffects.ts`: a interface são eventos de domínio, não chaves.
+
+```ts
+await afterViagemAlterada(queryClient, { voyageId })
+await afterEscalaAlterada(queryClient, { voyageId })
+await afterRotaAlterada(queryClient, { voyageId })
+await afterBaplieImportado(queryClient, { voyageId })
+await afterBlRevisado(queryClient, { blId })
+```
+
+Não escreva `invalidateQueries({ queryKey: ['voyages'] })` em página ou
+componente. A lista de chaves de um evento mora em `cacheEffects.ts`; se um
+evento ainda não existir, crie-o com teste em
+`src/services/__tests__/cacheEffects.test.ts`.
+
 - arrays only;
 - stable entity prefix first;
 - IDs before filter objects;

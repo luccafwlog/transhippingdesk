@@ -897,6 +897,11 @@ A interface usa `can(permission)` para orientar e ocultar ações, mas a
 autoridade real está em RLS, RPCs e Edge Functions, que devem rejeitar chamadas
 indevidas feitas diretamente à API.
 
+O lado do frontend que lê essa recusa é `classifyDbError` em
+`src/lib/errors.ts`: uma tabela de códigos Postgres/PostgREST para `kind` e
+mensagem em português. É o único lugar do app que decide o que o operador vê
+quando o banco nega, sem deixar `details` ou `hint` chegarem à tela.
+
 **Teste de isolamento por CNPJ**
 Gate de segurança do piloto que tenta acessar e alterar, por chamadas diretas à
 API, dados de outro Cliente/CNPJ. A interface ocultar a ação não é suficiente:

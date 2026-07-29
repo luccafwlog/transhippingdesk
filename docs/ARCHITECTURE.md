@@ -102,9 +102,12 @@ rota tem um orçamento de **50 ms** de parse/compile de JS, verificável por
 - `src/pages/`: composição de rotas, estado visual e fluxos de tela;
 - `src/hooks/`: queries e mutations reutilizáveis com TanStack Query;
 - `src/services/`: acesso ao Supabase, parsers, importadores e domínio;
+- `src/services/cacheEffects.ts`: seam de invalidação de cache por eventos de domínio (`afterViagemAlterada`, `afterEscalaAlterada`, `afterRotaAlterada`, `afterBaplieImportado`, `afterBlRevisado`, `afterManifestoImportado`); os adapters históricos permanecem atrás dele;
+- `src/services/importCore.ts`: leitor único de planilhas por `readSheet` e casamento de cabeçalhos por `HeaderSpec`/`matchHeaders`;
 - `src/components/ui/`: primitivas visuais;
 - `src/components/shared/`: componentes reutilizados por módulos;
 - `src/lib/`: utilitários puros, datas, status, PIX e telemetria;
+- `src/lib/errors.ts`: `extractErrorText` e `classifyDbError` (`permissao`, `sessao_expirada`, `conflito`, `limite`, `validacao`, `nao_encontrado`, `desconhecido`); `portalErrorMessage.ts` é seu adapter do Portal;
 - `src/types/database.ts`: tipos gerados e complementos tipados do banco.
 
 ### Como rastrear uma interação
