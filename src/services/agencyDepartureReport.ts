@@ -340,8 +340,8 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const vehicles = (vehiclesRes.data ?? []) as unknown as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
     container: { unpacking_location: string | null } | null
   }>
-  const allDepots = await listDepots()
   const operation = operationRes.data as VaziosExportOperation | null
+  const allDepots = operation ? await listDepots() : []
   const emptyOperationResult = { data: [], error: null }
   const vaziosExpRes = operation
     ? await supabase.from('vazios_bookings').select('*').eq('operation_id', operation.id)

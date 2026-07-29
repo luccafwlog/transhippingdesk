@@ -106,6 +106,7 @@ describe('getAgencyReportDerivedData', () => {
 
     expect(fromMock).not.toHaveBeenCalledWith('vazios_bookings')
     expect(fromMock).not.toHaveBeenCalledWith('vazios_export_service_lines')
+    expect(fromMock).not.toHaveBeenCalledWith('depots')
   })
 
   it('resolve o local das unidades sem depender do relacionamento embutido do PostgREST', async () => {
