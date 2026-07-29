@@ -4,6 +4,7 @@ import type {
   UserProfileRole,
   VaziosBooking,
   VaziosExportOperation,
+  VaziosExportServiceLine,
   VaziosImportacaoContainer,
   Vehicle,
   Json,
@@ -11,8 +12,8 @@ import type {
 import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepartmentSignoff, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
-import { listCurrentDepotServices, listDepots } from './depots'
-import { computeOperationTotals } from './vaziosCusto'
+import { listDepots } from './depots'
+import { totalEmbarque } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
 
 export type AgencyReportSection =
@@ -306,7 +307,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .from('vazios_bookings')
       .select('*, manifest:vazios_manifests!inner(voyage_id)')
       .eq('manifest.voyage_id', voyageId)
-      .eq('embark_port', port),
+      ,
     supabase
       .from('vazios_importacao_containers')
       .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
@@ -324,7 +325,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('pod', port),
     supabase
       .from('vazios_export_operations')
-      .select('*, service_qty:vazios_operation_service_qty(depot_service_id, qty, service:depot_services(name))')
+      .select('*, linhas:vazios_export_service_lines(*, service:depot_services(*), local:depots(*), destino:depots!vazios_export_service_lines_destino_id_fkey(*))')
       .eq('voyage_id', voyageId)
       .eq('embark_port', port)
       .maybeSingle(),
@@ -348,13 +349,11 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const containers = (containersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
-  const operation = operationRes.data as (VaziosExportOperation & { service_qty: Array<{ depot_service_id: string; qty: number; service: { name: string } | null }> }) | null
-  const depotIds = [...new Set(vaziosExp.map((booking) => booking.depot_id).filter((id): id is string => Boolean(id)))]
+  const operation = operationRes.data as (VaziosExportOperation & { linhas: Array<VaziosExportServiceLine & { service: { name: string; natureza: string } | null; local: { code: string; name: string | null } | null; destino: { code: string; name: string | null } | null }> }) | null
   const allDepots = await listDepots()
-  const depotEntries = depotIds.map((depotId) => [depotId, allDepots.find((depot) => depot.id === depotId) ?? null] as const)
-  const depotServices = (await Promise.all(depotIds.map((depotId) => listCurrentDepotServices(depotId)))).flat()
-  const quantities = new Map((operation?.service_qty ?? []).map((row) => [row.depot_service_id, row.qty]))
-  const costs = computeOperationTotals(vaziosExp, new Map(depotEntries), depotServices, quantities)
+  const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
+  const serviceLines = (operation?.linhas ?? []).map((row) => ({ ...row, natureza: row.service?.natureza ?? 'geral', local_id: row.local_id, quantidade: Number(row.quantidade), valor_unitario: Number(row.valor_unitario) }))
+  const costs = { rows: [], qtyTotal: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
 
   return {
     schedule: schedules.get(entityId) ?? null,
@@ -365,7 +364,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     containers,
     operation,
     costs,
-    storage: computeStorageTotals(vaziosExp),
+    storage: computeStorageTotals(vaziosExp, allDepots),
     cargaSolta: {
       bls: breakbulk.length,
       machines: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0),

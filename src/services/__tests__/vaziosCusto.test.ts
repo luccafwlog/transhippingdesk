@@ -1,48 +1,48 @@
 import { describe, expect, it } from 'vitest'
-import { computeContainerCost, computeOperationTotals, type CostContainer, type CostDepot, type PricedService } from '../vaziosCusto'
+import { armazenagemPorDepotCondicao, diasCobraveis, totalEmbarque, totalLinha, veto } from '../vaziosCusto'
 
-const depot: CostDepot = { id: 'd1', free_time_days: 2 }
-const services: PricedService[] = [
-  { id: 's1', depot_id: 'd1', name: 'Handling', calc_type: 'fixo_por_container', rate_brl: 100, subject_to_overtime: true, active: true, valid_from: '2026-01-01', valid_to: null },
-  { id: 's2', depot_id: 'd1', name: 'Transporte', calc_type: 'fixo_por_container', rate_brl: 50, subject_to_overtime: false, active: true, valid_from: '2026-01-01', valid_to: null },
-  { id: 's3', depot_id: 'd1', name: 'Storage', calc_type: 'storage_por_dias', rate_brl: 10, subject_to_overtime: false, active: true, valid_from: '2026-01-01', valid_to: null },
-  { id: 's4', depot_id: 'd1', name: 'Reorganização', calc_type: 'quantidade', rate_brl: 30, subject_to_overtime: false, active: true, valid_from: '2026-01-01', valid_to: null },
+const depots = [
+  { id: 'd1', tipo: 'depot' as const, free_time_vazio_days: 2, free_time_material_days: 1 },
+  { id: 'd2', tipo: 'depot' as const, free_time_vazio_days: 0, free_time_material_days: 3 },
+  { id: 'tvv', tipo: 'terminal_portuario' as const, free_time_vazio_days: 0, free_time_material_days: 0 },
 ]
-const on = '2026-01-10'
+const units = [
+  { container_number: 'ABCD1234567', local_id: 'd1', condition: 'vazio' as const, hand_in_date: '2026-07-01', hand_out_date: '2026-07-05' },
+  { container_number: 'EFGH1234567', local_id: 'd1', condition: 'material' as const, hand_in_date: '2026-07-01', hand_out_date: '2026-07-04' },
+  { container_number: 'IJKL1234567', local_id: 'd2', condition: 'vazio' as const, hand_in_date: '2026-07-01', hand_out_date: '2026-07-03' },
+  { container_number: 'MNOP1234567', local_id: 'tvv', condition: 'vazio' as const, hand_in_date: null, hand_out_date: null },
+]
 
-describe('computeContainerCost', () => {
-  it('soma fixos, storage além do free time e overtime dos serviços marcados', () => {
-    const container: CostContainer = { container_number: 'ABCD1234567', depot_id: 'd1', hand_in_date: '2026-01-01', hand_out_date: '2026-01-06', overtime_pct: 10 }
-    const cost = computeContainerCost(container, depot, services, on)
-    expect(cost.fixed).toBe(150); expect(cost.storage).toBe(30); expect(cost.overtime).toBe(10); expect(cost.total).toBe(190)
-  })
-  it('sem depot resolve zero', () => expect(computeContainerCost({ container_number: 'X', depot_id: null }, depot, services, on).total).toBe(0))
-  it('storage nunca negativo dentro do free time', () => expect(computeContainerCost({ container_number: 'C', depot_id: 'd1', hand_in_date: '2026-01-01', hand_out_date: '2026-01-02', overtime_pct: 0 }, depot, services, on).storage).toBe(0))
-
-  it('ignora serviço inativo', () => {
-    const inativo: PricedService[] = [{ ...services[0], active: false }]
-    const cost = computeContainerCost({ container_number: 'C', depot_id: 'd1' }, depot, inativo, on)
-    expect(cost.fixed).toBe(0)
+describe('motor de custo do Embarque de Vazios', () => {
+  it('desconta free time por condição', () => {
+    expect(diasCobraveis(units[0], depots[0])).toBe(2)
+    expect(diasCobraveis(units[1], depots[0])).toBe(2)
+    expect(diasCobraveis(units[3], depots[2])).toBe(0)
   })
 
-  it('ignora serviço fora da vigência', () => {
-    const futuro: PricedService[] = [{ ...services[0], valid_from: '2026-02-01' }]
-    const encerrado: PricedService[] = [{ ...services[0], valid_to: '2026-01-05' }]
-    expect(computeContainerCost({ container_number: 'C', depot_id: 'd1' }, depot, futuro, on).fixed).toBe(0)
-    expect(computeContainerCost({ container_number: 'C', depot_id: 'd1' }, depot, encerrado, on).fixed).toBe(0)
-  })
-})
-
-describe('computeOperationTotals', () => {
-  it('inclui quantidade por serviço', () => {
-    const container: CostContainer = { container_number: 'C', depot_id: 'd1', hand_in_date: '2026-01-01', hand_out_date: '2026-01-04', overtime_pct: 0 }
-    const totals = computeOperationTotals([container], new Map([['d1', depot]]), services, new Map([['s4', 2]]), on)
-    expect(totals.qtyTotal).toBe(60); expect(totals.total).toBe(220)
+  it('agrupa armazenagem por depot e condição', () => {
+    expect(armazenagemPorDepotCondicao(units, depots)).toEqual([
+      { depot_id: 'd1', condition: 'vazio', quantidade: 2 },
+      { depot_id: 'd1', condition: 'material', quantidade: 2 },
+      { depot_id: 'd2', condition: 'vazio', quantidade: 2 },
+    ])
   })
 
-  it('não soma quantidade de serviço fora da vigência', () => {
-    const encerrado: PricedService[] = [{ ...services[3], valid_to: '2026-01-05' }]
-    const totals = computeOperationTotals([], new Map(), encerrado, new Map([['s4', 2]]), on)
-    expect(totals.qtyTotal).toBe(0)
+  it('calcula linhas, percentual e total do embarque', () => {
+    const linhas = [
+      { natureza: 'armazenagem', local_id: 'd1', condition: 'vazio', quantidade: 0, percentual: null, valor_unitario: 10 },
+      { natureza: 'geral', local_id: 'tvv', quantidade: 2, percentual: 50, valor_unitario: 100 },
+    ] as const
+    expect(totalLinha(linhas[0], units, depots)).toBe(20)
+    expect(totalLinha(linhas[1], units, depots)).toBe(100)
+    expect(totalEmbarque({ unidades: units, linhas: [...linhas], depots })).toBe(120)
+  })
+
+  it('veta transporte sem rota, armazenagem fora de depot, duplicata e percentual inválido', () => {
+    expect(veto({ natureza: 'transporte', local_id: 'd1', destino_id: null, quantidade: 1, percentual: 100, valor_unitario: 1 })).toContain('rota')
+    expect(veto({ natureza: 'armazenagem', local_id: 'tvv', condition: 'vazio', quantidade: 1, percentual: null, valor_unitario: 1 }, { depots })).toContain('depot')
+    const first = { natureza: 'armazenagem', local_id: 'd1', condition: 'vazio', quantidade: 1, percentual: null, valor_unitario: 1 }
+    expect(veto(first, { depots, lines: [first, { ...first }] })).toContain('Já existe')
+    expect(veto({ natureza: 'geral', local_id: 'd1', quantidade: 1, percentual: 75, valor_unitario: 1 })).toContain('50 ou 100')
   })
 })

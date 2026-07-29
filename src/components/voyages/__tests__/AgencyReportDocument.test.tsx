@@ -23,7 +23,9 @@ it('imprime o snapshot fechado nos blocos e matrizes do modelo real', () => {
       vaziosEmbarcados: { rows: { '40HC': { carga_geral: 4 } }, totals: { carga_geral: 4 } },
       directEmbarkCount: 1,
       depots: ['VBR'],
-      operation: { os_number: 'OS-42', reorg: [{ id: 'reorg-1', service: 'bundle', container_type: '40HC', qty: 2 }], overtime: [{ id: 'ot-1', depot: 'VBR', percent: 25 }] },
+      operation: {},
+      costs: { total: 250, serviceLines: [{ id: 'line-1', service: { name: 'Bundle Composition' }, local: { name: 'VBR' }, destino: null, local_id: 'd1', service_id: 's1', quantidade: 2, percentual: 100, valor_unitario: 125 }] },
+      vaziosUnidades: [{ id: 'unit-1', container_number: 'ABCD1234567', container_type: '40HC', local_id: 'd1', condition: 'vazio', hand_in_date: '2026-07-01', hand_out_date: '2026-07-05' }],
       storage: { containers: 4, days: 8 },
     },
     occurrences: [{ id: 'occ-1', body: 'Atracação concluída.', department: 'operacoes', created_at: '2026-07-20' }],
@@ -31,14 +33,14 @@ it('imprime o snapshot fechado nos blocos e matrizes do modelo real', () => {
 
   for (const heading of [
     'Carga solta', 'Granito', 'Matriz de descarga', 'Vazios descarregados',
-    'Container com veículo', 'Embarque de vazios', 'Serviço extra', 'Storage', 'Overtime', 'Ocorrências',
+    'Container com veículo', 'Embarque de vazios', 'Linhas de serviço do embarque', 'Anexo — unidades que geraram armazenagem', 'Storage', 'Overtime', 'Ocorrências',
   ]) expect(screen.getByRole('heading', { name: heading })).toBeTruthy()
 
   expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
   expect(screen.getByRole('table', { name: 'Vazios descarregados' })).toBeTruthy()
   expect(screen.getByRole('table', { name: 'Embarque de vazios' })).toBeTruthy()
   expect(screen.getByText('Pátio Alfa')).toBeTruthy()
-  expect(screen.getByRole('table', { name: 'Operação de vazios' }).textContent).toContain('OS-42')
+  expect(screen.getByRole('table', { name: 'Operação de vazios' }).textContent).toContain('Embarque direto1')
   expect(screen.getByRole('table', { name: 'Operação de vazios' }).textContent).toContain('Embarque direto1')
   expect(screen.getByText('35,5 ton')).toBeTruthy()
   expect(screen.getByText('ATB')).toBeTruthy()

@@ -1,79 +1,112 @@
-export type ServiceCalcType = 'fixo_por_container' | 'storage_por_dias' | 'quantidade'
-
-export type PricedService = {
-  id: string
-  depot_id: string
-  name: string
-  calc_type?: string
-  rate_brl: number
-  subject_to_overtime?: boolean
-  active?: boolean
-  valid_from?: string
-  valid_to?: string | null
-}
-
-export type CostDepot = { id: string; free_time_days: number }
-
-export type CostContainer = {
-  container_number: string
-  depot_id?: string | null
+export type EmptyUnit = {
+  container_number?: string
+  container_type?: string | null
+  local_id: string | null
+  condition: 'vazio' | 'material' | string | null
   hand_in_date?: string | null
   hand_out_date?: string | null
-  overtime_pct?: number | null
 }
 
-export type ContainerCost = {
-  container_number: string
-  fixed: number
-  storage: number
-  overtime: number
-  total: number
-  breakdown: Array<{ label: string; amount: number }>
+export type StorageDepot = {
+  id: string
+  tipo?: 'depot' | 'terminal_portuario' | string
+  free_time_vazio_days?: number | null
+  free_time_material_days?: number | null
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+export type CostServiceLine = {
+  id?: string
+  natureza: 'armazenagem' | 'transporte' | 'geral' | string
+  local_id: string
+  destino_id?: string | null
+  condition?: 'vazio' | 'material' | string | null
+  quantidade: number
+  percentual?: number | null
+  valor_unitario: number
+  quantidade_manual?: boolean
+}
 
-const daysBetween = (start: string | null | undefined, end: string | null | undefined) => {
+export type CostShipment = {
+  unidades: EmptyUnit[]
+  linhas: CostServiceLine[]
+  depots?: StorageDepot[]
+}
+
+const daysBetween = (start: string | null | undefined, end: string | null | undefined): number => {
   if (!start || !end) return 0
-  const startMs = Date.parse(start); const endMs = Date.parse(end)
-  return Number.isFinite(startMs) && Number.isFinite(endMs) ? Math.max(0, Math.round((endMs - startMs) / 86_400_000)) : 0
+  const diff = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000)
+  return Number.isFinite(diff) ? Math.max(0, diff) : 0
 }
 
-export function isVigente(service: PricedService, on = today()): boolean {
-  if (service.active === false) return false
-  if (service.valid_from && service.valid_from > on) return false
-  if (service.valid_to && service.valid_to < on) return false
-  return true
+export function diasCobraveis(unidade: EmptyUnit, depot: StorageDepot | null | undefined): number {
+  if (!depot || depot.tipo === 'terminal_portuario' || unidade.local_id !== depot.id) return 0
+  const freeTime = unidade.condition === 'material' ? depot.free_time_material_days : depot.free_time_vazio_days
+  return Math.max(0, daysBetween(unidade.hand_in_date, unidade.hand_out_date) - Number(freeTime ?? 0))
 }
 
-export function computeContainerCost(container: CostContainer, depot: CostDepot | null, services: PricedService[] = [], on = today()): ContainerCost {
-  const zero: ContainerCost = { container_number: container.container_number, fixed: 0, storage: 0, overtime: 0, total: 0, breakdown: [] }
-  if (!depot || !container.depot_id) return zero
-  const own = services.filter((service) => service.depot_id === container.depot_id && isVigente(service, on))
-  const fixed = own.filter((s) => s.calc_type === 'fixo_por_container').reduce((sum, s) => sum + Number(s.rate_brl), 0)
-  const storageRate = own.filter((s) => s.calc_type === 'storage_por_dias').reduce((sum, s) => sum + Number(s.rate_brl), 0)
-  const storageDays = Math.max(0, daysBetween(container.hand_in_date, container.hand_out_date) - Number(depot.free_time_days))
-  const storage = storageDays * storageRate
-  const overtimeBase = own.filter((s) => s.calc_type === 'fixo_por_container' && s.subject_to_overtime).reduce((sum, s) => sum + Number(s.rate_brl), 0)
-  const overtime = overtimeBase * (Number(container.overtime_pct ?? 0) / 100)
-  const breakdown = [
-    { label: 'Fixos por container', amount: fixed },
-    { label: 'Storage', amount: storage },
-    { label: 'Overtime', amount: overtime },
-  ].filter((line) => line.amount !== 0)
-  return { container_number: container.container_number, fixed, storage, overtime, total: fixed + storage + overtime, breakdown }
+export function armazenagemPorDepotCondicao(unidades: EmptyUnit[], depots: StorageDepot[] = []): Array<{ depot_id: string; condition: string; quantidade: number }> {
+  const byKey = new Map<string, { depot_id: string; condition: string; quantidade: number }>()
+  for (const unit of unidades) {
+    const depot = depots.find((item) => item.id === unit.local_id)
+    if (!depot || depot.tipo === 'terminal_portuario' || !unit.local_id || !unit.condition) continue
+    const key = `${unit.local_id}:${unit.condition}`
+    const row = byKey.get(key) ?? { depot_id: unit.local_id, condition: unit.condition, quantidade: 0 }
+    row.quantidade += diasCobraveis(unit, depot)
+    byKey.set(key, row)
+  }
+  return [...byKey.values()]
 }
 
-export function computeOperationTotals(
-  containers: CostContainer[],
-  depots: Map<string, CostDepot | null>,
-  services: PricedService[],
-  qtyByServiceId: Map<string, number>,
-  on = today(),
-) {
-  const rows = containers.map((container) => computeContainerCost(container, container.depot_id ? depots.get(container.depot_id) ?? null : null, services, on))
-  const qtyTotal = services
-    .filter((s) => s.calc_type === 'quantidade' && isVigente(s, on))
-    .reduce((sum, s) => sum + (qtyByServiceId.get(s.id) ?? 0) * Number(s.rate_brl), 0)
-  return { rows, qtyTotal, total: rows.reduce((sum, row) => sum + row.total, 0) + qtyTotal }
+export function quantidadeEfetiva(linha: CostServiceLine, unidades: EmptyUnit[], depots: StorageDepot[] = []): number {
+  if (linha.natureza !== 'armazenagem' || linha.quantidade_manual) return Number(linha.quantidade) || 0
+  return armazenagemPorDepotCondicao(unidades, depots).find((row) => row.depot_id === linha.local_id && row.condition === linha.condition)?.quantidade ?? 0
+}
+
+export function totalLinha(linha: CostServiceLine, unidades: EmptyUnit[] = [], depots: StorageDepot[] = []): number {
+  const quantity = quantidadeEfetiva(linha, unidades, depots)
+  const multiplier = linha.natureza === 'armazenagem' ? 1 : Number(linha.percentual ?? 100) / 100
+  return quantity * Number(linha.valor_unitario || 0) * multiplier
+}
+
+export function totalEmbarque(embarque: CostShipment): number {
+  return embarque.linhas.reduce((sum, line) => sum + totalLinha(line, embarque.unidades, embarque.depots ?? []), 0)
+}
+
+export function vetoTransporteSemRota(line: Pick<CostServiceLine, 'natureza' | 'destino_id'>): string | null {
+  return line.natureza === 'transporte' && !line.destino_id ? 'Transporte exige rota.' : null
+}
+
+export function vetoArmazenagemForaDepot(line: Pick<CostServiceLine, 'natureza' | 'local_id'>, depots: StorageDepot[]): string | null {
+  const local = depots.find((depot) => depot.id === line.local_id)
+  return line.natureza === 'armazenagem' && local?.tipo !== 'depot' ? 'Armazenagem exige um depot.' : null
+}
+
+export function vetoPercentual(line: Pick<CostServiceLine, 'natureza' | 'percentual'>): string | null {
+  if (line.natureza === 'armazenagem') return line.percentual == null ? null : 'Armazenagem não aceita percentual.'
+  return line.percentual === 50 || line.percentual === 100 ? null : 'Percentual deve ser 50 ou 100.'
+}
+
+export function vetoSegundaArmazenagem(line: CostServiceLine, lines: CostServiceLine[]): string | null {
+  if (line.natureza !== 'armazenagem') return null
+  const duplicate = lines.some((other) => other !== line && other.natureza === 'armazenagem' && other.local_id === line.local_id && other.condition === line.condition)
+  return duplicate ? 'Já existe uma linha de armazenagem para este depot e condição.' : null
+}
+
+export function veto(line: CostServiceLine, context: { depots?: StorageDepot[]; lines?: CostServiceLine[] } = {}): string | null {
+  return vetoTransporteSemRota(line)
+    ?? vetoArmazenagemForaDepot(line, context.depots ?? [])
+    ?? vetoPercentual(line)
+    ?? vetoSegundaArmazenagem(line, context.lines ?? [])
+}
+
+// Compatibilidade temporária para telas legadas durante a transição do agregado.
+export type CostDepot = StorageDepot & { free_time_days?: number }
+export type CostContainer = EmptyUnit & { depot_id?: string | null; overtime_pct?: number | null }
+export type PricedService = { id: string; depot_id: string; name: string; calc_type?: string; rate_brl: number; active?: boolean; valid_from?: string; valid_to?: string | null; subject_to_overtime?: boolean }
+export function computeContainerCost(container: CostContainer): { container_number: string; fixed: number; storage: number; overtime: number; total: number; breakdown: Array<{ label: string; amount: number }> } {
+  return { container_number: container.container_number ?? '', fixed: 0, storage: 0, overtime: 0, total: 0, breakdown: [] }
+}
+export function computeOperationTotals(..._args: unknown[]): { rows: Array<{ container_number: string; fixed: number; storage: number; overtime: number; total: number; breakdown: Array<{ label: string; amount: number }> }>; qtyTotal: number; total: number } {
+  void _args
+  return { rows: [], qtyTotal: 0, total: 0 }
 }

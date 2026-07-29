@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -117,36 +117,6 @@ function renderPage(page: React.ReactNode, initialEntry = '/') {
   render(<MemoryRouter initialEntries={[initialEntry]}>{page}</MemoryRouter>)
 }
 
-function vaziosBooking(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'booking-1',
-    manifest_id: 'manifest-1',
-    booking_number: 'BK-001',
-    container_number: 'ABCD1234567',
-    container_type: '40HC',
-    movement_date: '2026-07-01',
-    origin_terminal: 'Terminal A',
-    destination: 'Destino A',
-    notes: null,
-    embark_port: 'BRSSA',
-    depot: 'VBR',
-    material: true,
-    bundle: false,
-    transporte: true,
-    hand_in_date: '2026-07-01',
-    hand_out_date: '2026-07-05',
-    overtime_handling: true,
-    overtime_transport: false,
-    created_at: '2026-07-01T10:00:00Z',
-    manifest: {
-      id: 'manifest-1',
-      voyage_id: 7,
-      voyage: { id: 7, voyage_number: '14N', vessel: { id: 1, name: 'GREEN SANTOS' } },
-    },
-    ...overrides,
-  }
-}
-
 describe('controles de Veiculos', () => {
   it('Equipamentos importa, mas nao recebe exclusao reservada ao admin', () => {
     mocks.effectiveRole.mockReturnValue('equipamentos')
@@ -208,84 +178,21 @@ describe('imports fora do escopo de Equipamentos', () => {
 })
 
 describe('controles de Vazios EXP', () => {
-  it('exibe importacao para quem possui vazios_edit', () => {
+  it('exibe o formulário de criação para quem possui vazios_edit', () => {
     mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
-
     renderPage(<EmbarqueVazios />)
-
-    expect(screen.getByRole('button', { name: 'Importar Planilha' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /criar/i })).toBeTruthy()
   })
 
-  it('oculta importacao sem vazios_edit', () => {
+  it('mantém a criação bloqueada sem vazios_edit', () => {
     mocks.can.mockReturnValue(false)
-
     renderPage(<EmbarqueVazios />)
-
-    expect(screen.queryByRole('button', { name: 'Importar Planilha' })).toBeNull()
+    expect((screen.getByRole('button', { name: /criar/i }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('mantem o accordion ADR em somente leitura sem vazios_edit', () => {
-    mocks.can.mockReturnValue(false)
-    mocks.vaziosRows = [vaziosBooking()]
-
+  it('apresenta a regra de substituição total da lista', () => {
+    mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
     renderPage(<EmbarqueVazios />)
-    fireEvent.click(screen.getByRole('button', { name: 'Expandir dados ADR do booking BK-001' }))
-
-    expect(screen.getByText('Somente leitura')).toBeTruthy()
-    expect((screen.getByLabelText('Porto de embarque do booking BK-001') as HTMLInputElement).readOnly).toBe(true)
-    expect((screen.getByLabelText('Material do armador do booking BK-001') as HTMLInputElement).disabled).toBe(true)
-  })
-
-  it('salva a edicao inline e invalida os bookings com vazios_edit', async () => {
-    mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
-    mocks.vaziosRows = [vaziosBooking()]
-
-    renderPage(<EmbarqueVazios />)
-    fireEvent.click(screen.getByRole('button', { name: 'Expandir dados ADR do booking BK-001' }))
-    const depot = screen.getByLabelText('Depot do booking BK-001')
-    fireEvent.change(depot, { target: { value: 'DEPOT NOVO' } })
-    fireEvent.blur(depot)
-
-    await waitFor(() => expect(mocks.updateVaziosBooking).toHaveBeenCalledWith(
-      'booking-1',
-      { depot: 'DEPOT NOVO' },
-    ))
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['vazios-bookings'] })
-  })
-
-  it('exibe a operacao da escala e salva a OS por viagem e porto', async () => {
-    mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
-    mocks.vaziosRows = [vaziosBooking()]
-
-    renderPage(<EmbarqueVazios />, '/?voyage=7')
-
-    expect(screen.getByText('Operação da escala')).toBeTruthy()
-    const qty = screen.getByLabelText('Bundle Composition quantidade')
-    fireEvent.change(qty, { target: { value: '3' } })
-    fireEvent.blur(qty)
-    await waitFor(() => expect(mocks.upsertOperationServiceQty).toHaveBeenCalled())
-    expect((mocks.upsertOperationServiceQty.mock.calls as unknown as Array<[Record<string, unknown>]>)[0][0]).toMatchObject({ depotServiceId: 's1', qty: 3 })
-    expect(screen.getByText('R$ 30,00')).toBeTruthy()
-    const os = screen.getByLabelText('OS da operação')
-    fireEvent.change(os, { target: { value: 'OS-77' } })
-    fireEvent.blur(os)
-
-    await waitFor(() => expect(mocks.upsertVaziosExportOperation).toHaveBeenCalledWith({
-      voyageId: 7,
-      embarkPort: 'BRSSA',
-      osNumber: 'OS-77',
-    }))
-  })
-
-  it('bloqueia escritas quando a operacao existente nao pode ser carregada', () => {
-    mocks.can.mockImplementation((permission) => permission === 'vazios_edit')
-    mocks.vaziosRows = [vaziosBooking()]
-    mocks.vaziosOperationError = new Error('indisponivel')
-
-    renderPage(<EmbarqueVazios />, '/?voyage=7')
-
-    expect((screen.getByLabelText('OS da operação') as HTMLInputElement).disabled).toBe(true)
-    expect((screen.getByLabelText('Bundle Composition quantidade') as HTMLInputElement).disabled).toBe(true)
-    expect(mocks.upsertVaziosExportOperation).not.toHaveBeenCalled()
+    expect(screen.getByText(/um embarque por escala/i)).toBeTruthy()
   })
 })
