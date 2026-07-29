@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const rpcMock = vi.hoisted(() => vi.fn());
 vi.mock("../supabase", () => ({ supabase: { rpc: rpcMock } }));
 
-import { createManualVaziosBooking } from "../vaziosExportOperations";
+import { createManualVaziosBooking, deleteManualVaziosBooking } from "../vaziosExportOperations";
 
 describe("createManualVaziosBooking", () => {
   it("cria manifesto e unidade na mesma RPC", async () => {
@@ -28,6 +28,17 @@ describe("createManualVaziosBooking", () => {
         p_uploaded_by: "user-1",
         p_container_number: "MSCU1234567",
       }),
+    );
+  });
+
+  it("exclui pela RPC que tambem limpa manifesto manual vazio", async () => {
+    rpcMock.mockResolvedValue({ error: null });
+
+    await deleteManualVaziosBooking("booking-1");
+
+    expect(rpcMock).toHaveBeenCalledWith(
+      "delete_manual_vazios_booking",
+      { p_booking_id: "booking-1" },
     );
   });
 });

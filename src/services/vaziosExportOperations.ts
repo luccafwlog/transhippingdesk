@@ -91,10 +91,10 @@ export async function updateManualVaziosBooking(
 }
 
 export async function deleteManualVaziosBooking(id: string) {
-  const { error } = await supabase
-    .from("vazios_bookings")
-    .delete()
-    .eq("id", id);
+  const { error } = await supabase.rpc(
+    "delete_manual_vazios_booking" as never,
+    { p_booking_id: id } as never,
+  );
   if (error) throw error;
 }
 
