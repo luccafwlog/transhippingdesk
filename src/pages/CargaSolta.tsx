@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
@@ -10,18 +10,18 @@ import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModa
 import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
-import { Modal } from '../components/ui/Modal'
 import { PreviewBox } from '../components/ui/PreviewBox'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
+import { FileImportModal } from '../components/shared/FileImportModal'
 import { useAuth } from '../hooks/useAuth'
 import { fetchAllBls, type BlFilters, useBls, usePortOptions } from '../hooks/useBls'
 import { usePageFilters } from '../hooks/usePageFilters'
 import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import { useInvoiceLinks } from '../hooks/useBilling'
-import { formatDate } from '../lib/utils'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
+import { afterManifestoImportado } from '../services/cacheEffects'
 import type { BLListItem } from '../types/database'
 
 export function CargaSolta() {
@@ -49,10 +49,6 @@ export function CargaSolta() {
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
-  const [file, setFile] = useState<File | null>(null)
-  const [manifest, setManifest] = useState<ParsedBreakbulkManifest | null>(null)
-  const [parsing, setParsing] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
 
   const { data, isLoading, error } = useBls(filters)
   const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
@@ -155,56 +151,6 @@ export function CargaSolta() {
       showToast('Falha ao exportar manifestos BB.', 'error')
     } finally {
       setExporting(false)
-    }
-  }
-
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const nextFile = event.target.files?.[0] ?? null
-    setFile(nextFile)
-    setManifest(null)
-
-    if (!nextFile) return
-
-    setParsing(true)
-    try {
-      setManifest(await parseBreakbulkManifestFile(nextFile))
-      showToast('Preview do manifesto BB carregado.', 'success')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Não foi possível ler o arquivo.'
-      showToast(message, 'error')
-    } finally {
-      setParsing(false)
-    }
-  }
-
-  async function handleImport() {
-    if (!manifest || !file || !voyageId || !user) return
-
-    setSubmitting(true)
-    try {
-      await importBreakbulkManifest({
-        filename: file.name,
-        voyageId: Number(voyageId),
-        manifest,
-        uploadedBy: user.id,
-      })
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-        queryClient.invalidateQueries({ queryKey: ['port-options'] }),
-      ])
-
-      showToast('Manifesto BB importado com sucesso.', 'success')
-      setUploadOpen(false)
-      setVoyageId('')
-      setFile(null)
-      setManifest(null)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Falha ao importar manifesto BB.'
-      showToast(message, 'error')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -418,157 +364,63 @@ export function CargaSolta() {
 
       <CeMercanteImportModal open={ceMercanteOpen && canImport} onClose={() => setCeMercanteOpen(false)} />
 
-      <Modal open={uploadOpen && canImport} onClose={() => setUploadOpen(false)} title="Importar Manifesto BB">
-        <div className="grid gap-5">
-          <div className="app-panel app-panel--padded text-sm">
-            <div className="app-panel__title">Estrutura obrigatoria da planilha</div>
-            <div className="mt-2">
-              BL, CE, MAQUINAS, PACKAGES, PACKAGES TOTAL, WEIGHT (TON), CBM (M3), SHIPPER, CONSIGNEE, NOTIFY.
-            </div>
-            <div className="app-panel__meta mt-2">
-              Colunas opcionais: CNPJ, POL, POD. O layout antigo por itens ainda e aceito para compatibilidade, mas
-              o padrao operacional agora e resumido por BL.
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <a
-                className="app-btn app-btn--secondary"
-                href="/templates/carga-solta-modelo.xlsx"
-                download="carga-solta-modelo.xlsx"
-              >
-                <Download size={16} />
-                Baixar modelo .xlsx
-              </a>
-              <a
-                className="app-btn app-btn--secondary"
-                href="/templates/carga-solta-modelo.csv"
-                download="carga-solta-modelo.csv"
-              >
-                <Download size={16} />
-                Baixar modelo .csv
-              </a>
-            </div>
-          </div>
-
-          <VoyageCombobox
-            required
-            label="Viagem de destino"
-            selectedVoyageId={voyageId}
-            onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
-          />
-
-          <Field label="Arquivo .xlsx, .xls ou .csv">
-            <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
-          </Field>
-
-          {file ? <div className="app-panel__meta">Arquivo selecionado: {file.name}</div> : null}
-          {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
-
-          {manifest ? (
-            <div className="grid gap-4">
-              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox label="B/Ls validos" value={manifest.bls.length} variant="metric-strip" />
-                <PreviewBox
-                  label="Maquinas"
-                  value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)}
-                  variant="metric-strip"
-                />
-                <PreviewBox
-                  label="Total de volumes"
-                  value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_packages_total ?? bl.bb_packages_qty ?? 0), 0)}
-                  variant="metric-strip"
-                />
+      {uploadOpen && canImport ? (
+        <FileImportModal
+          title="Importar Manifesto BB"
+          accept=".xlsx,.xls,.csv"
+          parser={parseBreakbulkManifestFile}
+          importer={async (nextManifest, file) => {
+            if (!user || !voyageId) return
+            await importBreakbulkManifest({ filename: file.name, voyageId: Number(voyageId), manifest: nextManifest, uploadedBy: user.id })
+            await afterManifestoImportado(queryClient, { voyageId })
+            showToast('Manifesto BB importado com sucesso.', 'success')
+            setVoyageId('')
+          }}
+          canImport={(nextManifest) => nextManifest.bls.length > 0}
+          ready={Boolean(voyageId && user)}
+          prerequisite={<VoyageCombobox required label="Viagem de destino" selectedVoyageId={voyageId} onSelect={(id) => setVoyageId(id == null ? '' : String(id))} />}
+          renderPreview={(nextManifest) => <BreakbulkPreview manifest={nextManifest} />}
+          helper={
+            <div className="app-panel app-panel--padded text-sm">
+              <div className="app-panel__title">Estrutura obrigatoria da planilha</div>
+              <div className="mt-2">BL, CE, MAQUINAS, PACKAGES, PACKAGES TOTAL, WEIGHT (TON), CBM (M3), SHIPPER, CONSIGNEE, NOTIFY.</div>
+              <div className="app-panel__meta mt-2">Colunas opcionais: CNPJ, POL, POD. O layout antigo por itens ainda e aceito para compatibilidade.</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a className="app-btn app-btn--secondary" href="/templates/carga-solta-modelo.xlsx" download="carga-solta-modelo.xlsx"><Download size={16} />Baixar modelo .xlsx</a>
+                <a className="app-btn app-btn--secondary" href="/templates/carga-solta-modelo.csv" download="carga-solta-modelo.csv"><Download size={16} />Baixar modelo .csv</a>
               </div>
-
-              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
-                <PreviewBox
-                  label="Peso (ton)"
-                  value={manifest.bls.reduce(
-                    (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? bl.total_weight_kg / 1000 : 0)),
-                    0,
-                  )}
-                  variant="metric-strip"
-                />
-                <PreviewBox
-                  label="CBM (M3)"
-                  value={manifest.bls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)}
-                  variant="metric-strip"
-                />
-                <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} variant="metric-strip" />
-              </div>
-
-              <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
-                <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="px-3 py-2">BL</th>
-                      <th scope="col" className="px-3 py-2">CE</th>
-                      <th scope="col" className="px-3 py-2">Maquinas</th>
-                      <th scope="col" className="px-3 py-2">Volumes</th>
-                      <th scope="col" className="px-3 py-2">Total de volumes</th>
-                      <th scope="col" className="px-3 py-2">Peso (ton)</th>
-                      <th scope="col" className="px-3 py-2">CBM (M3)</th>
-                      <th scope="col" className="px-3 py-2">Shipper</th>
-                      <th scope="col" className="px-3 py-2">Consignee</th>
-                      <th scope="col" className="px-3 py-2">Notify</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {manifest.bls.slice(0, 25).map((bl) => (
-                      <tr key={bl.bl_id}>
-                        <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{bl.bl_id}</td>
-                        <td className="px-3 py-2">{bl.ce_mercante ?? '-'}</td>
-                        <td className="px-3 py-2">{formatBBNumber(bl.bb_machine_qty)}</td>
-                        <td className="px-3 py-2">{formatBBNumber(bl.bb_packages_qty)}</td>
-                        <td className="px-3 py-2">{formatBBNumber(bl.bb_packages_total)}</td>
-                        <td className="px-3 py-2">
-                          {formatBBNumber(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : null))}
-                        </td>
-                        <td className="px-3 py-2">{formatBBNumber(bl.total_cbm)}</td>
-                        <td className="px-3 py-2">
-                          <span className="app-table__truncate app-table__truncate--lg" title={bl.shipper ?? '-'}>
-                            {bl.shipper ?? '-'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="app-table__truncate app-table__truncate--lg" title={bl.consignee ?? '-'}>
-                            {bl.consignee ?? '-'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="app-table__truncate app-table__truncate--lg" title={bl.notify_party ?? '-'}>
-                            {bl.notify_party ?? '-'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <TruncationNote shown={25} total={manifest.bls.length} noun="B/L" nounPlural="B/Ls" />
-
-              {manifest.rowErrors.length ? (
-                <div className="max-h-44 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                  {manifest.rowErrors.slice(0, 12).map((item, index) => (
-                    <div key={`${item.row}-${index}`}>Linha {item.row}: {item.message}</div>
-                  ))}
-                </div>
-              ) : null}
             </div>
-          ) : null}
+          }
+          onClose={() => { setUploadOpen(false); setVoyageId('') }}
+        />
+      ) : null}
 
-          <div className="app-modal__actions">
-            <Button variant="secondary" onClick={() => setUploadOpen(false)}>
-              Cancelar
-            </Button>
-            <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
-              Confirmar importação
-            </Button>
-          </div>
-
-          <div className="app-panel__meta">Atualizado em {formatDate(new Date().toISOString())}</div>
-        </div>
-      </Modal>
     </>
+  )
+}
+
+function BreakbulkPreview({ manifest }: { manifest: ParsedBreakbulkManifest }) {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
+        <PreviewBox label="B/Ls validos" value={manifest.bls.length} variant="metric-strip" />
+        <PreviewBox label="Maquinas" value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)} variant="metric-strip" />
+        <PreviewBox label="Total de volumes" value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_packages_total ?? bl.bb_packages_qty ?? 0), 0)} variant="metric-strip" />
+        <PreviewBox label="Peso (ton)" value={manifest.bls.reduce((sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? bl.total_weight_kg / 1000 : 0)), 0)} variant="metric-strip" />
+        <PreviewBox label="CBM (M3)" value={manifest.bls.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0)} variant="metric-strip" />
+        <PreviewBox label="Erros de parser" value={manifest.rowErrors.length} variant="metric-strip" />
+      </div>
+      <div className="app-table-scroll max-h-72 rounded-xl border border-[var(--app-border)]">
+        <table className="app-table app-table--compact min-w-[1220px] text-left text-sm whitespace-nowrap">
+          <thead><tr>{['BL', 'CE', 'Maquinas', 'Volumes', 'Total de volumes', 'Peso (ton)', 'CBM (M3)', 'Shipper', 'Consignee', 'Notify'].map((label) => <th key={label} scope="col" className="px-3 py-2">{label}</th>)}</tr></thead>
+          <tbody>{manifest.bls.slice(0, 25).map((bl) => <tr key={bl.bl_id}>
+            <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{bl.bl_id}</td><td className="px-3 py-2">{bl.ce_mercante ?? '-'}</td><td className="px-3 py-2">{formatBBNumber(bl.bb_machine_qty)}</td><td className="px-3 py-2">{formatBBNumber(bl.bb_packages_qty)}</td><td className="px-3 py-2">{formatBBNumber(bl.bb_packages_total)}</td><td className="px-3 py-2">{formatBBNumber(bl.bb_weight_ton ?? (bl.total_weight_kg ? bl.total_weight_kg / 1000 : null))}</td><td className="px-3 py-2">{formatBBNumber(bl.total_cbm)}</td><td className="px-3 py-2">{bl.shipper ?? '-'}</td><td className="px-3 py-2">{bl.consignee ?? '-'}</td><td className="px-3 py-2">{bl.notify_party ?? '-'}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <TruncationNote shown={25} total={manifest.bls.length} noun="B/L" nounPlural="B/Ls" />
+      {manifest.rowErrors.length ? <div className="max-h-44 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">{manifest.rowErrors.slice(0, 12).map((item, index) => <div key={`${item.row}-${index}`}>Linha {item.row}: {item.message}</div>)}</div> : null}
+    </div>
   )
 }
 
