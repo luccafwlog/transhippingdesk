@@ -204,11 +204,11 @@ ponto onde as duas partes se tocam é a armazenagem.
 
 **Unidade Embarcada**
 Container vazio efetivamente embarcado na escala; item da Lista de Unidades
-Embarcadas. Tem número, tipo, depot de origem (ou nenhum, no caso de Embarque
-Direto), condição, datas de entrada e saída do depot e data de embarque. A lista
-é **completa**: inclui as unidades que não geraram armazenagem, com as datas de
-depot em branco. É a fonte da contagem de vazios embarcados e dos dias de
-armazenagem exibidos no ADR.
+Embarcadas. Tem número, tipo, **local de origem** (sempre presente — um Depot ou
+um Terminal Portuário do Cadastro de Terminais), condição, datas de entrada e
+saída do depot e data de embarque. A lista é **completa**: inclui as unidades que
+não geraram armazenagem — as de Terminal Portuário vêm sem datas de depot. É a
+fonte da contagem de vazios embarcados e dos dias de armazenagem exibidos no ADR.
 
 **Linha de Serviço do Embarque**
 Declaração de um serviço efetivamente performado na operação de vazios, lançada
@@ -226,44 +226,48 @@ lado como referência.
 - **Distinto de:** Unidade Embarcada, que é fato operacional importado e não
   carrega preço.
 
-**Depot de Vazios**
-Local onde o container vazio ficou armazenado antes do embarque, registrado por
-unidade embarcada. Container sem depot é Embarque Direto. Fonte para o
-Financeiro conferir faturas de armazenagem.
+**Cadastro de Terminais**
+Registro dos locais com que a operação de vazios trabalha e dos **valores
+sugeridos** de seus serviços. Cada local tem um **tipo**:
 
-**Cadastro de Depot**
-Registro dos depots com que a operação trabalha e dos **valores sugeridos** de
-seus serviços. Não é a fonte do cálculo: ao lançar uma Linha de Serviço do
-Embarque, o usuário escolhe depot e serviço e o sistema **sugere** o valor
-unitário registrado, que ele pode sobrescrever naquela linha. O valor efetivo
-mora sempre na linha lançada.
+- **Depot** — local de armazenagem do vazio antes do embarque. Tem os dois Free
+  Times de Storage e é o único tipo que gera armazenagem.
+- **Terminal Portuário** — o próprio terminal da escala (ex.: TVV). Não tem free
+  time e nunca gera armazenagem: a unidade que vem dele descarregou, ficou no
+  local e está sendo reembarcada. Cobra serviços como qualquer outro local.
 
-São atributos do depot os dois **Free Times de Storage** — um para container
-totalmente vazio, outro para container com material do armador.
+Não é a fonte do cálculo: ao lançar uma Linha de Serviço do Embarque, o usuário
+escolhe o local e o serviço, e o sistema **sugere** o valor unitário registrado,
+que ele pode sobrescrever naquela linha. O valor efetivo mora sempre na linha
+lançada, e o cadastro não tem vigência — o valor sugerido vale até alguém trocá-lo.
 
-A entidade nomeada é o **depot**, não a "taxa": é distinta da Tabela de Taxas —
-Granito, que é genuinamente uma tabela de tarifas. Na interface, a tela chama-se
-"Tabela de Depots".
+A entidade nomeada é o **local**, não a "taxa": é distinta da Tabela de Taxas —
+Granito, que é genuinamente uma tabela de tarifas.
 
-- **Synonyms / avoid:** "Taxas de Vazios", "tabela de taxas de depot" (a
-  entidade é o depot, não a taxa)
-- **Related:** Depot de Vazios, Free Time de Storage (Depot), Linha de Serviço do
-  Embarque, Tabela de Taxas — Granito
+- **Synonyms / avoid:** "Cadastro de Depot" (nome anterior, quando o cadastro só
+  tinha depots), "Taxas de Vazios", "tabela de taxas de depot"
+- **Distinto de:** o **porto** da escala (identidade `(viagem, porto)` do ADR,
+  ex.: BRVIX). Um Terminal Portuário fica *dentro* de um porto. O terminal do
+  cabeçalho do ADR continua sendo texto livre preenchido pelo setor responsável,
+  sem vínculo com este cadastro.
+- **Related:** Free Time de Storage, Embarque Direto, Linha de Serviço do
+  Embarque, Natureza do Serviço, Tabela de Taxas — Granito
 
-**Free Time de Storage (Depot)**
+**Free Time de Storage**
 Dias de armazenagem gratuita concedidos pelo depot ao container vazio antes do
-início da cobrança. É atributo do Cadastro de Depot e varia por depot **e por
-condição da unidade**: um free time para o container totalmente vazio, outro
+início da cobrança. É atributo dos locais do tipo **Depot** e varia por depot **e
+por condição da unidade**: um free time para o container totalmente vazio, outro
 para o container com material do armador. A armazenagem cobrável de uma unidade
 é `saída do depot − entrada no depot − free time aplicável`, nunca negativa.
 Distinto do Free Time de Demurrage, que se aplica à carga de importação do
 cliente e não ao vazio no depot.
 
 **Embarque Direto**
-Container vazio embarcado direto do terminal, sem passar por depot. Aparece na
-Lista de Unidades Embarcadas sem depot e sem datas de depot, e não gera
-armazenagem. Não implica ausência de custos: qualquer serviço a ele associado é
-declarado como Linha de Serviço, como todos os demais.
+Unidade Embarcada cujo local de origem é um **Terminal Portuário**, não um
+Depot: o container descarregou, permaneceu no terminal e está sendo reembarcado,
+sem passar por depot. Vem sem datas de depot e não gera armazenagem. Não implica
+ausência de custos: qualquer serviço performado sobre ele é declarado como Linha
+de Serviço, como todos os demais.
 
 **Hand-in / Hand-out**
 Movimentos de gate do container vazio no depot: hand-in é a entrada, hand-out é
@@ -283,9 +287,9 @@ free times do depot se aplica e separa as linhas de armazenagem — uma por
 
 **Natureza do Serviço**
 Comportamento de uma Linha de Serviço do Embarque, atributo do serviço no
-Cadastro de Depot. São três, e a natureza decide quais campos a linha exige:
+Cadastro de Terminais. São três, e a natureza decide quais campos a linha exige:
 
-- **`armazenagem`** — exige depot e condição; a quantidade (dias) é calculada a
+- **`armazenagem`** — exige um local do tipo Depot e a condição; a quantidade (dias) é calculada a
   partir da Lista de Unidades Embarcadas; não tem percentual nem tipo de
   container; no máximo uma linha por (depot, condição).
 - **`transporte`** — exige a rota, sendo o local da linha a origem e o destino o

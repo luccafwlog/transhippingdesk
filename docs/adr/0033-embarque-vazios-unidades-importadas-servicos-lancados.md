@@ -48,11 +48,14 @@ automático de custo a partir do container.
 
 ### 2. A planilha traz só unidades e datas, e substitui a lista inteira
 
-O import passa a ter sete colunas: container, tipo, depot, condição
-(vazio / com material), entrada no depot, saída do depot e data de embarque. A
-lista é **completa** — inclui as unidades de Embarque Direto, sem depot e sem
-datas. Reimportar é **substituição total** da lista da escala (não upsert), e o
-usuário pode criar, editar e excluir unidades na tela depois do import.
+O import passa a ter sete colunas: container, tipo, **local de origem**, condição
+(vazio / com material), entrada no depot, saída do depot e data de embarque. O
+local é **obrigatório em toda unidade** — se o container foi embarcado, veio de
+algum lugar — e resolve contra o Cadastro de Terminais. Quando é um Terminal
+Portuário, a unidade é Embarque Direto e vem sem datas de depot: ela descarregou,
+ficou no terminal e está sendo reembarcada. Reimportar é **substituição total**
+da lista da escala (não upsert), e o usuário pode criar, editar e excluir
+unidades na tela depois do import.
 
 Morrem, por não terem consumidor: booking, destino, terminal de origem,
 observações, percentual de overtime por container e o número da OS.
@@ -82,10 +85,21 @@ overtime handling, overtime transporte, bundle composition, bundle organization,
 visual check e remoção — são **dados pré-cadastrados**, não enum de código: a
 lista é aberta e o usuário cadastra serviços novos escolhendo a natureza.
 
-### 4. O Cadastro de Depot deixa de calcular e passa a sugerir
+### 4. O Cadastro de Terminais deixa de calcular e passa a sugerir
 
-O cadastro guarda os depots com **dois free times** (container vazio e container
-com material) e um catálogo de **valores sugeridos**, chaveado por
+O antigo Cadastro de Depot passa a registrar **os dois tipos de local** com que a
+operação trabalha, porque a coluna de origem da planilha traz ambos: **Depot**,
+que tem os dois free times (container vazio e container com material) e é o único
+tipo que gera armazenagem, e **Terminal Portuário** (ex.: TVV), que não tem free
+time, nunca gera armazenagem e ainda assim cobra serviços. Uma única tabela com
+um campo de tipo, e não duas: a diferença entre os dois é exatamente uma regra —
+armazenagem —, o que justifica uma coluna, não um cadastro paralelo.
+
+O terminal do cabeçalho do ADR permanece **texto livre**, preenchido pelo setor
+responsável, sem vínculo com este cadastro; amarrá-lo seria mexer na ADR 0027,
+fora do escopo desta decisão.
+
+O cadastro guarda ainda um catálogo de **valores sugeridos**, chaveado por
 `(local, serviço, tipo de container, rota, condição)` com os quatro últimos
 opcionais: a busca casa do mais específico para o mais genérico, de modo que
 serviços que não variam continuam com uma linha só. Ao lançar, o sistema
@@ -94,7 +108,9 @@ sobrescrever é livre. Divergências podem ser gravadas de volta no catálogo po
 ação explícita do usuário — nunca em silêncio.
 
 Somem do cadastro: tipo de cálculo, vigência, incidência de overtime e as
-quantidades por operação.
+quantidades por operação. Sem vigência, o valor sugerido vale até alguém
+trocá-lo; o histórico não se perde porque o valor efetivo fica gravado na linha
+lançada.
 
 ### 5. O ADR exibe as linhas, não só os totais
 
@@ -110,7 +126,9 @@ do Equipamentos, reintroduzindo pela porta dos fundos o que esta decisão remove
 
 - **Migração de schema:** o sistema está em construção e **não há dado de
   produção a preservar** — as tabelas do fluxo são recriadas em vez de migradas.
-  `vazios_bookings` vira a Lista de Unidades com as sete colunas; nasce a tabela
+  `vazios_bookings` vira a Lista de Unidades com as sete colunas, com local
+  obrigatório; `depots` ganha o tipo (`depot` | `terminal_portuario`) e passa a
+  ser o Cadastro de Terminais; nasce a tabela
   de Linhas de Serviço do Embarque; `vazios_operation_service_qty` é removida;
   `vazios_export_operations` perde a OS e permanece como âncora `(viagem, porto)`;
   `depot_services` perde `calc_type`, `subject_to_overtime` e vigência e ganha
@@ -148,6 +166,10 @@ do Equipamentos, reintroduzindo pela porta dos fundos o que esta decisão remove
 - **Manter o cálculo automático e só permitir ajustes.** Rejeitada: é o
   engessamento relatado — obriga a cadastrar antecipadamente toda combinação de
   serviço, tipo e rota para que o número saia certo.
+- **Duas tabelas, uma para depots e outra para terminais.** Rejeitada: a única
+  diferença entre os dois é gerar ou não armazenagem, e separá-los duplicaria
+  catálogo de serviços, RLS e busca de sugestão, além de dar à linha de serviço
+  dois campos de local mutuamente exclusivos.
 - **Aposentar o Cadastro de Depot por completo.** Rejeitada porque o valor de um
   serviço é estável entre escalas; sem catálogo, o mesmo handling seria
   redigitado a cada operação, sem contra-prova para erro de digitação.
