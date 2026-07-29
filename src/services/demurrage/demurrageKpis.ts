@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 import { assertUploadFile } from '../../lib/fileGuard'
 import { reportBestEffortFailure } from '../../lib/telemetry'
 import type { PixTransaction, RoeSource } from '../../types/database'
+import { readSheet } from '../importCore'
 
 // Spread fixo do armador aplicado sobre a PTAX (ADR 0014). Ponto canônico no
 // frontend; o backend replica a mesma constante na RPC de recálculo.
@@ -129,11 +130,8 @@ export async function fetchDemurrageKPIs(): Promise<DemurrageKPIs> {
 }
 
 export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTransaction[]> {
-  const XLSX = await import('@e965/xlsx')
-
-  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', raw: false, cellDates: true })
-  const sheet = workbook.Sheets[workbook.SheetNames[0]]
-  const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' })
+  const { matrix } = await readSheet(arrayBuffer, { dates: 'date' })
+  const rows = matrix as (string | Date | number | null)[][]
 
   let headerRowIdx = -1
   for (let i = 0; i < rows.length; i++) {

@@ -11,7 +11,9 @@ export type FilePreviewEntry<T> = {
 
 type Props<T> = {
   title: string
-  voyageLabel: string
+  subtitle?: ReactNode
+  prerequisite?: ReactNode
+  ready?: boolean
   accept: string
   multiple?: boolean
   parser: (file: File) => Promise<T>
@@ -25,7 +27,9 @@ type Props<T> = {
 
 export function FileImportModal<T>({
   title,
-  voyageLabel,
+  subtitle,
+  prerequisite,
+  ready = true,
   accept,
   multiple = false,
   parser,
@@ -81,12 +85,11 @@ export function FileImportModal<T>({
   return (
     <Modal open onClose={onClose} title={title}>
       <div className="grid gap-4">
-        <div className="app-panel app-panel--padded text-sm">
-          Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
-        </div>
+        {subtitle ? <div className="app-panel app-panel--padded text-sm">{subtitle}</div> : null}
         {helper}
+        {prerequisite}
         <Field label={`Arquivo ${accept}`}>
-          <Input accept={accept} multiple={multiple} type="file" onChange={handleFile} />
+          <Input accept={accept} disabled={!ready} multiple={multiple} type="file" onChange={handleFile} />
         </Field>
         {parsing ? <div className="app-panel__meta">Processando...</div> : null}
         {entries.length > 0 && renderBatchSummary ? renderBatchSummary(entries) : null}
@@ -109,7 +112,7 @@ export function FileImportModal<T>({
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button
-            disabled={!entries.some((entry) => canImport(entry.preview))}
+            disabled={!ready || !entries.some((entry) => canImport(entry.preview))}
             loading={importing}
             onClick={() => void handleImport()}
           >

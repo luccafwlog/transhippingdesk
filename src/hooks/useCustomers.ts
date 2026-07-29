@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 import { fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
 import { escapeFilterTerm, onlyDigits } from '../lib/utils'
+import { classifyDbError } from '../lib/errors'
 import { sortCustomerRows, type CustomerSortKey, type SortDirection } from '../lib/customerTableViewModel'
 import type { Customer, CustomerDetail, CustomerListItem } from '../types/database'
 
@@ -188,7 +189,7 @@ export function useCustomerDetail(cnpj?: string) {
           .range(invoicesFrom, invoicesFrom + INVOICES_PAGE_SIZE - 1)
 
         if (invoiceError) {
-          if (isPermissionError(invoiceError)) {
+          if (classifyDbError(invoiceError).kind === 'permissao') {
             return {
               ...customer,
               pending_balance: 0,
@@ -218,9 +219,6 @@ export function useCustomerDetail(cnpj?: string) {
   })
 }
 
-function isPermissionError(error: { code?: string | null; message?: string | null }) {
-  return error.code === '42501' || String(error.message ?? '').toLowerCase().includes('permission denied')
-}
 
 export function useCustomerLookup(search: string) {
   const filter = buildCustomerLookupFilter(search)

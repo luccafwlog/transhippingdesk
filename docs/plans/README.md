@@ -15,7 +15,6 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
-| [Aprofundamento arquitetural](2026-07-27-aprofundamento-arquitetural.md) | Revisão de arquitetura de 25 jul 2026, reconferida contra o repositório em `eab066c` | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

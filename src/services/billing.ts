@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { z } from 'zod'
 import type { Customer, Invoice, InvoiceDocumentStatus, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
 import { buildTransshippingPixPayload } from '../lib/pix'
+import { classifyDbError } from '../lib/errors'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../lib/utils'
 import { reportBestEffortFailure } from '../lib/telemetry'
 
@@ -921,7 +922,7 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
     .in('bl_id', normalizedIds)
 
   if (error) {
-    if (isPermissionError(error)) {
+    if (classifyDbError(error).kind === 'permissao') {
       return {} as InvoiceLinksByBl
     }
     throw error
@@ -985,9 +986,6 @@ export async function listBillingCustomers(search = '') {
   return (data ?? []) as BillingCustomerOption[]
 }
 
-function isPermissionError(error: { code?: string | null; message?: string | null }) {
-  return error.code === '42501' || String(error.message ?? '').toLowerCase().includes('permission denied')
-}
 
 function normalizeText(value: string) {
   return String(value ?? '').trim()

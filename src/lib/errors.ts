@@ -52,10 +52,6 @@ const ERROR_TABLE: Readonly<Record<string, ErrorTableEntry>> = {
   '57014': { kind: 'limite', message: 'A consulta demorou demais. Reduza o periodo e tente novamente.' },
 }
 
-// ponytail: classifyDbError ainda tem um unico chamador (portalErrorMessage).
-// As 7 copias de isPermissionError (useCustomers.ts, customerFicha.ts,
-// chargeOperationsService.ts, billing.ts) continuam de pe; a migracao delas
-// para esta tabela e a Task #02 restante do plano de aprofundamento.
 export function classifyDbError(error: unknown): ClassifiedDbError {
   const fields = error instanceof Error
     ? { code: String((error as Error & { code?: unknown }).code ?? ''), message: error.message }
