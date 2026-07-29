@@ -635,6 +635,54 @@ justificativa (quem mudou o quê, de qual valor para qual, e por quê). Toda
 auditoria é um evento do Histórico; nem todo evento do Histórico é uma auditoria
 — eventos gerados pelo sistema (ex.: emissão de fatura) não têm justificativa.
 
+## Alertas e notificações
+
+**Alerta**
+Pendência operacional registrada automaticamente pelo sistema e compartilhada
+por toda a equipe interna. Existe uma única vez, tem ciclo de vida próprio
+(aberto → reconhecido → fechado) e é tratada uma única vez: quando alguém
+reconhece ou fecha, o estado passa a valer para todos. Responde "o que ainda
+precisa ser feito".
+
+**Notificação Interna**
+Aviso pessoal entregue a um usuário interno sobre um Evento Notificável, com
+estado de leitura próprio de cada destinatário. Responde "o que aconteceu e eu
+preciso saber". Não é sinônimo de Alerta: um Alerta origina Notificações
+Internas para vários destinatários, e há Notificações Internas que não nascem
+de Alerta.
+
+**Cópia Congelada**
+Invariante da Notificação Interna: ela descreve o Evento Notificável como ele
+ocorreu, não o estado atual da entidade envolvida. Reconhecer ou fechar o
+Alerta não apaga nem altera as Notificações Internas já entregues — o registro
+de que o usuário foi avisado permanece.
+
+**Evento Notificável**
+Acontecimento do sistema que origina Notificações Internas. Abrange os
+acontecimentos que já registram Alerta e um conjunto explícito de
+acontecimentos que interessam ao usuário sem constituir pendência a tratar.
+
+**Regra de Destinatários**
+Declaração, por tipo de Evento Notificável, de quais papéis internos recebem a
+Notificação Interna. É a única fonte da audiência: quem produz o evento não
+decide quem é avisado.
+
+**Eco de Tratamento**
+Notificação Interna emitida aos demais destinatários quando alguém reconhece ou
+fecha um Alerta. Existe para impedir que duas pessoas trabalhem a mesma
+pendência sem saber.
+
+**Leitura e Reconhecimento**
+Ações distintas e sem acoplamento. Ler é pessoal, vale apenas para quem leu e
+não altera o Alerta. Reconhecer é ato da equipe sobre o Alerta e vale para
+todos.
+
+**Indicador Operacional**
+Contagem derivada de uma consulta ao estado atual, como containers com
+demurrage vencido ou B/Ls de granito sem cálculo. Não é Alerta nem Notificação
+Interna: não tem instante de ocorrência nem estado de leitura, e por isso não
+entra na entrega pessoal.
+
 ## Portal do Cliente
 
 **Portal do Cliente**
@@ -995,8 +1043,11 @@ navios e alertas.
 Contestação do cliente sobre valores, dias ou condições de uma cobrança de
 demurrage.
 
-**Notificação In-App**
-Mensagem exibida no Portal em resposta a eventos financeiros ou operacionais.
+**Notificação In-App do Portal**
+Mensagem exibida ao cliente no Portal em resposta a eventos financeiros ou
+operacionais. Destina-se ao cliente e não à equipe interna; o aviso pessoal
+equivalente do sistema interno é a Notificação Interna, com destinatário,
+audiência e ciclo próprios.
 
 **Provisionamento do Portal (pré-piloto)**
 O acesso operacional entra pelo cabeçalho de Clientes e mantém `/clientes/portal` como console dedicado. O console usa expansão inline, filtro Todos, deep links `?cliente={id}` e exportação XLSX. Candidatos são apenas sugestões e nunca alteram automaticamente o Email de Recuperação.
