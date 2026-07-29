@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Upload, Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "../components/ui/Button";
@@ -39,6 +39,7 @@ import { formatBRL, formatDate } from "../lib/utils";
 type Tab = "unidades" | "servicos";
 
 export function EmbarqueVazios() {
+  const queryClient = useQueryClient();
   const { user, can } = useAuth();
   const { showToast } = useToast();
   const canEdit = can("vazios_edit");
@@ -129,6 +130,15 @@ export function EmbarqueVazios() {
       })
     : 0;
 
+  async function refreshOperationData() {
+    await Promise.all([
+      units.refetch(),
+      operation.refetch(),
+      queryClient.invalidateQueries({
+        queryKey: ["agency-report", selectedOperation?.voyage_id],
+      }),
+    ]);
+  }
   async function notify(action: () => Promise<void>, success: string) {
     try {
       await action();
@@ -167,7 +177,7 @@ export function EmbarqueVazios() {
         manifest: parsed,
       });
       setFile(null);
-      await units.refetch();
+      await refreshOperationData();
     }, "Lista de unidades substituída.");
   }
   function clearUnit() {
@@ -204,8 +214,7 @@ export function EmbarqueVazios() {
             ...payload,
           });
         clearUnit();
-        await units.refetch();
-        await operation.refetch();
+        await refreshOperationData();
       },
       unit.id ? "Unidade atualizada." : "Unidade incluída.",
     );
@@ -252,7 +261,7 @@ export function EmbarqueVazios() {
         valor_sugerido: line.valorSugerido,
         quantidade_manual: draft.quantidade_manual,
       });
-      await operation.refetch();
+      await refreshOperationData();
     }, "Linha de serviço lançada.");
   }
   function chooseService(serviceId: string) {
@@ -537,8 +546,7 @@ export function EmbarqueVazios() {
                               void notify(async () => {
                                 await deleteManualVaziosBooking(item.id);
                                 clearUnit();
-                                await units.refetch();
-                                await operation.refetch();
+                                await refreshOperationData();
                               }, "Unidade excluída.")
                             }
                           >
@@ -790,7 +798,7 @@ export function EmbarqueVazios() {
                               onClick={() =>
                                 void notify(async () => {
                                   await deleteServiceLine(item.id);
-                                  await operation.refetch();
+                                  await refreshOperationData();
                                 }, "Linha excluída.")
                               }
                             >
