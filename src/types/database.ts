@@ -3336,6 +3336,7 @@ export type Database = {
           id: string
           local_id: string
           manifest_id: string
+          operation_id: string
           voyage_id: number
           movement_date: string | null
           depot?: string | null
@@ -3359,6 +3360,7 @@ export type Database = {
           id?: string
           local_id: string
           manifest_id: string
+          operation_id: string
           voyage_id: number
           movement_date?: string | null
         }
@@ -3373,6 +3375,7 @@ export type Database = {
           id?: string
           local_id?: string
           manifest_id?: string
+          operation_id?: string
           voyage_id?: number
           movement_date?: string | null
         }
@@ -3393,6 +3396,12 @@ export type Database = {
             foreignKeyName: "vazios_bookings_local_id_fkey"
             columns: ["local_id"]
             referencedRelation: "depots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_bookings_operation_id_fkey"
+            columns: ["operation_id"]
+            referencedRelation: "vazios_export_operations"
             referencedColumns: ["id"]
           },
         ]

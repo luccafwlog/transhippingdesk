@@ -13,7 +13,7 @@ import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepa
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
 import { listDepots } from './depots'
-import { totalEmbarque } from './vaziosCusto'
+import { quantidadeEfetiva, totalEmbarque } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
 
 export type AgencyReportSection =
@@ -305,9 +305,9 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('bl.pod', port),
     supabase
       .from('vazios_bookings')
-      .select('*, manifest:vazios_manifests!inner(voyage_id)')
-      .eq('manifest.voyage_id', voyageId)
-      ,
+      .select('*, operation:vazios_export_operations!inner(voyage_id, embark_port)')
+      .eq('operation.voyage_id', voyageId)
+      .eq('operation.embark_port', port),
     supabase
       .from('vazios_importacao_containers')
       .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
@@ -352,7 +352,10 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const operation = operationRes.data as (VaziosExportOperation & { linhas: Array<VaziosExportServiceLine & { service: { name: string; natureza: string } | null; local: { code: string; name: string | null } | null; destino: { code: string; name: string | null } | null }> }) | null
   const allDepots = await listDepots()
   const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
-  const serviceLines = (operation?.linhas ?? []).map((row) => ({ ...row, natureza: row.service?.natureza ?? 'geral', local_id: row.local_id, quantidade: Number(row.quantidade), valor_unitario: Number(row.valor_unitario) }))
+  const serviceLines = (operation?.linhas ?? []).map((row) => {
+    const line = { ...row, natureza: row.service?.natureza ?? 'geral', local_id: row.local_id, quantidade: Number(row.quantidade), valor_unitario: Number(row.valor_unitario) }
+    return { ...line, quantidade: quantidadeEfetiva(line, units, allDepots) }
+  })
   const costs = { rows: [], qtyTotal: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
 
   return {

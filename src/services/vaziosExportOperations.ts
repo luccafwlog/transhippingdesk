@@ -1,17 +1,20 @@
 import type { VaziosBooking, VaziosExportOperation, VaziosExportServiceLine } from '../types/database'
 import { supabase } from './supabase'
-import { listVaziosBookings } from './vaziosImport'
 import { diasCobraveis } from './vaziosCusto'
 
 const OPERATION_BOOKINGS_PAGE_SIZE = 1000
 
-export async function listVaziosBookingsForOperation(voyageId: string) {
-  const rows: Awaited<ReturnType<typeof listVaziosBookings>>['rows'] = []
+export async function listVaziosBookingsForOperation(operationId: string) {
+  const rows: VaziosBooking[] = []
   let page = 1; let count = Number.POSITIVE_INFINITY
   while (rows.length < count) {
-    const result = await listVaziosBookings({ voyageId, page, pageSize: OPERATION_BOOKINGS_PAGE_SIZE })
-    rows.push(...result.rows); count = result.count
-    if (result.rows.length === 0) break
+    const from = (page - 1) * OPERATION_BOOKINGS_PAGE_SIZE
+    const { data, count: resultCount, error } = await supabase.from('vazios_bookings')
+      .select('*', { count: 'exact' }).eq('operation_id', operationId).order('container_number').range(from, from + OPERATION_BOOKINGS_PAGE_SIZE - 1)
+    if (error) throw error
+    const pageRows = (data ?? []) as VaziosBooking[]
+    rows.push(...pageRows); count = resultCount ?? 0
+    if (pageRows.length === 0) break
     page += 1
   }
   return { rows, count: Number.isFinite(count) ? count : 0 }

@@ -64,16 +64,16 @@ export async function listCurrentDepotServices(depotId: string): Promise<DepotSe
 
 export type SuggestionInput = {
   local: Pick<Depot, 'id'>
-  servico: Pick<DepotService, 'id' | 'depot_id' | 'rate_brl'>
+  servico: Pick<DepotService, 'id' | 'depot_id' | 'name' | 'rate_brl'>
   tipo?: string | null
   rota?: string | null
   condicao?: string | null
-  catalogo?: Array<Pick<DepotService, 'id' | 'depot_id' | 'rate_brl' | 'active' | 'container_type' | 'route_destino_id' | 'condition'>>
+  catalogo?: Array<Pick<DepotService, 'id' | 'depot_id' | 'name' | 'rate_brl' | 'active' | 'container_type' | 'route_destino_id' | 'condition'>>
 }
 
 /** Casa do discriminante mais específico ao genérico; o valor efetivo fica na linha. */
 export function valorSugerido({ local, servico, tipo, rota, condicao, catalogo = [servico as DepotService] }: SuggestionInput): number | null {
-  const candidates = catalogo.filter((item) => item.active !== false && item.depot_id === local.id && item.id === servico.id)
+  const candidates = catalogo.filter((item) => item.active !== false && item.depot_id === local.id && item.name.trim().toLocaleLowerCase() === servico.name.trim().toLocaleLowerCase())
   const matches = candidates.filter((item) =>
     (item.container_type == null || item.container_type === tipo) &&
     (item.route_destino_id == null || item.route_destino_id === rota) &&

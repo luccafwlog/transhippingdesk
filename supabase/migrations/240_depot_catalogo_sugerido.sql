@@ -11,6 +11,11 @@ ALTER TABLE public.depot_services
   ADD COLUMN IF NOT EXISTS condition TEXT;
 
 ALTER TABLE public.depot_services
+  DROP CONSTRAINT IF EXISTS depot_services_depot_id_name_key;
+CREATE UNIQUE INDEX uq_depot_services_catalog_entry
+  ON public.depot_services (depot_id, lower(name), COALESCE(container_type, ''), COALESCE(route_destino_id::TEXT, ''), COALESCE(condition, ''));
+
+ALTER TABLE public.depot_services
   ADD CONSTRAINT depot_services_natureza_check CHECK (natureza IN ('armazenagem', 'transporte', 'geral')),
   ADD CONSTRAINT depot_services_condition_check CHECK (condition IS NULL OR condition IN ('vazio', 'material'));
 
