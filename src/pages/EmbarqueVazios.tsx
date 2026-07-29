@@ -35,6 +35,7 @@ import {
 } from "../services/vaziosCusto";
 import type { VaziosExportServiceLine } from "../types/database";
 import { formatBRL, formatDate } from "../lib/utils";
+import { classifyDbError } from "../lib/errors";
 import { invalidateAgencyReportForVoyage } from "../services/agencyReportInvalidation";
 
 type Tab = "unidades" | "servicos";
@@ -143,10 +144,7 @@ export function EmbarqueVazios() {
       await action();
       showToast(success, "success");
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : "Falha na operação.",
-        "error",
-      );
+      showToast(classifyDbError(error).message, "error");
     }
   }
   async function createOperation() {

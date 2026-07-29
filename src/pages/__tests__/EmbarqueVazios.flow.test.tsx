@@ -76,6 +76,26 @@ describe("EmbarqueVazios", () => {
     await waitFor(() => expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["agency-report", 179] }));
   });
 
+  it("exibe a mensagem da RPC quando a inclusao da Unidade Embarcada falha", async () => {
+    mocks.createManualVaziosBooking.mockRejectedValueOnce({
+      code: "42501",
+      message: "Usuario sem permissao para criar unidade embarcada.",
+    });
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: /Viagem 179/i }));
+    fireEvent.change(screen.getByLabelText("Container"), { target: { value: "MSCU1234567" } });
+    fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
+    fireEvent.change(screen.getByLabelText("Entrada"), { target: { value: "2026-07-02" } });
+    fireEvent.change(screen.getByLabelText("Saída"), { target: { value: "2026-07-03" } });
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar/i }));
+
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      "Usuario sem permissao para criar unidade embarcada.",
+      "error",
+    ));
+  });
+
   it("oferece somente locais cadastrados como origem e destino de transporte", () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
