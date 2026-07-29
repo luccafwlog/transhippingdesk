@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }))
+vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }), useQuery: () => ({ data: null, isLoading: false, error: null }) }))
 vi.mock('../../hooks/useBls', () => ({
   useVoyages: () => ({
     data: [
@@ -76,6 +76,14 @@ it('filtra o rail por viagens canceladas', () => {
 it('US-213: sem selecao mostra "Selecione uma viagem"', () => {
   renderAt('/viagens')
   expect(screen.getByText('Selecione uma viagem')).toBeTruthy()
+})
+
+it('seleciona a viagem pelo id do item do rail', () => {
+  renderAt('/viagens')
+
+  fireEvent.click(screen.getByText('Navio cancelado / CANCEL-42'))
+
+  expect(screen.getByRole('heading', { name: 'Navio cancelado / CANCEL-42' })).toBeTruthy()
 })
 
 it('US-213: ID inexistente mantem a tela e mostra "Viagem não encontrada"', () => {
