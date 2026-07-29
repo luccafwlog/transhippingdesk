@@ -46,6 +46,9 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
           directEmbarkCount: 1,
           depots: ["VBR"],
           operation: {},
+          signoffs: [
+            { section: "operacao_patio", observation: "Storage conferido com o depot." },
+          ],
           costs: {
             total: 250,
             serviceLines: [
@@ -98,8 +101,7 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
     "Linhas de serviço do embarque",
     "Anexo — unidades que geraram armazenagem",
     "Storage",
-    "Overtime",
-    "Ocorrências",
+    "Observações por seção",
   ])
     expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
 
@@ -126,4 +128,8 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
       .textContent,
   ).toContain("VBR");
   expect(screen.getByText("Restow")).toBeTruthy();
+  expect(screen.getByText("Storage conferido com o depot.")).toBeTruthy();
+  expect(screen.queryByText("OS")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Overtime" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Ocorrências" })).toBeNull();
 });

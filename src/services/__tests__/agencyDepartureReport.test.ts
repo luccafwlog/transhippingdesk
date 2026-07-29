@@ -127,6 +127,7 @@ describe('getAgencyReportDerivedData', () => {
       container_number: 'ABCD1234567',
       local: { id: 'local-1', code: 'DEP', name: 'Depot teste', tipo: 'depot' },
     }])
+    expect(result.costs).not.toHaveProperty('qtyTotal')
   })
 
   it('agrega a carga solta dos B/Ls Breakbulk apenas no porto da escala', async () => {

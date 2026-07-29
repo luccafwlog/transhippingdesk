@@ -186,10 +186,9 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
     ? sections.veiculos.map(asRecord)
     : [];
   const vehicleLocations = asRecord(sections.vehicleLocations);
-  const operation = asRecord(sections.operation);
-  const overtime = Array.isArray(operation.overtime)
-    ? operation.overtime.map(asRecord)
-    : [];
+  const observations = (Array.isArray(sections.signoffs) ? sections.signoffs : [])
+    .map(asRecord)
+    .filter((signoff) => typeof signoff.observation === "string" && signoff.observation.trim());
   const depots = Array.isArray(sections.depots) ? sections.depots : [];
   const vaziosUnidades = Array.isArray(sections.vaziosUnidades)
     ? sections.vaziosUnidades.map(asRecord)
@@ -321,7 +320,6 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
         <MetricsTable
           label="Operação de vazios"
           metrics={[
-            ["OS", String(operation.os_number ?? "Não informada")],
             ["Embarque direto", count(sections.directEmbarkCount)],
             ["Depots", depots.join(", ") || "—"],
           ]}
@@ -436,46 +434,13 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
           ]}
         />
       </Section>
-      <Section title="Overtime">
-        <MetricsTable
-          label="Contagem de overtime"
-          metrics={[
-            ["Handling", count(sections.overtimeHandlingCount)],
-            ["Transporte", count(sections.overtimeTransportCount)],
-          ]}
-        />
-        {overtime.length ? (
-          <table
-            className="agency-report-document__table"
-            aria-label="Overtime por depot"
-          >
-            <thead>
-              <tr>
-                <th scope="col">Depot</th>
-                <th scope="col">Percentual</th>
-              </tr>
-            </thead>
-            <tbody>
-              {overtime.map((item, index) => (
-                <tr key={String(item.id ?? index)}>
-                  <th scope="row">{String(item.depot ?? "—")}</th>
-                  <td>{count(item.percent)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </Section>
-      <Section title="Ocorrências">
-        {snapshot.occurrences?.length ? (
+      <Section title="Observações por seção">
+        {observations.length ? (
           <ul>
-            {snapshot.occurrences.map((item, index) => (
-              <li key={item.id ?? index}>
-                {item.body ?? "—"}{" "}
-                <small>
-                  {item.department ? `(${item.department})` : ""}{" "}
-                  {formatDate(item.created_at)}
-                </small>
+            {observations.map((signoff, index) => (
+              <li key={String(signoff.id ?? signoff.section ?? index)}>
+                <strong>{String(signoff.section ?? "Seção")}: </strong>
+                {String(signoff.observation)}
               </li>
             ))}
           </ul>

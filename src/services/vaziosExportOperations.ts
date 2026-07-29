@@ -46,19 +46,23 @@ export async function createManualVaziosBooking(
     uploadedBy?: string | null;
   },
 ) {
-  const { data: manifest, error: manifestError } = await supabase
-    .from("vazios_manifests")
-    .insert({
-      voyage_id: input.voyageId,
-      description: "Inclusão manual no Embarque de Vazios",
-      total_bookings: 1,
-      imported_by: input.uploadedBy ?? null,
-    })
-    .select("id")
-    .single();
-  if (manifestError) throw manifestError;
-  const payload = manualBookingPayload({ ...input, manifestId: manifest.id });
-  const { error } = await supabase.from("vazios_bookings").insert(payload);
+  if (!input.uploadedBy) throw new Error("Usuário não autenticado.");
+  const payload = manualBookingPayload({ ...input, manifestId: "manual" });
+  const { error } = await supabase.rpc(
+    "create_manual_vazios_booking" as never,
+    {
+      p_operation_id: payload.operation_id,
+      p_voyage_id: payload.voyage_id,
+      p_uploaded_by: input.uploadedBy,
+      p_container_number: payload.container_number,
+      p_container_type: payload.container_type,
+      p_local_id: payload.local_id,
+      p_condition: payload.condition,
+      p_hand_in_date: payload.hand_in_date,
+      p_hand_out_date: payload.hand_out_date,
+      p_movement_date: payload.movement_date,
+    } as never,
+  );
   if (error) throw error;
 }
 
@@ -201,27 +205,6 @@ export async function upsertVaziosExportOperation(input: {
     .single();
   if (error) throw error;
   return data as { id: string };
-}
-
-/** @deprecated linhas substituem a tabela de quantidades; mantido para a tela antiga durante a migração. */
-export async function upsertOperationServiceQty(input: {
-  operationId: string;
-  depotServiceId: string;
-  qty: number;
-}) {
-  const { error } = await supabase
-    .from("vazios_export_service_lines")
-    .upsert(
-      {
-        operation_id: input.operationId,
-        service_id: input.depotServiceId,
-        local_id: input.operationId,
-        quantidade: input.qty,
-        valor_unitario: 0,
-      },
-      { onConflict: "id" },
-    );
-  if (error) throw error;
 }
 
 export async function upsertServiceLine(

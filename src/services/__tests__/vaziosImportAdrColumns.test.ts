@@ -25,9 +25,10 @@ describe('parser de vazios — novo contrato', () => {
       { Container: 'ABCD1234567', Depot: 'VBR', Condition: 'vazio' },
       { Container: 'ABCD1234567', Depot: 'VIX', Condition: 'material' },
     ]))
-    expect(parsed.bookings).toHaveLength(1)
-    expect(parsed.bookings[0].local_code).toBe('VIX')
-    expect(parsed.bookings[0].condition).toBe('material')
+    expect(parsed.bookings).toHaveLength(2)
+    expect(parsed.rowErrors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ row: 3, message: expect.stringContaining('duplicado') }),
+    ]))
   })
   it('recusa linha sem condição ou local', async () => {
     const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567' }]))

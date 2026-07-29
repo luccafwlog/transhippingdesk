@@ -4,6 +4,7 @@
 
 ## 2026-07
 
+- **Fechamento VAZIOS EXP / ADR:** importação de Unidades Embarcadas rejeita containers duplicados no parser e na RPC; inclusão manual é atômica (`243`/`244`), sem manifesto órfão. O impresso fechado passou a refletir Observações por seção e Linhas de Serviço, sem OS, overtime percentual ou Ocorrências aposentadas.
 - **VAZIOS EXP / ADR 0033:** Embarque de Vazios por escala, Lista de Unidades Embarcadas com importação substitutiva de sete colunas, Linhas de Serviço manuais com percentual/preço efetivos, Cadastro de Terminais com free times por condição e catálogo de valores sugeridos; ADR passou a exibir linhas detalhadas e anexo de unidades de armazenagem. Migrations `238`–`240`.
 - **Aprofundamento arquitetural:** invalidação de cache por eventos de domínio em `cacheEffects.ts`; classificação centralizada de recusas do banco em `classifyDbError`; leitura e casamento de cabeçalhos de planilha centralizados em `importCore.ts`; `FileImportModal` adotado em Carga Solta e Vazios de Importação; cobertura adicionada para Taxas Locais e Line-Up.
 

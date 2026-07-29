@@ -61,7 +61,16 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<Pa
       hand_out_date: parseDate(String(mapped.hand_out_date ?? '')), movement_date: parseDate(String(mapped.movement_date ?? '')),
     })
   })
-  return { bookings: dedupeByContainer(bookings), rowErrors: rowErrors.errors }
+  const firstRowByContainer = new Map<string, number>()
+  for (const booking of bookings) {
+    const firstRow = firstRowByContainer.get(booking.container_number)
+    if (firstRow) {
+      rowErrors.add(booking.rowNumber, `Container ${booking.container_number}: duplicado da linha ${firstRow}.`, booking)
+      continue
+    }
+    firstRowByContainer.set(booking.container_number, booking.rowNumber)
+  }
+  return { bookings, rowErrors: rowErrors.errors }
 }
 
 export function parseCondition(value: unknown): ParsedVaziosBooking['condition'] {
@@ -69,12 +78,6 @@ export function parseCondition(value: unknown): ParsedVaziosBooking['condition']
   if (normalized === 'material' || normalized === 'com material' || normalized === 'loaded') return 'material'
   if (normalized === 'vazio' || normalized === 'empty') return 'vazio'
   return null
-}
-
-function dedupeByContainer(bookings: ParsedVaziosBooking[]): ParsedVaziosBooking[] {
-  const lastByContainer = new Map<string, ParsedVaziosBooking>()
-  for (const booking of bookings) lastByContainer.set(booking.container_number, booking)
-  return [...lastByContainer.values()]
 }
 
 function text(value: unknown): string | null { const valueText = String(value ?? '').trim(); return valueText || null }

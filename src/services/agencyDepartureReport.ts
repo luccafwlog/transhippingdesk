@@ -388,7 +388,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     }
     return { ...line, quantidade: quantidadeEfetiva(line, units, allDepots) }
   })
-  const costs = { rows: [], qtyTotal: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
+  const costs = { rows: [], total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
 
   return {
     schedule: schedules.get(entityId) ?? null,
