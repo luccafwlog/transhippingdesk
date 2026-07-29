@@ -75,18 +75,19 @@ export async function updateManualVaziosBooking(
     .toUpperCase();
   if (!/^[A-Z]{4}\d{7}$/.test(container_number))
     throw new Error("Container inválido.");
-  const { error } = await supabase
-    .from("vazios_bookings")
-    .update({
-      container_number,
-      container_type: input.containerType ?? null,
-      local_id: input.localId,
-      condition: input.condition,
-      hand_in_date: input.handInDate ?? null,
-      hand_out_date: input.handOutDate ?? null,
-      movement_date: input.movementDate ?? null,
-    })
-    .eq("id", id);
+  const { error } = await supabase.rpc(
+    "update_manual_vazios_booking" as never,
+    {
+      p_booking_id: id,
+      p_container_number: container_number,
+      p_container_type: input.containerType ?? null,
+      p_local_id: input.localId,
+      p_condition: input.condition,
+      p_hand_in_date: input.handInDate ?? null,
+      p_hand_out_date: input.handOutDate ?? null,
+      p_movement_date: input.movementDate ?? null,
+    } as never,
+  );
   if (error) throw error;
 }
 

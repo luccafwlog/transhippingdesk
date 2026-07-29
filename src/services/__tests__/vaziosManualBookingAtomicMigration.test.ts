@@ -13,4 +13,15 @@ describe("migration 244 - criacao manual atomica", () => {
     expect(sql).toContain("INSERT INTO public.vazios_bookings");
     expect(sql).toContain("SECURITY DEFINER");
   });
+
+  it("mantem a edicao manual no mesmo limite autorizado", () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/247_edicao_manual_vazios_atomica.sql"),
+      "utf8",
+    );
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.update_manual_vazios_booking");
+    expect(sql).toContain("UPDATE public.vazios_bookings");
+    expect(sql).toContain("public.is_equipamentos_user()");
+    expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.update_manual_vazios_booking");
+  });
 });
