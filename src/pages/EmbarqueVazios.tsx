@@ -7,6 +7,7 @@ import { Card, InlineError, PageHeader } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
 import { Field, Input, Select } from "../components/ui/Input";
 import { VoyageCombobox } from "../components/shared/VoyageCombobox";
+import { Combobox, type ComboOption } from "../components/ui/Combobox";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../components/ui/Toast";
 import {
@@ -37,11 +38,52 @@ import {
   veto,
 } from "../services/vaziosCusto";
 import type { DepotService, VaziosExportServiceLine } from "../types/database";
-import { formatBRL, formatDate } from "../lib/utils";
+import { formatBRL, formatDate, normalizeText } from "../lib/utils";
 import { classifyDbError } from "../lib/errors";
 import { invalidateAgencyReportForVoyage } from "../services/agencyReportInvalidation";
 
 type Tab = "unidades" | "servicos";
+
+type OperationRow = {
+  id: string;
+  voyage_id: number;
+  embark_port: string;
+  voyage?: { vessel?: { name?: string | null } | null; voyage_number?: string | null } | null;
+};
+
+function operationLabel(item: OperationRow): string {
+  return (
+    [item.voyage?.vessel?.name, item.voyage?.voyage_number].filter(Boolean).join(" / ") ||
+    `Viagem ${item.voyage_id}`
+  );
+}
+
+function countByField<T>(rows: T[], keyOf: (row: T) => string): Array<{ label: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function TotalsCard({ title, totals }: { title: string; totals: Array<{ label: string; count: number }> }) {
+  return (
+    <div className="rounded-lg border border-[var(--app-border)] p-3">
+      <h3 className="app-panel__title text-sm">{title}</h3>
+      <ul className="mt-2 grid gap-1 text-sm">
+        {totals.map((item) => (
+          <li key={item.label} className="flex items-center justify-between gap-2">
+            <span className="text-[var(--app-muted)]">{item.label}</span>
+            <span className="font-semibold">{item.count}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function EmbarqueVazios() {
   const queryClient = useQueryClient();
@@ -117,6 +159,15 @@ export function EmbarqueVazios() {
     enabled: Boolean(selectedOperation),
   });
   const depotRows = Array.isArray(depots.data) ? depots.data : [];
+  const unitRows = units.data?.rows ?? [];
+  const unitTotals = countByField(unitRows, (item) => item.container_type ?? "—");
+  const depotTotals = countByField(
+    unitRows,
+    (item) => depotRows.find((depot) => depot.id === item.local_id)?.code ?? item.local_id,
+  );
+  const conditionTotals = countByField(unitRows, (item) =>
+    item.condition === "material" ? "Material" : "Vazio",
+  );
   const serviceRows = Array.isArray(services.data) ? services.data : [];
   const armazenagemServiceRows = Array.isArray(armazenagemServices.data)
     ? armazenagemServices.data
@@ -124,7 +175,31 @@ export function EmbarqueVazios() {
   const offeredServices = serviceRows.filter(
     (item) => !serviceNature || item.natureza === serviceNature,
   );
-  const operationRows = Array.isArray(operations.data) ? operations.data : [];
+  const operationRows: OperationRow[] = Array.isArray(operations.data)
+    ? operations.data
+    : [];
+  const operationOptions: ComboOption[] = operationRows.map((item) => ({
+    value: item.id,
+    label: operationLabel(item),
+    meta: item.embark_port,
+  }));
+  async function fetchOperationOptions(query: string) {
+    const term = normalizeText(query);
+    if (!term) return operationOptions;
+    return operationOptions.filter((option) =>
+      normalizeText(`${option.label} ${option.meta ?? ""}`).includes(term),
+    );
+  }
+  function selectOperationOption(option: ComboOption) {
+    const found = operationRows.find((item) => item.id === option.value);
+    if (found) {
+      setSelectedOperation({
+        id: found.id,
+        voyage_id: found.voyage_id,
+        embark_port: found.embark_port,
+      });
+    }
+  }
   const local = depotRows.find((item) => item.id === line.localId);
   const selectedService = serviceRows.find(
     (item) => item.id === line.serviceId,
@@ -443,26 +518,23 @@ export function EmbarqueVazios() {
         {operations.error ? (
           <InlineError message="Erro ao carregar embarques." />
         ) : null}
-        <div className="grid gap-2 md:grid-cols-3">
-            {operationRows.map((item) => (
-              <button
-              key={item.id}
-              type="button"
-              onClick={() => setSelectedOperation(item)}
-              className={`rounded-lg border p-3 text-left ${selectedOperation?.id === item.id ? "border-[var(--app-blue-btn)]" : "border-[var(--app-border)]"}`}
-            >
-                <span className="font-semibold">
-                  {[
-                    (item.voyage as { vessel?: { name?: string | null } | null } | null)?.vessel?.name,
-                    (item.voyage as { voyage_number?: string | null } | null)?.voyage_number,
-                  ].filter(Boolean).join(" / ") || `Viagem ${item.voyage_id}`}
-                </span>
-                <span className="block text-sm text-[var(--app-muted)]">
-                  {item.embark_port}
-                </span>
-            </button>
-          ))}
-        </div>
+        <Combobox
+          key={selectedOperation?.id ?? ""}
+          label="Buscar embarque"
+          initialValue={
+            selectedOperation
+              ? (operationRows.find((item) => item.id === selectedOperation.id)
+                  ? `${operationLabel(operationRows.find((item) => item.id === selectedOperation.id)!)} · ${selectedOperation.embark_port}`
+                  : "")
+              : ""
+          }
+          placeholder="Busque por navio ou viagem"
+          onValueChange={() => {}}
+          fetchOptions={fetchOperationOptions}
+          onSelectOption={selectOperationOption}
+          minChars={1}
+          refreshKey={operationRows.length}
+        />
       </Card>
       {selectedOperation ? (
         <div className="grid gap-5">
@@ -612,6 +684,21 @@ export function EmbarqueVazios() {
                   ) : null}
                 </div>
               </div>
+              {unitRows.length > 0 ? (
+                <div className="grid gap-3">
+                  <p className="text-sm">
+                    Total geral:{" "}
+                    <span className="font-semibold">
+                      {unitRows.length} container{unitRows.length === 1 ? "" : "s"}
+                    </span>
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <TotalsCard title="Por Tipo" totals={unitTotals} />
+                    <TotalsCard title="Por Depot" totals={depotTotals} />
+                    <TotalsCard title="Por Condição" totals={conditionTotals} />
+                  </div>
+                </div>
+              ) : null}
               <div className="app-table-scroll">
                 <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
                   <thead>
