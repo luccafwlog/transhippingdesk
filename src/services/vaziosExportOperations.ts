@@ -163,7 +163,7 @@ export async function getVaziosExportOperation(
   const { data, error } = await supabase
     .from("vazios_export_operations")
     .select(
-      "*, linhas:vazios_export_service_lines(*, service:depot_services(*), local:depots(*), destino:depots!vazios_export_service_lines_destino_id_fkey(*))",
+      "*, linhas:vazios_export_service_lines(*, service:depot_services(*), local:depots!vazios_export_service_lines_local_id_fkey(*), destino:depots!vazios_export_service_lines_destino_id_fkey(*))",
     )
     .eq("voyage_id", voyageId)
     .eq("embark_port", embarkPort)
