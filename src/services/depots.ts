@@ -37,6 +37,13 @@ export async function listDepotServices(depotId: string): Promise<DepotService[]
   return (data ?? []) as unknown as DepotService[]
 }
 
+/** Catálogo de armazenagem de todos os depots, para sugerir a linha que falta por (depot, condição). */
+export async function listArmazenagemServices(): Promise<DepotService[]> {
+  const { data, error } = await supabase.from('depot_services').select('*').eq('natureza', 'armazenagem').eq('active', true)
+  if (error) throw error
+  return (data ?? []) as unknown as DepotService[]
+}
+
 export async function upsertDepotService(input: Omit<DepotService, 'id' | 'created_at'> & { id?: string }): Promise<void> {
   const query = input.id ? supabase.from('depot_services').update(input).eq('id', input.id) : supabase.from('depot_services').insert(input)
   const { error } = await query
