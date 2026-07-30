@@ -44,7 +44,7 @@ const ERROR_TABLE: Readonly<Record<string, ErrorTableEntry>> = {
   '23505': { kind: 'conflito', message: 'Este registro ja existe.' },
   '40001': { kind: 'conflito', message: 'Conflito de concorrencia. Tente novamente.' },
   '23503': { kind: 'validacao', message: 'Registro referenciado nao existe ou ainda esta em uso.' },
-  '23514': { kind: 'validacao', message: 'Dados fora das regras do cadastro.' },
+  '23514': { kind: 'validacao', message: 'Dados fora das regras do cadastro.', preserveMessage: true },
   '22P02': { kind: 'validacao', message: 'Valor em formato invalido.' },
   '22023': { kind: 'validacao', message: 'Dados invalidos para esta operacao.', preserveMessage: true },
   P0002: { kind: 'nao_encontrado', message: 'Registro nao encontrado.', preserveMessage: true },

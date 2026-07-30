@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries, setQueryData: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries, getQueryData: vi.fn(() => undefined), setQueryData: vi.fn() }),
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
     const key = queryKey[0];
     const data = key === "vazios-export-operations"

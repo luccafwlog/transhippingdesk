@@ -27,7 +27,7 @@ export function createHeaderMapper(
 ): (row: Record<string, unknown>) => Record<string, unknown> {
   const colMapping: Record<string, string> = {}
   for (const originalKey of Object.keys(sampleRow)) {
-    const normalized = originalKey.trim().toLowerCase()
+    const normalized = normalizeHeader(originalKey)
     const mapped = headerMap[normalized]
     if (mapped) colMapping[originalKey] = mapped
   }

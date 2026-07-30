@@ -275,24 +275,23 @@ export function EmbarqueVazios() {
         valor_sugerido: line.valorSugerido,
         quantidade_manual: draft.quantidade_manual,
       });
-      queryClient.setQueryData(
-        ["embarque-vazios-operation", selectedOperation.id],
-        (current: typeof operation.data) =>
-          current
-            ? {
-                ...current,
-                linhas: [
-                  ...(current.linhas ?? []).filter((item) => item.id !== savedLine.id),
-                  {
-                    ...savedLine,
-                    service: selectedService,
-                    local,
-                    destino: depotRows.find((item) => item.id === savedLine.destino_id) ?? null,
-                  },
-                ],
-              }
-            : current,
-      );
+      const operationQueryKey = ["embarque-vazios-operation", selectedOperation.id] as const;
+      const currentOperation =
+        queryClient.getQueryData<typeof operation.data>(operationQueryKey) ??
+        operation.data ??
+        ({ linhas: [] } as NonNullable<typeof operation.data>);
+      queryClient.setQueryData(operationQueryKey, {
+        ...currentOperation,
+        linhas: [
+          ...(currentOperation.linhas ?? []).filter((item) => item.id !== savedLine.id),
+          {
+            ...savedLine,
+            service: selectedService,
+            local,
+            destino: depotRows.find((item) => item.id === savedLine.destino_id) ?? null,
+          },
+        ],
+      });
       // A refetch immediately after the insert can briefly return the previous
       // read model and overwrite the line already confirmed by the insert.
       await refreshOperationData({ operation: false });
@@ -875,10 +874,10 @@ export function EmbarqueVazios() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <a
                     className="app-btn app-btn--secondary"
-                    href="/templates/unidades-embarcadas-modelo.csv"
-                    download="unidades-embarcadas-modelo.csv"
+                    href="/templates/unidades-embarcadas-modelo.xlsx"
+                    download="unidades-embarcadas-modelo.xlsx"
                   >
-                    <Download size={16} /> Baixar modelo .csv
+                    <Download size={16} /> Baixar modelo .xlsx
                   </a>
                 </div>
               </div>

@@ -54,11 +54,20 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<Pa
     const condition = parseCondition(mapped.condition)
     if (!condition) rowErrors.add(rowNumber, `Container ${containerNumber}: condição deve ser vazio ou material.`, row)
     const localCode = text(mapped.local_code)
+    const handInRaw = String(mapped.hand_in_date ?? '').trim()
+    const handOutRaw = String(mapped.hand_out_date ?? '').trim()
+    const movementRaw = String(mapped.movement_date ?? '').trim()
+    const handInDate = parseDate(handInRaw)
+    const handOutDate = parseDate(handOutRaw)
+    const movementDate = parseDate(movementRaw)
+    if (handInRaw && !handInDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de entrada invÃ¡lida.`, row)
+    if (handOutRaw && !handOutDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de saÃ­da invÃ¡lida.`, row)
+    if (movementRaw && !movementDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de embarque invÃ¡lida.`, row)
     if (!localCode) rowErrors.add(rowNumber, `Container ${containerNumber}: local de origem obrigatório.`, row)
     bookings.push({
       rowNumber, container_number: containerNumber, container_type: text(mapped.container_type), local_code: localCode,
-      condition, hand_in_date: parseDate(String(mapped.hand_in_date ?? '')),
-      hand_out_date: parseDate(String(mapped.hand_out_date ?? '')), movement_date: parseDate(String(mapped.movement_date ?? '')),
+      condition, hand_in_date: handInDate,
+      hand_out_date: handOutDate, movement_date: movementDate,
     })
   })
   const firstRowByContainer = new Map<string, number>()
@@ -83,14 +92,35 @@ export function parseCondition(value: unknown): ParsedVaziosBooking['condition']
 function text(value: unknown): string | null { const valueText = String(value ?? '').trim(); return valueText || null }
 
 function parseDate(value: string): string | null {
-  if (!value) return null
-  const serial = Number(value)
-  if (Number.isFinite(serial) && serial > 1) return new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * 86_400_000).toISOString().slice(0, 10)
-  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
+  const normalized = value.trim()
+  if (!normalized) return null
+  const serial = Number(normalized)
+  if (Number.isFinite(serial) && serial > 1) {
+    const date = new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * 86_400_000)
+    return dateFromParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate())
+  }
+
+  const iso = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (iso) return dateFromParts(Number(iso[1]), Number(iso[2]), Number(iso[3]))
+
+  const match = normalized.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/)
   if (!match) return null
-  const [, day, month, rawYear] = match
-  const year = rawYear.length === 2 ? `20${rawYear}` : rawYear
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  const first = Number(match[1])
+  const second = Number(match[2])
+  const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3])
+  const month = first > 12 && second <= 12 ? second : second > 12 && first <= 12 ? first : second
+  const day = first > 12 && second <= 12 ? first : second > 12 && first <= 12 ? second : first
+  return dateFromParts(year, month, day)
+}
+
+function dateFromParts(year: number, month: number, day: number): string | null {
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    !Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) ||
+    month < 1 || month > 12 || day < 1 ||
+    date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day
+  ) return null
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 export type ImportVaziosArgs = { filename: string; voyageId: number; port: string; manifest: ParsedVaziosManifest; uploadedBy: string; description?: string }
