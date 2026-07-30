@@ -51,12 +51,13 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
   const rows = await readFirstSheetRows(buffer)
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
   const mappedRows = rows.map(mapRow)
-  // Uma planilha inteira segue uma única convenção de data (DD/MM ou MM/DD);
-  // decidir por coluna evita que uma linha ambígua (ex.: 01/07) seja lida na
-  // convenção errada da linha vizinha que a desambiguou (ex.: 25/02).
-  const handInOrder = inferDateOrder(mappedRows.map((mapped) => String(mapped.hand_in_date ?? '')))
-  const handOutOrder = inferDateOrder(mappedRows.map((mapped) => String(mapped.hand_out_date ?? '')))
-  const movementOrder = inferDateOrder(mappedRows.map((mapped) => String(mapped.movement_date ?? '')))
+  // Uma planilha inteira segue uma única convenção de data (DD/MM ou MM/DD).
+  // A evidência que desambigua pode aparecer em qualquer uma das três colunas
+  // (ex.: SAÍDA nunca passa de dia 12, mas ENTRADA ou EMBARQUE sim) — inferir
+  // por coluna isolada arrisca cada uma cair num padrão diferente.
+  const dateOrder = inferDateOrder(mappedRows.flatMap((mapped) => [
+    String(mapped.hand_in_date ?? ''), String(mapped.hand_out_date ?? ''), String(mapped.movement_date ?? ''),
+  ]))
   const bookings: ParsedVaziosBooking[] = []
   const rowErrors = createRowErrorCollector()
   mappedRows.forEach((mapped, idx) => {
@@ -71,9 +72,9 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
     const handInRaw = String(mapped.hand_in_date ?? '').trim()
     const handOutRaw = String(mapped.hand_out_date ?? '').trim()
     const movementRaw = String(mapped.movement_date ?? '').trim()
-    const handInDate = parseDate(handInRaw, handInOrder)
-    const handOutDate = parseDate(handOutRaw, handOutOrder)
-    const movementDate = parseDate(movementRaw, movementOrder)
+    const handInDate = parseDate(handInRaw, dateOrder)
+    const handOutDate = parseDate(handOutRaw, dateOrder)
+    const movementDate = parseDate(movementRaw, dateOrder)
     if (handInRaw && !handInDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de entrada inválida.`, row)
     if (handOutRaw && !handOutDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de saída inválida.`, row)
     if (movementRaw && !movementDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de embarque inválida.`, row)
