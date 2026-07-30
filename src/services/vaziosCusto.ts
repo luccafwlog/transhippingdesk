@@ -32,9 +32,10 @@ export type CostShipment = {
   depots?: StorageDepot[]
 }
 
+// +1: o dia de entrada e o dia de saída contam ambos como dia de armazenagem.
 const daysBetween = (start: string | null | undefined, end: string | null | undefined): number => {
   if (!start || !end) return 0
-  const diff = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000)
+  const diff = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1
   return Number.isFinite(diff) ? Math.max(0, diff) : 0
 }
 

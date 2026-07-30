@@ -270,9 +270,10 @@ Dias de armazenagem gratuita concedidos pelo depot ao container vazio antes do
 início da cobrança. É atributo dos locais do tipo **Depot** e varia por depot **e
 por condição da unidade**: um free time para o container totalmente vazio, outro
 para o container com material do armador. A armazenagem cobrável de uma unidade
-é `saída do depot − entrada no depot − free time aplicável`, nunca negativa.
-Distinto do Free Time de Demurrage, que se aplica à carga de importação do
-cliente e não ao vazio no depot.
+é `(saída do depot − entrada no depot + 1) − free time aplicável`, nunca
+negativa — o +1 conta tanto o dia de entrada quanto o dia de saída como dias de
+armazenagem. Distinto do Free Time de Demurrage, que se aplica à carga de
+importação do cliente e não ao vazio no depot.
 
 **Embarque Direto**
 Unidade Embarcada cujo local de origem é um **Terminal Portuário**, não um
@@ -284,8 +285,8 @@ de Serviço, como todos os demais.
 **Hand-in / Hand-out**
 Movimentos de gate do container vazio no depot: hand-in é a entrada, hand-out é
 a saída, cada um com data por unidade embarcada. Os dias de armazenagem derivam
-da diferença entre as duas datas menos o free time aplicável; o ADR exibe o
-total de containers e de dias.
+da diferença entre as duas datas (incluindo ambos os dias) menos o free time
+aplicável; o ADR exibe o total de containers e de dias.
 
 **Material do Armador**
 Container vazio embarcado com material do armador em seu interior. Deriva da

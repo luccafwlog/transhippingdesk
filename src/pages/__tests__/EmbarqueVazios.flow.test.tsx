@@ -244,7 +244,7 @@ describe("EmbarqueVazios", () => {
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
 
     expect(screen.getByText(/Armazenagem pendente de lançamento/i)).toBeTruthy();
-    expect(screen.getByText(/VBR · vazio · 4 dia\(s\)/)).toBeTruthy();
+    expect(screen.getByText(/VBR · vazio · 5 dia\(s\)/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Lançar$/i }));
 
     await waitFor(() => expect(mocks.upsertServiceLine).toHaveBeenCalledWith(expect.objectContaining({
@@ -252,7 +252,7 @@ describe("EmbarqueVazios", () => {
       service_id: "armaz-1",
       local_id: "depot-1",
       condition: "vazio",
-      quantidade: 4,
+      quantidade: 5,
       valor_unitario: 25,
       valor_sugerido: 25,
       quantidade_manual: false,

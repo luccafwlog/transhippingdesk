@@ -14,17 +14,17 @@ const units = [
 ]
 
 describe('motor de custo do Embarque de Vazios', () => {
-  it('desconta free time por condição', () => {
-    expect(diasCobraveis(units[0], depots[0])).toBe(2)
-    expect(diasCobraveis(units[1], depots[0])).toBe(2)
+  it('desconta free time por condição, contando entrada e saída (+1 dia)', () => {
+    expect(diasCobraveis(units[0], depots[0])).toBe(3)
+    expect(diasCobraveis(units[1], depots[0])).toBe(3)
     expect(diasCobraveis(units[3], depots[2])).toBe(0)
   })
 
   it('agrupa armazenagem por depot e condição', () => {
     expect(armazenagemPorDepotCondicao(units, depots)).toEqual([
-      { depot_id: 'd1', condition: 'vazio', quantidade: 2 },
-      { depot_id: 'd1', condition: 'material', quantidade: 2 },
-      { depot_id: 'd2', condition: 'vazio', quantidade: 2 },
+      { depot_id: 'd1', condition: 'vazio', quantidade: 3 },
+      { depot_id: 'd1', condition: 'material', quantidade: 3 },
+      { depot_id: 'd2', condition: 'vazio', quantidade: 3 },
     ])
   })
 
@@ -33,9 +33,9 @@ describe('motor de custo do Embarque de Vazios', () => {
       { natureza: 'armazenagem', local_id: 'd1', condition: 'vazio', quantidade: 0, percentual: null, valor_unitario: 10 },
       { natureza: 'geral', local_id: 'tvv', quantidade: 2, percentual: null, valor_unitario: 100 },
     ] as const
-    expect(totalLinha(linhas[0], units, depots)).toBe(20)
+    expect(totalLinha(linhas[0], units, depots)).toBe(30)
     expect(totalLinha(linhas[1], units, depots)).toBe(200)
-    expect(totalEmbarque({ unidades: units, linhas: [...linhas], depots })).toBe(220)
+    expect(totalEmbarque({ unidades: units, linhas: [...linhas], depots })).toBe(230)
   })
 
   it('veta transporte sem rota, armazenagem fora de depot e duplicata', () => {

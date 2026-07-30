@@ -49,6 +49,19 @@ describe('parser de vazios — novo contrato', () => {
     expect(parsed.bookings[0].hand_in_date).toBe('2026-07-01')
     expect(parsed.bookings[1].hand_in_date).toBe('2026-07-25')
   })
+  it('usa a convencao desambiguada por ENTRADA/EMBARQUE mesmo quando a coluna SAIDA nunca desambigua sozinha', async () => {
+    // Bug real: todas as linhas de 'Hand-out' tem dia e mes <=12 (nunca
+    // desambigua sozinha), mas a planilha inteira esta em MM/DD (evidencia em
+    // 'Hand-in'). Sem combinar as tres colunas, 'Hand-out' cairia no
+    // fallback DD/MM e inflaria a saida em ate 30 dias.
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234580', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '2/25/2026', 'Hand-out': '7/8/2026', 'Load date': '7/10/2026' },
+      { Container: 'ABCD1234581', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '2/18/2026', 'Hand-out': '7/10/2026', 'Load date': '7/10/2026' },
+    ]))
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.bookings[0]).toMatchObject({ hand_in_date: '2026-02-25', hand_out_date: '2026-07-08', movement_date: '2026-07-10' })
+    expect(parsed.bookings[1]).toMatchObject({ hand_in_date: '2026-02-18', hand_out_date: '2026-07-10', movement_date: '2026-07-10' })
+  })
   it('nao le um numero pequeno digitado por engano como serial Excel', async () => {
     const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234574', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '2026' }]))
     expect(parsed.bookings[0].hand_in_date).toBeNull()
