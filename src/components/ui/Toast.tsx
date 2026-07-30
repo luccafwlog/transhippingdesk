@@ -120,7 +120,7 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: numbe
         {toast.type === 'error' ? <AlertTriangle size={18} /> : null}
         {toast.type === 'info' ? <Info size={18} /> : null}
       </span>
-      <span style={{ flex: 1 }}>{toast.message}</span>
+      <span className="app-toast__message">{toast.message}</span>
       <button
         type="button"
         onClick={handleClose}

@@ -173,7 +173,7 @@ export function EmbarqueVazios() {
   async function importUnits() {
     if (!file || !selectedOperation || !user?.id) return;
     await notify(async () => {
-      const parsed = await parseVaziosManifestFile(file);
+      const parsed = await parseVaziosManifestFile(file, depotRows);
       await importVaziosManifest({
         filename: file.name,
         voyageId: selectedOperation.voyage_id,
