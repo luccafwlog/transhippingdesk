@@ -72,7 +72,7 @@ observações, percentual de overtime por container e o número da OS.
 ### 3. Toda cobrança é uma linha lançada; três naturezas governam os campos
 
 Cada linha declara um serviço performado com: serviço, local (depot ou terminal),
-tipo de container, quantidade, percentual, valor unitário e — no transporte —
+tipo de container, quantidade e valor unitário e — no transporte —
 o destino, sendo o local a origem da rota. A **natureza** do serviço, definida no
 cadastro, decide o comportamento:
 
@@ -84,9 +84,9 @@ cadastro, decide o comportamento:
 - **`transporte`** — exige rota (local de origem → destino).
 - **`geral`** — exige apenas o local.
 
-O **percentual** é `50%` ou `100%` (padrão `100%`) e multiplica:
-`total = quantidade × valor unitário × percentual`. Isso substitui o overtime
-como acréscimo derivado: overtime handling e overtime transporte passam a ser
+O valor unitário é sempre o valor efetivo do serviço, já incluindo qualquer
+majoração ou overtime. O total é `quantidade × valor unitário`; não há
+percentual na linha. Overtime handling e overtime transporte continuam sendo
 serviços com valor próprio, e duas faixas do mesmo serviço são duas linhas.
 
 Os dez serviços iniciais — armazenagem, transporte, handling in, handling out,
@@ -127,7 +127,7 @@ lançada.
 
 **Vazios embarcados** passa a derivar da Lista de Unidades (contagem e matriz por
 tipo de container). **Operação de Pátio** exibe as linhas de serviço detalhadas —
-serviço, local, rota, tipo, quantidade, percentual, valor unitário e total — mais
+serviço, local, rota, tipo, quantidade, valor unitário e total — mais
 o bloco de armazenagem por depot e condição, e o total geral, tudo em BRL. No
 impresso, a capa traz os totais e a **lista das unidades que geraram armazenagem
 vai em anexo**. Exibir só somatórios faria o Financeiro voltar a pedir a planilha

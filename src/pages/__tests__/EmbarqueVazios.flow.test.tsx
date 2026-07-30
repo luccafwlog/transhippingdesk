@@ -16,7 +16,12 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
     const key = queryKey[0];
     const data = key === "vazios-export-operations"
-      ? [{ id: "operation-1", voyage_id: 179, embark_port: "BRVIX" }]
+      ? [{
+          id: "operation-1",
+          voyage_id: 179,
+          embark_port: "BRVIX",
+          voyage: { voyage_number: "123N", vessel: { name: "NAVIO VERDE" } },
+        }]
       : key === "embarque-vazios-units"
         ? { rows: [], count: 0 }
         : key === "embarque-vazios-operation"
@@ -27,7 +32,7 @@ vi.mock("@tanstack/react-query", () => ({
                 { id: "terminal-1", code: "TVV", name: "Terminal Vitória", tipo: "terminal_portuario" },
               ]
             : key === "depot-services"
-              ? [{ id: "transport-1", name: "Transporte", natureza: "transporte" }]
+              ? [{ id: "transport-1", name: "Transporte", natureza: "transporte", route_destino_id: "terminal-1" }]
               : [];
     return { data, isLoading: false, error: null, refetch: mocks.refetch };
   },
@@ -57,10 +62,17 @@ import { EmbarqueVazios } from "../EmbarqueVazios";
 afterEach(cleanup);
 
 describe("EmbarqueVazios", () => {
+  it("exibe o nome da escala e preserva o ID interno da viagem", () => {
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+
+    expect(screen.getByText("NAVIO VERDE / 123N")).toBeTruthy();
+    expect(screen.getByText(/ID interno: 179/)).toBeTruthy();
+  });
+
   it("inclui uma Unidade Embarcada e invalida o ADR da escala selecionada", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: /Viagem 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
     fireEvent.change(screen.getByLabelText("Container"), { target: { value: "MSCU1234567" } });
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Entrada"), { target: { value: "2026-07-02" } });
@@ -83,7 +95,7 @@ describe("EmbarqueVazios", () => {
     });
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: /Viagem 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
     fireEvent.change(screen.getByLabelText("Container"), { target: { value: "MSCU1234567" } });
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Entrada"), { target: { value: "2026-07-02" } });
@@ -96,19 +108,29 @@ describe("EmbarqueVazios", () => {
     ));
   });
 
-  it("oferece somente locais cadastrados como origem e destino de transporte", () => {
+  it("oferece somente o destino vinculado ao serviço de transporte", () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: /Viagem 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
 
     const destination = screen.getByLabelText("Destino da rota") as HTMLSelectElement;
-    expect(destination.disabled).toBe(false);
-    expect([...destination.options].map((option) => option.text)).toEqual(expect.arrayContaining([
-      "VBR · Depot Vitória",
+    expect(destination.disabled).toBe(true);
+    expect([...destination.options].map((option) => option.text)).toEqual([
       "TVV · Terminal Vitória",
-    ]));
+    ]);
+  });
+
+  it("oculta destino, condição e percentual quando o serviço não os prevê", () => {
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+    fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
+
+    expect(screen.queryByLabelText("Condição")).toBeNull();
+    expect(screen.queryByLabelText("Percentual")).toBeNull();
   });
 });

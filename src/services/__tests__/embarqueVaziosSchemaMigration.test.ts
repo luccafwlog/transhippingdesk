@@ -19,10 +19,11 @@ describe('contrato SQL do Embarque de Vazios ADR 0033', () => {
     expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.import_vazios_bookings_transactional')
   })
 
-  it('declara linhas, percentual limitado, catalogo e RLS', () => {
-    const sql = read('238_embarque_vazios_unidades.sql') + read('239_embarque_vazios_linhas_servico.sql') + read('240_depot_catalogo_sugerido.sql')
+  it('declara linhas, catalogo e RLS', () => {
+    const sql = read('238_embarque_vazios_unidades.sql') + read('239_embarque_vazios_linhas_servico.sql') + read('240_depot_catalogo_sugerido.sql') + read('248_linhas_servico_sem_percentual.sql')
     expect(sql).toContain('vazios_export_service_lines')
     expect(sql).toContain('percentual IN (50, 100)')
+    expect(sql).toContain('NEW.percentual IS NOT NULL')
     expect(sql).toContain('uq_vazios_storage_line_operation_local_condition')
     expect(sql).toContain('validate_vazios_export_service_line')
     expect(sql).toContain('CREATE TRIGGER validate_vazios_export_service_line')
