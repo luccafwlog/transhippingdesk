@@ -2,6 +2,8 @@
 // Extraído de vaziosImport/graniteImport (audit T11) — apenas a interseção
 // visível entre os parsers, sem framework genérico.
 
+import { normalizeHeader } from '../lib/utils'
+
 /** Erro de linha acumulado durante o parse, no formato comum aos parsers. */
 export type RowError = { row: number; message: string; raw: unknown }
 
@@ -95,10 +97,6 @@ export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<Record<st
 export type HeaderSpec<F extends string> = {
   readonly aliases: Readonly<Record<F, readonly string[]>>
   readonly required: readonly F[]
-}
-
-function normalizeHeader(value: string): string {
-  return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
 export function matchHeaders<F extends string>(

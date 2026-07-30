@@ -32,11 +32,15 @@ type ErrorTableEntry = ClassifiedDbError & {
 }
 
 // 22023/P0002 sao os codigos que as RPCs do Portal (supabase/migrations/116,
-// 117) e varios RPCs internos (025, 108) usam para RAISE EXCEPTION com
-// mensagens de negocio prontas para o usuario final (ex.: "Esta fatura ja
-// possui uma disputa em aberto.") — por isso preservam a mensagem, como
-// 42501. 23503/23514/22P02 sao violacoes de constraint cruas do Postgres e
-// NAO preservam: o texto exporia nome de tabela/coluna.
+// 117) e varios RPCs internos (025, 108, 239, 242, 244, 248...) usam para
+// RAISE EXCEPTION com mensagens de negocio prontas para o usuario final
+// (ex.: "Esta fatura ja possui uma disputa em aberto.", "Depot exige entrada
+// e saida validas.") — por isso preservam a mensagem, como 42501. 23514
+// tambem e o codigo nativo de violacao de CHECK constraint do Postgres
+// (ex.: "new row ... violates check constraint ..."), que exporia nome de
+// tabela/coluna; o guard `raw` abaixo detecta esse caso e cai para a
+// mensagem fixa mesmo com preserveMessage. 23503/22P02 sao violacoes de
+// constraint cruas do Postgres e NAO preservam.
 const ERROR_TABLE: Readonly<Record<string, ErrorTableEntry>> = {
   '42501': { kind: 'permissao', message: 'Sem permissao para esta acao. Solicite acesso administrativo.', preserveMessage: true },
   PGRST301: { kind: 'sessao_expirada', message: 'Sua sessao expirou. Entre novamente para continuar.' },
@@ -61,6 +65,7 @@ export function classifyDbError(error: unknown): ClassifiedDbError {
         : { code: '', message: '' }
   const known = ERROR_TABLE[fields.code]
   const raw = /permission denied for (?:table|view|function|relation|schema|sequence)/i.test(fields.message)
+    || /violates (?:check|not-null|foreign key|unique) constraint/i.test(fields.message)
   if (known) {
     const preserve = known.preserveMessage && fields.message && !raw
     return { kind: known.kind, message: preserve ? fields.message : known.message }

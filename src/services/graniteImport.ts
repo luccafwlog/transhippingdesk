@@ -26,12 +26,10 @@ const HEADER_MAP: Record<string, string> = {
   'real weight': 'real_weight_kg',
   'stockyard': 'stockyard',
   'remarks': 'remarks',
-  'restrição parcial': 'partial_restriction',
   'restricao parcial': 'partial_restriction',
   'coscos transportation': 'cosco_transport',
   'fragile blocks': 'fragile_blocks',
   'cssc selection': 'cssc_selection',
-  'prontidão de carga': 'cargo_readiness_date',
   'prontidao de carga': 'cargo_readiness_date',
   'fase': 'phase',
 }

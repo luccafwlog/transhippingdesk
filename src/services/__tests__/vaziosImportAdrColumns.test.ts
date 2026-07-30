@@ -33,8 +33,24 @@ describe('parser de vazios — novo contrato', () => {
     expect(parsed.rowErrors).toEqual([])
     expect(parsed.bookings[0]).toMatchObject({ container_number: 'ABCD1234567', local_code: 'VBR', condition: 'vazio' })
   })
-  it('recusa datas impossÃ­veis antes da persistÃªncia', async () => {
+  it('recusa datas impossíveis antes da persistência', async () => {
     const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234571', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '31/02/2026' }]))
+    expect(parsed.bookings[0].hand_in_date).toBeNull()
+    expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('data de entrada')
+  })
+  it('mantem a mesma convencao de data para todas as linhas da coluna, mesmo com uma linha ambigua', async () => {
+    // '07/01/2026' sozinho seria ambiguo (ambos <=12); a segunda linha
+    // desambigua a coluna inteira como MM/DD (mes 25 so existe como dia).
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234572', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '07/01/2026' },
+      { Container: 'ABCD1234573', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '07/25/2026' },
+    ]))
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.bookings[0].hand_in_date).toBe('2026-07-01')
+    expect(parsed.bookings[1].hand_in_date).toBe('2026-07-25')
+  })
+  it('nao le um numero pequeno digitado por engano como serial Excel', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234574', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '2026' }]))
     expect(parsed.bookings[0].hand_in_date).toBeNull()
     expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('data de entrada')
   })

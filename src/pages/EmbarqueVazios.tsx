@@ -277,24 +277,26 @@ export function EmbarqueVazios() {
       });
       const operationQueryKey = ["embarque-vazios-operation", selectedOperation.id] as const;
       const currentOperation =
-        queryClient.getQueryData<typeof operation.data>(operationQueryKey) ??
-        operation.data ??
-        ({ linhas: [] } as NonNullable<typeof operation.data>);
-      queryClient.setQueryData(operationQueryKey, {
-        ...currentOperation,
-        linhas: [
-          ...(currentOperation.linhas ?? []).filter((item) => item.id !== savedLine.id),
-          {
-            ...savedLine,
-            service: selectedService,
-            local,
-            destino: depotRows.find((item) => item.id === savedLine.destino_id) ?? null,
-          },
-        ],
-      });
+        queryClient.getQueryData<typeof operation.data>(operationQueryKey) ?? operation.data;
+      if (currentOperation) {
+        queryClient.setQueryData(operationQueryKey, {
+          ...currentOperation,
+          linhas: [
+            ...(currentOperation.linhas ?? []).filter((item) => item.id !== savedLine.id),
+            {
+              ...savedLine,
+              service: selectedService,
+              local,
+              destino: depotRows.find((item) => item.id === savedLine.destino_id) ?? null,
+            },
+          ],
+        });
+      }
       // A refetch immediately after the insert can briefly return the previous
-      // read model and overwrite the line already confirmed by the insert.
-      await refreshOperationData({ operation: false });
+      // read model and overwrite the line already confirmed by the insert; skip
+      // it only when the optimistic write above already applied. Without cached
+      // data to merge into, the refetch is the only way the new line reaches the UI.
+      await refreshOperationData({ operation: !currentOperation });
     }, "Linha de serviço lançada.");
   }
   function chooseService(serviceId: string) {
