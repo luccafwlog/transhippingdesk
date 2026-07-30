@@ -2,18 +2,19 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createManualVaziosBooking: vi.fn(() => Promise.resolve()),
   invalidateQueries: vi.fn(() => Promise.resolve()),
   refetch: vi.fn(() => Promise.resolve()),
+  operationRefetch: vi.fn(() => Promise.resolve()),
   showToast: vi.fn(),
   upsertServiceLine: vi.fn(() => Promise.resolve({ id: "line-1" })),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries, setQueryData: vi.fn() }),
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
     const key = queryKey[0];
     const data = key === "vazios-export-operations"
@@ -38,7 +39,12 @@ vi.mock("@tanstack/react-query", () => ({
                   { id: "transport-1", name: "Transporte", natureza: "transporte", route_destino_id: "terminal-1" },
                 ]
               : [];
-    return { data, isLoading: false, error: null, refetch: mocks.refetch };
+    return {
+      data,
+      isLoading: false,
+      error: null,
+      refetch: key === "embarque-vazios-operation" ? mocks.operationRefetch : mocks.refetch,
+    };
   },
 }));
 
@@ -64,6 +70,7 @@ vi.mock("../../services/vaziosExportOperations", () => ({
 import { EmbarqueVazios } from "../EmbarqueVazios";
 
 afterEach(cleanup);
+beforeEach(() => mocks.operationRefetch.mockClear());
 
 describe("EmbarqueVazios", () => {
   it("exibe o nome da escala e preserva o ID interno da viagem", () => {
@@ -166,5 +173,6 @@ describe("EmbarqueVazios", () => {
       destino_id: "terminal-1",
       percentual: null,
     })));
+    expect(mocks.operationRefetch).toHaveBeenCalledTimes(0);
   });
 });

@@ -137,12 +137,15 @@ export function EmbarqueVazios() {
       })
     : 0;
 
-  async function refreshOperationData() {
-    await Promise.all([
-      units.refetch(),
-      operation.refetch(),
-      selectedOperation ? invalidateAgencyReportForVoyage(queryClient, selectedOperation.voyage_id) : Promise.resolve(),
-    ]);
+  async function refreshOperationData(options: { operation?: boolean } = {}) {
+    const refreshes: Array<Promise<unknown>> = [units.refetch()];
+    if (options.operation !== false) refreshes.push(operation.refetch());
+    refreshes.push(
+      selectedOperation
+        ? invalidateAgencyReportForVoyage(queryClient, selectedOperation.voyage_id)
+        : Promise.resolve(),
+    );
+    await Promise.all(refreshes);
   }
   async function notify(action: () => Promise<void>, success: string) {
     try {
@@ -290,7 +293,9 @@ export function EmbarqueVazios() {
               }
             : current,
       );
-      await refreshOperationData();
+      // A refetch immediately after the insert can briefly return the previous
+      // read model and overwrite the line already confirmed by the insert.
+      await refreshOperationData({ operation: false });
     }, "Linha de serviço lançada.");
   }
   function chooseService(serviceId: string) {
