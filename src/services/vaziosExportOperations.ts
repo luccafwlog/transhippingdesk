@@ -219,9 +219,16 @@ export async function upsertServiceLine(
         .from("vazios_export_service_lines")
         .update(payload)
         .eq("id", input.id)
-    : supabase.from("vazios_export_service_lines").insert(payload);
-  const { error } = await query;
+        .select("*")
+        .single()
+    : supabase
+        .from("vazios_export_service_lines")
+        .insert(payload)
+        .select("*")
+        .single();
+  const { data, error } = await query;
   if (error) throw error;
+  return data as VaziosExportServiceLine;
 }
 
 export async function deleteServiceLine(id: string) {

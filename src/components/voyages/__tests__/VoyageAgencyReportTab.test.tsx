@@ -96,6 +96,9 @@ it('exibe a linha de serviço pelo nome, nao pelo id', () => {
   })
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
   expect(screen.getByText('Bundle Composition')).toBeTruthy()
+  const serviceTable = screen.getByText('Bundle Composition').closest('table')!
+  expect(within(serviceTable).queryByRole('columnheader', { name: '%' })).toBeNull()
+  expect(within(serviceTable).queryByText('100')).toBeNull()
 })
 
 it('exibe a barra-resumo dos 3 departamentos e o sign-off da seção do usuário', () => {

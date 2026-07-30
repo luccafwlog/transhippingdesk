@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(() => Promise.resolve()),
   refetch: vi.fn(() => Promise.resolve()),
   showToast: vi.fn(),
+  upsertServiceLine: vi.fn(() => Promise.resolve({ id: "line-1" })),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -32,7 +33,10 @@ vi.mock("@tanstack/react-query", () => ({
                 { id: "terminal-1", code: "TVV", name: "Terminal Vitória", tipo: "terminal_portuario" },
               ]
             : key === "depot-services"
-              ? [{ id: "transport-1", name: "Transporte", natureza: "transporte", route_destino_id: "terminal-1" }]
+              ? [
+                  { id: "general-1", name: "Handling", natureza: "geral", route_destino_id: null },
+                  { id: "transport-1", name: "Transporte", natureza: "transporte", route_destino_id: "terminal-1" },
+                ]
               : [];
     return { data, isLoading: false, error: null, refetch: mocks.refetch };
   },
@@ -53,7 +57,7 @@ vi.mock("../../services/vaziosExportOperations", () => ({
   getVaziosExportOperation: vi.fn(),
   listVaziosBookingsForOperation: vi.fn(),
   updateManualVaziosBooking: vi.fn(),
-  upsertServiceLine: vi.fn(),
+  upsertServiceLine: mocks.upsertServiceLine,
   upsertVaziosExportOperation: vi.fn(),
 }));
 
@@ -66,13 +70,13 @@ describe("EmbarqueVazios", () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
     expect(screen.getByText("NAVIO VERDE / 123N")).toBeTruthy();
-    expect(screen.getByText(/ID interno: 179/)).toBeTruthy();
+    expect(screen.queryByText(/ID interno: 179/)).toBeNull();
   });
 
   it("inclui uma Unidade Embarcada e invalida o ADR da escala selecionada", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
     fireEvent.change(screen.getByLabelText("Container"), { target: { value: "MSCU1234567" } });
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Entrada"), { target: { value: "2026-07-02" } });
@@ -95,7 +99,7 @@ describe("EmbarqueVazios", () => {
     });
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
     fireEvent.change(screen.getByLabelText("Container"), { target: { value: "MSCU1234567" } });
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Entrada"), { target: { value: "2026-07-02" } });
@@ -111,26 +115,56 @@ describe("EmbarqueVazios", () => {
   it("oferece somente o destino vinculado ao serviço de transporte", () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
 
     const destination = screen.getByLabelText("Destino da rota") as HTMLSelectElement;
-    expect(destination.disabled).toBe(true);
+    expect(destination.disabled).toBe(false);
     expect([...destination.options].map((option) => option.text)).toEqual([
+      "Selecione",
       "TVV · Terminal Vitória",
     ]);
   });
 
   it("oculta destino, condição e percentual quando o serviço não os prevê", () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: /NAVIO VERDE \/ 123N.*ID interno: 179/i }));
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
 
     expect(screen.queryByLabelText("Condição")).toBeNull();
     expect(screen.queryByLabelText("Percentual")).toBeNull();
+  });
+
+  it("seleciona a natureza antes de ofertar os serviços", () => {
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+    fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
+
+    expect(screen.getByLabelText("Natureza")).toBeTruthy();
+    expect((screen.getByLabelText("Serviço") as HTMLSelectElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Natureza"), { target: { value: "transporte" } });
+    expect((screen.getByLabelText("Serviço") as HTMLSelectElement).disabled).toBe(false);
+  });
+
+  it("envia a linha e o destino vinculado ao serviço de transporte", async () => {
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+    fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
+    fireEvent.change(screen.getByLabelText("Natureza"), { target: { value: "transporte" } });
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /Lançar linha/i }));
+
+    await waitFor(() => expect(mocks.upsertServiceLine).toHaveBeenCalledWith(expect.objectContaining({
+      operation_id: "operation-1",
+      service_id: "transport-1",
+      destino_id: "terminal-1",
+      percentual: null,
+    })));
   });
 });

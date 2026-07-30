@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Download, Upload, Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Card, InlineError, PageHeader } from "../components/ui/Card";
+import { Modal } from "../components/ui/Modal";
 import { Field, Input, Select } from "../components/ui/Input";
 import { VoyageCombobox } from "../components/shared/VoyageCombobox";
 import { useAuth } from "../hooks/useAuth";
@@ -53,6 +54,8 @@ export function EmbarqueVazios() {
     embark_port: string;
   } | null>(null);
   const [tab, setTab] = useState<Tab>("unidades");
+  const [serviceNature, setServiceNature] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [line, setLine] = useState({
     serviceId: "",
@@ -108,6 +111,9 @@ export function EmbarqueVazios() {
   });
   const depotRows = Array.isArray(depots.data) ? depots.data : [];
   const serviceRows = Array.isArray(services.data) ? services.data : [];
+  const offeredServices = serviceRows.filter(
+    (item) => !serviceNature || item.natureza === serviceNature,
+  );
   const operationRows = Array.isArray(operations.data) ? operations.data : [];
   const local = depotRows.find((item) => item.id === line.localId);
   const selectedService = serviceRows.find(
@@ -174,6 +180,7 @@ export function EmbarqueVazios() {
       });
       setFile(null);
       await refreshOperationData();
+      setImportOpen(false);
     }, "Lista de unidades substituída.");
   }
   function clearUnit() {
@@ -249,7 +256,7 @@ export function EmbarqueVazios() {
         })),
       });
       if (issue) throw new Error(issue);
-      await upsertServiceLine({
+      const savedLine = await upsertServiceLine({
         operation_id: selectedOperation.id,
         service_id: selectedService.id,
         local_id: local.id,
@@ -265,6 +272,24 @@ export function EmbarqueVazios() {
         valor_sugerido: line.valorSugerido,
         quantidade_manual: draft.quantidade_manual,
       });
+      queryClient.setQueryData(
+        ["embarque-vazios-operation", selectedOperation.id],
+        (current: typeof operation.data) =>
+          current
+            ? {
+                ...current,
+                linhas: [
+                  ...(current.linhas ?? []).filter((item) => item.id !== savedLine.id),
+                  {
+                    ...savedLine,
+                    service: selectedService,
+                    local,
+                    destino: depotRows.find((item) => item.id === savedLine.destino_id) ?? null,
+                  },
+                ],
+              }
+            : current,
+      );
       await refreshOperationData();
     }, "Linha de serviço lançada.");
   }
@@ -350,7 +375,7 @@ export function EmbarqueVazios() {
                   ].filter(Boolean).join(" / ") || `Viagem ${item.voyage_id}`}
                 </span>
                 <span className="block text-sm text-[var(--app-muted)]">
-                  ID interno: {item.voyage_id} · {item.embark_port}
+                  {item.embark_port}
                 </span>
             </button>
           ))}
@@ -389,25 +414,11 @@ export function EmbarqueVazios() {
                   </p>
                 </div>
                 <span className="flex gap-2">
-                  <a
-                    className="app-btn app-btn--secondary"
-                    href="/templates/unidades-embarcadas-modelo.csv"
-                    download="unidades-embarcadas-modelo.csv"
-                  >
-                    <Download size={16} /> Modelo de planilha
-                  </a>
-                  <Input
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={(event) =>
-                      setFile(event.target.files?.[0] ?? null)
-                    }
-                  />
                   <Button
-                    disabled={!file || !canEdit}
-                    onClick={() => void importUnits()}
+                    disabled={!canEdit}
+                    onClick={() => setImportOpen(true)}
                   >
-                    <Upload size={16} /> Importar
+                    <Upload size={16} /> Importar planilha
                   </Button>
                 </span>
               </div>
@@ -519,7 +530,7 @@ export function EmbarqueVazios() {
                 </div>
               </div>
               <div className="app-table-scroll">
-                <table className="app-table min-w-[760px] text-left text-sm">
+                <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
                   <thead>
                     <tr>
                       <th>Container</th>
@@ -592,13 +603,14 @@ export function EmbarqueVazios() {
                 <Field label="Local">
                   <Select
                     value={line.localId}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setServiceNature("");
                       setLine((current) => ({
                         ...current,
                         localId: event.target.value,
                         serviceId: "",
-                      }))
-                    }
+                      }));
+                    }}
                   >
                     <option value="">Selecione</option>
                     {depotRows.map((item) => (
@@ -608,14 +620,34 @@ export function EmbarqueVazios() {
                     ))}
                   </Select>
                 </Field>
+                <Field label="Natureza">
+                  <Select
+                    value={serviceNature}
+                    onChange={(event) => {
+                      setServiceNature(event.target.value);
+                      setLine((current) => ({
+                        ...current,
+                        serviceId: "",
+                        destinoId: "",
+                        condition: "",
+                      }));
+                    }}
+                    disabled={!line.localId}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="armazenagem">Armazenagem</option>
+                    <option value="transporte">Transporte</option>
+                    <option value="geral">Geral</option>
+                  </Select>
+                </Field>
                 <Field label="Serviço">
                   <Select
                     value={line.serviceId}
                     onChange={(event) => chooseService(event.target.value)}
-                    disabled={!line.localId}
+                    disabled={!line.localId || !serviceNature}
                   >
                     <option value="">Selecione</option>
-                    {serviceRows.map((item) => (
+                    {offeredServices.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.name} · {item.natureza}
                       </option>
@@ -624,7 +656,17 @@ export function EmbarqueVazios() {
                 </Field>
                 {selectedService?.natureza === "transporte" && selectedService.route_destino_id ? (
                   <Field label="Destino da rota">
-                    <Select value={line.destinoId} disabled>
+                    <Select
+                      value={line.destinoId}
+                      onChange={(event) =>
+                        setLine((current) => ({
+                          ...current,
+                          destinoId: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Selecione
+                      </option>
                       {depotRows
                         .filter((item) => item.id === selectedService.route_destino_id)
                         .map((item) => (
@@ -722,7 +764,7 @@ export function EmbarqueVazios() {
                 </div>
               </div>
               <div className="app-table-scroll">
-                <table className="app-table min-w-[900px] text-left text-sm">
+                <table className="app-table app-table--compact min-w-[900px] text-left text-sm whitespace-nowrap">
                   <thead>
                     <tr>
                       <th>Serviço</th>
@@ -756,8 +798,8 @@ export function EmbarqueVazios() {
                             {(item.service as { name?: string } | null)?.name ??
                               item.service_id}
                           </td>
-                          <td>{item.local_id}</td>
-                          <td>{item.destino_id ?? "—"}</td>
+                          <td>{depotRows.find((depot) => depot.id === item.local_id)?.code ?? item.local_id}</td>
+                          <td>{depotRows.find((depot) => depot.id === item.destino_id)?.code ?? "—"}</td>
                           <td>{item.container_type ?? "—"}</td>
                           <td>
                             {calculated}
@@ -810,6 +852,60 @@ export function EmbarqueVazios() {
               </div>
             </Card>
           )}
+          <Modal
+            open={importOpen}
+            onClose={() => {
+              setImportOpen(false);
+              setFile(null);
+            }}
+            title="Importar Unidades Embarcadas"
+          >
+            <div className="grid gap-5">
+              <div className="app-panel app-panel--padded text-sm">
+                <div className="app-panel__title">Estrutura obrigatória da planilha</div>
+                <div className="mt-2">CONTAINER, TIPO, LOCAL, CONDIÇÃO, ENTRADA, SAÍDA, EMBARQUE.</div>
+                <div className="app-panel__meta mt-2">
+                  O local deve usar o código cadastrado. Condição: vazio ou material.
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a
+                    className="app-btn app-btn--secondary"
+                    href="/templates/unidades-embarcadas-modelo.csv"
+                    download="unidades-embarcadas-modelo.csv"
+                  >
+                    <Download size={16} /> Baixar modelo .csv
+                  </a>
+                </div>
+              </div>
+              <Field label="Arquivo .xlsx, .xls ou .csv">
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(event) =>
+                    setFile(event.target.files?.[0] ?? null)
+                  }
+                />
+              </Field>
+              {file ? <div className="app-panel__meta">Arquivo selecionado: {file.name}</div> : null}
+              <div className="app-modal__actions">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setImportOpen(false);
+                    setFile(null);
+                  }}
+                >
+                  Fechar
+                </Button>
+                <Button
+                  disabled={!file || !canEdit}
+                  onClick={() => void importUnits()}
+                >
+                  <Upload size={16} /> Importar
+                </Button>
+              </div>
+            </div>
+          </Modal>
         </div>
       ) : null}
     </div>

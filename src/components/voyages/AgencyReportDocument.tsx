@@ -338,7 +338,6 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
                 <th>Rota</th>
                 <th>Tipo</th>
                 <th>Quantidade</th>
-                <th>%</th>
                 <th>Unitário</th>
                 <th>Total</th>
               </tr>
@@ -367,11 +366,6 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
                   </td>
                   <td>{String(service.container_type ?? "—")}</td>
                   <td>{count(service.quantidade)}</td>
-                  <td>
-                    {service.percentual == null
-                      ? "—"
-                      : `${count(service.percentual)}%`}
-                  </td>
                   <td>{formatBRL(number(service.valor_unitario))}</td>
                   <td>
                     {formatBRL(
