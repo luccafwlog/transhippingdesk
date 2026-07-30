@@ -5,19 +5,21 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
-const { mocks, depot, service } = vi.hoisted(() => ({
+const { mocks, depot, destination, service } = vi.hoisted(() => ({
   mocks: { upsertDepotService: vi.fn(async () => {}), upsertDepot: vi.fn(async () => {}), deleteDepot: vi.fn(async () => {}), deleteDepotService: vi.fn(async () => {}), confirm: vi.fn(async () => true), showToast: vi.fn() },
   depot: { id: 'd1', code: 'VBR', name: 'Vila Velha', tipo: 'depot', free_time_vazio_days: 3, free_time_material_days: 2, active: true },
-  service: { id: 's1', depot_id: 'd1', name: 'Handling', natureza: 'geral', container_type: null, route_destino_id: null, condition: null, rate_brl: 100, active: true, created_at: '2026-01-01' },
+  destination: { id: 'd2', code: 'TVV', name: 'Terminal Vila Velha', tipo: 'terminal_portuario', free_time_vazio_days: 0, free_time_material_days: 0, active: true },
+  service: { id: 's1', depot_id: 'd1', name: 'Transporte', natureza: 'transporte', container_type: null, route_destino_id: 'd2', condition: null, rate_brl: 100, active: true, created_at: '2026-01-01' },
 }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ can: () => true }) }))
-vi.mock('../../hooks/useDepots', () => ({ useDepots: () => ({ data: [depot], error: null, refetch: vi.fn(async () => {}) }) }))
+vi.mock('../../hooks/useDepots', () => ({ useDepots: () => ({ data: [depot, destination], error: null, refetch: vi.fn(async () => {}) }) }))
 vi.mock('../../services/depots', () => ({ listDepotServices: vi.fn(async () => [service]), upsertDepot: mocks.upsertDepot, upsertDepotService: mocks.upsertDepotService, deleteDepot: mocks.deleteDepot, deleteDepotService: mocks.deleteDepotService }))
 vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => mocks.confirm }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
 import { DepotCadastro } from '../DepotCadastro'
 function renderPage() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><DepotCadastro /></MemoryRouter></QueryClientProvider>) }
 describe('Cadastro de Depot', () => {
+  it('exibe o destino da rota na linha do serviço', async () => { renderPage(); await waitFor(() => expect(screen.getByText(/destino: TVV/i)).toBeTruthy()) })
   it('exibe apenas os campos aplicáveis à natureza do serviço', () => {
     renderPage()
     expect(screen.queryByLabelText('Tipo de container')).toBeNull()
