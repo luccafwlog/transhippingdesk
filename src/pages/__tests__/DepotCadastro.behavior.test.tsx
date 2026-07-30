@@ -18,6 +18,31 @@ vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: mock
 import { DepotCadastro } from '../DepotCadastro'
 function renderPage() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><DepotCadastro /></MemoryRouter></QueryClientProvider>) }
 describe('Cadastro de Depot', () => {
+  it('exibe apenas os campos aplicáveis à natureza do serviço', () => {
+    renderPage()
+    expect(screen.queryByLabelText('Tipo de container')).toBeNull()
+    expect(screen.queryByLabelText('Condição')).toBeNull()
+    expect(screen.queryByLabelText('Destino da rota')).toBeNull()
+
+    fireEvent.change(screen.getByLabelText('Natureza'), { target: { value: 'armazenagem' } })
+    expect(screen.queryByLabelText('Tipo de container')).toBeNull()
+    expect(screen.getByLabelText('Condição')).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'EMPTY' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'EMPTY W/ MATERIAL' })).toBeTruthy()
+    expect(screen.queryByLabelText('Destino da rota')).toBeNull()
+
+    fireEvent.change(screen.getByLabelText('Natureza'), { target: { value: 'transporte' } })
+    expect(screen.queryByLabelText('Tipo de container')).toBeNull()
+    expect(screen.queryByLabelText('Condição')).toBeNull()
+    expect(screen.getByLabelText('Destino da rota')).toBeTruthy()
+  })
+  it('não envia campos específicos ao salvar um serviço geral', async () => {
+    renderPage()
+    fireEvent.change(screen.getByLabelText('Serviço'), { target: { value: 'Handling in' } })
+    fireEvent.click(screen.getByRole('button', { name: /adicionar serviço/i }))
+    await waitFor(() => expect(mocks.upsertDepotService).toHaveBeenCalled())
+    expect(mocks.upsertDepotService).toHaveBeenCalledWith(expect.objectContaining({ natureza: 'geral', container_type: null, route_destino_id: null, condition: null }))
+  })
   beforeEach(() => { cleanup(); for (const fn of Object.values(mocks)) (fn as { mockClear: () => void }).mockClear() })
   it('apresenta o novo modelo de Terminais e catálogo sugerido', () => { renderPage(); expect(screen.getByRole('heading', { name: 'Cadastro de Terminais' })).toBeTruthy(); expect(screen.getByText(/valores sugeridos/i)).toBeTruthy() })
   it('editar um serviço e salvar atualiza (não duplica)', async () => { renderPage(); fireEvent.click(await screen.findByRole('button', { name: /editar/i })); fireEvent.click(screen.getByRole('button', { name: /salvar serviço/i })); await waitFor(() => expect(mocks.upsertDepotService).toHaveBeenCalled()); expect((mocks.upsertDepotService.mock.calls as unknown as Array<[Record<string, unknown>]>)[0][0]).toMatchObject({ id: 's1', depot_id: 'd1' }) })
