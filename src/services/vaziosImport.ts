@@ -7,9 +7,9 @@ const HEADER_MAP: Record<string, string> = {
   container: 'container_number', conteiner: 'container_number', 'container number': 'container_number',
   tipo: 'container_type', type: 'container_type',
   local: 'local_code', origem: 'local_code', depot: 'local_code', 'local de origem': 'local_code', 'origin location': 'local_code',
-  condição: 'condition', condicao: 'condition', condition: 'condition', status: 'condition',
+  condicao: 'condition', condition: 'condition', status: 'condition',
   'hand-in': 'hand_in_date', 'hand in': 'hand_in_date', entrada: 'hand_in_date', 'gate in': 'hand_in_date',
-  'hand-out': 'hand_out_date', 'hand out': 'hand_out_date', saída: 'hand_out_date', saida: 'hand_out_date', 'gate out': 'hand_out_date',
+  'hand-out': 'hand_out_date', 'hand out': 'hand_out_date', saida: 'hand_out_date', 'gate out': 'hand_out_date',
   embarque: 'movement_date', 'data embarque': 'movement_date', 'load date': 'movement_date', data: 'movement_date',
 }
 
@@ -43,22 +43,38 @@ export async function parseVaziosManifestFile(file: File): Promise<ParsedVaziosM
 export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosManifest> {
   const rows = await readFirstSheetRows(buffer)
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
+  const mappedRows = rows.map(mapRow)
+  // Uma planilha inteira segue uma única convenção de data (DD/MM ou MM/DD);
+  // decidir por coluna evita que uma linha ambígua (ex.: 01/07) seja lida na
+  // convenção errada da linha vizinha que a desambiguou (ex.: 25/02).
+  const handInOrder = inferDateOrder(mappedRows.map((mapped) => String(mapped.hand_in_date ?? '')))
+  const handOutOrder = inferDateOrder(mappedRows.map((mapped) => String(mapped.hand_out_date ?? '')))
+  const movementOrder = inferDateOrder(mappedRows.map((mapped) => String(mapped.movement_date ?? '')))
   const bookings: ParsedVaziosBooking[] = []
   const rowErrors = createRowErrorCollector()
-  rows.forEach((row, idx) => {
+  mappedRows.forEach((mapped, idx) => {
     const rowNumber = idx + 2
-    const mapped = mapRow(row)
+    const row = rows[idx]
     const containerNumber = String(mapped.container_number ?? '').trim().toUpperCase()
     if (!containerNumber) { rowErrors.add(rowNumber, 'Container ausente.', row); return }
     if (!/^[A-Z]{4}\d{7}$/.test(containerNumber)) rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
     const condition = parseCondition(mapped.condition)
     if (!condition) rowErrors.add(rowNumber, `Container ${containerNumber}: condição deve ser vazio ou material.`, row)
     const localCode = text(mapped.local_code)
+    const handInRaw = String(mapped.hand_in_date ?? '').trim()
+    const handOutRaw = String(mapped.hand_out_date ?? '').trim()
+    const movementRaw = String(mapped.movement_date ?? '').trim()
+    const handInDate = parseDate(handInRaw, handInOrder)
+    const handOutDate = parseDate(handOutRaw, handOutOrder)
+    const movementDate = parseDate(movementRaw, movementOrder)
+    if (handInRaw && !handInDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de entrada inválida.`, row)
+    if (handOutRaw && !handOutDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de saída inválida.`, row)
+    if (movementRaw && !movementDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de embarque inválida.`, row)
     if (!localCode) rowErrors.add(rowNumber, `Container ${containerNumber}: local de origem obrigatório.`, row)
     bookings.push({
       rowNumber, container_number: containerNumber, container_type: text(mapped.container_type), local_code: localCode,
-      condition, hand_in_date: parseDate(String(mapped.hand_in_date ?? '')),
-      hand_out_date: parseDate(String(mapped.hand_out_date ?? '')), movement_date: parseDate(String(mapped.movement_date ?? '')),
+      condition, hand_in_date: handInDate,
+      hand_out_date: handOutDate, movement_date: movementDate,
     })
   })
   const firstRowByContainer = new Map<string, number>()
@@ -82,15 +98,65 @@ export function parseCondition(value: unknown): ParsedVaziosBooking['condition']
 
 function text(value: unknown): string | null { const valueText = String(value ?? '').trim(); return valueText || null }
 
-function parseDate(value: string): string | null {
-  if (!value) return null
-  const serial = Number(value)
-  if (Number.isFinite(serial) && serial > 1) return new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * 86_400_000).toISOString().slice(0, 10)
-  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
+// Faixa de seriais Excel que corresponde a datas plausíveis (~1970 a ~2070);
+// fora dela um número pequeno (ex.: "2026" digitado por engano no lugar de
+// uma data) não vira silenciosamente uma data de 1905.
+const MIN_PLAUSIBLE_SERIAL = 25_570
+const MAX_PLAUSIBLE_SERIAL = 62_136
+
+type DateOrder = 'dmy' | 'mdy'
+
+const SLASH_DATE = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/
+
+/**
+ * Uma planilha usa uma única convenção de data. Decide DD/MM vs MM/DD para
+ * toda a coluna a partir da primeira linha que desambigua (algum campo >12),
+ * em vez de inferir linha a linha — o que faria uma mesma coluna misturar
+ * convenções conforme cada linha for ou não ambígua.
+ */
+function inferDateOrder(rawValues: string[]): DateOrder {
+  for (const raw of rawValues) {
+    const match = raw.trim().match(SLASH_DATE)
+    if (!match) continue
+    const first = Number(match[1])
+    const second = Number(match[2])
+    if (first > 12 && second <= 12) return 'dmy'
+    if (second > 12 && first <= 12) return 'mdy'
+  }
+  return 'dmy'
+}
+
+function parseDate(value: string, order: DateOrder): string | null {
+  const normalized = value.trim()
+  if (!normalized) return null
+  const serial = Number(normalized)
+  if (Number.isFinite(serial) && serial >= MIN_PLAUSIBLE_SERIAL && serial <= MAX_PLAUSIBLE_SERIAL) {
+    const date = new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * 86_400_000)
+    return dateFromParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate())
+  }
+
+  const iso = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (iso) return dateFromParts(Number(iso[1]), Number(iso[2]), Number(iso[3]))
+
+  const match = normalized.match(SLASH_DATE)
   if (!match) return null
-  const [, day, month, rawYear] = match
-  const year = rawYear.length === 2 ? `20${rawYear}` : rawYear
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  const first = Number(match[1])
+  const second = Number(match[2])
+  const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3])
+  const monthFirst = order === 'mdy' && first <= 12
+  const month = first > 12 && second <= 12 ? second : second > 12 && first <= 12 ? first : monthFirst ? first : second
+  const day = first > 12 && second <= 12 ? first : second > 12 && first <= 12 ? second : monthFirst ? second : first
+  return dateFromParts(year, month, day)
+}
+
+function dateFromParts(year: number, month: number, day: number): string | null {
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    !Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) ||
+    month < 1 || month > 12 || day < 1 ||
+    date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day
+  ) return null
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 export type ImportVaziosArgs = { filename: string; voyageId: number; port: string; manifest: ParsedVaziosManifest; uploadedBy: string; description?: string }

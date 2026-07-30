@@ -11,10 +11,13 @@ const mocks = vi.hoisted(() => ({
   operationRefetch: vi.fn(() => Promise.resolve()),
   showToast: vi.fn(),
   upsertServiceLine: vi.fn(() => Promise.resolve({ id: "line-1" })),
+  getQueryData: vi.fn((): unknown => undefined),
+  setQueryData: vi.fn(),
+  operationData: { linhas: [] } as Record<string, unknown> | undefined,
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries, setQueryData: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries, getQueryData: mocks.getQueryData, setQueryData: mocks.setQueryData }),
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
     const key = queryKey[0];
     const data = key === "vazios-export-operations"
@@ -27,7 +30,7 @@ vi.mock("@tanstack/react-query", () => ({
       : key === "embarque-vazios-units"
         ? { rows: [], count: 0 }
         : key === "embarque-vazios-operation"
-          ? { linhas: [] }
+          ? mocks.operationData
           : key === "depots"
             ? [
                 { id: "depot-1", code: "VBR", name: "Depot Vitória", tipo: "depot" },
@@ -70,7 +73,12 @@ vi.mock("../../services/vaziosExportOperations", () => ({
 import { EmbarqueVazios } from "../EmbarqueVazios";
 
 afterEach(cleanup);
-beforeEach(() => mocks.operationRefetch.mockClear());
+beforeEach(() => {
+  mocks.operationRefetch.mockClear();
+  mocks.getQueryData.mockReset().mockReturnValue(undefined);
+  mocks.setQueryData.mockClear();
+  mocks.operationData = { linhas: [] };
+});
 
 describe("EmbarqueVazios", () => {
   it("exibe o nome da escala e preserva o ID interno da viagem", () => {
@@ -174,5 +182,41 @@ describe("EmbarqueVazios", () => {
       percentual: null,
     })));
     expect(mocks.operationRefetch).toHaveBeenCalledTimes(0);
+  });
+
+  it("mescla a linha lançada no cache existente e evita duplicidade pelo ID", async () => {
+    mocks.getQueryData.mockReturnValue({
+      id: "operation-1",
+      linhas: [{ id: "line-1", quantidade: "1", valor_unitario: "10" }],
+    });
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+    fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
+    fireEvent.change(screen.getByLabelText("Natureza"), { target: { value: "transporte" } });
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /Lançar linha/i }));
+
+    await waitFor(() => expect(mocks.setQueryData).toHaveBeenCalled());
+    const [queryKey, payload] = mocks.setQueryData.mock.calls[0];
+    expect(queryKey).toEqual(["embarque-vazios-operation", "operation-1"]);
+    expect(payload.id).toBe("operation-1");
+    expect(payload.linhas).toHaveLength(1);
+    expect(payload.linhas[0].id).toBe("line-1");
+    expect(mocks.operationRefetch).toHaveBeenCalledTimes(0);
+  });
+
+  it("refaz o fetch da operação em vez de gravar um cache fabricado quando não há dado carregado", async () => {
+    mocks.operationData = undefined;
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+    fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
+    fireEvent.change(screen.getByLabelText("Natureza"), { target: { value: "transporte" } });
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /Lançar linha/i }));
+
+    await waitFor(() => expect(mocks.operationRefetch).toHaveBeenCalledTimes(1));
+    expect(mocks.setQueryData).not.toHaveBeenCalled();
   });
 });

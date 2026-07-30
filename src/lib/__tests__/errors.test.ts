@@ -81,6 +81,23 @@ describe('classifyDbError', () => {
     })
   })
 
+  it('preserva a mensagem de negocio de um RAISE EXCEPTION com codigo 23514', () => {
+    expect(classifyDbError({ code: '23514', message: 'Depot exige entrada e saida validas.' })).toEqual({
+      kind: 'validacao',
+      message: 'Depot exige entrada e saida validas.',
+    })
+  })
+
+  it('usa a mensagem canonica de 23514 quando o texto cru expõe constraint do Postgres', () => {
+    expect(classifyDbError({
+      code: '23514',
+      message: 'new row for relation "vazios_export_service_lines" violates check constraint "vazios_export_lines_percentual_check"',
+    })).toEqual({
+      kind: 'validacao',
+      message: 'Dados fora das regras do cadastro.',
+    })
+  })
+
   it('cai no fallback desconhecido para code nao mapeado', () => {
     expect(classifyDbError({ code: '99999', message: 'erro nunca visto' })).toEqual({
       kind: 'desconhecido',

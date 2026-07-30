@@ -7,8 +7,6 @@ import type { VaziosImportacaoContainerListItem, VaziosImportacaoManifest } from
 const HEADER_MAP: Record<string, string> = {
   'container': 'container_number',
   'conteiner': 'container_number',
-  'contêiner': 'container_number',
-  'numeração': 'container_number',
   'numeracao': 'container_number',
   'num. container': 'container_number',
   'num container': 'container_number',
