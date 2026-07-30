@@ -76,3 +76,74 @@ describe('parser de vazios — novo contrato', () => {
     expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('local')
   })
 })
+
+describe('parser de vazios — divergência apontada por linha contra o Cadastro de Terminais', () => {
+  const DEPOTS = [
+    { code: 'VBR', tipo: 'depot', active: true },
+    { code: 'TVV', tipo: 'terminal_portuario', active: true },
+    { code: 'INATIVO', tipo: 'depot', active: false },
+  ]
+
+  it('aponta local que não existe no cadastro, com o código digitado', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234567', Depot: 'CAPIXABA TERMINAIS', Condition: 'vazio', 'Hand-in': '01/07/2026', 'Hand-out': '05/07/2026' },
+    ]), DEPOTS)
+    expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('"CAPIXABA TERMINAIS"')
+    expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('não encontrado')
+  })
+
+  it('aponta local inativo no cadastro', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234567', Depot: 'INATIVO', Condition: 'vazio', 'Hand-in': '01/07/2026', 'Hand-out': '05/07/2026' },
+    ]), DEPOTS)
+    expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('inativo')
+  })
+
+  it('aponta depot sem entrada/saída', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234567', Depot: 'VBR', Condition: 'vazio' },
+    ]), DEPOTS)
+    expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('exige entrada e saída')
+  })
+
+  it('aponta saída anterior à entrada num depot', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234567', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '10/07/2026', 'Hand-out': '05/07/2026' },
+    ]), DEPOTS)
+    expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('saída anterior à entrada')
+  })
+
+  it('aponta terminal portuário com entrada/saída indevidas', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234567', Depot: 'TVV', Condition: 'vazio', 'Hand-in': '01/07/2026', 'Hand-out': '05/07/2026' },
+    ]), DEPOTS)
+    expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('não aceita entrada ou saída')
+  })
+
+  it('aceita depot e terminal quando a linha respeita a regra de cada tipo', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234567', Depot: 'VBR', Condition: 'vazio', 'Hand-in': '01/07/2026', 'Hand-out': '05/07/2026' },
+      { Container: 'ABCD1234568', Depot: 'TVV', Condition: 'vazio' },
+    ]), DEPOTS)
+    expect(parsed.rowErrors).toEqual([])
+  })
+
+  it('não valida contra o cadastro quando nenhuma lista de depots é passada (compatibilidade)', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([
+      { Container: 'ABCD1234567', Depot: 'QUALQUER COISA', Condition: 'vazio', 'Hand-in': '01/07/2026', 'Hand-out': '05/07/2026' },
+    ]))
+    expect(parsed.rowErrors).toEqual([])
+  })
+
+  it('resume divergências além do limite mostrado, em vez de listar tudo', async () => {
+    const rows = Array.from({ length: 25 }, (_, i) => ({
+      Container: `ABCD123${String(4500 + i).padStart(4, '0')}`,
+      Depot: 'DESCONHECIDO', Condition: 'vazio',
+    }))
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer(rows), DEPOTS)
+    expect(parsed.rowErrors).toHaveLength(25)
+    await expect(importVaziosManifest({
+      filename: 'x.xlsx', voyageId: 7, port: 'BRSSA', uploadedBy: 'user-1', manifest: parsed,
+    })).rejects.toThrow(/e mais 5 linhas com divergências\./)
+  })
+})

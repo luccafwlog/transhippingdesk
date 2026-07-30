@@ -1964,6 +1964,11 @@ textarea {
   margin-top: 1px;
 }
 
+.app-toast__message {
+  flex: 1;
+  white-space: pre-line;
+}
+
 .app-empty-state {
   display: flex;
   flex-direction: column;

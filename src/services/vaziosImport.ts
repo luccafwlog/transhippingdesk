@@ -35,12 +35,19 @@ export type ParsedVaziosBooking = {
 
 export type ParsedVaziosManifest = { bookings: ParsedVaziosBooking[]; rowErrors: RowError[] }
 
-export async function parseVaziosManifestFile(file: File): Promise<ParsedVaziosManifest> {
+// Subconjunto do Cadastro de Terminais usado para apontar, ainda no cliente, a
+// mesma divergência que a RPC rejeitaria em bloco (ADR 0033: "qualquer
+// divergência é apontada"). Duplica a regra da RPC deliberadamente — o mesmo
+// padrão do veto() client-side para Linhas de Serviço — para dar mensagem por
+// linha em vez do "corrija todas as linhas" genérico do banco.
+export type DepotLookup = { code: string; tipo: string; active: boolean }
+
+export async function parseVaziosManifestFile(file: File, depots?: readonly DepotLookup[]): Promise<ParsedVaziosManifest> {
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
-  return parseVaziosManifestBuffer(await file.arrayBuffer())
+  return parseVaziosManifestBuffer(await file.arrayBuffer(), depots)
 }
 
-export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosManifest> {
+export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: readonly DepotLookup[]): Promise<ParsedVaziosManifest> {
   const rows = await readFirstSheetRows(buffer)
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
   const mappedRows = rows.map(mapRow)
@@ -71,6 +78,7 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer): Promise<Pa
     if (handOutRaw && !handOutDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de saída inválida.`, row)
     if (movementRaw && !movementDate) rowErrors.add(rowNumber, `Container ${containerNumber}: data de embarque inválida.`, row)
     if (!localCode) rowErrors.add(rowNumber, `Container ${containerNumber}: local de origem obrigatório.`, row)
+    else if (depots) validateLocalAgainstDepots(rowNumber, containerNumber, localCode, handInDate, handOutDate, depots, rowErrors, row)
     bookings.push({
       rowNumber, container_number: containerNumber, container_type: text(mapped.container_type), local_code: localCode,
       condition, hand_in_date: handInDate,
@@ -97,6 +105,37 @@ export function parseCondition(value: unknown): ParsedVaziosBooking['condition']
 }
 
 function text(value: unknown): string | null { const valueText = String(value ?? '').trim(); return valueText || null }
+
+/** Mesma regra da RPC import_vazios_bookings_transactional (migration 243), linha a linha. */
+function validateLocalAgainstDepots(
+  rowNumber: number,
+  containerNumber: string,
+  localCode: string,
+  handInDate: string | null,
+  handOutDate: string | null,
+  depots: readonly DepotLookup[],
+  rowErrors: ReturnType<typeof createRowErrorCollector>,
+  row: unknown,
+): void {
+  const depot = depots.find((item) => item.code.trim().toLowerCase() === localCode.trim().toLowerCase())
+  if (!depot) {
+    rowErrors.add(rowNumber, `Container ${containerNumber}: local "${localCode}" não encontrado no Cadastro de Terminais.`, row)
+    return
+  }
+  if (!depot.active) {
+    rowErrors.add(rowNumber, `Container ${containerNumber}: local "${localCode}" está inativo no Cadastro de Terminais.`, row)
+    return
+  }
+  if (depot.tipo === 'depot') {
+    if (!handInDate || !handOutDate) {
+      rowErrors.add(rowNumber, `Container ${containerNumber}: depot "${localCode}" exige entrada e saída preenchidas.`, row)
+    } else if (handOutDate < handInDate) {
+      rowErrors.add(rowNumber, `Container ${containerNumber}: saída anterior à entrada no depot "${localCode}".`, row)
+    }
+  } else if (depot.tipo === 'terminal_portuario' && (handInDate || handOutDate)) {
+    rowErrors.add(rowNumber, `Container ${containerNumber}: terminal portuário "${localCode}" não aceita entrada ou saída de depot.`, row)
+  }
+}
 
 // Faixa de seriais Excel que corresponde a datas plausíveis (~1970 a ~2070);
 // fora dela um número pequeno (ex.: "2026" digitado por engano no lugar de
@@ -159,11 +198,22 @@ function dateFromParts(year: number, month: number, day: number): string | null 
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+function formatRowErrors(rowErrors: readonly RowError[]): string {
+  const lines = rowErrors.slice(0, MAX_ROW_ERRORS_SHOWN).map((error) => `Linha ${error.row}: ${error.message}`)
+  const hidden = rowErrors.length - lines.length
+  if (hidden > 0) lines.push(`... e mais ${hidden} linha${hidden === 1 ? '' : 's'} com divergências.`)
+  return lines.join('\n')
+}
+
 export type ImportVaziosArgs = { filename: string; voyageId: number; port: string; manifest: ParsedVaziosManifest; uploadedBy: string; description?: string }
+
+// Limite de linhas detalhadas na mensagem de erro; acima disso um resumo com a
+// contagem restante evita paredes de texto em planilhas com muitas divergências.
+const MAX_ROW_ERRORS_SHOWN = 20
 
 export async function importVaziosManifest({ voyageId, port, manifest, uploadedBy }: ImportVaziosArgs): Promise<{ manifestId: string }> {
   // Importação de unidades diverge do importCore: uma divergência aborta o lote inteiro.
-  if (manifest.rowErrors.length) throw new Error(manifest.rowErrors.map((error) => `Linha ${error.row}: ${error.message}`).join('\n'))
+  if (manifest.rowErrors.length) throw new Error(formatRowErrors(manifest.rowErrors))
   const p_bookings = manifest.bookings.map((booking) => Object.fromEntries(Object.entries(booking).filter(([key]) => key !== 'rowNumber')))
   const { data, error } = await supabase.rpc('import_vazios_bookings_transactional', { p_voyage_id: voyageId, p_port: port, p_uploaded_by: uploadedBy, p_bookings })
   if (error) throw error

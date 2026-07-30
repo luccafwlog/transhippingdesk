@@ -227,6 +227,14 @@ Lista de Unidades Embarcadas** (dias cobráveis daquele depot), não digitada. O
 usuário pode sobrescrevê-la, e o sistema mantém o valor calculado visível ao
 lado como referência.
 
+A tela aponta as combinações (depot, condição) da Lista de Unidades que ainda
+não têm linha de armazenagem lançada, com um atalho de um clique que já
+preenche serviço, quantidade calculada e valor sugerido do Cadastro de
+Terminais — o usuário ainda lança (um clique é um lançamento), o sistema só
+para de fazê-lo procurar o que falta. Isso não presume a linha: sem cadastro de
+armazenagem para aquela condição no depot, a tela não oferece o atalho e
+aponta para o Cadastro de Terminais.
+
 - **Distinto de:** Unidade Embarcada, que é fato operacional importado e não
   carrega preço.
 

@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   getQueryData: vi.fn((): unknown => undefined),
   setQueryData: vi.fn(),
   operationData: { linhas: [] } as Record<string, unknown> | undefined,
+  unitsData: { rows: [] as unknown[], count: 0 },
+  armazenagemServicesData: [] as unknown[],
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -28,7 +30,7 @@ vi.mock("@tanstack/react-query", () => ({
           voyage: { voyage_number: "123N", vessel: { name: "NAVIO VERDE" } },
         }]
       : key === "embarque-vazios-units"
-        ? { rows: [], count: 0 }
+        ? mocks.unitsData
         : key === "embarque-vazios-operation"
           ? mocks.operationData
           : key === "depots"
@@ -41,7 +43,9 @@ vi.mock("@tanstack/react-query", () => ({
                   { id: "general-1", name: "Handling", natureza: "geral", route_destino_id: null },
                   { id: "transport-1", name: "Transporte", natureza: "transporte", route_destino_id: "terminal-1" },
                 ]
-              : [];
+              : key === "armazenagem-services"
+                ? mocks.armazenagemServicesData
+                : [];
     return {
       data,
       isLoading: false,
@@ -57,7 +61,12 @@ vi.mock("../../hooks/useAuth", () => ({
 vi.mock("../../components/ui/Toast", () => ({ useToast: () => ({ showToast: mocks.showToast }) }));
 vi.mock("../../components/shared/VoyageCombobox", () => ({ VoyageCombobox: () => <div /> }));
 vi.mock("../../services/supabase", () => ({ supabase: {} }));
-vi.mock("../../services/depots", () => ({ listDepots: vi.fn(), listDepotServices: vi.fn(), valorSugerido: vi.fn(() => 0) }));
+vi.mock("../../services/depots", () => ({
+  listDepots: vi.fn(),
+  listDepotServices: vi.fn(),
+  listArmazenagemServices: vi.fn(),
+  valorSugerido: vi.fn(() => 0),
+}));
 vi.mock("../../services/vaziosImport", () => ({ importVaziosManifest: vi.fn(), parseVaziosManifestFile: vi.fn() }));
 vi.mock("../../services/vaziosExportOperations", () => ({
   createManualVaziosBooking: mocks.createManualVaziosBooking,
@@ -78,6 +87,8 @@ beforeEach(() => {
   mocks.getQueryData.mockReset().mockReturnValue(undefined);
   mocks.setQueryData.mockClear();
   mocks.operationData = { linhas: [] };
+  mocks.unitsData = { rows: [], count: 0 };
+  mocks.armazenagemServicesData = [];
 });
 
 describe("EmbarqueVazios", () => {
@@ -218,5 +229,62 @@ describe("EmbarqueVazios", () => {
 
     await waitFor(() => expect(mocks.operationRefetch).toHaveBeenCalledTimes(1));
     expect(mocks.setQueryData).not.toHaveBeenCalled();
+  });
+
+  it("aponta a armazenagem calculada sem linha lançada e lança com 1 clique", async () => {
+    mocks.unitsData = {
+      rows: [{ id: "u1", local_id: "depot-1", condition: "vazio", hand_in_date: "2026-01-01", hand_out_date: "2026-01-05" }],
+      count: 1,
+    };
+    mocks.armazenagemServicesData = [
+      { id: "armaz-1", depot_id: "depot-1", condition: "vazio", natureza: "armazenagem", rate_brl: 25, active: true, name: "Armazenagem" },
+    ];
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+
+    expect(screen.getByText(/Armazenagem pendente de lançamento/i)).toBeTruthy();
+    expect(screen.getByText(/VBR · vazio · 4 dia\(s\)/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Lançar$/i }));
+
+    await waitFor(() => expect(mocks.upsertServiceLine).toHaveBeenCalledWith(expect.objectContaining({
+      operation_id: "operation-1",
+      service_id: "armaz-1",
+      local_id: "depot-1",
+      condition: "vazio",
+      quantidade: 4,
+      valor_unitario: 25,
+      valor_sugerido: 25,
+      quantidade_manual: false,
+    })));
+  });
+
+  it("aponta quando falta cadastrar o serviço de armazenagem para a condição", async () => {
+    mocks.unitsData = {
+      rows: [{ id: "u1", local_id: "depot-1", condition: "vazio", hand_in_date: "2026-01-01", hand_out_date: "2026-01-05" }],
+      count: 1,
+    };
+    mocks.armazenagemServicesData = [];
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+
+    expect(screen.getByText(/sem serviço de armazenagem cadastrado/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Lançar$/i })).toBeNull();
+  });
+
+  it("não aponta armazenagem pendente quando a linha já foi lançada", () => {
+    mocks.unitsData = {
+      rows: [{ id: "u1", local_id: "depot-1", condition: "vazio", hand_in_date: "2026-01-01", hand_out_date: "2026-01-05" }],
+      count: 1,
+    };
+    mocks.operationData = {
+      linhas: [{ id: "line-armaz", local_id: "depot-1", condition: "vazio", quantidade: "4", valor_unitario: "25", service: { natureza: "armazenagem" } }],
+    };
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
+
+    expect(screen.queryByText(/Armazenagem pendente de lançamento/i)).toBeNull();
   });
 });
