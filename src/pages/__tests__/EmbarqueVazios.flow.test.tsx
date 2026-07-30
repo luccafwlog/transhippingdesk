@@ -91,18 +91,26 @@ beforeEach(() => {
   mocks.armazenagemServicesData = [];
 });
 
+async function selectOperation() {
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "NAVIO" } });
+  const option = await screen.findByText("NAVIO VERDE / 123N");
+  fireEvent.mouseDown(option);
+}
+
 describe("EmbarqueVazios", () => {
-  it("exibe o nome da escala e preserva o ID interno da viagem", () => {
+  it("busca o embarque por navio/viagem, sem expor o ID interno", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    expect(screen.getByText("NAVIO VERDE / 123N")).toBeTruthy();
-    expect(screen.queryByText(/ID interno: 179/)).toBeNull();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "NAVIO" } });
+
+    expect(await screen.findByText("NAVIO VERDE / 123N")).toBeTruthy();
+    expect(screen.queryByText(/179/)).toBeNull();
   });
 
   it("inclui uma Unidade Embarcada e invalida o ADR da escala selecionada", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.change(screen.getByLabelText("Container"), { target: { value: "MSCU1234567" } });
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Entrada"), { target: { value: "2026-07-02" } });
@@ -125,7 +133,7 @@ describe("EmbarqueVazios", () => {
     });
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.change(screen.getByLabelText("Container"), { target: { value: "MSCU1234567" } });
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Entrada"), { target: { value: "2026-07-02" } });
@@ -138,10 +146,10 @@ describe("EmbarqueVazios", () => {
     ));
   });
 
-  it("oferece somente o destino vinculado ao serviço de transporte", () => {
+  it("oferece somente o destino vinculado ao serviço de transporte", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
@@ -154,9 +162,9 @@ describe("EmbarqueVazios", () => {
     ]);
   });
 
-  it("oculta destino, condição e percentual quando o serviço não os prevê", () => {
+  it("oculta destino, condição e percentual quando o serviço não os prevê", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "transport-1" } });
@@ -165,9 +173,9 @@ describe("EmbarqueVazios", () => {
     expect(screen.queryByLabelText("Percentual")).toBeNull();
   });
 
-  it("seleciona a natureza antes de ofertar os serviços", () => {
+  it("seleciona a natureza antes de ofertar os serviços", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
 
@@ -179,7 +187,7 @@ describe("EmbarqueVazios", () => {
 
   it("envia a linha e o destino vinculado ao serviço de transporte", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Natureza"), { target: { value: "transporte" } });
@@ -201,7 +209,7 @@ describe("EmbarqueVazios", () => {
       linhas: [{ id: "line-1", quantidade: "1", valor_unitario: "10" }],
     });
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Natureza"), { target: { value: "transporte" } });
@@ -220,7 +228,7 @@ describe("EmbarqueVazios", () => {
   it("refaz o fetch da operação em vez de gravar um cache fabricado quando não há dado carregado", async () => {
     mocks.operationData = undefined;
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
     fireEvent.change(screen.getByLabelText("Local"), { target: { value: "depot-1" } });
     fireEvent.change(screen.getByLabelText("Natureza"), { target: { value: "transporte" } });
@@ -240,7 +248,7 @@ describe("EmbarqueVazios", () => {
       { id: "armaz-1", depot_id: "depot-1", condition: "vazio", natureza: "armazenagem", rate_brl: 25, active: true, name: "Armazenagem" },
     ];
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
 
     expect(screen.getByText(/Armazenagem pendente de lançamento/i)).toBeTruthy();
@@ -266,14 +274,14 @@ describe("EmbarqueVazios", () => {
     };
     mocks.armazenagemServicesData = [];
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
 
     expect(screen.getByText(/sem serviço de armazenagem cadastrado/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Lançar$/i })).toBeNull();
   });
 
-  it("não aponta armazenagem pendente quando a linha já foi lançada", () => {
+  it("não aponta armazenagem pendente quando a linha já foi lançada", async () => {
     mocks.unitsData = {
       rows: [{ id: "u1", local_id: "depot-1", condition: "vazio", hand_in_date: "2026-01-01", hand_out_date: "2026-01-05" }],
       count: 1,
@@ -282,7 +290,7 @@ describe("EmbarqueVazios", () => {
       linhas: [{ id: "line-armaz", local_id: "depot-1", condition: "vazio", quantidade: "4", valor_unitario: "25", service: { natureza: "armazenagem" } }],
     };
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "NAVIO VERDE / 123NBRVIX" }));
+    await selectOperation();
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
 
     expect(screen.queryByText(/Armazenagem pendente de lançamento/i)).toBeNull();
