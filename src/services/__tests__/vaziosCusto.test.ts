@@ -28,21 +28,21 @@ describe('motor de custo do Embarque de Vazios', () => {
     ])
   })
 
-  it('calcula linhas, percentual e total do embarque', () => {
+  it('calcula linhas sem percentual, usando 100% implícito', () => {
     const linhas = [
       { natureza: 'armazenagem', local_id: 'd1', condition: 'vazio', quantidade: 0, percentual: null, valor_unitario: 10 },
-      { natureza: 'geral', local_id: 'tvv', quantidade: 2, percentual: 50, valor_unitario: 100 },
+      { natureza: 'geral', local_id: 'tvv', quantidade: 2, percentual: null, valor_unitario: 100 },
     ] as const
     expect(totalLinha(linhas[0], units, depots)).toBe(20)
-    expect(totalLinha(linhas[1], units, depots)).toBe(100)
-    expect(totalEmbarque({ unidades: units, linhas: [...linhas], depots })).toBe(120)
+    expect(totalLinha(linhas[1], units, depots)).toBe(200)
+    expect(totalEmbarque({ unidades: units, linhas: [...linhas], depots })).toBe(220)
   })
 
-  it('veta transporte sem rota, armazenagem fora de depot, duplicata e percentual inválido', () => {
-    expect(veto({ natureza: 'transporte', local_id: 'd1', destino_id: null, quantidade: 1, percentual: 100, valor_unitario: 1 })).toContain('rota')
+  it('veta transporte sem rota, armazenagem fora de depot e duplicata', () => {
+    expect(veto({ natureza: 'transporte', local_id: 'd1', destino_id: null, quantidade: 1, percentual: null, valor_unitario: 1 })).toContain('rota')
     expect(veto({ natureza: 'armazenagem', local_id: 'tvv', condition: 'vazio', quantidade: 1, percentual: null, valor_unitario: 1 }, { depots })).toContain('depot')
     const first = { natureza: 'armazenagem', local_id: 'd1', condition: 'vazio', quantidade: 1, percentual: null, valor_unitario: 1 }
     expect(veto(first, { depots, lines: [first, { ...first }] })).toContain('Já existe')
-    expect(veto({ natureza: 'geral', local_id: 'd1', quantidade: 1, percentual: 75, valor_unitario: 1 })).toContain('50 ou 100')
+    expect(veto({ natureza: 'geral', local_id: 'd1', quantidade: 1, percentual: null, valor_unitario: 1 })).toBeNull()
   })
 })

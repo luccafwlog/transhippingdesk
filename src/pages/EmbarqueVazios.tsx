@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Upload, Plus, Trash2, Pencil } from "lucide-react";
+import { Download, Upload, Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Card, InlineError, PageHeader } from "../components/ui/Card";
 import { Field, Input, Select } from "../components/ui/Input";
@@ -61,7 +61,6 @@ export function EmbarqueVazios() {
     containerType: "",
     condition: "",
     quantidade: 0,
-    percentual: 100,
     valor: 0,
     valorSugerido: null as number | null,
     quantidadeManual: false,
@@ -81,7 +80,7 @@ export function EmbarqueVazios() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vazios_export_operations")
-        .select("*")
+        .select("*, voyage:voyages(id, voyage_number, vessel:vessels(name))")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -219,14 +218,22 @@ export function EmbarqueVazios() {
   async function saveLine() {
     if (!selectedOperation || !selectedService || !local) return;
     await notify(async () => {
+      if (selectedService.natureza === "transporte" && !selectedService.route_destino_id) {
+        throw new Error("Serviço de transporte sem destino cadastrado.");
+      }
       const draft = {
         natureza: selectedService.natureza,
         local_id: local.id,
-        destino_id: line.destinoId || null,
-        condition: line.condition || null,
+        destino_id:
+          selectedService.natureza === "transporte"
+            ? selectedService.route_destino_id ?? null
+            : null,
+        condition:
+          selectedService.natureza === "armazenagem"
+            ? selectedService.condition ?? null
+            : null,
         quantidade: line.quantidade,
-        percentual:
-          selectedService.natureza === "armazenagem" ? null : line.percentual,
+        percentual: null,
         valor_unitario: line.valor,
         quantidade_manual:
           selectedService.natureza === "armazenagem" && line.quantidadeManual,
@@ -253,7 +260,7 @@ export function EmbarqueVazios() {
             : line.containerType || null,
         condition: draft.condition,
         quantidade: line.quantidade,
-        percentual: draft.percentual,
+        percentual: null,
         valor_unitario: line.valor,
         valor_sugerido: line.valorSugerido,
         quantidade_manual: draft.quantidade_manual,
@@ -263,20 +270,26 @@ export function EmbarqueVazios() {
   }
   function chooseService(serviceId: string) {
     const service = serviceRows.find((item) => item.id === serviceId);
+    const serviceRoute =
+      service?.natureza === "transporte" ? service.route_destino_id ?? "" : "";
+    const serviceCondition =
+      service?.natureza === "armazenagem" ? service.condition ?? "" : "";
     const suggestion =
       service && local
         ? valorSugerido({
             local,
             servico: service,
             tipo: line.containerType,
-            rota: line.destinoId,
-            condicao: line.condition,
+            rota: serviceRoute,
+            condicao: serviceCondition,
             catalogo: serviceRows,
           })
         : null;
     setLine((current) => ({
       ...current,
       serviceId,
+      destinoId: serviceRoute,
+      condition: serviceCondition,
       valor: suggestion ?? 0,
       valorSugerido: suggestion,
       quantidadeManual: service?.natureza !== "armazenagem",
@@ -323,17 +336,22 @@ export function EmbarqueVazios() {
           <InlineError message="Erro ao carregar embarques." />
         ) : null}
         <div className="grid gap-2 md:grid-cols-3">
-          {operationRows.map((item) => (
-            <button
+            {operationRows.map((item) => (
+              <button
               key={item.id}
               type="button"
               onClick={() => setSelectedOperation(item)}
               className={`rounded-lg border p-3 text-left ${selectedOperation?.id === item.id ? "border-[var(--app-blue-btn)]" : "border-[var(--app-border)]"}`}
             >
-              <span className="font-semibold">Viagem {item.voyage_id}</span>
-              <span className="block text-sm text-[var(--app-muted)]">
-                {item.embark_port}
-              </span>
+                <span className="font-semibold">
+                  {[
+                    (item.voyage as { vessel?: { name?: string | null } | null } | null)?.vessel?.name,
+                    (item.voyage as { voyage_number?: string | null } | null)?.voyage_number,
+                  ].filter(Boolean).join(" / ") || `Viagem ${item.voyage_id}`}
+                </span>
+                <span className="block text-sm text-[var(--app-muted)]">
+                  ID interno: {item.voyage_id} · {item.embark_port}
+                </span>
             </button>
           ))}
         </div>
@@ -365,8 +383,19 @@ export function EmbarqueVazios() {
                     Reimportar substitui toda a lista da escala e pode alterar a
                     armazenagem.
                   </p>
+                  <p className="text-xs text-[var(--app-muted)]">
+                    Use o modelo: container, tipo, local, condição (vazio ou
+                    material), entrada, saída e embarque.
+                  </p>
                 </div>
                 <span className="flex gap-2">
+                  <a
+                    className="app-btn app-btn--secondary"
+                    href="/templates/unidades-embarcadas-modelo.csv"
+                    download="unidades-embarcadas-modelo.csv"
+                  >
+                    <Download size={16} /> Modelo de planilha
+                  </a>
                   <Input
                     type="file"
                     accept=".xlsx,.xls,.csv"
@@ -593,40 +622,28 @@ export function EmbarqueVazios() {
                     ))}
                   </Select>
                 </Field>
-                <Field label="Destino da rota">
-                  <Select
-                    value={line.destinoId}
-                    onChange={(event) =>
-                      setLine((current) => ({
-                        ...current,
-                        destinoId: event.target.value,
-                      }))
-                    }
-                    disabled={selectedService?.natureza !== "transporte"}
-                  >
-                    <option value="">Selecione</option>
-                    {depotRows.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.code} · {item.name ?? item.tipo}
+                {selectedService?.natureza === "transporte" && selectedService.route_destino_id ? (
+                  <Field label="Destino da rota">
+                    <Select value={line.destinoId} disabled>
+                      {depotRows
+                        .filter((item) => item.id === selectedService.route_destino_id)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.code} · {item.name ?? item.tipo}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                ) : null}
+                {selectedService?.natureza === "armazenagem" && selectedService.condition ? (
+                  <Field label="Condição">
+                    <Select value={line.condition} disabled>
+                      <option value={selectedService.condition}>
+                        {selectedService.condition === "material" ? "EMPTY W/ MATERIAL" : "EMPTY"}
                       </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Condição">
-                  <Select
-                    value={line.condition}
-                    onChange={(event) =>
-                      setLine((current) => ({
-                        ...current,
-                        condition: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">—</option>
-                    <option value="vazio">Vazio</option>
-                    <option value="material">Material</option>
-                  </Select>
-                </Field>
+                    </Select>
+                  </Field>
+                ) : null}
                 <Field label="Quantidade">
                   <Input
                     type="number"
@@ -676,21 +693,6 @@ export function EmbarqueVazios() {
                     </>
                   ) : null}
                 </Field>
-                <Field label="Percentual">
-                  <Select
-                    value={line.percentual}
-                    onChange={(event) =>
-                      setLine((current) => ({
-                        ...current,
-                        percentual: Number(event.target.value),
-                      }))
-                    }
-                    disabled={selectedService?.natureza === "armazenagem"}
-                  >
-                    <option value={50}>50%</option>
-                    <option value={100}>100%</option>
-                  </Select>
-                </Field>
                 <Field label="Valor unitário">
                   <Input
                     type="number"
@@ -728,7 +730,6 @@ export function EmbarqueVazios() {
                       <th>Rota</th>
                       <th>Tipo</th>
                       <th>Quantidade</th>
-                      <th>%</th>
                       <th>Unitário</th>
                       <th>Total</th>
                       <th />
@@ -778,7 +779,6 @@ export function EmbarqueVazios() {
                               </span>
                             ) : null}
                           </td>
-                          <td>{item.percentual ?? "—"}</td>
                           <td>{formatBRL(Number(item.valor_unitario))}</td>
                           <td>
                             {formatBRL(

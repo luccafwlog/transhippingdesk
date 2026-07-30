@@ -305,21 +305,20 @@ natureza, sem mudança de código. Os dez iniciais são armazenagem, transporte,
 handling in, handling out, overtime handling, overtime transporte, bundle
 composition, bundle organization, visual check e remoção.
 
-A natureza **não** define como multiplicar — a conta é sempre
-`quantidade × valor unitário × percentual`. Ela define apenas quais campos a
-linha exige e se a quantidade é digitada ou calculada.
+A natureza define quais campos a linha exige e se a quantidade é digitada ou
+calculada. O valor unitário do serviço já é o valor efetivo, inclusive quando o
+serviço representa uma majoração ou overtime; a linha não recebe percentual.
 
 - **Synonyms:** "forma de cobrança" (nome usado pela operação)
 - **Distinto de:** Tipo de Cálculo da ADR 0032 (`fixo_por_container` /
   `storage_por_dias` / `quantidade`), que precificava automaticamente e foi
   aposentado pela ADR 0033.
 
-**Percentual da Linha**
-Fator que multiplica o valor de uma Linha de Serviço do Embarque:
-`total = quantidade × valor unitário × percentual`. Assume **50%** ou **100%**
-(padrão 100%). É como o overtime é expresso: duas faixas do mesmo serviço são
-duas linhas, cada uma com sua quantidade. Não se aplica à natureza
-`armazenagem`.
+**Valor da Linha**
+O valor unitário gravado na Linha de Serviço do Embarque já é o valor efetivo
+da cobrança. Serviços de overtime ou de majoração devem ser cadastrados com o
+valor atualizado; a linha não oferece nem persiste percentual. O total é
+`quantidade × valor unitário`.
 
 **Operação de Pátio**
 Seção do ADR, sob Equipamentos, que consolida o custo da operação de vazios da

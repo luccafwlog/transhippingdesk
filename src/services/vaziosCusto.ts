@@ -82,8 +82,7 @@ export function vetoArmazenagemForaDepot(line: Pick<CostServiceLine, 'natureza' 
 }
 
 export function vetoPercentual(line: Pick<CostServiceLine, 'natureza' | 'percentual'>): string | null {
-  if (line.natureza === 'armazenagem') return line.percentual == null ? null : 'Armazenagem não aceita percentual.'
-  return line.percentual === 50 || line.percentual === 100 ? null : 'Percentual deve ser 50 ou 100.'
+  return line.percentual == null ? null : 'O percentual já está incorporado ao valor do serviço.'
 }
 
 export function vetoSegundaArmazenagem(line: CostServiceLine, lines: CostServiceLine[]): string | null {
