@@ -237,6 +237,20 @@ export async function closeReport(input: { voyageId: number; port: string; snaps
   if (error) throw error
 }
 
+// Portos com ADR fechado da viagem (Task 2 do ADR 2026-07-31): uma escala
+// omitida DEPOIS de o ADR ter sido fechado continua reachable para consulta —
+// o fechamento é um registro imutável. Só o porto (não o registro inteiro)
+// interessa aqui; quem precisar do snapshot usa getAgencyReportOwnData.
+export async function listClosedAgencyReportPorts(voyageId: number): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('agency_departure_reports')
+    .select('port')
+    .eq('voyage_id', voyageId)
+    .eq('status', 'closed')
+  if (error) throw error
+  return [...new Set((data ?? []).map((row) => row.port))]
+}
+
 export async function reopenReport(input: { voyageId: number; port: string; justification: string }) {
   const { error } = await supabase.rpc('reopen_agency_departure_report', {
     p_voyage_id: input.voyageId,

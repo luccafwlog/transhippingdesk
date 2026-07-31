@@ -259,6 +259,24 @@ export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined
   ).size
 }
 
+export type AdrEscalaPod = { pod: string; omitted: boolean }
+
+/**
+ * Escalas que compõem o ADR (Task 2 do ADR 2026-07-31): as não omitidas mais
+ * as omitidas que já têm ADR fechado — o fechamento é um registro imutável e
+ * não pode virar inalcançável por causa de uma omissão registrada depois. Uma
+ * escala omitida sem ADR fechado continua fora: o navio não atracou lá.
+ */
+export function computeAdrEscalaPods(
+  podRows: Array<{ pod: string; omitted?: boolean }> | null | undefined,
+  closedAdrPorts: Iterable<string> | null | undefined,
+): AdrEscalaPod[] {
+  const closedSet = new Set(Array.from(closedAdrPorts ?? []).map((port) => normalizePortName(port)))
+  return (podRows ?? [])
+    .filter((row) => !row.omitted || closedSet.has(normalizePortName(row.pod)))
+    .map((row) => ({ pod: row.pod, omitted: Boolean(row.omitted) }))
+}
+
 // --- Estado de Conciliação da Viagem (ver CONTEXT.md) -----------------------
 
 export type EstadoConciliacao = 'divergente' | 'incompleto' | 'conciliado'

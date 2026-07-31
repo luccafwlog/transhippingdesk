@@ -62,7 +62,7 @@ it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () =>
       voyageId={7}
       voyageLabel="NAVIO TESTE / 01E"
       carrierName="Armador teste"
-      pods={['BRVIX', 'BRRIO']}
+      pods={[{ pod: 'BRVIX', omitted: false }, { pod: 'BRRIO', omitted: false }]}
       initialEscala="BRRIO"
     />,
   )
@@ -83,7 +83,7 @@ it('exibe unidades sem armazenagem na fase Operacao de patio', () => {
     isLoading: false,
     error: null,
   })
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
   const patioSection = screen.getByRole('heading', { name: /Opera.*o de p.*tio/, level: 3 }).closest('section')!
   expect(within(patioSection).getByText('Unidades sem armazenagem')).toBeTruthy()
 })
@@ -94,7 +94,7 @@ it('exibe a linha de serviço pelo nome, nao pelo id', () => {
     isLoading: false,
     error: null,
   })
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
   expect(screen.getByText('Bundle Composition')).toBeTruthy()
   const serviceTable = screen.getByText('Bundle Composition').closest('table')!
   expect(within(serviceTable).queryByRole('columnheader', { name: '%' })).toBeNull()
@@ -112,7 +112,7 @@ it('exibe a barra-resumo dos 3 departamentos e o sign-off da seção do usuário
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByText('0/3 departamentos assinados')).toBeTruthy()
   expect(screen.getByText('Operações')).toBeTruthy()
@@ -133,7 +133,7 @@ it('assina o departamento apenas quando habilitado e chama a RPC com o payload c
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const equipamentosCard = screen.getByText('Equipamentos').closest('div.app-panel')! as HTMLElement
   const signButton = within(equipamentosCard).getByRole('button', { name: 'Assinar' })
@@ -157,7 +157,7 @@ it('desabilita assinar o departamento enquanto houver seção pendente', () => {
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const equipamentosCard = screen.getByText('Equipamentos').closest('div.app-panel')! as HTMLElement
   const signButton = within(equipamentosCard).getByRole('button', { name: 'Assinar' }) as HTMLButtonElement
@@ -176,7 +176,7 @@ it('reabrir um sign-off departamental exige justificativa', () => {
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const operacoesCard = screen.getByText('Operações').closest('div.app-panel')! as HTMLElement
   fireEvent.click(within(operacoesCard).getByRole('button', { name: 'Reabrir' }))
@@ -201,7 +201,7 @@ it('fecha o ADR apenas quando os 3 departamentos assinaram e envia o snapshot ex
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByText('3/3 departamentos assinados')).toBeTruthy()
   const closeButton = screen.getByRole('button', { name: 'Fechar ADR' })
@@ -224,7 +224,7 @@ it('mantém Fechar ADR desabilitado enquanto faltar algum departamento', () => {
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByText('2/3 departamentos assinados')).toBeTruthy()
   const closeButton = screen.getByRole('button', { name: 'Fechar ADR' }) as HTMLButtonElement
@@ -246,7 +246,7 @@ it('exibe a carga solta derivada e a congela sob cargaSolta no snapshot', () => 
     data: { terminal: 'TVV', signoffs: allSectionsSignoffs(), departmentSignoffs: allDepartmentsSigned(), occurrences: [] },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByText('Máquinas')).toBeTruthy()
   expect(screen.getByText('3')).toBeTruthy()
@@ -282,7 +282,7 @@ it('agrupa carga solta na seção de carga descarregada e assina granito como ca
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')
   const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')
@@ -307,7 +307,7 @@ it('destaca o IMO separado da contagem geral de containers descarregados', () =>
     error: null,
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')!
   expect(within(dischargeSection).getByText('3')).toBeTruthy()
@@ -326,7 +326,7 @@ it('renomeia Container com veículo para Veículos', () => {
     error: null,
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByRole('heading', { name: 'Veículos' })).toBeTruthy()
   expect(screen.queryByRole('heading', { name: 'Container com veículo' })).toBeNull()
@@ -336,7 +336,7 @@ it('renderiza as 4 fases do ciclo, sem a fase Registro (ADR 0030)', () => {
   useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByRole('heading', { name: 'Escala', level: 2 })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Importação', level: 2 })).toBeTruthy()
@@ -354,7 +354,7 @@ it('agrupa Vazios embarcados junto de Operação de pátio; Exportação mostra 
   useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const patioPhase = screen.getByRole('heading', { name: 'Operação de pátio', level: 2 }).closest('div')!
   expect(within(patioPhase).getByRole('heading', { name: 'Vazios embarcados' })).toBeTruthy()
@@ -392,7 +392,7 @@ it('congela locais de desova, depots e embarques diretos no snapshot', () => {
     data: { terminal: 'TVV', signoffs: allSectionsSignoffs(), departmentSignoffs: allDepartmentsSigned(), occurrences: [] },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
   expect(closeMutateMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -423,7 +423,7 @@ it('exibe o autor resolvido e o documento estruturado quando o ADR está fechado
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByRole('status').textContent).toContain('Fechado em')
   expect(screen.getByRole('status').textContent).toContain('Lucca F.')
@@ -443,7 +443,7 @@ it('no estado fechado renderiza o documento e oculta controles/seções editáve
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   expect(screen.getByRole('heading', { name: 'Matriz de descarga' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Fechar ADR' })).toBeNull()
@@ -462,7 +462,7 @@ it('exibe Reabrir do ADR somente para administradores e exige justificativa não
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
   fireEvent.click(screen.getByRole('button', { name: 'Reabrir' }))
   const confirm = screen.getByRole('button', { name: 'Confirmar reabertura' }) as HTMLButtonElement
   expect(confirm.disabled).toBe(true)
@@ -484,7 +484,7 @@ it('não exibe Reabrir do ADR para usuário não administrador', () => {
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
   expect(screen.queryByRole('button', { name: 'Reabrir' })).toBeNull()
 })
 
@@ -493,7 +493,7 @@ it('a primeira saída de Pendente só pede confirmação, sem justificativa', ()
   useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
   fireEvent.click(within(datasSection).getByRole('button', { name: 'Confirmado' }))
@@ -513,7 +513,7 @@ it('alterar uma decisão já registrada exige justificativa não vazia', () => {
     data: { terminal: 'TVV', signoffs: [{ id: 'so-1', section: 'datas', state: 'confirmed' }], departmentSignoffs: [], occurrences: [] },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
   fireEvent.click(within(datasSection).getByRole('button', { name: 'Nada a declarar' }))
@@ -539,7 +539,7 @@ it('sem eventos, não exibe o ícone de histórico', () => {
   useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
   expect(within(datasSection).queryByTitle('Ver histórico')).toBeNull()
@@ -568,7 +568,7 @@ it('com eventos, o histórico lista de→para, autor e justificativa', () => {
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
   fireEvent.click(within(datasSection).getByTitle('Ver histórico'))
@@ -592,7 +592,7 @@ it('mostra o campo de Observação em cada seção, editável só pelo dono', ()
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   // Dono da seção (Equipamentos → veículos): campo editável, valor preenchido.
   const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
@@ -618,7 +618,7 @@ it('sobrescrever a Observação não pede justificativa e chama a RPC de Observa
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
   const observationField = within(veiculosSection).getByLabelText('Observação — Veículos')
@@ -642,9 +642,58 @@ it('sign-off de Operações não é mais bloqueado por Ocorrências (1 seção: 
     },
   })
 
-  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={['BRVIX']} />)
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const operacoesCard = screen.getByText('Operações').closest('div.app-panel')! as HTMLElement
   const signButton = within(operacoesCard).getByRole('button', { name: 'Assinar' }) as HTMLButtonElement
   expect(signButton.disabled).toBe(false)
+})
+
+it('marca com o chip "Omitida" a escala omitida que só entrou na lista por ter ADR fechado', () => {
+  useAgencyReportOwnMock.mockReturnValue({ data: undefined })
+  render(
+    <VoyageAgencyReportTab
+      voyageId={7}
+      voyageLabel="NAVIO TESTE / 01E"
+      carrierName="Armador teste"
+      pods={[{ pod: 'BRVIX', omitted: false }, { pod: 'BRSSA', omitted: true }]}
+    />,
+  )
+
+  const activeButton = screen.getByRole('button', { name: 'BRVIX' })
+  expect(within(activeButton).queryByText('Omitida')).toBeNull()
+
+  const omittedButton = screen.getByRole('button', { name: /BRSSA/ })
+  expect(within(omittedButton).getByText('Omitida')).toBeTruthy()
+})
+
+it('escala omitida com ADR fechado continua acessível: abre pelo deep-link e renderiza o snapshot fechado', () => {
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      status: 'closed',
+      closed_at: '2026-07-20T10:00:00Z',
+      closed_by_name: 'Lucca F.',
+      closed_snapshot: {
+        header: { schedule: {} },
+        sections: { cargaDescarregada: { rows: { '40HC': { carga_geral: 1 } }, totals: { carga_geral: 1 } } },
+      },
+      signoffs: [],
+      departmentSignoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(
+    <VoyageAgencyReportTab
+      voyageId={7}
+      voyageLabel="NAVIO TESTE / 01E"
+      carrierName="Armador teste"
+      pods={[{ pod: 'BRVIX', omitted: false }, { pod: 'BRSSA', omitted: true }]}
+      initialEscala="BRSSA"
+    />,
+  )
+
+  expect(screen.getByRole('button', { name: /BRSSA/ }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByRole('status').textContent).toContain('Fechado em')
+  expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
 })

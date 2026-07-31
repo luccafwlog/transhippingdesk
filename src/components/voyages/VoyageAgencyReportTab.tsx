@@ -28,6 +28,7 @@ import {
   type SignoffState,
 } from '../../services/agencyDepartureReport'
 import type { AgencyReportDepartmentKey, Json } from '../../types/database'
+import type { AdrEscalaPod } from '../../services/voyageSummaries'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -37,7 +38,7 @@ type Props = {
   voyageId: number
   voyageLabel: string
   carrierName: string
-  pods: string[]
+  pods: AdrEscalaPod[]
   initialEscala?: string
 }
 
@@ -131,7 +132,7 @@ function EmptyData() {
 }
 
 export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {
-  const initialPort = initialEscala && pods.includes(initialEscala) ? initialEscala : (pods[0] ?? null)
+  const initialPort = initialEscala && pods.some((entry) => entry.pod === initialEscala) ? initialEscala : (pods[0]?.pod ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port)
@@ -249,9 +250,17 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap gap-2" aria-label="Selecionar escala ADR">
-        {pods.map((pod) => (
-          <button key={pod} type="button" aria-pressed={port === pod} onClick={() => setPort(pod)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${port === pod ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white' : 'border-[var(--app-border)] text-[var(--app-muted)]'}`}>
+        {pods.map(({ pod, omitted }) => (
+          <button key={pod} type="button" aria-pressed={port === pod} onClick={() => setPort(pod)} className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${port === pod ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white' : 'border-[var(--app-border)] text-[var(--app-muted)]'}`}>
             {pod}
+            {omitted ? (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${port === pod ? 'bg-white/20 text-white' : 'bg-[var(--app-surface-muted)] text-[var(--app-muted)]'}`}
+                title="Escala omitida — o navio não atracou neste porto; ADR mantido apenas como registro fechado."
+              >
+                Omitida
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
