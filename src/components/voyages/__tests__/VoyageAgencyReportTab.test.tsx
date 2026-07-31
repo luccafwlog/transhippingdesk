@@ -76,7 +76,10 @@ it('exibe unidades sem armazenagem na fase Operacao de patio', () => {
   useAgencyReportDerivedMock.mockReturnValue({
     data: {
       containers: [], vehicles: [], vaziosImp: [], granite: [],
-      vaziosExp: [{ container_type: '40HC', local_id: 'tvv', condition: 'vazio' }, { container_type: '40HC', local_id: 'd1', condition: 'vazio' }],
+      vaziosExp: [
+        { container_type: '40HC', local_id: 'tvv', condition: 'vazio', local: { id: 'tvv', code: 'TVV', name: 'TVV', tipo: 'terminal_portuario' } },
+        { container_type: '40HC', local_id: 'd1', condition: 'vazio', local: { id: 'd1', code: 'VBR', name: 'VBR', tipo: 'depot' } },
+      ],
       storage: { containers: 0, days: 0 },
       operation: { os_number: null, service_qty: [] },
     },
@@ -696,4 +699,143 @@ it('escala omitida com ADR fechado continua acessível: abre pelo deep-link e re
   expect(screen.getByRole('button', { name: /BRSSA/ }).getAttribute('aria-pressed')).toBe('true')
   expect(screen.getByRole('status').textContent).toContain('Fechado em')
   expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
+})
+
+// Task 4 do ADR 2026-07-31: a listagem do operado substitui a matriz com
+// zeros. As três verificações pedidas pelo plano seguem abaixo.
+
+it('escala sem carga solta não renderiza o bloco "Carga solta" nem a seção inteira quando também não há containers', () => {
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [],
+      storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      // sem cargaSolta.bls: não há carga solta nesta escala
+      cargaSolta: { bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')!
+  expect(within(dischargeSection).queryByText('Carga solta')).toBeNull()
+  expect(within(dischargeSection).getByText('Nada operado nesta escala.')).toBeTruthy()
+})
+
+it('combinação inexistente não vira linha na listagem do operado — só o que ocorreu aparece', () => {
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [
+        { size_type: '40HC', is_imo: false, category: 'carga_geral' },
+        { size_type: '40HC', is_imo: false, category: 'carga_geral' },
+      ],
+      vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')!
+  expect(within(dischargeSection).getByText('40HC · carga_geral')).toBeTruthy()
+  expect(within(dischargeSection).queryByText(/20GP/)).toBeNull()
+  expect(within(dischargeSection).queryByText(/imo/)).toBeNull()
+  expect(within(dischargeSection).queryByText(/veiculos/)).toBeNull()
+})
+
+it('seção vazia continua Pendente com o controle de resolução visível', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'documentacao', isAdmin: false })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')!
+  expect(within(dischargeSection).getByText('Nada operado nesta escala.')).toBeTruthy()
+  expect(within(dischargeSection).getByText('Pendente')).toBeTruthy()
+  expect(within(dischargeSection).getByRole('button', { name: 'Confirmado' })).toBeTruthy()
+  expect(within(dischargeSection).getByRole('button', { name: 'Nada a declarar' })).toBeTruthy()
+})
+
+it('veículos sem VIN e vazios embarcados sem booking somem, mostrando "nada operado nesta escala"', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
+  expect(within(veiculosSection).getByText('Nada operado nesta escala.')).toBeTruthy()
+
+  const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
+  expect(within(embarqueSection).getByText('Nada operado nesta escala.')).toBeTruthy()
+})
+
+it('agrupa vazios embarcados por tipo, condição e local de origem — uma linha por combinação', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      vaziosExp: [
+        { container_type: '40HC', local_id: 'vbr', condition: 'vazio', local: { id: 'vbr', code: 'VBR', name: 'VBR', tipo: 'depot' } },
+        { container_type: '40HC', local_id: 'vbr', condition: 'vazio', local: { id: 'vbr', code: 'VBR', name: 'VBR', tipo: 'depot' } },
+        { container_type: '40HC', local_id: 'vbr', condition: 'material', local: { id: 'vbr', code: 'VBR', name: 'VBR', tipo: 'depot' } },
+      ],
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
+  expect(within(embarqueSection).getByText('40HC · EMPTY · VBR')).toBeTruthy()
+  expect(within(embarqueSection).getByText('40HC · EMPTY W/ MATERIAL · VBR')).toBeTruthy()
+  const quantities = within(embarqueSection).getAllByText('2')
+  expect(quantities.length).toBeGreaterThan(0)
+})
+
+it('exibe o aviso de containers cheios órfãos e de divergência de vazios descarregados', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [{ size_type: '40HC', is_imo: false, category: 'carga_geral' }],
+      vehicles: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      vaziosImp: [{ container_type: '40HC', natureza: 'cama' }],
+      dischargeDivergence: { orphanFullContainers: 2 },
+      vaziosDivergence: { baplieCount: 5, moduleCount: 3, unclassifiedCount: 1, diverges: true },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  expect(screen.getByText(/2 container\(s\) cheio\(s\) no Baplie sem B\/L correspondente/)).toBeTruthy()
+  expect(screen.getByText(/Baplie aponta 5 vazio\(s\) descarregado\(s\) contra 3/)).toBeTruthy()
+  expect(screen.getByText(/1 ainda sem natureza classificada/)).toBeTruthy()
 })

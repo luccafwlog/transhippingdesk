@@ -300,6 +300,46 @@ export function buildContainerTypeMatrix(
   return { rows, totals }
 }
 
+// Rótulo de condição dos vazios de exportação, mesma convenção do Depot
+// Cadastro/Embarque de Vazios (EMPTY / EMPTY W/ MATERIAL) — Task 4 do ADR
+// 2026-07-31: a listagem de Vazios embarcados precisa da condição, não só do
+// tipo, então reaproveita o rótulo em vez de inventar um novo.
+const VAZIOS_CONDITION_LABELS: Record<string, string> = {
+  vazio: 'EMPTY',
+  material: 'EMPTY W/ MATERIAL',
+}
+
+export type EmptyEmbarkRow = {
+  type: string
+  condition: string
+  localLabel: string
+  quantity: number
+}
+
+// Substitui a antiga matriz (type × 'carga_geral' fixo) por uma listagem em
+// (tipo, condição, local de origem) — Task 4 do ADR 2026-07-31, bullet 4: a
+// condição e o depot/terminal de origem eram descartados antes. Uma linha por
+// combinação existente, ordenada como groupVehiclesByBrand (alfabética).
+export function groupEmptyEmbarkBookings(
+  items: Array<{ type: string; condition: string | null; localLabel: string | null }>,
+): EmptyEmbarkRow[] {
+  const rows = new Map<string, EmptyEmbarkRow>()
+
+  for (const item of items) {
+    const type = item.type || '—'
+    const condition = (item.condition && VAZIOS_CONDITION_LABELS[item.condition]) || item.condition || '—'
+    const localLabel = item.localLabel || '—'
+    const key = `${type}::${condition}::${localLabel}`
+    const existing = rows.get(key)
+    if (existing) existing.quantity += 1
+    else rows.set(key, { type, condition, localLabel, quantity: 1 })
+  }
+
+  return [...rows.values()].sort((a, b) =>
+    a.type.localeCompare(b.type) || a.condition.localeCompare(b.condition) || a.localLabel.localeCompare(b.localLabel),
+  )
+}
+
 export function groupVehiclesByBrand(
   vehicles: Array<{ brand: string; bl_id: string; chassis: string }>,
 ) {

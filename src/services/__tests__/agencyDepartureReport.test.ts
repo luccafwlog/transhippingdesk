@@ -3,6 +3,7 @@ import {
   AGENCY_REPORT_SECTIONS,
   addOccurrence,
   buildContainerTypeMatrix,
+  groupEmptyEmbarkBookings,
   groupVehiclesByBrand,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
@@ -76,6 +77,23 @@ describe('groupVehiclesByBrand', () => {
     expect(grouped).toEqual([
       { brand: 'BYD', blCount: 2, vinCount: 3 },
       { brand: 'GWM', blCount: 1, vinCount: 1 },
+    ])
+  })
+})
+
+describe('groupEmptyEmbarkBookings', () => {
+  it('agrupa por (tipo, condição, local), traduz a condição e ordena alfabeticamente, sem célula zerada', () => {
+    const rows = groupEmptyEmbarkBookings([
+      { type: '40HC', condition: 'vazio', localLabel: 'VBR' },
+      { type: '40HC', condition: 'vazio', localLabel: 'VBR' },
+      { type: '40HC', condition: 'material', localLabel: 'VBR' },
+      { type: '20DV', condition: 'vazio', localLabel: 'TVV' },
+    ])
+
+    expect(rows).toEqual([
+      { type: '20DV', condition: 'EMPTY', localLabel: 'TVV', quantity: 1 },
+      { type: '40HC', condition: 'EMPTY', localLabel: 'VBR', quantity: 2 },
+      { type: '40HC', condition: 'EMPTY W/ MATERIAL', localLabel: 'VBR', quantity: 1 },
     ])
   })
 })
