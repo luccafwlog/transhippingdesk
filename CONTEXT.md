@@ -51,15 +51,15 @@ Porto onde a carga de uma escala omitida é efetivamente descarregada para segui
 em transbordo ou receber COD. Pode ser diferente do POD original do B/L.
 
 **Transbordo**
-O ADR do Porto de Transbordo (Porto onde a carga foi efetivamente
-descarregada) passa a contar essa carga, separada da carga de destino final
-própria daquele porto — ver Porto de Transbordo e ADR.
-
 Seguimento da carga em navio de terceiro apos omissao de escala. Porto, navio,
 armador, viagem, ETD e ETA de transbordo formam um registro global da omissao,
 compartilhado pelos B/Ls afetados e complementado progressivamente conforme as
 informacoes se tornam conhecidas. Esses dados sao referencia operacional leve,
 nao uma nova Viagem; COD permanece uma excecao individual por B/L.
+
+O ADR do Porto de Transbordo (Porto onde a carga foi efetivamente
+descarregada) passa a contar essa carga, separada da carga de destino final
+própria daquele porto — ver Porto de Transbordo e ADR.
 
 O registro global e mantido na Viagem. Cada B/L afetado exibe os dados herdados
 para consulta e conserva apenas sua acao individual de COD. Alteracoes do
@@ -150,7 +150,7 @@ A identidade do ADR é (viagem, porto): uma escala que opera em dois terminais
 mantém um único ADR, com o terminal como atributo do cabeçalho. O armador
 exibido no cabeçalho deriva do navio da viagem.
 
-- **Related:** Seção do ADR, Resolução de Seção, Sign-off Departamental, Fechamento do ADR
+- **Related:** Seção do ADR, Resolução de Seção, Sign-off Departamental, Fechamento do ADR, Listagem do operado
 
 - **Distinto de:** Architecture Decision Record (`docs/adr/`), que é documento
   de engenharia deste repositório. Em código e schema, usar sempre
@@ -439,7 +439,7 @@ faturamento, mas mantém regras e registros próprios.
 **Baplie EDI**
 Arquivo EDIFACT do plano de estiva. É a autoridade para a presença física de
 containers, posição a bordo e flags operacionais. Essa autoridade física é
-preservada, mas a CONTAGEM de containers cheios do ADR é documental (vem dos
+preservada, mas a **contagem** de containers cheios do ADR é documental (vem dos
 B/Ls) — o Baplie não determina mais essa contagem; um container cheio do
 Baplie sem B/L correspondente vira aviso de divergência, não conta como
 carga.
