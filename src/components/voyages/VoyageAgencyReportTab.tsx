@@ -144,15 +144,14 @@ function DivergenceWarning({ children }: { children: ReactNode }) {
 }
 
 // Aviso de dado órfão (Task 10 do ADR 2026-07-31): granito ou Embarque de
-// Vazios lançado num porto que não é escala nenhuma da viagem. Mesmo estilo
-// do DivergenceWarning — informativo, não bloqueia sign-off nem fechamento.
+// Vazios lançado num porto que não é escala nenhuma da viagem. Reaproveita o
+// wrapper do DivergenceWarning — informativo, não bloqueia sign-off nem
+// fechamento — em vez de redeclarar o mesmo <p>, para ter um só lugar onde
+// mudar o estilo visual do aviso.
 function OrphanDataWarning({ entries, label }: { entries: Array<{ port: string; count: number }>; label: string }) {
   if (!entries.length) return null
-  return (
-    <p className="text-sm text-[var(--app-red)]">
-      {entries.map((entry) => `${entry.count} ${label} em ${entry.port}`).join('; ')} — porto não é escala desta viagem, verificar o cadastro.
-    </p>
-  )
+  const text = `${entries.map((entry) => `${entry.count} ${label} em ${entry.port}`).join('; ')} — porto não é escala desta viagem, verificar o cadastro.`
+  return <DivergenceWarning>{text}</DivergenceWarning>
 }
 
 export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {

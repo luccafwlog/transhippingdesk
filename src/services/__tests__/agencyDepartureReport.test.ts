@@ -483,16 +483,11 @@ describe('Aviso de dado órfão: granito/vazios embarcados fora de qualquer esca
     fromMock.mockImplementation((table: string) => {
       if (table === 'bls') return queryBuilder([{ pod: 'BRVIX', pol: null }])
       if (table === 'vazios_export_operations') {
-        // Consulta com .eq('voyage_id', ...).eq('embark_port', port).maybeSingle()
-        // (nesta escala): nada. Consulta sem filtro de porto (Task 10, só
-        // .eq('voyage_id', ...)): a operação órfã em BRSSA.
-        const chain = {
-          eq: vi.fn((column: string) => {
-            if (column === 'embark_port') return { maybeSingle: () => Promise.resolve({ data: null, error: null }) }
-            return { ...chain, then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [{ id: 'op-orphan', embark_port: 'BRSSA' }], error: null }).then(resolve) }
-          }),
-        }
-        return { select: vi.fn(() => chain) }
+        // O mesmo queryBuilder atende as duas consultas da tabela: a de
+        // .eq('embark_port', port).maybeSingle() (nesta escala) ignora `data`
+        // e sempre resolve null; a de Task 10, sem filtro de porto, resolve
+        // via `then` com a operação órfã em BRSSA.
+        return queryBuilder([{ id: 'op-orphan', embark_port: 'BRSSA' }])
       }
       if (table === 'vazios_bookings') return queryBuilder([{ operation_id: 'op-orphan' }, { operation_id: 'op-orphan' }])
       return queryBuilder()
