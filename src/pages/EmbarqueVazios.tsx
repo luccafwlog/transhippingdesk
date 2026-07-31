@@ -73,7 +73,7 @@ function countByField<T>(rows: T[], keyOf: (row: T) => string): Array<{ label: s
 // ponytail: escala do Embarque de Vazios montada aqui unindo POD e POL dos
 // B/Ls da viagem à mão (duas fontes unidas manualmente, sem projeção comum).
 // Teto: não enxerga escala planejada sem B/L ainda lançado. Upgrade: trocar
-// por a projeção unificada de escalas quando
+// pela projeção unificada de escalas quando
 // docs/plans/2026-07-31-escala-unificada-pol-pod.md for entregue.
 async function fetchVoyageEscalaPorts(voyageId: number): Promise<string[]> {
   const { data, error } = await supabase
