@@ -25,6 +25,14 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   ocorrências abertas aos 3 departamentos com tag opcional de seção, layout em
   5 faixas do ciclo com barra-resumo, números-heróis e correções de cópia.
   ADR 0029; migrations `222`–`226`.
+- [`2026-07-31-adr-cobertura-fontes-forma`](2026-07-31-adr-cobertura-fontes-forma.md)
+  — transbordo passa a contar no ADR do porto de descarga real; containers
+  cheios saem dos B/Ls e vazios do Baplie ganham natureza própria, com
+  avisos de divergência e de dado órfão; aba e impresso passam a listar só
+  o operado, sem zeros; impresso ganha resolução por seção e as 3
+  assinaturas departamentais; granito casa por porto normalizado; porto do
+  Embarque de Vazios vira seleção entre escalas; cálculo da linha de
+  serviço unificado. ADR 0035 (blocos 2–4); migration `249`.
 - [`2026-07-24-correcoes-pr-424-cadastro-depot`](2026-07-24-correcoes-pr-424-cadastro-depot.md)
   — correções da PR #424 sobre o Cadastro de Depot por tipo de cálculo (ADR
   0032; migrations `236`/`237`). **Encerrado sem execução completa:** a ADR 0033

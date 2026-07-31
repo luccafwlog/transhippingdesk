@@ -51,6 +51,10 @@ Porto onde a carga de uma escala omitida é efetivamente descarregada para segui
 em transbordo ou receber COD. Pode ser diferente do POD original do B/L.
 
 **Transbordo**
+O ADR do Porto de Transbordo (Porto onde a carga foi efetivamente
+descarregada) passa a contar essa carga, separada da carga de destino final
+própria daquele porto — ver Porto de Transbordo e ADR.
+
 Seguimento da carga em navio de terceiro apos omissao de escala. Porto, navio,
 armador, viagem, ETD e ETA de transbordo formam um registro global da omissao,
 compartilhado pelos B/Ls afetados e complementado progressivamente conforme as
@@ -129,6 +133,14 @@ e carregada, embarque e descarga de vazios, granito, carga solta, veículos,
 armazenagem e depot dos vazios, overtime e ocorrências. É a fonte confiável
 usada pelo Financeiro para aprovar pagamentos de faturas.
 
+Containers cheios são contados exclusivamente pelos B/Ls (fonte documental,
+ADR 0025); o Baplie não determina mais essa contagem. Carga em transbordo
+(de uma Omissão de Escala) conta no ADR do Porto de Transbordo onde foi
+efetivamente descarregada, separada da carga de destino final desse mesmo
+porto — ver Transbordo e Porto de Transbordo. Vazio do Baplie sem B/L conta
+como natureza própria (`vazio`) na listagem de carga descarregada, distinta
+da classificação cama/cover plate da seção de Vazios descarregados.
+
 O ADR é uma **exibição consolidada** de dados construídos nos módulos de
 origem, não uma redigitação: carga, veículos, vazios, depot e overtime nascem
 nos seus módulos; apenas ocorrências e sign-offs nascem no próprio ADR. Existe
@@ -164,6 +176,14 @@ confirmação explícita; alterar uma decisão já tomada — voltar a Pendente 
 trocar entre Confirmado e Nada a declarar — exige justificativa. Toda transição é
 registrada em histórico (autor, momento, de→para e, quando aplicável,
 justificativa).
+
+**Listagem do operado**
+Forma de exibição do ADR (aba e impresso) que lista apenas as combinações
+(tipo × natureza, ou tipo × condição × local, conforme a seção) que
+realmente ocorreram na escala, com o total no topo. Ausência de ocorrência
+não vira linha zerada: uma seção sem nenhum dado mostra uma única linha
+"Nada operado nesta escala" e continua exigindo Resolução de Seção
+(Pendente/Confirmado/Nada a declarar) — ausência de dado não é conclusão.
 
 **Sign-off Departamental**
 Ato pelo qual um departamento assina, de uma vez, o conjunto das suas seções do
@@ -418,7 +438,11 @@ faturamento, mas mantém regras e registros próprios.
 
 **Baplie EDI**
 Arquivo EDIFACT do plano de estiva. É a autoridade para a presença física de
-containers, posição a bordo e flags operacionais.
+containers, posição a bordo e flags operacionais. Essa autoridade física é
+preservada, mas a CONTAGEM de containers cheios do ADR é documental (vem dos
+B/Ls) — o Baplie não determina mais essa contagem; um container cheio do
+Baplie sem B/L correspondente vira aviso de divergência, não conta como
+carga.
 
 **Staging Baplie**
 Estado intermediário dos containers importados do Baplie antes da conciliação
