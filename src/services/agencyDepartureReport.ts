@@ -306,13 +306,55 @@ type BreakbulkAgencyReportBl = {
   total_cbm: number | null
 }
 
+// ADR 0022/0025: bls.pod nunca é reescrito para disposição 'transshipment'
+// (só COD reescreve). A carga de um B/L em transbordo continua com pod no
+// porto omitido, então a escala do porto de descarga real precisa buscá-la
+// à parte via voyage_omissions → bl_transshipments, sem tocar em bls.pod.
+async function listTransshipmentBlIds(voyageId: number, port: string): Promise<string[]> {
+  const omissionsRes = await supabase
+    .from('voyage_omissions')
+    .select('id')
+    .eq('voyage_id', voyageId)
+    .eq('discharge_pod', port)
+  if (omissionsRes.error) throw omissionsRes.error
+  const omissionIds = (omissionsRes.data ?? []).map((row) => row.id)
+  if (!omissionIds.length) return []
+
+  const blTransshipmentsRes = await supabase
+    .from('bl_transshipments')
+    .select('bl_id')
+    .in('omission_id', omissionIds)
+    .eq('disposition', 'transshipment')
+  if (blTransshipmentsRes.error) throw blTransshipmentsRes.error
+  return [...new Set((blTransshipmentsRes.data ?? []).map((row) => row.bl_id))]
+}
+
+const BL_CONTAINERS_SELECT = 'id, container_number, type, is_imo, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))'
+const BREAKBULK_SELECT = 'bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm'
+const VEHICLES_SELECT = 'brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location)'
+
 export async function getAgencyReportDerivedData(voyageId: number, port: string) {
   const entityId = buildVoyagePodEntityId(voyageId, port)
-  const [schedules, vehiclesRes, vaziosImpRes, graniteRes, baplieContainersRes, blContainersRes, operationRes, breakbulkRes] = await Promise.all([
+  const transshipmentBlIds = await listTransshipmentBlIds(voyageId, port)
+  const emptyResult = { data: [], error: null }
+
+  const [
+    schedules,
+    vehiclesRes,
+    vaziosImpRes,
+    graniteRes,
+    baplieContainersRes,
+    blContainersRes,
+    operationRes,
+    breakbulkRes,
+    transshipmentBlContainersRes,
+    transshipmentBreakbulkRes,
+    transshipmentVehiclesRes,
+  ] = await Promise.all([
     listVoyagePodSchedules([entityId]),
     supabase
       .from('vehicles')
-      .select('brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location), bl:bls!inner(voyage_id, pod)')
+      .select(`${VEHICLES_SELECT}, bl:bls!inner(voyage_id, pod)`)
       .eq('bl.voyage_id', voyageId)
       .eq('bl.pod', port),
     supabase
@@ -332,7 +374,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('pod', port),
     supabase
       .from('bl_containers')
-      .select('id, container_number, type, is_imo, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))')
+      .select(BL_CONTAINERS_SELECT)
       .eq('bl.voyage_id', voyageId)
       .eq('bl.pod', port),
     supabase
@@ -343,19 +385,53 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .maybeSingle(),
     supabase
       .from('bls')
-      .select('bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm')
+      .select(BREAKBULK_SELECT)
       .eq('voyage_id', voyageId)
       .eq('pod', port)
       .eq('cargo_mode', 'carga_solta'),
+    // Carga em transbordo (Task 1 do ADR 2026-07-31): mesmas três consultas,
+    // agora restritas aos B/Ls de transshipmentBlIds, sem filtrar por bls.pod
+    // (que continua apontando para o porto omitido). Só disparam quando há
+    // B/Ls em transbordo para esta escala.
+    transshipmentBlIds.length
+      ? supabase.from('bl_containers').select(BL_CONTAINERS_SELECT).in('bl_id', transshipmentBlIds)
+      : Promise.resolve(emptyResult),
+    transshipmentBlIds.length
+      ? supabase.from('bls').select(BREAKBULK_SELECT).in('id', transshipmentBlIds).eq('cargo_mode', 'carga_solta')
+      : Promise.resolve(emptyResult),
+    transshipmentBlIds.length
+      ? supabase.from('vehicles').select(VEHICLES_SELECT).in('bl_id', transshipmentBlIds)
+      : Promise.resolve(emptyResult),
   ])
 
-  for (const result of [vehiclesRes, vaziosImpRes, graniteRes, baplieContainersRes, blContainersRes, operationRes, breakbulkRes]) {
+  for (const result of [
+    vehiclesRes,
+    vaziosImpRes,
+    graniteRes,
+    baplieContainersRes,
+    blContainersRes,
+    operationRes,
+    breakbulkRes,
+    transshipmentBlContainersRes,
+    transshipmentBreakbulkRes,
+    transshipmentVehiclesRes,
+  ]) {
     if (result.error) throw result.error
   }
 
-  const vehicles = (vehiclesRes.data ?? []) as unknown as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
+  type AgencyReportVehicle = Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
     container: { unpacking_location: string | null } | null
-  }>
+    isTransshipment: boolean
+  }
+  const ownVehicles = (vehiclesRes.data ?? []) as unknown as Array<Omit<AgencyReportVehicle, 'isTransshipment'>>
+  const transshipmentVehicles = (transshipmentVehiclesRes.data ?? []) as unknown as Array<Omit<AgencyReportVehicle, 'isTransshipment'>>
+  // bls.pod nunca é o mesmo entre o porto da escala e o porto omitido de uma
+  // mesma viagem, então as duas listas nunca se sobrepõem — concatena sem
+  // deduplicar (ver listTransshipmentBlIds).
+  const vehicles: AgencyReportVehicle[] = [
+    ...ownVehicles.map((vehicle) => ({ ...vehicle, isTransshipment: false })),
+    ...transshipmentVehicles.map((vehicle) => ({ ...vehicle, isTransshipment: true })),
+  ]
   const operation = operationRes.data as VaziosExportOperation | null
   const allDepots = operation ? await listDepots() : []
   const emptyOperationResult = { data: [], error: null }
@@ -388,13 +464,19 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
   const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
   const baplieContainers = (baplieContainersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
-  const blContainers = (blContainersRes.data ?? []) as Array<{
+  type AgencyReportBlContainer = {
     id: number
     container_number: string
     type: string | null
     is_imo: boolean | null
     bl: { transshipments: Array<{ disposition: string }> | null } | null
-  }>
+  }
+  // Idem: containers do porto da escala e containers em transbordo (bls.pod
+  // apontando para o porto omitido) nunca se sobrepõem.
+  const blContainers = [
+    ...(blContainersRes.data ?? []),
+    ...(transshipmentBlContainersRes.data ?? []),
+  ] as AgencyReportBlContainer[]
   const vehicleContainerIds = new Set(vehicles.flatMap((vehicle) => vehicle.container_id === null ? [] : [vehicle.container_id]))
   const baplieByContainerNumber = new Map(baplieContainers.map((container) => [normalizeContainerNumber(container.container_number), container]))
   const blContainerNumbers = new Set(blContainers.map((container) => normalizeContainerNumber(container.container_number)))
@@ -421,6 +503,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     })
   }
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
+  const transshipmentBreakbulk = (transshipmentBreakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
   const serviceLines = rawServiceLines.map((row) => {
     const service = servicesById.get(row.service_id) ?? null
@@ -449,14 +532,23 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     costs,
     storage: computeStorageTotals(vaziosExp, allDepots),
     cargaSolta: {
-      bls: breakbulk.length,
-      machines: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0),
-      packages: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0),
-      weightTon: breakbulk.reduce(
-        (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
-        0,
-      ),
-      cbm: breakbulk.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0),
+      ...summarizeBreakbulk(breakbulk),
+      // Contagem em transbordo separada da de destino final (Task 1); a UI
+      // de listagem que consome essa separação é a Task 4, ainda não feita.
+      transshipment: summarizeBreakbulk(transshipmentBreakbulk),
     },
+  }
+}
+
+function summarizeBreakbulk(breakbulk: BreakbulkAgencyReportBl[]) {
+  return {
+    bls: breakbulk.length,
+    machines: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0),
+    packages: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0),
+    weightTon: breakbulk.reduce(
+      (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
+      0,
+    ),
+    cbm: breakbulk.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0),
   }
 }

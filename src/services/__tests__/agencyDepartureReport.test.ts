@@ -199,6 +199,91 @@ describe('getAgencyReportDerivedData', () => {
       ],
     })
   })
+
+  describe('carga em transbordo (ADR 2026-07-31, Task 1)', () => {
+    it('inclui containers, carga solta e veículos de B/Ls em transbordo de um porto omitido', async () => {
+      let blContainersCall = 0
+      let vehiclesCall = 0
+      let blsCall = 0
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'voyage_omissions') return queryBuilder([{ id: 42 }])
+        if (table === 'bl_transshipments') return queryBuilder([{ bl_id: 'BL-T1' }, { bl_id: 'BL-T2' }])
+        if (table === 'bl_containers') {
+          blContainersCall += 1
+          if (blContainersCall === 1) {
+            return queryBuilder([
+              { id: 1, container_number: 'OWN0000001', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+              { id: 2, container_number: 'OWN0000002', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+              { id: 3, container_number: 'OWN0000003', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+            ])
+          }
+          return queryBuilder([
+            { id: 4, container_number: 'TRB0000001', type: '20GP', is_imo: false, bl: { transshipments: [{ disposition: 'transshipment' }] } },
+            { id: 5, container_number: 'TRB0000002', type: '20GP', is_imo: false, bl: { transshipments: [{ disposition: 'transshipment' }] } },
+          ])
+        }
+        if (table === 'bls') {
+          blsCall += 1
+          if (blsCall === 1) {
+            return queryBuilder([{ bb_machine_qty: 1, bb_packages_qty: 2, bb_weight_ton: 1, total_weight_kg: null, total_cbm: 3 }])
+          }
+          return queryBuilder([{ bb_machine_qty: 5, bb_packages_qty: 6, bb_weight_ton: 2, total_weight_kg: null, total_cbm: 4 }])
+        }
+        if (table === 'vehicles') {
+          vehiclesCall += 1
+          if (vehiclesCall === 1) return queryBuilder([{ brand: 'BYD', bl_id: 'BL-OWN', chassis: 'own-1', container_id: null }])
+          return queryBuilder([{ brand: 'GWM', bl_id: 'BL-T1', chassis: 'trb-1', container_id: null }])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(result.containers).toHaveLength(5)
+      const transbordo = result.containers.filter((container) => container.category === 'transbordo')
+      expect(transbordo.map((container) => container.container_number).sort()).toEqual(['TRB0000001', 'TRB0000002'])
+
+      expect(result.cargaSolta).toMatchObject({
+        bls: 1,
+        machines: 1,
+        packages: 2,
+        transshipment: { bls: 1, machines: 5, packages: 6 },
+      })
+
+      expect(result.vehicles).toEqual([
+        expect.objectContaining({ bl_id: 'BL-OWN', isTransshipment: false }),
+        expect.objectContaining({ bl_id: 'BL-T1', isTransshipment: true }),
+      ])
+    })
+
+    it('não dispara consultas extras nem altera o resultado quando a escala não possui omissão', async () => {
+      fromMock.mockClear()
+      let blContainersCall = 0
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'voyage_omissions') return queryBuilder([])
+        if (table === 'bl_containers') {
+          blContainersCall += 1
+          return queryBuilder([
+            { id: 1, container_number: 'OWN0000001', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+          ])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(fromMock).not.toHaveBeenCalledWith('bl_transshipments')
+      expect(blContainersCall).toBe(1)
+      expect(result.containers).toEqual([
+        { container_number: 'OWN0000001', size_type: '40HC', is_imo: false, category: 'carga_geral' },
+      ])
+      expect(result.cargaSolta.transshipment).toMatchObject({ bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 })
+    })
+  })
 })
 
 describe('getAgencyReportOwnData', () => {
