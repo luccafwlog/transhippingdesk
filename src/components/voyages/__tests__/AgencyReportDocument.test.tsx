@@ -133,3 +133,24 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
   expect(screen.queryByRole("heading", { name: "Overtime" })).toBeNull();
   expect(screen.queryByRole("heading", { name: "Ocorrências" })).toBeNull();
 });
+
+// O snapshot gravado por VoyageAgencyReportTab põe os sign-offs na chave de
+// topo, não dentro de `sections`: é dessa forma que a Observação precisa sair
+// impressa.
+it("imprime a Observação da seção com os sign-offs na chave de topo do snapshot", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {},
+        occurrences: [],
+        signoffs: [
+          { section: "datas", state: "confirmed", observation: "Atracação com 4h de espera." },
+          { section: "veiculos", state: "nothing_to_declare", observation: null },
+        ],
+      }}
+    />,
+  );
+
+  expect(screen.getByText("Atracação com 4h de espera.")).toBeTruthy();
+});

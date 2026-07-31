@@ -23,6 +23,8 @@ type Snapshot = {
     } | null;
   };
   sections?: Record<string, unknown>;
+  /** Resoluções de seção do ADR fechado; a Observação de cada seção vive aqui. */
+  signoffs?: unknown;
   occurrences?: Array<{
     id?: string;
     body?: string;
@@ -186,7 +188,14 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
     ? sections.veiculos.map(asRecord)
     : [];
   const vehicleLocations = asRecord(sections.vehicleLocations);
-  const observations = (Array.isArray(sections.signoffs) ? sections.signoffs : [])
+  // Os sign-offs são chave de topo do snapshot (VoyageAgencyReportTab); a
+  // leitura de `sections.signoffs` fica como fallback de snapshots antigos.
+  const signoffs = Array.isArray(snapshot.signoffs)
+    ? snapshot.signoffs
+    : Array.isArray(sections.signoffs)
+      ? sections.signoffs
+      : [];
+  const observations = signoffs
     .map(asRecord)
     .filter((signoff) => typeof signoff.observation === "string" && signoff.observation.trim());
   const depots = Array.isArray(sections.depots) ? sections.depots : [];
