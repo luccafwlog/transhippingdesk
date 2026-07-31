@@ -261,6 +261,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     },
     occurrences: ownData?.occurrences ?? [],
     signoffs: ownData?.signoffs ?? [],
+    // Task 5 do ADR 2026-07-31: chave de topo irmã de `signoffs` — o impresso
+    // fecha com os três sign-offs departamentais. Task 9 libera esta chave na
+    // validação de fechamento (allowlist em close_agency_departure_report).
+    departmentSignoffs: ownData?.departmentSignoffs ?? [],
   }
   const closedSnapshot = ownData?.closed_snapshot as typeof snapshot | null
   const isClosed = ownData?.status === 'closed' && closedSnapshot
@@ -288,8 +292,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       {!isLoading && !error ? <>
         {isClosed ? <>
           <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)} por {ownData?.closed_by_name ?? ownData?.closed_by ?? '—'}</span><div className="flex gap-2"><Button variant="secondary" onClick={() => setPrintOpen(true)}>Imprimir</Button>{isAdmin ? <Button variant="primary" onClick={() => setReopenOpen(true)}>Reabrir</Button> : null}</div></div>
-          <AgencyReportDocument snapshot={closedSnapshot} />
-          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} /></Modal>
+          <AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} />
+          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} /></Modal>
           <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><Button variant="primary" className="mt-3" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</Button></Modal>
         </> : <>
         <div className="app-panel app-panel--padded grid gap-3">

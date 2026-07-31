@@ -4,6 +4,13 @@ import {
   InvoiceDocHeader,
   InvoiceDocTitle,
 } from "../shared/InvoiceDocumentKit";
+import {
+  AGENCY_REPORT_DEPARTMENT_LABELS,
+  signoffLabels,
+  type AgencyReportSection,
+  type SignoffState,
+} from "../../services/agencyDepartureReport";
+import type { AgencyReportDepartmentKey } from "../../types/database";
 
 type Matrix = {
   rows?: Record<string, Record<string, number>>;
@@ -25,6 +32,8 @@ type Snapshot = {
   sections?: Record<string, unknown>;
   /** Resoluções de seção do ADR fechado; a Observação de cada seção vive aqui. */
   signoffs?: unknown;
+  /** Assinaturas departamentais (Task 5); ausente em snapshot legado — impresso sem quebrar. */
+  departmentSignoffs?: unknown;
   occurrences?: Array<{
     id?: string;
     body?: string;
@@ -91,82 +100,268 @@ function MetricsTable({
   );
 }
 
-function MatrixTable({ label, matrix }: { label: string; matrix: Matrix }) {
+type MatrixCombo = { type: string; category: string; quantity: number };
+
+// "Listagem do operado": uma linha por combinação (tipo, categoria) que de
+// fato ocorreu, com o total no topo — substitui a antiga MatrixTable (grade
+// com célula zerada para toda combinação possível, coluna Total por linha e
+// rodapé de totais). Task 5 do ADR 2026-07-31, espelhando OperatedListing da
+// aba (VoyageAgencyReportTab.tsx).
+function matrixCombos(matrix: Matrix): MatrixCombo[] {
   const rows = matrix.rows ?? {};
-  const categories = [
-    ...new Set(Object.values(rows).flatMap((row) => Object.keys(row))),
-  ].sort();
-  if (!Object.keys(rows).length) return <Empty />;
+  return Object.entries(rows)
+    .flatMap(([type, categories]) =>
+      Object.entries(categories).map(([category, quantity]) => ({
+        type,
+        category,
+        quantity: number(quantity),
+      })),
+    )
+    .sort(
+      (a, b) => a.type.localeCompare(b.type) || a.category.localeCompare(b.category),
+    );
+}
+
+function OperatedListingTable({
+  label,
+  combos,
+}: {
+  label: string;
+  combos: MatrixCombo[];
+}) {
+  if (!combos.length) return null;
+  const total = combos.reduce((sum, combo) => sum + combo.quantity, 0);
 
   return (
     <table className="agency-report-document__table" aria-label={label}>
       <thead>
         <tr>
           <th scope="col">Tipo</th>
-          {categories.map((category) => (
-            <th scope="col" key={category}>
-              {category.replaceAll("_", " ")}
-            </th>
-          ))}
-          <th scope="col">Total</th>
+          <th scope="col">Natureza</th>
+          <th scope="col">Quantidade</th>
         </tr>
       </thead>
       <tbody>
-        {Object.entries(rows)
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([type, values]) => (
-            <tr key={type}>
-              <th scope="row">{type}</th>
-              {categories.map((category) => (
-                <td key={category}>{count(values[category])}</td>
-              ))}
-              <td>
-                {count(
-                  Object.values(values).reduce(
-                    (total, value) => total + number(value),
-                    0,
-                  ),
-                )}
-              </td>
-            </tr>
-          ))}
-      </tbody>
-      <tfoot>
         <tr>
           <th scope="row">Total</th>
-          {categories.map((category) => (
-            <td key={category}>{count(matrix.totals?.[category])}</td>
-          ))}
-          <td>
-            {count(
-              Object.values(matrix.totals ?? {}).reduce(
-                (total, value) => total + number(value),
-                0,
-              ),
-            )}
-          </td>
+          <td>—</td>
+          <td>{count(total)}</td>
         </tr>
-      </tfoot>
+        {combos.map((combo) => (
+          <tr key={`${combo.type}:${combo.category}`}>
+            <th scope="row">{combo.type}</th>
+            <td>{combo.category.replaceAll("_", " ")}</td>
+            <td>{count(combo.quantity)}</td>
+          </tr>
+        ))}
+      </tbody>
     </table>
   );
 }
 
+type EmptyEmbarkRowLike = {
+  type: string;
+  condition: string;
+  localLabel: string;
+  quantity: number;
+};
+
+// `vaziosEmbarcados` deixou de ser {rows,totals} (Task 4): agora é uma
+// listagem plana (tipo, condição, local) — precisa do próprio parser, o
+// `asMatrix` não serve mais para esta chave.
+function asEmptyEmbarkRows(value: unknown): EmptyEmbarkRowLike[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const record = asRecord(item);
+    return {
+      type: String(record.type ?? "—"),
+      condition: String(record.condition ?? "—"),
+      localLabel: String(record.localLabel ?? "—"),
+      quantity: number(record.quantity),
+    };
+  });
+}
+
+function EmptyEmbarkTable({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: EmptyEmbarkRowLike[];
+}) {
+  if (!rows.length) return null;
+  const total = rows.reduce((sum, row) => sum + row.quantity, 0);
+
+  return (
+    <table className="agency-report-document__table" aria-label={label}>
+      <thead>
+        <tr>
+          <th scope="col">Tipo</th>
+          <th scope="col">Condição</th>
+          <th scope="col">Local</th>
+          <th scope="col">Quantidade</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">Total</th>
+          <td>—</td>
+          <td>—</td>
+          <td>{count(total)}</td>
+        </tr>
+        {rows.map((row, index) => (
+          <tr key={`${row.type}:${row.condition}:${row.localLabel}:${index}`}>
+            <th scope="row">{row.type}</th>
+            <td>{row.condition}</td>
+            <td>{row.localLabel}</td>
+            <td>{count(row.quantity)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+type SignoffRow = Record<string, unknown>;
+
+// Estado + autor + data da resolução de uma seção — mesma ideia de
+// sectionAttribution (VoyageAgencyReportTab.tsx), só que aqui o snapshot já
+// fechado é a única fonte (sem query viva de sign-offs).
+function resolutionFor(
+  section: AgencyReportSection,
+  signoffs: SignoffRow[],
+  actorNames: Record<string, string>,
+): { label: string; attribution: string | null } {
+  const row = signoffs.find((signoff) => signoff.section === section);
+  const state = (row?.state as SignoffState) ?? "pending";
+  const label = signoffLabels[state] ?? signoffLabels.pending;
+  const signedAt = row?.signed_at as string | null | undefined;
+  const signedBy = row?.signed_by as string | null | undefined;
+  if (!signedAt || state === "pending") return { label, attribution: null };
+  const name = (signedBy && actorNames[signedBy]) || null;
+  return { label, attribution: `${name ?? "—"} em ${formatDate(signedAt)}` };
+}
+
+function ResolutionLine({
+  section,
+  signoffs,
+  actorNames,
+}: {
+  section: AgencyReportSection;
+  signoffs: SignoffRow[];
+  actorNames: Record<string, string>;
+}) {
+  const { label, attribution } = resolutionFor(section, signoffs, actorNames);
+  return (
+    <p className="agency-report-document__resolution">
+      <strong>{label}</strong>
+      {attribution ? ` — ${attribution}` : ""}
+    </p>
+  );
+}
+
+// Bloco sem dado não é impresso (hasData === false omite `children`); a
+// seção em si é sempre impressa, com a resolução (estado, autor, data) da
+// Task 5 do ADR 2026-07-31.
 function Section({
   title,
+  section,
+  hasData = true,
+  signoffs,
+  actorNames,
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  section?: AgencyReportSection;
+  hasData?: boolean;
+  signoffs?: SignoffRow[];
+  actorNames?: Record<string, string>;
+  children?: React.ReactNode;
 }) {
   return (
     <section className="agency-report-document__section">
       <h2>{title}</h2>
-      {children}
+      {hasData ? children : null}
+      {section ? (
+        <ResolutionLine
+          section={section}
+          signoffs={signoffs ?? []}
+          actorNames={actorNames ?? {}}
+        />
+      ) : null}
     </section>
   );
 }
 
-export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
+function asDepartmentSignoffRows(value: unknown) {
+  if (!Array.isArray(value)) return null;
+  return value.map((item) => {
+    const record = asRecord(item);
+    return {
+      department: String(record.department ?? ""),
+      signed_by: (record.signed_by as string | null | undefined) ?? null,
+      signed_at: (record.signed_at as string | null | undefined) ?? null,
+    };
+  });
+}
+
+const DEPARTMENTS: AgencyReportDepartmentKey[] = [
+  "operacoes",
+  "documentacao",
+  "equipamentos",
+];
+
+// Fecho com os três sign-offs departamentais (Task 5, bullet 3/4). Ausente
+// quando o snapshot é legado (sem a chave `departmentSignoffs`) — não
+// inventa "0/3" nem linhas vazias para um dado que nunca existiu.
+function DepartmentSignoffsSection({
+  rows,
+  actorNames,
+}: {
+  rows: Array<{ department: string; signed_by: string | null; signed_at: string | null }>;
+  actorNames: Record<string, string>;
+}) {
+  const byDepartment = new Map(rows.map((row) => [row.department, row]));
+
+  return (
+    <section className="agency-report-document__section">
+      <h2>Assinaturas departamentais</h2>
+      <table
+        className="agency-report-document__table"
+        aria-label="Assinaturas departamentais"
+      >
+        <thead>
+          <tr>
+            <th scope="col">Departamento</th>
+            <th scope="col">Assinante</th>
+            <th scope="col">Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {DEPARTMENTS.map((department) => {
+            const row = byDepartment.get(department);
+            const name = (row?.signed_by && actorNames[row.signed_by]) || null;
+            return (
+              <tr key={department}>
+                <th scope="row">{AGENCY_REPORT_DEPARTMENT_LABELS[department]}</th>
+                <td>{row?.signed_at ? (name ?? "—") : "Não assinado"}</td>
+                <td>{row?.signed_at ? formatDate(row.signed_at) : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+export function AgencyReportDocument({
+  snapshot,
+  actorNames = {},
+}: {
+  snapshot: Snapshot;
+  actorNames?: Record<string, string>;
+}) {
   const header = snapshot.header ?? {};
   const schedule = header.schedule ?? {};
   const sections = snapshot.sections ?? {};
@@ -190,22 +385,34 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
   const vehicleLocations = asRecord(sections.vehicleLocations);
   // Os sign-offs são chave de topo do snapshot (VoyageAgencyReportTab); a
   // leitura de `sections.signoffs` fica como fallback de snapshots antigos.
-  const signoffs = Array.isArray(snapshot.signoffs)
-    ? snapshot.signoffs
-    : Array.isArray(sections.signoffs)
-      ? sections.signoffs
-      : [];
-  const observations = signoffs
-    .map(asRecord)
-    .filter((signoff) => typeof signoff.observation === "string" && signoff.observation.trim());
+  const signoffs: SignoffRow[] = (
+    Array.isArray(snapshot.signoffs)
+      ? snapshot.signoffs
+      : Array.isArray(sections.signoffs)
+        ? sections.signoffs
+        : []
+  ).map(asRecord) as SignoffRow[];
+  const observations = signoffs.filter(
+    (signoff) => typeof signoff.observation === "string" && signoff.observation.trim(),
+  );
   const depots = Array.isArray(sections.depots) ? sections.depots : [];
   const vaziosUnidades = Array.isArray(sections.vaziosUnidades)
     ? sections.vaziosUnidades.map(asRecord)
     : [];
+  const vaziosUnidadesComPeriodo = vaziosUnidades.filter(
+    (unit) => unit.hand_in_date && unit.hand_out_date,
+  );
   const costs = asRecord(sections.costs);
   const serviceLines = Array.isArray(costs.serviceLines)
     ? costs.serviceLines.map(asRecord)
     : [];
+  const discargaCombos = matrixCombos(asMatrix(sections.cargaDescarregada));
+  const vaziosDescarregadosCombos = matrixCombos(asMatrix(sections.vaziosDescarregados));
+  const vaziosEmbarcadosRows = asEmptyEmbarkRows(sections.vaziosEmbarcados);
+  const storage = asRecord(sections.storage);
+  const departmentSignoffs = asDepartmentSignoffRows(snapshot.departmentSignoffs);
+
+  const section = (key: AgencyReportSection) => ({ section: key, signoffs, actorNames });
 
   return (
     <article
@@ -252,7 +459,8 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
         </div>
       </dl>
 
-      <Section title="Carga solta">
+      <Section title="Datas" {...section("datas")} hasData={false} />
+      <Section title="Carga solta" {...section("carga_descarregada")} hasData={Boolean(number(cargaSolta.bls))}>
         <MetricsTable
           label="Carga solta"
           metrics={[
@@ -264,7 +472,7 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
           ]}
         />
       </Section>
-      <Section title="Granito">
+      <Section title="Granito" {...section("carga_carregada")} hasData={Boolean(number(granite.bls))}>
         <MetricsTable
           label="Granito"
           metrics={[
@@ -274,58 +482,51 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
           ]}
         />
       </Section>
-      <Section title="Matriz de descarga">
-        <MatrixTable
-          label="Matriz de descarga"
-          matrix={asMatrix(sections.cargaDescarregada)}
-        />
+      <Section title="Matriz de descarga" {...section("carga_descarregada")} hasData={discargaCombos.length > 0}>
+        <OperatedListingTable label="Matriz de descarga" combos={discargaCombos} />
       </Section>
-      <Section title="Vazios descarregados">
-        <MatrixTable
-          label="Vazios descarregados"
-          matrix={asMatrix(sections.vaziosDescarregados)}
-        />
+      <Section title="Vazios descarregados" {...section("vazios_descarregados")} hasData={vaziosDescarregadosCombos.length > 0}>
+        <OperatedListingTable label="Vazios descarregados" combos={vaziosDescarregadosCombos} />
       </Section>
-      <Section title="Container com veículo">
-        {vehicles.length ? (
-          <table
-            className="agency-report-document__table"
-            aria-label="Container com veículo"
-          >
-            <thead>
-              <tr>
-                <th scope="col">Marca</th>
-                <th scope="col">B/Ls</th>
-                <th scope="col">VINs</th>
-                <th scope="col">Local de desova</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vehicles.map((vehicle, index) => {
-                const brand = String(vehicle.brand ?? "Marca não informada");
-                const locations = Array.isArray(vehicleLocations[brand])
-                  ? vehicleLocations[brand].join(", ")
-                  : "—";
-                return (
-                  <tr key={`${brand}-${index}`}>
-                    <th scope="row">{brand}</th>
-                    <td>{count(vehicle.blCount)}</td>
-                    <td>{count(vehicle.vinCount)}</td>
-                    <td>{locations || "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <Empty />
-        )}
+      <Section title="Container com veículo" {...section("veiculos")} hasData={vehicles.length > 0}>
+        <table
+          className="agency-report-document__table"
+          aria-label="Container com veículo"
+        >
+          <thead>
+            <tr>
+              <th scope="col">Marca</th>
+              <th scope="col">B/Ls</th>
+              <th scope="col">VINs</th>
+              <th scope="col">Local de desova</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vehicles.map((vehicle, index) => {
+              const brand = String(vehicle.brand ?? "Marca não informada");
+              const locations = Array.isArray(vehicleLocations[brand])
+                ? vehicleLocations[brand].join(", ")
+                : "—";
+              return (
+                <tr key={`${brand}-${index}`}>
+                  <th scope="row">{brand}</th>
+                  <td>{count(vehicle.blCount)}</td>
+                  <td>{count(vehicle.vinCount)}</td>
+                  <td>{locations || "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </Section>
-      <Section title="Embarque de vazios">
-        <MatrixTable
-          label="Embarque de vazios"
-          matrix={asMatrix(sections.vaziosEmbarcados)}
-        />
+      <Section title="Embarque de vazios" {...section("vazios_embarcados")} hasData={vaziosEmbarcadosRows.length > 0}>
+        <EmptyEmbarkTable label="Embarque de vazios" rows={vaziosEmbarcadosRows} />
+      </Section>
+      <Section
+        title="Operação de vazios"
+        {...section("operacao_patio")}
+        hasData={Boolean(number(sections.directEmbarkCount)) || depots.length > 0}
+      >
         <MetricsTable
           label="Operação de vazios"
           metrics={[
@@ -334,106 +535,104 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
           ]}
         />
       </Section>
-      <Section title="Linhas de serviço do embarque">
-        {serviceLines.length ? (
-          <table
-            className="agency-report-document__table"
-            aria-label="Linhas de serviço"
-          >
-            <thead>
-              <tr>
-                <th>Serviço</th>
-                <th>Local</th>
-                <th>Rota</th>
-                <th>Tipo</th>
-                <th>Quantidade</th>
-                <th>Unitário</th>
-                <th>Total</th>
+      <Section title="Linhas de serviço do embarque" {...section("operacao_patio")} hasData={serviceLines.length > 0}>
+        <table
+          className="agency-report-document__table"
+          aria-label="Linhas de serviço"
+        >
+          <thead>
+            <tr>
+              <th>Serviço</th>
+              <th>Local</th>
+              <th>Rota</th>
+              <th>Tipo</th>
+              <th>Quantidade</th>
+              <th>Unitário</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {serviceLines.map((service, index) => (
+              <tr key={String(service.id ?? index)}>
+                <th>
+                  {String(
+                    asRecord(service.service).name ??
+                      service.service_id ??
+                      "—",
+                  )}
+                </th>
+                <td>
+                  {String(
+                    asRecord(service.local).name ?? service.local_id ?? "—",
+                  )}
+                </td>
+                <td>
+                  {String(
+                    asRecord(service.destino).name ??
+                      service.destino_id ??
+                      "—",
+                  )}
+                </td>
+                <td>{String(service.container_type ?? "—")}</td>
+                <td>{count(service.quantidade)}</td>
+                <td>{formatBRL(number(service.valor_unitario))}</td>
+                <td>
+                  {formatBRL(
+                    number(service.quantidade) *
+                      number(service.valor_unitario) *
+                      (service.percentual == null
+                        ? 1
+                        : number(service.percentual) / 100),
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {serviceLines.map((service, index) => (
-                <tr key={String(service.id ?? index)}>
-                  <th>
-                    {String(
-                      asRecord(service.service).name ??
-                        service.service_id ??
-                        "—",
-                    )}
-                  </th>
-                  <td>
-                    {String(
-                      asRecord(service.local).name ?? service.local_id ?? "—",
-                    )}
-                  </td>
-                  <td>
-                    {String(
-                      asRecord(service.destino).name ??
-                        service.destino_id ??
-                        "—",
-                    )}
-                  </td>
-                  <td>{String(service.container_type ?? "—")}</td>
-                  <td>{count(service.quantidade)}</td>
-                  <td>{formatBRL(number(service.valor_unitario))}</td>
-                  <td>
-                    {formatBRL(
-                      number(service.quantidade) *
-                        number(service.valor_unitario) *
-                        (service.percentual == null
-                          ? 1
-                          : number(service.percentual) / 100),
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <Empty />
-        )}
+            ))}
+          </tbody>
+        </table>
       </Section>
-      <Section title="Anexo — unidades que geraram armazenagem">
-        {vaziosUnidades.length ? (
-          <table
-            className="agency-report-document__table"
-            aria-label="Unidades que geraram armazenagem"
-          >
-            <thead>
-              <tr>
-                <th>Container</th>
-                <th>Tipo</th>
-                <th>Local</th>
-                <th>Condição</th>
-                <th>Entrada</th>
-                <th>Saída</th>
+      <Section
+        title="Anexo — unidades que geraram armazenagem"
+        {...section("operacao_patio")}
+        hasData={vaziosUnidadesComPeriodo.length > 0}
+      >
+        <table
+          className="agency-report-document__table"
+          aria-label="Unidades que geraram armazenagem"
+        >
+          <thead>
+            <tr>
+              <th>Container</th>
+              <th>Tipo</th>
+              <th>Local</th>
+              <th>Condição</th>
+              <th>Entrada</th>
+              <th>Saída</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vaziosUnidadesComPeriodo.map((unit, index) => (
+              <tr key={String(unit.id ?? index)}>
+                <th>{String(unit.container_number ?? "—")}</th>
+                <td>{String(unit.container_type ?? "—")}</td>
+                <td>{String(asRecord(unit.local).name ?? asRecord(unit.local).code ?? unit.local_id ?? "—")}</td>
+                <td>{String(unit.condition ?? "—")}</td>
+                <td>{formatDate(unit.hand_in_date as string | null)}</td>
+                <td>{formatDate(unit.hand_out_date as string | null)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {vaziosUnidades
-                .filter((unit) => unit.hand_in_date && unit.hand_out_date)
-                .map((unit, index) => (
-                  <tr key={String(unit.id ?? index)}>
-                    <th>{String(unit.container_number ?? "—")}</th>
-                    <td>{String(unit.container_type ?? "—")}</td>
-                    <td>{String(asRecord(unit.local).name ?? asRecord(unit.local).code ?? unit.local_id ?? "—")}</td>
-                    <td>{String(unit.condition ?? "—")}</td>
-                    <td>{formatDate(unit.hand_in_date as string | null)}</td>
-                    <td>{formatDate(unit.hand_out_date as string | null)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        ) : (
-          <Empty />
-        )}
+            ))}
+          </tbody>
+        </table>
       </Section>
-      <Section title="Storage">
+      <Section
+        title="Storage"
+        {...section("operacao_patio")}
+        hasData={Boolean(number(storage.containers)) || Boolean(number(storage.days))}
+      >
         <MetricsTable
           label="Storage"
           metrics={[
-            ["Containers", count(asRecord(sections.storage).containers)],
-            ["Dias", count(asRecord(sections.storage).days)],
+            ["Containers", count(storage.containers)],
+            ["Dias", count(storage.days)],
           ]}
         />
       </Section>
@@ -451,6 +650,9 @@ export function AgencyReportDocument({ snapshot }: { snapshot: Snapshot }) {
           <Empty />
         )}
       </Section>
+      {departmentSignoffs ? (
+        <DepartmentSignoffsSection rows={departmentSignoffs} actorNames={actorNames} />
+      ) : null}
       <InvoiceDocFooter />
     </article>
   );

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, expect, it } from "vitest";
 import { AgencyReportDocument } from "../AgencyReportDocument";
+
+afterEach(cleanup);
 
 it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
   render(
@@ -39,10 +41,9 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
           },
           veiculos: [{ brand: "BYD", blCount: 2, vinCount: 3 }],
           vehicleLocations: { BYD: ["Pátio Alfa"] },
-          vaziosEmbarcados: {
-            rows: { "40HC": { carga_geral: 4 } },
-            totals: { carga_geral: 4 },
-          },
+          vaziosEmbarcados: [
+            { type: "40HC", condition: "EMPTY", localLabel: "VBR", quantity: 4 },
+          ],
           directEmbarkCount: 1,
           depots: ["VBR"],
           operation: {},
@@ -153,4 +154,72 @@ it("imprime a Observação da seção com os sign-offs na chave de topo do snaps
   );
 
   expect(screen.getByText("Atracação com 4h de espera.")).toBeTruthy();
+});
+
+// Task 5 do ADR 2026-07-31: cada seção impressa mostra estado + autor + data
+// da resolução; um bloco sem dado (aqui, Vazios descarregados) não é
+// impresso, mas a seção continua saindo com a resolução; o documento fecha
+// com os três sign-offs departamentais.
+it("imprime resolução de seção com autor e data, omite bloco sem dado e fecha com os três sign-offs departamentais", () => {
+  const { container } = render(
+    <AgencyReportDocument
+      actorNames={{ "user-doc": "Ana Documentação", "user-ops": "Beto Operações", "user-eqp": "Carla Equipamentos" }}
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          cargaDescarregada: {
+            rows: { "40HC": { carga_geral: 3 } },
+            totals: { carga_geral: 3 },
+          },
+          // Vazios descarregados sem nenhum item: o bloco não deve sair
+          // impresso, só a resolução da seção.
+          vaziosDescarregados: { rows: {}, totals: {} },
+        },
+        occurrences: [],
+        signoffs: [
+          { section: "carga_descarregada", state: "confirmed", signed_by: "user-doc", signed_at: "2026-07-20" },
+          { section: "vazios_descarregados", state: "nothing_to_declare", signed_by: "user-doc", signed_at: "2026-07-20" },
+        ],
+        departmentSignoffs: [
+          { department: "documentacao", signed_by: "user-doc", signed_at: "2026-07-20" },
+          { department: "operacoes", signed_by: "user-ops", signed_at: "2026-07-21" },
+          { department: "equipamentos", signed_by: "user-eqp", signed_at: "2026-07-21" },
+        ],
+      }}
+    />,
+  );
+
+  expect(
+    screen.getByRole("table", { name: "Matriz de descarga" }).textContent,
+  ).toContain("40HC");
+  expect(screen.queryByRole("table", { name: "Vazios descarregados" })).toBeNull();
+  const resolutions = [...container.querySelectorAll(".agency-report-document__resolution")].map(
+    (node) => node.textContent,
+  );
+  expect(resolutions.filter((text) => text?.match(/Confirmado — Ana Documentação em/)).length).toBeGreaterThan(0);
+  expect(resolutions.some((text) => text?.match(/Nada a declarar — Ana Documentação em/))).toBe(true);
+
+  const signoffTable = screen.getByRole("table", { name: "Assinaturas departamentais" });
+  expect(signoffTable.textContent).toContain("Ana Documentação");
+  expect(signoffTable.textContent).toContain("Beto Operações");
+  expect(signoffTable.textContent).toContain("Carla Equipamentos");
+});
+
+// Snapshot legado (anterior à Task 5) nunca gravou `departmentSignoffs`: o
+// impresso precisa sair sem lançar e sem inventar um bloco de assinaturas.
+it("imprime snapshot legado sem departmentSignoffs sem lançar e sem bloco de assinaturas", () => {
+  expect(() =>
+    render(
+      <AgencyReportDocument
+        snapshot={{
+          header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+          sections: {},
+          occurrences: [],
+          signoffs: [],
+        }}
+      />,
+    ),
+  ).not.toThrow();
+
+  expect(screen.queryByRole("table", { name: "Assinaturas departamentais" })).toBeNull();
 });
