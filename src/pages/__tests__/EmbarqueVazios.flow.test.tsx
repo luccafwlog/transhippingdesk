@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   operationData: { linhas: [] } as Record<string, unknown> | undefined,
   unitsData: { rows: [] as unknown[], count: 0 },
   armazenagemServicesData: [] as unknown[],
+  voyagePortsData: [] as string[],
+  upsertVaziosExportOperation: vi.fn(() => Promise.resolve({ id: "operation-new" })),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -45,7 +47,9 @@ vi.mock("@tanstack/react-query", () => ({
                 ]
               : key === "armazenagem-services"
                 ? mocks.armazenagemServicesData
-                : [];
+                : key === "embarque-vazios-voyage-ports"
+                  ? mocks.voyagePortsData
+                  : [];
     return {
       data,
       isLoading: false,
@@ -59,7 +63,13 @@ vi.mock("../../hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: "user-1" }, can: () => true }),
 }));
 vi.mock("../../components/ui/Toast", () => ({ useToast: () => ({ showToast: mocks.showToast }) }));
-vi.mock("../../components/shared/VoyageCombobox", () => ({ VoyageCombobox: () => <div /> }));
+vi.mock("../../components/shared/VoyageCombobox", () => ({
+  VoyageCombobox: ({ onSelect }: { onSelect: (voyageId: number | null) => void }) => (
+    <button type="button" onClick={() => onSelect(179)}>
+      Selecionar viagem
+    </button>
+  ),
+}));
 vi.mock("../../services/supabase", () => ({ supabase: {} }));
 vi.mock("../../services/depots", () => ({
   listDepots: vi.fn(),
@@ -76,7 +86,7 @@ vi.mock("../../services/vaziosExportOperations", () => ({
   listVaziosBookingsForOperation: vi.fn(),
   updateManualVaziosBooking: vi.fn(),
   upsertServiceLine: mocks.upsertServiceLine,
-  upsertVaziosExportOperation: vi.fn(),
+  upsertVaziosExportOperation: mocks.upsertVaziosExportOperation,
 }));
 
 import { EmbarqueVazios } from "../EmbarqueVazios";
@@ -89,10 +99,12 @@ beforeEach(() => {
   mocks.operationData = { linhas: [] };
   mocks.unitsData = { rows: [], count: 0 };
   mocks.armazenagemServicesData = [];
+  mocks.voyagePortsData = [];
+  mocks.upsertVaziosExportOperation.mockClear();
 });
 
 async function selectOperation() {
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: "NAVIO" } });
+  fireEvent.change(screen.getByPlaceholderText("Busque por navio ou viagem"), { target: { value: "NAVIO" } });
   const option = await screen.findByText("NAVIO VERDE / 123N");
   fireEvent.mouseDown(option);
 }
@@ -101,7 +113,7 @@ describe("EmbarqueVazios", () => {
   it("busca o embarque por navio/viagem, sem expor o ID interno", async () => {
     render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "NAVIO" } });
+    fireEvent.change(screen.getByPlaceholderText("Busque por navio ou viagem"), { target: { value: "NAVIO" } });
 
     expect(await screen.findByText("NAVIO VERDE / 123N")).toBeTruthy();
     expect(screen.queryByText(/179/)).toBeNull();
@@ -294,5 +306,25 @@ describe("EmbarqueVazios", () => {
     fireEvent.click(screen.getByRole("button", { name: /Serviços/i }));
 
     expect(screen.queryByText(/Armazenagem pendente de lançamento/i)).toBeNull();
+  });
+
+  it("lista as escalas brasileiras da viagem escolhida e grava o código normalizado ao criar", async () => {
+    mocks.voyagePortsData = ["BRSSA", "BRVIX"];
+    render(<MemoryRouter><EmbarqueVazios /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: /Selecionar viagem/i }));
+
+    const portSelect = (await screen.findByLabelText("Porto de embarque")) as HTMLSelectElement;
+    expect([...portSelect.options].map((option) => option.value)).toEqual(["", "BRSSA", "BRVIX"]);
+
+    fireEvent.change(portSelect, { target: { value: "BRVIX" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Criar$/i }));
+
+    await waitFor(() =>
+      expect(mocks.upsertVaziosExportOperation).toHaveBeenCalledWith({
+        voyageId: 179,
+        embarkPort: "BRVIX",
+      }),
+    );
   });
 });
