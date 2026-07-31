@@ -349,7 +349,11 @@ describe('getAgencyReportDerivedData', () => {
         }
         if (table === 'bls') {
           blsCall += 1
-          if (blsCall === 1) {
+          // 1ª chamada: listVoyageEscalaPorts (Task 10), sem pod/pol relevantes
+          // aqui — as duas seguintes são a carga solta própria e a em
+          // transbordo, na mesma ordem de antes.
+          if (blsCall === 1) return queryBuilder([])
+          if (blsCall === 2) {
             return queryBuilder([{ bb_machine_qty: 1, bb_packages_qty: 2, bb_weight_ton: 1, total_weight_kg: null, total_cbm: 3 }])
           }
           return queryBuilder([{ bb_machine_qty: 5, bb_packages_qty: 6, bb_weight_ton: 2, total_weight_kg: null, total_cbm: 4 }])
@@ -433,6 +437,71 @@ describe('Granito casa por porto normalizado, com fallback do manifesto (ADR 202
 
     expect(result.granite).toHaveLength(4)
     expect(result.granite.map((bl) => bl.real_weight_kg).sort()).toEqual([1000, 2000, 3000, 4000])
+  })
+})
+
+describe('Aviso de dado órfão: granito/vazios embarcados fora de qualquer escala da viagem (ADR 2026-07-31, Task 10)', () => {
+  it('verificação do plano: granito em BRSSA numa viagem cuja única escala é BRVIX aparece como órfão, não some numa seção zerada', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIX', pol: 'CNSHA' }])
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 5000, blocks_qty: 5, loading_port: 'BRSSA', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(0)
+    expect(result.orphanData.granito).toEqual([{ port: 'BRSSA', count: 1 }])
+  })
+
+  it('granito numa segunda escala VÁLIDA da mesma viagem não é órfão', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIX', pol: null }, { pod: 'BRSSA', pol: null }])
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 5000, blocks_qty: 5, loading_port: 'BRSSA', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(0)
+    expect(result.orphanData.granito).toEqual([])
+  })
+
+  it('Embarque de Vazios numa operação de porto que não é escala vira órfão, com a quantidade de unidades da operação', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIX', pol: null }])
+      if (table === 'vazios_export_operations') {
+        // Consulta com .eq('voyage_id', ...).eq('embark_port', port).maybeSingle()
+        // (nesta escala): nada. Consulta sem filtro de porto (Task 10, só
+        // .eq('voyage_id', ...)): a operação órfã em BRSSA.
+        const chain = {
+          eq: vi.fn((column: string) => {
+            if (column === 'embark_port') return { maybeSingle: () => Promise.resolve({ data: null, error: null }) }
+            return { ...chain, then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [{ id: 'op-orphan', embark_port: 'BRSSA' }], error: null }).then(resolve) }
+          }),
+        }
+        return { select: vi.fn(() => chain) }
+      }
+      if (table === 'vazios_bookings') return queryBuilder([{ operation_id: 'op-orphan' }, { operation_id: 'op-orphan' }])
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.orphanData.vaziosEmbarcados).toEqual([{ port: 'BRSSA', count: 2 }])
   })
 })
 

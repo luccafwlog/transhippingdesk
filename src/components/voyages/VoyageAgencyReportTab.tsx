@@ -143,6 +143,18 @@ function DivergenceWarning({ children }: { children: ReactNode }) {
   return <p className="text-sm text-[var(--app-red)]">{children}</p>
 }
 
+// Aviso de dado órfão (Task 10 do ADR 2026-07-31): granito ou Embarque de
+// Vazios lançado num porto que não é escala nenhuma da viagem. Mesmo estilo
+// do DivergenceWarning — informativo, não bloqueia sign-off nem fechamento.
+function OrphanDataWarning({ entries, label }: { entries: Array<{ port: string; count: number }>; label: string }) {
+  if (!entries.length) return null
+  return (
+    <p className="text-sm text-[var(--app-red)]">
+      {entries.map((entry) => `${entry.count} ${label} em ${entry.port}`).join('; ')} — porto não é escala desta viagem, verificar o cadastro.
+    </p>
+  )
+}
+
 export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {
   const initialPort = initialEscala && pods.some((entry) => entry.pod === initialEscala) ? initialEscala : (pods[0]?.pod ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
@@ -417,7 +429,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             {bookings.length ? <>
               <Hero value={String(bookings.length)} unit="vazios embarcados" />
               <div className="grid gap-1">{emptyEmbarkRows.map((row) => <Info key={`${row.type}:${row.condition}:${row.localLabel}`} label={`${row.type} · ${row.condition} · ${row.localLabel}`} value={String(row.quantity)} />)}</div>
-            </> : <NadaOperado />}
+            </> : data?.orphanData?.vaziosEmbarcados.length ? null : <NadaOperado />}
+            <OrphanDataWarning entries={data?.orphanData?.vaziosEmbarcados ?? []} label="unidade(s) de vazios embarcados" />
           </ReportSection>
         </ReportPhase>
 
@@ -430,7 +443,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             {data?.granite.length ? <>
               <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
               <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
-            </> : <NadaOperado />}
+            </> : data?.orphanData?.granito.length ? null : <NadaOperado />}
+            <OrphanDataWarning entries={data?.orphanData?.granito ?? []} label="B/L(s) de granito" />
           </ReportSection>
         </ReportPhase>
         </>}

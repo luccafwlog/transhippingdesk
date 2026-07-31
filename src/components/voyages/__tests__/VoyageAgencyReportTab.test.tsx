@@ -866,3 +866,71 @@ it('exibe o aviso de containers cheios órfãos e de divergência de vazios desc
   expect(screen.getByText(/Baplie aponta 5 vazio\(s\) descarregado\(s\) contra 3/)).toBeTruthy()
   expect(screen.getByText(/1 ainda sem natureza classificada/)).toBeTruthy()
 })
+
+// Task 10 do ADR 2026-07-31: aviso de dado órfão — granito ou Embarque de
+// Vazios lançado num porto que não é escala nenhuma da viagem.
+
+it('verificação do plano: granito órfão em BRSSA aparece como aviso na escala BRVIX, não como seção zerada', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'documentacao', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      granite: [],
+      orphanData: { granito: [{ port: 'BRSSA', count: 3 }], vaziosEmbarcados: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')!
+  expect(within(graniteSection).queryByText('Nada operado nesta escala.')).toBeNull()
+  expect(within(graniteSection).getByText(/3 B\/L\(s\) de granito em BRSSA/)).toBeTruthy()
+  expect(within(graniteSection).getByText(/porto não é escala desta viagem/)).toBeTruthy()
+})
+
+it('granito numa escala vizinha válida da mesma viagem não dispara o aviso de dado órfão', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'documentacao', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      granite: [],
+      orphanData: { granito: [], vaziosEmbarcados: [] },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')!
+  expect(within(graniteSection).getByText('Nada operado nesta escala.')).toBeTruthy()
+  expect(within(graniteSection).queryByText(/porto não é escala desta viagem/)).toBeNull()
+})
+
+it('aviso de Embarque de Vazios órfão não bloqueia o sign-off da seção', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'equipamentos', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      orphanData: { granito: [], vaziosEmbarcados: [{ port: 'BRSSA', count: 4 }] },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
+  expect(within(embarqueSection).queryByText('Nada operado nesta escala.')).toBeNull()
+  expect(within(embarqueSection).getByText(/4 unidade\(s\) de vazios embarcados em BRSSA/)).toBeTruthy()
+  expect(within(embarqueSection).getByRole('button', { name: 'Confirmado' })).toBeTruthy()
+  expect(within(embarqueSection).getByRole('button', { name: 'Nada a declarar' })).toBeTruthy()
+})
