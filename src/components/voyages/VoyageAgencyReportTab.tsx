@@ -128,13 +128,10 @@ function Hero({ value, unit }: { value: string; unit?: string }) {
   )
 }
 
-function EmptyData() {
-  return <p className="text-sm text-[var(--app-muted)]">Nenhum dado informado para esta escala.</p>
-}
-
-// Substitui o Hero(0) + EmptyData de uma seção inteira sem ocorrência (Task 4
-// do ADR 2026-07-31): a seção continua exigindo resolução (o controle de
-// sign-off é um irmão desta linha, não é afetado).
+// Substitui o Hero(0) + placeholder genérico de uma seção inteira sem
+// ocorrência (Task 4 do ADR 2026-07-31, aplicado a todas as seções de carga
+// — inclusive Granito, revisão pós-merge): a seção continua exigindo
+// resolução (o controle de sign-off é um irmão desta linha, não é afetado).
 function NadaOperado() {
   return <p className="text-sm text-[var(--app-muted)]">Nada operado nesta escala.</p>
 }
@@ -429,7 +426,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             {data?.granite.length ? <>
               <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
               <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
-            </> : <EmptyData />}
+            </> : <NadaOperado />}
           </ReportSection>
         </ReportPhase>
         </>}
