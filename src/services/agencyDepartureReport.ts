@@ -265,6 +265,7 @@ export type MatrixCategory =
   | 'veiculos'
   | 'transbordo'
   | 'imo'
+  | 'vazio'
   | 'vazio_cama'
   | 'vazio_cover_plate'
 
@@ -507,15 +508,47 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     }
   })
 
+  // Task 3 do ADR 2026-07-31 (CAR-1): o B/L é a única fonte documental dos
+  // cheios (ADR 0025); o Baplie só complementa a listagem com os vazios que o
+  // B/L nunca teria. Um container 'full' do Baplie sem B/L correspondente vira
+  // divergência de existência (mesmo conceito de reconcileBaplieWithManifest /
+  // computeExistenceDivergences, kind 'missing_in_manifest'), não um item da
+  // matriz — evita inflar carga_geral/imo sem lastro documental.
+  let orphanFullContainers = 0
   for (const container of baplieContainers) {
     if (blContainerNumbers.has(normalizeContainerNumber(container.container_number))) continue
-    containers.push({
-      container_number: container.container_number,
-      size_type: container.size_type,
-      is_imo: Boolean(container.is_imo),
-      category: container.is_imo ? 'imo' : 'carga_geral',
-    })
+    if (container.status === 'full') {
+      orphanFullContainers += 1
+      continue
+    }
+    if (container.status === 'empty') {
+      // pod já filtrado na consulta (linha ~388: .eq('pod', port)); a regra do
+      // "sem B/L" não vale para vazio — é esperado que ele não tenha B/L.
+      containers.push({
+        container_number: container.container_number,
+        size_type: container.size_type,
+        is_imo: Boolean(container.is_imo),
+        category: 'vazio',
+      })
+    }
+    // status fora de 'full'/'empty' (não deveria ocorrer — ver baplieParser.ts):
+    // fica de fora da matriz e da divergência, sem lastro para decidir.
   }
+  // Vazios descarregados: o Baplie conta quantos vazios chegaram no porto;
+  // vazios_importacao_containers é o módulo que os classifica em cama/cover
+  // plate (src/services/vaziosNatureza.ts). Quando as contagens divergem, a UI
+  // (Task 4) precisa mostrar os dois números e quantas unidades do módulo
+  // ainda estão sem natureza classificada.
+  const baplieEmptyCount = baplieContainers.filter((container) => container.status === 'empty').length
+  const vaziosModuleCount = vaziosImp.length
+  const vaziosUnclassifiedCount = vaziosImp.filter((container) => container.natureza === null).length
+  const vaziosDivergence = {
+    baplieCount: baplieEmptyCount,
+    moduleCount: vaziosModuleCount,
+    unclassifiedCount: vaziosUnclassifiedCount,
+    diverges: baplieEmptyCount !== vaziosModuleCount,
+  }
+
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const transshipmentBreakbulk = (transshipmentBreakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
@@ -542,6 +575,11 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     vaziosImp,
     granite,
     containers,
+    // Aviso de divergência (Task 3): quantidade de cheios do Baplie sem B/L
+    // correspondente nesta escala. O link para a Conciliação Baplie × B/L é
+    // responsabilidade da UI (Task 4/5) — aqui só a contagem.
+    dischargeDivergence: { orphanFullContainers },
+    vaziosDivergence,
     operation,
     costs,
     storage: computeStorageTotals(vaziosExp, allDepots),

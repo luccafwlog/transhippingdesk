@@ -195,8 +195,77 @@ describe('getAgencyReportDerivedData', () => {
         { container_number: 'docu 1234567', size_type: '40HC', is_imo: true, category: 'veiculos' },
         { container_number: 'TRNS1234567', size_type: '20GP', is_imo: false, category: 'transbordo' },
         { container_number: 'NOBP1234567', size_type: '40GP', is_imo: true, category: 'imo' },
-        { container_number: 'ORPH1234567', size_type: '42G1', is_imo: false, category: 'carga_geral' },
       ],
+      // ORPH1234567 é cheio no Baplie sem B/L correspondente: sai da matriz e
+      // vira divergência (Task 3, CAR-1), não mais 'carga_geral'.
+      dischargeDivergence: { orphanFullContainers: 1 },
+    })
+  })
+
+  describe('B/L conta os cheios; Baplie conta os vazios (ADR 2026-07-31, Task 3)', () => {
+    it('exclui cheio órfão do Baplie da matriz e o reporta só na divergência; vazio do Baplie vira categoria vazio', async () => {
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'bl_containers') {
+          return queryBuilder([
+            { id: 1, container_number: 'FULL0000001', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+            { id: 2, container_number: 'FULL0000002', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+            { id: 3, container_number: 'FULL0000003', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+          ])
+        }
+        if (table === 'baplie_containers') {
+          return queryBuilder([
+            { container_number: 'FULL0000001', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'FULL0000002', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'FULL0000003', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'ORPH0000009', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000001', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000002', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+          ])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(result.containers).toHaveLength(5)
+      const fullFromBl = result.containers.filter((c) => c.category === 'carga_geral')
+      const vazios = result.containers.filter((c) => c.category === 'vazio')
+      expect(fullFromBl.map((c) => c.container_number).sort()).toEqual(['FULL0000001', 'FULL0000002', 'FULL0000003'])
+      expect(vazios.map((c) => c.container_number).sort()).toEqual(['EMTY0000001', 'EMTY0000002'])
+      expect(result.containers.some((c) => c.container_number === 'ORPH0000009')).toBe(false)
+      expect(result.dischargeDivergence).toEqual({ orphanFullContainers: 1 })
+    })
+
+    it('reporta divergência entre a contagem de vazios do Baplie e a do módulo de vazios, com quantas estão sem natureza', async () => {
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'baplie_containers') {
+          return queryBuilder([
+            { container_number: 'EMTY0000001', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000002', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000003', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+          ])
+        }
+        if (table === 'vazios_importacao_containers') {
+          return queryBuilder([
+            { container_type: '20GP', natureza: 'cama', pod: 'BRVIX' },
+            { container_type: '20GP', natureza: null, pod: 'BRVIX' },
+          ])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(result.vaziosDivergence).toEqual({
+        baplieCount: 3,
+        moduleCount: 2,
+        unclassifiedCount: 1,
+        diverges: true,
+      })
     })
   })
 
