@@ -220,6 +220,44 @@ describe('getAgencyReportDerivedData', () => {
     })
   })
 
+  describe('um cálculo só para a linha de serviço (ADR 2026-07-31, Task 8)', () => {
+    it('o total de uma linha legada de armazenagem com percentual não nulo bate com o "Total da operação"', async () => {
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'vazios_export_operations') return singleQueryBuilder({ id: 'operation-1' })
+        if (table === 'depots') {
+          return queryBuilder([
+            { id: 'depot-1', code: 'DEP', name: 'Depot 1', tipo: 'depot', free_time_vazio_days: 0, free_time_material_days: 0 },
+          ])
+        }
+        if (table === 'vazios_bookings') {
+          return queryBuilder([
+            { container_number: 'ABCD1234567', local_id: 'depot-1', condition: 'vazio', hand_in_date: '2026-01-01', hand_out_date: '2026-01-10' },
+          ])
+        }
+        if (table === 'vazios_export_service_lines') {
+          return queryBuilder([
+            {
+              id: 'line-1', service_id: 'svc-1', local_id: 'depot-1', destino_id: null,
+              condition: 'vazio', quantidade: 1, percentual: 50, valor_unitario: 100, quantidade_manual: false,
+            },
+          ])
+        }
+        if (table === 'depot_services') return queryBuilder([{ id: 'svc-1', name: 'Armazenagem', natureza: 'armazenagem' }])
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      // 10 dias cobráveis (free time 0) × R$100 × multiplicador 1 (armazenagem
+      // ignora percentual legado, ADR 0033) = 1000, tanto na linha quanto na
+      // soma que compõe "Total da operação".
+      expect(result.costs.serviceLines).toEqual([expect.objectContaining({ total: 1000 })])
+      expect(result.costs.total).toBe(1000)
+      expect(result.costs).not.toHaveProperty('rows')
+    })
+  })
+
   describe('B/L conta os cheios; Baplie conta os vazios (ADR 2026-07-31, Task 3)', () => {
     it('exclui cheio órfão do Baplie da matriz e o reporta só na divergência; vazio do Baplie vira categoria vazio', async () => {
       fromMock.mockImplementation((table: string) => {

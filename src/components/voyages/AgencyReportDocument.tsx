@@ -67,6 +67,21 @@ function count(value: unknown) {
   return number(value).toLocaleString("pt-BR");
 }
 
+// Task 8 do ADR 2026-07-31: o total da linha vem pronto de totalLinha
+// (agencyDepartureReport.ts), a mesma função que compõe "Total da operação" —
+// acaba a divergência de linhas legadas de armazenagem com percentual não
+// nulo. Snapshots fechados ANTES desta task não carregam o campo `total`;
+// para esses, cai de volta na fórmula antiga (registro histórico, sem
+// recálculo em cima de dados já congelados).
+function serviceLineTotal(service: Record<string, unknown>) {
+  if (service.total !== undefined && service.total !== null) return number(service.total);
+  return (
+    number(service.quantidade) *
+    number(service.valor_unitario) *
+    (service.percentual == null ? 1 : number(service.percentual) / 100)
+  );
+}
+
 function ton(value: unknown) {
   return `${count(value)} ton`;
 }
@@ -576,15 +591,7 @@ export function AgencyReportDocument({
                 <td>{String(service.container_type ?? "—")}</td>
                 <td>{count(service.quantidade)}</td>
                 <td>{formatBRL(number(service.valor_unitario))}</td>
-                <td>
-                  {formatBRL(
-                    number(service.quantidade) *
-                      number(service.valor_unitario) *
-                      (service.percentual == null
-                        ? 1
-                        : number(service.percentual) / 100),
-                  )}
-                </td>
+                <td>{formatBRL(serviceLineTotal(service))}</td>
               </tr>
             ))}
           </tbody>

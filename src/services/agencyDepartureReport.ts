@@ -15,7 +15,7 @@ import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepa
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
 import { listDepots } from './depots'
-import { quantidadeEfetiva, totalEmbarque } from './vaziosCusto'
+import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
 import { normalizePortCode } from './portCode'
 
@@ -622,9 +622,14 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       quantidade: Number(row.quantidade),
       valor_unitario: Number(row.valor_unitario),
     }
-    return { ...line, quantidade: quantidadeEfetiva(line, units, allDepots) }
+    // totalLinha já recalcula a quantidade efetiva por dentro (armazenagem por
+    // depot/condição); calculamos aqui uma única vez e devolvemos junto da
+    // linha, para a aba e o impresso pararem de reimplementar a fórmula com
+    // divergência em linhas legadas de armazenagem com percentual não nulo
+    // (Task 8 do ADR 2026-07-31).
+    return { ...line, quantidade: quantidadeEfetiva(line, units, allDepots), total: totalLinha(line, units, allDepots) }
   })
-  const costs = { rows: [], total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
+  const costs = { total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
 
   return {
     schedule: schedules.get(entityId) ?? null,

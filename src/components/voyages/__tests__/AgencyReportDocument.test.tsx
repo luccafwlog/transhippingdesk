@@ -3,6 +3,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { AgencyReportDocument } from "../AgencyReportDocument";
+import { formatBRL } from "../../../lib/utils";
 
 afterEach(cleanup);
 
@@ -133,6 +134,78 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
   expect(screen.queryByText("OS")).toBeNull();
   expect(screen.queryByRole("heading", { name: "Overtime" })).toBeNull();
   expect(screen.queryByRole("heading", { name: "Ocorrências" })).toBeNull();
+});
+
+// Task 8 do ADR 2026-07-31: o total impresso da linha vem de `total`
+// (calculado por totalLinha em agencyDepartureReport.ts), não mais de uma
+// fórmula reimplementada que aplicava o percentual legado mesmo em
+// armazenagem. Um snapshot pós-Task 8 já traz o campo pronto.
+it("imprime o total pronto (`total`) da linha de serviço, ignorando o percentual legado de uma linha de armazenagem", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          costs: {
+            total: 1000,
+            serviceLines: [
+              {
+                id: "line-1",
+                service: { name: "Armazenagem" },
+                local: { name: "VBR" },
+                destino: null,
+                local_id: "d1",
+                service_id: "s1",
+                quantidade: 10,
+                percentual: 50,
+                valor_unitario: 100,
+                total: 1000,
+              },
+            ],
+          },
+        },
+        occurrences: [],
+      }}
+    />,
+  );
+
+  const table = screen.getByRole("table", { name: "Linhas de serviço" });
+  expect(table.textContent).toContain(formatBRL(1000));
+  expect(table.textContent).not.toContain(formatBRL(500));
+});
+
+// Snapshot fechado ANTES da Task 8: sem o campo `total`, cai na fórmula
+// antiga (registro histórico, sem recálculo sobre dado já congelado).
+it("cai na fórmula antiga quando o snapshot fechado é anterior à Task 8 (sem o campo `total`)", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          costs: {
+            total: 250,
+            serviceLines: [
+              {
+                id: "line-1",
+                service: { name: "Bundle Composition" },
+                local: { name: "VBR" },
+                destino: null,
+                local_id: "d1",
+                service_id: "s1",
+                quantidade: 2,
+                percentual: 100,
+                valor_unitario: 125,
+              },
+            ],
+          },
+        },
+        occurrences: [],
+      }}
+    />,
+  );
+
+  const table = screen.getByRole("table", { name: "Linhas de serviço" });
+  expect(table.textContent).toContain(formatBRL(250));
 });
 
 // O snapshot gravado por VoyageAgencyReportTab põe os sign-offs na chave de

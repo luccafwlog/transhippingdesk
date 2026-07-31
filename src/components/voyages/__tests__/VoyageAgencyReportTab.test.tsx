@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
+import { formatBRL } from '../../../lib/utils'
 
 const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
@@ -93,7 +94,7 @@ it('exibe unidades sem armazenagem na fase Operacao de patio', () => {
 
 it('exibe a linha de serviço pelo nome, nao pelo id', () => {
   useAgencyReportDerivedMock.mockReturnValue({
-    data: { containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 }, operation: {}, costs: { total: 3, serviceLines: [{ id: 'l1', service: { name: 'Bundle Composition' }, local: { name: 'VBR' }, destino: null, local_id: 'd1', service_id: 's1', container_type: null, quantidade: 3, percentual: 100, valor_unitario: 1 }] } },
+    data: { containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 }, operation: {}, costs: { total: 3, serviceLines: [{ id: 'l1', service: { name: 'Bundle Composition' }, local: { name: 'VBR' }, destino: null, local_id: 'd1', service_id: 's1', container_type: null, quantidade: 3, percentual: 100, valor_unitario: 1, total: 3 }] } },
     isLoading: false,
     error: null,
   })
@@ -102,6 +103,32 @@ it('exibe a linha de serviço pelo nome, nao pelo id', () => {
   const serviceTable = screen.getByText('Bundle Composition').closest('table')!
   expect(within(serviceTable).queryByRole('columnheader', { name: '%' })).toBeNull()
   expect(within(serviceTable).queryByText('100')).toBeNull()
+})
+
+it('a soma das linhas exibidas bate com o "Total da operação" para uma linha legada de armazenagem com percentual não nulo', () => {
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 }, operation: {},
+      costs: {
+        total: 1000,
+        serviceLines: [{
+          id: 'l1', service: { name: 'Armazenagem' }, local: { name: 'VBR' }, destino: null, local_id: 'd1', service_id: 's1',
+          container_type: null, quantidade: 10, percentual: 50, valor_unitario: 100, total: 1000,
+        }],
+      },
+    },
+    isLoading: false,
+    error: null,
+  })
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+  const patioSection = screen.getByRole('heading', { name: /Opera.*o de p.*tio/, level: 3 }).closest('section')!
+  // O total da linha (lido de service.total, calculado por totalLinha) e o
+  // "Total da operação" precisam bater — antes da Task 8, a fórmula inline da
+  // linha aplicava o percentual legado (50%) e mostrava R$ 500,00. Compara via
+  // textContent (sem normalização de espaço) para não depender do NBSP que
+  // formatBRL usa entre "R$" e o valor.
+  const occurrences = patioSection.textContent!.split(formatBRL(1000)).length - 1
+  expect(occurrences).toBe(2)
 })
 
 it('exibe a barra-resumo dos 3 departamentos e o sign-off da seção do usuário', () => {
