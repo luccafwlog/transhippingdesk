@@ -1,0 +1,194 @@
+# 0035 — Escala unificada (POL+POD) como âncora do ADR, B/L como fonte da descarga e relatório que lista só o operado
+
+Status: aceito — 2026-07-31
+
+## Contexto
+
+Uma revisão completa do fluxo do Agency Departure Report em 31 jul 2026
+(`docs/archive/audits/2026-07-31-revisao-fluxo-adr-cobertura-hipoteses.md`)
+verificou o relatório contra três hipóteses operacionais reais: transbordo,
+viagem criada exclusivamente para embarque e granito. As três falham, e por um
+mecanismo só.
+
+**O ADR só existe onde existe um POD.** A ADR 0027 ancorou o relatório em
+`(voyage_id, port)` com "um ADR por escala brasileira (POD)", e a lista de
+escalas da aba é montada exclusivamente a partir dos portos de descarga da
+viagem. Todas as sete seções são filtros por igualdade contra essa string de
+porto — **inclusive as duas de exportação** (granito por `loading_port`, vazios
+embarcados por `embark_port`), que semanticamente usam porto de *carregamento*.
+Isso só funciona porque, na escala clássica de transbordo, o porto brasileiro é
+POD e POL ao mesmo tempo.
+
+Consequências verificadas no código:
+
+1. **Viagem só de embarque não tem ADR nenhum.** A escala existe no sistema
+   como linha POL (`voyage_pol_schedule`) e linha EXP
+   (`voyage_export_schedules`), exibidas na Visão geral, mas o ADR não lê
+   nenhuma das duas. Sem B/Ls e com `pol_id`/`pod_id` nulos na viagem, a aba
+   renderiza "Nenhuma escala ativa para compor o ADR" — sem ADR, sem pendência
+   e sem alerta, porque o gatilho pós-ATD lê apenas `voyage_pod_schedule.atd` e
+   escala de exportação não tem ATD em lugar nenhum.
+2. **Carga em transbordo não aparece em ADR nenhum.** A omissão de escala
+   (ADR 0022) mantém `bls.pod` no POD omitido — só o COD reescreve o destino —,
+   então o container descarregado no Porto de Transbordo não é encontrado pelo
+   ADR daquele porto, e o POD omitido não gera ADR. A categoria `transbordo` da
+   matriz de descarga é, na prática, inalcançável.
+3. **Zero silencioso por porto que não casa.** `granite_bls.loading_port` é
+   gravado cru da planilha e comparado com um LOCODE; `embark_port` do Embarque
+   de Vazios é texto livre. Divergiu, a seção fica vazia — e o departamento
+   assina "Nada a declarar" sobre carga que existe.
+
+Uma segunda questão apareceu na revisão do modelo com a operação: a matriz
+tipo × natureza herdada do ADR em papel obriga o relatório a declarar zero para
+tudo que não aconteceu. Num sistema, ausência é sabida — não precisa ser
+digitada nem impressa.
+
+## Decisão
+
+### 1. A escala é (viagem, porto brasileiro); POL e POD do mesmo porto são a mesma escala
+
+A âncora do ADR deixa de ser o POD e passa a ser a **escala**: a projeção
+unifica `voyage_pod_schedule`, `voyage_pol_schedule` e `voyage_export_schedules`
+por `(viagem, porto)`, restrita a portos brasileiros (`BR*`). Uma escala pode
+contemplar só importação, só exportação ou as duas — e gera **um** ADR nos três
+casos.
+
+A unificação acontece na **projeção compartilhada**, não só na leitura do ADR:
+Visão geral, Line-Up, Próxima Escala, alertas e ADR passam a ler a mesma lista.
+Na Visão geral, o porto vira uma linha só, com marcadores do que a escala opera
+(importação, exportação, granito, containers), no lugar das linhas de POD mais a
+linha EXP separada.
+
+Consequências diretas:
+
+- `voyage_export_schedules` deixa de ser uma linha por viagem e passa a ser
+  **uma por (viagem, porto)** — sem isso uma viagem com dois portos brasileiros
+  de embarque não consegue registrar o segundo.
+- `eta`, `etb`, `ata`, `atb`, `etd` e `atd` passam a ser campos **da escala**,
+  não do papel do porto: escala que só carrega tem ATA e ATB como qualquer
+  outra.
+- Em colisão de valores entre as linhas, **a linha de POD é a fonte canônica** e
+  POL/EXP preenchem apenas o que estiver vazio; divergência entre elas é exibida
+  como aviso na seção Datas, nunca resolvida em silêncio.
+- O gatilho de pendência pós-ATD passa a enxergar o ATD da escala unificada.
+  Escalas anteriores ao deploy não geram pendência retroativa — mesmo mecanismo
+  de baseline temporal já usado pela migration 214.
+- O fechamento continua exigindo os **três** sign-offs departamentais, mesmo
+  numa escala em que um departamento não tenha nada: assinar é declarar que se
+  conferiu, e ausência de dado não é conclusão (ADR 0027).
+
+### 2. O ADR do porto de descarga enxerga a carga descarregada por omissão
+
+Transbordo continua nascendo exclusivamente de omissão de escala (ADR 0022) e
+`bls.pod` continua intocado — reescrever o destino é o que caracteriza o COD.
+O que muda é a leitura: as seções de carga do ADR passam a considerar também os
+B/Ls com `bl_transshipments.disposition = 'transshipment'` cuja omissão tenha
+`discharge_pod` igual ao porto da escala.
+
+- Vale para as **três** seções que contam carga: containers, carga solta e
+  veículos. Corrigir só os containers deixaria a escala meio contada.
+- As unidades de transbordo aparecem **separadas** das de destino final,
+  reativando a natureza `transbordo` que existia sem nunca contar nada.
+- Escala omitida continua **sem** ADR, com uma exceção: a que já tinha ADR
+  **fechado** antes da omissão permanece no seletor, marcada como omitida, para
+  consulta e impressão. Relatório fechado é registro; sumir com ele é perder
+  trilha.
+
+### 3. O B/L conta a carga descarregada; o Baplie continua autoridade física
+
+A contagem de containers **cheios** de importação passa a sair dos B/Ls, não do
+Baplie — coerente com a ADR 0025, que fez do B/L a fonte documental única da
+carga de container.
+
+- Container **cheio** presente no Baplie e ausente de todo B/L sai do total e
+  vira **aviso de divergência** na seção, com link para a Conciliação
+  Baplie × B/L — que é o módulo que já trata Divergência de Existência.
+- **Vazio descarregado conta pelo Baplie** (`status = 'empty'`). A regra do "sem
+  B/L" não se aplica a ele: vazio não tem B/L por natureza, e a ausência não é
+  anomalia.
+- O **flag IMO continua vindo do Baplie** quando houver: a contagem é
+  documental, a classificação operacional é física. O verbete de `CONTEXT.md`
+  sobre a autoridade do Baplie permanece válido, agora explícito quanto ao que
+  ele **não** determina — a contagem de cheios.
+- Quando Baplie e módulo de vazios divergirem na contagem, o ADR mostra os dois
+  números e avisa, em vez de escolher um.
+- Granito passa a casar por porto normalizado na escrita **e** na leitura, com
+  fallback para o `loading_port` do manifesto quando o B/L não o traz. O porto
+  do Embarque de Vazios deixa de ser texto livre e passa a ser escolhido entre
+  as escalas da viagem. Onde ainda assim sobrar carga num porto que não é escala
+  da viagem, o ADR **avisa** — nenhuma normalização alcança o que já está
+  gravado.
+
+### 4. O relatório lista o que foi operado; zero não é informação
+
+A matriz tipo × natureza herdada do papel é abandonada nas duas superfícies —
+aba e documento impresso. O ADR passa a listar **apenas as combinações que
+ocorreram**, com o total da escala no topo:
+
+- carga descarregada: uma linha por tipo × natureza com quantidade
+  (`40HC · carga geral: 51`), incluindo `vazio` como natureza quando houver;
+- vazios embarcados: uma linha por **(tipo, condição, local de origem)**;
+- blocos de métricas sem dado (carga solta, storage, embarque direto, veículos)
+  **não aparecem**.
+
+O princípio **não** vale para a resolução: seção sem dado exibe "nada operado
+nesta escala" e permanece Pendente até alguém declarar Confirmado ou Nada a
+declarar. É o que separa "não houve" de "ninguém olhou" — o motivo pelo qual a
+ADR 0027 criou o estado explícito.
+
+O documento impresso passa a mostrar, além dos números, a **resolução de cada
+seção** com autor e data e os **três sign-offs departamentais**. Seção sem dado
+consta no documento com a sua resolução: some o zero, não some a conferência.
+
+## Considered Options
+
+- **Manter a âncora no POD e documentar a convenção de cadastrar a escala de
+  embarque como POD** (rejeitada): funciona hoje por acidente e transfere para a
+  digitação uma regra que o sistema pode saber. Não sobrevive a um porto que
+  seja POL de exportação sem ser POD.
+- **Unificar POL+POD apenas na leitura do ADR** (rejeitada): a Visão geral
+  continuaria mostrando duas linhas para uma escala, criando duas respostas para
+  "quais são as escalas desta viagem" — a doença que a decisão trata.
+- **Promover a escala a tabela própria (`port_calls`)** (adiada, como na 0027):
+  a projeção sobre `audit_logs` continua sendo a representação; migrar história
+  viva de line-up, viagens, omissão e status permanece fora de escopo. A
+  unificação acontece na leitura e na escrita da projeção, não no armazenamento.
+- **Reescrever `bls.pod` no transbordo, como o COD faz** (rejeitada): destruiria
+  a distinção entre transbordo e COD e falsearia o destino documental do B/L.
+- **Contar cheios pelo Baplie, como hoje** (rejeitada): infla a descarga com
+  container sem lastro documental, e o desencontro já tem dono — a Conciliação.
+- **Manter a grade com zeros no impresso, por familiaridade** (rejeitada): duas
+  formas para a mesma verdade, e o documento que chega ao Financeiro seria o
+  menos informativo dos dois.
+
+## Consequências
+
+- **Supersede parcialmente a 0027** quanto à âncora ("um ADR por escala
+  brasileira (POD)" passa a "por escala brasileira, POL e/ou POD") e quanto à
+  fonte da carga descarregada. Preserva integralmente: exibição derivada sem
+  redigitação, resolução explícita por seção, snapshot de fechamento e o
+  princípio de que ausência de dado não é conclusão.
+- **Estende a 0029 e a 0030**: as seções, os donos departamentais e o gate de
+  3/3 permanecem; muda a forma de exibição do conteúdo e o que o impresso
+  mostra.
+- **Estende a 0022** sem alterá-la: omissão, transbordo e COD continuam como
+  registro operacional com financeiro manual; o ADR passa a ler o
+  `discharge_pod` que ela já grava.
+- **Reforça a 0025**: o B/L é a fonte documental da carga de container, agora
+  também na contagem exibida pelo ADR.
+- **Schema:** `voyage_export_schedules` passa a `UNIQUE (voyage_id, pol)` com
+  backfill do porto; a validação de forma do snapshot no fechamento, removida
+  por acidente pela migration 224 quando o gate migrou para departamentos, é
+  restaurada com a allowlist de chaves atualizada.
+- **Retroatividade:** escalas de exportação históricas passam a existir como
+  escalas e são consultáveis, mas só as com ATD posterior ao deploy geram
+  pendência e alerta.
+- **Fora de escopo:** o embarque de **container cheio de exportação** continua
+  sem representação no ADR, porque o sistema não tem módulo que o registre — e o
+  ADR exibe dado derivado, não digitado (ADR 0027). Quando o módulo existir, o
+  conteúdo entra na seção Carga carregada, sob Documentação. Até lá, a seção
+  cobre granito.
+- A execução está dividida em dois planos: `docs/plans/` traz
+  `2026-07-31-escala-unificada-pol-pod.md` (âncora e projeção) e
+  `2026-07-31-adr-cobertura-fontes-forma.md` (transbordo, fontes e forma). O
+  segundo não depende do primeiro e pode ser entregue antes.
