@@ -265,6 +265,10 @@ export type MatrixCategory =
   | 'veiculos'
   | 'transbordo'
   | 'imo'
+  // 'vazio': container vazio do Baplie sem B/L correspondente, na própria
+  // listagem de carga descarregada (Task 3). 'vazio_cama'/'vazio_cover_plate':
+  // classificação de vazios_importacao_containers, seção própria — não
+  // confundir os três.
   | 'vazio'
   | 'vazio_cama'
   | 'vazio_cover_plate'
