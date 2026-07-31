@@ -373,6 +373,31 @@ describe('getAgencyReportDerivedData', () => {
   })
 })
 
+describe('Granito casa por porto normalizado, com fallback do manifesto (ADR 2026-07-31, Task 6)', () => {
+  it('casa loading_port em LOCODE, em texto livre e via fallback do manifesto contra a escala BRVIX', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 1000, blocks_qty: 1, loading_port: 'BRVIX', manifest: { loading_port: null } },
+          { real_weight_kg: 2000, blocks_qty: 2, loading_port: 'VITORIA', manifest: { loading_port: null } },
+          { real_weight_kg: 3000, blocks_qty: 3, loading_port: 'Vitoria, Brazil', manifest: { loading_port: null } },
+          { real_weight_kg: 4000, blocks_qty: 4, loading_port: null, manifest: { loading_port: 'BRVIX' } },
+          // outro porto: não deve casar com a escala BRVIX
+          { real_weight_kg: 5000, blocks_qty: 5, loading_port: 'BRSSA', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(4)
+    expect(result.granite.map((bl) => bl.real_weight_kg).sort()).toEqual([1000, 2000, 3000, 4000])
+  })
+})
+
 describe('getAgencyReportOwnData', () => {
   it('resolve nomes dos atores pelo RPC unico, autorizado no escopo do ADR', async () => {
     const reportQuery = singleQueryBuilder({ id: 'adr-1', closed_by: 'other-user' })

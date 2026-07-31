@@ -2,6 +2,7 @@ import type {
   BaplieContainer,
   Depot,
   GraniteBl,
+  GraniteManifest,
   UserProfileRole,
   VaziosBooking,
   VaziosExportOperation,
@@ -16,6 +17,7 @@ import { computeStorageTotals } from './vaziosExportOperations'
 import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
+import { normalizePortCode } from './portCode'
 
 export type AgencyReportSection =
   | 'datas'
@@ -421,11 +423,15 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
       .eq('manifest.voyage_id', voyageId)
       .eq('pod', port),
+    // Task 6 (ADR 2026-07-31): não filtra loading_port no banco — B/Ls
+    // importados antes da normalização (Task 6 em graniteImport.ts) guardam
+    // texto livre ("Vitoria, Brazil") que nunca bateria num .eq() exato contra
+    // o LOCODE da escala. Traz todos os B/Ls da viagem, com o loading_port do
+    // manifesto como fallback, e casa em JS via normalizePortCode (abaixo).
     supabase
       .from('granite_bls')
-      .select('real_weight_kg, blocks_qty, loading_port, manifest:granite_manifests!inner(voyage_id)')
-      .eq('manifest.voyage_id', voyageId)
-      .eq('loading_port', port),
+      .select('real_weight_kg, blocks_qty, loading_port, manifest:granite_manifests!inner(voyage_id, loading_port)')
+      .eq('manifest.voyage_id', voyageId),
     supabase
       .from('baplie_containers')
       .select('container_number, size_type, status, is_imo, pod')
@@ -521,7 +527,15 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     local: Pick<Depot, 'id' | 'code' | 'name' | 'tipo'> | null
   }>
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
-  const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
+  type AgencyReportGraniteBl = Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'> & {
+    manifest: Pick<GraniteManifest, 'loading_port'> | null
+  }
+  const graniteRows = (graniteRes.data ?? []) as unknown as AgencyReportGraniteBl[]
+  // Task 6 (ADR 2026-07-31): casa pelo porto normalizado, usando o
+  // loading_port do manifesto quando o B/L não trouxer o seu (fallback).
+  const granite: Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[] = graniteRows
+    .filter((bl) => normalizePortCode(bl.loading_port ?? bl.manifest?.loading_port ?? null) === port)
+    .map((bl) => ({ real_weight_kg: bl.real_weight_kg, blocks_qty: bl.blocks_qty, loading_port: bl.loading_port }))
   const baplieContainers = (baplieContainersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
   type AgencyReportBlContainer = {
     id: number
