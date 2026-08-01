@@ -75,8 +75,21 @@ describe('groupVehiclesByBrand', () => {
     ])
 
     expect(grouped).toEqual([
-      { brand: 'BYD', blCount: 2, vinCount: 3 },
-      { brand: 'GWM', blCount: 1, vinCount: 1 },
+      { brand: 'BYD', blCount: 2, vinCount: 3, transshipmentVinCount: 0 },
+      { brand: 'GWM', blCount: 1, vinCount: 1, transshipmentVinCount: 0 },
+    ])
+  })
+
+  it('conta os VINs em transbordo separado do total (Task 1 do ADR 2026-07-31)', () => {
+    const grouped = groupVehiclesByBrand([
+      { brand: 'BYD', bl_id: 'a', chassis: '1', isTransshipment: false },
+      { brand: 'BYD', bl_id: 'b', chassis: '2', isTransshipment: true },
+      { brand: 'GWM', bl_id: 'c', chassis: '3', isTransshipment: true },
+    ])
+
+    expect(grouped).toEqual([
+      { brand: 'BYD', blCount: 2, vinCount: 2, transshipmentVinCount: 1 },
+      { brand: 'GWM', blCount: 1, vinCount: 1, transshipmentVinCount: 1 },
     ])
   })
 })

@@ -381,6 +381,10 @@ export function AgencyReportDocument({
   const schedule = header.schedule ?? {};
   const sections = snapshot.sections ?? {};
   const cargaSolta = asRecord(sections.cargaSolta);
+  // Task 1 (ADR 2026-07-31): carga solta em transbordo, separada da de destino
+  // final. Ausente em snapshot legado (pré-fix) — asRecord(undefined) já
+  // degrada para {}, e number()/count() tratam campos ausentes como zero.
+  const cargaSoltaTransshipment = asRecord(cargaSolta.transshipment);
   const granite = Array.isArray(sections.granito)
     ? {
         bls: sections.granito.length,
@@ -475,17 +479,35 @@ export function AgencyReportDocument({
       </dl>
 
       <Section title="Datas" {...section("datas")} hasData={false} />
-      <Section title="Carga solta" {...section("carga_descarregada")} hasData={Boolean(number(cargaSolta.bls))}>
-        <MetricsTable
-          label="Carga solta"
-          metrics={[
-            ["B/Ls", count(cargaSolta.bls)],
-            ["Máquinas", count(cargaSolta.machines)],
-            ["Packages", count(cargaSolta.packages)],
-            ["Peso", ton(cargaSolta.weightTon)],
-            ["CBM", count(cargaSolta.cbm)],
-          ]}
-        />
+      <Section
+        title="Carga solta"
+        {...section("carga_descarregada")}
+        hasData={Boolean(number(cargaSolta.bls)) || Boolean(number(cargaSoltaTransshipment.bls))}
+      >
+        {number(cargaSolta.bls) ? (
+          <MetricsTable
+            label="Carga solta"
+            metrics={[
+              ["B/Ls", count(cargaSolta.bls)],
+              ["Máquinas", count(cargaSolta.machines)],
+              ["Packages", count(cargaSolta.packages)],
+              ["Peso", ton(cargaSolta.weightTon)],
+              ["CBM", count(cargaSolta.cbm)],
+            ]}
+          />
+        ) : null}
+        {number(cargaSoltaTransshipment.bls) ? (
+          <MetricsTable
+            label="Carga solta em transbordo"
+            metrics={[
+              ["B/Ls em transbordo", count(cargaSoltaTransshipment.bls)],
+              ["Máquinas em transbordo", count(cargaSoltaTransshipment.machines)],
+              ["Packages em transbordo", count(cargaSoltaTransshipment.packages)],
+              ["Peso em transbordo", ton(cargaSoltaTransshipment.weightTon)],
+              ["CBM em transbordo", count(cargaSoltaTransshipment.cbm)],
+            ]}
+          />
+        ) : null}
       </Section>
       <Section title="Granito" {...section("carga_carregada")} hasData={Boolean(number(granite.bls))}>
         <MetricsTable
@@ -513,6 +535,7 @@ export function AgencyReportDocument({
               <th scope="col">Marca</th>
               <th scope="col">B/Ls</th>
               <th scope="col">VINs</th>
+              <th scope="col">VINs em transbordo</th>
               <th scope="col">Local de desova</th>
             </tr>
           </thead>
@@ -527,6 +550,7 @@ export function AgencyReportDocument({
                   <th scope="row">{brand}</th>
                   <td>{count(vehicle.blCount)}</td>
                   <td>{count(vehicle.vinCount)}</td>
+                  <td>{number(vehicle.transshipmentVinCount) ? count(vehicle.transshipmentVinCount) : "—"}</td>
                   <td>{locations || "—"}</td>
                 </tr>
               );

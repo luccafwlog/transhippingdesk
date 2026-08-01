@@ -358,13 +358,27 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} events={eventsBySection('carga_descarregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('carga_descarregada')?.observation} onObservationChange={updateObservation}
           >
-            {containers.length === 0 && !data?.cargaSolta?.bls ? <NadaOperado /> : <>
+            {containers.length === 0 && !data?.cargaSolta?.bls && !data?.cargaSolta?.transshipment?.bls ? <NadaOperado /> : <>
               <div className="flex flex-wrap items-baseline gap-4">
                 <Hero value={String(containers.length)} unit="containers descarregados" />
                 {imoCount > 0 ? <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-xs font-semibold text-[var(--app-text)]">IMO: {imoCount}</span> : null}
               </div>
               <div className="grid gap-4 xl:grid-cols-2">
-                {data?.cargaSolta?.bls ? <MetricPanel title="Carga solta"><Hero value={data.cargaSolta.weightTon.toLocaleString('pt-BR')} unit="ton" /><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></MetricPanel> : null}
+                {data?.cargaSolta?.bls || data?.cargaSolta?.transshipment?.bls ? (
+                  <MetricPanel title="Carga solta">
+                    {data?.cargaSolta?.bls ? <><Hero value={data.cargaSolta.weightTon.toLocaleString('pt-BR')} unit="ton" /><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></> : null}
+                    {data?.cargaSolta?.transshipment?.bls ? (
+                      <div className="mt-2 grid gap-1 border-t border-[var(--app-border)] pt-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Em transbordo</span>
+                        <Info label="B/Ls" value={String(data.cargaSolta.transshipment.bls)} />
+                        <Info label="Máquinas" value={String(data.cargaSolta.transshipment.machines)} />
+                        <Info label="Packages" value={String(data.cargaSolta.transshipment.packages)} />
+                        <Info label="Peso" value={`${data.cargaSolta.transshipment.weightTon.toLocaleString('pt-BR')} ton`} />
+                        <Info label="CBM" value={data.cargaSolta.transshipment.cbm.toLocaleString('pt-BR')} />
+                      </div>
+                    ) : null}
+                  </MetricPanel>
+                ) : null}
                 {containers.length ? <MetricPanel title="Descarga de importação"><OperatedListing rows={dischargeMatrix.rows} /></MetricPanel> : null}
               </div>
             </>}
@@ -399,7 +413,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           >
             {vehicleVinTotal ? <>
               <Hero value={String(vehicleVinTotal)} unit="VINs" />
-              <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div>
+              <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'}${vehicle.transshipmentVinCount ? ` · ${vehicle.transshipmentVinCount} em transbordo` : ''} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div>
             </> : <NadaOperado />}
           </ReportSection>
         </ReportPhase>

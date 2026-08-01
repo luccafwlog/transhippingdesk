@@ -343,20 +343,28 @@ export function groupEmptyEmbarkBookings(
 }
 
 export function groupVehiclesByBrand(
-  vehicles: Array<{ brand: string; bl_id: string; chassis: string }>,
+  vehicles: Array<{ brand: string; bl_id: string; chassis: string; isTransshipment?: boolean }>,
 ) {
-  const byBrand = new Map<string, { bls: Set<string>; vins: Set<string> }>()
+  const byBrand = new Map<string, { bls: Set<string>; vins: Set<string>; transshipmentVins: Set<string> }>()
 
   for (const vehicle of vehicles) {
-    const entry = byBrand.get(vehicle.brand) ?? { bls: new Set<string>(), vins: new Set<string>() }
+    const entry = byBrand.get(vehicle.brand) ?? { bls: new Set<string>(), vins: new Set<string>(), transshipmentVins: new Set<string>() }
     entry.bls.add(vehicle.bl_id)
     entry.vins.add(vehicle.chassis)
+    if (vehicle.isTransshipment) entry.transshipmentVins.add(vehicle.chassis)
     byBrand.set(vehicle.brand, entry)
   }
 
   return [...byBrand.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([brand, entry]) => ({ brand, blCount: entry.bls.size, vinCount: entry.vins.size }))
+    .map(([brand, entry]) => ({
+      brand,
+      blCount: entry.bls.size,
+      vinCount: entry.vins.size,
+      // Task 1 (ADR 2026-07-31): quantos desses VINs chegaram em transbordo,
+      // separado do total (que já inclui os próprios e os em transbordo).
+      transshipmentVinCount: entry.transshipmentVins.size,
+    }))
 }
 
 type BreakbulkAgencyReportBl = {
@@ -735,8 +743,8 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     storage: computeStorageTotals(vaziosExp, allDepots),
     cargaSolta: {
       ...summarizeBreakbulk(breakbulk),
-      // Contagem em transbordo separada da de destino final (Task 1); a UI
-      // de listagem que consome essa separação é a Task 4, ainda não feita.
+      // Contagem em transbordo separada da de destino final (Task 1); exibida
+      // à parte na aba e no impresso (VoyageAgencyReportTab/AgencyReportDocument).
       transshipment: summarizeBreakbulk(transshipmentBreakbulk),
     },
   }

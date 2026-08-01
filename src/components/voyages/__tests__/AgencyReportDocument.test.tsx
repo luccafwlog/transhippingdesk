@@ -296,3 +296,51 @@ it("imprime snapshot legado sem departmentSignoffs sem lançar e sem bloco de as
 
   expect(screen.queryByRole("table", { name: "Assinaturas departamentais" })).toBeNull();
 });
+
+// Task 1 do ADR 2026-07-31: carga solta em transbordo, separada da própria da
+// escala; precisa aparecer no impresso, não só na aba.
+it("imprime a carga solta em transbordo separada da própria da escala", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          cargaSolta: {
+            bls: 0,
+            machines: 0,
+            packages: 0,
+            weightTon: 0,
+            cbm: 0,
+            transshipment: { bls: 2, machines: 3, packages: 10, weightTon: 15, cbm: 25 },
+          },
+        },
+        occurrences: [],
+        signoffs: [],
+      }}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Carga solta" })).toBeTruthy();
+  expect(
+    screen.getByRole("table", { name: "Carga solta em transbordo" }).textContent,
+  ).toContain("B/Ls em transbordo2");
+});
+
+// Snapshot legado (anterior a este fix) nunca gravou `cargaSolta.transshipment`:
+// o impresso precisa sair sem lançar e sem bloco de transbordo.
+it("imprime snapshot legado sem cargaSolta.transshipment sem lançar", () => {
+  expect(() =>
+    render(
+      <AgencyReportDocument
+        snapshot={{
+          header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+          sections: { cargaSolta: { bls: 1, machines: 0, packages: 0, weightTon: 1, cbm: 1 } },
+          occurrences: [],
+          signoffs: [],
+        }}
+      />,
+    ),
+  ).not.toThrow();
+
+  expect(screen.queryByRole("table", { name: "Carga solta em transbordo" })).toBeNull();
+});

@@ -752,6 +752,53 @@ it('escala sem carga solta não renderiza o bloco "Carga solta" nem a seção in
   expect(within(dischargeSection).getByText('Nada operado nesta escala.')).toBeTruthy()
 })
 
+it('carga solta só em transbordo (sem carga própria) aparece na seção em vez de "Nada operado" (Task 1 do ADR 2026-07-31)', () => {
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [],
+      storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      cargaSolta: {
+        bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0,
+        transshipment: { bls: 2, machines: 3, packages: 10, weightTon: 15, cbm: 25 },
+      },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')!
+  expect(within(dischargeSection).queryByText('Nada operado nesta escala.')).toBeNull()
+  expect(within(dischargeSection).getByText('Carga solta')).toBeTruthy()
+  expect(within(dischargeSection).getByText('Em transbordo')).toBeTruthy()
+  expect(within(dischargeSection).getByText('2')).toBeTruthy()
+})
+
+it('marca com "em transbordo" o VIN de um veículo que chegou por transbordo (Task 1 do ADR 2026-07-31)', () => {
+  useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vaziosImp: [], granite: [], vaziosExp: [],
+      storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      cargaSolta: { bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0, transshipment: { bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 } },
+      vehicles: [
+        { brand: 'BYD', bl_id: 'a', chassis: '1', container_id: null, container: null, isTransshipment: false },
+        { brand: 'BYD', bl_id: 'b', chassis: '2', container_id: null, container: null, isTransshipment: true },
+      ],
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  expect(screen.getByText((_, node) => node?.textContent === '2 BLs · 2 VINs · 1 em transbordo · local de desova não informado')).toBeTruthy()
+})
+
 it('combinação inexistente não vira linha na listagem do operado — só o que ocorreu aparece', () => {
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
   useAgencyReportDerivedMock.mockReturnValue({
