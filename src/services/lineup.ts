@@ -140,7 +140,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       const routeBls = voyageBls.filter((bl) => normalizePort(bl.pod) === pod)
       const routeBlIds = new Set(routeBls.map((bl) => bl.id))
       const schedule = escalasByPort.get(pod)
-      const isExportOnly = !routeBls.length && Boolean(schedule?.temExportacao) && !schedule?.temImportacao
+      const hasExportSchedule = Boolean(schedule?.temExportacao)
+      const isExportOnly = !routeBls.length && hasExportSchedule && !schedule?.temImportacao
 
       const distinctContainers = new Map<string, { id: number }>()
 
@@ -175,34 +176,67 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       const bbMachines = routeBls.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0)
       const bbPackages = routeBls.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0)
 
-      rows.push({
-        id: isExportOnly ? `exp::${voyage.id}::${pod}` : `${voyage.id}::${pod}`,
-        voyageId: voyage.id,
-        voyageNumber: voyage.voyage_number,
-        voyageStatus: voyage.status,
-        vesselName: voyage.vessel?.name ?? '-',
-        pod,
-        eta: schedule?.eta ?? null,
-        etb: schedule?.etb ?? null,
-        ...lineUpScheduleDates(schedule),
-        rowType: isExportOnly ? 'export' : 'import',
-        vin: routeVehicles.length,
-        car: carContainers,
-        cg: Math.max(totalContainers - carContainers, 0),
-        total: totalContainers,
-        mty: 0,
-        rtw: schedule?.rtw ?? null,
-        bbMachines,
-        bbPackages,
-        bbTotal: bbMachines + bbPackages,
-        ceStatus: isExportOnly ? 'missing' : (schedule?.ceStatus as VoyagePodCeStatus | null) ?? autoCeStatus,
-        linked: isExportOnly ? false : schedule?.linked ?? false,
-        exportHasGranite: schedule?.temExportacao ? schedule.temGranito : null,
-        exportContainersQty: schedule?.temExportacao ? schedule.containersQty : null,
-        exportMovementsQty: schedule?.temExportacao ? schedule.movementsQty : null,
-        exportCeStatus: schedule?.temExportacao ? (schedule.ceStatus as ExportCeStatus | null) : null,
-        exportLinked: schedule?.temExportacao ? schedule.linked : null,
-      })
+      if (!isExportOnly) {
+        rows.push({
+          id: `${voyage.id}::${pod}`,
+          voyageId: voyage.id,
+          voyageNumber: voyage.voyage_number,
+          voyageStatus: voyage.status,
+          vesselName: voyage.vessel?.name ?? '-',
+          pod,
+          eta: schedule?.eta ?? null,
+          etb: schedule?.etb ?? null,
+          ...lineUpScheduleDates(schedule),
+          rowType: 'import',
+          vin: routeVehicles.length,
+          car: carContainers,
+          cg: Math.max(totalContainers - carContainers, 0),
+          total: totalContainers,
+          mty: 0,
+          rtw: schedule?.rtw ?? null,
+          bbMachines,
+          bbPackages,
+          bbTotal: bbMachines + bbPackages,
+          ceStatus: (schedule?.ceStatus as VoyagePodCeStatus | null) ?? autoCeStatus,
+          linked: schedule?.linked ?? false,
+          exportHasGranite: null,
+          exportContainersQty: null,
+          exportMovementsQty: null,
+          exportCeStatus: null,
+          exportLinked: null,
+        })
+      }
+
+      if (hasExportSchedule) {
+        rows.push({
+          id: `exp::${voyage.id}::${pod}`,
+          voyageId: voyage.id,
+          voyageNumber: voyage.voyage_number,
+          voyageStatus: voyage.status,
+          vesselName: voyage.vessel?.name ?? '-',
+          pod,
+          eta: schedule?.eta ?? null,
+          etb: schedule?.etb ?? null,
+          ...lineUpScheduleDates(schedule),
+          rowType: 'export',
+          vin: 0,
+          car: 0,
+          cg: 0,
+          total: 0,
+          mty: 0,
+          rtw: null,
+          bbMachines: 0,
+          bbPackages: 0,
+          bbTotal: 0,
+          ceStatus: 'missing',
+          linked: false,
+          exportHasGranite: schedule?.temGranito ?? null,
+          exportContainersQty: schedule?.containersQty ?? null,
+          exportMovementsQty: schedule?.movementsQty ?? null,
+          exportCeStatus: schedule?.ceStatus as ExportCeStatus | null,
+          exportLinked: schedule?.linked ?? null,
+        })
+      }
     }
   }
 

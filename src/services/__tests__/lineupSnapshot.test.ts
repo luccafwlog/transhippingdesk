@@ -111,4 +111,42 @@ describe('fetchLineUpSnapshot', () => {
       exportLinked: true,
     })
   })
+
+  it('preserva importacao e exportacao quando a mesma escala tem B/L e agenda EXP', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      bls: [{ id: 'BL1', voyage_id: 24, pod: 'BRVIX', cargo_mode: 'container', ce_mercante: 'CE1', bb_machine_qty: 0, bb_packages_qty: 0 }],
+      voyage_export_schedules: [{
+        id: 'EXP1',
+        voyage_id: 24,
+        pol: 'BRVIX',
+        has_granite: false,
+        containers_qty: 7,
+        movements_qty: 9,
+        eta: '2026-08-01',
+        etb: '2026-08-02',
+        ce_status: 'received',
+        linked: true,
+      }],
+      audit_logs: [
+        { entity_type: 'voyage_pod_schedule', entity_id: '24::BRVIX', field_name: 'eta', new_value: '2026-08-01', changed_at: '2026-07-27T00:00:00Z' },
+      ],
+    }))
+
+    const snapshot = await fetchLineUpSnapshot()
+    const rows = snapshot.rows.filter((candidate) => candidate.voyageId === 24 && candidate.pod === 'BRVIX')
+
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => ({ id: row.id, rowType: row.rowType }))).toEqual([
+      { id: '24::BRVIX', rowType: 'import' },
+      { id: 'exp::24::BRVIX', rowType: 'export' },
+    ])
+    expect(rows.find((row) => row.rowType === 'export')).toMatchObject({
+      exportContainersQty: 7,
+      exportMovementsQty: 9,
+      exportCeStatus: 'received',
+      exportLinked: true,
+    })
+  })
 })
