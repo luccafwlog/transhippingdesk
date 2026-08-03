@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Boxes, ChevronDown, ChevronUp, Clock, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
@@ -24,6 +24,8 @@ import {
 } from '../../services/voyageSummaries'
 import { deleteVoyagePodSchedule, type VoyageEscalaDivergence, type VoyageEscalaSchedule } from '../../services/voyageRouteSchedules'
 import { deleteVoyageExportSchedule, type VoyageExportSchedule } from '../../services/voyageExportSchedules'
+import { listVaziosExportEmbarkPorts } from '../../services/vaziosExportOperations'
+import { queryKeys } from '../../services/queryKeys'
 import { afterEscalaAlterada } from '../../services/cacheEffects'
 import {
   renderCeStatusLabel,
@@ -121,10 +123,25 @@ export function VoyageVisaoTab({
     return byPort
   }, [exportSchedules])
 
-  // ponytail: o travamento do toggle é por viagem, não por escala — granito e
-  // vazios ainda não carregam o porto normalizado da escala. Quando o bloco 3 da
-  // ADR 0035 normalizar loading_port/embark_port, trocar por lock por porto.
-  const voyageHasExportCargo = graniteStats.totalManifests > 0 || vaziosStats.totalManifests > 0
+  // Embarque de Vazios é (viagem, porto): a lista de portos diz em qual escala
+  // existe carga de exportação registrada.
+  const { data: vaziosExportPorts } = useQuery({
+    queryKey: queryKeys.voyages.vaziosExportPorts(voyage.id),
+    queryFn: () => listVaziosExportEmbarkPorts(voyage.id),
+  })
+
+  // A declaração de exportação não pode ser retirada de uma escala que já tem
+  // carga: granito pelo porto de carregamento do manifesto, vazios pelo porto
+  // de embarque da operação.
+  const portsWithExportCargo = useMemo(() => {
+    const ports = new Set<string>()
+    for (const manifest of voyage.granite_manifests ?? []) {
+      const normalized = normalizePortCode(manifest.loading_port)
+      if (normalized) ports.add(normalized)
+    }
+    for (const port of vaziosExportPorts ?? []) ports.add(port)
+    return ports
+  }, [voyage.granite_manifests, vaziosExportPorts])
 
   function buildEscalaModalData(row: VoyageEscalaSchedule | null): EscalaModalData {
     const exportSchedule = row
@@ -150,7 +167,7 @@ export function VoyageVisaoTab({
       hasGranite: exportSchedule?.hasGranite ?? false,
       containersQty: exportSchedule?.containersQty ?? null,
       movementsQty: exportSchedule?.movementsQty ?? null,
-      exportLocked: voyageHasExportCargo,
+      exportLocked: row ? portsWithExportCargo.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
     }
   }
 

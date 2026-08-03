@@ -200,3 +200,41 @@ it('renderiza viagem só de exportação em uma linha sem marcador de importaç�
   expect(within(table).getByText('Exportação')).toBeTruthy()
   expect(within(table).queryByText('Importação')).toBeNull()
 })
+
+it('trava a retirada da exportação apenas na escala que tem carga, não na viagem inteira', async () => {
+  const user = userEvent.setup()
+  const onEditEscala = vi.fn()
+  const escala = (port: string) => ({
+    port, eta: null, etb: null, ata: null, atb: null, etd: null, atd: null, rtw: null,
+    linked: false, temImportacao: true, temExportacao: false, temGranito: false,
+    containersQty: null, movementsQty: null, divergences: [], omitted: false, deleted: false,
+  })
+
+  render(
+    <VoyageVisaoTab
+      voyage={{
+        id: 7,
+        status: 'planning',
+        bls: [],
+        // Granito embarca só em Vitória; Salvador não tem carga de exportação.
+        granite_manifests: [{ id: 'g1', voyage_id: 7, loading_port: 'BRVIX', granite_bls: [] }],
+        vazios_manifests: [],
+      } as never}
+      voyageLabel="NAVIO / 01N"
+      escalaRows={[escala('BRVIX'), escala('BRSSA')] as never}
+      importBatches={[]}
+      exportSchedules={[]}
+      isAdmin
+      divergenceCount={0}
+      ceCoverage={{ filled: 0, total: 0 }}
+      onEditEscala={onEditEscala}
+      onOmitPod={vi.fn()}
+    />,
+  )
+
+  await user.click(screen.getByRole('button', { name: 'Editar planejamento da escala BRVIX' }))
+  expect(onEditEscala).toHaveBeenLastCalledWith(expect.objectContaining({ port: 'BRVIX', exportLocked: true }))
+
+  await user.click(screen.getByRole('button', { name: 'Editar planejamento da escala BRSSA' }))
+  expect(onEditEscala).toHaveBeenLastCalledWith(expect.objectContaining({ port: 'BRSSA', exportLocked: false }))
+})
