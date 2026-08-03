@@ -238,7 +238,7 @@ export function collectVoyagePorts(
   const ports = Array.from(
     new Set(
       [
-        ...(bls ?? []).map((bl) => normalizePortCode(bl[field]) ?? ''),
+        ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
         ...extraPorts.map((value) => normalizeCollectedPort(value, field)),
       ]
         .filter(Boolean),
@@ -246,7 +246,7 @@ export function collectVoyagePorts(
   ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   if (!ports.length && fallback) {
-    return [normalizePortCode(fallback) ?? fallback.trim().toUpperCase()]
+    return [fallback]
   }
 
   return ports
@@ -257,9 +257,9 @@ function normalizeCollectedPort(
   field: 'pol' | 'pod',
 ) {
   if (typeof value === 'object' && value !== null) {
-    return normalizePortCode(String(value.port ?? value[field] ?? '').trim())
+    return String(value.port ?? value[field] ?? '').trim()
   }
-  return normalizePortCode(String(value ?? '').trim())
+  return String(value ?? '').trim()
 }
 
 export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined }> | null | undefined) {
