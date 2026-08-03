@@ -817,7 +817,7 @@ it('combinação inexistente não vira linha na listagem do operado — só o qu
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')!
-  expect(within(dischargeSection).getByText('40HC · carga_geral')).toBeTruthy()
+  expect(within(dischargeSection).getByText('40HC · carga geral')).toBeTruthy()
   expect(within(dischargeSection).queryByText(/20GP/)).toBeNull()
   expect(within(dischargeSection).queryByText(/imo/)).toBeNull()
   expect(within(dischargeSection).queryByText(/veiculos/)).toBeNull()

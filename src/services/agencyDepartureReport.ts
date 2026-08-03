@@ -282,6 +282,20 @@ export type AgencyReportDischargeContainer = {
   category: MatrixCategory
 }
 
+// Rótulo de categoria na Listagem do operado (Task 3/4/5): 'vazio' (Baplie
+// sem B/L) e 'vazio_cama'/'vazio_cover_plate' (módulo de Vazios de
+// Importação) aparecem lado a lado no mesmo documento — sem rótulo, a
+// diferença entre os três se perde no `replaceAll('_', ' ')` genérico.
+export const MATRIX_CATEGORY_LABELS: Record<string, string> = {
+  carga_geral: 'carga geral',
+  veiculos: 'veículos',
+  transbordo: 'transbordo',
+  imo: 'IMO',
+  vazio: 'vazio (sem B/L)',
+  vazio_cama: 'vazio — cama',
+  vazio_cover_plate: 'vazio — cover plate',
+}
+
 function normalizeContainerNumber(containerNumber: string | null | undefined) {
   return String(containerNumber ?? '').replace(/\s+/g, '').toUpperCase()
 }
@@ -402,6 +416,29 @@ const BL_CONTAINERS_SELECT = 'id, container_number, type, is_imo, bl:bls!inner(v
 const BREAKBULK_SELECT = 'bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm'
 const VEHICLES_SELECT = 'brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location)'
 
+const SUPABASE_PAGE_SIZE = 1000
+
+// Task 6/10 (ADR 2026-07-31) trocaram consultas filtradas por porto por
+// consultas da viagem inteira (para casar por porto normalizado em JS —
+// ver normalizePortCode acima). O PostgREST limita o retorno por página
+// (mesmo teto que reconcileBaplieWithManifest já pagina em
+// baplieReconciliation.ts); sem paginar aqui, uma viagem com mais granito/
+// B/Ls do que a página perderia linhas silenciosamente do ADR.
+async function fetchAllRows<T>(
+  queryFactory: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<{ data: T[] | null; error: unknown }> {
+  const rows: T[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await queryFactory(from, from + SUPABASE_PAGE_SIZE - 1)
+    if (error) return { data: null, error }
+    rows.push(...(data ?? []))
+    if (!data || data.length < SUPABASE_PAGE_SIZE) break
+    from += SUPABASE_PAGE_SIZE
+  }
+  return { data: rows, error: null }
+}
+
 // ponytail: mesma união de bls.pod/bls.pol normalizada e filtrada a portos BR
 // que fetchVoyageEscalaPorts (src/pages/EmbarqueVazios.tsx) já faz — duplicada
 // aqui porque este é o serviço do ADR, não a página de Embarque de Vazios, e o
@@ -410,7 +447,9 @@ const VEHICLES_SELECT = 'brand, bl_id, chassis, container_id, container:bl_conta
 // escala planejada sem B/L ainda lançado. Upgrade: as duas cópias somem quando
 // docs/plans/2026-07-31-escala-unificada-pol-pod.md entregar a projeção comum.
 async function listVoyageEscalaPorts(voyageId: number): Promise<Set<string>> {
-  const { data, error } = await supabase.from('bls').select('pod, pol').eq('voyage_id', voyageId)
+  const { data, error } = await fetchAllRows<{ pod: string | null; pol: string | null }>((from, to) =>
+    supabase.from('bls').select('pod, pol').eq('voyage_id', voyageId).range(from, to),
+  )
   if (error) throw error
   const ports = new Set<string>()
   for (const row of data ?? []) {
@@ -436,6 +475,12 @@ function toSortedOrphanEntries(byPort: Map<string, number>): AgencyReportOrphanE
 
 export async function getAgencyReportDerivedData(voyageId: number, port: string) {
   const entityId = buildVoyagePodEntityId(voyageId, port)
+  // Granito (Task 6) e o aviso de órfão (Task 10) casam pelo porto normalizado
+  // — `port` chega como veio de bls.pod (ex.: 'BRVIT', legado antes do LOCODE
+  // canônico 'BRVIX'), então comparar contra o `port` cru perderia granito de
+  // uma escala válida sem marcá-lo como órfão (as duas checagens usam a mesma
+  // normalização de escalaPorts, então ficariam inconsistentes entre si).
+  const portCode = normalizePortCode(port) ?? port
   const transshipmentBlIds = await listTransshipmentBlIds(voyageId, port)
   const emptyResult = { data: [], error: null }
 
@@ -474,10 +519,13 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     // texto livre ("Vitoria, Brazil") que nunca bateria num .eq() exato contra
     // o LOCODE da escala. Traz todos os B/Ls da viagem, com o loading_port do
     // manifesto como fallback, e casa em JS via normalizePortCode (abaixo).
-    supabase
-      .from('granite_bls')
-      .select('real_weight_kg, blocks_qty, loading_port, manifest:granite_manifests!inner(voyage_id, loading_port)')
-      .eq('manifest.voyage_id', voyageId),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('granite_bls')
+        .select('real_weight_kg, blocks_qty, loading_port, manifest:granite_manifests!inner(voyage_id, loading_port)')
+        .eq('manifest.voyage_id', voyageId)
+        .range(from, to),
+    ),
     supabase
       .from('baplie_containers')
       .select('container_number, size_type, status, is_imo, pod')
@@ -572,7 +620,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const allVaziosOps = (allVaziosOpsRes.data ?? []) as Array<Pick<VaziosExportOperation, 'id' | 'embark_port'>>
   const orphanVaziosOps = allVaziosOps.filter((op) => {
     const normalized = normalizePortCode(op.embark_port)
-    return normalized !== null && normalized !== port && !escalaPorts.has(normalized)
+    return normalized !== null && normalized !== portCode && !escalaPorts.has(normalized)
   })
   const orphanVaziosBookingsRes = orphanVaziosOps.length
     ? await supabase.from('vazios_bookings').select('operation_id').in('operation_id', orphanVaziosOps.map((op) => op.id))
@@ -612,7 +660,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   // Task 6 (ADR 2026-07-31): casa pelo porto normalizado, usando o
   // loading_port do manifesto quando o B/L não trouxer o seu (fallback).
   const granite: Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[] = graniteRows
-    .filter((bl) => normalizePortCode(bl.loading_port ?? bl.manifest?.loading_port ?? null) === port)
+    .filter((bl) => normalizePortCode(bl.loading_port ?? bl.manifest?.loading_port ?? null) === portCode)
     .map((bl) => ({ real_weight_kg: bl.real_weight_kg, blocks_qty: bl.blocks_qty, loading_port: bl.loading_port }))
   // Task 10 (ADR 2026-07-31): granito num porto que não é escala nenhuma da
   // viagem (nem esta, nem outra) — dado órfão, provável porto digitado/
@@ -621,7 +669,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const orphanGraniteByPort = new Map<string, number>()
   for (const bl of graniteRows) {
     const normalized = normalizePortCode(bl.loading_port ?? bl.manifest?.loading_port ?? null)
-    if (!normalized || normalized === port || escalaPorts.has(normalized)) continue
+    if (!normalized || normalized === portCode || escalaPorts.has(normalized)) continue
     orphanGraniteByPort.set(normalized, (orphanGraniteByPort.get(normalized) ?? 0) + 1)
   }
   const baplieContainers = (baplieContainersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]

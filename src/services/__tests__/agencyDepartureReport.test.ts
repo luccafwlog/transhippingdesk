@@ -34,9 +34,28 @@ function queryBuilder(data: unknown[] = []) {
     eq: vi.fn(() => builder),
     in: vi.fn(() => builder),
     order: vi.fn(() => builder),
+    range: vi.fn(() => builder),
     maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
       Promise.resolve({ data, error: null }).then(resolve),
+  }
+  return builder
+}
+
+// Simula a paginação real do PostgREST: `.range(from, to)` recorta o dataset
+// completo, em vez de sempre devolver tudo de uma vez (ao contrário de
+// queryBuilder). Usado para provar que fetchAllRows (Task 6/10) não perde
+// linhas quando o resultado passa de uma página.
+function pagedQueryBuilder(data: unknown[]) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    in: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    range: vi.fn((from: number, to: number) => {
+      const page = data.slice(from, to + 1)
+      return { then: (resolve: (value: { data: unknown[]; error: null }) => unknown) => Promise.resolve({ data: page, error: null }).then(resolve) }
+    }),
   }
   return builder
 }
@@ -450,6 +469,49 @@ describe('Granito casa por porto normalizado, com fallback do manifesto (ADR 202
 
     expect(result.granite).toHaveLength(4)
     expect(result.granite.map((bl) => bl.real_weight_kg).sort()).toEqual([1000, 2000, 3000, 4000])
+  })
+
+  it('a própria escala vem em forma não canônica (BRVIT) e ainda assim casa o granito, sem virar órfão', async () => {
+    // Regressão: comparar o granito normalizado contra o `port` cru (sem
+    // normalizar) faz BRVIT !== BRVIX e derruba o granito da seção normal —
+    // e como BRVIX (a forma normalizada) está em escalaPorts, ele também não
+    // vira órfão: some silenciosamente das duas listas.
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIT', pol: 'CNSHA' }])
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 1000, blocks_qty: 1, loading_port: 'BRVIT', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIT')
+
+    expect(result.granite).toHaveLength(1)
+    expect(result.granite[0].real_weight_kg).toBe(1000)
+    expect(result.orphanData.granito).toEqual([])
+  })
+
+  it('não perde linhas de granito além de uma página do PostgREST (Task 6 trocou o filtro por porto por consulta da viagem inteira)', async () => {
+    const rows = Array.from({ length: 1250 }, () => ({
+      real_weight_kg: 1,
+      blocks_qty: 1,
+      loading_port: 'BRVIX',
+      manifest: { loading_port: null },
+    }))
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'granite_bls') return pagedQueryBuilder(rows)
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(1250)
   })
 })
 

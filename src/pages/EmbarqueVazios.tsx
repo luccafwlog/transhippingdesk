@@ -532,7 +532,14 @@ export function EmbarqueVazios() {
               setPort("");
             }}
           />
-          <Field label="Porto de embarque">
+          <Field
+            label="Porto de embarque"
+            error={
+              voyageId && !voyagePorts.isLoading && voyagePortOptions.length === 0
+                ? "Nenhuma escala encontrada — importe os B/Ls da viagem antes de criar o Embarque."
+                : undefined
+            }
+          >
             <Select
               value={port}
               onChange={(event) => setPort(event.target.value)}

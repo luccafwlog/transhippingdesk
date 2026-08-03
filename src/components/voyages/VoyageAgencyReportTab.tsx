@@ -22,6 +22,7 @@ import {
   AGENCY_REPORT_DEPARTMENT_LABELS,
   buildContainerTypeMatrix,
   groupEmptyEmbarkBookings,
+  MATRIX_CATEGORY_LABELS,
   groupVehiclesByBrand,
   signoffLabels,
   type AgencyReportSection,
@@ -257,9 +258,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       veiculos: vehicles,
       // Task 4 do ADR 2026-07-31: passa a listar (tipo, condição, local) em
       // vez da matriz 2D com natureza fixa em 'carga_geral' (perdia condição e
-      // local). Shape muda de {rows,totals} para EmptyEmbarkRow[] — o
-      // impresso (AgencyReportDocument.tsx, Task 5 "Impresso segue mesmo
-      // princípio") ainda lê o shape antigo e precisa ser atualizado lá.
+      // local). Shape é EmptyEmbarkRow[] — o impresso (AgencyReportDocument.tsx)
+      // lê via EmptyEmbarkTable/asEmptyEmbarkRows.
       vaziosEmbarcados: emptyEmbarkRows,
       vaziosUnidades: data?.vaziosExp ?? [],
       vehicleLocations: Object.fromEntries(vehicleLocations),
@@ -479,7 +479,7 @@ function OperatedListing({ rows }: { rows: Record<string, Record<string, number>
 
   return (
     <div className="grid gap-2">
-      {combos.map((combo) => <Info key={`${combo.type}:${combo.category}`} label={`${combo.type} · ${combo.category}`} value={String(combo.quantity)} />)}
+      {combos.map((combo) => <Info key={`${combo.type}:${combo.category}`} label={`${combo.type} · ${MATRIX_CATEGORY_LABELS[combo.category] ?? combo.category}`} value={String(combo.quantity)} />)}
     </div>
   )
 }

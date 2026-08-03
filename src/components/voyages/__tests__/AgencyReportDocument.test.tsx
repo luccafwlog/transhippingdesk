@@ -269,13 +269,40 @@ it("imprime resolução de seção com autor e data, omite bloco sem dado e fech
   const resolutions = [...container.querySelectorAll(".agency-report-document__resolution")].map(
     (node) => node.textContent,
   );
-  expect(resolutions.filter((text) => text?.match(/Confirmado — Ana Documentação em/)).length).toBeGreaterThan(0);
+  // 'carga_descarregada' é a `section` de dois blocos impressos (Carga solta
+  // e Matriz de descarga) — a resolução some do segundo para não repetir a
+  // mesma linha duas vezes seguidas no papel.
+  expect(resolutions.filter((text) => text?.match(/Confirmado — Ana Documentação em/)).length).toBe(1);
   expect(resolutions.some((text) => text?.match(/Nada a declarar — Ana Documentação em/))).toBe(true);
 
   const signoffTable = screen.getByRole("table", { name: "Assinaturas departamentais" });
   expect(signoffTable.textContent).toContain("Ana Documentação");
   expect(signoffTable.textContent).toContain("Beto Operações");
   expect(signoffTable.textContent).toContain("Carla Equipamentos");
+});
+
+// Task 5 do ADR 2026-07-31: 'operacao_patio' é a `section` de quatro blocos
+// impressos (Operação de vazios, Linhas de serviço, Anexo, Storage) — sem a
+// deduplicação, a mesma resolução sairia repetida quatro vezes seguidas.
+it("imprime a resolução de 'operacao_patio' uma única vez, mesmo aparecendo em quatro blocos", () => {
+  const { container } = render(
+    <AgencyReportDocument
+      actorNames={{ "user-eqp": "Carla Equipamentos" }}
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {},
+        occurrences: [],
+        signoffs: [
+          { section: "operacao_patio", state: "confirmed", signed_by: "user-eqp", signed_at: "2026-07-22" },
+        ],
+      }}
+    />,
+  );
+
+  const resolutions = [...container.querySelectorAll(".agency-report-document__resolution")].map(
+    (node) => node.textContent,
+  );
+  expect(resolutions.filter((text) => text?.match(/Confirmado — Carla Equipamentos em/)).length).toBe(1);
 });
 
 // Snapshot legado (anterior à Task 5) nunca gravou `departmentSignoffs`: o

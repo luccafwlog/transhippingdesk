@@ -6,6 +6,7 @@ import {
 } from "../shared/InvoiceDocumentKit";
 import {
   AGENCY_REPORT_DEPARTMENT_LABELS,
+  MATRIX_CATEGORY_LABELS,
   signoffLabels,
   type AgencyReportSection,
   type SignoffState,
@@ -165,7 +166,7 @@ function OperatedListingTable({
         {combos.map((combo) => (
           <tr key={`${combo.type}:${combo.category}`}>
             <th scope="row">{combo.type}</th>
-            <td>{combo.category.replaceAll("_", " ")}</td>
+            <td>{MATRIX_CATEGORY_LABELS[combo.category] ?? combo.category.replaceAll("_", " ")}</td>
             <td>{count(combo.quantity)}</td>
           </tr>
         ))}
@@ -282,6 +283,7 @@ function Section({
   title,
   section,
   hasData = true,
+  showResolution = true,
   signoffs,
   actorNames,
   children,
@@ -289,6 +291,11 @@ function Section({
   title: string;
   section?: AgencyReportSection;
   hasData?: boolean;
+  // Uma seção do ciclo (ex.: 'operacao_patio') vira várias seções impressas
+  // (Operação de vazios, Linhas de serviço, Anexo, Storage) — sem isto, a
+  // mesma resolução (estado + assinante + data) se repetiria em cada uma.
+  // false = a resolução já apareceu num bloco anterior com a mesma `section`.
+  showResolution?: boolean;
   signoffs?: SignoffRow[];
   actorNames?: Record<string, string>;
   children?: React.ReactNode;
@@ -297,7 +304,7 @@ function Section({
     <section className="agency-report-document__section">
       <h2>{title}</h2>
       {hasData ? children : null}
-      {section ? (
+      {section && showResolution ? (
         <ResolutionLine
           section={section}
           signoffs={signoffs ?? []}
@@ -431,7 +438,15 @@ export function AgencyReportDocument({
   const storage = asRecord(sections.storage);
   const departmentSignoffs = asDepartmentSignoffRows(snapshot.departmentSignoffs);
 
-  const section = (key: AgencyReportSection) => ({ section: key, signoffs, actorNames });
+  // Várias seções impressas compartilham a mesma `section` do ciclo (ex.:
+  // 'operacao_patio' aparece em quatro blocos) — a resolução só é impressa
+  // uma vez, no primeiro bloco daquela seção (ver Section, showResolution).
+  const printedResolutions = new Set<AgencyReportSection>();
+  const section = (key: AgencyReportSection) => {
+    const showResolution = !printedResolutions.has(key);
+    printedResolutions.add(key);
+    return { section: key, signoffs, actorNames, showResolution };
+  };
 
   return (
     <article
