@@ -111,6 +111,7 @@ describe('PodScheduleModal', () => {
     voyageId: 9,
     voyageLabel: 'NAVIO 456S',
     pod: 'BRSSZ',
+    temImportacao: true,
     eta: '2026-03-01',
     etb: null,
     ata: null,
@@ -128,7 +129,7 @@ describe('PodScheduleModal', () => {
     const onSaved = vi.fn().mockResolvedValue(undefined)
     render(<PodScheduleModal open podSchedule={base} onClose={() => {}} onSaved={onSaved} />)
 
-    expect(screen.getByText('POD: BRSSZ')).toBeTruthy()
+    expect(screen.getByText('Escala: BRSSZ')).toBeTruthy()
     expect((screen.getByLabelText('ETA') as HTMLInputElement).value).toBe('2026-03-01')
     expect((screen.getByLabelText('ATB') as HTMLInputElement).value).toBe('2026-03-02')
     expect((screen.getByLabelText('ETD') as HTMLInputElement).value).toBe('2026-03-03')
@@ -183,7 +184,7 @@ describe('PodScheduleModal', () => {
     render(
       <PodScheduleModal
         open
-        podSchedule={{ ...base, pod: 'Vitoria' }}
+        podSchedule={{ ...base, pod: 'Vitoria', temImportacao: false }}
         onClose={() => {}}
         onSaved={onSaved}
       />,
@@ -191,7 +192,7 @@ describe('PodScheduleModal', () => {
 
     await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
 
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ pod: 'BRVIX' }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ pod: 'BRVIX', temImportacao: false }))
   })
 })
 

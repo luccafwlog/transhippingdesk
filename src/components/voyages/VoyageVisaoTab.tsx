@@ -266,6 +266,7 @@ export function VoyageVisaoTab({
                                 voyageId: voyage.id,
                                 voyageLabel,
                                 pod: row.port,
+                                temImportacao: row.temImportacao,
                                 eta: row.eta,
                                 etb: row.etb,
                                 ata: row.ata,

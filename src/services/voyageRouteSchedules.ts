@@ -30,6 +30,8 @@ export type VoyagePodSchedule = {
   entityId: string
   voyageId: number
   pod: string
+  /** Registros legados sem este campo continuam representando importaÃ§Ã£o. */
+  temImportacao?: boolean
   eta: string | null
   etb: string | null
   ata: string | null
@@ -164,6 +166,7 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
     if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
     if (row.field_name === 'deleted' && !seenFields.has('deleted')) current.deleted = normalizeBooleanValue(row.new_value) ?? false
     if (row.field_name === 'omitted' && !seenFields.has('omitted')) current.omitted = normalizeBooleanValue(row.new_value) ?? false
+    if (row.field_name === 'tem_importacao' && !seenFields.has('tem_importacao')) current.temImportacao = normalizeBooleanValue(row.new_value) ?? true
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
@@ -241,7 +244,9 @@ export function projectVoyageEscalaSchedules({
     escala.escalaNumber = pod.escalaNumber
     escala.omitted = pod.omitted ?? false
     escala.deleted = false
-    escala.temImportacao = true
+    // O portador fÃ­sico das datas tambÃ©m atende escalas apenas de exportaÃ§Ã£o.
+    // AusÃªncia do marcador preserva o comportamento dos registros legados.
+    escala.temImportacao = pod.temImportacao !== false
     podValuesByKey.set(key, {
       eta: pod.eta,
       etb: pod.etb,
@@ -341,6 +346,7 @@ export async function saveVoyagePodSchedule({
   ceStatus,
   linked,
   escalaNumber,
+  temImportacao = true,
   changedBy,
 }: {
   voyageId: number
@@ -355,6 +361,7 @@ export async function saveVoyagePodSchedule({
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber?: string | null
+  temImportacao?: boolean
   changedBy: string | null
 }) {
   const entityId = buildVoyagePodEntityId(voyageId, pod)
@@ -401,6 +408,15 @@ export async function saveVoyagePodSchedule({
     escalaNumber === undefined
       ? null
       : makeAuditRow(POD_ENTITY_TYPE, entityId, 'escala_number', current.escalaNumber, escalaNumber, changedBy, 'Atualizacao manual de Numero de Escala por POD'),
+    makeAuditRow(
+      POD_ENTITY_TYPE,
+      entityId,
+      'tem_importacao',
+      current.temImportacao === false ? 'false' : 'true',
+      temImportacao ? 'true' : 'false',
+      changedBy,
+      'Atualizacao manual do tipo operacional da escala',
+    ),
   ].filter((change) => change !== null)
 
   // Reincluir um POD que havia sido removido: limpa o soft-delete.
@@ -439,6 +455,7 @@ export async function saveVoyageEscalaSchedule({
   ceStatus,
   linked,
   escalaNumber,
+  temImportacao,
   changedBy,
 }: {
   voyageId: number
@@ -453,6 +470,7 @@ export async function saveVoyageEscalaSchedule({
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber?: string | null
+  temImportacao: boolean
   changedBy: string | null
 }) {
   // ponytail: o entity_type fisico continua `voyage_pod_schedule` por compatibilidade
@@ -470,6 +488,7 @@ export async function saveVoyageEscalaSchedule({
     ceStatus,
     linked,
     escalaNumber,
+    temImportacao,
     changedBy,
   })
 }
@@ -773,6 +792,7 @@ function hydratePodSchedules(
     if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
     if (row.field_name === 'deleted' && !seenFields.has('deleted')) current.deleted = normalizeBooleanValue(row.new_value) ?? false
     if (row.field_name === 'omitted' && !seenFields.has('omitted')) current.omitted = normalizeBooleanValue(row.new_value) ?? false
+    if (row.field_name === 'tem_importacao' && !seenFields.has('tem_importacao')) current.temImportacao = normalizeBooleanValue(row.new_value) ?? true
 
     seenFields.add(row.field_name)
     seenFieldsByEntity.set(entityId, seenFields)
@@ -809,6 +829,7 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
     entityId,
     voyageId: Number(voyageId),
     pod: pod ?? '-',
+    temImportacao: true,
     eta: null,
     etb: null,
     ata: null,
@@ -827,7 +848,7 @@ function makeEmptyPodSchedule(entityId: string): VoyagePodSchedule {
 function makeAuditRow(
   entityType: string,
   entityId: string,
-  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atb' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number' | 'deleted',
+  fieldName: 'etd' | 'eta' | 'etb' | 'ata' | 'atb' | 'atd' | 'rtw' | 'ces' | 'linked' | 'escala_number' | 'deleted' | 'tem_importacao',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,

@@ -115,6 +115,52 @@ it('renderiza uma escala mista em uma linha com marcadores de importação e exp
   expect(within(table).getByText('14 MOVES')).toBeTruthy()
 })
 
+it('exibe divergencia com os valores POD e POL na linha da escala', () => {
+  render(
+    <VoyageVisaoTab
+      voyage={{ id: 7, status: 'planning', bls: [], granite_manifests: [], vazios_manifests: [] } as never}
+      voyageLabel="NAVIO / 01N"
+      escalaRows={[{
+        port: 'BRVIX',
+        eta: null,
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: '2026-08-02',
+        atd: null,
+        rtw: null,
+        ceStatus: null,
+        linked: null,
+        escalaNumber: null,
+        temImportacao: true,
+        temExportacao: true,
+        temGranito: false,
+        containersQty: null,
+        movementsQty: null,
+        divergences: [{
+          field: 'etd',
+          podValue: '2026-08-02',
+          source: 'pol',
+          sourceValue: '2026-08-03',
+        }],
+        omitted: false,
+        deleted: false,
+      } as never]}
+      importBatches={[]}
+      exportSchedules={[]}
+      isAdmin={false}
+      divergenceCount={1}
+      ceCoverage={{ filled: 0, total: 0 }}
+      onAddPod={vi.fn()}
+      onEditPod={vi.fn()}
+      onOmitPod={vi.fn()}
+      onEditExport={vi.fn()}
+    />,
+  )
+
+  expect(screen.getByText(/Diverg\u00eancia ETD: POD 2026-08-02 \/ POL 2026-08-03/)).toBeTruthy()
+})
+
 it('renderiza viagem só de exportação em uma linha sem marcador de importação', () => {
   render(
     <VoyageVisaoTab

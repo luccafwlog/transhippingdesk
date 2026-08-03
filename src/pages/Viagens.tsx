@@ -384,7 +384,7 @@ export function Viagens() {
         open={editingPod !== null}
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atb, etd, atd, rtw, ceStatus, linked, escalaNumber }) => {
+        onSaved={async ({ voyageId, pod, temImportacao, eta, etb, ata, atb, etd, atd, rtw, ceStatus, linked, escalaNumber }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -403,13 +403,14 @@ export function Viagens() {
               ceStatus,
               linked,
               escalaNumber,
+              temImportacao,
               changedBy: user.id,
             })
             await afterEscalaAlterada(queryClient, { voyageId })
-            showToast('Datas do POD atualizadas com sucesso.', 'success')
+            showToast('Datas da Escala atualizadas com sucesso.', 'success')
             setEditingPod(null)
           } catch {
-            showToast('Falha ao salvar as datas do POD.', 'error')
+            showToast('Falha ao salvar as datas da Escala.', 'error')
           }
         }}
       />

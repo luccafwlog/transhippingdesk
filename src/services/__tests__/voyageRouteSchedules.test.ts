@@ -220,6 +220,55 @@ describe('projectVoyageEscalaSchedules', () => {
     })])
   })
 
+  it('preserva datas do portador POD sem marcar importacao ao editar escala somente de exportacao', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      podSchedules: [{
+        entityId: '12::BRVIX',
+        voyageId: 12,
+        pod: 'BRVIX',
+        eta: '2026-08-01',
+        etb: '2026-08-02',
+        ata: '2026-08-03',
+        atb: '2026-08-04',
+        etd: '2026-08-05',
+        atd: null,
+        rtw: null,
+        ceStatus: 'waiting',
+        linked: false,
+        escalaNumber: null,
+        temImportacao: false,
+        deleted: false,
+        omitted: false,
+      }],
+      exportSchedulesByPort: new Map([
+        ['BRVIX', {
+          id: 'exp-1',
+          voyageId: 12,
+          pol: 'BRVIX',
+          hasGranite: false,
+          containersQty: 4,
+          movementsQty: 2,
+          eta: '2026-08-01',
+          etb: '2026-08-02',
+          ceStatus: 'waiting',
+          linked: false,
+        }],
+      ]),
+    })
+
+    expect(escalas).toEqual([expect.objectContaining({
+      port: 'BRVIX',
+      eta: '2026-08-01',
+      etb: '2026-08-02',
+      ata: '2026-08-03',
+      atb: '2026-08-04',
+      temImportacao: false,
+      temExportacao: true,
+      containersQty: 4,
+      movementsQty: 2,
+    })])
+  })
+
   it('remove escala soft-deleted mesmo quando ha POL no mesmo porto', () => {
     const escalas = projectVoyageEscalaSchedules({
       podSchedules: [{

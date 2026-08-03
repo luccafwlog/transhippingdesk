@@ -117,6 +117,7 @@ export function PodScheduleModal({
     voyageId: number
     voyageLabel: string
     pod: string
+    temImportacao: boolean
     eta: string | null
     etb: string | null
     ata: string | null
@@ -132,6 +133,7 @@ export function PodScheduleModal({
   onSaved: (payload: {
     voyageId: number
     pod: string
+    temImportacao: boolean
     eta: string | null
     etb: string | null
     ata: string | null
@@ -183,6 +185,7 @@ export function PodScheduleModal({
       await onSaved({
         voyageId: podSchedule.voyageId,
         pod: normalizedPort,
+        temImportacao: podSchedule.temImportacao,
         eta: eta || null,
         etb: etb || null,
         ata: ata || null,
@@ -200,12 +203,12 @@ export function PodScheduleModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar planejamento do POD">
+    <Modal open={open} onClose={onClose} title="Editar planejamento da Escala">
       {podSchedule ? (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="app-panel app-panel--padded text-sm">
             <div className="font-semibold text-[var(--app-text-strong)]">{podSchedule.voyageLabel}</div>
-            <div className="mt-1">POD: {podSchedule.pod}</div>
+            <div className="mt-1">Escala: {podSchedule.pod}</div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

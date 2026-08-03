@@ -7,6 +7,7 @@ export type EditingPodPayload = {
   voyageId: number
   voyageLabel: string
   pod: string
+  temImportacao: boolean
   eta: string | null
   etb: string | null
   ata: string | null
