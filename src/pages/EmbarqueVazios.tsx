@@ -31,6 +31,7 @@ import {
   valorSugerido,
 } from "../services/depots";
 import { supabase } from "../services/supabase";
+import { normalizePortCode } from "../services/portCode";
 import {
   armazenagemPorDepotCondicao,
   quantidadeEfetiva,
@@ -67,6 +68,27 @@ function countByField<T>(rows: T[], keyOf: (row: T) => string): Array<{ label: s
   return [...counts.entries()]
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+// ponytail: escala do Embarque de Vazios montada aqui unindo POD e POL dos
+// B/Ls da viagem à mão (duas fontes unidas manualmente, sem projeção comum).
+// Teto: não enxerga escala planejada sem B/L ainda lançado. Upgrade: trocar
+// pela projeção unificada de escalas quando
+// docs/plans/2026-07-31-escala-unificada-pol-pod.md for entregue.
+async function fetchVoyageEscalaPorts(voyageId: number): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("bls")
+    .select("pod, pol")
+    .eq("voyage_id", voyageId);
+  if (error) throw error;
+  const ports = new Set<string>();
+  for (const row of data ?? []) {
+    for (const raw of [row.pod, row.pol]) {
+      const code = normalizePortCode(raw);
+      if (code && code.startsWith("BR")) ports.add(code);
+    }
+  }
+  return [...ports].sort();
 }
 
 function TotalsCard({ title, totals }: { title: string; totals: Array<{ label: string; count: number }> }) {
@@ -122,6 +144,12 @@ export function EmbarqueVazios() {
     handOutDate: "",
     movementDate: "",
   });
+  const voyagePorts = useQuery({
+    queryKey: ["embarque-vazios-voyage-ports", voyageId],
+    queryFn: () => fetchVoyageEscalaPorts(voyageId!),
+    enabled: Boolean(voyageId),
+  });
+  const voyagePortOptions = Array.isArray(voyagePorts.data) ? voyagePorts.data : [];
   const operations = useQuery({
     queryKey: ["vazios-export-operations"],
     queryFn: async () => {
@@ -258,17 +286,21 @@ export function EmbarqueVazios() {
     }
   }
   async function createOperation() {
-    if (!voyageId || !port.trim()) return;
+    // Gravar sempre normalizado, mesmo vindo do dropdown de escalas já
+    // normalizadas, para o caminho de escrita ficar comprovadamente seguro.
+    const embarkPort = normalizePortCode(port);
+    if (!voyageId || !embarkPort) return;
     await notify(async () => {
       const created = await upsertVaziosExportOperation({
         voyageId,
-        embarkPort: port.trim().toUpperCase(),
+        embarkPort,
       });
       setSelectedOperation({
         id: created.id,
         voyage_id: voyageId,
-        embark_port: port.trim().toUpperCase(),
+        embark_port: embarkPort,
       });
+      setPort("");
       await operations.refetch();
     }, "Embarque criado.");
   }
@@ -495,18 +527,35 @@ export function EmbarqueVazios() {
           <VoyageCombobox
             required
             selectedVoyageId={voyageId}
-            onSelect={setVoyageId}
+            onSelect={(id) => {
+              setVoyageId(id);
+              setPort("");
+            }}
           />
-          <Field label="Porto de embarque">
-            <Input
+          <Field
+            label="Porto de embarque"
+            error={
+              voyageId && !voyagePorts.isLoading && voyagePortOptions.length === 0
+                ? "Nenhuma escala encontrada — importe os B/Ls da viagem antes de criar o Embarque."
+                : undefined
+            }
+          >
+            <Select
               value={port}
               onChange={(event) => setPort(event.target.value)}
-              placeholder="BRVIX"
-            />
+              disabled={!voyageId}
+            >
+              <option value="">Selecione</option>
+              {voyagePortOptions.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Button
             className="self-end"
-            disabled={!canEdit || !voyageId || !port.trim()}
+            disabled={!canEdit || !voyageId || !port}
             onClick={() => void createOperation()}
           >
             <Plus size={16} /> Criar

@@ -15,7 +15,6 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Base de decisão | Status |
 |-------|-----------------|--------|
-| [ADR: cobertura do transbordo, fontes da descarga e relatório sem zeros](./2026-07-31-adr-cobertura-fontes-forma.md) | [ADR 0035](../adr/0035-escala-unificada-ancora-do-adr-fontes-da-descarga-e-relatorio-sem-zeros.md) (blocos 2, 3 e 4) | TODO — independente do plano da escala unificada; pode ser entregue antes |
 | [Escala unificada: POL e POD do mesmo porto são a mesma escala](./2026-07-31-escala-unificada-pol-pod.md) | [ADR 0035](../adr/0035-escala-unificada-ancora-do-adr-fontes-da-descarga-e-relatorio-sem-zeros.md) (bloco 1) | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).

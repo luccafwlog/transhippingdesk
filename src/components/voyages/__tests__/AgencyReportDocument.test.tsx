@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, expect, it } from "vitest";
 import { AgencyReportDocument } from "../AgencyReportDocument";
+import { formatBRL } from "../../../lib/utils";
+
+afterEach(cleanup);
 
 it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
   render(
@@ -39,10 +42,9 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
           },
           veiculos: [{ brand: "BYD", blCount: 2, vinCount: 3 }],
           vehicleLocations: { BYD: ["Pátio Alfa"] },
-          vaziosEmbarcados: {
-            rows: { "40HC": { carga_geral: 4 } },
-            totals: { carga_geral: 4 },
-          },
+          vaziosEmbarcados: [
+            { type: "40HC", condition: "EMPTY", localLabel: "VBR", quantity: 4 },
+          ],
           directEmbarkCount: 1,
           depots: ["VBR"],
           operation: {},
@@ -134,6 +136,78 @@ it("imprime o snapshot fechado nos blocos e matrizes do modelo real", () => {
   expect(screen.queryByRole("heading", { name: "Ocorrências" })).toBeNull();
 });
 
+// Task 8 do ADR 2026-07-31: o total impresso da linha vem de `total`
+// (calculado por totalLinha em agencyDepartureReport.ts), não mais de uma
+// fórmula reimplementada que aplicava o percentual legado mesmo em
+// armazenagem. Um snapshot pós-Task 8 já traz o campo pronto.
+it("imprime o total pronto (`total`) da linha de serviço, ignorando o percentual legado de uma linha de armazenagem", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          costs: {
+            total: 1000,
+            serviceLines: [
+              {
+                id: "line-1",
+                service: { name: "Armazenagem" },
+                local: { name: "VBR" },
+                destino: null,
+                local_id: "d1",
+                service_id: "s1",
+                quantidade: 10,
+                percentual: 50,
+                valor_unitario: 100,
+                total: 1000,
+              },
+            ],
+          },
+        },
+        occurrences: [],
+      }}
+    />,
+  );
+
+  const table = screen.getByRole("table", { name: "Linhas de serviço" });
+  expect(table.textContent).toContain(formatBRL(1000));
+  expect(table.textContent).not.toContain(formatBRL(500));
+});
+
+// Snapshot fechado ANTES da Task 8: sem o campo `total`, cai na fórmula
+// antiga (registro histórico, sem recálculo sobre dado já congelado).
+it("cai na fórmula antiga quando o snapshot fechado é anterior à Task 8 (sem o campo `total`)", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          costs: {
+            total: 250,
+            serviceLines: [
+              {
+                id: "line-1",
+                service: { name: "Bundle Composition" },
+                local: { name: "VBR" },
+                destino: null,
+                local_id: "d1",
+                service_id: "s1",
+                quantidade: 2,
+                percentual: 100,
+                valor_unitario: 125,
+              },
+            ],
+          },
+        },
+        occurrences: [],
+      }}
+    />,
+  );
+
+  const table = screen.getByRole("table", { name: "Linhas de serviço" });
+  expect(table.textContent).toContain(formatBRL(250));
+});
+
 // O snapshot gravado por VoyageAgencyReportTab põe os sign-offs na chave de
 // topo, não dentro de `sections`: é dessa forma que a Observação precisa sair
 // impressa.
@@ -153,4 +227,147 @@ it("imprime a Observação da seção com os sign-offs na chave de topo do snaps
   );
 
   expect(screen.getByText("Atracação com 4h de espera.")).toBeTruthy();
+});
+
+// Task 5 do ADR 2026-07-31: cada seção impressa mostra estado + autor + data
+// da resolução; um bloco sem dado (aqui, Vazios descarregados) não é
+// impresso, mas a seção continua saindo com a resolução; o documento fecha
+// com os três sign-offs departamentais.
+it("imprime resolução de seção com autor e data, omite bloco sem dado e fecha com os três sign-offs departamentais", () => {
+  const { container } = render(
+    <AgencyReportDocument
+      actorNames={{ "user-doc": "Ana Documentação", "user-ops": "Beto Operações", "user-eqp": "Carla Equipamentos" }}
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          cargaDescarregada: {
+            rows: { "40HC": { carga_geral: 3 } },
+            totals: { carga_geral: 3 },
+          },
+          // Vazios descarregados sem nenhum item: o bloco não deve sair
+          // impresso, só a resolução da seção.
+          vaziosDescarregados: { rows: {}, totals: {} },
+        },
+        occurrences: [],
+        signoffs: [
+          { section: "carga_descarregada", state: "confirmed", signed_by: "user-doc", signed_at: "2026-07-20" },
+          { section: "vazios_descarregados", state: "nothing_to_declare", signed_by: "user-doc", signed_at: "2026-07-20" },
+        ],
+        departmentSignoffs: [
+          { department: "documentacao", signed_by: "user-doc", signed_at: "2026-07-20" },
+          { department: "operacoes", signed_by: "user-ops", signed_at: "2026-07-21" },
+          { department: "equipamentos", signed_by: "user-eqp", signed_at: "2026-07-21" },
+        ],
+      }}
+    />,
+  );
+
+  expect(
+    screen.getByRole("table", { name: "Matriz de descarga" }).textContent,
+  ).toContain("40HC");
+  expect(screen.queryByRole("table", { name: "Vazios descarregados" })).toBeNull();
+  const resolutions = [...container.querySelectorAll(".agency-report-document__resolution")].map(
+    (node) => node.textContent,
+  );
+  // 'carga_descarregada' é a `section` de dois blocos impressos (Carga solta
+  // e Matriz de descarga) — a resolução some do segundo para não repetir a
+  // mesma linha duas vezes seguidas no papel.
+  expect(resolutions.filter((text) => text?.match(/Confirmado — Ana Documentação em/)).length).toBe(1);
+  expect(resolutions.some((text) => text?.match(/Nada a declarar — Ana Documentação em/))).toBe(true);
+
+  const signoffTable = screen.getByRole("table", { name: "Assinaturas departamentais" });
+  expect(signoffTable.textContent).toContain("Ana Documentação");
+  expect(signoffTable.textContent).toContain("Beto Operações");
+  expect(signoffTable.textContent).toContain("Carla Equipamentos");
+});
+
+// Task 5 do ADR 2026-07-31: 'operacao_patio' é a `section` de quatro blocos
+// impressos (Operação de vazios, Linhas de serviço, Anexo, Storage) — sem a
+// deduplicação, a mesma resolução sairia repetida quatro vezes seguidas.
+it("imprime a resolução de 'operacao_patio' uma única vez, mesmo aparecendo em quatro blocos", () => {
+  const { container } = render(
+    <AgencyReportDocument
+      actorNames={{ "user-eqp": "Carla Equipamentos" }}
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {},
+        occurrences: [],
+        signoffs: [
+          { section: "operacao_patio", state: "confirmed", signed_by: "user-eqp", signed_at: "2026-07-22" },
+        ],
+      }}
+    />,
+  );
+
+  const resolutions = [...container.querySelectorAll(".agency-report-document__resolution")].map(
+    (node) => node.textContent,
+  );
+  expect(resolutions.filter((text) => text?.match(/Confirmado — Carla Equipamentos em/)).length).toBe(1);
+});
+
+// Snapshot legado (anterior à Task 5) nunca gravou `departmentSignoffs`: o
+// impresso precisa sair sem lançar e sem inventar um bloco de assinaturas.
+it("imprime snapshot legado sem departmentSignoffs sem lançar e sem bloco de assinaturas", () => {
+  expect(() =>
+    render(
+      <AgencyReportDocument
+        snapshot={{
+          header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+          sections: {},
+          occurrences: [],
+          signoffs: [],
+        }}
+      />,
+    ),
+  ).not.toThrow();
+
+  expect(screen.queryByRole("table", { name: "Assinaturas departamentais" })).toBeNull();
+});
+
+// Task 1 do ADR 2026-07-31: carga solta em transbordo, separada da própria da
+// escala; precisa aparecer no impresso, não só na aba.
+it("imprime a carga solta em transbordo separada da própria da escala", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          cargaSolta: {
+            bls: 0,
+            machines: 0,
+            packages: 0,
+            weightTon: 0,
+            cbm: 0,
+            transshipment: { bls: 2, machines: 3, packages: 10, weightTon: 15, cbm: 25 },
+          },
+        },
+        occurrences: [],
+        signoffs: [],
+      }}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Carga solta" })).toBeTruthy();
+  expect(
+    screen.getByRole("table", { name: "Carga solta em transbordo" }).textContent,
+  ).toContain("B/Ls em transbordo2");
+});
+
+// Snapshot legado (anterior a este fix) nunca gravou `cargaSolta.transshipment`:
+// o impresso precisa sair sem lançar e sem bloco de transbordo.
+it("imprime snapshot legado sem cargaSolta.transshipment sem lançar", () => {
+  expect(() =>
+    render(
+      <AgencyReportDocument
+        snapshot={{
+          header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+          sections: { cargaSolta: { bls: 1, machines: 0, packages: 0, weightTon: 1, cbm: 1 } },
+          occurrences: [],
+          signoffs: [],
+        }}
+      />,
+    ),
+  ).not.toThrow();
+
+  expect(screen.queryByRole("table", { name: "Carga solta em transbordo" })).toBeNull();
 });

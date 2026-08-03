@@ -230,6 +230,21 @@ do agregado, sign-offs, ocorrências, snapshot e alertas pós-ATD do ADR
 (`213`/`214`). A superfície continua sendo a aba `ADR` de
 `/viagens/:voyageId`; não há rota top-level adicional.
 
+A ADR 0035 (blocos 2–4) fixou, por seção, as fontes atuais de derivação do
+ADR: containers cheios ← B/Ls (documental, ADR 0025), incluindo B/Ls em
+transbordo casados via `voyage_omissions`/`bl_transshipments` e contados no
+ADR do porto onde a carga foi efetivamente descarregada; vazios na descarga ←
+Baplie (`status='empty'`) como natureza própria, separada da carga cheia;
+vazios descarregados (cama/cover plate) ← `vazios_importacao_containers`, com
+aviso de divergência contra a contagem do Baplie; granito ← `granite_bls`/
+`granite_manifests`, casados por porto normalizado (`normalizePortCode`) com
+fallback para o porto do manifesto-pai quando o B/L não tem porto próprio;
+vazios embarcados/operação de pátio ← `vazios_export_operations`/
+`vazios_bookings`, com o porto escolhido entre as escalas brasileiras da
+própria viagem; o snapshot de fechamento é revalidado no banco pela migration
+`249`. O bloco 1 da ADR 0035 (escala unificada POL/POD) é uma entrega
+separada, ainda não implementada (`docs/plans/2026-07-31-escala-unificada-pol-pod.md`).
+
 ### Segurança
 
 - RLS protege tabelas expostas;

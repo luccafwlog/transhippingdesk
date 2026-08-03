@@ -21,6 +21,8 @@ import {
   AGENCY_REPORT_SECTION_ORDER,
   AGENCY_REPORT_DEPARTMENT_LABELS,
   buildContainerTypeMatrix,
+  groupEmptyEmbarkBookings,
+  MATRIX_CATEGORY_LABELS,
   groupVehiclesByBrand,
   signoffLabels,
   type AgencyReportSection,
@@ -28,6 +30,7 @@ import {
   type SignoffState,
 } from '../../services/agencyDepartureReport'
 import type { AgencyReportDepartmentKey, Json } from '../../types/database'
+import type { AdrEscalaPod } from '../../services/voyageSummaries'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -37,7 +40,7 @@ type Props = {
   voyageId: number
   voyageLabel: string
   carrierName: string
-  pods: string[]
+  pods: AdrEscalaPod[]
   initialEscala?: string
 }
 
@@ -126,12 +129,34 @@ function Hero({ value, unit }: { value: string; unit?: string }) {
   )
 }
 
-function EmptyData() {
-  return <p className="text-sm text-[var(--app-muted)]">Nenhum dado informado para esta escala.</p>
+// Substitui o Hero(0) + placeholder genérico de uma seção inteira sem
+// ocorrência (Task 4 do ADR 2026-07-31, aplicado a todas as seções de carga
+// — inclusive Granito, revisão pós-merge): a seção continua exigindo
+// resolução (o controle de sign-off é um irmão desta linha, não é afetado).
+function NadaOperado() {
+  return <p className="text-sm text-[var(--app-muted)]">Nada operado nesta escala.</p>
+}
+
+// Aviso de divergência entre fontes (Task 3 calculou os números; Task 4
+// exibe). Não é bloqueante — só sinaliza que a Conciliação Baplie × B/L
+// precisa revisar o item.
+function DivergenceWarning({ children }: { children: ReactNode }) {
+  return <p className="text-sm text-[var(--app-red)]">{children}</p>
+}
+
+// Aviso de dado órfão (Task 10 do ADR 2026-07-31): granito ou Embarque de
+// Vazios lançado num porto que não é escala nenhuma da viagem. Reaproveita o
+// wrapper do DivergenceWarning — informativo, não bloqueia sign-off nem
+// fechamento — em vez de redeclarar o mesmo <p>, para ter um só lugar onde
+// mudar o estilo visual do aviso.
+function OrphanDataWarning({ entries, label }: { entries: Array<{ port: string; count: number }>; label: string }) {
+  if (!entries.length) return null
+  const text = `${entries.map((entry) => `${entry.count} ${label} em ${entry.port}`).join('; ')} — porto não é escala desta viagem, verificar o cadastro.`
+  return <DivergenceWarning>{text}</DivergenceWarning>
 }
 
 export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {
-  const initialPort = initialEscala && pods.includes(initialEscala) ? initialEscala : (pods[0] ?? null)
+  const initialPort = initialEscala && pods.some((entry) => entry.pod === initialEscala) ? initialEscala : (pods[0]?.pod ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port)
@@ -161,9 +186,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     type: container.container_type ?? '—',
     category: container.natureza === 'cama' ? 'vazio_cama' : 'vazio_cover_plate',
   })))
-  const emptyEmbarkMatrix = buildContainerTypeMatrix((data?.vaziosExp ?? []).map((booking) => ({
+  const emptyEmbarkRows = groupEmptyEmbarkBookings((data?.vaziosExp ?? []).map((booking) => ({
     type: booking.container_type ?? '—',
-    category: 'carga_geral',
+    condition: booking.condition,
+    localLabel: booking.local?.name ?? booking.local?.code ?? null,
   })))
   const vehicles = groupVehiclesByBrand(data?.vehicles ?? [])
   const vehicleVinTotal = vehicles.reduce((total, vehicle) => total + vehicle.vinCount, 0)
@@ -230,7 +256,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       cargaSolta: data?.cargaSolta ?? null,
       vaziosDescarregados: emptyDischargeMatrix,
       veiculos: vehicles,
-      vaziosEmbarcados: emptyEmbarkMatrix,
+      // Task 4 do ADR 2026-07-31: passa a listar (tipo, condição, local) em
+      // vez da matriz 2D com natureza fixa em 'carga_geral' (perdia condição e
+      // local). Shape é EmptyEmbarkRow[] — o impresso (AgencyReportDocument.tsx)
+      // lê via EmptyEmbarkTable/asEmptyEmbarkRows.
+      vaziosEmbarcados: emptyEmbarkRows,
       vaziosUnidades: data?.vaziosExp ?? [],
       vehicleLocations: Object.fromEntries(vehicleLocations),
       depots,
@@ -242,6 +272,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     },
     occurrences: ownData?.occurrences ?? [],
     signoffs: ownData?.signoffs ?? [],
+    // Task 5 do ADR 2026-07-31: chave de topo irmã de `signoffs` — o impresso
+    // fecha com os três sign-offs departamentais. Task 9 libera esta chave na
+    // validação de fechamento (allowlist em close_agency_departure_report).
+    departmentSignoffs: ownData?.departmentSignoffs ?? [],
   }
   const closedSnapshot = ownData?.closed_snapshot as typeof snapshot | null
   const isClosed = ownData?.status === 'closed' && closedSnapshot
@@ -249,9 +283,17 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap gap-2" aria-label="Selecionar escala ADR">
-        {pods.map((pod) => (
-          <button key={pod} type="button" aria-pressed={port === pod} onClick={() => setPort(pod)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${port === pod ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white' : 'border-[var(--app-border)] text-[var(--app-muted)]'}`}>
+        {pods.map(({ pod, omitted }) => (
+          <button key={pod} type="button" aria-pressed={port === pod} onClick={() => setPort(pod)} className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${port === pod ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white' : 'border-[var(--app-border)] text-[var(--app-muted)]'}`}>
             {pod}
+            {omitted ? (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${port === pod ? 'bg-white/20 text-white' : 'bg-[var(--app-surface-muted)] text-[var(--app-muted)]'}`}
+                title="Escala omitida — o navio não atracou neste porto; ADR mantido apenas como registro fechado."
+              >
+                Omitida
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -261,8 +303,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       {!isLoading && !error ? <>
         {isClosed ? <>
           <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)} por {ownData?.closed_by_name ?? ownData?.closed_by ?? '—'}</span><div className="flex gap-2"><Button variant="secondary" onClick={() => setPrintOpen(true)}>Imprimir</Button>{isAdmin ? <Button variant="primary" onClick={() => setReopenOpen(true)}>Reabrir</Button> : null}</div></div>
-          <AgencyReportDocument snapshot={closedSnapshot} />
-          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} /></Modal>
+          <AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} />
+          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} /></Modal>
           <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><Button variant="primary" className="mt-3" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</Button></Modal>
         </> : <>
         <div className="app-panel app-panel--padded grid gap-3">
@@ -316,14 +358,35 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} events={eventsBySection('carga_descarregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('carga_descarregada')?.observation} onObservationChange={updateObservation}
           >
-            <div className="flex flex-wrap items-baseline gap-4">
-              <Hero value={String(containers.length)} unit="containers descarregados" />
-              {imoCount > 0 ? <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-xs font-semibold text-[var(--app-text)]">IMO: {imoCount}</span> : null}
-            </div>
-            <div className="grid gap-4 xl:grid-cols-2">
-              {data?.cargaSolta?.bls ? <MetricPanel title="Carga solta"><Hero value={data.cargaSolta.weightTon.toLocaleString('pt-BR')} unit="ton" /><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></MetricPanel> : <MetricPanel title="Carga solta"><EmptyData /></MetricPanel>}
-              {containers.length ? <MetricPanel title="Descarga de importação"><Matrix rows={dischargeMatrix.rows} /></MetricPanel> : <MetricPanel title="Descarga de importação"><EmptyData /></MetricPanel>}
-            </div>
+            {containers.length === 0 && !data?.cargaSolta?.bls && !data?.cargaSolta?.transshipment?.bls ? <NadaOperado /> : <>
+              <div className="flex flex-wrap items-baseline gap-4">
+                <Hero value={String(containers.length)} unit="containers descarregados" />
+                {imoCount > 0 ? <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-xs font-semibold text-[var(--app-text)]">IMO: {imoCount}</span> : null}
+              </div>
+              <div className="grid gap-4 xl:grid-cols-2">
+                {data?.cargaSolta?.bls || data?.cargaSolta?.transshipment?.bls ? (
+                  <MetricPanel title="Carga solta">
+                    {data?.cargaSolta?.bls ? <><Hero value={data.cargaSolta.weightTon.toLocaleString('pt-BR')} unit="ton" /><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></> : null}
+                    {data?.cargaSolta?.transshipment?.bls ? (
+                      <div className="mt-2 grid gap-1 border-t border-[var(--app-border)] pt-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Em transbordo</span>
+                        <Info label="B/Ls" value={String(data.cargaSolta.transshipment.bls)} />
+                        <Info label="Máquinas" value={String(data.cargaSolta.transshipment.machines)} />
+                        <Info label="Packages" value={String(data.cargaSolta.transshipment.packages)} />
+                        <Info label="Peso" value={`${data.cargaSolta.transshipment.weightTon.toLocaleString('pt-BR')} ton`} />
+                        <Info label="CBM" value={data.cargaSolta.transshipment.cbm.toLocaleString('pt-BR')} />
+                      </div>
+                    ) : null}
+                  </MetricPanel>
+                ) : null}
+                {containers.length ? <MetricPanel title="Descarga de importação"><OperatedListing rows={dischargeMatrix.rows} /></MetricPanel> : null}
+              </div>
+            </>}
+            {data?.dischargeDivergence && data.dischargeDivergence.orphanFullContainers > 0 ? (
+              <DivergenceWarning>
+                {data.dischargeDivergence.orphanFullContainers} container(s) cheio(s) no Baplie sem B/L correspondente nesta escala — revisar na Conciliação Baplie × B/L.
+              </DivergenceWarning>
+            ) : null}
           </ReportSection>
 
           <ReportSection
@@ -331,8 +394,16 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('vazios_descarregados')?.observation} onObservationChange={updateObservation}
           >
-            <Hero value={String(data?.vaziosImp.length ?? 0)} unit="vazios descarregados" />
-            {data?.vaziosImp.length ? <Matrix rows={emptyDischargeMatrix.rows} /> : <EmptyData />}
+            {data?.vaziosImp.length ? <>
+              <Hero value={String(data.vaziosImp.length)} unit="vazios descarregados" />
+              <OperatedListing rows={emptyDischargeMatrix.rows} />
+            </> : <NadaOperado />}
+            {data?.vaziosDivergence?.diverges ? (
+              <DivergenceWarning>
+                Baplie aponta {data.vaziosDivergence.baplieCount} vazio(s) descarregado(s) contra {data.vaziosDivergence.moduleCount} no módulo de Vazios de Importação
+                {data.vaziosDivergence.unclassifiedCount > 0 ? ` (${data.vaziosDivergence.unclassifiedCount} ainda sem natureza classificada)` : ''} — revisar na Conciliação Baplie × B/L.
+              </DivergenceWarning>
+            ) : null}
           </ReportSection>
 
           <ReportSection
@@ -340,8 +411,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="veiculos" state={sectionState('veiculos')} attribution={sectionAttribution('veiculos')} canSignoff={canSignoff('veiculos')} events={eventsBySection('veiculos')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('veiculos')?.observation} onObservationChange={updateObservation}
           >
-            <Hero value={String(vehicleVinTotal)} unit="VINs" />
-            {vehicles.length ? <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div> : <EmptyData />}
+            {vehicleVinTotal ? <>
+              <Hero value={String(vehicleVinTotal)} unit="VINs" />
+              <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'}${vehicle.transshipmentVinCount ? ` · ${vehicle.transshipmentVinCount} em transbordo` : ''} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div>
+            </> : <NadaOperado />}
           </ReportSection>
         </ReportPhase>
 
@@ -353,11 +426,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           >
             <Hero value={String(data?.storage.days ?? 0)} unit="dias de storage" />
             <div className="grid gap-4 xl:grid-cols-3">
-              <MetricPanel title="Storage"><Info label="Containers" value={String(data?.storage.containers ?? 0)} /><Info label="Dias" value={String(data?.storage.days ?? 0)} /></MetricPanel>
-              <MetricPanel title="Embarque direto"><Info label="Unidades sem armazenagem" value={String(directEmbarkCount)} /></MetricPanel>
+              {data?.storage.days ? <MetricPanel title="Storage"><Info label="Containers" value={String(data.storage.containers)} /><Info label="Dias" value={String(data.storage.days)} /></MetricPanel> : null}
+              {directEmbarkCount ? <MetricPanel title="Embarque direto"><Info label="Unidades sem armazenagem" value={String(directEmbarkCount)} /></MetricPanel> : null}
               <MetricPanel title="Locais"><Info label="Depots / terminais" value={depots.join(', ') || '—'} /></MetricPanel>
             </div>
-            <MetricPanel title="Linhas de serviço">{data?.costs?.serviceLines?.length ? <div className="app-table-scroll"><table className="app-table min-w-[900px] text-left text-sm"><thead><tr><th>Serviço</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>Unitário</th><th>Total</th></tr></thead><tbody>{data.costs.serviceLines.map((service) => <tr key={service.id}><td>{service.service?.name ?? '—'}</td><td>{service.local?.name ?? service.local?.code ?? service.local_id}</td><td>{service.destino?.name ?? service.destino?.code ?? '—'}</td><td>{service.container_type ?? '—'}</td><td>{String(service.quantidade)}</td><td>{formatBRL(Number(service.valor_unitario))}</td><td>{formatBRL(Number(service.quantidade) * Number(service.valor_unitario) * (service.percentual == null ? 1 : Number(service.percentual) / 100))}</td></tr>)}</tbody></table></div> : <Info label="Registros" value="0" />}</MetricPanel>
+            <MetricPanel title="Linhas de serviço">{data?.costs?.serviceLines?.length ? <div className="app-table-scroll"><table className="app-table min-w-[900px] text-left text-sm"><thead><tr><th>Serviço</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>Unitário</th><th>Total</th></tr></thead><tbody>{data.costs.serviceLines.map((service) => <tr key={service.id}><td>{service.service?.name ?? '—'}</td><td>{service.local?.name ?? service.local?.code ?? service.local_id}</td><td>{service.destino?.name ?? service.destino?.code ?? '—'}</td><td>{service.container_type ?? '—'}</td><td>{String(service.quantidade)}</td><td>{formatBRL(Number(service.valor_unitario))}</td><td>{formatBRL(Number(service.total))}</td></tr>)}</tbody></table></div> : <Info label="Registros" value="0" />}</MetricPanel>
             <MetricPanel title="Totais"><Info label="Total da operação" value={formatBRL(data?.costs?.total ?? 0)} /></MetricPanel>
           </ReportSection>
 
@@ -366,8 +439,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} events={eventsBySection('vazios_embarcados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('vazios_embarcados')?.observation} onObservationChange={updateObservation}
           >
-            <Hero value={String(bookings.length)} unit="vazios embarcados" />
-            {bookings.length ? <MetricPanel title="Matriz"><Matrix rows={emptyEmbarkMatrix.rows} /></MetricPanel> : <EmptyData />}
+            {bookings.length ? <>
+              <Hero value={String(bookings.length)} unit="vazios embarcados" />
+              <div className="grid gap-1">{emptyEmbarkRows.map((row) => <Info key={`${row.type}:${row.condition}:${row.localLabel}`} label={`${row.type} · ${row.condition} · ${row.localLabel}`} value={String(row.quantity)} />)}</div>
+            </> : data?.orphanData?.vaziosEmbarcados.length ? null : <NadaOperado />}
+            <OrphanDataWarning entries={data?.orphanData?.vaziosEmbarcados ?? []} label="unidade(s) de vazios embarcados" />
           </ReportSection>
         </ReportPhase>
 
@@ -380,7 +456,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             {data?.granite.length ? <>
               <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
               <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
-            </> : <EmptyData />}
+            </> : data?.orphanData?.granito.length ? null : <NadaOperado />}
+            <OrphanDataWarning entries={data?.orphanData?.granito ?? []} label="B/L(s) de granito" />
           </ReportSection>
         </ReportPhase>
         </>}
@@ -389,6 +466,20 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   )
 }
 
-function Matrix({ rows }: { rows: Record<string, Record<string, number>> }) {
-  return <div className="grid gap-2">{Object.entries(rows).map(([type, categories]) => <Info key={type} label={type} value={Object.entries(categories).map(([category, total]) => `${category}: ${total}`).join(' · ')} />)}</div>
+// Task 4 do ADR 2026-07-31: substitui a antiga Matrix (uma linha por tipo,
+// categorias mescladas numa string só) por uma linha por combinação
+// (tipo, categoria) existente — a "listagem do operado" literal do plano, sem
+// célula zerada porque buildContainerTypeMatrix só grava o que ocorreu.
+function OperatedListing({ rows }: { rows: Record<string, Record<string, number>> }) {
+  const combos = Object.entries(rows)
+    .flatMap(([type, categories]) => Object.entries(categories).map(([category, quantity]) => ({ type, category, quantity })))
+    .sort((a, b) => a.type.localeCompare(b.type) || a.category.localeCompare(b.category))
+
+  if (!combos.length) return <NadaOperado />
+
+  return (
+    <div className="grid gap-2">
+      {combos.map((combo) => <Info key={`${combo.type}:${combo.category}`} label={`${combo.type} · ${MATRIX_CATEGORY_LABELS[combo.category] ?? combo.category}`} value={String(combo.quantity)} />)}
+    </div>
+  )
 }

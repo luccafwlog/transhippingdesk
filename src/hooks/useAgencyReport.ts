@@ -3,6 +3,7 @@ import {
   closeReport,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
+  listClosedAgencyReportPorts,
   listSignoffEvents,
   reopenReport,
   setDepartmentSignoff,
@@ -24,6 +25,19 @@ export function useAgencyReportOwn(voyageId: number, port: string | null) {
     queryKey: ['agency-report-own', voyageId, port],
     queryFn: () => getAgencyReportOwnData(voyageId, port as string),
     enabled: Boolean(port),
+  })
+}
+
+// Portos com ADR fechado da viagem (Task 2 do ADR 2026-07-31): usado por
+// VoyageCard para não sumir com a escala omitida que já tem ADR fechado.
+// Uma query por card renderizado na lista de viagens — staleTime evita
+// refetch a cada montagem/foco de janela para um dado que muda raramente
+// (mesmo valor usado por useVoyageReconciliation, o hook irmão no mesmo card).
+export function useClosedAgencyReportPorts(voyageId: number) {
+  return useQuery({
+    queryKey: ['agency-report-closed-ports', voyageId],
+    queryFn: () => listClosedAgencyReportPorts(voyageId),
+    staleTime: 60_000,
   })
 }
 

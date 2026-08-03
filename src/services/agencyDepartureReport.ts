@@ -2,6 +2,7 @@ import type {
   BaplieContainer,
   Depot,
   GraniteBl,
+  GraniteManifest,
   UserProfileRole,
   VaziosBooking,
   VaziosExportOperation,
@@ -14,8 +15,9 @@ import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepa
 import { supabase } from './supabase'
 import { computeStorageTotals } from './vaziosExportOperations'
 import { listDepots } from './depots'
-import { quantidadeEfetiva, totalEmbarque } from './vaziosCusto'
+import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
+import { normalizePortCode } from './portCode'
 
 export type AgencyReportSection =
   | 'datas'
@@ -237,6 +239,20 @@ export async function closeReport(input: { voyageId: number; port: string; snaps
   if (error) throw error
 }
 
+// Portos com ADR fechado da viagem (Task 2 do ADR 2026-07-31): uma escala
+// omitida DEPOIS de o ADR ter sido fechado continua reachable para consulta —
+// o fechamento é um registro imutável. Só o porto (não o registro inteiro)
+// interessa aqui; quem precisar do snapshot usa getAgencyReportOwnData.
+export async function listClosedAgencyReportPorts(voyageId: number): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('agency_departure_reports')
+    .select('port')
+    .eq('voyage_id', voyageId)
+    .eq('status', 'closed')
+  if (error) throw error
+  return [...new Set((data ?? []).map((row) => row.port))]
+}
+
 export async function reopenReport(input: { voyageId: number; port: string; justification: string }) {
   const { error } = await supabase.rpc('reopen_agency_departure_report', {
     p_voyage_id: input.voyageId,
@@ -251,6 +267,11 @@ export type MatrixCategory =
   | 'veiculos'
   | 'transbordo'
   | 'imo'
+  // 'vazio': container vazio do Baplie sem B/L correspondente, na própria
+  // listagem de carga descarregada (Task 3). 'vazio_cama'/'vazio_cover_plate':
+  // classificação de vazios_importacao_containers, seção própria — não
+  // confundir os três.
+  | 'vazio'
   | 'vazio_cama'
   | 'vazio_cover_plate'
 
@@ -259,6 +280,20 @@ export type AgencyReportDischargeContainer = {
   size_type: string | null
   is_imo: boolean
   category: MatrixCategory
+}
+
+// Rótulo de categoria na Listagem do operado (Task 3/4/5): 'vazio' (Baplie
+// sem B/L) e 'vazio_cama'/'vazio_cover_plate' (módulo de Vazios de
+// Importação) aparecem lado a lado no mesmo documento — sem rótulo, a
+// diferença entre os três se perde no `replaceAll('_', ' ')` genérico.
+export const MATRIX_CATEGORY_LABELS: Record<string, string> = {
+  carga_geral: 'carga geral',
+  veiculos: 'veículos',
+  transbordo: 'transbordo',
+  imo: 'IMO',
+  vazio: 'vazio (sem B/L)',
+  vazio_cama: 'vazio — cama',
+  vazio_cover_plate: 'vazio — cover plate',
 }
 
 function normalizeContainerNumber(containerNumber: string | null | undefined) {
@@ -281,21 +316,69 @@ export function buildContainerTypeMatrix(
   return { rows, totals }
 }
 
+// Rótulo de condição dos vazios de exportação, mesma convenção do Depot
+// Cadastro/Embarque de Vazios (EMPTY / EMPTY W/ MATERIAL) — Task 4 do ADR
+// 2026-07-31: a listagem de Vazios embarcados precisa da condição, não só do
+// tipo, então reaproveita o rótulo em vez de inventar um novo.
+const VAZIOS_CONDITION_LABELS: Record<string, string> = {
+  vazio: 'EMPTY',
+  material: 'EMPTY W/ MATERIAL',
+}
+
+export type EmptyEmbarkRow = {
+  type: string
+  condition: string
+  localLabel: string
+  quantity: number
+}
+
+// Substitui a antiga matriz (type × 'carga_geral' fixo) por uma listagem em
+// (tipo, condição, local de origem) — Task 4 do ADR 2026-07-31, bullet 4: a
+// condição e o depot/terminal de origem eram descartados antes. Uma linha por
+// combinação existente, ordenada como groupVehiclesByBrand (alfabética).
+export function groupEmptyEmbarkBookings(
+  items: Array<{ type: string; condition: string | null; localLabel: string | null }>,
+): EmptyEmbarkRow[] {
+  const rows = new Map<string, EmptyEmbarkRow>()
+
+  for (const item of items) {
+    const type = item.type || '—'
+    const condition = (item.condition && VAZIOS_CONDITION_LABELS[item.condition]) || item.condition || '—'
+    const localLabel = item.localLabel || '—'
+    const key = `${type}::${condition}::${localLabel}`
+    const existing = rows.get(key)
+    if (existing) existing.quantity += 1
+    else rows.set(key, { type, condition, localLabel, quantity: 1 })
+  }
+
+  return [...rows.values()].sort((a, b) =>
+    a.type.localeCompare(b.type) || a.condition.localeCompare(b.condition) || a.localLabel.localeCompare(b.localLabel),
+  )
+}
+
 export function groupVehiclesByBrand(
-  vehicles: Array<{ brand: string; bl_id: string; chassis: string }>,
+  vehicles: Array<{ brand: string; bl_id: string; chassis: string; isTransshipment?: boolean }>,
 ) {
-  const byBrand = new Map<string, { bls: Set<string>; vins: Set<string> }>()
+  const byBrand = new Map<string, { bls: Set<string>; vins: Set<string>; transshipmentVins: Set<string> }>()
 
   for (const vehicle of vehicles) {
-    const entry = byBrand.get(vehicle.brand) ?? { bls: new Set<string>(), vins: new Set<string>() }
+    const entry = byBrand.get(vehicle.brand) ?? { bls: new Set<string>(), vins: new Set<string>(), transshipmentVins: new Set<string>() }
     entry.bls.add(vehicle.bl_id)
     entry.vins.add(vehicle.chassis)
+    if (vehicle.isTransshipment) entry.transshipmentVins.add(vehicle.chassis)
     byBrand.set(vehicle.brand, entry)
   }
 
   return [...byBrand.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([brand, entry]) => ({ brand, blCount: entry.bls.size, vinCount: entry.vins.size }))
+    .map(([brand, entry]) => ({
+      brand,
+      blCount: entry.bls.size,
+      vinCount: entry.vins.size,
+      // Task 1 (ADR 2026-07-31): quantos desses VINs chegaram em transbordo,
+      // separado do total (que já inclui os próprios e os em transbordo).
+      transshipmentVinCount: entry.transshipmentVins.size,
+    }))
 }
 
 type BreakbulkAgencyReportBl = {
@@ -306,13 +389,124 @@ type BreakbulkAgencyReportBl = {
   total_cbm: number | null
 }
 
+// ADR 0022/0025: bls.pod nunca é reescrito para disposição 'transshipment'
+// (só COD reescreve). A carga de um B/L em transbordo continua com pod no
+// porto omitido, então a escala do porto de descarga real precisa buscá-la
+// à parte via voyage_omissions → bl_transshipments, sem tocar em bls.pod.
+async function listTransshipmentBlIds(voyageId: number, port: string): Promise<string[]> {
+  const omissionsRes = await supabase
+    .from('voyage_omissions')
+    .select('id')
+    .eq('voyage_id', voyageId)
+    .eq('discharge_pod', port)
+  if (omissionsRes.error) throw omissionsRes.error
+  const omissionIds = (omissionsRes.data ?? []).map((row) => row.id)
+  if (!omissionIds.length) return []
+
+  const blTransshipmentsRes = await supabase
+    .from('bl_transshipments')
+    .select('bl_id')
+    .in('omission_id', omissionIds)
+    .eq('disposition', 'transshipment')
+  if (blTransshipmentsRes.error) throw blTransshipmentsRes.error
+  return [...new Set((blTransshipmentsRes.data ?? []).map((row) => row.bl_id))]
+}
+
+const BL_CONTAINERS_SELECT = 'id, container_number, type, is_imo, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))'
+const BREAKBULK_SELECT = 'bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm'
+const VEHICLES_SELECT = 'brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location)'
+
+const SUPABASE_PAGE_SIZE = 1000
+
+// Task 6/10 (ADR 2026-07-31) trocaram consultas filtradas por porto por
+// consultas da viagem inteira (para casar por porto normalizado em JS —
+// ver normalizePortCode acima). O PostgREST limita o retorno por página
+// (mesmo teto que reconcileBaplieWithManifest já pagina em
+// baplieReconciliation.ts); sem paginar aqui, uma viagem com mais granito/
+// B/Ls do que a página perderia linhas silenciosamente do ADR.
+async function fetchAllRows<T>(
+  queryFactory: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<{ data: T[] | null; error: unknown }> {
+  const rows: T[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await queryFactory(from, from + SUPABASE_PAGE_SIZE - 1)
+    if (error) return { data: null, error }
+    rows.push(...(data ?? []))
+    if (!data || data.length < SUPABASE_PAGE_SIZE) break
+    from += SUPABASE_PAGE_SIZE
+  }
+  return { data: rows, error: null }
+}
+
+// ponytail: mesma união de bls.pod/bls.pol normalizada e filtrada a portos BR
+// que fetchVoyageEscalaPorts (src/pages/EmbarqueVazios.tsx) já faz — duplicada
+// aqui porque este é o serviço do ADR, não a página de Embarque de Vazios, e o
+// plano deste ADR (2026-07-31-adr-cobertura-fontes-forma) é deliberadamente
+// independente do plano de projeção unificada de escalas. Teto: não enxerga
+// escala planejada sem B/L ainda lançado. Upgrade: as duas cópias somem quando
+// docs/plans/2026-07-31-escala-unificada-pol-pod.md entregar a projeção comum.
+async function listVoyageEscalaPorts(voyageId: number): Promise<Set<string>> {
+  const { data, error } = await fetchAllRows<{ pod: string | null; pol: string | null }>((from, to) =>
+    supabase.from('bls').select('pod, pol').eq('voyage_id', voyageId).range(from, to),
+  )
+  if (error) throw error
+  const ports = new Set<string>()
+  for (const row of data ?? []) {
+    for (const raw of [row.pod, row.pol]) {
+      const code = normalizePortCode(raw)
+      if (code && code.startsWith('BR')) ports.add(code)
+    }
+  }
+  return ports
+}
+
+export type AgencyReportOrphanEntry = { port: string; count: number }
+export type AgencyReportOrphanData = {
+  granito: AgencyReportOrphanEntry[]
+  vaziosEmbarcados: AgencyReportOrphanEntry[]
+}
+
+function toSortedOrphanEntries(byPort: Map<string, number>): AgencyReportOrphanEntry[] {
+  return [...byPort.entries()]
+    .map(([port, count]) => ({ port, count }))
+    .sort((a, b) => a.port.localeCompare(b.port))
+}
+
 export async function getAgencyReportDerivedData(voyageId: number, port: string) {
   const entityId = buildVoyagePodEntityId(voyageId, port)
-  const [schedules, vehiclesRes, vaziosImpRes, graniteRes, baplieContainersRes, blContainersRes, operationRes, breakbulkRes] = await Promise.all([
+  // Granito (Task 6) e o aviso de órfão (Task 10) casam pelo porto normalizado
+  // — `port` chega como veio de bls.pod (ex.: 'BRVIT', legado antes do LOCODE
+  // canônico 'BRVIX'), então comparar contra o `port` cru perderia granito de
+  // uma escala válida sem marcá-lo como órfão (as duas checagens usam a mesma
+  // normalização de escalaPorts, então ficariam inconsistentes entre si).
+  const portCode = normalizePortCode(port) ?? port
+  const transshipmentBlIds = await listTransshipmentBlIds(voyageId, port)
+  const emptyResult = { data: [], error: null }
+
+  const [
+    schedules,
+    escalaPorts,
+    vehiclesRes,
+    vaziosImpRes,
+    graniteRes,
+    baplieContainersRes,
+    blContainersRes,
+    operationRes,
+    allVaziosOpsRes,
+    breakbulkRes,
+    transshipmentBlContainersRes,
+    transshipmentBreakbulkRes,
+    transshipmentVehiclesRes,
+  ] = await Promise.all([
     listVoyagePodSchedules([entityId]),
+    // Task 10 (ADR 2026-07-31): conjunto de escalas BR válidas da viagem, para
+    // distinguir "dado órfão" (porto que não é escala nenhuma) de "dado da
+    // escala vizinha" (porto válido, só que não é este).
+    listVoyageEscalaPorts(voyageId),
     supabase
       .from('vehicles')
-      .select('brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location), bl:bls!inner(voyage_id, pod)')
+      .select(`${VEHICLES_SELECT}, bl:bls!inner(voyage_id, pod)`)
       .eq('bl.voyage_id', voyageId)
       .eq('bl.pod', port),
     supabase
@@ -320,11 +514,18 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
       .eq('manifest.voyage_id', voyageId)
       .eq('pod', port),
-    supabase
-      .from('granite_bls')
-      .select('real_weight_kg, blocks_qty, loading_port, manifest:granite_manifests!inner(voyage_id)')
-      .eq('manifest.voyage_id', voyageId)
-      .eq('loading_port', port),
+    // Task 6 (ADR 2026-07-31): não filtra loading_port no banco — B/Ls
+    // importados antes da normalização (Task 6 em graniteImport.ts) guardam
+    // texto livre ("Vitoria, Brazil") que nunca bateria num .eq() exato contra
+    // o LOCODE da escala. Traz todos os B/Ls da viagem, com o loading_port do
+    // manifesto como fallback, e casa em JS via normalizePortCode (abaixo).
+    fetchAllRows((from, to) =>
+      supabase
+        .from('granite_bls')
+        .select('real_weight_kg, blocks_qty, loading_port, manifest:granite_manifests!inner(voyage_id, loading_port)')
+        .eq('manifest.voyage_id', voyageId)
+        .range(from, to),
+    ),
     supabase
       .from('baplie_containers')
       .select('container_number, size_type, status, is_imo, pod')
@@ -332,7 +533,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('pod', port),
     supabase
       .from('bl_containers')
-      .select('id, container_number, type, is_imo, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))')
+      .select(BL_CONTAINERS_SELECT)
       .eq('bl.voyage_id', voyageId)
       .eq('bl.pod', port),
     supabase
@@ -341,21 +542,63 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .eq('voyage_id', voyageId)
       .eq('embark_port', port)
       .maybeSingle(),
+    // Task 10 (ADR 2026-07-31): todas as operações de Embarque de Vazios da
+    // viagem, sem filtrar embark_port — igual em espírito ao Task 6 do
+    // granito, para achar operações lançadas num porto que não é escala.
+    supabase
+      .from('vazios_export_operations')
+      .select('id, embark_port')
+      .eq('voyage_id', voyageId),
     supabase
       .from('bls')
-      .select('bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm')
+      .select(BREAKBULK_SELECT)
       .eq('voyage_id', voyageId)
       .eq('pod', port)
       .eq('cargo_mode', 'carga_solta'),
+    // Carga em transbordo (Task 1 do ADR 2026-07-31): mesmas três consultas,
+    // agora restritas aos B/Ls de transshipmentBlIds, sem filtrar por bls.pod
+    // (que continua apontando para o porto omitido). Só disparam quando há
+    // B/Ls em transbordo para esta escala.
+    transshipmentBlIds.length
+      ? supabase.from('bl_containers').select(BL_CONTAINERS_SELECT).in('bl_id', transshipmentBlIds)
+      : Promise.resolve(emptyResult),
+    transshipmentBlIds.length
+      ? supabase.from('bls').select(BREAKBULK_SELECT).in('id', transshipmentBlIds).eq('cargo_mode', 'carga_solta')
+      : Promise.resolve(emptyResult),
+    transshipmentBlIds.length
+      ? supabase.from('vehicles').select(VEHICLES_SELECT).in('bl_id', transshipmentBlIds)
+      : Promise.resolve(emptyResult),
   ])
 
-  for (const result of [vehiclesRes, vaziosImpRes, graniteRes, baplieContainersRes, blContainersRes, operationRes, breakbulkRes]) {
+  for (const result of [
+    vehiclesRes,
+    vaziosImpRes,
+    graniteRes,
+    baplieContainersRes,
+    blContainersRes,
+    operationRes,
+    allVaziosOpsRes,
+    breakbulkRes,
+    transshipmentBlContainersRes,
+    transshipmentBreakbulkRes,
+    transshipmentVehiclesRes,
+  ]) {
     if (result.error) throw result.error
   }
 
-  const vehicles = (vehiclesRes.data ?? []) as unknown as Array<Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
+  type AgencyReportVehicle = Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
     container: { unpacking_location: string | null } | null
-  }>
+    isTransshipment: boolean
+  }
+  const ownVehicles = (vehiclesRes.data ?? []) as unknown as Array<Omit<AgencyReportVehicle, 'isTransshipment'>>
+  const transshipmentVehicles = (transshipmentVehiclesRes.data ?? []) as unknown as Array<Omit<AgencyReportVehicle, 'isTransshipment'>>
+  // bls.pod nunca é o mesmo entre o porto da escala e o porto omitido de uma
+  // mesma viagem, então as duas listas nunca se sobrepõem — concatena sem
+  // deduplicar (ver listTransshipmentBlIds).
+  const vehicles: AgencyReportVehicle[] = [
+    ...ownVehicles.map((vehicle) => ({ ...vehicle, isTransshipment: false })),
+    ...transshipmentVehicles.map((vehicle) => ({ ...vehicle, isTransshipment: true })),
+  ]
   const operation = operationRes.data as VaziosExportOperation | null
   const allDepots = operation ? await listDepots() : []
   const emptyOperationResult = { data: [], error: null }
@@ -368,6 +611,30 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
 
   for (const result of [vaziosExpRes, serviceLinesRes]) {
     if (result.error) throw result.error
+  }
+
+  // Task 10 (ADR 2026-07-31): Embarque de Vazios lançado num porto que não é
+  // escala nenhuma da viagem — mesma lógica do granito, mas a "quantidade" é o
+  // total de vazios_bookings sob a operação órfã (raro e de baixa
+  // cardinalidade — uma consulta extra, só quando há órfão, é proporcional).
+  const allVaziosOps = (allVaziosOpsRes.data ?? []) as Array<Pick<VaziosExportOperation, 'id' | 'embark_port'>>
+  const orphanVaziosOps = allVaziosOps.filter((op) => {
+    const normalized = normalizePortCode(op.embark_port)
+    return normalized !== null && normalized !== portCode && !escalaPorts.has(normalized)
+  })
+  const orphanVaziosBookingsRes = orphanVaziosOps.length
+    ? await supabase.from('vazios_bookings').select('operation_id').in('operation_id', orphanVaziosOps.map((op) => op.id))
+    : emptyOperationResult
+  if (orphanVaziosBookingsRes.error) throw orphanVaziosBookingsRes.error
+  const orphanBookingCountByOpId = new Map<string, number>()
+  for (const row of (orphanVaziosBookingsRes.data ?? []) as Array<{ operation_id: string }>) {
+    orphanBookingCountByOpId.set(row.operation_id, (orphanBookingCountByOpId.get(row.operation_id) ?? 0) + 1)
+  }
+  const orphanVaziosByPort = new Map<string, number>()
+  for (const op of orphanVaziosOps) {
+    const normalized = normalizePortCode(op.embark_port)!
+    const count = orphanBookingCountByOpId.get(op.id) ?? 0
+    orphanVaziosByPort.set(normalized, (orphanVaziosByPort.get(normalized) ?? 0) + count)
   }
 
   const rawServiceLines = serviceLinesRes.data as VaziosExportServiceLine[]
@@ -386,15 +653,39 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     local: Pick<Depot, 'id' | 'code' | 'name' | 'tipo'> | null
   }>
   const vaziosImp = (vaziosImpRes.data ?? []) as Pick<VaziosImportacaoContainer, 'container_type' | 'natureza' | 'pod'>[]
-  const granite = (graniteRes.data ?? []) as Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[]
+  type AgencyReportGraniteBl = Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'> & {
+    manifest: Pick<GraniteManifest, 'loading_port'> | null
+  }
+  const graniteRows = (graniteRes.data ?? []) as unknown as AgencyReportGraniteBl[]
+  // Task 6 (ADR 2026-07-31): casa pelo porto normalizado, usando o
+  // loading_port do manifesto quando o B/L não trouxer o seu (fallback).
+  const granite: Pick<GraniteBl, 'real_weight_kg' | 'blocks_qty' | 'loading_port'>[] = graniteRows
+    .filter((bl) => normalizePortCode(bl.loading_port ?? bl.manifest?.loading_port ?? null) === portCode)
+    .map((bl) => ({ real_weight_kg: bl.real_weight_kg, blocks_qty: bl.blocks_qty, loading_port: bl.loading_port }))
+  // Task 10 (ADR 2026-07-31): granito num porto que não é escala nenhuma da
+  // viagem (nem esta, nem outra) — dado órfão, provável porto digitado/
+  // importado errado. Granito de uma escala vizinha VÁLIDA (em escalaPorts)
+  // não entra aqui — aparece normalmente no ADR daquela escala.
+  const orphanGraniteByPort = new Map<string, number>()
+  for (const bl of graniteRows) {
+    const normalized = normalizePortCode(bl.loading_port ?? bl.manifest?.loading_port ?? null)
+    if (!normalized || normalized === portCode || escalaPorts.has(normalized)) continue
+    orphanGraniteByPort.set(normalized, (orphanGraniteByPort.get(normalized) ?? 0) + 1)
+  }
   const baplieContainers = (baplieContainersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
-  const blContainers = (blContainersRes.data ?? []) as Array<{
+  type AgencyReportBlContainer = {
     id: number
     container_number: string
     type: string | null
     is_imo: boolean | null
     bl: { transshipments: Array<{ disposition: string }> | null } | null
-  }>
+  }
+  // Idem: containers do porto da escala e containers em transbordo (bls.pod
+  // apontando para o porto omitido) nunca se sobrepõem.
+  const blContainers = [
+    ...(blContainersRes.data ?? []),
+    ...(transshipmentBlContainersRes.data ?? []),
+  ] as AgencyReportBlContainer[]
   const vehicleContainerIds = new Set(vehicles.flatMap((vehicle) => vehicle.container_id === null ? [] : [vehicle.container_id]))
   const baplieByContainerNumber = new Map(baplieContainers.map((container) => [normalizeContainerNumber(container.container_number), container]))
   const blContainerNumbers = new Set(blContainers.map((container) => normalizeContainerNumber(container.container_number)))
@@ -411,16 +702,49 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     }
   })
 
+  // Task 3 do ADR 2026-07-31 (CAR-1): o B/L é a única fonte documental dos
+  // cheios (ADR 0025); o Baplie só complementa a listagem com os vazios que o
+  // B/L nunca teria. Um container 'full' do Baplie sem B/L correspondente vira
+  // divergência de existência (mesmo conceito de reconcileBaplieWithManifest /
+  // computeExistenceDivergences, kind 'missing_in_manifest'), não um item da
+  // matriz — evita inflar carga_geral/imo sem lastro documental.
+  let orphanFullContainers = 0
   for (const container of baplieContainers) {
     if (blContainerNumbers.has(normalizeContainerNumber(container.container_number))) continue
-    containers.push({
-      container_number: container.container_number,
-      size_type: container.size_type,
-      is_imo: Boolean(container.is_imo),
-      category: container.is_imo ? 'imo' : 'carga_geral',
-    })
+    if (container.status === 'full') {
+      orphanFullContainers += 1
+      continue
+    }
+    if (container.status === 'empty') {
+      // pod já filtrado na consulta (linha ~388: .eq('pod', port)); a regra do
+      // "sem B/L" não vale para vazio — é esperado que ele não tenha B/L.
+      containers.push({
+        container_number: container.container_number,
+        size_type: container.size_type,
+        is_imo: Boolean(container.is_imo),
+        category: 'vazio',
+      })
+    }
+    // status fora de 'full'/'empty' (não deveria ocorrer — ver baplieParser.ts):
+    // fica de fora da matriz e da divergência, sem lastro para decidir.
   }
+  // Vazios descarregados: o Baplie conta quantos vazios chegaram no porto;
+  // vazios_importacao_containers é o módulo que os classifica em cama/cover
+  // plate (src/services/vaziosNatureza.ts). Quando as contagens divergem, a UI
+  // (Task 4) precisa mostrar os dois números e quantas unidades do módulo
+  // ainda estão sem natureza classificada.
+  const baplieEmptyCount = baplieContainers.filter((container) => container.status === 'empty').length
+  const vaziosModuleCount = vaziosImp.length
+  const vaziosUnclassifiedCount = vaziosImp.filter((container) => container.natureza === null).length
+  const vaziosDivergence = {
+    baplieCount: baplieEmptyCount,
+    moduleCount: vaziosModuleCount,
+    unclassifiedCount: vaziosUnclassifiedCount,
+    diverges: baplieEmptyCount !== vaziosModuleCount,
+  }
+
   const breakbulk = (breakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
+  const transshipmentBreakbulk = (transshipmentBreakbulkRes.data ?? []) as BreakbulkAgencyReportBl[]
   const units = vaziosExp.map((booking) => ({ ...booking, container_number: booking.container_number, local_id: booking.local_id, condition: booking.condition }))
   const serviceLines = rawServiceLines.map((row) => {
     const service = servicesById.get(row.service_id) ?? null
@@ -434,9 +758,14 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       quantidade: Number(row.quantidade),
       valor_unitario: Number(row.valor_unitario),
     }
-    return { ...line, quantidade: quantidadeEfetiva(line, units, allDepots) }
+    // totalLinha já recalcula a quantidade efetiva por dentro (armazenagem por
+    // depot/condição); calculamos aqui uma única vez e devolvemos junto da
+    // linha, para a aba e o impresso pararem de reimplementar a fórmula com
+    // divergência em linhas legadas de armazenagem com percentual não nulo
+    // (Task 8 do ADR 2026-07-31).
+    return { ...line, quantidade: quantidadeEfetiva(line, units, allDepots), total: totalLinha(line, units, allDepots) }
   })
-  const costs = { rows: [], total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
+  const costs = { total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
 
   return {
     schedule: schedules.get(entityId) ?? null,
@@ -445,18 +774,39 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     vaziosImp,
     granite,
     containers,
+    // Aviso de divergência (Task 3): quantidade de cheios do Baplie sem B/L
+    // correspondente nesta escala. O link para a Conciliação Baplie × B/L é
+    // responsabilidade da UI (Task 4/5) — aqui só a contagem.
+    dischargeDivergence: { orphanFullContainers },
+    vaziosDivergence,
+    // Task 10 (ADR 2026-07-31): granito/vazios embarcados lançados num porto
+    // que não é escala nenhuma da viagem — aviso informativo, não bloqueante
+    // (ver OrphanDataWarning em VoyageAgencyReportTab.tsx).
+    orphanData: {
+      granito: toSortedOrphanEntries(orphanGraniteByPort),
+      vaziosEmbarcados: toSortedOrphanEntries(orphanVaziosByPort),
+    } satisfies AgencyReportOrphanData,
     operation,
     costs,
     storage: computeStorageTotals(vaziosExp, allDepots),
     cargaSolta: {
-      bls: breakbulk.length,
-      machines: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0),
-      packages: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0),
-      weightTon: breakbulk.reduce(
-        (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
-        0,
-      ),
-      cbm: breakbulk.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0),
+      ...summarizeBreakbulk(breakbulk),
+      // Contagem em transbordo separada da de destino final (Task 1); exibida
+      // à parte na aba e no impresso (VoyageAgencyReportTab/AgencyReportDocument).
+      transshipment: summarizeBreakbulk(transshipmentBreakbulk),
     },
+  }
+}
+
+function summarizeBreakbulk(breakbulk: BreakbulkAgencyReportBl[]) {
+  return {
+    bls: breakbulk.length,
+    machines: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_machine_qty ?? 0), 0),
+    packages: breakbulk.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0),
+    weightTon: breakbulk.reduce(
+      (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
+      0,
+    ),
+    cbm: breakbulk.reduce((sum, bl) => sum + Number(bl.total_cbm ?? 0), 0),
   }
 }

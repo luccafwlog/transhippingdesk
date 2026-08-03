@@ -2,6 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { onlyDigits, toNumber } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
+import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
 // Mapeamento de cabeçalhos da planilha COSCO "Relatório de Cargas/Booking"
@@ -134,8 +135,11 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       bl_number: blNumber,
       shipper_ref: String(mapped['shipper_ref'] ?? '').trim() || null,
       vessel_voyage: String(mapped['vessel_voyage'] ?? '').trim() || null,
-      loading_port: String(mapped['loading_port'] ?? '').trim() || null,
-      discharge_port: String(mapped['discharge_port'] ?? '').trim() || null,
+      // Task 6 (ADR 2026-07-31): normaliza para LOCODE aqui, na entrada, para
+      // que o casamento com a escala (agencyDepartureReport.ts) funcione sem
+      // depender de correção retroativa dos dados já gravados.
+      loading_port: normalizePortCode(String(mapped['loading_port'] ?? '').trim() || null),
+      discharge_port: normalizePortCode(String(mapped['discharge_port'] ?? '').trim() || null),
       shipper_name: shipperName,
       shipper_cnpj: cnpjDigits || cnpjRaw || null,
       consignee_name: String(mapped['consignee_name'] ?? '').trim() || null,

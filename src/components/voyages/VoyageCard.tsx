@@ -5,12 +5,14 @@ import { Card } from '../ui/Card'
 import { Badge } from '../ui/Badge'
 import { useAuth } from '../../hooks/useAuth'
 import { useVoyageReconciliation } from '../../hooks/useVoyageReconciliation'
+import { useClosedAgencyReportPorts } from '../../hooks/useAgencyReport'
 import type { VoyageVehicleStat } from '../../hooks/useVehicles'
 import type { VoyageVaziosImportacaoStat } from '../../hooks/useVaziosImportacaoStats'
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../../lib/containerCounts'
 import { formatDate } from '../../lib/utils'
 import {
   collectVoyagePorts,
+  computeAdrEscalaPods,
   countDistinctRoutes,
   countPlannedPodRows,
   deriveEstadoConciliacao,
@@ -192,6 +194,13 @@ export function VoyageCard({
   })
   const activePods = podRows.filter((row) => !row.omitted).map((row) => row.pod)
   const plannedPodCount = countPlannedPodRows(podRows)
+
+  // Escalas do ADR (Task 2 do ADR 2026-07-31): não omitidas + omitidas que já
+  // têm ADR fechado (registro imutável, não pode ficar inalcançável). podRows
+  // já é recalculado a cada render, então nenhuma memoização adicional é
+  // necessária aqui.
+  const { data: closedAdrPorts } = useClosedAgencyReportPorts(voyage.id)
+  const adrPods = computeAdrEscalaPods(podRows, closedAdrPorts ?? [])
 
   // Estado de Conciliação: divergências da viagem aberta (uma consulta) +
   // sinais baratos do payload.
@@ -380,7 +389,7 @@ export function VoyageCard({
               voyageId={voyage.id}
               voyageLabel={voyageLabel}
               carrierName={voyage.vessel?.carrier?.name ?? 'Armador não informado'}
-              pods={activePods}
+              pods={adrPods}
               initialEscala={initialEscala}
             />
           ) : null}

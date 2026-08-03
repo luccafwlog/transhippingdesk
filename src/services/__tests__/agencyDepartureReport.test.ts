@@ -3,6 +3,7 @@ import {
   AGENCY_REPORT_SECTIONS,
   addOccurrence,
   buildContainerTypeMatrix,
+  groupEmptyEmbarkBookings,
   groupVehiclesByBrand,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
@@ -33,9 +34,28 @@ function queryBuilder(data: unknown[] = []) {
     eq: vi.fn(() => builder),
     in: vi.fn(() => builder),
     order: vi.fn(() => builder),
+    range: vi.fn(() => builder),
     maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
       Promise.resolve({ data, error: null }).then(resolve),
+  }
+  return builder
+}
+
+// Simula a paginação real do PostgREST: `.range(from, to)` recorta o dataset
+// completo, em vez de sempre devolver tudo de uma vez (ao contrário de
+// queryBuilder). Usado para provar que fetchAllRows (Task 6/10) não perde
+// linhas quando o resultado passa de uma página.
+function pagedQueryBuilder(data: unknown[]) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    in: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    range: vi.fn((from: number, to: number) => {
+      const page = data.slice(from, to + 1)
+      return { then: (resolve: (value: { data: unknown[]; error: null }) => unknown) => Promise.resolve({ data: page, error: null }).then(resolve) }
+    }),
   }
   return builder
 }
@@ -74,8 +94,38 @@ describe('groupVehiclesByBrand', () => {
     ])
 
     expect(grouped).toEqual([
-      { brand: 'BYD', blCount: 2, vinCount: 3 },
-      { brand: 'GWM', blCount: 1, vinCount: 1 },
+      { brand: 'BYD', blCount: 2, vinCount: 3, transshipmentVinCount: 0 },
+      { brand: 'GWM', blCount: 1, vinCount: 1, transshipmentVinCount: 0 },
+    ])
+  })
+
+  it('conta os VINs em transbordo separado do total (Task 1 do ADR 2026-07-31)', () => {
+    const grouped = groupVehiclesByBrand([
+      { brand: 'BYD', bl_id: 'a', chassis: '1', isTransshipment: false },
+      { brand: 'BYD', bl_id: 'b', chassis: '2', isTransshipment: true },
+      { brand: 'GWM', bl_id: 'c', chassis: '3', isTransshipment: true },
+    ])
+
+    expect(grouped).toEqual([
+      { brand: 'BYD', blCount: 2, vinCount: 2, transshipmentVinCount: 1 },
+      { brand: 'GWM', blCount: 1, vinCount: 1, transshipmentVinCount: 1 },
+    ])
+  })
+})
+
+describe('groupEmptyEmbarkBookings', () => {
+  it('agrupa por (tipo, condição, local), traduz a condição e ordena alfabeticamente, sem célula zerada', () => {
+    const rows = groupEmptyEmbarkBookings([
+      { type: '40HC', condition: 'vazio', localLabel: 'VBR' },
+      { type: '40HC', condition: 'vazio', localLabel: 'VBR' },
+      { type: '40HC', condition: 'material', localLabel: 'VBR' },
+      { type: '20DV', condition: 'vazio', localLabel: 'TVV' },
+    ])
+
+    expect(rows).toEqual([
+      { type: '20DV', condition: 'EMPTY', localLabel: 'TVV', quantity: 1 },
+      { type: '40HC', condition: 'EMPTY', localLabel: 'VBR', quantity: 2 },
+      { type: '40HC', condition: 'EMPTY W/ MATERIAL', localLabel: 'VBR', quantity: 1 },
     ])
   })
 })
@@ -195,9 +245,333 @@ describe('getAgencyReportDerivedData', () => {
         { container_number: 'docu 1234567', size_type: '40HC', is_imo: true, category: 'veiculos' },
         { container_number: 'TRNS1234567', size_type: '20GP', is_imo: false, category: 'transbordo' },
         { container_number: 'NOBP1234567', size_type: '40GP', is_imo: true, category: 'imo' },
-        { container_number: 'ORPH1234567', size_type: '42G1', is_imo: false, category: 'carga_geral' },
       ],
+      // ORPH1234567 é cheio no Baplie sem B/L correspondente: sai da matriz e
+      // vira divergência (Task 3, CAR-1), não mais 'carga_geral'.
+      dischargeDivergence: { orphanFullContainers: 1 },
     })
+  })
+
+  describe('um cálculo só para a linha de serviço (ADR 2026-07-31, Task 8)', () => {
+    it('o total de uma linha legada de armazenagem com percentual não nulo bate com o "Total da operação"', async () => {
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'vazios_export_operations') return singleQueryBuilder({ id: 'operation-1' })
+        if (table === 'depots') {
+          return queryBuilder([
+            { id: 'depot-1', code: 'DEP', name: 'Depot 1', tipo: 'depot', free_time_vazio_days: 0, free_time_material_days: 0 },
+          ])
+        }
+        if (table === 'vazios_bookings') {
+          return queryBuilder([
+            { container_number: 'ABCD1234567', local_id: 'depot-1', condition: 'vazio', hand_in_date: '2026-01-01', hand_out_date: '2026-01-10' },
+          ])
+        }
+        if (table === 'vazios_export_service_lines') {
+          return queryBuilder([
+            {
+              id: 'line-1', service_id: 'svc-1', local_id: 'depot-1', destino_id: null,
+              condition: 'vazio', quantidade: 1, percentual: 50, valor_unitario: 100, quantidade_manual: false,
+            },
+          ])
+        }
+        if (table === 'depot_services') return queryBuilder([{ id: 'svc-1', name: 'Armazenagem', natureza: 'armazenagem' }])
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      // 10 dias cobráveis (free time 0) × R$100 × multiplicador 1 (armazenagem
+      // ignora percentual legado, ADR 0033) = 1000, tanto na linha quanto na
+      // soma que compõe "Total da operação".
+      expect(result.costs.serviceLines).toEqual([expect.objectContaining({ total: 1000 })])
+      expect(result.costs.total).toBe(1000)
+      expect(result.costs).not.toHaveProperty('rows')
+    })
+  })
+
+  describe('B/L conta os cheios; Baplie conta os vazios (ADR 2026-07-31, Task 3)', () => {
+    it('exclui cheio órfão do Baplie da matriz e o reporta só na divergência; vazio do Baplie vira categoria vazio', async () => {
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'bl_containers') {
+          return queryBuilder([
+            { id: 1, container_number: 'FULL0000001', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+            { id: 2, container_number: 'FULL0000002', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+            { id: 3, container_number: 'FULL0000003', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+          ])
+        }
+        if (table === 'baplie_containers') {
+          return queryBuilder([
+            { container_number: 'FULL0000001', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'FULL0000002', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'FULL0000003', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'ORPH0000009', size_type: '40HC', status: 'full', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000001', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000002', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+          ])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(result.containers).toHaveLength(5)
+      const fullFromBl = result.containers.filter((c) => c.category === 'carga_geral')
+      const vazios = result.containers.filter((c) => c.category === 'vazio')
+      expect(fullFromBl.map((c) => c.container_number).sort()).toEqual(['FULL0000001', 'FULL0000002', 'FULL0000003'])
+      expect(vazios.map((c) => c.container_number).sort()).toEqual(['EMTY0000001', 'EMTY0000002'])
+      expect(result.containers.some((c) => c.container_number === 'ORPH0000009')).toBe(false)
+      expect(result.dischargeDivergence).toEqual({ orphanFullContainers: 1 })
+    })
+
+    it('reporta divergência entre a contagem de vazios do Baplie e a do módulo de vazios, com quantas estão sem natureza', async () => {
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'baplie_containers') {
+          return queryBuilder([
+            { container_number: 'EMTY0000001', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000002', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+            { container_number: 'EMTY0000003', size_type: '20GP', status: 'empty', is_imo: false, pod: 'BRVIX' },
+          ])
+        }
+        if (table === 'vazios_importacao_containers') {
+          return queryBuilder([
+            { container_type: '20GP', natureza: 'cama', pod: 'BRVIX' },
+            { container_type: '20GP', natureza: null, pod: 'BRVIX' },
+          ])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(result.vaziosDivergence).toEqual({
+        baplieCount: 3,
+        moduleCount: 2,
+        unclassifiedCount: 1,
+        diverges: true,
+      })
+    })
+  })
+
+  describe('carga em transbordo (ADR 2026-07-31, Task 1)', () => {
+    it('inclui containers, carga solta e veículos de B/Ls em transbordo de um porto omitido', async () => {
+      let blContainersCall = 0
+      let vehiclesCall = 0
+      let blsCall = 0
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'voyage_omissions') return queryBuilder([{ id: 42 }])
+        if (table === 'bl_transshipments') return queryBuilder([{ bl_id: 'BL-T1' }, { bl_id: 'BL-T2' }])
+        if (table === 'bl_containers') {
+          blContainersCall += 1
+          if (blContainersCall === 1) {
+            return queryBuilder([
+              { id: 1, container_number: 'OWN0000001', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+              { id: 2, container_number: 'OWN0000002', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+              { id: 3, container_number: 'OWN0000003', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+            ])
+          }
+          return queryBuilder([
+            { id: 4, container_number: 'TRB0000001', type: '20GP', is_imo: false, bl: { transshipments: [{ disposition: 'transshipment' }] } },
+            { id: 5, container_number: 'TRB0000002', type: '20GP', is_imo: false, bl: { transshipments: [{ disposition: 'transshipment' }] } },
+          ])
+        }
+        if (table === 'bls') {
+          blsCall += 1
+          // 1ª chamada: listVoyageEscalaPorts (Task 10), sem pod/pol relevantes
+          // aqui — as duas seguintes são a carga solta própria e a em
+          // transbordo, na mesma ordem de antes.
+          if (blsCall === 1) return queryBuilder([])
+          if (blsCall === 2) {
+            return queryBuilder([{ bb_machine_qty: 1, bb_packages_qty: 2, bb_weight_ton: 1, total_weight_kg: null, total_cbm: 3 }])
+          }
+          return queryBuilder([{ bb_machine_qty: 5, bb_packages_qty: 6, bb_weight_ton: 2, total_weight_kg: null, total_cbm: 4 }])
+        }
+        if (table === 'vehicles') {
+          vehiclesCall += 1
+          if (vehiclesCall === 1) return queryBuilder([{ brand: 'BYD', bl_id: 'BL-OWN', chassis: 'own-1', container_id: null }])
+          return queryBuilder([{ brand: 'GWM', bl_id: 'BL-T1', chassis: 'trb-1', container_id: null }])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(result.containers).toHaveLength(5)
+      const transbordo = result.containers.filter((container) => container.category === 'transbordo')
+      expect(transbordo.map((container) => container.container_number).sort()).toEqual(['TRB0000001', 'TRB0000002'])
+
+      expect(result.cargaSolta).toMatchObject({
+        bls: 1,
+        machines: 1,
+        packages: 2,
+        transshipment: { bls: 1, machines: 5, packages: 6 },
+      })
+
+      expect(result.vehicles).toEqual([
+        expect.objectContaining({ bl_id: 'BL-OWN', isTransshipment: false }),
+        expect.objectContaining({ bl_id: 'BL-T1', isTransshipment: true }),
+      ])
+    })
+
+    it('não dispara consultas extras nem altera o resultado quando a escala não possui omissão', async () => {
+      fromMock.mockClear()
+      let blContainersCall = 0
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'voyage_omissions') return queryBuilder([])
+        if (table === 'bl_containers') {
+          blContainersCall += 1
+          return queryBuilder([
+            { id: 1, container_number: 'OWN0000001', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+          ])
+        }
+        if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+        return queryBuilder()
+      })
+      schedulesMock.mockResolvedValue(new Map())
+
+      const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+      expect(fromMock).not.toHaveBeenCalledWith('bl_transshipments')
+      expect(blContainersCall).toBe(1)
+      expect(result.containers).toEqual([
+        { container_number: 'OWN0000001', size_type: '40HC', is_imo: false, category: 'carga_geral' },
+      ])
+      expect(result.cargaSolta.transshipment).toMatchObject({ bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 })
+    })
+  })
+})
+
+describe('Granito casa por porto normalizado, com fallback do manifesto (ADR 2026-07-31, Task 6)', () => {
+  it('casa loading_port em LOCODE, em texto livre e via fallback do manifesto contra a escala BRVIX', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 1000, blocks_qty: 1, loading_port: 'BRVIX', manifest: { loading_port: null } },
+          { real_weight_kg: 2000, blocks_qty: 2, loading_port: 'VITORIA', manifest: { loading_port: null } },
+          { real_weight_kg: 3000, blocks_qty: 3, loading_port: 'Vitoria, Brazil', manifest: { loading_port: null } },
+          { real_weight_kg: 4000, blocks_qty: 4, loading_port: null, manifest: { loading_port: 'BRVIX' } },
+          // outro porto: não deve casar com a escala BRVIX
+          { real_weight_kg: 5000, blocks_qty: 5, loading_port: 'BRSSA', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(4)
+    expect(result.granite.map((bl) => bl.real_weight_kg).sort()).toEqual([1000, 2000, 3000, 4000])
+  })
+
+  it('a própria escala vem em forma não canônica (BRVIT) e ainda assim casa o granito, sem virar órfão', async () => {
+    // Regressão: comparar o granito normalizado contra o `port` cru (sem
+    // normalizar) faz BRVIT !== BRVIX e derruba o granito da seção normal —
+    // e como BRVIX (a forma normalizada) está em escalaPorts, ele também não
+    // vira órfão: some silenciosamente das duas listas.
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIT', pol: 'CNSHA' }])
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 1000, blocks_qty: 1, loading_port: 'BRVIT', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIT')
+
+    expect(result.granite).toHaveLength(1)
+    expect(result.granite[0].real_weight_kg).toBe(1000)
+    expect(result.orphanData.granito).toEqual([])
+  })
+
+  it('não perde linhas de granito além de uma página do PostgREST (Task 6 trocou o filtro por porto por consulta da viagem inteira)', async () => {
+    const rows = Array.from({ length: 1250 }, () => ({
+      real_weight_kg: 1,
+      blocks_qty: 1,
+      loading_port: 'BRVIX',
+      manifest: { loading_port: null },
+    }))
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'granite_bls') return pagedQueryBuilder(rows)
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(1250)
+  })
+})
+
+describe('Aviso de dado órfão: granito/vazios embarcados fora de qualquer escala da viagem (ADR 2026-07-31, Task 10)', () => {
+  it('verificação do plano: granito em BRSSA numa viagem cuja única escala é BRVIX aparece como órfão, não some numa seção zerada', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIX', pol: 'CNSHA' }])
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 5000, blocks_qty: 5, loading_port: 'BRSSA', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(0)
+    expect(result.orphanData.granito).toEqual([{ port: 'BRSSA', count: 1 }])
+  })
+
+  it('granito numa segunda escala VÁLIDA da mesma viagem não é órfão', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIX', pol: null }, { pod: 'BRSSA', pol: null }])
+      if (table === 'granite_bls') {
+        return queryBuilder([
+          { real_weight_kg: 5000, blocks_qty: 5, loading_port: 'BRSSA', manifest: { loading_port: null } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.granite).toHaveLength(0)
+    expect(result.orphanData.granito).toEqual([])
+  })
+
+  it('Embarque de Vazios numa operação de porto que não é escala vira órfão, com a quantidade de unidades da operação', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bls') return queryBuilder([{ pod: 'BRVIX', pol: null }])
+      if (table === 'vazios_export_operations') {
+        // O mesmo queryBuilder atende as duas consultas da tabela: a de
+        // .eq('embark_port', port).maybeSingle() (nesta escala) ignora `data`
+        // e sempre resolve null; a de Task 10, sem filtro de porto, resolve
+        // via `then` com a operação órfã em BRSSA.
+        return queryBuilder([{ id: 'op-orphan', embark_port: 'BRSSA' }])
+      }
+      if (table === 'vazios_bookings') return queryBuilder([{ operation_id: 'op-orphan' }, { operation_id: 'op-orphan' }])
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.orphanData.vaziosEmbarcados).toEqual([{ port: 'BRSSA', count: 2 }])
   })
 })
 

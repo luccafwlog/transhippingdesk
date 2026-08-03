@@ -30,6 +30,14 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   0032; migrations `236`/`237`). **Encerrado sem execução completa:** a ADR 0033
   aposentou o modelo de tipos de cálculo que o plano preservava, e as tarefas
   pendentes foram absorvidas pelo plano do Embarque de Vazios.
+- [`2026-07-31-adr-cobertura-fontes-forma`](2026-07-31-adr-cobertura-fontes-forma.md)
+  — transbordo passa a contar no ADR do porto de descarga real; containers
+  cheios saem dos B/Ls e vazios do Baplie ganham natureza própria, com
+  avisos de divergência e de dado órfão; aba e impresso passam a listar só
+  o operado, sem zeros; impresso ganha resolução por seção e as 3
+  assinaturas departamentais; granito casa por porto normalizado; porto do
+  Embarque de Vazios vira seleção entre escalas; cálculo da linha de
+  serviço unificado. ADR 0035 (blocos 2–4); migration `249`.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.
