@@ -392,6 +392,21 @@ npm run build
 
 Execute também o teste focado durante o ciclo red-green.
 
+### Isolamento entre arquivos de teste
+
+`src/test/setup.ts` roda antes de cada arquivo e desmonta o que o React
+Testing Library renderizou ao fim de cada teste. Não declare `afterEach(cleanup)`
+em arquivos novos — os que já declaram continuam corretos, porque `cleanup` é
+idempotente.
+
+O Vitest roda com isolamento por arquivo (`isolate` no padrão). Isso é
+obrigatório aqui: 134 arquivos usam `vi.mock` para substituir `supabase`,
+hooks e componentes, e dependem de um registro de módulos limpo por arquivo.
+Rodar com `--no-isolate` é ~2,5x mais rápido, mas quebra um conjunto
+**não determinístico** de arquivos, que muda conforme a distribuição entre
+workers. Só faz sentido reavaliar se as dependências passarem a ser injetadas
+em vez de mockadas por módulo.
+
 ### Orçamento de bundle
 
 ```powershell

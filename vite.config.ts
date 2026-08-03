@@ -64,5 +64,6 @@ export default defineConfig({
     // (.test.tsx) optam por jsdom via comentário `// @vitest-environment jsdom`.
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./src/test/setup.ts'],
   },
 })
