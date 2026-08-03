@@ -18,6 +18,7 @@ COMMENT ON TABLE public.agency_report_pending_baselines IS
   'Baselines internos de deteccao de pendencias do ADR, capturados na aplicacao da migration.';
 
 REVOKE ALL ON TABLE public.agency_report_pending_baselines FROM PUBLIC, anon, authenticated;
+ALTER TABLE public.agency_report_pending_baselines ENABLE ROW LEVEL SECURITY;
 
 INSERT INTO public.agency_report_pending_baselines (baseline_key, captured_at)
 VALUES ('voyage_pol_schedule_atd', clock_timestamp());

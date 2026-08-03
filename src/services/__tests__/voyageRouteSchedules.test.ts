@@ -269,7 +269,7 @@ describe('projectVoyageEscalaSchedules', () => {
     })])
   })
 
-  it('remove escala soft-deleted mesmo quando ha POL no mesmo porto', () => {
+  it('preserva a escala de exportacao quando o POD foi soft-deletado', () => {
     const escalas = projectVoyageEscalaSchedules({
       podSchedules: [{
         entityId: '12::BRSSZ',
@@ -298,7 +298,7 @@ describe('projectVoyageEscalaSchedules', () => {
       }],
     })
 
-    expect(escalas).toEqual([])
+    expect(escalas).toMatchObject([{ port: 'BRSSZ', temImportacao: false, temExportacao: true }])
   })
 })
 

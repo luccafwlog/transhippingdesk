@@ -26,7 +26,6 @@ import { normalizePortCode } from '../../services/portCode'
 import {
   deriveAutomaticVoyagePodCeStatus,
   type VoyageEscalaSchedule,
-  type VoyagePodSchedule,
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
 import type { VoyageExportSchedule } from '../../services/voyageExportSchedules'
@@ -103,7 +102,6 @@ type VoyageCardProps = {
   vehicleStats: VoyageVehicleStat | undefined
   vaziosImpStats: VoyageVaziosImportacaoStat | undefined
   voyagesWithUnpaidBls: Set<number> | null | undefined
-  podSchedules: Map<string, VoyagePodSchedule> | undefined
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   routeCeMasters: Map<string, string> | undefined
   scheduledEscalaRows: VoyageEscalaSchedule[]
@@ -187,6 +185,37 @@ export function VoyageCard({
     }
   })
   const activePods = podRows.filter((row) => !row.omitted).map((row) => row.pod)
+  const planningEscalaRows = (() => {
+    const knownPorts = new Set(scheduledEscalaRows.map((row) => normalizePortCode(row.port) ?? normalizePortName(row.port)))
+    const blOnlyRows: VoyageEscalaSchedule[] = destinationPorts
+      .filter((port) => !knownPorts.has(normalizePortCode(port) ?? normalizePortName(port)))
+      .map((port) => ({
+        entityId: `${voyage.id}::${port}`,
+        voyageId: voyage.id,
+        port,
+        eta: null,
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: null,
+        atd: null,
+        rtw: null,
+        ceStatus: null,
+        podCeStatus: null,
+        exportCeStatus: null,
+        linked: null,
+        escalaNumber: null,
+        omitted: false,
+        deleted: false,
+        temImportacao: true,
+        temExportacao: false,
+        temGranito: false,
+        containersQty: null,
+        movementsQty: null,
+        divergences: [],
+      }))
+    return [...scheduledEscalaRows, ...blOnlyRows]
+  })()
   const plannedPodCount = countPlannedPodRows(podRows)
 
   // Escalas do ADR (Task 2 do ADR 2026-07-31): não omitidas + omitidas que já
@@ -341,7 +370,7 @@ export function VoyageCard({
             <VoyageVisaoTab
               voyage={voyage}
               voyageLabel={voyageLabel}
-              escalaRows={scheduledEscalaRows}
+              escalaRows={planningEscalaRows}
               importBatches={importBatches}
               exportSchedules={exportSchedules}
               isAdmin={isAdmin}

@@ -115,7 +115,7 @@ export function Viagens() {
   const voyageIds = useMemo(() => voyages.map((voyage) => voyage.id), [voyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(voyageIds)
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
-  const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters } =
+  const { voyagesWithUnpaidBls, polSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters } =
     useViagemSchedulesAndStats(voyageIds, polEntityIds)
   const escalaSchedulesByVoyage = useMemo(() => escalaSchedulesByVoyageData ?? new Map(), [escalaSchedulesByVoyageData])
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
@@ -248,7 +248,6 @@ export function Viagens() {
               vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
               vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
               voyagesWithUnpaidBls={voyagesWithUnpaidBls}
-              podSchedules={podSchedules}
               polSchedules={polSchedules}
               routeCeMasters={routeCeMasters}
               scheduledEscalaRows={escalaSchedulesByVoyage.get(selectedVoyage.id) ?? []}
@@ -361,7 +360,6 @@ export function Viagens() {
           try {
             await saveVoyageExportSchedule({
               existingId: editingExport?.existing?.id ?? null,
-              previousPol: editingExport?.existing?.pol ?? null,
               voyageId,
               pol,
               hasGranite,

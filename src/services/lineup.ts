@@ -233,7 +233,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           exportHasGranite: schedule?.temGranito ?? null,
           exportContainersQty: schedule?.containersQty ?? null,
           exportMovementsQty: schedule?.movementsQty ?? null,
-          exportCeStatus: schedule?.ceStatus as ExportCeStatus | null,
+          exportCeStatus: schedule?.exportCeStatus ?? null,
           exportLinked: schedule?.linked ?? null,
         })
       }

@@ -66,7 +66,6 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
 
 export async function saveVoyageExportSchedule(data: {
   existingId?: string | null
-  previousPol?: string | null
   voyageId: number
   pol: string | null
   hasGranite: boolean

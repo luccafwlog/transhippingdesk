@@ -176,11 +176,13 @@ BEGIN
   ALTER TABLE public.voyage_export_schedules
     ADD CONSTRAINT voyage_export_schedules_voyage_id_pol_key UNIQUE (voyage_id, pol);
 
-  IF v_remaining_null_pol_count = 0 THEN
-    ALTER TABLE public.voyage_export_schedules
-      ALTER COLUMN pol SET NOT NULL;
-  ELSE
-    -- NOT NULL fica para passo posterior: ainda ha linhas sem porto resolvido.
-    RAISE NOTICE 'NOT NULL adiado em voyage_export_schedules.pol ate concluir a revisao manual do residuo.';
-  END IF;
+  -- UNIQUE trata NULLs como distintos; o indice parcial fecha o segundo
+  -- residuo sem exigir uma escolha de POL durante o backfill.
+  CREATE UNIQUE INDEX IF NOT EXISTS voyage_export_schedules_one_null_pol_per_voyage
+    ON public.voyage_export_schedules (voyage_id)
+    WHERE pol IS NULL;
+
+  -- O contrato permanece deterministico; o residuo nullable sera endurecido
+  -- em migration posterior, depois da revisao manual.
+  RAISE NOTICE 'NOT NULL permanece adiado para voyage_export_schedules.pol; residuo: % linha(s).', v_remaining_null_pol_count;
 END $$;

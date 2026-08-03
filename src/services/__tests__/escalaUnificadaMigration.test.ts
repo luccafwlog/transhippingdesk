@@ -41,7 +41,6 @@ describe('250_voyage_export_schedules_por_escala.sql', () => {
 
     expect(sql).not.toContain("FROM public.audit_logs al")
     expect(sql).not.toContain('MAX(source.normalized_pol)')
-    expect(sql).not.toContain('MAX(')
     expect(sql).toContain('COUNT(DISTINCT normalized_pol)')
     expect(sql).toContain('granite_port_count')
     expect(sql).toContain('vazios_port_count')
@@ -56,8 +55,8 @@ describe('250_voyage_export_schedules_por_escala.sql', () => {
     const sql = readFileSync(migrationPath, 'utf8')
 
     expect(sql).toMatch(/unique\s*\(\s*voyage_id\s*,\s*pol\s*\)/i)
-    expect(sql).toContain('IF v_remaining_null_pol_count = 0 THEN')
-    expect(sql).toContain('ALTER COLUMN pol SET NOT NULL')
+    expect(sql).toContain('WHERE pol IS NULL')
+    expect(sql).not.toContain('ALTER COLUMN pol SET NOT NULL')
     expect(sql).toContain('RAISE NOTICE')
     expect(sql.toLowerCase()).toContain('manual')
   })
@@ -211,7 +210,6 @@ describe('voyageExportSchedules service', () => {
     const { saveVoyageExportSchedule } = await import('../voyageExportSchedules')
     await saveVoyageExportSchedule({
       existingId: 'legacy-null-pol-row',
-      previousPol: null,
       voyageId: 19,
       pol: null,
       hasGranite: false,

@@ -67,6 +67,8 @@ export type VoyageEscalaSchedule = {
   atd: string | null
   rtw: number | null
   ceStatus: VoyagePodCeStatus | VoyageExportSchedule['ceStatus'] | null
+  podCeStatus: VoyagePodCeStatus | null
+  exportCeStatus: VoyageExportSchedule['ceStatus'] | null
   linked: boolean | null
   escalaNumber: string | null
   omitted: boolean
@@ -220,16 +222,19 @@ export function projectVoyageEscalaSchedules({
     'eta' | 'etb' | 'etd' | 'atd' | 'ceStatus' | 'linked' | 'escalaNumber'
   >>>()
 
+  // Coleta primeiro para que a ordem dos audit logs nao determine se um
+  // alias deletado apaga ou preserva a parte de importacao da escala.
+  for (const pod of podSchedules) {
+    const port = normalizeBrazilianPortCode(pod.pod)
+    if (port && pod.deleted) deletedEscalaKeys.add(buildEscalaKey(pod.voyageId, port))
+  }
+
   for (const pod of podSchedules) {
     const port = normalizeBrazilianPortCode(pod.pod)
     if (!port) continue
 
     const key = buildEscalaKey(pod.voyageId, port)
-    if (pod.deleted) {
-      deletedEscalaKeys.add(key)
-      escalasByKey.delete(key)
-      continue
-    }
+    if (deletedEscalaKeys.has(key)) continue
 
     const escala = ensureEscala(escalasByKey, pod.voyageId, port)
     escala.eta = pod.eta
@@ -240,6 +245,8 @@ export function projectVoyageEscalaSchedules({
     escala.atd = pod.atd
     escala.rtw = pod.rtw
     escala.ceStatus = pod.ceStatus
+    escala.podCeStatus = pod.ceStatus
+    escala.exportCeStatus = null
     escala.linked = pod.linked
     escala.escalaNumber = pod.escalaNumber
     escala.omitted = pod.omitted ?? false
@@ -263,8 +270,6 @@ export function projectVoyageEscalaSchedules({
     if (!port) continue
 
     const key = buildEscalaKey(pol.voyageId, port)
-    if (deletedEscalaKeys.has(key)) continue
-
     const escala = ensureEscala(escalasByKey, pol.voyageId, port)
     const podValues = podValuesByKey.get(key)
     escala.temExportacao = true
@@ -278,11 +283,10 @@ export function projectVoyageEscalaSchedules({
     if (!port) continue
 
     const key = buildEscalaKey(exportSchedule.voyageId, port)
-    if (deletedEscalaKeys.has(key)) continue
-
     const escala = ensureEscala(escalasByKey, exportSchedule.voyageId, port)
     const podValues = podValuesByKey.get(key)
     escala.temExportacao = true
+    escala.exportCeStatus = exportSchedule.ceStatus
     escala.temGranito = escala.temGranito || exportSchedule.hasGranite
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty
@@ -636,6 +640,8 @@ function ensureEscala(escalasByKey: Map<string, VoyageEscalaSchedule>, voyageId:
     atd: null,
     rtw: null,
     ceStatus: null,
+    podCeStatus: null,
+    exportCeStatus: null,
     linked: null,
     escalaNumber: null,
     omitted: false,
