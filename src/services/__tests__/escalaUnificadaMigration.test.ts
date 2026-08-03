@@ -11,6 +11,15 @@ vi.mock('../supabase', () => ({
 }))
 
 const migrationPath = resolve(process.cwd(), 'supabase/migrations/250_voyage_export_schedules_por_escala.sql')
+const agencyPendingMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/251_agency_report_pending_escala_unificada.sql',
+)
+
+function functionBody(sql: string, name: string) {
+  const re = new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}[\\s\\S]*?\\$function\\$;`, 'i')
+  return sql.match(re)?.[0] ?? ''
+}
 
 describe('250_voyage_export_schedules_por_escala.sql', () => {
   it('uses the current voyage POL snapshot first, preserves precedence, and normalizes the chosen source to LOCODE', () => {
@@ -46,6 +55,52 @@ describe('250_voyage_export_schedules_por_escala.sql', () => {
     expect(sql).toContain('ALTER COLUMN pol SET NOT NULL')
     expect(sql).toContain('RAISE NOTICE')
     expect(sql.toLowerCase()).toContain('manual')
+  })
+})
+
+describe('251_agency_report_pending_escala_unificada.sql', () => {
+  it('redefines detect_agency_report_pending from POD and POL ATD sources only for Brazilian ports', () => {
+    const sql = readFileSync(agencyPendingMigrationPath, 'utf8')
+    const body = functionBody(sql, 'detect_agency_report_pending')
+
+    expect(body).not.toBe('')
+    expect(body).toContain("entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule')")
+    expect(body).toMatch(/DISTINCT ON \(entity_type, entity_id\)/)
+    expect(body).toMatch(/upper\(trim\(split_part\(entity_id, '::', 2\)\)\) LIKE 'BR%'/)
+  })
+
+  it('keeps the 214 baseline for POD ATDs and adds a non-retroactive baseline for newly reached POL ATDs', () => {
+    const sql = readFileSync(agencyPendingMigrationPath, 'utf8')
+    const body = functionBody(sql, 'detect_agency_report_pending')
+
+    expect(body).toContain("entity_type = 'voyage_pod_schedule'")
+    expect(body).toContain("changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00'")
+    expect(body).toContain("entity_type = 'voyage_pol_schedule'")
+    expect(body).toContain("changed_at >= TIMESTAMPTZ '2026-08-03 00:00:00+00'")
+  })
+
+  it('preserves department-level grouping, sign-off closure contract, and RPC security', () => {
+    const sql = readFileSync(agencyPendingMigrationPath, 'utf8')
+    const body = functionBody(sql, 'detect_agency_report_pending')
+
+    expect(body).toMatch(/SELECT unnest\(ARRAY\['operacoes', 'documentacao', 'equipamentos'\]\) AS department/)
+    expect(body).toContain("'agency_report_department_pending'")
+    expect(body).not.toMatch(/CREATE OR REPLACE FUNCTION public\.set_agency_report_department_signoff/)
+    expect(body).not.toMatch(/CREATE OR REPLACE FUNCTION public\.close_agency_departure_report/)
+    expect(sql).toContain('SECURITY DEFINER')
+    expect(sql).toContain('SET search_path = public, pg_temp')
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.detect_agency_report_pending() FROM PUBLIC, anon;')
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.detect_agency_report_pending() TO authenticated;')
+  })
+
+  it('documents intent, affected function, alerts consumer, and rollback in the migration header', () => {
+    const sql = readFileSync(agencyPendingMigrationPath, 'utf8')
+    const header = sql.split('CREATE OR REPLACE FUNCTION public.detect_agency_report_pending()')[0]
+
+    expect(header).toContain('Intent:')
+    expect(header).toContain('Afetadas: detect_agency_report_pending')
+    expect(header).toContain('Consumidores: src/services/alerts.ts')
+    expect(header).toContain('Rollback:')
   })
 })
 
