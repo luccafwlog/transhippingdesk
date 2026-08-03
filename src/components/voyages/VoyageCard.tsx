@@ -340,7 +340,7 @@ export function VoyageCard({
             <VoyageVisaoTab
               voyage={voyage}
               voyageLabel={voyageLabel}
-              podRows={podRows}
+              escalaRows={scheduledEscalaRows}
               importBatches={importBatches}
               exportSchedules={exportSchedules}
               isAdmin={isAdmin}

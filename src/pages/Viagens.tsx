@@ -20,6 +20,7 @@ import { cancelVoyage, deleteVoyage } from '../services/voyages'
 import { setImportBatchCeMaster } from '../services/manifestImport'
 import {
   buildVoyagePolEntityId,
+  saveVoyageEscalaSchedule,
   saveVoyagePolSchedule,
   saveVoyagePodSchedule,
   setVoyageRouteCeMaster,
@@ -389,9 +390,9 @@ export function Viagens() {
             return
           }
           try {
-            await saveVoyagePodSchedule({
+            await saveVoyageEscalaSchedule({
               voyageId,
-              pod,
+              port: pod,
               eta,
               etb,
               ata,

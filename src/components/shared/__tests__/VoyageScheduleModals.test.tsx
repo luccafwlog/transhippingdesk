@@ -176,6 +176,23 @@ describe('PodScheduleModal', () => {
 
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ atb: null, etd: null }))
   })
+
+  it('normaliza o porto da escala antes de enviar o payload', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    render(
+      <PodScheduleModal
+        open
+        podSchedule={{ ...base, pod: 'Vitoria' }}
+        onClose={() => {}}
+        onSaved={onSaved}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ pod: 'BRVIX' }))
+  })
 })
 
 describe('AddPodToVoyageModal', () => {

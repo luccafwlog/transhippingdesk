@@ -8,6 +8,7 @@ import {
   type EditableVoyagePodCeStatus,
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
+import { normalizePortCode } from '../../services/portCode'
 import type { ExportCeStatus, VoyageExportSchedule } from '../../services/voyageExportSchedules'
 
 // Sugestões de POD para o autocomplete ao adicionar um POD ao planejamento.
@@ -175,12 +176,13 @@ export function PodScheduleModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!podSchedule) return
+    const normalizedPort = normalizePortCode(podSchedule.pod) ?? podSchedule.pod.trim().toUpperCase()
 
     setSaving(true)
     try {
       await onSaved({
         voyageId: podSchedule.voyageId,
-        pod: podSchedule.pod,
+        pod: normalizedPort,
         eta: eta || null,
         etb: etb || null,
         ata: ata || null,

@@ -21,7 +21,7 @@ import {
   splitVoyageBls,
   type VoyageTimelineEvent,
 } from '../../services/voyageSummaries'
-import { deleteVoyagePodSchedule } from '../../services/voyageRouteSchedules'
+import { deleteVoyagePodSchedule, type VoyageEscalaDivergence, type VoyageEscalaSchedule } from '../../services/voyageRouteSchedules'
 import { deleteVoyageExportSchedule, type VoyageExportSchedule } from '../../services/voyageExportSchedules'
 import { afterEscalaAlterada } from '../../services/cacheEffects'
 import {
@@ -30,13 +30,13 @@ import {
   renderLinkedLabel,
   type VoyageImportBatch,
 } from './voyageCardHelpers'
-import type { AddingPodPayload, EditingExportPayload, EditingPodPayload, Voyage, VoyagePodRow } from './voyageCardTypes'
+import type { AddingPodPayload, EditingExportPayload, EditingPodPayload, Voyage } from './voyageCardTypes'
 import { TransshipmentInfoCard } from './TransshipmentInfoCard'
 
 export function VoyageVisaoTab({
   voyage,
   voyageLabel,
-  podRows,
+  escalaRows,
   importBatches,
   exportSchedules,
   isAdmin,
@@ -49,7 +49,7 @@ export function VoyageVisaoTab({
 }: {
   voyage: Voyage
   voyageLabel: string
-  podRows: VoyagePodRow[]
+  escalaRows: VoyageEscalaSchedule[]
   importBatches: VoyageImportBatch[]
   exportSchedules: VoyageExportSchedule[]
   isAdmin: boolean
@@ -115,8 +115,16 @@ export function VoyageVisaoTab({
     [ceCoverage, divergenceCount, importBatches, routesByBatchId, timelineSources, voyage.status],
   )
 
-  async function handleDeletePod(row: VoyagePodRow) {
-    const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(row.pod))
+  const exportScheduleByPort = useMemo(() => {
+    const byPort = new Map<string, VoyageExportSchedule>()
+    for (const schedule of exportSchedules) {
+      byPort.set(normalizePortName(schedule.pol), schedule)
+    }
+    return byPort
+  }, [exportSchedules])
+
+  async function handleDeletePod(row: VoyageEscalaSchedule) {
+    const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(row.port))
     const hasScheduleData = Boolean(row.eta || row.etb || row.ata || row.atb || row.etd || row.atd || row.rtw !== null)
     if (routeBls.length > 0) {
       showToast('Não é possível excluir este POD: existem B/Ls vinculados.', 'error')
@@ -132,13 +140,13 @@ export function VoyageVisaoTab({
     }
     const confirmed = await confirm({
       title: 'Excluir planejamento do POD',
-      message: `Excluir o planejamento do POD ${row.pod}? As datas e o vínculo operacional serão removidos.`,
+      message: `Excluir o planejamento do POD ${row.port}? As datas e o vínculo operacional serão removidos.`,
       confirmLabel: 'Excluir',
       tone: 'danger',
     })
     if (!confirmed) return
     try {
-      await deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.pod, changedBy: user.id })
+      await deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.port, changedBy: user.id })
       await afterEscalaAlterada(queryClient, { voyageId: voyage.id })
       showToast('POD removido do planejamento.', 'success')
     } catch (error) {
@@ -170,13 +178,13 @@ export function VoyageVisaoTab({
 
   const planningContent = (
     <MetricSection
-      title="Planejamento por POD/POL"
+      title="Planejamento por escala"
       compact
       actions={isAdmin ? (
         <>
           <Button variant="secondary" className="app-btn--sm" onClick={() => onAddPod({ voyageId: voyage.id, voyageLabel })}>
             <Plus size={15} />
-            Adicionar POD
+            Adicionar escala
           </Button>
           <Button
             variant="secondary"
@@ -184,7 +192,7 @@ export function VoyageVisaoTab({
             onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: null })}
           >
             <Plus size={15} />
-            Adicionar POL
+            Adicionar exportação
           </Button>
         </>
       ) : undefined}
@@ -194,6 +202,7 @@ export function VoyageVisaoTab({
           <table className="app-table app-table--compact app-table--dense app-table--sticky-actions w-full text-left text-sm">
             <colgroup>
               <col className="min-w-[90px]" />
+              <col className="min-w-[150px]" />
               <col className="min-w-[80px]" />
               <col className="min-w-[80px]" />
               <col className="min-w-[80px]" />
@@ -206,148 +215,131 @@ export function VoyageVisaoTab({
               <col className="min-w-[90px]" />
               <col className="w-[1%] whitespace-nowrap" />
             </colgroup>
-          <thead>
-            <tr>
-              <th scope="col" className="px-3 py-2">POD/POL</th>
-              <th scope="col" className="px-3 py-2">ETA</th>
-              <th scope="col" className="px-3 py-2">ETB</th>
-              <th scope="col" className="px-3 py-2">ATA</th>
-              <th scope="col" className="px-3 py-2">ATB</th>
-              <th scope="col" className="px-3 py-2">ETD</th>
-              <th scope="col" className="px-3 py-2">ATD</th>
-              <th scope="col" className="px-3 py-2">RESTOW</th>
-              <th scope="col" className="px-3 py-2">BLs e CEs</th>
-              <th scope="col" className="px-3 py-2">Nº Escala</th>
-              <th scope="col" className="px-3 py-2">VINCULADA</th>
-              <th scope="col" className="px-3 py-2">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {podRows.length ? (
-              podRows.map((row) => (
-                <tr key={`${voyage.id}-lineup-${row.pod}`}>
-                  <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">{row.pod}</td>
-                  <td className="px-3 py-2">{formatDate(row.eta)}</td>
-                  <td className="px-3 py-2">{formatDate(row.etb)}</td>
-                  <td className="px-3 py-2">{formatDate(row.ata)}</td>
-                  <td className="px-3 py-2">{formatDate(row.atb)}</td>
-                  <td className="px-3 py-2">{formatDate(row.etd)}</td>
-                  <td className="px-3 py-2">{formatDate(row.atd)}</td>
-                  <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
-                  <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
-                  <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
-                  <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        className="app-voyage-icon-btn"
-                        aria-label={`Editar planejamento do POD ${row.pod}`}
-                        onClick={() =>
-                          onEditPod({
-                            voyageId: voyage.id,
-                            voyageLabel,
-                            pod: row.pod,
-                            eta: row.eta,
-                            etb: row.etb,
-                            ata: row.ata,
-                            atb: row.atb,
-                            etd: row.etd,
-                            atd: row.atd,
-                            rtw: row.rtw,
-                            ceStatus: row.ceStatus,
-                            linked: row.linked,
-                            escalaNumber: row.escalaNumber,
-                          })
-                        }
-                      >
-                        <Pencil size={15} />
-                      </Button>
-                      {isAdmin ? (
-                        <>
-                          {!row.omitted ? (
-                            <Button
-                              variant="secondary"
-                              className="app-voyage-icon-btn"
-                              aria-label={`Omitir escala do POD ${row.pod}`}
-                              title={`Omitir escala do POD ${row.pod}`}
-                              onClick={() => onOmitPod(row.pod)}
-                            >
-                              <AlertTriangle size={15} />
-                            </Button>
-                          ) : null}
+            <thead>
+              <tr>
+                <th scope="col" className="px-3 py-2">Escala</th>
+                <th scope="col" className="px-3 py-2">Opera</th>
+                <th scope="col" className="px-3 py-2">ETA</th>
+                <th scope="col" className="px-3 py-2">ETB</th>
+                <th scope="col" className="px-3 py-2">ATA</th>
+                <th scope="col" className="px-3 py-2">ATB</th>
+                <th scope="col" className="px-3 py-2">ETD</th>
+                <th scope="col" className="px-3 py-2">ATD</th>
+                <th scope="col" className="px-3 py-2">RESTOW</th>
+                <th scope="col" className="px-3 py-2">BLs e CEs</th>
+                <th scope="col" className="px-3 py-2">Nº Escala</th>
+                <th scope="col" className="px-3 py-2">VINCULADA</th>
+                <th scope="col" className="px-3 py-2">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {escalaRows.length ? (
+                escalaRows.map((row) => {
+                  const exportSchedule = exportScheduleByPort.get(normalizePortName(row.port))
+                  return (
+                    <tr key={`${voyage.id}-lineup-${row.port}`}>
+                      <td className="px-3 py-2 align-top">
+                        <div className="font-semibold text-[var(--app-text-strong)]">{row.port}</div>
+                        {row.divergences.length ? <EscalaDivergenceWarning divergences={row.divergences} /> : null}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <EscalaOperationMarkers row={row} />
+                      </td>
+                      <td className="px-3 py-2">{formatDate(row.eta)}</td>
+                      <td className="px-3 py-2">{formatDate(row.etb)}</td>
+                      <td className="px-3 py-2">{formatDate(row.ata)}</td>
+                      <td className="px-3 py-2">{formatDate(row.atb)}</td>
+                      <td className="px-3 py-2">{formatDate(row.etd)}</td>
+                      <td className="px-3 py-2">{formatDate(row.atd)}</td>
+                      <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
+                      <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
+                      <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
+                      <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
                           <Button
-                            variant="danger"
+                            variant="secondary"
                             className="app-voyage-icon-btn"
-                            aria-label={`Excluir planejamento do POD ${row.pod}`}
-                            onClick={() => handleDeletePod(row)}
+                            aria-label={`Editar planejamento da escala ${row.port}`}
+                            onClick={() =>
+                              onEditPod({
+                                voyageId: voyage.id,
+                                voyageLabel,
+                                pod: row.port,
+                                eta: row.eta,
+                                etb: row.etb,
+                                ata: row.ata,
+                                atb: row.atb,
+                                etd: row.etd,
+                                atd: row.atd,
+                                rtw: row.rtw,
+                                ceStatus: row.ceStatus,
+                                linked: row.linked,
+                                escalaNumber: row.escalaNumber,
+                              })
+                            }
                           >
-                            <Trash2 size={15} />
+                            <Pencil size={15} />
                           </Button>
-                        </>
-                      ) : null}
-                    </div>
+                          {isAdmin ? (
+                            <>
+                              {exportSchedule ? (
+                                <Button
+                                  variant="secondary"
+                                  className="app-voyage-icon-btn"
+                                  aria-label={`Editar planejamento de exportação do POL ${exportSchedule.pol ?? row.port}`}
+                                  onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
+                                >
+                                  <Package size={15} />
+                                </Button>
+                              ) : null}
+                              {row.temImportacao && !row.omitted ? (
+                                <Button
+                                  variant="secondary"
+                                  className="app-voyage-icon-btn"
+                                  aria-label={`Omitir escala do POD ${row.port}`}
+                                  title={`Omitir escala do POD ${row.port}`}
+                                  onClick={() => onOmitPod(row.port)}
+                                >
+                                  <AlertTriangle size={15} />
+                                </Button>
+                              ) : null}
+                              {row.temImportacao ? (
+                                <Button
+                                  variant="danger"
+                                  className="app-voyage-icon-btn"
+                                  aria-label={`Excluir planejamento do POD ${row.port}`}
+                                  onClick={() => handleDeletePod(row)}
+                                >
+                                  <Trash2 size={15} />
+                                </Button>
+                              ) : null}
+                              {exportSchedule ? (
+                                <Button
+                                  variant="danger"
+                                  className="app-voyage-icon-btn"
+                                  aria-label={`Excluir planejamento de exportação do POL ${exportSchedule.pol ?? row.port}`}
+                                  onClick={() => handleDeleteExport(exportSchedule)}
+                                >
+                                  <Trash2 size={15} />
+                                </Button>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={13} className="px-3 py-3 text-[var(--app-muted)]">
+                    Nenhuma escala planejada para esta viagem.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={12} className="px-3 py-3 text-[var(--app-muted)]">
-                  Nenhum POD planejado para esta viagem.
-                </td>
-              </tr>
-            )}
-            {exportSchedules.map((exportSchedule) => (
-              <tr key={exportSchedule.id} className="border-t border-[var(--app-border)] bg-[var(--app-gold-soft)]">
-                <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">
-                  {exportSchedule.pol ?? 'POL'}
-                  <Badge tone="yellow" className="ml-1 align-middle">EXP</Badge>
-                </td>
-                <td className="px-3 py-2">{formatDate(exportSchedule.eta)}</td>
-                <td className="px-3 py-2">{formatDate(exportSchedule.etb)}</td>
-                <td className="px-3 py-2">-</td>
-                <td className="px-3 py-2">-</td>
-                <td className="px-3 py-2">-</td>
-                <td className="px-3 py-2">-</td>
-                <td className="px-3 py-2 text-[var(--app-muted)] text-xs">
-                  {[
-                    exportSchedule.hasGranite ? 'GRANITE' : null,
-                    exportSchedule.containersQty !== null
-                      ? `${exportSchedule.containersQty} CNTRS${exportSchedule.movementsQty !== null ? ` - ${exportSchedule.movementsQty} MOVES` : ''}`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' | ') || '—'}
-                </td>
-                <td className="px-3 py-2">{renderCeStatusLabel(exportSchedule.ceStatus ?? 'waiting')}</td>
-                <td className="px-3 py-2">-</td>
-                <td className="px-3 py-2">{renderLinkedLabel(exportSchedule.linked)}</td>
-                <td className="px-3 py-2">
-                  {isAdmin ? (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        className="app-voyage-icon-btn"
-                        aria-label={`Editar planejamento de exportação do POL ${exportSchedule.pol ?? '-'}`}
-                        onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
-                      >
-                        <Pencil size={15} />
-                      </Button>
-                      <Button
-                        variant="danger"
-                        className="app-voyage-icon-btn"
-                        aria-label={`Excluir planejamento de exportação do POL ${exportSchedule.pol ?? '-'}`}
-                        onClick={() => handleDeleteExport(exportSchedule)}
-                      >
-                        <Trash2 size={15} />
-                      </Button>
-                    </div>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </MetricSection>
@@ -394,6 +386,48 @@ export function VoyageVisaoTab({
       <VoyageTimeline events={timelineEvents} open={timelineOpen} onToggle={() => setTimelineOpen((value) => !value)} />
     </div>
   )
+}
+
+function EscalaOperationMarkers({ row }: { row: VoyageEscalaSchedule }) {
+  const markers = [
+    row.temImportacao ? <Badge key="importacao" tone="blue">Importação</Badge> : null,
+    row.temExportacao ? <Badge key="exportacao" tone="yellow">Exportação</Badge> : null,
+    row.temGranito ? <Badge key="granito" tone="green">Granito</Badge> : null,
+    row.containersQty !== null ? <span key="containers" className="text-xs font-semibold text-[var(--app-muted)]">{row.containersQty} CNTRS</span> : null,
+    row.movementsQty !== null ? <span key="movements" className="text-xs font-semibold text-[var(--app-muted)]">{row.movementsQty} MOVES</span> : null,
+  ].filter(Boolean)
+
+  if (!markers.length) return <span className="text-[var(--app-muted-soft)]">-</span>
+
+  return <div className="flex max-w-[220px] flex-wrap items-center gap-1.5">{markers}</div>
+}
+
+function EscalaDivergenceWarning({ divergences }: { divergences: VoyageEscalaDivergence[] }) {
+  return (
+    <div className="mt-1 grid gap-1 text-[11px] font-medium text-amber-400">
+      {divergences.map((divergence, index) => (
+        <div key={`${divergence.field}-${divergence.source}-${index}`} className="flex items-start gap-1">
+          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+          <span>
+            Divergência {formatDivergenceField(divergence.field)}: POD {formatDivergenceValue(divergence.podValue)} / {divergence.source === 'pol' ? 'POL' : 'EXP'} {formatDivergenceValue(divergence.sourceValue)}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function formatDivergenceField(field: VoyageEscalaDivergence['field']) {
+  if (field === 'ceStatus') return 'CEs'
+  if (field === 'linked') return 'VINCULADA'
+  if (field === 'escalaNumber') return 'Nº Escala'
+  return field.toUpperCase()
+}
+
+function formatDivergenceValue(value: VoyageEscalaDivergence['podValue'] | VoyageEscalaDivergence['sourceValue']) {
+  if (value === null || value === '') return '-'
+  if (typeof value === 'boolean') return value ? 'SIM' : 'NÃO'
+  return String(value)
 }
 
 const TIMELINE_DOT: Record<VoyageTimelineEvent['kind'], string> = {
