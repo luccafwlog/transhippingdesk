@@ -41,10 +41,8 @@ it('mostra apenas os 3 eventos mais recentes da linha do tempo, com opção de e
       isAdmin={false}
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 

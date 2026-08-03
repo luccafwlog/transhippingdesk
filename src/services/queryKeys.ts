@@ -63,6 +63,7 @@ export const queryKeys = {
     escalaSchedules: (voyageIds: number[]) => ['voyage-escala-schedules', voyageIds] as const,
     routeCeMasters: (voyageIds: number[]) => ['voyage-route-ce-masters', voyageIds] as const,
     exportSchedules: (voyageIds: number[]) => ['voyage-export-schedules', voyageIds] as const,
+    vaziosExportPorts: (voyageId: number) => ['voyage-vazios-export-ports', voyageId] as const,
   },
   transshipments: {
     byVoyage: (voyageId: number) => ['transshipments', 'voyage', voyageId] as const,

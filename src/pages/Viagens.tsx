@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/ui/Button'
 import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { VoyageCreateModal } from '../components/shared/VoyageCreateModal'
-import { AddPodToVoyageModal, ExportScheduleModal, PodScheduleModal, PolScheduleModal } from '../components/shared/VoyageScheduleModals'
+import { EscalaModal, PolScheduleModal, type EscalaModalData } from '../components/shared/VoyageScheduleModals'
 import { Modal } from '../components/ui/Modal'
 import { Field, Input } from '../components/ui/Input'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -22,7 +22,6 @@ import {
   buildVoyagePolEntityId,
   saveVoyageEscalaSchedule,
   saveVoyagePolSchedule,
-  saveVoyagePodSchedule,
   setVoyageRouteCeMaster,
 } from '../services/voyageRouteSchedules'
 import { PORTAL_SCHEDULE_LANES, portalLaneCode } from '../services/portalScheduleLanes'
@@ -30,9 +29,6 @@ import { saveVoyageExportSchedule } from '../services/voyageExportSchedules'
 import { afterEscalaAlterada, afterRotaAlterada, afterViagemAlterada } from '../services/cacheEffects'
 import {
   VoyageCard,
-  type AddingPodPayload,
-  type EditingExportPayload,
-  type EditingPodPayload,
   type EditingPolPayload,
   type VoyageTabKey,
 } from '../components/voyages/VoyageCard'
@@ -62,10 +58,8 @@ export function Viagens() {
   const [cancellingVoyageId, setCancellingVoyageId] = useState<number | null>(null)
   const [cancellationReason, setCancellationReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
-  const [editingPod, setEditingPod] = useState<EditingPodPayload | null>(null)
+  const [editingEscala, setEditingEscala] = useState<EscalaModalData | null>(null)
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
-  const [addingPodVoyage, setAddingPodVoyage] = useState<AddingPodPayload | null>(null)
-  const [editingExport, setEditingExport] = useState<EditingExportPayload | null>(null)
   const initialVessel = searchParams.get('vessel') ?? ''
   const tabParam = searchParams.get('tab')
   const initialTab: VoyageTabKey | undefined = tabParam === 'visao' || tabParam === 'importacao' || tabParam === 'exportacao' || tabParam === 'manifestos' || tabParam === 'adr'
@@ -255,10 +249,8 @@ export function Viagens() {
               onEditVoyage={setEditingVoyageId}
               onDeleteVoyage={setDeletingVoyageId}
               onCancelVoyage={setCancellingVoyageId}
-              onEditPod={setEditingPod}
+              onEditEscala={setEditingEscala}
               onEditPol={setEditingPol}
-              onAddPod={setAddingPodVoyage}
-              onEditExport={setEditingExport}
               initialTab={initialTab}
               initialEscala={initialEscala}
             />
@@ -352,64 +344,51 @@ export function Viagens() {
         </div>
       </Modal>
 
-      <ExportScheduleModal
-        open={editingExport !== null}
-        exportData={editingExport}
-        onClose={() => setEditingExport(null)}
-        onSaved={async ({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked }) => {
-          try {
-            await saveVoyageExportSchedule({
-              existingId: editingExport?.existing?.id ?? null,
-              voyageId,
-              pol,
-              hasGranite,
-              containersQty,
-              movementsQty,
-              eta,
-              etb,
-              ceStatus,
-              linked,
-            })
-            await afterEscalaAlterada(queryClient, { voyageId })
-            showToast('Planejamento de exportação salvo.', 'success')
-            setEditingExport(null)
-          } catch {
-            showToast('Falha ao salvar planejamento de exportação.', 'error')
-          }
-        }}
-      />
-
-      <PodScheduleModal
-        open={editingPod !== null}
-        podSchedule={editingPod}
-        onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, temImportacao, eta, etb, ata, atb, etd, atd, rtw, ceStatus, linked, escalaNumber }) => {
+      <EscalaModal
+        open={editingEscala !== null}
+        escala={editingEscala}
+        onClose={() => setEditingEscala(null)}
+        onSaved={async (payload) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
           }
           try {
             await saveVoyageEscalaSchedule({
-              voyageId,
-              port: pod,
-              eta,
-              etb,
-              ata,
-              atb,
-              etd,
-              atd,
-              rtw,
-              ceStatus,
-              linked,
-              escalaNumber,
-              temImportacao,
+              voyageId: payload.voyageId,
+              port: payload.port,
+              eta: payload.eta,
+              etb: payload.etb,
+              ata: payload.ata,
+              atb: payload.atb,
+              etd: payload.etd,
+              atd: payload.atd,
+              rtw: payload.rtw,
+              ceStatus: payload.ceStatus,
+              linked: payload.linked,
+              escalaNumber: payload.escalaNumber,
+              temImportacao: payload.temImportacao,
               changedBy: user.id,
             })
-            await afterEscalaAlterada(queryClient, { voyageId })
-            showToast('Datas da Escala atualizadas com sucesso.', 'success')
-            setEditingPod(null)
+            // Sem exportação declarada e sem linha anterior, não há o que gravar.
+            if (payload.exportacao.temExportacao || payload.exportExistingId) {
+              await saveVoyageExportSchedule({
+                existingId: payload.exportExistingId,
+                voyageId: payload.voyageId,
+                pol: payload.port,
+                temExportacao: payload.exportacao.temExportacao,
+                hasGranite: payload.exportacao.hasGranite,
+                containersQty: payload.exportacao.containersQty,
+                movementsQty: payload.exportacao.movementsQty,
+                ceStatus: payload.ceStatus,
+                linked: payload.linked,
+              })
+            }
+            await afterEscalaAlterada(queryClient, { voyageId: payload.voyageId })
+            showToast('Escala salva com sucesso.', 'success')
+            setEditingEscala(null)
           } catch {
-            showToast('Falha ao salvar as datas da Escala.', 'error')
+            showToast('Falha ao salvar a escala.', 'error')
           }
         }}
       />
@@ -448,37 +427,6 @@ export function Viagens() {
         }}
       />
 
-      <AddPodToVoyageModal
-        open={addingPodVoyage !== null}
-        voyage={addingPodVoyage}
-        onClose={() => setAddingPodVoyage(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atd, rtw, ceStatus, linked, escalaNumber }) => {
-          if (!user?.id) {
-            showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
-            return
-          }
-          try {
-            await saveVoyagePodSchedule({
-              voyageId,
-              pod,
-              eta,
-              etb,
-              ata,
-              atd,
-              rtw,
-              ceStatus,
-              linked,
-              escalaNumber,
-              changedBy: user.id,
-            })
-            await afterEscalaAlterada(queryClient, { voyageId })
-            showToast('POD adicionado ao planejamento da viagem.', 'success')
-            setAddingPodVoyage(null)
-          } catch {
-            showToast('Falha ao adicionar POD ao planejamento.', 'error')
-          }
-        }}
-      />
     </>
   )
 }

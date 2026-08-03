@@ -35,7 +35,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-it('pede confirmação antes de excluir planejamentos de POD e POL', async () => {
+it('pede confirmação uma vez por escala antes de excluir o planejamento', async () => {
   confirm.mockResolvedValue(false)
   const user = userEvent.setup()
   render(
@@ -51,15 +51,14 @@ it('pede confirmação antes de excluir planejamentos de POD e POL', async () =>
       isAdmin
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 
-  await user.click(screen.getByRole('button', { name: 'Excluir planejamento do POD BRSSZ' }))
-  await user.click(screen.getByRole('button', { name: 'Excluir planejamento de exportação do POL BRVIX' }))
+  // Uma escala, uma ação de excluir — inclusive na escala que só exporta.
+  await user.click(screen.getByRole('button', { name: 'Excluir escala BRSSZ' }))
+  await user.click(screen.getByRole('button', { name: 'Excluir escala BRVIX' }))
 
   expect(confirm).toHaveBeenCalledTimes(2)
   expect(deletePod).not.toHaveBeenCalled()
@@ -99,10 +98,8 @@ it('renderiza uma escala mista em uma linha com marcadores de importação e exp
       isAdmin
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 
@@ -151,10 +148,8 @@ it('exibe divergencia com os valores POD e POL na linha da escala', () => {
       isAdmin={false}
       divergenceCount={1}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 
@@ -194,10 +189,8 @@ it('renderiza viagem só de exportação em uma linha sem marcador de importaç�
       isAdmin
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 
@@ -206,4 +199,42 @@ it('renderiza viagem só de exportação em uma linha sem marcador de importaç�
   expect(within(table).getByText('BRSSZ')).toBeTruthy()
   expect(within(table).getByText('Exportação')).toBeTruthy()
   expect(within(table).queryByText('Importação')).toBeNull()
+})
+
+it('trava a retirada da exportação apenas na escala que tem carga, não na viagem inteira', async () => {
+  const user = userEvent.setup()
+  const onEditEscala = vi.fn()
+  const escala = (port: string) => ({
+    port, eta: null, etb: null, ata: null, atb: null, etd: null, atd: null, rtw: null,
+    linked: false, temImportacao: true, temExportacao: false, temGranito: false,
+    containersQty: null, movementsQty: null, divergences: [], omitted: false, deleted: false,
+  })
+
+  render(
+    <VoyageVisaoTab
+      voyage={{
+        id: 7,
+        status: 'planning',
+        bls: [],
+        // Granito embarca só em Vitória; Salvador não tem carga de exportação.
+        granite_manifests: [{ id: 'g1', voyage_id: 7, loading_port: 'BRVIX', granite_bls: [] }],
+        vazios_manifests: [],
+      } as never}
+      voyageLabel="NAVIO / 01N"
+      escalaRows={[escala('BRVIX'), escala('BRSSA')] as never}
+      importBatches={[]}
+      exportSchedules={[]}
+      isAdmin
+      divergenceCount={0}
+      ceCoverage={{ filled: 0, total: 0 }}
+      onEditEscala={onEditEscala}
+      onOmitPod={vi.fn()}
+    />,
+  )
+
+  await user.click(screen.getByRole('button', { name: 'Editar planejamento da escala BRVIX' }))
+  expect(onEditEscala).toHaveBeenLastCalledWith(expect.objectContaining({ port: 'BRVIX', exportLocked: true }))
+
+  await user.click(screen.getByRole('button', { name: 'Editar planejamento da escala BRSSA' }))
+  expect(onEditEscala).toHaveBeenLastCalledWith(expect.objectContaining({ port: 'BRSSA', exportLocked: false }))
 })

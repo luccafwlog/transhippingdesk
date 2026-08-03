@@ -3716,13 +3716,12 @@ export type Database = {
           ce_status: string | null
           containers_qty: number | null
           created_at: string | null
-          eta: string | null
-          etb: string | null
           has_granite: boolean
           id: string
           linked: boolean
           movements_qty: number | null
-          pol: string | null
+          pol: string
+          tem_exportacao: boolean
           updated_at: string | null
           voyage_id: number
         }
@@ -3730,13 +3729,12 @@ export type Database = {
           ce_status?: string | null
           containers_qty?: number | null
           created_at?: string | null
-          eta?: string | null
-          etb?: string | null
           has_granite?: boolean
           id?: string
           linked?: boolean
           movements_qty?: number | null
-          pol?: string | null
+          pol: string
+          tem_exportacao?: boolean
           updated_at?: string | null
           voyage_id: number
         }
@@ -3744,13 +3742,12 @@ export type Database = {
           ce_status?: string | null
           containers_qty?: number | null
           created_at?: string | null
-          eta?: string | null
-          etb?: string | null
           has_granite?: boolean
           id?: string
           linked?: boolean
           movements_qty?: number | null
-          pol?: string | null
+          pol?: string
+          tem_exportacao?: boolean
           updated_at?: string | null
           voyage_id?: number
         }

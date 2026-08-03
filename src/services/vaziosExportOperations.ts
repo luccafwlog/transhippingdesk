@@ -4,6 +4,7 @@ import type {
   VaziosExportServiceLine,
 } from "../types/database";
 import { supabase } from "./supabase";
+import { normalizePortCode } from "./portCode";
 import { diasCobraveis } from "./vaziosCusto";
 
 const OPERATION_BOOKINGS_PAGE_SIZE = 1000;
@@ -248,4 +249,24 @@ export async function updateVaziosBooking(
     .update(patch as never)
     .eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * Portos brasileiros da viagem que já têm Embarque de Vazios registrado,
+ * normalizados. É o que impede retirar a declaração de exportação de uma escala
+ * que já opera vazios.
+ */
+export async function listVaziosExportEmbarkPorts(voyageId: number): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("vazios_export_operations")
+    .select("embark_port")
+    .eq("voyage_id", voyageId);
+  if (error) throw error;
+
+  const ports = new Set<string>();
+  for (const row of (data ?? []) as Array<{ embark_port: string | null }>) {
+    const normalized = normalizePortCode(row.embark_port);
+    if (normalized) ports.add(normalized);
+  }
+  return Array.from(ports);
 }
