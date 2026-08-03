@@ -426,13 +426,18 @@ resultado e evidência conforme
 
 ### Pull request
 
-`.github/workflows/ci.yml` executa:
+`.github/workflows/ci.yml` executa quatro jobs em paralelo, cada um com
+instalação reproduzível própria (`npm ci --legacy-peer-deps`):
 
-1. instalação reproduzível;
-2. verificação documental;
-3. lint;
-4. build;
-5. testes.
+1. `quality` — verificação documental e lint;
+2. `build` — build (`tsc` + `vite`) e orçamento de bundle;
+3. `test` — suíte Vitest dividida em 3 shards (`--shard=N/3`);
+4. `checks` — gate agregador que só fica verde quando os três terminam verdes.
+
+`checks` é o nome estável para a proteção de branch: a quantidade de shards
+pode mudar sem reconfigurar o repositório. Runs antigos do mesmo ref são
+cancelados (`concurrency` + `cancel-in-progress`), então só o commit mais
+recente do PR ocupa runners.
 
 ### Push em main
 
