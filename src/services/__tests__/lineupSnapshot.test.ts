@@ -4,11 +4,25 @@ const from = vi.fn()
 vi.mock('../supabase', () => ({ supabase: { from: (table: string) => from(table) } }))
 
 function builder(result: { data: unknown; error: unknown }) {
+  let data = Array.isArray(result.data) ? result.data : result.data
   const chain: Record<string, unknown> = {}
-  for (const method of ['select', 'order', 'range', 'eq', 'or', 'ilike', 'in', 'limit', 'not', 'overrideTypes', 'gte', 'lte']) {
+  for (const method of ['select', 'order', 'or', 'ilike', 'limit', 'not', 'overrideTypes', 'gte', 'lte']) {
     chain[method] = vi.fn(() => chain)
   }
-  chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve)
+  chain.eq = vi.fn((field: string, value: unknown) => {
+    if (Array.isArray(data) && data.some((row) => row && typeof row === 'object' && field in row)) {
+      data = data.filter((row) => row && typeof row === 'object' && (row as Record<string, unknown>)[field] === value)
+    }
+    return chain
+  })
+  chain.in = vi.fn((field: string, values: unknown[]) => {
+    if (Array.isArray(data) && data.some((row) => row && typeof row === 'object' && field in row)) {
+      data = data.filter((row) => row && typeof row === 'object' && values.includes((row as Record<string, unknown>)[field]))
+    }
+    return chain
+  })
+  chain.range = vi.fn(() => chain)
+  chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data, error: result.error }).then(resolve)
   return chain
 }
 
@@ -54,5 +68,47 @@ describe('fetchLineUpSnapshot', () => {
     const row = snapshot.rows.find((candidate) => candidate.pod === 'BRSSZ')
     expect(row).toBeDefined()
     expect(row).toMatchObject({ voyageId: 24, voyageNumber: '24W', vesselName: 'MV TESTE', rowType: 'import', ata: '2026-08-02', bbMachines: 2 })
+  })
+
+  it('monta linha de exportacao com datas da escala unificada', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      voyage_export_schedules: [{
+        id: 'EXP1',
+        voyage_id: 24,
+        pol: 'BRVIX',
+        has_granite: true,
+        containers_qty: 12,
+        movements_qty: 14,
+        eta: '2026-08-01',
+        etb: '2026-08-02',
+        ce_status: 'received',
+        linked: true,
+      }],
+      audit_logs: [
+        { entity_type: 'voyage_pol_schedule', entity_id: '24::BRVIX', field_name: 'atd', new_value: '2026-08-05', changed_at: '2026-07-27T00:00:00Z' },
+      ],
+    }))
+
+    const snapshot = await fetchLineUpSnapshot()
+    const row = snapshot.rows.find((candidate) => candidate.id === 'exp::24::BRVIX')
+
+    expect(row).toBeDefined()
+    expect(row).toMatchObject({
+      voyageId: 24,
+      pod: 'BRVIX',
+      rowType: 'export',
+      eta: '2026-08-01',
+      etb: '2026-08-02',
+      ata: null,
+      atb: null,
+      atd: '2026-08-05',
+      exportHasGranite: true,
+      exportContainersQty: 12,
+      exportMovementsQty: 14,
+      exportCeStatus: 'received',
+      exportLinked: true,
+    })
   })
 })

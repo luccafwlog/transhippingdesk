@@ -114,31 +114,14 @@ export function Viagens() {
   const voyageIds = useMemo(() => voyages.map((voyage) => voyage.id), [voyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(voyageIds)
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
-  const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, exportSchedulesData, routeCeMasters } =
+  const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage, exportSchedulesData, routeCeMasters } =
     useViagemSchedulesAndStats(voyageIds, polEntityIds)
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
 
-  const polPortsByVoyageId = useMemo(() => {
-    const map = new Map<number, string[]>()
-    if (!polSchedules) return map
-    for (const key of polSchedules.keys()) {
-      const [voyageIdStr, pol] = key.split('::')
-      const voyageId = Number(voyageIdStr)
-      if (!voyageId || !pol) continue
-      const existing = map.get(voyageId)
-      if (existing) {
-        existing.push(pol)
-      } else {
-        map.set(voyageId, [pol])
-      }
-    }
-    return map
-  }, [polSchedules])
-
   const railItems = useMemo(
-    () => buildVoyageRailItems(voyages, podSchedulesByVoyage, polPortsByVoyageId),
-    [voyages, podSchedulesByVoyage, polPortsByVoyageId],
+    () => buildVoyageRailItems(voyages, escalaSchedulesByVoyage),
+    [voyages, escalaSchedulesByVoyage],
   )
 
   const visibleRailItems = useMemo(
@@ -266,7 +249,7 @@ export function Viagens() {
               podSchedules={podSchedules}
               polSchedules={polSchedules}
               routeCeMasters={routeCeMasters}
-              scheduledPodRows={podSchedulesByVoyage.get(selectedVoyage.id) ?? []}
+              scheduledEscalaRows={escalaSchedulesByVoyage.get(selectedVoyage.id) ?? []}
               exportSchedules={Array.from(exportSchedulesData?.get(selectedVoyage.id)?.values() ?? [])}
               onEditVoyage={setEditingVoyageId}
               onDeleteVoyage={setDeletingVoyageId}

@@ -222,6 +222,10 @@ describe('collectVoyagePorts', () => {
       'BRVIX',
     ])
   })
+
+  it('inclui portas vindas da projeção unificada de escalas', () => {
+    expect(collectVoyagePorts([], 'pod', null, [{ port: ' BRVIX ' }, { port: 'BRSSZ' }])).toEqual(['BRSSZ', 'BRVIX'])
+  })
 })
 
 describe('countPlannedPodRows', () => {
@@ -293,6 +297,14 @@ describe('getProximaEscala', () => {
     expect(getProximaEscala([{ pod: 'X', eta: null, ata: null }])).toBeNull()
     expect(getProximaEscala([{ pod: 'X', eta: '2026-06-01', ata: '2026-06-01' }])).toBeNull()
     expect(getProximaEscala([])).toBeNull()
+  })
+
+  it('aceita escalas unificadas de exportação e mantém ETA vencido pendente', () => {
+    const rows = [
+      { port: 'BRSSZ', eta: '2026-06-01', etb: '2026-06-02', ata: null, temExportacao: true },
+      { port: 'BRVIX', eta: '2026-06-03', etb: '2026-06-04', ata: null, temExportacao: true },
+    ]
+    expect(getProximaEscala(rows)).toEqual({ pod: 'BRSSZ', eta: '2026-06-01', etb: '2026-06-02' })
   })
 })
 
@@ -380,6 +392,34 @@ describe('buildVoyageRailItems', () => {
   it('usa mapa vazio de escalas sem quebrar', () => {
     const [item] = buildVoyageRailItems(voyages, new Map())
     expect(item.proximaEscala).toBeNull()
+  })
+
+  it('monta rail de viagem só de exportação a partir de escala unificada sem fallback de POD', () => {
+    const exportOnlyVoyages = [{
+      id: 2,
+      voyage_number: '001E',
+      status: 'active',
+      vessel: { name: 'EXPORTER', carrier: { name: 'COSCO' } },
+      pol: { name: 'CNSHA' },
+      pod: { name: 'CNSHA' },
+      bls: [],
+    }] as never
+    const escalas = new Map([
+      [2, [{
+        port: 'BRVIX',
+        eta: '2026-06-01',
+        etb: '2026-06-02',
+        ata: null,
+        omitted: false,
+        temExportacao: true,
+      }]],
+    ])
+
+    const [item] = buildVoyageRailItems(exportOnlyVoyages, escalas)
+
+    expect(item.originPorts).toEqual(['BRVIX'])
+    expect(item.destinationPorts).toEqual(['BRVIX'])
+    expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-01', etb: '2026-06-02' })
   })
 })
 

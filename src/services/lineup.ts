@@ -1,5 +1,9 @@
-import { buildVoyagePodEntityId, deriveAutomaticVoyagePodCeStatus, listVoyagePodSchedulesByVoyageIds, type VoyagePodCeStatus } from './voyageRouteSchedules'
-import { fetchExportSchedulesByVoyageIds, type ExportCeStatus } from './voyageExportSchedules'
+import {
+  deriveAutomaticVoyagePodCeStatus,
+  listVoyageEscalaSchedulesByVoyageIds,
+  type VoyagePodCeStatus,
+} from './voyageRouteSchedules'
+import type { ExportCeStatus } from './voyageExportSchedules'
 import { supabase } from './supabase'
 import { chunkArray, isDateOnly } from '../lib/utils'
 import { normalizePortCode } from './portCode'
@@ -87,17 +91,15 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const voyageIds = voyages.map((voyage) => voyage.id)
   if (!voyageIds.length) return { rows: [], lastChangedAt: null }
 
-  const [bls, vehicles, vaziosImportacaoMtyByVoyage, exportSchedules] = await Promise.all([
+  const [bls, vehicles, vaziosImportacaoMtyByVoyage, escalaSchedulesByVoyage] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
     fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
-    fetchExportSchedulesByVoyageIds(voyageIds),
+    listVoyageEscalaSchedulesByVoyageIds(voyageIds),
   ])
 
   const blIds = bls.map((bl) => bl.id)
   const containers = await fetchContainersByBlIds(blIds)
-
-  const podSchedules = await listVoyagePodSchedulesByVoyageIds(voyageIds)
 
   const blsByVoyage = new Map<number, LineUpBlRow[]>()
   for (const bl of bls) {
@@ -126,17 +128,19 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
 
   for (const voyage of voyages) {
     const voyageBls = blsByVoyage.get(voyage.id) ?? []
-    const scheduledPods = Array.from(podSchedules.values())
-      .filter((schedule) => schedule.voyageId === voyage.id)
-      .filter((schedule) => hasActivePodScheduleData(schedule))
-      .map((schedule) => normalizePort(schedule.pod))
-    const routePods = Array.from(new Set([...voyageBls.map((bl) => normalizePort(bl.pod)), ...scheduledPods]))
+    const voyageEscalas = escalaSchedulesByVoyage.get(voyage.id) ?? []
+    const escalasByPort = new Map(voyageEscalas.map((schedule) => [normalizePort(schedule.port), schedule]))
+    const scheduledPorts = voyageEscalas
+      .filter((schedule) => hasActiveEscalaScheduleData(schedule))
+      .map((schedule) => normalizePort(schedule.port))
+    const routePods = Array.from(new Set([...voyageBls.map((bl) => normalizePort(bl.pod)), ...scheduledPorts]))
     const voyageVehicles = vehiclesByVoyage.get(voyage.id) ?? []
 
     for (const pod of routePods) {
       const routeBls = voyageBls.filter((bl) => normalizePort(bl.pod) === pod)
       const routeBlIds = new Set(routeBls.map((bl) => bl.id))
-      const schedule = podSchedules.get(buildVoyagePodEntityId(voyage.id, pod))
+      const schedule = escalasByPort.get(pod)
+      const isExportOnly = !routeBls.length && Boolean(schedule?.temExportacao) && !schedule?.temImportacao
 
       const distinctContainers = new Map<string, { id: number }>()
 
@@ -172,7 +176,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       const bbPackages = routeBls.reduce((sum, bl) => sum + Number(bl.bb_packages_qty ?? 0), 0)
 
       rows.push({
-        id: `${voyage.id}::${pod}`,
+        id: isExportOnly ? `exp::${voyage.id}::${pod}` : `${voyage.id}::${pod}`,
         voyageId: voyage.id,
         voyageNumber: voyage.voyage_number,
         voyageStatus: voyage.status,
@@ -181,7 +185,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         eta: schedule?.eta ?? null,
         etb: schedule?.etb ?? null,
         ...lineUpScheduleDates(schedule),
-        rowType: 'import',
+        rowType: isExportOnly ? 'export' : 'import',
         vin: routeVehicles.length,
         car: carContainers,
         cg: Math.max(totalContainers - carContainers, 0),
@@ -191,48 +195,13 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         bbMachines,
         bbPackages,
         bbTotal: bbMachines + bbPackages,
-        ceStatus: schedule?.ceStatus ?? autoCeStatus,
-        linked: schedule?.linked ?? false,
-        exportHasGranite: null,
-        exportContainersQty: null,
-        exportMovementsQty: null,
-        exportCeStatus: null,
-        exportLinked: null,
-      })
-    }
-  }
-
-  for (const voyage of voyages) {
-    const voyageExportSchedules = exportSchedules.get(voyage.id)
-    if (!voyageExportSchedules) continue
-    for (const [portKey, exportSchedule] of voyageExportSchedules) {
-      rows.push({
-        id: `exp::${voyage.id}::${portKey}`,
-        voyageId: voyage.id,
-        voyageNumber: voyage.voyage_number,
-        voyageStatus: voyage.status,
-        vesselName: voyage.vessel?.name ?? '-',
-        pod: exportSchedule.pol ?? voyage.pol?.locode ?? voyage.pol?.name ?? 'EXP',
-        eta: exportSchedule.eta,
-        etb: exportSchedule.etb,
-        ...lineUpScheduleDates(undefined),
-        rowType: 'export',
-        vin: 0,
-        car: 0,
-        cg: 0,
-        total: 0,
-        mty: 0,
-        rtw: null,
-        bbMachines: 0,
-        bbPackages: 0,
-        bbTotal: 0,
-        ceStatus: 'missing',
-        linked: false,
-        exportHasGranite: exportSchedule.hasGranite,
-        exportContainersQty: exportSchedule.containersQty,
-        exportMovementsQty: exportSchedule.movementsQty,
-        exportCeStatus: exportSchedule.ceStatus,
-        exportLinked: exportSchedule.linked,
+        ceStatus: isExportOnly ? 'missing' : (schedule?.ceStatus as VoyagePodCeStatus | null) ?? autoCeStatus,
+        linked: isExportOnly ? false : schedule?.linked ?? false,
+        exportHasGranite: schedule?.temExportacao ? schedule.temGranito : null,
+        exportContainersQty: schedule?.temExportacao ? schedule.containersQty : null,
+        exportMovementsQty: schedule?.temExportacao ? schedule.movementsQty : null,
+        exportCeStatus: schedule?.temExportacao ? (schedule.ceStatus as ExportCeStatus | null) : null,
+        exportLinked: schedule?.temExportacao ? schedule.linked : null,
       })
     }
   }
@@ -256,7 +225,9 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
     creditedVoyageIds.add(row.voyageId)
   }
 
-  const lastChangedAt = await fetchLastLineUpChangeAt(voyageIds, blIds, Array.from(podSchedules.keys()))
+  const scheduleEntityIds = Array.from(escalaSchedulesByVoyage.values())
+    .flatMap((schedules) => schedules.map((schedule) => schedule.entityId))
+  const lastChangedAt = await fetchLastLineUpChangeAt(voyageIds, blIds, scheduleEntityIds)
 
   return {
     rows: sortedRows,
@@ -264,7 +235,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   }
 }
 
-function hasActivePodScheduleData(schedule: {
+function hasActiveEscalaScheduleData(schedule: {
   eta?: string | null
   etb?: string | null
   ata?: string | null
@@ -274,7 +245,9 @@ function hasActivePodScheduleData(schedule: {
   rtw?: number | null
   ceStatus?: VoyagePodCeStatus | null
   linked?: boolean | null
+  temExportacao?: boolean
 }) {
+  if (schedule.temExportacao) return true
   if (schedule.eta || schedule.etb || schedule.ata || schedule.atb || schedule.etd || schedule.atd) return true
   if (schedule.rtw !== null) return true
   if (schedule.linked === true) return true
@@ -465,7 +438,7 @@ async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], sch
           supabase
             .from('audit_logs')
             .select('changed_at')
-            .eq('entity_type', 'voyage_pod_schedule')
+            .in('entity_type', ['voyage_pod_schedule', 'voyage_pol_schedule'])
             .in('entity_id', scheduleEntityIds)
             .order('changed_at', { ascending: false })
             .limit(1),

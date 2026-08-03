@@ -23,8 +23,8 @@ import {
 } from '../../services/voyageSummaries'
 import { normalizePortName } from '../../lib/voyageFormat'
 import {
-  buildVoyagePodEntityId,
   deriveAutomaticVoyagePodCeStatus,
+  type VoyageEscalaSchedule,
   type VoyagePodSchedule,
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
@@ -105,7 +105,7 @@ type VoyageCardProps = {
   podSchedules: Map<string, VoyagePodSchedule> | undefined
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   routeCeMasters: Map<string, string> | undefined
-  scheduledPodRows: VoyagePodSchedule[]
+  scheduledEscalaRows: VoyageEscalaSchedule[]
   exportSchedules: VoyageExportSchedule[]
   onEditVoyage: (voyageId: number) => void
   onDeleteVoyage: (voyageId: number) => void
@@ -123,10 +123,9 @@ export function VoyageCard({
   vehicleStats: vehicleStatsProp,
   vaziosImpStats: vaziosImpStatsProp,
   voyagesWithUnpaidBls,
-  podSchedules,
   polSchedules,
   routeCeMasters,
-  scheduledPodRows,
+  scheduledEscalaRows,
   exportSchedules,
   onEditVoyage,
   onDeleteVoyage,
@@ -157,28 +156,22 @@ export function VoyageCard({
   const totalContainers = countDistinctContainerNumbers(flatContainers)
   const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
-  const scheduledPolPorts = useMemo(
-    () =>
-      Array.from(polSchedules?.keys() ?? [])
-        .filter((key) => key.startsWith(`${voyage.id}::`))
-        .map((key) => key.split('::')[1])
-        .filter(Boolean),
-    [polSchedules, voyage.id],
-  )
-  const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, scheduledPolPorts)
+  const exportEscalas = scheduledEscalaRows.filter((schedule) => schedule.temExportacao)
+  const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, exportEscalas)
   const destinationPorts = collectVoyagePorts(
     voyage.bls,
     'pod',
-    voyage.pod?.name ?? null,
-    scheduledPodRows.map((schedule) => schedule.pod),
+    null,
+    scheduledEscalaRows,
   )
+  const escalasByPort = new Map(scheduledEscalaRows.map((schedule) => [normalizePortName(schedule.port), schedule]))
   const podRows: VoyagePodRow[] = destinationPorts.map((pod) => {
-    const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
+    const schedule = escalasByPort.get(normalizePortName(pod))
     const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(pod))
     const routeCeFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
     const autoCeStatus = deriveAutomaticVoyagePodCeStatus(routeCeFilledCount, routeBls.length)
     return {
-      pod,
+      pod: schedule?.port ?? pod,
       eta: schedule?.eta ?? null,
       etb: schedule?.etb ?? null,
       ata: schedule?.ata ?? null,

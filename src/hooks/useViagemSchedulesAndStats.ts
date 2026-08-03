@@ -2,7 +2,13 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '../services/queryKeys'
 import { fetchVoyagesWithUnpaidBls } from '../services/voyages'
-import { listVoyagePolSchedules, listVoyagePodSchedulesByVoyageIds, listVoyageRouteCeMasters, type VoyagePodSchedule } from '../services/voyageRouteSchedules'
+import {
+  listVoyageEscalaSchedulesByVoyageIds,
+  listVoyagePolSchedules,
+  listVoyagePodSchedulesByVoyageIds,
+  listVoyageRouteCeMasters,
+  type VoyagePodSchedule,
+} from '../services/voyageRouteSchedules'
 import { fetchExportSchedulesByVoyageIds, type VoyageExportSchedulesByPort } from '../services/voyageExportSchedules'
 
 function groupPodSchedulesByVoyageId(
@@ -37,6 +43,12 @@ export function useViagemSchedulesAndStats(voyageIds: number[], polEntityIds: st
     queryFn: () => listVoyagePodSchedulesByVoyageIds(voyageIds),
   })
 
+  const { data: escalaSchedulesByVoyage } = useQuery({
+    queryKey: queryKeys.voyages.escalaSchedules(voyageIds),
+    enabled: voyageIds.length > 0,
+    queryFn: () => listVoyageEscalaSchedulesByVoyageIds(voyageIds),
+  })
+
   const { data: exportSchedulesData } = useQuery<Map<number, VoyageExportSchedulesByPort>>({
     queryKey: queryKeys.voyages.exportSchedules(voyageIds),
     enabled: voyageIds.length > 0,
@@ -56,6 +68,7 @@ export function useViagemSchedulesAndStats(voyageIds: number[], polEntityIds: st
     polSchedules,
     podSchedules: podSchedulesRaw,
     podSchedulesByVoyage,
+    escalaSchedulesByVoyage: escalaSchedulesByVoyage ?? new Map(),
     exportSchedulesData,
     routeCeMasters,
   }

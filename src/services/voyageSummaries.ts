@@ -232,13 +232,13 @@ export function collectVoyagePorts(
   bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
   field: 'pol' | 'pod',
   fallback: string | null,
-  extraPorts: Array<string | null | undefined> = [],
+  extraPorts: Array<string | { port?: string | null; pol?: string | null; pod?: string | null } | null | undefined> = [],
 ) {
   const ports = Array.from(
     new Set(
       [
         ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
-        ...extraPorts.map((value) => String(value ?? '').trim()),
+        ...extraPorts.map((value) => normalizeCollectedPort(value, field)),
       ]
         .filter(Boolean),
     ),
@@ -249,6 +249,16 @@ export function collectVoyagePorts(
   }
 
   return ports
+}
+
+function normalizeCollectedPort(
+  value: string | { port?: string | null; pol?: string | null; pod?: string | null } | null | undefined,
+  field: 'pol' | 'pod',
+) {
+  if (typeof value === 'object' && value !== null) {
+    return String(value.port ?? value[field] ?? '').trim()
+  }
+  return String(value ?? '').trim()
 }
 
 export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined }> | null | undefined) {
@@ -316,12 +326,18 @@ export function deriveEstadoConciliacao({
 
 /** Próxima escala: menor ETA entre PODs com ETA definido e sem ATA registrado. */
 export function getProximaEscala(
-  podRows: Array<{ pod: string; eta: string | null; etb?: string | null; ata: string | null; omitted?: boolean }> | null | undefined,
+  podRows: Array<{ pod?: string; port?: string; eta: string | null; etb?: string | null; ata: string | null; omitted?: boolean }> | null | undefined,
 ) {
-  const pending = (podRows ?? []).filter((row) => row.eta && !row.ata && !row.omitted)
+  const pending = (podRows ?? []).filter((row) => row.eta && !row.ata && !row.omitted && getEscalaPort(row))
   if (!pending.length) return null
   const next = pending.reduce((earliest, row) => (String(row.eta) < String(earliest.eta) ? row : earliest))
-  return { pod: next.pod, eta: next.eta as string, etb: next.etb ?? null }
+  const pod = getEscalaPort(next)
+  if (!pod) return null
+  return { pod, eta: next.eta as string, etb: next.etb ?? null }
+}
+
+function getEscalaPort(row: { pod?: string; port?: string }) {
+  return row.port ?? row.pod ?? null
 }
 
 export function isEtaOverdue(eta: string | null, now: Date = new Date()): boolean {
@@ -357,6 +373,14 @@ type VoyageRailSource = {
 }
 
 type PodScheduleRow = { pod: string; eta: string | null; etb: string | null; ata: string | null; omitted?: boolean }
+type EscalaScheduleRow = {
+  port: string
+  eta: string | null
+  etb: string | null
+  ata: string | null
+  omitted?: boolean
+  temExportacao?: boolean
+}
 
 /**
  * Monta os itens do rail. Estado de Conciliação usa apenas sinais baratos do
@@ -365,12 +389,11 @@ type PodScheduleRow = { pod: string; eta: string | null; etb: string | null; ata
  */
 export function buildVoyageRailItems(
   voyages: VoyageRailSource[] | null | undefined,
-  podRowsByVoyageId: ReadonlyMap<number, PodScheduleRow[]>,
-  polPortsByVoyageId?: ReadonlyMap<number, string[]>,
+  escalaRowsByVoyageId: ReadonlyMap<number, Array<PodScheduleRow | EscalaScheduleRow>>,
 ): VoyageRailItem[] {
   return (voyages ?? []).map((voyage) => {
-    const podRows = podRowsByVoyageId.get(voyage.id) ?? []
-    const scheduledPolPorts = polPortsByVoyageId?.get(voyage.id) ?? []
+    const escalaRows = escalaRowsByVoyageId.get(voyage.id) ?? []
+    const exportEscalas = escalaRows.filter((row) => 'port' in row && row.temExportacao)
     const { containerBls } = splitVoyageBls(voyage.bls)
     const { filled, total } = voyageCeCoverage(voyage.bls)
 
@@ -380,12 +403,12 @@ export function buildVoyageRailItems(
       vesselName: voyage.vessel?.name ?? 'Navio',
       voyageNumber: voyage.voyage_number,
       status: normalizeVoyageStatus(voyage.status),
-      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, scheduledPolPorts),
+      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, exportEscalas),
       destinationPorts: collectVoyagePorts(
         voyage.bls,
         'pod',
-        voyage.pod?.name ?? null,
-        podRows.map((row) => row.pod),
+        null,
+        escalaRows,
       ),
       blCount: (voyage.bls ?? []).length,
       containerCount: countDistinctContainerNumbers(containerBls.flatMap((bl) => bl.bl_containers ?? [])),
@@ -394,7 +417,7 @@ export function buildVoyageRailItems(
         ceFilled: filled,
         ceTotal: total,
       }),
-      proximaEscala: getProximaEscala(podRows),
+      proximaEscala: getProximaEscala(escalaRows),
     }
   })
 }
