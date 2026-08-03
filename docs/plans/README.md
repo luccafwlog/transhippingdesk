@@ -13,9 +13,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 ## Planos ativos
 
-| Plano | Base de decisão | Status |
-|-------|-----------------|--------|
-| [Escala unificada: POL e POD do mesmo porto são a mesma escala](./2026-07-31-escala-unificada-pol-pod.md) | [ADR 0035](../adr/0035-escala-unificada-ancora-do-adr-fontes-da-descarga-e-relatorio-sem-zeros.md) (bloco 1) | TODO |
+Nenhum plano ativo no momento.
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
