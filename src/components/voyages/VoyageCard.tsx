@@ -106,7 +106,7 @@ type VoyageCardProps = {
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   routeCeMasters: Map<string, string> | undefined
   scheduledPodRows: VoyagePodSchedule[]
-  exportSchedule: VoyageExportSchedule | null
+  exportSchedules: VoyageExportSchedule[]
   onEditVoyage: (voyageId: number) => void
   onDeleteVoyage: (voyageId: number) => void
   onCancelVoyage: (voyageId: number) => void
@@ -127,7 +127,7 @@ export function VoyageCard({
   polSchedules,
   routeCeMasters,
   scheduledPodRows,
-  exportSchedule,
+  exportSchedules,
   onEditVoyage,
   onDeleteVoyage,
   onCancelVoyage,
@@ -349,7 +349,7 @@ export function VoyageCard({
               voyageLabel={voyageLabel}
               podRows={podRows}
               importBatches={importBatches}
-              exportSchedule={exportSchedule}
+              exportSchedules={exportSchedules}
               isAdmin={isAdmin}
               divergenceCount={divergenceCount}
               ceCoverage={ceCoverage}

@@ -203,36 +203,38 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   }
 
   for (const voyage of voyages) {
-    const exportSchedule = exportSchedules.get(voyage.id)
-    if (!exportSchedule) continue
-    rows.push({
-      id: `exp::${voyage.id}`,
-      voyageId: voyage.id,
-      voyageNumber: voyage.voyage_number,
-      voyageStatus: voyage.status,
-      vesselName: voyage.vessel?.name ?? '-',
-      pod: exportSchedule.pol ?? voyage.pol?.locode ?? voyage.pol?.name ?? 'EXP',
-      eta: exportSchedule.eta,
-      etb: exportSchedule.etb,
-      ...lineUpScheduleDates(undefined),
-      rowType: 'export',
-      vin: 0,
-      car: 0,
-      cg: 0,
-      total: 0,
-      mty: 0,
-      rtw: null,
-      bbMachines: 0,
-      bbPackages: 0,
-      bbTotal: 0,
-      ceStatus: 'missing',
-      linked: false,
-      exportHasGranite: exportSchedule.hasGranite,
-      exportContainersQty: exportSchedule.containersQty,
-      exportMovementsQty: exportSchedule.movementsQty,
-      exportCeStatus: exportSchedule.ceStatus,
-      exportLinked: exportSchedule.linked,
-    })
+    const voyageExportSchedules = exportSchedules.get(voyage.id)
+    if (!voyageExportSchedules) continue
+    for (const [portKey, exportSchedule] of voyageExportSchedules) {
+      rows.push({
+        id: `exp::${voyage.id}::${portKey}`,
+        voyageId: voyage.id,
+        voyageNumber: voyage.voyage_number,
+        voyageStatus: voyage.status,
+        vesselName: voyage.vessel?.name ?? '-',
+        pod: exportSchedule.pol ?? voyage.pol?.locode ?? voyage.pol?.name ?? 'EXP',
+        eta: exportSchedule.eta,
+        etb: exportSchedule.etb,
+        ...lineUpScheduleDates(undefined),
+        rowType: 'export',
+        vin: 0,
+        car: 0,
+        cg: 0,
+        total: 0,
+        mty: 0,
+        rtw: null,
+        bbMachines: 0,
+        bbPackages: 0,
+        bbTotal: 0,
+        ceStatus: 'missing',
+        linked: false,
+        exportHasGranite: exportSchedule.hasGranite,
+        exportContainersQty: exportSchedule.containersQty,
+        exportMovementsQty: exportSchedule.movementsQty,
+        exportCeStatus: exportSchedule.ceStatus,
+        exportLinked: exportSchedule.linked,
+      })
+    }
   }
 
   const sortedRows = rows.sort((left, right) => {

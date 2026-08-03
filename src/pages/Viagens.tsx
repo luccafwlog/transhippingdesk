@@ -267,7 +267,7 @@ export function Viagens() {
               polSchedules={polSchedules}
               routeCeMasters={routeCeMasters}
               scheduledPodRows={podSchedulesByVoyage.get(selectedVoyage.id) ?? []}
-              exportSchedule={exportSchedulesData?.get(selectedVoyage.id) ?? null}
+              exportSchedules={Array.from(exportSchedulesData?.get(selectedVoyage.id)?.values() ?? [])}
               onEditVoyage={setEditingVoyageId}
               onDeleteVoyage={setDeletingVoyageId}
               onCancelVoyage={setCancellingVoyageId}
@@ -374,7 +374,19 @@ export function Viagens() {
         onClose={() => setEditingExport(null)}
         onSaved={async ({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked }) => {
           try {
-            await saveVoyageExportSchedule({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked })
+            await saveVoyageExportSchedule({
+              existingId: editingExport?.existing?.id ?? null,
+              previousPol: editingExport?.existing?.pol ?? null,
+              voyageId,
+              pol,
+              hasGranite,
+              containersQty,
+              movementsQty,
+              eta,
+              etb,
+              ceStatus,
+              linked,
+            })
             await afterEscalaAlterada(queryClient, { voyageId })
             showToast('Planejamento de exportação salvo.', 'success')
             setEditingExport(null)

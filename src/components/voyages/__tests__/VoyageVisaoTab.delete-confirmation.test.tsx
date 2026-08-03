@@ -44,7 +44,7 @@ it('pede confirmação antes de excluir planejamentos de POD e POL', async () =>
       voyageLabel="NAVIO / 01N"
       podRows={[{ pod: 'BRSSZ', eta: '2026-07-20', etb: null, ata: null, atd: null, rtw: null, linked: true } as never]}
       importBatches={[]}
-      exportSchedule={{ id: 9, pol: 'BRVIX', eta: null, etb: null, linked: false } as never}
+      exportSchedules={[{ id: 9, pol: 'BRVIX', eta: null, etb: null, linked: false } as never]}
       isAdmin
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
@@ -56,7 +56,7 @@ it('pede confirmação antes de excluir planejamentos de POD e POL', async () =>
   )
 
   await user.click(screen.getByRole('button', { name: 'Excluir planejamento do POD BRSSZ' }))
-  await user.click(screen.getByRole('button', { name: 'Excluir POL de exportação' }))
+  await user.click(screen.getByRole('button', { name: 'Excluir planejamento de exportação do POL BRVIX' }))
 
   expect(confirm).toHaveBeenCalledTimes(2)
   expect(deletePod).not.toHaveBeenCalled()

@@ -37,7 +37,7 @@ it('mostra apenas os 3 eventos mais recentes da linha do tempo, com opção de e
       voyageLabel="NAVIO / 01N"
       podRows={[]}
       importBatches={importBatches as never}
-      exportSchedule={null}
+      exportSchedules={[]}
       isAdmin={false}
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}

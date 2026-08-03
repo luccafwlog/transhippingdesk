@@ -38,7 +38,7 @@ export function VoyageVisaoTab({
   voyageLabel,
   podRows,
   importBatches,
-  exportSchedule,
+  exportSchedules,
   isAdmin,
   divergenceCount,
   ceCoverage,
@@ -51,7 +51,7 @@ export function VoyageVisaoTab({
   voyageLabel: string
   podRows: VoyagePodRow[]
   importBatches: VoyageImportBatch[]
-  exportSchedule: VoyageExportSchedule | null
+  exportSchedules: VoyageExportSchedule[]
   isAdmin: boolean
   divergenceCount: number
   ceCoverage: { filled: number; total: number }
@@ -181,7 +181,7 @@ export function VoyageVisaoTab({
           <Button
             variant="secondary"
             className="app-btn--sm"
-            onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
+            onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: null })}
           >
             <Plus size={15} />
             Adicionar POL
@@ -297,15 +297,19 @@ export function VoyageVisaoTab({
                 </td>
               </tr>
             )}
-            {exportSchedule ? (
-              <tr className="border-t border-[var(--app-border)] bg-[var(--app-gold-soft)]">
+            {exportSchedules.map((exportSchedule) => (
+              <tr key={exportSchedule.id} className="border-t border-[var(--app-border)] bg-[var(--app-gold-soft)]">
                 <td className="px-3 py-2 font-semibold text-[var(--app-text-strong)]">
                   {exportSchedule.pol ?? 'POL'}
                   <Badge tone="yellow" className="ml-1 align-middle">EXP</Badge>
                 </td>
                 <td className="px-3 py-2">{formatDate(exportSchedule.eta)}</td>
                 <td className="px-3 py-2">{formatDate(exportSchedule.etb)}</td>
-                <td colSpan={3} className="px-3 py-2 text-[var(--app-muted)] text-xs">
+                <td className="px-3 py-2">-</td>
+                <td className="px-3 py-2">-</td>
+                <td className="px-3 py-2">-</td>
+                <td className="px-3 py-2">-</td>
+                <td className="px-3 py-2 text-[var(--app-muted)] text-xs">
                   {[
                     exportSchedule.hasGranite ? 'GRANITE' : null,
                     exportSchedule.containersQty !== null
@@ -316,15 +320,15 @@ export function VoyageVisaoTab({
                     .join(' | ') || '—'}
                 </td>
                 <td className="px-3 py-2">{renderCeStatusLabel(exportSchedule.ceStatus ?? 'waiting')}</td>
-                <td className="px-3 py-2">{renderLinkedLabel(exportSchedule.linked)}</td>
                 <td className="px-3 py-2">-</td>
+                <td className="px-3 py-2">{renderLinkedLabel(exportSchedule.linked)}</td>
                 <td className="px-3 py-2">
                   {isAdmin ? (
                     <div className="flex items-center gap-2">
                       <Button
                         variant="secondary"
                         className="app-voyage-icon-btn"
-                        aria-label="Editar POL de exportação"
+                        aria-label={`Editar planejamento de exportação do POL ${exportSchedule.pol ?? '-'}`}
                         onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
                       >
                         <Pencil size={15} />
@@ -332,7 +336,7 @@ export function VoyageVisaoTab({
                       <Button
                         variant="danger"
                         className="app-voyage-icon-btn"
-                        aria-label="Excluir POL de exportação"
+                        aria-label={`Excluir planejamento de exportação do POL ${exportSchedule.pol ?? '-'}`}
                         onClick={() => handleDeleteExport(exportSchedule)}
                       >
                         <Trash2 size={15} />
@@ -341,7 +345,7 @@ export function VoyageVisaoTab({
                   ) : null}
                 </td>
               </tr>
-            ) : null}
+            ))}
           </tbody>
         </table>
         </div>
