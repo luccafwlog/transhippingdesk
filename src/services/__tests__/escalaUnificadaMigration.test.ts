@@ -69,14 +69,26 @@ describe('251_agency_report_pending_escala_unificada.sql', () => {
     expect(body).toMatch(/upper\(trim\(split_part\(entity_id, '::', 2\)\)\) LIKE 'BR%'/)
   })
 
-  it('keeps the 214 baseline for POD ATDs and adds a non-retroactive baseline for newly reached POL ATDs', () => {
+  it('keeps the 214 POD baseline and captures the POL baseline at migration execution time', () => {
     const sql = readFileSync(agencyPendingMigrationPath, 'utf8')
     const body = functionBody(sql, 'detect_agency_report_pending')
 
     expect(body).toContain("entity_type = 'voyage_pod_schedule'")
     expect(body).toContain("changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00'")
     expect(body).toContain("entity_type = 'voyage_pol_schedule'")
-    expect(body).toContain("changed_at >= TIMESTAMPTZ '2026-08-03 00:00:00+00'")
+    expect(body).toMatch(
+      /changed_at >= \(\s*SELECT captured_at\s+FROM public\.agency_report_pending_baselines\s+WHERE baseline_key = 'voyage_pol_schedule_atd'\s*\)/i,
+    )
+    expect(sql).toMatch(
+      /CREATE TABLE public\.agency_report_pending_baselines[\s\S]*baseline_key text PRIMARY KEY[\s\S]*captured_at timestamptz NOT NULL/i,
+    )
+    expect(sql).toMatch(
+      /INSERT INTO public\.agency_report_pending_baselines\s*\(baseline_key, captured_at\)\s*VALUES\s*\('voyage_pol_schedule_atd',\s*clock_timestamp\(\)\)/i,
+    )
+    expect(sql).toContain(
+      'REVOKE ALL ON TABLE public.agency_report_pending_baselines FROM PUBLIC, anon, authenticated;',
+    )
+    expect(sql).not.toContain("2026-08-03 00:00:00+00")
   })
 
   it('preserves department-level grouping, sign-off closure contract, and RPC security', () => {

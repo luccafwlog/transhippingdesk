@@ -4,7 +4,23 @@
 -- Afetadas: detect_agency_report_pending.
 -- Consumidores: src/services/alerts.ts.
 -- Rollback: reaplicar a definicao de detect_agency_report_pending da migration
---           228_agency_report_section_observation.sql.
+--           228_agency_report_section_observation.sql e remover a tabela
+--           public.agency_report_pending_baselines.
+
+-- Server-only, one-shot capture of the migration application moment. The
+-- function below uses this only for the newly covered POL ATD source.
+CREATE TABLE public.agency_report_pending_baselines (
+  baseline_key TEXT PRIMARY KEY,
+  captured_at TIMESTAMPTZ NOT NULL
+);
+
+COMMENT ON TABLE public.agency_report_pending_baselines IS
+  'Baselines internos de deteccao de pendencias do ADR, capturados na aplicacao da migration.';
+
+REVOKE ALL ON TABLE public.agency_report_pending_baselines FROM PUBLIC, anon, authenticated;
+
+INSERT INTO public.agency_report_pending_baselines (baseline_key, captured_at)
+VALUES ('voyage_pol_schedule_atd', clock_timestamp());
 
 CREATE OR REPLACE FUNCTION public.detect_agency_report_pending()
 RETURNS INTEGER
@@ -41,8 +57,12 @@ BEGIN
         )
         OR (
           entity_type = 'voyage_pol_schedule'
-          -- Novo corte: POL passa a ser alcancado somente a partir da 251.
-          AND changed_at >= TIMESTAMPTZ '2026-08-03 00:00:00+00'
+          -- Corte capturado na aplicacao da 251: POL nao e retroativo.
+          AND changed_at >= (
+            SELECT captured_at
+            FROM public.agency_report_pending_baselines
+            WHERE baseline_key = 'voyage_pol_schedule_atd'
+          )
         )
       )
   ),
