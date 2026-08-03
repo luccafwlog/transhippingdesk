@@ -117,7 +117,7 @@ export function Viagens() {
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
   const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters } =
     useViagemSchedulesAndStats(voyageIds, polEntityIds)
-  const escalaSchedulesByVoyage = escalaSchedulesByVoyageData ?? new Map()
+  const escalaSchedulesByVoyage = useMemo(() => escalaSchedulesByVoyageData ?? new Map(), [escalaSchedulesByVoyageData])
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
 
