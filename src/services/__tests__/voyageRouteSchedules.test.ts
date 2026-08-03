@@ -11,6 +11,7 @@ import {
   deriveAutomaticVoyagePodCeStatus,
   listVoyagePodSchedules,
   listVoyagePolSchedules,
+  projectVoyageEscalaSchedules,
   saveVoyagePodSchedule,
   saveVoyagePolSchedule,
 } from '../voyageRouteSchedules'
@@ -29,6 +30,275 @@ describe('deriveAutomaticVoyagePodCeStatus', () => {
 
   it('nao deriva status quando nao ha B/Ls na rota', () => {
     expect(deriveAutomaticVoyagePodCeStatus(0, 0)).toBeNull()
+  })
+})
+
+describe('projectVoyageEscalaSchedules', () => {
+  it('projeta escala brasileira com somente linha POD', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      podSchedules: [{
+        entityId: '12::BRSSZ',
+        voyageId: 12,
+        pod: 'BRSSZ',
+        eta: '2026-08-01',
+        etb: '2026-08-02',
+        ata: '2026-08-03',
+        atb: '2026-08-04',
+        etd: '2026-08-05',
+        atd: '2026-08-06',
+        rtw: 7,
+        ceStatus: 'received',
+        linked: true,
+        escalaNumber: '001',
+        deleted: false,
+        omitted: false,
+      }],
+    })
+
+    expect(escalas).toEqual([expect.objectContaining({
+      voyageId: 12,
+      port: 'BRSSZ',
+      eta: '2026-08-01',
+      etb: '2026-08-02',
+      ata: '2026-08-03',
+      atb: '2026-08-04',
+      etd: '2026-08-05',
+      atd: '2026-08-06',
+      rtw: 7,
+      ceStatus: 'received',
+      linked: true,
+      escalaNumber: '001',
+      omitted: false,
+      deleted: false,
+      temImportacao: true,
+      temExportacao: false,
+      temGranito: false,
+      containersQty: null,
+      movementsQty: null,
+      divergences: [],
+    })])
+  })
+
+  it('projeta escala brasileira com somente linha POL', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      polSchedules: [{
+        entityId: '12::BRVIX',
+        voyageId: 12,
+        pol: 'BRVIX',
+        atd: '2026-08-06',
+        etd: '2026-08-05',
+        escalaNumber: '002',
+      }],
+    })
+
+    expect(escalas).toEqual([expect.objectContaining({
+      voyageId: 12,
+      port: 'BRVIX',
+      eta: null,
+      etb: null,
+      ata: null,
+      atb: null,
+      etd: '2026-08-05',
+      atd: '2026-08-06',
+      escalaNumber: '002',
+      temImportacao: false,
+      temExportacao: true,
+      divergences: [],
+    })])
+  })
+
+  it('mantem POD canonico e reporta divergencia quando POL colide em ETD', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      podSchedules: [{
+        entityId: '12::BRVIX',
+        voyageId: 12,
+        pod: 'BRVIX',
+        eta: null,
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: '2026-08-05',
+        atd: null,
+        rtw: null,
+        ceStatus: null,
+        linked: null,
+        escalaNumber: null,
+        deleted: false,
+        omitted: false,
+      }],
+      polSchedules: [{
+        entityId: '12::BRVIX',
+        voyageId: 12,
+        pol: 'BRVIX',
+        atd: null,
+        etd: '2026-08-07',
+        escalaNumber: null,
+      }],
+    })
+
+    expect(escalas).toEqual([expect.objectContaining({
+      port: 'BRVIX',
+      etd: '2026-08-05',
+      temImportacao: true,
+      temExportacao: true,
+      divergences: [{
+        field: 'etd',
+        podValue: '2026-08-05',
+        source: 'pol',
+        sourceValue: '2026-08-07',
+      }],
+    })])
+  })
+
+  it('remove POL estrangeiro e normaliza porto brasileiro por extenso', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      polSchedules: [
+        {
+          entityId: '12::CNSHA',
+          voyageId: 12,
+          pol: 'CNSHA',
+          atd: '2026-08-01',
+          etd: '2026-07-30',
+          escalaNumber: '001',
+        },
+        {
+          entityId: '12::Vitoria',
+          voyageId: 12,
+          pol: 'Vitoria',
+          atd: '2026-08-06',
+          etd: '2026-08-05',
+          escalaNumber: '002',
+        },
+      ],
+    })
+
+    expect(escalas).toHaveLength(1)
+    expect(escalas[0]).toEqual(expect.objectContaining({ port: 'BRVIX' }))
+  })
+
+  it('inclui somente EXP brasileira e preserva marcadores de exportacao', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      exportSchedulesByPort: new Map([
+        ['BRSSA', {
+          id: 'exp-1',
+          voyageId: 12,
+          pol: 'SALVADOR',
+          hasGranite: true,
+          containersQty: 10,
+          movementsQty: 14,
+          eta: '2026-08-01',
+          etb: '2026-08-02',
+          ceStatus: 'waiting',
+          linked: true,
+        }],
+        ['CNSHA', {
+          id: 'exp-2',
+          voyageId: 12,
+          pol: 'CNSHA',
+          hasGranite: false,
+          containersQty: 99,
+          movementsQty: 99,
+          eta: '2026-07-01',
+          etb: '2026-07-02',
+          ceStatus: 'waiting',
+          linked: false,
+        }],
+      ]),
+    })
+
+    expect(escalas).toEqual([expect.objectContaining({
+      port: 'BRSSA',
+      eta: '2026-08-01',
+      etb: '2026-08-02',
+      ceStatus: 'waiting',
+      linked: true,
+      temImportacao: false,
+      temExportacao: true,
+      temGranito: true,
+      containersQty: 10,
+      movementsQty: 14,
+    })])
+  })
+
+  it('preserva datas do portador POD sem marcar importacao ao editar escala somente de exportacao', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      podSchedules: [{
+        entityId: '12::BRVIX',
+        voyageId: 12,
+        pod: 'BRVIX',
+        eta: '2026-08-01',
+        etb: '2026-08-02',
+        ata: '2026-08-03',
+        atb: '2026-08-04',
+        etd: '2026-08-05',
+        atd: null,
+        rtw: null,
+        ceStatus: 'waiting',
+        linked: false,
+        escalaNumber: null,
+        temImportacao: false,
+        deleted: false,
+        omitted: false,
+      }],
+      exportSchedulesByPort: new Map([
+        ['BRVIX', {
+          id: 'exp-1',
+          voyageId: 12,
+          pol: 'BRVIX',
+          hasGranite: false,
+          containersQty: 4,
+          movementsQty: 2,
+          eta: '2026-08-01',
+          etb: '2026-08-02',
+          ceStatus: 'waiting',
+          linked: false,
+        }],
+      ]),
+    })
+
+    expect(escalas).toEqual([expect.objectContaining({
+      port: 'BRVIX',
+      eta: '2026-08-01',
+      etb: '2026-08-02',
+      ata: '2026-08-03',
+      atb: '2026-08-04',
+      temImportacao: false,
+      temExportacao: true,
+      containersQty: 4,
+      movementsQty: 2,
+    })])
+  })
+
+  it('preserva a escala de exportacao quando o POD foi soft-deletado', () => {
+    const escalas = projectVoyageEscalaSchedules({
+      podSchedules: [{
+        entityId: '12::BRSSZ',
+        voyageId: 12,
+        pod: 'BRSSZ',
+        eta: '2026-08-01',
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: null,
+        atd: null,
+        rtw: null,
+        ceStatus: null,
+        linked: null,
+        escalaNumber: null,
+        deleted: true,
+        omitted: false,
+      }],
+      polSchedules: [{
+        entityId: '12::BRSSZ',
+        voyageId: 12,
+        pol: 'BRSSZ',
+        atd: null,
+        etd: '2026-08-05',
+        escalaNumber: '001',
+      }],
+    })
+
+    expect(escalas).toMatchObject([{ port: 'BRSSZ', temImportacao: false, temExportacao: true }])
   })
 })
 

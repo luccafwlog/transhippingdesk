@@ -82,6 +82,7 @@ export function VoyageCreateModal({
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-options'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] }),
+        queryClient.invalidateQueries({ queryKey: ['voyage-escala-schedules'] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),

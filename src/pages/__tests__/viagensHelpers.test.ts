@@ -222,6 +222,10 @@ describe('collectVoyagePorts', () => {
       'BRVIX',
     ])
   })
+
+  it('inclui portas vindas da projeção unificada de escalas', () => {
+    expect(collectVoyagePorts([], 'pod', null, [{ port: ' BRVIX ' }, { port: 'BRSSZ' }])).toEqual(['BRSSZ', 'BRVIX'])
+  })
 })
 
 describe('countPlannedPodRows', () => {
@@ -294,6 +298,14 @@ describe('getProximaEscala', () => {
     expect(getProximaEscala([{ pod: 'X', eta: '2026-06-01', ata: '2026-06-01' }])).toBeNull()
     expect(getProximaEscala([])).toBeNull()
   })
+
+  it('aceita escalas unificadas de exportação e mantém ETA vencido pendente', () => {
+    const rows = [
+      { port: 'BRSSZ', eta: '2026-06-01', etb: '2026-06-02', ata: null, temExportacao: true },
+      { port: 'BRVIX', eta: '2026-06-03', etb: '2026-06-04', ata: null, temExportacao: true },
+    ]
+    expect(getProximaEscala(rows)).toEqual({ pod: 'BRSSZ', eta: '2026-06-01', etb: '2026-06-02' })
+  })
 })
 
 describe('summarizeImportByPod', () => {
@@ -338,6 +350,16 @@ describe('summarizeImportByPod', () => {
     expect(vix.containers.oog).toBe(1)
     expect(vix.vehicles.distinctContainers).toBe(0)
   })
+
+  it('consolida aliases de Vitoria no POD canonico', () => {
+    const summary = summarizeImportByPod([
+      { id: 'alias', cargo_mode: 'container', pod: 'Vitoria', bl_containers: [{ id: 4, container_number: 'VIX1' }] },
+      { id: 'code', cargo_mode: 'container', pod: 'BRVIT', bl_containers: [{ id: 5, container_number: 'VIX2' }] },
+    ] as never, [])
+
+    expect(summary.map((row) => row.pod)).toEqual(['BRVIX'])
+    expect(summary[0].containers.distinct).toBe(2)
+  })
 })
 
 describe('buildVoyageRailItems', () => {
@@ -380,6 +402,34 @@ describe('buildVoyageRailItems', () => {
   it('usa mapa vazio de escalas sem quebrar', () => {
     const [item] = buildVoyageRailItems(voyages, new Map())
     expect(item.proximaEscala).toBeNull()
+  })
+
+  it('monta rail de viagem só de exportação a partir de escala unificada sem fallback de POD', () => {
+    const exportOnlyVoyages = [{
+      id: 2,
+      voyage_number: '001E',
+      status: 'active',
+      vessel: { name: 'EXPORTER', carrier: { name: 'COSCO' } },
+      pol: { name: 'CNSHA' },
+      pod: { name: 'CNSHA' },
+      bls: [],
+    }] as never
+    const escalas = new Map([
+      [2, [{
+        port: 'BRVIX',
+        eta: '2026-06-01',
+        etb: '2026-06-02',
+        ata: null,
+        omitted: false,
+        temExportacao: true,
+      }]],
+    ])
+
+    const [item] = buildVoyageRailItems(exportOnlyVoyages, escalas)
+
+    expect(item.originPorts).toEqual(['BRVIX'])
+    expect(item.destinationPorts).toEqual(['BRVIX'])
+    expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-01', etb: '2026-06-02' })
   })
 })
 
@@ -555,6 +605,17 @@ describe('buildVoyageTimeline', () => {
 })
 
 describe('summarizeExportByPol', () => {
+  it('consolida aliases de Vitoria no POL canonico', () => {
+    const summary = summarizeExportByPol(
+      [{ loading_port: 'Vitoria', total_bls: 1, total_weight_kg: 1000, granite_bls: [] }] as never,
+      [{ vazios_bookings: [{ id: 'vix', container_number: 'VIX1', container_type: '40HC', local: { code: 'BRVIT' } }] }] as never,
+    )
+
+    expect(summary.map((row) => row.pol)).toEqual(['BRVIX'])
+    expect(summary[0].granite.manifests).toBe(1)
+    expect(summary[0].vazios.units).toBe(1)
+  })
+
   it('agrupa granito e vazios por terminal de embarque', () => {
     const granite = [
       { loading_port: 'CNSHA', total_bls: 5, total_weight_kg: 2000, granite_bls: [{ id: '1', charge_status: 'invoiced' }] },

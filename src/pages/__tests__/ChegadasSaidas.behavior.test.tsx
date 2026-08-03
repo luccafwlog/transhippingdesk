@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -78,6 +78,7 @@ describe('ChegadasSaidas user behaviours', () => {
       vesselName: 'GAMMA',
       voyageNumber: '003',
     }), 'user-1', expect.objectContaining({ mode: 'form', voyageId: undefined }))
+    await waitFor(() => expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['voyage-escala-schedules'] }))
   })
 
   it('preenche edição a partir da viagem projetada', async () => {

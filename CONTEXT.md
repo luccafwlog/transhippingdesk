@@ -25,14 +25,16 @@ navio, sem alterar o nome exibido ou cadastrado. `ZYHY` equivale a
 e não dispensa a igualdade do número da viagem.
 
 **Escala portuária**
-Passagem de uma viagem por um porto ou terminal, com datas operacionais,
-identificadores e vínculos documentais próprios.
+Passagem de uma viagem por um **porto brasileiro**, identificada por
+`(viagem, porto)`. POL e POD do mesmo porto são a mesma escala; a escala pode
+ter somente importação, somente exportação ou ambas, e concentra as datas
+operacionais, identificadores e vínculos documentais daquele porto.
 
 **Próxima Escala**
-POD não omitido, com ETA informado e ainda sem ATA, que possui o menor ETA entre
-as escalas pendentes da Viagem. Um ETA já vencido não retira a escala dessa
-posição; ela permanece como Próxima Escala com a indicação “ETA vencido — ATA
-pendente”.
+Escala brasileira não omitida, com ETA informado e ainda sem ATA, que possui o
+menor ETA entre as escalas pendentes da Viagem. Um ETA já vencido não retira a
+escala dessa posição; ela permanece como Próxima Escala com a indicação “ETA
+vencido — ATA pendente”.
 
 **Linha do Tempo da Viagem**
 Histórico operacional dos acontecimentos da Viagem, sem eventos financeiros.
@@ -101,9 +103,9 @@ que permanece a previsão de saída.
 
 **Estado da Escala**
 Estado operacional derivado das datas reais, não um status manual independente.
-Com ATB e sem ATD, a escala está `Atracada`; ao receber ATD, passa
-automaticamente a `Concluída`. A conclusão de uma escala não implica, sozinha,
-a conclusão da Viagem.
+Com ATB e sem ATD, a escala brasileira está `Atracada`; ao receber ATD, passa
+automaticamente a `Concluída`, seja a escala de importação, exportação ou mista.
+A conclusão de uma escala não implica, sozinha, a conclusão da Viagem.
 
 **ETD do POL**
 Data estimada de saída da viagem no porto de carregamento. Permanece como a
@@ -127,7 +129,8 @@ como visíveis.
 
 **ADR (Agency Departure Report)**
 Relatório de escala do navio: cada escala brasileira de uma viagem gera um ADR
-(duas escalas, dois ADRs); portos de origem estrangeiros não geram ADR.
+(duas escalas brasileiras, dois ADRs), com ou sem importação; portos de origem
+estrangeiros não geram ADR.
 Documenta tudo que aconteceu na escala — datas confirmadas, carga descarregada
 e carregada, embarque e descarga de vazios, granito, carga solta, veículos,
 armazenagem e depot dos vazios, overtime e ocorrências. É a fonte confiável

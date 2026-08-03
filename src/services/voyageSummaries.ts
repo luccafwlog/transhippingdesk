@@ -2,6 +2,7 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import { formatMetric, normalizePortName, stripFileExtension } from '../lib/voyageFormat'
+import { normalizePortCode } from './portCode'
 
 export function summarizeContainerTypes(
   containers:
@@ -232,13 +233,13 @@ export function collectVoyagePorts(
   bls: Array<{ pol: string | null; pod: string | null }> | null | undefined,
   field: 'pol' | 'pod',
   fallback: string | null,
-  extraPorts: Array<string | null | undefined> = [],
+  extraPorts: Array<string | { port?: string | null; pol?: string | null; pod?: string | null } | null | undefined> = [],
 ) {
   const ports = Array.from(
     new Set(
       [
         ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
-        ...extraPorts.map((value) => String(value ?? '').trim()),
+        ...extraPorts.map((value) => normalizeCollectedPort(value, field)),
       ]
         .filter(Boolean),
     ),
@@ -251,12 +252,26 @@ export function collectVoyagePorts(
   return ports
 }
 
+function normalizeCollectedPort(
+  value: string | { port?: string | null; pol?: string | null; pod?: string | null } | null | undefined,
+  field: 'pol' | 'pod',
+) {
+  if (typeof value === 'object' && value !== null) {
+    return String(value.port ?? value[field] ?? '').trim()
+  }
+  return String(value ?? '').trim()
+}
+
 export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined }> | null | undefined) {
   return new Set(
     (rows ?? [])
-      .map((row) => String(row.pod ?? '').trim())
+      .map((row) => normalizePortCode(row.pod))
       .filter(Boolean),
   ).size
+}
+
+function canonicalPort(value: string | null | undefined) {
+  return normalizePortCode(value) ?? normalizePortName(value)
 }
 
 export type AdrEscalaPod = { pod: string; omitted: boolean }
@@ -316,12 +331,18 @@ export function deriveEstadoConciliacao({
 
 /** Próxima escala: menor ETA entre PODs com ETA definido e sem ATA registrado. */
 export function getProximaEscala(
-  podRows: Array<{ pod: string; eta: string | null; etb?: string | null; ata: string | null; omitted?: boolean }> | null | undefined,
+  podRows: Array<{ pod?: string; port?: string; eta: string | null; etb?: string | null; ata: string | null; omitted?: boolean }> | null | undefined,
 ) {
-  const pending = (podRows ?? []).filter((row) => row.eta && !row.ata && !row.omitted)
+  const pending = (podRows ?? []).filter((row) => row.eta && !row.ata && !row.omitted && getEscalaPort(row))
   if (!pending.length) return null
   const next = pending.reduce((earliest, row) => (String(row.eta) < String(earliest.eta) ? row : earliest))
-  return { pod: next.pod, eta: next.eta as string, etb: next.etb ?? null }
+  const pod = getEscalaPort(next)
+  if (!pod) return null
+  return { pod, eta: next.eta as string, etb: next.etb ?? null }
+}
+
+function getEscalaPort(row: { pod?: string; port?: string }) {
+  return row.port ?? row.pod ?? null
 }
 
 export function isEtaOverdue(eta: string | null, now: Date = new Date()): boolean {
@@ -357,6 +378,14 @@ type VoyageRailSource = {
 }
 
 type PodScheduleRow = { pod: string; eta: string | null; etb: string | null; ata: string | null; omitted?: boolean }
+type EscalaScheduleRow = {
+  port: string
+  eta: string | null
+  etb: string | null
+  ata: string | null
+  omitted?: boolean
+  temExportacao?: boolean
+}
 
 /**
  * Monta os itens do rail. Estado de Conciliação usa apenas sinais baratos do
@@ -365,12 +394,11 @@ type PodScheduleRow = { pod: string; eta: string | null; etb: string | null; ata
  */
 export function buildVoyageRailItems(
   voyages: VoyageRailSource[] | null | undefined,
-  podRowsByVoyageId: ReadonlyMap<number, PodScheduleRow[]>,
-  polPortsByVoyageId?: ReadonlyMap<number, string[]>,
+  escalaRowsByVoyageId: ReadonlyMap<number, Array<PodScheduleRow | EscalaScheduleRow>> = new Map(),
 ): VoyageRailItem[] {
   return (voyages ?? []).map((voyage) => {
-    const podRows = podRowsByVoyageId.get(voyage.id) ?? []
-    const scheduledPolPorts = polPortsByVoyageId?.get(voyage.id) ?? []
+    const escalaRows = escalaRowsByVoyageId.get(voyage.id) ?? []
+    const exportEscalas = escalaRows.filter((row) => 'port' in row && row.temExportacao)
     const { containerBls } = splitVoyageBls(voyage.bls)
     const { filled, total } = voyageCeCoverage(voyage.bls)
 
@@ -380,12 +408,12 @@ export function buildVoyageRailItems(
       vesselName: voyage.vessel?.name ?? 'Navio',
       voyageNumber: voyage.voyage_number,
       status: normalizeVoyageStatus(voyage.status),
-      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, scheduledPolPorts),
+      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, exportEscalas),
       destinationPorts: collectVoyagePorts(
         voyage.bls,
         'pod',
-        voyage.pod?.name ?? null,
-        podRows.map((row) => row.pod),
+        null,
+        escalaRows,
       ),
       blCount: (voyage.bls ?? []).length,
       containerCount: countDistinctContainerNumbers(containerBls.flatMap((bl) => bl.bl_containers ?? [])),
@@ -394,7 +422,7 @@ export function buildVoyageRailItems(
         ceFilled: filled,
         ceTotal: total,
       }),
-      proximaEscala: getProximaEscala(podRows),
+      proximaEscala: getProximaEscala(escalaRows),
     }
   })
 }
@@ -855,20 +883,20 @@ export function summarizeImportByPod(
 
   const pods = Array.from(
     new Set([
-      ...containerBls.map((bl) => normalizePortName(bl.pod)),
-      ...breakbulkBls.map((bl) => normalizePortName(bl.pod)),
+      ...containerBls.map((bl) => canonicalPort(bl.pod)),
+      ...breakbulkBls.map((bl) => canonicalPort(bl.pod)),
     ]),
   ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   return pods.map((pod) => {
     const flat = containerBls
-      .filter((bl) => normalizePortName(bl.pod) === pod)
+      .filter((bl) => canonicalPort(bl.pod) === pod)
       .flatMap((bl) => bl.bl_containers ?? [])
     const isVehicle = (container: { container_number?: string | null }) =>
       vehicleSet.has(String(container.container_number ?? '').trim().toUpperCase())
     const general = flat.filter((container) => !isVehicle(container))
     const vehicles = flat.filter(isVehicle)
-    const podBreakbulk = breakbulkBls.filter((bl) => normalizePortName(bl.pod) === pod)
+    const podBreakbulk = breakbulkBls.filter((bl) => canonicalPort(bl.pod) === pod)
 
     return {
       pod,
@@ -916,14 +944,14 @@ export function summarizeExportByPol(
 
   const pols = Array.from(
     new Set([
-      ...granite.map((manifest) => normalizePortName(manifest.loading_port)),
-      ...allBookings.map((booking) => normalizePortName(booking.local?.code)),
+      ...granite.map((manifest) => canonicalPort(manifest.loading_port)),
+      ...allBookings.map((booking) => canonicalPort(booking.local?.code)),
     ]),
   ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   return pols.map((pol) => {
-    const polGranite = granite.filter((manifest) => normalizePortName(manifest.loading_port) === pol)
-    const polBookings = allBookings.filter((booking) => normalizePortName(booking.local?.code) === pol)
+    const polGranite = granite.filter((manifest) => canonicalPort(manifest.loading_port) === pol)
+    const polBookings = allBookings.filter((booking) => canonicalPort(booking.local?.code) === pol)
     const graniteBls = polGranite.flatMap((manifest) => manifest.granite_bls ?? [])
 
     return {

@@ -20,6 +20,7 @@ import { cancelVoyage, deleteVoyage } from '../services/voyages'
 import { setImportBatchCeMaster } from '../services/manifestImport'
 import {
   buildVoyagePolEntityId,
+  saveVoyageEscalaSchedule,
   saveVoyagePolSchedule,
   saveVoyagePodSchedule,
   setVoyageRouteCeMaster,
@@ -114,31 +115,15 @@ export function Viagens() {
   const voyageIds = useMemo(() => voyages.map((voyage) => voyage.id), [voyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(voyageIds)
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
-  const { voyagesWithUnpaidBls, polSchedules, podSchedules, podSchedulesByVoyage, exportSchedulesData, routeCeMasters } =
+  const { voyagesWithUnpaidBls, polSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters } =
     useViagemSchedulesAndStats(voyageIds, polEntityIds)
+  const escalaSchedulesByVoyage = useMemo(() => escalaSchedulesByVoyageData ?? new Map(), [escalaSchedulesByVoyageData])
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
 
-  const polPortsByVoyageId = useMemo(() => {
-    const map = new Map<number, string[]>()
-    if (!polSchedules) return map
-    for (const key of polSchedules.keys()) {
-      const [voyageIdStr, pol] = key.split('::')
-      const voyageId = Number(voyageIdStr)
-      if (!voyageId || !pol) continue
-      const existing = map.get(voyageId)
-      if (existing) {
-        existing.push(pol)
-      } else {
-        map.set(voyageId, [pol])
-      }
-    }
-    return map
-  }, [polSchedules])
-
   const railItems = useMemo(
-    () => buildVoyageRailItems(voyages, podSchedulesByVoyage, polPortsByVoyageId),
-    [voyages, podSchedulesByVoyage, polPortsByVoyageId],
+    () => buildVoyageRailItems(voyages, escalaSchedulesByVoyage),
+    [voyages, escalaSchedulesByVoyage],
   )
 
   const visibleRailItems = useMemo(
@@ -263,11 +248,10 @@ export function Viagens() {
               vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
               vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
               voyagesWithUnpaidBls={voyagesWithUnpaidBls}
-              podSchedules={podSchedules}
               polSchedules={polSchedules}
               routeCeMasters={routeCeMasters}
-              scheduledPodRows={podSchedulesByVoyage.get(selectedVoyage.id) ?? []}
-              exportSchedule={exportSchedulesData?.get(selectedVoyage.id) ?? null}
+              scheduledEscalaRows={escalaSchedulesByVoyage.get(selectedVoyage.id) ?? []}
+              exportSchedules={Array.from(exportSchedulesData?.get(selectedVoyage.id)?.values() ?? [])}
               onEditVoyage={setEditingVoyageId}
               onDeleteVoyage={setDeletingVoyageId}
               onCancelVoyage={setCancellingVoyageId}
@@ -374,7 +358,18 @@ export function Viagens() {
         onClose={() => setEditingExport(null)}
         onSaved={async ({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked }) => {
           try {
-            await saveVoyageExportSchedule({ voyageId, pol, hasGranite, containersQty, movementsQty, eta, etb, ceStatus, linked })
+            await saveVoyageExportSchedule({
+              existingId: editingExport?.existing?.id ?? null,
+              voyageId,
+              pol,
+              hasGranite,
+              containersQty,
+              movementsQty,
+              eta,
+              etb,
+              ceStatus,
+              linked,
+            })
             await afterEscalaAlterada(queryClient, { voyageId })
             showToast('Planejamento de exportação salvo.', 'success')
             setEditingExport(null)
@@ -388,15 +383,15 @@ export function Viagens() {
         open={editingPod !== null}
         podSchedule={editingPod}
         onClose={() => setEditingPod(null)}
-        onSaved={async ({ voyageId, pod, eta, etb, ata, atb, etd, atd, rtw, ceStatus, linked, escalaNumber }) => {
+        onSaved={async ({ voyageId, pod, temImportacao, eta, etb, ata, atb, etd, atd, rtw, ceStatus, linked, escalaNumber }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
           }
           try {
-            await saveVoyagePodSchedule({
+            await saveVoyageEscalaSchedule({
               voyageId,
-              pod,
+              port: pod,
               eta,
               etb,
               ata,
@@ -407,13 +402,14 @@ export function Viagens() {
               ceStatus,
               linked,
               escalaNumber,
+              temImportacao,
               changedBy: user.id,
             })
             await afterEscalaAlterada(queryClient, { voyageId })
-            showToast('Datas do POD atualizadas com sucesso.', 'success')
+            showToast('Datas da Escala atualizadas com sucesso.', 'success')
             setEditingPod(null)
           } catch {
-            showToast('Falha ao salvar as datas do POD.', 'error')
+            showToast('Falha ao salvar as datas da Escala.', 'error')
           }
         }}
       />

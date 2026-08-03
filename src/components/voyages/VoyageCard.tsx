@@ -22,10 +22,10 @@ import {
   voyageCeCoverage,
 } from '../../services/voyageSummaries'
 import { normalizePortName } from '../../lib/voyageFormat'
+import { normalizePortCode } from '../../services/portCode'
 import {
-  buildVoyagePodEntityId,
   deriveAutomaticVoyagePodCeStatus,
-  type VoyagePodSchedule,
+  type VoyageEscalaSchedule,
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
 import type { VoyageExportSchedule } from '../../services/voyageExportSchedules'
@@ -102,11 +102,10 @@ type VoyageCardProps = {
   vehicleStats: VoyageVehicleStat | undefined
   vaziosImpStats: VoyageVaziosImportacaoStat | undefined
   voyagesWithUnpaidBls: Set<number> | null | undefined
-  podSchedules: Map<string, VoyagePodSchedule> | undefined
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   routeCeMasters: Map<string, string> | undefined
-  scheduledPodRows: VoyagePodSchedule[]
-  exportSchedule: VoyageExportSchedule | null
+  scheduledEscalaRows: VoyageEscalaSchedule[]
+  exportSchedules: VoyageExportSchedule[]
   onEditVoyage: (voyageId: number) => void
   onDeleteVoyage: (voyageId: number) => void
   onCancelVoyage: (voyageId: number) => void
@@ -123,11 +122,10 @@ export function VoyageCard({
   vehicleStats: vehicleStatsProp,
   vaziosImpStats: vaziosImpStatsProp,
   voyagesWithUnpaidBls,
-  podSchedules,
   polSchedules,
   routeCeMasters,
-  scheduledPodRows,
-  exportSchedule,
+  scheduledEscalaRows,
+  exportSchedules,
   onEditVoyage,
   onDeleteVoyage,
   onCancelVoyage,
@@ -157,28 +155,22 @@ export function VoyageCard({
   const totalContainers = countDistinctContainerNumbers(flatContainers)
   const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
-  const scheduledPolPorts = useMemo(
-    () =>
-      Array.from(polSchedules?.keys() ?? [])
-        .filter((key) => key.startsWith(`${voyage.id}::`))
-        .map((key) => key.split('::')[1])
-        .filter(Boolean),
-    [polSchedules, voyage.id],
-  )
-  const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, scheduledPolPorts)
+  const exportEscalas = scheduledEscalaRows.filter((schedule) => schedule.temExportacao)
+  const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, exportEscalas)
   const destinationPorts = collectVoyagePorts(
     voyage.bls,
     'pod',
-    voyage.pod?.name ?? null,
-    scheduledPodRows.map((schedule) => schedule.pod),
+    null,
+    scheduledEscalaRows,
   )
+  const escalasByPort = new Map(scheduledEscalaRows.map((schedule) => [normalizePortCode(schedule.port) ?? normalizePortName(schedule.port), schedule]))
   const podRows: VoyagePodRow[] = destinationPorts.map((pod) => {
-    const schedule = podSchedules?.get(buildVoyagePodEntityId(voyage.id, pod))
-    const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(pod))
+    const schedule = escalasByPort.get(normalizePortCode(pod) ?? normalizePortName(pod))
+    const routeBls = (voyage.bls ?? []).filter((bl) => (normalizePortCode(bl.pod) ?? normalizePortName(bl.pod)) === (normalizePortCode(pod) ?? normalizePortName(pod)))
     const routeCeFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
     const autoCeStatus = deriveAutomaticVoyagePodCeStatus(routeCeFilledCount, routeBls.length)
     return {
-      pod,
+      pod: schedule?.port ?? pod,
       eta: schedule?.eta ?? null,
       etb: schedule?.etb ?? null,
       ata: schedule?.ata ?? null,
@@ -193,6 +185,37 @@ export function VoyageCard({
     }
   })
   const activePods = podRows.filter((row) => !row.omitted).map((row) => row.pod)
+  const planningEscalaRows = (() => {
+    const knownPorts = new Set(scheduledEscalaRows.map((row) => normalizePortCode(row.port) ?? normalizePortName(row.port)))
+    const blOnlyRows: VoyageEscalaSchedule[] = destinationPorts
+      .filter((port) => !knownPorts.has(normalizePortCode(port) ?? normalizePortName(port)))
+      .map((port) => ({
+        entityId: `${voyage.id}::${port}`,
+        voyageId: voyage.id,
+        port,
+        eta: null,
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: null,
+        atd: null,
+        rtw: null,
+        ceStatus: null,
+        podCeStatus: null,
+        exportCeStatus: null,
+        linked: null,
+        escalaNumber: null,
+        omitted: false,
+        deleted: false,
+        temImportacao: true,
+        temExportacao: false,
+        temGranito: false,
+        containersQty: null,
+        movementsQty: null,
+        divergences: [],
+      }))
+    return [...scheduledEscalaRows, ...blOnlyRows]
+  })()
   const plannedPodCount = countPlannedPodRows(podRows)
 
   // Escalas do ADR (Task 2 do ADR 2026-07-31): não omitidas + omitidas que já
@@ -347,9 +370,9 @@ export function VoyageCard({
             <VoyageVisaoTab
               voyage={voyage}
               voyageLabel={voyageLabel}
-              podRows={podRows}
+              escalaRows={planningEscalaRows}
               importBatches={importBatches}
-              exportSchedule={exportSchedule}
+              exportSchedules={exportSchedules}
               isAdmin={isAdmin}
               divergenceCount={divergenceCount}
               ceCoverage={ceCoverage}

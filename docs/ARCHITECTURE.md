@@ -214,6 +214,35 @@ widget não lê mais `vessel_schedules`; ele chama a RPC allowlisted
 `ended_vessels` permanecem no histórico de schema, mas não são fonte do fluxo
 atual.
 
+## Projeção de escalas
+
+A escala operacional é projetada por `src/services/voyageRouteSchedules.ts` a
+partir de três portadores existentes: `voyage_pod_schedule` (audit logs com o
+ciclo operacional completo), `voyage_pol_schedule` (audit logs do registro
+documental do POL, incluindo ETD/ATD do Laden on Board) e
+`voyage_export_schedules` (linha de exportação por `(voyage_id, pol)`). A
+projeção normaliza os portos por `normalizePortCode`, restringe a lista a
+portos brasileiros (`BR*`) e entrega uma linha por `(viagem, porto)`, com
+marcadores de importação, exportação, granito, containers e movimentos.
+
+`voyage_pod_schedule` continua sendo o portador físico das datas operacionais
+da escala, inclusive quando a escala nasceu apenas de POL/EXP; `voyage_pol_schedule`
+permanece como registro documental do POL. Quando a mesma escala aparece em
+mais de um portador, a linha POD é canônica e POL/EXP só preenchem campos
+vazios; divergências ficam expostas para a interface em vez de serem resolvidas
+silenciosamente.
+
+Consumidores principais:
+
+- `/viagens` e `/viagens/:voyageId`: `useViagemSchedulesAndStats`,
+  `VoyageCard` e `VoyageVisaoTab` usam a projeção para Próxima Escala, rail,
+  tabela de planejamento e seletor do ADR.
+- Line-Up: `src/services/lineup.ts` deriva o snapshot da mesma projeção,
+  preservando importação e exportação quando o porto é misto.
+- ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)`, e
+  `detect_agency_report_pending` passa a considerar ATD vindo de POD ou POL,
+  com baseline próprio para a nova fonte POL.
+
 ## Supabase
 
 ### Migrations
@@ -230,7 +259,7 @@ do agregado, sign-offs, ocorrências, snapshot e alertas pós-ATD do ADR
 (`213`/`214`). A superfície continua sendo a aba `ADR` de
 `/viagens/:voyageId`; não há rota top-level adicional.
 
-A ADR 0035 (blocos 2–4) fixou, por seção, as fontes atuais de derivação do
+A ADR 0035 fixou, por seção, as fontes atuais de derivação do
 ADR: containers cheios ← B/Ls (documental, ADR 0025), incluindo B/Ls em
 transbordo casados via `voyage_omissions`/`bl_transshipments` e contados no
 ADR do porto onde a carga foi efetivamente descarregada; vazios na descarga ←
@@ -242,8 +271,10 @@ fallback para o porto do manifesto-pai quando o B/L não tem porto próprio;
 vazios embarcados/operação de pátio ← `vazios_export_operations`/
 `vazios_bookings`, com o porto escolhido entre as escalas brasileiras da
 própria viagem; o snapshot de fechamento é revalidado no banco pela migration
-`249`. O bloco 1 da ADR 0035 (escala unificada POL/POD) é uma entrega
-separada, ainda não implementada (`docs/plans/2026-07-31-escala-unificada-pol-pod.md`).
+`249`. O bloco 1 da ADR 0035 foi implementado pelas migrations `250` e `251`:
+`voyage_export_schedules` passa a aceitar uma linha por `(voyage_id, pol)`, a
+projeção compartilhada unifica POL/POD/EXP por escala brasileira, e o alerta
+pós-ATD do ADR enxerga também o ATD documental do POL sem retroagir o baseline.
 
 ### Segurança
 
