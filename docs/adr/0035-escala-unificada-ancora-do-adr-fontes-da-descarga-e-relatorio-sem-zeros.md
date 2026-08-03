@@ -1,6 +1,45 @@
 # 0035 — Escala unificada (POL+POD) como âncora do ADR, B/L como fonte da descarga e relatório que lista só o operado
 
-Status: aceito — 2026-07-31
+Status: aceito — 2026-07-31 (nota editorial em 2026-08-03)
+
+> **Nota editorial — 2026-08-03.** O bloco 1 desta decisão foi revisitado com a
+> operação antes da execução. O modelo não muda; três pontos que a decisão
+> deixara em aberto ficam registrados aqui, e o plano
+> `docs/plans/2026-07-31-escala-unificada-pol-pod.md` foi reescrito para
+> refleti-los.
+>
+> 1. **Uma escala, um modal.** A decisão unificou a *linha* da Visão geral, mas
+>    não disse como se digita. Fica decidido: um único botão "Adicionar escala"
+>    e um único modal por escala, com os dados de exportação numa seção atrás de
+>    um **toggle persistido** (`tem_exportacao`) — a maioria das escalas não
+>    embarca. O toggle não é derivado do preenchimento: declara-se a exportação
+>    antes de conhecer quantidades. Desligá-lo é impedido enquanto houver
+>    granito ou Embarque de Vazios na escala; sem carga, pede confirmação e
+>    descarta o planejamento digitado. Granito permanece como checkbox dentro da
+>    seção, não como um segundo toggle. O porto é escolhido entre `BRVIX`,
+>    `BRSSA`, `BRPEC`, `BRSUA`, `BRSSZ`, `BRIGI`, `BRNVT`, com validação `BR*`.
+> 2. **A unificação é do registro, não de toda superfície.** "O porto vira uma
+>    linha só" vale para a **Visão geral**. O **Line-Up, o Painel e a TV
+>    continuam segregando importação e exportação**: uma escala que opera nos
+>    dois sentidos aparece em duas linhas do mesmo registro, com as **mesmas
+>    datas da escala** — a linha de exportação perde ETA/ETB próprios e difere
+>    apenas no conteúdo. Escala de sentido único gera uma linha só, e a escala
+>    que só embarca passa a existir no Line-Up e na Programação do Portal, onde
+>    hoje não existe. A assimetria é deliberada: não é resíduo a ser "corrigido".
+> 3. **Base vazia dispensa a máquina de transição.** Em 2026-08-03 a produção
+>    tinha 1 viagem, 1 linha de exportação (já com `pol`), 0 linhas de POL e 5
+>    eventos de POD. Sem legado, caem o backfill de `pol` em três níveis, a
+>    precedência "POD canônico com POL/EXP preenchendo vazios", o aviso de
+>    divergência entre linhas e o corte temporal de baseline do alerta pós-ATD:
+>    `pol` passa a `NOT NULL` com `UNIQUE (voyage_id, pol)` de uma vez. A
+>    projeção continua lendo as três origens, porque `voyage_pol_schedule` segue
+>    sendo escrito pelo `Laden on Board` (ADR 0025) e por Chegadas & Saídas
+>    (ADR 0021) — mas o **ATD documental do POL não sobrescreve o ATD da
+>    escala**, e a divergência entre os dois não é arbitrada pelo sistema.
+>
+> Permanece integralmente o restante: identidade `(viagem, porto brasileiro)`,
+> escala estrangeira fora, ADR e três sign-offs para escala que só embarca,
+> `voyage_pod_schedule` como portador físico e `port_calls` como upgrade adiado.
 
 ## Contexto
 

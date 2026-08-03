@@ -4,7 +4,7 @@ Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
 negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
 aos ADRs.
 
-Verificado em 2026-07-18.
+Verificado em 2026-08-03.
 
 ## Operação marítima
 
@@ -25,14 +25,31 @@ navio, sem alterar o nome exibido ou cadastrado. `ZYHY` equivale a
 e não dispensa a igualdade do número da viagem.
 
 **Escala portuária**
-Passagem de uma viagem por um porto ou terminal, com datas operacionais,
-identificadores e vínculos documentais próprios.
+Passagem de uma viagem por um porto brasileiro, identificada por
+`(Viagem, porto)`, com datas operacionais, identificadores e vínculos
+documentais próprios. Um porto, uma escala: a mesma escala pode descarregar
+importação, embarcar exportação ou as duas coisas, e o sentido da operação não
+a divide em registros diferentes. Portos estrangeiros da rota não são escalas —
+permanecem como papel documental do B/L.
+
+- **Distinto de:** POL e POD, que são papéis do conhecimento de embarque e da
+  rota (`ETD do POL`, POD do B/L, POD omitido), não linhas do planejamento da
+  Viagem.
+
+**Exportação da Escala**
+Declaração de que a escala terá embarque, com os dados próprios do sentido de
+exportação: granito, containers vazios e movimentos previstos. É uma decisão
+explícita do operador, não um estado derivado de haver número preenchido — uma
+escala pode estar declarada como exportadora antes de qualquer quantidade ser
+conhecida. Retirar a declaração é impossível enquanto houver carga de
+exportação vinculada à escala (granito ou Embarque de Vazios); sem carga, a
+retirada descarta os dados de planejamento.
 
 **Próxima Escala**
-POD não omitido, com ETA informado e ainda sem ATA, que possui o menor ETA entre
-as escalas pendentes da Viagem. Um ETA já vencido não retira a escala dessa
-posição; ela permanece como Próxima Escala com a indicação “ETA vencido — ATA
-pendente”.
+Escala não omitida, com ETA informado e ainda sem ATA, que possui o menor ETA
+entre as escalas pendentes da Viagem. Um ETA já vencido não retira a escala
+dessa posição; ela permanece como Próxima Escala com a indicação “ETA vencido —
+ATA pendente”.
 
 **Linha do Tempo da Viagem**
 Histórico operacional dos acontecimentos da Viagem, sem eventos financeiros.
@@ -102,18 +119,23 @@ que permanece a previsão de saída.
 **Estado da Escala**
 Estado operacional derivado das datas reais, não um status manual independente.
 Com ATB e sem ATD, a escala está `Atracada`; ao receber ATD, passa
-automaticamente a `Concluída`. A conclusão de uma escala não implica, sozinha,
-a conclusão da Viagem.
+automaticamente a `Concluída`. Vale para qualquer escala, inclusive a que só
+embarca. A conclusão de uma escala não implica, sozinha, a conclusão da Viagem.
 
 **ETD do POL**
 Data estimada de saída da viagem no porto de carregamento. Permanece como a
-previsão da rota mesmo quando uma saída efetiva é posteriormente conhecida.
+previsão da rota mesmo quando uma saída efetiva é posteriormente conhecida. É
+registro documental da rota, distinto do ETD da Escala, que é o dado
+operacional editado pelo operador.
 
 **ATD do POL**
 Data efetiva de saída da viagem no porto de carregamento. Para carga de
 container, a data `Laden on Board` informada pelo B/L é sua fonte documental.
 Quando B/Ls da mesma Viagem e POL informam datas diferentes, a data mais antiga
 é o ATD canônico do POL.
+Não sobrescreve o ATD da Escala: são registros de naturezas diferentes — o
+documental do conhecimento e o operacional da escala — e podem divergir sem que
+o sistema arbitre.
 Em superfícies sem coluna própria de ATD, substitui visualmente o ETD e é
 destacada em verde, sem transformar conceitualmente ATD em ETD.
 
@@ -122,12 +144,20 @@ Quadro de line-up exibido ao cliente no Portal, com a previsão de datas por por
 da rota. É uma **visão voltada ao cliente**, distinta do **Line-Up (TV)**, que é o
 painel operacional derivado das viagens já cadastradas. Conforme a ADR 0021,
 não há cadastro próprio: cadastrar em Chegadas e Saídas cria ou anexa a própria
-Viagem, e a Programação exibida no Portal é uma projeção das viagens marcadas
-como visíveis.
+Viagem e as suas Escalas, e a Programação exibida no Portal é uma projeção das
+viagens marcadas como visíveis — inclusive as escalas que só embarcam.
+
+O Line-Up e o Painel **segregam os sentidos**: uma escala que descarrega e
+embarca aparece em duas linhas, uma de importação e uma de exportação, com as
+**mesmas datas da Escala** e diferindo apenas no conteúdo operado. Escala de
+sentido único produz uma linha só. É granularidade de exibição, não um segundo
+registro: o planejamento da Viagem continua mostrando uma linha por Escala.
 
 **ADR (Agency Departure Report)**
 Relatório de escala do navio: cada escala brasileira de uma viagem gera um ADR
-(duas escalas, dois ADRs); portos de origem estrangeiros não geram ADR.
+(duas escalas, dois ADRs); portos de origem estrangeiros não geram ADR. Escala
+que só embarca gera ADR como qualquer outra, e o fechamento exige os três
+sign-offs departamentais mesmo quando um departamento não tem nada a declarar.
 Documenta tudo que aconteceu na escala — datas confirmadas, carga descarregada
 e carregada, embarque e descarga de vazios, granito, carga solta, veículos,
 armazenagem e depot dos vazios, overtime e ocorrências. É a fonte confiável
@@ -367,7 +397,7 @@ cargas OOG) ou **cover plate** (tampas para porões do navio).
 
 **Restow**
 Container descarregado e reembarcado por reestiva na mesma escala. A contagem
-é registrada na edição da escala (planejamento por POD, campo RTW).
+é registrada na edição da Escala (campo RTW).
 
 **Local de Desova**
 Local onde um container com veículo foi desovado. Atributo do container,
