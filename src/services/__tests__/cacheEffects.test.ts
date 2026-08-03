@@ -15,7 +15,7 @@ describe('cache effects', () => {
     const { client, keys } = fakeQueryClient()
     await afterViagemAlterada(client, { voyageId: 24 })
     expect(keys()).toEqual(keySet([
-      ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['bls'], ['containers'], ['dashboard'],
+      ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['voyage-escala-schedules'], ['bls'], ['containers'], ['dashboard'],
       ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
     ]))
     expect(keys()).not.toContain(JSON.stringify(['voyage-timeline', 24]))
@@ -25,7 +25,7 @@ describe('cache effects', () => {
     const { client, keys } = fakeQueryClient()
     await afterEscalaAlterada(client, { voyageId: 24 })
     expect(keys()).toEqual(keySet([
-      ['voyage-pod-schedules'], ['voyage-pol-schedules'], ['voyage-export-schedules'],
+      ['voyage-pod-schedules'], ['voyage-pol-schedules'], ['voyage-export-schedules'], ['voyage-escala-schedules'],
       ['voyage-timeline', '24'], ['voyages'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
     ]))
   })
@@ -34,7 +34,7 @@ describe('cache effects', () => {
     const { client, keys } = fakeQueryClient()
     await afterRotaAlterada(client, { voyageId: 24 })
     expect(keys()).toEqual(keySet([
-      ['voyage-route-ce-masters'], ['voyage-pol-schedules'], ['voyage-pod-schedules'],
+      ['voyage-route-ce-masters'], ['voyage-pol-schedules'], ['voyage-pod-schedules'], ['voyage-escala-schedules'],
       ['voyage-timeline', '24'], ['voyages'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
     ]))
   })
@@ -45,7 +45,7 @@ describe('cache effects', () => {
     expect(keys()).toEqual(keySet([
       ['bls'], ['containers'], ['voyages'], ['port-options'],
       ['vazios-importacao-containers'], ['vazios-importacao-manifests'],
-      ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
+      ['voyage-escala-schedules'], ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
     ]))
   })
 

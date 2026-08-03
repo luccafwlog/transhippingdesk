@@ -41,6 +41,11 @@ describe('250_voyage_export_schedules_por_escala.sql', () => {
 
     expect(sql).not.toContain("FROM public.audit_logs al")
     expect(sql).not.toContain('MAX(source.normalized_pol)')
+    expect(sql).not.toContain('MAX(')
+    expect(sql).toContain('COUNT(DISTINCT normalized_pol)')
+    expect(sql).toContain('granite_port_count')
+    expect(sql).toContain('vazios_port_count')
+    expect(sql).toContain('Fontes Granite/Vazios com mais de um POL brasileiro')
     expect(sql).toContain('snapshot de viagem')
     expect(sql).toContain('mais de um POL brasileiro')
     expect(sql).toContain('current_br_pol_count')

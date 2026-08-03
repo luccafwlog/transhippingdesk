@@ -11,6 +11,7 @@ const SCHEDULE_KEYS: readonly (readonly unknown[])[] = [
   ['voyage-pod-schedules'],
   ['voyage-pol-schedules'],
   ['voyage-export-schedules'],
+  ['voyage-escala-schedules'],
 ]
 
 function voyageTimelineKey(voyageId: number | string): readonly unknown[] {
@@ -30,7 +31,7 @@ async function invalidate(queryClient: QueryInvalidator, keys: readonly (readonl
 
 export async function afterViagemAlterada(queryClient: QueryInvalidator, options: { voyageId: number | string }): Promise<void> {
   await invalidate(queryClient, [
-    ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['bls'], ['containers'], ['dashboard'],
+    ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['voyage-escala-schedules'], ['bls'], ['containers'], ['dashboard'],
     voyageTimelineKey(options.voyageId), ...LINEUP_KEYS,
   ])
 }
@@ -40,14 +41,14 @@ export async function afterEscalaAlterada(queryClient: QueryInvalidator, options
 }
 
 export async function afterRotaAlterada(queryClient: QueryInvalidator, options: { voyageId: number | string }): Promise<void> {
-  await invalidate(queryClient, [['voyage-route-ce-masters'], ['voyage-pol-schedules'], ['voyage-pod-schedules'], voyageTimelineKey(options.voyageId), ['voyages'], ...LINEUP_KEYS])
+  await invalidate(queryClient, [['voyage-route-ce-masters'], ['voyage-pol-schedules'], ['voyage-pod-schedules'], ['voyage-escala-schedules'], voyageTimelineKey(options.voyageId), ['voyages'], ...LINEUP_KEYS])
 }
 
 export async function afterManifestoImportado(queryClient: QueryInvalidator, options: { voyageId: number | string }): Promise<void> {
   await invalidate(queryClient, [
     ['bls'], ['containers'], ['voyages'], ['port-options'],
     ['vazios-importacao-containers'], ['vazios-importacao-manifests'],
-    voyageTimelineKey(options.voyageId), ...LINEUP_KEYS,
+    ['voyage-escala-schedules'], voyageTimelineKey(options.voyageId), ...LINEUP_KEYS,
   ])
 }
 

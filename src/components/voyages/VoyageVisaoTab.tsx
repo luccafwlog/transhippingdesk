@@ -13,6 +13,7 @@ import { countDistinctContainerNumbers } from '../../lib/containerCounts'
 import { formatDate } from '../../lib/utils'
 import { classifyDbError } from '../../lib/errors'
 import { formatMetric, formatPortDisplayName, normalizePortName } from '../../lib/voyageFormat'
+import { normalizePortCode } from '../../services/portCode'
 import {
   buildVoyageTimeline,
   countDistinctRoutes,
@@ -118,13 +119,13 @@ export function VoyageVisaoTab({
   const exportScheduleByPort = useMemo(() => {
     const byPort = new Map<string, VoyageExportSchedule>()
     for (const schedule of exportSchedules) {
-      byPort.set(normalizePortName(schedule.pol), schedule)
+      byPort.set(normalizePortCode(schedule.pol) ?? normalizePortName(schedule.pol), schedule)
     }
     return byPort
   }, [exportSchedules])
 
   async function handleDeletePod(row: VoyageEscalaSchedule) {
-    const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(row.port))
+    const routeBls = (voyage.bls ?? []).filter((bl) => (normalizePortCode(bl.pod) ?? normalizePortName(bl.pod)) === (normalizePortCode(row.port) ?? normalizePortName(row.port)))
     const hasScheduleData = Boolean(row.eta || row.etb || row.ata || row.atb || row.etd || row.atd || row.rtw !== null)
     if (routeBls.length > 0) {
       showToast('Não é possível excluir este POD: existem B/Ls vinculados.', 'error')
@@ -235,7 +236,7 @@ export function VoyageVisaoTab({
             <tbody>
               {escalaRows.length ? (
                 escalaRows.map((row) => {
-                  const exportSchedule = exportScheduleByPort.get(normalizePortName(row.port))
+                  const exportSchedule = exportScheduleByPort.get(normalizePortCode(row.port) ?? normalizePortName(row.port))
                   return (
                     <tr key={`${voyage.id}-lineup-${row.port}`}>
                       <td className="px-3 py-2 align-top">

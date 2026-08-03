@@ -22,6 +22,7 @@ import {
   voyageCeCoverage,
 } from '../../services/voyageSummaries'
 import { normalizePortName } from '../../lib/voyageFormat'
+import { normalizePortCode } from '../../services/portCode'
 import {
   deriveAutomaticVoyagePodCeStatus,
   type VoyageEscalaSchedule,
@@ -164,10 +165,10 @@ export function VoyageCard({
     null,
     scheduledEscalaRows,
   )
-  const escalasByPort = new Map(scheduledEscalaRows.map((schedule) => [normalizePortName(schedule.port), schedule]))
+  const escalasByPort = new Map(scheduledEscalaRows.map((schedule) => [normalizePortCode(schedule.port) ?? normalizePortName(schedule.port), schedule]))
   const podRows: VoyagePodRow[] = destinationPorts.map((pod) => {
-    const schedule = escalasByPort.get(normalizePortName(pod))
-    const routeBls = (voyage.bls ?? []).filter((bl) => normalizePortName(bl.pod) === normalizePortName(pod))
+    const schedule = escalasByPort.get(normalizePortCode(pod) ?? normalizePortName(pod))
+    const routeBls = (voyage.bls ?? []).filter((bl) => (normalizePortCode(bl.pod) ?? normalizePortName(bl.pod)) === (normalizePortCode(pod) ?? normalizePortName(pod)))
     const routeCeFilledCount = routeBls.filter((bl) => String(bl.ce_mercante ?? '').trim()).length
     const autoCeStatus = deriveAutomaticVoyagePodCeStatus(routeCeFilledCount, routeBls.length)
     return {

@@ -2,6 +2,7 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
 import { formatMetric, normalizePortName, stripFileExtension } from '../lib/voyageFormat'
+import { normalizePortCode } from './portCode'
 
 export function summarizeContainerTypes(
   containers:
@@ -237,7 +238,7 @@ export function collectVoyagePorts(
   const ports = Array.from(
     new Set(
       [
-        ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
+        ...(bls ?? []).map((bl) => normalizePortCode(bl[field]) ?? ''),
         ...extraPorts.map((value) => normalizeCollectedPort(value, field)),
       ]
         .filter(Boolean),
@@ -245,7 +246,7 @@ export function collectVoyagePorts(
   ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   if (!ports.length && fallback) {
-    return [fallback]
+    return [normalizePortCode(fallback) ?? fallback.trim().toUpperCase()]
   }
 
   return ports
@@ -256,15 +257,15 @@ function normalizeCollectedPort(
   field: 'pol' | 'pod',
 ) {
   if (typeof value === 'object' && value !== null) {
-    return String(value.port ?? value[field] ?? '').trim()
+    return normalizePortCode(String(value.port ?? value[field] ?? '').trim())
   }
-  return String(value ?? '').trim()
+  return normalizePortCode(String(value ?? '').trim())
 }
 
 export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined }> | null | undefined) {
   return new Set(
     (rows ?? [])
-      .map((row) => String(row.pod ?? '').trim())
+      .map((row) => normalizePortCode(row.pod))
       .filter(Boolean),
   ).size
 }
@@ -389,7 +390,7 @@ type EscalaScheduleRow = {
  */
 export function buildVoyageRailItems(
   voyages: VoyageRailSource[] | null | undefined,
-  escalaRowsByVoyageId: ReadonlyMap<number, Array<PodScheduleRow | EscalaScheduleRow>>,
+  escalaRowsByVoyageId: ReadonlyMap<number, Array<PodScheduleRow | EscalaScheduleRow>> = new Map(),
 ): VoyageRailItem[] {
   return (voyages ?? []).map((voyage) => {
     const escalaRows = escalaRowsByVoyageId.get(voyage.id) ?? []

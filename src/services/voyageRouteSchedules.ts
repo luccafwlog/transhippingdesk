@@ -30,7 +30,7 @@ export type VoyagePodSchedule = {
   entityId: string
   voyageId: number
   pod: string
-  /** Registros legados sem este campo continuam representando importaÃ§Ã£o. */
+  /** Registros legados sem este campo continuam representando importacao. */
   temImportacao?: boolean
   eta: string | null
   etb: string | null
@@ -244,8 +244,8 @@ export function projectVoyageEscalaSchedules({
     escala.escalaNumber = pod.escalaNumber
     escala.omitted = pod.omitted ?? false
     escala.deleted = false
-    // O portador fÃ­sico das datas tambÃ©m atende escalas apenas de exportaÃ§Ã£o.
-    // AusÃªncia do marcador preserva o comportamento dos registros legados.
+    // O portador fisico das datas tambem atende escalas apenas de exportacao.
+    // Ausencia do marcador preserva o comportamento dos registros legados.
     escala.temImportacao = pod.temImportacao !== false
     podValuesByKey.set(key, {
       eta: pod.eta,
