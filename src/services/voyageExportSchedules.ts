@@ -34,9 +34,8 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
 
   if (error) throw error
 
-  const result = new Map<number, VoyageExportSchedulesByPort>()
+  const grouped = new Map<number, Array<{ portKey: string; schedule: VoyageExportSchedule }>>()
   for (const row of (data ?? []) as ExportSchedulePickedRow[]) {
-    const voyageSchedules = result.get(row.voyage_id) ?? new Map<string, VoyageExportSchedule>()
     const schedule = {
       id: row.id,
       voyageId: row.voyage_id,
@@ -49,8 +48,18 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
       ceStatus: (row.ce_status as ExportCeStatus | null) ?? 'waiting',
       linked: row.linked,
     }
-    voyageSchedules.set(buildExportSchedulePortKey(schedule), schedule)
-    result.set(row.voyage_id, voyageSchedules)
+    const current = grouped.get(row.voyage_id) ?? []
+    current.push({ portKey: buildExportSchedulePortKey(schedule), schedule })
+    grouped.set(row.voyage_id, current)
+  }
+
+  const result = new Map<number, VoyageExportSchedulesByPort>()
+  for (const [voyageId, schedules] of grouped) {
+    const byPort = new Map<string, VoyageExportSchedule>()
+    for (const { portKey, schedule } of schedules.sort((left, right) => left.portKey.localeCompare(right.portKey, 'pt-BR'))) {
+      byPort.set(portKey, schedule)
+    }
+    result.set(voyageId, byPort)
   }
   return result
 }
@@ -69,7 +78,6 @@ export async function saveVoyageExportSchedule(data: {
   linked: boolean
 }): Promise<void> {
   const normalizedPol = normalizeExportSchedulePol(data.pol)
-  const previousPol = normalizeExportSchedulePol(data.previousPol ?? null)
   const payload = {
     voyage_id: data.voyageId,
     pol: normalizedPol,
@@ -83,7 +91,7 @@ export async function saveVoyageExportSchedule(data: {
     updated_at: new Date().toISOString(),
   } satisfies Partial<VoyageExportScheduleRow>
 
-  if (data.existingId && previousPol !== normalizedPol) {
+  if (data.existingId) {
     const { error } = await supabase
       .from('voyage_export_schedules')
       .update(payload)

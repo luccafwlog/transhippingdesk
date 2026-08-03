@@ -13,17 +13,29 @@ vi.mock('../supabase', () => ({
 const migrationPath = resolve(process.cwd(), 'supabase/migrations/250_voyage_export_schedules_por_escala.sql')
 
 describe('250_voyage_export_schedules_por_escala.sql', () => {
-  it('backfills POL in the required priority order and normalizes the chosen source to LOCODE', () => {
+  it('uses the current voyage POL snapshot first, preserves precedence, and normalizes the chosen source to LOCODE', () => {
     const sql = readFileSync(migrationPath, 'utf8')
 
-    const polScheduleIndex = sql.indexOf('voyage_pol_schedule')
+    const polScheduleIndex = sql.indexOf('pol_schedule_snapshot')
     const graniteIndex = sql.indexOf('granite_manifests')
     const vaziosIndex = sql.indexOf('vazios_export_operations')
 
     expect(polScheduleIndex).toBeGreaterThanOrEqual(0)
     expect(graniteIndex).toBeGreaterThan(polScheduleIndex)
     expect(vaziosIndex).toBeGreaterThan(graniteIndex)
+    expect(sql).toContain('jsonb_each')
     expect(sql).toContain('public.normalize_port_code')
+  })
+
+  it('guards against the old arbitrary history MAX and documents the current-state compatibility choice', () => {
+    const sql = readFileSync(migrationPath, 'utf8')
+
+    expect(sql).not.toContain("FROM public.audit_logs al")
+    expect(sql).not.toContain('MAX(source.normalized_pol)')
+    expect(sql).toContain('snapshot de viagem')
+    expect(sql).toContain('mais de um POL brasileiro')
+    expect(sql).toContain('current_br_pol_count')
+    expect(sql).toContain('THEN NULL')
   })
 
   it('switches uniqueness to voyage plus port and only tightens NOT NULL when no residue remains', () => {
@@ -42,25 +54,13 @@ describe('voyageExportSchedules service', () => {
     from.mockReset()
   })
 
-  it('groups multiple export rows from the same voyage by POL', async () => {
+  it('groups multiple export rows from the same voyage by POL in deterministic normalized-port order', async () => {
     from.mockImplementation((table: string) => {
       expect(table).toBe('voyage_export_schedules')
       return {
         select: vi.fn(() => ({
           in: vi.fn(async () => ({
             data: [
-              {
-                id: 'exp-1',
-                voyage_id: 7,
-                pol: 'BRSSA',
-                has_granite: false,
-                containers_qty: 10,
-                movements_qty: 12,
-                eta: '2026-08-01',
-                etb: '2026-08-02',
-                ce_status: 'waiting',
-                linked: true,
-              },
               {
                 id: 'exp-2',
                 voyage_id: 7,
@@ -72,6 +72,18 @@ describe('voyageExportSchedules service', () => {
                 etb: '2026-08-04',
                 ce_status: 'approved',
                 linked: false,
+              },
+              {
+                id: 'exp-1',
+                voyage_id: 7,
+                pol: 'salvador',
+                has_granite: false,
+                containers_qty: 10,
+                movements_qty: 12,
+                eta: '2026-08-01',
+                etb: '2026-08-02',
+                ce_status: 'waiting',
+                linked: true,
               },
             ],
             error: null,
@@ -113,5 +125,34 @@ describe('voyageExportSchedules service', () => {
     expect(upsert).toHaveBeenCalledTimes(1)
     const [, options] = upsert.mock.calls[0] as unknown as [unknown, { onConflict: string }]
     expect(options).toMatchObject({ onConflict: 'voyage_id,pol' })
+  })
+
+  it('updates the existing row by id when editing a legacy null-POL schedule', async () => {
+    const eq = vi.fn(async () => ({ error: null }))
+    const update = vi.fn(() => ({ eq }))
+    const upsert = vi.fn(async () => ({ error: null }))
+    from.mockImplementation((table: string) => {
+      expect(table).toBe('voyage_export_schedules')
+      return { update, upsert }
+    })
+
+    const { saveVoyageExportSchedule } = await import('../voyageExportSchedules')
+    await saveVoyageExportSchedule({
+      existingId: 'legacy-null-pol-row',
+      previousPol: null,
+      voyageId: 19,
+      pol: null,
+      hasGranite: false,
+      containersQty: 1,
+      movementsQty: 2,
+      eta: '2026-08-15',
+      etb: '2026-08-16',
+      ceStatus: 'waiting',
+      linked: false,
+    })
+
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(eq).toHaveBeenCalledWith('id', 'legacy-null-pol-row')
+    expect(upsert).not.toHaveBeenCalled()
   })
 })

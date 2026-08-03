@@ -19,24 +19,28 @@ BEGIN
   pol_schedule_source AS (
     SELECT
       source.voyage_id,
-      MAX(source.normalized_pol) AS normalized_pol
+      COUNT(*) AS current_br_pol_count,
+      CASE
+        WHEN COUNT(*) = 1 THEN MIN(source.normalized_pol)
+        ELSE NULL
+      END AS normalized_pol
     FROM (
       SELECT
-        split_part(al.entity_id, '::', 1)::INTEGER AS voyage_id,
+        tr.voyage_id,
         CASE
-          WHEN substring(UPPER(TRIM(split_part(al.entity_id, '::', 2))) FROM '\m((?:BR|CN)[A-Z0-9]{3})\M') IS NOT NULL
-            THEN REPLACE(substring(UPPER(TRIM(split_part(al.entity_id, '::', 2))) FROM '\m((?:BR|CN)[A-Z0-9]{3})\M'), 'BRVIT', 'BRVIX')
-          WHEN public.normalize_port_code(split_part(al.entity_id, '::', 2)) = 'BRVIT' THEN 'BRVIX'
-          WHEN public.normalize_port_code(split_part(al.entity_id, '::', 2)) IN ('BRSSA', 'CNTAO', 'CNSHA', 'CNTAC', 'CNNGB', 'CNNSA', 'CNZJG')
-            THEN public.normalize_port_code(split_part(al.entity_id, '::', 2))
-          WHEN UPPER(TRIM(split_part(al.entity_id, '::', 2))) LIKE '%PECEM%' THEN 'BRPEC'
-          WHEN UPPER(TRIM(split_part(al.entity_id, '::', 2))) ~ '^[A-Z]{5}$' THEN UPPER(TRIM(split_part(al.entity_id, '::', 2)))
+          WHEN substring(UPPER(TRIM(snapshot_entry.key)) FROM '\m((?:BR|CN)[A-Z0-9]{3})\M') IS NOT NULL
+            THEN REPLACE(substring(UPPER(TRIM(snapshot_entry.key)) FROM '\m((?:BR|CN)[A-Z0-9]{3})\M'), 'BRVIT', 'BRVIX')
+          WHEN public.normalize_port_code(snapshot_entry.key) = 'BRVIT' THEN 'BRVIX'
+          WHEN public.normalize_port_code(snapshot_entry.key) IN ('BRSSA', 'CNTAO', 'CNSHA', 'CNTAC', 'CNNGB', 'CNNSA', 'CNZJG')
+            THEN public.normalize_port_code(snapshot_entry.key)
+          WHEN UPPER(TRIM(snapshot_entry.key)) LIKE '%PECEM%' THEN 'BRPEC'
+          WHEN UPPER(TRIM(snapshot_entry.key)) ~ '^[A-Z]{5}$' THEN UPPER(TRIM(snapshot_entry.key))
           ELSE NULL
         END AS normalized_pol
-      FROM public.audit_logs al
-      INNER JOIN target_rows tr
-        ON tr.voyage_id = split_part(al.entity_id, '::', 1)::INTEGER
-      WHERE al.entity_type = 'voyage_pol_schedule'
+      FROM target_rows tr
+      INNER JOIN public.voyages v
+        ON v.id = tr.voyage_id
+      CROSS JOIN LATERAL jsonb_each(COALESCE(v.pol_schedule_snapshot, '{}'::JSONB)) AS snapshot_entry(key, value)
     ) AS source
     WHERE source.normalized_pol LIKE 'BR%'
     GROUP BY source.voyage_id
@@ -85,7 +89,15 @@ BEGIN
   resolved_pol AS (
     SELECT
       tr.id,
-      COALESCE(pol_schedule_source.normalized_pol, granite_source.normalized_pol, vazios_source.normalized_pol) AS normalized_pol
+      CASE
+        -- Compatibilidade: o snapshot de viagem e a fonte canônica do estado
+        -- atual da voyage_pol_schedule. Se houver mais de um POL brasileiro
+        -- atual, a linha legada (uma EXP por viagem) permanece sem pol para
+        -- revisão manual, em vez de escolher um porto histórico arbitrário.
+        WHEN COALESCE(pol_schedule_source.current_br_pol_count, 0) > 1 THEN NULL
+        WHEN pol_schedule_source.normalized_pol IS NOT NULL THEN pol_schedule_source.normalized_pol
+        ELSE COALESCE(granite_source.normalized_pol, vazios_source.normalized_pol)
+      END AS normalized_pol
     FROM target_rows tr
     LEFT JOIN pol_schedule_source
       ON pol_schedule_source.voyage_id = tr.voyage_id
