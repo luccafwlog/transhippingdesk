@@ -270,6 +270,10 @@ export function countPlannedPodRows(rows: Array<{ pod: string | null | undefined
   ).size
 }
 
+function canonicalPort(value: string | null | undefined) {
+  return normalizePortCode(value) ?? normalizePortName(value)
+}
+
 export type AdrEscalaPod = { pod: string; omitted: boolean }
 
 /**
@@ -879,20 +883,20 @@ export function summarizeImportByPod(
 
   const pods = Array.from(
     new Set([
-      ...containerBls.map((bl) => normalizePortName(bl.pod)),
-      ...breakbulkBls.map((bl) => normalizePortName(bl.pod)),
+      ...containerBls.map((bl) => canonicalPort(bl.pod)),
+      ...breakbulkBls.map((bl) => canonicalPort(bl.pod)),
     ]),
   ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   return pods.map((pod) => {
     const flat = containerBls
-      .filter((bl) => normalizePortName(bl.pod) === pod)
+      .filter((bl) => canonicalPort(bl.pod) === pod)
       .flatMap((bl) => bl.bl_containers ?? [])
     const isVehicle = (container: { container_number?: string | null }) =>
       vehicleSet.has(String(container.container_number ?? '').trim().toUpperCase())
     const general = flat.filter((container) => !isVehicle(container))
     const vehicles = flat.filter(isVehicle)
-    const podBreakbulk = breakbulkBls.filter((bl) => normalizePortName(bl.pod) === pod)
+    const podBreakbulk = breakbulkBls.filter((bl) => canonicalPort(bl.pod) === pod)
 
     return {
       pod,
@@ -940,14 +944,14 @@ export function summarizeExportByPol(
 
   const pols = Array.from(
     new Set([
-      ...granite.map((manifest) => normalizePortName(manifest.loading_port)),
-      ...allBookings.map((booking) => normalizePortName(booking.local?.code)),
+      ...granite.map((manifest) => canonicalPort(manifest.loading_port)),
+      ...allBookings.map((booking) => canonicalPort(booking.local?.code)),
     ]),
   ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   return pols.map((pol) => {
-    const polGranite = granite.filter((manifest) => normalizePortName(manifest.loading_port) === pol)
-    const polBookings = allBookings.filter((booking) => normalizePortName(booking.local?.code) === pol)
+    const polGranite = granite.filter((manifest) => canonicalPort(manifest.loading_port) === pol)
+    const polBookings = allBookings.filter((booking) => canonicalPort(booking.local?.code) === pol)
     const graniteBls = polGranite.flatMap((manifest) => manifest.granite_bls ?? [])
 
     return {

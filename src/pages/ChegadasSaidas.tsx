@@ -227,6 +227,7 @@ export function ChegadasSaidas() {
   const invalidateSchedules = () => {
     queryClient.invalidateQueries({ queryKey: ['portal-schedule-voyages'] })
     queryClient.invalidateQueries({ queryKey: ['voyages'] })
+    queryClient.invalidateQueries({ queryKey: ['voyage-escala-schedules'] })
   }
 
   const openAdd = () => {
