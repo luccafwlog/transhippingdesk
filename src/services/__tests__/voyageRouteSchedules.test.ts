@@ -102,7 +102,8 @@ describe('projectVoyageEscalaSchedules', () => {
       atd: '2026-08-06',
       escalaNumber: '002',
       temImportacao: false,
-      temExportacao: true,
+      // Linha de POL é registro documental (ADR 0025): não declara exportação.
+      temExportacao: false,
       divergences: [],
     })])
   })
@@ -140,7 +141,7 @@ describe('projectVoyageEscalaSchedules', () => {
       port: 'BRVIX',
       etd: '2026-08-05',
       temImportacao: true,
-      temExportacao: true,
+      temExportacao: false,
       divergences: [{
         field: 'etd',
         podValue: '2026-08-05',
@@ -183,11 +184,10 @@ describe('projectVoyageEscalaSchedules', () => {
           id: 'exp-1',
           voyageId: 12,
           pol: 'SALVADOR',
+          temExportacao: true,
           hasGranite: true,
           containersQty: 10,
           movementsQty: 14,
-          eta: '2026-08-01',
-          etb: '2026-08-02',
           ceStatus: 'waiting',
           linked: true,
         }],
@@ -195,11 +195,10 @@ describe('projectVoyageEscalaSchedules', () => {
           id: 'exp-2',
           voyageId: 12,
           pol: 'CNSHA',
+          temExportacao: true,
           hasGranite: false,
           containersQty: 99,
           movementsQty: 99,
-          eta: '2026-07-01',
-          etb: '2026-07-02',
           ceStatus: 'waiting',
           linked: false,
         }],
@@ -208,12 +207,10 @@ describe('projectVoyageEscalaSchedules', () => {
 
     expect(escalas).toEqual([expect.objectContaining({
       port: 'BRSSA',
-      eta: '2026-08-01',
-      etb: '2026-08-02',
       ceStatus: 'waiting',
       linked: true,
       temImportacao: false,
-      temExportacao: true,
+          temExportacao: true,
       temGranito: true,
       containersQty: 10,
       movementsQty: 14,
@@ -245,11 +242,10 @@ describe('projectVoyageEscalaSchedules', () => {
           id: 'exp-1',
           voyageId: 12,
           pol: 'BRVIX',
+          temExportacao: true,
           hasGranite: false,
           containersQty: 4,
           movementsQty: 2,
-          eta: '2026-08-01',
-          etb: '2026-08-02',
           ceStatus: 'waiting',
           linked: false,
         }],
@@ -263,13 +259,13 @@ describe('projectVoyageEscalaSchedules', () => {
       ata: '2026-08-03',
       atb: '2026-08-04',
       temImportacao: false,
-      temExportacao: true,
+          temExportacao: true,
       containersQty: 4,
       movementsQty: 2,
     })])
   })
 
-  it('preserva a escala de exportacao quando o POD foi soft-deletado', () => {
+  it('preserva a escala pela linha de POL quando o POD foi soft-deletado', () => {
     const escalas = projectVoyageEscalaSchedules({
       podSchedules: [{
         entityId: '12::BRSSZ',
@@ -298,7 +294,7 @@ describe('projectVoyageEscalaSchedules', () => {
       }],
     })
 
-    expect(escalas).toMatchObject([{ port: 'BRSSZ', temImportacao: false, temExportacao: true }])
+    expect(escalas).toMatchObject([{ port: 'BRSSZ', temImportacao: false, temExportacao: false }])
   })
 })
 

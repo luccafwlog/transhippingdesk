@@ -39,20 +39,15 @@ import { VoyageAgencyReportTab } from './VoyageAgencyReportTab'
 import { OmitEscalaModal } from './OmitEscalaModal'
 import { TransshipmentPanel } from './TransshipmentPanel'
 import type {
-  AddingPodPayload,
-  EditingExportPayload,
-  EditingPodPayload,
   EditingPolPayload,
   Voyage,
   VoyagePodRow,
 } from './voyageCardTypes'
+import type { EscalaModalData } from '../shared/VoyageScheduleModals'
 
 export type {
   Voyage,
-  EditingPodPayload,
   EditingPolPayload,
-  EditingExportPayload,
-  AddingPodPayload,
 } from './voyageCardTypes'
 
 export type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos' | 'adr'
@@ -109,10 +104,8 @@ type VoyageCardProps = {
   onEditVoyage: (voyageId: number) => void
   onDeleteVoyage: (voyageId: number) => void
   onCancelVoyage: (voyageId: number) => void
-  onEditPod: (payload: EditingPodPayload) => void
+  onEditEscala: (payload: EscalaModalData) => void
   onEditPol: (payload: EditingPolPayload) => void
-  onAddPod: (payload: AddingPodPayload) => void
-  onEditExport: (payload: EditingExportPayload) => void
   initialTab?: VoyageTabKey
   initialEscala?: string
 }
@@ -129,10 +122,8 @@ export function VoyageCard({
   onEditVoyage,
   onDeleteVoyage,
   onCancelVoyage,
-  onEditPod,
+  onEditEscala,
   onEditPol,
-  onAddPod,
-  onEditExport,
   initialTab = 'visao',
   initialEscala,
 }: VoyageCardProps) {
@@ -376,10 +367,8 @@ export function VoyageCard({
               isAdmin={isAdmin}
               divergenceCount={divergenceCount}
               ceCoverage={ceCoverage}
-              onAddPod={onAddPod}
-              onEditPod={onEditPod}
+              onEditEscala={onEditEscala}
               onOmitPod={(pod) => setOmitTarget(pod)}
-              onEditExport={onEditExport}
             />
           ) : null}
           {activeTab === 'importacao' ? (

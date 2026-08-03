@@ -136,11 +136,10 @@ describe('voyageExportSchedules service', () => {
                 id: 'exp-2',
                 voyage_id: 7,
                 pol: 'BRVIX',
+      temExportacao: true,
                 has_granite: true,
                 containers_qty: 4,
                 movements_qty: 5,
-                eta: '2026-08-03',
-                etb: '2026-08-04',
                 ce_status: 'approved',
                 linked: false,
               },
@@ -148,11 +147,10 @@ describe('voyageExportSchedules service', () => {
                 id: 'exp-1',
                 voyage_id: 7,
                 pol: 'salvador',
+      temExportacao: true,
                 has_granite: false,
                 containers_qty: 10,
                 movements_qty: 12,
-                eta: '2026-08-01',
-                etb: '2026-08-02',
                 ce_status: 'waiting',
                 linked: true,
               },
@@ -184,11 +182,10 @@ describe('voyageExportSchedules service', () => {
     await saveVoyageExportSchedule({
       voyageId: 11,
       pol: 'BRSSA',
+      temExportacao: true,
       hasGranite: true,
       containersQty: 3,
       movementsQty: 8,
-      eta: '2026-08-10',
-      etb: '2026-08-11',
       ceStatus: 'approved',
       linked: true,
     })
@@ -198,31 +195,29 @@ describe('voyageExportSchedules service', () => {
     expect(options).toMatchObject({ onConflict: 'voyage_id,pol' })
   })
 
-  it('updates the existing row by id when editing a legacy null-POL schedule', async () => {
+  // A migration 252 tornou pol NOT NULL: exportação sem porto não é escala.
+  it('refuses to persist an export schedule without a port', async () => {
     const eq = vi.fn(async () => ({ error: null }))
     const update = vi.fn(() => ({ eq }))
     const upsert = vi.fn(async () => ({ error: null }))
-    from.mockImplementation((table: string) => {
-      expect(table).toBe('voyage_export_schedules')
-      return { update, upsert }
-    })
+    from.mockImplementation(() => ({ update, upsert }))
 
     const { saveVoyageExportSchedule } = await import('../voyageExportSchedules')
-    await saveVoyageExportSchedule({
-      existingId: 'legacy-null-pol-row',
-      voyageId: 19,
-      pol: null,
-      hasGranite: false,
-      containersQty: 1,
-      movementsQty: 2,
-      eta: '2026-08-15',
-      etb: '2026-08-16',
-      ceStatus: 'waiting',
-      linked: false,
-    })
+    await expect(
+      saveVoyageExportSchedule({
+        existingId: 'row-sem-porto',
+        voyageId: 19,
+        pol: null,
+        temExportacao: true,
+        hasGranite: false,
+        containersQty: 1,
+        movementsQty: 2,
+        ceStatus: 'waiting',
+        linked: false,
+      }),
+    ).rejects.toThrow(/porto da escala/i)
 
-    expect(update).toHaveBeenCalledTimes(1)
-    expect(eq).toHaveBeenCalledWith('id', 'legacy-null-pol-row')
+    expect(update).not.toHaveBeenCalled()
     expect(upsert).not.toHaveBeenCalled()
   })
 })

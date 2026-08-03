@@ -183,3 +183,17 @@ e o filtro `BR*`.
 - [ ] `npm run build`
 - [ ] `npm run docs:check`
 - [ ] Conferir numa viagem real de cada tipo: só importação (nada muda), só exportação (ganha escala, ADR, alerta, line-up e Programação) e mista (uma linha na Visão geral, duas no Line-Up, um ADR).
+
+---
+
+## Nota de execução — 2026-08-03
+
+Executado em duas ondas. A primeira entregou a projeção unificada, os
+consumidores e as migrations `250`/`251` seguindo a versão anterior deste plano
+(com backfill e precedência POD-canônico). A segunda aplicou a nota editorial da
+ADR 0035: modal único com toggle de exportação, migration `252` (`pol NOT NULL`,
+remoção de `eta`/`etb`, entrada de `tem_exportacao`), combobox dos sete portos
+com recusa de porto estrangeiro e a linha de POL deixando de declarar exportação.
+
+O backfill da `250` permaneceu no histórico por já ter sido revisado, embora a
+base não tivesse resíduo a migrar; a `252` é quem fecha o contrato.

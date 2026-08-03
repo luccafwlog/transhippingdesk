@@ -35,7 +35,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-it('pede confirmação antes de excluir planejamentos de POD e POL', async () => {
+it('pede confirmação uma vez por escala antes de excluir o planejamento', async () => {
   confirm.mockResolvedValue(false)
   const user = userEvent.setup()
   render(
@@ -51,15 +51,14 @@ it('pede confirmação antes de excluir planejamentos de POD e POL', async () =>
       isAdmin
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 
-  await user.click(screen.getByRole('button', { name: 'Excluir planejamento do POD BRSSZ' }))
-  await user.click(screen.getByRole('button', { name: 'Excluir planejamento de exportação do POL BRVIX' }))
+  // Uma escala, uma ação de excluir — inclusive na escala que só exporta.
+  await user.click(screen.getByRole('button', { name: 'Excluir escala BRSSZ' }))
+  await user.click(screen.getByRole('button', { name: 'Excluir escala BRVIX' }))
 
   expect(confirm).toHaveBeenCalledTimes(2)
   expect(deletePod).not.toHaveBeenCalled()
@@ -99,10 +98,8 @@ it('renderiza uma escala mista em uma linha com marcadores de importação e exp
       isAdmin
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 
@@ -151,10 +148,8 @@ it('exibe divergencia com os valores POD e POL na linha da escala', () => {
       isAdmin={false}
       divergenceCount={1}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 
@@ -194,10 +189,8 @@ it('renderiza viagem só de exportação em uma linha sem marcador de importaç�
       isAdmin
       divergenceCount={0}
       ceCoverage={{ filled: 0, total: 0 }}
-      onAddPod={vi.fn()}
-      onEditPod={vi.fn()}
+      onEditEscala={vi.fn()}
       onOmitPod={vi.fn()}
-      onEditExport={vi.fn()}
     />,
   )
 

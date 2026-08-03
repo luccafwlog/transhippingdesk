@@ -31,7 +31,8 @@ import {
   renderLinkedLabel,
   type VoyageImportBatch,
 } from './voyageCardHelpers'
-import type { AddingPodPayload, EditingExportPayload, EditingPodPayload, Voyage } from './voyageCardTypes'
+import type { Voyage } from './voyageCardTypes'
+import type { EscalaModalData } from '../shared/VoyageScheduleModals'
 import { TransshipmentInfoCard } from './TransshipmentInfoCard'
 
 export function VoyageVisaoTab({
@@ -43,10 +44,8 @@ export function VoyageVisaoTab({
   isAdmin,
   divergenceCount,
   ceCoverage,
-  onAddPod,
-  onEditPod,
+  onEditEscala,
   onOmitPod,
-  onEditExport,
 }: {
   voyage: Voyage
   voyageLabel: string
@@ -56,10 +55,8 @@ export function VoyageVisaoTab({
   isAdmin: boolean
   divergenceCount: number
   ceCoverage: { filled: number; total: number }
-  onAddPod: (payload: AddingPodPayload) => void
-  onEditPod: (payload: EditingPodPayload) => void
+  onEditEscala: (payload: EscalaModalData) => void
   onOmitPod: (pod: string) => void
-  onEditExport: (payload: EditingExportPayload) => void
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -124,15 +121,51 @@ export function VoyageVisaoTab({
     return byPort
   }, [exportSchedules])
 
-  async function handleDeletePod(row: VoyageEscalaSchedule) {
+  // ponytail: o travamento do toggle é por viagem, não por escala — granito e
+  // vazios ainda não carregam o porto normalizado da escala. Quando o bloco 3 da
+  // ADR 0035 normalizar loading_port/embark_port, trocar por lock por porto.
+  const voyageHasExportCargo = graniteStats.totalManifests > 0 || vaziosStats.totalManifests > 0
+
+  function buildEscalaModalData(row: VoyageEscalaSchedule | null): EscalaModalData {
+    const exportSchedule = row
+      ? exportScheduleByPort.get(normalizePortCode(row.port) ?? normalizePortName(row.port)) ?? null
+      : null
+    return {
+      voyageId: voyage.id,
+      voyageLabel,
+      port: row?.port ?? null,
+      temImportacao: row?.temImportacao ?? false,
+      eta: row?.eta ?? null,
+      etb: row?.etb ?? null,
+      ata: row?.ata ?? null,
+      atb: row?.atb ?? null,
+      etd: row?.etd ?? null,
+      atd: row?.atd ?? null,
+      rtw: row?.rtw ?? null,
+      ceStatus: (row?.podCeStatus ?? row?.ceStatus ?? null) as EscalaModalData['ceStatus'],
+      linked: row?.linked ?? null,
+      escalaNumber: row?.escalaNumber ?? null,
+      exportExistingId: exportSchedule?.id ?? null,
+      temExportacao: exportSchedule?.temExportacao ?? false,
+      hasGranite: exportSchedule?.hasGranite ?? false,
+      containersQty: exportSchedule?.containersQty ?? null,
+      movementsQty: exportSchedule?.movementsQty ?? null,
+      exportLocked: voyageHasExportCargo,
+    }
+  }
+
+  // Uma escala, uma exclusão: o portador das datas e a linha de exportação do
+  // mesmo porto saem juntos.
+  async function handleDeleteEscala(row: VoyageEscalaSchedule) {
+    const exportSchedule = exportScheduleByPort.get(normalizePortCode(row.port) ?? normalizePortName(row.port)) ?? null
     const routeBls = (voyage.bls ?? []).filter((bl) => (normalizePortCode(bl.pod) ?? normalizePortName(bl.pod)) === (normalizePortCode(row.port) ?? normalizePortName(row.port)))
     const hasScheduleData = Boolean(row.eta || row.etb || row.ata || row.atb || row.etd || row.atd || row.rtw !== null)
     if (routeBls.length > 0) {
-      showToast('Não é possível excluir este POD: existem B/Ls vinculados.', 'error')
+      showToast('Não é possível excluir esta escala: existem B/Ls vinculados.', 'error')
       return
     }
-    if (!hasScheduleData && row.linked !== true) {
-      showToast('Este POD ja nao possui dados planejados para remover.', 'info')
+    if (!hasScheduleData && row.linked !== true && !exportSchedule) {
+      showToast('Esta escala ja nao possui dados planejados para remover.', 'info')
       return
     }
     if (!user?.id) {
@@ -140,40 +173,28 @@ export function VoyageVisaoTab({
       return
     }
     const confirmed = await confirm({
-      title: 'Excluir planejamento do POD',
-      message: `Excluir o planejamento do POD ${row.port}? As datas e o vínculo operacional serão removidos.`,
+      title: 'Excluir escala do planejamento',
+      message: `Excluir a escala ${row.port}? As datas, o vínculo operacional e o planejamento de exportação serão removidos.`,
       confirmLabel: 'Excluir',
       tone: 'danger',
     })
     if (!confirmed) return
     try {
-      await deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.port, changedBy: user.id })
+      if (row.temImportacao) {
+        await deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.port, changedBy: user.id })
+      }
+      if (exportSchedule) {
+        await deleteVoyageExportSchedule(exportSchedule.id)
+      }
       await afterEscalaAlterada(queryClient, { voyageId: voyage.id })
-      showToast('POD removido do planejamento.', 'success')
+      showToast('Escala removida do planejamento.', 'success')
     } catch (error) {
       const classified = classifyDbError(error)
       if (classified.kind === 'permissao') {
-        showToast('Sem permissão para excluir planejamento do POD. Solicite acesso administrativo.', 'error')
+        showToast('Sem permissão para excluir a escala. Solicite acesso administrativo.', 'error')
         return
       }
-      showToast(`Falha ao excluir planejamento do POD. Motivo: ${classified.message}`, 'error')
-    }
-  }
-
-  async function handleDeleteExport(schedule: VoyageExportSchedule) {
-    const confirmed = await confirm({
-      title: 'Excluir planejamento do POL',
-      message: `Excluir o planejamento de exportação do POL ${schedule.pol ?? '-'}?`,
-      confirmLabel: 'Excluir',
-      tone: 'danger',
-    })
-    if (!confirmed) return
-    try {
-      await deleteVoyageExportSchedule(schedule.id)
-      await afterEscalaAlterada(queryClient, { voyageId: voyage.id })
-      showToast('Planejamento de exportação removido.', 'success')
-    } catch {
-      showToast('Falha ao remover planejamento de exportação.', 'error')
+      showToast(`Falha ao excluir a escala. Motivo: ${classified.message}`, 'error')
     }
   }
 
@@ -182,20 +203,10 @@ export function VoyageVisaoTab({
       title="Planejamento por escala"
       compact
       actions={isAdmin ? (
-        <>
-          <Button variant="secondary" className="app-btn--sm" onClick={() => onAddPod({ voyageId: voyage.id, voyageLabel })}>
-            <Plus size={15} />
-            Adicionar escala
-          </Button>
-          <Button
-            variant="secondary"
-            className="app-btn--sm"
-            onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: null })}
-          >
-            <Plus size={15} />
-            Adicionar exportação
-          </Button>
-        </>
+        <Button variant="secondary" className="app-btn--sm" onClick={() => onEditEscala(buildEscalaModalData(null))}>
+          <Plus size={15} />
+          Adicionar escala
+        </Button>
       ) : undefined}
     >
       <div className="app-voyage-table-frame">
@@ -236,7 +247,6 @@ export function VoyageVisaoTab({
             <tbody>
               {escalaRows.length ? (
                 escalaRows.map((row) => {
-                  const exportSchedule = exportScheduleByPort.get(normalizePortCode(row.port) ?? normalizePortName(row.port))
                   return (
                     <tr key={`${voyage.id}-lineup-${row.port}`}>
                       <td className="px-3 py-2 align-top">
@@ -262,39 +272,12 @@ export function VoyageVisaoTab({
                             variant="secondary"
                             className="app-voyage-icon-btn"
                             aria-label={`Editar planejamento da escala ${row.port}`}
-                            onClick={() =>
-                              onEditPod({
-                                voyageId: voyage.id,
-                                voyageLabel,
-                                pod: row.port,
-                                temImportacao: row.temImportacao,
-                                eta: row.eta,
-                                etb: row.etb,
-                                ata: row.ata,
-                                atb: row.atb,
-                                etd: row.etd,
-                                atd: row.atd,
-                                rtw: row.rtw,
-                                ceStatus: row.ceStatus,
-                                linked: row.linked,
-                                escalaNumber: row.escalaNumber,
-                              })
-                            }
+                            onClick={() => onEditEscala(buildEscalaModalData(row))}
                           >
                             <Pencil size={15} />
                           </Button>
                           {isAdmin ? (
                             <>
-                              {exportSchedule ? (
-                                <Button
-                                  variant="secondary"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Editar planejamento de exportação do POL ${exportSchedule.pol ?? row.port}`}
-                                  onClick={() => onEditExport({ voyageId: voyage.id, voyageLabel, existing: exportSchedule })}
-                                >
-                                  <Package size={15} />
-                                </Button>
-                              ) : null}
                               {row.temImportacao && !row.omitted ? (
                                 <Button
                                   variant="secondary"
@@ -306,26 +289,14 @@ export function VoyageVisaoTab({
                                   <AlertTriangle size={15} />
                                 </Button>
                               ) : null}
-                              {row.temImportacao ? (
-                                <Button
-                                  variant="danger"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Excluir planejamento do POD ${row.port}`}
-                                  onClick={() => handleDeletePod(row)}
-                                >
-                                  <Trash2 size={15} />
-                                </Button>
-                              ) : null}
-                              {exportSchedule ? (
-                                <Button
-                                  variant="danger"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Excluir planejamento de exportação do POL ${exportSchedule.pol ?? row.port}`}
-                                  onClick={() => handleDeleteExport(exportSchedule)}
-                                >
-                                  <Trash2 size={15} />
-                                </Button>
-                              ) : null}
+                              <Button
+                                variant="danger"
+                                className="app-voyage-icon-btn"
+                                aria-label={`Excluir escala ${row.port}`}
+                                onClick={() => handleDeleteEscala(row)}
+                              >
+                                <Trash2 size={15} />
+                              </Button>
                             </>
                           ) : null}
                         </div>

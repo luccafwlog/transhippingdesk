@@ -7,12 +7,8 @@ import userEvent from '@testing-library/user-event'
 // so usam helpers puros dele (POD_CE_STATUS_OPTIONS, getEditableVoyagePodCeStatus).
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))
 
-import {
-  AddPodToVoyageModal,
-  ExportScheduleModal,
-  PodScheduleModal,
-  PolScheduleModal,
-} from '../VoyageScheduleModals'
+import { EscalaModal, PolScheduleModal, type EscalaModalData } from '../VoyageScheduleModals'
+import { ConfirmDialogProvider } from '../../ui/ConfirmDialog'
 
 afterEach(cleanup)
 
@@ -106,167 +102,107 @@ describe('PolScheduleModal', () => {
   })
 })
 
-describe('PodScheduleModal', () => {
-  const base = {
-    voyageId: 9,
-    voyageLabel: 'NAVIO 456S',
-    pod: 'BRSSZ',
-    temImportacao: true,
-    eta: '2026-03-01',
-    etb: null,
-    ata: null,
-    atb: '2026-03-02',
-    etd: '2026-03-03',
-    atd: null,
-    rtw: 3,
-    ceStatus: 'waiting' as const,
-    linked: true,
-    escalaNumber: null,
-  }
+const escalaBase: EscalaModalData = {
+  voyageId: 9,
+  voyageLabel: 'NAVIO 456S',
+  port: 'BRSSZ',
+  temImportacao: true,
+  eta: '2026-03-01',
+  etb: null,
+  ata: null,
+  atb: '2026-03-02',
+  etd: '2026-03-03',
+  atd: null,
+  rtw: 3,
+  ceStatus: 'waiting',
+  linked: true,
+  escalaNumber: null,
+  exportExistingId: null,
+  temExportacao: false,
+  hasGranite: false,
+  containersQty: null,
+  movementsQty: null,
+  exportLocked: false,
+}
 
-  it('pre-preenche datas/restow/escala e envia o payload tipado', async () => {
+function renderEscala(escala: EscalaModalData, onSaved = vi.fn().mockResolvedValue(undefined)) {
+  render(
+    <ConfirmDialogProvider>
+      <EscalaModal open escala={escala} onClose={() => {}} onSaved={onSaved} />
+    </ConfirmDialogProvider>,
+  )
+  return onSaved
+}
+
+describe('EscalaModal', () => {
+  it('edita a escala existente sem oferecer troca de porto', async () => {
     const user = userEvent.setup()
-    const onSaved = vi.fn().mockResolvedValue(undefined)
-    render(<PodScheduleModal open podSchedule={base} onClose={() => {}} onSaved={onSaved} />)
+    const onSaved = renderEscala(escalaBase)
 
     expect(screen.getByText('Escala: BRSSZ')).toBeTruthy()
+    expect(screen.queryByLabelText('Porto da escala')).toBeNull()
     expect((screen.getByLabelText('ETA') as HTMLInputElement).value).toBe('2026-03-01')
-    expect((screen.getByLabelText('ATB') as HTMLInputElement).value).toBe('2026-03-02')
-    expect((screen.getByLabelText('ETD') as HTMLInputElement).value).toBe('2026-03-03')
     expect((screen.getByLabelText('RESTOW') as HTMLInputElement).value).toBe('3')
 
-    await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
     expect(onSaved).toHaveBeenCalledWith(
       expect.objectContaining({
         voyageId: 9,
-        pod: 'BRSSZ',
+        port: 'BRSSZ',
         eta: '2026-03-01',
         etb: null,
         atb: '2026-03-02',
-        etd: '2026-03-03',
         rtw: 3,
         linked: true,
+        exportacao: { temExportacao: false, hasGranite: false, containersQty: null, movementsQty: null },
       }),
     )
   })
 
-  it('converte restow vazio para null e escala para boolean', async () => {
+  it('normaliza o porto por extenso antes de enviar', async () => {
     const user = userEvent.setup()
-    const onSaved = vi.fn().mockResolvedValue(undefined)
-    render(
-      <PodScheduleModal
-        open
-        podSchedule={{ ...base, rtw: null, linked: false }}
-        onClose={() => {}}
-        onSaved={onSaved}
-      />,
-    )
+    const onSaved = renderEscala({ ...escalaBase, port: 'Vitoria', temImportacao: false })
 
-    await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ rtw: null, linked: false }))
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ port: 'BRVIX', temImportacao: false }))
   })
 
-  it('converte ATB e ETD vazios para null', async () => {
+  it('recusa porto estrangeiro ao criar a escala', async () => {
     const user = userEvent.setup()
-    const onSaved = vi.fn().mockResolvedValue(undefined)
-    render(<PodScheduleModal open podSchedule={base} onClose={() => {}} onSaved={onSaved} />)
+    const onSaved = renderEscala({ ...escalaBase, port: null })
 
-    await user.clear(screen.getByLabelText('ATB'))
-    await user.clear(screen.getByLabelText('ETD'))
-    await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
+    await user.type(screen.getByLabelText('Porto da escala'), 'CNSHA')
+    await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
 
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ atb: null, etd: null }))
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('porto brasileiro')
   })
 
-  it('normaliza o porto da escala antes de enviar o payload', async () => {
+  it('so revela os campos de exportacao depois do toggle e os envia juntos', async () => {
     const user = userEvent.setup()
-    const onSaved = vi.fn().mockResolvedValue(undefined)
-    render(
-      <PodScheduleModal
-        open
-        podSchedule={{ ...base, pod: 'Vitoria', temImportacao: false }}
-        onClose={() => {}}
-        onSaved={onSaved}
-      />,
-    )
+    const onSaved = renderEscala({ ...escalaBase, port: null })
 
-    await user.click(screen.getByRole('button', { name: 'Salvar datas' }))
+    expect(screen.queryByLabelText('CNTR (Vazios Exp.)')).toBeNull()
 
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ pod: 'BRVIX', temImportacao: false }))
-  })
-})
-
-describe('AddPodToVoyageModal', () => {
-  const voyage = { voyageId: 5, voyageLabel: 'NAVIO X 10N' }
-
-  it('mantem o botao desabilitado enquanto o POD esta vazio', () => {
-    render(<AddPodToVoyageModal open voyage={voyage} onClose={() => {}} onSaved={async () => {}} />)
-    expect((screen.getByRole('button', { name: 'Adicionar POD' }) as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('normaliza o POD para maiusculas e envia o payload de criacao', async () => {
-    const user = userEvent.setup()
-    const onSaved = vi.fn().mockResolvedValue(undefined)
-    render(<AddPodToVoyageModal open voyage={voyage} onClose={() => {}} onSaved={onSaved} />)
-
-    await user.type(screen.getByLabelText('POD'), 'brssa')
-    await user.click(screen.getByRole('button', { name: 'Adicionar POD' }))
-
-    expect(onSaved).toHaveBeenCalledWith({
-      voyageId: 5,
-      pod: 'BRSSA',
-      eta: null,
-      etb: null,
-      ata: null,
-      atd: null,
-      rtw: null,
-      ceStatus: 'waiting',
-      linked: false,
-      escalaNumber: null,
-    })
-  })
-})
-
-describe('ExportScheduleModal', () => {
-  const exportData = {
-    voyageId: 8,
-    voyageLabel: 'NAVIO Y 20S',
-    existing: {
-      pol: 'brvix',
-      eta: '2026-04-01',
-      etb: null,
-      hasGranite: true,
-      containersQty: 10,
-      movementsQty: null,
-      ceStatus: 'waiting' as const,
-      linked: true,
-    },
-  }
-
-  it('pre-preenche a partir do registro existente', () => {
-    render(<ExportScheduleModal open exportData={exportData as never} onClose={() => {}} onSaved={async () => {}} />)
-    expect((screen.getByLabelText('POL (Porto de Embarque)') as HTMLInputElement).value).toBe('brvix')
-    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('10')
-    expect((screen.getByLabelText('Movimentos') as HTMLInputElement).value).toBe('')
-  })
-
-  it('envia POL em maiusculas e converte quantidades vazias para null', async () => {
-    const user = userEvent.setup()
-    const onSaved = vi.fn().mockResolvedValue(undefined)
-    render(<ExportScheduleModal open exportData={exportData as never} onClose={() => {}} onSaved={onSaved} />)
-
-    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    await user.type(screen.getByLabelText('Porto da escala'), 'brvix')
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.type(screen.getByLabelText('CNTR (Vazios Exp.)'), '10')
+    await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
 
     expect(onSaved).toHaveBeenCalledWith(
       expect.objectContaining({
-        voyageId: 8,
-        pol: 'BRVIX',
-        hasGranite: true,
-        containersQty: 10,
-        movementsQty: null,
-        eta: '2026-04-01',
-        linked: true,
+        port: 'BRVIX',
+        exportacao: { temExportacao: true, hasGranite: false, containersQty: 10, movementsQty: null },
       }),
     )
+  })
+
+  it('trava a retirada da exportacao quando ha carga vinculada', () => {
+    renderEscala({ ...escalaBase, temExportacao: true, exportLocked: true, containersQty: 4 })
+
+    const toggle = screen.getByLabelText('Esta escala terá exportação') as HTMLInputElement
+    expect(toggle.checked).toBe(true)
+    expect(toggle.disabled).toBe(true)
+    expect(screen.getByText(/carga de exportação vinculada/i)).toBeTruthy()
   })
 })

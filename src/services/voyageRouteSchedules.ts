@@ -272,7 +272,8 @@ export function projectVoyageEscalaSchedules({
     const key = buildEscalaKey(pol.voyageId, port)
     const escala = ensureEscala(escalasByKey, pol.voyageId, port)
     const podValues = podValuesByKey.get(key)
-    escala.temExportacao = true
+    // A linha de POL é registro documental (ADR 0025) e cria a escala, mas não
+    // declara exportação: quem declara é o toggle da própria escala.
     mergeEscalaField(escala, 'etd', pol.etd, 'pol', podValues?.etd ?? null)
     mergeEscalaField(escala, 'atd', pol.atd, 'pol', podValues?.atd ?? null)
     mergeEscalaField(escala, 'escalaNumber', pol.escalaNumber, 'pol', podValues?.escalaNumber ?? null)
@@ -285,13 +286,13 @@ export function projectVoyageEscalaSchedules({
     const key = buildEscalaKey(exportSchedule.voyageId, port)
     const escala = ensureEscala(escalasByKey, exportSchedule.voyageId, port)
     const podValues = podValuesByKey.get(key)
-    escala.temExportacao = true
+    // O toggle é a declaração; a linha pode existir desligada guardando o
+    // próprio desligamento.
+    escala.temExportacao = exportSchedule.temExportacao
     escala.exportCeStatus = exportSchedule.ceStatus
     escala.temGranito = escala.temGranito || exportSchedule.hasGranite
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty
-    mergeEscalaField(escala, 'eta', exportSchedule.eta, 'export', podValues?.eta ?? null)
-    mergeEscalaField(escala, 'etb', exportSchedule.etb, 'export', podValues?.etb ?? null)
     mergeEscalaField(escala, 'ceStatus', exportSchedule.ceStatus, 'export', podValues?.ceStatus ?? null)
     mergeEscalaField(escala, 'linked', exportSchedule.linked, 'export', podValues?.linked ?? null)
   }
