@@ -392,6 +392,21 @@ npm run build
 
 Execute também o teste focado durante o ciclo red-green.
 
+### Isolamento entre arquivos de teste
+
+`src/test/setup.ts` roda antes de cada arquivo e desmonta o que o React
+Testing Library renderizou ao fim de cada teste. Não declare `afterEach(cleanup)`
+em arquivos novos — os que já declaram continuam corretos, porque `cleanup` é
+idempotente.
+
+O Vitest roda com isolamento por arquivo (`isolate` no padrão). Isso é
+obrigatório aqui: 134 arquivos usam `vi.mock` para substituir `supabase`,
+hooks e componentes, e dependem de um registro de módulos limpo por arquivo.
+Rodar com `--no-isolate` é ~2,5x mais rápido, mas quebra um conjunto
+**não determinístico** de arquivos, que muda conforme a distribuição entre
+workers. Só faz sentido reavaliar se as dependências passarem a ser injetadas
+em vez de mockadas por módulo.
+
 ### Orçamento de bundle
 
 ```powershell
@@ -426,13 +441,18 @@ resultado e evidência conforme
 
 ### Pull request
 
-`.github/workflows/ci.yml` executa:
+`.github/workflows/ci.yml` executa quatro jobs em paralelo, cada um com
+instalação reproduzível própria (`npm ci --legacy-peer-deps`):
 
-1. instalação reproduzível;
-2. verificação documental;
-3. lint;
-4. build;
-5. testes.
+1. `quality` — verificação documental e lint;
+2. `build` — build (`tsc` + `vite`) e orçamento de bundle;
+3. `test` — suíte Vitest dividida em 3 shards (`--shard=N/3`);
+4. `checks` — gate agregador que só fica verde quando os três terminam verdes.
+
+`checks` é o nome estável para a proteção de branch: a quantidade de shards
+pode mudar sem reconfigurar o repositório. Runs antigos do mesmo ref são
+cancelados (`concurrency` + `cancel-in-progress`), então só o commit mais
+recente do PR ocupa runners.
 
 ### Push em main
 

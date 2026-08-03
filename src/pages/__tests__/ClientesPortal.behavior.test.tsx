@@ -28,6 +28,10 @@ describe('ClientesPortal', () => {
   })
   it('usa Ativação pendente no filtro e no indicador da fila', () => {
     render(<MemoryRouter><ClientesPortal /></MemoryRouter>)
-    expect(screen.getAllByRole('button', { name: 'Ativação pendente' })).toHaveLength(2)
+    // O card do indicador tem o contador no nome acessível ("Ativação
+    // pendente 0"), então o filtro casa exato e o indicador só casa por
+    // prefixo. Um match cada, num único render.
+    expect(screen.getByRole('button', { name: 'Ativação pendente' })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /^Ativação pendente/ })).toHaveLength(2)
   })
 })
