@@ -353,7 +353,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     <div className="grid gap-4">
       <div className="flex flex-wrap gap-2" aria-label="Selecionar escala ADR">
         {pods.map(({ pod, omitted }) => (
-          <button key={pod} type="button" aria-pressed={port === pod} onClick={() => setPort(pod)} className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${port === pod ? 'border-[var(--app-blue-btn)] bg-[var(--app-blue-btn)] text-white' : 'border-[var(--app-border-strong)] bg-[var(--app-surface)] text-[var(--app-text-strong)] hover:border-[color-mix(in_srgb,var(--app-blue-btn)_40%,var(--app-border)_60%)] hover:text-[var(--app-blue-btn)]'}`}>
+          <Button key={pod} variant={port === pod ? 'primary' : 'secondary'} aria-pressed={port === pod} onClick={() => setPort(pod)} className="rounded-full">
             {pod}
             {omitted ? (
               <span
@@ -363,7 +363,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
                 Omitida
               </span>
             ) : null}
-          </button>
+          </Button>
         ))}
       </div>
 
