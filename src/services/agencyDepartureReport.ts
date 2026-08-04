@@ -522,16 +522,27 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     // distinguir "dado órfão" (porto que não é escala nenhuma) de "dado da
     // escala vizinha" (porto válido, só que não é este).
     listVoyageEscalaPorts(voyageId),
-    supabase
-      .from('vehicles')
-      .select(`${VEHICLES_SELECT}, bl:bls!inner(voyage_id, pod)`)
-      .eq('bl.voyage_id', voyageId)
-      .eq('bl.pod', port),
-    supabase
-      .from('vazios_importacao_containers')
-      .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
-      .eq('manifest.voyage_id', voyageId)
-      .eq('pod', port),
+    // Veiculos/containers ficaram fora da paginação de fetchAllRows quando o
+    // Task 6 a introduziu para granito/escalaPorts; um navio RoRo grande ou
+    // uma escala com >1000 containers batia o teto padrão do PostgREST (1000
+    // linhas) e perdia o resto silenciosamente — mesmo bug do granito antes do
+    // Task 6, só que aqui.
+    fetchAllRows((from, to) =>
+      supabase
+        .from('vehicles')
+        .select(`${VEHICLES_SELECT}, bl:bls!inner(voyage_id, pod)`)
+        .eq('bl.voyage_id', voyageId)
+        .eq('bl.pod', port)
+        .range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('vazios_importacao_containers')
+        .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
+        .eq('manifest.voyage_id', voyageId)
+        .eq('pod', port)
+        .range(from, to),
+    ),
     // Task 6 (ADR 2026-07-31): não filtra loading_port no banco — B/Ls
     // importados antes da normalização (Task 6 em graniteImport.ts) guardam
     // texto livre ("Vitoria, Brazil") que nunca bateria num .eq() exato contra
@@ -544,16 +555,22 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
         .eq('manifest.voyage_id', voyageId)
         .range(from, to),
     ),
-    supabase
-      .from('baplie_containers')
-      .select('container_number, size_type, status, is_imo, pod')
-      .eq('voyage_id', voyageId)
-      .eq('pod', port),
-    supabase
-      .from('bl_containers')
-      .select(BL_CONTAINERS_SELECT)
-      .eq('bl.voyage_id', voyageId)
-      .eq('bl.pod', port),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('baplie_containers')
+        .select('container_number, size_type, status, is_imo, pod')
+        .eq('voyage_id', voyageId)
+        .eq('pod', port)
+        .range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('bl_containers')
+        .select(BL_CONTAINERS_SELECT)
+        .eq('bl.voyage_id', voyageId)
+        .eq('bl.pod', port)
+        .range(from, to),
+    ),
     supabase
       .from('vazios_export_operations')
       .select('*')
@@ -578,13 +595,17 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     // (que continua apontando para o porto omitido). Só disparam quando há
     // B/Ls em transbordo para esta escala.
     transshipmentBlIds.length
-      ? supabase.from('bl_containers').select(BL_CONTAINERS_SELECT).in('bl_id', transshipmentBlIds)
+      ? fetchAllRows((from, to) =>
+          supabase.from('bl_containers').select(BL_CONTAINERS_SELECT).in('bl_id', transshipmentBlIds).range(from, to),
+        )
       : Promise.resolve(emptyResult),
     transshipmentBlIds.length
       ? supabase.from('bls').select(BREAKBULK_SELECT).in('id', transshipmentBlIds).eq('cargo_mode', 'carga_solta')
       : Promise.resolve(emptyResult),
     transshipmentBlIds.length
-      ? supabase.from('vehicles').select(VEHICLES_SELECT).in('bl_id', transshipmentBlIds)
+      ? fetchAllRows((from, to) =>
+          supabase.from('vehicles').select(VEHICLES_SELECT).in('bl_id', transshipmentBlIds).range(from, to),
+        )
       : Promise.resolve(emptyResult),
   ])
 
@@ -707,18 +728,47 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const vehicleContainerIds = new Set(vehicles.flatMap((vehicle) => vehicle.container_id === null ? [] : [vehicle.container_id]))
   const baplieByContainerNumber = new Map(baplieContainers.map((container) => [normalizeContainerNumber(container.container_number), container]))
   const blContainerNumbers = new Set(blContainers.map((container) => normalizeContainerNumber(container.container_number)))
-  const containers: AgencyReportDischargeContainer[] = blContainers.map((container) => {
+  // Um container compartilhado (ADR 0025/blFreightImport.ts) gera uma linha em
+  // bl_containers por B/L que o referencia, mas é a mesma unidade física
+  // descarregada uma vez só — sem deduplicar por número, a Carga Descarregada
+  // conta e soma o mesmo container 2x/3x. Agrega por container_number antes de
+  // classificar; entre duplicatas, IMO e as categorias mais específicas
+  // (transbordo/veículos) vencem carga_geral, pra não esconder um IMO real só
+  // porque outro B/L do mesmo container não o declarou.
+  const CATEGORY_PRIORITY: Record<MatrixCategory, number> = {
+    transbordo: 4,
+    veiculos: 3,
+    imo: 2,
+    carga_geral: 1,
+    vazio: 0,
+    vazio_cama: 0,
+    vazio_cover_plate: 0,
+  }
+  const dischargeByContainerNumber = new Map<string, AgencyReportDischargeContainer>()
+  for (const container of blContainers) {
     const baplie = baplieByContainerNumber.get(normalizeContainerNumber(container.container_number))
     const isTransshipment = container.bl?.transshipments?.some((transshipment) => transshipment.disposition === 'transshipment') ?? false
     const isImo = baplie ? Boolean(baplie.is_imo) : Boolean(container.is_imo)
+    const category: MatrixCategory = isTransshipment ? 'transbordo' : vehicleContainerIds.has(container.id) ? 'veiculos' : isImo ? 'imo' : 'carga_geral'
 
-    return {
-      container_number: container.container_number,
-      size_type: container.type ?? baplie?.size_type ?? null,
-      is_imo: isImo,
-      category: isTransshipment ? 'transbordo' : vehicleContainerIds.has(container.id) ? 'veiculos' : isImo ? 'imo' : 'carga_geral',
+    const key = normalizeContainerNumber(container.container_number)
+    const existing = dischargeByContainerNumber.get(key)
+    if (!existing) {
+      dischargeByContainerNumber.set(key, {
+        container_number: container.container_number,
+        size_type: container.type ?? baplie?.size_type ?? null,
+        is_imo: isImo,
+        category,
+      })
+      continue
     }
-  })
+    existing.is_imo = existing.is_imo || isImo
+    existing.size_type = existing.size_type ?? container.type ?? baplie?.size_type ?? null
+    if (CATEGORY_PRIORITY[category] > CATEGORY_PRIORITY[existing.category]) {
+      existing.category = category
+    }
+  }
+  const containers: AgencyReportDischargeContainer[] = [...dischargeByContainerNumber.values()]
 
   // Task 3 do ADR 2026-07-31 (CAR-1): o B/L é a única fonte documental dos
   // cheios (ADR 0025); o Baplie só complementa a listagem com os vazios que o

@@ -512,6 +512,51 @@ describe('Granito casa por porto normalizado, com fallback do manifesto (ADR 202
 
     expect(result.granite).toHaveLength(1250)
   })
+
+  it('não perde veículos nem containers além de uma página do PostgREST', async () => {
+    const vehicleRows = Array.from({ length: 1200 }, (_, index) => ({
+      brand: 'BYD', bl_id: `bl-${index}`, chassis: String(index), container_id: null,
+    }))
+    const containerRows = Array.from({ length: 1200 }, (_, index) => ({
+      id: index,
+      container_number: `DOCU${String(index).padStart(7, '0')}`,
+      type: '40HC',
+      is_imo: false,
+      bl: { transshipments: [] },
+    }))
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'vehicles') return pagedQueryBuilder(vehicleRows)
+      if (table === 'bl_containers') return pagedQueryBuilder(containerRows)
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.vehicles).toHaveLength(1200)
+    expect(result.containers).toHaveLength(1200)
+  })
+
+  it('deduplica um container compartilhado entre dois B/Ls: conta uma vez, com IMO/categoria mais específica vencendo', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bl_containers') {
+        return queryBuilder([
+          { id: 1, container_number: 'SHRD1234567', type: '40HC', is_imo: false, bl: { transshipments: [] } },
+          { id: 2, container_number: 'SHRD1234567', type: '40HC', is_imo: true, bl: { transshipments: [] } },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.containers).toEqual([
+      { container_number: 'SHRD1234567', size_type: '40HC', is_imo: true, category: 'imo' },
+    ])
+  })
 })
 
 describe('Aviso de dado órfão: granito/vazios embarcados fora de qualquer escala da viagem (ADR 2026-07-31, Task 10)', () => {
