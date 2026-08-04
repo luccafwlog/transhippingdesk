@@ -205,6 +205,29 @@ describe('blParser', () => {
     expect(parsed.dates.ladenOnBoard).toBe('2026-02-19')
   })
 
+  it('parseia datas com espaço em vez de barra e rótulo embutido na mesma célula (layout real COSCO)', async () => {
+    // Um B/L real da COSCO (não o fixture sintético acima) escreve "22 05 2026"
+    // (espaço, não barra) em Laden on Board, e embute o rótulo na mesma célula
+    // de Date/Place of Issue ("Date of Issue 22 05 2026", "Place of Issue
+    // VITORIA") em vez de um valor limpo — o parser precisa lidar com os dois.
+    const buffer = coscoBuffer()
+    const XLSX = await import('@e965/xlsx')
+    const workbook = XLSX.read(buffer, { type: 'array' })
+    const sheet = workbook.Sheets['Page 1']
+    XLSX.utils.sheet_add_aoa(sheet, [['22 05 2026']], { origin: 'AB35' })
+    XLSX.utils.sheet_add_aoa(sheet, [['Date of Issue 22 05 2026']], { origin: 'A38' })
+    XLSX.utils.sheet_add_aoa(sheet, [['Place of Issue VITORIA']], { origin: 'E38' })
+    const rewritten = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+
+    const parsed = await parseBLBuffer(rewritten)
+
+    expect(parsed.dates).toEqual({
+      ladenOnBoard: '22 05 2026',
+      issueDate: '22 05 2026',
+      issuePlace: 'VITORIA',
+    })
+  })
+
   it('bloqueia arquivo acima do limite antes de ler o buffer', async () => {
     const file = new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'bl.xlsx')
 
