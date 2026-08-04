@@ -285,7 +285,7 @@ export function EscalaModal({
           hasGranite: temExportacao ? hasGranite : false,
           containersQty: temExportacao && containersQty.trim() ? Number(containersQty) : null,
           movementsQty: temExportacao && movementsQty.trim() ? Number(movementsQty) : null,
-          dischargePorts: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/]/)) : [],
+          dischargePorts: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
         },
         exportExistingId: escala.exportExistingId,
       })

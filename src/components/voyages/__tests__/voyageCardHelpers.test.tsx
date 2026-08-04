@@ -183,6 +183,18 @@ describe('buildVoyageRouteLegs', () => {
     expect(legs.exportLeg).toBeNull()
   })
 
+  it('não inventa perna de importação em viagem que só embarca', () => {
+    const legs = buildVoyageRouteLegs({
+      bls: [],
+      fallbackPol: 'BRVIX',
+      escalas: [{ port: 'BRVIX', temImportacao: false, temExportacao: true, dischargePorts: ['NLRTM'] }],
+      exportDischargePorts: [],
+    })
+
+    expect(legs.importLeg).toBeNull()
+    expect(legs.exportLeg).toEqual({ originPorts: ['BRVIX'], destinationPorts: ['NLRTM'] })
+  })
+
   it('soma os portos de descarga do cadastro aos dos manifestos importados', () => {
     const legs = buildVoyageRouteLegs({
       bls: [],

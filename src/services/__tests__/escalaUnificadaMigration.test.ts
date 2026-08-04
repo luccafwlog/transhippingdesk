@@ -188,6 +188,7 @@ describe('voyageExportSchedules service', () => {
       movementsQty: 8,
       ceStatus: 'approved',
       linked: true,
+      dischargePorts: [],
     })
 
     expect(upsert).toHaveBeenCalledTimes(1)
@@ -214,6 +215,7 @@ describe('voyageExportSchedules service', () => {
         movementsQty: 2,
         ceStatus: 'waiting',
         linked: false,
+        dischargePorts: [],
       }),
     ).rejects.toThrow(/porto da escala/i)
 

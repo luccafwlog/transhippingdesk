@@ -203,8 +203,10 @@ export type VoyageRouteLegs = {
  * Rota do cabeçalho da viagem, uma linha por perna (ADR 0035, escala unificada):
  * importação = POL da carga -> escalas que descarregam; exportação = escalas que
  * embarcam -> portos de descarga declarados no cadastro da escala, somados aos
- * dos manifestos de exportação já importados. Sem perna de exportação, a
- * de importação aparece sempre (mesmo vazia, como "Origem/Destino a definir").
+ * dos manifestos de exportação já importados. A perna de importação some só
+ * quando não há nada que importe (nem carga, nem escala que descarrega) e a de
+ * exportação existe; sem exportação ela aparece mesmo vazia, como
+ * "Origem/Destino a definir".
  */
 export function buildVoyageRouteLegs({
   bls,
@@ -233,8 +235,10 @@ export function buildVoyageRouteLegs({
   }
 
   const hasExport = exportLeg.originPorts.length > 0 || exportLeg.destinationPorts.length > 0
-  const hasImport =
-    !hasExport || importLeg.originPorts.length > 0 || importLeg.destinationPorts.length > 0
+  // `originPorts` cai no POL da viagem quando não há B/L, então ele não serve de
+  // prova de importação: numa viagem que só embarca isso desenharia
+  // "POL -> Destino a definir" sem nada a descarregar.
+  const hasImport = importEscalas.length > 0 || (bls ?? []).length > 0 || !hasExport
 
   return {
     importLeg: hasImport ? importLeg : null,

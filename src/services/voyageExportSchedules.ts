@@ -75,7 +75,9 @@ export async function saveVoyageExportSchedule(data: {
   movementsQty: number | null
   ceStatus: ExportCeStatus | null
   linked: boolean
-  dischargePorts?: string[]
+  // Obrigatorio: o upsert sempre grava a coluna, entao omitir apagaria o que ja
+  // esta la.
+  dischargePorts: string[]
 }): Promise<void> {
   const normalizedPol = normalizeExportSchedulePol(data.pol)
   // A exportação é de uma escala; sem porto não há escala a que pertencer.
@@ -138,7 +140,7 @@ function normalizeExportSchedulePol(value: string | null | undefined) {
 export function normalizeDischargePorts(values: Array<string | null | undefined> | null | undefined): string[] {
   const seen = new Set<string>()
   for (const value of values ?? []) {
-    const port = normalizePortCode(value) ?? String(value ?? '').trim().toUpperCase()
+    const port = normalizePortCode(value)
     if (port) seen.add(port)
   }
   return Array.from(seen).sort((left, right) => left.localeCompare(right, 'pt-BR'))

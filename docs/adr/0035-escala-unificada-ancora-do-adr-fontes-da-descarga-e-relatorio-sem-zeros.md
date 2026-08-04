@@ -49,7 +49,10 @@ Status: aceito — 2026-07-31 (notas editoriais em 2026-08-03 e 2026-08-04)
 >    às escalas que descarregam; a de exportação vai das escalas que embarcam
 >    aos portos de descarga dessa carga. Quando um lado não é conhecido, aparece
 >    `Origem a definir` ou `Destino a definir` — a linha existe mesmo incompleta,
->    porque a perna é um fato do planejamento, não do preenchimento.
+>    porque a perna é um fato do planejamento, não do preenchimento. A perna que
+>    não existe é outra coisa: viagem que só embarca, sem carga nem escala que
+>    descarregue, não desenha perna de importação nenhuma (o POL da viagem não
+>    conta como prova de importação).
 > 2. **O destino da exportação é digitado, não inferido.** O embarque de uma
 >    escala leva granito **e containers**, e o manifesto só existe depois do
 >    embarque; inferir o destino dele deixaria a perna vazia durante todo o

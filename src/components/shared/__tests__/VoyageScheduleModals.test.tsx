@@ -188,7 +188,7 @@ describe('EscalaModal', () => {
     await user.type(screen.getByLabelText('Porto da escala'), 'brvix')
     await user.click(screen.getByLabelText('Esta escala terá exportação'))
     await user.type(screen.getByLabelText('CNTR (Vazios Exp.)'), '10')
-    await user.type(screen.getByLabelText('Portos de descarga'), 'itgoa, nlrtm')
+    await user.type(screen.getByLabelText('Portos de descarga'), 'itgoa, nlrtm brssz')
     await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
 
     expect(onSaved).toHaveBeenCalledWith(
@@ -199,7 +199,7 @@ describe('EscalaModal', () => {
           hasGranite: false,
           containersQty: 10,
           movementsQty: null,
-          dischargePorts: ['ITGOA', 'NLRTM'],
+          dischargePorts: ['BRSSZ', 'ITGOA', 'NLRTM'],
         },
       }),
     )
