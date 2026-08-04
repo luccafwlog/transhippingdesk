@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { VoyageBl } from '../../../services/voyageSummaries'
 import { buildVoyagePolEntityId } from '../../../services/voyageRouteSchedules'
 import { VoyageManifestosTab } from '../VoyageManifestosTab'
-import { collectVoyageManifestBatchRows, formatPolDeparture, type VoyageImportBatch } from '../voyageCardHelpers'
+import { buildVoyageRouteLegs, collectVoyageManifestBatchRows, formatPolDeparture, type VoyageImportBatch } from '../voyageCardHelpers'
 import type { Voyage } from '../voyageCardTypes'
 
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))
@@ -150,5 +150,59 @@ describe('VoyageManifestosTab', () => {
     expect(html).toContain('text-green-600')
     expect(html).toContain('font-medium')
     expect(html).not.toContain('Gerar EDI Mercante')
+  })
+})
+
+describe('buildVoyageRouteLegs', () => {
+  const escalas = [
+    { port: 'BRSSA', temImportacao: true, temExportacao: false },
+    { port: 'BRVIX', temImportacao: true, temExportacao: true },
+  ]
+
+  it('separa a perna de importação da de exportação', () => {
+    const legs = buildVoyageRouteLegs({
+      bls: [],
+      fallbackPol: null,
+      escalas,
+      exportDischargePorts: [],
+    })
+
+    expect(legs.importLeg).toEqual({ originPorts: [], destinationPorts: ['BRSSA', 'BRVIX'] })
+    expect(legs.exportLeg).toEqual({ originPorts: ['BRVIX'], destinationPorts: [] })
+  })
+
+  it('mantém só a perna de importação quando nenhuma escala embarca', () => {
+    const legs = buildVoyageRouteLegs({
+      bls: [{ pol: 'CNTAC', pod: 'BRSSA' }],
+      fallbackPol: null,
+      escalas: [escalas[0]],
+      exportDischargePorts: [],
+    })
+
+    expect(legs.importLeg).toEqual({ originPorts: ['CNTAC'], destinationPorts: ['BRSSA'] })
+    expect(legs.exportLeg).toBeNull()
+  })
+
+  it('soma os portos de descarga do cadastro aos dos manifestos importados', () => {
+    const legs = buildVoyageRouteLegs({
+      bls: [],
+      fallbackPol: null,
+      escalas: [{ ...escalas[1], dischargePorts: ['NLRTM'] }],
+      exportDischargePorts: ['ITGOA', null],
+    })
+
+    expect(legs.exportLeg).toEqual({ originPorts: ['BRVIX'], destinationPorts: ['ITGOA', 'NLRTM'] })
+  })
+
+  it('abre a perna de exportação só com o cadastro, antes de existir manifesto', () => {
+    const legs = buildVoyageRouteLegs({
+      bls: [{ pol: 'CNTAC', pod: 'BRSSA' }],
+      fallbackPol: null,
+      escalas: [escalas[0], { ...escalas[1], dischargePorts: ['NLRTM'] }],
+      exportDischargePorts: [],
+    })
+
+    expect(legs.importLeg).toEqual({ originPorts: ['CNTAC'], destinationPorts: ['BRSSA', 'BRVIX'] })
+    expect(legs.exportLeg).toEqual({ originPorts: ['BRVIX'], destinationPorts: ['NLRTM'] })
   })
 })

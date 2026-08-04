@@ -14,13 +14,15 @@ export type VoyageExportSchedule = {
   movementsQty: number | null
   ceStatus: ExportCeStatus | null
   linked: boolean
+  /** Ausente nas linhas gravadas antes da migration 254; leia como lista vazia. */
+  dischargePorts?: string[]
 }
 
 export type VoyageExportSchedulesByPort = Map<string, VoyageExportSchedule>
 
 type ExportSchedulePickedRow = Pick<
   VoyageExportScheduleRow,
-  'id' | 'voyage_id' | 'pol' | 'tem_exportacao' | 'has_granite' | 'containers_qty' | 'movements_qty' | 'ce_status' | 'linked'
+  'id' | 'voyage_id' | 'pol' | 'tem_exportacao' | 'has_granite' | 'containers_qty' | 'movements_qty' | 'ce_status' | 'linked' | 'discharge_ports'
 >
 
 export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Promise<Map<number, VoyageExportSchedulesByPort>> {
@@ -28,7 +30,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
 
   const { data, error } = await supabase
     .from('voyage_export_schedules')
-    .select('id, voyage_id, pol, tem_exportacao, has_granite, containers_qty, movements_qty, ce_status, linked')
+    .select('id, voyage_id, pol, tem_exportacao, has_granite, containers_qty, movements_qty, ce_status, linked, discharge_ports')
     .in('voyage_id', voyageIds)
 
   if (error) throw error
@@ -45,6 +47,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
       movementsQty: row.movements_qty,
       ceStatus: (row.ce_status as ExportCeStatus | null) ?? 'waiting',
       linked: row.linked,
+      dischargePorts: row.discharge_ports ?? [],
     }
     const current = grouped.get(row.voyage_id) ?? []
     current.push({ portKey: buildExportSchedulePortKey(schedule), schedule })
@@ -72,6 +75,7 @@ export async function saveVoyageExportSchedule(data: {
   movementsQty: number | null
   ceStatus: ExportCeStatus | null
   linked: boolean
+  dischargePorts?: string[]
 }): Promise<void> {
   const normalizedPol = normalizeExportSchedulePol(data.pol)
   // A exportação é de uma escala; sem porto não há escala a que pertencer.
@@ -86,6 +90,7 @@ export async function saveVoyageExportSchedule(data: {
     movements_qty: data.movementsQty,
     ce_status: data.ceStatus,
     linked: data.linked,
+    discharge_ports: normalizeDischargePorts(data.dischargePorts),
     updated_at: new Date().toISOString(),
   } satisfies Partial<VoyageExportScheduleRow>
 
@@ -123,4 +128,18 @@ function normalizeExportSchedulePol(value: string | null | undefined) {
   if (normalized) return normalized
   const trimmed = String(value ?? '').trim().toUpperCase()
   return trimmed || null
+}
+
+/**
+ * Portos de descarga da carga embarcada na escala: codigos em caixa alta, sem
+ * duplicatas e sem vazios. Estrangeiros sao validos — o destino da exportacao
+ * quase sempre esta fora do Brasil.
+ */
+export function normalizeDischargePorts(values: Array<string | null | undefined> | null | undefined): string[] {
+  const seen = new Set<string>()
+  for (const value of values ?? []) {
+    const port = normalizePortCode(value) ?? String(value ?? '').trim().toUpperCase()
+    if (port) seen.add(port)
+  }
+  return Array.from(seen).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 }

@@ -167,6 +167,7 @@ export function VoyageVisaoTab({
       hasGranite: exportSchedule?.hasGranite ?? false,
       containersQty: exportSchedule?.containersQty ?? null,
       movementsQty: exportSchedule?.movementsQty ?? null,
+      dischargePorts: exportSchedule?.dischargePorts ?? [],
       exportLocked: row ? portsWithExportCargo.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
     }
   }
@@ -382,7 +383,8 @@ function EscalaOperationMarkers({ row }: { row: VoyageEscalaSchedule }) {
   const markers = [
     row.temImportacao ? <Badge key="importacao" tone="blue">Importação</Badge> : null,
     row.temExportacao ? <Badge key="exportacao" tone="yellow">Exportação</Badge> : null,
-    row.temGranito ? <Badge key="granito" tone="green">Granito</Badge> : null,
+    // ponytail: coluna "Opera" mostra só a natureza da operação (imp/exp);
+    // granito é modalidade de carga da exportação, não uma operação à parte.
     row.containersQty !== null ? <span key="containers" className="text-xs font-semibold text-[var(--app-muted)]">{row.containersQty} CNTRS</span> : null,
     row.movementsQty !== null ? <span key="movements" className="text-xs font-semibold text-[var(--app-muted)]">{row.movementsQty} MOVES</span> : null,
   ].filter(Boolean)

@@ -3716,6 +3716,7 @@ export type Database = {
           ce_status: string | null
           containers_qty: number | null
           created_at: string | null
+          discharge_ports: string[]
           has_granite: boolean
           id: string
           linked: boolean
@@ -3729,6 +3730,7 @@ export type Database = {
           ce_status?: string | null
           containers_qty?: number | null
           created_at?: string | null
+          discharge_ports?: string[]
           has_granite?: boolean
           id?: string
           linked?: boolean
@@ -3742,6 +3744,7 @@ export type Database = {
           ce_status?: string | null
           containers_qty?: number | null
           created_at?: string | null
+          discharge_ports?: string[]
           has_granite?: boolean
           id?: string
           linked?: boolean

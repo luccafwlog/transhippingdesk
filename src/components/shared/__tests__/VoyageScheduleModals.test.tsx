@@ -122,6 +122,7 @@ const escalaBase: EscalaModalData = {
   hasGranite: false,
   containersQty: null,
   movementsQty: null,
+  dischargePorts: [],
   exportLocked: false,
 }
 
@@ -154,7 +155,7 @@ describe('EscalaModal', () => {
         atb: '2026-03-02',
         rtw: 3,
         linked: true,
-        exportacao: { temExportacao: false, hasGranite: false, containersQty: null, movementsQty: null },
+        exportacao: { temExportacao: false, hasGranite: false, containersQty: null, movementsQty: null, dischargePorts: [] },
       }),
     )
   })
@@ -187,12 +188,19 @@ describe('EscalaModal', () => {
     await user.type(screen.getByLabelText('Porto da escala'), 'brvix')
     await user.click(screen.getByLabelText('Esta escala terá exportação'))
     await user.type(screen.getByLabelText('CNTR (Vazios Exp.)'), '10')
+    await user.type(screen.getByLabelText('Portos de descarga'), 'itgoa, nlrtm')
     await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
 
     expect(onSaved).toHaveBeenCalledWith(
       expect.objectContaining({
         port: 'BRVIX',
-        exportacao: { temExportacao: true, hasGranite: false, containersQty: 10, movementsQty: null },
+        exportacao: {
+          temExportacao: true,
+          hasGranite: false,
+          containersQty: 10,
+          movementsQty: null,
+          dischargePorts: ['ITGOA', 'NLRTM'],
+        },
       }),
     )
   })

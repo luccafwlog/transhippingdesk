@@ -380,6 +380,7 @@ export function Viagens() {
                 hasGranite: payload.exportacao.hasGranite,
                 containersQty: payload.exportacao.containersQty,
                 movementsQty: payload.exportacao.movementsQty,
+                dischargePorts: payload.exportacao.dischargePorts,
                 ceStatus: payload.ceStatus,
                 linked: payload.linked,
               })

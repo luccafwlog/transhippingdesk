@@ -4,7 +4,7 @@ import {
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
 import { formatPortDisplayName, stripFileExtension } from '../../lib/voyageFormat'
-import type { VoyageBl } from '../../services/voyageSummaries'
+import { collectVoyagePorts, type VoyageBl } from '../../services/voyageSummaries'
 
 export function renderEscalaNumber(value: string | null) {
   if (!value) return <span className="text-[var(--app-muted-soft)]">-</span>
@@ -192,4 +192,52 @@ export function collectVoyageManifestBatchRows({
       }
       return left.routeLabel.localeCompare(right.routeLabel, 'pt-BR')
     })
+}
+
+export type VoyageRouteLegs = {
+  importLeg: { originPorts: string[]; destinationPorts: string[] } | null
+  exportLeg: { originPorts: string[]; destinationPorts: string[] } | null
+}
+
+/**
+ * Rota do cabeçalho da viagem, uma linha por perna (ADR 0035, escala unificada):
+ * importação = POL da carga -> escalas que descarregam; exportação = escalas que
+ * embarcam -> portos de descarga declarados no cadastro da escala, somados aos
+ * dos manifestos de exportação já importados. Sem perna de exportação, a
+ * de importação aparece sempre (mesmo vazia, como "Origem/Destino a definir").
+ */
+export function buildVoyageRouteLegs({
+  bls,
+  fallbackPol,
+  escalas,
+  exportDischargePorts,
+}: {
+  bls: Array<{ pol: string | null; pod: string | null }> | null | undefined
+  fallbackPol: string | null
+  escalas: Array<{ port: string; temImportacao: boolean; temExportacao: boolean; dischargePorts?: string[] }>
+  exportDischargePorts: Array<string | null | undefined>
+}): VoyageRouteLegs {
+  const importEscalas = escalas.filter((escala) => escala.temImportacao || !escala.temExportacao)
+  const exportEscalas = escalas.filter((escala) => escala.temExportacao)
+
+  const importLeg = {
+    originPorts: collectVoyagePorts(bls, 'pol', fallbackPol),
+    destinationPorts: collectVoyagePorts(bls, 'pod', null, importEscalas),
+  }
+  const exportLeg = {
+    originPorts: collectVoyagePorts(null, 'pol', null, exportEscalas),
+    destinationPorts: collectVoyagePorts(null, 'pod', null, [
+      ...exportEscalas.flatMap((escala) => escala.dischargePorts ?? []),
+      ...exportDischargePorts,
+    ]),
+  }
+
+  const hasExport = exportLeg.originPorts.length > 0 || exportLeg.destinationPorts.length > 0
+  const hasImport =
+    !hasExport || importLeg.originPorts.length > 0 || importLeg.destinationPorts.length > 0
+
+  return {
+    importLeg: hasImport ? importLeg : null,
+    exportLeg: hasExport ? exportLeg : null,
+  }
 }

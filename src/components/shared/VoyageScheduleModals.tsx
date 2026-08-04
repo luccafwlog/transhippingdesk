@@ -10,6 +10,7 @@ import {
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
 import { normalizePortCode } from '../../services/portCode'
+import { normalizeDischargePorts } from '../../services/voyageExportSchedules'
 
 // Portos brasileiros de escala, na ordem em que a operação os lê.
 const ESCALA_PORT_SUGGESTIONS = ['BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'BRIGI', 'BRNVT'] as const
@@ -19,6 +20,7 @@ export type EscalaExportPayload = {
   hasGranite: boolean
   containersQty: number | null
   movementsQty: number | null
+  dischargePorts: string[]
 }
 
 export type EscalaModalPayload = {
@@ -60,6 +62,7 @@ export type EscalaModalData = {
   hasGranite: boolean
   containersQty: number | null
   movementsQty: number | null
+  dischargePorts: string[]
   /**
    * Há granito ou Embarque de Vazios nesta escala: a exportação não pode ser
    * desdeclarada enquanto a carga existir.
@@ -190,6 +193,7 @@ export function EscalaModal({
   const [hasGranite, setHasGranite] = useState(false)
   const [containersQty, setContainersQty] = useState('')
   const [movementsQty, setMovementsQty] = useState('')
+  const [dischargePorts, setDischargePorts] = useState('')
   const [portError, setPortError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const confirm = useConfirm()
@@ -214,6 +218,7 @@ export function EscalaModal({
     setHasGranite(escala.hasGranite)
     setContainersQty(escala.containersQty === null ? '' : String(escala.containersQty))
     setMovementsQty(escala.movementsQty === null ? '' : String(escala.movementsQty))
+    setDischargePorts(escala.dischargePorts.join(', '))
     setPortError(null)
   }
 
@@ -227,11 +232,11 @@ export function EscalaModal({
     // A carga vinculada trava o toggle antes de chegar aqui; o que resta é o
     // planejamento digitado, e descartá-lo pede confirmação.
     if (escala?.exportLocked) return
-    const hasPlanning = hasGranite || containersQty.trim() !== '' || movementsQty.trim() !== ''
+    const hasPlanning = hasGranite || containersQty.trim() !== '' || movementsQty.trim() !== '' || dischargePorts.trim() !== ''
     if (hasPlanning) {
       const confirmed = await confirm({
         title: 'Retirar a exportação desta escala',
-        message: 'O planejamento de exportação digitado (granito, containers e movimentos) será descartado. Continuar?',
+        message: 'O planejamento de exportação digitado (granito, containers, movimentos e portos de descarga) será descartado. Continuar?',
         confirmLabel: 'Retirar',
         tone: 'danger',
       })
@@ -240,6 +245,7 @@ export function EscalaModal({
     setHasGranite(false)
     setContainersQty('')
     setMovementsQty('')
+    setDischargePorts('')
     setTemExportacao(false)
   }
 
@@ -279,6 +285,7 @@ export function EscalaModal({
           hasGranite: temExportacao ? hasGranite : false,
           containersQty: temExportacao && containersQty.trim() ? Number(containersQty) : null,
           movementsQty: temExportacao && movementsQty.trim() ? Number(movementsQty) : null,
+          dischargePorts: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/]/)) : [],
         },
         exportExistingId: escala.exportExistingId,
       })
@@ -421,6 +428,18 @@ export function EscalaModal({
                     />
                   </Field>
                 </div>
+
+                <Field label="Portos de descarga">
+                  <Input
+                    value={dischargePorts}
+                    onChange={(event) => setDischargePorts(event.target.value.toUpperCase())}
+                    placeholder="Ex.: ITGOA, NLRTM"
+                  />
+                </Field>
+                <p className="text-xs text-[var(--app-muted)]">
+                  Destino da carga embarcada nesta escala (granito e containers). Separe por vírgula;
+                  é o que forma a perna de exportação na rota da viagem.
+                </p>
               </>
             ) : null}
           </div>

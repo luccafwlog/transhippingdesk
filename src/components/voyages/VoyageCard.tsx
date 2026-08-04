@@ -30,7 +30,7 @@ import {
 } from '../../services/voyageRouteSchedules'
 import type { VoyageExportSchedule } from '../../services/voyageExportSchedules'
 import { ESTADO_CONCILIACAO_META, statusLabel, VOYAGE_STATUS_BADGE_TONE, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
-import type { VoyageImportBatch } from './voyageCardHelpers'
+import { buildVoyageRouteLegs, type VoyageImportBatch } from './voyageCardHelpers'
 import { VoyageVisaoTab } from './VoyageVisaoTab'
 import { VoyageImportacaoTab } from './VoyageImportacaoTab'
 import { VoyageExportacaoTab } from './VoyageExportacaoTab'
@@ -146,14 +146,18 @@ export function VoyageCard({
   const totalContainers = countDistinctContainerNumbers(flatContainers)
   const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
-  const exportEscalas = scheduledEscalaRows.filter((schedule) => schedule.temExportacao)
-  const originPorts = collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, exportEscalas)
   const destinationPorts = collectVoyagePorts(
     voyage.bls,
     'pod',
     null,
     scheduledEscalaRows,
   )
+  const { importLeg, exportLeg } = buildVoyageRouteLegs({
+    bls: voyage.bls,
+    fallbackPol: voyage.pol?.name ?? null,
+    escalas: scheduledEscalaRows,
+    exportDischargePorts: (voyage.granite_manifests ?? []).map((manifest) => manifest.discharge_port),
+  })
   const escalasByPort = new Map(scheduledEscalaRows.map((schedule) => [normalizePortCode(schedule.port) ?? normalizePortName(schedule.port), schedule]))
   const podRows: VoyagePodRow[] = destinationPorts.map((pod) => {
     const schedule = escalasByPort.get(normalizePortCode(pod) ?? normalizePortName(pod))
@@ -203,6 +207,7 @@ export function VoyageCard({
         temGranito: false,
         containersQty: null,
         movementsQty: null,
+        dischargePorts: [],
         divergences: [],
       }))
     return [...scheduledEscalaRows, ...blOnlyRows]
@@ -264,30 +269,21 @@ export function VoyageCard({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--app-muted)]">
-              <div className="flex flex-wrap items-center gap-2">
-                {originPorts.length ? (
-                  originPorts.map((port) => (
-                    <span key={`${voyage.id}-origin-${port}`} className="app-voyage-token">
-                      {port}
-                    </span>
-                  ))
-                ) : (
-                  <span className="app-voyage-token">Origem a definir</span>
-                )}
-              </div>
-              <ArrowRight size={16} className="text-[var(--app-muted)]" />
-              <div className="flex flex-wrap items-center gap-2">
-                {destinationPorts.length ? (
-                  destinationPorts.map((port) => (
-                    <span key={`${voyage.id}-destination-${port}`} className="app-voyage-token">
-                      {port}
-                    </span>
-                  ))
-                ) : (
-                  <span className="app-voyage-token">Destino a definir</span>
-                )}
-              </div>
+            <div className="grid gap-2">
+              {importLeg ? (
+                <VoyageRouteLeg
+                  keyPrefix={`${voyage.id}-imp`}
+                  originPorts={importLeg.originPorts}
+                  destinationPorts={importLeg.destinationPorts}
+                />
+              ) : null}
+              {exportLeg ? (
+                <VoyageRouteLeg
+                  keyPrefix={`${voyage.id}-exp`}
+                  originPorts={exportLeg.originPorts}
+                  destinationPorts={exportLeg.destinationPorts}
+                />
+              ) : null}
             </div>
           </div>
 
@@ -418,5 +414,43 @@ export function VoyageCard({
       ) : null}
       <TransshipmentPanel voyageId={voyage.id} />
     </Card>
+  )
+}
+
+function VoyageRouteLeg({
+  keyPrefix,
+  originPorts,
+  destinationPorts,
+}: {
+  keyPrefix: string
+  originPorts: string[]
+  destinationPorts: string[]
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--app-muted)]">
+      <div className="flex flex-wrap items-center gap-2">
+        {originPorts.length ? (
+          originPorts.map((port) => (
+            <span key={`${keyPrefix}-origin-${port}`} className="app-voyage-token">
+              {port}
+            </span>
+          ))
+        ) : (
+          <span className="app-voyage-token">Origem a definir</span>
+        )}
+      </div>
+      <ArrowRight size={16} className="text-[var(--app-muted)]" />
+      <div className="flex flex-wrap items-center gap-2">
+        {destinationPorts.length ? (
+          destinationPorts.map((port) => (
+            <span key={`${keyPrefix}-destination-${port}`} className="app-voyage-token">
+              {port}
+            </span>
+          ))
+        ) : (
+          <span className="app-voyage-token">Destino a definir</span>
+        )}
+      </div>
+    </div>
   )
 }
