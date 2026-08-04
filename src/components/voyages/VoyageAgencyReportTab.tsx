@@ -255,6 +255,26 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     condition: booking.condition,
     localLabel: booking.local?.name ?? booking.local?.code ?? null,
   })))
+  // Duas leituras lado a lado do mesmo embarque de vazios: total por tipo (sem
+  // quebra por local) e o mesmo total por tipo dentro de cada depot/terminal —
+  // emptyEmbarkRows já soma por (tipo, condição, local); aqui só reagrupamos
+  // sem duplicar a consulta.
+  const emptyEmbarkByType = new Map<string, number>()
+  const emptyEmbarkByLocal = new Map<string, Map<string, number>>()
+  for (const row of emptyEmbarkRows) {
+    emptyEmbarkByType.set(row.type, (emptyEmbarkByType.get(row.type) ?? 0) + row.quantity)
+    const localKey = row.localLabel || '—'
+    const byType = emptyEmbarkByLocal.get(localKey) ?? new Map<string, number>()
+    byType.set(row.type, (byType.get(row.type) ?? 0) + row.quantity)
+    emptyEmbarkByLocal.set(localKey, byType)
+  }
+  const emptyEmbarkTypeTotals = [...emptyEmbarkByType.entries()].sort(([a], [b]) => a.localeCompare(b))
+  const emptyEmbarkLocalTotals = [...emptyEmbarkByLocal.entries()]
+    .map(([localLabel, byType]) => ({
+      localLabel,
+      types: [...byType.entries()].sort(([a], [b]) => a.localeCompare(b)),
+    }))
+    .sort((a, b) => a.localLabel.localeCompare(b.localLabel))
   const vehicles = groupVehiclesByBrand(data?.vehicles ?? [])
   const vehicleVinTotal = vehicles.reduce((total, vehicle) => total + vehicle.vinCount, 0)
   const vehicleLocations = new Map<string, string[]>()
@@ -513,7 +533,18 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             <Subsection title="Containers embarcados">
               {bookings.length ? <>
                 <Hero value={String(bookings.length)} unit="vazios embarcados" />
-                <div className="grid gap-1">{emptyEmbarkRows.map((row) => <Info key={`${row.type}:${row.condition}:${row.localLabel}`} label={`${row.type} · ${row.condition} · ${row.localLabel}`} value={String(row.quantity)} />)}</div>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <MetricPanel title="Total por tipo">
+                    {emptyEmbarkTypeTotals.map(([type, quantity]) => <Info key={type} label={type} value={String(quantity)} />)}
+                  </MetricPanel>
+                  <div className="grid gap-4">
+                    {emptyEmbarkLocalTotals.map(({ localLabel, types }) => (
+                      <MetricPanel key={localLabel} title={localLabel}>
+                        {types.map(([type, quantity]) => <Info key={type} label={type} value={String(quantity)} />)}
+                      </MetricPanel>
+                    ))}
+                  </div>
+                </div>
               </> : data?.orphanData?.vaziosEmbarcados.length ? null : <NadaOperado>Nenhum vazio embarcado nesta escala.</NadaOperado>}
               <OrphanDataWarning entries={data?.orphanData?.vaziosEmbarcados ?? []} label="unidade(s) de vazios embarcados" />
             </Subsection>
