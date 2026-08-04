@@ -19,6 +19,10 @@ import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
 import { normalizePortCode } from './portCode'
 
+// Seis seções assináveis (ADR 0036). 'operacao_patio' foi absorvida por
+// 'vazios_embarcados' — Embarque de Vazios é UM agregado por escala
+// (CONTEXT.md), e suas duas partes (unidades embarcadas e linhas de serviço)
+// são subseções de conteúdo, não resoluções independentes.
 export type AgencyReportSection =
   | 'datas'
   | 'carga_descarregada'
@@ -26,7 +30,6 @@ export type AgencyReportSection =
   | 'veiculos'
   | 'vazios_embarcados'
   | 'vazios_descarregados'
-  | 'operacao_patio'
 
 export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole> = {
   datas: 'operacoes',
@@ -35,29 +38,44 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
   veiculos: 'equipamentos',
   vazios_embarcados: 'equipamentos',
   vazios_descarregados: 'documentacao',
-  operacao_patio: 'equipamentos',
 }
 
 // Labels pt-BR das seções e departamentos do ADR — espelham as funções SQL
-// agency_report_section_label/agency_report_department_label (migration 219).
+// agency_report_section_label/agency_report_department_label (migration 253).
 export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> = {
-  datas: 'Datas',
+  datas: 'Escala',
   carga_descarregada: 'Carga descarregada',
   carga_carregada: 'Carga carregada',
   veiculos: 'Veículos',
-  vazios_embarcados: 'Vazios embarcados',
+  vazios_embarcados: 'Embarque de vazios',
   vazios_descarregados: 'Vazios descarregados',
-  operacao_patio: 'Operação de pátio',
 }
 
-// Ordem do ciclo da escala (ADR 0029/0030): Escala → Importação → Operação
-// de pátio → Exportação. Usada pelo layout em faixas (Task 6).
+// Rótulo de uma chave de seção que pode vir de registro histórico (snapshot
+// fechado, audit_log) — 'operacao_patio' e 'ocorrencias' não são mais
+// assináveis, mas continuam precisando ser legíveis. Espelha o ELSE da função
+// SQL agency_report_section_label.
+const AGENCY_REPORT_RETIRED_SECTION_LABELS: Record<string, string> = {
+  operacao_patio: 'Operação de pátio',
+  ocorrencias: 'Ocorrências',
+}
+
+export function agencyReportSectionLabel(section: string): string {
+  return (
+    AGENCY_REPORT_SECTION_LABELS[section as AgencyReportSection] ??
+    AGENCY_REPORT_RETIRED_SECTION_LABELS[section] ??
+    section
+  )
+}
+
+// Ordem do ciclo da escala (ADR 0036): Escala → Importação → Exportação. O
+// pátio deixou de ser faixa própria — seus números vivem dentro de Embarque
+// de vazios, que é exportação. Usada pelo layout em faixas.
 export const AGENCY_REPORT_SECTION_ORDER: AgencyReportSection[] = [
   'datas',
   'carga_descarregada',
   'vazios_descarregados',
   'veiculos',
-  'operacao_patio',
   'carga_carregada',
   'vazios_embarcados',
 ]

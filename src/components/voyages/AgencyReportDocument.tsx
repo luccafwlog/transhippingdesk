@@ -6,6 +6,7 @@ import {
 } from "../shared/InvoiceDocumentKit";
 import {
   AGENCY_REPORT_DEPARTMENT_LABELS,
+  agencyReportSectionLabel,
   MATRIX_CATEGORY_LABELS,
   signoffLabels,
   type AgencyReportSection,
@@ -437,6 +438,13 @@ export function AgencyReportDocument({
   const vaziosEmbarcadosRows = asEmptyEmbarkRows(sections.vaziosEmbarcados);
   const storage = asRecord(sections.storage);
   const departmentSignoffs = asDepartmentSignoffRows(snapshot.departmentSignoffs);
+  // Snapshot fechado ANTES da fusão (ADR 0036) carrega uma resolução própria de
+  // 'operacao_patio'. Ela não é reescrita — o impresso a mostra como registro
+  // histórico, em vez de atribuir a assinatura das unidades a quem assinou o
+  // pátio (ou o contrário).
+  const legacyPatioSignoff = signoffs.find(
+    (signoff) => signoff.section === "operacao_patio",
+  );
 
   // Várias seções impressas compartilham a mesma `section` do ciclo (ex.:
   // 'operacao_patio' aparece em quatro blocos) — a resolução só é impressa
@@ -493,7 +501,7 @@ export function AgencyReportDocument({
         </div>
       </dl>
 
-      <Section title="Datas" {...section("datas")} hasData={false} />
+      <Section title="Escala" {...section("datas")} hasData={false} />
       <Section
         title="Carga solta"
         {...section("carga_descarregada")}
@@ -578,7 +586,7 @@ export function AgencyReportDocument({
       </Section>
       <Section
         title="Operação de vazios"
-        {...section("operacao_patio")}
+        {...section("vazios_embarcados")}
         hasData={Boolean(number(sections.directEmbarkCount)) || depots.length > 0}
       >
         <MetricsTable
@@ -589,7 +597,7 @@ export function AgencyReportDocument({
           ]}
         />
       </Section>
-      <Section title="Linhas de serviço do embarque" {...section("operacao_patio")} hasData={serviceLines.length > 0}>
+      <Section title="Linhas de serviço do embarque" {...section("vazios_embarcados")} hasData={serviceLines.length > 0}>
         <table
           className="agency-report-document__table"
           aria-label="Linhas de serviço"
@@ -638,7 +646,7 @@ export function AgencyReportDocument({
       </Section>
       <Section
         title="Anexo — unidades que geraram armazenagem"
-        {...section("operacao_patio")}
+        {...section("vazios_embarcados")}
         hasData={vaziosUnidadesComPeriodo.length > 0}
       >
         <table
@@ -671,7 +679,7 @@ export function AgencyReportDocument({
       </Section>
       <Section
         title="Storage"
-        {...section("operacao_patio")}
+        {...section("vazios_embarcados")}
         hasData={Boolean(number(storage.containers)) || Boolean(number(storage.days))}
       >
         <MetricsTable
@@ -682,12 +690,23 @@ export function AgencyReportDocument({
           ]}
         />
       </Section>
+      {legacyPatioSignoff ? (
+        <Section title="Operação de pátio — resolução registrada no fechamento">
+          <ResolutionLine
+            section={"operacao_patio" as AgencyReportSection}
+            signoffs={signoffs}
+            actorNames={actorNames}
+          />
+        </Section>
+      ) : null}
       <Section title="Observações por seção">
         {observations.length ? (
           <ul>
             {observations.map((signoff, index) => (
               <li key={String(signoff.id ?? signoff.section ?? index)}>
-                <strong>{String(signoff.section ?? "Seção")}: </strong>
+                <strong>
+                  {agencyReportSectionLabel(String(signoff.section ?? ""))  || "Seção"}:{" "}
+                </strong>
                 {String(signoff.observation)}
               </li>
             ))}

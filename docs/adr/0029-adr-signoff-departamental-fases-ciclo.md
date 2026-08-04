@@ -1,6 +1,25 @@
 # 0029 — Sign-off do ADR por departamento, seções na ordem do ciclo e operação de pátio como seção própria
 
-Status: aceito — 2026-07-21
+Status: aceito — 2026-07-21 (nota editorial em 2026-08-04)
+
+> **Nota editorial — 2026-08-04.** Dois pontos desta decisão foram supersedidos
+> pela [ADR 0036](./0036-adr-embarque-vazios-secao-unica-escala-fora-das-fases.md).
+>
+> 1. **Operação de pátio não é mais seção assinável.** O problema 3 do contexto
+>    ("Operação de pátio escondida") era de apresentação, e foi resolvido aqui
+>    com um corte no modelo: a oitava seção `operacao_patio`. O `CONTEXT.md`
+>    define Embarque de Vazios como UM agregado por escala com duas partes, e o
+>    corte fazia Equipamentos dar duas resoluções para um fato só. A 0036 funde
+>    as duas em `vazios_embarcados` e devolve a evidência via subseção com
+>    título próprio — o ADR passa a ter **seis** seções.
+> 2. **As fases do ciclo são duas, não cinco.** "Registro" caiu com a 0030;
+>    "Operação de pátio" e "Escala" caem com a 0036 (a primeira vira subseção de
+>    exportação, a segunda é o assunto do relatório, não uma etapa dele). Restam
+>    **Importação** e **Exportação**, com a seção Escala abrindo a aba sem faixa.
+>
+> Permanecem integralmente: sign-off por departamento (três, não sete), a
+> resolução por seção como pré-requisito, o gate de fechamento em 3/3, os
+> alertas de pendência por departamento e a justificativa em dois níveis.
 
 ## Contexto
 

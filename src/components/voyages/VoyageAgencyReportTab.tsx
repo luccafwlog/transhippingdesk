@@ -90,24 +90,88 @@ function ReportSection({
       </div>
       {children}
       {section ? (
-        <label className="grid gap-1 text-sm">
-          <span className="text-xs font-semibold text-[var(--app-muted)]">Observação (opcional)</span>
-          {canSignoff ? (
-            <textarea
-              key={`${section}:${observation ?? ''}`}
-              aria-label={`Observação — ${title}`}
-              defaultValue={observation ?? ''}
-              className="min-h-16 rounded border border-[var(--app-border)] bg-transparent p-2 text-sm"
-              onBlur={(event) => {
-                if (event.target.value !== (observation ?? '')) onObservationChange?.(section, event.target.value)
-              }}
-            />
-          ) : (
-            <p className="text-[var(--app-muted)]">{observation || '—'}</p>
-          )}
-        </label>
+        <SectionObservation
+          section={section}
+          title={title}
+          observation={observation}
+          canEdit={Boolean(canSignoff)}
+          onChange={onObservationChange}
+        />
       ) : null}
     </section>
+  )
+}
+
+// A observação é conteúdo do relatório, não um campo de formulário sempre
+// aberto (ADR 0036): quando existe texto, ele é lido por todo mundo; quando
+// não existe, só o dono da seção vê o convite para escrever. Quem não pode
+// assinar nunca mais vê um "—" ocupando espaço por uma nota que ninguém deixou.
+function SectionObservation({
+  section,
+  title,
+  observation,
+  canEdit,
+  onChange,
+}: {
+  section: AgencyReportSection
+  title: string
+  observation?: string | null
+  canEdit: boolean
+  onChange?: (section: AgencyReportSection, observation: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const text = observation?.trim() ?? ''
+
+  if (!text && !canEdit) return null
+
+  if (!text && !editing) {
+    return (
+      <button
+        type="button"
+        className="justify-self-start text-sm font-semibold text-[var(--app-muted)] underline underline-offset-4 hover:text-[var(--app-text)]"
+        onClick={() => setEditing(true)}
+      >
+        Adicionar observação
+      </button>
+    )
+  }
+
+  if (!canEdit) {
+    return (
+      <div className="grid gap-1 text-sm">
+        <span className="text-xs font-semibold text-[var(--app-muted)]">Observação</span>
+        <p className="whitespace-pre-line text-[var(--app-text)]">{text}</p>
+      </div>
+    )
+  }
+
+  return (
+    <label className="grid gap-1 text-sm">
+      <span className="text-xs font-semibold text-[var(--app-muted)]">Observação</span>
+      <textarea
+        key={`${section}:${observation ?? ''}`}
+        aria-label={`Observação — ${title}`}
+        defaultValue={observation ?? ''}
+        autoFocus={editing}
+        className="min-h-16 rounded border border-[var(--app-border)] bg-transparent p-2 text-sm"
+        onBlur={(event) => {
+          if (event.target.value !== (observation ?? '')) onChange?.(section, event.target.value)
+          if (!event.target.value.trim()) setEditing(false)
+        }}
+      />
+    </label>
+  )
+}
+
+// Parte de uma seção que tem resolução única (ADR 0036): "Embarque de vazios"
+// mostra as unidades embarcadas e a operação de pátio como dois blocos de
+// conteúdo, sem dois sign-offs para o mesmo fato.
+function Subsection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-3 border-t border-[var(--app-border)] pt-4 first:border-t-0 first:pt-0">
+      <h4 className="text-sm font-semibold text-[var(--app-text)]">{title}</h4>
+      {children}
+    </div>
   )
 }
 
@@ -133,8 +197,8 @@ function Hero({ value, unit }: { value: string; unit?: string }) {
 // ocorrência (Task 4 do ADR 2026-07-31, aplicado a todas as seções de carga
 // — inclusive Granito, revisão pós-merge): a seção continua exigindo
 // resolução (o controle de sign-off é um irmão desta linha, não é afetado).
-function NadaOperado() {
-  return <p className="text-sm text-[var(--app-muted)]">Nada operado nesta escala.</p>
+function NadaOperado({ children = 'Nada operado nesta escala.' }: { children?: ReactNode }) {
+  return <p className="text-sm text-[var(--app-muted)]">{children}</p>
 }
 
 // Aviso de divergência entre fontes (Task 3 calculou os números; Task 4
@@ -206,6 +270,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     .map((booking) => booking.local?.name ?? booking.local?.code)
     .filter(Boolean))]
   const directEmbarkCount = bookings.filter((booking) => booking.local?.tipo === 'terminal_portuario').length
+  // A subseção de pátio só afirma "nada" quando nenhuma das suas fontes tem
+  // dado — storage, embarque direto, locais ou linhas de serviço.
+  const hasPatioOperation = Boolean(
+    data?.storage.days || data?.storage.containers || directEmbarkCount || depots.length || data?.costs?.serviceLines?.length,
+  )
   const granite = {
     bls: data?.granite.length ?? 0,
     blocks: (data?.granite ?? []).reduce((total, item) => total + (item.blocks_qty ?? 0), 0),
@@ -329,9 +398,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </div>
 
-        <ReportPhase title="Escala">
-          <ReportSection
-            title="Cabeçalho"
+        {/* A Escala não é uma fase do ciclo: é o assunto do relatório. Uma
+            faixa "Escala" só produziria um h2 seguido de um h3 com o mesmo
+            nome, então a seção abre a aba sozinha (ADR 0036). */}
+        <ReportSection
+            title="Escala"
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation}
           >
@@ -349,8 +420,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               <Info label="ATD" value={formatDate(data?.schedule?.atd)} />
               <Info label="Restow" value={String(data?.schedule?.rtw ?? 0)} />
             </div>
-          </ReportSection>
-        </ReportPhase>
+        </ReportSection>
 
         <ReportPhase title="Importação">
           <ReportSection
@@ -390,7 +460,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </ReportSection>
 
           <ReportSection
-            title="Vazios descarregados (cama / cover plate)"
+            title="Vazios descarregados"
             section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('vazios_descarregados')?.observation} onObservationChange={updateObservation}
           >
@@ -418,38 +488,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </ReportSection>
         </ReportPhase>
 
-        <ReportPhase title="Operação de pátio">
-          <ReportSection
-            title="Operação de pátio"
-            section="operacao_patio" state={sectionState('operacao_patio')} attribution={sectionAttribution('operacao_patio')} canSignoff={canSignoff('operacao_patio')} events={eventsBySection('operacao_patio')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('operacao_patio')?.observation} onObservationChange={updateObservation}
-          >
-            <Hero value={String(data?.storage.days ?? 0)} unit="dias de storage" />
-            <div className="grid gap-4 xl:grid-cols-3">
-              {data?.storage.days ? <MetricPanel title="Storage"><Info label="Containers" value={String(data.storage.containers)} /><Info label="Dias" value={String(data.storage.days)} /></MetricPanel> : null}
-              {directEmbarkCount ? <MetricPanel title="Embarque direto"><Info label="Unidades sem armazenagem" value={String(directEmbarkCount)} /></MetricPanel> : null}
-              <MetricPanel title="Locais"><Info label="Depots / terminais" value={depots.join(', ') || '—'} /></MetricPanel>
-            </div>
-            <MetricPanel title="Linhas de serviço">{data?.costs?.serviceLines?.length ? <div className="app-table-scroll"><table className="app-table min-w-[900px] text-left text-sm"><thead><tr><th>Serviço</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>Unitário</th><th>Total</th></tr></thead><tbody>{data.costs.serviceLines.map((service) => <tr key={service.id}><td>{service.service?.name ?? '—'}</td><td>{service.local?.name ?? service.local?.code ?? service.local_id}</td><td>{service.destino?.name ?? service.destino?.code ?? '—'}</td><td>{service.container_type ?? '—'}</td><td>{String(service.quantidade)}</td><td>{formatBRL(Number(service.valor_unitario))}</td><td>{formatBRL(Number(service.total))}</td></tr>)}</tbody></table></div> : <Info label="Registros" value="0" />}</MetricPanel>
-            <MetricPanel title="Totais"><Info label="Total da operação" value={formatBRL(data?.costs?.total ?? 0)} /></MetricPanel>
-          </ReportSection>
-
-          <ReportSection
-            title="Vazios embarcados"
-            section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} events={eventsBySection('vazios_embarcados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('vazios_embarcados')?.observation} onObservationChange={updateObservation}
-          >
-            {bookings.length ? <>
-              <Hero value={String(bookings.length)} unit="vazios embarcados" />
-              <div className="grid gap-1">{emptyEmbarkRows.map((row) => <Info key={`${row.type}:${row.condition}:${row.localLabel}`} label={`${row.type} · ${row.condition} · ${row.localLabel}`} value={String(row.quantity)} />)}</div>
-            </> : data?.orphanData?.vaziosEmbarcados.length ? null : <NadaOperado />}
-            <OrphanDataWarning entries={data?.orphanData?.vaziosEmbarcados ?? []} label="unidade(s) de vazios embarcados" />
-          </ReportSection>
-        </ReportPhase>
-
         <ReportPhase title="Exportação">
           <ReportSection
-            title="Granito (carga carregada)"
+            title="Carga carregada"
             section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('carga_carregada')?.observation} onObservationChange={updateObservation}
           >
@@ -458,6 +499,37 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
             </> : data?.orphanData?.granito.length ? null : <NadaOperado />}
             <OrphanDataWarning entries={data?.orphanData?.granito ?? []} label="B/L(s) de granito" />
+          </ReportSection>
+
+          {/* Embarque de Vazios é UM agregado por escala (CONTEXT.md): as
+              unidades embarcadas e os serviços performados sobre elas são duas
+              partes do mesmo fato, com uma resolução só (ADR 0036). A
+              armazenagem — dias e custo — fica inteira na operação de pátio. */}
+          <ReportSection
+            title="Embarque de vazios"
+            section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} events={eventsBySection('vazios_embarcados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
+            observation={signoffRows.get('vazios_embarcados')?.observation} onObservationChange={updateObservation}
+          >
+            <Subsection title="Containers embarcados">
+              {bookings.length ? <>
+                <Hero value={String(bookings.length)} unit="vazios embarcados" />
+                <div className="grid gap-1">{emptyEmbarkRows.map((row) => <Info key={`${row.type}:${row.condition}:${row.localLabel}`} label={`${row.type} · ${row.condition} · ${row.localLabel}`} value={String(row.quantity)} />)}</div>
+              </> : data?.orphanData?.vaziosEmbarcados.length ? null : <NadaOperado>Nenhum vazio embarcado nesta escala.</NadaOperado>}
+              <OrphanDataWarning entries={data?.orphanData?.vaziosEmbarcados ?? []} label="unidade(s) de vazios embarcados" />
+            </Subsection>
+
+            <Subsection title="Operação de pátio">
+              {hasPatioOperation ? <>
+                <Hero value={String(data?.storage.days ?? 0)} unit="dias de storage" />
+                <div className="grid gap-4 xl:grid-cols-3">
+                  {data?.storage.days ? <MetricPanel title="Storage"><Info label="Containers" value={String(data.storage.containers)} /><Info label="Dias" value={String(data.storage.days)} /></MetricPanel> : null}
+                  {directEmbarkCount ? <MetricPanel title="Embarque direto"><Info label="Unidades sem armazenagem" value={String(directEmbarkCount)} /></MetricPanel> : null}
+                  <MetricPanel title="Locais"><Info label="Depots / terminais" value={depots.join(', ') || '—'} /></MetricPanel>
+                </div>
+                <MetricPanel title="Linhas de serviço">{data?.costs?.serviceLines?.length ? <div className="app-table-scroll"><table className="app-table min-w-[900px] text-left text-sm"><thead><tr><th>Serviço</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>Unitário</th><th>Total</th></tr></thead><tbody>{data.costs.serviceLines.map((service) => <tr key={service.id}><td>{service.service?.name ?? '—'}</td><td>{service.local?.name ?? service.local?.code ?? service.local_id}</td><td>{service.destino?.name ?? service.destino?.code ?? '—'}</td><td>{service.container_type ?? '—'}</td><td>{String(service.quantidade)}</td><td>{formatBRL(Number(service.valor_unitario))}</td><td>{formatBRL(Number(service.total))}</td></tr>)}</tbody></table></div> : <Info label="Registros" value="0" />}</MetricPanel>
+                <MetricPanel title="Totais"><Info label="Total da operação" value={formatBRL(data?.costs?.total ?? 0)} /></MetricPanel>
+              </> : <NadaOperado>Nenhum serviço de pátio nesta escala.</NadaOperado>}
+            </Subsection>
           </ReportSection>
         </ReportPhase>
         </>}

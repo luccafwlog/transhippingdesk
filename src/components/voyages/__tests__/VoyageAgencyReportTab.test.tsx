@@ -73,7 +73,7 @@ it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () =>
   expect(screen.getByRole('button', { name: 'BRVIX' }).getAttribute('aria-pressed')).toBe('true')
 })
 
-it('exibe unidades sem armazenagem na fase Operacao de patio', () => {
+it('exibe unidades sem armazenagem na subseção Operação de pátio', () => {
   useAgencyReportDerivedMock.mockReturnValue({
     data: {
       containers: [], vehicles: [], vaziosImp: [], granite: [],
@@ -88,7 +88,7 @@ it('exibe unidades sem armazenagem na fase Operacao de patio', () => {
     error: null,
   })
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
-  const patioSection = screen.getByRole('heading', { name: /Opera.*o de p.*tio/, level: 3 }).closest('section')!
+  const patioSection = screen.getByRole('heading', { name: /Opera.*o de p.*tio/, level: 4 }).closest('section')!
   expect(within(patioSection).getByText('Unidades sem armazenagem')).toBeTruthy()
 })
 
@@ -121,7 +121,7 @@ it('a soma das linhas exibidas bate com o "Total da operação" para uma linha l
     error: null,
   })
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
-  const patioSection = screen.getByRole('heading', { name: /Opera.*o de p.*tio/, level: 3 }).closest('section')!
+  const patioSection = screen.getByRole('heading', { name: /Opera.*o de p.*tio/, level: 4 }).closest('section')!
   // O total da linha (lido de service.total, calculado por totalLinha) e o
   // "Total da operação" precisam bater — antes da Task 8, a fórmula inline da
   // linha aplicava o percentual legado (50%) e mostrava R$ 500,00. Compara via
@@ -315,7 +315,7 @@ it('agrupa carga solta na seção de carga descarregada e assina granito como ca
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')
-  const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')
+  const graniteSection = screen.getByRole('heading', { name: 'Carga carregada' }).closest('section')
 
   expect(dischargeSection).not.toBeNull()
   expect(graniteSection).not.toBeNull()
@@ -362,36 +362,37 @@ it('renomeia Container com veículo para Veículos', () => {
   expect(screen.queryByRole('heading', { name: 'Container com veículo' })).toBeNull()
 })
 
-it('renderiza as 4 fases do ciclo, sem a fase Registro (ADR 0030)', () => {
+it('renderiza as 2 fases do ciclo com a Escala fora delas (ADR 0036)', () => {
   useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  expect(screen.getByRole('heading', { name: 'Escala', level: 2 })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Importação', level: 2 })).toBeTruthy()
-  expect(screen.getByRole('heading', { name: 'Operação de pátio', level: 2 })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Exportação', level: 2 })).toBeTruthy()
+  // A Escala é o assunto do relatório, não uma fase: existe como seção (h3) e
+  // não como faixa (h2) — sem o h2/h3 homônimos que a faixa criava.
+  expect(screen.getByRole('heading', { name: 'Escala', level: 3 })).toBeTruthy()
+  expect(screen.queryByRole('heading', { name: 'Escala', level: 2 })).toBeNull()
+  // A faixa "Operação de pátio" saiu: virou subseção de Embarque de vazios.
+  expect(screen.queryByRole('heading', { name: 'Operação de pátio', level: 2 })).toBeNull()
   expect(screen.queryByRole('heading', { name: 'Registro', level: 2 })).toBeNull()
   expect(screen.queryByRole('heading', { name: 'Ocorrências' })).toBeNull()
-
-  const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
-  expect(within(embarqueSection).queryByText('Storage')).toBeNull()
-  expect(within(embarqueSection).queryByText('OS')).toBeNull()
 })
 
-it('agrupa Vazios embarcados junto de Operação de pátio; Exportação mostra só Granito; nenhuma seção mostra legenda-resumo', () => {
+it('Exportação reúne Carga carregada e Embarque de vazios, com pátio como subseção; nenhuma seção mostra legenda-resumo', () => {
   useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const patioPhase = screen.getByRole('heading', { name: 'Operação de pátio', level: 2 }).closest('div')!
-  expect(within(patioPhase).getByRole('heading', { name: 'Vazios embarcados' })).toBeTruthy()
-
   const exportacaoPhase = screen.getByRole('heading', { name: 'Exportação', level: 2 }).closest('div')!
-  expect(within(exportacaoPhase).getByRole('heading', { name: 'Granito (carga carregada)' })).toBeTruthy()
-  expect(within(exportacaoPhase).queryByRole('heading', { name: 'Vazios embarcados' })).toBeNull()
+  expect(within(exportacaoPhase).getByRole('heading', { name: 'Carga carregada' })).toBeTruthy()
+  // Embarque de Vazios é um agregado só (CONTEXT.md): uma seção assinável, com
+  // as unidades e os serviços como subseções de conteúdo.
+  const embarqueSection = within(exportacaoPhase).getByRole('heading', { name: 'Embarque de vazios' }).closest('section')!
+  expect(within(embarqueSection).getByRole('heading', { name: 'Containers embarcados', level: 4 })).toBeTruthy()
+  expect(within(embarqueSection).getByRole('heading', { name: 'Operação de pátio', level: 4 })).toBeTruthy()
 
   for (const legend of [
     'Janela operacional da escala; dados confirmados por Operações.',
@@ -525,7 +526,7 @@ it('a primeira saída de Pendente só pede confirmação, sem justificativa', ()
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
   fireEvent.click(within(datasSection).getByRole('button', { name: 'Confirmado' }))
 
   expect(screen.queryByLabelText('Justificativa')).toBeNull()
@@ -545,7 +546,7 @@ it('alterar uma decisão já registrada exige justificativa não vazia', () => {
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
   fireEvent.click(within(datasSection).getByRole('button', { name: 'Nada a declarar' }))
 
   const justificationField = screen.getByLabelText('Justificativa')
@@ -571,7 +572,7 @@ it('sem eventos, não exibe o ícone de histórico', () => {
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
   expect(within(datasSection).queryByTitle('Ver histórico')).toBeNull()
 })
 
@@ -600,7 +601,7 @@ it('com eventos, o histórico lista de→para, autor e justificativa', () => {
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
   fireEvent.click(within(datasSection).getByTitle('Ver histórico'))
 
   expect(screen.getByText('Confirmado → Nada a declarar')).toBeTruthy()
@@ -630,10 +631,51 @@ it('mostra o campo de Observação em cada seção, editável só pelo dono', ()
   expect(veiculosObservation.tagName).toBe('TEXTAREA')
   expect(veiculosObservation.value).toBe('Container avariado no pátio.')
 
-  // Seção de outro departamento (Operações → datas): só leitura, sem valor.
-  const datasSection = screen.getByRole('heading', { name: 'Cabeçalho' }).closest('section')!
-  expect(within(datasSection).queryByLabelText('Observação — Cabeçalho')).toBeNull()
-  expect(within(datasSection).getByText('—')).toBeTruthy()
+  // Seção de outro departamento (Operações → datas) e sem observação escrita:
+  // nada é exibido — nem campo, nem o "—" que anunciava uma nota inexistente.
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
+  expect(within(datasSection).queryByLabelText('Observação — Escala')).toBeNull()
+  expect(within(datasSection).queryByText('Observação')).toBeNull()
+  expect(within(datasSection).queryByRole('button', { name: 'Adicionar observação' })).toBeNull()
+})
+
+it('sem observação escrita, só o dono vê o convite para adicionar uma', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [{ id: 'datas', section: 'datas', state: 'pending', observation: null }],
+      departmentSignoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
+  const invite = within(datasSection).getByRole('button', { name: 'Adicionar observação' })
+  expect(within(datasSection).queryByLabelText('Observação — Escala')).toBeNull()
+
+  fireEvent.click(invite)
+  expect(within(datasSection).getByLabelText('Observação — Escala')).toBeTruthy()
+})
+
+it('observação escrita por outro departamento é lida por quem não pode editá-la', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: [{ id: 'veiculos', section: 'veiculos', state: 'pending', observation: 'Container avariado no pátio.' }],
+      departmentSignoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
+  expect(within(veiculosSection).getByText('Container avariado no pátio.')).toBeTruthy()
+  expect(within(veiculosSection).queryByLabelText('Observação — Veículos')).toBeNull()
 })
 
 it('sobrescrever a Observação não pede justificativa e chama a RPC de Observação', () => {
@@ -861,8 +903,11 @@ it('veículos sem VIN e vazios embarcados sem booking somem, mostrando "nada ope
   const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
   expect(within(veiculosSection).getByText('Nada operado nesta escala.')).toBeTruthy()
 
-  const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
-  expect(within(embarqueSection).getByText('Nada operado nesta escala.')).toBeTruthy()
+  // Embarque de vazios tem duas subseções, e cada uma diz o que faltou nela:
+  // um "Nada operado" só no topo esconderia qual das duas está vazia.
+  const embarqueSection = screen.getByRole('heading', { name: 'Embarque de vazios' }).closest('section')!
+  expect(within(embarqueSection).getByText('Nenhum vazio embarcado nesta escala.')).toBeTruthy()
+  expect(within(embarqueSection).getByText('Nenhum serviço de pátio nesta escala.')).toBeTruthy()
 })
 
 it('agrupa vazios embarcados por tipo, condição e local de origem — uma linha por combinação', () => {
@@ -884,7 +929,7 @@ it('agrupa vazios embarcados por tipo, condição e local de origem — uma linh
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
+  const embarqueSection = screen.getByRole('heading', { name: 'Embarque de vazios' }).closest('section')!
   expect(within(embarqueSection).getByText('40HC · EMPTY · VBR')).toBeTruthy()
   expect(within(embarqueSection).getByText('40HC · EMPTY W/ MATERIAL · VBR')).toBeTruthy()
   const quantities = within(embarqueSection).getAllByText('2')
@@ -933,7 +978,7 @@ it('verificação do plano: granito órfão em BRSSA aparece como aviso na escal
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')!
+  const graniteSection = screen.getByRole('heading', { name: 'Carga carregada' }).closest('section')!
   expect(within(graniteSection).queryByText('Nada operado nesta escala.')).toBeNull()
   expect(within(graniteSection).getByText(/3 B\/L\(s\) de granito em BRSSA/)).toBeTruthy()
   expect(within(graniteSection).getByText(/porto não é escala desta viagem/)).toBeTruthy()
@@ -955,7 +1000,7 @@ it('granito numa escala vizinha válida da mesma viagem não dispara o aviso de 
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const graniteSection = screen.getByRole('heading', { name: 'Granito (carga carregada)' }).closest('section')!
+  const graniteSection = screen.getByRole('heading', { name: 'Carga carregada' }).closest('section')!
   expect(within(graniteSection).getByText('Nada operado nesta escala.')).toBeTruthy()
   expect(within(graniteSection).queryByText(/porto não é escala desta viagem/)).toBeNull()
 })
@@ -975,8 +1020,8 @@ it('aviso de Embarque de Vazios órfão não bloqueia o sign-off da seção', ()
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const embarqueSection = screen.getByRole('heading', { name: 'Vazios embarcados' }).closest('section')!
-  expect(within(embarqueSection).queryByText('Nada operado nesta escala.')).toBeNull()
+  const embarqueSection = screen.getByRole('heading', { name: 'Embarque de vazios' }).closest('section')!
+  expect(within(embarqueSection).queryByText('Nenhum vazio embarcado nesta escala.')).toBeNull()
   expect(within(embarqueSection).getByText(/4 unidade\(s\) de vazios embarcados em BRSSA/)).toBeTruthy()
   expect(within(embarqueSection).getByRole('button', { name: 'Confirmado' })).toBeTruthy()
   expect(within(embarqueSection).getByRole('button', { name: 'Nada a declarar' })).toBeTruthy()

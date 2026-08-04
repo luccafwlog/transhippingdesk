@@ -189,15 +189,17 @@ exibido no cabeçalho deriva do navio da viagem.
 
 **Seção do ADR**
 Bloco temático do ADR com um departamento dono e um estado de resolução próprio.
-São oito seções, apresentadas na ordem do ciclo da escala — datas → importação
-(carga descarregada, vazios descarregados, veículos) → operação de pátio →
-exportação (granito, vazios embarcados) → registro (ocorrências). O conteúdo
-derivado do sistema é exibido, não redigitado; apenas ocorrências e a
-resolução/sign-off nascem no ADR. Divisão de donos:
-- **Operações:** datas confirmadas; ocorrências.
-- **Documentação:** carga descarregada, carga carregada (granito) e vazios
+São seis seções. A **Escala** — identidade do relatório (armador, navio/viagem,
+porto, terminal) e datas confirmadas — abre o ADR sozinha, porque é o assunto do
+relatório e não uma etapa dele. As outras cinco vêm na ordem do ciclo:
+importação (carga descarregada, vazios descarregados, veículos) → exportação
+(carga carregada, embarque de vazios). O conteúdo derivado do sistema é
+exibido, não redigitado; apenas a Observação e a resolução/sign-off nascem no
+ADR. Divisão de donos:
+- **Operações:** escala (identidade e datas confirmadas).
+- **Documentação:** carga descarregada, carga carregada (granito hoje) e vazios
   descarregados.
-- **Equipamentos:** veículos, operação de pátio e vazios embarcados.
+- **Equipamentos:** veículos e embarque de vazios.
 
 **Resolução de Seção**
 Estado de uma seção quanto ao seu dono: Pendente → Confirmado ou Nada a declarar.
@@ -381,12 +383,14 @@ valor atualizado; a linha não oferece nem persiste percentual. O total é
 `quantidade × valor unitário`.
 
 **Operação de Pátio**
-Seção do ADR, sob Equipamentos, que consolida o custo da operação de vazios da
-escala: as Linhas de Serviço do Embarque com suas quantidades e valores, e a
-armazenagem (containers e dias). É exibição derivada do
-Embarque de Vazios e alimenta a conferência das faturas pelo Financeiro. Tem
-resolução própria e entra no Sign-off Departamental de Equipamentos, separada de
-vazios embarcados — que exibe a Lista de Unidades Embarcadas.
+Subseção do ADR dentro de Embarque de vazios, que consolida o custo da operação
+de vazios da escala: as Linhas de Serviço do Embarque com suas quantidades e
+valores, e a armazenagem (containers e dias, com o custo junto). É exibição
+derivada do Embarque de Vazios e alimenta a conferência das faturas pelo
+Financeiro. **Não tem resolução própria** (ADR 0036): é uma das duas partes do
+agregado Embarque de Vazios, ao lado de Containers embarcados — que exibe a
+Lista de Unidades Embarcadas —, e as duas são cobertas pela resolução única da
+seção. De 2026-07-21 a 2026-08-04 foi seção assinável separada (ADR 0029).
 
 Serviços antes tratados como conceitos próprios (reorganização, bundle
 composition, visual check, handling, transporte, overtime) não têm mais
@@ -984,8 +988,8 @@ alterar Clientes, Portal ou Financeiro.
 
 **Escopo de Equipamentos**
 Perfil com ações completas em Vazios de Exportação (VAZIOS EXP) e Veículos,
-além do Sign-off Departamental das suas seções do ADR (veículos, operação de
-pátio e vazios embarcados). Leitura no restante do sistema. Não altera Clientes,
+além do Sign-off Departamental das suas seções do ADR (veículos e embarque de
+vazios). Leitura no restante do sistema. Não altera Clientes,
 Portal ou Financeiro.
 
 **Escopo de Documentação**

@@ -2,6 +2,17 @@
 
 Status: aceito — 2026-07-22
 
+> **Nota editorial — 2026-08-04.** A
+> [ADR 0036](./0036-adr-embarque-vazios-secao-unica-escala-fora-das-fases.md)
+> supersede apenas a **exibição** da Observação: ela deixa de ser um campo
+> sempre aberto em toda seção. Com texto escrito, é exibida como conteúdo do
+> relatório para qualquer leitor; sem texto, só o dono da seção vê o convite
+> "Adicionar observação" — quem não pode assinar não vê mais um "—" no lugar de
+> uma nota que ninguém deixou. A natureza decidida aqui permanece: edição livre
+> do dono da seção, sem justificativa e sem histórico em `audit_logs`. A 0036
+> também reduz as seções de sete para seis (`operacao_patio` fundida em
+> `vazios_embarcados`), o que muda a contagem citada nesta decisão.
+
 ## Contexto
 
 Uma sessão de revisão pós-implementação da ADR 0029 (2026-07-22) encontrou

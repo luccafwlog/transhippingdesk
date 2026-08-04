@@ -131,7 +131,7 @@ describe('groupEmptyEmbarkBookings', () => {
 })
 
 describe('AGENCY_REPORT_SECTIONS', () => {
-  it('mapeia as 7 secoes aos departamentos donos (ocorrencias removida na ADR 0030)', () => {
+  it('mapeia as 6 secoes aos departamentos donos (ocorrencias saiu na ADR 0030; operacao_patio na 0036)', () => {
     expect(AGENCY_REPORT_SECTIONS).toEqual({
       datas: 'operacoes',
       carga_descarregada: 'documentacao',
@@ -139,9 +139,8 @@ describe('AGENCY_REPORT_SECTIONS', () => {
       veiculos: 'equipamentos',
       vazios_embarcados: 'equipamentos',
       vazios_descarregados: 'documentacao',
-      operacao_patio: 'equipamentos',
     })
-    expect(Object.keys(AGENCY_REPORT_SECTIONS)).toHaveLength(7)
+    expect(Object.keys(AGENCY_REPORT_SECTIONS)).toHaveLength(6)
   })
 })
 
@@ -624,13 +623,13 @@ describe('addOccurrence', () => {
   it('chama a RPC com a tag de seção opcional', async () => {
     rpcMock.mockResolvedValue({ error: null })
 
-    await addOccurrence({ voyageId: 7, port: 'BRVIX', body: 'Atracação concluída.', section: 'operacao_patio' })
+    await addOccurrence({ voyageId: 7, port: 'BRVIX', body: 'Atracação concluída.', section: 'vazios_embarcados' })
 
     expect(rpcMock).toHaveBeenCalledWith('add_agency_report_occurrence', {
       p_voyage_id: 7,
       p_port: 'BRVIX',
       p_body: 'Atracação concluída.',
-      p_section: 'operacao_patio',
+      p_section: 'vazios_embarcados',
     })
   })
 
