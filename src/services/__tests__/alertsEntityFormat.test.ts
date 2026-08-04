@@ -8,8 +8,15 @@ describe('formatAgencyReportAlertEntity', () => {
   })
 
   it('ainda formata voyageId::porto::secao de alertas legados (pre-0029)', () => {
-    expect(formatAgencyReportAlertEntity('10::BRVIX::vazios_embarcados')).toBe('Viagem 10 · BRVIX · Vazios embarcados')
+    expect(formatAgencyReportAlertEntity('10::BRVIX::vazios_embarcados')).toBe('Viagem 10 · BRVIX · Embarque de vazios')
     expect(formatAgencyReportAlertEntity('10::BRVIX::ocorrencias')).toBe('Viagem 10 · BRVIX · Ocorrências')
+  })
+
+  // Seções aposentadas seguem legíveis na página Alertas: 'ocorrencias' saiu na
+  // ADR 0030 e 'operacao_patio' na 0036, mas os alertas e audit_logs gravados
+  // antes disso continuam existindo.
+  it('formata a seção operacao_patio, aposentada pela ADR 0036', () => {
+    expect(formatAgencyReportAlertEntity('10::BRVIX::operacao_patio')).toBe('Viagem 10 · BRVIX · Operação de pátio')
   })
 
   it('cai para null quando o formato não é o composto do ADR', () => {

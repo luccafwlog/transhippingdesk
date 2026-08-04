@@ -5501,6 +5501,10 @@ export type VaziosBookingListItem = VaziosBooking & {
   } | null
 }
 
+// Seis seções vivas — espelha o CHECK de agency_departure_report_signoffs.section
+// (migration 253). 'ocorrencias' saiu na ADR 0030 e 'operacao_patio' na 0036;
+// as duas seguem em audit_logs e snapshots fechados, e são lidas por
+// agencyReportSectionLabel, não por este tipo.
 export type AgencyReportSectionKey =
   | 'datas'
   | 'carga_descarregada'
@@ -5508,7 +5512,6 @@ export type AgencyReportSectionKey =
   | 'veiculos'
   | 'vazios_embarcados'
   | 'vazios_descarregados'
-  | 'operacao_patio'
 
 export type AgencyReportDepartmentKey = 'operacoes' | 'documentacao' | 'equipamentos'
 

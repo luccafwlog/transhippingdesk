@@ -1,30 +1,24 @@
 import type { Alert } from '../types/database'
 import { supabase } from './supabase'
 import { reportBestEffortFailure } from '../lib/telemetry'
-import { AGENCY_REPORT_DEPARTMENT_LABELS, AGENCY_REPORT_SECTION_LABELS } from './agencyDepartureReport'
+import { AGENCY_REPORT_DEPARTMENT_LABELS, agencyReportSectionLabel } from './agencyDepartureReport'
 
 export type { Alert }
 
 export type AlertStatusFilter = 'all' | 'open' | 'acknowledged'
 
-// Rótulo legado: alertas 'agency_report_section_pending' anteriores à ADR
-// 0030 podem referenciar a seção 'ocorrencias', removida do modelo ativo
-// (AGENCY_REPORT_SECTION_LABELS). Mantido só para exibição histórica na
-// página Alertas — não reintroduz a seção no modelo ativo do ADR.
-const LEGACY_AGENCY_REPORT_SECTION_LABELS: Record<string, string> = {
-  ocorrencias: 'Ocorrências',
-}
-
 // entity_id dos alertas do ADR é composto (voyageId::porto::departamento,
 // migration 225; secao em alertas legados pre-0029) — contrato de
 // dedupe/fechamento. Este formatador é só apresentação para a página Alertas.
+// Seções aposentadas ('ocorrencias' na ADR 0030, 'operacao_patio' na 0036)
+// continuam legíveis via agencyReportSectionLabel, que é a mesma tabela de
+// rótulos usada pela função SQL agency_report_section_label — um lugar só para
+// manter, em vez de um mapa legado por chamador.
 export function formatAgencyReportAlertEntity(entityId: string): string | null {
   const [voyageId, port, key] = entityId.split('::')
   if (!voyageId || !port || !key) return null
   const label = (AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[key]
-    ?? (AGENCY_REPORT_SECTION_LABELS as Record<string, string>)[key]
-    ?? LEGACY_AGENCY_REPORT_SECTION_LABELS[key]
-    ?? key
+    ?? agencyReportSectionLabel(key)
   return `Viagem ${voyageId} · ${port} · ${label}`
 }
 

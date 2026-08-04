@@ -281,10 +281,11 @@ it("imprime resolução de seção com autor e data, omite bloco sem dado e fech
   expect(signoffTable.textContent).toContain("Carla Equipamentos");
 });
 
-// Task 5 do ADR 2026-07-31: 'operacao_patio' é a `section` de quatro blocos
-// impressos (Operação de vazios, Linhas de serviço, Anexo, Storage) — sem a
-// deduplicação, a mesma resolução sairia repetida quatro vezes seguidas.
-it("imprime a resolução de 'operacao_patio' uma única vez, mesmo aparecendo em quatro blocos", () => {
+// 'vazios_embarcados' é a `section` de cinco blocos impressos (Embarque de
+// vazios, Operação de vazios, Linhas de serviço, Anexo, Storage) desde a fusão
+// da ADR 0036 — sem a deduplicação, a mesma resolução sairia repetida cinco
+// vezes seguidas.
+it("imprime a resolução de 'vazios_embarcados' uma única vez, mesmo aparecendo em cinco blocos", () => {
   const { container } = render(
     <AgencyReportDocument
       actorNames={{ "user-eqp": "Carla Equipamentos" }}
@@ -293,7 +294,7 @@ it("imprime a resolução de 'operacao_patio' uma única vez, mesmo aparecendo e
         sections: {},
         occurrences: [],
         signoffs: [
-          { section: "operacao_patio", state: "confirmed", signed_by: "user-eqp", signed_at: "2026-07-22" },
+          { section: "vazios_embarcados", state: "confirmed", signed_by: "user-eqp", signed_at: "2026-07-22" },
         ],
       }}
     />,
@@ -303,6 +304,61 @@ it("imprime a resolução de 'operacao_patio' uma única vez, mesmo aparecendo e
     (node) => node.textContent,
   );
   expect(resolutions.filter((text) => text?.match(/Confirmado — Carla Equipamentos em/)).length).toBe(1);
+  // Sem linha de 'operacao_patio' no snapshot, o bloco de registro histórico
+  // não aparece — nada a preservar.
+  expect(screen.queryByText(/resolução registrada no fechamento/)).toBeNull();
+});
+
+// Snapshot fechado ANTES da ADR 0036 guarda uma resolução própria de
+// 'operacao_patio'. Ela não é reescrita nem descartada: sai como registro do
+// fechamento, em vez de o impresso atribuir a assinatura de uma parte à outra.
+it("imprime a resolução legada de 'operacao_patio' como registro do fechamento", () => {
+  render(
+    <AgencyReportDocument
+      actorNames={{ "user-eqp": "Carla Equipamentos", "user-doc": "Ana Documentação" }}
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {},
+        occurrences: [],
+        signoffs: [
+          { section: "vazios_embarcados", state: "confirmed", signed_by: "user-doc", signed_at: "2026-07-22" },
+          { section: "operacao_patio", state: "nothing_to_declare", signed_by: "user-eqp", signed_at: "2026-07-23" },
+        ],
+      }}
+    />,
+  );
+
+  const legacy = screen
+    .getByRole("heading", { name: /Opera.*o de p.*tio — resolu.*o registrada no fechamento/ })
+    .closest("section")!;
+  expect(legacy.textContent).toContain("Nada a declarar");
+  expect(legacy.textContent).toContain("Carla Equipamentos");
+});
+
+// A observação saía prefixada pela chave crua da seção ("carga_descarregada:"),
+// que é contrato de banco, não texto para o Financeiro ler.
+it("prefixa cada observação com o rótulo pt-BR da seção, não com a chave", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {},
+        occurrences: [],
+        signoffs: [
+          { section: "carga_descarregada", observation: "Dois containers avariados." },
+          { section: "datas", observation: "ATB confirmado por rádio." },
+          { section: "operacao_patio", observation: "Storage conferido com o depot." },
+        ],
+      }}
+    />,
+  );
+
+  const observacoes = screen.getByRole("heading", { name: "Observações por seção" }).closest("section")!;
+  expect(observacoes.textContent).toContain("Carga descarregada:");
+  expect(observacoes.textContent).toContain("Escala:");
+  // Seção aposentada continua legível no registro histórico.
+  expect(observacoes.textContent).toContain("Operação de pátio:");
+  expect(observacoes.textContent).not.toContain("carga_descarregada");
 });
 
 // Snapshot legado (anterior à Task 5) nunca gravou `departmentSignoffs`: o
