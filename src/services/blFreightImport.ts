@@ -22,6 +22,10 @@ export type BlFreightImportRow = {
   status: 'new' | 'updated' | 'unchanged' | 'blocked'
   existing: boolean
   voyageId: number | null
+  /** Numero da viagem declarado no B/L (nao o id interno), para exibicao no preview. */
+  voyageNumber: string | null
+  pol: string | null
+  pod: string | null
   /** Laden on Board normalizado para alimentar ATD do POL no pos-commit; nao vai no payload documental. */
   ladenOnBoard: string | null
   consigneeDocumentMatches: boolean | null
@@ -264,6 +268,9 @@ export function buildBlFreightPreview({
       status,
       existing: Boolean(existing),
       voyageId,
+      voyageNumber: doc.route.voyage?.trim() || selectedVoyage?.voyageNumber || null,
+      pol: payload?.pol ?? normalizePortCode(doc.route.pol),
+      pod: payload?.pod ?? normalizePortCode(doc.route.pod),
       ladenOnBoard: normalizeDate(doc.dates.ladenOnBoard),
       consigneeDocumentMatches,
       blockedReasons,
