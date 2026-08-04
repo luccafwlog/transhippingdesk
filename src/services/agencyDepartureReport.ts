@@ -641,8 +641,12 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   const operation = operationRes.data as VaziosExportOperation | null
   const allDepots = operation ? await listDepots() : []
   const emptyOperationResult = { data: [], error: null }
+  // Mesmo teto de 1000 linhas do PostgREST que já mordeu vehicles/containers
+  // acima: uma operação de Embarque de Vazios grande também passa disso.
   const vaziosExpRes = operation
-    ? await supabase.from('vazios_bookings').select('*').eq('operation_id', operation.id)
+    ? await fetchAllRows<VaziosBooking>((from, to) =>
+        supabase.from('vazios_bookings').select('*').eq('operation_id', operation.id).range(from, to),
+      )
     : emptyOperationResult
   const serviceLinesRes = operation
     ? await supabase.from('vazios_export_service_lines').select('*').eq('operation_id', operation.id)

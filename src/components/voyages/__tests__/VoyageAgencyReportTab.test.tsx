@@ -910,7 +910,7 @@ it('veículos sem VIN e vazios embarcados sem booking somem, mostrando "nada ope
   expect(within(embarqueSection).getByText('Nenhum serviço de pátio nesta escala.')).toBeTruthy()
 })
 
-it('agrupa vazios embarcados por tipo, condição e local de origem — uma linha por combinação', () => {
+it('mostra o total de vazios embarcados por tipo e, lado a lado, uma mini-seção por depot/terminal com o total por tipo', () => {
   useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
   useAgencyReportDerivedMock.mockReturnValue({
@@ -921,6 +921,7 @@ it('agrupa vazios embarcados por tipo, condição e local de origem — uma linh
         { container_type: '40HC', local_id: 'vbr', condition: 'vazio', local: { id: 'vbr', code: 'VBR', name: 'VBR', tipo: 'depot' } },
         { container_type: '40HC', local_id: 'vbr', condition: 'vazio', local: { id: 'vbr', code: 'VBR', name: 'VBR', tipo: 'depot' } },
         { container_type: '40HC', local_id: 'vbr', condition: 'material', local: { id: 'vbr', code: 'VBR', name: 'VBR', tipo: 'depot' } },
+        { container_type: '20GP', local_id: 'tvv', condition: 'vazio', local: { id: 'tvv', code: 'TVV', name: 'TVV', tipo: 'terminal_portuario' } },
       ],
     },
     isLoading: false,
@@ -929,11 +930,16 @@ it('agrupa vazios embarcados por tipo, condição e local de origem — uma linh
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const embarqueSection = screen.getByRole('heading', { name: 'Embarque de vazios' }).closest('section')!
-  expect(within(embarqueSection).getByText('40HC · EMPTY · VBR')).toBeTruthy()
-  expect(within(embarqueSection).getByText('40HC · EMPTY W/ MATERIAL · VBR')).toBeTruthy()
-  const quantities = within(embarqueSection).getAllByText('2')
-  expect(quantities.length).toBeGreaterThan(0)
+  const containersEmbarcados = screen.getByRole('heading', { name: 'Containers embarcados', level: 4 }).closest('div')!
+  // Total por tipo (soma sem quebra de local): 40HC=3 (2 vazio + 1 material), 20GP=1.
+  const totalPorTipo = within(containersEmbarcados).getByText('Total por tipo').closest('.app-voyage-metric-panel') as HTMLElement
+  expect(within(totalPorTipo).getByText('40HC')).toBeTruthy()
+  expect(within(totalPorTipo).getByText('3')).toBeTruthy()
+  expect(within(totalPorTipo).getByText('20GP')).toBeTruthy()
+  expect(within(totalPorTipo).getByText('1')).toBeTruthy()
+  // Mini-seção por depot/terminal, cada uma com o total por tipo dentro dela.
+  expect(within(containersEmbarcados).getByText('VBR')).toBeTruthy()
+  expect(within(containersEmbarcados).getByText('TVV')).toBeTruthy()
 })
 
 it('exibe o aviso de containers cheios órfãos e de divergência de vazios descarregados', () => {
