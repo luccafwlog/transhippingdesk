@@ -188,6 +188,7 @@ describe('voyageExportSchedules service', () => {
       movementsQty: 8,
       ceStatus: 'approved',
       linked: true,
+      dischargePorts: [],
     })
 
     expect(upsert).toHaveBeenCalledTimes(1)
@@ -214,10 +215,44 @@ describe('voyageExportSchedules service', () => {
         movementsQty: 2,
         ceStatus: 'waiting',
         linked: false,
+        dischargePorts: [],
       }),
     ).rejects.toThrow(/porto da escala/i)
 
     expect(update).not.toHaveBeenCalled()
     expect(upsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('254_voyage_export_schedules_discharge_ports.sql', () => {
+  it('adds discharge_ports as a non-null array with an empty default', () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), 'supabase/migrations/254_voyage_export_schedules_discharge_ports.sql'),
+      'utf8',
+    )
+
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS discharge_ports TEXT\[\] NOT NULL DEFAULT '\{\}'/i)
+    expect(sql).toContain('Rollback:')
+  })
+
+  it('normalizes typed discharge ports before persisting them', async () => {
+    const upsert = vi.fn(async () => ({ error: null }))
+    from.mockImplementation(() => ({ upsert }))
+
+    const { saveVoyageExportSchedule } = await import('../voyageExportSchedules')
+    await saveVoyageExportSchedule({
+      voyageId: 11,
+      pol: 'BRVIX',
+      temExportacao: true,
+      hasGranite: false,
+      containersQty: null,
+      movementsQty: null,
+      ceStatus: 'waiting',
+      linked: false,
+      dischargePorts: [' nlrtm ', 'NLRTM', '', 'itgoa'],
+    })
+
+    const [payload] = upsert.mock.calls[0] as unknown as [{ discharge_ports: string[] }]
+    expect(payload.discharge_ports).toEqual(['ITGOA', 'NLRTM'])
   })
 })

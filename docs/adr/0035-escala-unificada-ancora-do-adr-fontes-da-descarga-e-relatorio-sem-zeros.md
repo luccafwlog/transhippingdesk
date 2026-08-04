@@ -1,6 +1,6 @@
 # 0035 — Escala unificada (POL+POD) como âncora do ADR, B/L como fonte da descarga e relatório que lista só o operado
 
-Status: aceito — 2026-07-31 (nota editorial em 2026-08-03)
+Status: aceito — 2026-07-31 (notas editoriais em 2026-08-03 e 2026-08-04)
 
 > **Nota editorial — 2026-08-03.** O bloco 1 desta decisão foi revisitado com a
 > operação antes da execução. O modelo não muda; três pontos que a decisão
@@ -40,6 +40,29 @@ Status: aceito — 2026-07-31 (nota editorial em 2026-08-03)
 > Permanece integralmente o restante: identidade `(viagem, porto brasileiro)`,
 > escala estrangeira fora, ADR e três sign-offs para escala que só embarca,
 > `voyage_pod_schedule` como portador físico e `port_calls` como upgrade adiado.
+
+> **Nota editorial — 2026-08-04.** A escala unificada deixara em aberto como a
+> viagem exibe sua rota. Fica decidido:
+>
+> 1. **Uma linha de rota por perna.** O cabeçalho da viagem deixa de somar
+>    origens e destinos numa linha só. A perna de importação vai do POL da carga
+>    às escalas que descarregam; a de exportação vai das escalas que embarcam
+>    aos portos de descarga dessa carga. Quando um lado não é conhecido, aparece
+>    `Origem a definir` ou `Destino a definir` — a linha existe mesmo incompleta,
+>    porque a perna é um fato do planejamento, não do preenchimento. A perna que
+>    não existe é outra coisa: viagem que só embarca, sem carga nem escala que
+>    descarregue, não desenha perna de importação nenhuma (o POL da viagem não
+>    conta como prova de importação).
+> 2. **O destino da exportação é digitado, não inferido.** O embarque de uma
+>    escala leva granito **e containers**, e o manifesto só existe depois do
+>    embarque; inferir o destino dele deixaria a perna vazia durante todo o
+>    planejamento. `voyage_export_schedules.discharge_ports` (migration 254)
+>    guarda os portos informados no cadastro da escala, estrangeiros inclusive, e
+>    o cabeçalho os soma aos `discharge_port` dos manifestos já importados.
+> 3. **A coluna "Opera" diz sentido, não modalidade.** Os marcadores da Visão
+>    geral ficam em Importação e Exportação. Granito é modalidade de carga da
+>    exportação — continua como checkbox do cadastro e como módulo próprio, mas
+>    não é uma terceira operação da escala.
 
 ## Contexto
 

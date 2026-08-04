@@ -78,6 +78,8 @@ export type VoyageEscalaSchedule = {
   temGranito: boolean
   containersQty: number | null
   movementsQty: number | null
+  /** Portos de descarga declarados no cadastro da exportacao desta escala. */
+  dischargePorts: string[]
   divergences: VoyageEscalaDivergence[]
 }
 
@@ -291,6 +293,7 @@ export function projectVoyageEscalaSchedules({
     escala.temExportacao = exportSchedule.temExportacao
     escala.exportCeStatus = exportSchedule.ceStatus
     escala.temGranito = escala.temGranito || exportSchedule.hasGranite
+    escala.dischargePorts = exportSchedule.dischargePorts ?? []
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty
     mergeEscalaField(escala, 'ceStatus', exportSchedule.ceStatus, 'export', podValues?.ceStatus ?? null)
@@ -652,6 +655,7 @@ function ensureEscala(escalasByKey: Map<string, VoyageEscalaSchedule>, voyageId:
     temGranito: false,
     containersQty: null,
     movementsQty: null,
+    dischargePorts: [],
     divergences: [],
   }
   escalasByKey.set(key, escala)

@@ -85,7 +85,7 @@ it('renderiza uma escala mista em uma linha com marcadores de importação e exp
           escalaNumber: null,
           temImportacao: true,
           temExportacao: true,
-          temGranito: false,
+          temGranito: true,
           containersQty: 12,
           movementsQty: 14,
           divergences: [],
@@ -108,6 +108,8 @@ it('renderiza uma escala mista em uma linha com marcadores de importação e exp
   expect(within(table).getByText('BRVIX')).toBeTruthy()
   expect(within(table).getByText('Importação')).toBeTruthy()
   expect(within(table).getByText('Exportação')).toBeTruthy()
+  // "Opera" diz sentido, não modalidade: granito não é uma terceira operação.
+  expect(within(table).queryByText('Granito')).toBeNull()
   expect(within(table).getByText('12 CNTRS')).toBeTruthy()
   expect(within(table).getByText('14 MOVES')).toBeTruthy()
 })
