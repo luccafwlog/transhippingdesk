@@ -21,7 +21,7 @@ const ITEMS: VoyageRailItem[] = [
   proximaEscala: pod ? { pod, eta, etb: null } : null,
 } as VoyageRailItem))
 
-function Preview() {
+export function Preview() {
   const [selected, setSelected] = useState<number | null>(1)
   const shared = { items: ITEMS, selectedId: selected, onSelect: setSelected, onEdit: () => {} }
   return (
