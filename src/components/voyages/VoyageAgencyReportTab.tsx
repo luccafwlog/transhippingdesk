@@ -533,11 +533,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             <Subsection title="Containers embarcados">
               {bookings.length ? <>
                 <Hero value={String(bookings.length)} unit="vazios embarcados" />
-                <div className="grid gap-4 xl:grid-cols-2">
+                <div className="grid gap-4">
                   <MetricPanel title="Total por tipo">
                     {emptyEmbarkTypeTotals.map(([type, quantity]) => <Info key={type} label={type} value={String(quantity)} />)}
                   </MetricPanel>
-                  <div className="grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {emptyEmbarkLocalTotals.map(({ localLabel, types }) => (
                       <MetricPanel key={localLabel} title={localLabel}>
                         {types.map(([type, quantity]) => <Info key={type} label={type} value={String(quantity)} />)}
