@@ -189,6 +189,22 @@ describe('blParser', () => {
     ])
   })
 
+  it('parseia Laden on Board quando a celula do B/L e uma data Excel (nao texto)', async () => {
+    const buffer = coscoBuffer()
+    const XLSX = await import('@e965/xlsx')
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
+    const sheet = workbook.Sheets['Page 1']
+    // Overwrite the text cell fixture with a real Excel date cell (type 'd'),
+    // reproducing the carrier template that formats the column as a date
+    // instead of free text.
+    sheet['AB35'] = { t: 'd', v: new Date(Date.UTC(2026, 1, 19)) }
+    const rewritten = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+
+    const parsed = await parseBLBuffer(rewritten)
+
+    expect(parsed.dates.ladenOnBoard).toBe('2026-02-19')
+  })
+
   it('bloqueia arquivo acima do limite antes de ler o buffer', async () => {
     const file = new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'bl.xlsx')
 

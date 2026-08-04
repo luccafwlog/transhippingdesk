@@ -75,7 +75,10 @@ export async function parseBLFile(file: File): Promise<ParsedBLDocument> {
 
 export async function parseBLBuffer(buffer: ArrayBuffer): Promise<ParsedBLDocument> {
   const XLSX = await import('@e965/xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array' })
+  // cellDates: cells formatted as dates in the source workbook (e.g. Laden On
+  // Board) come back as JS Date objects instead of Excel serial numbers, so
+  // dateCell() below can format them reliably regardless of carrier template.
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
   // ponytail: acoplado ao layout COSCO Page 1; upgrade = detectar layout por armador/template.
   const page1 = workbook.Sheets['Page 1'] ?? workbook.Sheets[workbook.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<RawSheetRow>(page1, { header: 1, defval: '' })
@@ -103,8 +106,8 @@ export async function parseBLBuffer(buffer: ArrayBuffer): Promise<ParsedBLDocume
       movementTo: cell(rows, 20, 'AC'),
     },
     dates: {
-      ladenOnBoard: cell(rows, 35, 'AB'),
-      issueDate: cell(rows, 38, 'A'),
+      ladenOnBoard: dateCell(rows, 35, 'AB'),
+      issueDate: dateCell(rows, 38, 'A'),
       issuePlace: cell(rows, 38, 'E'),
     },
     cargo: {
@@ -269,6 +272,21 @@ export function extractTaxId(value: string) {
 
 function cell(rows: RawSheetRow[], rowNumber: number, column: string) {
   return cellValue(rows[rowNumber - 1], columnIndex(column))
+}
+
+// Some carrier templates format the Laden On Board / Issue Date cells as real
+// Excel dates rather than text; sheet_to_json then yields a JS Date (with
+// cellDates: true) instead of the DD/MM/YYYY string normalizeDate() expects.
+// Format those as ISO here so the value survives the same as a text cell.
+function dateCell(rows: RawSheetRow[], rowNumber: number, column: string) {
+  const raw = rows[rowNumber - 1]?.[columnIndex(column)]
+  if (raw instanceof Date) {
+    const year = raw.getUTCFullYear()
+    const month = String(raw.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(raw.getUTCDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  return asString(raw)
 }
 
 function cellValue(row: RawSheetRow | undefined, index: number) {

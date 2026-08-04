@@ -215,13 +215,14 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
         <PreviewBox label="Bloqueados" value={preview.summary.blockedCount} />
       </div>
 
-      <div className="app-table-scroll max-h-80 rounded-xl border border-[var(--app-border)]">
-        <table className="app-table app-table--compact min-w-[860px] text-left text-sm">
+      <div className="app-table-scroll app-table-scroll--sticky rounded-xl border border-[var(--app-border)]">
+        <table className="app-table app-table--compact min-w-[960px] text-left text-sm">
           <thead>
             <tr>
               <th scope="col" className="px-3 py-2">B/L</th>
               <th scope="col" className="px-3 py-2">Status</th>
               <th scope="col" className="px-3 py-2">Viagem</th>
+              <th scope="col" className="px-3 py-2">POL / POD</th>
               <th scope="col" className="px-3 py-2">Laden on Board</th>
               <th scope="col" className="px-3 py-2">Diferencas</th>
               <th scope="col" className="px-3 py-2">Bloqueios / Faturamento</th>
@@ -234,7 +235,8 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
                 <td className="px-3 py-2">
                   <StatusPill status={row.status} />
                 </td>
-                <td className="px-3 py-2">{row.voyageId ?? '-'}</td>
+                <td className="px-3 py-2">{row.voyageNumber ?? '-'}</td>
+                <td className="px-3 py-2">{row.pol || row.pod ? `${row.pol ?? '-'} / ${row.pod ?? '-'}` : '-'}</td>
                 <td className="px-3 py-2">{row.ladenOnBoard ?? '-'}</td>
                 <td className="px-3 py-2">
                   <DiffList row={row} />
