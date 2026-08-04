@@ -10,6 +10,7 @@ import {
   type BlFreightImportRow,
 } from '../../services/blFreightImport'
 import { applyLadenOnBoardAtd } from '../../services/ladenOnBoardAtd'
+import { Badge, type BadgeTone } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
@@ -215,7 +216,14 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
         <PreviewBox label="Bloqueados" value={preview.summary.blockedCount} />
       </div>
 
-      <div className="app-table-scroll app-table-scroll--sticky rounded-xl border border-[var(--app-border)]">
+      {/* Plain app-table-scroll (horizontal only): the modal body is already the
+          scroll container (.app-modal__body, overflow-y: auto) with a sticky
+          actions bar pinned to its bottom. Giving the table its own bounded
+          vertical scroll region (app-table-scroll--sticky) nests a second
+          independent scrollbar inside that one, and its sticky header/footer
+          fight the outer sticky actions bar, breaking scrolling and clipping
+          rows behind the buttons. */}
+      <div className="app-table-scroll rounded-xl border border-[var(--app-border)]">
         <table className="app-table app-table--compact min-w-[960px] text-left text-sm">
           <thead>
             <tr>
@@ -289,19 +297,17 @@ function StatusPill({ status }: { status: BlFreightImportRow['status'] }) {
     unchanged: 'Sem mudanca',
     blocked: 'Bloqueado',
   }
-  const tone = status === 'blocked'
-    ? 'border-amber-400/40 bg-amber-400/10 text-amber-200'
+  // Badge (app-badge--*) instead of ad-hoc Tailwind colors: those hardcoded
+  // light-text-on-light-tint classes were unreadable outside dark theme.
+  const tone: BadgeTone = status === 'blocked'
+    ? 'yellow'
     : status === 'new'
-      ? 'border-green-400/40 bg-green-400/10 text-green-200'
+      ? 'green'
       : status === 'updated'
-        ? 'border-sky-400/40 bg-sky-400/10 text-sky-200'
-        : 'border-slate-400/30 bg-slate-400/10 text-slate-300'
+        ? 'blue'
+        : 'slate'
 
-  return (
-    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${tone}`}>
-      {labels[status]}
-    </span>
-  )
+  return <Badge tone={tone}>{labels[status]}</Badge>
 }
 
 function formatDiffValue(value: string | number | null) {
