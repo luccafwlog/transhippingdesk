@@ -34,6 +34,10 @@ import {
 } from '../components/voyages/VoyageCard'
 import { VoyageRail } from '../components/voyages/VoyageRail'
 import { VoyageFilters } from '../components/voyages/VoyageFilters'
+// PROTÓTIPO (descartável) — faixa horizontal no lugar da barra lateral.
+import { PrototypeSwitcher } from '../components/ui/PrototypeSwitcher'
+import { STRIP_VARIANTS, STRIP_VARIANT_LABELS } from '../components/voyages/prototype/stripVariantKeys'
+import { VariantA, VariantB, VariantC } from '../components/voyages/prototype/VoyageStripVariants'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import {
   countActiveFilters,
@@ -41,6 +45,14 @@ import {
   filterVoyageRailItems,
   type VoyageFilters as VoyageFiltersState,
 } from '../lib/viagensFilters'
+
+// PROTÓTIPO — `atual` é a linha de base (barra lateral de hoje) para comparar
+// com as faixas horizontais A/B/C. Sai junto com o resto do protótipo.
+const PROTOTYPE_VARIANTS = ['atual', ...STRIP_VARIANTS] as const
+const PROTOTYPE_VARIANT_LABELS: Record<string, string> = {
+  atual: 'Barra lateral (hoje)',
+  ...STRIP_VARIANT_LABELS,
+}
 
 export function Viagens() {
   const { voyageId } = useParams()
@@ -88,6 +100,12 @@ export function Viagens() {
   const railCollapsed = isDesktop && !railHovered
 
   const selectedVoyageId = voyageId ? Number(voyageId) : null
+
+  // PROTÓTIPO — `?variant=atual` (padrão) mantém a barra lateral; A/B/C trocam
+  // por uma faixa horizontal acima do detalhe. Remover junto com o switcher.
+  const variantParam = searchParams.get('variant') ?? 'atual'
+  const stripVariant = (PROTOTYPE_VARIANTS as readonly string[]).includes(variantParam) ? variantParam : 'atual'
+  const usingStrip = stripVariant !== 'atual'
 
   const voyages = useMemo(() => data ?? [], [data])
 
@@ -199,6 +217,71 @@ export function Viagens() {
         loading={isLoading}
       />
 
+      {usingStrip ? (
+        <div className="grid gap-4">
+          <div>
+            {isLoading ? (
+              <SkeletonCard lines={3} />
+            ) : stripVariant === 'A' ? (
+              <VariantA
+                items={visibleRailItems}
+                selectedId={selectedVoyageId}
+                onSelect={(id) => navigate(`/viagens/${id}?variant=${stripVariant}`)}
+                onEdit={setEditingVoyageId}
+              />
+            ) : stripVariant === 'B' ? (
+              <VariantB
+                items={visibleRailItems}
+                selectedId={selectedVoyageId}
+                onSelect={(id) => navigate(`/viagens/${id}?variant=${stripVariant}`)}
+                onEdit={setEditingVoyageId}
+              />
+            ) : (
+              <VariantC
+                items={visibleRailItems}
+                selectedId={selectedVoyageId}
+                onSelect={(id) => navigate(`/viagens/${id}?variant=${stripVariant}`)}
+                onEdit={setEditingVoyageId}
+              />
+            )}
+          </div>
+
+          <div>
+            {!selectedVoyageId ? (
+              <EmptyState
+                title="Selecione uma viagem"
+                description="Escolha uma viagem na faixa acima para ver o detalhe, planejamento de escalas e os fluxos de importação e exportação."
+              />
+            ) : selectedVoyage ? (
+              <VoyageCard
+                key={selectedVoyage.id}
+                voyage={selectedVoyage}
+                vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
+                vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
+                voyagesWithUnpaidBls={voyagesWithUnpaidBls}
+                polSchedules={polSchedules}
+                routeCeMasters={routeCeMasters}
+                scheduledEscalaRows={escalaSchedulesByVoyage.get(selectedVoyage.id) ?? []}
+                exportSchedules={Array.from(exportSchedulesData?.get(selectedVoyage.id)?.values() ?? [])}
+                onEditVoyage={setEditingVoyageId}
+                onDeleteVoyage={setDeletingVoyageId}
+                onCancelVoyage={setCancellingVoyageId}
+                onEditEscala={setEditingEscala}
+                onEditPol={setEditingPol}
+                initialTab={initialTab}
+                initialEscala={initialEscala}
+              />
+            ) : isLoading ? (
+              <SkeletonCard lines={4} />
+            ) : (
+              <EmptyState
+                title="Viagem não encontrada"
+                description="A viagem selecionada não existe mais ou foi removida."
+              />
+            )}
+          </div>
+        </div>
+      ) : (
       <div className="viagens-grid lg:grid lg:gap-4 lg:grid-cols-[64px_1fr]">
         <div
           className={`relative ${selectedVoyageId ? 'hidden lg:block' : 'block'}`}
@@ -264,6 +347,13 @@ export function Viagens() {
           )}
         </div>
       </div>
+      )}
+
+      <PrototypeSwitcher
+        variants={PROTOTYPE_VARIANTS}
+        labels={PROTOTYPE_VARIANT_LABELS}
+        current={stripVariant}
+      />
 
       <VoyageCreateModal
         open={open}
