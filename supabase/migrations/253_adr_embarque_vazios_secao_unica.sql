@@ -33,7 +33,7 @@
 WITH patio AS (
   SELECT * FROM public.agency_departure_report_signoffs WHERE section = 'operacao_patio'
 ),
-merged AS (
+joined AS (
   SELECT
     p.report_id,
     CASE
@@ -42,19 +42,38 @@ merged AS (
       WHEN p.state = 'confirmed' OR v.state = 'confirmed' THEN 'confirmed'
       ELSE 'nothing_to_declare'
     END AS state,
-    CASE
-      WHEN COALESCE(p.signed_at, '-infinity'::TIMESTAMPTZ) >= COALESCE(v.signed_at, '-infinity'::TIMESTAMPTZ)
-      THEN p.signed_by ELSE v.signed_by
-    END AS signed_by,
-    GREATEST(p.signed_at, v.signed_at) AS signed_at,
-    NULLIF(btrim(concat_ws(
-      E'\n',
-      NULLIF(btrim(v.observation), ''),
-      NULLIF(btrim(p.observation), '')
-    )), '') AS observation
+    p.state AS patio_state,
+    p.signed_by AS patio_signed_by,
+    p.signed_at AS patio_signed_at,
+    v.state AS vazios_state,
+    v.signed_by AS vazios_signed_by,
+    v.signed_at AS vazios_signed_at,
+    v.observation AS vazios_observation,
+    p.observation AS patio_observation
   FROM patio p
   LEFT JOIN public.agency_departure_report_signoffs v
     ON v.report_id = p.report_id AND v.section = 'vazios_embarcados'
+),
+merged AS (
+  SELECT
+    report_id,
+    state,
+    -- Estado fundido 'pending' nao pode carregar autor/data de nenhuma das
+    -- partes: a fusao nao assina por ninguem, e uma assinatura "orfa" (autor
+    -- sem resolucao) seria um estado que o modelo nao tem em nenhum outro lugar.
+    CASE WHEN state = 'pending' THEN NULL
+      WHEN COALESCE(patio_signed_at, '-infinity'::TIMESTAMPTZ) >= COALESCE(vazios_signed_at, '-infinity'::TIMESTAMPTZ)
+      THEN patio_signed_by ELSE vazios_signed_by
+    END AS signed_by,
+    CASE WHEN state = 'pending' THEN NULL
+      ELSE GREATEST(patio_signed_at, vazios_signed_at)
+    END AS signed_at,
+    NULLIF(btrim(concat_ws(
+      E'\n',
+      NULLIF(btrim(vazios_observation), ''),
+      NULLIF(btrim(patio_observation), '')
+    )), '') AS observation
+  FROM joined
 )
 INSERT INTO public.agency_departure_report_signoffs
   (report_id, section, state, department, signed_by, signed_at, observation)
@@ -132,20 +151,25 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
 DECLARE
+  v_role TEXT;
   v_report_id UUID;
   v_currently_signed BOOLEAN;
   v_justification TEXT := NULLIF(btrim(p_justification), '');
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
+  SELECT role INTO v_role FROM public.user_profiles
+  WHERE id = auth.uid() AND active = TRUE;
+  IF v_role IS NULL THEN
     RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
   END IF;
+  v_role := CASE v_role WHEN 'admin' THEN 'administrativo'
+                        WHEN 'operator' THEN 'documentacao'
+                        ELSE v_role END;
 
   IF p_department NOT IN ('operacoes', 'documentacao', 'equipamentos') THEN
     RAISE EXCEPTION 'Departamento invalido: %.', p_department USING ERRCODE = '22023';
   END IF;
-
-  IF NOT (public.is_admin() OR public.current_user_role() = p_department) THEN
-    RAISE EXCEPTION 'Somente % ou admin assina este bloco.', p_department USING ERRCODE = '42501';
+  IF v_role NOT IN ('administrativo', p_department) THEN
+    RAISE EXCEPTION 'Sign-off pertence ao departamento %.', p_department USING ERRCODE = '42501';
   END IF;
 
   v_report_id := public.ensure_agency_departure_report(p_voyage_id, p_port);

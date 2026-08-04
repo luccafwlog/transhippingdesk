@@ -447,7 +447,7 @@ export function AgencyReportDocument({
   );
 
   // Várias seções impressas compartilham a mesma `section` do ciclo (ex.:
-  // 'operacao_patio' aparece em quatro blocos) — a resolução só é impressa
+  // 'vazios_embarcados' aparece em cinco blocos) — a resolução só é impressa
   // uma vez, no primeiro bloco daquela seção (ver Section, showResolution).
   const printedResolutions = new Set<AgencyReportSection>();
   const section = (key: AgencyReportSection) => {
@@ -705,7 +705,7 @@ export function AgencyReportDocument({
             {observations.map((signoff, index) => (
               <li key={String(signoff.id ?? signoff.section ?? index)}>
                 <strong>
-                  {agencyReportSectionLabel(String(signoff.section ?? ""))  || "Seção"}:{" "}
+                  {agencyReportSectionLabel(String(signoff.section ?? "")) || "Seção"}:{" "}
                 </strong>
                 {String(signoff.observation)}
               </li>

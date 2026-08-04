@@ -27,6 +27,10 @@ describe('migration 253 — Embarque de Vazios volta a ser uma seção só (ADR 
     expect(sql).toMatch(/WHEN p\.state = 'pending' OR v\.state = 'pending' THEN 'pending'/)
     // Nenhuma observação escrita por Equipamentos se perde na fusão.
     expect(sql).toMatch(/concat_ws\(\s*E'\\n',/)
+    // Um estado fundido 'pending' não pode herdar autor/data de nenhuma das
+    // duas partes — "assinado por alguém, mas pendente" não é um estado que
+    // o resto do modelo sabe representar.
+    expect(sql).toMatch(/CASE WHEN state = 'pending' THEN NULL/)
   })
 
   it('tira operacao_patio do dono da seção, fechando a RPC para clientes desatualizados', () => {
@@ -66,6 +70,18 @@ describe('migration 253 — Embarque de Vazios volta a ser uma seção só (ADR 
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.set_agency_report_department_signoff\(BIGINT, TEXT, TEXT, BOOLEAN, TEXT\) TO authenticated;/)
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.detect_agency_report_pending\(\) FROM PUBLIC, anon;/)
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.detect_agency_report_pending\(\) TO authenticated;/)
+  })
+
+  // Revisão pós-merge: a reescrita original de set_agency_report_department_signoff
+  // trocou o mapeamento de role (admin->administrativo, operator->documentacao)
+  // por is_admin()/current_user_role() cru, que rejeita quem antes podia assinar
+  // (roles 'operator' e 'administrativo'). O gate precisa espelhar a 228.
+  it('mantém o mapeamento de role (admin/operator) no gate de sign-off departamental', () => {
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.set_agency_report_department_signoff[\s\S]*?\$function\$;/)?.[0] ?? ''
+    expect(fn).toMatch(/WHEN 'admin' THEN 'administrativo'/)
+    expect(fn).toMatch(/WHEN 'operator' THEN 'documentacao'/)
+    expect(fn).toMatch(/v_role NOT IN \('administrativo', p_department\)/)
+    expect(fn).not.toContain('public.current_user_role()')
   })
 })
 

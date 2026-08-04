@@ -35,7 +35,7 @@ vi.mock('../../../hooks/useAuth', () => ({ useAuth: useAuthMock }))
 
 const ALL_SECTIONS = [
   'datas', 'carga_descarregada', 'carga_carregada', 'veiculos',
-  'vazios_embarcados', 'vazios_descarregados', 'operacao_patio',
+  'vazios_embarcados', 'vazios_descarregados',
 ]
 
 function allSectionsSignoffs(state = 'confirmed') {
@@ -157,7 +157,7 @@ it('assina o departamento apenas quando habilitado e chama a RPC com o payload c
   useAgencyReportOwnMock.mockReturnValue({
     data: {
       terminal: 'TVV',
-      signoffs: ['veiculos', 'operacao_patio', 'vazios_embarcados'].map((section) => ({ id: section, section, state: 'confirmed' })),
+      signoffs: ['veiculos', 'vazios_embarcados'].map((section) => ({ id: section, section, state: 'confirmed' })),
       departmentSignoffs: [],
       occurrences: [],
     },
