@@ -107,8 +107,12 @@ export async function parseBLBuffer(buffer: ArrayBuffer): Promise<ParsedBLDocume
     },
     dates: {
       ladenOnBoard: dateCell(rows, 35, 'AB'),
-      issueDate: dateCell(rows, 38, 'A'),
-      issuePlace: cell(rows, 38, 'E'),
+      // Real COSCO templates write the label and value in the same cell
+      // ("Date of Issue 22 05 2026", "Place of Issue VITORIA") instead of the
+      // clean value alone; strip the label so normalizeDate/consumers see just
+      // the date or place text.
+      issueDate: stripLabelPrefix(dateCell(rows, 38, 'A'), /^date\s+of\s+issue\s*/i),
+      issuePlace: stripLabelPrefix(cell(rows, 38, 'E'), /^place\s+of\s+issue\s*/i),
     },
     cargo: {
       description: cargoDescription,
@@ -278,6 +282,10 @@ function cell(rows: RawSheetRow[], rowNumber: number, column: string) {
 // Excel dates rather than text; sheet_to_json then yields a JS Date (with
 // cellDates: true) instead of the DD/MM/YYYY string normalizeDate() expects.
 // Format those as ISO here so the value survives the same as a text cell.
+function stripLabelPrefix(value: string, label: RegExp) {
+  return value.replace(label, '').trim()
+}
+
 function dateCell(rows: RawSheetRow[], rowNumber: number, column: string) {
   const raw = rows[rowNumber - 1]?.[columnIndex(column)]
   if (raw instanceof Date) {

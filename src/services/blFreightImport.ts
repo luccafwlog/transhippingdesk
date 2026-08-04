@@ -659,7 +659,10 @@ function normalizeDate(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return isValidIsoDate(trimmed) ? trimmed : null
-  const parts = trimmed.split(/[-/.]/)
+  // Real COSCO B/L templates write "Date Laden on Board" as plain text
+  // "DD MM YYYY" (space-separated, no real date cell format) instead of
+  // DD/MM/YYYY — split on whitespace too, not just -/. delimiters.
+  const parts = trimmed.split(/[-/.\s]+/)
   if (parts.length === 3 && parts[0].length <= 2) {
     const [day, month, year] = parts
     const iso = `${year.padStart(4, '20')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`

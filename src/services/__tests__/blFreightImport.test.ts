@@ -157,6 +157,14 @@ describe('blFreightImport', () => {
     expect(buildBlFreightPayload(invalid, 7).bl_emission_date).toBeNull()
   })
 
+  it('parses space-separated DD MM YYYY dates (real COSCO template writes Laden on Board this way, not DD/MM/YYYY)', () => {
+    const doc = parsedBL()
+    doc.dates.issueDate = '22 05 2026'
+    doc.dates.ladenOnBoard = '22 05 2026'
+
+    expect(buildBlFreightPayload(doc, 7).bl_emission_date).toBe('2026-05-22')
+  })
+
   it('exposes normalized Laden on Board on preview rows without changing the RPC payload', () => {
     const doc = parsedBL()
     doc.dates.ladenOnBoard = '19/02/2026'
