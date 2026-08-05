@@ -147,7 +147,7 @@ describe('AGENCY_REPORT_SECTIONS', () => {
     expect(AGENCY_REPORT_SECTIONS).toEqual({
       datas: 'operacoes',
       carga_descarregada: 'documentacao',
-      carga_carregada: 'documentacao',
+      carga_carregada: 'equipamentos',
       veiculos: 'equipamentos',
       vazios_embarcados: 'equipamentos',
       vazios_descarregados: 'documentacao',

@@ -324,13 +324,14 @@ it('agrupa carga solta na seção de carga descarregada e assina granito como ca
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const dischargeSection = screen.getByRole('heading', { name: 'Carga descarregada' }).closest('section')
-  const graniteSection = screen.getByRole('heading', { name: 'Carga carregada' }).closest('section')
+  const graniteSection = screen.getByRole('heading', { name: 'Granito' }).closest('section')
 
   expect(dischargeSection).not.toBeNull()
   expect(graniteSection).not.toBeNull()
   expect(within(dischargeSection!).getByText('Carga solta')).toBeTruthy()
   expect(within(dischargeSection!).getByText('Confirmado')).toBeTruthy()
   expect(within(graniteSection!).getByText('Nada a declarar')).toBeTruthy()
+  expect(within(graniteSection!).getByText('Setor: Equipamentos')).toBeTruthy()
 })
 
 it('destaca o IMO separado da contagem geral de containers descarregados', () => {
@@ -389,14 +390,14 @@ it('renderiza as 2 fases do ciclo com a Escala fora delas (ADR 0036)', () => {
   expect(screen.queryByRole('heading', { name: 'Ocorrências' })).toBeNull()
 })
 
-it('Exportação reúne Carga carregada e Embarque de vazios, com pátio como subseção; nenhuma seção mostra legenda-resumo', () => {
+it('Exportação reúne Granito e Embarque de vazios, com pátio como subseção; nenhuma seção mostra legenda-resumo', () => {
   useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
   useAgencyReportOwnMock.mockReturnValue({ data: { terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [] } })
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const exportacaoPhase = screen.getByRole('heading', { name: 'Exportação', level: 2 }).closest('div')!
-  expect(within(exportacaoPhase).getByRole('heading', { name: 'Carga carregada' })).toBeTruthy()
+  expect(within(exportacaoPhase).getByRole('heading', { name: 'Granito' })).toBeTruthy()
   // Embarque de Vazios é um agregado só (CONTEXT.md): uma seção assinável, com
   // as unidades e os serviços como subseções de conteúdo.
   const embarqueSection = within(exportacaoPhase).getByRole('heading', { name: 'Embarque de vazios' }).closest('section')!
@@ -994,7 +995,7 @@ it('verificação do plano: granito órfão em BRSSA aparece como aviso na escal
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const graniteSection = screen.getByRole('heading', { name: 'Carga carregada' }).closest('section')!
+  const graniteSection = screen.getByRole('heading', { name: 'Granito' }).closest('section')!
   expect(within(graniteSection).queryByText('Nada operado nesta escala.')).toBeNull()
   expect(within(graniteSection).getByText(/3 B\/L\(s\) de granito em BRSSA/)).toBeTruthy()
   expect(within(graniteSection).getByText(/porto não é escala desta viagem/)).toBeTruthy()
@@ -1016,7 +1017,7 @@ it('granito numa escala vizinha válida da mesma viagem não dispara o aviso de 
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  const graniteSection = screen.getByRole('heading', { name: 'Carga carregada' }).closest('section')!
+  const graniteSection = screen.getByRole('heading', { name: 'Granito' }).closest('section')!
   expect(within(graniteSection).getByText('Nada operado nesta escala.')).toBeTruthy()
   expect(within(graniteSection).queryByText(/porto não é escala desta viagem/)).toBeNull()
 })

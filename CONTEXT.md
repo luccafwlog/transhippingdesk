@@ -193,13 +193,12 @@ São seis seções. A **Escala** — identidade do relatório (armador, navio/vi
 porto, terminal) e datas confirmadas — abre o ADR sozinha, porque é o assunto do
 relatório e não uma etapa dele. As outras cinco vêm na ordem do ciclo:
 importação (carga descarregada, vazios descarregados, veículos) → exportação
-(carga carregada, embarque de vazios). O conteúdo derivado do sistema é
+(granito, embarque de vazios). O conteúdo derivado do sistema é
 exibido, não redigitado; apenas a Observação e a resolução/sign-off nascem no
 ADR. Divisão de donos:
 - **Operações:** escala (identidade e datas confirmadas).
-- **Documentação:** carga descarregada, carga carregada (granito hoje) e vazios
-  descarregados.
-- **Equipamentos:** veículos e embarque de vazios.
+- **Documentação:** carga descarregada e vazios descarregados.
+- **Equipamentos:** veículos, granito e embarque de vazios.
 
 **Resolução de Seção**
 Estado de uma seção quanto ao seu dono: Pendente → Confirmado ou Nada a declarar.
