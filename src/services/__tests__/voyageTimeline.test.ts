@@ -61,8 +61,8 @@ describe('timeline operacional de transbordo', () => {
   })
 })
 
-describe('fallback de importaÃ§Ã£o de B/L', () => {
-  it('exibe contagem e rota do lote quando os B/Ls ainda nÃ£o estÃ£o carregados no detalhe', () => {
+describe('fallback de importação de B/L', () => {
+  it('exibe contagem e rota do lote quando os B/Ls ainda não estão carregados no detalhe', () => {
     const events = buildVoyageTimeline({
       importBatches: [{
         id: 11,
@@ -70,7 +70,7 @@ describe('fallback de importaÃ§Ã£o de B/L', () => {
         cargo_mode: 'container',
         uploaded_at: '2026-07-16T10:00:00Z',
         total_bls: 7,
-        route: 'BRSSZ â†’ BRVIX',
+        route: 'BRSSZ → BRVIX',
       }],
     })
 
