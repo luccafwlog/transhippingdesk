@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render as rtlRender, screen, within } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
+import { ToastProvider } from '../../ui/Toast'
 import { formatBRL } from '../../../lib/utils'
+
+// O componente usa `useToast`, que exige `ToastProvider` (o app o monta em
+// `main.tsx`). Envolver aqui, num render único, mantém as chamadas de teste
+// inalteradas em vez de repetir o provider em cada uma delas.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: ToastProvider })
 
 const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
@@ -241,7 +248,8 @@ it('fecha o ADR apenas quando os 3 departamentos assinaram e envia o snapshot ex
     voyageId: 7,
     port: 'BRVIX',
     snapshot: expect.objectContaining({ sections: expect.any(Object) }),
-  }))
+  }),
+  expect.objectContaining({ onError: expect.any(Function) }))
 })
 
 it('mantém Fechar ADR desabilitado enquanto faltar algum departamento', () => {
@@ -285,7 +293,8 @@ it('exibe a carga solta derivada e a congela sob cargaSolta no snapshot', () => 
     snapshot: expect.objectContaining({
       sections: expect.objectContaining({ cargaSolta }),
     }),
-  }))
+  }),
+  expect.objectContaining({ onError: expect.any(Function) }))
 })
 
 it('agrupa carga solta na seção de carga descarregada e assina granito como carga carregada', () => {
@@ -435,7 +444,8 @@ it('congela locais de desova, depots e embarques diretos no snapshot', () => {
         depots: ['VBR'],
       }),
     }),
-  }))
+  }),
+  expect.objectContaining({ onError: expect.any(Function) }))
 })
 
 it('exibe o autor resolvido e o documento estruturado quando o ADR está fechado', () => {

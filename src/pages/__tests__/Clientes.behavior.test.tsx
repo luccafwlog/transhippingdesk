@@ -125,6 +125,9 @@ describe('Clientes page behaviours', () => {
       select: vi.fn(),
       order: vi.fn(),
       or: mocks.supabaseOr,
+      // A exportação pagina em blocos de 1000 por `.range()`; devolver uma
+      // página curta encerra o laço na primeira volta.
+      range: vi.fn(() => Promise.resolve({ data: [customer], error: null })),
       then: exportResult.then.bind(exportResult),
     }
     exportQuery.select.mockReturnValue(exportQuery)
