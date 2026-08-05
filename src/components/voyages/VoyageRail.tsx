@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, PackageCheck, PackageOpen, Pencil } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import { ESTADO_CONCILIACAO_META } from '../../lib/statusLabels'
 import type { VoyageRailItem } from '../../services/voyageSummaries'
+import { ContainersIcon, VaziosExpIcon, VaziosImpIcon } from '../shared/DomainIcon'
 
 const MODULE_BADGES: Array<{
   key: keyof VoyageRailItem['modules']
   label: string
-  icon: typeof Boxes
+  icon: ComponentType<{ size?: number; className?: string }>
 }> = [
   { key: 'container', label: 'Container', icon: Boxes },
   { key: 'cargaSolta', label: 'Carga solta', icon: FileSpreadsheet },
   { key: 'veiculos', label: 'Veículos', icon: Car },
-  { key: 'vazios', label: 'Vazios IMP', icon: PackageCheck },
+  { key: 'vazios', label: 'Vazios IMP', icon: VaziosImpIcon },
   { key: 'granito', label: 'Granito', icon: Mountain },
 ]
 
@@ -92,13 +94,13 @@ function RailPill({ children }: { children: React.ReactNode }) {
 
 function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
   const badges = [
-    modules.container ? { label: 'Container', icon: Boxes } : null,
+    modules.container ? { label: 'Container', icon: ContainersIcon } : null,
     modules.cargaSolta ? { label: 'Carga solta', icon: FileSpreadsheet } : null,
     modules.veiculos ? { label: 'Veículos', icon: Car } : null,
-    modules.vazios ? { label: 'Vazios IMP', icon: PackageCheck } : null,
-    modules.vaziosExp ? { label: 'Vazios EXP', icon: PackageOpen } : null,
+    modules.vazios ? { label: 'Vazios IMP', icon: VaziosImpIcon } : null,
+    modules.vaziosExp ? { label: 'Vazios EXP', icon: VaziosExpIcon } : null,
     modules.granito ? { label: 'Granito', icon: Mountain } : null,
-  ].filter(Boolean) as Array<{ label: string; icon: typeof Boxes }>
+  ].filter(Boolean) as Array<{ label: string; icon: ComponentType<{ size?: number; className?: string }> }>
 
   return badges.length ? (
     <span className="inline-flex items-center gap-1 text-[var(--app-muted)]" aria-label="Operações da escala">

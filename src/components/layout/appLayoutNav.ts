@@ -3,20 +3,19 @@ import {
   AlertTriangle,
   BarChart3,
   Bell,
-  Boxes,
   Car,
   Clock,
   DollarSign,
   FileSpreadsheet,
   Home,
   Mountain,
-  Package,
   ReceiptText,
   RefreshCw,
   Ship,
   ShieldCheck,
   Users,
 } from 'lucide-react'
+import { ContainersIcon, VaziosExpIcon, VaziosImpIcon } from '../shared/DomainIcon'
 import type { OperationalCounts } from '../../hooks/useOperationalCounts'
 
 export type NavItem = {
@@ -31,15 +30,15 @@ export const importNavItems: NavItem[] = [
   { to: '/baplie', label: 'Baplie EDI', icon: FileSpreadsheet },
   { to: '/manifestos', label: 'BLs CNTR', icon: FileSpreadsheet },
   { to: '/carga-solta', label: 'BLs Carga Solta', icon: FileSpreadsheet },
-  { to: '/containers', label: 'Containers', icon: Boxes },
+  { to: '/containers', label: 'Containers', icon: ContainersIcon },
   { to: '/veiculos', label: 'Veículos', icon: Car },
-  { to: '/vazios-importacao', label: 'Vazios IMP', icon: Package },
+  { to: '/vazios-importacao', label: 'Vazios IMP', icon: VaziosImpIcon },
   { to: '/revisao', label: 'Revisão', icon: AlertTriangle },
 ]
 
 export const exportNavItems: NavItem[] = [
   { to: '/granito', label: 'Granito', icon: Mountain },
-  { to: '/embarquevazios', label: 'Vazios EXP', icon: Package },
+  { to: '/embarquevazios', label: 'Vazios EXP', icon: VaziosExpIcon },
 ]
 
 export const primaryNavItems: NavItem[] = [
