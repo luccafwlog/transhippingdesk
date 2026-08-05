@@ -56,7 +56,7 @@ diretamente.
 
 ## Escopo técnico
 
-### Migration `258_admin_usuarios_gestao.sql`
+### Migration `259_admin_usuarios_gestao.sql`
 
 Sem DDL de tabela. Duas adições:
 

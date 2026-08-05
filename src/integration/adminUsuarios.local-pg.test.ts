@@ -19,9 +19,12 @@ function callAs(userId: string, sql: string) {
   ], { encoding: 'utf8' })
 }
 
-describeLocal('migration 258 — administração de usuários internos', () => {
+describeLocal('migration 259 — administração de usuários internos', () => {
   beforeAll(() => {
     psql(`
+      -- The disposable local auth schema is intentionally minimal; production
+      -- Supabase auth.users includes this column used by the protected RPC.
+      ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS last_sign_in_at TIMESTAMPTZ;
       INSERT INTO auth.users (id, email) VALUES
         ('${adminId}', 'admin-258@example.test'),
         ('${memberId}', 'member-258@example.test')

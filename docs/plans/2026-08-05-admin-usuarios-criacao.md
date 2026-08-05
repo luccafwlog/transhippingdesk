@@ -33,7 +33,7 @@ Leia, nesta ordem:
 |---|---|---|
 | `src/lib/passwordPolicy.ts` | Regra de senha pura, sem dependências | Criar |
 | `src/lib/__tests__/passwordPolicy.test.ts` | Teste da regra | Criar |
-| `supabase/migrations/258_admin_usuarios_gestao.sql` | RPC de listagem e trigger de auditoria | Criar (protegido) |
+| `supabase/migrations/259_admin_usuarios_gestao.sql` | RPC de listagem e trigger de auditoria | Criar (protegido) |
 | `src/integration/adminUsuarios.local-pg.test.ts` | Contratos que só o banco prova | Criar |
 | `supabase/functions/admin-users/index.ts` | Criação, credenciais e desativação | Criar |
 | `src/services/adminUsers.ts` | Fronteira de dados da tela | Modificar |
@@ -129,7 +129,7 @@ git commit -m "feat: extrair regra de senha para modulo compartilhado"
 **Requer autorização:** `supabase/migrations/*` é protegido pelo hook. Peça ao usuário e só então rode com `CLAUDE_ALLOW_PROTECTED=1`.
 
 **Files:**
-- Create: `supabase/migrations/258_admin_usuarios_gestao.sql`
+- Create: `supabase/migrations/259_admin_usuarios_gestao.sql`
 - Test: `src/integration/adminUsuarios.local-pg.test.ts`
 
 - [ ] **Step 1: Escrever a migration**
@@ -313,7 +313,7 @@ Expected: PASS com os testes marcados como *skipped* (`LOCAL_PG_INTEGRATION` nã
 
 Run:
 ```bash
-psql -X -v ON_ERROR_STOP=1 -d "$LOCAL_DATABASE_URL" -f supabase/migrations/258_admin_usuarios_gestao.sql
+psql -X -v ON_ERROR_STOP=1 -d "$LOCAL_DATABASE_URL" -f supabase/migrations/259_admin_usuarios_gestao.sql
 LOCAL_PG_INTEGRATION=1 npx vitest run src/integration/adminUsuarios.local-pg.test.ts
 ```
 Expected: 4 testes PASS. Se o ambiente local de Postgres não estiver disponível, pare e registre isso no relato final — não marque o passo como feito.
@@ -321,7 +321,7 @@ Expected: 4 testes PASS. Se o ambiente local de Postgres não estiver disponíve
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/258_admin_usuarios_gestao.sql src/integration/adminUsuarios.local-pg.test.ts
+git add supabase/migrations/259_admin_usuarios_gestao.sql src/integration/adminUsuarios.local-pg.test.ts
 git commit -m "feat(db): listagem administrativa de usuarios e auditoria de perfil"
 ```
 
@@ -1405,7 +1405,7 @@ A linha da rota hoje é `| `/admin/usuarios` | Administração de usuários |`. 
 
 Três linhas:
 - Linha da rota `/admin/usuarios` (87): acrescente às ações "criar usuário, editar credenciais e desativar encerrando sessão"; nos serviços, `adminUsers.ts` + Edge Function `admin-users` + RPC `admin_list_users`.
-- Linha de `user_profiles` (234): as operações passam de `SELECT`, `UPDATE` para `SELECT`, `INSERT`, `UPDATE`; acrescente a RPC `admin_list_users` e o trigger `trg_audit_user_profile_changes` da migration `258`.
+- Linha de `user_profiles` (234): as operações passam de `SELECT`, `UPDATE` para `SELECT`, `INSERT`, `UPDATE`; acrescente a RPC `admin_list_users` e o trigger `trg_audit_user_profile_changes` da migration `259`.
 - Linha de `audit_logs` (203): acrescente `supabase/functions/admin-users/index.ts` à lista de escritores.
 
 - [ ] **Step 3: Escrever a ADR 0037**
