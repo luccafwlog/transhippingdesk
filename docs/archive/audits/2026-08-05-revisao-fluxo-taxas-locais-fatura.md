@@ -37,6 +37,12 @@ Tudo isso é uma única cadeia, sem parada intermediária. O número
 (`INV-2026-0001`, sequencial por ano) é atribuído pelo banco no exato momento em
 que a fatura é criada — não existe fatura sem número, nem número reservado antes.
 
+Ressalva importante: "publicada" significa que a fatura fica **disponível** no
+Portal. Se o cliente ainda não tem acesso ao Portal ativo, ela é emitida e
+numerada do mesmo jeito — ele simplesmente não consegue vê-la, porque não tem
+como entrar. Isso é decisão deliberada do sistema (ver seção 5); o caso gera um
+**alerta crítico interno**, não um bloqueio.
+
 **3. Existe validação manual do cálculo antes de o cliente ver?**
 **Não no caminho normal.** Existe um botão "Marcar revisado" na ficha do B/L,
 mas ele **não é obrigatório**: o sistema promove o B/L automaticamente assim que
@@ -124,8 +130,9 @@ operador pode agir sobre elas.
 
 ### `/revisao` — Revisão operacional
 Fila de B/Ls que não podem avançar. Mostra o que falta em cada um (cliente não
-vinculado, cliente sem e-mail cadastrado, acesso ao Portal não provisionado,
-peso de carga solta ausente). O operador corrige ali mesmo, com edição em linha
+vinculado, cliente sem e-mail cadastrado, peso de carga solta ausente — o
+acesso ao Portal **não** entra nessa lista, ver seção 5). O operador corrige ali
+mesmo, com edição em linha
 e ação em grupo por cliente. **Ao zerar a última pendência, o sistema calcula e
 emite a fatura automaticamente** e avisa por mensagem: *"…e fatura emitida
 automaticamente."*
@@ -190,15 +197,32 @@ Antes de deixar um B/L virar fatura, o banco verifica, em bloco:
 
 1. Cliente vinculado e conciliado por documento;
 2. Cliente com e-mail cadastrado;
-3. Cliente com acesso ao Portal provisionado e ativo;
-4. Peso informado, no caso de carga solta;
-5. Nenhuma linha de taxa marcada como "revisão obrigatória";
-6. Nenhuma linha em **USD** (moeda estrangeira trava a emissão de propósito);
-7. Pelo menos uma linha em BRL com valor positivo;
-8. Existência de tabela de taxas vigente para aquele POD/modo/data.
+3. Peso informado, no caso de carga solta;
+4. Nenhuma linha de taxa marcada como "revisão obrigatória";
+5. Nenhuma linha em **USD** (moeda estrangeira trava a emissão de propósito);
+6. Pelo menos uma linha em BRL com valor positivo;
+7. Existência de tabela de taxas vigente para aquele POD/modo/data.
 
 Se qualquer item falhar, o B/L **não é faturado** e fica na fila com o motivo
 escrito. Isso é uma barreira real e funciona.
+
+### O acesso ao Portal **não** é condição para faturar
+
+Vale destacar porque é contraintuitivo: **ter acesso ao Portal ativo já foi
+condição de faturamento e deixou de ser**, por decisão explícita ("Desacoplamento
+financeiro do Portal"). Hoje o B/L de um cliente sem Portal provisionado é
+calculado, faturado e numerado normalmente.
+
+O que acontece no lugar do bloqueio: no momento em que a fatura passa a
+"Emitida", o sistema abre um **alerta crítico interno** — *"Fatura emitida sem
+Email de Recuperação ou Portal ativo. Provisionar acesso do Cliente."* — que
+aparece em `/alertas` e no Console e entra no resumo diário. O alerta fecha
+sozinho quando aquela fatura deixa de estar aberta (paga, cancelada ou
+substituída), sem resolver a pendência geral do cliente sem Portal.
+
+**Consequência prática:** segurar o provisionamento do Portal **não** impede que
+a fatura saia. Ela sai, ganha número e fica esperando um cliente que ainda não
+consegue entrar para vê-la.
 
 ### O que o sistema **não** confere
 
@@ -218,7 +242,7 @@ alguém a olhar:
 |---|---|
 | Não existe tabela de taxas vigente para o POD/modo naquela data | Linha "Revisão manual obrigatória"; B/L travado |
 | Container com perfil ambíguo (IMO + OOG na mesma taxa) | Linha em revisão obrigatória; B/L travado |
-| Cliente não vinculado, sem e-mail ou sem Portal | B/L na fila de `/revisao` com o motivo |
+| Cliente não vinculado ou sem e-mail cadastrado | B/L na fila de `/revisao` com o motivo |
 | Alguma linha em USD | Emissão bloqueada — "Ajuste manualmente antes de faturar" |
 | B/L de veículo / LCL | Marcado como **isento**, com o motivo "taxas pagas na origem" |
 
@@ -281,7 +305,7 @@ cálculo, revisão, emissão e pagamento.
 
 ## 7. Pontos de atenção
 
-Cinco observações que valem uma decisão de gestão. As três primeiras são de
+Seis observações que valem uma decisão de gestão. As quatro primeiras são de
 processo; as duas últimas são achados técnicos que a revisão encontrou de
 passagem.
 
@@ -292,17 +316,25 @@ que hoje não é usado (a fatura em rascunho existe no banco, mas nenhuma tela a
 utiliza). É uma mudança pequena em conceito e relevante em impacto: passaria a
 haver uma fila de "faturas a liberar".
 
-**B. A janela de correção fecha no primeiro pagamento.** Enquanto não há
+**B. Faturar não espera o cliente ter acesso ao Portal.** O sistema emite,
+numera e disponibiliza a fatura mesmo quando o cliente não tem conta ativa — e
+sinaliza isso por alerta crítico, não por bloqueio. Se a expectativa da operação
+é "só fatura quem consegue ver a fatura", isso hoje depende de a equipe tratar o
+alerta, não do sistema barrar. É uma decisão já tomada e documentada
+(desacoplamento financeiro do Portal), então o ponto aqui é de rotina, não de
+correção.
+
+**C. A janela de correção fecha no primeiro pagamento.** Enquanto não há
 pagamento, corrigir é simples (cancelar e reemitir). Depois do pagamento, o
 caminho passa obrigatoriamente pelo estorno — mais burocrático e com mais
 rastro. Vale a operação saber que a folga está entre a emissão e o pagamento.
 
-**C. Alterar a tabela de taxas não recalcula o que já foi calculado.** Se um
+**D. Alterar a tabela de taxas não recalcula o que já foi calculado.** Se um
 valor da tabela estava errado, corrigir a tabela conserta o futuro, não o
 passado. Os B/Ls já calculados (e as faturas já emitidas) precisam ser tratados
 um a um.
 
-**D. Acrescentar "Other Charge" a uma fatura já emitida deixa o Portal
+**E. Acrescentar "Other Charge" a uma fatura já emitida deixa o Portal
 inconsistente.** Ao adicionar um item manual a uma fatura individual já
 emitida, o sistema soma o valor ao **total** da fatura, mas não atualiza o
 **saldo em aberto** — que é calculado por outro caminho (o razão de recebíveis).
@@ -311,7 +343,7 @@ prática: para acrescentar cobrança a uma fatura já emitida, **cancelar e
 reemitir** em vez de usar "Other Charge". *(Achado de leitura de código, não
 verificado em ambiente rodando.)*
 
-**E. A emissão automática exige perfil Administrativo.** A rotina que fatura
+**F. A emissão automática exige perfil Administrativo.** A rotina que fatura
 sozinha após o CE Mercante roda com as credenciais de quem salvou o CE, e a
 função de banco que emite exige perfil Administrativo. Como hoje existe **um
 único usuário interno, e ele é Administrativo**, não há impacto. Mas quando a
@@ -332,7 +364,9 @@ Para quem quiser conferir tecnicamente.
 | Cadeia automática cálculo → emissão | `src/services/reviewBillingAutomation.ts` |
 | Motor de cálculo, isenção, pendências | `supabase/migrations/151_guard_definer_rpcs_active_user.sql` |
 | Promoção automática sem revisão humana | `supabase/migrations/129_review_gate_hardening.sql` (`promote_calculated_bl_ready_for_billing`) |
-| Gate de oito condições antes de faturar | `supabase/migrations/129_review_gate_hardening.sql` (`compute_bl_review_pendencies`, `mark_bl_ready_for_billing`) |
+| Gate de sete condições antes de faturar | `supabase/migrations/129_review_gate_hardening.sql` (`mark_bl_ready_for_billing`) + `supabase/migrations/188_review_gate_remove_portal.sql`, que é a **definição vigente** de `compute_bl_review_pendencies` |
+| Portal deixou de ser condição de faturamento | `supabase/migrations/188_review_gate_remove_portal.sql`; `CONTEXT.md`, "Desacoplamento financeiro do Portal" |
+| Alerta crítico da fatura sem Portal ativo | `supabase/migrations/189_portal_invoice_critical_exception.sql` |
 | Emissão + numeração no mesmo instante | `supabase/migrations/025_billing_orchestration_portal.sql`, `supabase/migrations/003_functions.sql` (`assign_invoice_number`) |
 | Emissão sempre imediata (nunca rascunho) | `src/services/billing.ts`, `src/components/billing/ValidacaoTab.tsx` |
 | Visibilidade no Portal e portão do CE | `supabase/migrations/123_portal_ce_mercante_gate.sql` |
