@@ -164,7 +164,7 @@ it('assina o departamento apenas quando habilitado e chama a RPC com o payload c
   useAgencyReportOwnMock.mockReturnValue({
     data: {
       terminal: 'TVV',
-      signoffs: ['veiculos', 'vazios_embarcados'].map((section) => ({ id: section, section, state: 'confirmed' })),
+      signoffs: ['veiculos', 'carga_carregada', 'vazios_embarcados'].map((section) => ({ id: section, section, state: 'confirmed' })),
       departmentSignoffs: [],
       occurrences: [],
     },
