@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { filterVoyageRailItems } from '../viagensFilters'
 import type { VoyageRailItem } from '../../services/voyageSummaries'
 
+const noModules = { container: false, cargaSolta: false, veiculos: false, vazios: false, granito: false }
+
 const items: VoyageRailItem[] = [
   {
     id: 1,
@@ -10,11 +12,11 @@ const items: VoyageRailItem[] = [
     carrierName: 'Hapag-Lloyd',
     originPorts: ['Shanghai'],
     destinationPorts: ['Santos'],
-    blCount: 12,
-    containerCount: 40,
     status: 'active',
     estado: 'conciliado',
     proximaEscala: { pod: 'Santos', eta: '2026-06-20', etb: null },
+    escalasBrasileiras: [{ port: 'Santos', eta: '2026-06-20' }],
+    modules: noModules,
   },
   {
     id: 2,
@@ -23,11 +25,11 @@ const items: VoyageRailItem[] = [
     carrierName: 'CMA CGM',
     originPorts: ['Rotterdam'],
     destinationPorts: ['Santos'],
-    blCount: 8,
-    containerCount: 42,
     status: 'active',
     estado: 'incompleto',
     proximaEscala: { pod: 'Santos', eta: '2026-06-18', etb: null },
+    escalasBrasileiras: [{ port: 'Santos', eta: '2026-06-18' }],
+    modules: noModules,
   },
 ]
 
