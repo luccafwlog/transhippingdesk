@@ -396,8 +396,8 @@ describe('buildVoyageRailItems', () => {
     expect(item.destinationPorts).toContain('BRSSA')
     expect(item.destinationPorts).toContain('BRVIX')
     expect(item.escalasBrasileiras).toEqual([
-      { port: 'BRVIX', eta: '2026-06-09', modules: {} },
-      { port: 'BRSSA', eta: '2026-06-12', modules: {} },
+      { port: 'BRVIX', eta: '2026-06-09' },
+      { port: 'BRSSA', eta: '2026-06-12' },
     ])
     expect(item.modules.container).toBe(true)
     expect(item.modules.cargaSolta).toBe(false)
@@ -435,9 +435,7 @@ describe('buildVoyageRailItems', () => {
     expect(item.originPorts).toEqual(['BRVIX'])
     expect(item.destinationPorts).toEqual(['BRVIX'])
     expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-01', etb: '2026-06-02' })
-    expect(item.escalasBrasileiras).toEqual([
-      { port: 'BRVIX', eta: '2026-06-01', modules: { vaziosExp: false, granito: false } },
-    ])
+    expect(item.escalasBrasileiras).toEqual([{ port: 'BRVIX', eta: '2026-06-01' }])
   })
 
   it('marca módulos de veículos, vazios de importação e granito a partir das stats por viagem', () => {
