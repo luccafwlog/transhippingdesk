@@ -60,3 +60,24 @@ describe('timeline operacional de transbordo', () => {
     expect(events.some((event) => event.kind === 'ce-coverage')).toBe(false)
   })
 })
+
+describe('fallback de importação de B/L', () => {
+  it('exibe contagem e rota do lote quando os B/Ls ainda não estão carregados no detalhe', () => {
+    const events = buildVoyageTimeline({
+      importBatches: [{
+        id: 11,
+        filename: 'bl.xlsx',
+        cargo_mode: 'container',
+        uploaded_at: '2026-07-16T10:00:00Z',
+        total_bls: 7,
+        route: 'BRSSZ → BRVIX',
+      }],
+    })
+
+    const event = events.find((item) => item.kind === 'import')
+    expect(event?.title).toContain('7 B/Ls importados')
+    expect(event?.title).toContain('BRSSZ')
+    expect(event?.title).toContain('BRVIX')
+    expect(event?.detail).toContain('CNTR')
+  })
+})

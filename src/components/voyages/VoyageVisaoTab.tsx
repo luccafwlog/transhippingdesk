@@ -385,8 +385,6 @@ function EscalaOperationMarkers({ row }: { row: VoyageEscalaSchedule }) {
     row.temExportacao ? <Badge key="exportacao" tone="yellow">Exportação</Badge> : null,
     // ponytail: coluna "Opera" mostra só a natureza da operação (imp/exp);
     // granito é modalidade de carga da exportação, não uma operação à parte.
-    row.containersQty !== null ? <span key="containers" className="text-xs font-semibold text-[var(--app-muted)]">{row.containersQty} CNTRS</span> : null,
-    row.movementsQty !== null ? <span key="movements" className="text-xs font-semibold text-[var(--app-muted)]">{row.movementsQty} MOVES</span> : null,
   ].filter(Boolean)
 
   if (!markers.length) return <span className="text-[var(--app-muted-soft)]">-</span>

@@ -110,8 +110,8 @@ it('renderiza uma escala mista em uma linha com marcadores de importação e exp
   expect(within(table).getByText('Exportação')).toBeTruthy()
   // "Opera" diz sentido, não modalidade: granito não é uma terceira operação.
   expect(within(table).queryByText('Granito')).toBeNull()
-  expect(within(table).getByText('12 CNTRS')).toBeTruthy()
-  expect(within(table).getByText('14 MOVES')).toBeTruthy()
+  expect(within(table).queryByText('12 CNTRS')).toBeNull()
+  expect(within(table).queryByText('14 MOVES')).toBeNull()
 })
 
 it('exibe divergencia com os valores POD e POL na linha da escala', () => {

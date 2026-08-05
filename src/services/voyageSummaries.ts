@@ -364,7 +364,7 @@ export type VoyageRailItem = {
   estado: EstadoConciliacao
   proximaEscala: { pod: string; eta: string; etb: string | null } | null
   /** Escalas brasileiras (não omitidas) com seus ETAs, ordenadas por ETA ascendente. */
-  escalasBrasileiras: Array<{ port: string; eta: string | null }>
+  escalasBrasileiras: Array<{ port: string; eta: string | null; modules?: Partial<VoyageRailItem['modules']> }>
   /** Presença de cada tipo de carga/módulo na viagem, para os selos do card do rail. */
   modules: {
     container: boolean
@@ -395,6 +395,9 @@ type EscalaScheduleRow = {
   ata: string | null
   omitted?: boolean
   temExportacao?: boolean
+  hasGranite?: boolean
+  containersQty?: number | null
+  movementsQty?: number | null
 }
 
 /**
@@ -405,6 +408,7 @@ type EscalaScheduleRow = {
 /** Presença de módulos por viagem, calculada fora do payload de B/Ls (veículos, vazios de importação e granito vêm de consultas próprias). */
 export type VoyageRailModuleStats = {
   hasVehicles?: boolean
+  vehicleContainerNumbers?: string[]
   hasVaziosImportacao?: boolean
   hasGranite?: boolean
   hasVaziosExportacao?: boolean
@@ -413,21 +417,29 @@ export type VoyageRailModuleStats = {
 /** Escalas brasileiras (não omitidas) por porto, com o menor ETA quando o porto aparece mais de uma vez, ordenadas por ETA ascendente (sem ETA vai ao final). */
 function collectEscalasBrasileiras(
   escalaRows: Array<PodScheduleRow | EscalaScheduleRow>,
-): Array<{ port: string; eta: string | null }> {
-  const etaByPort = new Map<string, string | null>()
+): Array<{ port: string; eta: string | null; modules?: Partial<VoyageRailItem['modules']> }> {
+  const byPort = new Map<string, { eta: string | null; modules: Partial<VoyageRailItem['modules']> }>()
 
   for (const row of escalaRows) {
     if (row.omitted) continue
     const port = getEscalaPort(row)
     if (!port) continue
-    const current = etaByPort.get(port)
-    if (!etaByPort.has(port) || (row.eta && (!current || row.eta < current))) {
-      etaByPort.set(port, row.eta ?? current ?? null)
+    const current = byPort.get(port)
+    const modules = 'temExportacao' in row
+      ? {
+          ...(row.temExportacao && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0) ? { vaziosExp: true } : {}),
+          ...(row.hasGranite ? { granito: true } : {}),
+        }
+      : {}
+    if (!current) byPort.set(port, { eta: row.eta ?? null, modules })
+    else {
+      if (row.eta && (!current.eta || row.eta < current.eta)) current.eta = row.eta
+      current.modules = { ...current.modules, ...modules }
     }
   }
 
-  return Array.from(etaByPort.entries())
-    .map(([port, eta]) => ({ port, eta }))
+  return Array.from(byPort.entries())
+    .map(([port, value]) => ({ port, eta: value.eta, modules: value.modules }))
     .sort((left, right) => (left.eta ?? '￿').localeCompare(right.eta ?? '￿'))
 }
 
@@ -462,7 +474,18 @@ export function buildVoyageRailItems(
         ceTotal: total,
       }),
       proximaEscala: getProximaEscala(escalaRows),
-      escalasBrasileiras: collectEscalasBrasileiras(escalaRows),
+      escalasBrasileiras: collectEscalasBrasileiras(escalaRows).map((escala) => {
+        const vehicleContainers = new Set((moduleStats?.vehicleContainerNumbers ?? []).map((number) => String(number).trim().toUpperCase()))
+        const hasVehiclesAtPort = containerBls
+          .filter((bl) => canonicalPort(bl.pod) === canonicalPort(escala.port))
+          .flatMap((bl) => bl.bl_containers ?? [])
+          .some((container) => vehicleContainers.has(String(container.container_number ?? '').trim().toUpperCase()))
+        const modules: Partial<VoyageRailItem['modules']> = { ...(escala.modules ?? {}) }
+        if (moduleStats?.hasVehicles) modules.veiculos = hasVehiclesAtPort
+        if (moduleStats?.hasVaziosExportacao) modules.vaziosExp = Boolean(modules.vaziosExp)
+        if (moduleStats?.hasGranite) modules.granito = Boolean(modules.granito)
+        return Object.keys(modules).length ? { ...escala, modules } : { port: escala.port, eta: escala.eta }
+      }),
       modules: {
         container: containerBls.length > 0,
         cargaSolta: breakbulkBls.length > 0,
@@ -522,6 +545,7 @@ type TimelineImportBatch = {
   uploaded_at: string | null
   route?: string | null
   routes?: Array<{ pol: string; pod: string; blCount: number }>
+  total_bls?: number | null
   ce_master?: string | null
 }
 type TimelineBaplieImport = {
@@ -588,7 +612,7 @@ export function buildVoyageTimeline({
   ceCoverage,
   actorNames,
 }: {
-  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; ce_master?: string | null }> | null
+  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; total_bls?: number | null; ce_master?: string | null }> | null
   scheduleEvents?: TimelineAuditEvent[] | null
   auditEvents?: TimelineAuditEvent[] | null
   resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
@@ -658,12 +682,15 @@ function buildImportTimeline(importBatches: TimelineImportBatch[] | null | undef
         })
       }
     } else {
+      const count = Number(batch.total_bls ?? 0)
+      const route = String(batch.route ?? '').trim()
+      const countLabel = count > 0 ? `${formatMetric(count)} B/L${count === 1 ? '' : 's'} importado${count === 1 ? '' : 's'}` : 'Manifesto importado'
       events.push({
         id: `import-${batch.id}`,
         kind: 'import',
         at: batch.uploaded_at,
-        title: 'Manifesto importado',
-        detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${batch.route ?? stripFileExtension(batch.filename)}`,
+        title: route ? `${countLabel} · ${route}` : countLabel,
+        detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${route || stripFileExtension(batch.filename)}`,
       })
     }
   }

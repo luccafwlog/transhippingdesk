@@ -1,18 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
-import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, PackageCheck, PackageOpen, Pencil } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { ComponentType } from 'react'
+import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import { ESTADO_CONCILIACAO_META } from '../../lib/statusLabels'
 import type { VoyageRailItem } from '../../services/voyageSummaries'
+import { ContainersIcon, VaziosExpIcon, VaziosImpIcon } from '../shared/DomainIcon'
 
 const MODULE_BADGES: Array<{
   key: keyof VoyageRailItem['modules']
   label: string
-  icon: typeof Boxes
+  icon: ComponentType<{ size?: number; className?: string }>
 }> = [
   { key: 'container', label: 'Container', icon: Boxes },
   { key: 'cargaSolta', label: 'Carga solta', icon: FileSpreadsheet },
   { key: 'veiculos', label: 'Veículos', icon: Car },
-  { key: 'vazios', label: 'Vazios IMP', icon: PackageCheck },
+  { key: 'vazios', label: 'Vazios IMP', icon: VaziosImpIcon },
   { key: 'granito', label: 'Granito', icon: Mountain },
 ]
 
@@ -32,7 +34,7 @@ function useHorizontalScroller() {
 
   // O efeito roda a cada render (precisa medir depois do layout); só troca o
   // estado quando as bordas realmente mudam para não entrar em loop.
-  function sync() {
+  const sync = useCallback(() => {
     const el = ref.current
     if (!el) return
     const next = {
@@ -40,7 +42,7 @@ function useHorizontalScroller() {
       right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
     }
     setEdges((prev) => (prev.left === next.left && prev.right === next.right ? prev : next))
-  }
+  }, [])
 
   useEffect(() => {
     sync()
@@ -49,11 +51,11 @@ function useHorizontalScroller() {
     return () => window.removeEventListener('resize', onResize)
   })
 
-  function scrollBy(direction: -1 | 1) {
+  const scrollBy = useCallback((direction: -1 | 1) => {
     const el = ref.current
     if (!el) return
     el.scrollBy({ left: direction * Math.max(280, el.clientWidth * 0.8), behavior: 'smooth' })
-  }
+  }, [])
 
   return { ref, edges, sync, scrollBy }
 }
@@ -92,13 +94,13 @@ function RailPill({ children }: { children: React.ReactNode }) {
 
 function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
   const badges = [
-    modules.container ? { label: 'Container', icon: Boxes } : null,
+    modules.container ? { label: 'Container', icon: ContainersIcon } : null,
     modules.cargaSolta ? { label: 'Carga solta', icon: FileSpreadsheet } : null,
     modules.veiculos ? { label: 'Veículos', icon: Car } : null,
-    modules.vazios ? { label: 'Vazios IMP', icon: PackageCheck } : null,
-    modules.vaziosExp ? { label: 'Vazios EXP', icon: PackageOpen } : null,
+    modules.vazios ? { label: 'Vazios IMP', icon: VaziosImpIcon } : null,
+    modules.vaziosExp ? { label: 'Vazios EXP', icon: VaziosExpIcon } : null,
     modules.granito ? { label: 'Granito', icon: Mountain } : null,
-  ].filter(Boolean) as Array<{ label: string; icon: typeof Boxes }>
+  ].filter(Boolean) as Array<{ label: string; icon: ComponentType<{ size?: number; className?: string }> }>
 
   return badges.length ? (
     <span className="inline-flex items-center gap-1 text-[var(--app-muted)]" aria-label="Operações da escala">
@@ -110,10 +112,17 @@ function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
 export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
   const { ref, edges, sync, scrollBy } = useHorizontalScroller()
 
-  useEffect(() => {
-    if (selectedId !== null || !ref.current) return
-    ref.current.scrollLeft = 0
-    sync()
+  useLayoutEffect(() => {
+    const resetRailPosition = () => {
+      const element = ref.current
+      if (!element) return
+      element.scrollLeft = 0
+      if (typeof element.scrollTo === 'function') element.scrollTo({ left: 0, behavior: 'auto' })
+      sync()
+    }
+    resetRailPosition()
+    const frame = window.requestAnimationFrame(() => resetRailPosition())
+    return () => window.cancelAnimationFrame(frame)
   }, [items, selectedId, ref, sync])
 
   if (items.length === 0) {
@@ -201,7 +210,7 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
                       {escala.port}
                       {escala.eta ? ` · ${formatDate(escala.eta)}` : ''}
                       </RailPill>
-                    <ScaleBadges modules={item.modules} />
+                    <ScaleBadges modules={{ ...item.modules, ...escala.modules }} />
                     </span>
                   ))
                 ) : (
