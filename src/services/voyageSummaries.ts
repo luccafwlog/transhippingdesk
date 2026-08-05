@@ -427,8 +427,8 @@ function collectEscalasBrasileiras(
     const current = byPort.get(port)
     const modules = 'temExportacao' in row
       ? {
-          vaziosExp: Boolean(row.temExportacao && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0)),
-          granito: Boolean(row.hasGranite),
+          ...(row.temExportacao && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0) ? { vaziosExp: true } : {}),
+          ...(row.hasGranite ? { granito: true } : {}),
         }
       : {}
     if (!current) byPort.set(port, { eta: row.eta ?? null, modules })
@@ -481,7 +481,7 @@ export function buildVoyageRailItems(
           .flatMap((bl) => bl.bl_containers ?? [])
           .some((container) => vehicleContainers.has(String(container.container_number ?? '').trim().toUpperCase()))
         const modules: Partial<VoyageRailItem['modules']> = { ...(escala.modules ?? {}) }
-        if (moduleStats?.hasVehicles) modules.vehicles = hasVehiclesAtPort
+        if (moduleStats?.hasVehicles) modules.veiculos = hasVehiclesAtPort
         if (moduleStats?.hasVaziosExportacao) modules.vaziosExp = Boolean(modules.vaziosExp)
         if (moduleStats?.hasGranite) modules.granito = Boolean(modules.granito)
         return Object.keys(modules).length ? { ...escala, modules } : { port: escala.port, eta: escala.eta }
