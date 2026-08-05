@@ -93,6 +93,12 @@ function RailPill({ children }: { children: React.ReactNode }) {
 export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
   const { ref, edges, sync, scrollBy } = useHorizontalScroller()
 
+  useEffect(() => {
+    if (selectedId !== null || !ref.current) return
+    ref.current.scrollLeft = 0
+    sync()
+  }, [items, selectedId, ref, sync])
+
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-5 text-sm text-[var(--app-muted)]">
@@ -128,10 +134,10 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
               type="button"
               onClick={() => onSelect(item.id)}
               aria-current={isSelected}
-              className={`group relative w-[268px] flex-none snap-start rounded-2xl border border-t-[3px] px-3 py-3 text-left transition-colors ${
+              className={`group relative w-[268px] flex-none snap-start rounded-2xl border px-3 py-3 text-left transition-colors ${
                 isSelected
-                  ? 'border-[var(--app-blue-btn)] border-t-[var(--app-blue-btn)] bg-[var(--app-bg-elevated)]'
-                  : 'border-[var(--app-border)] border-t-transparent bg-[var(--app-surface)] hover:bg-[var(--app-surface-muted)]'
+                  ? 'border-[var(--app-blue-btn)] bg-[var(--app-bg-elevated)]'
+                  : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-muted)]'
               }`}
             >
               {onEdit ? (
