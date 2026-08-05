@@ -79,23 +79,61 @@ describe('fronteira do Portal sobre o role authenticated (migration 257)', () =>
     expect(policies).not.toMatch(/USING \(true\)/)
   })
 
-  it('nao deixa nenhuma policy de SELECT com USING (true) no schema', () => {
+  // Reconstroi o estado vivo de cada policy (table+nome) seguindo a ordem
+  // numerica real das migrations, nao apenas "existe um DROP em algum lugar".
+  // Um DROP + CREATE do MESMO nome dentro de uma unica migration futura (ex.:
+  // reabrir 258 com USING (true) sobre "vessel_schedules_select_internal")
+  // passaria pela checagem antiga baseada em texto solto; esta falha porque
+  // recalcula o estado final por tabela+nome na ordem de aplicacao.
+  //
+  // ponytail: parser por regex, nao um parser SQL real — assume que nenhum
+  // corpo de CREATE/ALTER POLICY deste schema tem ';' embutido (verdade hoje
+  // em todas as ~160 policies). Upgrade: node-sql-parser se isso mudar.
+  it('nenhuma policy viva no schema concede SELECT (ou ALL) com USING (true) / sem USING', () => {
     const dir = path.resolve(process.cwd(), 'supabase/migrations')
-    const all = fs.readdirSync(dir)
-      .filter((file) => file.endsWith('.sql'))
-      .map((file) => fs.readFileSync(path.join(dir, file), 'utf8'))
-      .join('\n')
+    const files = fs.readdirSync(dir).filter((file) => file.endsWith('.sql')).sort()
 
-    // As duas unicas policies FOR SELECT ... USING (true) que existiram sao as
-    // fechadas aqui; ambas precisam ter um DROP posterior na historia.
-    const abertas = all.match(/CREATE POLICY "([^"]+)"[^;]*?FOR SELECT[^;]*?USING \(true\)/gis) ?? []
-    for (const criacao of abertas) {
-      const nome = /CREATE POLICY "([^"]+)"/i.exec(criacao)?.[1]
-      expect(nome, `policy ${nome} nasce aberta e precisa de DROP`).toBeTruthy()
-      expect(all, `policy ${nome} continua aberta a qualquer autenticado`).toMatch(
-        new RegExp(`DROP POLICY[^;]*"${nome}"`, 'i'),
-      )
+    const policyName = '(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*))'
+    const createRe = new RegExp(`CREATE POLICY\\s+${policyName}\\s+ON\\s+(?:public\\.)?([A-Za-z_][A-Za-z0-9_]*)([\\s\\S]*?);`, 'gi')
+    const dropRe = new RegExp(`DROP POLICY(?:\\s+IF EXISTS)?\\s+${policyName}\\s+ON\\s+(?:public\\.)?([A-Za-z_][A-Za-z0-9_]*)`, 'gi')
+    const alterRe = new RegExp(`ALTER POLICY\\s+${policyName}\\s+ON\\s+(?:public\\.)?([A-Za-z_][A-Za-z0-9_]*)([\\s\\S]*?);`, 'gi')
+
+    type PolicyState = { command: string; hasUsingTrue: boolean; hasNoUsing: boolean; definedIn: string }
+    const live = new Map<string, PolicyState>()
+
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(dir, file), 'utf8')
+      const ops: { index: number; kind: 'create' | 'drop' | 'alter'; name: string; table: string; body: string }[] = []
+
+      for (const re of [createRe, dropRe, alterRe]) re.lastIndex = 0
+      let m: RegExpExecArray | null
+      while ((m = createRe.exec(sql))) ops.push({ index: m.index, kind: 'create', name: (m[1] ?? m[2])!, table: m[3]!, body: m[4]! })
+      while ((m = dropRe.exec(sql))) ops.push({ index: m.index, kind: 'drop', name: (m[1] ?? m[2])!, table: m[3]!, body: '' })
+      while ((m = alterRe.exec(sql))) ops.push({ index: m.index, kind: 'alter', name: (m[1] ?? m[2])!, table: m[3]!, body: m[4]! })
+      ops.sort((a, b) => a.index - b.index)
+
+      for (const op of ops) {
+        const key = `${op.table}::${op.name}`
+        if (op.kind === 'drop') {
+          live.delete(key)
+          continue
+        }
+        const forMatch = /FOR\s+(SELECT|INSERT|UPDATE|DELETE|ALL)/i.exec(op.body)
+        const command = op.kind === 'create' ? (forMatch ? forMatch[1]!.toUpperCase() : 'ALL') : (live.get(key)?.command ?? 'ALL')
+        const hasUsingTrue = /USING\s*\(\s*true\s*\)/i.test(op.body)
+        const hasNoUsing = op.kind === 'create' ? !/USING\s*\(/i.test(op.body) : (live.get(key)?.hasNoUsing ?? false)
+        live.set(key, { command, hasUsingTrue, hasNoUsing, definedIn: file })
+      }
     }
+
+    const leaking = [...live.entries()].filter(
+      ([, state]) => (state.command === 'SELECT' || state.command === 'ALL') && (state.hasUsingTrue || state.hasNoUsing),
+    )
+
+    expect(
+      leaking,
+      `policies vivas com leitura permissiva: ${leaking.map(([key, s]) => `${key} (${s.definedIn})`).join(', ')}`,
+    ).toEqual([])
   })
 
   it('remove o caminho morto de leitura de vessel_schedules pela sessao do Portal', () => {

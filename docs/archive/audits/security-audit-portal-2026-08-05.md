@@ -99,7 +99,9 @@ correspondente ao `billing_run` semeado. **Runtime**
 
 **Correção:** guarda `WHERE public.is_active_read_user()` no corpo (mesmo padrão
 já usado por `bl_timeline`), preservando o uso interno, mais `REVOKE` de
-`PUBLIC` e `anon`.
+`PUBLIC` e `anon`. Nota: por ser guarda no `WHERE` e não no grant, uma sessão
+interna mal configurada (usuário sem linha ativa em `user_profiles`) recebe
+conjunto vazio, não `42501` — comportamento aceito, igual ao de `bl_timeline`.
 
 ### 3.2 🔴 ALTO — `mark_overdue_invoices` permite escrita global não autorizada
 
