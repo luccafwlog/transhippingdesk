@@ -14,21 +14,24 @@ function IconFrame({ size = 18, children, ...props }: DomainIconProps & { childr
 
 export const ContainersIcon: ComponentType<DomainIconProps> = ({ size = 18, ...props }) => (
   <IconFrame size={size} {...props}>
-    <path d="m3.5 7 8.5-4 8.5 4v10l-8.5 4-8.5-4V7Z" />
-    <path d="m3.5 7 8.5 4 8.5-4M12 11v10M7 5.5v9M17 5.5v9" />
-    <path d="M8 16.5h2M14 16.5h2" />
+    <path d="m3 7 8.5-4L21 7v8.5L12 20l-9-4.5V7Z" />
+    <path d="m3 7 9 4.5L21 7M12 11.5V20M6.5 5.3v9.6M17.5 5.3v9.6" />
+    <path d="m7.2 15.2 2.1-1.1 2.1 1.1-2.1 1.1-2.1-1.1ZM13 15.2l2.1-1.1 2.1 1.1-2.1 1.1-2.1-1.1Z" />
   </IconFrame>
 )
 
-function FlatRackIcon({ size = 18, ...props }: DomainIconProps) {
-  return (
-    <IconFrame size={size} {...props}>
-      <path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5v-9Z" />
-      <path d="M4 7.5 12 11l8-3.5M12 11v9M7 6.2v9.5M17 6.2v9.5" />
-      <path d="M8.5 15.5h7" />
-    </IconFrame>
-  )
-}
+export const VaziosImpIcon: ComponentType<DomainIconProps> = ({ size = 18, ...props }) => (
+  <IconFrame size={size} {...props}>
+    <path d="M3.5 17.5h17M5 17.5V7l2-1.5h2v12M19 17.5V7l-2-1.5h-2v12" />
+    <path d="M5 7h14M7 10h10M7 13h10M7 16h10" />
+    <path d="M3.5 17.5 5 20h14l1.5-2.5" />
+  </IconFrame>
+)
 
-export const VaziosImpIcon: ComponentType<DomainIconProps> = FlatRackIcon
-export const VaziosExpIcon: ComponentType<DomainIconProps> = FlatRackIcon
+export const VaziosExpIcon: ComponentType<DomainIconProps> = ({ size = 18, ...props }) => (
+  <IconFrame size={size} {...props}>
+    <path d="M4 5.5h16v13H4z" />
+    <path d="M7 5.5v13M10 5.5v13M13 5.5v13M16 5.5v13M4 8.5h16M4 15.5h16" />
+    <path d="M2.5 5.5h1.5M20 5.5h1.5M2.5 18.5h1.5M20 18.5h1.5" />
+  </IconFrame>
+)
