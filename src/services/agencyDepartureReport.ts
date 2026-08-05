@@ -42,7 +42,7 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
 }
 
 // Labels pt-BR das seções e departamentos do ADR — espelham as funções SQL
-// agency_report_section_label/agency_report_department_label (migration 253).
+// agency_report_section_label/agency_report_department_label (migration 258).
 export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> = {
   datas: 'Escala',
   carga_descarregada: 'Carga descarregada',
