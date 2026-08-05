@@ -210,7 +210,7 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
                       {escala.port}
                       {escala.eta ? ` · ${formatDate(escala.eta)}` : ''}
                       </RailPill>
-                    <ScaleBadges modules={item.modules} />
+                    <ScaleBadges modules={{ ...item.modules, ...escala.modules }} />
                     </span>
                   ))
                 ) : (

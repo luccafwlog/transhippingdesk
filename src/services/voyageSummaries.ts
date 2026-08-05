@@ -364,7 +364,7 @@ export type VoyageRailItem = {
   estado: EstadoConciliacao
   proximaEscala: { pod: string; eta: string; etb: string | null } | null
   /** Escalas brasileiras (não omitidas) com seus ETAs, ordenadas por ETA ascendente. */
-  escalasBrasileiras: Array<{ port: string; eta: string | null }>
+  escalasBrasileiras: Array<{ port: string; eta: string | null; modules?: Partial<VoyageRailItem['modules']> }>
   /** Presença de cada tipo de carga/módulo na viagem, para os selos do card do rail. */
   modules: {
     container: boolean
@@ -395,6 +395,9 @@ type EscalaScheduleRow = {
   ata: string | null
   omitted?: boolean
   temExportacao?: boolean
+  hasGranite?: boolean
+  containersQty?: number | null
+  movementsQty?: number | null
 }
 
 /**
@@ -413,21 +416,29 @@ export type VoyageRailModuleStats = {
 /** Escalas brasileiras (não omitidas) por porto, com o menor ETA quando o porto aparece mais de uma vez, ordenadas por ETA ascendente (sem ETA vai ao final). */
 function collectEscalasBrasileiras(
   escalaRows: Array<PodScheduleRow | EscalaScheduleRow>,
-): Array<{ port: string; eta: string | null }> {
-  const etaByPort = new Map<string, string | null>()
+): Array<{ port: string; eta: string | null; modules?: Partial<VoyageRailItem['modules']> }> {
+  const byPort = new Map<string, { eta: string | null; modules: Partial<VoyageRailItem['modules']> }>()
 
   for (const row of escalaRows) {
     if (row.omitted) continue
     const port = getEscalaPort(row)
     if (!port) continue
-    const current = etaByPort.get(port)
-    if (!etaByPort.has(port) || (row.eta && (!current || row.eta < current))) {
-      etaByPort.set(port, row.eta ?? current ?? null)
+    const current = byPort.get(port)
+    const modules = 'temExportacao' in row
+      ? {
+          vaziosExp: Boolean(row.temExportacao && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0)),
+          granito: Boolean(row.hasGranite),
+        }
+      : {}
+    if (!current) byPort.set(port, { eta: row.eta ?? null, modules })
+    else {
+      if (row.eta && (!current.eta || row.eta < current.eta)) current.eta = row.eta
+      current.modules = { ...current.modules, ...modules }
     }
   }
 
-  return Array.from(etaByPort.entries())
-    .map(([port, eta]) => ({ port, eta }))
+  return Array.from(byPort.entries())
+    .map(([port, value]) => ({ port, eta: value.eta, modules: value.modules }))
     .sort((left, right) => (left.eta ?? '￿').localeCompare(right.eta ?? '￿'))
 }
 
