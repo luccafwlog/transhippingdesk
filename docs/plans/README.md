@@ -15,7 +15,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 | Plano | Tema | Status |
 |---|---|---|
-| [`2026-08-05-admin-usuarios-criacao.md`](./2026-08-05-admin-usuarios-criacao.md) | Criação e gestão de usuários internos em `/admin/usuarios` | TODO |
+| [`2026-08-05-admin-usuarios-criacao.md`](./2026-08-05-admin-usuarios-criacao.md) | Criação e gestão de usuários internos em `/admin/usuarios` | IN PROGRESS — tarefas 1-11 implementadas e testadas; falta validação em ambiente real e deploy (migration `258` → Edge Function `admin-users` → frontend) |
 | [`2026-08-05-vehicles-desova.md`](./2026-08-05-vehicles-desova.md) | Veículos: local de desova e consolidação no ADR | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
