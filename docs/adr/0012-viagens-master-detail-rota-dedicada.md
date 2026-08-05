@@ -29,3 +29,14 @@ A lista-de-cards inline deixa de ser o paradigma desta página.
 
 - **Positivas**: foco numa viagem por vez sem scroll gigante; endereço estável e compartilhável por viagem; espaço para o conteúdo crescer (abas) sem inflar a lista; navegação rápida pelo rail.
 - **Negativas / custos**: perde-se a varredura de várias viagens lado a lado (mitigado pelo rail com sinais de status); foge do padrão lista-de-cards usado em outras telas, criando uma exceção visual a ser justificada; exige tratar estados de rota inválida (`/viagens/:id` inexistente) e a responsividade do par rail+detalhe (desktop-first; em telas estreitas o rail vira lista de tela cheia e o detalhe ocupa a viewport).
+
+## Nota editorial — 2026-08-05
+
+O rail deixou de ser uma coluna lateral vertical (recolhível, expandindo em overlay
+ao passar o mouse) e virou uma **faixa horizontal com rolagem**, sempre visível
+acima do detalhe, em ambas as larguras de tela. Decisão validada por protótipo
+(três variantes comparadas em [#487](https://github.com/luccafwlog/transhippingdesk/pull/487));
+a faixa de cards venceu por preservar o conteúdo do card do rail sem o custo de
+espaço da coluna lateral. O paradigma master-detail com rota dedicada, descrito
+acima, continua vigente — apenas a orientação do rail mudou. Sem persistência de
+estado de colapso (não existe mais o que colapsar).
