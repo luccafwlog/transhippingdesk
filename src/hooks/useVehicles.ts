@@ -16,6 +16,7 @@ export type VehiclePageFilters = {
   containerType: string
   seal: string
   bl: string
+  unpackingLocation: string
   page: number
   pageSize: number
 }
@@ -66,9 +67,6 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
     queryKey: ['vehicles', voyageId, filters],
     enabled: Boolean(voyageId),
     queryFn: async () => {
-      const rangeFrom = (filters.page - 1) * filters.pageSize
-      const rangeTo = rangeFrom + filters.pageSize - 1
-
       let q = supabase
         .from('vehicles')
         .select(
@@ -81,7 +79,6 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
         )
         .eq('voyage_id', voyageId!)
         .order('created_at', { ascending: false })
-        .range(rangeFrom, rangeTo)
 
       if (filters.search) {
         const term = sanitizeLikeTerm(filters.search)
@@ -106,7 +103,7 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
 
       // PostgREST não aplica ilike em colunas de joins aninhados; esses filtros
       // rodam na página carregada.
-      const { data, error, count } = await q
+      const { data, error } = await q
       if (error) throw error
 
       let rows = (data ?? []) as unknown as VehicleListItemWithUnpackingLocation[]
@@ -119,8 +116,19 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
         const term = filters.bl.toLowerCase()
         rows = rows.filter((r) => (r.bl?.id ?? '').toLowerCase().includes(term))
       }
+      if (filters.unpackingLocation) {
+        const term = filters.unpackingLocation.toLowerCase()
+        rows = rows.filter((r) => (r.container?.unpacking_location ?? '').toLowerCase().includes(term))
+      }
 
-      return { rows, count: count ?? 0 }
+      const allIds = rows.map((row) => row.id)
+      const rangeFrom = (filters.page - 1) * filters.pageSize
+      return {
+        rows: rows.slice(rangeFrom, rangeFrom + filters.pageSize),
+        count: rows.length,
+        allIds,
+        containerIdByVehicleId: Object.fromEntries(rows.map((row) => [row.id, row.container?.id ?? null])),
+      }
     },
   })
 
@@ -199,6 +207,8 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
     data: {
       rows: listQuery.data?.rows ?? [],
       count: listQuery.data?.count ?? 0,
+      filteredIds: listQuery.data?.allIds ?? [],
+      containerIdByVehicleId: listQuery.data?.containerIdByVehicleId ?? {},
       ...stats,
     },
   }

@@ -5,6 +5,7 @@ import {
   buildContainerTypeMatrix,
   groupEmptyEmbarkBookings,
   groupVehiclesByBrand,
+  summarizeVehiclesByContainerTypeAndModel,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
   setDepartmentSignoff,
@@ -24,6 +25,17 @@ vi.mock('../voyageRouteSchedules', () => ({
   buildVoyagePodEntityId: (voyageId: number, port: string) => `${voyageId}::${port}`,
   listVoyagePodSchedules: schedulesMock,
 }))
+
+it('consolida containers distintos por tipo e veiculos distintos por modelo', () => {
+  expect(summarizeVehiclesByContainerTypeAndModel([
+    { chassis: 'V1', model: 'SUV', containerNumber: 'CONT1', containerType: '40HC' },
+    { chassis: 'V2', model: 'SUV', containerNumber: 'CONT1', containerType: '40HC' },
+    { chassis: 'V3', model: 'SEDAN', containerNumber: 'CONT2', containerType: '40HC' },
+  ])).toEqual({
+    containersByType: [{ label: '40HC', count: 2 }],
+    vehiclesByModel: [{ label: 'SUV', count: 2 }, { label: 'SEDAN', count: 1 }],
+  })
+})
 vi.mock('../vaziosExportOperations', () => ({
   computeStorageTotals: vi.fn(() => ({ containers: 0, days: 0 })),
 }))

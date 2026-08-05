@@ -33,6 +33,7 @@ describe('vehicleImport', () => {
         TIPO_CONTAINER: '40FM',
         LACRE: 'SEL123',
         BL: 'BL001',
+        'Local de desova': 'Terminal Rio',
       },
     ])
 
@@ -43,6 +44,7 @@ describe('vehicleImport', () => {
     expect(parsed.rows[0]?.model).toBe('DOLPHIN')
     expect(parsed.rows[0]?.weight_kg).toBeCloseTo(1650.5)
     expect(parsed.rows[0]?.container_number).toBe('CAXU1234567')
+    expect(parsed.rows[0]?.unpacking_location).toBe('Terminal Rio')
   })
 
   it('mapeia o modelo do armador (COSCO Daily Report) escolhendo a aba de veiculos', async () => {

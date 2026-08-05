@@ -32,7 +32,6 @@ export function Veiculos() {
   const { can, isAdmin, user } = useAuth()
   const canEditVehicles = can('veiculos_edit')
   const canDeleteVehicles = isAdmin
-  const selection = useRowSelection<number>()
   const [deleting, setDeleting] = useState(false)
   const [unpackingLocations, setUnpackingLocations] = useState<Record<number, string>>({})
   const [savingContainerId, setSavingContainerId] = useState<number | null>(null)
@@ -51,9 +50,11 @@ export function Veiculos() {
     containerType: '',
     seal: '',
     bl: '',
+    unpackingLocation: '',
     page: 1,
     pageSize: 20,
   })
+  const selection = useRowSelection<number>(`${selectedVoyageId}:${JSON.stringify({ ...filters, page: undefined, pageSize: undefined })}`)
   const [importOpen, setImportOpen] = useState(false)
   const [fileName, setFileName] = useState('')
   const [parsedImport, setParsedImport] = useState<ParsedVehicleImport | null>(null)
@@ -86,11 +87,11 @@ export function Veiculos() {
   const { data, isLoading, error } = useVehicles(voyageId, filters)
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
 
-  const activeFilterCount = (['search', 'brand', 'model', 'container', 'containerType', 'seal', 'bl'] as (keyof VehiclePageFilters)[])
+  const activeFilterCount = (['search', 'brand', 'model', 'container', 'containerType', 'seal', 'bl', 'unpackingLocation'] as (keyof VehiclePageFilters)[])
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
 
   function clearFilters() {
-    setFilters((current) => ({ ...current, search: '', brand: '', model: '', container: '', containerType: '', seal: '', bl: '', page: 1 }))
+    setFilters((current) => ({ ...current, search: '', brand: '', model: '', container: '', containerType: '', seal: '', bl: '', unpackingLocation: '', page: 1 }))
   }
 
   function resetImportState() {
@@ -190,9 +191,10 @@ export function Veiculos() {
   async function handleBulkUnpackingLocation() {
     const value = bulkDesovaValue.trim() || null
     const containerIds = [...new Set(
-      (data?.rows ?? [])
-        .filter((row) => selection.isSelected(row.id) && row.container)
-        .map((row) => row.container!.id),
+      (data?.filteredIds ?? [])
+        .filter((vehicleId) => selection.isSelected(vehicleId))
+        .map((vehicleId) => data?.containerIdByVehicleId?.[vehicleId])
+        .filter((containerId): containerId is number => typeof containerId === 'number'),
     )]
     if (!containerIds.length) {
       showToast('Nenhum container nas linhas selecionadas.', 'info')
@@ -243,8 +245,8 @@ export function Veiculos() {
     return runDelete([...selection.selected], `Excluir ${selection.count} veiculo(s) selecionado(s)? Esta acao e irreversivel.`)
   }
 
-  const pageRowIds = (data?.rows ?? []).map((row) => row.id)
-  const allPageSelected = pageRowIds.length > 0 && pageRowIds.every((id) => selection.isSelected(id))
+  const filteredRowIds = data?.filteredIds ?? []
+  const allPageSelected = filteredRowIds.length > 0 && filteredRowIds.every((id) => selection.isSelected(id))
   const columnCount = canDeleteVehicles ? 12 : 10
 
   return (
@@ -337,6 +339,9 @@ export function Veiculos() {
           <Field label="Filtro por BL">
             <Input value={filters.bl} onChange={(event) => updateFilter('bl', event.target.value)} />
           </Field>
+          <Field label="Filtro por local de desova">
+            <Input value={filters.unpackingLocation} onChange={(event) => updateFilter('unpackingLocation', event.target.value)} />
+          </Field>
         </div>
       </FilterBar>
 
@@ -367,7 +372,7 @@ export function Veiculos() {
                       type="checkbox"
                       aria-label="Selecionar todos os veiculos da pagina"
                       checked={allPageSelected}
-                      onChange={() => selection.toggleMany(pageRowIds)}
+                      onChange={() => selection.toggleMany(filteredRowIds)}
                     />
                   </th>
                 ) : null}

@@ -24,6 +24,7 @@ import {
   groupEmptyEmbarkBookings,
   MATRIX_CATEGORY_LABELS,
   groupVehiclesByBrand,
+  summarizeVehiclesByContainerTypeAndModel,
   signoffLabels,
   type AgencyReportSection,
   type AgencyReportSignoffEvent,
@@ -276,6 +277,12 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     }))
     .sort((a, b) => a.localLabel.localeCompare(b.localLabel))
   const vehicles = groupVehiclesByBrand(data?.vehicles ?? [])
+  const vehicleBreakdown = summarizeVehiclesByContainerTypeAndModel((data?.vehicles ?? []).map((vehicle) => ({
+    chassis: vehicle.chassis,
+    model: vehicle.model,
+    containerNumber: vehicle.container?.container_number ?? null,
+    containerType: vehicle.container?.type ?? null,
+  })))
   const vehicleVinTotal = vehicles.reduce((total, vehicle) => total + vehicle.vinCount, 0)
   const vehicleLocations = new Map<string, string[]>()
   for (const vehicle of data?.vehicles ?? []) {
@@ -504,6 +511,14 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             {vehicleVinTotal ? <>
               <Hero value={String(vehicleVinTotal)} unit="VINs" />
               <div className="grid gap-2">{vehicles.map((vehicle) => <Info key={vehicle.brand} label={vehicle.brand || 'Marca não informada'} value={`${vehicle.blCount} ${vehicle.blCount === 1 ? 'BL' : 'BLs'} · ${vehicle.vinCount} ${vehicle.vinCount === 1 ? 'VIN' : 'VINs'}${vehicle.transshipmentVinCount ? ` · ${vehicle.transshipmentVinCount} em transbordo` : ''} · ${vehicleLocations.get(vehicle.brand)?.join(', ') || 'local de desova não informado'}`} />)}</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <MetricPanel title="Containers distintos por tipo">
+                  {vehicleBreakdown.containersByType.map((item) => <Info key={item.label} label={item.label} value={String(item.count)} />)}
+                </MetricPanel>
+                <MetricPanel title="Veículos por modelo">
+                  {vehicleBreakdown.vehiclesByModel.map((item) => <Info key={item.label} label={item.label} value={String(item.count)} />)}
+                </MetricPanel>
+              </div>
             </> : <NadaOperado />}
           </ReportSection>
         </ReportPhase>

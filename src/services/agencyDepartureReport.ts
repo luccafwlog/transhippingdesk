@@ -399,6 +399,28 @@ export function groupVehiclesByBrand(
     }))
 }
 
+export function summarizeVehiclesByContainerTypeAndModel(
+  vehicles: Array<{ chassis: string; model: string | null; containerNumber: string | null; containerType: string | null }>,
+) {
+  const containersByType = new Map<string, Set<string>>()
+  const vehiclesByModel = new Map<string, Set<string>>()
+  for (const vehicle of vehicles) {
+    const type = vehicle.containerType?.trim() || 'Não informado'
+    const container = vehicle.containerNumber?.trim().toUpperCase()
+    const containers = containersByType.get(type) ?? new Set<string>()
+    if (container) containers.add(container)
+    containersByType.set(type, containers)
+    const model = vehicle.model?.trim() || 'Não informado'
+    const models = vehiclesByModel.get(model) ?? new Set<string>()
+    models.add(vehicle.chassis)
+    vehiclesByModel.set(model, models)
+  }
+  return {
+    containersByType: [...containersByType].map(([label, values]) => ({ label, count: values.size })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+    vehiclesByModel: [...vehiclesByModel].map(([label, values]) => ({ label, count: values.size })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+  }
+}
+
 type BreakbulkAgencyReportBl = {
   bb_machine_qty: number | null
   bb_packages_qty: number | null
@@ -432,7 +454,7 @@ async function listTransshipmentBlIds(voyageId: number, port: string): Promise<s
 
 const BL_CONTAINERS_SELECT = 'id, container_number, type, is_imo, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))'
 const BREAKBULK_SELECT = 'bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm'
-const VEHICLES_SELECT = 'brand, bl_id, chassis, container_id, container:bl_containers(unpacking_location)'
+const VEHICLES_SELECT = 'brand, model, bl_id, chassis, container_id, container:bl_containers(container_number, type, unpacking_location)'
 
 const SUPABASE_PAGE_SIZE = 1000
 
@@ -625,8 +647,8 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     if (result.error) throw result.error
   }
 
-  type AgencyReportVehicle = Pick<Vehicle, 'brand' | 'bl_id' | 'chassis' | 'container_id'> & {
-    container: { unpacking_location: string | null } | null
+  type AgencyReportVehicle = Pick<Vehicle, 'brand' | 'model' | 'bl_id' | 'chassis' | 'container_id'> & {
+    container: { container_number: string | null; type: string | null; unpacking_location: string | null } | null
     isTransshipment: boolean
   }
   const ownVehicles = (vehiclesRes.data ?? []) as unknown as Array<Omit<AgencyReportVehicle, 'isTransshipment'>>

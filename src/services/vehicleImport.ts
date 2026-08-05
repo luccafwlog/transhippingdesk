@@ -20,6 +20,7 @@ const headerMap = {
   container_type: ['tipo_container', 'tipo do container', 'container type', 'tipo', 'cntr type', '箱型'],
   seal_number: ['lacre', 'seal', 'seal number', '封号'],
   bl_id: ['bl', 'b/l', 'bill of lading', 'bl number', 'bl no', 'bl no.', '提单号'],
+  unpacking_location: ['local de desova', 'local desova', 'desova', 'unpacking location', 'unpacking_location'],
 } as const
 
 const requiredHeaders = {
@@ -67,7 +68,7 @@ function translateBrand(brand: string): string {
 type DestinationField = keyof typeof headerMap
 const SPEC: HeaderSpec<DestinationField> = {
   aliases: headerMap,
-  required: Object.keys(headerMap) as DestinationField[],
+  required: Object.keys(headerMap).filter((field) => field !== 'unpacking_location') as DestinationField[],
 }
 
 export type VehicleImportRow = {
@@ -81,6 +82,7 @@ export type VehicleImportRow = {
   container_type: string
   seal_number: string
   bl_id: string
+  unpacking_location?: string | null
 }
 
 export type ParsedVehicleImport = {
@@ -121,7 +123,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
       chosenRows = content.rows
       break
     }
-    lastMissing = missing.map((field) => requiredHeaders[field])
+    lastMissing = missing.map((field) => requiredHeaders[field as keyof typeof requiredHeaders] ?? field)
   }
 
   if (!chosenRows) {
@@ -232,6 +234,7 @@ export async function importVehicleRows({
     voyage_id: number
     container_id: number
     bl_id: string
+    unpacking_location: string | null
     chassis: string
     brand: string
     model: string
@@ -309,6 +312,7 @@ export async function importVehicleRows({
       model: row.model,
       weight_kg: row.weight_kg,
       cbm: row.cbm,
+      unpacking_location: row.unpacking_location ?? null,
     })
     existingVehicleChassis.add(row.chassis)
   }
@@ -418,6 +422,7 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
     const containerType = normalizeKey(mapped.container_type)
     const sealNumber = normalizeKey(mapped.seal_number)
     const blId = normalizeKey(mapped.bl_id)
+    const unpackingLocation = asString(mapped.unpacking_location) || null
 
     if (
       !chassis ||
@@ -450,6 +455,7 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
       container_type: containerType,
       seal_number: sealNumber,
       bl_id: blId,
+      unpacking_location: unpackingLocation,
     })
   })
 
