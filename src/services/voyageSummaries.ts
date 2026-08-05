@@ -408,6 +408,7 @@ type EscalaScheduleRow = {
 /** Presença de módulos por viagem, calculada fora do payload de B/Ls (veículos, vazios de importação e granito vêm de consultas próprias). */
 export type VoyageRailModuleStats = {
   hasVehicles?: boolean
+  vehicleContainerNumbers?: string[]
   hasVaziosImportacao?: boolean
   hasGranite?: boolean
   hasVaziosExportacao?: boolean
@@ -473,7 +474,14 @@ export function buildVoyageRailItems(
         ceTotal: total,
       }),
       proximaEscala: getProximaEscala(escalaRows),
-      escalasBrasileiras: collectEscalasBrasileiras(escalaRows),
+      escalasBrasileiras: collectEscalasBrasileiras(escalaRows).map((escala) => {
+        const vehicleContainers = new Set((moduleStats?.vehicleContainerNumbers ?? []).map((number) => String(number).trim().toUpperCase()))
+        const hasVehiclesAtPort = containerBls
+          .filter((bl) => canonicalPort(bl.pod) === canonicalPort(escala.port))
+          .flatMap((bl) => bl.bl_containers ?? [])
+          .some((container) => vehicleContainers.has(String(container.container_number ?? '').trim().toUpperCase()))
+        return { ...escala, modules: { ...escala.modules, vehicles: hasVehiclesAtPort } }
+      }),
       modules: {
         container: containerBls.length > 0,
         cargaSolta: breakbulkBls.length > 0,

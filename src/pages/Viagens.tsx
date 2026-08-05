@@ -108,6 +108,7 @@ export function Viagens() {
     for (const voyage of voyages) {
       map.set(voyage.id, {
         hasVehicles: (vehicleStatsByVoyage[voyage.id]?.totalVehicles ?? 0) > 0,
+        vehicleContainerNumbers: vehicleStatsByVoyage[voyage.id]?.containerNumbers ?? [],
         hasVaziosImportacao: (vaziosImpStatsByVoyage[voyage.id]?.totalManifests ?? 0) > 0,
         hasGranite: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
           (schedule) => schedule.hasGranite,
