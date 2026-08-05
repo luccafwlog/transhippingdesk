@@ -1,4 +1,5 @@
-import { ArrowRight, PanelLeftClose, Pencil, Ship } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import { ESTADO_CONCILIACAO_META } from '../../lib/statusLabels'
 import type { VoyageRailItem } from '../../services/voyageSummaries'
@@ -10,157 +11,62 @@ type VoyageRailProps = {
   onSelect: (id: number) => void
   /** Abre o modal de edição da viagem (ação secundária no hover do item). */
   onEdit?: (id: number) => void
-  collapsed?: boolean
-  onToggleCollapse?: () => void
 }
 
-export function VoyageRail({ items, selectedId, onSelect, onEdit, collapsed = false, onToggleCollapse }: VoyageRailProps) {
-  if (collapsed) {
-    return (
-      <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
-        <div className="flex items-center justify-center border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2 text-[var(--app-muted)]">
-          {onToggleCollapse ? (
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              className="flex w-full items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-[var(--app-surface)] hover:text-[var(--app-text)]"
-              aria-label="Expandir barra lateral"
-              title="Expandir barra lateral"
-            >
-              <Ship size={18} />
-            </button>
-          ) : (
-            <span className="p-1.5" title="Passe o mouse para expandir">
-              <Ship size={18} />
-            </span>
-          )}
-        </div>
-        <div className="max-h-[calc(100vh-13rem)] overflow-y-auto">
-          {items.length === 0 ? (
-            <div className="px-2 py-4 text-center text-[10px] text-[var(--app-muted)]">Nenhuma viagem.</div>
-          ) : (
-            items.map((item) => {
-              const estado = ESTADO_CONCILIACAO_META[item.estado]
-              const isSelected = item.id === selectedId
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onSelect(item.id)}
-                  aria-current={isSelected}
-                  aria-label={`${item.vesselName} / ${item.voyageNumber}`}
-                  title={`${item.vesselName} / ${item.voyageNumber} - ${item.carrierName}`}
-                  className={`flex w-full items-center justify-center border-b border-l-[3px] border-[var(--app-border)] px-2 py-3 transition-colors ${
-                    isSelected
-                      ? 'border-l-[var(--app-blue-btn)] bg-[var(--app-bg-elevated)]'
-                      : 'border-l-transparent hover:bg-[var(--app-surface-muted)]'
-                  }`}
-                >
-                  <span
-                    className="h-2.5 w-2.5 flex-none rounded-full"
-                    style={{ backgroundColor: estado.color }}
-                    title={`${item.vesselName} / ${item.voyageNumber} - ${estado.label}`}
-                  />
-                </button>
-              )
-            })
-          )}
-        </div>
-      </aside>
-    )
+/** Rolagem horizontal com setas nas pontas, escondidas quando não há para onde ir. */
+function useHorizontalScroller() {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [edges, setEdges] = useState({ left: false, right: false })
+
+  // O efeito roda a cada render (precisa medir depois do layout); só troca o
+  // estado quando as bordas realmente mudam para não entrar em loop.
+  function sync() {
+    const el = ref.current
+    if (!el) return
+    const next = {
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    }
+    setEdges((prev) => (prev.left === next.left && prev.right === next.right ? prev : next))
   }
 
-  return (
-    <aside className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] lg:sticky lg:top-4">
-      <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2">
-        <span className="text-[11px] text-[var(--app-muted-soft)]">Ordenado por próxima escala</span>
-        {onToggleCollapse ? (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-            aria-label="Recolher barra lateral"
-            title="Recolher barra lateral"
-          >
-            <PanelLeftClose size={15} />
-          </button>
-        ) : null}
-      </div>
+  useEffect(() => {
+    sync()
+    const onResize = () => sync()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  })
 
-      <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
-        {items.length === 0 ? (
-          <div className="px-4 py-6 text-sm text-[var(--app-muted)]">Nenhuma viagem para os filtros atuais.</div>
-        ) : (
-          items.map((item) => {
-            const estado = ESTADO_CONCILIACAO_META[item.estado]
-            const isSelected = item.id === selectedId
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelect(item.id)}
-                aria-current={isSelected}
-                className={`group relative block w-full border-b border-l-[3px] border-[var(--app-border)] px-3 py-3 text-left transition-colors ${
-                  isSelected
-                    ? 'border-l-[var(--app-blue-btn)] bg-[var(--app-bg-elevated)]'
-                    : 'border-l-transparent hover:bg-[var(--app-surface-muted)]'
-                }`}
-              >
-                {onEdit ? (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    className="absolute right-2 top-2 hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1 text-[var(--app-muted)] opacity-0 transition-opacity hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)] focus-visible:opacity-100 group-hover:block group-hover:opacity-100 group-focus-within:block group-focus-within:opacity-100"
-                    title="Editar viagem"
-                    aria-label={`Editar ${item.vesselName} / ${item.voyageNumber}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit(item.id)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        onEdit(item.id)
-                      }
-                    }}
-                  >
-                    <Pencil size={13} />
-                  </span>
-                ) : null}
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 flex-none rounded-full"
-                    style={{ backgroundColor: estado.color }}
-                    title={`Conciliação: ${estado.label}`}
-                  />
-                  <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">
-                    {item.carrierName || 'Armador não informado'}
-                  </span>
-                </div>
-                <div className="mt-0.5 truncate text-sm font-bold text-[var(--app-text-strong)]">
-                  {item.vesselName} / {item.voyageNumber}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-[var(--app-muted)]">
-                  <span className="truncate">{item.originPorts.join('·') || '—'}</span>
-                  <ArrowRight size={12} className="flex-none text-[var(--app-muted-soft)]" />
-                  <span className="truncate">{item.destinationPorts.join('·') || '—'}</span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <RailPill>{item.blCount} B/Ls</RailPill>
-                  <RailPill>{item.containerCount} CNTR</RailPill>
-                  {item.proximaEscala ? (
-                    <RailPill>
-                      {item.proximaEscala.pod} · {formatDate(item.proximaEscala.eta)}
-                    </RailPill>
-                  ) : null}
-                </div>
-              </button>
-            )
-          })
-        )}
-      </div>
-    </aside>
+  function scrollBy(direction: -1 | 1) {
+    const el = ref.current
+    if (!el) return
+    el.scrollBy({ left: direction * Math.max(280, el.clientWidth * 0.8), behavior: 'smooth' })
+  }
+
+  return { ref, edges, sync, scrollBy }
+}
+
+function ScrollArrow({
+  side,
+  onClick,
+  visible,
+}: {
+  side: 'left' | 'right'
+  onClick: () => void
+  visible: boolean
+}) {
+  if (!visible) return null
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={side === 'left' ? 'Rolar para a esquerda' : 'Rolar para a direita'}
+      className={`absolute top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] shadow-lg transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)] lg:flex ${
+        side === 'left' ? 'left-1' : 'right-1'
+      }`}
+    >
+      {side === 'left' ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+    </button>
   )
 }
 
@@ -169,5 +75,105 @@ function RailPill({ children }: { children: React.ReactNode }) {
     <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-bg-elevated)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
       {children}
     </span>
+  )
+}
+
+export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
+  const { ref, edges, sync, scrollBy } = useHorizontalScroller()
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-5 text-sm text-[var(--app-muted)]">
+        Nenhuma viagem para os filtros atuais.
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative">
+      <div className="mb-1.5 flex items-center justify-between px-1">
+        <span className="text-[11px] text-[var(--app-muted-soft)]">Ordenado por próxima escala</span>
+        <span className="text-[11px] text-[var(--app-muted-soft)]">{items.length} viagens</span>
+      </div>
+
+      <ScrollArrow side="left" visible={edges.left} onClick={() => scrollBy(-1)} />
+      <ScrollArrow side="right" visible={edges.right} onClick={() => scrollBy(1)} />
+
+      <div
+        ref={ref}
+        onScroll={sync}
+        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
+        style={{ scrollbarWidth: 'thin' }}
+      >
+        {items.map((item) => {
+          const estado = ESTADO_CONCILIACAO_META[item.estado]
+          const isSelected = item.id === selectedId
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              aria-current={isSelected}
+              className={`group relative w-[268px] flex-none snap-start rounded-2xl border border-t-[3px] px-3 py-3 text-left transition-colors ${
+                isSelected
+                  ? 'border-[var(--app-blue-btn)] border-t-[var(--app-blue-btn)] bg-[var(--app-bg-elevated)]'
+                  : 'border-[var(--app-border)] border-t-transparent bg-[var(--app-surface)] hover:bg-[var(--app-surface-muted)]'
+              }`}
+            >
+              {onEdit ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="absolute right-2 top-2 hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1 text-[var(--app-muted)] opacity-0 transition-opacity hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)] focus-visible:opacity-100 group-hover:block group-hover:opacity-100 group-focus-within:block group-focus-within:opacity-100"
+                  title="Editar viagem"
+                  aria-label={`Editar ${item.vesselName} / ${item.voyageNumber}`}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onEdit(item.id)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      onEdit(item.id)
+                    }
+                  }}
+                >
+                  <Pencil size={13} />
+                </span>
+              ) : null}
+
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 flex-none rounded-full"
+                  style={{ backgroundColor: estado.color }}
+                  title={`Conciliação: ${estado.label}`}
+                />
+                <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">
+                  {item.carrierName || 'Armador não informado'}
+                </span>
+              </div>
+              <div className="mt-0.5 truncate text-sm font-bold text-[var(--app-text-strong)]">
+                {item.vesselName} / {item.voyageNumber}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-[var(--app-muted)]">
+                <span className="truncate">{item.originPorts.join('·') || '—'}</span>
+                <ArrowRight size={12} className="flex-none text-[var(--app-muted-soft)]" />
+                <span className="truncate">{item.destinationPorts.join('·') || '—'}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <RailPill>{item.blCount} B/Ls</RailPill>
+                <RailPill>{item.containerCount} CNTR</RailPill>
+                {item.proximaEscala ? (
+                  <RailPill>
+                    {item.proximaEscala.pod} · {formatDate(item.proximaEscala.eta)}
+                  </RailPill>
+                ) : null}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }

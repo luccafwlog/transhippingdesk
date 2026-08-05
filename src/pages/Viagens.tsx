@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/ui/Button'
 import { EmptyState, InlineError, PageHeader } from '../components/ui/Card'
@@ -34,10 +34,6 @@ import {
 } from '../components/voyages/VoyageCard'
 import { VoyageRail } from '../components/voyages/VoyageRail'
 import { VoyageFilters } from '../components/voyages/VoyageFilters'
-// PROTÓTIPO (descartável) — faixa horizontal no lugar da barra lateral.
-import { PrototypeSwitcher } from '../components/ui/PrototypeSwitcher'
-import { STRIP_VARIANTS, STRIP_VARIANT_LABELS } from '../components/voyages/prototype/stripVariantKeys'
-import { VariantA, VariantB, VariantC } from '../components/voyages/prototype/VoyageStripVariants'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import {
   countActiveFilters,
@@ -45,14 +41,6 @@ import {
   filterVoyageRailItems,
   type VoyageFilters as VoyageFiltersState,
 } from '../lib/viagensFilters'
-
-// PROTÓTIPO — `atual` é a linha de base (barra lateral de hoje) para comparar
-// com as faixas horizontais A/B/C. Sai junto com o resto do protótipo.
-const PROTOTYPE_VARIANTS = ['atual', ...STRIP_VARIANTS] as const
-const PROTOTYPE_VARIANT_LABELS: Record<string, string> = {
-  atual: 'Barra lateral (hoje)',
-  ...STRIP_VARIANT_LABELS,
-}
 
 export function Viagens() {
   const { voyageId } = useParams()
@@ -82,30 +70,7 @@ export function Viagens() {
     ...emptyFilters(),
     search: initialVessel,
   })
-  // Rail fica recolhido por padrão no desktop e expande em overlay ao passar o
-  // mouse (sem clique). No mobile permanece sempre expandido — não há hover.
-  const [isDesktop, setIsDesktop] = useState<boolean>(
-    () => typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      && window.matchMedia('(min-width: 1024px)').matches,
-  )
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return
-    const mq = window.matchMedia('(min-width: 1024px)')
-    const sync = () => setIsDesktop(mq.matches)
-    sync()
-    mq.addEventListener('change', sync)
-    return () => mq.removeEventListener('change', sync)
-  }, [])
-  const [railHovered, setRailHovered] = useState(false)
-  const railCollapsed = isDesktop && !railHovered
-
   const selectedVoyageId = voyageId ? Number(voyageId) : null
-
-  // PROTÓTIPO — `?variant=atual` (padrão) mantém a barra lateral; A/B/C trocam
-  // por uma faixa horizontal acima do detalhe. Remover junto com o switcher.
-  const variantParam = searchParams.get('variant') ?? 'atual'
-  const stripVariant = (PROTOTYPE_VARIANTS as readonly string[]).includes(variantParam) ? variantParam : 'atual'
-  const usingStrip = stripVariant !== 'atual'
 
   const voyages = useMemo(() => data ?? [], [data])
 
@@ -217,143 +182,51 @@ export function Viagens() {
         loading={isLoading}
       />
 
-      {usingStrip ? (
-        <div className="grid gap-4">
-          <div>
-            {isLoading ? (
-              <SkeletonCard lines={3} />
-            ) : stripVariant === 'A' ? (
-              <VariantA
-                items={visibleRailItems}
-                selectedId={selectedVoyageId}
-                onSelect={(id) => navigate(`/viagens/${id}?variant=${stripVariant}`)}
-                onEdit={setEditingVoyageId}
-              />
-            ) : stripVariant === 'B' ? (
-              <VariantB
-                items={visibleRailItems}
-                selectedId={selectedVoyageId}
-                onSelect={(id) => navigate(`/viagens/${id}?variant=${stripVariant}`)}
-                onEdit={setEditingVoyageId}
-              />
-            ) : (
-              <VariantC
-                items={visibleRailItems}
-                selectedId={selectedVoyageId}
-                onSelect={(id) => navigate(`/viagens/${id}?variant=${stripVariant}`)}
-                onEdit={setEditingVoyageId}
-              />
-            )}
-          </div>
+      <div className="grid gap-4">
+        {isLoading ? (
+          <SkeletonCard lines={3} />
+        ) : (
+          <VoyageRail
+            items={visibleRailItems}
+            selectedId={selectedVoyageId}
+            onSelect={(id) => navigate(`/viagens/${id}`)}
+            onEdit={setEditingVoyageId}
+          />
+        )}
 
-          <div>
-            {!selectedVoyageId ? (
-              <EmptyState
-                title="Selecione uma viagem"
-                description="Escolha uma viagem na faixa acima para ver o detalhe, planejamento de escalas e os fluxos de importação e exportação."
-              />
-            ) : selectedVoyage ? (
-              <VoyageCard
-                key={selectedVoyage.id}
-                voyage={selectedVoyage}
-                vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
-                vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
-                voyagesWithUnpaidBls={voyagesWithUnpaidBls}
-                polSchedules={polSchedules}
-                routeCeMasters={routeCeMasters}
-                scheduledEscalaRows={escalaSchedulesByVoyage.get(selectedVoyage.id) ?? []}
-                exportSchedules={Array.from(exportSchedulesData?.get(selectedVoyage.id)?.values() ?? [])}
-                onEditVoyage={setEditingVoyageId}
-                onDeleteVoyage={setDeletingVoyageId}
-                onCancelVoyage={setCancellingVoyageId}
-                onEditEscala={setEditingEscala}
-                onEditPol={setEditingPol}
-                initialTab={initialTab}
-                initialEscala={initialEscala}
-              />
-            ) : isLoading ? (
-              <SkeletonCard lines={4} />
-            ) : (
-              <EmptyState
-                title="Viagem não encontrada"
-                description="A viagem selecionada não existe mais ou foi removida."
-              />
-            )}
-          </div>
-        </div>
-      ) : (
-      <div className="viagens-grid lg:grid lg:gap-4 lg:grid-cols-[64px_1fr]">
-        <div
-          className={`relative ${selectedVoyageId ? 'hidden lg:block' : 'block'}`}
-          onMouseEnter={() => setRailHovered(true)}
-          onMouseLeave={() => setRailHovered(false)}
-        >
-          {isLoading ? (
-            <div className="overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)]">
-              <SkeletonList />
-            </div>
-          ) : (
-            <div className={railCollapsed ? '' : 'lg:absolute lg:left-0 lg:top-0 lg:z-30 lg:w-[300px] lg:shadow-2xl'}>
-              <VoyageRail
-                items={visibleRailItems}
-                selectedId={selectedVoyageId}
-                onSelect={(id) => navigate(`/viagens/${id}`)}
-                onEdit={setEditingVoyageId}
-                collapsed={railCollapsed}
-              />
-            </div>
-          )}
-        </div>
-
-        <div className={`mt-4 lg:mt-0 ${selectedVoyageId ? 'block' : 'hidden lg:block'}`}>
-          {selectedVoyageId ? (
-            <Button variant="ghost" className="mb-3 lg:hidden" onClick={() => navigate('/viagens')}>
-              <ArrowLeft size={15} />
-              Voltar para a lista
-            </Button>
-          ) : null}
-
-          {!selectedVoyageId ? (
-            <EmptyState
-              title="Selecione uma viagem"
-              description="Escolha uma viagem na lista ao lado para ver o detalhe, planejamento de escalas e os fluxos de importação e exportação."
-            />
-          ) : selectedVoyage ? (
-            <VoyageCard
-              key={selectedVoyage.id}
-              voyage={selectedVoyage}
-              vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
-              vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
-              voyagesWithUnpaidBls={voyagesWithUnpaidBls}
-              polSchedules={polSchedules}
-              routeCeMasters={routeCeMasters}
-              scheduledEscalaRows={escalaSchedulesByVoyage.get(selectedVoyage.id) ?? []}
-              exportSchedules={Array.from(exportSchedulesData?.get(selectedVoyage.id)?.values() ?? [])}
-              onEditVoyage={setEditingVoyageId}
-              onDeleteVoyage={setDeletingVoyageId}
-              onCancelVoyage={setCancellingVoyageId}
-              onEditEscala={setEditingEscala}
-              onEditPol={setEditingPol}
-              initialTab={initialTab}
-              initialEscala={initialEscala}
-            />
-          ) : isLoading ? (
-            <SkeletonCard lines={4} />
-          ) : (
-            <EmptyState
-              title="Viagem não encontrada"
-              description="A viagem selecionada não existe mais ou foi removida."
-            />
-          )}
-        </div>
+        {!selectedVoyageId ? (
+          <EmptyState
+            title="Selecione uma viagem"
+            description="Escolha uma viagem na faixa acima para ver o detalhe, planejamento de escalas e os fluxos de importação e exportação."
+          />
+        ) : selectedVoyage ? (
+          <VoyageCard
+            key={selectedVoyage.id}
+            voyage={selectedVoyage}
+            vehicleStats={vehicleStatsByVoyage[selectedVoyage.id]}
+            vaziosImpStats={vaziosImpStatsByVoyage[selectedVoyage.id]}
+            voyagesWithUnpaidBls={voyagesWithUnpaidBls}
+            polSchedules={polSchedules}
+            routeCeMasters={routeCeMasters}
+            scheduledEscalaRows={escalaSchedulesByVoyage.get(selectedVoyage.id) ?? []}
+            exportSchedules={Array.from(exportSchedulesData?.get(selectedVoyage.id)?.values() ?? [])}
+            onEditVoyage={setEditingVoyageId}
+            onDeleteVoyage={setDeletingVoyageId}
+            onCancelVoyage={setCancellingVoyageId}
+            onEditEscala={setEditingEscala}
+            onEditPol={setEditingPol}
+            initialTab={initialTab}
+            initialEscala={initialEscala}
+          />
+        ) : isLoading ? (
+          <SkeletonCard lines={4} />
+        ) : (
+          <EmptyState
+            title="Viagem não encontrada"
+            description="A viagem selecionada não existe mais ou foi removida."
+          />
+        )}
       </div>
-      )}
-
-      <PrototypeSwitcher
-        variants={PROTOTYPE_VARIANTS}
-        labels={PROTOTYPE_VARIANT_LABELS}
-        current={stripVariant}
-      />
 
       <VoyageCreateModal
         open={open}
@@ -519,18 +392,6 @@ export function Viagens() {
       />
 
     </>
-  )
-}
-
-function SkeletonList({ rows = 6 }: { rows?: number }) {
-  return (
-    <div>
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="border-b border-[var(--app-border)] px-3 py-3">
-          <SkeletonCard lines={3} />
-        </div>
-      ))}
-    </div>
   )
 }
 
