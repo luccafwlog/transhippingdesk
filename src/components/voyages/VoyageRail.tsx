@@ -102,7 +102,10 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
   }
 
   return (
-    <div className="relative">
+    // min-w-0: sem isso, o item do grid de Viagens.tsx assume a largura mínima
+    // de conteúdo (todos os cards lado a lado) em vez de respeitar a largura
+    // do container, e a página inteira alonga em vez de rolar horizontalmente.
+    <div className="relative min-w-0">
       <div className="mb-1.5 flex items-center justify-between px-1">
         <span className="text-[11px] text-[var(--app-muted-soft)]">Ordenado por próxima escala</span>
         <span className="text-[11px] text-[var(--app-muted-soft)]">{items.length} viagens</span>
