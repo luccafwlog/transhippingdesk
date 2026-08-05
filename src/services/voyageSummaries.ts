@@ -371,6 +371,7 @@ export type VoyageRailItem = {
     cargaSolta: boolean
     veiculos: boolean
     vazios: boolean
+    vaziosExp?: boolean
     granito: boolean
   }
 }
@@ -406,6 +407,7 @@ export type VoyageRailModuleStats = {
   hasVehicles?: boolean
   hasVaziosImportacao?: boolean
   hasGranite?: boolean
+  hasVaziosExportacao?: boolean
 }
 
 /** Escalas brasileiras (não omitidas) por porto, com o menor ETA quando o porto aparece mais de uma vez, ordenadas por ETA ascendente (sem ETA vai ao final). */
@@ -465,7 +467,8 @@ export function buildVoyageRailItems(
         container: containerBls.length > 0,
         cargaSolta: breakbulkBls.length > 0,
         veiculos: moduleStats?.hasVehicles ?? false,
-        vazios: moduleStats?.hasVaziosImportacao ?? false,
+    vazios: moduleStats?.hasVaziosImportacao ?? false,
+    ...(moduleStats?.hasVaziosExportacao ? { vaziosExp: true } : {}),
         granito: moduleStats?.hasGranite ?? false,
       },
     }

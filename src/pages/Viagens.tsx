@@ -112,6 +112,9 @@ export function Viagens() {
         hasGranite: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
           (schedule) => schedule.hasGranite,
         ),
+        hasVaziosExportacao: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
+          (schedule) => schedule.temExportacao && ((schedule.containersQty ?? 0) > 0 || (schedule.movementsQty ?? 0) > 0),
+        ),
       })
     }
     return map
