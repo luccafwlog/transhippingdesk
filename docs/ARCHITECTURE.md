@@ -63,6 +63,16 @@ por tentativas e erro genérico. RPCs de dados do Portal exigem sessão
 autenticada e resolvem o cliente por `auth.uid()`. Veja a
 [ADR 0013](./adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
 
+O cliente do Portal recebe o **mesmo role `authenticated`** do usuário interno.
+O role, portanto, não separa os dois: quem separa é o perfil. `user_profiles`
+identifica o usuário interno (`is_active_read_user()`, `is_admin()`,
+`_portal_actor_role()`) e `customer_portal_accounts` identifica o cliente
+(`current_portal_customer_id()`); uma conta de Portal nunca satisfaz a primeira
+condição. Daí a regra: nenhuma policy ou função pode autorizar por "estar
+autenticado". Policy de leitura com `USING (true)` e função `SECURITY DEFINER`
+sem guarda explícita são vazamentos para o Portal — foi essa a causa das
+migrations `192` e `257`.
+
 O `PortalAuthProvider` também assina `supabasePortal.auth.onAuthStateChange`.
 Eventos `SIGNED_OUT` limpam o overview local e removem todos os caches TanStack
 Query com chave iniciada por `portal-`, cobrindo logout em outra aba e falha de
@@ -213,6 +223,13 @@ widget não lê mais `vessel_schedules`; ele chama a RPC allowlisted
 única de portos-vitrine. As tabelas legadas `vessel_schedules` e
 `ended_vessels` permanecem no histórico de schema, mas não são fonte do fluxo
 atual.
+
+A migration `257` fechou a leitura dessas duas tabelas: eram as únicas policies
+de `SELECT` com `USING (true)` do schema e, como o cliente do Portal autentica
+no mesmo role `authenticated` do usuário interno, davam a ele leitura integral —
+contornando o portão `voyages.show_on_portal`. Agora exigem
+`is_active_read_user()`. O serviço e o hook que liam `vessel_schedules` pela
+sessão do Portal eram código morto e foram removidos na mesma mudança.
 
 ## Projeção de escalas
 
