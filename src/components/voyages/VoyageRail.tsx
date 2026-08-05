@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
 import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
@@ -112,9 +112,13 @@ function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
 export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
   const { ref, edges, sync, scrollBy } = useHorizontalScroller()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectedId !== null || !ref.current) return
-    ref.current.scrollLeft = 0
+    if (typeof ref.current.scrollTo === 'function') {
+      ref.current.scrollTo({ left: 0, behavior: 'auto' })
+    } else {
+      ref.current.scrollLeft = 0
+    }
     sync()
   }, [items, selectedId, ref, sync])
 
