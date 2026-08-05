@@ -35,7 +35,7 @@ export type AgencyReportSection =
 export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole> = {
   datas: 'operacoes',
   carga_descarregada: 'documentacao',
-  carga_carregada: 'documentacao',
+  carga_carregada: 'equipamentos',
   veiculos: 'equipamentos',
   vazios_embarcados: 'equipamentos',
   vazios_descarregados: 'documentacao',
@@ -46,7 +46,7 @@ export const AGENCY_REPORT_SECTIONS: Record<AgencyReportSection, UserProfileRole
 export const AGENCY_REPORT_SECTION_LABELS: Record<AgencyReportSection, string> = {
   datas: 'Escala',
   carga_descarregada: 'Carga descarregada',
-  carga_carregada: 'Carga carregada',
+  carga_carregada: 'Granito',
   veiculos: 'Veículos',
   vazios_embarcados: 'Embarque de vazios',
   vazios_descarregados: 'Vazios descarregados',

@@ -23,6 +23,7 @@ export function SignoffControl({
   section,
   state,
   attribution,
+  departmentLabel,
   canSignoff,
   events,
   actorNames,
@@ -32,6 +33,7 @@ export function SignoffControl({
   section: AgencyReportSection
   state: SignoffState
   attribution?: string | null
+  departmentLabel: string
   canSignoff: boolean
   events: AgencyReportSignoffEvent[]
   actorNames: Record<string, string>
@@ -62,6 +64,7 @@ export function SignoffControl({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs text-[var(--app-muted)]">Setor: {departmentLabel}</span>
       {attribution ? <span className="text-xs text-[var(--app-muted)]">{attribution}</span> : null}
       {events.length ? (
         <button

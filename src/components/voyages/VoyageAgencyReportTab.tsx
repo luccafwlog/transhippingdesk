@@ -82,6 +82,7 @@ function ReportSection({
             section={section}
             state={state}
             attribution={attribution}
+            departmentLabel={AGENCY_REPORT_DEPARTMENT_LABELS[AGENCY_REPORT_SECTIONS[section]]}
             canSignoff={Boolean(canSignoff)}
             events={events ?? []}
             actorNames={actorNames ?? {}}
@@ -527,7 +528,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
 
         <ReportPhase title="Exportação">
           <ReportSection
-            title="Carga carregada"
+            title="Granito"
             section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('carga_carregada')?.observation} onObservationChange={updateObservation}
           >
