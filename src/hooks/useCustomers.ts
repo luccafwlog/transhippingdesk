@@ -106,10 +106,6 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
     .select(`*, ${blsJoin}, customer_contacts(id, email, purpose, is_primary)`, { count: 'exact' })
     .order('name', { ascending: true })
 
-  if (paginate && !hasClientSideFilter) {
-    query = query.range(from, to)
-  }
-
   if (filters.search) {
     const search = escapeFilterTerm(filters.search)
     const normalizedDocument = onlyDigits(filters.search)
@@ -121,10 +117,24 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
     if (filter) query = query.or(filter)
   }
 
-  const { data, error, count } = await query
-  if (error) throw error
+  let rawRows: unknown[] = []
+  let count: number | null = null
+  if (paginate && !hasClientSideFilter) {
+    const result = await query.range(from, to)
+    if (result.error) throw result.error
+    rawRows = result.data ?? []
+    count = result.count
+  } else {
+    for (let offset = 0; ; offset += 1000) {
+      const result = await query.range(offset, offset + 999)
+      if (result.error) throw result.error
+      const batch = result.data ?? []
+      rawRows.push(...batch)
+      if (batch.length < 1000) break
+    }
+  }
 
-  let rows = (data ?? []) as unknown as CustomerListItem[]
+  let rows = rawRows as CustomerListItem[]
   const balances = await fetchIssuedInvoiceBalanceByCustomer(rows.map((row) => row.id))
   rows = rows.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 }))
   rows = filterCustomerRowsByClientSideFilters(rows, filters)

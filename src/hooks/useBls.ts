@@ -268,14 +268,18 @@ export function useVoyageOptions() {
   return useQuery({
     queryKey: queryKeys.voyages.options(),
     queryFn: async () => {
-      const { data, error } = await supabase
+      const query = supabase
         .from('voyages')
         .select('id, voyage_number, vessel:vessels(name)')
         .order('created_at', { ascending: false })
-        .range(0, 499)
-
-      if (error) throw error
-      return supabaseRows<{ id: number; voyage_number: string; vessel?: { name: string } | null }>(data)
+      const allRows: unknown[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await query.range(from, from + 999)
+        if (error) throw error
+        allRows.push(...(data ?? []))
+        if (!data || data.length < 1000) break
+      }
+      return supabaseRows<{ id: number; voyage_number: string; vessel?: { name: string } | null }>(allRows)
     },
   })
 }
@@ -286,23 +290,18 @@ export function usePortOptions() {
     // Port codes are stable — refresh only once every 10 minutes
     staleTime: 1000 * 60 * 10,
     queryFn: async () => {
-      // Use a lightweight RPC instead of loading 5000 rows
-      const { data, error } = await supabase
-        .from('bls')
-        .select('pol, pod')
-        .limit(500)
-
-      if (error) throw error
-
       const pols = new Set<string>()
       const pods = new Set<string>()
-
-      for (const row of data ?? []) {
-        const pol = String(row.pol ?? '').trim()
-        const pod = String(row.pod ?? '').trim()
-
-        if (pol) pols.add(pol)
-        if (pod) pods.add(pod)
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('bls').select('pol, pod').range(from, from + 999)
+        if (error) throw error
+        for (const row of data ?? []) {
+          const pol = String(row.pol ?? '').trim()
+          const pod = String(row.pod ?? '').trim()
+          if (pol) pols.add(pol)
+          if (pod) pods.add(pod)
+        }
+        if (!data || data.length < 1000) break
       }
 
       return {
@@ -318,17 +317,15 @@ export function useContainerTypeOptions() {
     queryKey: ['container-type-options'],
     staleTime: 1000 * 60 * 10,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bl_containers')
-        .select('type')
-        .limit(1000)
-
-      if (error) throw error
-
       const types = new Set<string>()
-      for (const row of data ?? []) {
-        const t = String(row.type ?? '').trim().toUpperCase()
-        if (t) types.add(t)
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('bl_containers').select('type').range(from, from + 999)
+        if (error) throw error
+        for (const row of data ?? []) {
+          const t = String(row.type ?? '').trim().toUpperCase()
+          if (t) types.add(t)
+        }
+        if (!data || data.length < 1000) break
       }
 
       return Array.from(types).sort((left, right) => left.localeCompare(right, 'pt-BR'))
@@ -340,7 +337,7 @@ export function useVoyages() {
   return useQuery({
     queryKey: ['voyages'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const query = supabase
         .from('voyages')
         .select(
           `
@@ -389,9 +386,13 @@ export function useVoyages() {
         `,
         )
         .order('created_at', { ascending: false })
-        .range(0, 499)
-
-      if (error) throw error
+      const allRows: unknown[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await query.range(from, from + 999)
+        if (error) throw error
+        allRows.push(...(data ?? []))
+        if (!data || data.length < 1000) break
+      }
 
         return supabaseRows<{
           id: number
@@ -479,7 +480,7 @@ export function useVoyages() {
             cbm?: number | null
           }> | null
         }> | null
-      }>(data)
+          }>(allRows)
     },
   })
 }

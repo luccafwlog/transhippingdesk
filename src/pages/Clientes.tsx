@@ -276,10 +276,15 @@ export function Clientes() {
         }
       }
 
-      const { data, error } = await query
-      if (error) throw error
+      const allRows: unknown[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await query.range(from, from + 999)
+        if (error) throw error
+        allRows.push(...(data ?? []))
+        if (!data || data.length < 1000) break
+      }
 
-      const rowsWithBalances = (data ?? []) as unknown as CustomerListItem[]
+      const rowsWithBalances = allRows as CustomerListItem[]
       const balances = await fetchIssuedInvoiceBalanceByCustomer(rowsWithBalances.map((row) => row.id))
       const rows = filterCustomerRowsByClientSideFilters(
         rowsWithBalances.map((row) => ({ ...row, pending_balance: balances.get(row.id) ?? 0 })),

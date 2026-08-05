@@ -33,22 +33,26 @@ export function useVehicleOptions() {
   return useQuery({
     queryKey: ['vehicle-voyage-options'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('voyages')
-        .select('id, voyage_number, vessel:vessels(id, name)')
-        .order('created_at', { ascending: false })
-        .range(0, 999)
+      const voyages: Array<{ id: number; voyage_number: string; vessel?: { id: number; name: string } | null }> = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from('voyages')
+          .select('id, voyage_number, vessel:vessels(id, name)')
+          .order('created_at', { ascending: false })
+          .range(from, from + 999)
+        if (error) throw error
+        voyages.push(...((data ?? []) as unknown as Array<{ id: number; voyage_number: string; vessel?: { id: number; name: string } | null }>))
+        if (!data || data.length < 1000) break
+      }
 
-      if (error) throw error
-
-      const voyages = (data ?? []) as unknown as Array<{
+      const normalizedVoyages = voyages as Array<{
         id: number
         voyage_number: string
         vessel?: { id: number; name: string } | null
       }>
 
       const vesselMap = new Map<number, { id: number; name: string }>()
-      for (const voyage of voyages) {
+      for (const voyage of normalizedVoyages) {
         if (voyage.vessel?.id && voyage.vessel.name) {
           vesselMap.set(voyage.vessel.id, { id: voyage.vessel.id, name: voyage.vessel.name })
         }
@@ -56,7 +60,7 @@ export function useVehicleOptions() {
 
       return {
         vessels: Array.from(vesselMap.values()).sort((left, right) => left.name.localeCompare(right.name, 'pt-BR')),
-        voyages,
+        voyages: normalizedVoyages,
       }
     },
   })
