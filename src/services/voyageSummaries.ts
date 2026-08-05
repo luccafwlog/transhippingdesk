@@ -545,6 +545,7 @@ type TimelineImportBatch = {
   uploaded_at: string | null
   route?: string | null
   routes?: Array<{ pol: string; pod: string; blCount: number }>
+  total_bls?: number | null
   ce_master?: string | null
 }
 type TimelineBaplieImport = {
@@ -611,7 +612,7 @@ export function buildVoyageTimeline({
   ceCoverage,
   actorNames,
 }: {
-  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; ce_master?: string | null }> | null
+  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; total_bls?: number | null; ce_master?: string | null }> | null
   scheduleEvents?: TimelineAuditEvent[] | null
   auditEvents?: TimelineAuditEvent[] | null
   resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
@@ -681,12 +682,15 @@ function buildImportTimeline(importBatches: TimelineImportBatch[] | null | undef
         })
       }
     } else {
+      const count = Number(batch.total_bls ?? 0)
+      const route = String(batch.route ?? '').trim()
+      const countLabel = count > 0 ? `${formatMetric(count)} B/L${count === 1 ? '' : 's'} importado${count === 1 ? '' : 's'}` : 'Manifesto importado'
       events.push({
         id: `import-${batch.id}`,
         kind: 'import',
         at: batch.uploaded_at,
-        title: 'Manifesto importado',
-        detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${batch.route ?? stripFileExtension(batch.filename)}`,
+        title: route ? `${countLabel} · ${route}` : countLabel,
+        detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${route || stripFileExtension(batch.filename)}`,
       })
     }
   }
