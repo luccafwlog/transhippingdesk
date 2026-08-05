@@ -34,6 +34,7 @@ import type { AgencyReportDepartmentKey, Json } from '../../types/database'
 import type { AdrEscalaPod } from '../../services/voyageSummaries'
 import { formatBRL, formatDate } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../ui/Toast'
 
 const DEPARTMENTS: AgencyReportDepartmentKey[] = ['operacoes', 'documentacao', 'equipamentos']
 
@@ -221,6 +222,7 @@ function OrphanDataWarning({ entries, label }: { entries: Array<{ port: string; 
 }
 
 export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {
+  const { showToast } = useToast()
   const initialPort = initialEscala && pods.some((entry) => entry.pod === initialEscala) ? initialEscala : (pods[0]?.pod ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
@@ -406,7 +408,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <div className="app-panel app-panel--padded grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold text-[var(--app-muted)]" style={{ fontVariantNumeric: 'tabular-nums' }}>{signedDepartmentsCount}/3 departamentos assinados</div>
-            <Button variant="primary" disabled={signedDepartmentsCount !== 3 || closeMutation.isPending || !port} title={signedDepartmentsCount !== 3 ? 'Assine os 3 departamentos para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot: snapshot as unknown as Json }) }}>Fechar ADR</Button>
+            <Button variant="primary" disabled={signedDepartmentsCount !== 3 || closeMutation.isPending || !port} title={signedDepartmentsCount !== 3 ? 'Assine os 3 departamentos para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot: snapshot as unknown as Json }, { onError: (error) => showToast(error instanceof Error ? error.message : 'Falha ao fechar o ADR.', 'error') }) }}>Fechar ADR</Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {DEPARTMENTS.map((department) => (

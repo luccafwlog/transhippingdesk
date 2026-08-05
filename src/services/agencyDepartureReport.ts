@@ -13,6 +13,7 @@ import type {
 } from '../types/database'
 import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepartmentSignoff, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
+import { extractErrorText } from '../lib/errors'
 import { computeStorageTotals } from './vaziosExportOperations'
 import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
@@ -254,7 +255,10 @@ export async function closeReport(input: { voyageId: number; port: string; snaps
     p_port: input.port,
     p_snapshot: input.snapshot,
   })
-  if (error) throw error
+  if (error) {
+    const detail = extractErrorText(error)
+    throw new Error(detail || 'Falha ao fechar o ADR.')
+  }
 }
 
 // Portos com ADR fechado da viagem (Task 2 do ADR 2026-07-31): uma escala
