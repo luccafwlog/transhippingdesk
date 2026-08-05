@@ -103,10 +103,15 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
 
       // PostgREST não aplica ilike em colunas de joins aninhados; esses filtros
       // rodam na página carregada.
-      const { data, error } = await q
-      if (error) throw error
+      const allData: unknown[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await q.range(from, from + 999)
+        if (error) throw error
+        allData.push(...(data ?? []))
+        if (!data || data.length < 1000) break
+      }
 
-      let rows = (data ?? []) as unknown as VehicleListItemWithUnpackingLocation[]
+      let rows = allData as VehicleListItemWithUnpackingLocation[]
 
       if (filters.container) {
         const term = filters.container.toLowerCase()
