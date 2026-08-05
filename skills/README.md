@@ -1,6 +1,6 @@
 # Agent Skills
 
-A unified collection of 48 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
+A unified collection of 49 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
 
 Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) plus optional supporting files (prompts, references, scripts, tests).
 
@@ -41,6 +41,7 @@ These are vendored from https://github.com/mattpocock/skills/tree/release/v1.2. 
 | **to-spec** | `skills/engineering/to-spec` | Turn the current conversation into a spec and publish it to the project issue tracker — synthesis, not interview. |
 | **to-tickets** | `skills/engineering/to-tickets` | Break a plan/spec/conversation into tracer-bullet tickets with blocking edges, published to the configured tracker. |
 | **triage** | `skills/engineering/triage` | Move issues and external PRs through a state machine of triage roles — categorise, verify, grill if needed, write agent-ready briefs. |
+| **wait-what** | `skills/productivity/wait-what` | Corrective for a message that didn't land — re-pitches the last message in ASD-STE100 Simplified Technical English using the `CONTEXT.md` vocabulary. |
 
 Note: `tdd` overlaps in purpose with the Superpowers `test-driven-development` skill below — both are vendored under their upstream names; which one triggers depends on your phrasing. `wayfinder`'s Research ticket type invokes `/research` (above); its Prototype ticket type invokes `/prototype` (above).
 
