@@ -93,13 +93,31 @@ it('Task 9: cancelar a confirmacao nao desativa o usuario', async () => {
   expect(mocks.deactivateUser).not.toHaveBeenCalled()
 })
 
-it('US-147: altera o perfil de acesso de um usuario', () => {
+it('US-147: altera o perfil de acesso de um usuario', async () => {
   render(<AdminUsuarios />)
 
   const select = screen.getAllByRole('combobox')[0]
   fireEvent.change(select, { target: { value: 'financeiro' } })
 
+  await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
+  await waitFor(() => expect(mocks.updateUserProfile).toHaveBeenCalledWith('u-1', { role: 'financeiro' }))
+})
+
+it('pede confirmacao antes de trocar o setor, mostrando o escopo do destino', async () => {
+  render(<AdminUsuarios />)
+  fireEvent.change(screen.getAllByTitle('Setor de acesso')[0], { target: { value: 'financeiro' } })
+  await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
+  const args = mocks.confirm.mock.calls[0][0] as { message: string }
+  expect(args.message).toContain('Faturamento')
   expect(mocks.updateUserProfile).toHaveBeenCalledWith('u-1', { role: 'financeiro' })
+})
+
+it('nao troca o setor quando a confirmacao e recusada', async () => {
+  mocks.confirm.mockResolvedValue(false)
+  render(<AdminUsuarios />)
+  fireEvent.change(screen.getAllByTitle('Setor de acesso')[0], { target: { value: 'financeiro' } })
+  await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
+  expect(mocks.updateUserProfile).not.toHaveBeenCalled()
 })
 
 it('DEF-061: surface dedicada de erro ao carregar logs de acoes', () => {

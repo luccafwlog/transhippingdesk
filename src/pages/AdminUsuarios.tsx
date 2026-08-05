@@ -11,6 +11,7 @@ import { EditarAcessoModal } from '../components/admin/EditarAcessoModal'
 import {
   MANAGED_PROFILES,
   PROFILE_LABELS,
+  PROFILE_SCOPES,
   createUser,
   deactivateUser,
   listAllUserProfiles,
@@ -124,9 +125,16 @@ export function AdminUsuarios() {
     mutation.mutate({ id, updates: { active: true } })
   }
 
-  function handleSetProfile(id: string, role: UserProfileRole) {
-    setPendingId(id)
-    mutation.mutate({ id, updates: { role } })
+  async function handleSetProfile(user: AdminUserRow, role: UserProfileRole) {
+    const confirmed = await confirm({
+      title: 'Alterar setor',
+      message: `${user.full_name} passa a ter o acesso de ${PROFILE_LABELS[role]}: ${PROFILE_SCOPES[role]}`,
+      confirmLabel: 'Alterar setor',
+      tone: 'primary',
+    })
+    if (!confirmed) return
+    setPendingId(user.id)
+    mutation.mutate({ id: user.id, updates: { role } })
   }
 
   const users = data ?? []
@@ -226,8 +234,9 @@ export function AdminUsuarios() {
                           <select
                             disabled={isBusy}
                             value={normalizedRole}
-                            title={legacyRoleTitle}
-                            onChange={(e) => handleSetProfile(u.id, e.target.value as UserProfileRole)}
+                            title="Setor de acesso"
+                            aria-description={legacyRoleTitle}
+                            onChange={(e) => void handleSetProfile(u, e.target.value as UserProfileRole)}
                             className="app-input app-select w-44 text-xs disabled:opacity-40"
                           >
                             {MANAGED_PROFILES.map((p) => (
@@ -280,11 +289,12 @@ export function AdminUsuarios() {
           <div className="mt-6 app-panel app-panel--padded text-sm">
             <div className="mb-3 app-panel__title">Descrição dos perfis de acesso</div>
             <div className="grid gap-2 text-[var(--app-muted)]">
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Administrativo:</span> Acesso global a todos os módulos e configurações.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Financeiro:</span> Visualização completa + edição em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliação.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Operações:</span> Cadastro de Viagens, upload de manifestos e planilha IMO.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Documentação:</span> Acesso amplo ao sistema, exceto tela Admin e configurações administrativas.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Equipamentos:</span> Leitura geral + edição restrita a Vazios (EXP) e Veículos, incluindo o sign-off das suas seções no ADR.</div>
+              {MANAGED_PROFILES.map((profile) => (
+                <div key={profile}>
+                  <span className="font-semibold text-[var(--app-text-strong)]">{PROFILE_LABELS[profile]}:</span>{' '}
+                  {PROFILE_SCOPES[profile]}
+                </div>
+              ))}
             </div>
           </div>
 
