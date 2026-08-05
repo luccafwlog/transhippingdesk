@@ -102,5 +102,10 @@ de lanes e ordena pela menor ETA de POD.
 
 - As tabelas `vessel_schedules` e `ended_vessels` seguem versionadas porque
   ambientes antigos podem tê-las, mas não são usadas pelo fluxo atual.
+- A leitura das duas era `USING (true)` para qualquer `authenticated` — o que
+  incluía o cliente do Portal, contornando o portão `voyages.show_on_portal`.
+  A migration `257` passou a exigir `is_active_read_user()` e removeu o serviço
+  e o hook mortos que as liam pela sessão do Portal. Ver
+  `docs/archive/audits/security-audit-portal-2026-08-05.md`.
 - A RPC `portal_ship_schedule` ainda precisa ser aplicada no ambiente Supabase
   alvo antes do Portal consumir dados reais.
