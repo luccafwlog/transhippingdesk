@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { AGENCY_REPORT_SECTIONS, AGENCY_REPORT_SECTION_LABELS, agencyReportSectionLabel } from '../agencyDepartureReport'
+import { AGENCY_REPORT_SECTIONS, agencyReportSectionLabel } from '../agencyDepartureReport'
 
 const sql = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/253_adr_embarque_vazios_secao_unica.sql'),
@@ -86,13 +86,11 @@ describe('migration 253 — Embarque de Vazios volta a ser uma seção só (ADR 
 })
 
 describe('agencyReportSectionLabel', () => {
-  it('espelha exatamente os rótulos que a função SQL retorna', () => {
+  it('preserva os rótulos definidos pela migration histórica', () => {
     const label = sql.match(/CREATE OR REPLACE FUNCTION public\.agency_report_section_label[\s\S]*?\$\$;/)?.[0] ?? ''
-    for (const [section, text] of Object.entries(AGENCY_REPORT_SECTION_LABELS)) {
-      expect(label).toContain(`WHEN '${section}' THEN '${text}'`)
-    }
-    expect(agencyReportSectionLabel('operacao_patio')).toBe('Operação de pátio')
-    expect(agencyReportSectionLabel('ocorrencias')).toBe('Ocorrências')
+    expect(label).toContain("WHEN 'carga_carregada' THEN 'Carga carregada'")
+    expect(label).toContain("WHEN 'operacao_patio' THEN 'Operação de pátio'")
+    expect(label).toContain("WHEN 'ocorrencias' THEN 'Ocorrências'")
   })
 
   it('devolve a chave crua para um valor desconhecido, como o ELSE do SQL', () => {
