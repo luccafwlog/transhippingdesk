@@ -32,3 +32,12 @@ it('US-212: rail vazio mostra mensagem de ausencia', () => {
   render(<VoyageRail items={[]} selectedId={null} onSelect={vi.fn()} />)
   expect(screen.getByText('Nenhuma viagem para os filtros atuais.')).toBeTruthy()
 })
+
+it('reposiciona o rail na abertura mesmo quando a viagem ja vem selecionada pela rota', () => {
+  const scrollTo = vi.fn()
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: scrollTo })
+
+  render(<VoyageRail items={[item]} selectedId={7} onSelect={vi.fn()} />)
+
+  expect(scrollTo).toHaveBeenCalledWith({ left: 0, behavior: 'auto' })
+})

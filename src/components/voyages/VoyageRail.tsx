@@ -111,15 +111,17 @@ function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
 
 export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
   const { ref, edges, sync, scrollBy } = useHorizontalScroller()
+  const initialMountRef = useRef(true)
 
   useLayoutEffect(() => {
-    if (selectedId !== null || !ref.current) return
+    if ((!initialMountRef.current && selectedId !== null) || !ref.current) return
     if (typeof ref.current.scrollTo === 'function') {
       ref.current.scrollTo({ left: 0, behavior: 'auto' })
     } else {
       ref.current.scrollLeft = 0
     }
     sync()
+    initialMountRef.current = false
   }, [items, selectedId, ref, sync])
 
   if (items.length === 0) {
