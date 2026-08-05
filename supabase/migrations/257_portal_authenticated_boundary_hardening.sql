@@ -86,11 +86,13 @@ GRANT EXECUTE ON FUNCTION public.bl_has_portal_release(TEXT) TO service_role;
 --    e permanecem intactas.
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "vessel_schedules_select_authenticated" ON public.vessel_schedules;
+DROP POLICY IF EXISTS "vessel_schedules_select_internal" ON public.vessel_schedules;
 CREATE POLICY "vessel_schedules_select_internal" ON public.vessel_schedules
   FOR SELECT TO authenticated
   USING (public.is_active_read_user());
 
 DROP POLICY IF EXISTS "Authenticated users can view ended vessels" ON public.ended_vessels;
+DROP POLICY IF EXISTS "ended_vessels_select_internal" ON public.ended_vessels;
 CREATE POLICY "ended_vessels_select_internal" ON public.ended_vessels
   FOR SELECT TO authenticated
   USING (public.is_active_read_user());
