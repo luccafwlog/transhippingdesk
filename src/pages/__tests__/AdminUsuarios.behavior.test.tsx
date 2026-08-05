@@ -204,3 +204,10 @@ it('desativa pela Edge Function, que tambem encerra a sessao', async () => {
   fireEvent.click(screen.getAllByRole('button', { name: 'Desativar' })[0])
   await waitFor(() => expect(mocks.deactivateUser).toHaveBeenCalledWith('u-1'))
 })
+
+it('mostra as informacoes do sistema na aba Metricas, nao no topo da tela', () => {
+  render(<AdminUsuarios />)
+  expect(screen.queryByText('Informações do sistema')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Métricas' }))
+  expect(screen.getByText('Informações do sistema')).toBeTruthy()
+})

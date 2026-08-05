@@ -151,24 +151,6 @@ export function AdminUsuarios() {
         description="Painel administrativo: usuários, logs de ações e métricas operacionais."
       />
 
-      <div className="mb-6 app-panel app-panel--padded">
-        <div className="app-metric-tile__label">Informações do sistema</div>
-        <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
-          <div className="app-metric-tile grid-cols-[auto_1fr]">
-            <span className="text-[var(--app-muted)]">Versão</span>
-            <span className="text-right font-semibold text-[var(--app-text-strong)]">{`${VERSION} (${COMMIT_SHA})`}</span>
-          </div>
-          <div className="app-metric-tile grid-cols-[auto_1fr]">
-            <span className="text-[var(--app-muted)]">Ambiente</span>
-            <span className="text-right font-semibold text-[var(--app-text-strong)]">Produção</span>
-          </div>
-          <div className="app-metric-tile grid-cols-[auto_1fr]">
-            <span className="text-[var(--app-muted)]">Status</span>
-            <Badge tone="green">Operacional</Badge>
-          </div>
-        </div>
-      </div>
-
       <div className="mb-6 flex flex-wrap gap-2">
         {(['usuários', 'logs', 'métricas'] as AdminTab[]).map((t) => (
           <button
@@ -434,15 +416,34 @@ export function AdminUsuarios() {
       ) : null}
 
       {tab === 'métricas' ? (
-        metricsError ? (
-          <InlineError message="Erro ao carregar métricas do sistema." />
-        ) : (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-          <MetricCard label="Última alteração em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
-          <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
-          <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />
-        </div>
-        )
+        <>
+          <div className="mb-6 app-panel app-panel--padded">
+            <div className="app-metric-tile__label">Informações do sistema</div>
+            <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+              <div className="app-metric-tile grid-cols-[auto_1fr]">
+                <span className="text-[var(--app-muted)]">Versão</span>
+                <span className="text-right font-semibold text-[var(--app-text-strong)]">{`${VERSION} (${COMMIT_SHA})`}</span>
+              </div>
+              <div className="app-metric-tile grid-cols-[auto_1fr]">
+                <span className="text-[var(--app-muted)]">Ambiente</span>
+                <span className="text-right font-semibold text-[var(--app-text-strong)]">Produção</span>
+              </div>
+              <div className="app-metric-tile grid-cols-[auto_1fr]">
+                <span className="text-[var(--app-muted)]">Status</span>
+                <Badge tone="green">Operacional</Badge>
+              </div>
+            </div>
+          </div>
+          {metricsError ? (
+            <InlineError message="Erro ao carregar métricas do sistema." />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+              <MetricCard label="Última alteração em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
+              <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
+              <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />
+            </div>
+          )}
+        </>
       ) : null}
     </>
   )
