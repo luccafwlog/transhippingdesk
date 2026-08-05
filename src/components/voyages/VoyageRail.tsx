@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Package, Pencil } from 'lucide-react'
+import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, PackageCheck, PackageOpen, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import { ESTADO_CONCILIACAO_META } from '../../lib/statusLabels'
 import type { VoyageRailItem } from '../../services/voyageSummaries'
@@ -12,7 +12,7 @@ const MODULE_BADGES: Array<{
   { key: 'container', label: 'Container', icon: Boxes },
   { key: 'cargaSolta', label: 'Carga solta', icon: FileSpreadsheet },
   { key: 'veiculos', label: 'Veículos', icon: Car },
-  { key: 'vazios', label: 'Vazios', icon: Package },
+  { key: 'vazios', label: 'Vazios IMP', icon: PackageCheck },
   { key: 'granito', label: 'Granito', icon: Mountain },
 ]
 
@@ -90,6 +90,23 @@ function RailPill({ children }: { children: React.ReactNode }) {
   )
 }
 
+function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
+  const badges = [
+    modules.container ? { label: 'Container', icon: Boxes } : null,
+    modules.cargaSolta ? { label: 'Carga solta', icon: FileSpreadsheet } : null,
+    modules.veiculos ? { label: 'Veículos', icon: Car } : null,
+    modules.vazios ? { label: 'Vazios IMP', icon: PackageCheck } : null,
+    modules.vaziosExp ? { label: 'Vazios EXP', icon: PackageOpen } : null,
+    modules.granito ? { label: 'Granito', icon: Mountain } : null,
+  ].filter(Boolean) as Array<{ label: string; icon: typeof Boxes }>
+
+  return badges.length ? (
+    <span className="inline-flex items-center gap-1 text-[var(--app-muted)]" aria-label="Operações da escala">
+      {badges.map(({ label, icon: Icon }) => <Icon key={label} size={13} aria-label={label} />)}
+    </span>
+  ) : null
+}
+
 export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
   const { ref, edges, sync, scrollBy } = useHorizontalScroller()
 
@@ -134,7 +151,7 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
               type="button"
               onClick={() => onSelect(item.id)}
               aria-current={isSelected}
-              className={`group relative w-[268px] flex-none snap-start rounded-2xl border px-3 py-3 text-left transition-colors ${
+              className={`group relative flex min-h-[134px] w-[268px] flex-none snap-start flex-col items-start justify-start rounded-2xl border px-3 py-3 text-left transition-colors ${
                 isSelected
                   ? 'border-[var(--app-blue-btn)] bg-[var(--app-bg-elevated)]'
                   : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-muted)]'
@@ -179,16 +196,19 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {item.escalasBrasileiras.length > 0 ? (
                   item.escalasBrasileiras.map((escala) => (
-                    <RailPill key={escala.port}>
+                    <span key={escala.port} className="inline-flex items-center gap-1.5">
+                      <RailPill>
                       {escala.port}
                       {escala.eta ? ` · ${formatDate(escala.eta)}` : ''}
-                    </RailPill>
+                      </RailPill>
+                    <ScaleBadges modules={item.modules} />
+                    </span>
                   ))
                 ) : (
                   <span className="text-xs text-[var(--app-muted-soft)]">Sem escala brasileira prevista</span>
                 )}
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="hidden">
                 {MODULE_BADGES.filter((module) => item.modules[module.key]).map((module) => (
                   <span
                     key={module.key}
