@@ -480,7 +480,11 @@ export function buildVoyageRailItems(
           .filter((bl) => canonicalPort(bl.pod) === canonicalPort(escala.port))
           .flatMap((bl) => bl.bl_containers ?? [])
           .some((container) => vehicleContainers.has(String(container.container_number ?? '').trim().toUpperCase()))
-        return { ...escala, modules: { ...escala.modules, vehicles: hasVehiclesAtPort } }
+        const modules: Partial<VoyageRailItem['modules']> = { ...(escala.modules ?? {}) }
+        if (moduleStats?.hasVehicles) modules.vehicles = hasVehiclesAtPort
+        if (moduleStats?.hasVaziosExportacao) modules.vaziosExp = Boolean(modules.vaziosExp)
+        if (moduleStats?.hasGranite) modules.granito = Boolean(modules.granito)
+        return Object.keys(modules).length ? { ...escala, modules } : { port: escala.port, eta: escala.eta }
       }),
       modules: {
         container: containerBls.length > 0,
