@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
 import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
@@ -34,7 +34,7 @@ function useHorizontalScroller() {
 
   // O efeito roda a cada render (precisa medir depois do layout); só troca o
   // estado quando as bordas realmente mudam para não entrar em loop.
-  function sync() {
+  const sync = useCallback(() => {
     const el = ref.current
     if (!el) return
     const next = {
@@ -42,7 +42,7 @@ function useHorizontalScroller() {
       right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
     }
     setEdges((prev) => (prev.left === next.left && prev.right === next.right ? prev : next))
-  }
+  }, [])
 
   useEffect(() => {
     sync()
@@ -51,11 +51,11 @@ function useHorizontalScroller() {
     return () => window.removeEventListener('resize', onResize)
   })
 
-  function scrollBy(direction: -1 | 1) {
+  const scrollBy = useCallback((direction: -1 | 1) => {
     const el = ref.current
     if (!el) return
     el.scrollBy({ left: direction * Math.max(280, el.clientWidth * 0.8), behavior: 'smooth' })
-  }
+  }, [])
 
   return { ref, edges, sync, scrollBy }
 }
@@ -111,17 +111,18 @@ function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
 
 export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
   const { ref, edges, sync, scrollBy } = useHorizontalScroller()
-  const initialMountRef = useRef(true)
 
   useLayoutEffect(() => {
-    if ((!initialMountRef.current && selectedId !== null) || !ref.current) return
-    if (typeof ref.current.scrollTo === 'function') {
-      ref.current.scrollTo({ left: 0, behavior: 'auto' })
-    } else {
-      ref.current.scrollLeft = 0
+    const resetRailPosition = () => {
+      const element = ref.current
+      if (!element) return
+      element.scrollLeft = 0
+      if (typeof element.scrollTo === 'function') element.scrollTo({ left: 0, behavior: 'auto' })
+      sync()
     }
-    sync()
-    initialMountRef.current = false
+    resetRailPosition()
+    const frame = window.requestAnimationFrame(() => resetRailPosition())
+    return () => window.cancelAnimationFrame(frame)
   }, [items, selectedId, ref, sync])
 
   if (items.length === 0) {
