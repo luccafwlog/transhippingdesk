@@ -358,12 +358,21 @@ export type VoyageRailItem = {
   vesselName: string
   voyageNumber: string
   status: 'active' | 'completed' | 'cancelled'
+  /** Mantidos só para a busca do rail (`viagensFilters.ts`); o card não os exibe. */
   originPorts: string[]
   destinationPorts: string[]
-  blCount: number
-  containerCount: number
   estado: EstadoConciliacao
   proximaEscala: { pod: string; eta: string; etb: string | null } | null
+  /** Escalas brasileiras (não omitidas) com seus ETAs, ordenadas por ETA ascendente. */
+  escalasBrasileiras: Array<{ port: string; eta: string | null }>
+  /** Presença de cada tipo de carga/módulo na viagem, para os selos do card do rail. */
+  modules: {
+    container: boolean
+    cargaSolta: boolean
+    veiculos: boolean
+    vazios: boolean
+    granito: boolean
+  }
 }
 
 type VoyageRailSource = {
@@ -392,15 +401,45 @@ type EscalaScheduleRow = {
  * payload (CE + manifesto faltando); divergências (estado 'divergente') ficam
  * a cargo da view de detalhe, que consulta uma viagem por vez.
  */
+/** Presença de módulos por viagem, calculada fora do payload de B/Ls (veículos, vazios de importação e granito vêm de consultas próprias). */
+export type VoyageRailModuleStats = {
+  hasVehicles?: boolean
+  hasVaziosImportacao?: boolean
+  hasGranite?: boolean
+}
+
+/** Escalas brasileiras (não omitidas) por porto, com o menor ETA quando o porto aparece mais de uma vez, ordenadas por ETA ascendente (sem ETA vai ao final). */
+function collectEscalasBrasileiras(
+  escalaRows: Array<PodScheduleRow | EscalaScheduleRow>,
+): Array<{ port: string; eta: string | null }> {
+  const etaByPort = new Map<string, string | null>()
+
+  for (const row of escalaRows) {
+    if (row.omitted) continue
+    const port = getEscalaPort(row)
+    if (!port) continue
+    const current = etaByPort.get(port)
+    if (!etaByPort.has(port) || (row.eta && (!current || row.eta < current))) {
+      etaByPort.set(port, row.eta ?? current ?? null)
+    }
+  }
+
+  return Array.from(etaByPort.entries())
+    .map(([port, eta]) => ({ port, eta }))
+    .sort((left, right) => (left.eta ?? '￿').localeCompare(right.eta ?? '￿'))
+}
+
 export function buildVoyageRailItems(
   voyages: VoyageRailSource[] | null | undefined,
   escalaRowsByVoyageId: ReadonlyMap<number, Array<PodScheduleRow | EscalaScheduleRow>> = new Map(),
+  moduleStatsByVoyageId: ReadonlyMap<number, VoyageRailModuleStats> = new Map(),
 ): VoyageRailItem[] {
   return (voyages ?? []).map((voyage) => {
     const escalaRows = escalaRowsByVoyageId.get(voyage.id) ?? []
     const exportEscalas = escalaRows.filter((row) => 'port' in row && row.temExportacao)
-    const { containerBls } = splitVoyageBls(voyage.bls)
+    const { containerBls, breakbulkBls } = splitVoyageBls(voyage.bls)
     const { filled, total } = voyageCeCoverage(voyage.bls)
+    const moduleStats = moduleStatsByVoyageId.get(voyage.id)
 
     return {
       id: voyage.id,
@@ -415,14 +454,20 @@ export function buildVoyageRailItems(
         null,
         escalaRows,
       ),
-      blCount: (voyage.bls ?? []).length,
-      containerCount: countDistinctContainerNumbers(containerBls.flatMap((bl) => bl.bl_containers ?? [])),
       estado: deriveEstadoConciliacao({
         hasOpenDivergences: false,
         ceFilled: filled,
         ceTotal: total,
       }),
       proximaEscala: getProximaEscala(escalaRows),
+      escalasBrasileiras: collectEscalasBrasileiras(escalaRows),
+      modules: {
+        container: containerBls.length > 0,
+        cargaSolta: breakbulkBls.length > 0,
+        veiculos: moduleStats?.hasVehicles ?? false,
+        vazios: moduleStats?.hasVaziosImportacao ?? false,
+        granito: moduleStats?.hasGranite ?? false,
+      },
     }
   })
 }

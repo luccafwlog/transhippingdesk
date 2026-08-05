@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
+import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Package, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import { ESTADO_CONCILIACAO_META } from '../../lib/statusLabels'
 import type { VoyageRailItem } from '../../services/voyageSummaries'
+
+const MODULE_BADGES: Array<{
+  key: keyof VoyageRailItem['modules']
+  label: string
+  icon: typeof Boxes
+}> = [
+  { key: 'container', label: 'Container', icon: Boxes },
+  { key: 'cargaSolta', label: 'Carga solta', icon: FileSpreadsheet },
+  { key: 'veiculos', label: 'Veículos', icon: Car },
+  { key: 'vazios', label: 'Vazios', icon: Package },
+  { key: 'granito', label: 'Granito', icon: Mountain },
+]
 
 type VoyageRailProps = {
   /** Lista já filtrada e ordenada (a filtragem vive na página / VoyageFilters). */
@@ -61,7 +73,7 @@ function ScrollArrow({
       type="button"
       onClick={onClick}
       aria-label={side === 'left' ? 'Rolar para a esquerda' : 'Rolar para a direita'}
-      className={`absolute top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] shadow-lg transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)] lg:flex ${
+      className={`absolute top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-muted)] shadow-lg transition-colors hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)] ${
         side === 'left' ? 'left-1' : 'right-1'
       }`}
     >
@@ -102,8 +114,7 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
       <div
         ref={ref}
         onScroll={sync}
-        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
-        style={{ scrollbarWidth: 'thin' }}
+        className="voyage-rail-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3"
       >
         {items.map((item) => {
           const estado = ESTADO_CONCILIACAO_META[item.estado]
@@ -156,19 +167,28 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
               <div className="mt-0.5 truncate text-sm font-bold text-[var(--app-text-strong)]">
                 {item.vesselName} / {item.voyageNumber}
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-[var(--app-muted)]">
-                <span className="truncate">{item.originPorts.join('·') || '—'}</span>
-                <ArrowRight size={12} className="flex-none text-[var(--app-muted-soft)]" />
-                <span className="truncate">{item.destinationPorts.join('·') || '—'}</span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {item.escalasBrasileiras.length > 0 ? (
+                  item.escalasBrasileiras.map((escala) => (
+                    <RailPill key={escala.port}>
+                      {escala.port}
+                      {escala.eta ? ` · ${formatDate(escala.eta)}` : ''}
+                    </RailPill>
+                  ))
+                ) : (
+                  <span className="text-xs text-[var(--app-muted-soft)]">Sem escala brasileira prevista</span>
+                )}
               </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <RailPill>{item.blCount} B/Ls</RailPill>
-                <RailPill>{item.containerCount} CNTR</RailPill>
-                {item.proximaEscala ? (
-                  <RailPill>
-                    {item.proximaEscala.pod} · {formatDate(item.proximaEscala.eta)}
-                  </RailPill>
-                ) : null}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {MODULE_BADGES.filter((module) => item.modules[module.key]).map((module) => (
+                  <span
+                    key={module.key}
+                    className="flex items-center gap-1 text-[var(--app-muted)]"
+                    title={module.label}
+                  >
+                    <module.icon size={13} className="flex-none" />
+                  </span>
+                ))}
               </div>
             </button>
           )

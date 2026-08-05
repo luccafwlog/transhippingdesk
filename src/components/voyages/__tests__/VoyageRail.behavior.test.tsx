@@ -15,9 +15,9 @@ const item = {
   carrierName: 'COSCO',
   originPorts: ['BRSSZ'],
   destinationPorts: ['BRVIX'],
-  blCount: 3,
-  containerCount: 5,
   proximaEscala: null,
+  escalasBrasileiras: [{ port: 'BRVIX', eta: '2026-08-02' }],
+  modules: { container: true, cargaSolta: false, veiculos: false, vazios: false, granito: false },
 } as unknown as VoyageRailItem
 
 it('US-212: selecionar uma viagem no rail dispara onSelect com o id', () => {

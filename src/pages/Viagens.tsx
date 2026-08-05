@@ -15,7 +15,12 @@ import { useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { useVaziosImportacaoStats } from '../hooks/useVaziosImportacaoStats'
 import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
-import { buildVoyageRailItems, collectVoyagePorts, normalizeVoyageStatus } from '../services/voyageSummaries'
+import {
+  buildVoyageRailItems,
+  collectVoyagePorts,
+  normalizeVoyageStatus,
+  type VoyageRailModuleStats,
+} from '../services/voyageSummaries'
 import { cancelVoyage, deleteVoyage } from '../services/voyages'
 import { setImportBatchCeMaster } from '../services/manifestImport'
 import {
@@ -98,9 +103,23 @@ export function Viagens() {
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
   const vaziosImpStatsByVoyage = useMemo(() => vaziosImpStatsData?.byVoyageId ?? {}, [vaziosImpStatsData])
 
+  const moduleStatsByVoyageId = useMemo(() => {
+    const map = new Map<number, VoyageRailModuleStats>()
+    for (const voyage of voyages) {
+      map.set(voyage.id, {
+        hasVehicles: (vehicleStatsByVoyage[voyage.id]?.totalVehicles ?? 0) > 0,
+        hasVaziosImportacao: (vaziosImpStatsByVoyage[voyage.id]?.totalManifests ?? 0) > 0,
+        hasGranite: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
+          (schedule) => schedule.hasGranite,
+        ),
+      })
+    }
+    return map
+  }, [voyages, vehicleStatsByVoyage, vaziosImpStatsByVoyage, exportSchedulesData])
+
   const railItems = useMemo(
-    () => buildVoyageRailItems(voyages, escalaSchedulesByVoyage),
-    [voyages, escalaSchedulesByVoyage],
+    () => buildVoyageRailItems(voyages, escalaSchedulesByVoyage, moduleStatsByVoyageId),
+    [voyages, escalaSchedulesByVoyage, moduleStatsByVoyageId],
   )
 
   const visibleRailItems = useMemo(

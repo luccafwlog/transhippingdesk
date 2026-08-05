@@ -273,6 +273,7 @@ export function VoyageCard({
               {importLeg ? (
                 <VoyageRouteLeg
                   keyPrefix={`${voyage.id}-imp`}
+                  kind="importacao"
                   originPorts={importLeg.originPorts}
                   destinationPorts={importLeg.destinationPorts}
                 />
@@ -280,6 +281,7 @@ export function VoyageCard({
               {exportLeg ? (
                 <VoyageRouteLeg
                   keyPrefix={`${voyage.id}-exp`}
+                  kind="exportacao"
                   originPorts={exportLeg.originPorts}
                   destinationPorts={exportLeg.destinationPorts}
                 />
@@ -419,15 +421,20 @@ export function VoyageCard({
 
 function VoyageRouteLeg({
   keyPrefix,
+  kind,
   originPorts,
   destinationPorts,
 }: {
   keyPrefix: string
+  kind: 'importacao' | 'exportacao'
   originPorts: string[]
   destinationPorts: string[]
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--app-muted)]">
+      <Badge tone={kind === 'importacao' ? 'blue' : 'green'} className="flex-none">
+        {kind === 'importacao' ? 'Importação' : 'Exportação'}
+      </Badge>
       <div className="flex flex-wrap items-center gap-2">
         {originPorts.length ? (
           originPorts.map((port) => (

@@ -2288,6 +2288,26 @@ textarea {
   background: rgba(148, 163, 184, 0.45);
 }
 
+/* Faixa horizontal de viagens (VoyageRail): mesma barra visível do
+   app-table-scroll, para deixar claro que há mais cards fora da viewport. */
+.voyage-rail-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-border-strong) transparent;
+}
+
+.voyage-rail-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.voyage-rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.voyage-rail-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.45);
+}
+
 .app-table {
   width: 100%;
   border-collapse: collapse;

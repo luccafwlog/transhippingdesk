@@ -390,18 +390,23 @@ describe('buildVoyageRailItems', () => {
 
     expect(item.carrierName).toBe('COSCO')
     expect(item.vesselName).toBe('ARIES')
-    expect(item.blCount).toBe(2)
-    expect(item.containerCount).toBe(2)
     // 1 de 2 B/Ls com CE → incompleto
     expect(item.estado).toBe('incompleto')
     expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-09', etb: '2026-06-10' })
     expect(item.destinationPorts).toContain('BRSSA')
     expect(item.destinationPorts).toContain('BRVIX')
+    expect(item.escalasBrasileiras).toEqual([
+      { port: 'BRVIX', eta: '2026-06-09' },
+      { port: 'BRSSA', eta: '2026-06-12' },
+    ])
+    expect(item.modules.container).toBe(true)
+    expect(item.modules.cargaSolta).toBe(false)
   })
 
   it('usa mapa vazio de escalas sem quebrar', () => {
     const [item] = buildVoyageRailItems(voyages, new Map())
     expect(item.proximaEscala).toBeNull()
+    expect(item.escalasBrasileiras).toEqual([])
   })
 
   it('monta rail de viagem só de exportação a partir de escala unificada sem fallback de POD', () => {
@@ -430,6 +435,21 @@ describe('buildVoyageRailItems', () => {
     expect(item.originPorts).toEqual(['BRVIX'])
     expect(item.destinationPorts).toEqual(['BRVIX'])
     expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-01', etb: '2026-06-02' })
+    expect(item.escalasBrasileiras).toEqual([{ port: 'BRVIX', eta: '2026-06-01' }])
+  })
+
+  it('marca módulos de veículos, vazios de importação e granito a partir das stats por viagem', () => {
+    const moduleStats = new Map([[1, { hasVehicles: true, hasVaziosImportacao: true, hasGranite: true }]])
+    const [item] = buildVoyageRailItems(voyages, new Map(), moduleStats)
+    expect(item.modules).toEqual({ container: true, cargaSolta: false, veiculos: true, vazios: true, granito: true })
+  })
+
+  it('escala omitida não entra em escalasBrasileiras', () => {
+    const escalas = new Map([
+      [1, [{ pod: 'BRSSA', eta: '2026-06-12', etb: null, ata: null, omitted: true }]],
+    ])
+    const [item] = buildVoyageRailItems(voyages, escalas)
+    expect(item.escalasBrasileiras).toEqual([])
   })
 })
 
