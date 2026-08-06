@@ -25,13 +25,13 @@ export function longDate() {
 // Etapa 1 do plano de faturamento (ADR 0038, achado 3): o detalhamento de uma
 // invoice individual vem congelado em invoice_items desde a emissão (migration
 // 025_billing_orchestration_portal.sql), então recálculos posteriores do B/L
-// não o alteram. Consolidadas são a exceção real: o breakdown por B/L é
-// reconstruído a partir de charge_calculations em tempo de leitura
-// (hydrateConsolidatedInvoiceDetails em services/billing.ts), então afirmar
-// "congelado" aí seria enganoso — ver docs/modules/faturamento.md, "Breakdown derivado".
+// não o alteram. Desde a migration 261, consolidadas também congelam o
+// detalhamento no momento da consolidação (create_local_consolidated_invoice_core);
+// a reconstrução ao vivo a partir de charge_calculations só roda como rede de
+// seguranca para consolidadas antigas que não passaram pelo backfill.
 export function describeInvoiceItemsFreezeNote(invoice: { invoice_type?: string | null; issued_at?: string | null }) {
   if (invoice.invoice_type === 'consolidated') {
-    return `Emitida em ${formatDate(invoice.issued_at)}. Consolidada: o detalhamento por B/L é reconstruído a partir do cálculo atual de taxas locais, não é um snapshot congelado na emissão.`
+    return `Emitida em ${formatDate(invoice.issued_at)}. Consolidada: o detalhamento por B/L reflete o saldo de cada B/L congelado no momento da consolidação e não muda com recálculos posteriores.`
   }
   return `Itens automáticos (Origem: Auto) refletem o cálculo do B/L congelado na emissão (${formatDate(invoice.issued_at)}) e não mudam com recálculos posteriores. Itens manuais podem ter sido lançados depois da emissão — veja a coluna Origem.`
 }

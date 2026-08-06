@@ -12,9 +12,8 @@ describe('describeInvoiceItemsFreezeNote', () => {
     expect(note).toContain('23/06/2026')
   })
 
-  it('nao afirma congelamento para invoice consolidada', () => {
+  it('descreve o congelamento no momento da consolidação para invoice consolidada', () => {
     const note = describeInvoiceItemsFreezeNote({ invoice_type: 'consolidated', issued_at: '2026-06-23' })
-    expect(note).toContain('não é um snapshot congelado')
-    expect(note).toContain('reconstruído')
+    expect(note).toContain('congelado no momento da consolidação')
   })
 })

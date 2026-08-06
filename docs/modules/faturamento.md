@@ -264,9 +264,14 @@ Não há evidência de Runtime registrada neste documento.
   B/Ls e depois chama `create_invoice_from_bls_with_ledger` por cliente. Entre
   as duas etapas pode haver sucesso parcial; a RPC
   `mark_bl_ready_and_create_invoice` é usada no detalhe/revisão de um B/L.
-- **Breakdown derivado.** Itens de consolidada não são snapshot completo em
-  `invoice_items`; mudanças posteriores em `charge_calculations` podem causar
-  fallback agregado, sem alterar o subtotal ledger.
+- **Breakdown congelado na consolidação (migration `261`).** Desde a etapa 1 do
+  plano de faturamento (ADR 0038, achado 3), `create_local_consolidated_invoice_core`
+  grava o snapshot em `invoice_items` no momento da consolidação — linha por
+  item quando a soma reconcilia com o saldo do B/L, senão uma linha agregada
+  (mesma regra que antes só existia ao vivo). Consolidadas emitidas antes da
+  migration foram backfilled (`snapshot_payload.backfilled=true`); a
+  reconstrução ao vivo em `get_consolidated_invoice_item_breakdown` e no CTE de
+  `portal_invoice_details` continua existindo só como rede de segurança.
 - **PIX tem dois autores.** A migration
   `074_ledger_invoice_pix_payload.sql` mantém payload por trigger para
   invoices locais. `createInvoiceFromBls` ainda executa `persistPixPayload`
