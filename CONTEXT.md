@@ -709,9 +709,6 @@ antes de qualquer fatura existir.
 - **Related:** Isenção de Taxas Locais, Taxas Locais
 
 **Isenção de Taxas Locais**
-> Decidida em 2026-08-06 e **ainda não implementada**: hoje o motor isenta todo
-> B/L de container que tenha veículo, sem checar o Movimento. Este verbete
-> descreve a intenção.
 
 Dispensa de cobrança de taxas locais para carga de veículos **em LCL**, cujas
 taxas foram pagas na origem. Depende de duas condições, não de uma: haver

@@ -27,11 +27,13 @@ export function Field({
   children,
   error,
   required,
+  hint,
 }: {
   label: string
   children: React.ReactNode
   error?: string
   required?: boolean
+  hint?: string
 }) {
   return (
     <label className="app-field">
@@ -40,6 +42,7 @@ export function Field({
         {required && <span className="app-field__required" aria-hidden="true"> *</span>}
       </span>
       {children}
+      {hint ? <span className="app-field__hint">{hint}</span> : null}
       {error ? <span className="app-field__error" role="alert">{error}</span> : null}
     </label>
   )
