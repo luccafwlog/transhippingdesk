@@ -484,6 +484,11 @@ textarea {
   flex-wrap: nowrap;
 }
 
+/* Ações pessoais vivem no menu do nome no cabeçalho informativo. */
+.app-header__actions > .hidden {
+  display: none !important;
+}
+
 .app-header__quick-link {
   display: inline-flex;
   align-items: center;
