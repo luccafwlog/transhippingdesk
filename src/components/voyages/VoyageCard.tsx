@@ -90,10 +90,10 @@ function DirectionKpiTile({
   return (
     <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
       <Badge tone={tone}>{direction}</Badge>
-      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[var(--app-muted-soft)]">
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] text-[var(--app-muted-soft)]">
         {metrics.map((metric) => (
           <div key={`${direction}-${metric.label}`} className="flex justify-between gap-2">
-            <span>{metric.label}</span>
+            <span className="font-semibold uppercase tracking-wide">{metric.label}</span>
             <span className="font-semibold text-[var(--app-muted)]">{metric.value}</span>
           </div>
         ))}
