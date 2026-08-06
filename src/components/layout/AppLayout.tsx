@@ -4,6 +4,7 @@ import {
   ChevronDown,
   DollarSign,
   FileSpreadsheet,
+  KeyRound,
   LogOut,
   Menu,
   Package,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { ErrorBoundary } from '../ErrorBoundary'
+import { AlterarMinhaSenhaModal } from '../admin/AlterarMinhaSenhaModal'
 import { useAuth } from '../../hooks/useAuth'
 import { useOperationalCounts } from '../../hooks/useOperationalCounts'
 import { HeaderInfoBar } from './HeaderInfoBar'
@@ -33,8 +35,9 @@ const NAV_COLLAPSE_WIDTH = 1100
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { profile, signOut, isAdmin } = useAuth()
+  const { profile, session, signOut, isAdmin } = useAuth()
   const counts = useOperationalCounts()
+  const [senhaAberta, setSenhaAberta] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileImportOpen, setMobileImportOpen] = useState(false)
   const [desktopImportOpen, setDesktopImportOpen] = useState(false)
@@ -128,12 +131,21 @@ export function AppLayout() {
               <span className="app-user-pill__name">{profile?.full_name ?? 'Usuário'}</span>
             </div>
 
+            <Button variant="ghost" onClick={() => setSenhaAberta(true)}>
+              <KeyRound size={16} />
+              Minha senha
+            </Button>
+
             <Button className="app-header__logout" variant="ghost" onClick={handleSignOut}>
               <LogOut size={16} />
               Sair
             </Button>
           </div>
         </div>
+
+        {senhaAberta && session?.user.email ? (
+          <AlterarMinhaSenhaModal open email={session.user.email} onClose={() => setSenhaAberta(false)} />
+        ) : null}
       </header>
 
       <div className="app-nav-bar">

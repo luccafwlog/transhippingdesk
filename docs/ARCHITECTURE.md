@@ -405,7 +405,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/line-up-tv` | Administração do Line Up |
 | `/line-up-tv/display` | Display protegido para TV |
 | `/chegadas-saidas` | Programação exibida no Portal |
-| `/admin/usuarios` | Administração de usuários |
+| `/admin/usuarios` | Administração de usuários: criação com senha definida pelo admin, edição de e-mail/senha, setor, ativação e auditoria |
 
 ### Redirecionamentos de compatibilidade
 

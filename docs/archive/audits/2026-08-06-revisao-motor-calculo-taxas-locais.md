@@ -17,7 +17,7 @@
 
 ## Resumo executivo
 
-Dez pontos. Nenhum deles é "o sistema está quebrado" — o motor funciona e
+Onze pontos. Nenhum deles é "o sistema está quebrado" — o motor funciona e
 calcula. São pontos em que o sistema **decide sozinho algo que deveria ser uma
 política declarada**, ou em que ele **erra em silêncio** em vez de parar e
 avisar.
@@ -427,7 +427,7 @@ que, no caminho normal, não tem como ocorrer.
 
 Se o cálculo passa a existir antes do CE — provisório, conferível, não
 faturável — com o CE assumindo o papel de confirmar e emitir. **Decidido em
-2026-08-06: sim.** Registro na ADR 0037, decisão 8.
+2026-08-06: sim.** Registro na ADR 0038, decisão 8.
 
 ---
 

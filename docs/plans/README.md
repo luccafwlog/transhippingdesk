@@ -13,9 +13,10 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 ## Planos ativos
 
-| Plano | Status | Observação |
+| Plano | Tema | Status |
 |---|---|---|
-| [2026-08-06-faturamento-abas-consolidacao](2026-08-06-faturamento-abas-consolidacao.md) | TODO | Etapas 1–2 prontas para executar; Etapas 3–4 aguardam decisão do gestor |
+| [`2026-08-05-vehicles-desova.md`](./2026-08-05-vehicles-desova.md) | Veículos: local de desova e consolidação no ADR | TODO |
+| [`2026-08-06-faturamento-ajuste-completo.md`](./2026-08-06-faturamento-ajuste-completo.md) | Faturamento: executar a ADR 0038 e consolidar as abas de `/faturamento` | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

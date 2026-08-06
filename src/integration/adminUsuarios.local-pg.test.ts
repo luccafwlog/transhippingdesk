@@ -1,0 +1,81 @@
+import { execFileSync, spawnSync } from 'node:child_process'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+const enabled = process.env.LOCAL_PG_INTEGRATION === '1'
+const describeLocal = enabled ? describe : describe.skip
+const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test'
+
+const adminId = '40000000-0000-0000-0000-000000000001'
+const memberId = '50000000-0000-0000-0000-000000000002'
+
+function psql(sql: string) {
+  return execFileSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-At', '-d', databaseUrl, '-c', sql], { encoding: 'utf8' }).trim()
+}
+
+function callAs(userId: string, sql: string) {
+  return spawnSync('psql', [
+    '-X', '-v', 'ON_ERROR_STOP=1', '-At', '-d', databaseUrl,
+    '-c', `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub', '${userId}', true); ${sql} COMMIT;`,
+  ], { encoding: 'utf8' })
+}
+
+describeLocal('migration 259 — administração de usuários internos', () => {
+  beforeAll(() => {
+    psql(`
+      -- The disposable local auth schema is intentionally minimal; production
+      -- Supabase auth.users includes this column used by the protected RPC.
+      ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS last_sign_in_at TIMESTAMPTZ;
+      INSERT INTO auth.users (id, email) VALUES
+        ('${adminId}', 'admin-258@example.test'),
+        ('${memberId}', 'member-258@example.test')
+      ON CONFLICT (id) DO NOTHING;
+      INSERT INTO public.user_profiles (id, full_name, role, active) VALUES
+        ('${adminId}', 'Admin 258', 'administrativo', true),
+        ('${memberId}', 'Membro 258', 'documentacao', true)
+      ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, active = EXCLUDED.active;
+      DELETE FROM public.audit_logs WHERE entity_type = 'user_profile' AND entity_id = '${memberId}';
+    `)
+  })
+
+  afterAll(() => {
+    psql(`
+      DELETE FROM public.audit_logs WHERE entity_type = 'user_profile' AND entity_id IN ('${adminId}', '${memberId}');
+      DELETE FROM public.user_profiles WHERE id IN ('${adminId}', '${memberId}');
+      DELETE FROM auth.users WHERE id IN ('${adminId}', '${memberId}');
+    `)
+  })
+
+  it('admin_list_users devolve e-mail do auth.users para o admin', () => {
+    const result = callAs(adminId, `SELECT email FROM public.admin_list_users() WHERE id = '${memberId}';`)
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('member-258@example.test')
+  })
+
+  it('admin_list_users recusa quem nao e administrador', () => {
+    const result = callAs(memberId, 'SELECT count(*) FROM public.admin_list_users();')
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toContain('Apenas administradores')
+  })
+
+  it('trigger registra a troca de setor com o autor da mudanca', () => {
+    callAs(adminId, `UPDATE public.user_profiles SET role = 'financeiro' WHERE id = '${memberId}';`)
+    const row = psql(`
+      SELECT field_name || '|' || old_value || '|' || new_value || '|' || changed_by
+      FROM public.audit_logs
+      WHERE entity_type = 'user_profile' AND entity_id = '${memberId}' AND field_name = 'role'
+      ORDER BY changed_at DESC LIMIT 1;
+    `)
+    expect(row).toBe(`role|documentacao|financeiro|${adminId}`)
+  })
+
+  it('trigger registra a desativacao', () => {
+    callAs(adminId, `UPDATE public.user_profiles SET active = false WHERE id = '${memberId}';`)
+    const row = psql(`
+      SELECT old_value || '|' || new_value
+      FROM public.audit_logs
+      WHERE entity_type = 'user_profile' AND entity_id = '${memberId}' AND field_name = 'active'
+      ORDER BY changed_at DESC LIMIT 1;
+    `)
+    expect(row).toBe('true|false')
+  })
+})

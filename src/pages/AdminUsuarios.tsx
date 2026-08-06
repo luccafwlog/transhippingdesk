@@ -3,9 +3,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
-import { MANAGED_PROFILES, PROFILE_LABELS, listAllUserProfiles, updateUserProfile } from '../services/adminUsers'
+import { NovoUsuarioModal } from '../components/admin/NovoUsuarioModal'
+import { EditarAcessoModal } from '../components/admin/EditarAcessoModal'
+import {
+  MANAGED_PROFILES,
+  PROFILE_LABELS,
+  PROFILE_SCOPES,
+  createUser,
+  deactivateUser,
+  listAllUserProfiles,
+  updateUserCredentials,
+  updateUserProfile,
+  type AdminUserRow,
+} from '../services/adminUsers'
 import { LOG_PAGE_SIZE, fetchAuditLogs, fetchSystemMetrics, type LogFilters } from '../services/adminObservability'
 import type { UserProfileRole } from '../types/database'
 
@@ -20,6 +33,9 @@ export function AdminUsuarios() {
   const confirm = useConfirm()
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [tab, setTab] = useState<AdminTab>('usuários')
+  const [search, setSearch] = useState('')
+  const [novoAberto, setNovoAberto] = useState(false)
+  const [editando, setEditando] = useState<AdminUserRow | null>(null)
   const [logFilters, setLogFilters] = useState<LogFilters>({
     entityType: '', changedBy: '', dateFrom: '', dateTo: '', page: 0,
   })
@@ -60,26 +76,73 @@ export function AdminUsuarios() {
     },
   })
 
+  const createMutation = useMutation({
+    mutationFn: createUser,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      showToast('Usuário criado.', 'success')
+      setNovoAberto(false)
+    },
+    onError: (err: Error) => showToast(err.message, 'error'),
+  })
+
+  const credentialsMutation = useMutation({
+    mutationFn: ({ userId, updates }: { userId: string; updates: { email?: string; password?: string } }) =>
+      updateUserCredentials({ user_id: userId, ...updates }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      showToast('Acesso atualizado.', 'success')
+      setEditando(null)
+    },
+    onError: (err: Error) => showToast(err.message, 'error'),
+  })
+
+  const deactivateMutation = useMutation({
+    mutationFn: deactivateUser,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      showToast('Usuário desativado e sessão encerrada.', 'success')
+      setPendingId(null)
+    },
+    onError: (err: Error) => { showToast(err.message, 'error'); setPendingId(null) },
+  })
+
   async function handleToggleActive(id: string, current: boolean) {
     const confirmed = await confirm({
       title: current ? 'Desativar usuário' : 'Ativar usuário',
       message: current
-        ? 'Desativar este usuário revoga imediatamente o acesso dele ao sistema. Confirmar?'
+        ? 'Desativar este usuário revoga o acesso e encerra a sessão dele imediatamente. Confirmar?'
         : 'Reativar este usuário restaura o acesso dele ao sistema. Confirmar?',
       confirmLabel: current ? 'Desativar' : 'Ativar',
       tone: current ? 'danger' : 'primary',
     })
     if (!confirmed) return
     setPendingId(id)
-    mutation.mutate({ id, updates: { active: !current } })
+    if (current) {
+      deactivateMutation.mutate(id)
+      return
+    }
+    mutation.mutate({ id, updates: { active: true } })
   }
 
-  function handleSetProfile(id: string, role: UserProfileRole) {
-    setPendingId(id)
-    mutation.mutate({ id, updates: { role } })
+  async function handleSetProfile(user: AdminUserRow, role: UserProfileRole) {
+    const confirmed = await confirm({
+      title: 'Alterar setor',
+      message: `${user.full_name} passa a ter o acesso de ${PROFILE_LABELS[role]}: ${PROFILE_SCOPES[role]}`,
+      confirmLabel: 'Alterar setor',
+      tone: 'primary',
+    })
+    if (!confirmed) return
+    setPendingId(user.id)
+    mutation.mutate({ id: user.id, updates: { role } })
   }
 
   const users = data ?? []
+  const term = search.trim().toLowerCase()
+  const visibleUsers = term
+    ? users.filter((u) =>
+        u.full_name.toLowerCase().includes(term) || (u.email ?? '').toLowerCase().includes(term))
+    : users
 
   return (
     <>
@@ -87,24 +150,6 @@ export function AdminUsuarios() {
         title="Administração"
         description="Painel administrativo: usuários, logs de ações e métricas operacionais."
       />
-
-      <div className="mb-6 app-panel app-panel--padded">
-        <div className="app-metric-tile__label">Informações do sistema</div>
-        <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
-          <div className="app-metric-tile grid-cols-[auto_1fr]">
-            <span className="text-[var(--app-muted)]">Versão</span>
-            <span className="text-right font-semibold text-[var(--app-text-strong)]">{`${VERSION} (${COMMIT_SHA})`}</span>
-          </div>
-          <div className="app-metric-tile grid-cols-[auto_1fr]">
-            <span className="text-[var(--app-muted)]">Ambiente</span>
-            <span className="text-right font-semibold text-[var(--app-text-strong)]">Produção</span>
-          </div>
-          <div className="app-metric-tile grid-cols-[auto_1fr]">
-            <span className="text-[var(--app-muted)]">Status</span>
-            <Badge tone="green">Operacional</Badge>
-          </div>
-        </div>
-      </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
         {(['usuários', 'logs', 'métricas'] as AdminTab[]).map((t) => (
@@ -123,6 +168,16 @@ export function AdminUsuarios() {
         <>
           {error ? <InlineError message="Erro ao carregar usuários." /> : null}
 
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <input
+              className="app-input w-72"
+              placeholder="Buscar por nome ou e-mail"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Button className="ml-auto" onClick={() => setNovoAberto(true)}>Novo usuário</Button>
+          </div>
+
           {isLoading ? (
             <div className="py-16 text-center text-[var(--app-muted)]">Carregando usuários...</div>
           ) : (
@@ -134,31 +189,36 @@ export function AdminUsuarios() {
                     <th scope="col" className="px-4 py-3">Nome</th>
                     <th scope="col" className="px-4 py-3">Perfil de acesso</th>
                     <th scope="col" className="px-4 py-3">Status</th>
+                    <th scope="col" className="px-4 py-3">Último acesso</th>
                     <th scope="col" className="px-4 py-3">Criado em</th>
                     <th scope="col" className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.length === 0 ? (
+                  {visibleUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-0">
+                      <td colSpan={6} className="p-0">
                         <EmptyState title="Nenhum usuário encontrado." />
                       </td>
                     </tr>
                   ) : null}
-                  {users.map((u) => {
-                    const isBusy = pendingId === u.id && mutation.isPending
+                  {visibleUsers.map((u) => {
+                    const isBusy = pendingId === u.id && (mutation.isPending || deactivateMutation.isPending)
                     const normalizedRole = u.role === 'admin' ? 'administrativo' : u.role === 'operator' ? 'documentacao' : u.role
                     const legacyRoleTitle = u.role !== normalizedRole ? `Perfil legado: ${PROFILE_LABELS[u.role] ?? u.role}` : undefined
                     return (
                       <tr key={u.id} className={!u.active ? 'opacity-60' : undefined}>
-                        <td className="px-4 py-3 font-medium text-[var(--app-text-strong)]">{u.full_name}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-[var(--app-text-strong)]">{u.full_name}</div>
+                          <div className="text-xs text-[var(--app-muted)]">{u.email ?? '—'}</div>
+                        </td>
                         <td className="px-4 py-3">
                           <select
                             disabled={isBusy}
                             value={normalizedRole}
-                            title={legacyRoleTitle}
-                            onChange={(e) => handleSetProfile(u.id, e.target.value as UserProfileRole)}
+                            title="Setor de acesso"
+                            aria-description={legacyRoleTitle}
+                            onChange={(e) => void handleSetProfile(u, e.target.value as UserProfileRole)}
                             className="app-input app-select w-44 text-xs disabled:opacity-40"
                           >
                             {MANAGED_PROFILES.map((p) => (
@@ -170,12 +230,25 @@ export function AdminUsuarios() {
                           <Badge tone={u.active ? 'green' : 'red'}>{u.active ? 'Ativo' : 'Inativo'}</Badge>
                         </td>
                         <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">
+                          {u.last_sign_in_at
+                            ? formatDateTime(u.last_sign_in_at)
+                            : <Badge tone="yellow">Nunca acessou</Badge>}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">
                           {u.created_at
                             ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(u.created_at))
                             : '-'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => setEditando(u)}
+                              className="app-table__action text-xs disabled:opacity-40"
+                            >
+                              Editar acesso
+                            </button>
                             <button
                               type="button"
                               disabled={isBusy}
@@ -198,13 +271,33 @@ export function AdminUsuarios() {
           <div className="mt-6 app-panel app-panel--padded text-sm">
             <div className="mb-3 app-panel__title">Descrição dos perfis de acesso</div>
             <div className="grid gap-2 text-[var(--app-muted)]">
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Administrativo:</span> Acesso global a todos os módulos e configurações.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Financeiro:</span> Visualização completa + edição em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliação.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Operações:</span> Cadastro de Viagens, upload de manifestos e planilha IMO.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Documentação:</span> Acesso amplo ao sistema, exceto tela Admin e configurações administrativas.</div>
-              <div><span className="font-semibold text-[var(--app-text-strong)]">Equipamentos:</span> Leitura geral + edição restrita a Vazios (EXP) e Veículos, incluindo o sign-off das suas seções no ADR.</div>
+              {MANAGED_PROFILES.map((profile) => (
+                <div key={profile}>
+                  <span className="font-semibold text-[var(--app-text-strong)]">{PROFILE_LABELS[profile]}:</span>{' '}
+                  {PROFILE_SCOPES[profile]}
+                </div>
+              ))}
             </div>
           </div>
+
+          {novoAberto ? (
+            <NovoUsuarioModal
+              open
+              onClose={() => setNovoAberto(false)}
+              onSubmit={(input) => createMutation.mutate(input)}
+              submitting={createMutation.isPending}
+            />
+          ) : null}
+          {editando ? (
+            <EditarAcessoModal
+              open
+              userName={editando.full_name}
+              currentEmail={editando.email}
+              onClose={() => setEditando(null)}
+              onSubmit={(updates) => credentialsMutation.mutate({ userId: editando.id, updates })}
+              submitting={credentialsMutation.isPending}
+            />
+          ) : null}
         </>
       ) : null}
 
@@ -323,15 +416,34 @@ export function AdminUsuarios() {
       ) : null}
 
       {tab === 'métricas' ? (
-        metricsError ? (
-          <InlineError message="Erro ao carregar métricas do sistema." />
-        ) : (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-          <MetricCard label="Última alteração em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
-          <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
-          <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />
-        </div>
-        )
+        <>
+          <div className="mb-6 app-panel app-panel--padded">
+            <div className="app-metric-tile__label">Informações do sistema</div>
+            <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+              <div className="app-metric-tile grid-cols-[auto_1fr]">
+                <span className="text-[var(--app-muted)]">Versão</span>
+                <span className="text-right font-semibold text-[var(--app-text-strong)]">{`${VERSION} (${COMMIT_SHA})`}</span>
+              </div>
+              <div className="app-metric-tile grid-cols-[auto_1fr]">
+                <span className="text-[var(--app-muted)]">Ambiente</span>
+                <span className="text-right font-semibold text-[var(--app-text-strong)]">Produção</span>
+              </div>
+              <div className="app-metric-tile grid-cols-[auto_1fr]">
+                <span className="text-[var(--app-muted)]">Status</span>
+                <Badge tone="green">Operacional</Badge>
+              </div>
+            </div>
+          </div>
+          {metricsError ? (
+            <InlineError message="Erro ao carregar métricas do sistema." />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+              <MetricCard label="Última alteração em Viagens" value={metrics?.lastVoyageAt ? formatDateTime(metrics.lastVoyageAt) : '-'} />
+              <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
+              <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />
+            </div>
+          )}
+        </>
       ) : null}
     </>
   )

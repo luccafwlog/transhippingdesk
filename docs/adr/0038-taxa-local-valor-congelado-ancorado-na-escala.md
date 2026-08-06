@@ -1,4 +1,4 @@
-# 0037 — Taxa Local é valor congelado na emissão, ancorado na escala do POD
+# 0038 — Taxa Local é valor congelado na emissão, ancorado na escala do POD
 
 Status: aceito — 2026-08-06
 
@@ -155,7 +155,7 @@ muda é passar a existir também um número antes, para conferência.
   linha cujo valor depende de um B/L que não está na planilha: quem confere
   precisa saber que aquele rateio tem uma contraparte.
 - A aba **Validação** de `/faturamento` ganha o papel que hoje não tem. O
-  diagnóstico do [plano de consolidação das abas](../plans/2026-08-06-faturamento-abas-consolidacao.md)
+  diagnóstico do [plano de execução](../plans/2026-08-06-faturamento-ajuste-completo.md)
   registrou que ela "promete uma conferência que a tela não faz"; com a fase
   provisória, passa a haver o que conferir. A Etapa 4 daquele plano (renomear
   "Validação") deve ser reavaliada à luz disto.
