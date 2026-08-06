@@ -161,6 +161,18 @@ export function HeaderInfoBar() {
                 type="button"
                 role="menuitem"
                 className="hib-user-menu__item"
+                onClick={() => {
+                  setUserMenuOpen(false)
+                  navigate('/perfil')
+                }}
+              >
+                <UserCircle size={13} aria-hidden="true" />
+                Meu perfil
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="hib-user-menu__item"
                 onClick={() => void handleSignOut()}
               >
                 <LogOut size={13} aria-hidden="true" />

@@ -54,6 +54,7 @@ type AuthContextValue = {
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  refreshProfile: () => Promise<void>
   isAdmin: boolean
   can: (permission: Permission) => boolean
   effectiveRole: UserProfileRole | null
@@ -198,6 +199,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       },
       async signOut() {
         await signOutSupabaseClient(supabase)
+      },
+      async refreshProfile() {
+        if (session?.user.id) setProfile(await loadProfile(session.user.id))
       },
     }
   }, [loading, profile, session])

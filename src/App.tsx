@@ -43,6 +43,7 @@ const EmbarqueVazios = lazyPage(() => import('./pages/EmbarqueVazios'), 'Embarqu
 const VaziosImportacao = lazyPage(() => import('./pages/VaziosImportacao'), 'VaziosImportacao')
 const BaplieEDI = lazyPage(() => import('./pages/Baplie'), 'Baplie')
 const ChegadasSaidas = lazyPage(() => import('./pages/ChegadasSaidas'), 'ChegadasSaidas')
+const Profile = lazyPage(() => import('./pages/Profile'), 'Profile')
 
 function RouteLoading() {
   return (
@@ -127,6 +128,7 @@ export default function App() {
           <Route path="/vazios-importacao" element={withSuspense(<VaziosImportacao />)} />
           <Route path="/baplie" element={withSuspense(<BaplieEDI />)} />
           <Route path="/chegadas-saidas" element={withSuspense(<ChegadasSaidas />)} />
+          <Route path="/perfil" element={withSuspense(<Profile />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

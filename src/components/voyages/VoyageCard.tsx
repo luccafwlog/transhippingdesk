@@ -22,7 +22,7 @@ import {
   splitVoyageBls,
   voyageCeCoverage,
 } from '../../services/voyageSummaries'
-import { normalizePortName } from '../../lib/voyageFormat'
+import { formatMetric, normalizePortName } from '../../lib/voyageFormat'
 import { normalizePortCode } from '../../services/portCode'
 import {
   deriveAutomaticVoyagePodCeStatus,
