@@ -463,6 +463,11 @@ a estar em contagem e fica fora do prazo se reassinar depois da data-limite; os
 outros dois permanecem em dia, porque reabrir o ADR não apaga as assinaturas
 alheias. O atraso é sempre do departamento que reabriu a sua própria.
 
+O cumprimento é atributo do **departamento**, nunca da pessoa: o nome de quem
+assinou continua visível em cada ADR, mas a medição agregada não soma por
+usuário. Quem clica no botão é quem estava disponível, não necessariamente quem
+produziu o dado que faltava.
+
 - **Related:** Linha do Tempo do ADR, Sign-off Departamental, ATD
 - **Distinto de:** o alerta de pendência do ADR, que sinaliza seção não
   resolvida a partir do lançamento do ATD e não conhece data-limite.
