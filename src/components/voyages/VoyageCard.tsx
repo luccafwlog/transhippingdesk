@@ -370,7 +370,7 @@ export function VoyageCard({
           ]}
         />
         <DirectionKpiTile
-          direction="CONCILIAÇÃO CE MERCANTE"
+          direction="CONCILIAÇÃO MERCANTE"
           tone="yellow"
           metrics={[
             { label: 'CE Mercante', value: `${ceCoverage.filled}/${ceCoverage.total}` },

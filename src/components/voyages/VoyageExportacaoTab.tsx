@@ -42,17 +42,17 @@ export function VoyageExportacaoTab({
     <>
       {exportByPol.length ? (
         <div className="grid gap-4 xl:grid-cols-2">
+          <MetricPanel title="Vazios">
+            <Info label="Unidades embarcadas" value={String(emptyTotals.units)} />
+            <Info label="Containers distintos" value={String(emptyTotals.distinctContainers)} />
+            <Info label="Tipos" value={emptyTotals.types} />
+          </MetricPanel>
           <MetricPanel title="Granito">
             <Info label="Manifestos" value={String(graniteTotals.manifests)} />
             <Info label="B/Ls" value={String(graniteTotals.bls)} />
             <Info label="Peso total" value={`${formatMetric(graniteTotals.weightTon)} ton`} />
             <Info label="Prontos faturamento" value={String(graniteTotals.readyForBilling)} />
             <Info label="Faturados" value={String(graniteTotals.invoiced)} />
-          </MetricPanel>
-          <MetricPanel title="Vazios">
-            <Info label="Unidades embarcadas" value={String(emptyTotals.units)} />
-            <Info label="Containers distintos" value={String(emptyTotals.distinctContainers)} />
-            <Info label="Tipos" value={emptyTotals.types} />
           </MetricPanel>
         </div>
       ) : (
