@@ -598,6 +598,10 @@ Por isso a fatura de taxas locais é emitida dias antes da atracação: o client
 precisa dela paga para retirar a carga, e não há fato posterior capaz de mudar
 o valor.
 
+B/Ls que dividem um mesmo container **recebem o CE no mesmo momento**. É essa
+regra operacional — não uma trava de software — que garante o rateio correto de
+taxa de container compartilhado.
+
 - **Related:** Fato Gerador, Omissao de Escala, COD, Data de Referência da Tarifa
 
 **Tabela de Taxas Locais**

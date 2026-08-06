@@ -100,7 +100,29 @@ decisão 5 — e, por consequência, reabre as duas alternativas rejeitadas
 ("recalcular irmãos" e "apenas sinalizar"), que haviam sido descartadas
 justamente por se considerar o residual coberto.
 
-Diagnóstico completo e opções de tratamento em
+Diagnóstico completo em
 [`docs/archive/audits/2026-08-06-revisao-motor-calculo-taxas-locais.md`](../archive/audits/2026-08-06-revisao-motor-calculo-taxas-locais.md),
-ponto 2. Enquanto uma das opções não for adotada, a decisão 5 deve ser lida como
-**intenção não implementada**, não como proteção vigente.
+ponto 2.
+
+### Complemento do mesmo dia — o caso residual não existe na operação
+
+Levantada a lacuna, a regra operacional foi confirmada: **B/Ls que dividem um
+container recebem o CE Mercante no mesmo momento**. O cenário que a decisão 5
+pretendia cobrir — um B/L novo compartilhando container com um irmão já
+calculado — não ocorre, porque não há como um dos dois receber CE sozinho.
+
+O caminho residual restante **está** coberto: acrescentar um container a um B/L
+que já tem cobrança cai em `billingLockedBlIds` (que inclui B/L com
+`charge_calculations`, não só com invoice), o aviso dispara e o override é
+exigido.
+
+Conclusão: a decisão 5 nomeia a proteção errada, mas a decisão principal fica
+íntegra e **nada precisa ser construído**. As duas alternativas rejeitadas
+seguem rejeitadas — agora pelo motivo certo (o caso não acontece), não pelo
+motivo declarado na época (estaria coberto pela 0017). O `share_count` correto
+depende da regra operacional acima; se ela mudar, esta ADR precisa ser
+reavaliada.
+
+Verificação barata disponível, caso algum dia se queira evidência em vez de
+confiança na regra: a soma dos rateios cobrados por container deve fechar em 1,
+e isso é consultável direto em `charge_calculations`.
