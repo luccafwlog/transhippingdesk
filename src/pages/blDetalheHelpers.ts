@@ -19,9 +19,15 @@ export function formatNumber(value: number | string | null | undefined) {
   return Number.isFinite(amount) ? amount.toLocaleString('pt-BR') : '0'
 }
 
+// Etapa 3 do plano de faturamento (ADR 0038, decisão 8): 'calculated' e
+// 'ready_for_billing' pararam de coincidir na prática (migration 263 remove a
+// promoção automática) — o tom e o rótulo precisam distinguir a fase
+// provisória (calculado, ainda não confirmado) da fase confirmada (pronta
+// para faturar via CE Mercante ou clique explícito).
 export function resolveChargeStatusTone(status: BL['charge_status']) {
   if (status === 'review_required') return 'yellow'
-  if (status === 'ready_for_billing' || status === 'reviewed' || status === 'calculated') return 'green'
+  if (status === 'ready_for_billing' || status === 'reviewed') return 'green'
+  if (status === 'calculated') return 'blue'
   if (status === 'exempt') return 'slate'
   return 'blue'
 }
@@ -29,7 +35,7 @@ export function resolveChargeStatusTone(status: BL['charge_status']) {
 export function resolveChargeStatusLabel(status: BL['charge_status']) {
   switch (status) {
     case 'calculated':
-      return 'Calculado'
+      return 'Calculado (provisório)'
     case 'review_required':
       return 'Revisao obrigatoria'
     case 'reviewed':
@@ -46,14 +52,15 @@ export function resolveChargeStatusLabel(status: BL['charge_status']) {
 export function resolveChargeLineStatusTone(status: string | null) {
   if (status === 'review_required') return 'yellow'
   if (status === 'exempt') return 'slate'
-  if (status === 'reviewed' || status === 'ready_for_billing' || status === 'calculated') return 'green'
+  if (status === 'reviewed' || status === 'ready_for_billing') return 'green'
+  if (status === 'calculated') return 'blue'
   return 'blue'
 }
 
 export function resolveChargeLineStatusLabel(status: string | null) {
   switch (status) {
     case 'calculated':
-      return 'Calculado'
+      return 'Provisório'
     case 'review_required':
       return 'Revisao'
     case 'reviewed':

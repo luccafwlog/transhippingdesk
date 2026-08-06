@@ -1425,6 +1425,11 @@ textarea {
   font-size: 12px;
 }
 
+.app-field__hint {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
 .app-badge {
   display: inline-flex;
   align-items: center;

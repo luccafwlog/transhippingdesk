@@ -1,8 +1,8 @@
 import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { InvoiceDetail } from '../../services/billing'
-import { stripBlPrefix } from '../../lib/utils'
-import { cell, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
+import { formatDate, stripBlPrefix } from '../../lib/utils'
+import { cell, describeUsdConversionNote, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Props = { detail: InvoiceDetail }
@@ -57,6 +57,10 @@ export function InvoiceDocumentLocal({ detail }: Props) {
             <td style={labelCell}>Navio/Voy.:</td>
             <td style={cell}>{vesselVoyages}</td>
           </tr>
+          <tr>
+            <td style={labelCell}>Emitida em:</td>
+            <td style={cell}>{formatDate(invoice.issued_at)}</td>
+          </tr>
         </tbody>
       </table>
 
@@ -86,9 +90,13 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                     </tr>
                     {blItems.map((item) => {
                       const bg = (itemFlatIndex.get(item.id) ?? 0) % 2 === 0 ? '#f9fafb' : 'white'
+                      const usdNote = describeUsdConversionNote(item)
                       return (
                         <tr key={item.id} style={{ background: bg, borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '8px 8px 8px 16px' }}>{stripBlPrefix(item.description, item.bl_id)}</td>
+                          <td style={{ padding: '8px 8px 8px 16px' }}>
+                            {stripBlPrefix(item.description, item.bl_id)}
+                            {usdNote && <div style={{ fontSize: '10px', color: '#6b7280' }}>{usdNote}</div>}
+                          </td>
                           <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.total_value_brl)}</td>
@@ -106,14 +114,20 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                   </React.Fragment>
                 )
               })
-            : items.map((item, idx) => (
-                <tr key={item.id} style={{ background: idx % 2 === 0 ? '#f9fafb' : 'white', borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '8px 7px' }}>{stripBlPrefix(item.description, item.bl_id)}</td>
-                  <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
-                  <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
-                  <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.total_value_brl)}</td>
-                </tr>
-              ))}
+            : items.map((item, idx) => {
+                const usdNote = describeUsdConversionNote(item)
+                return (
+                  <tr key={item.id} style={{ background: idx % 2 === 0 ? '#f9fafb' : 'white', borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '8px 7px' }}>
+                      {stripBlPrefix(item.description, item.bl_id)}
+                      {usdNote && <div style={{ fontSize: '10px', color: '#6b7280' }}>{usdNote}</div>}
+                    </td>
+                    <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
+                    <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
+                    <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.total_value_brl)}</td>
+                  </tr>
+                )
+              })}
           <tr style={{ background: '#F59E0B' }}>
             <td colSpan={3} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>TOTAL:</td>
             <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>{fmtBRL(invoice.total_brl)}</td>

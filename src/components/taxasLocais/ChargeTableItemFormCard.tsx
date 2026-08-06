@@ -80,6 +80,11 @@ export function ChargeTableItemFormCard({
             <option value="other_charge">Other charge</option>
           </Select>
         </Field>
+        {/* Etapa 7 do plano de faturamento (ADR 0038 achado 1): TEU tirado do
+            seletor porque o motor de cálculo nunca implementou essa base —
+            um item cadastrado como TEU hoje é sinalizado como
+            review_required (migration 264), não removido; se algum dia
+            TEU for implementado, reintroduzir a opção aqui. */}
         <Field label="Base de aplicacao">
           <Select
             value={tableItemForm.applicationBasis}
@@ -93,7 +98,6 @@ export function ChargeTableItemFormCard({
             <option value="bl">B/L</option>
             <option value="container_distinct_voyage">Container distinto por viagem</option>
             <option value="weight_ton">Tonelada</option>
-            <option value="teu">TEU</option>
           </Select>
         </Field>
         <Field label="Perfil">
