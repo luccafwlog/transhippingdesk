@@ -94,6 +94,13 @@ passa a ser o de confirmação e emissão.** Supersede parcialmente a
 - **Importar o B/L calcula as taxas** com o que o B/L tem naquele momento. O
   resultado é **provisório e conferível**: o operador extrai planilha e valida.
   **Nenhuma fatura é emitida, nada é publicado no Portal.**
+- **O import recalcula os irmãos.** Não só os B/Ls importados: também todo B/L
+  da mesma viagem que compartilhe container com eles e **ainda não tenha fatura
+  emitida**. Assim o rateio `1/share_count` provisório fica correto assim que o
+  segundo B/L entra, mesmo que ele venha numa importação posterior.
+  B/L com fatura emitida nunca é recalculado — o congelamento da decisão 2
+  prevalece; esse caso vira sinalização, pelo aviso de container compartilhado
+  que já existe no import.
 - **Cadastrar o CE Mercante recalcula, confirma e fecha**, e só então emite a
   fatura e publica.
 
@@ -136,15 +143,17 @@ muda é passar a existir também um número antes, para conferência.
   `LCL/FCL` há. Ler `movement_from` inverteria os dois casos mistos.
 - O motor deixa de escrever em `container_load_type`, cujo único escritor no
   sistema é ele mesmo e que nunca é revertido.
-- **O cálculo provisório pode divergir do faturado, e isso é esperado.** No
-  import, B/Ls irmãos que dividem container podem ainda não existir, então o
-  `share_count` provisório pode ser maior que o final — no limite, o B/L aparece
-  pagando o container inteiro. Era exatamente o problema que a ADR 0020 evitou
-  não calculando cedo; aqui ele volta, mas **sem chegar ao cliente**, porque a
-  fase provisória não emite nada. A planilha de conferência precisa deixar essa
-  natureza explícita, e linhas de container compartilhado devem ser
-  identificáveis nela — senão o operador valida um número que o CE vai mudar,
-  e a conferência passa a dar falsa segurança.
+- **O cálculo provisório fica correto para container compartilhado**, graças ao
+  recálculo de irmãos. Na prática os B/Ls que dividem container vêm na mesma
+  importação, e aí o rateio já nasce certo; quando vêm em importações separadas,
+  a entrada do segundo corrige o primeiro. A divergência entre provisório e
+  faturado deixa de ser estrutural e passa a ser residual — sobra apenas o que
+  mudar no B/L entre o import e o CE (peso, containers, cliente), que é
+  justamente o que a conferência existe para pegar.
+- Ainda assim, a planilha de conferência deve **identificar as linhas de
+  container compartilhado**. Não porque o número esteja errado, mas porque é a
+  linha cujo valor depende de um B/L que não está na planilha: quem confere
+  precisa saber que aquele rateio tem uma contraparte.
 - A aba **Validação** de `/faturamento` ganha o papel que hoje não tem. O
   diagnóstico do [plano de consolidação das abas](../plans/2026-08-06-faturamento-abas-consolidacao.md)
   registrou que ela "promete uma conferência que a tela não faz"; com a fase
@@ -169,8 +178,12 @@ muda é passar a existir também um número antes, para conferência.
   afetados.** Rejeitada pela decisão 1: não há o que sinalizar, porque a taxa
   continua devida.
 - **Recalcular B/Ls irmãos quando um novo B/L compartilha container.**
-  Rejeitada: contrariaria o congelamento da decisão 2, e o caso não ocorre pela
-  regra do CE simultâneo.
+  Rejeitada **apenas para B/L com fatura emitida**, onde contrariaria o
+  congelamento da decisão 2. Na fase provisória da decisão 8 ela é **adotada**:
+  nada foi emitido, então recalcular o irmão não congela nem descongela coisa
+  alguma — é só manter o número provisório certo. Esta ADR chegou a rejeitá-la
+  em bloco antes da decisão 8 existir; a rejeição era boa para o mundo de uma
+  fase só.
 - **Bloquear USD na Tabela de Taxas Locais.** Seria mais simples que a decisão
   6, mas a Booking Cancelation Fee é cobrada do cliente em dólar.
 - **Aplicar Recálculo Diário à taxa local em USD.** Rejeitada: criaria dois
@@ -182,6 +195,13 @@ muda é passar a existir também um número antes, para conferência.
 Nenhuma das decisões acima está implementada. Os verbetes correspondentes no
 `CONTEXT.md` carregam marcador explícito de "decidida e ainda não implementada"
 para o glossário não ser lido como descrição do motor.
+
+O cálculo provisório da decisão 8 encaixa em `confirmBlFreightImport`
+(`src/services/blFreightImport.ts`) como passo pós-commit best-effort e
+idempotente — mesmo padrão de `applyBapliePhysicalFlags`, que já roda ali. E
+precisa rodar **depois** dele: as flags IMO/OOG são aplicadas pós-commit e
+definem o perfil de carga, logo as quantidades de THD. Calcular antes produz
+perfil errado.
 
 O Movimento aparece em duas notações equivalentes e o parser lê texto livre das
 células `T20`/`AC20`: `CY` = `FCL` e `CFS` = `LCL`, sendo `FCL`/`LCL` a forma
