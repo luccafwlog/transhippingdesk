@@ -583,10 +583,6 @@ origem mantém seu ciclo de vida próprio.
 Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
 específicas do cliente.
 
-> A descrição a seguir é a **decidida em 2026-08-06 e ainda não implementada**.
-> Hoje não existe cálculo provisório: para B/L de container nada é calculado
-> antes do CE, e o CE dispara cálculo, emissão e publicação em cadeia única.
-
 O cálculo tem **duas fases**:
 
 - **Provisória** — importar o B/L calcula as taxas com o que ele tem naquele

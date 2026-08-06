@@ -6,6 +6,7 @@ import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
 import { applyBapliePhysicalFlags } from './baplieReconciliation'
+import { calculateProvisionalLocalCharges } from './charges/chargeOperationsService'
 import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
@@ -319,7 +320,19 @@ export async function confirmBlFreightImport(
   // do #306. Best-effort e idempotente — sem Baplie, é no-op.
   const voyageId = payload.find((bl) => bl.voyage_id != null)?.voyage_id ?? null
   if (voyageId != null) {
-    void applyBapliePhysicalFlags(voyageId, changedBy).catch(() => {})
+    // Etapa 4 do plano de faturamento (ADR 0038, achado 11): cálculo provisório
+    // de taxas locais roda depois das flags do Baplie (elas definem o perfil de
+    // carga usado no cálculo), incluindo os B/Ls irmãos de container
+    // compartilhado. Best-effort e idempotente — sem isso, container é no-op.
+    void applyBapliePhysicalFlags(voyageId, changedBy)
+      .catch(() => {})
+      .finally(() => {
+        void calculateProvisionalLocalCharges(
+          voyageId,
+          payload.map((bl) => bl.id),
+          changedBy,
+        ).catch(() => {})
+      })
   }
 
   return data

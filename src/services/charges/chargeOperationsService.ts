@@ -598,6 +598,66 @@ export async function calculateLocalChargesBatch(
   )
 }
 
+// Etapa 4 do plano de faturamento (ADR 0038, achado 11): cálculo provisório
+// logo após o import de B/L, antes do CE Mercante. Calcula os B/Ls importados
+// e os "irmãos" — B/Ls da mesma viagem que compartilham container com eles —
+// porque a quantidade de THD de um container compartilhado depende de quantos
+// B/Ls o dividem; importar um novo B/L nesse container muda a quantidade dos
+// que já estavam calculados. B/L com fatura emitida nunca é recalculado (cai
+// no aviso de container compartilhado que já existe). Só container (fronteira
+// da ADR 0020); carga solta e granito seguem seus fluxos próprios. Best-effort
+// e idempotente, no mesmo padrão de applyBapliePhysicalFlags — chame depois
+// dele, pois as flags IMO/OOG definem o perfil de carga usado no cálculo.
+export async function calculateProvisionalLocalCharges(
+  voyageId: number,
+  blIds: string[],
+  actorId: string | null,
+): Promise<{ calculated: number }> {
+  const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
+  if (normalizedIds.length === 0) return { calculated: 0 }
+
+  const { data: targetBls, error: targetError } = await supabase
+    .from('bls')
+    .select('id, cargo_mode, financial_status')
+    .in('id', normalizedIds)
+  if (targetError) throw targetError
+
+  const containerBlIds = (targetBls ?? [])
+    .filter((bl) => (bl.cargo_mode ?? 'container') === 'container' && !isBlFinanciallyLocked(bl.financial_status))
+    .map((bl) => bl.id)
+  if (containerBlIds.length === 0) return { calculated: 0 }
+
+  const { data: containers, error: containersError } = await supabase
+    .from('bl_containers')
+    .select('container_number')
+    .in('bl_id', containerBlIds)
+  if (containersError) throw containersError
+
+  const containerNumbers = Array.from(
+    new Set((containers ?? []).map((c) => (c.container_number ?? '').trim().toUpperCase()).filter(Boolean)),
+  )
+
+  let siblingIds: string[] = []
+  if (containerNumbers.length > 0) {
+    const { data: siblingContainers, error: siblingError } = await supabase
+      .from('bl_containers')
+      .select('bl_id, bl:bls!inner(voyage_id, cargo_mode, financial_status)')
+      .in('container_number', containerNumbers)
+      .eq('bl.voyage_id', voyageId)
+    if (siblingError) throw siblingError
+    siblingIds = (siblingContainers ?? [])
+      .filter((row) => {
+        const bl = row.bl as { cargo_mode: string | null; financial_status: string | null } | null
+        return (bl?.cargo_mode ?? 'container') === 'container' && !isBlFinanciallyLocked(bl?.financial_status)
+      })
+      .map((row) => row.bl_id as string)
+  }
+
+  const allIds = Array.from(new Set([...containerBlIds, ...siblingIds]))
+  const results = await Promise.allSettled(allIds.map((id) => calculateBlLocalCharges(id, { actorId, recalculate: true })))
+  return { calculated: results.filter((r) => r.status === 'fulfilled').length }
+}
+
 export async function markLocalChargesReviewedBatch(blIds: string[], actorId?: string | null) {
   return runBatch(blIds, (blId) => markBlChargesReviewed(blId, actorId))
 }
