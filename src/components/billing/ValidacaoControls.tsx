@@ -27,6 +27,7 @@ export function ValidacaoControls({
   onUpdateFilter,
   onPipelineStep,
   onRunBatchOperation,
+  onRecalculateAllInReview,
   onExport,
   onExportConference,
 }: {
@@ -51,6 +52,7 @@ export function ValidacaoControls({
   onUpdateFilter: <K extends keyof OpsFilters>(field: K, value: OpsFilters[K]) => void
   onPipelineStep: (step: PipelineStep) => void
   onRunBatchOperation: (action: BatchOperation) => void
+  onRecalculateAllInReview: () => void
   onExport: () => void
   onExportConference: () => void
 }) {
@@ -177,6 +179,19 @@ export function ValidacaoControls({
         <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Pronto faturar: {ready} | Faturado automatico: {readyInvoiced} | Diferenca: {readyPendingInvoice}
         </div>
+        {reviewPending > 0 ? (
+          <div className="mt-3">
+            <Button
+              variant="secondary"
+              onClick={onRecalculateAllInReview}
+              loading={calculatePending}
+              disabled={reviewPendingMutation || readyPendingMutation}
+            >
+              <RefreshCw size={15} />
+              Recalcular todas em revisão ({reviewPending})
+            </Button>
+          </div>
+        ) : null}
       </Card>
 
       <Card className="mb-5">

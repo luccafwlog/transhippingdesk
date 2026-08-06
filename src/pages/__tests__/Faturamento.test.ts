@@ -87,15 +87,31 @@ vi.mock('../../components/billing/ValidacaoTab', () => ({
 }))
 
 describe('Faturamento', () => {
-  it('usa abas destacadas e inclui Pendencias', () => {
+  it('usa abas destacadas com apenas Faturas e Validação (etapa 12: Pendências e Demurrage saíram)', () => {
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(Faturamento)))
 
     expect(html).toContain('class="app-tab app-tab--active"')
-    expect(html).toContain('Pendências')
     expect(html).toContain('Valida')
     expect(html).toContain('Faturas')
-    expect(html).toContain('Demurrage')
+    expect(html).not.toContain('Pendências')
+    // "Demurrage" ainda aparece como título da faixa de métricas na aba
+    // Faturas — o que não existe mais é a aba/lista/modal/impressão
+    // duplicados, então não deve haver um role="tab" com esse rótulo.
+    expect(html).not.toContain('role="tab" aria-selected="false">Demurrage')
     expect(html).toContain('Vencidas')
+  })
+
+  it('redireciona ?tab=demurrage para /demurrage', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/faturamento?tab=demurrage'] },
+        React.createElement(Faturamento),
+      ),
+    )
+    // Navigate não renderiza marcação própria em SSR estático; a ausência das
+    // abas confirma que o componente não montou a página normal.
+    expect(html).not.toContain('billing-page__tabs')
   })
 
   it('expoe somente a acao de consolidada no faturamento local', () => {

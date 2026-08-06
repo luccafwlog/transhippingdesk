@@ -87,8 +87,11 @@ Os formulários e defaults vivem em
   faturado, e por quê" como o plano pede. O nome da aba ("Validação") foi
   mantido: a etapa 12 do mesmo plano já dá a ela o papel de tela das duas
   fases, então o motivo original para renomear deixou de existir.
-- `src/components/billing/PendenciasFaturamentoTab.tsx` recalcula toda a lista
-  visível em `review_required`.
+- **Etapa 12 do mesmo plano** removeu a aba Pendências (`PendenciasFaturamentoTab.tsx`)
+  por ser subconjunto literal da Validação — mesma fonte, mesmo limite, só
+  `chargeStatus=review_required` fixo. O botão "Recalcular todas em revisão"
+  no passo 2 do funil (`ValidacaoControls.tsx`) cobre o mesmo recalculo em
+  massa sem seleção manual que a aba antiga oferecia.
 
 ## Catálogo de ações
 

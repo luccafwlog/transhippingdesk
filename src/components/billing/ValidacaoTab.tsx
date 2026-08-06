@@ -20,7 +20,16 @@ import { ValidacaoControls } from './ValidacaoControls'
 import { ValidacaoOperationsTable } from './ValidacaoOperationsTable'
 import type { BatchOperation, OpsFilters, PipelineStep } from './validacaoTypes'
 
-export function ValidacaoTab({ userId }: { userId: string | null }) {
+export function ValidacaoTab({
+  userId,
+  initialChargeStatus,
+}: {
+  userId: string | null
+  // Etapa 12 do plano de faturamento: a aba Pendências foi removida — quem
+  // chegava lá via ?tab=pendencias cai aqui com esse filtro pré-aplicado,
+  // reproduzindo exatamente o recorte que a aba antiga mostrava.
+  initialChargeStatus?: OpsFilters['chargeStatus']
+}) {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
@@ -31,7 +40,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     cargoMode: '',
     pod: '',
     voyageId: '',
-    chargeStatus: '',
+    chargeStatus: initialChargeStatus ?? '',
   })
   const [selectedOpsRows, setSelectedOpsRows] = useState<string[]>([])
   const [exportingOps, setExportingOps] = useState(false)
@@ -197,8 +206,8 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     }
   }
 
-  async function runBatchOperation(action: BatchOperation) {
-    const allIds = selectedOpsRows
+  async function runBatchOperation(action: BatchOperation, explicitIds?: string[]) {
+    const allIds = explicitIds ?? selectedOpsRows
     if (allIds.length === 0) {
       showToast('Selecione ao menos um B/L para executar acao em lote.', 'error')
       return
@@ -312,10 +321,23 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
       ])
-      setSelectedOpsRows([])
+      if (!explicitIds) setSelectedOpsRows([])
     } catch {
       showToast('Falha ao executar processamento em lote.', 'error')
     }
+  }
+
+  // Etapa 12 do plano de faturamento: recalcula todo o passo "Em revisao" do
+  // funil sem exigir selecao manual — reusa runBatchOperation (lote parcial,
+  // pula ja faturados, reporta contagem e primeiro erro) com a lista
+  // derivada do mesmo predicado que alimenta a contagem do passo 2.
+  async function handleRecalculateAllInReview() {
+    const ids = (operationsRows ?? []).filter(isPendingBillingReview).map((row) => row.id)
+    if (ids.length === 0) {
+      showToast('Não há B/Ls em revisão para recalcular.', 'info')
+      return
+    }
+    await runBatchOperation('recalculate', ids)
   }
 
   async function handleIssueSingleInvoice(row: { id: string; customer?: { id: number | null } | null }) {
@@ -397,6 +419,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         onUpdateFilter={updateOpsFilter}
         onPipelineStep={handlePipelineStep}
         onRunBatchOperation={(action) => void runBatchOperation(action)}
+        onRecalculateAllInReview={() => void handleRecalculateAllInReview()}
         onExport={() => void handleExportOperations()}
         onExportConference={() => void handleExportConference()}
       />
