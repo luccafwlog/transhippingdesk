@@ -118,8 +118,9 @@ Data e hora efetivas em que a embarcação atracou na escala. É distinta de ATA
 que registra a chegada, e de ETB, que registra a previsão de atracação.
 
 **ATD (Actual Time of Departure)**
-Data e hora efetivas em que a embarcação saiu da escala. É distinta de ETD,
-que permanece a previsão de saída.
+Data efetiva em que a embarcação saiu da escala, registrada sem hora. É distinta
+de ETD, que permanece a previsão de saída. Marca o início da contagem do Prazo
+de Conclusão do ADR.
 
 **Estado da Escala**
 Estado operacional derivado das datas reais, não um status manual independente.
@@ -427,6 +428,32 @@ consulta para aprovar pagamentos — mudanças posteriores na origem não altera
 relatório fechado. Reabrir exige justificativa auditada e novo fechamento. O
 Financeiro não possui ato próprio de aprovação do ADR; o fechamento é o marco.
 O ADR fechado é imprimível pelo navegador.
+
+**Linha do Tempo do ADR**
+Sequência datada dos marcos de conclusão de um ADR: o ATD da escala, os três
+Sign-offs Departamentais e o Fechamento. É **exibição derivada** como o resto do
+ADR — nenhum marco nasce nela; ela lê datas que os próprios atos já registram.
+Serve para responder, por escala, quem assinou quando e se o Prazo de Conclusão
+foi cumprido.
+
+- **Related:** Prazo de Conclusão do ADR, Sign-off Departamental, Fechamento do ADR, ATD
+
+**Prazo de Conclusão do ADR**
+Compromisso interno de que cada departamento assina a sua parte do ADR até três
+dias inteiros depois da saída do navio. A contagem começa na **data real do ATD
+da escala**, não no momento em que o ATD foi registrado no sistema: navio que
+saiu na segunda e teve o ATD lançado na quarta já chega ao lançamento com dois
+dias consumidos, e um ADR pode nascer com o prazo vencido. O prazo vence no fim
+do dia ATD+3 e é contado em dias, sem hora — a hora da saída não é considerada.
+
+São três prazos independentes, um por departamento, todos com a mesma
+data-limite; o prazo de um departamento é cumprido pelo seu Sign-off
+Departamental. O Fechamento do ADR é marco de conclusão do relatório, mas não
+tem prazo próprio, porque não pertence a nenhum departamento.
+
+- **Related:** Linha do Tempo do ADR, Sign-off Departamental, ATD
+- **Distinto de:** o alerta de pendência do ADR, que sinaliza seção não
+  resolvida a partir do lançamento do ATD e não conhece data-limite.
 
 **Número de Escala do Mercante**
 Identificador criado no sistema federal Mercante para uma escala do navio. Uma
