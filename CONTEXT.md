@@ -457,6 +457,12 @@ data-limite; o prazo de um departamento é cumprido pelo seu Sign-off
 Departamental. O Fechamento do ADR é marco de conclusão do relatório, mas não
 tem prazo próprio, porque não pertence a nenhum departamento.
 
+O cumprimento é medido pela **assinatura que vale agora**, não pela primeira que
+existiu. Um departamento que reabre a própria assinatura para corrigir algo volta
+a estar em contagem e fica fora do prazo se reassinar depois da data-limite; os
+outros dois permanecem em dia, porque reabrir o ADR não apaga as assinaturas
+alheias. O atraso é sempre do departamento que reabriu a sua própria.
+
 - **Related:** Linha do Tempo do ADR, Sign-off Departamental, ATD
 - **Distinto de:** o alerta de pendência do ADR, que sinaliza seção não
   resolvida a partir do lançamento do ATD e não conhece data-limite.
