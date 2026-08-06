@@ -13,7 +13,9 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 ## Planos ativos
 
-Nenhum plano ativo no momento.
+| Plano | Status | Observação |
+|---|---|---|
+| [2026-08-06-faturamento-abas-consolidacao](2026-08-06-faturamento-abas-consolidacao.md) | TODO | Etapas 1–2 prontas para executar; Etapas 3–4 aguardam decisão do gestor |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
