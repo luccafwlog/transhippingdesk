@@ -29,8 +29,15 @@ BEGIN
       a.valid_from AS from_a, a.valid_to AS to_a, b.valid_from AS from_b, b.valid_to AS to_b
     FROM public.customer_rate_overrides a
     JOIN public.customer_rate_overrides b
-      ON a.customer_id IS NOT DISTINCT FROM b.customer_id
-     AND a.charge_item_id IS NOT DISTINCT FROM b.charge_item_id
+      -- Achado da review da PR 501: a EXCLUDE constraint abaixo usa
+      -- `customer_id WITH =` / `charge_item_id WITH =`, e em exclusion
+      -- constraints NULL nunca conflita consigo mesmo (unknown, nao match).
+      -- A pre-checagem tinha IS NOT DISTINCT FROM, mais estrita que a
+      -- constraint: abortava a migration em pares NULL=NULL que a propria
+      -- restricao sendo instalada aceitaria. Usa `=` para casar a mesma
+      -- semantica.
+      ON a.customer_id = b.customer_id
+     AND a.charge_item_id = b.charge_item_id
      AND a.id < b.id
      AND daterange(a.valid_from, a.valid_to, '[]') && daterange(b.valid_from, b.valid_to, '[]')
   LOOP
@@ -213,10 +220,24 @@ BEGIN
   -- ancoras alternando faziam o mesmo B/L dar precos diferentes em
   -- recalculos diferentes. ETA ausente vira pendencia de revisao, nao
   -- fallback -- sem ela nao ha tabela nem override resolvidos.
-  SELECT NULLIF(v.pod_schedule_snapshot -> v_bl.pod ->> 'eta', '')::DATE
+  -- Achado da review da PR 501: pod_schedule_snapshot vem de new_value TEXT
+  -- de uma tabela de auditoria (046_voyage_schedule_snapshot_trigger.sql) que
+  -- nunca valida formato -- nem o proprio leitor do app (normalizeDateValue
+  -- em voyageRouteSchedules.ts) faz mais que trim. Um ::DATE cru sobre isso
+  -- estoura em texto malformado, e esta funcao nao tem EXCEPTION handler, o
+  -- que derrubaria o calculo do B/L inteiro (e do lote, ja que a Etapa 4
+  -- chama isso automaticamente no import) em vez de virar review:no_eta como
+  -- o padrao "parar e sinalizar" da Etapa 7 pede. Valida o formato ISO antes
+  -- de converter; texto fora do padrao vira NULL, mesmo caminho do ETA
+  -- ausente.
+  SELECT v_eta_raw.eta_text::DATE
   INTO v_ref_date
   FROM public.voyages AS v
-  WHERE v.id = v_bl.voyage_id;
+  CROSS JOIN LATERAL (
+    SELECT NULLIF(TRIM(v.pod_schedule_snapshot -> v_bl.pod ->> 'eta'), '') AS eta_text
+  ) AS v_eta_raw
+  WHERE v.id = v_bl.voyage_id
+    AND v_eta_raw.eta_text ~ '^\d{4}-\d{2}-\d{2}$';
 
   IF v_ref_date IS NULL THEN
     v_auto_review := true;

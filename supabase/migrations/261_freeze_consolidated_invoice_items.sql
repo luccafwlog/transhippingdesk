@@ -180,14 +180,25 @@ $function$;
 --    fica congelado dali em diante mesmo que o motor recalcule o B/L depois.
 -- ---------------------------------------------------------------------------
 WITH targets AS (
+  -- Achado da review da PR 501: invoice_receivable_links tambem recebe
+  -- linhas de faturas individuais (link_invoice_to_ledger, 068) e de
+  -- consolidadas obsoletadas (obsolete_consolidated_invoice marca o link
+  -- como status='obsolete', 067). Sem este filtro, o backfill fabricava uma
+  -- linha agregada para qualquer fatura ligada sem itens -- inclusive
+  -- individuais e consolidadas canceladas -- e congelava esse dado
+  -- inventado como se fosse o detalhamento original.
   SELECT DISTINCT l.invoice_id
   FROM public.invoice_receivable_links l
-  WHERE NOT EXISTS (SELECT 1 FROM public.invoice_items ii WHERE ii.invoice_id = l.invoice_id)
+  JOIN public.invoices inv ON inv.id = l.invoice_id
+  WHERE inv.invoice_type = 'consolidated'
+    AND l.status = 'active'
+    AND NOT EXISTS (SELECT 1 FROM public.invoice_items ii WHERE ii.invoice_id = l.invoice_id)
 ),
 links AS (
   SELECT l.invoice_id, l.bl_id, l.subtotal_brl
   FROM public.invoice_receivable_links l
   JOIN targets t ON t.invoice_id = l.invoice_id
+  WHERE l.status = 'active'
 ),
 calcs AS (
   SELECT

@@ -15,8 +15,13 @@ describe('rate reference date from pod eta migration (266)', () => {
   })
 
   it('reads v_ref_date from the voyage pod_schedule_snapshot eta, not upload/created dates', () => {
-    expect(sql).toContain("SELECT NULLIF(v.pod_schedule_snapshot -> v_bl.pod ->> 'eta', '')::DATE")
+    expect(sql).toContain("pod_schedule_snapshot -> v_bl.pod ->> 'eta'")
     expect(sql).not.toContain('COALESCE((v_bl.uploaded_at)::DATE, (v_bl.created_at)::DATE, CURRENT_DATE)')
+  })
+
+  it('validates the eta text is an ISO date before casting, so malformed audit text degrades to review:no_eta instead of raising', () => {
+    expect(sql).toContain("v_eta_raw.eta_text ~ '^\\d{4}-\\d{2}-\\d{2}$'")
+    expect(sql).not.toContain("NULLIF(v.pod_schedule_snapshot -> v_bl.pod ->> 'eta', '')::DATE")
   })
 
   it('flags missing eta as review_required instead of falling back to another date', () => {
