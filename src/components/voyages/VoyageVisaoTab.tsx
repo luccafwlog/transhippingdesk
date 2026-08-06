@@ -1,25 +1,19 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Boxes, ChevronDown, ChevronUp, Clock, FileText, Gem, Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronUp, Clock, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
-import { MetricSection, NavigationCard } from '../shared/VoyageSectionCards'
+import { MetricSection } from '../shared/VoyageSectionCards'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/ConfirmDialog'
 import { useAuth } from '../../hooks/useAuth'
 import { useVoyageTimeline } from '../../hooks/useVoyageTimeline'
-import { countDistinctContainerNumbers } from '../../lib/containerCounts'
 import { formatDate } from '../../lib/utils'
 import { classifyDbError } from '../../lib/errors'
 import { formatMetric, formatPortDisplayName, normalizePortName } from '../../lib/voyageFormat'
 import { normalizePortCode } from '../../services/portCode'
 import {
   buildVoyageTimeline,
-  countDistinctRoutes,
-  getGraniteModuleStats,
-  getVaziosModuleStats,
-  splitVoyageBls,
   type VoyageTimelineEvent,
 } from '../../services/voyageSummaries'
 import { deleteVoyagePodSchedule, type VoyageEscalaDivergence, type VoyageEscalaSchedule } from '../../services/voyageRouteSchedules'
@@ -60,25 +54,12 @@ export function VoyageVisaoTab({
   onEditEscala: (payload: EscalaModalData) => void
   onOmitPod: (pod: string) => void
 }) {
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { user } = useAuth()
   const [timelineOpen, setTimelineOpen] = useState(true)
 
-  const { containerBls, breakbulkBls } = splitVoyageBls(voyage.bls)
-  // Contagem por rota (par POL/POD), não por arquivo de manifesto (#315).
-  const containerManifestCount = countDistinctRoutes(containerBls)
-  const breakbulkManifestCount = countDistinctRoutes(breakbulkBls)
-  const flatContainers = containerBls.flatMap((bl) => bl.bl_containers ?? [])
-  const totalContainers = countDistinctContainerNumbers(flatContainers)
-  const totalBreakbulkWeightTon = breakbulkBls.reduce(
-    (sum, bl) => sum + Number(bl.bb_weight_ton ?? (bl.total_weight_kg ? Number(bl.total_weight_kg) / 1000 : 0)),
-    0,
-  )
-  const graniteStats = getGraniteModuleStats(voyage.granite_manifests)
-  const vaziosStats = getVaziosModuleStats(voyage.vazios_manifests)
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
   // identificar o import na linha do tempo pela rota em vez do nome do arquivo.
   const routesByBatchId = useMemo(() => {
@@ -336,44 +317,10 @@ export function VoyageVisaoTab({
     </MetricSection>
   )
 
-  const navCardsContent = (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <NavigationCard
-        icon={Boxes}
-        title="Manifestos CNTR"
-        metrics={[`${containerManifestCount} manifestos`, `${containerBls.length} B/Ls`, `${totalContainers} containers distintos`]}
-        onClick={() => navigate(`/manifestos?voyage=${voyage.id}`)}
-        disabled={containerBls.length === 0}
-      />
-      <NavigationCard
-        icon={FileText}
-        title="Manifestos BB"
-        metrics={[`${breakbulkManifestCount} manifestos`, `${breakbulkBls.length} B/Ls`, `${formatMetric(totalBreakbulkWeightTon)} ton`]}
-        onClick={() => navigate(`/carga-solta?voyage=${voyage.id}`)}
-        disabled={breakbulkBls.length === 0}
-      />
-      <NavigationCard
-        icon={Gem}
-        title="Granito"
-        metrics={[`${graniteStats.totalManifests} manifestos`, `${formatMetric(graniteStats.totalWeightTon)} ton`, `${graniteStats.totalBls} B/Ls`]}
-        onClick={() => navigate(`/granito?voyage=${voyage.id}`)}
-        disabled={graniteStats.totalManifests === 0}
-      />
-      <NavigationCard
-        icon={Package}
-        title="Vazios"
-        metrics={[`${vaziosStats.totalUnits} unidades`, `${vaziosStats.distinctContainers} containers`, vaziosStats.origins || 'Sem locais de origem']}
-        onClick={() => navigate(`/vazios?voyage=${voyage.id}`)}
-        disabled={vaziosStats.totalManifests === 0}
-      />
-    </section>
-  )
-
   return (
     <div className="grid gap-4">
       <TransshipmentInfoCard voyageId={voyage.id} />
       {planningContent}
-      {navCardsContent}
       <VoyageTimeline events={timelineEvents} open={timelineOpen} onToggle={() => setTimelineOpen((value) => !value)} />
     </div>
   )

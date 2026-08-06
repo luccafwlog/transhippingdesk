@@ -1,6 +1,7 @@
 import { Info, MetricPanel, MetricSection } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
-import { formatMetric, formatPortDisplayName } from '../../lib/voyageFormat'
+import { countDistinctContainerNumbers } from '../../lib/containerCounts'
+import { formatMetric } from '../../lib/voyageFormat'
 import { summarizeExportByPol } from '../../services/voyageSummaries'
 import type { Voyage } from './voyageCardTypes'
 
@@ -14,31 +15,40 @@ export function VoyageExportacaoTab({
   userId: string | undefined
 }) {
   const exportByPol = summarizeExportByPol(voyage.granite_manifests, voyage.vazios_manifests)
+  const graniteTotals = exportByPol.reduce(
+    (totals, pol) => ({
+      manifests: totals.manifests + pol.granite.manifests,
+      bls: totals.bls + pol.granite.bls,
+      weightTon: totals.weightTon + pol.granite.weightTon,
+      readyForBilling: totals.readyForBilling + pol.granite.readyForBilling,
+      invoiced: totals.invoiced + pol.granite.invoiced,
+    }),
+    { manifests: 0, bls: 0, weightTon: 0, readyForBilling: 0, invoiced: 0 },
+  )
+  const emptyBookings = (voyage.vazios_manifests ?? []).flatMap((manifest) => manifest.vazios_bookings ?? [])
+  const emptyTypes = Array.from(new Set(emptyBookings.map((booking) => booking.container_type?.trim()).filter(Boolean))).join(', ')
+  const emptyTotals = {
+    units: emptyBookings.length,
+    distinctContainers: countDistinctContainerNumbers(emptyBookings),
+    types: emptyTypes || '-',
+  }
 
   return (
     <>
       {exportByPol.length ? (
-        <div className="grid gap-4">
-          {exportByPol.map((pol) => (
-            <div key={`${voyage.id}-exp-${pol.pol}`} className="app-panel app-panel--padded grid gap-4">
-              <div className="app-panel__title text-base">{formatPortDisplayName(pol.pol)}</div>
-              <div className="grid gap-4 xl:grid-cols-2">
-                <MetricPanel title="Granito">
-                  <Info label="Manifestos" value={String(pol.granite.manifests)} />
-                  <Info label="B/Ls" value={String(pol.granite.bls)} />
-                  <Info label="Peso total" value={`${formatMetric(pol.granite.weightTon)} ton`} />
-                  <Info label="Prontos faturamento" value={String(pol.granite.readyForBilling)} />
-                  <Info label="Faturados" value={String(pol.granite.invoiced)} />
-                </MetricPanel>
-                <MetricPanel title="Vazios">
-                  <Info label="Unidades embarcadas" value={String(pol.vazios.units)} />
-                  <Info label="Containers distintos" value={String(pol.vazios.distinctContainers)} />
-                  <Info label="Tipos" value={pol.vazios.types || '-'} />
-                  <Info label="Local de origem" value={pol.vazios.origins || '-'} />
-                </MetricPanel>
-              </div>
-            </div>
-          ))}
+        <div className="grid gap-4 xl:grid-cols-2">
+          <MetricPanel title="Granito">
+            <Info label="Manifestos" value={String(graniteTotals.manifests)} />
+            <Info label="B/Ls" value={String(graniteTotals.bls)} />
+            <Info label="Peso total" value={`${formatMetric(graniteTotals.weightTon)} ton`} />
+            <Info label="Prontos faturamento" value={String(graniteTotals.readyForBilling)} />
+            <Info label="Faturados" value={String(graniteTotals.invoiced)} />
+          </MetricPanel>
+          <MetricPanel title="Vazios">
+            <Info label="Unidades embarcadas" value={String(emptyTotals.units)} />
+            <Info label="Containers distintos" value={String(emptyTotals.distinctContainers)} />
+            <Info label="Tipos" value={emptyTotals.types} />
+          </MetricPanel>
         </div>
       ) : (
         <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">
@@ -48,8 +58,8 @@ export function VoyageExportacaoTab({
 
       {userId ? (
         <MetricSection
-          title="Exportação rápida"
-          description="Importe manifestos e planilhas de exportação diretamente nesta viagem."
+          title="Cadastro rápido"
+          description="Cadastre manifestos e unidades de exportação diretamente nesta viagem."
         >
           <VoyageImportActions
             voyageId={voyage.id}

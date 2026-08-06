@@ -13,11 +13,12 @@ import { formatDate } from '../../lib/utils'
 import {
   collectVoyagePorts,
   computeAdrEscalaPods,
-  countDistinctRoutes,
   countPlannedPodRows,
   deriveEstadoConciliacao,
   getProximaEscala,
   isEtaOverdue,
+  summarizeExportByPol,
+  summarizeImportByPod,
   splitVoyageBls,
   voyageCeCoverage,
 } from '../../services/voyageSummaries'
@@ -73,6 +74,34 @@ function KpiTile({
       <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
       {sub ? <div className="text-[11px] text-[var(--app-muted-soft)]">{sub}</div> : null}
       {alert ? <Badge tone="yellow" className="mt-1 normal-case">{alert}</Badge> : null}
+    </div>
+  )
+}
+
+function DirectionKpiTile({
+  direction,
+  tone,
+  primary,
+  metrics,
+}: {
+  direction: string
+  tone: 'blue' | 'green'
+  primary: { label: string; value: string }
+  metrics: Array<{ label: string; value: string }>
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+      <Badge tone={tone}>{direction}</Badge>
+      <div className="mt-2 text-lg font-bold text-[var(--app-text-strong)]">{primary.value}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{primary.label}</div>
+      <div className="mt-2 grid gap-1 text-[11px] text-[var(--app-muted-soft)]">
+        {metrics.map((metric) => (
+          <div key={`${direction}-${metric.label}`} className="flex justify-between gap-2">
+            <span>{metric.label}</span>
+            <span className="font-semibold text-[var(--app-muted)]">{metric.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -139,13 +168,21 @@ export function VoyageCard({
   const importBatches = useMemo<VoyageImportBatch[]>(() => voyage.import_batches ?? [], [voyage.import_batches])
   // Contagem por rota (par POL/POD), não por arquivo de manifesto (#315): viagens
   // só-B/L não têm batch, e dois arquivos da mesma rota são uma rota só.
-  const totalImportManifestCount = countDistinctRoutes(voyage.bls)
   const totalBls = (voyage.bls ?? []).length
   const billingClosed = totalBls > 0 && voyagesWithUnpaidBls != null && !voyagesWithUnpaidBls.has(voyage.id)
   const flatContainers = containerBls.flatMap((bl) => bl.bl_containers ?? [])
   const totalContainers = countDistinctContainerNumbers(flatContainers)
   const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
+  const importSummary = summarizeImportByPod(voyage.bls, vehicleStats.containerNumbers)
+  const totalImportVehicles = vehicleStats.totalVehicles
+  const totalVehicleContainers = vehicleStats.distinctContainerCount
+  const totalBreakbulkMachines = importSummary.reduce((sum, pod) => sum + pod.breakbulk.machines, 0)
+  const totalBreakbulkPackages = importSummary.reduce((sum, pod) => sum + pod.breakbulk.packages, 0)
+  const exportSummary = summarizeExportByPol(voyage.granite_manifests, voyage.vazios_manifests)
+  const totalExportContainers = exportSummary.reduce((sum, pol) => sum + pol.vazios.distinctContainers, 0)
+  const totalGraniteBls = exportSummary.reduce((sum, pol) => sum + pol.granite.bls, 0)
+  const totalGraniteWeightTon = exportSummary.reduce((sum, pol) => sum + pol.granite.weightTon, 0)
   const destinationPorts = collectVoyagePorts(
     voyage.bls,
     'pod',
@@ -319,8 +356,28 @@ export function VoyageCard({
       </section>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiTile label="B/Ls" value={String(totalBls)} sub={`${totalImportManifestCount} manifesto${totalImportManifestCount === 1 ? '' : 's'}`} />
-        <KpiTile label="CNTRs distintos" value={String(totalContainers)} sub={`${totalImoContainers} IMO · ${totalOogContainers} OOG`} />
+        <DirectionKpiTile
+          direction="Importação"
+          tone="blue"
+          primary={{ label: 'B/Ls', value: String(totalBls) }}
+          metrics={[
+            { label: 'CNTRs distintos', value: String(totalContainers) },
+            { label: 'CNTRs IMO', value: String(totalImoContainers) },
+            { label: 'CNTRs OOG', value: String(totalOogContainers) },
+            { label: 'Veículos', value: String(totalImportVehicles) },
+            { label: 'CNTRs de veículos', value: String(totalVehicleContainers) },
+            { label: 'Carga solta (máquinas / packages)', value: `${formatMetric(totalBreakbulkMachines)} / ${formatMetric(totalBreakbulkPackages)}` },
+          ]}
+        />
+        <DirectionKpiTile
+          direction="Exportação"
+          tone="green"
+          primary={{ label: 'CNTRs embarcados', value: String(totalExportContainers) }}
+          metrics={[
+            { label: 'Granito (B/Ls)', value: String(totalGraniteBls) },
+            { label: 'Granito (ton)', value: formatMetric(totalGraniteWeightTon) },
+          ]}
+        />
         <KpiTile
           label="Próxima escala"
           value={proximaEscala ? proximaEscala.pod : '—'}
