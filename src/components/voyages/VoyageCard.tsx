@@ -365,7 +365,8 @@ export function VoyageCard({
             { label: 'CNTRs OOG', value: String(totalOogContainers) },
             { label: 'Veículos', value: String(totalImportVehicles) },
             { label: 'CNTRs de veículos', value: String(totalVehicleContainers) },
-            { label: 'Carga solta (máquinas / packages)', value: `${formatMetric(totalBreakbulkMachines)} / ${formatMetric(totalBreakbulkPackages)}` },
+            { label: 'Máquinas', value: formatMetric(totalBreakbulkMachines) },
+            { label: 'Packages', value: formatMetric(totalBreakbulkPackages) },
           ]}
         />
         <DirectionKpiTile
