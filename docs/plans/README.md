@@ -17,6 +17,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 |---|---|---|
 | [`2026-08-05-vehicles-desova.md`](./2026-08-05-vehicles-desova.md) | Veículos: local de desova e consolidação no ADR | TODO |
 | [`2026-08-06-faturamento-ajuste-completo.md`](./2026-08-06-faturamento-ajuste-completo.md) | Faturamento: executar a ADR 0038 e consolidar as abas de `/faturamento` | TODO |
+| [`2026-08-06-adr-prazo-conclusao-linha-do-tempo.md`](./2026-08-06-adr-prazo-conclusao-linha-do-tempo.md) | ADR: linha do tempo de assinaturas e Prazo de Conclusão (ADR 0039) | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

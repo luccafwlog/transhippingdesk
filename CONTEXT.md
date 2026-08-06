@@ -429,12 +429,20 @@ relatório fechado. Reabrir exige justificativa auditada e novo fechamento. O
 Financeiro não possui ato próprio de aprovação do ADR; o fechamento é o marco.
 O ADR fechado é imprimível pelo navegador.
 
-**Linha do Tempo do ADR**
-Sequência datada dos marcos de conclusão de um ADR: o ATD da escala, os três
-Sign-offs Departamentais e o Fechamento. É **exibição derivada** como o resto do
-ADR — nenhum marco nasce nela; ela lê datas que os próprios atos já registram.
-Serve para responder, por escala, quem assinou quando e se o Prazo de Conclusão
-foi cumprido.
+**Linha do Tempo do ADR** *(ADR 0039 — decidida, ainda não implementada)*
+Sequência datada dos marcos de conclusão de um ADR: a saída do navio (ATD) e o
+momento em que ela foi registrada no sistema, o vencimento do Prazo de Conclusão,
+os três Sign-offs Departamentais — com as reaberturas de assinatura e as suas
+justificativas —, e o Fechamento. É **exibição derivada** como o resto do ADR:
+nenhum marco nasce nela; ela lê datas que os próprios atos já registram. Serve
+para responder, por escala, quem assinou quando e se o Prazo de Conclusão foi
+cumprido.
+
+Exibir a reabertura ao lado da assinatura é o que separa demora de zelo: um
+departamento que assinou no prazo e reabriu para corrigir aparece com a causa do
+seu atraso à vista, em vez de indistinguível de quem simplesmente demorou.
+Exibir o momento do registro do ATD, por sua vez, é o que explica o ADR que nasce
+vencido — a causa é o lançamento tardio da saída, não uma falha do departamento.
 
 No ADR fechado, o impresso mostra **as datas de assinatura**, que são evidência
 de quem validou o quê e quando, mas não o veredito de prazo: cumprimento e
@@ -448,7 +456,7 @@ cumpridas. Escala omitida nunca tem prazo — o navio não atracou, não houve s
 
 - **Related:** Prazo de Conclusão do ADR, Sign-off Departamental, Fechamento do ADR, ATD, Omissão de Escala
 
-**Prazo de Conclusão do ADR**
+**Prazo de Conclusão do ADR** *(ADR 0039 — decidida, ainda não implementada)*
 Compromisso interno de que cada departamento assina a sua parte do ADR até três
 dias úteis depois da saída do navio. A contagem começa na **data real do ATD da
 escala unificada** — a saída do navio do porto brasileiro, o fato que encerra a
