@@ -701,8 +701,13 @@ A justificativa histórica da isenção ("taxas pagas na origem") é explicaçã
 comercial, não critério: usar o lado da origem inverteria os dois casos mistos.
 
 O operador pode sobrescrever a leitura do documento na ficha do B/L quando ele
-vier errado ou vazio, e a correção fica registrada no Histórico. Quando não há
-nem documento nem override, o sistema **não infere**: gera pendência de revisão.
+vier errado ou vazio, e a correção fica registrada no Histórico.
+
+Quando não há nem documento nem override, o sistema **cobra normalmente**. A
+isenção exige LCL declarado; ausência não isenta. O modo de falha é cobrar de
+quem talvez não devesse — visível e contestável — em vez de isentar quem devia
+pagar, que não deixa rastro. A correção acontece na fase provisória do cálculo,
+antes de qualquer fatura existir.
 
 - **Synonyms / avoid:** "tipo de carregamento"
 - **Related:** Isenção de Taxas Locais, Taxas Locais
@@ -714,7 +719,8 @@ nem documento nem override, o sistema **não infere**: gera pendência de revis�
 
 Dispensa de cobrança de taxas locais para carga de veículos **em LCL**, cujas
 taxas foram pagas na origem. Depende de duas condições, não de uma: haver
-veículo no B/L **e** o Movimento indicar LCL. Veículo em FCL paga normalmente.
+veículo no B/L **e** o Movimento indicar LCL. Veículo em FCL paga normalmente, e
+veículo sem Movimento declarado também — a isenção exige prova positiva.
 
 A isenção é consequência de dado operacional (o cadastro de veículos), então
 precisa ser conferível: as isenções aplicadas devem ser visíveis em tela, não

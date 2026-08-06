@@ -205,10 +205,20 @@ perfil errado.
 
 O Movimento aparece em duas notações equivalentes e o parser lê texto livre das
 células `T20`/`AC20`: `CY` = `FCL` e `CFS` = `LCL`, sendo `FCL`/`LCL` a forma
-mais comum nos B/Ls recebidos. A leitura precisa aceitar as duas, e não pode
-tratar notação desconhecida como ausência — cai em pendência de revisão.
+mais comum nos B/Ls recebidos. A leitura precisa aceitar as duas.
 
-Pendência de verificação antes de implementar a decisão sobre FCL/LCL: confirmar
-contra dados reais qual a taxa de preenchimento do campo. Se vier vazio na
-maioria dos B/Ls, a regra cai no caminho de pendência de revisão e vira atrito
-operacional em vez de correção.
+**Ausência de Movimento cobra normalmente** — a Isenção de Taxas Locais exige
+LCL declarado. Notação desconhecida é tratada como ausência, e ausência não
+isenta.
+Este é o único ponto em que a decisão 7 ("para e sinaliza") não se aplica, e de
+propósito: aqui não há risco de cobrar zero em silêncio, porque o padrão *é*
+cobrar. Errar isentando não deixa rastro; errar cobrando o cliente contesta.
+
+A correção acontece na fase provisória da decisão 8 — o B/L de veículo aparece
+cobrado na planilha de conferência, o operador ajusta o Movimento na ficha e o
+CE fecha certo. É a fase provisória que torna este padrão viável: sem ela, o
+default de cobrar emitiria fatura errada direto ao cliente.
+
+A taxa de preenchimento de `movement_to` nos dados reais continua valendo a
+verificação, mas deixou de ser risco de desenho — mede apenas quanto trabalho
+manual a regra vai gerar, não se ela funciona.
