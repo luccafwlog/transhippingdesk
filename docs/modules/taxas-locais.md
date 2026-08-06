@@ -207,6 +207,19 @@ flowchart LR
   atualizado (inclusive convertendo linhas USD), no lugar do trigger
   `trg_emit_invoice_on_bl_ready` removido na mesma migration (ver
   `docs/RASTREABILIDADE.md` para o motivo da remoção).
+- **Arredondamento do rateio (ADR 0038 achado 9, migration 269):** itens
+  `application_basis='container_distinct_voyage'` (containers compartilhados
+  por vários B/Ls) somavam `1/share_count` de cada container do B/L numa
+  quantidade agregada e arredondavam o total independentemente por B/L — um
+  item de R$ 100 dividido em 3 B/Ls dava R$ 33,33 em cada um, R$ 99,99 no
+  total. Agora o cálculo soma por container, e o último B/L do grupo (maior
+  `bl_id`) absorve a diferença de arredondamento, em BRL e em USD, então a
+  soma das partes sempre fecha o valor cheio do item por container. A
+  quantidade fracionária gravada em `charge_calculations.quantity` continua
+  sendo a soma informativa de `1/share_count` — só o total em dinheiro mudou
+  de fórmula, então o produto visual "unitário × quantidade" pode não bater
+  exatamente com o total exibido para o B/L que absorveu o resto (a soma do
+  grupo inteiro é que fecha, não cada linha isolada).
 - O estado aceito na migration atual é `matched_document` ou `reconciled`;
   `ValidacaoTab` usa o mesmo helper canônico e mantém `matched_name` como
   pendente até aprovação manual.
