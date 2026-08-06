@@ -96,6 +96,11 @@ notificacao a cada edicao.
 **COD (Change of Destination)**
 Alteracao operacional do destino final do B/L para o Porto de Transbordo apos
 omissao de escala. E uma excecao por B/L e mantem efeitos financeiros manuais.
+Nao reprecifica Taxas Locais: o fato gerador delas e a emissao do CE Mercante,
+e a taxa devida continua sendo a do porto declarado no CE mesmo quando a carga
+e retirada em outro porto.
+
+- **Related:** Taxas Locais, Omissao de Escala, Porto de Transbordo
 
 **Visao Geral do B/L**
 Informa a aba padrao da ficha do B/L que consolida viagem e escalas,
@@ -580,6 +585,20 @@ específicas do cliente. Para B/L de container, o cálculo automático é
 disparado pelo cadastro do CE Mercante — nunca pelo import do manifesto ou do
 B/L —, garantindo que todos os B/Ls da viagem já existam quando taxas de
 container compartilhado são divididas.
+
+O **fato gerador é a emissão do CE Mercante**, não a chegada da carga. Emitido o
+CE, a taxa local é devida pelo porto declarado nele, e nada que aconteça depois
+com o navio a altera: Omissão de Escala, Transbordo e COD são irrelevantes para
+taxa local. No transbordo a carga chega ao POD original de qualquer forma; no
+COD o cliente retira em outro porto por conveniência própria, e a taxa continua
+sendo a do porto do CE — o desvio físico é ônus operacional do armador, não
+reprecificação para o cliente.
+
+Por isso a fatura de taxas locais é emitida dias antes da atracação: o cliente
+precisa dela paga para retirar a carga, e não há fato posterior capaz de mudar
+o valor.
+
+- **Related:** Fato Gerador, Omissao de Escala, COD, Data de Referência da Tarifa
 
 **Tabela de Taxas Locais**
 Cadastro que define quais taxas locais existem e quanto custam, por POD e por
