@@ -237,6 +237,11 @@ textarea {
   position: relative;
 }
 
+/* Identidade e ações ficam no cabeçalho principal. */
+.app-market-strip__right {
+  display: none !important;
+}
+
 /* HeaderInfoBar — alert buttons */
 .hib-alert-btn {
   display: inline-flex;
@@ -489,6 +494,65 @@ textarea {
 /* Ações pessoais vivem no menu do nome no cabeçalho informativo. */
 .app-header__actions > .hidden {
   display: none !important;
+}
+
+.app-header__user-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.app-header__user-menu:hover,
+.app-header__user-menu:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.app-header__user-menu > span,
+.app-header__user-menu > .app-user-pill__name {
+  margin-left: 6px;
+}
+
+.app-header__user-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 350;
+  min-width: 150px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(31, 47, 79, 0.99), rgba(24, 38, 66, 0.98));
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.app-header__user-dropdown button {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.app-header__user-dropdown button:hover,
+.app-header__user-dropdown button:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  outline: none;
 }
 
 .app-header__quick-link {

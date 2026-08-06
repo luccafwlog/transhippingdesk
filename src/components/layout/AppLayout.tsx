@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ChevronDown,
@@ -8,11 +8,10 @@ import {
   Menu,
   Package,
   ShieldCheck,
-  KeyRound,
   User,
+  UserCircle,
   X,
 } from 'lucide-react'
-import { Button } from '../ui/Button'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { useAuth } from '../../hooks/useAuth'
 import { useOperationalCounts } from '../../hooks/useOperationalCounts'
@@ -48,6 +47,8 @@ export function AppLayout() {
   const [isMobileNav, setIsMobileNav] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= NAV_COLLAPSE_WIDTH : false,
   )
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
   const primaryNavItemsWithBadges: NavItem[] = primaryNavItems.map((item) =>
     item.to === '/alertas' ? { ...item, badge: counts.openAlerts || undefined } : item,
   )
@@ -88,6 +89,15 @@ export function AppLayout() {
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
+  useEffect(() => {
+    if (!userMenuOpen) return
+    function handleOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) setUserMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [userMenuOpen])
+
   function closeMobileMenus() {
     setMobileNavOpen(false)
     setMobileImportOpen(false)
@@ -101,6 +111,7 @@ export function AppLayout() {
   }
 
   async function handleSignOut() {
+    setUserMenuOpen(false)
     await signOut()
     navigate('/login', { replace: true })
   }
@@ -122,22 +133,32 @@ export function AppLayout() {
           </button>
 
           <div className="app-header__actions">
-            <div className="hidden" aria-hidden="true">
+            <div
+              className="app-header__user-menu"
+              ref={userMenuRef}
+              role="button"
+              tabIndex={0}
+              onClick={() => setUserMenuOpen((current) => !current)}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setUserMenuOpen((current) => !current) }}
+            >
               <span className="app-user-pill__icon" aria-hidden="true">
                 <User size={14} />
               </span>
               <span className="app-user-pill__name">{profile?.full_name ?? 'Usuário'}</span>
+              {userMenuOpen ? (
+                <div className="app-header__user-dropdown" role="menu">
+                  <button type="button" role="menuitem" onClick={() => { setUserMenuOpen(false); navigate('/perfil') }}>
+                    <UserCircle size={14} aria-hidden="true" />
+                    Meu perfil
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => void handleSignOut()}>
+                    <LogOut size={14} aria-hidden="true" />
+                    Sair
+                  </button>
+                </div>
+              ) : null}
             </div>
 
-            <Button className="hidden" variant="ghost" onClick={() => undefined}>
-              <KeyRound size={16} />
-              Minha senha
-            </Button>
-
-            <Button className="app-header__logout" variant="ghost" onClick={handleSignOut}>
-              <LogOut size={16} />
-              Sair
-            </Button>
           </div>
         </div>
 
