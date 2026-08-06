@@ -272,6 +272,20 @@ Não há evidência de Runtime registrada neste documento.
   migration foram backfilled (`snapshot_payload.backfilled=true`); a
   reconstrução ao vivo em `get_consolidated_invoice_item_breakdown` e no CTE de
   `portal_invoice_details` continua existindo só como rede de segurança.
+- **Taxa local em USD converte na emissão (migration `268`).** Etapa 11 do
+  plano de faturamento (ADR 0038, decisão 6, achado 7): linha em USD deixou
+  de bloquear o faturamento. `create_invoice_from_bls_core` e
+  `create_local_consolidated_invoice_core` convertem para BRL pelo ROE
+  vigente em `exchange_rate_reference` no momento da emissão/consolidação,
+  congelado no `snapshot_payload` do item (`roe`, `roe_effective_date`) e
+  exibido como nota no documento impresso e no modal de detalhe. Sem ROE
+  configurado, a emissão falha com mensagem explícita em vez de congelar
+  valor zerado. A mesma migration removeu o trigger
+  `trg_emit_invoice_on_bl_ready` (bug pré-existente: emitia fatura
+  automaticamente em qualquer transição para `ready_for_billing`, inclusive
+  pelo botão manual, sem checar CE Mercante) — `mark_bl_ready_for_billing`
+  passou a chamar `sync_local_charge_receivable` diretamente para manter o
+  ledger atualizado sem esse efeito colateral.
 - **PIX tem dois autores.** A migration
   `074_ledger_invoice_pix_payload.sql` mantém payload por trigger para
   invoices locais. `createInvoiceFromBls` ainda executa `persistPixPayload`

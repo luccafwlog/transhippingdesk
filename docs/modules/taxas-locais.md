@@ -111,7 +111,7 @@ Os formulários e defaults vivem em
 | B/L · editar cobrança manual | Linha manual existente e B/L elegível | `BlCobrancasTab` | `useUpdateManualBlCharge` → `updateManualBlCharge` | RPC `update_manual_bl_charge` | Invalida linhas/detalhe/lista do B/L e pendências | RPC rejeita linha automática, ausente ou invoice protegida | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/hooks/useLocalCharges.ts`, `supabase/migrations/108_guard_manual_charges_and_clear_pix_on_reversal.sql` |
 | B/L · excluir cobrança manual | Linha manual existente e confirmação da tela | `BlCobrancasTab` | `useDeleteManualBlCharge` → `deleteManualBlCharge` | RPC `delete_manual_bl_charge` | Mesmas invalidações da edição | RPC rejeita linha automática, ausente ou invoice protegida | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/services/charges/chargeOperationsService.ts`, `supabase/migrations/108_guard_manual_charges_and_clear_pix_on_reversal.sql` |
 | B/L ou lote · marcar revisado | Sem regra de seleção além dos IDs; a RPC valida linhas | `BlCobrancasTab` ou `ValidacaoTab` | `markBlChargesReviewed` / `markLocalChargesReviewedBatch` | RPC `mark_bl_charges_reviewed` → status das linhas/B/L e auditoria | Individual invalida linhas, detalhe, B/Ls, pendências e viagens; lote invalida operações, pendências, B/Ls e `bls.detail('')` | Erros do lote são agregados por B/L; Granito trata “review” como sucesso sem escrita | **Código:** `src/hooks/useLocalCharges.ts`, `src/components/billing/ValidacaoTab.tsx`, `src/services/charges/chargeOperationsService.ts` |
-| B/L ou lote · marcar pronto para faturar | Cliente vinculado/reconciliado, gate canônico sem pendências, nenhuma linha pendente ou USD, valor BRL positivo e tabela vigente | `BlCobrancasTab` ou `ValidacaoTab` | `markBlReadyForBilling` / `markLocalChargesReadyBatch` | RPC `mark_bl_ready_for_billing`; `charge_calculations`, `bls`, `audit_logs` | Individual também invalida invoices; lote invalida operações, pendências, B/Ls, `bls.detail('')` e viagens | RPC define `billing_hold_reason` e rejeita cada gate | **Código atual:** `src/services/charges/chargeOperationsService.ts`, `supabase/migrations/129_review_gate_hardening.sql` · **Teste de contrato SQL:** `src/services/__tests__/guardInvoiceableReadyStateMigration.test.ts` sobre `supabase/migrations/127_guard_invoiceable_ready_state.sql` |
+| B/L ou lote · marcar pronto para faturar | Cliente vinculado/reconciliado, gate canônico sem pendências, nenhuma linha pendente, valor faturável (BRL ou USD) positivo e tabela vigente | `BlCobrancasTab` ou `ValidacaoTab` | `markBlReadyForBilling` / `markLocalChargesReadyBatch` | RPC `mark_bl_ready_for_billing`; `charge_calculations`, `bls`, `audit_logs`, `bl_receivables` (via `sync_local_charge_receivable`) | Individual também invalida invoices; lote invalida operações, pendências, B/Ls, `bls.detail('')` e viagens | RPC define `billing_hold_reason` e rejeita cada gate | **Código atual:** `src/services/charges/chargeOperationsService.ts`, `supabase/migrations/129_review_gate_hardening.sql` + `supabase/migrations/268_local_charges_usd_conversion_at_emission.sql` · **Teste de contrato SQL:** `src/services/__tests__/guardInvoiceableReadyStateMigration.test.ts` sobre `supabase/migrations/127_guard_invoiceable_ready_state.sql`, `src/services/__tests__/localChargesUsdConversionMigration.test.ts` |
 | `/faturamento` · aprovar reconciliação de cliente | Item pendente com cliente sugerido/vinculado | `ValidacaoTab.handleApproveQueueItem` | `useApproveCustomerReconciliation` → `approveCustomerReconciliation` | RPC `approve_customer_reconciliation` → fila e B/L | Invalida `reconciliation.queue()`, `charges.operations()`, `billingRuns.list(50)`, B/Ls e `bls.detail('')` | Sem cliente, a UI bloqueia; RPC propaga conflito/estado inválido | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/services/charges/chargeReconciliationService.ts` |
 | `/faturamento` · rejeitar reconciliação de cliente | Item pendente | `ValidacaoTab.handleRejectQueueItem` | `useRejectCustomerReconciliation` → `rejectCustomerReconciliation` | RPC `reject_customer_reconciliation` → fila e B/L | Mesmas invalidações da aprovação | RPC propaga conflito/estado inválido | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/hooks/useLocalCharges.ts` |
 
@@ -170,7 +170,7 @@ Definidas em `src/services/queryKeys.ts`:
 flowchart LR
     Config["Tabela ativa + itens + overrides"] --> Calc["calculate_bl_local_charges"]
     Calc --> Lines["charge_calculations"]
-    Lines --> Review{"Há review_required<br/>ou linha USD?"}
+    Lines --> Review{"Há review_required?"}
     Review -->|sim| Hold["B/L bloqueado para revisão"]
     Review -->|não| Reviewed["mark_bl_charges_reviewed"]
     Reviewed --> Ready["mark_bl_ready_for_billing"]
@@ -186,13 +186,24 @@ flowchart LR
 - `mark_bl_ready_for_billing` é a fronteira de promoção: cliente precisa estar
   vinculado e em estado aceito, o gate canônico
   `compute_bl_review_pendencies` precisa estar vazio, não pode haver linha de
-  taxa pendente ou em USD e deve existir ao menos uma linha BRL positiva e uma
+  taxa pendente e deve existir ao menos uma linha faturável (BRL ou USD) e uma
   tabela vigente. A definição vigente de `mark_bl_ready_for_billing` está em
-  `supabase/migrations/129_review_gate_hardening.sql`; a de
+  `supabase/migrations/129_review_gate_hardening.sql` +
+  `supabase/migrations/268_local_charges_usd_conversion_at_emission.sql`; a de
   `compute_bl_review_pendencies` está em
   `supabase/migrations/188_review_gate_remove_portal.sql`, que reduziu o gate a
   cliente vinculado, e-mail cadastrado e peso BB — prontidão do Portal deixou de
   bloquear faturamento.
+- **Taxa local em USD (ADR 0038 decisão 6, achado 7, migration 268):** linha
+  em USD deixou de bloquear `mark_bl_ready_for_billing`. Converte para BRL na
+  emissão da fatura (`create_invoice_from_bls_core` /
+  `create_local_consolidated_invoice_core`), pelo ROE vigente em
+  `exchange_rate_reference`, congelado com o resto da fatura — sem o
+  Recálculo Diário que o Demurrage usa. `mark_bl_ready_for_billing` chama
+  `sync_local_charge_receivable` diretamente para manter o saldo do ledger
+  atualizado (inclusive convertendo linhas USD), no lugar do trigger
+  `trg_emit_invoice_on_bl_ready` removido na mesma migration (ver
+  `docs/RASTREABILIDADE.md` para o motivo da remoção).
 - O estado aceito na migration atual é `matched_document` ou `reconciled`;
   `ValidacaoTab` usa o mesmo helper canônico e mantém `matched_name` como
   pendente até aprovação manual.

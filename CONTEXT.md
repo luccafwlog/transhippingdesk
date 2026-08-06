@@ -719,9 +719,6 @@ apenas inferíveis do valor zero.
 - **Related:** Movimento (FCL/LCL), Taxas Locais
 
 **Taxa Local em Dólar**
-> Decidida em 2026-08-06 e **ainda não implementada**: hoje uma linha em USD
-> trava o B/L com o impedimento "exigem ajuste manual", e não existe tela onde
-> fazer esse ajuste.
 
 Item de Taxa cadastrado em USD — como a Booking Cancelation Fee. Converte-se em
 BRL **na emissão da fatura**, pelo ROE vigente naquele momento, e o valor

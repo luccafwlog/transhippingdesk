@@ -27,11 +27,11 @@ import {
   useSettleInvoiceRefund,
 } from '../../hooks/useBillingLedger'
 import { isConsolidatedInvoice } from '../../services/billing'
-import { buildInvoiceFileBaseName, describeInvoiceItemsFreezeNote } from '../shared/invoiceFormat'
+import { buildInvoiceFileBaseName, describeInvoiceItemsFreezeNote, describeUsdConversionNote } from '../shared/invoiceFormat'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
 import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
-import { formatBRL, formatDate, formatUSD, stripBlPrefix } from '../../lib/utils'
+import { formatBRL, formatDate, stripBlPrefix } from '../../lib/utils'
 import { isLedgerInvoicePayable } from '../../pages/faturamentoLedgerPayment'
 import { invoiceStatusLabel, isOpenInvoiceStatus } from '../../pages/faturamentoInvoiceStatus'
 
@@ -353,13 +353,23 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                           </td>
                         </tr>
                       ) : (
-                        detailQuery.data.items.map((item) => (
+                        detailQuery.data.items.map((item) => {
+                          // Etapa 11 do plano de faturamento (ADR 0038 decisao 6, achado 7):
+                          // itens em USD convertem para BRL na emissao e o valor devido na
+                          // invoice e sempre o BRL congelado; o USD original + ROE aparece
+                          // como nota, nao como o valor principal (senao a coluna Total
+                          // desta tela nao bateria com invoice.total_brl).
+                          const usdNote = describeUsdConversionNote(item)
+                          return (
                           <tr key={item.id}>
-                            <td className="px-3 py-2">{stripBlPrefix(item.description, item.bl_id)}</td>
+                            <td className="px-3 py-2">
+                              {stripBlPrefix(item.description, item.bl_id)}
+                              {usdNote && <div className="text-xs text-slate-500">{usdNote}</div>}
+                            </td>
                             <td className="px-3 py-2">{item.quantity ?? 1}</td>
                             <td className="px-3 py-2">{item.source === 'manual' ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}</td>
-                            <td className="px-3 py-2">{item.currency === 'USD' ? formatUSD(item.unit_value_usd) : formatBRL(item.unit_value_brl)}</td>
-                            <td className="px-3 py-2">{item.currency === 'USD' ? formatUSD(item.total_value_usd) : formatBRL(item.total_value_brl)}</td>
+                            <td className="px-3 py-2">{formatBRL(item.unit_value_brl)}</td>
+                            <td className="px-3 py-2">{formatBRL(item.total_value_brl)}</td>
                             <td className="px-3 py-2">
                               {canEditCharges && item.source === 'manual' ? (
                                 <Button
@@ -376,7 +386,8 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                               )}
                             </td>
                           </tr>
-                        ))
+                          )
+                        })
                       )}
                     </tbody>
                   </table>
