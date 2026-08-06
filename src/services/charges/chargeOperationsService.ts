@@ -126,16 +126,26 @@ export async function calculateBlLocalCharges(
   options?: {
     actorId?: string | null
     recalculate?: boolean
+    // Etapa 2 do plano de faturamento (ADR 0038, achado 6, revisão de performance):
+    // permite ao chamador que já tem o financial_status em mãos (ex.: lote da
+    // Validação, que já carregou operationsRows) pular a consulta de pre-flight
+    // abaixo. Chamadores sem esse dado (recalculo individual da Revisao) continuam
+    // protegidos pela consulta.
+    knownFinancialStatus?: string | null
   },
 ) {
   // Etapa 2 do plano de faturamento (ADR 0038, achado 6): trava aqui, no unico
   // ponto de entrada do app para esta RPC, para cobrir todo chamador atual
   // (lote da Validacao e recalculo individual da Revisao) mesmo antes de a
   // trava equivalente existir tambem no banco (migration pendente de aplicar).
-  const { data: bl, error: blError } = await supabase.from('bls').select('financial_status').eq('id', blId).maybeSingle()
-  if (blError) throw blError
-  if (isBlFinanciallyLocked(bl?.financial_status)) {
-    throw new Error(`B/L ${blId} ja foi faturado (status financeiro=${bl?.financial_status}); recalculo bloqueado.`)
+  let financialStatus = options?.knownFinancialStatus
+  if (financialStatus === undefined) {
+    const { data: bl, error: blError } = await supabase.from('bls').select('financial_status').eq('id', blId).maybeSingle()
+    if (blError) throw blError
+    financialStatus = bl?.financial_status
+  }
+  if (isBlFinanciallyLocked(financialStatus)) {
+    throw new Error(`B/L ${blId} ja foi faturado (status financeiro=${financialStatus}); recalculo bloqueado.`)
   }
 
   const { data, error } = await supabase.rpc('calculate_bl_local_charges', {
@@ -575,7 +585,17 @@ export async function calculateLocalChargesBatch(
     recalculate?: boolean
   },
 ) {
-  return runBatch(blIds, (blId) => calculateBlLocalCharges(blId, options))
+  // Uma unica consulta para todo o lote em vez de uma por B/L dentro de
+  // calculateBlLocalCharges (runBatch e sequencial, entao a versao antiga
+  // dobrava os round trips do lote).
+  const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
+  const { data: bls, error } = await supabase.from('bls').select('id, financial_status').in('id', normalizedIds)
+  if (error) throw error
+  const financialStatusById = new Map((bls ?? []).map((bl) => [bl.id, bl.financial_status] as const))
+
+  return runBatch(blIds, (blId) =>
+    calculateBlLocalCharges(blId, { ...options, knownFinancialStatus: financialStatusById.get(blId) ?? null }),
+  )
 }
 
 export async function markLocalChargesReviewedBatch(blIds: string[], actorId?: string | null) {

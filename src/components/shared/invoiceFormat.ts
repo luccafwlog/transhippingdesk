@@ -1,4 +1,5 @@
 import type { InvoiceDetail } from '../../services/billing'
+import { formatDate } from '../../lib/utils'
 import type React from 'react'
 
 // Helpers de formatação e estilos compartilhados pelos documentos imprimíveis
@@ -21,11 +22,6 @@ export function longDate() {
   return new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export function fmtDate(s: string | null | undefined) {
-  if (!s) return '—'
-  return new Date(s).toLocaleDateString('pt-BR')
-}
-
 // Etapa 1 do plano de faturamento (ADR 0038, achado 3): o detalhamento de uma
 // invoice individual vem congelado em invoice_items desde a emissão (migration
 // 025_billing_orchestration_portal.sql), então recálculos posteriores do B/L
@@ -35,9 +31,9 @@ export function fmtDate(s: string | null | undefined) {
 // "congelado" aí seria enganoso — ver docs/modules/faturamento.md, "Breakdown derivado".
 export function describeInvoiceItemsFreezeNote(invoice: { invoice_type?: string | null; issued_at?: string | null }) {
   if (invoice.invoice_type === 'consolidated') {
-    return `Emitida em ${fmtDate(invoice.issued_at)}. Consolidada: o detalhamento por B/L é reconstruído a partir do cálculo atual de taxas locais, não é um snapshot congelado na emissão.`
+    return `Emitida em ${formatDate(invoice.issued_at)}. Consolidada: o detalhamento por B/L é reconstruído a partir do cálculo atual de taxas locais, não é um snapshot congelado na emissão.`
   }
-  return `Itens automáticos (Origem: Auto) refletem o cálculo do B/L congelado na emissão (${fmtDate(invoice.issued_at)}) e não mudam com recálculos posteriores. Itens manuais podem ter sido lançados depois da emissão — veja a coluna Origem.`
+  return `Itens automáticos (Origem: Auto) refletem o cálculo do B/L congelado na emissão (${formatDate(invoice.issued_at)}) e não mudam com recálculos posteriores. Itens manuais podem ter sido lançados depois da emissão — veja a coluna Origem.`
 }
 
 export const cell: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid #e5e7eb' }

@@ -1,8 +1,8 @@
 import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { InvoiceDetail } from '../../services/billing'
-import { stripBlPrefix } from '../../lib/utils'
-import { cell, describeInvoiceItemsFreezeNote, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
+import { formatDate, stripBlPrefix } from '../../lib/utils'
+import { cell, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Props = { detail: InvoiceDetail }
@@ -59,7 +59,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
           </tr>
           <tr>
             <td style={labelCell}>Emitida em:</td>
-            <td style={cell}>{describeInvoiceItemsFreezeNote(invoice)}</td>
+            <td style={cell}>{formatDate(invoice.issued_at)}</td>
           </tr>
         </tbody>
       </table>

@@ -20,6 +20,7 @@ import {
 } from '../../hooks/useLocalCharges'
 import { formatBRL, formatUSD } from '../../lib/utils'
 import { FINANCIAL_STATUS_LABELS, statusLabel } from '../../lib/statusLabels'
+import { isBlFinanciallyLocked } from '../../lib/chargeStatus'
 import { markBlReadyAndCreateInvoice } from '../../services/billing'
 import {
   formatNumber,
@@ -75,7 +76,7 @@ export function BlCobrancasSection({ bl }: { bl: BLDetail }) {
 
   // Apos o B/L ser faturado, as taxas viram fonte da fatura emitida — nao podem mais
   // ser editadas aqui (o RPC tambem bloqueia; a UI apenas evita a tentativa).
-  const chargesLocked = ['invoiced', 'partially_paid', 'paid'].includes(String(bl.financial_status ?? ''))
+  const chargesLocked = isBlFinanciallyLocked(bl.financial_status)
 
   async function handleSaveManualCharge() {
     if (!bl || !user) return
