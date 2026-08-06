@@ -53,38 +53,13 @@ export type {
 
 export type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos' | 'adr'
 
-function KpiTile({
-  label,
-  value,
-  sub,
-  alert,
-  valueColor,
-}: {
-  label: string
-  value: string
-  sub?: string
-  alert?: string
-  valueColor?: string
-}) {
-  return (
-    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
-      <div className="text-[12px] font-semibold text-[var(--app-text-strong)]" style={valueColor ? { color: valueColor } : undefined}>
-        {value}
-      </div>
-      <div className="mt-0.5 text-[12px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
-      {sub ? <div className="text-[12px] text-[var(--app-muted-soft)]">{sub}</div> : null}
-      {alert ? <Badge tone="yellow" className="mt-1 normal-case">{alert}</Badge> : null}
-    </div>
-  )
-}
-
 function DirectionKpiTile({
   direction,
   tone,
   metrics,
 }: {
   direction: string
-  tone: 'blue' | 'green'
+  tone: 'blue' | 'green' | 'yellow'
   metrics: Array<{ label: string; value: string }>
 }) {
   return (
@@ -262,6 +237,9 @@ export function VoyageCard({
   const { data: reconciliation } = useVoyageReconciliation(voyage.id)
   const divergenceCount = reconciliation?.items.length ?? 0
   const ceCoverage = voyageCeCoverage(voyage.bls)
+  const ceMasterCount = routeCeMasters
+    ? [...routeCeMasters.entries()].filter(([key, value]) => key.startsWith(`${voyage.id}::`) && value.trim().length > 0).length
+    : 0
   const estado = deriveEstadoConciliacao({
     hasOpenDivergences: divergenceCount > 0,
     ceFilled: ceCoverage.filled,
@@ -378,17 +356,23 @@ export function VoyageCard({
             { label: 'Granito (ton)', value: formatMetric(totalGraniteWeightTon) },
           ]}
         />
-        <KpiTile
-          label="Próxima escala"
-          value={proximaEscala ? proximaEscala.pod : '—'}
-          sub={proximaEscala ? formatDate(proximaEscala.eta) : `${plannedPodCount} escala${plannedPodCount === 1 ? '' : 's'} planejada${plannedPodCount === 1 ? '' : 's'}`}
-          alert={proximaEscala && isEtaOverdue(proximaEscala.eta) ? 'ETA vencido — ATA pendente' : undefined}
+        <DirectionKpiTile
+          direction="ESCALA"
+          tone="blue"
+          metrics={[
+            { label: 'Próxima', value: proximaEscala?.pod ?? '—' },
+            { label: 'ETA', value: proximaEscala ? formatDate(proximaEscala.eta) : '—' },
+            { label: 'Planejadas', value: String(plannedPodCount) },
+            { label: 'Status', value: proximaEscala && isEtaOverdue(proximaEscala.eta) ? 'ETA vencido' : 'Pendente' },
+          ]}
         />
-        <KpiTile
-          label="Conciliação"
-          value={estadoMeta.label}
-          valueColor={estadoMeta.color}
-          sub={`CE ${ceCoverage.filled}/${ceCoverage.total}${divergenceCount ? ` · ${divergenceCount} diverg.` : ''}`}
+        <DirectionKpiTile
+          direction="CE Mercante"
+          tone="yellow"
+          metrics={[
+            { label: 'CE Mercante conciliados', value: String(ceCoverage.filled) },
+            { label: 'CE Master', value: String(ceMasterCount) },
+          ]}
         />
       </section>
 
