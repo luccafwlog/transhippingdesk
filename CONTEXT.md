@@ -652,9 +652,6 @@ vence. Condição de Cliente é acordo negociado, e conflito precisa aparecer.
 - **Related:** Item de Taxa, Cliente, Tarifa de Demurrage
 
 **Data de Referência da Tarifa**
-> Decidida em 2026-08-06 e **ainda não implementada**: o motor resolve a tarifa
-> pela data de upload do B/L. Enquanto o código não mudar, este verbete descreve
-> a intenção, não o comportamento.
 
 Data que determina qual Tabela de Taxas Locais e qual Condição de Cliente valem
 para um B/L: a **ETA da escala do POD**. Ancorar na escala garante que todos os
