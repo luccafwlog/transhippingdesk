@@ -13,6 +13,7 @@ export function ValidacaoControls({
   awaitingCe,
   reconciliationPending,
   reviewPending,
+  reviewPendencyCount,
   ready,
   readyInvoiced,
   readyPendingInvoice,
@@ -38,6 +39,13 @@ export function ValidacaoControls({
   awaitingCe: number
   reconciliationPending: number
   reviewPending: number
+  // Achado 5 da review da PR 501: contagem/acao do botao "Recalcular todas em
+  // revisao" usa uma pendencia REAL (charge_status === 'review_required'),
+  // separada de `reviewPending` (bucket amplo do passo 2 do funil, que desde
+  // a migration 263 tambem inclui B/Ls so provisorios sem nenhuma pendencia
+  // de fato). Sem isso o botao podia disparar recalculo em massa em ate
+  // ~1200 B/Ls sem pendencia alguma.
+  reviewPendencyCount: number
   ready: number
   readyInvoiced: number
   readyPendingInvoice: number
@@ -179,7 +187,7 @@ export function ValidacaoControls({
         <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Pronto faturar: {ready} | Faturado automatico: {readyInvoiced} | Diferenca: {readyPendingInvoice}
         </div>
-        {reviewPending > 0 ? (
+        {reviewPendencyCount > 0 ? (
           <div className="mt-3">
             <Button
               variant="secondary"
@@ -188,7 +196,7 @@ export function ValidacaoControls({
               disabled={reviewPendingMutation || readyPendingMutation}
             >
               <RefreshCw size={15} />
-              Recalcular todas em revisão ({reviewPending})
+              Recalcular todas em revisão ({reviewPendencyCount})
             </Button>
           </div>
         ) : null}

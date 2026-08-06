@@ -98,6 +98,18 @@ export function ChargeTableItemFormCard({
             <option value="bl">B/L</option>
             <option value="container_distinct_voyage">Container distinto por viagem</option>
             <option value="weight_ton">Tonelada</option>
+            {/* Achado 10 da review da PR 501: migration 264 sinaliza itens TEU
+                como review_required, mas nao os remove/migra no banco. Sem
+                esta opcao condicional, editar um item existente com
+                applicationBasis='teu' mostrava o <select> em branco/invalido
+                (nenhuma <option> casava o value atual). Mantida so quando o
+                item aberto ja e 'teu', marcada como legado/desabilitada para
+                nao ser escolhida em itens novos. */}
+            {tableItemForm.applicationBasis === 'teu' ? (
+              <option value="teu" disabled>
+                TEU (legado, não suportado)
+              </option>
+            ) : null}
           </Select>
         </Field>
         <Field label="Perfil">

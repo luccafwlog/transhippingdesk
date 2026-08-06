@@ -22,7 +22,11 @@ type Table = 'bls' | 'bl_containers'
 function mockTables(fixtures: {
   targetBls: Array<{ id: string; cargo_mode: string; financial_status: string }>
   targetContainers: Array<{ container_number: string }>
-  siblingContainers: Array<{ bl_id: string; bl: { voyage_id: number; cargo_mode: string; financial_status: string } }>
+  siblingContainers: Array<{
+    bl_id: string
+    container_number?: string
+    bl: { voyage_id: number; cargo_mode: string; financial_status: string; charge_status?: string | null }
+  }>
   perBlFinancialStatus: Record<string, string>
 }) {
   mockFrom.mockImplementation((table: Table) => {
@@ -49,10 +53,11 @@ function mockTables(fixtures: {
           if (cols === 'container_number') {
             return { in: vi.fn(() => Promise.resolve({ data: fixtures.targetContainers, error: null })) }
           }
+          // Achado 2 da review da PR 501: busca todos os containers da
+          // viagem (sem filtro .in(container_number) no banco) e filtra
+          // no cliente pelo Set normalizado -- ver chargeOperationsService.ts.
           return {
-            in: vi.fn(() => ({
-              eq: vi.fn(() => Promise.resolve({ data: fixtures.siblingContainers, error: null })),
-            })),
+            eq: vi.fn(() => Promise.resolve({ data: fixtures.siblingContainers, error: null })),
           }
         }),
       }
@@ -72,9 +77,9 @@ describe('calculateProvisionalLocalCharges', () => {
       targetBls: [{ id: 'BL1', cargo_mode: 'container', financial_status: 'pending' }],
       targetContainers: [{ container_number: 'CSCU1234567' }],
       siblingContainers: [
-        { bl_id: 'BL1', bl: { voyage_id: 10, cargo_mode: 'container', financial_status: 'pending' } },
-        { bl_id: 'BL2', bl: { voyage_id: 10, cargo_mode: 'container', financial_status: 'pending' } },
-        { bl_id: 'BL3', bl: { voyage_id: 10, cargo_mode: 'container', financial_status: 'invoiced' } },
+        { bl_id: 'BL1', container_number: 'CSCU1234567', bl: { voyage_id: 10, cargo_mode: 'container', financial_status: 'pending' } },
+        { bl_id: 'BL2', container_number: 'CSCU1234567', bl: { voyage_id: 10, cargo_mode: 'container', financial_status: 'pending' } },
+        { bl_id: 'BL3', container_number: 'CSCU1234567', bl: { voyage_id: 10, cargo_mode: 'container', financial_status: 'invoiced' } },
       ],
       perBlFinancialStatus: { BL1: 'pending', BL2: 'pending' },
     })

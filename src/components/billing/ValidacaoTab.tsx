@@ -82,6 +82,11 @@ export function ValidacaoTab({
       provisional: provisionalRows.length,
       awaitingCe: awaitingCeRows.length,
       reviewPending: rows.filter(isPendingBillingReview).length,
+      // Achado 5 da review da PR 501: pendencia REAL de revisao, para o botao
+      // "Recalcular todas em revisao" -- nao o bucket amplo de
+      // isPendingBillingReview (que inclui not_calculated/calculated
+      // provisorios sem nenhuma pendencia desde a migration 263).
+      reviewPendencyCount: rows.filter((row) => row.charge_status === 'review_required').length,
       ready: readyRows.length,
       readyInvoiced,
       readyPendingInvoice: Math.max(readyRows.length - readyInvoiced, 0),
@@ -332,7 +337,11 @@ export function ValidacaoTab({
   // pula ja faturados, reporta contagem e primeiro erro) com a lista
   // derivada do mesmo predicado que alimenta a contagem do passo 2.
   async function handleRecalculateAllInReview() {
-    const ids = (operationsRows ?? []).filter(isPendingBillingReview).map((row) => row.id)
+    // Achado 5 da review da PR 501: recalcula so quem tem pendencia real de
+    // revisao (charge_status === 'review_required'), nao todo o bucket amplo
+    // "aguardando faturamento" -- que inclui B/Ls not_calculated/calculated
+    // sem pendencia alguma e poderia disparar recalculo em massa desnecessario.
+    const ids = (operationsRows ?? []).filter((row) => row.charge_status === 'review_required').map((row) => row.id)
     if (ids.length === 0) {
       showToast('Não há B/Ls em revisão para recalcular.', 'info')
       return
@@ -405,6 +414,7 @@ export function ValidacaoTab({
         awaitingCe={operationsSummary.awaitingCe}
         reconciliationPending={operationsSummary.reconciliationPending}
         reviewPending={operationsSummary.reviewPending}
+        reviewPendencyCount={operationsSummary.reviewPendencyCount}
         ready={operationsSummary.ready}
         readyInvoiced={operationsSummary.readyInvoiced}
         readyPendingInvoice={operationsSummary.readyPendingInvoice}

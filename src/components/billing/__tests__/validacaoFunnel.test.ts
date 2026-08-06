@@ -63,15 +63,36 @@ describe('isBlLockedForRecalc', () => {
 // motivo mais comum de um B/L de container ficar provisório depois que a
 // promoção automática saiu (migration 263).
 describe('isAwaitingCeMercante', () => {
-  it('B/L de container reconciliado e pendente sem CE aguarda CE', () => {
-    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'pending', ce_mercante: null })).toBe(true)
-    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'pending', ce_mercante: '  ' })).toBe(true)
+  const baseAwaiting = {
+    cargo_mode: 'container',
+    financial_status: 'pending',
+    ce_mercante: null as string | null,
+    charge_status: 'calculated',
+    customer_reconciliation_status: 'matched_document',
+  }
+
+  it('B/L de container reconciliado, calculado e pendente sem CE aguarda CE', () => {
+    expect(isAwaitingCeMercante(baseAwaiting)).toBe(true)
+    expect(isAwaitingCeMercante({ ...baseAwaiting, ce_mercante: '  ' })).toBe(true)
   })
 
   it('nao aguarda CE quando ja tem CE, ja faturou, ou nao e container', () => {
-    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'pending', ce_mercante: '123' })).toBe(false)
-    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'invoiced', ce_mercante: null })).toBe(false)
-    expect(isAwaitingCeMercante({ cargo_mode: 'carga_solta', financial_status: 'pending', ce_mercante: null })).toBe(false)
-    expect(isAwaitingCeMercante({ cargo_mode: 'granito', financial_status: 'pending', ce_mercante: null })).toBe(false)
+    expect(isAwaitingCeMercante({ ...baseAwaiting, ce_mercante: '123' })).toBe(false)
+    expect(isAwaitingCeMercante({ ...baseAwaiting, financial_status: 'invoiced' })).toBe(false)
+    expect(isAwaitingCeMercante({ ...baseAwaiting, cargo_mode: 'carga_solta' })).toBe(false)
+    expect(isAwaitingCeMercante({ ...baseAwaiting, cargo_mode: 'granito' })).toBe(false)
+  })
+
+  // Achado 9 da review da PR 501: antes o predicado ignorava charge_status e
+  // conciliação, contando TODO o backlog de container aberto como
+  // "aguardando CE", nao so quem de fato so falta o CE Mercante.
+  it('nao aguarda CE quando ainda nao foi calculado ou cliente nao esta reconciliado', () => {
+    expect(isAwaitingCeMercante({ ...baseAwaiting, charge_status: 'not_calculated' })).toBe(false)
+    expect(isAwaitingCeMercante({ ...baseAwaiting, customer_reconciliation_status: 'missing_customer' })).toBe(false)
+  })
+
+  it('ainda aguarda CE quando isento seria excluido, mas revisao pendente conta', () => {
+    expect(isAwaitingCeMercante({ ...baseAwaiting, charge_status: 'exempt' })).toBe(false)
+    expect(isAwaitingCeMercante({ ...baseAwaiting, charge_status: 'review_required' })).toBe(true)
   })
 })

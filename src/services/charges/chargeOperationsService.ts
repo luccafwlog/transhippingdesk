@@ -596,9 +596,18 @@ export async function calculateLocalChargesBatch(
   if (error) throw error
   const financialStatusById = new Map((bls ?? []).map((bl) => [bl.id, bl.financial_status] as const))
 
-  return runBatch(blIds, (blId) =>
-    calculateBlLocalCharges(blId, { ...options, knownFinancialStatus: financialStatusById.get(blId) ?? null }),
-  )
+  return runBatch(blIds, (blId) => {
+    // Achado 6 da review da PR 501: NAO usar `?? null` aqui. Um lookup miss
+    // (blId ausente no Map, inclusive por diferenca de normalizacao entre
+    // blId cru e normalizedIds) virava `null`, e o guard em
+    // calculateBlLocalCharges so faz a consulta de pre-flight quando
+    // `financialStatus === undefined` -- null !== undefined, entao a trava de
+    // recalculo de B/L faturado era pulada silenciosamente. Mantendo
+    // `undefined` no miss, o guard cai no fallback e busca o status real.
+    const normalizedBlId = blId.trim().toUpperCase()
+    const knownFinancialStatus = financialStatusById.get(normalizedBlId)
+    return calculateBlLocalCharges(blId, { ...options, knownFinancialStatus })
+  })
 }
 
 export type LocalChargeConferenceRow = {
@@ -662,17 +671,47 @@ export async function buildLocalChargeConferenceRows(blIds: string[]): Promise<L
   const voyageIds = Array.from(new Set(Array.from(blMap.values()).map((bl) => bl.voyageId).filter((v): v is number => v != null)))
   const shareByVoyageContainer = new Map<string, number>()
   if (voyageIds.length > 0) {
-    const { data: voyageContainers, error: voyageContainersError } = await supabase
-      .from('bl_containers')
-      .select('container_number, bl:bls!inner(voyage_id)')
-      .in('bl.voyage_id', voyageIds)
-    if (voyageContainersError) throw voyageContainersError
-    for (const row of voyageContainers ?? []) {
-      const voyageId = (row.bl as { voyage_id: number } | null)?.voyage_id
-      const containerNumber = (row.container_number ?? '').trim().toUpperCase()
-      if (voyageId == null || !containerNumber) continue
-      const key = `${voyageId}:${containerNumber}`
-      shareByVoyageContainer.set(key, (shareByVoyageContainer.get(key) ?? 0) + 1)
+    // Achado 7 da review da PR 501: busca os B/Ls da viagem primeiro (com
+    // cargo_mode e voyage_id vindos direto da tabela `bls`, sem depender do
+    // formato de uma relacao aninhada bl_containers->bls que pode virar
+    // objeto ou array conforme o cliente) e so entao os containers desses
+    // B/Ls. Isso permite: (1) filtrar cargo_mode='container' -- o share_count
+    // do motor so considera B/Ls de container --, e (2) contar bl_id DISTINCT
+    // por voyage+container, em vez de linhas cruas de bl_containers (que
+    // duplicariam a contagem se um B/L tivesse a mesma linha de container
+    // repetida). A chave usa sempre o voyage_id numerico vindo de `bls`,
+    // nunca um valor de relacao que pudesse vir undefined.
+    const { data: voyageBls, error: voyageBlsError } = await supabase
+      .from('bls')
+      .select('id, voyage_id')
+      .in('voyage_id', voyageIds)
+      .eq('cargo_mode', 'container')
+    if (voyageBlsError) throw voyageBlsError
+
+    const voyageIdByBlId = new Map((voyageBls ?? []).map((bl) => [bl.id as string, bl.voyage_id as number]))
+    const containerBlIds = Array.from(voyageIdByBlId.keys())
+
+    if (containerBlIds.length > 0) {
+      const { data: voyageContainers, error: voyageContainersError } = await supabase
+        .from('bl_containers')
+        .select('bl_id, container_number')
+        .in('bl_id', containerBlIds)
+      if (voyageContainersError) throw voyageContainersError
+
+      const blIdsByVoyageContainer = new Map<string, Set<string>>()
+      for (const row of voyageContainers ?? []) {
+        const blId = row.bl_id as string
+        const voyageId = voyageIdByBlId.get(blId)
+        const containerNumber = (row.container_number ?? '').trim().toUpperCase()
+        if (voyageId == null || !containerNumber) continue
+        const key = `${voyageId}:${containerNumber}`
+        const blIdSet = blIdsByVoyageContainer.get(key) ?? new Set<string>()
+        blIdSet.add(blId)
+        blIdsByVoyageContainer.set(key, blIdSet)
+      }
+      for (const [key, blIdSet] of blIdsByVoyageContainer) {
+        shareByVoyageContainer.set(key, blIdSet.size)
+      }
     }
   }
 
@@ -748,16 +787,32 @@ export async function calculateProvisionalLocalCharges(
 
   let siblingIds: string[] = []
   if (containerNumbers.length > 0) {
-    const { data: siblingContainers, error: siblingError } = await supabase
+    const containerNumberSet = new Set(containerNumbers)
+    // Achado 2 da review da PR 501: compara container_number normalizado
+    // (UPPER(TRIM(...))) em memoria, em vez de `.in('container_number', ...)`
+    // com os valores ja normalizados contra a coluna crua do banco -- isso
+    // deixava de casar irmaos com espaco/caixa diferentes do que o motor usa
+    // em outros pontos (ex.: calculate_bl_local_charges). Busca todos os
+    // containers da viagem e filtra pelo Set normalizado no cliente.
+    const { data: voyageContainers, error: siblingError } = await supabase
       .from('bl_containers')
-      .select('bl_id, bl:bls!inner(voyage_id, cargo_mode, financial_status)')
-      .in('container_number', containerNumbers)
+      .select('bl_id, container_number, bl:bls!inner(voyage_id, cargo_mode, financial_status, charge_status)')
       .eq('bl.voyage_id', voyageId)
     if (siblingError) throw siblingError
-    siblingIds = (siblingContainers ?? [])
+    siblingIds = (voyageContainers ?? [])
       .filter((row) => {
-        const bl = row.bl as { cargo_mode: string | null; financial_status: string | null } | null
-        return (bl?.cargo_mode ?? 'container') === 'container' && !isBlFinanciallyLocked(bl?.financial_status)
+        const containerNumber = (row.container_number ?? '').trim().toUpperCase()
+        if (!containerNumberSet.has(containerNumber)) return false
+        const bl = row.bl as { cargo_mode: string | null; financial_status: string | null; charge_status: string | null } | null
+        // Achado 2 da review da PR 501: exclui tambem irmaos ja
+        // ready_for_billing, nao so os financeiramente travados -- senao um
+        // novo B/L no mesmo container reverte silenciosamente um irmao ja
+        // pronto para faturar de volta para calculated/review_required.
+        return (
+          (bl?.cargo_mode ?? 'container') === 'container' &&
+          !isBlFinanciallyLocked(bl?.financial_status) &&
+          bl?.charge_status !== 'ready_for_billing'
+        )
       })
       .map((row) => row.bl_id as string)
   }

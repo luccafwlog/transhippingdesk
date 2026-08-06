@@ -8,19 +8,42 @@ vi.mock('../supabase', () => ({
 }))
 
 describe('buildLocalChargeConferenceRows', () => {
+  let blContainersCallCount = 0
+
   beforeEach(() => {
     mockFrom.mockReset()
+    blContainersCallCount = 0
     mockFrom.mockImplementation((table: string) => {
       if (table === 'bls') {
         return {
-          select: vi.fn(() => ({
-            in: vi.fn(() =>
-              Promise.resolve({
-                data: [{ id: 'BL1', pod: 'BRVIX', voyage_id: 10, customer: { name: 'Cliente X' } }],
-                error: null,
-              }),
-            ),
-          })),
+          select: vi.fn((cols: string) => {
+            if (cols === 'id, voyage_id') {
+              // Achado 7 da review da PR 501: busca os B/Ls container-mode da
+              // viagem primeiro, para filtrar cargo_mode e evitar depender do
+              // formato de uma relacao aninhada bl_containers->bls.
+              return {
+                in: vi.fn(() => ({
+                  eq: vi.fn(() =>
+                    Promise.resolve({
+                      data: [
+                        { id: 'BL1', voyage_id: 10 },
+                        { id: 'BL2', voyage_id: 10 },
+                      ],
+                      error: null,
+                    }),
+                  ),
+                })),
+              }
+            }
+            return {
+              in: vi.fn(() =>
+                Promise.resolve({
+                  data: [{ id: 'BL1', pod: 'BRVIX', voyage_id: 10, customer: { name: 'Cliente X' } }],
+                  error: null,
+                }),
+              ),
+            }
+          }),
         }
       }
       if (table === 'charge_calculations') {
@@ -51,14 +74,22 @@ describe('buildLocalChargeConferenceRows', () => {
       }
       if (table === 'bl_containers') {
         return {
-          select: vi.fn((cols: string) => {
-            if (cols === 'bl_id, container_number') {
-              return { in: vi.fn(() => Promise.resolve({ data: [{ bl_id: 'BL1', container_number: 'CSCU1234567' }], error: null })) }
+          select: vi.fn(() => {
+            blContainersCallCount += 1
+            const isFirstCall = blContainersCallCount === 1
+            return {
+              in: vi.fn(() =>
+                Promise.resolve({
+                  data: isFirstCall
+                    ? [{ bl_id: 'BL1', container_number: 'CSCU1234567' }]
+                    : [
+                        { bl_id: 'BL1', container_number: 'CSCU1234567' },
+                        { bl_id: 'BL2', container_number: 'CSCU1234567' },
+                      ],
+                  error: null,
+                }),
+              ),
             }
-            return { in: vi.fn(() => Promise.resolve({ data: [
-              { container_number: 'CSCU1234567', bl: { voyage_id: 10 } },
-              { container_number: 'CSCU1234567', bl: { voyage_id: 10 } },
-            ], error: null })) }
           }),
         }
       }

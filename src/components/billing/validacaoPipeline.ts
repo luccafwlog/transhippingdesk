@@ -60,10 +60,21 @@ export function isAwaitingCeMercante(row: {
   cargo_mode: string | null
   financial_status: string | null
   ce_mercante: string | null
+  charge_status: string | null
+  customer_reconciliation_status: string | null
 }) {
   return (
     (row.cargo_mode ?? 'container') === 'container' &&
     (row.financial_status ?? 'pending') === 'pending' &&
-    !row.ce_mercante?.trim()
+    !row.ce_mercante?.trim() &&
+    // Achado 9 da review da PR 501: sem isto o card "Aguardando CE" contava
+    // TODO o backlog aberto de container (ate B/Ls ainda sem taxa calculada
+    // ou sem cliente reconciliado), nao especificamente quem esta parado
+    // esperando CE Mercante. Exige que o B/L ja tenha passado da conciliação
+    // e do cálculo (isto é, o CE Mercante seja de fato o único bloqueio
+    // restante para a emissão), igual à premissa de reviewBillingAutomation.ts.
+    isCustomerReconciliationResolved(row.customer_reconciliation_status) &&
+    row.charge_status !== 'exempt' &&
+    row.charge_status !== 'not_calculated'
   )
 }

@@ -27,6 +27,7 @@ function renderControls(overrides: Partial<React.ComponentProps<typeof Validacao
         awaitingCe={0}
         reconciliationPending={0}
         reviewPending={0}
+        reviewPendencyCount={0}
         ready={0}
         readyInvoiced={0}
         readyPendingInvoice={0}
@@ -51,14 +52,16 @@ function renderControls(overrides: Partial<React.ComponentProps<typeof Validacao
 // funil ("Em revisao") tem itens, e dispara o recalculo em massa sem
 // exigir seleção manual.
 describe('ValidacaoControls — recalcular todas em revisão', () => {
-  it('não renderiza o botão quando não há B/Ls em revisão', () => {
-    renderControls({ reviewPending: 0 })
+  it('não renderiza o botão quando não há B/Ls com pendência real de revisão', () => {
+    renderControls({ reviewPending: 5, reviewPendencyCount: 0 })
     expect(screen.queryByText(/Recalcular todas em revisão/)).toBeNull()
   })
 
-  it('renderiza o botão com a contagem e aciona o callback ao clicar', async () => {
+  it('renderiza o botão com a contagem de pendência real e aciona o callback ao clicar', async () => {
     const user = userEvent.setup()
-    const callbacks = renderControls({ reviewPending: 7 })
+    // Achado 5 da review da PR 501: reviewPending (bucket amplo) fica alto
+    // mas o botão usa reviewPendencyCount (charge_status === 'review_required').
+    const callbacks = renderControls({ reviewPending: 1200, reviewPendencyCount: 7 })
 
     const button = screen.getByText('Recalcular todas em revisão (7)')
     await user.click(button)
