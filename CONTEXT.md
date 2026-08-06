@@ -476,6 +476,11 @@ assinou continua visível em cada ADR, mas a medição agregada não soma por
 usuário. Quem clica no botão é quem estava disponível, não necessariamente quem
 produziu o dado que faltava.
 
+O vencimento sem assinatura gera **alerta próprio**, um por departamento em
+falta. Ele não substitui o alerta de pendência do ADR: os dois convivem porque
+dizem coisas diferentes — um lembra que há trabalho a fazer desde que o ATD foi
+lançado, o outro afirma que o compromisso foi descumprido.
+
 - **Related:** Linha do Tempo do ADR, Sign-off Departamental, ATD
 - **Distinto de:** o alerta de pendência do ADR, que sinaliza seção não
   resolvida a partir do lançamento do ATD e não conhece data-limite.
