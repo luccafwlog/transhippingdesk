@@ -36,6 +36,7 @@ Ordenados por risco financeiro:
 | 8 | Isenção automática de carga com veículos | Médio | Política escondida |
 | 9 | Rateio de container compartilhado não fecha o centavo | Baixo | Arredondamento |
 | 10 | A função de cálculo altera dado operacional | Baixo | Violação de fronteira |
+| 11 | Não há como conferir o cálculo antes de ele virar fatura | **Alto** — validação impossível | Lacuna de fluxo |
 
 ---
 
@@ -386,6 +387,47 @@ de rastrear depois.
 
 Nada de negócio. Ou o cálculo apenas **lê** o campo (e quem o define é o fluxo
 operacional), ou a escrita é revertida quando a condição deixa de valer.
+
+---
+
+## 11. Não há como conferir o cálculo antes de ele virar fatura
+
+> Achado levantado na sessão de desenho do mesmo dia, não na leitura de código
+> que produziu os dez anteriores. Registrado aqui para a lista ficar completa.
+
+### O que acontece
+
+Cadastrar o CE Mercante dispara, em cadeia e sem parada, quatro coisas: calcular
+as taxas, promover o B/L a pronto para faturar, emitir a fatura numerada e
+publicá-la no Portal. Antes do CE, para B/L de container, **não existe cálculo
+nenhum** — `tryAutoIssueInvoice` recusa explicitamente:
+
+```ts
+if ((cargoMode === 'container' || cargoMode === '') && !ceMercante) {
+  return { status: 'blocked', message: 'Aguardando cadastro do CE Mercante para calcular taxas (ADR 0020).' }
+}
+```
+
+Consequência: **não há momento algum em que o operador possa olhar o cálculo e
+dizer se está certo.** Antes do CE não há número. Depois do CE já há fatura
+emitida e publicada. A "validação prévia" que o fluxo pressupõe não tem onde
+acontecer.
+
+### Por que importa
+
+É a lacuna que motivou toda esta revisão. Os dez achados anteriores descrevem
+maneiras de o cálculo sair errado; este descreve por que ninguém percebe. Sem
+ponto de conferência, cada um dos outros dez chega ao cliente como fatura.
+
+Também explica por que a aba Validação de `/faturamento` parece deslocada
+(diagnóstico no plano de consolidação das abas): ela promete uma conferência
+que, no caminho normal, não tem como ocorrer.
+
+### O que precisa ser decidido
+
+Se o cálculo passa a existir antes do CE — provisório, conferível, não
+faturável — com o CE assumindo o papel de confirmar e emitir. **Decidido em
+2026-08-06: sim.** Registro na ADR 0037, decisão 8.
 
 ---
 

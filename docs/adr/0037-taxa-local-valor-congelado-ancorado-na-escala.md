@@ -87,6 +87,32 @@ zero.** O padrão já existe (`review:no_table`, `review:weight_missing`,
 `review:imo_oog_thd`) e passa a valer para todo caminho de quantidade zero,
 incluindo os que hoje somem em silêncio.
 
+**8. O cálculo passa a ter duas fases; o CE deixa de ser o gatilho do cálculo e
+passa a ser o de confirmação e emissão.** Supersede parcialmente a
+[ADR 0020](./0020-ce-mercante-gatilho-calculo-taxas-locais.md).
+
+- **Importar o B/L calcula as taxas** com o que o B/L tem naquele momento. O
+  resultado é **provisório e conferível**: o operador extrai planilha e valida.
+  **Nenhuma fatura é emitida, nada é publicado no Portal.**
+- **Cadastrar o CE Mercante recalcula, confirma e fecha**, e só então emite a
+  fatura e publica.
+
+O schema já previa as duas fases: `charge_status` distingue `calculated` de
+`ready_for_billing`. O que colapsou os dois foi o trigger
+`trg_promote_calculated_bl_ready` (migration `129`), que promove um ao outro sem
+intervenção. Desligar essa promoção devolve aos estados o significado que já
+tinham — `calculated` = calculado e conferível, `ready_for_billing` = o que o CE
+produz.
+
+Barato de implementar: cálculo e emissão **já são chamadas separadas** em
+`src/services/reviewBillingAutomation.ts`, e a emissão não está encadeada no
+banco. O que existe hoje é uma recusa explícita de calcular sem CE, mais o
+trigger de promoção.
+
+A premissa da ADR 0020 continua válida onde importa: o **valor faturado** segue
+saindo do cálculo feito no CE, quando todos os B/Ls da viagem já existem. O que
+muda é passar a existir também um número antes, para conferência.
+
 ## Consequências
 
 - Recalcular um B/L faturado deixa de ser possível. O detalhamento que o cliente
@@ -110,6 +136,22 @@ incluindo os que hoje somem em silêncio.
   `LCL/FCL` há. Ler `movement_from` inverteria os dois casos mistos.
 - O motor deixa de escrever em `container_load_type`, cujo único escritor no
   sistema é ele mesmo e que nunca é revertido.
+- **O cálculo provisório pode divergir do faturado, e isso é esperado.** No
+  import, B/Ls irmãos que dividem container podem ainda não existir, então o
+  `share_count` provisório pode ser maior que o final — no limite, o B/L aparece
+  pagando o container inteiro. Era exatamente o problema que a ADR 0020 evitou
+  não calculando cedo; aqui ele volta, mas **sem chegar ao cliente**, porque a
+  fase provisória não emite nada. A planilha de conferência precisa deixar essa
+  natureza explícita, e linhas de container compartilhado devem ser
+  identificáveis nela — senão o operador valida um número que o CE vai mudar,
+  e a conferência passa a dar falsa segurança.
+- A aba **Validação** de `/faturamento` ganha o papel que hoje não tem. O
+  diagnóstico do [plano de consolidação das abas](../plans/2026-08-06-faturamento-abas-consolidacao.md)
+  registrou que ela "promete uma conferência que a tela não faz"; com a fase
+  provisória, passa a haver o que conferir. A Etapa 4 daquele plano (renomear
+  "Validação") deve ser reavaliada à luz disto.
+- `downloadCsv` (`src/lib/csv.ts`) existe e não tem nenhum consumidor hoje. A
+  planilha de conferência é seu primeiro uso.
 
 ## Alternativas consideradas
 

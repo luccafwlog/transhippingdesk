@@ -581,10 +581,21 @@ origem mantém seu ciclo de vida próprio.
 
 **Taxas Locais**
 Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
-específicas do cliente. Para B/L de container, o cálculo automático é
-disparado pelo cadastro do CE Mercante — nunca pelo import do manifesto ou do
-B/L —, garantindo que todos os B/Ls da viagem já existam quando taxas de
-container compartilhado são divididas.
+específicas do cliente.
+
+> A descrição a seguir é a **decidida em 2026-08-06 e ainda não implementada**.
+> Hoje não existe cálculo provisório: para B/L de container nada é calculado
+> antes do CE, e o CE dispara cálculo, emissão e publicação em cadeia única.
+
+O cálculo tem **duas fases**:
+
+- **Provisória** — importar o B/L calcula as taxas com o que ele tem naquele
+  momento. Serve para conferência: o operador extrai planilha e valida. Nada é
+  emitido nem publicado. O número é provisório por natureza, porque B/Ls irmãos
+  que dividem container podem ainda não ter entrado.
+- **Confirmada** — cadastrar o CE Mercante recalcula, fecha e só então emite a
+  fatura e publica. É o cálculo do CE que produz o valor cobrado, quando todos
+  os B/Ls da viagem já existem e o rateio de container compartilhado está certo.
 
 O **fato gerador é a emissão do CE Mercante**, não a chegada da carga. Emitido o
 CE, a taxa local é devida pelo porto declarado nele, e nada que aconteça depois
