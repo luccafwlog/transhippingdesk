@@ -78,7 +78,15 @@ Os formulários e defaults vivem em
   bloqueio expõe a pendência canônica (ex.: cliente sem e-mail cadastrado) via
   `extractReviewReasons`. B/Ls antigos podem carregar em `notes` a pendência
   "acesso ao portal nao provisionado", que deixou de ser gerada pela migration
-  `188`.
+  `188`. **Etapa 6 do plano de faturamento (ADR 0038, decisão 8):** o painel
+  ganhou duas métricas antes do funil de revisão — "Provisório" (`charge_status
+  = 'calculated'`, agora um estado real desde que a migration `263` desligou a
+  promoção automática) e "Aguardando CE" (`isAwaitingCeMercante` em
+  `validacaoPipeline.ts`: container reconciliado e não faturado sem
+  `ce_mercante`) — para a tela responder "o que está calculado e ainda não
+  faturado, e por quê" como o plano pede. O nome da aba ("Validação") foi
+  mantido: a etapa 12 do mesmo plano já dá a ela o papel de tela das duas
+  fases, então o motivo original para renomear deixou de existir.
 - `src/components/billing/PendenciasFaturamentoTab.tsx` recalcula toda a lista
   visível em `review_required`.
 

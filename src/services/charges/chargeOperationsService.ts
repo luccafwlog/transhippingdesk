@@ -86,6 +86,7 @@ export type LocalChargeOperationalRow = {
   pod: string | null
   charge_status: string | null
   financial_status: string | null
+  ce_mercante: string | null
   review_status: string | null
   notes: string | null
   customer_reconciliation_status: string | null
@@ -237,6 +238,7 @@ async function loadBlOperationalRows(
         pod,
         charge_status,
         financial_status,
+        ce_mercante,
         review_status,
         notes,
         customer_reconciliation_status,
@@ -469,6 +471,7 @@ async function loadGraniteOperationalRows(
     pod: row.discharge_port,
     charge_status: row.charge_status,
     financial_status: row.charge_status === 'invoiced' ? 'invoiced' : null,
+    ce_mercante: null,
     // granito não passa pelo gate de revisão de BL comum (workflow próprio).
     review_status: null,
     notes: null,

@@ -51,3 +51,19 @@ export function getBillingBlockReason(row: {
 // toca B/L ja faturado — o RPC recusaria, e contar isso como erro genérico
 // esconde que a causa é a fatura já emitida, não uma falha.
 export const isBlLockedForRecalc = isBlFinanciallyLocked
+
+// Etapa 6 do plano de faturamento (ADR 0038, decisão 8): motivo mais comum de
+// um B/L de container ficar provisório depois que a promoção automática saiu
+// (migration 263) — já calculado e reconciliado, mas sem CE Mercante, então
+// reviewBillingAutomation.ts bloqueia só a emissão (não mais o cálculo).
+export function isAwaitingCeMercante(row: {
+  cargo_mode: string | null
+  financial_status: string | null
+  ce_mercante: string | null
+}) {
+  return (
+    (row.cargo_mode ?? 'container') === 'container' &&
+    (row.financial_status ?? 'pending') === 'pending' &&
+    !row.ce_mercante?.trim()
+  )
+}

@@ -9,6 +9,8 @@ export function ValidacaoControls({
   filters,
   selectedCount,
   operationsLoading,
+  provisional,
+  awaitingCe,
   reconciliationPending,
   reviewPending,
   ready,
@@ -31,6 +33,8 @@ export function ValidacaoControls({
   filters: OpsFilters
   selectedCount: number
   operationsLoading: boolean
+  provisional: number
+  awaitingCe: number
   reconciliationPending: number
   reviewPending: number
   ready: number
@@ -106,6 +110,27 @@ export function ValidacaoControls({
             <div className="app-metric-tile__label">Selecionados</div>
             <div className="app-metric-tile__value">{selectedCount}</div>
             <div className="app-panel__meta">Ações em lote por seleção manual</div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mb-5">
+        <div className="mb-4">
+          <div className="app-panel__title">Cálculo em duas fases</div>
+          <div className="app-panel__meta">
+            Provisório é conferência — nada foi emitido. O CE Mercante confirma e dispara a fatura.
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="app-metric-tile">
+            <div className="app-metric-tile__label">Provisório</div>
+            <div className="app-metric-tile__value">{provisional}</div>
+            <div className="app-panel__meta">Calculado, ainda sem confirmação — valor pode mudar até o CE.</div>
+          </div>
+          <div className="app-metric-tile">
+            <div className="app-metric-tile__label">Aguardando CE</div>
+            <div className="app-metric-tile__value">{awaitingCe}</div>
+            <div className="app-panel__meta">Container reconciliado, falta CE Mercante para emitir.</div>
           </div>
         </div>
       </Card>

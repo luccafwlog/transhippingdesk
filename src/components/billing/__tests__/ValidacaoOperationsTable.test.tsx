@@ -15,6 +15,7 @@ const row: LocalChargeOperationalRow = {
   pod: 'BRSSA',
   charge_status: 'ready_for_billing',
   financial_status: 'pending',
+  ce_mercante: null,
   review_status: 'reviewed',
   notes: null,
   customer_reconciliation_status: 'reconciled',

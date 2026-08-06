@@ -15,7 +15,7 @@ import { queryKeys } from '../../services/queryKeys'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { createInvoiceFromBls } from '../../services/billing'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
-import { isBlLockedForRecalc, isPendingBillingReview } from './validacaoPipeline'
+import { isAwaitingCeMercante, isBlLockedForRecalc, isPendingBillingReview } from './validacaoPipeline'
 import { ValidacaoControls } from './ValidacaoControls'
 import { ValidacaoOperationsTable } from './ValidacaoOperationsTable'
 import type { BatchOperation, OpsFilters, PipelineStep } from './validacaoTypes'
@@ -60,8 +60,18 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     const rows = operationsRows ?? []
     const readyRows = rows.filter((row) => isChargeReady(row.charge_status))
     const readyInvoiced = readyRows.filter((row) => row.financial_status === 'invoiced').length
+    // Etapa 6 do plano de faturamento (ADR 0038, decisão 8): desde que o
+    // trigger de promoção automática saiu (migration 263), 'calculated' é
+    // genuinamente a fase provisória — calculado, ainda sem confirmação
+    // explícita. "Aguardando CE" é o motivo mais comum de um B/L de container
+    // ficar provisório: já calculado, cliente reconciliado, mas sem CE
+    // Mercante para emitir (reviewBillingAutomation.ts só bloqueia a emissão).
+    const provisionalRows = rows.filter((row) => row.charge_status === 'calculated')
+    const awaitingCeRows = rows.filter(isAwaitingCeMercante)
     return {
       total: rows.length,
+      provisional: provisionalRows.length,
+      awaitingCe: awaitingCeRows.length,
       reviewPending: rows.filter(isPendingBillingReview).length,
       ready: readyRows.length,
       readyInvoiced,
@@ -369,6 +379,8 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         filters={opsFilters}
         selectedCount={selectedOpsRows.length}
         operationsLoading={operationsLoading}
+        provisional={operationsSummary.provisional}
+        awaitingCe={operationsSummary.awaitingCe}
         reconciliationPending={operationsSummary.reconciliationPending}
         reviewPending={operationsSummary.reviewPending}
         ready={operationsSummary.ready}

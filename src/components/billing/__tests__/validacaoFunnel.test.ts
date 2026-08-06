@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getBillingBlockReason, isBlLockedForRecalc, isPendingBillingReview } from '../validacaoPipeline'
+import { getBillingBlockReason, isAwaitingCeMercante, isBlLockedForRecalc, isPendingBillingReview } from '../validacaoPipeline'
 
 // Regressão: B/L com CNPJ casado, taxas calculadas e travado no gate de revisão
 // (portal não provisionado) precisa aparecer no funil "Em revisão" e mostrar a
@@ -56,5 +56,22 @@ describe('isBlLockedForRecalc', () => {
     expect(isBlLockedForRecalc('pending')).toBe(false)
     expect(isBlLockedForRecalc(null)).toBe(false)
     expect(isBlLockedForRecalc(undefined)).toBe(false)
+  })
+})
+
+// Etapa 6 do plano de faturamento (ADR 0038, decisão 8): "aguardando CE" é o
+// motivo mais comum de um B/L de container ficar provisório depois que a
+// promoção automática saiu (migration 263).
+describe('isAwaitingCeMercante', () => {
+  it('B/L de container reconciliado e pendente sem CE aguarda CE', () => {
+    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'pending', ce_mercante: null })).toBe(true)
+    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'pending', ce_mercante: '  ' })).toBe(true)
+  })
+
+  it('nao aguarda CE quando ja tem CE, ja faturou, ou nao e container', () => {
+    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'pending', ce_mercante: '123' })).toBe(false)
+    expect(isAwaitingCeMercante({ cargo_mode: 'container', financial_status: 'invoiced', ce_mercante: null })).toBe(false)
+    expect(isAwaitingCeMercante({ cargo_mode: 'carga_solta', financial_status: 'pending', ce_mercante: null })).toBe(false)
+    expect(isAwaitingCeMercante({ cargo_mode: 'granito', financial_status: 'pending', ce_mercante: null })).toBe(false)
   })
 })
