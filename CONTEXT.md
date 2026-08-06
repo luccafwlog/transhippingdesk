@@ -436,6 +436,10 @@ ADR — nenhum marco nasce nela; ela lê datas que os próprios atos já registr
 Serve para responder, por escala, quem assinou quando e se o Prazo de Conclusão
 foi cumprido.
 
+No ADR fechado, o impresso mostra **as datas de assinatura**, que são evidência
+de quem validou o quê e quando, mas não o veredito de prazo: cumprimento e
+atraso são medida interna da agência e vivem só nas telas.
+
 Sem ATD não há marco zero: o ADR de escala cujo navio ainda não saiu tem linha do
 tempo, mas não tem prazo nem cor. Assinar antes da saída é permitido e fica
 registrado como tal; quando o ATD chega, essas assinaturas já contam como
