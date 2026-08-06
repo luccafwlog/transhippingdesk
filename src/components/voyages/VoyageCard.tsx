@@ -68,11 +68,11 @@ function KpiTile({
 }) {
   return (
     <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
-      <div className="text-lg font-bold text-[var(--app-text-strong)]" style={valueColor ? { color: valueColor } : undefined}>
+      <div className="text-[12px] font-semibold text-[var(--app-text-strong)]" style={valueColor ? { color: valueColor } : undefined}>
         {value}
       </div>
-      <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
-      {sub ? <div className="text-[11px] text-[var(--app-muted-soft)]">{sub}</div> : null}
+      <div className="mt-0.5 text-[12px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{label}</div>
+      {sub ? <div className="text-[12px] text-[var(--app-muted-soft)]">{sub}</div> : null}
       {alert ? <Badge tone="yellow" className="mt-1 normal-case">{alert}</Badge> : null}
     </div>
   )
