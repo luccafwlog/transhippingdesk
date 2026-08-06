@@ -692,6 +692,22 @@ apenas inferíveis do valor zero.
 
 - **Related:** Movimento (FCL/LCL), Taxas Locais
 
+**Taxa Local em Dólar**
+> Decidida em 2026-08-06 e **ainda não implementada**: hoje uma linha em USD
+> trava o B/L com o impedimento "exigem ajuste manual", e não existe tela onde
+> fazer esse ajuste.
+
+Item de Taxa cadastrado em USD — como a Booking Cancelation Fee. Converte-se em
+BRL **na emissão da fatura**, pelo ROE vigente naquele momento, e o valor
+convertido é congelado junto com o resto da fatura.
+
+Difere do Demurrage, que recalcula o BRL a cada PTAX até o pagamento: ali a
+dívida está correndo, aqui o valor já é devido por inteiro desde o CE. Aplicar
+Recálculo Diário a uma taxa local criaria dois comportamentos para o mesmo
+documento conforme a moeda do item.
+
+- **Related:** ROE, Recálculo Diário, Item de Taxa
+
 **Recebível Local**
 Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
 ou consolidada e liquidado por um ou mais pagamentos.
