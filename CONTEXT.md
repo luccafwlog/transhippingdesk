@@ -677,6 +677,17 @@ duas — na prática `FCL`/`LCL` é a mais comum:
 | `CY` (*Container Yard*) | `FCL` — container cheio |
 | `CFS` (*Container Freight Station*) | `LCL` — consolidação/desconsolidação |
 
+São **dois lados**: origem e destino. O B/L declara o par, e os mistos existem
+(`FCL/LCL`, `LCL/FCL`). Para Taxa Local vale o **lado do destino** — taxa local
+é cobrança de chegada, e o que define se há o que cobrar é quem executa a
+movimentação no porto de destino. Num B/L `FCL/LCL` o armador entrega o
+container na CFS e o cliente retira sua parte de lá: a movimentação de destino
+não é do armador, logo não há taxa local dele. Num `LCL/FCL` é o inverso — há
+taxa local.
+
+A justificativa histórica da isenção ("taxas pagas na origem") é explicação
+comercial, não critério: usar o lado da origem inverteria os dois casos mistos.
+
 O operador pode sobrescrever a leitura do documento na ficha do B/L quando ele
 vier errado ou vazio, e a correção fica registrada no Histórico. Quando não há
 nem documento nem override, o sistema **não infere**: gera pendência de revisão.

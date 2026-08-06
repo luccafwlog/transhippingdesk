@@ -102,9 +102,12 @@ incluindo os que hoje somem em silêncio.
   reavaliada.
 - Veículo em FCL passa a pagar taxas locais. Hoje não paga: o motor força
   `container_load_type = 'LCL'` e lê o próprio valor um instante depois, então a
-  condição nunca falha. A fonte correta (`movement_from`/`movement_to`, notação
-  `CY`/`CFS`) já é importada e gravada em todo B/L de container, e é usada hoje
-  apenas para exibição.
+  condição nunca falha. A fonte correta já é importada e gravada em todo B/L de
+  container e é usada hoje apenas para exibição — especificamente
+  **`movement_to`**, o lado do destino. Taxa local é cobrança de chegada, e o
+  que define se há o que cobrar é quem executa a movimentação no POD: num B/L
+  `FCL/LCL` o armador entrega o container na CFS e não há taxa local dele; num
+  `LCL/FCL` há. Ler `movement_from` inverteria os dois casos mistos.
 - O motor deixa de escrever em `container_load_type`, cujo único escritor no
   sistema é ele mesmo e que nunca é revertido.
 
