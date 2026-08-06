@@ -187,8 +187,10 @@ flowchart LR
 ### Revisão e auto-faturamento
 
 Revisão resolve pendências operacionais e de cliente. O banco calcula o gate por
-estado real: cliente vinculado, e-mail cadastrado, portal ativo com
-`auth_user_id` e peso BB quando aplicável. `save_bl_review` é o único autor do
+estado real: cliente vinculado, e-mail cadastrado e peso BB quando aplicável. A
+prontidão do Portal **não** integra o gate desde a migration `188`
+(desacoplamento financeiro do Portal): a fatura é emitida mesmo sem conta ativa
+e o caso vira alerta crítico por fatura, não bloqueio. `save_bl_review` é o único autor do
 status e de sua auditoria; importação, promoção para `ready_for_billing` e
 invoice recalculam o mesmo contrato. Ao zerar as pendências, o sistema tenta
 recalcular cobranças e emitir a invoice. A correção não executa backfill nem

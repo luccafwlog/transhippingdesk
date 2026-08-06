@@ -75,8 +75,10 @@ Os formulários e defaults vivem em
   O passo "Em revisão" do funil conta todo B/L já conciliado que ainda não é
   faturável (`isPendingBillingReview` em `validacaoPipeline.ts`), incluindo os
   presos no gate de revisão (`review_status = pending_review`), e o motivo de
-  bloqueio expõe a pendência canônica (ex.: portal não provisionado) via
-  `extractReviewReasons`.
+  bloqueio expõe a pendência canônica (ex.: cliente sem e-mail cadastrado) via
+  `extractReviewReasons`. B/Ls antigos podem carregar em `notes` a pendência
+  "acesso ao portal nao provisionado", que deixou de ser gerada pela migration
+  `188`.
 - `src/components/billing/PendenciasFaturamentoTab.tsx` recalcula toda a lista
   visível em `review_required`.
 
@@ -175,8 +177,12 @@ flowchart LR
   vinculado e em estado aceito, o gate canônico
   `compute_bl_review_pendencies` precisa estar vazio, não pode haver linha de
   taxa pendente ou em USD e deve existir ao menos uma linha BRL positiva e uma
-  tabela vigente. A definição vigente está em
-  `supabase/migrations/129_review_gate_hardening.sql`.
+  tabela vigente. A definição vigente de `mark_bl_ready_for_billing` está em
+  `supabase/migrations/129_review_gate_hardening.sql`; a de
+  `compute_bl_review_pendencies` está em
+  `supabase/migrations/188_review_gate_remove_portal.sql`, que reduziu o gate a
+  cliente vinculado, e-mail cadastrado e peso BB — prontidão do Portal deixou de
+  bloquear faturamento.
 - O estado aceito na migration atual é `matched_document` ou `reconciled`;
   `ValidacaoTab` usa o mesmo helper canônico e mantém `matched_name` como
   pendente até aprovação manual.

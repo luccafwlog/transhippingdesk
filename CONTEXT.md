@@ -96,6 +96,11 @@ notificacao a cada edicao.
 **COD (Change of Destination)**
 Alteracao operacional do destino final do B/L para o Porto de Transbordo apos
 omissao de escala. E uma excecao por B/L e mantem efeitos financeiros manuais.
+Nao reprecifica Taxas Locais: o fato gerador delas e a emissao do CE Mercante,
+e a taxa devida continua sendo a do porto declarado no CE mesmo quando a carga
+e retirada em outro porto.
+
+- **Related:** Taxas Locais, Omissao de Escala, Porto de Transbordo
 
 **Visao Geral do B/L**
 Informa a aba padrao da ficha do B/L que consolida viagem e escalas,
@@ -576,10 +581,168 @@ origem mantém seu ciclo de vida próprio.
 
 **Taxas Locais**
 Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
-específicas do cliente. Para B/L de container, o cálculo automático é
-disparado pelo cadastro do CE Mercante — nunca pelo import do manifesto ou do
-B/L —, garantindo que todos os B/Ls da viagem já existam quando taxas de
-container compartilhado são divididas.
+específicas do cliente.
+
+> A descrição a seguir é a **decidida em 2026-08-06 e ainda não implementada**.
+> Hoje não existe cálculo provisório: para B/L de container nada é calculado
+> antes do CE, e o CE dispara cálculo, emissão e publicação em cadeia única.
+
+O cálculo tem **duas fases**:
+
+- **Provisória** — importar o B/L calcula as taxas com o que ele tem naquele
+  momento. Serve para conferência: o operador extrai planilha e valida. Nada é
+  emitido nem publicado. O import recalcula também os B/Ls **irmãos** — os que
+  dividem container e ainda não têm fatura —, para que o rateio provisório fique
+  certo mesmo quando o segundo B/L entra numa importação posterior.
+- **Confirmada** — cadastrar o CE Mercante recalcula, fecha e só então emite a
+  fatura e publica. É o cálculo do CE que produz o valor cobrado, quando todos
+  os B/Ls da viagem já existem e o rateio de container compartilhado está certo.
+
+O **fato gerador é a emissão do CE Mercante**, não a chegada da carga. Emitido o
+CE, a taxa local é devida pelo porto declarado nele, e nada que aconteça depois
+com o navio a altera: Omissão de Escala, Transbordo e COD são irrelevantes para
+taxa local. No transbordo a carga chega ao POD original de qualquer forma; no
+COD o cliente retira em outro porto por conveniência própria, e a taxa continua
+sendo a do porto do CE — o desvio físico é ônus operacional do armador, não
+reprecificação para o cliente.
+
+Por isso a fatura de taxas locais é emitida dias antes da atracação: o cliente
+precisa dela paga para retirar a carga, e não há fato posterior capaz de mudar
+o valor.
+
+B/Ls que dividem um mesmo container **recebem o CE no mesmo momento**. É essa
+regra operacional — não uma trava de software — que garante o rateio correto de
+taxa de container compartilhado.
+
+- **Related:** Fato Gerador, Omissao de Escala, COD, Data de Referência da Tarifa
+
+**Tabela de Taxas Locais**
+Cadastro que define quais taxas locais existem e quanto custam, por POD e por
+modo de carga, com vigência temporal. É a fonte de verdade dos valores padrão —
+o sistema não tem preço embutido em código. Tem a mesma natureza da Tarifa de
+Demurrage: condições cadastradas e valores correspondentes.
+
+- **Synonyms / avoid:** "tabela de preços", "tarifa local"
+- **Related:** Item de Taxa, Condição de Cliente, Tarifa de Demurrage
+
+**Item de Taxa**
+Linha da Tabela de Taxas Locais: a taxa em si, com o valor unitário e a regra
+que determina sobre o que ela incide (o B/L inteiro, cada container, a tonelada
+da carga solta). Divide-se em dois tipos que **não** se misturam:
+
+- **Item automático** — aplicado pelo sistema a todo B/L elegível, sem
+  intervenção.
+- **Item manual** — existe no cadastro mas nunca é aplicado sozinho; depende de
+  o usuário decidir lançá-lo naquele processo.
+
+- **Related:** Tabela de Taxas Locais, Lançamento Manual
+
+**Condição de Cliente**
+Valor negociado com um Cliente específico para um Item de Taxa específico,
+substituindo o valor padrão da tabela enquanto estiver vigente. É condição
+comercial, não desconto pontual: aplica-se sozinha a todos os processos daquele
+Cliente no período.
+
+**Não pode haver duas Condições vigentes** para o mesmo Cliente e o mesmo Item
+de Taxa. Sobreposição é erro de cadastro, não agendamento: são dois acordos
+conflitantes para o mesmo período. Trocar uma condição exige fechar a vigência
+da anterior. Por isso não existe — e não deve existir — critério de desempate.
+
+Difere da Tarifa de Demurrage nesse ponto: aquela é lista de preço pública, onde
+agendar uma vigência por cima da anterior é operação normal e a mais recente
+vence. Condição de Cliente é acordo negociado, e conflito precisa aparecer.
+
+- **Synonyms / avoid:** "desconto", "override de cliente"
+- **Related:** Item de Taxa, Cliente, Tarifa de Demurrage
+
+**Data de Referência da Tarifa**
+> Decidida em 2026-08-06 e **ainda não implementada**: o motor resolve a tarifa
+> pela data de upload do B/L. Enquanto o código não mudar, este verbete descreve
+> a intenção, não o comportamento.
+
+Data que determina qual Tabela de Taxas Locais e qual Condição de Cliente valem
+para um B/L: a **ETA da escala do POD**. Ancorar na escala garante que todos os
+B/Ls do mesmo navio, no mesmo porto, sejam cobrados pela mesma tarifa — a taxa
+local é cobrança de chegada, e "mesmo navio, preços diferentes" não é defensável
+perante o cliente.
+
+Não é a ATA: o CE Mercante — que dispara o cálculo — é cadastrado dias antes da
+atracação, então a fatura já foi emitida quando a ATA passa a existir. Não é
+a data de importação do B/L, que é fato administrativo e não comercial.
+
+Difere deliberadamente do Demurrage, que resolve a tarifa pela vigência do dia
+do cálculo: demurrage é cobrança por container e por dia, intrinsecamente
+individual, então não produz a comparação "mesmo navio, preços diferentes".
+
+- **Related:** Tabela de Taxas Locais, Condição de Cliente, Escala
+
+**Movimento (FCL/LCL)**
+Declaração do armador, presente no próprio B/L, sobre como a carga foi estufada
+na origem e como é entregue no destino. É a fonte de verdade sobre um B/L ser
+FCL ou LCL.
+
+Aparece em **duas notações equivalentes**, e o B/L pode trazer qualquer uma das
+duas — na prática `FCL`/`LCL` é a mais comum:
+
+| Notação | Equivale a |
+|---|---|
+| `CY` (*Container Yard*) | `FCL` — container cheio |
+| `CFS` (*Container Freight Station*) | `LCL` — consolidação/desconsolidação |
+
+São **dois lados**: origem e destino. O B/L declara o par, e os mistos existem
+(`FCL/LCL`, `LCL/FCL`). Para Taxa Local vale o **lado do destino** — taxa local
+é cobrança de chegada, e o que define se há o que cobrar é quem executa a
+movimentação no porto de destino. Num B/L `FCL/LCL` o armador entrega o
+container na CFS e o cliente retira sua parte de lá: a movimentação de destino
+não é do armador, logo não há taxa local dele. Num `LCL/FCL` é o inverso — há
+taxa local.
+
+A justificativa histórica da isenção ("taxas pagas na origem") é explicação
+comercial, não critério: usar o lado da origem inverteria os dois casos mistos.
+
+O operador pode sobrescrever a leitura do documento na ficha do B/L quando ele
+vier errado ou vazio, e a correção fica registrada no Histórico.
+
+Quando não há nem documento nem override, o sistema **cobra normalmente**. A
+isenção exige LCL declarado; ausência não isenta. O modo de falha é cobrar de
+quem talvez não devesse — visível e contestável — em vez de isentar quem devia
+pagar, que não deixa rastro. A correção acontece na fase provisória do cálculo,
+antes de qualquer fatura existir.
+
+- **Synonyms / avoid:** "tipo de carregamento"
+- **Related:** Isenção de Taxas Locais, Taxas Locais
+
+**Isenção de Taxas Locais**
+> Decidida em 2026-08-06 e **ainda não implementada**: hoje o motor isenta todo
+> B/L de container que tenha veículo, sem checar o Movimento. Este verbete
+> descreve a intenção.
+
+Dispensa de cobrança de taxas locais para carga de veículos **em LCL**, cujas
+taxas foram pagas na origem. Depende de duas condições, não de uma: haver
+veículo no B/L **e** o Movimento indicar LCL. Veículo em FCL paga normalmente, e
+veículo sem Movimento declarado também — a isenção exige prova positiva.
+
+A isenção é consequência de dado operacional (o cadastro de veículos), então
+precisa ser conferível: as isenções aplicadas devem ser visíveis em tela, não
+apenas inferíveis do valor zero.
+
+- **Related:** Movimento (FCL/LCL), Taxas Locais
+
+**Taxa Local em Dólar**
+> Decidida em 2026-08-06 e **ainda não implementada**: hoje uma linha em USD
+> trava o B/L com o impedimento "exigem ajuste manual", e não existe tela onde
+> fazer esse ajuste.
+
+Item de Taxa cadastrado em USD — como a Booking Cancelation Fee. Converte-se em
+BRL **na emissão da fatura**, pelo ROE vigente naquele momento, e o valor
+convertido é congelado junto com o resto da fatura.
+
+Difere do Demurrage, que recalcula o BRL a cada PTAX até o pagamento: ali a
+dívida está correndo, aqui o valor já é devido por inteiro desde o CE. Aplicar
+Recálculo Diário a uma taxa local criaria dois comportamentos para o mesmo
+documento conforme a moeda do item.
+
+- **Related:** ROE, Recálculo Diário, Item de Taxa
 
 **Recebível Local**
 Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
