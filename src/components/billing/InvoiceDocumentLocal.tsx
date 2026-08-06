@@ -2,7 +2,7 @@ import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { InvoiceDetail } from '../../services/billing'
 import { stripBlPrefix } from '../../lib/utils'
-import { cell, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
+import { cell, documentRoot, fmtBRL, fmtCNPJ, fmtDate, labelCell } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Props = { detail: InvoiceDetail }
@@ -56,6 +56,10 @@ export function InvoiceDocumentLocal({ detail }: Props) {
           <tr>
             <td style={labelCell}>Navio/Voy.:</td>
             <td style={cell}>{vesselVoyages}</td>
+          </tr>
+          <tr>
+            <td style={labelCell}>Emitida em:</td>
+            <td style={cell}>{fmtDate(invoice.issued_at)} — detalhamento congelado nesta data, não reflete recálculos posteriores do B/L.</td>
           </tr>
         </tbody>
       </table>

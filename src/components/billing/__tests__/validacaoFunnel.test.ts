@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getBillingBlockReason, isPendingBillingReview } from '../validacaoPipeline'
+import { getBillingBlockReason, isBlLockedForRecalc, isPendingBillingReview } from '../validacaoPipeline'
 
 // Regressão: B/L com CNPJ casado, taxas calculadas e travado no gate de revisão
 // (portal não provisionado) precisa aparecer no funil "Em revisão" e mostrar a
@@ -40,5 +40,21 @@ describe('getBillingBlockReason', () => {
 
   it('cai num motivo genérico quando não há pendência anotada', () => {
     expect(getBillingBlockReason({ ...gatedBl, notes: null })).toBe('Revisão pendente antes do faturamento.')
+  })
+})
+
+// Etapa 2 do plano de faturamento (ADR 0038, achado 6): recalculo em lote pula
+// B/L ja faturado em vez de deixar o RPC recusar como erro.
+describe('isBlLockedForRecalc', () => {
+  it('trava invoiced, partially_paid e paid', () => {
+    expect(isBlLockedForRecalc('invoiced')).toBe(true)
+    expect(isBlLockedForRecalc('partially_paid')).toBe(true)
+    expect(isBlLockedForRecalc('paid')).toBe(true)
+  })
+
+  it('libera pending e nulo', () => {
+    expect(isBlLockedForRecalc('pending')).toBe(false)
+    expect(isBlLockedForRecalc(null)).toBe(false)
+    expect(isBlLockedForRecalc(undefined)).toBe(false)
   })
 })

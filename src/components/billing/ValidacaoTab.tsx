@@ -15,7 +15,7 @@ import { queryKeys } from '../../services/queryKeys'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { createInvoiceFromBls } from '../../services/billing'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
-import { isPendingBillingReview } from './validacaoPipeline'
+import { isBlLockedForRecalc, isPendingBillingReview } from './validacaoPipeline'
 import { ValidacaoControls } from './ValidacaoControls'
 import { ValidacaoOperationsTable } from './ValidacaoOperationsTable'
 import type { BatchOperation, OpsFilters, PipelineStep } from './validacaoTypes'
@@ -163,9 +163,16 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       return
     }
 
+    const financialStatusById = new Map((operationsRows ?? []).map((row) => [row.id, row.financial_status] as const))
     const cargoModeById = new Map((operationsRows ?? []).map((row) => [row.id, row.cargo_mode] as const))
-    const localIds = allIds.filter((id) => cargoModeById.get(id) !== 'granito')
+    const allLocalIds = allIds.filter((id) => cargoModeById.get(id) !== 'granito')
     const graniteIds = allIds.filter((id) => cargoModeById.get(id) === 'granito')
+
+    // B/L ja faturado nunca e recalculado (etapa 2 do plano de faturamento):
+    // pula em vez de deixar o RPC recusar como erro generico, e reporta quanto pulou.
+    const invoicedIds =
+      action === 'recalculate' ? allLocalIds.filter((id) => isBlLockedForRecalc(financialStatusById.get(id))) : []
+    const localIds = allLocalIds.filter((id) => !invoicedIds.includes(id))
 
     try {
       const actorId = userId
@@ -188,7 +195,13 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       const errorCount = localResult.errorCount + graniteResult.errorCount
       const firstError = [...localResult.errors, ...graniteResult.errors][0]
 
-      if (errorCount > 0 && firstError) {
+      if (invoicedIds.length > 0) {
+        showToast(
+          `${successCount} recalculado(s), ${invoicedIds.length} ignorado(s) (ja faturados)` +
+            (errorCount > 0 && firstError ? `, ${errorCount} falharam. Primeiro erro em ${firstError.blId}: ${firstError.message}` : '.'),
+          errorCount > 0 ? 'info' : 'success',
+        )
+      } else if (errorCount > 0 && firstError) {
         showToast(
           `Processamento parcial: ${successCount}/${total}. Primeiro erro em ${firstError.blId}: ${firstError.message}`,
           'info',

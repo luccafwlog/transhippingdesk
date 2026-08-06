@@ -45,3 +45,10 @@ export function getBillingBlockReason(row: {
   if (row.charge_status !== 'ready_for_billing') return 'Ainda nao marcado como pronto para faturar.'
   return 'Pronto para emissao individual.'
 }
+
+// Etapa 2 do plano de faturamento (ADR 0038, achado 6): recalculo em lote nunca
+// toca B/L ja faturado — o RPC recusaria, e contar isso como erro genérico
+// esconde que a causa é a fatura já emitida, não uma falha.
+export function isBlLockedForRecalc(financialStatus: string | null | undefined) {
+  return ['invoiced', 'partially_paid', 'paid'].includes(financialStatus ?? '')
+}
