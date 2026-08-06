@@ -664,6 +664,34 @@ individual, então não produz a comparação "mesmo navio, preços diferentes".
 
 - **Related:** Tabela de Taxas Locais, Condição de Cliente, Escala
 
+**Movimento (FCL/LCL)**
+Declaração do armador, presente no próprio B/L, sobre como a carga foi estufada
+na origem e como é entregue no destino — na notação `CY` (*Container Yard*,
+container cheio) e `CFS` (*Container Freight Station*, desconsolidação). É a
+fonte de verdade sobre um B/L ser FCL ou LCL.
+
+O operador pode sobrescrever a leitura do documento na ficha do B/L quando ele
+vier errado ou vazio, e a correção fica registrada no Histórico. Quando não há
+nem documento nem override, o sistema **não infere**: gera pendência de revisão.
+
+- **Synonyms / avoid:** "tipo de carregamento"
+- **Related:** Isenção de Taxas Locais, Taxas Locais
+
+**Isenção de Taxas Locais**
+> Decidida em 2026-08-06 e **ainda não implementada**: hoje o motor isenta todo
+> B/L de container que tenha veículo, sem checar o Movimento. Este verbete
+> descreve a intenção.
+
+Dispensa de cobrança de taxas locais para carga de veículos **em LCL**, cujas
+taxas foram pagas na origem. Depende de duas condições, não de uma: haver
+veículo no B/L **e** o Movimento indicar LCL. Veículo em FCL paga normalmente.
+
+A isenção é consequência de dado operacional (o cadastro de veículos), então
+precisa ser conferível: as isenções aplicadas devem ser visíveis em tela, não
+apenas inferíveis do valor zero.
+
+- **Related:** Movimento (FCL/LCL), Taxas Locais
+
 **Recebível Local**
 Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
 ou consolidada e liquidado por um ou mais pagamentos.
