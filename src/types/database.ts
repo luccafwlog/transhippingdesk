@@ -7,11 +7,15 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       agency_departure_report_department_signoffs: {
         Row: {
-          booking_number?: string
           department: string
           id: string
           report_id: string
@@ -36,6 +40,7 @@ export type Database = {
           {
             foreignKeyName: "agency_departure_report_department_signoffs_report_id_fkey"
             columns: ["report_id"]
+            isOneToOne: false
             referencedRelation: "agency_departure_reports"
             referencedColumns: ["id"]
           },
@@ -73,6 +78,7 @@ export type Database = {
           {
             foreignKeyName: "agency_departure_report_occurrences_report_id_fkey"
             columns: ["report_id"]
+            isOneToOne: false
             referencedRelation: "agency_departure_reports"
             referencedColumns: ["id"]
           },
@@ -113,6 +119,7 @@ export type Database = {
           {
             foreignKeyName: "agency_departure_report_signoffs_report_id_fkey"
             columns: ["report_id"]
+            isOneToOne: false
             referencedRelation: "agency_departure_reports"
             referencedColumns: ["id"]
           },
@@ -156,10 +163,26 @@ export type Database = {
           {
             foreignKeyName: "agency_departure_reports_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
         ]
+      }
+      agency_report_pending_baselines: {
+        Row: {
+          baseline_key: string
+          captured_at: string
+        }
+        Insert: {
+          baseline_key: string
+          captured_at: string
+        }
+        Update: {
+          baseline_key?: string
+          captured_at?: string
+        }
+        Relationships: []
       }
       alerts: {
         Row: {
@@ -298,6 +321,7 @@ export type Database = {
           {
             foreignKeyName: "baplie_containers_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -341,12 +365,14 @@ export type Database = {
           {
             foreignKeyName: "baplie_reconciliation_resolutions_bl_container_id_fkey"
             columns: ["bl_container_id"]
+            isOneToOne: false
             referencedRelation: "bl_containers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "baplie_reconciliation_resolutions_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -393,18 +419,21 @@ export type Database = {
           {
             foreignKeyName: "billing_batches_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "billing_batches_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "billing_batches_portal_account_id_fkey"
             columns: ["portal_account_id"]
+            isOneToOne: false
             referencedRelation: "customer_portal_accounts"
             referencedColumns: ["id"]
           },
@@ -448,18 +477,21 @@ export type Database = {
           {
             foreignKeyName: "billing_run_logs_billing_run_id_fkey"
             columns: ["billing_run_id"]
+            isOneToOne: false
             referencedRelation: "billing_runs"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "billing_run_logs_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "billing_run_logs_manifest_id_fkey"
             columns: ["manifest_id"]
+            isOneToOne: false
             referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
@@ -524,6 +556,7 @@ export type Database = {
           {
             foreignKeyName: "billing_runs_manifest_id_fkey"
             columns: ["manifest_id"]
+            isOneToOne: false
             referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
@@ -567,6 +600,7 @@ export type Database = {
           {
             foreignKeyName: "bl_breakbulk_items_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
@@ -634,6 +668,7 @@ export type Database = {
           {
             foreignKeyName: "bl_containers_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
@@ -674,6 +709,7 @@ export type Database = {
           {
             foreignKeyName: "bl_freight_lines_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
@@ -732,18 +768,21 @@ export type Database = {
           {
             foreignKeyName: "bl_receivables_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bl_receivables_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bl_receivables_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -796,12 +835,14 @@ export type Database = {
           {
             foreignKeyName: "bl_transshipments_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bl_transshipments_omission_id_fkey"
             columns: ["omission_id"]
+            isOneToOne: false
             referencedRelation: "voyage_omissions"
             referencedColumns: ["id"]
           },
@@ -989,24 +1030,28 @@ export type Database = {
           {
             foreignKeyName: "bls_batch_id_fkey"
             columns: ["batch_id"]
+            isOneToOne: false
             referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bls_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bls_last_billing_run_id_fkey"
             columns: ["last_billing_run_id"]
+            isOneToOne: false
             referencedRelation: "billing_runs"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bls_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -1116,42 +1161,49 @@ export type Database = {
           {
             foreignKeyName: "charge_calculations_billing_run_id_fkey"
             columns: ["billing_run_id"]
+            isOneToOne: false
             referencedRelation: "billing_runs"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "charge_calculations_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "charge_calculations_charge_item_id_fkey"
             columns: ["charge_item_id"]
+            isOneToOne: false
             referencedRelation: "charge_table_items"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "charge_calculations_charge_table_id_fkey"
             columns: ["charge_table_id"]
+            isOneToOne: false
             referencedRelation: "charge_tables"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "charge_calculations_container_id_fkey"
             columns: ["container_id"]
+            isOneToOne: false
             referencedRelation: "bl_containers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "charge_calculations_manifest_id_fkey"
             columns: ["manifest_id"]
+            isOneToOne: false
             referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "charge_calculations_pricing_rule_version_id_fkey"
             columns: ["pricing_rule_version_id"]
+            isOneToOne: false
             referencedRelation: "pricing_rule_versions"
             referencedColumns: ["id"]
           },
@@ -1216,6 +1268,7 @@ export type Database = {
           {
             foreignKeyName: "charge_table_items_charge_table_id_fkey"
             columns: ["charge_table_id"]
+            isOneToOne: false
             referencedRelation: "charge_tables"
             referencedColumns: ["id"]
           },
@@ -1262,6 +1315,7 @@ export type Database = {
           {
             foreignKeyName: "charge_tables_carrier_id_fkey"
             columns: ["carrier_id"]
+            isOneToOne: false
             referencedRelation: "carriers"
             referencedColumns: ["id"]
           },
@@ -1302,6 +1356,7 @@ export type Database = {
           {
             foreignKeyName: "customer_contacts_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1369,6 +1424,7 @@ export type Database = {
           {
             foreignKeyName: "customer_portal_accounts_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: true
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1409,12 +1465,14 @@ export type Database = {
           {
             foreignKeyName: "customer_portal_sessions_account_id_fkey"
             columns: ["account_id"]
+            isOneToOne: false
             referencedRelation: "customer_portal_accounts"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "customer_portal_sessions_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1455,12 +1513,14 @@ export type Database = {
           {
             foreignKeyName: "customer_rate_overrides_charge_item_id_fkey"
             columns: ["charge_item_id"]
+            isOneToOne: false
             referencedRelation: "charge_table_items"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "customer_rate_overrides_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1528,18 +1588,21 @@ export type Database = {
           {
             foreignKeyName: "customer_reconciliation_queue_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: true
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "customer_reconciliation_queue_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "customer_reconciliation_queue_manifest_id_fkey"
             columns: ["manifest_id"]
+            isOneToOne: false
             referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
@@ -1631,6 +1694,7 @@ export type Database = {
           {
             foreignKeyName: "demurrage_invoice_history_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "demurrage_invoices"
             referencedColumns: ["id"]
           },
@@ -1692,12 +1756,14 @@ export type Database = {
           {
             foreignKeyName: "demurrage_invoice_items_container_id_fkey"
             columns: ["container_id"]
+            isOneToOne: false
             referencedRelation: "bl_containers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "demurrage_invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "demurrage_invoices"
             referencedColumns: ["id"]
           },
@@ -1813,12 +1879,14 @@ export type Database = {
           {
             foreignKeyName: "demurrage_invoices_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "demurrage_invoices_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1872,6 +1940,96 @@ export type Database = {
           updated_at?: string
           valid_from?: string
           valid_to?: string | null
+        }
+        Relationships: []
+      }
+      depot_services: {
+        Row: {
+          active: boolean
+          condition: string | null
+          container_type: string | null
+          created_at: string
+          depot_id: string
+          id: string
+          name: string
+          natureza: string
+          rate_brl: number
+          route_destino_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          condition?: string | null
+          container_type?: string | null
+          created_at?: string
+          depot_id: string
+          id?: string
+          name: string
+          natureza?: string
+          rate_brl?: number
+          route_destino_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          condition?: string | null
+          container_type?: string | null
+          created_at?: string
+          depot_id?: string
+          id?: string
+          name?: string
+          natureza?: string
+          rate_brl?: number
+          route_destino_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "depot_services_depot_id_fkey"
+            columns: ["depot_id"]
+            isOneToOne: false
+            referencedRelation: "depots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "depot_services_route_destino_id_fkey"
+            columns: ["route_destino_id"]
+            isOneToOne: false
+            referencedRelation: "depots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      depots: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          free_time_material_days: number
+          free_time_vazio_days: number
+          id: string
+          name: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          free_time_material_days?: number
+          free_time_vazio_days?: number
+          id?: string
+          name?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          free_time_material_days?: number
+          free_time_vazio_days?: number
+          id?: string
+          name?: string | null
+          tipo?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1994,12 +2152,14 @@ export type Database = {
           {
             foreignKeyName: "granite_bl_charges_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "granite_bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "granite_bl_charges_rate_id_fkey"
             columns: ["rate_id"]
+            isOneToOne: false
             referencedRelation: "granite_rates"
             referencedColumns: ["id"]
           },
@@ -2106,12 +2266,14 @@ export type Database = {
           {
             foreignKeyName: "granite_bls_client_id_fkey"
             columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "granite_bls_manifest_id_fkey"
             columns: ["manifest_id"]
+            isOneToOne: false
             referencedRelation: "granite_manifests"
             referencedColumns: ["id"]
           },
@@ -2155,6 +2317,7 @@ export type Database = {
           {
             foreignKeyName: "granite_manifests_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -2246,6 +2409,7 @@ export type Database = {
           {
             foreignKeyName: "import_batches_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -2283,6 +2447,7 @@ export type Database = {
           {
             foreignKeyName: "import_errors_batch_id_fkey"
             columns: ["batch_id"]
+            isOneToOne: false
             referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
@@ -2323,12 +2488,14 @@ export type Database = {
           {
             foreignKeyName: "invoice_bls_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_bls_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -2375,12 +2542,14 @@ export type Database = {
           {
             foreignKeyName: "invoice_granite_bls_granite_bl_id_fkey"
             columns: ["granite_bl_id"]
+            isOneToOne: false
             referencedRelation: "granite_bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_granite_bls_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -2454,42 +2623,49 @@ export type Database = {
           {
             foreignKeyName: "invoice_items_billing_run_id_fkey"
             columns: ["billing_run_id"]
+            isOneToOne: false
             referencedRelation: "billing_runs"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_items_charge_calculation_id_fkey"
             columns: ["charge_calculation_id"]
+            isOneToOne: false
             referencedRelation: "charge_calculations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_items_charge_item_id_fkey"
             columns: ["charge_item_id"]
+            isOneToOne: false
             referencedRelation: "charge_table_items"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_items_charge_table_id_fkey"
             columns: ["charge_table_id"]
+            isOneToOne: false
             referencedRelation: "charge_tables"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_items_manifest_id_fkey"
             columns: ["manifest_id"]
+            isOneToOne: false
             referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_items_pricing_rule_version_id_fkey"
             columns: ["pricing_rule_version_id"]
+            isOneToOne: false
             referencedRelation: "pricing_rule_versions"
             referencedColumns: ["id"]
           },
@@ -2530,18 +2706,21 @@ export type Database = {
           {
             foreignKeyName: "invoice_lifecycle_events_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_lifecycle_events_receivable_id_fkey"
             columns: ["receivable_id"]
+            isOneToOne: false
             referencedRelation: "bl_receivables"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_lifecycle_events_related_invoice_id_fkey"
             columns: ["related_invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -2582,18 +2761,21 @@ export type Database = {
           {
             foreignKeyName: "invoice_receivable_links_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_receivable_links_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_receivable_links_receivable_id_fkey"
             columns: ["receivable_id"]
+            isOneToOne: false
             referencedRelation: "bl_receivables"
             referencedColumns: ["id"]
           },
@@ -2637,12 +2819,14 @@ export type Database = {
           {
             foreignKeyName: "invoice_refunds_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_refunds_payment_id_fkey"
             columns: ["payment_id"]
+            isOneToOne: false
             referencedRelation: "payments"
             referencedColumns: ["id"]
           },
@@ -2731,24 +2915,28 @@ export type Database = {
           {
             foreignKeyName: "invoices_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoices_covered_by_invoice_id_fkey"
             columns: ["covered_by_invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoices_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoices_replaced_by_invoice_id_fkey"
             columns: ["replaced_by_invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -2795,18 +2983,21 @@ export type Database = {
           {
             foreignKeyName: "ledger_settlements_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "ledger_settlements_payment_id_fkey"
             columns: ["payment_id"]
+            isOneToOne: false
             referencedRelation: "payments"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "ledger_settlements_receivable_id_fkey"
             columns: ["receivable_id"]
+            isOneToOne: false
             referencedRelation: "bl_receivables"
             referencedColumns: ["id"]
           },
@@ -2847,6 +3038,7 @@ export type Database = {
           {
             foreignKeyName: "payments_invoice_id_fkey"
             columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -2899,12 +3091,14 @@ export type Database = {
           {
             foreignKeyName: "portal_email_attempts_account_id_fkey"
             columns: ["account_id"]
+            isOneToOne: false
             referencedRelation: "customer_portal_accounts"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "portal_email_attempts_invite_id_fkey"
             columns: ["invite_id"]
+            isOneToOne: false
             referencedRelation: "portal_invites"
             referencedColumns: ["id"]
           },
@@ -2936,6 +3130,7 @@ export type Database = {
           {
             foreignKeyName: "portal_email_events_attempt_id_fkey"
             columns: ["attempt_id"]
+            isOneToOne: false
             referencedRelation: "portal_email_attempts"
             referencedColumns: ["id"]
           },
@@ -2985,6 +3180,7 @@ export type Database = {
           {
             foreignKeyName: "portal_invites_account_id_fkey"
             columns: ["account_id"]
+            isOneToOne: false
             referencedRelation: "customer_portal_accounts"
             referencedColumns: ["id"]
           },
@@ -3070,12 +3266,14 @@ export type Database = {
           {
             foreignKeyName: "portal_notifications_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "portal_notifications_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -3131,18 +3329,21 @@ export type Database = {
           {
             foreignKeyName: "portal_provisioning_events_account_id_fkey"
             columns: ["account_id"]
+            isOneToOne: false
             referencedRelation: "customer_portal_accounts"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "portal_provisioning_events_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "portal_provisioning_events_invite_id_fkey"
             columns: ["invite_id"]
+            isOneToOne: false
             referencedRelation: "portal_invites"
             referencedColumns: ["id"]
           },
@@ -3171,6 +3372,7 @@ export type Database = {
           {
             foreignKeyName: "portal_rate_limits_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -3259,24 +3461,28 @@ export type Database = {
           {
             foreignKeyName: "pricing_rule_versions_charge_item_id_fkey"
             columns: ["charge_item_id"]
+            isOneToOne: false
             referencedRelation: "charge_table_items"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "pricing_rule_versions_charge_table_id_fkey"
             columns: ["charge_table_id"]
+            isOneToOne: false
             referencedRelation: "charge_tables"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "pricing_rule_versions_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "pricing_rule_versions_customer_rate_override_id_fkey"
             columns: ["customer_rate_override_id"]
+            isOneToOne: false
             referencedRelation: "customer_rate_overrides"
             referencedColumns: ["id"]
           },
@@ -3326,70 +3532,74 @@ export type Database = {
       }
       vazios_bookings: {
         Row: {
+          condition: string
           container_number: string
           container_type: string | null
           created_at: string | null
-          condition: string
           hand_in_date: string | null
           hand_out_date: string | null
           id: string
           local_id: string
           manifest_id: string
+          movement_date: string | null
           operation_id: string
           voyage_id: number
-          movement_date: string | null
         }
         Insert: {
+          condition: string
           container_number: string
           container_type?: string | null
           created_at?: string | null
-          condition: string
           hand_in_date?: string | null
           hand_out_date?: string | null
           id?: string
           local_id: string
           manifest_id: string
+          movement_date?: string | null
           operation_id: string
           voyage_id: number
-          movement_date?: string | null
         }
         Update: {
+          condition?: string
           container_number?: string
           container_type?: string | null
           created_at?: string | null
-          condition?: string
           hand_in_date?: string | null
           hand_out_date?: string | null
           id?: string
           local_id?: string
           manifest_id?: string
+          movement_date?: string | null
           operation_id?: string
           voyage_id?: number
-          movement_date?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "vazios_bookings_manifest_id_fkey"
-            columns: ["manifest_id"]
-            referencedRelation: "vazios_manifests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vazios_bookings_voyage_id_fkey"
-            columns: ["voyage_id"]
-            referencedRelation: "voyages"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "vazios_bookings_local_id_fkey"
             columns: ["local_id"]
+            isOneToOne: false
             referencedRelation: "depots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_bookings_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "vazios_manifests"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "vazios_bookings_operation_id_fkey"
             columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "vazios_export_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_bookings_voyage_id_fkey"
+            columns: ["voyage_id"]
+            isOneToOne: false
+            referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
         ]
@@ -3401,7 +3611,6 @@ export type Database = {
           id: string
           updated_at: string
           voyage_id: number
-          os_number?: string | null
         }
         Insert: {
           created_at?: string
@@ -3409,7 +3618,6 @@ export type Database = {
           id?: string
           updated_at?: string
           voyage_id: number
-          os_number?: string | null
         }
         Update: {
           created_at?: string
@@ -3417,13 +3625,93 @@ export type Database = {
           id?: string
           updated_at?: string
           voyage_id?: number
-          os_number?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "vazios_export_operations_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vazios_export_service_lines: {
+        Row: {
+          condition: string | null
+          container_type: string | null
+          created_at: string
+          destino_id: string | null
+          id: string
+          local_id: string
+          operation_id: string
+          percentual: number | null
+          quantidade: number
+          quantidade_manual: boolean
+          service_id: string
+          updated_at: string
+          valor_sugerido: number | null
+          valor_unitario: number
+        }
+        Insert: {
+          condition?: string | null
+          container_type?: string | null
+          created_at?: string
+          destino_id?: string | null
+          id?: string
+          local_id: string
+          operation_id: string
+          percentual?: number | null
+          quantidade?: number
+          quantidade_manual?: boolean
+          service_id: string
+          updated_at?: string
+          valor_sugerido?: number | null
+          valor_unitario?: number
+        }
+        Update: {
+          condition?: string | null
+          container_type?: string | null
+          created_at?: string
+          destino_id?: string | null
+          id?: string
+          local_id?: string
+          operation_id?: string
+          percentual?: number | null
+          quantidade?: number
+          quantidade_manual?: boolean
+          service_id?: string
+          updated_at?: string
+          valor_sugerido?: number | null
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vazios_export_service_lines_destino_id_fkey"
+            columns: ["destino_id"]
+            isOneToOne: false
+            referencedRelation: "depots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_export_service_lines_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "depots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_export_service_lines_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "vazios_export_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vazios_export_service_lines_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "depot_services"
             referencedColumns: ["id"]
           },
         ]
@@ -3463,6 +3751,7 @@ export type Database = {
           {
             foreignKeyName: "vazios_importacao_containers_manifest_id_fkey"
             columns: ["manifest_id"]
+            isOneToOne: false
             referencedRelation: "vazios_importacao_manifests"
             referencedColumns: ["id"]
           },
@@ -3500,6 +3789,7 @@ export type Database = {
           {
             foreignKeyName: "vazios_importacao_manifests_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -3534,39 +3824,11 @@ export type Database = {
           {
             foreignKeyName: "vazios_manifests_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
         ]
-      }
-      depots: {
-        Row: { id: string; code: string; name: string | null; tipo: string; active: boolean; free_time_vazio_days: number; free_time_material_days: number; created_at: string; updated_at: string; pol_port?: string | null; free_time_days?: number }
-        Insert: { id?: string; code: string; name?: string | null; tipo?: string; active?: boolean; free_time_vazio_days?: number; free_time_material_days?: number; created_at?: string; updated_at?: string; pol_port?: string | null; free_time_days?: number }
-        Update: { id?: string; code?: string; name?: string | null; tipo?: string; active?: boolean; free_time_vazio_days?: number; free_time_material_days?: number; updated_at?: string; pol_port?: string | null; free_time_days?: number }
-        Relationships: []
-      }
-      depot_services: {
-        Row: { id: string; depot_id: string; name: string; natureza: string; container_type: string | null; route_destino_id: string | null; condition: string | null; rate_brl: number; active: boolean; created_at: string; calc_type?: string; subject_to_overtime?: boolean; valid_from?: string; valid_to?: string | null }
-        Insert: { id?: string; depot_id: string; name: string; natureza?: string; container_type?: string | null; route_destino_id?: string | null; condition?: string | null; rate_brl?: number; active?: boolean; created_at?: string; calc_type?: string; subject_to_overtime?: boolean; valid_from?: string; valid_to?: string | null }
-        Update: { id?: string; depot_id?: string; name?: string; natureza?: string; container_type?: string | null; route_destino_id?: string | null; condition?: string | null; rate_brl?: number; active?: boolean; calc_type?: string; subject_to_overtime?: boolean; valid_from?: string; valid_to?: string | null }
-        Relationships: [{ foreignKeyName: 'depot_services_depot_id_fkey'; columns: ['depot_id']; referencedRelation: 'depots'; referencedColumns: ['id'] }]
-      }
-      vazios_export_service_lines: {
-        Row: { id: string; operation_id: string; service_id: string; local_id: string; destino_id: string | null; container_type: string | null; condition: string | null; quantidade: number; percentual: number | null; valor_unitario: number; valor_sugerido: number | null; quantidade_manual: boolean; created_at: string; updated_at: string }
-        Insert: { id?: string; operation_id: string; service_id: string; local_id: string; destino_id?: string | null; container_type?: string | null; condition?: string | null; quantidade?: number; percentual?: number | null; valor_unitario?: number; valor_sugerido?: number | null; quantidade_manual?: boolean; created_at?: string; updated_at?: string }
-        Update: { id?: string; operation_id?: string; service_id?: string; local_id?: string; destino_id?: string | null; container_type?: string | null; condition?: string | null; quantidade?: number; percentual?: number | null; valor_unitario?: number; valor_sugerido?: number | null; quantidade_manual?: boolean; updated_at?: string }
-        Relationships: [
-          { foreignKeyName: 'vazios_export_service_lines_operation_id_fkey'; columns: ['operation_id']; referencedRelation: 'vazios_export_operations'; referencedColumns: ['id'] },
-          { foreignKeyName: 'vazios_export_service_lines_service_id_fkey'; columns: ['service_id']; referencedRelation: 'depot_services'; referencedColumns: ['id'] },
-          { foreignKeyName: 'vazios_export_service_lines_local_id_fkey'; columns: ['local_id']; referencedRelation: 'depots'; referencedColumns: ['id'] },
-          { foreignKeyName: 'vazios_export_service_lines_destino_id_fkey'; columns: ['destino_id']; referencedRelation: 'depots'; referencedColumns: ['id'] },
-        ]
-      }
-      vazios_operation_service_qty: {
-        Row: { operation_id: string; depot_service_id: string; qty: number }
-        Insert: { operation_id: string; depot_service_id: string; qty?: number }
-        Update: { operation_id?: string; depot_service_id?: string; qty?: number }
-        Relationships: []
       }
       vehicles: {
         Row: {
@@ -3609,18 +3871,21 @@ export type Database = {
           {
             foreignKeyName: "vehicles_bl_id_fkey"
             columns: ["bl_id"]
+            isOneToOne: false
             referencedRelation: "bls"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "vehicles_container_id_fkey"
             columns: ["container_id"]
+            isOneToOne: false
             referencedRelation: "bl_containers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "vehicles_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -3706,6 +3971,7 @@ export type Database = {
           {
             foreignKeyName: "vessels_carrier_id_fkey"
             columns: ["carrier_id"]
+            isOneToOne: false
             referencedRelation: "carriers"
             referencedColumns: ["id"]
           },
@@ -3758,6 +4024,7 @@ export type Database = {
           {
             foreignKeyName: "voyage_export_schedules_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -3810,6 +4077,7 @@ export type Database = {
           {
             foreignKeyName: "voyage_omissions_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -3847,6 +4115,7 @@ export type Database = {
           {
             foreignKeyName: "voyage_route_ce_master_voyage_id_fkey"
             columns: ["voyage_id"]
+            isOneToOne: false
             referencedRelation: "voyages"
             referencedColumns: ["id"]
           },
@@ -3902,18 +4171,21 @@ export type Database = {
           {
             foreignKeyName: "voyages_pod_id_fkey"
             columns: ["pod_id"]
+            isOneToOne: false
             referencedRelation: "ports"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "voyages_pol_id_fkey"
             columns: ["pol_id"]
+            isOneToOne: false
             referencedRelation: "ports"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "voyages_vessel_id_fkey"
             columns: ["vessel_id"]
+            isOneToOne: false
             referencedRelation: "vessels"
             referencedColumns: ["id"]
           },
@@ -3969,6 +4241,26 @@ export type Database = {
           p_unit_value_brl: number
         }
         Returns: Json
+      }
+      admin_list_users: {
+        Args: never
+        Returns: {
+          active: boolean
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          last_sign_in_at: string
+          role: string
+        }[]
+      }
+      agency_report_department_label: {
+        Args: { p_department: string }
+        Returns: string
+      }
+      agency_report_section_label: {
+        Args: { p_section: string }
+        Returns: string
       }
       agency_report_section_owner: {
         Args: { p_section: string }
@@ -4028,6 +4320,7 @@ export type Database = {
         Returns: Json
       }
       can_edit_customers: { Args: never; Returns: boolean }
+      can_edit_depots: { Args: never; Returns: boolean }
       can_edit_voyages: { Args: never; Returns: boolean }
       cancel_invoice: {
         Args: { p_actor?: string; p_invoice_id: number; p_reason: string }
@@ -4169,6 +4462,21 @@ export type Database = {
         }
         Returns: Json
       }
+      create_manual_vazios_booking: {
+        Args: {
+          p_condition: string
+          p_container_number: string
+          p_container_type: string
+          p_hand_in_date: string
+          p_hand_out_date: string
+          p_local_id: string
+          p_movement_date: string
+          p_operation_id: string
+          p_uploaded_by: string
+          p_voyage_id: number
+        }
+        Returns: string
+      }
       current_portal_customer_id: { Args: never; Returns: number }
       current_user_role: { Args: never; Returns: string }
       delete_baplie_manifest_for_voyage: {
@@ -4182,6 +4490,10 @@ export type Database = {
       delete_manual_invoice_charge: {
         Args: { p_actor?: string; p_item_id: number }
         Returns: Json
+      }
+      delete_manual_vazios_booking: {
+        Args: { p_booking_id: string }
+        Returns: undefined
       }
       detect_agency_report_pending: { Args: never; Returns: number }
       detect_overdue_invoices: { Args: never; Returns: number }
@@ -4198,6 +4510,13 @@ export type Database = {
           p_reference_date: string
         }
         Returns: number
+      }
+      get_agency_report_actor_names: {
+        Args: { p_port: string; p_voyage_id: number }
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
       }
       get_agency_report_closer_name: {
         Args: { p_port: string; p_voyage_id: number }
@@ -4340,7 +4659,6 @@ export type Database = {
       is_active_user: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_equipamentos_user: { Args: never; Returns: boolean }
-      can_edit_depots: { Args: never; Returns: boolean }
       link_invoice_to_ledger: {
         Args: { p_invoice_id: number }
         Returns: undefined
@@ -4916,6 +5234,19 @@ export type Database = {
         }
         Returns: Json
       }
+      update_manual_vazios_booking: {
+        Args: {
+          p_booking_id: string
+          p_condition: string
+          p_container_number: string
+          p_container_type: string
+          p_hand_in_date: string
+          p_hand_out_date: string
+          p_local_id: string
+          p_movement_date: string
+        }
+        Returns: undefined
+      }
       update_voyage_omission: {
         Args: {
           p_changed_by: string
@@ -4958,12 +5289,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4985,12 +5316,13 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5009,12 +5341,13 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5033,12 +5366,13 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5051,11 +5385,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
