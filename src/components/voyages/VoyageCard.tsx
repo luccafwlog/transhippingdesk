@@ -240,6 +240,9 @@ export function VoyageCard({
   const ceMasterCount = routeCeMasters
     ? [...routeCeMasters.entries()].filter(([key, value]) => key.startsWith(`${voyage.id}::`) && value.trim().length > 0).length
     : 0
+  const ceMasterTotal = new Set(
+    (voyage.bls ?? []).map((bl) => `${String(bl.pol ?? '').trim().toUpperCase()}__${String(bl.pod ?? '').trim().toUpperCase()}`),
+  ).size
   const estado = deriveEstadoConciliacao({
     hasOpenDivergences: divergenceCount > 0,
     ceFilled: ceCoverage.filled,
@@ -367,11 +370,11 @@ export function VoyageCard({
           ]}
         />
         <DirectionKpiTile
-          direction="CE Mercante"
+          direction="CONCILIAÇÃO CE MERCANTE"
           tone="yellow"
           metrics={[
-            { label: 'CE Mercante conciliados', value: String(ceCoverage.filled) },
-            { label: 'CE Master', value: String(ceMasterCount) },
+            { label: 'CE Mercante', value: `${ceCoverage.filled}/${ceCoverage.total}` },
+            { label: 'CE Master', value: `${ceMasterCount}/${ceMasterTotal}` },
           ]}
         />
       </section>
