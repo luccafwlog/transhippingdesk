@@ -1,6 +1,5 @@
 import { Info, MetricPanel, MetricSection } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
-import { countDistinctContainerNumbers } from '../../lib/containerCounts'
 import { formatMetric } from '../../lib/voyageFormat'
 import { summarizeExportByPol } from '../../services/voyageSummaries'
 import type { Voyage } from './voyageCardTypes'
@@ -28,8 +27,14 @@ export function VoyageExportacaoTab({
   const emptyBookings = (voyage.vazios_manifests ?? []).flatMap((manifest) => manifest.vazios_bookings ?? [])
   const emptyTypes = Array.from(new Set(emptyBookings.map((booking) => booking.container_type?.trim()).filter(Boolean))).join(', ')
   const emptyTotals = {
-    units: emptyBookings.length,
-    distinctContainers: countDistinctContainerNumbers(emptyBookings),
+    units: (voyage.vazios_manifests ?? []).reduce(
+      (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
+      0,
+    ),
+    distinctContainers: (voyage.vazios_manifests ?? []).reduce(
+      (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
+      0,
+    ),
     types: emptyTypes || '-',
   }
 

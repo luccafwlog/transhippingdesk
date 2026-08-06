@@ -81,20 +81,16 @@ function KpiTile({
 function DirectionKpiTile({
   direction,
   tone,
-  primary,
   metrics,
 }: {
   direction: string
   tone: 'blue' | 'green'
-  primary: { label: string; value: string }
   metrics: Array<{ label: string; value: string }>
 }) {
   return (
     <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
       <Badge tone={tone}>{direction}</Badge>
-      <div className="mt-2 text-lg font-bold text-[var(--app-text-strong)]">{primary.value}</div>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{primary.label}</div>
-      <div className="mt-2 grid gap-1 text-[11px] text-[var(--app-muted-soft)]">
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[var(--app-muted-soft)]">
         {metrics.map((metric) => (
           <div key={`${direction}-${metric.label}`} className="flex justify-between gap-2">
             <span>{metric.label}</span>
@@ -180,7 +176,10 @@ export function VoyageCard({
   const totalBreakbulkMachines = importSummary.reduce((sum, pod) => sum + pod.breakbulk.machines, 0)
   const totalBreakbulkPackages = importSummary.reduce((sum, pod) => sum + pod.breakbulk.packages, 0)
   const exportSummary = summarizeExportByPol(voyage.granite_manifests, voyage.vazios_manifests)
-  const totalExportContainers = exportSummary.reduce((sum, pol) => sum + pol.vazios.distinctContainers, 0)
+  const totalExportContainers = (voyage.vazios_manifests ?? []).reduce(
+    (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
+    0,
+  )
   const totalGraniteBls = exportSummary.reduce((sum, pol) => sum + pol.granite.bls, 0)
   const totalGraniteWeightTon = exportSummary.reduce((sum, pol) => sum + pol.granite.weightTon, 0)
   const destinationPorts = collectVoyagePorts(
@@ -359,8 +358,8 @@ export function VoyageCard({
         <DirectionKpiTile
           direction="Importação"
           tone="blue"
-          primary={{ label: 'B/Ls', value: String(totalBls) }}
           metrics={[
+            { label: 'B/Ls', value: String(totalBls) },
             { label: 'CNTRs distintos', value: String(totalContainers) },
             { label: 'CNTRs IMO', value: String(totalImoContainers) },
             { label: 'CNTRs OOG', value: String(totalOogContainers) },
@@ -372,8 +371,8 @@ export function VoyageCard({
         <DirectionKpiTile
           direction="Exportação"
           tone="green"
-          primary={{ label: 'CNTRs embarcados', value: String(totalExportContainers) }}
           metrics={[
+            { label: 'CNTRs embarcados', value: String(totalExportContainers) },
             { label: 'Granito (B/Ls)', value: String(totalGraniteBls) },
             { label: 'Granito (ton)', value: formatMetric(totalGraniteWeightTon) },
           ]}
