@@ -581,6 +581,57 @@ disparado pelo cadastro do CE Mercante — nunca pelo import do manifesto ou do
 B/L —, garantindo que todos os B/Ls da viagem já existam quando taxas de
 container compartilhado são divididas.
 
+**Tabela de Taxas Locais**
+Cadastro que define quais taxas locais existem e quanto custam, por POD e por
+modo de carga, com vigência temporal. É a fonte de verdade dos valores padrão —
+o sistema não tem preço embutido em código. Tem a mesma natureza da Tarifa de
+Demurrage: condições cadastradas e valores correspondentes.
+
+- **Synonyms / avoid:** "tabela de preços", "tarifa local"
+- **Related:** Item de Taxa, Condição de Cliente, Tarifa de Demurrage
+
+**Item de Taxa**
+Linha da Tabela de Taxas Locais: a taxa em si, com o valor unitário e a regra
+que determina sobre o que ela incide (o B/L inteiro, cada container, a tonelada
+da carga solta). Divide-se em dois tipos que **não** se misturam:
+
+- **Item automático** — aplicado pelo sistema a todo B/L elegível, sem
+  intervenção.
+- **Item manual** — existe no cadastro mas nunca é aplicado sozinho; depende de
+  o usuário decidir lançá-lo naquele processo.
+
+- **Related:** Tabela de Taxas Locais, Lançamento Manual
+
+**Condição de Cliente**
+Valor negociado com um Cliente específico para um Item de Taxa específico,
+substituindo o valor padrão da tabela enquanto estiver vigente. É condição
+comercial, não desconto pontual: aplica-se sozinha a todos os processos daquele
+Cliente no período.
+
+- **Synonyms / avoid:** "desconto", "override de cliente"
+- **Related:** Item de Taxa, Cliente
+
+**Data de Referência da Tarifa**
+> Decidida em 2026-08-06 e **ainda não implementada**: o motor resolve a tarifa
+> pela data de upload do B/L. Enquanto o código não mudar, este verbete descreve
+> a intenção, não o comportamento.
+
+Data que determina qual Tabela de Taxas Locais e qual Condição de Cliente valem
+para um B/L: a **ETA da escala do POD**. Ancorar na escala garante que todos os
+B/Ls do mesmo navio, no mesmo porto, sejam cobrados pela mesma tarifa — a taxa
+local é cobrança de chegada, e "mesmo navio, preços diferentes" não é defensável
+perante o cliente.
+
+Não é a ATA: o CE Mercante — que dispara o cálculo — é cadastrado dias antes da
+atracação, então a fatura já foi emitida quando a ATA passa a existir. Não é
+a data de importação do B/L, que é fato administrativo e não comercial.
+
+Difere deliberadamente do Demurrage, que resolve a tarifa pela vigência do dia
+do cálculo: demurrage é cobrança por container e por dia, intrinsecamente
+individual, então não produz a comparação "mesmo navio, preços diferentes".
+
+- **Related:** Tabela de Taxas Locais, Condição de Cliente, Escala
+
 **Recebível Local**
 Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
 ou consolidada e liquidado por um ou mais pagamentos.
