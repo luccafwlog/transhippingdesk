@@ -15,6 +15,7 @@ import {
   useSaveCustomerRateOverride,
 } from '../../hooks/useLocalCharges'
 import { formatBRL, formatUSD } from '../../lib/utils'
+import { extractErrorText } from '../../lib/errors'
 import { validateOverrideInput } from '../../pages/taxasLocaisHelpers'
 import { EMPTY_OVERRIDE_FORM, type ChargeFilterProps, type OverrideForm } from './chargeForms'
 
@@ -58,8 +59,11 @@ export function ChargeOverridesTab({
 
       showToast(overrideForm.id ? 'Override atualizado com sucesso.' : 'Override criado com sucesso.', 'success')
       setOverrideForm(EMPTY_OVERRIDE_FORM)
-    } catch {
-      showToast('Falha ao salvar override de cliente.', 'error')
+    } catch (error) {
+      // Etapa 10 do plano de faturamento (ADR 0038 decisão 5, achado 5):
+      // condição sobreposta lança um Error com a vigência conflitante — mostra
+      // esse texto em vez do genérico, para o operador saber com o quê colidiu.
+      showToast(extractErrorText(error) || 'Falha ao salvar override de cliente.', 'error')
     } finally {
       setOverrideSaving(false)
     }

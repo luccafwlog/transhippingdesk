@@ -187,6 +187,55 @@ export async function listOverrideCustomers(search?: string) {
   return (data ?? []) as OverrideCustomerOption[]
 }
 
+// Etapa 10 do plano de faturamento (ADR 0038 decisão 5, achado 5): duas
+// condições de cliente para o mesmo item não podem ter vigências que se
+// sobrepõem — a migration 267 tornou isso uma restrição de exclusão no
+// banco (customer_rate_overrides_no_overlap). Checagem no app é a que dá a
+// mensagem amigável citando a condição que colide; a restrição no banco é a
+// autoridade final (rede de segurança para corrida entre duas telas).
+function rangesOverlap(
+  aFrom: string | null,
+  aTo: string | null,
+  bFrom: string | null,
+  bTo: string | null,
+): boolean {
+  const startsBeforeOrEqual = (from: string | null, to: string | null) => !to || !from || from <= to
+  return startsBeforeOrEqual(aFrom, bTo) && startsBeforeOrEqual(bFrom, aTo)
+}
+
+type OverlapCandidate = { id: number; valid_from: string | null; valid_to: string | null }
+
+export async function findOverlappingCustomerRateOverride(input: {
+  id?: number | null
+  customerId: number
+  chargeItemId: number
+  validFrom?: string | null
+  validTo?: string | null
+}): Promise<OverlapCandidate | null> {
+  let query = supabase
+    .from('customer_rate_overrides')
+    .select('id, valid_from, valid_to')
+    .eq('customer_id', input.customerId)
+    .eq('charge_item_id', input.chargeItemId)
+
+  if (input.id) query = query.neq('id', input.id)
+
+  const { data, error } = await query.overrideTypes<OverlapCandidate[], { merge: false }>()
+  if (error) throw error
+
+  const validFrom = input.validFrom?.trim() ? input.validFrom : null
+  const validTo = input.validTo?.trim() ? input.validTo : null
+
+  return (data ?? []).find((row) => rangesOverlap(validFrom, validTo, row.valid_from, row.valid_to)) ?? null
+}
+
+function describeOverridePeriod(row: { valid_from: string | null; valid_to: string | null }) {
+  if (!row.valid_from && !row.valid_to) return 'sem limite de vigência'
+  if (!row.valid_to) return `a partir de ${row.valid_from}`
+  if (!row.valid_from) return `até ${row.valid_to}`
+  return `${row.valid_from} a ${row.valid_to}`
+}
+
 export async function saveCustomerRateOverride(input: {
   id?: number | null
   customerId: number
@@ -196,6 +245,13 @@ export async function saveCustomerRateOverride(input: {
   validTo?: string | null
   notes?: string | null
 }) {
+  const conflict = await findOverlappingCustomerRateOverride(input)
+  if (conflict) {
+    throw new Error(
+      `Já existe uma condição para este cliente e item com vigência ${describeOverridePeriod(conflict)} (id ${conflict.id}). Ajuste o período ou edite a condição existente.`,
+    )
+  }
+
   const payload = {
     customer_id: input.customerId,
     charge_item_id: input.chargeItemId,
@@ -207,13 +263,23 @@ export async function saveCustomerRateOverride(input: {
 
   if (input.id) {
     const { error } = await supabase.from('customer_rate_overrides').update(payload).eq('id', input.id)
-    if (error) throw error
+    if (error) throw classifyOverrideOverlapError(error)
     return input.id
   }
 
   const { data, error } = await supabase.from('customer_rate_overrides').insert(payload).select('id').single()
-  if (error) throw error
+  if (error) throw classifyOverrideOverlapError(error)
   return Number(data.id)
+}
+
+// Rede de segurança: se a checagem acima perder uma corrida entre duas
+// telas, a restrição de exclusão do banco (migration 267) ainda recusa, só
+// que com uma mensagem Postgres crua. Traduz para o mesmo texto amigável.
+function classifyOverrideOverlapError(error: { code?: string; message?: string }) {
+  if (error?.code === '23P01') {
+    return new Error('Já existe uma condição para este cliente e item com vigência sobreposta. Ajuste o período ou edite a condição existente.')
+  }
+  return error
 }
 
 export async function deleteCustomerRateOverride(id: number) {
