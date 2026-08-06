@@ -440,11 +440,17 @@ foi cumprido.
 
 **Prazo de Conclusão do ADR**
 Compromisso interno de que cada departamento assina a sua parte do ADR até três
-dias inteiros depois da saída do navio. A contagem começa na **data real do ATD
+dias úteis depois da saída do navio. A contagem começa na **data real do ATD
 da escala**, não no momento em que o ATD foi registrado no sistema: navio que
 saiu na segunda e teve o ATD lançado na quarta já chega ao lançamento com dois
 dias consumidos, e um ADR pode nascer com o prazo vencido. O prazo vence no fim
-do dia ATD+3 e é contado em dias, sem hora — a hora da saída não é considerada.
+do terceiro dia útil após o ATD e é contado em dias, sem hora — a hora da saída
+não é considerada. O dia do ATD não conta, mesmo quando é dia útil.
+
+**Dia útil**, para este prazo, é de segunda a sexta: sábado e domingo não são
+contados. Feriados contam como dia útil — o prazo não conhece calendário de
+feriados, nacional ou portuário. Navio que sai na segunda vence na quinta; navio
+que sai no sábado começa a contar na segunda e vence na quarta.
 
 São três prazos independentes, um por departamento, todos com a mesma
 data-limite; o prazo de um departamento é cumprido pelo seu Sign-off
