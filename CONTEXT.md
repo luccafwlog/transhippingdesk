@@ -631,8 +631,17 @@ substituindo o valor padrão da tabela enquanto estiver vigente. É condição
 comercial, não desconto pontual: aplica-se sozinha a todos os processos daquele
 Cliente no período.
 
+**Não pode haver duas Condições vigentes** para o mesmo Cliente e o mesmo Item
+de Taxa. Sobreposição é erro de cadastro, não agendamento: são dois acordos
+conflitantes para o mesmo período. Trocar uma condição exige fechar a vigência
+da anterior. Por isso não existe — e não deve existir — critério de desempate.
+
+Difere da Tarifa de Demurrage nesse ponto: aquela é lista de preço pública, onde
+agendar uma vigência por cima da anterior é operação normal e a mais recente
+vence. Condição de Cliente é acordo negociado, e conflito precisa aparecer.
+
 - **Synonyms / avoid:** "desconto", "override de cliente"
-- **Related:** Item de Taxa, Cliente
+- **Related:** Item de Taxa, Cliente, Tarifa de Demurrage
 
 **Data de Referência da Tarifa**
 > Decidida em 2026-08-06 e **ainda não implementada**: o motor resolve a tarifa
